@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import functools
+import hashlib
 import json
 import re
 import subprocess
@@ -217,7 +218,11 @@ def _unquote(value: str) -> str:
     return value
 
 
+@functools.lru_cache(maxsize=None)
 def parse_frontmatter(path: Path) -> tuple[dict[str, object], list[str]]:
+    # Memoized per path: several audit_* checks re-parse the same pages within a
+    # single run (frontmatter, stale coverage, relations, PII, promotion...).
+    # The file set does not change during a run; main() clears the cache.
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
     if not lines or lines[0] != "---":
@@ -404,8 +409,11 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
                 errors.append(f"{rel}: page_type `{page_type}` not allowed in {directory}")
 
 
+# Extension relaxed to [A-Za-z0-9]{1,8}: the old [a-z]{2,4} missed .jsonl,
+# .sqlite and other longer/mixed-case extensions, letting unversioned-artifact
+# links escape the audit.
 LOCAL_ARTIFACT_LINK_RE = re.compile(
-    r"\]\((?:\.\./)+data/(?:raw|derived)/[^)]*\.[a-z]{2,4}\)"
+    r"\]\((?:\.\./)+data/(?:raw|derived)/[^)]*\.[A-Za-z0-9]{1,8}\)"
 )
 
 COMMAND_REFERENCE_PAGE = "memorias/sistema/wiki/referencia-comandos.md"
@@ -802,16 +810,27 @@ def audit_promotion_gate(errors: list[str]) -> None:
             errors.append(f"{rel}: visibility promotion without required fields: {', '.join(missing)}")
 
 
-def audit_context_pass_gate(errors: list[str], config: WikiConfig) -> None:
+def audit_context_pass_gate(
+    errors: list[str], config: WikiConfig, warnings: list[str] | None = None
+) -> None:
     """LLM pass honesty gate: with required_context_pass=true, no source with an
-    emitted context package may have a chunk without a recorded result."""
+    emitted context package may have a chunk without a recorded result.
+
+    ORPHAN requests are skipped (aggregated warning, not error): a request whose
+    source_id starts with `query-` (ad-hoc search, no chunks file) or whose
+    chunks file data/derived/wiki/chunks/<source_id>.json no longer exists
+    (source re-edited/gc'd) would otherwise lock the gate red permanently.
+    """
     if not config.llm.get("required_context_pass", True):
         return
     req_dir = ROOT / "data/derived/wiki/extraction-events"
     cache_dir = ROOT / "data/derived/wiki/llm-cache"
+    chunks_dir = ROOT / "data/derived/wiki/chunks"
     if not req_dir.exists():
         return
-    for path in sorted(req_dir.glob("*-llm-context-request.json")):
+    suffix = "-llm-context-request.json"
+    orphans: list[str] = []
+    for path in sorted(req_dir.glob(f"*{suffix}")):
         rel = path.relative_to(ROOT).as_posix()
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
@@ -819,6 +838,10 @@ def audit_context_pass_gate(errors: list[str], config: WikiConfig) -> None:
             # Corrupt JSON must NOT disarm the gate silently (finding 12):
             # deleting/corrupting the request closed the gate with no error.
             errors.append(f"{rel}: unreadable LLM pass request (invalid JSON)")
+            continue
+        source_id = str(data.get("source_id") or path.name[: -len(suffix)])
+        if source_id.startswith("query-") or not (chunks_dir / f"{source_id}.json").exists():
+            orphans.append(rel)
             continue
         pending = [
             chunk for chunk in data.get("chunks", [])
@@ -828,6 +851,68 @@ def audit_context_pass_gate(errors: list[str], config: WikiConfig) -> None:
             errors.append(
                 f"{rel}: pending LLM pass in {len(pending)} chunk(s) with required_context_pass=true"
             )
+    if orphans and warnings is not None:
+        warnings.append(
+            f"{len(orphans)} orphan LLM context request(s) skipped by the gate "
+            "(query-scoped or chunks file gone; source re-edited/gc'd): "
+            + ", ".join(orphans)
+        )
+
+
+PROMPTS_DIR_REL = "wiki_core/llm/prompts"
+PROMPT_CHECKSUMS_NAME = ".checksums"
+SHA256_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def audit_prompt_checksums(errors: list[str]) -> None:
+    """Versioned prompts must not drift silently.
+
+    `wiki_core/llm/prompts/.checksums` pins `sha256  filename` for every prompt.
+    The auditor ERRORS when a prompt's sha does not match: a prompt change is a
+    conscious decision — either update the checksum in the same PR, or bump the
+    prompt version (new file + new pinned line).
+    """
+    prompts_dir = ROOT / PROMPTS_DIR_REL
+    if not prompts_dir.is_dir():
+        return
+    rel_checksums = f"{PROMPTS_DIR_REL}/{PROMPT_CHECKSUMS_NAME}"
+    prompts = sorted(p.name for p in prompts_dir.glob("*.md"))
+    checksums_path = prompts_dir / PROMPT_CHECKSUMS_NAME
+    if not checksums_path.exists():
+        if prompts:
+            errors.append(
+                f"{rel_checksums}: missing prompt checksums file "
+                "(pin `sha256  filename` for each prompt)"
+            )
+        return
+    pinned: dict[str, str] = {}
+    for lineno, raw in enumerate(checksums_path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) != 2 or not SHA256_RE.fullmatch(parts[0]):
+            errors.append(
+                f"{rel_checksums}:{lineno}: invalid checksum line (expected `sha256  filename`)"
+            )
+            continue
+        pinned[parts[1]] = parts[0]
+    for name in prompts:
+        actual = hashlib.sha256((prompts_dir / name).read_bytes()).hexdigest()
+        expected = pinned.get(name)
+        if expected is None:
+            errors.append(
+                f"{PROMPTS_DIR_REL}/{name}: prompt not pinned in {PROMPT_CHECKSUMS_NAME} "
+                "(add its `sha256  filename` line)"
+            )
+        elif actual != expected:
+            errors.append(
+                f"{PROMPTS_DIR_REL}/{name}: prompt checksum mismatch — prompt changed "
+                "without a conscious decision (update .checksums in the same PR or "
+                "bump the prompt version)"
+            )
+    for name in sorted(set(pinned) - set(prompts)):
+        errors.append(f"{rel_checksums}: pinned prompt does not exist: {name}")
 
 
 def audit_llm_cache_metadata(errors: list[str]) -> None:
@@ -866,6 +951,7 @@ def main() -> int:
     STRICT_LOCAL = args.strict_local
     LIST_STALE_GAPS = args.list_stale_gaps
     tracked_files.cache_clear()  # fresh file set on each invocation
+    parse_frontmatter.cache_clear()  # fresh frontmatter parses on each invocation
 
     config = load_config(ROOT)
 
@@ -887,7 +973,8 @@ def main() -> int:
     audit_ingestion_absolute_paths(errors)
     audit_public_candidates(errors)
     audit_promotion_gate(errors)
-    audit_context_pass_gate(errors, config)
+    audit_context_pass_gate(errors, config, warnings)
+    audit_prompt_checksums(errors)
     audit_llm_cache_metadata(errors)
     audit_log_changed(errors)
 

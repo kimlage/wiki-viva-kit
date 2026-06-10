@@ -478,7 +478,11 @@ def _count_dimension(events: list[ScoreEvent], dimensao: str) -> int:
 
 @dataclass(frozen=True)
 class Badge:
-    """Symbolic recognition for a contribution pattern (qualitative)."""
+    """Symbolic recognition for a contribution pattern (qualitative).
+
+    `nome`/`criterio` hold the canonical (pt) display strings for backward
+    compatibility; language-aware output must go through `badge_display`.
+    """
 
     badge_id: str
     nome: str
@@ -489,56 +493,133 @@ class Badge:
         return bool(self.test(events))
 
 
+# DISPLAY-ONLY table per language (same pattern as the other generated-output
+# string tables: pt and en ALWAYS with the same keys). Keyed by badge_id; inner
+# keys are "name" and "criterion". The PERSISTED/functional values — badge_id
+# (JSONL ledger, earned_badges), EVENT_TYPES, DIMENSIONS — never change here:
+# this table only drives how generated output is rendered per config language.
+BADGE_DISPLAY: dict[str, dict[str, dict[str, str]]] = {
+    "pt": {
+        "guardiao_de_contexto": {
+            "name": "Guardiao de Contexto",
+            "criterion": "mantem paginas de um contexto atualizadas (>=3 recompilacoes)",
+        },
+        "tecelao_de_links": {
+            "name": "Tecelao de Links",
+            "criterion": "cria conexoes uteis entre paginas (>=5 links)",
+        },
+        "curador_de_fontes": {
+            "name": "Curador de Fontes",
+            "criterion": "adiciona fontes boas e rastreaveis (>=5 fontes validas)",
+        },
+        "guardiao_de_privacidade": {
+            "name": "Guardiao de Privacidade",
+            "criterion": "identifica e corrige riscos de visibilidade (>=1 risco detectado)",
+        },
+        "alquimista_de_insights": {
+            "name": "Alquimista de Insights",
+            "criterion": "transforma informacoes dispersas em insight aprovado (>=3 insights)",
+        },
+        "cartografo_integral": {
+            "name": "Cartografo Integral",
+            "criterion": "preenche mapas/infograficos com qualidade (>=2 mapas)",
+        },
+        "revisor_vivo": {
+            "name": "Revisor Vivo",
+            "criterion": "resolve aprovacoes e corrige diffs com consistencia (>=5 stewardship)",
+        },
+        "jardineiro_da_wiki": {
+            "name": "Jardineiro da Wiki",
+            "criterion": "cuida de paginas orfas/desatualizadas (>=3 eventos raros)",
+        },
+    },
+    "en": {
+        "guardiao_de_contexto": {
+            "name": "Context Guardian",
+            "criterion": "keeps a context's pages up to date (>=3 recompiles)",
+        },
+        "tecelao_de_links": {
+            "name": "Link Weaver",
+            "criterion": "creates useful connections between pages (>=5 links)",
+        },
+        "curador_de_fontes": {
+            "name": "Source Curator",
+            "criterion": "adds good, traceable sources (>=5 valid sources)",
+        },
+        "guardiao_de_privacidade": {
+            "name": "Privacy Guardian",
+            "criterion": "identifies and fixes visibility risks (>=1 risk detected)",
+        },
+        "alquimista_de_insights": {
+            "name": "Insight Alchemist",
+            "criterion": "turns scattered information into an approved insight (>=3 insights)",
+        },
+        "cartografo_integral": {
+            "name": "Integral Cartographer",
+            "criterion": "fills maps/infographics with quality (>=2 maps)",
+        },
+        "revisor_vivo": {
+            "name": "Living Reviewer",
+            "criterion": "resolves approvals and fixes diffs consistently (>=5 stewardship)",
+        },
+        "jardineiro_da_wiki": {
+            "name": "Wiki Gardener",
+            "criterion": "cares for orphan/outdated pages (>=3 rare events)",
+        },
+    },
+}
+
+
+def _badge(badge_id: str, test: Callable[[list[ScoreEvent]], bool]) -> Badge:
+    """Build a Badge whose legacy nome/criterio come from the pt display table."""
+    display = BADGE_DISPLAY["pt"][badge_id]
+    return Badge(badge_id, display["name"], display["criterion"], test)
+
+
 BADGES: dict[str, Badge] = {
-    "guardiao_de_contexto": Badge(
+    "guardiao_de_contexto": _badge(
         "guardiao_de_contexto",
-        "Guardiao de Contexto",
-        "mantem paginas de um contexto atualizadas (>=3 recompilacoes)",
         lambda evs: _count_event_type(evs, "recompilar_pagina_antiga") >= 3,
     ),
-    "tecelao_de_links": Badge(
+    "tecelao_de_links": _badge(
         "tecelao_de_links",
-        "Tecelao de Links",
-        "cria conexoes uteis entre paginas (>=5 links)",
         lambda evs: _count_event_type(evs, "adicionar_link") >= 5,
     ),
-    "curador_de_fontes": Badge(
+    "curador_de_fontes": _badge(
         "curador_de_fontes",
-        "Curador de Fontes",
-        "adiciona fontes boas e rastreaveis (>=5 fontes validas)",
         lambda evs: _count_event_type(evs, "ingestar_fonte_valida") >= 5,
     ),
-    "guardiao_de_privacidade": Badge(
+    "guardiao_de_privacidade": _badge(
         "guardiao_de_privacidade",
-        "Guardiao de Privacidade",
-        "identifica e corrige riscos de visibilidade (>=1 risco detectado)",
         lambda evs: _count_event_type(evs, "detectar_risco_privacidade") >= 1,
     ),
-    "alquimista_de_insights": Badge(
+    "alquimista_de_insights": _badge(
         "alquimista_de_insights",
-        "Alquimista de Insights",
-        "transforma informacoes dispersas em insight aprovado (>=3 insights)",
         lambda evs: _count_event_type(evs, "criar_insight_aceito") >= 3,
     ),
-    "cartografo_integral": Badge(
+    "cartografo_integral": _badge(
         "cartografo_integral",
-        "Cartografo Integral",
-        "preenche mapas/infograficos com qualidade (>=2 mapas)",
         lambda evs: _count_event_type(evs, "gerar_infografico_mapa") >= 2,
     ),
-    "revisor_vivo": Badge(
+    "revisor_vivo": _badge(
         "revisor_vivo",
-        "Revisor Vivo",
-        "resolve aprovacoes e corrige diffs com consistencia (>=5 stewardship)",
         lambda evs: _count_dimension(evs, "stewardship") >= 5,
     ),
-    "jardineiro_da_wiki": Badge(
+    "jardineiro_da_wiki": _badge(
         "jardineiro_da_wiki",
-        "Jardineiro da Wiki",
-        "cuida de paginas orfas/desatualizadas (>=3 eventos raros)",
         lambda evs: sum(1 for e in evs if e.multiplier >= RARITY_MULTIPLIER) >= 3,
     ),
 }
+
+
+def badge_display(badge_id: str, language: str = "en") -> dict[str, str]:
+    """Display name/criterion of a badge in the given language (generated output).
+
+    Falls back to English for unknown languages and degrades to the badge_id
+    itself for unknown badges — display helpers never raise.
+    """
+    table = BADGE_DISPLAY.get(language) or BADGE_DISPLAY["en"]
+    return table.get(badge_id, {"name": badge_id, "criterion": ""})
 
 
 def earned_badges(events: Iterable[ScoreEvent]) -> list[str]:
@@ -551,7 +632,9 @@ def earned_badges(events: Iterable[ScoreEvent]) -> list[str]:
 # Journey levels                                                                 #
 # --------------------------------------------------------------------------- #
 
-# (name, minimum threshold of total points). Ascending order.
+# (level id, minimum threshold of total points). Ascending order. The first
+# element is the PERSISTED/functional level id returned by `level_for` — it
+# never changes; per-language rendering goes through LEVEL_DISPLAY below.
 LEVELS: tuple[tuple[str, float], ...] = (
     ("Explorador", 0.0),
     ("Mapeador", 10.0),
@@ -562,9 +645,16 @@ LEVELS: tuple[tuple[str, float], ...] = (
     ("Catalisador", 275.0),
 )
 
+# DISPLAY-ONLY level names per language, keyed by LEVEL INDEX (same order and
+# length as LEVELS; pt and en always with the same keys/positions).
+LEVEL_DISPLAY: dict[str, tuple[str, ...]] = {
+    "pt": ("Explorador", "Mapeador", "Curador", "Steward", "Tecelao", "Guardiao", "Catalisador"),
+    "en": ("Explorer", "Mapper", "Curator", "Steward", "Weaver", "Guardian", "Catalyst"),
+}
+
 
 def level_for(total: float) -> str:
-    """Journey level name for a total of points."""
+    """Journey level id for a total of points (persisted id, not display)."""
     name = LEVELS[0][0]
     for level_name, threshold in LEVELS:
         if total >= threshold:
@@ -572,3 +662,16 @@ def level_for(total: float) -> str:
         else:
             break
     return name
+
+
+def level_display(level_id: str, language: str = "en") -> str:
+    """Display name of a journey level id (as returned by `level_for`).
+
+    Falls back to English for unknown languages and to the id itself for
+    unknown level ids — display helpers never raise.
+    """
+    names = LEVEL_DISPLAY.get(language) or LEVEL_DISPLAY["en"]
+    for index, (level_id_known, _threshold) in enumerate(LEVELS):
+        if level_id_known == level_id and index < len(names):
+            return names[index]
+    return level_id

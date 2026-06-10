@@ -117,3 +117,63 @@ def test_archive_frontmatter_value():
     assert arq.frontmatter_value(text, "gate_state") == "superseded"
     assert arq.frontmatter_value(text, "event_ref") == "memorias/x.md"
     assert arq.frontmatter_value(text, "inexistente") == ""
+
+
+def test_archive_frontmatter_requires_fence_on_line_zero():
+    arq = _load("scripts/wiki_archive.py", "wa_arq4")
+    # '---' only appears in the BODY (horizontal rules): there is no frontmatter,
+    # so no key must be read and stale_exempt must not be injected mid-body.
+    text = "# Title\n\nintro\n\n---\ngate_state: superseded\n---\n\nmore body\n"
+    assert arq.frontmatter_value(text, "gate_state") == ""
+    assert arq.add_stale_exempt(text) == text
+    assert arq.frontmatter_value("", "gate_state") == ""
+    assert arq.add_stale_exempt("") == ""
+
+
+def test_archive_add_stale_exempt_with_body_rule():
+    arq = _load("scripts/wiki_archive.py", "wa_arq5")
+    # Real frontmatter at line 0 + a horizontal rule later in the body: the flag
+    # goes inside the frontmatter, the body rule stays untouched.
+    page = "---\npage_id: p\n---\n\ncorpo\n\n---\n\nrodape\n"
+    out = arq.add_stale_exempt(page)
+    assert out.startswith("---\npage_id: p\nstale_exempt: true\n---\n")
+    assert out.endswith("\ncorpo\n\n---\n\nrodape\n")
+
+
+# ---------------------------------------------------------------------------
+# Toolkit drift: single `git diff` for shared-content comparison
+# ---------------------------------------------------------------------------
+
+
+def test_toolkit_drift_single_diff(tmp_path, monkeypatch):
+    import subprocess
+
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_test")
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+    git("init", "-q")
+    git("config", "user.email", "test@test")
+    git("config", "user.name", "test")
+    (tmp_path / "wiki_core").mkdir()
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "wiki_core" / "a.py").write_text("v1\n", encoding="utf-8")
+    (tmp_path / "scripts" / "wiki_x.py").write_text("x1\n", encoding="utf-8")
+    (tmp_path / "scripts" / "personal.py").write_text("p1\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "base")
+    git("branch", "refbranch")
+    (tmp_path / "wiki_core" / "a.py").write_text("v2\n", encoding="utf-8")
+    (tmp_path / "scripts" / "wiki_x.py").write_text("x2\n", encoding="utf-8")
+    (tmp_path / "scripts" / "personal.py").write_text("p2\n", encoding="utf-8")  # not toolkit
+    (tmp_path / "wiki_core" / "new.py").write_text("only-head\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "head")
+
+    monkeypatch.setattr(drift_mod, "ROOT", tmp_path)
+    monkeypatch.setattr(drift_mod, "IGNORE_FILE", tmp_path / ".toolkit-drift-ignore")
+    report = drift_mod.drift("refbranch")
+    assert report["content_differs"] == ["scripts/wiki_x.py", "wiki_core/a.py"]
+    assert report["only_in_head"] == ["wiki_core/new.py"]
+    assert report["only_in_ref"] == []

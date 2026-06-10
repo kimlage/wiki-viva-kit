@@ -1,8 +1,27 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from pathlib import Path
+
+# Last '-'-segment of a versioned source_id: the short content digest appended by
+# source_id_for (12 hex chars today; tolerant range for older/full digests).
+_DIGEST_RE = re.compile(r"^[0-9a-f]{8,64}$")
+
+
+def _source_prefix(source_id: str) -> str | None:
+    """Versionless prefix of a source_id ('source-<slug>' for 'source-<slug>-<digest>').
+
+    Derived by cutting the last segment after the last '-'. Returns None when that
+    segment does not look like a content digest (the id is not versioned), so
+    arbitrary ids such as 'src-a'/'src-b' are never treated as versions of each
+    other.
+    """
+    base, sep, digest = source_id.rpartition("-")
+    if not sep or not _DIGEST_RE.fullmatch(digest):
+        return None
+    return base
 
 
 def _connect(path: Path) -> sqlite3.Connection:
@@ -39,22 +58,50 @@ def _insert_chunks(conn: sqlite3.Connection, source_id: str, chunks: list[dict[s
     return total
 
 
+def _prune_previous_versions(conn: sqlite3.Connection, source_id: str) -> int:
+    """Remove indexed rows from PREVIOUS versions of the same source.
+
+    A re-ingested edited source gets a new digest, hence a new source_id with the
+    same versionless prefix ('source-<slug>-<digest>'). Without this prune, the
+    old version kept answering searches forever. Two ids are versions of the same
+    source only when both end in a digest-looking segment AND share the prefix up
+    to the last '-' — distinct slugs (even ones that are textual prefixes of each
+    other, e.g. 'source-notes-*' vs 'source-notes-md-*') are never affected.
+    """
+    prefix = _source_prefix(source_id)
+    if prefix is None:
+        return 0
+    pruned = 0
+    rows = conn.execute(
+        "SELECT DISTINCT source_id FROM chunks WHERE source_id != ?", (source_id,)
+    ).fetchall()
+    for (other,) in rows:
+        if _source_prefix(other) == prefix:
+            _delete_source(conn, other)
+            pruned += 1
+    return pruned
+
+
 def index_source(db_path: Path, chunks_file: Path) -> dict[str, int]:
     """Index (or reindex) ONE source incrementally.
 
     Replaces the full rebuild on every ingestion (finding 13): only that source's
     rows are deleted and reinserted — O(source's chunks), not O(whole index).
+    Also prunes previous DIGESTS of the same source (same versionless prefix),
+    so re-ingesting an edited source stops the stale version from answering
+    searches.
     """
     data = json.loads(chunks_file.read_text(encoding="utf-8"))
     source_id = str(data.get("source_id", chunks_file.stem))
     conn = _connect(db_path)
     try:
         _delete_source(conn, source_id)
+        pruned = _prune_previous_versions(conn, source_id)
         total = _insert_chunks(conn, source_id, data.get("chunks", []))
         conn.commit()
     finally:
         conn.close()
-    return {"sources_indexed": 1, "chunks_indexed": total}
+    return {"sources_indexed": 1, "chunks_indexed": total, "pruned_versions": pruned}
 
 
 def build_index(chunks_dir: Path, db_path: Path) -> dict[str, int]:

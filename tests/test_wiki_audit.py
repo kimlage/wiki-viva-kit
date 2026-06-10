@@ -305,6 +305,141 @@ def test_strict_local_requires_derived_link_to_exist(tmp_path, audit, monkeypatc
     assert audit.local_link_target_exists("memorias/nota.md", "../data/derived/wiki/existe.json") is True
 
 
+# ---------------------------------------------------------------------------
+# LOCAL_ARTIFACT_LINK_RE: extension coverage (.jsonl/.sqlite were escaping)
+# ---------------------------------------------------------------------------
+
+
+def test_local_artifact_link_re_matches_long_extensions(audit):
+    # Regression: [a-z]{2,4} missed .jsonl and .sqlite links.
+    assert audit.LOCAL_ARTIFACT_LINK_RE.search("[x](../data/derived/wiki/events.jsonl)")
+    assert audit.LOCAL_ARTIFACT_LINK_RE.search("[x](../../data/raw/index.sqlite)")
+    assert audit.LOCAL_ARTIFACT_LINK_RE.search("[x](../data/derived/wiki/cache.json)")
+    assert audit.LOCAL_ARTIFACT_LINK_RE.search("[x](../data/raw/scan.PDF)")
+
+
+def test_local_artifact_link_re_ignores_non_artifact_links(audit):
+    # No extension -> not a file link the check cares about.
+    assert audit.LOCAL_ARTIFACT_LINK_RE.search("[x](../data/derived/wiki/dir)") is None
+    # Not under data/raw|derived.
+    assert audit.LOCAL_ARTIFACT_LINK_RE.search("[x](../docs/nota.jsonl)") is None
+
+
+# ---------------------------------------------------------------------------
+# audit_prompt_checksums: prompts must not drift silently
+# ---------------------------------------------------------------------------
+
+
+def _seed_prompts(tmp_path, audit, monkeypatch, *, checksums: str | None, prompt_text="prompt body\n"):
+    prompts_dir = tmp_path / "wiki_core/llm/prompts"
+    prompts_dir.mkdir(parents=True, exist_ok=True)
+    (prompts_dir / "context_deep_read.v1.md").write_text(prompt_text, encoding="utf-8")
+    if checksums is not None:
+        (prompts_dir / ".checksums").write_text(checksums, encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    return prompts_dir
+
+
+def _sha256_of(text: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def test_prompt_checksums_match_passes(tmp_path, audit, monkeypatch):
+    body = "prompt body\n"
+    line = f"{_sha256_of(body)}  context_deep_read.v1.md\n"
+    _seed_prompts(tmp_path, audit, monkeypatch, checksums=line, prompt_text=body)
+    errors: list[str] = []
+    audit.audit_prompt_checksums(errors)
+    assert errors == []
+
+
+def test_prompt_checksums_mismatch_is_error(tmp_path, audit, monkeypatch):
+    # The prompt changed but the pinned sha did not: conscious-decision gate fires.
+    line = f"{'0' * 64}  context_deep_read.v1.md\n"
+    _seed_prompts(tmp_path, audit, monkeypatch, checksums=line)
+    errors: list[str] = []
+    audit.audit_prompt_checksums(errors)
+    assert any("checksum mismatch" in e for e in errors)
+
+
+def test_prompt_checksums_missing_file_is_error(tmp_path, audit, monkeypatch):
+    _seed_prompts(tmp_path, audit, monkeypatch, checksums=None)
+    errors: list[str] = []
+    audit.audit_prompt_checksums(errors)
+    assert any("missing prompt checksums file" in e for e in errors)
+
+
+def test_prompt_checksums_unpinned_prompt_is_error(tmp_path, audit, monkeypatch):
+    body = "prompt body\n"
+    line = f"{_sha256_of(body)}  context_deep_read.v1.md\n"
+    prompts_dir = _seed_prompts(tmp_path, audit, monkeypatch, checksums=line, prompt_text=body)
+    (prompts_dir / "new_prompt.v1.md").write_text("new\n", encoding="utf-8")
+    errors: list[str] = []
+    audit.audit_prompt_checksums(errors)
+    assert any("new_prompt.v1.md" in e and "not pinned" in e for e in errors)
+
+
+def test_prompt_checksums_pinned_but_missing_prompt_is_error(tmp_path, audit, monkeypatch):
+    body = "prompt body\n"
+    lines = (
+        f"{_sha256_of(body)}  context_deep_read.v1.md\n"
+        f"{'1' * 64}  gone_prompt.v1.md\n"
+    )
+    _seed_prompts(tmp_path, audit, monkeypatch, checksums=lines, prompt_text=body)
+    errors: list[str] = []
+    audit.audit_prompt_checksums(errors)
+    assert any("gone_prompt.v1.md" in e and "does not exist" in e for e in errors)
+
+
+def test_prompt_checksums_invalid_line_is_error(tmp_path, audit, monkeypatch):
+    _seed_prompts(tmp_path, audit, monkeypatch, checksums="not-a-sha context_deep_read.v1.md\n")
+    errors: list[str] = []
+    audit.audit_prompt_checksums(errors)
+    assert any("invalid checksum line" in e for e in errors)
+
+
+def test_repo_prompt_checksums_are_current(audit):
+    # The VERSIONED .checksums must match the real prompts of this repo: if this
+    # fails, a prompt changed without updating the pin (or vice versa).
+    errors: list[str] = []
+    audit.audit_prompt_checksums(errors)
+    assert errors == []
+
+
+# ---------------------------------------------------------------------------
+# parse_frontmatter memoization (perf): cached per path, cleared in main()
+# ---------------------------------------------------------------------------
+
+
+def test_parse_frontmatter_is_memoized_per_path(tmp_path, audit):
+    audit.parse_frontmatter.cache_clear()
+    path = tmp_path / "page.md"
+    path.write_text(VALID_FRONTMATTER, encoding="utf-8")
+    first, _ = audit.parse_frontmatter(path)
+    assert first["page_id"] == "pagina-teste"
+
+    # Rewrite the file: the memoized parse still returns the cached value...
+    path.write_text(VALID_FRONTMATTER.replace("pagina-teste", "outra-pagina"), encoding="utf-8")
+    cached, _ = audit.parse_frontmatter(path)
+    assert cached["page_id"] == "pagina-teste"
+    assert audit.parse_frontmatter.cache_info().hits >= 1
+
+    # ...until cache_clear() (main() clears it on every invocation).
+    audit.parse_frontmatter.cache_clear()
+    fresh, _ = audit.parse_frontmatter(path)
+    assert fresh["page_id"] == "outra-pagina"
+
+
+def test_main_clears_parse_frontmatter_cache(audit):
+    # The lru_cache wrapper must expose cache_clear and main() must call it; we
+    # assert the wiring textually to avoid running the full audit here.
+    assert hasattr(audit.parse_frontmatter, "cache_clear")
+    source = WIKI_AUDIT_PATH.read_text(encoding="utf-8")
+    assert "parse_frontmatter.cache_clear()" in source
+
+
 def test_audit_pii_public_visibility_errors_without_export(tmp_path, audit, monkeypatch):
     # A page marked public (public_candidate) blocks PII even without --public-export.
     page = tmp_path / "memorias" / "pub.md"

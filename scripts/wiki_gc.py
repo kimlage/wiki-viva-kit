@@ -4,8 +4,9 @@
 Each VERSION of a source generates a new `source_id` (content digest), so the
 manifest/text/chunks/request of old versions pile up forever in
 data/derived. This command identifies and (optionally) removes the artifacts whose
-`source_id` is no longer referenced by any LIVE (not superseded) ingestion
-proposal, and prunes the FTS index.
+`source_id` is no longer referenced by any LIVE (neither superseded nor rejected)
+ingestion proposal, and prunes the FTS index. Proposals already moved to
+`arquivo/` are non-live by design (the scan is flat, on purpose).
 
 Safe by default:
   - DRY-RUN: only lists the orphans. Use --apply to remove.
@@ -33,6 +34,11 @@ from wiki_core.paths import WikiPaths
 
 REQUEST_SUFFIX = "-llm-context-request.json"
 
+# Terminal states whose sources are NOT live: superseded (replaced by a newer
+# version) and rejected (proposal denied) — neither is consulted again, so
+# their derived artifacts are eligible for collection.
+NON_LIVE_STATES = {"superseded", "rejected"}
+
 
 def _frontmatter_value(text: str, key: str) -> str | None:
     in_fm = False
@@ -48,14 +54,20 @@ def _frontmatter_value(text: str, key: str) -> str | None:
 
 
 def live_source_ids(root: Path, paths: WikiPaths) -> set[str]:
-    """source_ids referenced by NOT-superseded ingestion proposals."""
+    """source_ids referenced by LIVE ingestion proposals.
+
+    Live = top-level proposal whose gate_state is not in NON_LIVE_STATES
+    (superseded/rejected). Pages physically archived under ``arquivo/`` are
+    deliberately NOT scanned (flat ``glob``, not ``rglob``): archiving is a
+    terminal state, so their sources are non-live by design.
+    """
     ingest_dir = root / paths.config.paths["memory_root"] / "sistema" / "ingestao"
     live: set[str] = set()
     if not ingest_dir.exists():
         return live
     for md in ingest_dir.glob("*.md"):
         text = md.read_text(encoding="utf-8")
-        if (_frontmatter_value(text, "gate_state") or "") == "superseded":
+        if (_frontmatter_value(text, "gate_state") or "") in NON_LIVE_STATES:
             continue
         ref = _frontmatter_value(text, "manifest_ref")
         if ref:

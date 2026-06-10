@@ -14,11 +14,17 @@ auditor fails — no source is consolidated without the deep read.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from wiki_core.llm.cache import cache_key
 
 CONTEXT_PASS_SCHEMA_VERSION = "wiki_llm_context_pass.v2"
+
+# cache_key is always a sha256 hex digest (wiki_core.llm.cache.cache_key) and is
+# used as a FILENAME in the cache dir: anything else is rejected to block path
+# traversal (e.g. "../../memorias/x") through --record-result payloads.
+CACHE_KEY_RE = re.compile(r"[0-9a-f]{64}")
 
 DEFAULT_QUADRANTS = [
     "interior_individual",
@@ -94,8 +100,13 @@ def write_result(cache_dir: Path, result: dict[str, object]) -> Path:
     errors = validate_result(result)
     if errors:
         raise ValueError("invalid LLM pass result: " + ", ".join(errors))
-    cache_dir.mkdir(parents=True, exist_ok=True)
     key = str(result["cache_key"])
+    if not CACHE_KEY_RE.fullmatch(key):
+        raise ValueError(
+            f"invalid cache_key {key!r}: expected a sha256 hex digest "
+            "(64 lowercase hex chars); refusing to use it as a cache filename"
+        )
+    cache_dir.mkdir(parents=True, exist_ok=True)
     path = result_path(cache_dir, key)
     path.write_text(
         json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",

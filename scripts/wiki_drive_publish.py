@@ -94,9 +94,11 @@ def publish(paths: list[Path], folder_id: str, *, dry_run: bool = False) -> dict
 
     drive = None
     MediaFileUpload = None
+    HttpError = None
     if not dry_run:
         # Lazy imports: the Google libs are a LOCAL dependency (not in
         # requirements/CI); dry-run and the matching-sha path do not need them.
+        from googleapiclient.errors import HttpError  # noqa: PLC0415
         from googleapiclient.http import MediaFileUpload  # noqa: PLC0415
 
         from common.google_clients import DRIVE_SCOPE_FULL, build_service  # noqa: PLC0415
@@ -119,9 +121,21 @@ def publish(paths: list[Path], folder_id: str, *, dry_run: bool = False) -> dict
         mime = mimetypes.guess_type(name)[0] or "application/octet-stream"
         media = MediaFileUpload(str(path), mimetype=mime, resumable=False)
         existing_id = entry.get("drive_file_id")
+        meta = None
         if existing_id:
-            meta = drive.files().update(fileId=existing_id, media_body=media, fields="id,webViewLink").execute()
-        else:
+            try:
+                meta = drive.files().update(fileId=existing_id, media_body=media, fields="id,webViewLink").execute()
+            except HttpError as exc:
+                # Dead manifest id (file trashed/deleted on Drive): fall back to
+                # search-by-name/create instead of aborting the whole batch.
+                if getattr(getattr(exc, "resp", None), "status", None) != 404:
+                    raise
+                print(
+                    f"WARNING: {name}: drive_file_id {existing_id} not found (404); "
+                    "falling back to search-by-name/create",
+                    file=sys.stderr,
+                )
+        if meta is None:
             safe = name.replace("\\", "\\\\").replace("'", "\\'")
             q = (
                 f"'{folder_id}' in parents and name = '{safe}' and trashed = false"
@@ -143,6 +157,9 @@ def publish(paths: list[Path], folder_id: str, *, dry_run: bool = False) -> dict
             "source_path": str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else str(path),
         }
         published.append(f"{name}: published -> {files[name]['view_url']}")
+        # Save after EVERY file: a failure halfway through the batch must not
+        # lose the entries already published (uploads are idempotent by name).
+        save_manifest(manifest)
     if not dry_run:
         save_manifest(manifest)
     return {"folder_id": folder_id, "results": published}

@@ -59,6 +59,56 @@ def test_index_source_incremental(tmp_path: Path) -> None:
     assert any(h["source_id"] == "src-b" for h in search(db, "gamma"))
 
 
+def test_index_source_prunes_previous_digests_of_same_source(tmp_path: Path) -> None:
+    chunks_dir = tmp_path / "chunks"
+    db = tmp_path / "wiki.sqlite"
+    old = _write_chunks(chunks_dir, "source-notes-md-aaaaaaaaaaaa", ["stale content about gates"])
+    index_source(db, old)
+    assert search(db, "stale"), "sanity: the old version answers searches"
+
+    # Re-ingestion of the edited source: same slug, new digest.
+    new = _write_chunks(chunks_dir, "source-notes-md-bbbbbbbbbbbb", ["fresh content about gates"])
+    res = index_source(db, new)
+    assert res["pruned_versions"] == 1
+
+    info = check_index(db)
+    assert info["sources"] == 1
+    assert {h["source_id"] for h in search(db, "gates")} == {"source-notes-md-bbbbbbbbbbbb"}
+    assert search(db, "stale") == []
+
+
+def test_index_source_prune_does_not_cross_distinct_slugs(tmp_path: Path) -> None:
+    chunks_dir = tmp_path / "chunks"
+    db = tmp_path / "wiki.sqlite"
+    index_source(db, _write_chunks(chunks_dir, "source-notes-aaaaaaaaaaaa", ["alfa notes"]))
+    # Slug 'notes-md' shares the textual prefix 'source-notes-' but is ANOTHER source.
+    index_source(db, _write_chunks(chunks_dir, "source-notes-md-bbbbbbbbbbbb", ["beta manual"]))
+    index_source(db, _write_chunks(chunks_dir, "source-other-dddddddddddd", ["gamma other"]))
+
+    # Re-ingesting 'notes' with a new digest prunes only its own old version.
+    res = index_source(db, _write_chunks(chunks_dir, "source-notes-cccccccccccc", ["alfa notes v2"]))
+    assert res["pruned_versions"] == 1
+
+    assert check_index(db)["sources"] == 3
+    hits = {h["source_id"] for h in search(db, "notes") + search(db, "beta") + search(db, "gamma")}
+    assert "source-notes-cccccccccccc" in hits
+    assert "source-notes-md-bbbbbbbbbbbb" in hits
+    assert "source-other-dddddddddddd" in hits
+    assert "source-notes-aaaaaaaaaaaa" not in hits
+
+
+def test_index_source_keeps_ids_without_digest_suffix(tmp_path: Path) -> None:
+    # Ids whose last segment is not a content digest are never treated as
+    # versions of each other ('src-a' must not prune 'src-b').
+    chunks_dir = tmp_path / "chunks"
+    db = tmp_path / "wiki.sqlite"
+    index_source(db, _write_chunks(chunks_dir, "src-a", ["alfa"]))
+    res = index_source(db, _write_chunks(chunks_dir, "src-b", ["beta"]))
+    assert res["pruned_versions"] == 0
+    assert check_index(db)["sources"] == 2
+    assert search(db, "alfa") and search(db, "beta")
+
+
 def test_prune_index_removes_unkept_sources(tmp_path: Path) -> None:
     chunks_dir = tmp_path / "chunks"
     db = tmp_path / "wiki.sqlite"
@@ -135,3 +185,31 @@ def test_gc_source_id_of_request(tmp_path: Path) -> None:
     assert gc._source_id_of(p) == "abc123"
     q = tmp_path / "def456.json"
     assert gc._source_id_of(q) == "def456"
+
+
+def _proposal(path: Path, state: str, source_id: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "---\n"
+        f"gate_state: {state}\n"
+        f"manifest_ref: data/derived/source-manifests/{source_id}.json\n"
+        "---\n\n# proposal\n",
+        encoding="utf-8",
+    )
+
+
+def test_live_source_ids_excludes_rejected_and_archived(tmp_path: Path) -> None:
+    gc = _load_gc()
+    ingest = tmp_path / "memorias" / "sistema" / "ingestao"
+    _proposal(ingest / "ok.md", "approved", "src-live")
+    _proposal(ingest / "old.md", "superseded", "src-superseded")
+    # rejected is terminal too: its artifacts must be collectable, like superseded.
+    _proposal(ingest / "no.md", "rejected", "src-rejected")
+    # arquivo/ is not scanned (flat glob by design): archived sources are non-live.
+    _proposal(ingest / "arquivo" / "gone.md", "archived", "src-archived")
+
+    class _Cfg:
+        paths = {"memory_root": "memorias"}
+
+    paths = _Paths(tmp_path / "derived", _Cfg())
+    assert gc.live_source_ids(tmp_path, paths) == {"src-live"}

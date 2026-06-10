@@ -6,16 +6,20 @@ Re-exports the public API of `wiki_core.score.karma` (Section 13 of the v5 metho
 from __future__ import annotations
 
 from .karma import (
+    BADGE_DISPLAY,
     BADGES,
     DIMENSIONS,
     EVENT_TYPES,
+    LEVEL_DISPLAY,
     LEVELS,
     Badge,
     ScoreEvent,
+    badge_display,
     build_event,
     compute_karma,
     context_vitality,
     earned_badges,
+    level_display,
     level_for,
     load_events,
     mirror_events,
@@ -29,7 +33,9 @@ __all__ = [
     "DIMENSIONS",
     "EVENT_TYPES",
     "BADGES",
+    "BADGE_DISPLAY",
     "LEVELS",
+    "LEVEL_DISPLAY",
     "record_event",
     "build_event",
     "load_events",
@@ -38,5 +44,7 @@ __all__ = [
     "compute_karma",
     "context_vitality",
     "earned_badges",
+    "badge_display",
+    "level_display",
     "level_for",
 ]

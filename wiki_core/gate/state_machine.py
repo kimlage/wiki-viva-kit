@@ -8,7 +8,12 @@ import yaml
 from ..ids import sha256_text
 
 # Living gate states (v5). The order reflects a proposal's natural lifecycle.
+# "blocked" is the alternative ENTRY state emitted by the ingestion pipeline when
+# a secret blocks the source (scan-first: nothing is persisted). It has no
+# incoming edges in the voluntary graph; the only ways out are restarting from a
+# clean source ("created") or archiving.
 STATES: tuple[str, ...] = (
+    "blocked",
     "created",
     "compiling",
     "ready_for_review",
@@ -22,6 +27,7 @@ STATES: tuple[str, ...] = (
 
 # Valid transitions: current state -> set of allowed next states.
 TRANSITIONS: dict[str, set[str]] = {
+    "blocked": {"created", "archived"},  # clean source -> restart; or archive
     "created": {"compiling", "rejected", "archived"},
     "compiling": {"ready_for_review", "rejected", "archived"},
     "ready_for_review": {"needs_human_gate", "superseded", "rejected", "archived"},

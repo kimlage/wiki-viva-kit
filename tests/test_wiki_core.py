@@ -247,12 +247,14 @@ def test_validate_result_rejects_missing_keys():
 
 def test_write_result_and_read_result_round_trip(tmp_path):
     cache_dir = tmp_path / "llm-cache"
-    result = _complete_result(key="roundtrip-key")
+    # cache_key must be a sha256 hex digest (write_result validates the shape).
+    key = sha256_text("roundtrip-key")
+    result = _complete_result(key=key)
     path = write_result(cache_dir, result)
     assert path.exists()
-    assert path.name == "roundtrip-key.json"
+    assert path.name == f"{key}.json"
 
-    loaded = read_result(cache_dir, "roundtrip-key")
+    loaded = read_result(cache_dir, key)
     assert loaded == result
 
     # Missing key -> None, no raise.

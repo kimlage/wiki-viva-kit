@@ -292,7 +292,7 @@ def test_build_page_renders_karma_when_events_exist(compile_mod, config, minimal
     derived = minimal_repo / "data/derived/wiki"
     derived.mkdir(parents=True, exist_ok=True)
     record_event(derived / "score-events.jsonl", event_type="ingestar_fonte_valida",
-                 actor="Alex", context="sistema", ts="2026-06-09")
+                 actor="owner", context="sistema", ts="2026-06-09")
     page = compile_mod.build_page(minimal_repo, config)
     assert "## Karma e vitalidade (gamificacao)" in page
     assert "Eventos de score: 1" in page
@@ -328,3 +328,61 @@ def test_stable_view_language_robust(compile_mod, minimal_repo):
     assert "## Context vitality" not in view
     assert "## Karma and vitality" not in view
     assert "## Pending decisions" in view  # deterministic content stays
+
+
+def test_action_without_state_uses_language_fallback(compile_mod, config, minimal_repo):
+    # An action page with no "Estado:"/"State:" line renders the language-table
+    # fallback (COCKPIT_STRINGS["no_state"]), not a hardcoded pt literal.
+    _write(
+        minimal_repo / "memorias" / "acoes" / "terceira.md",
+        "---\npage_id: acao-terceira\npage_type: action\ncontext: sistema\n"
+        "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 30\n"
+        "sources_policy: contrato\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n"
+        "# Acao - Sem linha de estado\n\nCorpo.\n",
+    )
+    page_pt = compile_mod.build_page(minimal_repo, config)
+    assert "| Sem linha de estado | sistema | sem estado |" in page_pt
+    en = compile_mod.WikiConfig(repo_id="acme-wiki", owner_label="Owner", language="en")
+    page_en = compile_mod.build_page(minimal_repo, en)
+    assert "| Sem linha de estado | sistema | no state |" in page_en
+    assert "sem estado" not in page_en
+
+
+def test_state_parser_accepts_estado_and_state(compile_mod, config, minimal_repo):
+    # English-authored action pages ("State: `...`") are parsed like Portuguese
+    # ones ("Estado: `...`"); the bilingual STATE_RE covers both.
+    _write(
+        minimal_repo / "memorias" / "acoes" / "english.md",
+        "---\npage_id: acao-english\npage_type: action\ncontext: sistema\n"
+        "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 30\n"
+        "sources_policy: contrato\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n"
+        "# Action - Review backlog\n\nState: `recurring`.\n\nBody.\n",
+    )
+    assert compile_mod.first_state("Estado: `pendente`.") == "pendente"
+    assert compile_mod.first_state("State: `recurring`.") == "recurring"
+    page = compile_mod.build_page(minimal_repo, config)
+    assert "| Review backlog | sistema | recurring |" in page
+    # The pt pages of the fixture keep working side by side.
+    assert "| Revisar cobertura | sistema | recorrente |" in page
+
+
+def test_clean_title_strips_bilingual_prefixes(compile_mod, config, minimal_repo):
+    for raw, expected in (
+        ("Decisao - Aprovar plano", "Aprovar plano"),
+        ("Decision - Approve plan", "Approve plan"),
+        ("Acao - Revisar fila", "Revisar fila"),
+        ("Action - Review queue", "Review queue"),
+        ("Titulo sem prefixo", "Titulo sem prefixo"),
+    ):
+        assert compile_mod._clean_title(raw) == expected
+    # End to end: an en-prefixed decision title is listed without the prefix.
+    _write(
+        minimal_repo / "memorias" / "decisoes" / "gamma.md",
+        "---\npage_id: decisao-gamma\npage_type: decision\ncontext: sistema\n"
+        "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 180\n"
+        "sources_policy: contrato\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n"
+        "# Decision - Adopt the kit\n\nBody.\n",
+    )
+    page = compile_mod.build_page(minimal_repo, config)
+    assert "| Adopt the kit | sistema |" in page
+    assert "Decision - Adopt the kit" not in page

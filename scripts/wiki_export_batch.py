@@ -49,7 +49,10 @@ def build_batch_requests(
     for path in sorted(request_files):
         try:
             packet = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
+            # A corrupt request must be VISIBLE (its chunks silently dropping
+            # out of the batch hides a pipeline bug), but must not abort the rest.
+            print(f"WARNING: invalid request JSON skipped: {path.name} ({exc})", file=sys.stderr)
             continue
         prompt = str(packet.get("prompt", ""))
         for chunk in packet.get("chunks", []):

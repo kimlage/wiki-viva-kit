@@ -38,7 +38,11 @@ from wiki_core.score import compute_karma, load_events, record_event, resolve_ev
 CONTEXT_HUB_TYPE = "context_hub"
 
 H1_RE = re.compile(r"^#\s+(.*\S)\s*$")
-STATE_RE = re.compile(r"^Estado:\s*`?([^`]+?)`?\s*\.?\s*$")
+# Bilingual: action pages may carry "Estado:" (pt) or "State:" (en) lines.
+STATE_RE = re.compile(r"^(?:Estado|State):\s*`?([^`]+?)`?\s*\.?\s*$")
+# Bilingual: H1 titles may carry "Decisao - " / "Decision - " / "Acao - " /
+# "Action - " prefixes; the cockpit tables list the bare title.
+TITLE_PREFIX_RE = re.compile(r"^(?:Decisao|Decision|Acao|Action)\s*-\s*")
 LIST_ITEM_RE = re.compile(r"^\s*-\s+`?([^`]+?)`?\s*$")
 
 # Deterministic sections derived from the content of memorias/ (independent of
@@ -98,6 +102,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "link_wiki": "Wiki", "link_log": "Log",
         "link_coverage": "Cobertura", "link_coverage_meth": "Cobertura metodologia",
         "vit_fresh": "fresca", "vit_stale": "stale", "vit_undetermined": "indeterminada",
+        "no_state": "sem estado",
         "no_date": "sem data", "git_unknown": "desconhecida", "git_no_diff": "sem diff local",
         "git_wt": "{n} entradas no working tree, {u} nao rastreadas",
         "git_no_commit": "sem commit", "git_unknown_sha": "desconhecido",
@@ -138,6 +143,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "link_wiki": "Wiki", "link_log": "Log",
         "link_coverage": "Coverage", "link_coverage_meth": "Methodology coverage",
         "vit_fresh": "fresh", "vit_stale": "stale", "vit_undetermined": "undetermined",
+        "no_state": "no state",
         "no_date": "no date", "git_unknown": "unknown", "git_no_diff": "no local diff",
         "git_wt": "{n} working-tree entries, {u} untracked",
         "git_no_commit": "no commit", "git_unknown_sha": "unknown",
@@ -260,9 +266,10 @@ def first_state(text: str) -> str:
     return ""
 
 
-def _clean_title(title: str, prefix: str) -> str:
-    """Strip a leading "Decisao - " / "Acao - " prefix and any markdown links."""
-    title = re.sub(r"^" + re.escape(prefix) + r"\s*-\s*", "", title)
+def _clean_title(title: str) -> str:
+    """Strip a leading "Decisao - "/"Decision - "/"Acao - "/"Action - " prefix
+    and any markdown links."""
+    title = TITLE_PREFIX_RE.sub("", title)
     title = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", title)
     return title.strip()
 
@@ -303,7 +310,7 @@ def collect_decisions(paths: WikiPaths) -> list[Decision]:
         # Accept decision pages (and untyped files); skip indexes/other types.
         if page_type is not None and page_type != "decision":
             continue
-        title = _clean_title(first_h1(text), "Decisao") or path.stem
+        title = _clean_title(first_h1(text)) or path.stem
         decisions.append(
             Decision(
                 page_id=fm.get("page_id", path.stem),
@@ -327,13 +334,15 @@ def collect_actions(paths: WikiPaths) -> list[Action]:
         fm = parse_frontmatter(text)
         if fm.get("page_type") != "action":
             continue
-        title = _clean_title(first_h1(text), "Acao") or path.stem
+        title = _clean_title(first_h1(text)) or path.stem
         actions.append(
             Action(
                 page_id=fm.get("page_id", path.stem),
                 title=title,
                 context=fm.get("context", "sistema"),
-                state=first_state(text) or "sem estado",
+                # Empty when the page has no Estado/State line; build_page renders
+                # the language-table fallback (COCKPIT_STRINGS["no_state"]).
+                state=first_state(text),
                 rel_link=_rel_from_memory_root(path, paths.memory_root),
             )
         )
@@ -494,8 +503,9 @@ def build_page(root: Path, config: WikiConfig) -> str:
 
     if actions:
         for action in actions:
+            state = action.state or s["no_state"]
             lines.append(
-                f"| {action.title} | {action.context} | {action.state} | "
+                f"| {action.title} | {action.context} | {state} | "
                 f"[{action.page_id}]({action.rel_link}) |"
             )
     else:

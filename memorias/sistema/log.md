@@ -14,6 +14,12 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memorias](..) layer.
 
+## [2026-06-10] Debts resolved | karma display i18n, gate hardening, index pruning, CLI robustness
+
+- Badge names/criteria and journey levels now render in the configured language (BADGE_DISPLAY/LEVEL_DISPLAY pt+en); persisted ids untouched. Generator i18n leftovers closed; NEW tests/test_i18n_tables.py enforces pt/en key+placeholder parity across every string table.
+- Gates hardened: orphan context-pass requests no longer jam the gate; prompt checksums pinned (wiki_core/llm/prompts/.checksums — editing a prompt without a conscious bump fails the audit); provenance check never silently disabled; cache_key validated (hex64); auditor faster.
+- index_source prunes previous versions of a re-ingested source; 'blocked' is a legitimate gate state; tables/CSV keep their shape through chunking; CLI edge cases fixed (archive, gc, export, drive_links, publisher, drift).
+
 ## [2026-06-10] License | MIT + contributing guide
 
 - [LICENSE](../../LICENSE): MIT — free for any use, modification and redistribution.

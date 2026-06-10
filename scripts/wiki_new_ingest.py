@@ -24,6 +24,11 @@ from wiki_core.source_manifest import build_manifest
 ROOT = Path(__file__).resolve().parents[1]
 INGEST_DIR = ROOT / "memorias/sistema/ingestao"
 
+# FUNCTIONAL fallback for a source whose URL/path yields no file name. It feeds
+# page_id, rebase_key, event_file and the proposal file name, so build_proposal
+# and main() MUST agree on it (a divergence breaks the rebase/supersede match).
+DEFAULT_SOURCE_NAME = "source"
+
 # PROPOSAL string table per language (drives the generated output via config.language).
 PROPOSAL_STRINGS: dict[str, dict[str, str]] = {
     "pt": {
@@ -230,7 +235,7 @@ def source_metadata(source: str, s: dict[str, str]) -> list[str]:
 def build_proposal(source: str, context: str, date: dt.date, status: str, language: str = "en") -> str:
     s = _ps(language)
     source_type, risks = classify_source(source, s)
-    source_name = Path(urlparse(source).path).name or "source"
+    source_name = Path(urlparse(source).path).name or DEFAULT_SOURCE_NAME
     page_id = f"ingestao-{date.isoformat()}-{slugify(context)}-{slugify(source_name)}"
     target = TARGETS.get(context, TARGETS["sistema"])
     target_pages = target["pages"]
@@ -365,7 +370,7 @@ def main() -> int:
         )
         return 2
 
-    source_name = Path(urlparse(args.source).path).name or "fonte"
+    source_name = Path(urlparse(args.source).path).name or DEFAULT_SOURCE_NAME
     path = INGEST_DIR / f"{date.isoformat()}-{slugify(args.context)}-{slugify(source_name)}.md"
     if path.exists():
         print(f"Refusing to overwrite existing proposal: {path}", file=sys.stderr)

@@ -19,7 +19,7 @@ from wiki_core.gate import (
     rebase_pending,
     write_state,
 )
-from wiki_core.gate.state_machine import _load_frontmatter
+from wiki_core.gate.state_machine import PENDING_STATES, _load_frontmatter
 
 
 def _make_proposal(
@@ -52,6 +52,9 @@ def test_states_and_transitions_are_consistent() -> None:
     assert set(STATES) == set(TRANSITIONS)
     for nexts in TRANSITIONS.values():
         assert nexts <= set(STATES)
+    # blocked is a valid state but never pending: rebase must not touch it.
+    assert "blocked" in STATES
+    assert "blocked" not in PENDING_STATES
 
 
 def test_can_transition_valid() -> None:
@@ -61,6 +64,9 @@ def test_can_transition_valid() -> None:
     assert can_transition("approved", "published")
     assert can_transition("ready_for_review", "superseded")
     assert can_transition("published", "archived")
+    # blocked (secret in the source): clean source -> restart, or archive.
+    assert can_transition("blocked", "created")
+    assert can_transition("blocked", "archived")
 
 
 def test_can_transition_invalid() -> None:
@@ -70,6 +76,25 @@ def test_can_transition_invalid() -> None:
     assert not can_transition("rejected", "approved")
     assert not can_transition("published", "created")
     assert not can_transition("unknown", "compiling")
+    # blocked has no incoming edges and cannot skip straight to review/approval.
+    assert not can_transition("created", "blocked")
+    assert not can_transition("blocked", "compiling")
+    assert not can_transition("blocked", "approved")
+
+
+def test_blocked_state_restarts_or_archives(tmp_path: Path) -> None:
+    # The pipeline emits gate_state="blocked" when a secret blocks the source;
+    # the state machine must accept it as a valid state with exits limited to
+    # "created" (clean source, restart) and "archived".
+    path = _make_proposal(tmp_path, "a.md", page_id="pg-a", gate_state="blocked")
+    with pytest.raises(ValueError):
+        write_state(path, "compiling")
+    assert read_proposal(path).gate_state == "blocked"
+    updated = write_state(path, "created", reason="source cleaned, restarting")
+    assert updated.gate_state == "created"
+
+    archived = _make_proposal(tmp_path, "b.md", page_id="pg-b", gate_state="blocked")
+    assert write_state(archived, "archived").gate_state == "archived"
 
 
 def test_read_proposal_defaults_state_to_created(tmp_path: Path) -> None:

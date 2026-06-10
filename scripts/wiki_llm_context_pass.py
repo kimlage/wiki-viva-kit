@@ -75,6 +75,13 @@ def _emitted_cache_keys(paths: WikiPaths) -> set[str]:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
+            # Not silent: a corrupt request shrinks the set of known cache_keys,
+            # which can reject a legitimate result. The auditor errors on it too.
+            print(
+                f"WARN: unreadable LLM context request (invalid JSON), ignored "
+                f"for provenance: {path.name}",
+                file=sys.stderr,
+            )
             continue
         for chunk in data.get("chunks", []):
             key = chunk.get("cache_key")
@@ -91,11 +98,20 @@ def _record_results(paths: WikiPaths, payload_path: str, *, allow_unrequested: b
     written = []
     for result in results:
         key = str(result.get("cache_key", ""))
-        if not allow_unrequested and known and key not in known:
+        if not allow_unrequested and key not in known:
+            # No silent escape: ZERO requests on disk also rejects (the old
+            # `and known` guard let any result through when extraction-events
+            # was empty, making the provenance gate forgeable by deletion).
+            detail = (
+                "no emitted context request found on disk"
+                if not known
+                else "no emitted context request contains this cache_key"
+            )
             print(
-                f"ERROR: cache_key {key!r} without a corresponding emitted context request; "
-                "result rejected (provenance). Emit the request before recording, or use "
-                "--allow-unrequested for legitimate cases with no request on disk.",
+                f"ERROR: cache_key {key!r} without a corresponding emitted context request "
+                f"({detail}); result rejected (provenance). Emit the request before "
+                "recording, or use --allow-unrequested for legitimate cases with no "
+                "request on disk.",
                 file=sys.stderr,
             )
             return 2

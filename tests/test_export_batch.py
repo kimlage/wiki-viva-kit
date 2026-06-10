@@ -81,3 +81,22 @@ def test_export_batch_custom_id_matches_request(tmp_path: Path) -> None:
             keys.add(chunk["cache_key"])
     reqs = exporter.build_batch_requests(files, model="m", max_tokens=10, include_cached=False)
     assert all(r["custom_id"] in keys for r in reqs)
+
+
+def test_export_batch_warns_on_invalid_request_json(tmp_path: Path, capsys) -> None:
+    import json
+
+    exporter = _load_exporter()
+    bad = tmp_path / "bad-llm-context-request.json"
+    bad.write_text("{not valid json", encoding="utf-8")
+    good = tmp_path / "good-llm-context-request.json"
+    good.write_text(
+        json.dumps({"prompt": "p", "chunks": [{"cache_key": "k1", "chunk_id": "c1", "text": "t"}]}),
+        encoding="utf-8",
+    )
+    reqs = exporter.build_batch_requests([bad, good], model="m", max_tokens=10, include_cached=False)
+    # the corrupt file is skipped WITH a stderr warning; the good one still exports
+    assert [r["custom_id"] for r in reqs] == ["k1"]
+    err = capsys.readouterr().err
+    assert "WARNING" in err
+    assert "bad-llm-context-request.json" in err

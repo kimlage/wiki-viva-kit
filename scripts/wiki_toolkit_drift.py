@@ -68,12 +68,16 @@ def drift(ref: str) -> dict[str, list[str]]:
     ref_files = _toolkit_files(ref)
     only_head = sorted(head_files - ref_files)
     only_ref = sorted(ref_files - head_files)
-    differing: list[str] = []
-    for path in sorted(head_files & ref_files):
-        head_blob = _git(["rev-parse", f"HEAD:{path}"]).strip()
-        ref_blob = _git(["rev-parse", f"{ref}:{path}"]).strip()
-        if head_blob != ref_blob:
-            differing.append(path)
+    # ONE `git diff --name-only` covers every shared file (the old loop spawned
+    # 2 rev-parse subprocesses per file). Prefixes become pathspecs: trailing-slash
+    # dirs match recursively as-is; bare prefixes (scripts/wiki_) need a '*'.
+    pathspecs = [p if p.endswith("/") else f"{p}*" for p in TOOLKIT_PREFIXES]
+    changed = {
+        line
+        for line in _git(["diff", "--name-only", ref, "HEAD", "--", *pathspecs]).splitlines()
+        if line
+    }
+    differing = sorted((head_files & ref_files) & changed)
     ignored = _ignored()
     return {
         "only_in_head": [p for p in only_head if p not in ignored],

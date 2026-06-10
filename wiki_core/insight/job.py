@@ -135,6 +135,7 @@ INSIGHT_STRINGS: dict[str, dict[str, str]] = {
         "h_evidence": "## Evidencias reunidas",
         "row_events": "- Eventos de score no contexto `{context}`: {n}.",
         "row_chunks": "- Chunks relevantes ao tema: {n}.",
+        "chunk_bullet": "  - `{chunk_id}` (fonte `{source_id}`)",
         "row_pages": "- Paginas de memoria que mencionam o tema: {n}.",
         "h_uncertainty": "## Incerteza",
         "fill_uncertainty": "- A preencher pelo agente (o que ainda nao se sabe).",
@@ -152,6 +153,7 @@ INSIGHT_STRINGS: dict[str, dict[str, str]] = {
         "h_evidence": "## Gathered evidence",
         "row_events": "- Score events in context `{context}`: {n}.",
         "row_chunks": "- Chunks relevant to the theme: {n}.",
+        "chunk_bullet": "  - `{chunk_id}` (source `{source_id}`)",
         "row_pages": "- Memory pages mentioning the theme: {n}.",
         "h_uncertainty": "## Uncertainty",
         "fill_uncertainty": "- To be filled by the agent (what is still unknown).",
@@ -195,7 +197,10 @@ def _proposal_markdown(
             "",
             s["row_events"].format(context=context, n=len(events)),
             s["row_chunks"].format(n=len(chunks)),
-            *[f"  - `{c['chunk_id']}` (source `{c['source_id']}`)" for c in chunks[:8]],
+            *[
+                s["chunk_bullet"].format(chunk_id=c["chunk_id"], source_id=c["source_id"])
+                for c in chunks[:8]
+            ],
             s["row_pages"].format(n=len(pages)),
             *[f"  - {p}" for p in pages[:8]],
             "",

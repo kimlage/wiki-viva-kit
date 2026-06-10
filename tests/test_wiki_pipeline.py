@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from wiki_core.config import WikiConfig
+from wiki_core.index.sqlite import search
 from wiki_core.ingest import run
 
 LOREM = ("integracao do pipeline da wiki viva com texto suficiente para varios chunks " * 40).strip()
@@ -102,6 +103,25 @@ def test_pipeline_blocks_secret_in_source(tmp_path: Path) -> None:
     assert not leaked, f"the secret leaked into derived artifacts: {leaked}"
     sqlite = derived / "indexes" / "wiki.sqlite"
     assert not sqlite.exists() or AWS_KEY.encode() not in sqlite.read_bytes()
+
+
+def test_pipeline_reingest_prunes_stale_version_from_index(tmp_path: Path) -> None:
+    config = WikiConfig()
+    src = tmp_path / "fonte.md"
+    _write(src, "# Fonte\n\nstaleword only in v1\n\n" + LOREM + "\n")
+    first = run(str(src), "sistema", tmp_path, config)
+
+    # Edit the source and re-ingest: new digest, hence a new source_id.
+    _write(src, "# Fonte\n\nfreshword only in v2\n\n" + LOREM + "\n")
+    second = run(str(src), "sistema", tmp_path, config)
+    assert first.source_id != second.source_id
+
+    db = tmp_path / "data/derived/wiki/indexes/wiki.sqlite"
+    # The old version no longer answers searches; only the new one does.
+    assert search(db, "staleword") == []
+    fresh_hits = search(db, "freshword")
+    assert fresh_hits and {h["source_id"] for h in fresh_hits} == {second.source_id}
+    assert {h["source_id"] for h in search(db, "pipeline")} == {second.source_id}
 
 
 def test_pipeline_dry_run_writes_nothing(tmp_path: Path) -> None:

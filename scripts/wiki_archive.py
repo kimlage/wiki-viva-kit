@@ -41,14 +41,15 @@ RESOLVED_STATES = {"superseded", "rejected"}
 
 
 def frontmatter_value(text: str, key: str) -> str:
-    in_fm = False
-    for line in text.splitlines():
+    lines = text.splitlines()
+    # Frontmatter only counts when the document STARTS with '---' (line 0);
+    # a '---' later in the body (horizontal rule) must not open a fake block.
+    if not lines or lines[0].strip() != "---":
+        return ""
+    for line in lines[1:]:
         if line.strip() == "---":
-            if in_fm:
-                break
-            in_fm = True
-            continue
-        if in_fm and line.startswith(f"{key}:"):
+            break
+        if line.startswith(f"{key}:"):
             return line.split(":", 1)[1].strip().strip("\"'")
     return ""
 
@@ -74,14 +75,15 @@ def add_stale_exempt(text: str) -> str:
     if "stale_exempt:" in text:
         return text
     lines = text.splitlines(keepends=True)
-    # insert before the second '---' (end of frontmatter)
-    seen = 0
-    for i, line in enumerate(lines):
+    # Frontmatter must START at line 0; without it there is nothing to annotate
+    # (a '---' in the body is a horizontal rule, not a frontmatter fence).
+    if not lines or lines[0].strip() != "---":
+        return text
+    # insert before the closing '---' (end of frontmatter)
+    for i, line in enumerate(lines[1:], start=1):
         if line.strip() == "---":
-            seen += 1
-            if seen == 2:
-                lines.insert(i, "stale_exempt: true\n")
-                break
+            lines.insert(i, "stale_exempt: true\n")
+            break
     return "".join(lines)
 
 

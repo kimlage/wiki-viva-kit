@@ -32,10 +32,22 @@ def _manifest_files() -> dict[str, dict[str, str]]:
 @lru_cache(maxsize=1)
 def _tracked_set() -> frozenset[str]:
     try:
-        out = subprocess.check_output(["git", "ls-files"], cwd=ROOT, text=True)
+        # -z: NUL-separated RAW paths. Newline splitting breaks on paths with
+        # spaces/accents (git quotes non-ASCII paths unless core.quotePath=false).
+        out = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
     except (subprocess.CalledProcessError, OSError):
         return frozenset()
-    return frozenset(out.splitlines())
+    return frozenset(part.decode("utf-8") for part in out.split(b"\0") if part)
+
+
+def invalidate_caches() -> None:
+    """Clears both lru_caches (manifest + git tracked set).
+
+    Call after publishing to Drive or mutating the git index in-process so the
+    next link resolution sees fresh data.
+    """
+    _manifest_files.cache_clear()
+    _tracked_set.cache_clear()
 
 
 def drive_view_url(path: Path) -> str | None:

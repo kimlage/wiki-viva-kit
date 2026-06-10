@@ -88,6 +88,23 @@ def test_chunk_preserves_line_structure():
     assert "v3 | v4" in joined
 
 
+def test_chunk_line_units_regroup_with_single_newline():
+    # Line units (tables/CSV) regroup with "\n": rejoining with "\n\n" used to
+    # turn each row into a fake paragraph and break the table apart.
+    csv = "id,name\n1,alpha\n2,beta"
+    chunks = chunk_text("src", csv, target_tokens=200, overlap_tokens=0)
+    assert len(chunks) == 1
+    assert chunks[0].text == csv
+    assert "\n\n" not in chunks[0].text
+
+
+def test_chunk_paragraph_units_keep_blank_line_separator():
+    text = "first paragraph here\n\nsecond paragraph here"
+    chunks = chunk_text("src", text, target_tokens=200, overlap_tokens=0)
+    assert len(chunks) == 1
+    assert chunks[0].text == text
+
+
 def test_chunk_empty_text():
     assert chunk_text("src", "   \n\n  ") == []
 

@@ -23,13 +23,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from wiki_core import load_config
 from wiki_core.score import (
-    BADGES,
     DIMENSIONS,
     EVENT_TYPES,
+    badge_display,
     compute_karma,
     context_vitality,
     earned_badges,
+    level_display,
     level_for,
     load_events,
     mirror_events,
@@ -64,7 +66,7 @@ def _add(args: argparse.Namespace, events_path: Path) -> int:
     return 0
 
 
-def _summary(events_path: Path) -> int:
+def _summary(events_path: Path, language: str = "en") -> int:
     events = load_events(events_path)
     if not events:
         print(f"no events in {events_path.relative_to(ROOT)} (record with --add)")
@@ -72,14 +74,14 @@ def _summary(events_path: Path) -> int:
 
     karma = compute_karma(events)
     badges = earned_badges(events)
-    nivel = level_for(float(karma["total"]))
+    level_id = level_for(float(karma["total"]))
 
     print("== Personal operational karma (private, by dimension; soft decay) ==")
     for dim in DIMENSIONS:
         value = float(karma["by_dimension"].get(dim, 0.0))
         print(f"  {dim:<14} {value:8.2f}")
     print(f"  {'TOTAL':<14} {float(karma['total']):8.2f}")
-    print(f"  journey level: {nivel}")
+    print(f"  journey level: {level_display(level_id, language)}")
 
     print("\n== Vitality by context (collective health, no leaderboard) ==")
     for ctx in sorted(karma["by_context"]):
@@ -93,13 +95,14 @@ def _summary(events_path: Path) -> int:
     print("\n== Badges earned ==")
     if badges:
         for badge_id in badges:
-            print(f"  - {BADGES[badge_id].nome} ({BADGES[badge_id].criterio})")
+            display = badge_display(badge_id, language)
+            print(f"  - {display['name']} ({display['criterion']})")
     else:
         print("  (none yet)")
     return 0
 
 
-def _dashboard(events_path: Path) -> int:
+def _dashboard(events_path: Path, language: str = "en") -> int:
     events = load_events(events_path)
     print("## Vitality by context\n")
     if not events:
@@ -119,7 +122,7 @@ def _dashboard(events_path: Path) -> int:
     print("\n### Active badges\n")
     if badges:
         for badge_id in badges:
-            print(f"- {BADGES[badge_id].nome}")
+            print(f"- {badge_display(badge_id, language)['name']}")
     else:
         print("_No active badges._")
     print(
@@ -158,15 +161,17 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     events_path = Path(args.events_path)
+    # Badge/level names in the generated output follow the config language.
+    language = load_config(ROOT).language
 
     if args.add:
         if not (args.event and args.actor and args.context):
             parser.error("--add requires --event, --actor and --context")
         return _add(args, events_path)
     if args.summary:
-        return _summary(events_path)
+        return _summary(events_path, language)
     if args.dashboard:
-        return _dashboard(events_path)
+        return _dashboard(events_path, language)
     if args.mirror:
         out = mirror_events(events_path.parent)
         if out is None:
