@@ -9,19 +9,17 @@ tmp/
 # Generated local spreadsheet artifacts.
 outputs/
 
-# Caminhos de docs deprecados pela metodologia (o auditor proibe versiona-los).
-# Conteudo de trabalho local fica fora do git; relocar para memorias/ ou
-# docs/referencias/ quando for consolidar.
+# Docs paths deprecated by the methodology (the auditor forbids versioning them).
+# Local working content stays out of git; relocate to memories/ or
+# docs/references/ when consolidating.
 docs/2026/
-docs/memorias/
+docs/memories/
 
-# Derived transaction ledgers and audit dumps can contain detailed financial data.
+# Derived ledgers and audit dumps can contain detailed personal/financial data.
 data/derived/**
 !data/derived/
-!data/derived/2026/
-!data/derived/2026/regras_classificacao_agent.csv
-# Espelho VERSIONADO do ledger de score-events (so metadados, sem segredo) — para
-# o karma do cockpit nao zerar em clone limpo/CI. Atualize com `wiki_score.py --mirror`.
+# VERSIONED mirror of the score-events ledger (metadata only, no secrets) — so the
+# cockpit karma does not reset on a clean clone/CI. Update with `wiki_score.py --mirror`.
 !data/derived/wiki/
 !data/derived/wiki/score-events-mirror.jsonl
 

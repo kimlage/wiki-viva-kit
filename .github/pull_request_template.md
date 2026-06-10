@@ -41,12 +41,12 @@
 
 ## Approval checklist
 
-- [ ] [memorias/](../memorias/) contains an actionable synthesis.
+- [ ] [memories/](../memories/) contains an actionable synthesis.
 - [ ] [docs/](../docs/) remains restricted to references, templates, snapshots, and evidence.
 - [ ] No full dump without criteria and no access secret was copied into Markdown.
-- [ ] [memorias/sistema/log.md](../memorias/sistema/log.md) was updated.
+- [ ] [memories/system/log.md](../memories/system/log.md) was updated.
 - [ ] [scripts/wiki_audit.py](../scripts/wiki_audit.py) `--check` validated clickable local links.
-- [ ] Existing financial scripts remain valid if they were touched.
+- [ ] Existing scripts remain valid if they were touched.
 
 ## Human review
 

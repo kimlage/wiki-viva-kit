@@ -18,13 +18,14 @@ from wiki_core.source_manifest import build_manifest
 
 
 def main() -> int:
+    config = load_config(ROOT)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--summary", action="store_true")
     parser.add_argument("--source")
-    parser.add_argument("--context", default="sistema")
+    parser.add_argument("--context", default=config.default_context)
     args = parser.parse_args()
 
-    paths = WikiPaths(ROOT, load_config(ROOT))
+    paths = WikiPaths(ROOT, config)
     paths.ensure()
     summary = cache_summary(paths.llm_cache)
     summary["manifests"] = len(list(paths.source_manifests.glob("*.json")))

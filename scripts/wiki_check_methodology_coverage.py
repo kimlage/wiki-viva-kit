@@ -10,7 +10,11 @@ executed pass.
 
 No absolute paths: nothing here depends on files outside the repository. When it
 is necessary to validate artifacts derived from a source, the source_id is
-discovered by scanning `data/derived/wiki/source-manifests/*.json`.
+discovered by scanning the source-manifests directory under the configured
+derived root (default `data/derived/wiki/source-manifests/*.json`).
+
+All required page/template paths come from `wiki.config.yaml` (cfg.coverage and
+cfg.paths), so localized repos pin their own layout without code changes.
 """
 
 from __future__ import annotations
@@ -37,23 +41,32 @@ except ImportError:  # pragma: no cover - defensive path
 # be considered empty/placeholder.
 MIN_BODY_BYTES = 40
 
-# Page/memory .md files: path relative to the repo. Each must exist, have a
-# non-empty body and frontmatter with page_id.
-REQUIRED_PAGE_FILES: dict[str, str] = {
-    "source_page": "memorias/fontes/metodologia-wiki-viva-v5.md",
-    "coverage_matrix": "memorias/sistema/cobertura-metodologia-v5.md",
-    "operation_page": "memorias/operacao.md",
-}
+# Page/memory .md files come from config (cfg.coverage + cfg.paths): each must
+# exist, have a non-empty body and frontmatter with page_id. Built per run in
+# required_page_files() so localized repos pin their own layout.
 
-# Wiki templates: besides existing and having a body, the frontmatter needs
-# page_id AND page_type (the frontmatter may be inside a ```yaml block).
-REQUIRED_TEMPLATE_FILES: dict[str, str] = {
-    "event_template": "docs/referencias/templates/wiki/ingestao-evento.md",
-    "operation_template": "docs/referencias/templates/wiki/operacao.md",
-    "vitality_template": "docs/referencias/templates/wiki/dashboard-vitalidade.md",
-    "subagent_template": "docs/referencias/templates/wiki/subagent-brief.md",
-    "gate_template": "docs/referencias/templates/wiki/gate.md",
-}
+
+def required_page_files(config: WikiConfig) -> dict[str, str]:
+    """Repo-relative paths of the required methodology pages, from config."""
+    return {
+        "source_page": str(config.coverage["methodology_source_page"]),
+        "coverage_matrix": str(config.coverage["coverage_matrix_page"]),
+        "operation_page": str(config.paths["operation_page"]),
+    }
+
+
+def required_template_files(config: WikiConfig, paths: WikiPaths) -> dict[str, str]:
+    """Required wiki templates (filenames from config) under the templates root.
+
+    Besides existing, each must have a real body (the frontmatter may be inside
+    a ```yaml block). Check names are keyed by filename so the gate output stays
+    meaningful for any localized template set.
+    """
+    templates_rel = paths.rel(paths.templates_root)
+    return {
+        f"template:{name}": f"{templates_rel}/{name}"
+        for name in config.coverage["required_templates"]
+    }
 
 # Scripts/config/core that only need to exist (pipeline support).
 REQUIRED_SUPPORT_FILES: dict[str, str] = {
@@ -76,8 +89,6 @@ COVERAGE_REQUIRED_MENTIONS_BY_LANG = {
 }
 # Accepted markers for the quadrants section (pt or en).
 QUADRANTS_HEADERS = ("## Quadrantes", "## Quadrants")
-
-INGESTION_EVENTS_DIR = "memorias/sistema/ingestao/eventos"
 
 
 def split_frontmatter(text: str) -> tuple[str | None, str]:
@@ -192,8 +203,7 @@ def check_support_file(name: str, rel: str) -> dict[str, Any]:
     }
 
 
-def check_operation_dashboard() -> dict[str, Any]:
-    rel = REQUIRED_PAGE_FILES["operation_page"]
+def check_operation_dashboard(rel: str) -> dict[str, Any]:
     path = ROOT / rel
     if not path.exists():
         return {"name": "operation_dashboard", "path": rel, "ok": False, "detail": "missing file"}
@@ -210,13 +220,16 @@ def check_operation_dashboard() -> dict[str, Any]:
     return {"name": "operation_dashboard", "path": rel, "ok": True}
 
 
-def check_ingestion_events() -> list[dict[str, Any]]:
-    event_dir = ROOT / INGESTION_EVENTS_DIR
+def check_ingestion_events(paths: WikiPaths) -> list[dict[str, Any]]:
+    event_dir = paths.ingest_events_dir
+    events_rel = paths.rel(event_dir)
     if not event_dir.exists():
+        # FAIL LOUD: the configured events directory must exist; a missing
+        # target never silently passes the gate.
         return [
             {
                 "name": "ingestion_events_dir",
-                "path": INGESTION_EVENTS_DIR,
+                "path": events_rel,
                 "ok": False,
                 "detail": "missing events directory",
             }
@@ -242,7 +255,7 @@ def check_ingestion_events() -> list[dict[str, Any]]:
         results.append(
             {
                 "name": "ingestion_events_dir",
-                "path": INGESTION_EVENTS_DIR,
+                "path": events_rel,
                 "ok": False,
                 "detail": "no ingestion event found",
             }
@@ -250,8 +263,7 @@ def check_ingestion_events() -> list[dict[str, Any]]:
     return results
 
 
-def check_coverage_matrix_sections(language: str = "en") -> dict[str, Any]:
-    rel = REQUIRED_PAGE_FILES["coverage_matrix"]
+def check_coverage_matrix_sections(rel: str, language: str = "en") -> dict[str, Any]:
     path = ROOT / rel
     if not path.exists():
         return {
@@ -297,10 +309,10 @@ PERCEPTIVE_MAP_TYPES = {"relationship_map", "infographic", "moodboard", "media_c
 PERCEPTIVE_TYPES = PERCEPTIVE_JOURNAL_TYPES | PERCEPTIVE_MAP_TYPES
 
 
-def _real_perceptive_pages() -> list[dict[str, Any]]:
-    """REAL perceptive pages in memorias/: perceptive page_type, status not
-    'template', non-empty body and `perception_policy` marker in the frontmatter."""
-    memory_root = ROOT / "memorias"
+def _real_perceptive_pages(paths: WikiPaths) -> list[dict[str, Any]]:
+    """REAL perceptive pages under the memory root: perceptive page_type, status
+    not 'template', non-empty body and `perception_policy` marker in the frontmatter."""
+    memory_root = paths.memory_root
     pages: list[dict[str, Any]] = []
     if not memory_root.exists():
         return pages
@@ -316,26 +328,27 @@ def _real_perceptive_pages() -> list[dict[str, Any]]:
             continue
         if body_bytes(text) <= MIN_BODY_BYTES:
             continue
-        pages.append({"rel": path.relative_to(ROOT).as_posix(), "page_type": page_type})
+        pages.append({"rel": paths.rel(path), "page_type": page_type})
     return pages
 
 
-def check_perceptive_usage() -> list[dict[str, Any]]:
+def check_perceptive_usage(paths: WikiPaths) -> list[dict[str, Any]]:
     """Requires real USE of the perceptive layer, not just the presence of templates:
     at least one real journal and at least one real map/infographic."""
-    pages = _real_perceptive_pages()
+    pages = _real_perceptive_pages(paths)
     journals = [p for p in pages if p["page_type"] in PERCEPTIVE_JOURNAL_TYPES]
     maps = [p for p in pages if p["page_type"] in PERCEPTIVE_MAP_TYPES]
+    fallback = f"{paths.config.paths['memory_root']}/**"
     results = [
         {
             "name": "perceptive_journal_real",
-            "path": journals[0]["rel"] if journals else "memorias/**",
+            "path": journals[0]["rel"] if journals else fallback,
             "ok": bool(journals),
             **({} if journals else {"detail": "no real journal (page_type=journal_entry, status!=template) found"}),
         },
         {
             "name": "perceptive_map_real",
-            "path": maps[0]["rel"] if maps else "memorias/**",
+            "path": maps[0]["rel"] if maps else fallback,
             "ok": bool(maps),
             **({} if maps else {"detail": "no real map/infographic found"}),
         },
@@ -405,17 +418,18 @@ def run_checks(root: Path | None = None) -> dict[str, Any]:
 
     checks: list[dict[str, Any]] = []
 
-    for name, rel in REQUIRED_PAGE_FILES.items():
+    page_files = required_page_files(config)
+    for name, rel in page_files.items():
         checks.append(check_page_file(name, rel))
-    for name, rel in REQUIRED_TEMPLATE_FILES.items():
+    for name, rel in required_template_files(config, paths).items():
         checks.append(check_template_file(name, rel))
     for name, rel in REQUIRED_SUPPORT_FILES.items():
         checks.append(check_support_file(name, rel))
 
-    checks.append(check_operation_dashboard())
-    checks.extend(check_ingestion_events())
-    checks.append(check_coverage_matrix_sections(config.language))
-    checks.extend(check_perceptive_usage())
+    checks.append(check_operation_dashboard(page_files["operation_page"]))
+    checks.extend(check_ingestion_events(paths))
+    checks.append(check_coverage_matrix_sections(page_files["coverage_matrix"], config.language))
+    checks.extend(check_perceptive_usage(paths))
 
     # Discovered derived artifacts (no absolute path): we only report the
     # discovery for diagnostics, without failing for the absence of a specific
@@ -426,7 +440,7 @@ def run_checks(root: Path | None = None) -> dict[str, Any]:
     checks.append(
         {
             "name": "source_manifests_present",
-            "path": "data/derived/wiki/source-manifests",
+            "path": paths.rel(paths.source_manifests),
             "ok": True,
             "detail": f"{len(source_ids)} manifest(s) discovered" + ("" if source_ids else " (empty on clean clone/CI)"),
         }

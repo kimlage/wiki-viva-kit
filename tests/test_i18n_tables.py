@@ -108,21 +108,61 @@ def test_insight_chunk_bullet_comes_from_language_table() -> None:
     # proposal body follows config.language ("fonte" in pt, "source" in en).
     chunks = [{"chunk_id": "chunk-1", "source_id": "source-1"}]
     date = dt.date(2026, 6, 9)
-    pt = _proposal_markdown("tema", "sistema", date, [], chunks, [], language="pt")
-    en = _proposal_markdown("tema", "sistema", date, [], chunks, [], language="en")
+    pt = _proposal_markdown("theme", "system", date, [], chunks, [], language="pt")
+    en = _proposal_markdown("theme", "system", date, [], chunks, [], language="en")
     assert "  - `chunk-1` (fonte `source-1`)" in pt
     assert "(source `source-1`)" not in pt
     assert "  - `chunk-1` (source `source-1`)" in en
     assert "(fonte `source-1`)" not in en
 
 
-def test_new_ingest_source_name_fallback_is_one_functional_constant() -> None:
+def test_new_ingest_source_name_fallback_is_one_functional_constant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # build_proposal (page_id/rebase_key) and main() (proposal file name) must
     # derive the fallback name from the SAME constant; they used to diverge
     # ("source" vs "fonte"), breaking the rebase/supersede match.
     assert NEW_INGEST.DEFAULT_SOURCE_NAME == "source"
+    # Pin the English default layout: the host repo's wiki.config.yaml may pin a
+    # localized layout (e.g. pt), and the page_id prefix follows the config.
+    from wiki_core.config import WikiConfig
+    from wiki_core.paths import WikiPaths
+
+    en_config = WikiConfig()
+    monkeypatch.setattr(NEW_INGEST, "CONFIG", en_config)
+    monkeypatch.setattr(NEW_INGEST, "PATHS", WikiPaths(ROOT, en_config))
     proposal = NEW_INGEST.build_proposal(
-        "https://example.com/", "sistema", dt.date(2026, 6, 9), "draft", "en"
+        "https://example.com/", "system", dt.date(2026, 6, 9), "draft", "en"
+    )
+    assert "page_id: ingestion-2026-06-09-system-source" in proposal
+    assert "rebase_key: system-source" in proposal
+
+
+def test_new_ingest_page_id_prefix_follows_localized_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Compatibility for localized repos: a pt-pinned config keeps generating ids
+    # in the pt vocabulary (ingest dirname drives the page_id prefix).
+    from wiki_core.config import WikiConfig
+    from wiki_core.paths import WikiPaths
+
+    pt_config = WikiConfig(
+        language="pt",
+        default_context="sistema",
+        paths={
+            **WikiConfig().paths,
+            "memory_root": "memorias",
+            "system_dirname": "sistema",
+            "ingest_dirname": "ingestao",
+            "events_dirname": "eventos",
+        },
+    )
+    monkeypatch.setattr(NEW_INGEST, "CONFIG", pt_config)
+    monkeypatch.setattr(NEW_INGEST, "PATHS", WikiPaths(ROOT, pt_config))
+    proposal = NEW_INGEST.build_proposal(
+        "https://example.com/", "sistema", dt.date(2026, 6, 9), "draft", "pt"
     )
     assert "page_id: ingestao-2026-06-09-sistema-source" in proposal
     assert "rebase_key: sistema-source" in proposal
+    assert "event_ref: memorias/sistema/ingestao/eventos/2026-06-09-sistema-source.md" in proposal
+    assert "[eventos/](eventos/README.md)" in proposal

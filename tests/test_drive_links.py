@@ -32,14 +32,14 @@ def _load(path_rel: str, name: str):
 def test_drive_aware_link_uses_drive_for_untracked(monkeypatch, tmp_path):
     monkeypatch.setattr(dl, "_manifest_files", lambda: {"x.csv": {"view_url": "https://drive.google.com/file/d/abc/view"}})
     monkeypatch.setattr(dl, "_tracked_set", lambda: frozenset())
-    link = dl.drive_aware_md_link(dl.ROOT / "data/derived/2026/x.csv", dl.ROOT / "memorias")
+    link = dl.drive_aware_md_link(dl.ROOT / "data/derived/2026/x.csv", dl.ROOT / "memories")
     assert link == "[x.csv (Drive)](https://drive.google.com/file/d/abc/view)"
 
 
 def test_drive_aware_link_local_for_tracked(monkeypatch):
     monkeypatch.setattr(dl, "_manifest_files", lambda: {"y.csv": {"view_url": "https://drive.google.com/file/d/zzz/view"}})
     monkeypatch.setattr(dl, "_tracked_set", lambda: frozenset({"data/derived/2026/y.csv"}))
-    link = dl.drive_aware_md_link(dl.ROOT / "data/derived/2026/y.csv", dl.ROOT / "memorias")
+    link = dl.drive_aware_md_link(dl.ROOT / "data/derived/2026/y.csv", dl.ROOT / "memories")
     assert "drive.google.com" not in link  # versioned: local relative link
     assert "../data/derived/2026/y.csv" in link
 
@@ -47,7 +47,7 @@ def test_drive_aware_link_local_for_tracked(monkeypatch):
 def test_drive_aware_link_local_when_unpublished(monkeypatch):
     monkeypatch.setattr(dl, "_manifest_files", lambda: {})
     monkeypatch.setattr(dl, "_tracked_set", lambda: frozenset())
-    link = dl.drive_aware_md_link(dl.ROOT / "data/derived/2026/z.csv", dl.ROOT / "memorias")
+    link = dl.drive_aware_md_link(dl.ROOT / "data/derived/2026/z.csv", dl.ROOT / "memories")
     assert "drive.google.com" not in link
 
 
@@ -287,8 +287,8 @@ def test_month_pages_upsert_idempotent(tmp_path, monkeypatch):
     page = "---\nfm: x\n---\n\n# Mes\n\nProsa curada.\n"
     once = bmp.upsert_section(page, table)
     twice = bmp.upsert_section(once, table)
-    assert once == twice  # idempotente
-    assert "Prosa curada." in once  # preserva conteudo manual
+    assert once == twice  # idempotent
+    assert "Prosa curada." in once  # preserves manual content
     assert once.count(bmp.BEGIN) == 1
 
 

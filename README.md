@@ -10,7 +10,7 @@ in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
 
 ## What it does
 
-- **Memory layer** in [memorias/](memorias/index.md): consolidated, auditable
+- **Memory layer** in [memories/](memories/index.md): consolidated, auditable
   Markdown pages with frontmatter contracts (freshness, visibility, gate).
 - **Ingestion pipeline**: source → deterministic manifest → stable chunks →
   FTS index → secret pre-scan (blocks BEFORE persisting) → LLM context package
@@ -18,7 +18,7 @@ in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
 - **Honesty gates in CI**: contract audit, methodology coverage, cockpit
   freshness, required LLM pass, freshness budget, doc-code drift — all
   deterministic (zero model tokens).
-- **Operational cockpit** ([memorias/operacao.md](memorias/operacao.md)):
+- **Operational cockpit** ([memories/operations.md](memories/operations.md)):
   compiled daily, self-verifiable (`--check` fails if semantically stale).
 - **Karma layer**: 8-dimension operational scoring as a by-product, append-only,
   no toxic leaderboard.
@@ -33,7 +33,7 @@ $EDITOR wiki.config.yaml          # language, contexts, gates
 $EDITOR wiki.targets.yaml         # context -> pages/entities map
 
 # 2. Ingest a source end to end
-python3 scripts/wiki_ingest.py --source path/to/source.md --context exemplo
+python3 scripts/wiki_ingest.py --source path/to/source.md --context example
 
 # 3. Run the gates (same ones CI runs)
 python3 scripts/wiki_audit.py --check
@@ -57,33 +57,27 @@ itself, kept honest by the same gates:
 
 | Page | Covers |
 | --- | --- |
-| [Meta-wiki index](memorias/sistema/wiki/index.md) | Map of all documentation |
-| [Architecture](memorias/sistema/wiki/arquitetura.md) | Principles and module map |
-| [Daily operation](memorias/sistema/wiki/operacao-diaria.md) | The daily loop |
-| [Ingestion flow](memorias/sistema/wiki/fluxo-ingestao.md) | Source → consolidation |
-| [Gates & audit](memorias/sistema/wiki/gates-e-auditoria.md) | The honesty gates |
-| [Privacy](memorias/sistema/wiki/privacidade.md) | PII free in private; secrets always blocked |
-| [Costs](memorias/sistema/wiki/custos-operacao.md) | Where money goes + levers |
-| [Command reference](memorias/sistema/wiki/referencia-comandos.md) | Every `wiki_*` CLI (gated against drift) |
+| [Meta-wiki index](memories/system/wiki/index.md) | Map of all documentation |
+| [Architecture](memories/system/wiki/architecture.md) | Principles and module map |
+| [Daily operation](memories/system/wiki/daily-operation.md) | The daily loop |
+| [Ingestion flow](memories/system/wiki/ingestion-flow.md) | Source → consolidation |
+| [Gates & audit](memories/system/wiki/gates-and-audit.md) | The honesty gates |
+| [Privacy](memories/system/wiki/privacy.md) | PII free in private; secrets always blocked |
+| [Costs](memories/system/wiki/operation-costs.md) | Where money goes + levers |
+| [Command reference](memories/system/wiki/command-reference.md) | Every `wiki_*` CLI (gated against drift) |
 
 Agent-facing entry point: [AGENTS.md](AGENTS.md).
 
-## Naming (Portuguese directory names)
+## Layout
 
-The kit predates its English-first policy, so a few **directory and page names
-remain in Portuguese** by design — they are stable identifiers used by code,
-links and frontmatter across every adopting repo (renaming would break all of
-them for cosmetic gain). Glossary:
-
-| Name | Meaning |
-| --- | --- |
-| `memorias/` | memories (the wiki) |
-| `memorias/operacao.md` | operations cockpit |
-| `memorias/sistema/ingestao/` | ingestion (proposals; `arquivo/` = archive) |
-| `docs/referencias/` | references |
-| `fontes/`, `eventos/` | sources, events |
-
-All prose, code, messages and generated output follow the configured language.
+The tree is **English by default**: `memories/` (the wiki, one hub per context),
+`memories/system/ingestion/` (proposals, `events/`, `archive/`),
+`docs/references/` (templates, references, snapshots), `data/raw/` and
+`data/derived/wiki/` (gitignored caches). Every directory and file name is
+configurable via `paths.*` in [wiki.config.yaml](wiki.config.yaml) — see
+`WikiConfig` in [wiki_core/config.py](wiki_core/config.py) for the full key
+list. Localized repos pin their own names there (e.g. a Portuguese repo sets
+`paths: {memory_root: memorias}`); the code never hardcodes layout paths.
 
 ## Principles
 

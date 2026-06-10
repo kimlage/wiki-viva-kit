@@ -8,7 +8,7 @@ description: Run the deep contextual reading (LLM pass) over the chunks selected
 ## Architecture model
 
 `wiki_core` does the deterministic work (download/gather sources, extract text,
-chunking, index, trecho selection) and assembles a **context package**. YOU, the
+chunking, index, excerpt selection) and assembles a **context package**. YOU, the
 agent that runs this repo, perform the deep reading and write the result. There is
 no embedded Python LLM client — by design.
 

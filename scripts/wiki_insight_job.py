@@ -10,8 +10,8 @@ The artifacts (packet + proposal) go to data/derived/wiki/insight-jobs/
 (gitignored). The agent reads the packet, synthesizes and opens the insight page via PR.
 
 Examples:
-  python3 scripts/wiki_insight_job.py --theme "gate de honestidade" --context sistema
-  python3 scripts/wiki_insight_job.py --theme "conciliacao" --context financeiro --dry-run
+  python3 scripts/wiki_insight_job.py --theme "honesty gate" --context system
+  python3 scripts/wiki_insight_job.py --theme "reconciliation" --context finance --dry-run
 """
 
 from __future__ import annotations
@@ -29,14 +29,14 @@ from wiki_core.insight import run
 
 
 def main() -> int:
+    config = load_config(ROOT)
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--theme", required=True, help="theme/subject of the insight")
-    parser.add_argument("--context", default="sistema")
+    parser.add_argument("--context", default=config.default_context)
     parser.add_argument("--limit", type=int, default=10, help="maximum chunks gathered")
     parser.add_argument("--dry-run", action="store_true", help="compute without writing artifacts")
     args = parser.parse_args()
 
-    config = load_config(ROOT)
     result = run(
         args.theme,
         args.context,

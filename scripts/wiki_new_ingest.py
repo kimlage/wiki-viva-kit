@@ -18,11 +18,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from wiki_core.config import load_config
 from wiki_core.detectors import scan_file
 from wiki_core.gate import rebase_pending
+from wiki_core.paths import WikiPaths
 from wiki_core.source_manifest import build_manifest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-INGEST_DIR = ROOT / "memorias/sistema/ingestao"
+# Repo layout comes from wiki.config.yaml (English defaults; localized repos pin
+# their own names). Tests may swap CONFIG/PATHS to exercise another layout.
+CONFIG = load_config(ROOT)
+PATHS = WikiPaths(ROOT, CONFIG)
 
 # FUNCTIONAL fallback for a source whose URL/path yields no file name. It feeds
 # page_id, rebase_key, event_file and the proposal file name, so build_proposal
@@ -61,7 +65,7 @@ PROPOSAL_STRINGS: dict[str, dict[str, str]] = {
         "h_event": "## Evento normalizado",
         "row_manifest": "- Manifesto esperado: [data/derived/wiki/source-manifests/{sid}.json](../../../data/derived/wiki/source-manifests/{sid}.json)",
         "row_chunks": "- Texto/chunks esperados: [data/derived/wiki/chunks/{sid}.json](../../../data/derived/wiki/chunks/{sid}.json)",
-        "row_event": "- Evento esperado (a criar) em [eventos/](eventos/README.md): arquivo `{event_file}`.",
+        "row_event": "- Evento esperado (a criar) em [{events_dir}/]({events_dir}/README.md): arquivo `{event_file}`.",
         "row_llm": "- Passagem LLM contextual: pendente ou cacheada conforme [scripts/wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py).",
         "h_quadrants": "## Quadrantes",
         "th_quadrants": "| Quadrante | Conteudo extraido | Ausencia/limite |",
@@ -116,7 +120,7 @@ PROPOSAL_STRINGS: dict[str, dict[str, str]] = {
         "h_event": "## Normalized event",
         "row_manifest": "- Expected manifest: [data/derived/wiki/source-manifests/{sid}.json](../../../data/derived/wiki/source-manifests/{sid}.json)",
         "row_chunks": "- Expected text/chunks: [data/derived/wiki/chunks/{sid}.json](../../../data/derived/wiki/chunks/{sid}.json)",
-        "row_event": "- Expected event (to create) in [eventos/](eventos/README.md): file `{event_file}`.",
+        "row_event": "- Expected event (to create) in [{events_dir}/]({events_dir}/README.md): file `{event_file}`.",
         "row_llm": "- Contextual LLM pass: pending or cached per [scripts/wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py).",
         "h_quadrants": "## Quadrants",
         "th_quadrants": "| Quadrant | Extracted content | Absence/limit |",
@@ -148,21 +152,27 @@ def _ps(language: str) -> dict[str, str]:
     return PROPOSAL_STRINGS.get(language, PROPOSAL_STRINGS["en"])
 
 
+def _minimal_target() -> dict[str, list[str]]:
+    """Synthesized fallback target: the memory index page, no entities. Used when
+    wiki.targets.yaml is absent or does not cover the requested context — the
+    proposal must still be generated (it degrades, it does not crash)."""
+    return {"pages": [PATHS.rel(PATHS.memory_root / "index.md")], "entities": []}
+
+
 def _load_targets(root: Path) -> dict[str, dict[str, list[str]]]:
     """Load the context -> pages/entities map from wiki.targets.yaml (the repo's
     local profile). Keeps the script generic: repo-specific entities live outside
     the code, in a per-repo profile file."""
-    default = {"sistema": {"pages": ["memorias/index.md"], "entities": ["holon-sistema"]}}
     path = root / "wiki.targets.yaml"
     if not path.exists():
-        return default
+        return {CONFIG.default_context: _minimal_target()}
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     targets = {
         str(ctx): {"pages": list(spec.get("pages", [])), "entities": list(spec.get("entities", []))}
         for ctx, spec in data.items()
         if isinstance(spec, dict)
     }
-    return targets or default
+    return targets or {CONFIG.default_context: _minimal_target()}
 
 
 TARGETS = _load_targets(ROOT)
@@ -171,7 +181,7 @@ TARGETS = _load_targets(ROOT)
 def slugify(value: str) -> str:
     value = value.lower()
     value = re.sub(r"[^a-z0-9]+", "-", value)
-    return value.strip("-") or "fonte"
+    return value.strip("-") or DEFAULT_SOURCE_NAME
 
 
 def classify_source(source: str, s: dict[str, str]) -> tuple[str, list[str]]:
@@ -191,13 +201,17 @@ def classify_source(source: str, s: dict[str, str]) -> tuple[str, list[str]]:
     return "artifact", [s["risk_artifact"]]
 
 
-def repo_link(repo_rel: str, base_dir: Path = INGEST_DIR) -> str:
+def repo_link(repo_rel: str, base_dir: Path | None = None) -> str:
+    # Default base resolved at call time (not def time) so a swapped PATHS in
+    # tests keeps links consistent with the configured ingest directory.
+    base_dir = base_dir or PATHS.ingest_dir
     href = os.path.relpath(ROOT / repo_rel, base_dir).replace(os.sep, "/")
     href = quote(href, safe="/.-_#")
     return f"[{repo_rel}]({href})"
 
 
-def source_link(path: Path, base_dir: Path = INGEST_DIR) -> str:
+def source_link(path: Path, base_dir: Path | None = None) -> str:
+    base_dir = base_dir or PATHS.ingest_dir
     resolved = path.expanduser().resolve()
     try:
         repo_rel = resolved.relative_to(ROOT).as_posix()
@@ -222,7 +236,7 @@ def source_metadata(source: str, s: dict[str, str]) -> list[str]:
         stat = path.stat()
         rows.append(s["meta_type_file"].format(suffix=path.suffix or "no extension"))
         rows.append(s["meta_size"].format(size=stat.st_size))
-        manifest = build_manifest(source, "sistema")
+        manifest = build_manifest(source, CONFIG.default_context)
         if manifest.get("hash_sha256"):
             rows.append(f"- SHA256: `{manifest['hash_sha256']}`")
     else:
@@ -236,8 +250,12 @@ def build_proposal(source: str, context: str, date: dt.date, status: str, langua
     s = _ps(language)
     source_type, risks = classify_source(source, s)
     source_name = Path(urlparse(source).path).name or DEFAULT_SOURCE_NAME
-    page_id = f"ingestao-{date.isoformat()}-{slugify(context)}-{slugify(source_name)}"
-    target = TARGETS.get(context, TARGETS["sistema"])
+    # The page_id prefix follows the configured ingest dirname, so a localized
+    # repo (e.g. pt: "ingestao") keeps generating ids in its own vocabulary.
+    page_id = f"{CONFIG.paths['ingest_dirname']}-{date.isoformat()}-{slugify(context)}-{slugify(source_name)}"
+    # Unknown context must not crash proposal generation: fall back to the
+    # configured default context's target, then to a synthesized minimal one.
+    target = TARGETS.get(context) or TARGETS.get(CONFIG.default_context) or _minimal_target()
     target_pages = target["pages"]
     target_entities = target["entities"]
     risk_rows = risks or [s["risk_none"]]
@@ -279,8 +297,8 @@ def build_proposal(source: str, context: str, date: dt.date, status: str, langua
             "gate_state: created",
             f"created_at: {date.isoformat()}",
             f"rebase_key: {slugify(context)}-{slugify(source_name)}",
-            f"manifest_ref: data/derived/wiki/source-manifests/{source_id}.json",
-            f"event_ref: memorias/sistema/ingestao/eventos/{event_file}",
+            f"manifest_ref: {PATHS.rel(PATHS.source_manifests / f'{source_id}.json')}",
+            f"event_ref: {PATHS.rel(PATHS.ingest_events_dir / event_file)}",
             "llm_context_status: pending",
             "---",
             "",
@@ -305,7 +323,9 @@ def build_proposal(source: str, context: str, date: dt.date, status: str, langua
             "",
             s["row_manifest"].format(sid=source_id),
             s["row_chunks"].format(sid=source_id),
-            s["row_event"].format(event_file=event_file),
+            s["row_event"].format(
+                event_file=event_file, events_dir=CONFIG.paths["events_dirname"]
+            ),
             s["row_llm"],
             "",
             s["h_quadrants"],
@@ -349,15 +369,18 @@ def build_proposal(source: str, context: str, date: dt.date, status: str, langua
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True)
-    parser.add_argument("--context", required=True, choices=sorted(TARGETS))
+    parser.add_argument(
+        "--context",
+        default=CONFIG.default_context,
+        choices=sorted(set(TARGETS) | {CONFIG.default_context}),
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--status", default="draft")
     parser.add_argument("--date", default=dt.date.today().isoformat())
     args = parser.parse_args()
 
     date = dt.date.fromisoformat(args.date)
-    language = load_config(ROOT).language
-    proposal = build_proposal(args.source, args.context, date, args.status, language)
+    proposal = build_proposal(args.source, args.context, date, args.status, CONFIG.language)
     src_path = Path(args.source).expanduser()
     secrets = [f for f in scan_file(src_path) if f.category == "secret"] if src_path.is_file() else []
     if args.dry_run:
@@ -371,7 +394,13 @@ def main() -> int:
         return 2
 
     source_name = Path(urlparse(args.source).path).name or DEFAULT_SOURCE_NAME
-    path = INGEST_DIR / f"{date.isoformat()}-{slugify(args.context)}-{slugify(source_name)}.md"
+    ingest_dir = PATHS.ingest_dir
+    if not ingest_dir.is_dir():
+        # Fail loud: a missing configured ingest directory means the layout in
+        # wiki.config.yaml does not match the repo — never write blind.
+        print(f"ERROR: configured ingest directory does not exist: {ingest_dir}", file=sys.stderr)
+        return 1
+    path = ingest_dir / f"{date.isoformat()}-{slugify(args.context)}-{slugify(source_name)}.md"
     if path.exists():
         print(f"Refusing to overwrite existing proposal: {path}", file=sys.stderr)
         return 1
@@ -379,7 +408,7 @@ def main() -> int:
     print(path)
     # Rebase: supersede earlier pending proposals for the same logical target.
     rebase_key = f"{slugify(args.context)}-{slugify(source_name)}"
-    result = rebase_pending(INGEST_DIR, rebase_key=rebase_key)
+    result = rebase_pending(ingest_dir, rebase_key=rebase_key)
     for superseded in result.get("superseded", []):
         print(f"superseded: {Path(superseded).name}")
     return 0

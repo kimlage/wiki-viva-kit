@@ -61,7 +61,7 @@ def test_context_pass_gate_red_then_green(tmp_path, audit, monkeypatch):
     config = WikiConfig(repo_id="e2e-wiki", owner_label="Piloto E2E")
 
     # 1. Real ingestion of the fixture source (manifest -> chunks -> index -> request).
-    result = run(str(PILOT_SOURCE), "sistema", tmp_path, config)
+    result = run(str(PILOT_SOURCE), "system", tmp_path, config)
     assert result.chunk_count >= 1
     assert result.request_path is not None
     assert result.llm_context_status == "pending"
@@ -98,7 +98,7 @@ def test_context_pass_gate_red_then_green(tmp_path, audit, monkeypatch):
 
     # 5. Coherence: rebuilding the request shows pending=0 and the auditor's
     #    metadata cache (prompt_version/schema_version/cache_key) also passes.
-    rebuilt = run(str(PILOT_SOURCE), "sistema", tmp_path, config)
+    rebuilt = run(str(PILOT_SOURCE), "system", tmp_path, config)
     assert rebuilt.pending_llm_calls == 0
     assert rebuilt.llm_context_status == "recorded"
 

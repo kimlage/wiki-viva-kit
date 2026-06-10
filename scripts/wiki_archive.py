@@ -3,8 +3,8 @@
 
 The ingestion directory is flat and the immutable history was re-audited forever
 (scaling finding). Proposals in a terminal state (superseded/rejected) are
-moved to `memorias/sistema/ingestao/arquivo/` (events to
-`arquivo/eventos/`), with:
+moved to the configured archive directory (e.g. `memories/system/ingestion/archive/`,
+events to `archive/events/`), with:
 
 - a gate transition to `archived` recorded in the state machine;
 - `stale_exempt: true` in the frontmatter (an archived page does not trigger a freshness alarm);
@@ -29,11 +29,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from wiki_core.config import load_config  # noqa: E402
 from wiki_core.gate import write_state  # noqa: E402
+from wiki_core.paths import WikiPaths  # noqa: E402
 
-INGEST_DIR = ROOT / "memorias" / "sistema" / "ingestao"
-ARCHIVE_DIR = INGEST_DIR / "arquivo"
-ARCHIVE_EVENTS_DIR = ARCHIVE_DIR / "eventos"
+CONFIG = load_config(ROOT)
+PATHS = WikiPaths(ROOT, CONFIG)
+INGEST_DIR = PATHS.ingest_dir
+ARCHIVE_DIR = PATHS.ingest_archive_dir
+ARCHIVE_EVENTS_DIR = ARCHIVE_DIR / CONFIG.paths["events_dirname"]
 
 # Resolved states: already superseded/rejected — nothing else transitions from them
 # (except to archived). `approved`/`published` stay: they are still consulted.
@@ -94,7 +98,7 @@ def rewrite_inbound_links(old_rel: str, new_rel: str, *, apply: bool) -> list[st
 
     name = Path(old_rel).name
     touched: list[str] = []
-    for md in (ROOT / "memorias").rglob("*.md"):
+    for md in PATHS.memory_root.rglob("*.md"):
         rel = md.relative_to(ROOT).as_posix()
         if rel == new_rel:
             continue
@@ -137,14 +141,14 @@ def archive_one(path: Path, *, apply: bool) -> dict[str, object]:
     moves: list[tuple[Path, Path, Path]] = [(path, ARCHIVE_DIR / path.name, INGEST_DIR)]
     if event_ref:
         event_path = ROOT / event_ref
-        if event_path.is_file() and event_path.parent.name == "eventos":
+        if event_path.is_file() and event_path.parent.name == CONFIG.paths["events_dirname"]:
             moves.append((event_path, ARCHIVE_EVENTS_DIR / event_path.name, event_path.parent))
 
     inbound: list[str] = []
     if apply:
         # Preconditions FIRST (fail before any state is written): every source must
         # be tracked and no destination may already exist — a failed git mv after
-        # write_state used to leave gate_state=archived stranded in ingestao/.
+        # write_state used to leave gate_state=archived stranded in the ingest dir.
         for src, dst, _base in moves:
             tracked = subprocess.run(
                 ["git", "ls-files", "--error-unmatch", str(src.relative_to(ROOT))],
@@ -213,6 +217,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--apply", action="store_true", help="actually move (default: dry-run)")
     args = parser.parse_args(argv)
+
+    if not INGEST_DIR.is_dir():
+        # Fail loud: a missing configured ingest directory means wiki.config.yaml
+        # does not match the repo layout — "nothing to archive" would be a lie.
+        print(f"ERROR: configured ingest directory does not exist: {INGEST_DIR}", file=sys.stderr)
+        return 1
 
     candidates = []
     for md in sorted(INGEST_DIR.glob("*.md")):

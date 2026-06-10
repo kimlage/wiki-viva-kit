@@ -21,9 +21,9 @@ jobs:
         run: pip install -r requirements.txt
       - name: Tests
         run: python -m pytest tests/ -q
-      - name: Wiki audit (segredos, PII em paginas publicas, links, quadrantes, gate de promocao)
+      - name: Wiki audit (secrets, PII on public pages, links, quadrants, promotion gate)
         run: python scripts/wiki_audit.py --check
-      - name: Methodology coverage (presenca + conteudo)
+      - name: Methodology coverage (presence + content)
         run: python scripts/wiki_check_methodology_coverage.py --check
-      - name: Operation cockpit freshness (decisoes/acoes)
+      - name: Operation cockpit freshness (decisions/actions)
         run: python scripts/wiki_operation_compile.py --check

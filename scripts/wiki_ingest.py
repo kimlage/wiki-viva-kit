@@ -8,8 +8,8 @@ step-by-step run (each module had its own CLI). The LLM pass stays delegated to
 the agent running the repo.
 
 Examples:
-  python3 scripts/wiki_ingest.py --source data/raw/exemplo.pdf --context sistema
-  python3 scripts/wiki_ingest.py --source X.md --context sistema --dry-run
+  python3 scripts/wiki_ingest.py --source data/raw/example.pdf --context system
+  python3 scripts/wiki_ingest.py --source X.md --context system --dry-run
 
 Returns exit 2 if the pre-triage finds a SECRET in the source (block at origin).
 """

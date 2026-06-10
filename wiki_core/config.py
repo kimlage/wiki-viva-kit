@@ -145,7 +145,7 @@ def _parse_contexts(raw_value: Any) -> tuple[str, ...]:
     """Accept a YAML list OR a comma-separated string; validate each slug.
 
     Rejects garbage like '{}' (symptom of the old discarded-list bug) instead of
-    silently requiring 'memorias/{}/index.md' in the auditor.
+    silently requiring '<memory_root>/{}/index.md' in the auditor.
     """
     if isinstance(raw_value, (list, tuple)):
         items = [str(c).strip() for c in raw_value]
@@ -163,7 +163,7 @@ def _parse_contexts(raw_value: Any) -> tuple[str, ...]:
         if not _CONTEXT_SLUG_RE.fullmatch(c):
             raise ValueError(
                 f"config: invalid context: {c!r} "
-                f"(expected lowercase slug [a-z0-9-], e.g. financeiro)"
+                f"(expected lowercase slug [a-z0-9-], e.g. finance)"
             )
     return contexts
 
@@ -177,16 +177,48 @@ class WikiConfig:
     language: str = "en"
     default_visibility: str = "private_self"
     private_sensitive_allowed: bool = True
-    # Memory contexts that must have a `memorias/<ctx>/index.md` hub. Drives
+    # Memory contexts that must have a `<memory_root>/<ctx>/index.md` hub. Drives
     # which context pages the auditor requires -- portable per repo, no hardcode.
     contexts: tuple[str, ...] = ()
+    # Context slug used by generators when none is given (--context defaults,
+    # cockpit frontmatter, score events). Localized repos pin it (e.g. "sistema").
+    default_context: str = "system"
+    # Repo layout. English defaults; a repo with localized directory names pins
+    # every key it renames. *_dirname keys are single path segments composed by
+    # WikiPaths; *_page keys are full repo-relative paths.
     paths: dict[str, str] = field(
         default_factory=lambda: {
-            "memory_root": "memorias",
-            "references_root": "docs/referencias",
+            "memory_root": "memories",
+            "references_root": "docs/references",
             "raw_root": "data/raw",
             "derived_root": "data/derived/wiki",
             "skills_root": ".skills",
+            "system_dirname": "system",
+            "ingest_dirname": "ingestion",
+            "events_dirname": "events",
+            "archive_dirname": "archive",
+            "decisions_dirname": "decisions",
+            "actions_dirname": "actions",
+            "pending_actions_filename": "pending.md",
+            "sources_dirname": "sources",
+            "operation_page": "memories/operations.md",
+            "command_reference_page": "memories/system/wiki/command-reference.md",
+            "wiki_coverage_page": "memories/system/wiki-coverage.md",
+        }
+    )
+    # Methodology-coverage gate targets (wiki_check_methodology_coverage.py).
+    # required_templates are filenames under <references_root>/templates/wiki.
+    coverage: dict[str, Any] = field(
+        default_factory=lambda: {
+            "methodology_source_page": "memories/sources/wiki-viva-methodology-v5.md",
+            "coverage_matrix_page": "memories/system/methodology-coverage-v5.md",
+            "required_templates": [
+                "ingestion-event.md",
+                "operation.md",
+                "vitality-dashboard.md",
+                "subagent-brief.md",
+                "gate.md",
+            ],
         }
     )
     approval: dict[str, Any] = field(
@@ -214,7 +246,26 @@ class WikiConfig:
             },
         }
     )
-    audit: dict[str, Any] = field(default_factory=dict)
+    audit: dict[str, Any] = field(
+        default_factory=lambda: {
+            # Pages every wiki repo must keep tracked (wiki_audit core gate).
+            "core_pages": [
+                "memories/index.md",
+                "memories/system/log.md",
+                "memories/system/docs-review.md",
+                "memories/system/operational-wiki-contract.md",
+                "memories/system/ingestion-process.md",
+                "memories/system/git-approvals.md",
+                "memories/system/wiki-coverage.md",
+                "memories/system/ingestion/README.md",
+            ],
+            # Pages allowed to mention retired/legacy paths (e.g. migration docs).
+            "allowed_old_path_references": [
+                ".github/pull_request_template.md",
+                "docs/references/templates/wiki/pr-checklist.md",
+            ],
+        }
+    )
 
 
 def load_config(root: Path) -> WikiConfig:
@@ -232,6 +283,13 @@ def load_config(root: Path) -> WikiConfig:
 
     contexts = _parse_contexts(raw.get("contexts", ""))
 
+    default_context = str(raw.get("default_context", "system")).strip().strip("\"'")
+    if not _CONTEXT_SLUG_RE.fullmatch(default_context):
+        raise ValueError(
+            f"config: invalid default_context: {default_context!r} "
+            f"(expected lowercase slug [a-z0-9-], e.g. system)"
+        )
+
     return WikiConfig(
         repo_id=str(raw.get("repo_id", "wiki-repo")),
         owner_label=str(raw.get("owner_label", "Owner")),
@@ -242,8 +300,10 @@ def load_config(root: Path) -> WikiConfig:
             field_name="private_sensitive_allowed",
         ),
         contexts=contexts,
+        default_context=default_context,
         paths={**WikiConfig().paths, **dict(raw.get("paths", {}))},
         approval={**WikiConfig().approval, **dict(raw.get("approval", {}))},
         llm={**WikiConfig().llm, **dict(raw.get("llm", {}))},
-        audit=dict(raw.get("audit", {})),
+        coverage={**WikiConfig().coverage, **dict(raw.get("coverage", {}))},
+        audit={**WikiConfig().audit, **dict(raw.get("audit", {}))},
     )

@@ -21,7 +21,7 @@ from wiki_core.config import WikiConfig
 from wiki_core.index.sqlite import search
 from wiki_core.ingest import run
 
-LOREM = ("integracao do pipeline da wiki viva com texto suficiente para varios chunks " * 40).strip()
+LOREM = ("living wiki pipeline integration with enough text to span several chunks " * 40).strip()
 AWS_KEY = "AKIAIOSFODNN7EXAMPLE"
 
 
@@ -32,10 +32,10 @@ def _write(path: Path, text: str) -> None:
 
 def test_pipeline_produces_all_artifacts(tmp_path: Path) -> None:
     config = WikiConfig(repo_id="acme-wiki", owner_label="Alex Doe")
-    src = tmp_path / "fonte.md"
-    _write(src, "# Fonte\n\n" + LOREM + "\n")
+    src = tmp_path / "source.md"
+    _write(src, "# Source\n\n" + LOREM + "\n")
 
-    result = run(str(src), "sistema", tmp_path, config)
+    result = run(str(src), "system", tmp_path, config)
     derived = tmp_path / "data/derived/wiki"
 
     # 1. manifest
@@ -69,7 +69,7 @@ def test_pipeline_produces_all_artifacts(tmp_path: Path) -> None:
     assert len(events) == 1
     event = json.loads(events[0])
     assert event["event_type"] == "ingestar_fonte_valida"
-    assert event["context"] == "sistema"
+    assert event["context"] == "system"
 
     # 6. proposal starts in the state machine
     assert result.gate_state == "created"
@@ -77,10 +77,10 @@ def test_pipeline_produces_all_artifacts(tmp_path: Path) -> None:
 
 def test_pipeline_blocks_secret_in_source(tmp_path: Path) -> None:
     config = WikiConfig()
-    src = tmp_path / "com_segredo.md"
-    _write(src, "config do servico\n\naws_key = " + AWS_KEY + "\n\n" + LOREM + "\n")
+    src = tmp_path / "with_secret.md"
+    _write(src, "service config\n\naws_key = " + AWS_KEY + "\n\n" + LOREM + "\n")
 
-    result = run(str(src), "sistema", tmp_path, config)
+    result = run(str(src), "system", tmp_path, config)
     assert result.secret_findings, "the pre-screening should detect the secret in the source"
     # the raw secret never appears in the redacted excerpt
     assert all(AWS_KEY not in finding["excerpt"] for finding in result.secret_findings)
@@ -107,13 +107,13 @@ def test_pipeline_blocks_secret_in_source(tmp_path: Path) -> None:
 
 def test_pipeline_reingest_prunes_stale_version_from_index(tmp_path: Path) -> None:
     config = WikiConfig()
-    src = tmp_path / "fonte.md"
-    _write(src, "# Fonte\n\nstaleword only in v1\n\n" + LOREM + "\n")
-    first = run(str(src), "sistema", tmp_path, config)
+    src = tmp_path / "source.md"
+    _write(src, "# Source\n\nstaleword only in v1\n\n" + LOREM + "\n")
+    first = run(str(src), "system", tmp_path, config)
 
     # Edit the source and re-ingest: new digest, hence a new source_id.
-    _write(src, "# Fonte\n\nfreshword only in v2\n\n" + LOREM + "\n")
-    second = run(str(src), "sistema", tmp_path, config)
+    _write(src, "# Source\n\nfreshword only in v2\n\n" + LOREM + "\n")
+    second = run(str(src), "system", tmp_path, config)
     assert first.source_id != second.source_id
 
     db = tmp_path / "data/derived/wiki/indexes/wiki.sqlite"
@@ -126,10 +126,10 @@ def test_pipeline_reingest_prunes_stale_version_from_index(tmp_path: Path) -> No
 
 def test_pipeline_dry_run_writes_nothing(tmp_path: Path) -> None:
     config = WikiConfig()
-    src = tmp_path / "fonte.md"
-    _write(src, "# Fonte\n\n" + LOREM + "\n")
+    src = tmp_path / "source.md"
+    _write(src, "# Source\n\n" + LOREM + "\n")
 
-    result = run(str(src), "sistema", tmp_path, config, write=False)
+    result = run(str(src), "system", tmp_path, config, write=False)
     assert result.chunk_count > 0  # computed in memory
     assert result.manifest_path is None  # but not written
     assert result.chunks_path is None

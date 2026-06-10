@@ -29,14 +29,14 @@
   ],
   "relationships": [
     {
-      "from": "sistema-ingestao",
-      "to": "cockpit-operacional",
-      "kind": "alimenta_score"
+      "from": "system-ingestion",
+      "to": "operational-cockpit",
+      "kind": "feeds_score"
     },
     {
-      "from": "sistema-ingestao",
-      "to": "detectores-privacidade",
-      "kind": "pre_scan_na_captura"
+      "from": "system-ingestion",
+      "to": "privacy-detectors",
+      "kind": "pre_scan_at_capture"
     }
   ],
   "sensitivity": {

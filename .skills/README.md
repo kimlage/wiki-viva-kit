@@ -9,7 +9,7 @@ to another repo without deep adjustments.
 - `wiki-ingestion-agent` — source -> normalized event -> proposal.
 - `wiki-llm-context-agent` — performs the contextual LLM pass (delegated to the
   agent that runs the repo) and records the result in the cache.
-- `wiki-operation-compiler` — maintains the cockpit [memorias/operacao.md](../memorias/operacao.md).
+- `wiki-operation-compiler` — maintains the cockpit [memories/operations.md](../memories/operations.md).
 - `wiki-source-auditor` — source traceability.
 - `wiki-privacy-publication` — separates private from public.
 - `wiki-raw-drive` — fetches/downloads raw sources from a single Drive folder

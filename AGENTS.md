@@ -10,7 +10,7 @@ another) via skills — there is no embedded LLM client.
 
 - `main` is the approved wiki. Relevant changes go into a `wiki/<theme>` branch and
   pass through a **PR (human gate)**. The `wiki/` prefix is tool-neutral.
-- The consolidated memory lives in [memorias/](memorias/). [docs/](docs/) holds
+- The consolidated memory lives in [memories/](memories/). [docs/](docs/) holds
   references, templates and snapshots; [data/raw](data/raw) and
   [data/derived](data/derived) are cache (gitignored).
 - Every source ingestion uses the orchestrator [scripts/wiki_ingest.py](scripts/wiki_ingest.py):
@@ -35,9 +35,9 @@ another) via skills — there is no embedded LLM client.
 - [scripts/](scripts/) — `wiki_*` CLIs (ingest, audit, coverage, cockpit, gate,
   score, insight job, LLM pass).
 - [.skills/](.skills/) — portable `wiki-*` skills for the agent.
-- [docs/referencias/templates/wiki/](docs/referencias/templates/wiki/) — page
+- [docs/references/templates/wiki/](docs/references/templates/wiki/) — page
   contracts and templates.
-- [memorias/sistema/](memorias/sistema/) — method pages (ingestion process,
+- [memories/system/](memories/system/) — method pages (ingestion process,
   contract, approvals, coverage, log, perception).
 
 ## Gates (run before the PR)
@@ -53,12 +53,12 @@ python3 -m pytest tests/
   LLM pass gate, proposal gate_state — [scripts/wiki_audit.py](scripts/wiki_audit.py).
 - Coverage: presence AND content of the method, real use of the perceptive layer —
   [scripts/wiki_check_methodology_coverage.py](scripts/wiki_check_methodology_coverage.py).
-- Cockpit: [memorias/operacao.md](memorias/operacao.md) equal to the one recompiled at
+- Cockpit: [memories/operations.md](memories/operations.md) equal to the one recompiled at
   HEAD — [scripts/wiki_operation_compile.py](scripts/wiki_operation_compile.py).
 
 ## Per-repo configuration
 
 Adjust [wiki.config.yaml](wiki.config.yaml): `repo_id`, `owner_label`, `contexts`
-(one hub per context, in [memorias/](memorias/)), privacy policy, gate and
+(one hub per context, in [memories/](memories/)), privacy policy, gate and
 LLM parameters. The auditor and the coverage read the config — no context is
 hardcoded in the code.

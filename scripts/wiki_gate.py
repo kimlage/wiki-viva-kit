@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Living gate: lists proposals, applies transitions and rebases/supersedes.
 
-Default proposals directory: memorias/sistema/ingestao (proposals live flat).
+The default proposals directory comes from the configured repo layout
+(e.g. memories/system/ingestion); proposals live flat in it.
 """
 
 from __future__ import annotations
@@ -13,9 +14,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from wiki_core.config import load_config
 from wiki_core.gate import read_proposal, rebase_pending, write_state
+from wiki_core.paths import WikiPaths
 
-DEFAULT_DIR = ROOT / "memorias" / "sistema" / "ingestao"
+DEFAULT_DIR = WikiPaths(ROOT, load_config(ROOT)).ingest_dir
 
 
 def _iter_proposals(directory: Path):

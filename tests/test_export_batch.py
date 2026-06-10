@@ -33,9 +33,9 @@ def _load_exporter():
 def _ingest(tmp_path: Path):
     (tmp_path / "wiki.config.yaml").write_text("repo_id: t\nlanguage: en\n", encoding="utf-8")
     config = load_config(tmp_path)
-    src = tmp_path / "fonte.md"
-    src.write_text("# Doc\n\n" + ("texto operacional sobre ingestao e gate. " * 80) + "\n", encoding="utf-8")
-    result = run(str(src), "sistema", tmp_path, config, write=True)
+    src = tmp_path / "source.md"
+    src.write_text("# Doc\n\n" + ("operational text about ingestion and the gate. " * 80) + "\n", encoding="utf-8")
+    result = run(str(src), "system", tmp_path, config, write=True)
     return config, result
 
 

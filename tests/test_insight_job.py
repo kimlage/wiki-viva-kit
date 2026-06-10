@@ -21,26 +21,26 @@ from wiki_core.config import WikiConfig
 from wiki_core.ingest import run as ingest_run
 from wiki_core.insight import run as insight_run
 
-THEME = "gate de honestidade"
-TEXT = ("o " + THEME + " mantem a wiki viva honesta e rastreavel ") * 60
+THEME = "honesty gate"
+TEXT = ("the " + THEME + " keeps the living wiki honest and traceable ") * 60
 DATE = dt.date(2026, 6, 9)
 
 
 def _seed(tmp_path: Path) -> WikiConfig:
-    config = WikiConfig(repo_id="insight-wiki", owner_label="Dono")
-    src = tmp_path / "fonte.md"
-    src.write_text("# Tema\n\n" + TEXT + "\n", encoding="utf-8")
+    config = WikiConfig(repo_id="insight-wiki", owner_label="Owner")
+    src = tmp_path / "source.md"
+    src.write_text("# Theme\n\n" + TEXT + "\n", encoding="utf-8")
     # generates manifest -> chunks -> index -> score-event
-    ingest_run(str(src), "sistema", tmp_path, config)
-    page = tmp_path / "memorias" / "sistema" / "nota.md"
+    ingest_run(str(src), "system", tmp_path, config)
+    page = tmp_path / "memories" / "system" / "note.md"
     page.parent.mkdir(parents=True, exist_ok=True)
-    page.write_text(f"# Nota\n\nUma nota que cita o {THEME} no contexto sistema.\n", encoding="utf-8")
+    page.write_text(f"# Note\n\nA note that mentions the {THEME} in the system context.\n", encoding="utf-8")
     return config
 
 
 def test_insight_job_gathers_and_emits(tmp_path: Path) -> None:
     config = _seed(tmp_path)
-    result = insight_run(THEME, "sistema", tmp_path, config, date=DATE)
+    result = insight_run(THEME, "system", tmp_path, config, date=DATE)
 
     # Gathered real evidence.
     assert result.event_count >= 1  # ingestar_fonte_valida
@@ -66,15 +66,15 @@ def test_insight_job_gathers_and_emits(tmp_path: Path) -> None:
 
 def test_insight_job_never_writes_canonical_memory(tmp_path: Path) -> None:
     config = _seed(tmp_path)
-    before = {p.relative_to(tmp_path).as_posix() for p in (tmp_path / "memorias").rglob("*.md")}
-    insight_run(THEME, "sistema", tmp_path, config, date=DATE)
-    after = {p.relative_to(tmp_path).as_posix() for p in (tmp_path / "memorias").rglob("*.md")}
+    before = {p.relative_to(tmp_path).as_posix() for p in (tmp_path / "memories").rglob("*.md")}
+    insight_run(THEME, "system", tmp_path, config, date=DATE)
+    after = {p.relative_to(tmp_path).as_posix() for p in (tmp_path / "memories").rglob("*.md")}
     assert before == after, "the insight job must not create/alter memory pages"
 
 
 def test_insight_job_dry_run_writes_nothing(tmp_path: Path) -> None:
     config = WikiConfig()
-    result = insight_run("tema qualquer", "sistema", tmp_path, config, write=False)
+    result = insight_run("any theme", "system", tmp_path, config, write=False)
     assert result.packet_path is None
     assert result.proposal_path is None
     assert not (tmp_path / "data/derived/wiki/insight-jobs").exists()

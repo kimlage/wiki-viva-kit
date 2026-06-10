@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Compile the daily operation cockpit from the living wiki and Git state.
 
-The cockpit (`memorias/operacao.md`) is generated from real sources, never from
-hardcoded personal content:
+The cockpit page (config key `paths.operation_page`, default
+`memories/operations.md`) is generated from real sources, never from hardcoded
+personal content:
 
 - repo_id / owner_label come from `wiki.config.yaml` (via `load_config`);
-- decisions come from `memorias/decisoes/*.md` (one decision per file);
-- actions come from `memorias/acoes/*.md` and `memorias/acoes/pendentes.md`;
+- decisions come from `<memory_root>/<decisions_dirname>/*.md` (one per file);
+- actions come from `<memory_root>/<actions_dirname>/*.md` plus the pending
+  queue file (`<actions_dirname>/<pending_actions_filename>`);
 - context vitality is derived from `updated_at` + `stale_after_days` of the
-  context hubs (`memorias/*/index.md`);
+  context hubs (`<memory_root>/*/index.md`);
 - Git state (branch, last commit, working tree) is read from Git.
 
 `build_page(root, config)` takes an injectable `root`, so it can be exercised
@@ -19,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import os
 import re
 import subprocess
 import sys
@@ -27,7 +30,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-IGNORED_UNTRACKED_PREFIXES = ("docs/memorias/",)
+# Untracked scratch notes under the docs memory mirror do not count as a dirty
+# working tree. Superset (pt + en) for compatibility with localized repos.
+IGNORED_UNTRACKED_PREFIXES = ("docs/memorias/", "docs/memories/")
 
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
@@ -45,9 +50,11 @@ STATE_RE = re.compile(r"^(?:Estado|State):\s*`?([^`]+?)`?\s*\.?\s*$")
 TITLE_PREFIX_RE = re.compile(r"^(?:Decisao|Decision|Acao|Action)\s*-\s*")
 LIST_ITEM_RE = re.compile(r"^\s*-\s+`?([^`]+?)`?\s*$")
 
-# Deterministic sections derived from the content of memorias/ (independent of
+# Deterministic sections derived from the memory-tree content (independent of
 # date/git state): fine granularity, still used by per-section drift tests.
-CHECKED_SECTION_PREFIXES = ("Decisoes pendentes", "Acoes do dono", "Fila de acoes pendentes")
+# Their header prefixes come from the ACTIVE language's string table (see
+# checked_section_prefixes) — a fixed pt tuple silently matched nothing on en.
+CHECKED_SECTION_KEYS = ("h_decisions", "h_actions", "h_queue")
 
 # VOLATILE parts of the cockpit (depend on date, git state or karma/score). They
 # stay out of the stable view used by --check. Includes the markers in both pt AND en
@@ -83,7 +90,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "th_actions": "| Acao | Contexto | Estado | Fonte |",
         "empty_actions": "| Sem acoes registradas. | - | - | - |",
         "h_queue": "## Fila de acoes pendentes",
-        "queue_listed": "Identificadores listados em [acoes/pendentes.md](acoes/pendentes.md):",
+        "queue_listed": "Identificadores listados em [{pending_path}]({pending_path}):",
         "empty_queue": "Sem acoes pendentes registradas.",
         "h_alerts": "## Alertas",
         "alert_stale": "- A pagina de operacao fica stale apos 1 dia.",
@@ -124,7 +131,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "th_actions": "| Action | Context | State | Source |",
         "empty_actions": "| No actions recorded. | - | - | - |",
         "h_queue": "## Pending action queue",
-        "queue_listed": "Identifiers listed in [acoes/pendentes.md](acoes/pendentes.md):",
+        "queue_listed": "Identifiers listed in [{pending_path}]({pending_path}):",
         "empty_queue": "No pending actions recorded.",
         "h_alerts": "## Alerts",
         "alert_stale": "- The operations page goes stale after 1 day.",
@@ -159,8 +166,8 @@ def _cs(language: str) -> dict[str, str]:
 def stable_cockpit_view(page: str) -> str:
     """Deterministic view of the cockpit for --check.
 
-    Keeps everything that comes from the CONTENT of memorias/ and removes whatever
-    depends on date, git state or karma/score. Covers the whole body (stable
+    Keeps everything that comes from the CONTENT of the memory tree and removes
+    whatever depends on date, git state or karma/score. Covers the whole body (stable
     frontmatter, Current state, Decisions, Actions, Queue, Alerts, Links), not just
     3 sections. Commit hash equality is NOT required (by design: the recompile commit
     cannot contain its own hash, and merge commits always differ); the gate is the content.
@@ -214,11 +221,28 @@ def page_sections(page: str) -> dict[str, str]:
     return blocks
 
 
-def checked_sections(page: str) -> dict[str, str]:
+def checked_section_prefixes(language: str) -> tuple[str, ...]:
+    """Header prefixes of the deterministic sections in the active language.
+
+    Derived from the string table ("## Header" / "## Header ({owner})" shapes),
+    so the per-section drift check works for every supported language.
+    """
+    s = _cs(language)
+    prefixes: list[str] = []
+    for key in CHECKED_SECTION_KEYS:
+        header = s[key]
+        if header.startswith("## "):
+            header = header[3:]
+        prefixes.append(header.split("{", 1)[0].rstrip(" ("))
+    return tuple(prefixes)
+
+
+def checked_sections(page: str, language: str) -> dict[str, str]:
+    prefixes = checked_section_prefixes(language)
     return {
         header: body
         for header, body in page_sections(page).items()
-        if header.startswith(CHECKED_SECTION_PREFIXES)
+        if header.startswith(prefixes)
     }
 
 
@@ -291,18 +315,24 @@ class Action:
     rel_link: str
 
 
-def _rel_from_memory_root(path: Path, memory_root: Path) -> str:
-    """Link target relative to `memorias/operacao.md` (i.e. to the memory root)."""
-    return path.relative_to(memory_root).as_posix()
+def _rel_to_page_dir(path: Path, page_dir: Path) -> str:
+    """Link target relative to the cockpit page's directory (POSIX)."""
+    return Path(os.path.relpath(path, page_dir)).as_posix()
+
+
+# Sibling pages that live next to decision/action items but are not items
+# themselves. Superset (pt + en) for compatibility with localized repos.
+NON_ITEM_BASENAMES = frozenset({"index.md", "concluidas.md", "completed.md"})
 
 
 def collect_decisions(paths: WikiPaths) -> list[Decision]:
-    decisoes_dir = paths.memory_root / "decisoes"
-    if not decisoes_dir.is_dir():
+    decisions_dir = paths.decisions_dir
+    if not decisions_dir.is_dir():
         return []
+    page_dir = paths.operation_page.parent
     decisions: list[Decision] = []
-    for path in sorted(decisoes_dir.glob("*.md")):
-        if path.name in {"index.md", "concluidas.md"}:
+    for path in sorted(decisions_dir.glob("*.md")):
+        if path.name in NON_ITEM_BASENAMES:
             continue
         text = path.read_text(encoding="utf-8")
         fm = parse_frontmatter(text)
@@ -315,20 +345,28 @@ def collect_decisions(paths: WikiPaths) -> list[Decision]:
             Decision(
                 page_id=fm.get("page_id", path.stem),
                 title=title,
-                context=fm.get("context", "sistema"),
-                rel_link=_rel_from_memory_root(path, paths.memory_root),
+                context=fm.get("context", paths.config.default_context),
+                rel_link=_rel_to_page_dir(path, page_dir),
             )
         )
     return decisions
 
 
 def collect_actions(paths: WikiPaths) -> list[Action]:
-    acoes_dir = paths.memory_root / "acoes"
-    if not acoes_dir.is_dir():
+    actions_dir = paths.actions_dir
+    if not actions_dir.is_dir():
         return []
+    page_dir = paths.operation_page.parent
+    # The pending-queue file is configurable; skip the known default names too
+    # (pt + en superset) for compatibility with localized repos.
+    skip = NON_ITEM_BASENAMES | {
+        paths.pending_actions_file.name,
+        "pendentes.md",
+        "pending.md",
+    }
     actions: list[Action] = []
-    for path in sorted(acoes_dir.glob("*.md")):
-        if path.name in {"index.md", "pendentes.md", "concluidas.md"}:
+    for path in sorted(actions_dir.glob("*.md")):
+        if path.name in skip:
             continue
         text = path.read_text(encoding="utf-8")
         fm = parse_frontmatter(text)
@@ -339,23 +377,23 @@ def collect_actions(paths: WikiPaths) -> list[Action]:
             Action(
                 page_id=fm.get("page_id", path.stem),
                 title=title,
-                context=fm.get("context", "sistema"),
+                context=fm.get("context", paths.config.default_context),
                 # Empty when the page has no Estado/State line; build_page renders
                 # the language-table fallback (COCKPIT_STRINGS["no_state"]).
                 state=first_state(text),
-                rel_link=_rel_from_memory_root(path, paths.memory_root),
+                rel_link=_rel_to_page_dir(path, page_dir),
             )
         )
     return actions
 
 
 def pending_action_ids(paths: WikiPaths) -> list[str]:
-    pendentes = paths.memory_root / "acoes" / "pendentes.md"
-    if not pendentes.exists():
+    pending_file = paths.pending_actions_file
+    if not pending_file.exists():
         return []
     ids: list[str] = []
     body_started = False
-    for line in pendentes.read_text(encoding="utf-8").splitlines():
+    for line in pending_file.read_text(encoding="utf-8").splitlines():
         if line.startswith("# "):
             body_started = True
             continue
@@ -394,6 +432,7 @@ def collect_context_vitality(paths: WikiPaths, today: dt.date) -> list[ContextVi
     rows: list[ContextVitality] = []
     if not paths.memory_root.is_dir():
         return rows
+    page_dir = paths.operation_page.parent
     for index_path in sorted(paths.memory_root.glob("*/index.md")):
         fm = parse_frontmatter(index_path.read_text(encoding="utf-8"))
         if fm.get("page_type") != CONTEXT_HUB_TYPE:
@@ -403,7 +442,7 @@ def collect_context_vitality(paths: WikiPaths, today: dt.date) -> list[ContextVi
         rows.append(
             ContextVitality(
                 context=fm.get("context", index_path.parent.name),
-                rel_link=_rel_from_memory_root(index_path, paths.memory_root),
+                rel_link=_rel_to_page_dir(index_path, page_dir),
                 updated_at=updated_at,
                 stale_after_days=stale_after,
                 vitality=vitality,
@@ -450,11 +489,14 @@ def build_page(root: Path, config: WikiConfig) -> str:
     pending_ids = pending_action_ids(paths)
     vitality = collect_context_vitality(paths, today)
 
+    # The page id is derived from the configured cockpit filename, so localized
+    # repos keep generating their localized ids (e.g. operacao-* vs operations-*).
+    page_id_prefix = Path(config.paths["operation_page"]).stem
     lines: list[str] = [
         "---",
-        f"page_id: operacao-{config.repo_id}",
+        f"page_id: {page_id_prefix}-{config.repo_id}",
         "page_type: dashboard",
-        "context: sistema",
+        f"context: {config.default_context}",
         f"visibility: {config.default_visibility}",
         f"updated_at: {today.isoformat()}",
         "stale_after_days: 1",
@@ -517,7 +559,8 @@ def build_page(root: Path, config: WikiConfig) -> str:
         "",
     ]
     if pending_ids:
-        lines.append(s["queue_listed"])
+        pending_rel = _rel_to_page_dir(paths.pending_actions_file, paths.operation_page.parent)
+        lines.append(s["queue_listed"].format(pending_path=pending_rel))
         lines.append("")
         for action_id in pending_ids:
             lines.append(f"- `{action_id}`")
@@ -574,17 +617,22 @@ def build_page(root: Path, config: WikiConfig) -> str:
     else:
         lines.append(s["empty_karma"])
 
-    lines += [
-        "",
-        s["h_links"],
-        "",
-        f"- {s['link_wiki']}: [memorias/index.md](index.md)",
-        f"- {s['link_log']}: [memorias/sistema/log.md](sistema/log.md)",
-        f"- {s['link_coverage']}: [memorias/sistema/cobertura-wiki.md](sistema/cobertura-wiki.md)",
-        f"- {s['link_coverage_meth']}: "
-        "[memorias/sistema/cobertura-metodologia-v5.md](sistema/cobertura-metodologia-v5.md)",
-        "",
-    ]
+    # Resume links: labels are the repo-relative paths, targets are relative to
+    # the cockpit page's directory — both derived from the configured layout.
+    page_dir = paths.operation_page.parent
+    resume_targets = (
+        ("link_wiki", paths.memory_root / "index.md"),
+        ("link_log", paths.log_page),
+        ("link_coverage", root / config.paths["wiki_coverage_page"]),
+        ("link_coverage_meth", root / str(config.coverage["coverage_matrix_page"])),
+    )
+    lines += ["", s["h_links"], ""]
+    for label_key, target_path in resume_targets:
+        lines.append(
+            f"- {s[label_key]}: "
+            f"[{paths.rel(target_path)}]({_rel_to_page_dir(target_path, page_dir)})"
+        )
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -601,33 +649,36 @@ def main() -> int:
     config = load_config(ROOT)
     page = build_page(ROOT, config)
     paths = WikiPaths(ROOT, config)
-    target = paths.memory_root / "operacao.md"
+    target = paths.operation_page
+    rel_target = paths.rel(target)
     if args.check:
         if not target.exists():
-            print(f"{target.relative_to(ROOT)}: missing", file=sys.stderr)
+            print(f"{rel_target}: missing", file=sys.stderr)
             return 1
         committed = target.read_text(encoding="utf-8")
         if stable_cockpit_view(page) != stable_cockpit_view(committed):
             print(
-                "memorias/operacao.md out of date: recompile with "
+                f"{rel_target} out of date: recompile with "
                 "`python3 scripts/wiki_operation_compile.py --write` "
                 "(the cockpit's deterministic content diverges from a recompile at HEAD).",
                 file=sys.stderr,
             )
             return 1
-        print("operacao.md: cockpit deterministic content equal to a recompile at HEAD.")
+        print(f"{rel_target}: cockpit deterministic content equal to a recompile at HEAD.")
         return 0
     if args.write:
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(page, encoding="utf-8")
         # Stewardship: recompiling the cockpit generates a score-event (idempotent per day).
+        # event_type is FROZEN ledger vocabulary (score-events.jsonl); do not localize.
         record_event(
             paths.derived_root / "score-events.jsonl",
             event_type="recompilar_pagina_antiga",
             actor=config.owner_label,
-            context="sistema",
+            context=config.default_context,
             dedup_key=f"recompile-cockpit:{dt.date.today().isoformat()}",
         )
-        print(target.relative_to(ROOT))
+        print(rel_target)
         return 0
     print(page)
     return 0

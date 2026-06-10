@@ -8,9 +8,125 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
-IGNORED_UNTRACKED_PREFIXES = ("docs/memorias/",)
+sys.path.insert(0, str(ROOT))
+
+from wiki_core.config import load_config
+
+CONFIG = load_config(ROOT)
+_MEMORY_ROOT = CONFIG.paths["memory_root"]
+_REFERENCES_ROOT = CONFIG.paths["references_root"]
+_SYSTEM_DIRNAME = CONFIG.paths["system_dirname"]
+
+# Untracked generated docs to skip. SUPERSET of en + pt prefixes so one shared
+# codebase serves both layouts (compatibility for localized repos).
+IGNORED_UNTRACKED_PREFIXES = ("docs/memories/", "docs/memorias/")
+
+# Category labels for the generated summary (user-facing text): one string
+# table per language, identical keys, selected by config.language.
+STRINGS: dict[str, dict[str, str]] = {
+    "pt": {
+        "holons": "holons",
+        "people": "pessoas",
+        "governance": "governanca",
+        "projects": "projetos",
+        "sources": "fontes",
+        "epistemology_actions": "epistemologia-acoes",
+        "timelines": "timelines",
+        "evidence": "evidencias",
+        "coverage": "cobertura",
+        "references": "referencias",
+        "scripts": "scripts",
+        "github": "github",
+        "other": "outros",
+    },
+    "en": {
+        "holons": "holons",
+        "people": "people",
+        "governance": "governance",
+        "projects": "projects",
+        "sources": "sources",
+        "epistemology_actions": "epistemology-actions",
+        "timelines": "timelines",
+        "evidence": "evidence",
+        "coverage": "coverage",
+        "references": "references",
+        "scripts": "scripts",
+        "github": "github",
+        "other": "others",
+    },
+}
+
+# Directory name (single segment under the memory root) -> summary category.
+# SUPERSET of en + pt directory names: compatibility for localized repos that
+# pin a translated layout (same table style as the auditor's ontology map).
+CONTEXT_CATEGORY_BY_DIR: dict[str, str] = {
+    "holons": "holons",
+    "people": "people",
+    "pessoas": "people",
+    "roles": "governance",
+    "papeis": "governance",
+    "responsibilities": "governance",
+    "responsabilidades": "governance",
+    "assignments": "governance",
+    "atribuicoes": "governance",
+    "projects": "projects",
+    "projetos": "projects",
+    "initiatives": "projects",
+    "iniciativas": "projects",
+    "sources": "sources",
+    "fontes": "sources",
+    "claims": "epistemology_actions",
+    "decisions": "epistemology_actions",
+    "decisoes": "epistemology_actions",
+    "insights": "epistemology_actions",
+    "actions": "epistemology_actions",
+    "acoes": "epistemology_actions",
+    "timelines": "timelines",
+    "evidence": "evidence",
+    "evidencias": "evidence",
+    "coverage": "coverage",
+    "cobertura": "coverage",
+}
+
+# Directory name (single segment under the memory root) -> entity type. Entity
+# ids are stable English identifiers (not localized output). SUPERSET of en +
+# pt directory names: compatibility for localized repos.
+ENTITY_BY_DIR: dict[str, str] = {
+    "ontology": "ontology",
+    "ontologia": "ontology",
+    "people": "person",
+    "pessoas": "person",
+    "holons": "holon",
+    "roles": "role",
+    "papeis": "role",
+    "responsibilities": "responsibility",
+    "responsabilidades": "responsibility",
+    "assignments": "assignment",
+    "atribuicoes": "assignment",
+    "projects": "project",
+    "projetos": "project",
+    "initiatives": "initiative",
+    "iniciativas": "initiative",
+    "sources": "source",
+    "fontes": "source",
+    "claims": "claim",
+    "decisions": "decision",
+    "decisoes": "decision",
+    "insights": "insight",
+    "actions": "action",
+    "acoes": "action",
+    "timelines": "timeline",
+    "evidence": "evidence",
+    "evidencias": "evidence",
+    "coverage": "coverage",
+    "cobertura": "coverage",
+}
+
+
+def _label(key: str) -> str:
+    table = STRINGS.get(CONFIG.language, STRINGS["en"])
+    return table[key]
 
 
 def git(args: list[str]) -> str:
@@ -42,71 +158,39 @@ def diff_name_status() -> list[tuple[str, str]]:
     return sorted((status, path) for path, status in rows.items())
 
 
+def _memory_segment(path: str) -> str | None:
+    """First directory segment of ``path`` under the memory root, if any."""
+    prefix = f"{_MEMORY_ROOT}/"
+    if not path.startswith(prefix):
+        return None
+    return path[len(prefix):].split("/", 1)[0]
+
+
 def context_for(path: str) -> str:
-    if path.startswith("memorias/financeiro/"):
-        return "financeiro"
-    if path.startswith("memorias/documentos/"):
-        return "documentos"
-    if path.startswith("memorias/profissional/"):
-        return "profissional"
-    if path.startswith("memorias/empresas/"):
-        return "empresas"
-    if path.startswith("memorias/projetos-pessoais/"):
-        return "projetos-pessoais"
-    if path.startswith("memorias/sistema/"):
-        return "sistema"
-    if path.startswith("memorias/holons/"):
-        return "holons"
-    if path.startswith("memorias/pessoas/"):
-        return "pessoas"
-    if path.startswith("memorias/papeis/") or path.startswith("memorias/responsabilidades/") or path.startswith("memorias/atribuicoes/"):
-        return "governanca"
-    if path.startswith("memorias/projetos/") or path.startswith("memorias/iniciativas/"):
-        return "projetos"
-    if path.startswith("memorias/fontes/"):
-        return "fontes"
-    if path.startswith("memorias/claims/") or path.startswith("memorias/decisoes/") or path.startswith("memorias/insights/") or path.startswith("memorias/acoes/"):
-        return "epistemologia-acoes"
-    if path.startswith("memorias/timelines/"):
-        return "timelines"
-    if path.startswith("memorias/evidencias/"):
-        return "evidencias"
-    if path.startswith("memorias/cobertura/"):
-        return "cobertura"
-    if path.startswith("docs/referencias/"):
-        return "referencias"
+    segment = _memory_segment(path)
+    if segment is not None:
+        if segment in CONFIG.contexts:
+            return segment
+        if segment == _SYSTEM_DIRNAME:
+            return _SYSTEM_DIRNAME
+        category = CONTEXT_CATEGORY_BY_DIR.get(segment)
+        if category is not None:
+            return _label(category)
+        return _label("other")
+    if path.startswith(f"{_REFERENCES_ROOT}/"):
+        return _label("references")
     if path.startswith("scripts/"):
-        return "scripts"
+        return _label("scripts")
     if path.startswith(".github/"):
-        return "github"
-    return "outros"
+        return _label("github")
+    return _label("other")
 
 
 def entity_for(path: str) -> str:
-    mapping = {
-        "memorias/pessoas/": "person",
-        "memorias/holons/": "holon",
-        "memorias/papeis/": "role",
-        "memorias/responsabilidades/": "responsibility",
-        "memorias/atribuicoes/": "assignment",
-        "memorias/projetos/": "project",
-        "memorias/iniciativas/": "initiative",
-        "memorias/fontes/": "source",
-        "memorias/claims/": "claim",
-        "memorias/decisoes/": "decision",
-        "memorias/insights/": "insight",
-        "memorias/acoes/": "action",
-        "memorias/timelines/": "timeline",
-        "memorias/evidencias/": "evidence",
-        "memorias/cobertura/": "coverage",
-        "memorias/ontologia/": "ontology",
-    }
-    for prefix, entity in mapping.items():
-        if path.startswith(prefix):
-            return entity
-    if path.startswith("memorias/"):
-        return "context-memory"
-    if path.startswith("docs/referencias/templates/wiki/"):
+    segment = _memory_segment(path)
+    if segment is not None:
+        return ENTITY_BY_DIR.get(segment, "context-memory")
+    if path.startswith(f"{_REFERENCES_ROOT}/templates/wiki/"):
         return "wiki-template"
     if path.startswith("scripts/"):
         return "script"
@@ -145,14 +229,8 @@ def main() -> int:
     print("## Privacy review hints")
     print()
     # Context-driven (no personal context hardcoded in the shared kit).
-    try:
-        sys.path.insert(0, str(ROOT))
-        from wiki_core.config import load_config  # noqa: PLC0415
-
-        for ctx in load_config(ROOT).contexts:
-            print(f"- Review any `memorias/{ctx}` changes for sensitive detail.")
-    except Exception:  # pragma: no cover - hints are best-effort
-        pass
+    for ctx in CONFIG.contexts:
+        print(f"- Review any `{_MEMORY_ROOT}/{ctx}` changes for sensitive detail.")
     print("- Confirm `docs/` changes are references/templates/snapshots, not live memory.")
     print()
     print("## Validation checklist")

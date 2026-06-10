@@ -9,10 +9,10 @@ This script does NOT call any model. It:
     `required_context_pass` is enabled.
 
 Examples:
-  python3 scripts/wiki_llm_context_pass.py --source X.pdf --context sistema --emit-request
-  python3 scripts/wiki_llm_context_pass.py --query "pending decisions" --context sistema
-  python3 scripts/wiki_llm_context_pass.py --record-result result.json --context sistema
-  python3 scripts/wiki_llm_context_pass.py --source X.pdf --context sistema --check
+  python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --emit-request
+  python3 scripts/wiki_llm_context_pass.py --query "pending decisions" --context system
+  python3 scripts/wiki_llm_context_pass.py --record-result result.json --context system
+  python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --check
 """
 
 from __future__ import annotations

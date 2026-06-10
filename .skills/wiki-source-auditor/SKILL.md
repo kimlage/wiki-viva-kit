@@ -7,7 +7,7 @@ description: Audit source traceability, manifests, extracted text, chunks, index
 
 ## Checks
 
-- Source original exists or has live-source policy.
+- Original source exists or has a live-source policy.
 - Local source has hash, size and source ID.
 - Derived manifest, text, chunks and LLM plan exist or have explicit skip reason.
 - Markdown links point to real local targets when local.

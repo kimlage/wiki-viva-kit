@@ -18,6 +18,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 WIKI_AUDIT_PATH = ROOT / "scripts" / "wiki_audit.py"
 
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from wiki_core.config import WikiConfig, load_config
+
 
 def _load_wiki_audit():
     # Ensure ROOT is importable for the module's internal `wiki_core` imports.
@@ -43,18 +48,18 @@ def audit():
 
 
 def test_absolute_user_path_re_matches_and_stops_at_space(audit):
-    text = "/Users/foo/bar/baz.md sem link"
+    text = "/Users/foo/bar/baz.md without link"
     match = audit.ABSOLUTE_USER_PATH_RE.search(text)
     assert match is not None
     matched = match.group(0)
     assert matched == "/Users/foo/bar/baz.md"
-    # Regression: the regex must stop at the space and not swallow "sem link".
+    # Regression: the regex must stop at the space and not swallow "without link".
     assert " " not in matched
-    assert "sem" not in matched
+    assert "without" not in matched
 
 
 def test_absolute_user_path_re_does_not_match_relative(audit):
-    assert audit.ABSOLUTE_USER_PATH_RE.search("memorias/financeiro/index.md") is None
+    assert audit.ABSOLUTE_USER_PATH_RE.search("memories/finance/index.md") is None
 
 
 # ---------------------------------------------------------------------------
@@ -68,8 +73,8 @@ def test_home_traversal_re_matches_downloads_traversal(audit):
 
 def test_home_traversal_re_ignores_normal_relative_path(audit):
     # A normal relative path (no repeated parent traversal into Downloads).
-    assert audit.HOME_TRAVERSAL_RE.search("memorias/sistema/log.md") is None
-    assert audit.HOME_TRAVERSAL_RE.search("../docs/referencias/nota.md") is None
+    assert audit.HOME_TRAVERSAL_RE.search("memories/system/log.md") is None
+    assert audit.HOME_TRAVERSAL_RE.search("../docs/references/note.md") is None
 
 
 # ---------------------------------------------------------------------------
@@ -93,26 +98,22 @@ def test_placeholder_phrase_matches(audit):
 # ---------------------------------------------------------------------------
 
 
-class _CtxConfig:
-    def __init__(self, contexts):
-        self.contexts = tuple(contexts)
-
-
 def test_primary_pages_core_plus_config_contexts(audit):
-    pages = audit.primary_pages(_CtxConfig(["alpha", "beta"]))
-    # Method core always present.
-    assert "memorias/index.md" in pages
-    assert "memorias/sistema/log.md" in pages
+    pages = audit.primary_pages(WikiConfig(contexts=("alpha", "beta")))
+    # Method core (English defaults) always present.
+    assert "memories/index.md" in pages
+    assert "memories/system/log.md" in pages
     # One hub per context declared in the config (nothing hardcoded).
-    assert "memorias/alpha/index.md" in pages
-    assert "memorias/beta/index.md" in pages
+    assert "memories/alpha/index.md" in pages
+    assert "memories/beta/index.md" in pages
 
 
 def test_primary_pages_no_contexts_is_core_only(audit):
-    pages = audit.primary_pages(_CtxConfig([]))
-    assert pages == audit.CORE_PAGES
-    # No personal context hardcoded.
-    assert not any("financeiro" in p for p in pages)
+    config = WikiConfig()
+    pages = audit.primary_pages(config)
+    assert pages == list(config.audit["core_pages"])
+    # No personal context or localized layout hardcoded.
+    assert not any("financeiro" in p or "memorias" in p for p in pages)
 
 
 # ---------------------------------------------------------------------------
@@ -121,9 +122,9 @@ def test_primary_pages_no_contexts_is_core_only(audit):
 
 
 VALID_FRONTMATTER = """---
-page_id: pagina-teste
+page_id: test-page
 page_type: dashboard
-context: contexto de teste
+context: test context
 visibility: private_self
 updated_at: 2026-06-09
 stale_after_days: 7
@@ -132,26 +133,26 @@ gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 ---
 
-# Corpo
+# Body
 
-Conteudo de teste.
+Test content.
 """
 
 
 def test_parse_frontmatter_valid(tmp_path, audit):
-    path = tmp_path / "valida.md"
+    path = tmp_path / "valid.md"
     path.write_text(VALID_FRONTMATTER, encoding="utf-8")
     values, errors = audit.parse_frontmatter(path)
     assert errors == []
     for key in audit.REQUIRED_KEYS:
         assert key in values
-    assert values["page_id"] == "pagina-teste"
+    assert values["page_id"] == "test-page"
     assert values["page_type"] == "dashboard"
 
 
 def test_parse_frontmatter_missing_block(tmp_path, audit):
-    path = tmp_path / "sem-frontmatter.md"
-    path.write_text("# Sem frontmatter\n\nso corpo aqui.\n", encoding="utf-8")
+    path = tmp_path / "no-frontmatter.md"
+    path.write_text("# No frontmatter\n\nbody only here.\n", encoding="utf-8")
     values, errors = audit.parse_frontmatter(path)
     assert values == {}
     assert "missing frontmatter block" in errors
@@ -159,7 +160,7 @@ def test_parse_frontmatter_missing_block(tmp_path, audit):
 
 def test_parse_frontmatter_strips_quotes(tmp_path, audit):
     # Finding 15: quoted visibility escaped the public PII block.
-    path = tmp_path / "aspas.md"
+    path = tmp_path / "quoted.md"
     path.write_text(
         '---\npage_id: p\npage_type: dashboard\ncontext: c\n'
         'visibility: "public_candidate"\nupdated_at: 2026-06-09\n'
@@ -182,33 +183,28 @@ def _seed_memory_page(tmp_path, audit, monkeypatch, rel, *, stale_days, updated,
     fm = f"---\nvisibility: private_self\nupdated_at: {updated}\n"
     if stale_days is not None:
         fm += f"stale_after_days: {stale_days}\n"
-    fm += extra + "---\n\n# pagina\n\ncorpo.\n"
+    fm += extra + "---\n\n# page\n\nbody.\n"
     page.write_text(fm, encoding="utf-8")
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     monkeypatch.setattr(audit, "markdown_files", lambda: [rel])
     monkeypatch.setattr(audit, "primary_pages", lambda config: ())
 
 
-class _CfgPaths:
-    paths = {"memory_root": "memorias"}
-    contexts = ()
-
-
 def test_stale_coverage_warns_stale_outside_primary(tmp_path, audit, monkeypatch):
     _seed_memory_page(
-        tmp_path, audit, monkeypatch, "memorias/x/old.md", stale_days=7, updated="2020-01-01"
+        tmp_path, audit, monkeypatch, "memories/x/old.md", stale_days=7, updated="2020-01-01"
     )
     warnings: list[str] = []
-    audit.audit_stale_coverage(warnings, _CfgPaths())
+    audit.audit_stale_coverage(warnings, WikiConfig())
     assert any("stale page" in w for w in warnings)
 
 
 def test_stale_coverage_reports_gap_without_field(tmp_path, audit, monkeypatch):
     _seed_memory_page(
-        tmp_path, audit, monkeypatch, "memorias/x/nofield.md", stale_days=None, updated="2026-06-09"
+        tmp_path, audit, monkeypatch, "memories/x/nofield.md", stale_days=None, updated="2026-06-09"
     )
     warnings: list[str] = []
-    audit.audit_stale_coverage(warnings, _CfgPaths())
+    audit.audit_stale_coverage(warnings, WikiConfig())
     assert any("no declared freshness" in w for w in warnings)
 
 
@@ -217,13 +213,13 @@ def test_stale_coverage_exempt_suppresses(tmp_path, audit, monkeypatch):
         tmp_path,
         audit,
         monkeypatch,
-        "memorias/x/exempt.md",
+        "memories/x/exempt.md",
         stale_days=None,
         updated="2026-06-09",
         extra="stale_exempt: true\n",
     )
     warnings: list[str] = []
-    audit.audit_stale_coverage(warnings, _CfgPaths())
+    audit.audit_stale_coverage(warnings, WikiConfig())
     assert warnings == []
 
 
@@ -232,28 +228,15 @@ def test_stale_coverage_exempt_suppresses(tmp_path, audit, monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-class _PiiConfig:
-    """Minimal stand-in for WikiConfig (only the two fields audit_pii reads)."""
-
-    default_visibility = "private_self"
-    private_sensitive_allowed = True
-
-
-class _StrictPiiConfig(_PiiConfig):
-    """Opt-in strict mode: the owner disabled PII in private pages."""
-
-    private_sensitive_allowed = False
-
-
 def _seed_private_page_with_pii(tmp_path, audit, monkeypatch):
-    page = tmp_path / "memorias" / "pii.md"
+    page = tmp_path / "memories" / "pii.md"
     page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text(
-        "---\nvisibility: private_self\n---\n\n# Pagina\n\nCPF: 529.982.247-25\n",
+        "---\nvisibility: private_self\n---\n\n# Page\n\nCPF: 529.982.247-25\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(audit, "ROOT", tmp_path)
-    monkeypatch.setattr(audit, "markdown_files", lambda: ["memorias/pii.md"])
+    monkeypatch.setattr(audit, "markdown_files", lambda: ["memories/pii.md"])
 
 
 def test_audit_pii_private_is_silent(tmp_path, audit, monkeypatch):
@@ -261,7 +244,7 @@ def test_audit_pii_private_is_silent(tmp_path, audit, monkeypatch):
     _seed_private_page_with_pii(tmp_path, audit, monkeypatch)
     errors: list[str] = []
     warnings: list[str] = []
-    audit.audit_pii(errors, warnings, _PiiConfig(), public_export=False)
+    audit.audit_pii(errors, warnings, WikiConfig(), public_export=False)
     assert errors == []
     assert warnings == []
 
@@ -270,7 +253,7 @@ def test_audit_pii_public_export_promotes_to_error(tmp_path, audit, monkeypatch)
     _seed_private_page_with_pii(tmp_path, audit, monkeypatch)
     errors: list[str] = []
     warnings: list[str] = []
-    audit.audit_pii(errors, warnings, _PiiConfig(), public_export=True)
+    audit.audit_pii(errors, warnings, WikiConfig(), public_export=True)
     assert any("cpf" in e for e in errors)
     assert warnings == []
 
@@ -280,29 +263,31 @@ def test_audit_pii_strict_mode_errors_in_private(tmp_path, audit, monkeypatch):
     _seed_private_page_with_pii(tmp_path, audit, monkeypatch)
     errors: list[str] = []
     warnings: list[str] = []
-    audit.audit_pii(errors, warnings, _StrictPiiConfig(), public_export=False)
+    audit.audit_pii(
+        errors, warnings, WikiConfig(private_sensitive_allowed=False), public_export=False
+    )
     assert any("private_sensitive_allowed=false" in e for e in errors)
 
 
 def test_strict_local_requires_derived_link_to_exist(tmp_path, audit, monkeypatch):
     # Link to a nonexistent derived (gitignored) artifact:
     # tolerated by default, but an error in --strict-local.
-    page = tmp_path / "memorias" / "nota.md"
+    page = tmp_path / "memories" / "note.md"
     page.parent.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(audit, "ROOT", tmp_path)
-    href = "../data/derived/wiki/inexistente.json"
+    href = "../data/derived/wiki/missing.json"
 
     monkeypatch.setattr(audit, "STRICT_LOCAL", False)
-    assert audit.local_link_target_exists("memorias/nota.md", href) is True
+    assert audit.local_link_target_exists("memories/note.md", href) is True
 
     monkeypatch.setattr(audit, "STRICT_LOCAL", True)
-    assert audit.local_link_target_exists("memorias/nota.md", href) is False
+    assert audit.local_link_target_exists("memories/note.md", href) is False
 
     # If the artifact exists, --strict-local approves.
-    real = tmp_path / "data/derived/wiki/existe.json"
+    real = tmp_path / "data/derived/wiki/present.json"
     real.parent.mkdir(parents=True, exist_ok=True)
     real.write_text("{}\n", encoding="utf-8")
-    assert audit.local_link_target_exists("memorias/nota.md", "../data/derived/wiki/existe.json") is True
+    assert audit.local_link_target_exists("memories/note.md", "../data/derived/wiki/present.json") is True
 
 
 # ---------------------------------------------------------------------------
@@ -418,18 +403,18 @@ def test_parse_frontmatter_is_memoized_per_path(tmp_path, audit):
     path = tmp_path / "page.md"
     path.write_text(VALID_FRONTMATTER, encoding="utf-8")
     first, _ = audit.parse_frontmatter(path)
-    assert first["page_id"] == "pagina-teste"
+    assert first["page_id"] == "test-page"
 
     # Rewrite the file: the memoized parse still returns the cached value...
-    path.write_text(VALID_FRONTMATTER.replace("pagina-teste", "outra-pagina"), encoding="utf-8")
+    path.write_text(VALID_FRONTMATTER.replace("test-page", "other-page"), encoding="utf-8")
     cached, _ = audit.parse_frontmatter(path)
-    assert cached["page_id"] == "pagina-teste"
+    assert cached["page_id"] == "test-page"
     assert audit.parse_frontmatter.cache_info().hits >= 1
 
     # ...until cache_clear() (main() clears it on every invocation).
     audit.parse_frontmatter.cache_clear()
     fresh, _ = audit.parse_frontmatter(path)
-    assert fresh["page_id"] == "outra-pagina"
+    assert fresh["page_id"] == "other-page"
 
 
 def test_main_clears_parse_frontmatter_cache(audit):
@@ -442,15 +427,120 @@ def test_main_clears_parse_frontmatter_cache(audit):
 
 def test_audit_pii_public_visibility_errors_without_export(tmp_path, audit, monkeypatch):
     # A page marked public (public_candidate) blocks PII even without --public-export.
-    page = tmp_path / "memorias" / "pub.md"
+    page = tmp_path / "memories" / "pub.md"
     page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text(
-        "---\nvisibility: public_candidate\n---\n\n# Pagina\n\nCPF: 529.982.247-25\n",
+        "---\nvisibility: public_candidate\n---\n\n# Page\n\nCPF: 529.982.247-25\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(audit, "ROOT", tmp_path)
-    monkeypatch.setattr(audit, "markdown_files", lambda: ["memorias/pub.md"])
+    monkeypatch.setattr(audit, "markdown_files", lambda: ["memories/pub.md"])
     errors: list[str] = []
     warnings: list[str] = []
-    audit.audit_pii(errors, warnings, _PiiConfig(), public_export=False)
+    audit.audit_pii(errors, warnings, WikiConfig(), public_export=False)
     assert any("cpf" in e for e in errors)
+
+
+# ---------------------------------------------------------------------------
+# Config-driven layout: English defaults + pt-pinned compatibility
+# ---------------------------------------------------------------------------
+
+
+def test_local_path_regexes_follow_configured_roots(audit):
+    prefix_re, inline_re, bare_re = audit._compile_local_path_regexes(WikiConfig())
+    # English defaults: memories/docs/data/scripts/.github/.skills.
+    assert bare_re.search("see memories/system/log.md here")
+    assert prefix_re.match("memories/system/log.md")
+    assert inline_re.search("`memories/system/log.md`")
+    # The pt layout is NOT baked in: it only matches when configured.
+    assert bare_re.search("see memorias/sistema/log.md here") is None
+    assert prefix_re.match("memorias/sistema/log.md") is None
+
+
+def test_ontology_dir_vocabulary_accepts_en_and_pt_dirnames(audit):
+    en = WikiConfig()
+    assert audit.ontology_dir_for("memories/people/ana.md", en) == "memories/people"
+    assert "person" in audit.ONTOLOGY_DIRNAME_TYPES["people"]
+    # Compatibility superset: pt dirnames share the same page-type vocabulary.
+    assert audit.ONTOLOGY_DIRNAME_TYPES["pessoas"] == audit.ONTOLOGY_DIRNAME_TYPES["people"]
+    assert audit.ONTOLOGY_DIRNAME_TYPES["fontes"] == audit.ONTOLOGY_DIRNAME_TYPES["sources"]
+    # A file directly under the memory root is not an ontology page.
+    assert audit.ontology_dir_for("memories/people", en) is None
+    assert audit.ontology_dir_for("docs/people/x.md", en) is None
+
+
+def test_relation_prefixes_accept_en_and_pt_generated_ids(audit):
+    # Superset: pt repos keep generating pt ids; en repos generate en ids.
+    assert "person-" in audit.RELATION_PREFIXES["owner"]
+    assert "pessoa-" in audit.RELATION_PREFIXES["owner"]
+    assert "decision-" in audit.RELATION_PREFIXES["decisions"]
+    assert "decisao-" in audit.RELATION_PREFIXES["decisions"]
+
+
+PT_LAYOUT_CONFIG = """\
+repo_id: pt-fixture
+language: pt
+contexts: financeiro
+default_context: sistema
+paths:
+  memory_root: memorias
+  references_root: docs/referencias
+  system_dirname: sistema
+  ingest_dirname: ingestao
+  events_dirname: eventos
+  archive_dirname: arquivo
+  decisions_dirname: decisoes
+  actions_dirname: acoes
+  pending_actions_filename: pendentes.md
+  sources_dirname: fontes
+  operation_page: memorias/operacao.md
+  command_reference_page: memorias/sistema/wiki/referencia-comandos.md
+  wiki_coverage_page: memorias/sistema/cobertura-wiki.md
+audit:
+  core_pages:
+    - memorias/index.md
+    - memorias/sistema/log.md
+"""
+
+
+def test_pt_pinned_layout_keeps_localized_repo_working(tmp_path, audit, monkeypatch):
+    """Localized-layout compat: a repo pinning the pt layout in wiki.config.yaml
+    must drive every gate to the pt paths (nothing falls back to the en defaults)."""
+    (tmp_path / "wiki.config.yaml").write_text(PT_LAYOUT_CONFIG, encoding="utf-8")
+    config = load_config(tmp_path)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+
+    # Required pages: pinned pt core + pt context hubs.
+    assert audit.primary_pages(config) == [
+        "memorias/index.md",
+        "memorias/sistema/log.md",
+        "memorias/financeiro/index.md",
+    ]
+
+    # Ontology dirs resolve under the pt memory root.
+    assert audit.ontology_dir_for("memorias/pessoas/ana.md", config) == "memorias/pessoas"
+
+    # Local-path regexes rebuild around the pt roots.
+    _, _, bare_re = audit._compile_local_path_regexes(config)
+    assert bare_re.search("ver memorias/sistema/log.md")
+    assert bare_re.search("see memories/system/log.md") is None
+
+    # Operation cockpit gate points at memorias/operacao.md.
+    errors: list[str] = []
+    audit.audit_operation_page(errors, [], config)
+    assert any(e.startswith("memorias/operacao.md: missing operation cockpit") for e in errors)
+
+    # Ingestion gate fails loud at the pt events dir.
+    errors = []
+    audit.audit_ingestion_events(errors, config)
+    assert errors == [
+        "memorias/sistema/ingestao/eventos: missing normalized event directory"
+    ]
+
+    # Command-reference gate targets the pt page (fail loud: CLIs exist, page missing).
+    monkeypatch.setattr(audit, "tracked_files", lambda: ["scripts/wiki_a.py"])
+    errors = []
+    audit.audit_command_reference(errors, config)
+    assert errors and errors[0].startswith(
+        "memorias/sistema/wiki/referencia-comandos.md: missing command reference page"
+    )

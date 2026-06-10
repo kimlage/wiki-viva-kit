@@ -2,14 +2,14 @@
 """Operational karma and context vitality (gamification layer of the living wiki).
 
 This script records and aggregates scoring events, without a toxic global ranking.
-Acts as a "Score Keeper": APPEND-ONLY to data/derived/wiki/score-events.jsonl,
-never editing history.
+Acts as a "Score Keeper": APPEND-ONLY to score-events.jsonl under the configured
+derived root (default data/derived/wiki/), never editing history.
 
 Examples:
   python3 scripts/wiki_score.py --add --event ingestar_fonte_valida \\
-      --actor owner --context sistema
+      --actor owner --context system
   python3 scripts/wiki_score.py --add --event criar_insight_aceito \\
-      --actor owner --context financeiro --quality 1.0 --impact 3 --rare
+      --actor owner --context finance --quality 1.0 --impact 3 --rare
   python3 scripts/wiki_score.py --summary
   python3 scripts/wiki_score.py --dashboard
 """
@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from wiki_core import load_config
+from wiki_core.paths import WikiPaths
 from wiki_core.score import (
     DIMENSIONS,
     EVENT_TYPES,
@@ -38,7 +39,9 @@ from wiki_core.score import (
     record_event,
 )
 
-EVENTS_PATH = ROOT / "data" / "derived" / "wiki" / "score-events.jsonl"
+# Ledger location follows the configured derived root (localized repos pin it).
+CONFIG = load_config(ROOT)
+EVENTS_PATH = WikiPaths(ROOT, CONFIG).derived_root / "score-events.jsonl"
 
 
 def _add(args: argparse.Namespace, events_path: Path) -> int:
@@ -156,13 +159,13 @@ def main(argv: list[str] | None = None) -> int:
         "--events-path",
         type=Path,
         default=EVENTS_PATH,
-        help="JSONL path (default data/derived/wiki/score-events.jsonl)",
+        help=f"JSONL path (default {EVENTS_PATH.relative_to(ROOT).as_posix()})",
     )
 
     args = parser.parse_args(argv)
     events_path = Path(args.events_path)
     # Badge/level names in the generated output follow the config language.
-    language = load_config(ROOT).language
+    language = CONFIG.language
 
     if args.add:
         if not (args.event and args.actor and args.context):

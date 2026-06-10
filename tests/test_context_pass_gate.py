@@ -74,7 +74,7 @@ def test_corrupt_request_is_error_not_skipped(tmp_path, monkeypatch):
 def test_pending_request_with_live_chunks_is_error(tmp_path, monkeypatch):
     # A live source (chunks file on disk) with a pending chunk keeps failing.
     audit = _load("scripts/wiki_audit.py", "wa_gate_live")
-    _seed_request(tmp_path, "fonte-viva", ["pending-key"], with_chunks=True)
+    _seed_request(tmp_path, "live-source", ["pending-key"], with_chunks=True)
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     errors: list[str] = []
     warnings: list[str] = []
@@ -102,21 +102,21 @@ def test_orphan_gcd_source_request_is_warning_not_error(tmp_path, monkeypatch):
     # The chunks file data/derived/wiki/chunks/<source_id>.json no longer exists
     # (source re-edited/gc'd): the stale request must not lock the gate.
     audit = _load("scripts/wiki_audit.py", "wa_gate_gc")
-    _seed_request(tmp_path, "fonte-removida", ["pending-key"], with_chunks=False)
+    _seed_request(tmp_path, "gone-source", ["pending-key"], with_chunks=False)
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     errors: list[str] = []
     warnings: list[str] = []
     audit.audit_context_pass_gate(errors, WikiConfig(), warnings)
     assert errors == []
     assert len(warnings) == 1
-    assert "orphan" in warnings[0] and "fonte-removida" in warnings[0]
+    assert "orphan" in warnings[0] and "gone-source" in warnings[0]
 
 
 def test_orphan_warnings_are_aggregated(tmp_path, monkeypatch):
     # Multiple orphans produce ONE aggregated warning, not one per request.
     audit = _load("scripts/wiki_audit.py", "wa_gate_agg")
     _seed_request(tmp_path, "query-aaa", ["k1"], with_chunks=False)
-    _seed_request(tmp_path, "fonte-sumida", ["k2"], with_chunks=False)
+    _seed_request(tmp_path, "lost-source", ["k2"], with_chunks=False)
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     errors: list[str] = []
     warnings: list[str] = []
@@ -176,7 +176,7 @@ def test_record_result_rejects_unrequested_cache_key(tmp_path, monkeypatch):
     )
 
     forged = tmp_path / "forged.json"
-    forged.write_text(json.dumps({"cache_key": "inventado-999"}), encoding="utf-8")
+    forged.write_text(json.dumps({"cache_key": "made-up-999"}), encoding="utf-8")
     rc = cp._record_results(paths, str(forged))
     assert rc == 2  # rejected for provenance
 
@@ -248,7 +248,7 @@ def test_emitted_cache_keys_warns_on_corrupt_request(tmp_path, capsys):
     "bad_key",
     [
         "../../memorias/sistema/log",  # traversal
-        "inventado-999",  # not hex
+        "made-up-999",  # not hex
         "A" * 64,  # uppercase hex is not what cache_key() produces
         "a" * 63,  # wrong length
         "",

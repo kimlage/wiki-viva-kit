@@ -103,8 +103,9 @@ def _gather_chunks(paths: WikiPaths, theme: str, limit: int) -> list[dict[str, o
     return rows
 
 
-def _gather_pages(root: Path, theme: str, limit: int = 10) -> list[str]:
-    memory_root = root / "memorias"
+def _gather_pages(paths: WikiPaths, theme: str, limit: int = 10) -> list[str]:
+    root = paths.root
+    memory_root = paths.memory_root  # configured layout, never hardcoded
     if not memory_root.exists():
         return []
     needle = theme.lower()
@@ -238,7 +239,7 @@ def run(
 
     events, karma_total = _gather_events(paths, context)
     chunks = _gather_chunks(paths, theme, limit)
-    pages = _gather_pages(root, theme)
+    pages = _gather_pages(paths, theme)
 
     packet = {
         "schema_version": SCHEMA_VERSION,

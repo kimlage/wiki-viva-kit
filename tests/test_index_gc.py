@@ -16,7 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from wiki_core.config import WikiConfig, load_config
 from wiki_core.index.sqlite import build_index, check_index, index_source, prune_index, search
+from wiki_core.paths import WikiPaths
 
 
 def _write_chunks(directory: Path, source_id: str, texts: list[str]) -> Path:
@@ -148,8 +150,9 @@ def _load_gc():
 
 
 class _Paths:
-    def __init__(self, base: Path, config):
-        self.config = config
+    """Minimal stand-in for WikiPaths exposing only the derived-artifact dirs."""
+
+    def __init__(self, base: Path):
         self.source_manifests = base / "source-manifests"
         self.source_text = base / "source-text"
         self.chunks = base / "chunks"
@@ -168,10 +171,7 @@ def test_gc_finds_orphans(tmp_path: Path) -> None:
     (base / "chunks" / "src-orphan.json").write_text("{}", encoding="utf-8")
     (base / "extraction-events" / "src-orphan-llm-context-request.json").write_text("{}", encoding="utf-8")
 
-    class _Cfg:
-        paths = {"memory_root": "memorias"}
-
-    paths = _Paths(base, _Cfg())
+    paths = _Paths(base)
     orphans = gc.find_orphans(paths, live={"src-live"})
     flat = {p.name for v in orphans.values() for p in v}
     assert "src-orphan.json" in flat
@@ -199,17 +199,40 @@ def _proposal(path: Path, state: str, source_id: str) -> None:
 
 
 def test_live_source_ids_excludes_rejected_and_archived(tmp_path: Path) -> None:
+    # English default layout (no `paths` pin): memories/system/ingestion.
     gc = _load_gc()
-    ingest = tmp_path / "memorias" / "sistema" / "ingestao"
+    paths = WikiPaths(tmp_path, WikiConfig())
+    ingest = paths.ingest_dir
+    assert ingest == tmp_path / "memories" / "system" / "ingestion"
     _proposal(ingest / "ok.md", "approved", "src-live")
     _proposal(ingest / "old.md", "superseded", "src-superseded")
     # rejected is terminal too: its artifacts must be collectable, like superseded.
     _proposal(ingest / "no.md", "rejected", "src-rejected")
-    # arquivo/ is not scanned (flat glob by design): archived sources are non-live.
+    # archive/ is not scanned (flat glob by design): archived sources are non-live.
+    _proposal(ingest / "archive" / "gone.md", "archived", "src-archived")
+
+    assert gc.live_source_ids(paths) == {"src-live"}
+
+
+def test_live_source_ids_follows_localized_layout(tmp_path: Path) -> None:
+    # Compatibility for localized repos: a wiki.config.yaml pinning the pt
+    # layout must drive the scan to memorias/sistema/ingestao.
+    gc = _load_gc()
+    (tmp_path / "wiki.config.yaml").write_text(
+        "language: pt\n"
+        "default_context: sistema\n"
+        "paths:\n"
+        "  memory_root: memorias\n"
+        "  system_dirname: sistema\n"
+        "  ingest_dirname: ingestao\n"
+        "  archive_dirname: arquivo\n",
+        encoding="utf-8",
+    )
+    paths = WikiPaths(tmp_path, load_config(tmp_path))
+    ingest = paths.ingest_dir
+    assert ingest == tmp_path / "memorias" / "sistema" / "ingestao"
+    _proposal(ingest / "ok.md", "approved", "src-live")
+    _proposal(ingest / "old.md", "superseded", "src-superseded")
     _proposal(ingest / "arquivo" / "gone.md", "archived", "src-archived")
 
-    class _Cfg:
-        paths = {"memory_root": "memorias"}
-
-    paths = _Paths(tmp_path / "derived", _Cfg())
-    assert gc.live_source_ids(tmp_path, paths) == {"src-live"}
+    assert gc.live_source_ids(paths) == {"src-live"}

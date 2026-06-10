@@ -28,6 +28,64 @@ class WikiPaths:
         return self.root / self.config.paths["derived_root"]
 
     @property
+    def skills_root(self) -> Path:
+        return self.root / self.config.paths["skills_root"]
+
+    # ---- composed layout (memory subtree) ----------------------------------
+
+    @property
+    def system_dir(self) -> Path:
+        return self.memory_root / self.config.paths["system_dirname"]
+
+    @property
+    def ingest_dir(self) -> Path:
+        return self.system_dir / self.config.paths["ingest_dirname"]
+
+    @property
+    def ingest_events_dir(self) -> Path:
+        return self.ingest_dir / self.config.paths["events_dirname"]
+
+    @property
+    def ingest_archive_dir(self) -> Path:
+        return self.ingest_dir / self.config.paths["archive_dirname"]
+
+    @property
+    def decisions_dir(self) -> Path:
+        return self.memory_root / self.config.paths["decisions_dirname"]
+
+    @property
+    def actions_dir(self) -> Path:
+        return self.memory_root / self.config.paths["actions_dirname"]
+
+    @property
+    def pending_actions_file(self) -> Path:
+        return self.actions_dir / self.config.paths["pending_actions_filename"]
+
+    @property
+    def sources_dir(self) -> Path:
+        return self.memory_root / self.config.paths["sources_dirname"]
+
+    @property
+    def log_page(self) -> Path:
+        return self.system_dir / "log.md"
+
+    @property
+    def operation_page(self) -> Path:
+        return self.root / self.config.paths["operation_page"]
+
+    @property
+    def command_reference_page(self) -> Path:
+        return self.root / self.config.paths["command_reference_page"]
+
+    @property
+    def templates_root(self) -> Path:
+        return self.references_root / "templates" / "wiki"
+
+    def rel(self, path: Path) -> str:
+        """Repo-relative POSIX string (the shape gates and links compare on)."""
+        return path.relative_to(self.root).as_posix()
+
+    @property
     def source_manifests(self) -> Path:
         return self.derived_root / "source-manifests"
 

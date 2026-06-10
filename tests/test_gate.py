@@ -27,11 +27,11 @@ def _make_proposal(
     name: str,
     *,
     page_id: str,
-    context: str = "sistema",
+    context: str = "system",
     gate_state: str | None = None,
     created_at: str = "2026-06-08",
     rebase_key: str | None = None,
-    body: str = "corpo da proposta\n",
+    body: str = "proposal body\n",
 ) -> Path:
     fields: dict[str, object] = {
         "page_id": page_id,
@@ -44,7 +44,7 @@ def _make_proposal(
         fields["rebase_key"] = rebase_key
     frontmatter = yaml.safe_dump(fields, sort_keys=False, allow_unicode=True)
     path = directory / name
-    path.write_text(f"---\n{frontmatter}---\n\n# Proposta\n\n{body}", encoding="utf-8")
+    path.write_text(f"---\n{frontmatter}---\n\n# Proposal\n\n{body}", encoding="utf-8")
     return path
 
 
@@ -102,7 +102,7 @@ def test_read_proposal_defaults_state_to_created(tmp_path: Path) -> None:
     proposal = read_proposal(path)
     assert isinstance(proposal, Proposal)
     assert proposal.page_id == "pg-a"
-    assert proposal.context == "sistema"
+    assert proposal.context == "system"
     assert proposal.gate_state == "created"
     assert proposal.created_at == "2026-06-08"
     assert len(proposal.proposal_hash) == 64
@@ -118,9 +118,9 @@ def test_write_state_applies_valid_transition(tmp_path: Path) -> None:
     history = frontmatter["gate_history"]
     assert history == [{"from": "created", "to": "compiling", "reason": "starting compilation"}]
     # body preserved and other fields intact
-    assert "# Proposta" in path.read_text(encoding="utf-8")
+    assert "# Proposal" in path.read_text(encoding="utf-8")
     assert frontmatter["page_id"] == "pg-a"
-    assert frontmatter["context"] == "sistema"
+    assert frontmatter["context"] == "system"
 
 
 def test_write_state_rejects_invalid_transition(tmp_path: Path) -> None:
@@ -221,17 +221,17 @@ def test_rebase_pending_all_groups_without_filter(tmp_path: Path) -> None:
 
 def test_rebase_groups_by_rebase_key(tmp_path: Path) -> None:
     # Same logical target (rebase_key), distinct page_id per date (re-ingestion).
-    _make_proposal(tmp_path, "a.md", page_id="ingestao-2026-06-01-sistema-fonte",
-                   gate_state="created", created_at="2026-06-01", rebase_key="sistema-fonte")
-    _make_proposal(tmp_path, "b.md", page_id="ingestao-2026-06-03-sistema-fonte",
-                   gate_state="created", created_at="2026-06-03", rebase_key="sistema-fonte")
-    newest = _make_proposal(tmp_path, "c.md", page_id="ingestao-2026-06-05-sistema-fonte",
-                            gate_state="created", created_at="2026-06-05", rebase_key="sistema-fonte")
+    _make_proposal(tmp_path, "a.md", page_id="ingestion-2026-06-01-system-source",
+                   gate_state="created", created_at="2026-06-01", rebase_key="system-source")
+    _make_proposal(tmp_path, "b.md", page_id="ingestion-2026-06-03-system-source",
+                   gate_state="created", created_at="2026-06-03", rebase_key="system-source")
+    newest = _make_proposal(tmp_path, "c.md", page_id="ingestion-2026-06-05-system-source",
+                            gate_state="created", created_at="2026-06-05", rebase_key="system-source")
     # Distinct target: must not be touched even though it is in the same context.
-    other = _make_proposal(tmp_path, "z.md", page_id="ingestao-2026-06-05-sistema-outra",
-                           gate_state="created", created_at="2026-06-05", rebase_key="sistema-outra")
+    other = _make_proposal(tmp_path, "z.md", page_id="ingestion-2026-06-05-system-other",
+                           gate_state="created", created_at="2026-06-05", rebase_key="system-other")
 
-    result = rebase_pending(tmp_path, rebase_key="sistema-fonte")
+    result = rebase_pending(tmp_path, rebase_key="system-source")
     assert Path(result["kept"]).name == "c.md"
     assert {Path(p).name for p in result["superseded"]} == {"a.md", "b.md"}
     assert read_proposal(newest).gate_state == "created"

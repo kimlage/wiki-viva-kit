@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.detectors import scan_file
 from wiki_core.gate import STATES as GATE_STATES
+from wiki_core.paths import WikiPaths
 
 REQUIRED_KEYS = {
     "page_id",
@@ -46,61 +47,78 @@ RELATION_KEYS = {
     "evidence_refs",
 }
 
-# Core method pages (generic, valid in any repo). The CONTEXT pages
-# (memorias/<ctx>/index.md) are driven by `contexts` in the config, so we don't
-# hardcode the contexts of a specific repo.
-CORE_PAGES = [
-    "memorias/index.md",
-    "memorias/sistema/log.md",
-    "memorias/sistema/revisao-docs.md",
-    "memorias/sistema/contrato-wiki-operacional.md",
-    "memorias/sistema/processo-ingestao.md",
-    "memorias/sistema/aprovacoes-git.md",
-    "memorias/sistema/cobertura-wiki.md",
-    "memorias/sistema/ingestao/README.md",
-]
+def memory_prefix(config: WikiConfig) -> str:
+    """Repo-relative memory root with a trailing slash (prefix-match shape)."""
+    return str(config.paths["memory_root"]).rstrip("/") + "/"
+
+
+def wiki_paths(config: WikiConfig) -> WikiPaths:
+    """WikiPaths bound to the CURRENT module ROOT (tests monkeypatch ROOT)."""
+    return WikiPaths(ROOT, config)
 
 
 def primary_pages(config: WikiConfig) -> list[str]:
-    """Required pages: method core + one hub per declared context."""
-    return CORE_PAGES + [f"memorias/{ctx}/index.md" for ctx in config.contexts]
+    """Required pages: method core (audit.core_pages in the config) + one hub
+    per declared context, both rooted at the configured memory_root."""
+    root = memory_prefix(config)
+    core = [str(page) for page in (config.audit.get("core_pages") or ())]
+    return core + [f"{root}{ctx}/index.md" for ctx in config.contexts]
 
-ONTOLOGY_DIR_TYPES = {
-    "memorias/ontologia": {"ontology_index", "operational_rule"},
-    "memorias/pessoas": {"ontology_index", "person", "profile"},
-    "memorias/holons": {"ontology_index", "holon"},
-    "memorias/papeis": {"ontology_index", "role"},
-    "memorias/responsabilidades": {"ontology_index", "responsibility"},
-    "memorias/atribuicoes": {"ontology_index", "assignment"},
-    "memorias/projetos": {"ontology_index", "project"},
-    "memorias/iniciativas": {"ontology_index", "initiative"},
-    "memorias/fontes": {"ontology_index", "source", "source_catalog", "artifact"},
-    "memorias/claims": {"ontology_index", "claim"},
-    "memorias/decisoes": {"ontology_index", "decision"},
-    "memorias/insights": {"ontology_index", "insight"},
-    "memorias/acoes": {"ontology_index", "action"},
-    "memorias/timelines": {"ontology_index", "timeline"},
-    "memorias/evidencias": {"ontology_index", "evidence"},
-    "memorias/cobertura": {"ontology_index", "coverage"},
+
+# Page-type vocabulary per ontology directory, keyed by the DIRNAME directly
+# under the memory root. The dirnames are a SUPERSET of the English defaults and
+# the Portuguese names: compatibility so one shared codebase serves localized
+# (pt) repo layouts. The page_type values themselves are FROZEN vocabulary
+# (persisted in page frontmatter) and must not be renamed.
+_ONTOLOGY_DIRNAME_GROUPS: dict[tuple[str, ...], set[str]] = {
+    ("ontology", "ontologia"): {"ontology_index", "operational_rule"},
+    ("people", "pessoas"): {"ontology_index", "person", "profile"},
+    ("holons",): {"ontology_index", "holon"},
+    ("roles", "papeis"): {"ontology_index", "role"},
+    ("responsibilities", "responsabilidades"): {"ontology_index", "responsibility"},
+    ("assignments", "atribuicoes"): {"ontology_index", "assignment"},
+    ("projects", "projetos"): {"ontology_index", "project"},
+    ("initiatives", "iniciativas"): {"ontology_index", "initiative"},
+    ("sources", "fontes"): {"ontology_index", "source", "source_catalog", "artifact"},
+    ("claims",): {"ontology_index", "claim"},
+    ("decisions", "decisoes"): {"ontology_index", "decision"},
+    ("insights",): {"ontology_index", "insight"},
+    ("actions", "acoes"): {"ontology_index", "action"},
+    ("timelines",): {"ontology_index", "timeline"},
+    ("evidence", "evidencias"): {"ontology_index", "evidence"},
+    ("coverage", "cobertura"): {"ontology_index", "coverage"},
 }
 
+ONTOLOGY_DIRNAME_TYPES: dict[str, set[str]] = {
+    name: types for names, types in _ONTOLOGY_DIRNAME_GROUPS.items() for name in names
+}
+
+
+def ontology_dir_for(rel: str, config: WikiConfig) -> str | None:
+    """Ontology directory (repo-relative) containing `rel`, or None."""
+    prefix = memory_prefix(config)
+    if not rel.startswith(prefix):
+        return None
+    head, _, tail = rel[len(prefix):].partition("/")
+    if not tail:
+        return None  # file directly under the memory root, not in an ontology dir
+    if head in ONTOLOGY_DIRNAME_TYPES:
+        return prefix + head
+    return None
+
+
+# Generated-id prefixes accepted per relation key. SUPERSET of the English and
+# Portuguese prefixes: compatibility so one shared codebase validates localized
+# (pt) repos, whose pages already persist pt-generated ids.
 RELATION_PREFIXES = {
-    "owner": ("pessoa-", "papel-", "holon-"),
+    "owner": ("person-", "pessoa-", "role-", "papel-", "holon-"),
     "related_holons": ("holon-",),
-    "roles": ("papel-",),
-    "responsibilities": ("responsabilidade-",),
-    "source_refs": ("fonte-", "evidencia-"),
+    "roles": ("role-", "papel-"),
+    "responsibilities": ("responsibility-", "responsabilidade-"),
+    "source_refs": ("source-", "fonte-", "evidence-", "evidencia-"),
     "claims": ("claim-",),
-    "decisions": ("decisao-",),
-    "actions": ("acao-",),
-}
-
-ALLOWED_OLD_PATH_REFERENCES = {
-    ".github/pull_request_template.md",
-    "docs/referencias/propostas/analise-critica-pontos-corrigir-metodologia-wiki-2026-06-09.md",
-    "docs/referencias/propostas/avaliacao-critica-wiki-viva-2026-06-09.md",
-    "docs/referencias/templates/wiki/pr-checklist.md",
-    "memorias/sistema/revisao-docs.md",
+    "decisions": ("decision-", "decisao-"),
+    "actions": ("action-", "acao-"),
 }
 
 LINK_AUDIT_FILES = {
@@ -108,19 +126,45 @@ LINK_AUDIT_FILES = {
     "AGENTS.md",
 }
 
-LOCAL_PATH_PREFIX_RE = re.compile(
-    r"^(?:AGENTS\.md|memorias(?:/|$)|docs(?:/|$)|data(?:/|$)|scripts(?:/|$)|"
-    r"\.github(?:/|$)|\.skills(?:/|$))"
-)
 
-INLINE_CODE_LOCAL_PATH_RE = re.compile(
-    r"`((?:AGENTS\.md|memorias|docs|data|scripts|\.github|\.skills)(?:/|\b)[^`\n]*)`"
-)
+def _top_level_roots(config: WikiConfig) -> list[str]:
+    """Sorted unique FIRST path segments of the configured layout roots, plus
+    the fixed repo dirs (scripts/, .github/) every kit repo carries."""
+    segments = {
+        str(config.paths[key]).split("/", 1)[0]
+        for key in ("memory_root", "references_root", "raw_root", "derived_root", "skills_root")
+    }
+    segments.update({"scripts", ".github"})
+    return sorted(segments)
 
-BARE_LOCAL_PATH_RE = re.compile(
-    r"(?<![A-Za-z0-9_./-])"
-    r"(AGENTS\.md|(?:memorias|docs|data|scripts|\.github|\.skills)/[A-Za-z0-9_./*%-]+)"
-)
+
+def _compile_local_path_regexes(
+    config: WikiConfig,
+) -> tuple[re.Pattern[str], re.Pattern[str], re.Pattern[str]]:
+    roots = "|".join(re.escape(segment) for segment in _top_level_roots(config))
+    prefix_re = re.compile(rf"^(?:AGENTS\.md|(?:{roots})(?:/|$))")
+    inline_code_re = re.compile(rf"`((?:AGENTS\.md|{roots})(?:/|\b)[^`\n]*)`")
+    bare_re = re.compile(
+        r"(?<![A-Za-z0-9_./-])"
+        rf"(AGENTS\.md|(?:{roots})/[A-Za-z0-9_./*%-]+)"
+    )
+    return prefix_re, inline_code_re, bare_re
+
+
+def build_local_path_regexes(config: WikiConfig) -> None:
+    """(Re)build the module-level local-path regexes from the configured roots.
+
+    Kept module-level so the hot loops reuse compiled patterns; main() calls
+    this with the loaded config, and tests call it with a fixture config.
+    """
+    global LOCAL_PATH_PREFIX_RE, INLINE_CODE_LOCAL_PATH_RE, BARE_LOCAL_PATH_RE
+    LOCAL_PATH_PREFIX_RE, INLINE_CODE_LOCAL_PATH_RE, BARE_LOCAL_PATH_RE = (
+        _compile_local_path_regexes(config)
+    )
+
+
+# Bind the regexes to this repo's layout at import; main() rebinds explicitly.
+build_local_path_regexes(load_config(ROOT))
 
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
@@ -186,24 +230,18 @@ def markdown_files() -> list[str]:
     return [rel for rel in tracked_files() if rel.endswith(".md")]
 
 
-def link_audit_files() -> list[str]:
+def link_audit_files(config: WikiConfig) -> list[str]:
+    paths = wiki_paths(config)
+    prefixes = (
+        memory_prefix(config),
+        paths.rel(paths.templates_root) + "/",
+        paths.rel(paths.skills_root) + "/",
+    )
     files = []
     for rel in markdown_files():
-        if (
-            rel.startswith("memorias/")
-            or rel.startswith("docs/referencias/templates/wiki/")
-            or rel in LINK_AUDIT_FILES
-            or rel.startswith(".skills/")
-        ):
+        if rel.startswith(prefixes) or rel in LINK_AUDIT_FILES:
             files.append(rel)
     return sorted(files)
-
-
-def ontology_dir_for(rel: str) -> str | None:
-    for directory in ONTOLOGY_DIR_TYPES:
-        if rel.startswith(f"{directory}/"):
-            return directory
-    return None
 
 
 def _unquote(value: str) -> str:
@@ -359,10 +397,11 @@ def line_has_link_for_path(line: str, value: str) -> bool:
     return False
 
 
-def page_catalog(errors: list[str]) -> dict[str, tuple[str, dict[str, object]]]:
+def page_catalog(errors: list[str], config: WikiConfig) -> dict[str, tuple[str, dict[str, object]]]:
+    prefix = memory_prefix(config)
     catalog: dict[str, tuple[str, dict[str, object]]] = {}
     for rel in markdown_files():
-        if not rel.startswith("memorias/"):
+        if not rel.startswith(prefix):
             continue
         values, _ = parse_frontmatter(ROOT / rel)
         page_id = values.get("page_id")
@@ -377,7 +416,7 @@ def page_catalog(errors: list[str]) -> dict[str, tuple[str, dict[str, object]]]:
 def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
     today = dt.date.today()
     pages = set(primary_pages(config))
-    pages.update(rel for rel in markdown_files() if ontology_dir_for(rel))
+    pages.update(rel for rel in markdown_files() if ontology_dir_for(rel, config))
     for rel in sorted(pages):
         path = ROOT / rel
         if not path.exists():
@@ -398,13 +437,13 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
         if updated_at + dt.timedelta(days=stale_after) < today:
             warnings.append(f"{rel}: stale page")
 
-        directory = ontology_dir_for(rel)
+        directory = ontology_dir_for(rel, config)
         if directory:
             missing_relations = sorted(RELATION_KEYS - values.keys())
             if missing_relations:
                 errors.append(f"{rel}: missing relation keys: {', '.join(missing_relations)}")
             page_type = str(values.get("page_type", ""))
-            allowed = ONTOLOGY_DIR_TYPES[directory]
+            allowed = ONTOLOGY_DIRNAME_TYPES[directory.rsplit("/", 1)[-1]]
             if page_type not in allowed:
                 errors.append(f"{rel}: page_type `{page_type}` not allowed in {directory}")
 
@@ -415,8 +454,6 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
 LOCAL_ARTIFACT_LINK_RE = re.compile(
     r"\]\((?:\.\./)+data/(?:raw|derived)/[^)]*\.[A-Za-z0-9]{1,8}\)"
 )
-
-COMMAND_REFERENCE_PAGE = "memorias/sistema/wiki/referencia-comandos.md"
 
 
 def audit_freshness_budget(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
@@ -442,30 +479,39 @@ def audit_freshness_budget(errors: list[str], warnings: list[str], config: WikiC
         )
 
 
-def audit_command_reference(errors: list[str]) -> None:
+def audit_command_reference(errors: list[str], config: WikiConfig) -> None:
     """Doc-code gate of the meta-wiki (P2): the command reference must not drift.
 
-    Every tracked `scripts/wiki_*.py` CLI must be cited in
-    referencia-comandos.md, and every `wiki_*.py` cited there must exist in the repo.
-    Cheap to maintain (one row in the table) and kills silent doc-code drift.
+    Every tracked `scripts/wiki_*.py` CLI must be cited in the configured
+    command-reference page, and every `wiki_*.py` cited there must exist in the
+    repo. Cheap to maintain (one row in the table) and kills silent doc-code drift.
     """
-    ref_path = ROOT / COMMAND_REFERENCE_PAGE
-    if not ref_path.exists():
-        return
-    text = ref_path.read_text(encoding="utf-8")
+    ref_rel = str(config.paths["command_reference_page"])
+    ref_path = ROOT / ref_rel
     tracked_clis = {
         Path(rel).name
         for rel in tracked_files()
         if rel.startswith("scripts/wiki_") and rel.endswith(".py")
     }
+    if not ref_path.exists():
+        # FAIL LOUD: with wiki CLIs tracked, a missing reference page means the
+        # doc-code gate cannot run at all (it used to no-op silently). With no
+        # wiki CLIs tracked the gate is inapplicable and stays quiet.
+        if tracked_clis:
+            errors.append(
+                f"{ref_rel}: missing command reference page "
+                f"({len(tracked_clis)} tracked wiki CLI(s) to document)"
+            )
+        return
+    text = ref_path.read_text(encoding="utf-8")
     mentioned = set(re.findall(r"\b(wiki_[a-z0-9_]+\.py)\b", text))
     for name in sorted(tracked_clis - mentioned):
-        errors.append(f"{COMMAND_REFERENCE_PAGE}: undocumented CLI: {name}")
+        errors.append(f"{ref_rel}: undocumented CLI: {name}")
     for name in sorted(mentioned - tracked_clis):
-        errors.append(f"{COMMAND_REFERENCE_PAGE}: documented but nonexistent CLI: {name}")
+        errors.append(f"{ref_rel}: documented but nonexistent CLI: {name}")
 
 
-def audit_drive_artifact_links(warnings: list[str]) -> None:
+def audit_drive_artifact_links(warnings: list[str], config: WikiConfig) -> None:
     """General rule: the wiki must not link to an unversioned local FILE.
 
     A link to a file under data/raw/** or data/derived/** (gitignored) breaks on
@@ -476,9 +522,10 @@ def audit_drive_artifact_links(warnings: list[str]) -> None:
     Aggregated warning (extensive historical legacy); the list comes out with --list-stale-gaps.
     """
     tracked = set(tracked_files())
+    prefix = memory_prefix(config)
     offenders: dict[str, int] = {}
     for rel in markdown_files():
-        if not rel.startswith("memorias/"):
+        if not rel.startswith(prefix):
             continue
         text = (ROOT / rel).read_text(encoding="utf-8")
         count = 0
@@ -517,13 +564,13 @@ def audit_stale_coverage(warnings: list[str], config: WikiConfig) -> None:
     the field, and list those without `stale_after_days` nor `stale_exempt: true`.
     Does not fail (warning) — explicit per-page opt-out.
     """
-    memory_root = str(config.paths.get("memory_root", "memorias")).rstrip("/") + "/"
+    prefix = memory_prefix(config)
     today = dt.date.today()
     already = set(primary_pages(config))
-    already.update(rel for rel in markdown_files() if ontology_dir_for(rel))
+    already.update(rel for rel in markdown_files() if ontology_dir_for(rel, config))
     gaps: list[str] = []
     for rel in markdown_files():
-        if not rel.startswith(memory_root) or rel in already:
+        if not rel.startswith(prefix) or rel in already:
             continue
         values, _ = parse_frontmatter(ROOT / rel)
         if not values:
@@ -555,11 +602,11 @@ def audit_stale_coverage(warnings: list[str], config: WikiConfig) -> None:
         )
 
 
-def audit_relations(errors: list[str]) -> None:
-    catalog = page_catalog(errors)
+def audit_relations(errors: list[str], config: WikiConfig) -> None:
+    catalog = page_catalog(errors, config)
     page_ids = set(catalog)
     for rel in markdown_files():
-        if not rel.startswith("memorias/") or not ontology_dir_for(rel):
+        if not ontology_dir_for(rel, config):
             continue
         values, _ = parse_frontmatter(ROOT / rel)
         for key, prefixes in RELATION_PREFIXES.items():
@@ -577,15 +624,23 @@ def audit_relations(errors: list[str]) -> None:
                 errors.append(f"{rel}: evidence_refs path does not exist: `{target}`")
 
 
-def audit_old_paths(errors: list[str]) -> None:
+# Retired pre-wiki layout of this project family: a denylist, not a layout key.
+# `docs/memories/` is the English twin of `docs/memorias/` — superset so one
+# shared codebase guards localized (pt) repos and the English defaults alike.
+LEGACY_DOCS_PREFIXES = ("docs/2026/", "docs/memorias/", "docs/memories/")
+LEGACY_DOCS_MARKERS = ("docs/2026", "docs/memorias", "docs/memories")
+
+
+def audit_old_paths(errors: list[str], config: WikiConfig) -> None:
+    allowed = {str(rel) for rel in (config.audit.get("allowed_old_path_references") or ())}
     for rel in [line for line in run_git(["ls-files"]).splitlines() if line]:
-        if rel.startswith("docs/2026/") or rel.startswith("docs/memorias/"):
+        if rel.startswith(LEGACY_DOCS_PREFIXES):
             errors.append(f"{rel}: old docs path is still tracked")
         if not rel.endswith(".md"):
             continue
         path = ROOT / rel
         text = path.read_text(encoding="utf-8", errors="replace")
-        if ("docs/2026" in text or "docs/memorias" in text) and rel not in ALLOWED_OLD_PATH_REFERENCES:
+        if any(marker in text for marker in LEGACY_DOCS_MARKERS) and rel not in allowed:
             errors.append(f"{rel}: old docs path reference outside migration history")
 
 
@@ -615,8 +670,9 @@ def audit_pii(errors: list[str], warnings: list[str], config: WikiConfig, public
     and dates is the very purpose of operational memory. PII only becomes an error at the
     PUBLIC BOUNDARY: public/public_candidate page or export (`--public-export`). Access
     secrets are handled separately (audit_secrets), with an absolute block everywhere."""
+    prefix = memory_prefix(config)
     for rel in markdown_files():
-        if not rel.startswith("memorias/"):
+        if not rel.startswith(prefix):
             continue
         values, _ = parse_frontmatter(ROOT / rel)
         visibility = str(values.get("visibility", config.default_visibility))
@@ -634,8 +690,8 @@ def audit_pii(errors: list[str], warnings: list[str], config: WikiConfig, public
         # expected in personal operational memory -- silent, no error nor warning.
 
 
-def audit_clickable_local_links(errors: list[str]) -> None:
-    for rel in link_audit_files():
+def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
+    for rel in link_audit_files(config):
         path = ROOT / rel
         text = path.read_text(encoding="utf-8", errors="replace")
         for lineno, line in body_lines_without_frontmatter(text):
@@ -669,7 +725,10 @@ def audit_clickable_local_links(errors: list[str]) -> None:
                     )
 
 
-def audit_log_changed(errors: list[str]) -> None:
+def audit_log_changed(errors: list[str], config: WikiConfig) -> None:
+    paths = wiki_paths(config)
+    prefix = memory_prefix(config)
+    log_rel = paths.rel(paths.log_page)
     changed_output = run_git(["diff", "--name-only", "main...HEAD"])
     working_output = run_git(["diff", "--name-only"])
     staged_output = run_git(["diff", "--cached", "--name-only"])
@@ -678,15 +737,13 @@ def audit_log_changed(errors: list[str]) -> None:
         | set(working_output.splitlines())
         | set(staged_output.splitlines())
     )
-    memory_changes = {
-        p for p in changed if p.startswith("memorias/") and p != "memorias/sistema/log.md"
-    }
-    if memory_changes and "memorias/sistema/log.md" not in changed:
-        errors.append("memorias changed without updating memorias/sistema/log.md")
+    memory_changes = {p for p in changed if p.startswith(prefix) and p != log_rel}
+    if memory_changes and log_rel not in changed:
+        errors.append(f"{prefix.rstrip('/')} changed without updating {log_rel}")
 
 
-def audit_operation_page(errors: list[str], warnings: list[str]) -> None:
-    rel = "memorias/operacao.md"
+def audit_operation_page(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
+    rel = str(config.paths["operation_page"])
     path = ROOT / rel
     if not path.exists():
         errors.append(f"{rel}: missing operation cockpit")
@@ -710,10 +767,11 @@ def audit_operation_page(errors: list[str], warnings: list[str]) -> None:
         warnings.append(f"{rel}: operation cockpit is not from today")
 
 
-def audit_ingestion_events(errors: list[str]) -> None:
-    event_dir = ROOT / "memorias/sistema/ingestao/eventos"
+def audit_ingestion_events(errors: list[str], config: WikiConfig) -> None:
+    paths = wiki_paths(config)
+    event_dir = paths.ingest_events_dir
     if not event_dir.exists():
-        errors.append("memorias/sistema/ingestao/eventos: missing normalized event directory")
+        errors.append(f"{paths.rel(event_dir)}: missing normalized event directory")
         return
     # The four quadrants, each accepted in pt OR en (supports both languages).
     quadrant_concepts = [
@@ -744,8 +802,10 @@ def audit_ingestion_events(errors: list[str]) -> None:
                     break
 
 
-def audit_ingestion_absolute_paths(errors: list[str]) -> None:
-    ingest_dir = ROOT / "memorias/sistema/ingestao"
+def audit_ingestion_absolute_paths(errors: list[str], config: WikiConfig) -> None:
+    # Missing ingest dir is reported loudly by audit_ingestion_events (the
+    # events dir lives under it); here it just makes this check inapplicable.
+    ingest_dir = wiki_paths(config).ingest_dir
     if not ingest_dir.exists():
         return
     for path in sorted(ingest_dir.rglob("*.md")):
@@ -760,28 +820,36 @@ def audit_ingestion_absolute_paths(errors: list[str]) -> None:
                 errors.append(f"{rel}:{lineno}: path traversal to home Downloads is not portable")
 
 
-def audit_public_candidates(errors: list[str]) -> None:
+# Keywords proving a publication/redaction checklist exists on the page.
+# Superset of Portuguese and English terms: compatibility for localized repos.
+PUBLIC_CHECKLIST_KEYWORDS = ("redacao", "redaction", "publicacao", "publication", "checklist")
+
+
+def audit_public_candidates(errors: list[str], config: WikiConfig) -> None:
     """Scans ALL public_candidate pages (not just the diff): requires a redaction
     checklist and that no secret/PII is exposed."""
+    prefix = memory_prefix(config)
     for rel in markdown_files():
-        if not rel.startswith("memorias/"):
+        if not rel.startswith(prefix):
             continue
         path = ROOT / rel
         values, _ = parse_frontmatter(path)
         if values.get("visibility") != "public_candidate":
             continue
         low = path.read_text(encoding="utf-8", errors="replace").lower()
-        if "redacao" not in low and "publicacao" not in low and "checklist" not in low:
+        if not any(keyword in low for keyword in PUBLIC_CHECKLIST_KEYWORDS):
             errors.append(f"{rel}: public_candidate missing publication/redaction checklist")
         for finding in scan_file(path):
             if finding.category in {"secret", "pii"}:
                 errors.append(f"{rel}:{finding.line}: public_candidate contains {finding.category} {finding.kind} ({finding.excerpt})")
 
 
-def audit_ingestion_proposals_gate_state(errors: list[str]) -> None:
-    """Every ingestion proposal (flat in memorias/sistema/ingestao/) must carry
-    a valid gate_state — the live gate only works if the proposals enter it."""
-    ingest_dir = ROOT / "memorias/sistema/ingestao"
+def audit_ingestion_proposals_gate_state(errors: list[str], config: WikiConfig) -> None:
+    """Every ingestion proposal (flat in the configured ingest dir) must carry
+    a valid gate_state — the live gate only works if the proposals enter it.
+
+    Missing ingest dir is reported loudly by audit_ingestion_events."""
+    ingest_dir = wiki_paths(config).ingest_dir
     if not ingest_dir.is_dir():
         return
     for path in sorted(ingest_dir.glob("*.md")):
@@ -796,11 +864,12 @@ def audit_ingestion_proposals_gate_state(errors: list[str]) -> None:
             errors.append(f"{rel}: invalid gate_state `{state}`")
 
 
-def audit_promotion_gate(errors: list[str]) -> None:
+def audit_promotion_gate(errors: list[str], config: WikiConfig) -> None:
     """Visibility promotion (public page or marked promoted_from) requires the
     v5 consent/anonymization/revert fields."""
+    prefix = memory_prefix(config)
     for rel in markdown_files():
-        if not rel.startswith("memorias/"):
+        if not rel.startswith(prefix):
             continue
         values, _ = parse_frontmatter(ROOT / rel)
         if "promoted_from" not in values and str(values.get("visibility")) != "public":
@@ -818,14 +887,15 @@ def audit_context_pass_gate(
 
     ORPHAN requests are skipped (aggregated warning, not error): a request whose
     source_id starts with `query-` (ad-hoc search, no chunks file) or whose
-    chunks file data/derived/wiki/chunks/<source_id>.json no longer exists
+    chunks file <derived_root>/chunks/<source_id>.json no longer exists
     (source re-edited/gc'd) would otherwise lock the gate red permanently.
     """
     if not config.llm.get("required_context_pass", True):
         return
-    req_dir = ROOT / "data/derived/wiki/extraction-events"
-    cache_dir = ROOT / "data/derived/wiki/llm-cache"
-    chunks_dir = ROOT / "data/derived/wiki/chunks"
+    paths = wiki_paths(config)
+    req_dir = paths.extraction_events
+    cache_dir = paths.llm_cache
+    chunks_dir = paths.chunks
     if not req_dir.exists():
         return
     suffix = "-llm-context-request.json"
@@ -915,8 +985,10 @@ def audit_prompt_checksums(errors: list[str]) -> None:
         errors.append(f"{rel_checksums}: pinned prompt does not exist: {name}")
 
 
-def audit_llm_cache_metadata(errors: list[str]) -> None:
-    cache_dir = ROOT / "data/derived/wiki/llm-cache"
+def audit_llm_cache_metadata(errors: list[str], config: WikiConfig | None = None) -> None:
+    # `config` is optional for callers auditing a default-layout tree (e.g. the
+    # e2e gate test); without it the layout resolves from the config at ROOT.
+    cache_dir = wiki_paths(config or load_config(ROOT)).llm_cache
     if not cache_dir.exists():
         return
     for path in sorted(cache_dir.glob("*.json")):
@@ -954,29 +1026,30 @@ def main() -> int:
     parse_frontmatter.cache_clear()  # fresh frontmatter parses on each invocation
 
     config = load_config(ROOT)
+    build_local_path_regexes(config)
 
     errors: list[str] = []
     warnings: list[str] = []
     audit_frontmatter(errors, warnings, config)
     audit_stale_coverage(warnings, config)
     audit_freshness_budget(errors, warnings, config)
-    audit_drive_artifact_links(warnings)
-    audit_command_reference(errors)
-    audit_relations(errors)
-    audit_old_paths(errors)
+    audit_drive_artifact_links(warnings, config)
+    audit_command_reference(errors, config)
+    audit_relations(errors, config)
+    audit_old_paths(errors, config)
     audit_secrets(errors, config)
     audit_pii(errors, warnings, config, public_export=args.public_export)
-    audit_clickable_local_links(errors)
-    audit_operation_page(errors, warnings)
-    audit_ingestion_events(errors)
-    audit_ingestion_proposals_gate_state(errors)
-    audit_ingestion_absolute_paths(errors)
-    audit_public_candidates(errors)
-    audit_promotion_gate(errors)
+    audit_clickable_local_links(errors, config)
+    audit_operation_page(errors, warnings, config)
+    audit_ingestion_events(errors, config)
+    audit_ingestion_proposals_gate_state(errors, config)
+    audit_ingestion_absolute_paths(errors, config)
+    audit_public_candidates(errors, config)
+    audit_promotion_gate(errors, config)
     audit_context_pass_gate(errors, config, warnings)
     audit_prompt_checksums(errors)
-    audit_llm_cache_metadata(errors)
-    audit_log_changed(errors)
+    audit_llm_cache_metadata(errors, config)
+    audit_log_changed(errors, config)
 
     for warning in warnings:
         print(f"WARN: {warning}")

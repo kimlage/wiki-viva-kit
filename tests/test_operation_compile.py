@@ -7,7 +7,10 @@ resolve.
 
 The tests build a minimal repo in tmp_path (config + decisions + actions +
 context hubs) and exercise build_page(root, config) with an injectable root.
-No network, no writes outside tmp_path. Production code is not modified.
+The fixture tree uses the ENGLISH default layout (memories/decisions, ...);
+one dedicated test pins the Portuguese layout via wiki.config.yaml to prove
+localized-layout compatibility. No network, no writes outside tmp_path.
+Production code is not modified.
 """
 
 from __future__ import annotations
@@ -43,6 +46,8 @@ def compile_mod():
 def config(compile_mod):
     # language=pt: the assertions in this file check the Portuguese rendering.
     # The English rendering has its own test (test_build_page_language_en).
+    # The layout stays at the ENGLISH defaults (no paths override): language
+    # (strings) and layout (paths) are independent dimensions.
     return compile_mod.WikiConfig(
         repo_id="acme-wiki",
         owner_label="Alex Doe",
@@ -110,23 +115,26 @@ def _hub(context: str, updated_at: str, stale_after_days: int) -> str:
 
 @pytest.fixture
 def minimal_repo(tmp_path: Path) -> Path:
-    mem = tmp_path / "memorias"
+    # English DEFAULT layout (memories/decisions, memories/actions, pending.md):
+    # no paths override in the config. The pt layout has its own pinned test
+    # (test_build_page_with_pt_pinned_layout).
+    mem = tmp_path / "memories"
 
     # Decisions (one per file) + an index that must be ignored.
-    _write(mem / "decisoes" / "alfa.md", _decision("decisao-alfa", "sistema", "Aprovar o plano alfa"))
-    _write(mem / "decisoes" / "beta.md", _decision("decisao-beta", "financeiro", "Escolher piloto beta"))
+    _write(mem / "decisions" / "alfa.md", _decision("decisao-alfa", "sistema", "Aprovar o plano alfa"))
+    _write(mem / "decisions" / "beta.md", _decision("decisao-beta", "financeiro", "Escolher piloto beta"))
     _write(
-        mem / "decisoes" / "index.md",
-        "---\npage_id: decisoes-index\npage_type: ontology_index\ncontext: sistema\n"
+        mem / "decisions" / "index.md",
+        "---\npage_id: decisions-index\npage_type: ontology_index\ncontext: sistema\n"
         "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 45\n"
         "sources_policy: x\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n# Decisoes\n",
     )
 
-    # Actions + pendentes list + index (index/pendentes must be skipped as actions).
-    _write(mem / "acoes" / "primeira.md", _action("acao-primeira", "sistema", "Revisar cobertura", "recorrente"))
-    _write(mem / "acoes" / "segunda.md", _action("acao-segunda", "financeiro", "Conciliar fila", "pendente"))
+    # Actions + pending queue + index (index/pending must be skipped as actions).
+    _write(mem / "actions" / "primeira.md", _action("acao-primeira", "sistema", "Revisar cobertura", "recorrente"))
+    _write(mem / "actions" / "segunda.md", _action("acao-segunda", "financeiro", "Conciliar fila", "pendente"))
     _write(
-        mem / "acoes" / "pendentes.md",
+        mem / "actions" / "pending.md",
         "---\npage_id: acoes-pendentes\npage_type: ontology_index\ncontext: sistema\n"
         "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 14\n"
         "sources_policy: x\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n"
@@ -138,7 +146,7 @@ def minimal_repo(tmp_path: Path) -> Path:
     _write(mem / "financeiro" / "index.md", _hub("financeiro", "2000-01-01", 1))
     # A non-hub index that must NOT appear in the vitality table.
     _write(
-        mem / "ontologia" / "index.md",
+        mem / "ontology" / "index.md",
         "---\npage_id: ontologia-index\npage_type: ontology_index\ncontext: sistema\n"
         "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 45\n"
         "sources_policy: x\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n# Ontologia\n",
@@ -151,7 +159,9 @@ def test_build_page_uses_owner_label_and_repo_id(compile_mod, config, minimal_re
     page = compile_mod.build_page(minimal_repo, config)
     assert "# Operacao - acme-wiki" in page
     assert "Alex Doe" in page  # owner_label surfaced (title/labels)
-    assert "page_id: operacao-acme-wiki" in page
+    # The page_id prefix is the stem of the configured operation page
+    # (en default: memories/operations.md -> "operations").
+    assert "page_id: operations-acme-wiki" in page
 
 
 def test_build_page_has_no_personal_literals(compile_mod, config, minimal_repo):
@@ -164,9 +174,9 @@ def test_build_page_reflects_decisions_from_sources(compile_mod, config, minimal
     page = compile_mod.build_page(minimal_repo, config)
     assert "Aprovar o plano alfa" in page
     assert "Escolher piloto beta" in page
-    assert "decisoes/alfa.md" in page
-    # The decisoes/index.md is not a decision and must not be listed.
-    assert "decisoes-index" not in page
+    assert "decisions/alfa.md" in page
+    # The decisions/index.md is not a decision and must not be listed.
+    assert "decisions-index" not in page
 
 
 def test_build_page_reflects_actions_from_sources(compile_mod, config, minimal_repo):
@@ -175,7 +185,7 @@ def test_build_page_reflects_actions_from_sources(compile_mod, config, minimal_r
     assert "Conciliar fila" in page
     assert "recorrente" in page
     assert "pendente" in page
-    assert "acoes/primeira.md" in page
+    assert "actions/primeira.md" in page
     # The owner actions header is parameterized on owner_label.
     assert "## Acoes do dono (Alex Doe)" in page
 
@@ -184,6 +194,10 @@ def test_build_page_lists_pending_action_ids(compile_mod, config, minimal_repo):
     page = compile_mod.build_page(minimal_repo, config)
     assert "`acao-primeira`" in page
     assert "`acao-segunda`" in page
+    # The queue intro links the CONFIGURED pending file (placeholder filled
+    # relative to the cockpit page's directory), not a hardcoded pt path.
+    assert "[actions/pending.md](actions/pending.md)" in page
+    assert "acoes/pendentes.md" not in page
 
 
 def test_build_page_derives_context_vitality(compile_mod, config, minimal_repo):
@@ -192,13 +206,13 @@ def test_build_page_derives_context_vitality(compile_mod, config, minimal_repo):
     assert "fresca" in page
     assert "stale" in page
     # Only context_hub indexes appear; the ontology index is excluded.
-    assert "ontologia/index.md" not in page
+    assert "ontology/index.md" not in page
     # The stale context is surfaced in the alerts section.
     assert "Contextos stale para revisar: financeiro." in page  # generated pt output, kept verbatim
 
 
 def test_build_page_empty_repo_writes_honest_placeholders(compile_mod, config, tmp_path):
-    (tmp_path / "memorias").mkdir()
+    (tmp_path / "memories").mkdir()
     page = compile_mod.build_page(tmp_path, config)
     assert "Sem decisoes pendentes registradas." in page
     assert "Sem acoes registradas." in page
@@ -219,7 +233,8 @@ def test_build_page_frontmatter_satisfies_auditor_contract(compile_mod, config, 
     assert "gate: github_pr" in head
     assert "sensitive_data_policy: private_sensitive_allowed" in head
     assert "purpose: cockpit de retomada operacional diaria da wiki" in head
-    assert "context: sistema" in head
+    # context comes from config.default_context (en default: "system").
+    assert "context: system" in head
 
 
 def test_frontmatter_has_provenance(compile_mod, config, minimal_repo):
@@ -230,16 +245,39 @@ def test_frontmatter_has_provenance(compile_mod, config, minimal_repo):
 
 def test_checked_sections_detect_decision_drift(compile_mod, config, minimal_repo):
     page = compile_mod.build_page(minimal_repo, config)
-    sections = compile_mod.checked_sections(page)
+    sections = compile_mod.checked_sections(page, config.language)
     # Only the deterministic sections (decisions/actions) enter --check; nothing from git/date.
     assert any(h.startswith("Decisoes pendentes") for h in sections)
     assert any(h.startswith("Acoes do dono") for h in sections)
-    # Recompiling without changing memorias produces identical sections (-> --check passes).
-    assert compile_mod.checked_sections(compile_mod.build_page(minimal_repo, config)) == sections
+    # Recompiling without changing the memory tree produces identical sections
+    # (-> --check passes).
+    assert compile_mod.checked_sections(
+        compile_mod.build_page(minimal_repo, config), config.language
+    ) == sections
     # Removing a decision changes the checked sections (-> --check fails).
-    (minimal_repo / "memorias" / "decisoes" / "alfa.md").unlink()
-    drifted = compile_mod.checked_sections(compile_mod.build_page(minimal_repo, config))
+    (minimal_repo / "memories" / "decisions" / "alfa.md").unlink()
+    drifted = compile_mod.checked_sections(
+        compile_mod.build_page(minimal_repo, config), config.language
+    )
     assert drifted != sections
+
+
+def test_checked_sections_work_in_english(compile_mod, minimal_repo):
+    # Regression: the prefixes used to be a fixed pt tuple, so the per-section
+    # drift check silently matched NOTHING when language=en. They now come from
+    # the active language's string table.
+    en = compile_mod.WikiConfig(repo_id="acme-wiki", owner_label="Owner", language="en")
+    page = compile_mod.build_page(minimal_repo, en)
+    sections = compile_mod.checked_sections(page, en.language)
+    assert any(h.startswith("Pending decisions") for h in sections)
+    assert any(h.startswith("Owner actions") for h in sections)
+    assert any(h.startswith("Pending action queue") for h in sections)
+    assert compile_mod.checked_section_prefixes("en") == (
+        "Pending decisions", "Owner actions", "Pending action queue",
+    )
+    assert compile_mod.checked_section_prefixes("pt") == (
+        "Decisoes pendentes", "Acoes do dono", "Fila de acoes pendentes",
+    )
 
 
 def test_stable_view_covers_whole_body_excludes_volatile(compile_mod, config, minimal_repo):
@@ -303,11 +341,11 @@ def test_build_page_karma_empty_when_no_events(compile_mod, config, minimal_repo
     page = compile_mod.build_page(minimal_repo, config)
     assert "Sem eventos de score registrados" in page
     # the karma section does NOT enter --check (depends on date/score, not on content)
-    assert "Karma e vitalidade" not in "".join(compile_mod.checked_sections(page))
+    assert "Karma e vitalidade" not in "".join(compile_mod.checked_sections(page, config.language))
 
 
 def test_build_page_language_en(compile_mod, minimal_repo):
-    # language=en generates the cockpit in English from the same memorias.
+    # language=en generates the cockpit in English from the same memory tree.
     en = compile_mod.WikiConfig(repo_id="acme-wiki", owner_label="Owner", language="en")
     page = compile_mod.build_page(minimal_repo, en)
     assert "# Operations - acme-wiki" in page
@@ -315,9 +353,18 @@ def test_build_page_language_en(compile_mod, minimal_repo):
     assert "## Owner actions (Owner)" in page
     assert "## Resume links" in page
     assert "| Decision | Context | Source |" in page
-    # no Portuguese in the generated body
+    # Footer links derive from the configured layout (en defaults here).
+    assert "- Wiki: [memories/index.md](index.md)" in page
+    assert "- Log: [memories/system/log.md](system/log.md)" in page
+    assert "- Coverage: [memories/system/wiki-coverage.md](system/wiki-coverage.md)" in page
+    assert (
+        "- Methodology coverage: "
+        "[memories/system/methodology-coverage-v5.md](system/methodology-coverage-v5.md)"
+    ) in page
+    # no Portuguese (strings or layout paths) in the generated body
     assert "## Decisoes pendentes" not in page
     assert "Atualizado em:" not in page
+    assert "memorias/" not in page
 
 
 def test_stable_view_language_robust(compile_mod, minimal_repo):
@@ -334,7 +381,7 @@ def test_action_without_state_uses_language_fallback(compile_mod, config, minima
     # An action page with no "Estado:"/"State:" line renders the language-table
     # fallback (COCKPIT_STRINGS["no_state"]), not a hardcoded pt literal.
     _write(
-        minimal_repo / "memorias" / "acoes" / "terceira.md",
+        minimal_repo / "memories" / "actions" / "terceira.md",
         "---\npage_id: acao-terceira\npage_type: action\ncontext: sistema\n"
         "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 30\n"
         "sources_policy: contrato\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n"
@@ -352,7 +399,7 @@ def test_state_parser_accepts_estado_and_state(compile_mod, config, minimal_repo
     # English-authored action pages ("State: `...`") are parsed like Portuguese
     # ones ("Estado: `...`"); the bilingual STATE_RE covers both.
     _write(
-        minimal_repo / "memorias" / "acoes" / "english.md",
+        minimal_repo / "memories" / "actions" / "english.md",
         "---\npage_id: acao-english\npage_type: action\ncontext: sistema\n"
         "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 30\n"
         "sources_policy: contrato\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n"
@@ -377,7 +424,7 @@ def test_clean_title_strips_bilingual_prefixes(compile_mod, config, minimal_repo
         assert compile_mod._clean_title(raw) == expected
     # End to end: an en-prefixed decision title is listed without the prefix.
     _write(
-        minimal_repo / "memorias" / "decisoes" / "gamma.md",
+        minimal_repo / "memories" / "decisions" / "gamma.md",
         "---\npage_id: decisao-gamma\npage_type: decision\ncontext: sistema\n"
         "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 180\n"
         "sources_policy: contrato\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n"
@@ -386,3 +433,53 @@ def test_clean_title_strips_bilingual_prefixes(compile_mod, config, minimal_repo
     page = compile_mod.build_page(minimal_repo, config)
     assert "| Adopt the kit | sistema |" in page
     assert "Decision - Adopt the kit" not in page
+
+
+def test_build_page_with_pt_pinned_layout(compile_mod, tmp_path):
+    # Localized-layout compatibility: a repo that pins the Portuguese layout in
+    # wiki.config.yaml keeps generating its localized cockpit (page_id prefix,
+    # default context, queue/footer links) exactly as before the en defaults.
+    (tmp_path / "wiki.config.yaml").write_text(
+        "repo_id: acme-wiki\n"
+        "owner_label: Alex Doe\n"
+        "language: pt\n"
+        "default_context: sistema\n"
+        "paths:\n"
+        "  memory_root: memorias\n"
+        "  system_dirname: sistema\n"
+        "  decisions_dirname: decisoes\n"
+        "  actions_dirname: acoes\n"
+        "  pending_actions_filename: pendentes.md\n"
+        "  operation_page: memorias/operacao.md\n"
+        "  wiki_coverage_page: memorias/sistema/cobertura-wiki.md\n"
+        "coverage:\n"
+        "  coverage_matrix_page: memorias/sistema/cobertura-metodologia-v5.md\n",
+        encoding="utf-8",
+    )
+    config = compile_mod.load_config(tmp_path)
+    mem = tmp_path / "memorias"
+    _write(mem / "decisoes" / "alfa.md", _decision("decisao-alfa", "sistema", "Aprovar o plano alfa"))
+    _write(mem / "acoes" / "primeira.md", _action("acao-primeira", "sistema", "Revisar cobertura", "recorrente"))
+    _write(
+        mem / "acoes" / "pendentes.md",
+        "---\npage_id: acoes-pendentes\npage_type: ontology_index\ncontext: sistema\n"
+        "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 14\n"
+        "sources_policy: x\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n"
+        "# Acoes pendentes\n\n- `acao-primeira`\n",
+    )
+    page = compile_mod.build_page(tmp_path, config)
+    head = page.split("---", 2)[1]
+    assert "page_id: operacao-acme-wiki" in head
+    assert "context: sistema" in head
+    assert "decisoes/alfa.md" in page
+    assert "acoes/primeira.md" in page
+    assert "[acoes/pendentes.md](acoes/pendentes.md):" in page
+    assert "- Wiki: [memorias/index.md](index.md)" in page
+    assert "- Log: [memorias/sistema/log.md](sistema/log.md)" in page
+    assert "- Cobertura: [memorias/sistema/cobertura-wiki.md](sistema/cobertura-wiki.md)" in page
+    assert (
+        "- Cobertura metodologia: "
+        "[memorias/sistema/cobertura-metodologia-v5.md](sistema/cobertura-metodologia-v5.md)"
+    ) in page
+    # No English layout names leak into the pt-pinned cockpit body.
+    assert "memories/" not in page

@@ -26,6 +26,10 @@ licensed under the same terms (see [LICENSE](LICENSE)).
 5. **Persisted values are frozen** — badge ids, event types, gate states,
    dimension keys and generated frontmatter values are identifiers written to
    ledgers and pages; never rename them (add display-string tables instead).
+6. **Layout comes from config** — directory and file names are read from
+   `paths.*` in [wiki.config.yaml](wiki.config.yaml) (`WikiConfig` in
+   [wiki_core/config.py](wiki_core/config.py)). Defaults are English; localized
+   repos pin their own names in config. Never hardcode layout paths in code.
 
 ## Workflow
 
@@ -33,11 +37,11 @@ licensed under the same terms (see [LICENSE](LICENSE)).
   (tool-neutral — any agent or human follows the same flow).
 - One topic per PR, with tests. CI runs the same gates listed above.
 - Document any new `wiki_*.py` CLI in
-  [memorias/sistema/wiki/referencia-comandos.md](memorias/sistema/wiki/referencia-comandos.md)
+  [memories/system/wiki/command-reference.md](memories/system/wiki/command-reference.md)
   — the doc-code gate fails otherwise (both directions).
 
 ## Where things live
 
 - Deterministic core: [wiki_core/](wiki_core/) · CLIs: [scripts/](scripts/)
-- Official docs (the meta-wiki): [memorias/sistema/wiki/](memorias/sistema/wiki/index.md)
+- Official docs (the meta-wiki): [memories/system/wiki/](memories/system/wiki/index.md)
 - Agent entry point: [AGENTS.md](AGENTS.md)
