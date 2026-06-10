@@ -14,6 +14,12 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memorias](..) layer.
 
+## [2026-06-10] License | MIT + contributing guide
+
+- [LICENSE](../../LICENSE): MIT — free for any use, modification and redistribution.
+- [CONTRIBUTING.md](../../CONTRIBUTING.md): ground rules (English official, per-language output tables with key parity, determinism, gates green, no personal data, persisted identifiers frozen) and the wiki/<topic> PR workflow.
+- README license section updated; runtime-path references in the command reference made audit-compliant.
+
 ## [2026-06-10] English as the official language | core + README + Drive rule
 
 - Toolkit core fully in English (docstrings, comments, CLI/error messages, deep-read prompt — same v1, cache keys unaffected). Generated OUTPUT stays in the configured language; the insight proposal generator gained its per-language string table (was hardcoded Portuguese).

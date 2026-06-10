@@ -99,7 +99,9 @@ All prose, code, messages and generated output follow the configured language.
 5. **Language by config** — code and docs in English; generated pages in the
    configured language.
 
-## License / status
+## License & contributing
 
-Work in progress; no license published yet. Personal-context-free by design —
-this branch carries no personal data.
+**MIT** — free for any use, modification and redistribution; see
+[LICENSE](LICENSE). Contributions are welcome under the same terms: see
+[CONTRIBUTING.md](CONTRIBUTING.md). Personal-context-free by design — this
+branch carries no personal data and its git history is clean (orphan).

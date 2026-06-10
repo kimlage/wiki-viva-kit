@@ -87,7 +87,7 @@ python3 scripts/wiki_new_ingest.py --source X.md --context sistema --dry-run
 
 ### [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) - source manifest
 
-Creates the deterministic manifest (source_id, type, SHA256 hash) of a single source and writes it in [data/derived/wiki/source-manifests/](../../../data/derived/wiki/source-manifests/). Useful when you only want the stable identity of a source, without running the whole pipeline.
+Creates the deterministic manifest (source_id, type, SHA256 hash) of a single source and writes it in [data/](../../../data/) under `derived/wiki/source-manifests/` (created at runtime). Useful when you only want the stable identity of a source, without running the whole pipeline.
 
 - `--source` (required), `--context` (required).
 - `--dry-run`: prints the manifest in JSON without writing.
@@ -98,7 +98,7 @@ python3 scripts/wiki_extract_source_manifest.py --source data/raw/exemplo.pdf --
 
 ### [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) - text and stable chunks
 
-Extracts the source's text and breaks it into stable chunks (with a per-chunk hash) BEFORE any LLM pass, using `chunk_target_tokens`/`chunk_overlap_tokens` from the config. It writes text and chunks to [data/derived/wiki/](../../../data/derived/wiki/) and also the manifest.
+Extracts the source's text and breaks it into stable chunks (with a per-chunk hash) BEFORE any LLM pass, using `chunk_target_tokens`/`chunk_overlap_tokens` from the config. It writes text and chunks to [data/](../../../data/) under `derived/wiki/` (created at runtime) and also the manifest.
 
 - `--source` (required), `--context` (required).
 - `--dry-run`: prints a preview (count of units/chunks) without writing.
@@ -111,7 +111,7 @@ python3 scripts/wiki_extract_text.py --source data/raw/exemplo.pdf --context sis
 
 ### [wiki_build_index.py](../../../scripts/wiki_build_index.py) - local SQLite index
 
-Builds or inspects the SQLite chunk index ([data/derived/wiki/indexes/wiki.sqlite](../../../data/derived/wiki/indexes/wiki.sqlite)), which serves the FTS search used by the `--query` pass.
+Builds or inspects the SQLite chunk index ([data/](../../../data/) under `derived/wiki/indexes/wiki.sqlite` (created at runtime)), which serves the FTS search used by the `--query` pass.
 
 - (no flags): inspects and prints the state of the index in JSON.
 - `--rebuild`: rebuilds the index from the derived chunks.
