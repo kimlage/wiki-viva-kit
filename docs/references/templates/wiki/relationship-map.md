@@ -86,9 +86,27 @@ Updated on: YYYY-MM-DD
 - Transformations (groupings, simplifications):
 - What was left out:
 
-## Visual artifact (if any)
+## Visual artifact
 
-- Diagram: [map file](../../../../data/derived/) <!-- replace with the real file -->
+> Illustrate by default: a relationship map is a diagram first. Sketch it inline
+> with Mermaid, then optionally export an image. See the representation
+> conventions in [obsidian-conventions.md](obsidian-conventions.md).
+
+```mermaid
+%% Fill in: replace the friendly labels with the real stakeholders and tensions.
+%% Solid arrows = relationship/influence; dotted = perceived tension.
+flowchart LR
+    me["Me (this reading)"]
+    a["Stakeholder A"]
+    b["Stakeholder B"]
+    c["Stakeholder C"]
+    me --> a
+    me --> b
+    a -. "tension" .-> b
+    b --> c
+```
+
+- Optional exported image: [map file](../../../../data/derived/) <!-- replace with the real file -->
 
 ## Accessible text alternative
 

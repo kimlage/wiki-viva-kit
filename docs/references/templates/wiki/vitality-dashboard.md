@@ -34,6 +34,10 @@ source_counts:
 
 # Wiki vitality
 
+> Illustrate by default: a dashboard is a table (and optionally a chart). Keep the
+> indicators in the table below; add a Mermaid chart if a trend helps. See the
+> representation conventions in [obsidian-conventions.md](obsidian-conventions.md).
+
 ## Indicators
 
 | Indicator | Source | Weight | State | Action |

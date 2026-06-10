@@ -50,10 +50,17 @@ back with `scripts/wiki_llm_context_pass.py --record-result` (provenance is
 enforced). For batch/cheap processing, export pending requests with
 `scripts/wiki_export_batch.py` (Anthropic Message Batches format, −50%).
 
-## Official documentation
+## Official documentation — the wiki documents itself
 
-The **meta-wiki is the official documentation** — the living wiki documenting
-itself, kept honest by the same gates:
+There is no separate doc site. The official documentation **is the living wiki
+documenting itself** — same Markdown pages, same frontmatter contracts, same
+honesty gates in CI. This is dogfooding: if the method works, the kit's own
+documentation is the proof, and it goes stale the moment the gates say it does.
+
+So the entry point is not a static manual — **open
+[memories/index.md](memories/index.md) and you are already inside the living
+wiki.** From there, the meta-wiki (under [memories/system/wiki/](memories/system/wiki/index.md))
+is the context that explains how the wiki itself works:
 
 | Page | Covers |
 | --- | --- |

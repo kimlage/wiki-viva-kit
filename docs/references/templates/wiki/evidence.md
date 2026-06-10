@@ -34,6 +34,16 @@ attachment_policy: "Preserve the original in an appropriate source and link it v
 
 # Evidence - <name>
 
+> Illustrate by default: enumerate each piece of evidence as a table row with its
+> source and limits. See the representation conventions in
+> [obsidian-conventions.md](obsidian-conventions.md).
+
+## Evidence items
+
+| Item | Source | Result | Limits | Reliability |
+| --- | --- | --- | --- | --- |
+|  |  |  |  | `low` / `medium` / `high` |
+
 Result:
 
 Limits:

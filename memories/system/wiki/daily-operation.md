@@ -47,6 +47,16 @@ The operational day is a short and repeatable cycle:
 5. Recompile the cockpit and open/update the PR.
 6. After the merge, the cockpit goes back to reflecting the approved wiki on the next compilation.
 
+```mermaid
+flowchart LR
+    cockpit["Open the cockpit"] --> decide["Decide what to touch"]
+    decide --> branch["Work on a proposal branch"]
+    branch --> gates["Run the local gates"]
+    gates --> ship["Recompile cockpit + open PR"]
+    ship --> merge["Merge (human gate)"]
+    merge -. next day .-> cockpit
+```
+
 The contract that governs what can enter and how is in
 [operational-wiki-contract.md](../operational-wiki-contract.md). The golden rule:
 `main` is the approved wiki; `wiki/*` branches are living proposals; every PR must

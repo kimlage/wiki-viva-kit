@@ -133,6 +133,25 @@ signal is scattered across events, chunks and pages and no one has yet formulate
 read. The job closes the Information -> Insight cycle by gathering the evidence and
 proposing — never deciding — an insight.
 
+The cycle turns scattered information into a reviewable insight without ever letting
+the deterministic job decide truth: the job gathers signals and opens a candidate
+proposal, the agent synthesizes the read, and only a human promotes it through the PR
+gate into canonical memory.
+
+```mermaid
+flowchart LR
+    Signals["Scattered signals: events, chunks, pages"]
+    Job["Insight job (deterministic): gather + package"]
+    Candidate["Candidate proposal (status candidato)"]
+    Agent(["Agent: synthesize the reading"])
+    Gate{"PR gate (human)"}
+    Memory[("Canonical memory")]
+
+    Signals --> Job --> Candidate --> Agent --> Gate
+    Gate -->|promoted| Memory
+    Gate -->|not yet| Candidate
+```
+
 The honesty rule is absolute:
 [wiki_core/insight/job.py](../../../wiki_core/insight/job.py) **never calls a
 model** and **never writes canonical memory**. It gathers deterministic signals,

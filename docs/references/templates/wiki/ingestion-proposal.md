@@ -38,6 +38,21 @@ attachment_policy: "Link attachments and derived files via Markdown; do not embe
 
 # Ingestion proposal - topic
 
+> Illustrate by default: show the proposed path from source to gate with a small
+> Mermaid flowchart. See the representation conventions in
+> [obsidian-conventions.md](obsidian-conventions.md).
+
+```mermaid
+%% Fill in: trace this proposal from the consulted source to the human gate.
+flowchart LR
+    src["Consulted source"]
+    classify["Classification"]
+    event["Normalized event"]
+    synth["Proposed synthesis"]
+    gate["Human gate (pull request)"]
+    src --> classify --> event --> synth --> gate
+```
+
 ## Consulted source
 
 - Use a real link to the original source whenever it is linkable.

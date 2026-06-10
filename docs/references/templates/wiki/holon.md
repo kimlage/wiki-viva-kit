@@ -33,6 +33,22 @@ evidence_refs: []
 
 # Holon - example
 
+> Illustrate by default: a holon holds people, projects, and sub-contexts. Sketch
+> those relations with a Mermaid flowchart. See the representation conventions in
+> [obsidian-conventions.md](obsidian-conventions.md).
+
+```mermaid
+%% Fill in: place this context and the people, projects, and sub-contexts it holds.
+flowchart TD
+    holon["This context"]
+    person["Person"]
+    project["Project"]
+    sub["Sub-context"]
+    holon --> person
+    holon --> project
+    holon --> sub
+```
+
 ## Scope
 
 -

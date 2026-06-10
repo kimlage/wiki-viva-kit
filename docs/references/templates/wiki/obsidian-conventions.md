@@ -113,11 +113,62 @@ depend on a Dataview query to be understandable.
 - Never attach tokens, cookies, passwords, access codes, credentials, or
   individualized secure links.
 
+## Rich representation by default (diagrams + tables)
+
+A living wiki page is not a wall of prose. By **default**, pages SHOULD illustrate
+their content with **Mermaid diagrams** and **Markdown tables**, and keep prose for
+nuance, caveats, and the "why". Rich representation is the norm, not an optional
+afterthought: reviewers and agents read structure faster than paragraphs, and the
+same structure survives in any Markdown editor (GitHub renders fenced `mermaid`
+code blocks natively; tables are plain Markdown).
+
+**When a page MUST carry at least one diagram.** Any page whose job is to explain
+an architecture, a flow/pipeline, a relationship between entities, or a process
+MUST include at least one Mermaid diagram. Pages that only enumerate facts may use
+a table instead, but a diagram is encouraged whenever there is structure to show.
+
+**Which diagram for what** — pick the type that fits the thing you are explaining:
+
+| You are documenting | Use | Mermaid type |
+| --- | --- | --- |
+| A pipeline or an architecture / module map | Flowchart | `flowchart LR` or `flowchart TD` |
+| A gate, lifecycle, or status machine | State diagram | `stateDiagram-v2` |
+| An exchange between agent, toolkit and human | Sequence diagram | `sequenceDiagram` |
+| The page / entity ontology or relationships | Entity / class diagram | `erDiagram` or `classDiagram` |
+| A map of contents (MOC) or a topic map | Mindmap or flowchart | `mindmap` or `flowchart` |
+| A history or a timeline | Timeline | `timeline` or `gantt` |
+
+**Tables for enumerated structured facts.** Whenever a page lists things with the
+same shape — modules, gates, states, costs, CLI commands, the eight karma
+dimensions, the four quadrants — present them as a Markdown table, not a bullet
+list. A table makes columns (id, purpose, owner, gate) scannable and diff-friendly.
+Reserve bullet lists for short, unstructured notes.
+
+**Prose stays for nuance.** Diagrams and tables carry the structure; prose carries
+the reasoning, the exceptions, and anything a box-and-arrow cannot say. Use all
+three together.
+
+**Diagram authoring rules** (so diagrams pass the audit and render everywhere):
+
+- Keep each diagram readable: roughly under a dozen nodes; split a large picture
+  into two focused diagrams instead of one dense one.
+- Node **labels** must be plain, friendly text. Never put a repo path (such as a
+  `*.md` file path) inside a node label — refer to pages in the surrounding prose
+  as normal Markdown links instead. The contract auditor flags raw local paths,
+  and a path buried in a label is unreviewable.
+- Quote any label that contains spaces or punctuation, for example
+  `A["LLM context package"]`.
+- Do not use HTML inside diagrams; keep every Mermaid code fence balanced.
+- Keep an ASCII diagram only when Mermaid genuinely cannot express it; the default
+  is to replace ASCII art with a Mermaid diagram.
+
 ## Safe format for Obsidian
 
 - Use simple YAML, explicit lists, and strings without proprietary syntax.
-- Avoid very wide tables when a list is more reviewable in a diff.
+- Prefer a Markdown table over a list for any enumeration of structured facts; keep
+  bullet lists for short, unstructured notes (see *Rich representation by default*).
 - Keep headings stable for backlinks and anchors.
-- Do not use HTML, proprietary embeds, or plugins as a requirement.
+- Mermaid diagrams and Markdown tables are portable Markdown and the preferred way
+  to illustrate; HTML, proprietary embeds, and plugins are never a requirement.
 - Prefer kebab-case file names and a `page_id` that is even more stable than the
   current path.

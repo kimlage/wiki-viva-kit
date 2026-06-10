@@ -14,6 +14,12 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](..) layer.
 
+## [2026-06-10] Rich representation by default + meta-wiki integrated as first-class
+
+- Rich representation made method, not afterthought: new *Rich representation by default* guideline in [obsidian-conventions.md](../../docs/references/templates/wiki/obsidian-conventions.md) — pages SHOULD illustrate with Mermaid + tables, architecture/flow/relationship/process pages MUST carry a diagram, with a "which diagram for what" mapping (flowchart/stateDiagram/sequenceDiagram/er-classDiagram/mindmap/timeline) and diagram authoring rules. Referenced from the methodology source ([wiki-viva-methodology-v5.md](../sources/wiki-viva-methodology-v5.md)) and the [operational-wiki-contract.md](operational-wiki-contract.md).
+- Methodology source page enriched: principles as a table, a Mermaid flowchart of ingestion-as-compilation, and a rich-representation section linking the convention.
+- Meta-wiki integrated as a first-class context rather than a separate manual: [README.md](../../README.md) "Official documentation" reframed around dogfooding ("open the root map of content and you are already inside the living wiki"); root MOC [index.md](../index.md) gained a Mermaid mindmap of the wiki's own structure (contexts + method + meta-wiki), a dedicated meta-wiki section and a method/operation table; meta-wiki [index.md](wiki/index.md) gained a Mermaid map of its pages and a "where to start" table.
+
 ## [2026-06-10] Debts resolved | karma display i18n, gate hardening, index pruning, CLI robustness
 
 - Badge names/criteria and journey levels now render in the configured language (BADGE_DISPLAY/LEVEL_DISPLAY pt+en); persisted ids untouched. Generator i18n leftovers closed; NEW tests/test_i18n_tables.py enforces pt/en key+placeholder parity across every string table.

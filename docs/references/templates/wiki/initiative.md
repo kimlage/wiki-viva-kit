@@ -32,6 +32,22 @@ evidence_refs: []
 
 # Initiative - example
 
+> Illustrate by default: show this initiative's cycle and where it sits between
+> the project and its actions/decisions with a Mermaid flowchart. See the
+> representation conventions in [obsidian-conventions.md](obsidian-conventions.md).
+
+```mermaid
+%% Fill in: connect the parent project, this initiative, and what it produces.
+flowchart LR
+    project["Parent project"]
+    initiative["This initiative"]
+    action["Action"]
+    decision["Decision"]
+    project --> initiative
+    initiative --> action
+    initiative --> decision
+```
+
 ## Cycle
 
 -

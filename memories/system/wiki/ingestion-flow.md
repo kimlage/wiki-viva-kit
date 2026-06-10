@@ -36,13 +36,36 @@ gate mechanics are in [gates and auditing](gates-and-audit.md).
 ## Overview of the path
 
 The deterministic sequence chained by the orchestrator
-([ingestion pipeline](../../../wiki_core/ingest/pipeline.py)) is:
+([ingestion pipeline](../../../wiki_core/ingest/pipeline.py)) is shown below. The
+deterministic steps run inside the toolkit; the deep read is the one step the agent
+owns; consolidation and the PR gate close the loop into memory.
 
+```mermaid
+flowchart TD
+    Manifest["Manifest"] --> Chunks["Text and chunks"]
+    Chunks --> Index["Index"]
+    Index --> Prescan["Pre-scan"]
+    Prescan --> Package["LLM context package"]
+    Package --> DeepRead(["Deep read by the agent (into the cache)"])
+    DeepRead --> Event["Normalized event (quadrants)"]
+    Event --> Consolidation["Consolidation"]
+    Consolidation --> PR{"PR gate"}
+    PR --> Memory[("Consolidated memory")]
 ```
-manifest -> text + chunks -> index -> pre-scan -> LLM context package
-         -> LLM pass (agent, into the cache) -> normalized event (quadrants)
-         -> consolidation -> PR
-```
+
+The same path as a stage table — each stage maps to a command and an output, and the
+gate column says what can stop the source from advancing:
+
+| Stage | Command | Output | Gate |
+| --- | --- | --- | --- |
+| Manifest | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | `<source_id>` manifest JSON | none |
+| Text + chunks | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extracted text + stable chunks | none |
+| Index | [wiki_build_index.py](../../../scripts/wiki_build_index.py) | SQLite FTS index | none |
+| Pre-scan | [wiki_ingest.py](../../../scripts/wiki_ingest.py) | Secret/PII findings | secret BLOCKS (exit 2); PII informs |
+| Context package | [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--emit-request` | `-llm-context-request.json` | `required_context_pass` watches this file |
+| Deep read | [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--record-result` | Per-chunk result in the cache | `validate_result` rejects empty quadrants |
+| Event | proposal template | Quadrants event | empty/placeholder quadrant fails the audit |
+| Consolidation + PR | [wiki_audit.py](../../../scripts/wiki_audit.py), then a PR | Updated memory | human approval on `main` |
 
 Invariant points of the design:
 
@@ -180,11 +203,26 @@ The proposal is born with `gate_state: created`, both in the `IngestResult` of t
 state machine ([state_machine.py](../../../wiki_core/gate/state_machine.py))
 with valid transitions:
 
+```mermaid
+stateDiagram-v2
+    [*] --> created
+    created --> compiling
+    compiling --> ready_for_review
+    ready_for_review --> needs_human_gate
+    needs_human_gate --> approved
+    approved --> published
+    published --> [*]
+    created --> superseded
+    compiling --> rejected
+    ready_for_review --> rejected
+    needs_human_gate --> rejected
+    superseded --> archived
+    rejected --> archived
 ```
-created -> compiling -> ready_for_review -> needs_human_gate
-        -> approved -> published
-(any state may move to superseded / rejected / archived along the valid edges)
-```
+
+Any pending state may move to `superseded`, `rejected` or `archived` along the valid
+edges of the graph; the gate machine is documented in full in
+[gates-and-audit.md](gates-and-audit.md).
 
 The states `created`, `compiling`, `ready_for_review` and `needs_human_gate` are
 PENDING: while pending, proposals that target the same page/context

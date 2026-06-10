@@ -255,6 +255,19 @@ python3 scripts/wiki_pr_summary.py
 
 ## Typical order of use
 
+The command lifecycle, from capture to a reviewed PR — each box is run by the CLI
+linked in the numbered list below it:
+
+```mermaid
+flowchart LR
+    Capture["Capture the source"] --> Derive["Extract text and index"]
+    Derive --> DeepRead(["Deep read by the agent"])
+    DeepRead --> GateStep["Transition the proposal"]
+    GateStep --> Compile["Compile the cockpit"]
+    Compile --> Validate["Audit, coverage and PR summary"]
+    Validate --> PR{"Human PR review"}
+```
+
 1. Capture: [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py) (or [wiki_ingest.py](../../../scripts/wiki_ingest.py) for the full flow).
 2. Derived: [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) -> [wiki_build_index.py](../../../scripts/wiki_build_index.py).
 3. Deep reading: [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--emit-request`, the agent reads and responds, then `--record-result`.

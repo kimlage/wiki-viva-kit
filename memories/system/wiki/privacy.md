@@ -38,6 +38,19 @@ deterministic detectors; the PR gate that applies all of this lives in
 | **Personal data (PII)** | CPF, CNPJ, credit card, IBAN, email | Welcome on a private page, **without warning**; error only at the public boundary | The page's `visibility` + the repo's policy |
 | **Access secrets** | API keys, tokens, private keys, passwords | **Never** versioned, in **any** file | Absolute block, always |
 
+The decision an item goes through:
+
+```mermaid
+flowchart TD
+    item["Something in a page"] --> q1{"Access secret?"}
+    q1 -->|yes| block["Blocked everywhere — never versioned"]
+    q1 -->|no| q2{"Personal data (PII)?"}
+    q2 -->|no| ok["Fine"]
+    q2 -->|yes| q3{"At the public boundary?"}
+    q3 -->|no| okpriv["Welcome on a private page — no warning"]
+    q3 -->|yes| blockpub["Error at the public boundary"]
+```
+
 The classic confusion is to treat "owner's CPF" and "AWS token" as the same thing. They
 are not: the first is the memory you want to preserve; the second is a credential
 that, once leaked, grants access to systems. The kit separates the two into distinct modules under

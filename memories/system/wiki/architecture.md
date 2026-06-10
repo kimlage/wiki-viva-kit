@@ -53,6 +53,41 @@ live in Python: it is delegated to the AGENT that runs the repo. The contract of
 is in [operational-wiki-contract.md](../operational-wiki-contract.md) and
 [AGENTS.md](../../../AGENTS.md).
 
+The flowchart below is the canonical picture of the system: a source flows through
+the deterministic pipeline (manifest, chunks, index, pre-scan) into a context
+package; the agent performs the deep read; the proposal then passes the PR gate
+before it becomes consolidated memory. The deterministic toolkit and the agent are
+two distinct actors, joined at the context package and the cache.
+
+```mermaid
+flowchart LR
+    subgraph Toolkit["Deterministic toolkit (Python)"]
+        Source["Source (PDF, table, email, URL)"]
+        Manifest["Manifest"]
+        Chunks["Text and stable chunks"]
+        Index["Local FTS index"]
+        Prescan["Secret pre-scan"]
+        Package["LLM context package"]
+        Event["Normalized event (quadrants)"]
+    end
+    Agent(["Agent: deep read"])
+    Proposal["Ingestion proposal"]
+    Gate{"PR gate (human review)"}
+    Memory[("Consolidated memory")]
+
+    Source --> Manifest --> Chunks --> Index --> Prescan --> Package
+    Package --> Agent
+    Agent --> Event --> Proposal --> Gate
+    Gate -->|approved| Memory
+    Gate -->|rejected or superseded| Proposal
+```
+
+Read the diagram alongside the prose links: the toolkit lives in
+[wiki_core](../../../wiki_core/ingest/pipeline.py) and [scripts](../../../scripts/wiki_audit.py),
+the secret pre-scan is in [the detectors](../../../wiki_core/detectors/__init__.py),
+the context package is built by [context_pass.py](../../../wiki_core/llm/context_pass.py),
+and the gate is the GitHub PR described in [pr-governance.md](pr-governance.md).
+
 ## Principles
 
 - **Markdown/Git as substrate.** All canonical memory is Markdown versioned in
@@ -105,7 +140,23 @@ is in [operational-wiki-contract.md](../operational-wiki-contract.md) and
 The package [wiki_core/__init__.py](../../../wiki_core/__init__.py) exports the minimal
 core (`WikiConfig`, `WikiPaths`, `load_config`); the rest is imported by the
 modules and by the scripts. Each package has a single responsibility and is exposed by
-at least one `wiki_*` CLI.
+at least one `wiki_*` CLI. The table summarizes the module map; the subsections
+below carry the detail and the links to each module.
+
+| Module | Responsibility | Deterministic? |
+| --- | --- | --- |
+| config + paths | Portable per-repo config, derived-path resolution, deterministic ids (`sha256`, `slugify`) | Yes |
+| source_manifest | Classify the source and compute a stable `source_id` + JSON manifest | Yes |
+| extractors | Turn each source type into text + structured units | Yes |
+| chunking | Split text into stable `TextChunk`s with a per-excerpt hash | Yes |
+| index | Build/search the SQLite FTS index over chunks | Yes |
+| detectors | Secrets (always blocked), PII (informational), entities | Yes |
+| llm | Assemble the context package; validate and cache the agent's result | Yes (package only) |
+| ingest | Chain the deterministic steps end to end into one `run` | Yes |
+| gate | Proposal state machine, history, rebase/supersede | Yes |
+| score | 8-dimension karma, vitality, append-only events | Yes |
+| insight | Gather signals and emit a skeleton insight proposal | Yes (signals only) |
+| deep read | The interpretive read of each chunk | No (delegated to the agent) |
 
 ### config and paths (portable foundation)
 

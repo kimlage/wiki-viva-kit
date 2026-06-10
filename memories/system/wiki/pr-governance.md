@@ -58,6 +58,27 @@ seen by governance:
 4. The PR is opened; a human reviews the **content**, not just the file list.
 5. Only then does the merge into `main` occur.
 
+The exchange between the agent that prepares the proposal, the repository that runs
+the deterministic checks, and the human who owns the conceptual call:
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant Repo as Repository (branch + CI)
+    participant Human
+    Agent->>Repo: Open branch and push the proposal
+    Repo->>Repo: Run audit, coverage, cockpit checks
+    Repo-->>Agent: Report mechanical pass or fail
+    Agent->>Human: Open the PR with sources, diff and risks
+    Human->>Human: Review the conceptual diff and privacy
+    alt Approved
+        Human->>Repo: Merge into main
+        Repo-->>Agent: Proposal becomes approved truth
+    else Changes requested
+        Human-->>Agent: Request fixes; branch stays a proposal
+    end
+```
+
 A second branch is not opened for the same page when a proposal is already
 open: the existing branch is updated, rebased against `main` and old
 proposals are marked as `superseded`. This avoids two competing "truths" for
@@ -127,6 +148,11 @@ capability:
   implemented.
 - `operational_status` — the capability is being used in real operation, with
   evidence of a page or artifact. Values: absent, pilot, in_use.
+
+| Dimension | Question it answers | Values |
+| --- | --- | --- |
+| `core_status` | Is the code present and tested? | absent, partial, implemented |
+| `operational_status` | Is the capability used in real operation, with evidence? | absent, pilot, in_use |
 
 The honesty rule: **"done" requires both dimensions**. Without evidence of
 real use, the most that can be claimed is `core_status: implemented` with

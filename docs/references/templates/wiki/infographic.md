@@ -76,8 +76,24 @@ Updated on: YYYY-MM-DD
 
 ## Visual artifact
 
-- Image: [infographic file](../../../../data/derived/) <!-- replace with the real file -->
-- Format (svg/png/diagram):
+> Illustrate by default: prefer a diagram that renders in the repository itself.
+> Mermaid is the first-class form here, because it stays diffable, accessible,
+> and needs no binary attachment. Reach for an exported image only when Mermaid
+> genuinely cannot express the chart. See the representation conventions in
+> [obsidian-conventions.md](obsidian-conventions.md).
+
+```mermaid
+%% Fill in: pick the diagram type that fits the insight.
+%% flowchart for a process, pie for a share, xychart-beta for a trend, etc.
+flowchart LR
+    a["Starting point"]
+    b["Step"]
+    c["Outcome"]
+    a --> b --> c
+```
+
+- Optional exported image: [infographic file](../../../../data/derived/) <!-- replace with the real file -->
+- Format (mermaid/svg/png):
 
 ## Accessible textual alternative
 

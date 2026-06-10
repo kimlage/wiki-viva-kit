@@ -33,8 +33,23 @@ live in [events/](events/README.md).
 
 ## States of a proposal
 
-- `created` -> under review -> `approved` or `superseded` (rebase by logical target).
-- The auditor requires a valid `gate_state` on every proposal in this directory.
+A proposal is born `created` and advances through review toward `approved` and
+`published`; when two proposals compete for the same logical target, the rebase keeps
+the most recent one and marks the rest `superseded`. The full state machine is in
+[gates-and-audit.md](../wiki/gates-and-audit.md).
+
+```mermaid
+stateDiagram-v2
+    [*] --> created
+    created --> review
+    review --> approved
+    review --> superseded
+    approved --> published
+    review --> rejected
+    published --> [*]
+```
+
+The auditor requires a valid `gate_state` on every proposal in this directory.
 
 ## Related
 

@@ -31,14 +31,33 @@ Last updated: 2026-06-09.
 This is the **meta-wiki**: the living wiki itself used to document, in a
 complete and organized way, how the system **operates** and what its **process** is.
 It serves equally the personal project and the open-source version — the system (method +
-tools) is the same in both.
+tools) is the same in both. It is reached from the root map of content in
+[memories/index.md](../../index.md), as a first-class context, not a side manual.
+
+The pages group into three clusters — getting started, the pipeline, and the
+governance and by-products that keep the wiki honest.
+
+```mermaid
+flowchart TD
+    Start["Start here"] --> Arch["Architecture"]
+    Start --> Daily["Daily operation"]
+    Arch --> Ingest["Ingestion flow"]
+    Ingest --> Gates["Gates and audit"]
+    Gates --> PR["PR governance"]
+    PR --> Privacy["Privacy"]
+    Gates --> Costs["Costs"]
+    Daily --> Karma["Karma"]
+    Daily --> Perception["Perceptive layer"]
+    Ingest --> Commands["Command reference"]
+```
 
 ## Where to start
 
-- Never used it? Read [architecture.md](architecture.md) and then
-  [daily-operation.md](daily-operation.md).
-- Going to ingest a source? [ingestion-flow.md](ingestion-flow.md).
-- Going to open a PR? [pr-governance.md](pr-governance.md) and [gates-and-audit.md](gates-and-audit.md).
+| If you want to... | Read |
+| --- | --- |
+| Understand the system for the first time | [architecture.md](architecture.md), then [daily-operation.md](daily-operation.md) |
+| Ingest a source | [ingestion-flow.md](ingestion-flow.md) |
+| Open or review a PR | [pr-governance.md](pr-governance.md) and [gates-and-audit.md](gates-and-audit.md) |
 
 ## Map of the meta-wiki
 

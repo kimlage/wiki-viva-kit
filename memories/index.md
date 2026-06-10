@@ -30,6 +30,31 @@ Updated at: 2026-06-09.
 references, templates, and snapshots; [data/raw](../data/raw) and
 [data/derived](../data/derived) are cache (gitignored).
 
+This is the root map of content. Opening it means you are already inside the
+living wiki — there is no separate documentation site. The wiki has three kinds
+of content: the **contexts** (the actual subject matter), the **method** (how the
+wiki is built and kept honest), and the **meta-wiki** (the wiki documenting
+itself).
+
+```mermaid
+mindmap
+  root(("Living wiki"))
+    Contexts
+      Example context
+      Cockpit
+      Perceptive layer
+    Method
+      Methodology source
+      Operational contract
+      Page conventions
+      Ingestion process
+    Meta-wiki
+      How it works
+      Daily operation
+      Gates and audit
+      Costs
+```
+
 ## Memory policy
 
 - `main` is the approved wiki. `wiki/*` branches are live proposals; the PR is the
@@ -38,14 +63,26 @@ references, templates, and snapshots; [data/raw](../data/raw) and
   secrets never go anywhere.
 - Every local reference to a file inside the repo must be a clickable Markdown link.
 
-## Summary
+## Meta-wiki (the wiki documenting itself)
 
-- Meta-wiki (how the wiki works): [system/wiki/index.md](system/wiki/index.md).
-- Cockpit: [operations.md](operations.md).
-- Ingestion process: [system/ingestion-process.md](system/ingestion-process.md).
-- Wiki contract: [system/operational-wiki-contract.md](system/operational-wiki-contract.md).
-- Change log: [system/log.md](system/log.md).
-- Method coverage: [system/methodology-coverage-v5.md](system/methodology-coverage-v5.md).
+The meta-wiki is a first-class part of this wiki, not a separate manual: it is the
+living wiki used to explain how the living wiki works, kept honest by the same
+gates. It is the place to start if you want to understand the system itself.
+
+- Entry point: [system/wiki/index.md](system/wiki/index.md) — map of the whole meta-wiki.
+- Architecture and module map: [system/wiki/architecture.md](system/wiki/architecture.md).
+- Daily operation: [system/wiki/daily-operation.md](system/wiki/daily-operation.md).
+
+## Method and operation
+
+| Topic | Page |
+| --- | --- |
+| Cockpit | [operations.md](operations.md) |
+| Ingestion process | [system/ingestion-process.md](system/ingestion-process.md) |
+| Wiki contract | [system/operational-wiki-contract.md](system/operational-wiki-contract.md) |
+| Page conventions (Mermaid + tables by default) | [obsidian-conventions.md](../docs/references/templates/wiki/obsidian-conventions.md) |
+| Change log | [system/log.md](system/log.md) |
+| Method coverage | [system/methodology-coverage-v5.md](system/methodology-coverage-v5.md) |
 
 ## Contexts
 

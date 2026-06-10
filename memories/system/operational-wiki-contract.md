@@ -24,6 +24,10 @@ defines what enters memory, how it enters, and how it is approved.
 - Memory consolidates actionable synthesis, not just links to sources.
 - Privacy along two axes: personal data (PII) is allowed on private pages; access
   secrets (tokens, passwords, keys, cookies) never enter.
+- Rich representation by default: pages illustrate structure with Mermaid diagrams
+  and Markdown tables, keeping prose for nuance; architecture/flow/relationship/
+  process pages carry at least one diagram. See the guideline in
+  [obsidian-conventions.md](../../docs/references/templates/wiki/obsidian-conventions.md).
 - [docs/](../../docs/) holds references, templates and snapshots - it is not the main memory.
 
 ## What enters memory

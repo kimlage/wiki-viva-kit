@@ -33,6 +33,33 @@ To close the **Information -> Insight** cycle, [scripts/wiki_insight_job.py](../
 gathers events+chunks+pages by theme and emits a PROPOSAL of an insight (candidate)
 for a human gate — without writing canonical memory.
 
+The orchestrated path, end to end:
+
+```mermaid
+flowchart LR
+    Source["Source"] --> Manifest["Manifest"]
+    Manifest --> Chunks["Text and chunks"]
+    Chunks --> Index["Index"]
+    Index --> Prescan["Pre-scan"]
+    Prescan --> Package["LLM context package"]
+    Package --> DeepRead(["Deep read by the agent"])
+    DeepRead --> Score["Score event"]
+    Score --> Proposal["Proposal"]
+    Proposal --> Gate{"PR gate"}
+    Gate -->|approved| Memory[("Memory")]
+```
+
+The deterministic stages, the command that runs each, and what gates it:
+
+| Stage | Command | Gate |
+| --- | --- | --- |
+| Manifest | [wiki_extract_source_manifest.py](../../scripts/wiki_extract_source_manifest.py) | none |
+| Text + chunks | [wiki_extract_text.py](../../scripts/wiki_extract_text.py) | none |
+| Index | [wiki_build_index.py](../../scripts/wiki_build_index.py) | none |
+| Pre-scan + context package | [wiki_ingest.py](../../scripts/wiki_ingest.py) | secret blocks (exit 2); emits the `-request.json` |
+| Deep read | [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) | `required_context_pass` requires a recorded result |
+| Consolidation + audit | [wiki_audit.py](../../scripts/wiki_audit.py) | contract/links/secrets; human approval on the PR |
+
 ## Flow
 
 1. Identify the source without copying access secrets into the conversation.

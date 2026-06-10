@@ -1,0 +1,104 @@
+# Setup — adopt and configure the wiki in a repo
+
+Goal: take a repo from nothing to a working living wiki whose gates are green.
+The kit is self-contained; "setup" is mostly **configuration + scaffolding**, not
+code. Paths below use the English defaults; if you pin a localized layout (step 4)
+substitute your own names.
+
+## 1. Bring the kit in
+
+Copy the kit into the repo (or start the repo from it) — the deterministic core,
+the CLIs, the tests, the templates, the method pages, the skills and the profile:
+
+```text
+wiki_core/                         # deterministic core
+scripts/                           # wiki_* CLIs
+tests/                             # the core's test suite
+docs/references/templates/wiki/    # page contracts and templates
+memories/system/                   # method pages (process, contract, coverage, log)
+.skills/                           # portable agent skills (this one included)
+.github/workflows/wiki.yml         # the gates in CI
+wiki.config.yaml  wiki.targets.yaml  requirements.txt  pytest.ini  .gitignore  AGENTS.md  README.md
+```
+
+```sh
+pip install -r requirements.txt   # PyYAML is the only runtime dependency
+python3 -m pytest tests/ -q       # sanity: the kit's own suite must pass
+```
+
+## 2. Configure the repo profile — [wiki.config.yaml](../../../wiki.config.yaml)
+
+Read [wiki_core/config.py](../../../wiki_core/config.py) for the authoritative key
+list and defaults. The essentials:
+
+| Key | Meaning |
+| --- | --- |
+| `repo_id`, `owner_label` | Identity used in generated pages/ids |
+| `language` | `en` or `pt` — drives **generated output** (cockpit, proposals) via string tables; code stays English |
+| `contexts` | Comma list; each needs a `<memory_root>/<ctx>/index.md` hub |
+| `default_context` | Context used when a command omits `--context` |
+| `default_visibility` | Usually `private_self` |
+| `private_sensitive_allowed` | `true` = PII welcome on private pages; `false` = strict mode |
+| `paths` | Repo layout (English defaults; pin to localize — step 4) |
+| `coverage` | Methodology-coverage gate targets |
+| `audit.core_pages` | Pages the audit requires to exist |
+| `llm` | Chunking, model profile, prompt versions, `required_context_pass` |
+| `audit` | `freshness_budget`, link/secret/frontmatter switches |
+
+## 3. Declare contexts and their targets
+
+A **context** is a top-level area of memory (e.g. `finance`, `system`). For each:
+
+1. Create the hub `<memory_root>/<ctx>/index.md` (the audit requires it). Start
+   from a copy of the example context hub.
+2. Map it in [wiki.targets.yaml](../../../wiki.targets.yaml): which pages and
+   entity ids a source in that context typically impacts. This keeps
+   [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py) generic — names live
+   only in the profile, never in code.
+
+The kit ships an `example` context — replace or keep it as a living sample.
+
+## 4. (Optional) Pin a localized layout
+
+The defaults are English — [memories/](../../../memories/index.md),
+[memories/system/ingestion/](../../../memories/system/ingestion/README.md),
+[docs/references/](../../../docs/references/), cockpit at
+[memories/operations.md](../../../memories/operations.md). To run the tree in
+another language, pin every name you rename under `paths:` in
+[wiki.config.yaml](../../../wiki.config.yaml), plus `default_context`, the
+`coverage` pages and `audit.core_pages`. Example (Portuguese):
+
+```yaml
+default_context: sistema
+paths:
+  memory_root: memorias
+  references_root: docs/referencias
+  system_dirname: sistema
+  ingest_dirname: ingestao
+  events_dirname: eventos
+  archive_dirname: arquivo
+  decisions_dirname: decisoes
+  actions_dirname: acoes
+  pending_actions_filename: pendentes.md
+  sources_dirname: fontes
+  operation_page: memorias/operacao.md
+  command_reference_page: memorias/sistema/wiki/referencia-comandos.md
+```
+
+The code never hardcodes layout paths; it reads them from here via
+[wiki_core/paths.py](../../../wiki_core/paths.py). The directory and file names
+then follow your pins, while code, comments and CLIs stay English.
+
+## 5. Verify the gates are green
+
+```sh
+python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_check_methodology_coverage.py --check
+python3 scripts/wiki_operation_compile.py --check
+python3 -m pytest tests/ -q
+```
+
+If `wiki_audit` complains about a missing core page, you renamed/omitted one of
+`audit.core_pages` — create it or update the config. If methodology coverage
+fails, a required page/template is missing or empty. Green here means the repo is
+ready to operate — go to [operating.md](operating.md).

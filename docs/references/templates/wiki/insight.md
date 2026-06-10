@@ -23,6 +23,22 @@ sensitive_data_policy: private_sensitive_allowed
 
 # Insight - topic
 
+> Illustrate by default: an insight is a step up the ladder from raw data. Show
+> the information-to-insight path with a Mermaid flowchart. See the
+> representation conventions in [obsidian-conventions.md](obsidian-conventions.md).
+
+```mermaid
+%% Fill in: trace how the evidence becomes a reading and a possible action.
+flowchart LR
+    info["Information and evidence"]
+    reading["Reading (this insight)"]
+    uncertainty["Uncertainty"]
+    action["Possible action"]
+    info --> reading
+    reading --> uncertainty
+    reading --> action
+```
+
 ## Reading
 
 -

@@ -42,6 +42,26 @@ wiki, and the levers to cut cost without touching the quality of the gates.
    source, tens of dollars per month even in a heavy scenario.
 4. **CI** — zero inside the free tier (each run costs ~1-3 min).
 
+| Where cost goes | Weight | Lever to reduce it |
+| --- | --- | ---: |
+| Agent session (operates the repo) | Dominant | Group work into fewer sessions; reuse the prompt cache |
+| Human review time | Bottleneck | One PR = one theme; smaller, faster reviews |
+| LLM ingestion (deep read) | Cents per source | Batches API (-50%); cheaper model per profile |
+| CI | ~Zero (free tier) | Keep gates deterministic (no model tokens) |
+
+The relative weights, so the lever lands where the spend actually is:
+
+```mermaid
+flowchart TD
+    Total["Total operating cost"]
+    Total --> AgentCost["Agent session (dominant)"]
+    Total --> HumanCost["Human review (bottleneck)"]
+    Total --> Ingest["LLM ingestion (cents)"]
+    Total --> CI["CI (near zero)"]
+    AgentCost --> Levers["Session discipline + prompt cache"]
+    Ingest --> Batch["Batches API and model by profile"]
+```
+
 ## Levers (without losing quality)
 
 ### Agent session discipline (biggest lever)

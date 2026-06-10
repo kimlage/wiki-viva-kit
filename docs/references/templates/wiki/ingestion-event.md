@@ -43,6 +43,21 @@ attachment_policy: "Source, manifest, text, and chunks must be Markdown links."
 
 # Event - title
 
+> Illustrate by default: sketch the source's path through ingestion with a small
+> Mermaid flowchart. See the representation conventions in
+> [obsidian-conventions.md](obsidian-conventions.md).
+
+```mermaid
+%% Fill in: trace this source from capture to the pages it touches.
+flowchart LR
+    src["Original source"]
+    norm["Normalized event"]
+    quad["Four quadrants"]
+    claims["Candidate claims"]
+    pages["Impacted pages"]
+    src --> norm --> quad --> claims --> pages
+```
+
 ## Source
 
 - Original source:

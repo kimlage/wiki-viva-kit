@@ -34,6 +34,16 @@ evidence_refs: []
 
 State: `pending` | `in_pr` | `completed` | `blocked` | `recurring`.
 
+> Illustrate by default: track the action's status as a table row, not loose
+> prose. See the representation conventions in
+> [obsidian-conventions.md](obsidian-conventions.md).
+
+## Status
+
+| State | Owner | Due | Last update | Blocker (if any) |
+| --- | --- | --- | --- | --- |
+| `pending` |  | YYYY-MM-DD | YYYY-MM-DD |  |
+
 ## Expected result
 
 -

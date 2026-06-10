@@ -40,6 +40,21 @@ attachment_policy: "Keep the original traceable; attachments and derivatives mus
 
 # Source - example
 
+> Illustrate by default: record the source's attributes as a table, not loose
+> prose. See the representation conventions in
+> [obsidian-conventions.md](obsidian-conventions.md).
+
+## Attributes
+
+| Attribute | Value |
+| --- | --- |
+| Type | `memory` / `reference` / `artifact` / `raw` / `no_ingest` |
+| Origin | where it comes from |
+| Captured at | YYYY-MM-DD |
+| Format | pdf / email / sheet / chat / repo / image / audio / note |
+| Original location | Markdown link to the traceable original |
+| Reliability | `low` / `medium` / `high` |
+
 ## Type
 
 `memory` | `reference` | `artifact` | `raw` | `no_ingest`

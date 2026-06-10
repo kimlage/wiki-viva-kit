@@ -37,6 +37,30 @@ backlinks_expected: []
 - Quorum: one human approver responsible for the context.
 - Default SLA: 72 hours, except for operational urgency.
 
+## State machine
+
+> Illustrate by default: a gate is a state machine. Show the transitions as a
+> Mermaid state diagram, and keep the table below as the readable index. See the
+> representation conventions in [obsidian-conventions.md](obsidian-conventions.md).
+
+```mermaid
+%% Fill in: adjust transitions if this gate differs from the default cycle.
+%% State names mirror the table below.
+stateDiagram-v2
+    [*] --> created
+    created --> compiling
+    compiling --> ready_for_review
+    ready_for_review --> needs_human_gate
+    needs_human_gate --> approved
+    needs_human_gate --> rejected
+    approved --> published
+    ready_for_review --> superseded
+    published --> archived
+    superseded --> archived
+    rejected --> archived
+    archived --> [*]
+```
+
 ## States
 
 | State | Meaning | Next transition |

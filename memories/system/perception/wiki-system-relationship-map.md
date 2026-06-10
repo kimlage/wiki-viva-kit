@@ -52,47 +52,49 @@ generates artifacts, triggers the privacy pre-scan, assembles the package for th
 reading agent, and feeds the scoreboard and the cockpit. The gate by PR sits in
 the middle, watching.
 
-## Diagram (text, accessible)
+## Diagram (graph, accessible)
 
-```
-            source (data/raw, Drive)
-                     |
-                     v
-        [ingestion orchestrator]  wiki_core/ingest/pipeline.py
-        manifest -> text/chunks -> index
-                     |
-        +------------+-------------------------------+
-        |                          |                 |
-        v                          v                 v
- [pre-scan]               [LLM context           [score-event]
- detectors:               package]  wiki_core/    wiki_core/score/
- secret BLOCKS;           llm/ emits              karma, 8 dimensions
- PII informational        -request.json                 |
-        |                       |                       v
-        |                       v                  [cockpit]
-        |             [repo agent reads and        operations.md
-        |              writes result to cache]     (reads karma,
-        |                       |                  decisions, actions)
-        |                       v
-        |             [auditor: honesty gate]
-        +-----------> wiki_audit.py: required_context_pass,
-                      secret blocked, PII only at the public boundary
-                                |
-                                v
-                      [gate by PR on GitHub]
-                      state machine: created -> ... -> approved/superseded
+The graph below uses friendly labels and is readable as source text on GitHub; the
+plain-language summary above and the edge table below carry the same relations
+without relying on the rendered shapes or any color.
+
+```mermaid
+flowchart TD
+    Source["Source (raw data, Drive)"]
+    Orchestrator["Ingestion orchestrator"]
+    Prescan["Pre-scan: secret blocks, PII informs"]
+    Package["LLM context package"]
+    Score["Score event (8-dimension karma)"]
+    Agent(["Repo agent: reads and writes the result"])
+    Auditor["Auditor: honesty gate"]
+    Cockpit["Cockpit"]
+    PRGate{"PR gate on GitHub"}
+    Memory[("Canonical memory")]
+
+    Source --> Orchestrator
+    Orchestrator --> Prescan
+    Orchestrator --> Package
+    Orchestrator --> Score
+    Package --> Agent
+    Agent --> Auditor
+    Prescan --> Auditor
+    Score --> Cockpit
+    Auditor --> PRGate
+    PRGate --> Memory
 ```
 
 ## Main edges (origin -> target : relationship)
 
-- `orchestrator -> detectors` : privacy pre-scan at capture (secret blocks).
-- `orchestrator -> LLM package` : emits the `-request.json` that the auditor watches.
-- `orchestrator -> score` : records `ingestar_fonte_valida` (karma).
-- `LLM package -> repo agent` : deep reading delegated (no LLM in Python).
-- `agent -> cache` : writes the result; closes the `required_context_pass` gate.
-- `score -> cockpit` : the cockpit displays karma per dimension.
-- `auditor -> PR gate` : blocks the merge while there is a pending pass or secret.
-- `PR gate -> canonical memory` : only after human review does the proposal become memory.
+| Origin | Target | Relationship |
+| --- | --- | --- |
+| orchestrator | detectors | privacy pre-scan at capture (secret blocks) |
+| orchestrator | LLM package | emits the `-request.json` that the auditor watches |
+| orchestrator | score | records `ingestar_fonte_valida` (karma) |
+| LLM package | repo agent | deep reading delegated (no LLM in Python) |
+| agent | cache | writes the result; closes the `required_context_pass` gate |
+| score | cockpit | the cockpit displays karma per dimension |
+| auditor | PR gate | blocks the merge while there is a pending pass or secret |
+| PR gate | canonical memory | only after human review does the proposal become memory |
 
 ## Perceptive reading
 

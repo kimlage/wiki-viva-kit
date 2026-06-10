@@ -32,6 +32,22 @@ evidence_refs: []
 
 # Project - example
 
+> Illustrate by default: show how this project sits between its context, its
+> initiatives, and its actions with a Mermaid flowchart. See the representation
+> conventions in [obsidian-conventions.md](obsidian-conventions.md).
+
+```mermaid
+%% Fill in: connect this project to its parent context, initiatives, and actions.
+flowchart TD
+    context["Parent context"]
+    project["This project"]
+    initiative["Initiative"]
+    action["Action"]
+    context --> project
+    project --> initiative
+    initiative --> action
+```
+
 ## Objective
 
 -

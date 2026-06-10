@@ -43,6 +43,20 @@ For the PR gate that decides what becomes a source of truth, see
 [Approvals via Git](../git-approvals.md) and [Gates and auditing](gates-and-audit.md);
 for the flow that triggers the events, see [Ingestion process](../ingestion-process.md).
 
+A useful action records an append-only event; the event credits one dimension and,
+after the anti-gaming multipliers and the soft decay, feeds both the personal karma
+vector and the per-context vitality index that the cockpit displays:
+
+```mermaid
+flowchart LR
+    Action["Useful action"] --> Event["Append-only event (one dimension)"]
+    Event --> Multipliers["Anti-gaming multipliers + decay"]
+    Multipliers --> Karma["Personal karma (8 dimensions)"]
+    Multipliers --> Vitality["Context vitality (0-100)"]
+    Karma --> Cockpit["Daily cockpit"]
+    Vitality --> Cockpit
+```
+
 ## The 8 dimensions of karma
 
 Karma is not a single number: it is a vector of 8 dimensions, defined in

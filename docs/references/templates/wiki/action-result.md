@@ -24,6 +24,15 @@ sensitive_data_policy: private_sensitive_allowed
 
 # Action and result - topic
 
+> Illustrate by default: record actions and their outcomes as table rows. See the
+> representation conventions in [obsidian-conventions.md](obsidian-conventions.md).
+
+## Outcomes
+
+| Action taken | Result | Evidence | Status |
+| --- | --- | --- | --- |
+|  |  |  | `completed` / `blocked` / `partial` |
+
 ## Action taken
 
 -

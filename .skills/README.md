@@ -3,7 +3,18 @@
 Portable kit skills (`wiki-*`), generic and free of personal names — copyable
 to another repo without deep adjustments.
 
-## Reusable kit (`wiki-*`)
+## Start here — the single install (`wiki-viva`)
+
+- **`wiki-viva`** — the **entry skill**: install this one to both *configure*
+  and *operate* the whole living wiki. It carries the full lifecycle (adopt →
+  configure → ingest → deep read → consolidate → cockpit → gates → PR) with
+  bundled references, and points to the focused skills below when you need the
+  full procedure for a single step. You do not need the others installed to
+  operate.
+
+## Focused playbooks (`wiki-*`)
+
+Optional depth for individual steps; `wiki-viva` orchestrates them.
 
 - `wiki-memory-router` — loads the wiki and routes context.
 - `wiki-ingestion-agent` — source -> normalized event -> proposal.

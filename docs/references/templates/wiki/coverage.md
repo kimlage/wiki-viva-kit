@@ -33,11 +33,26 @@ source_counts:
 
 # Coverage - <name>
 
+> Illustrate by default: a coverage matrix is a table. Fill in the rows below
+> rather than writing prose. See the representation conventions in
+> [obsidian-conventions.md](obsidian-conventions.md).
+
 ## Covered
+
+| Area / page | Source of truth | Last checked | Confidence |
+| --- | --- | --- | --- |
+|  |  | YYYY-MM-DD | `low` / `medium` / `high` |
 
 ## Gaps
 
+| Gap | Why it matters | Owner | Target date |
+| --- | --- | --- | --- |
+|  |  |  | YYYY-MM-DD |
+
 ## Next review
+
+- Date: YYYY-MM-DD
+- Trigger:
 
 ## Related
 

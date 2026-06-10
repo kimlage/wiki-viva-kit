@@ -33,6 +33,19 @@ python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
 ```
 
+The honesty gates at a glance — what each verifies and where it runs in CI:
+
+| Gate | What it verifies | CI step |
+| --- | --- | --- |
+| Contract audit | Frontmatter, ontology relations, clickable local links | `wiki_audit.py --check` |
+| Secret block | No access secret in any versioned text file | `wiki_audit.py --check` (`audit_secrets`) |
+| PII boundary | PII only crosses the public boundary when redacted | `wiki_audit.py --check` (`audit_pii`) |
+| LLM pass | Every requested chunk has a recorded, valid result | `wiki_audit.py --check` (`audit_context_pass_gate`) |
+| Gate state | Every proposal carries a valid `gate_state` | `wiki_audit.py --check` (`audit_ingestion_proposals_gate_state`) |
+| Methodology coverage | Required pages/templates exist with real content | `wiki_check_methodology_coverage.py --check` |
+| Cockpit freshness | The deterministic cockpit body matches a recompile at HEAD | `wiki_operation_compile.py --check` |
+| Public export | PII becomes an error on ANY page before publishing | `wiki_audit.py --check --public-export` |
+
 ## Contract auditing (wiki_audit)
 
 [wiki_audit.py](../../../scripts/wiki_audit.py) scans the versioned files (and the non-ignored untracked ones, via `git ls-files`) and accumulates errors and warnings. With `--check`, any error returns code 1; warnings (stale pages, cockpit not recompiled today) never bring down the gate on their own. Each `audit_*` function covers an invariant:
@@ -93,4 +106,24 @@ python3 scripts/wiki_audit.py --check --strict-local
 
 ## Gate state machine
 
-The ingestion proposals traverse an explicit state machine ([wiki_core/gate/state_machine.py](../../../wiki_core/gate/state_machine.py)): `created` -> `compiling` -> `ready_for_review` -> `needs_human_gate` -> `approved` -> `published`, with exits `superseded`, `rejected` and `archived`. `can_transition` validates each passage against the transition graph; `write_state` applies the change in the frontmatter and records an auditable history in `gate_history` ({from, to, reason}), refusing invalid transitions (e.g.: `rejected` -> `approved`, or any exit from `archived`). When several proposals compete for the same page/context, `rebase_pending` keeps the most recent one and marks the rest as `superseded` — a system action, also audited in the history. It is this coherence that `audit_ingestion_proposals_gate_state` guarantees by requiring a valid `gate_state` in every proposal. The human approval flow over this machine is in [git approvals](../git-approvals.md).
+The ingestion proposals traverse an explicit state machine ([wiki_core/gate/state_machine.py](../../../wiki_core/gate/state_machine.py)): `created` -> `compiling` -> `ready_for_review` -> `needs_human_gate` -> `approved` -> `published`, with exits `superseded`, `rejected` and `archived`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> created
+    created --> compiling
+    compiling --> ready_for_review
+    ready_for_review --> needs_human_gate
+    needs_human_gate --> approved
+    approved --> published
+    published --> [*]
+    created --> superseded: rebase keeps the newest
+    compiling --> rejected
+    ready_for_review --> rejected
+    needs_human_gate --> rejected
+    superseded --> archived
+    rejected --> archived
+    archived --> [*]
+```
+
+ `can_transition` validates each passage against the transition graph; `write_state` applies the change in the frontmatter and records an auditable history in `gate_history` ({from, to, reason}), refusing invalid transitions (e.g.: `rejected` -> `approved`, or any exit from `archived`). When several proposals compete for the same page/context, `rebase_pending` keeps the most recent one and marks the rest as `superseded` — a system action, also audited in the history. It is this coherence that `audit_ingestion_proposals_gate_state` guarantees by requiring a valid `gate_state` in every proposal. The human approval flow over this machine is in [git approvals](../git-approvals.md).
