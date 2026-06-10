@@ -168,3 +168,42 @@ def test_gate_refuses_advance_while_pending(tmp_path, capsys):
     assert rc == 1
     err = capsys.readouterr().err
     assert "pending deep-read marker" in err
+
+
+# --------------------------------------------------------------------------- #
+# Phase 2: external-tool entity types + per-source config column
+# --------------------------------------------------------------------------- #
+
+
+def test_phase2_ontology_types_registered():
+    audit = _load_audit()
+    types = audit.ONTOLOGY_DIRNAME_TYPES
+    assert "meeting" in types["meetings"] and "meeting" in types["reunioes"]
+    assert "external_card" in types["cards"] and "external_card" in types["cartoes"]
+    assert "calendar_event" in types["calendar"] and "calendar_event" in types["calendario"]
+    # Per-source config pages live under the sources dir.
+    assert "source_config" in types["sources"] and "source_config" in types["fontes"]
+
+
+def test_registry_config_column_only_links_existing_config(tmp_path, monkeypatch):
+    reg = _load_script("wiki_source_registry")
+    cfg = WikiConfig()  # English defaults: sources under memories/sources
+    paths = WikiPaths(tmp_path, cfg)
+    (tmp_path / "memories/sources/config").mkdir(parents=True)
+    (tmp_path / "memories/sources/config/s.md").write_text(
+        "---\npage_id: cfg-s\npage_type: source_config\n---\n", encoding="utf-8"
+    )
+    (tmp_path / "memories/sources/s.md").write_text(
+        '---\npage_id: source-s\npage_type: source\ntitle: "S"\n'
+        "config_ref: memories/sources/config/s.md\n---\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/sources/t.md").write_text(
+        '---\npage_id: source-t\npage_type: source\ntitle: "T"\n'
+        "config_ref: memories/sources/config/missing.md\n---\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(reg, "ROOT", tmp_path)
+    rows = {r["title"]: r["config"] for r in reg.collect_sources(paths)}
+    assert rows["S"] == "memories/sources/config/s.md"  # exists -> linkable
+    assert rows["T"] == ""                              # missing -> not linked

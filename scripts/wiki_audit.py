@@ -79,7 +79,7 @@ _ONTOLOGY_DIRNAME_GROUPS: dict[tuple[str, ...], set[str]] = {
     ("assignments", "atribuicoes"): {"ontology_index", "assignment"},
     ("projects", "projetos"): {"ontology_index", "project"},
     ("initiatives", "iniciativas"): {"ontology_index", "initiative"},
-    ("sources", "fontes"): {"ontology_index", "source", "source_catalog", "artifact", "source_registry"},
+    ("sources", "fontes"): {"ontology_index", "source", "source_catalog", "artifact", "source_registry", "source_config"},
     ("claims",): {"ontology_index", "claim"},
     ("decisions", "decisoes"): {"ontology_index", "decision"},
     ("insights",): {"ontology_index", "insight"},
@@ -87,6 +87,12 @@ _ONTOLOGY_DIRNAME_GROUPS: dict[tuple[str, ...], set[str]] = {
     ("timelines",): {"ontology_index", "timeline"},
     ("evidence", "evidencias"): {"ontology_index", "evidence"},
     ("coverage", "cobertura"): {"ontology_index", "coverage"},
+    # External-tool entities (Phase 2): meetings, cards (Jira/tickets) and
+    # calendar events, linked to people/decisions/actions/source. Live connectors
+    # stay the agent's job; the toolkit only models and audits the entities.
+    ("meetings", "reunioes"): {"ontology_index", "meeting"},
+    ("cards", "cartoes"): {"ontology_index", "external_card"},
+    ("calendar", "calendario"): {"ontology_index", "calendar_event"},
 }
 
 ONTOLOGY_DIRNAME_TYPES: dict[str, set[str]] = {
