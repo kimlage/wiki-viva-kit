@@ -1,0 +1,627 @@
+#!/usr/bin/env python3
+"""Compile the daily operation cockpit from the living wiki and Git state.
+
+The cockpit (`memorias/operacao.md`) is generated from real sources, never from
+hardcoded personal content:
+
+- repo_id / owner_label come from `wiki.config.yaml` (via `load_config`);
+- decisions come from `memorias/decisoes/*.md` (one decision per file);
+- actions come from `memorias/acoes/*.md` and `memorias/acoes/pendentes.md`;
+- context vitality is derived from `updated_at` + `stale_after_days` of the
+  context hubs (`memorias/*/index.md`);
+- Git state (branch, last commit, working tree) is read from Git.
+
+`build_page(root, config)` takes an injectable `root`, so it can be exercised
+against a minimal repo in tests without touching the real working tree.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import re
+import subprocess
+import sys
+from dataclasses import dataclass
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+IGNORED_UNTRACKED_PREFIXES = ("docs/memorias/",)
+
+from wiki_core.config import WikiConfig, load_config
+from wiki_core.paths import WikiPaths
+from wiki_core.score import compute_karma, load_events, record_event, resolve_events_path
+
+# Context hubs are the pages that carry living context per area. Their
+# freshness drives the "Context vitality" table.
+CONTEXT_HUB_TYPE = "context_hub"
+
+H1_RE = re.compile(r"^#\s+(.*\S)\s*$")
+STATE_RE = re.compile(r"^Estado:\s*`?([^`]+?)`?\s*\.?\s*$")
+LIST_ITEM_RE = re.compile(r"^\s*-\s+`?([^`]+?)`?\s*$")
+
+# Deterministic sections derived from the content of memorias/ (independent of
+# date/git state): fine granularity, still used by per-section drift tests.
+CHECKED_SECTION_PREFIXES = ("Decisoes pendentes", "Acoes do dono", "Fila de acoes pendentes")
+
+# VOLATILE parts of the cockpit (depend on date, git state or karma/score). They
+# stay out of the stable view used by --check. Includes the markers in both pt AND en
+# so that --check works regardless of `language` in the config.
+VOLATILE_FRONTMATTER_KEYS = ("updated_at", "generated_from_commit", "generated_from_branch")
+VOLATILE_SECTIONS = (
+    "Vitalidade dos contextos", "Context vitality",
+    "Karma e vitalidade", "Karma and vitality",
+)
+VOLATILE_BODY_PREFIXES = (
+    "Atualizado em:", "Updated at:",
+    "- Compilado de:", "- Compiled from:",
+    "- Contextos stale para revisar:", "- Stale contexts to review:",
+)
+
+# Cockpit string table per language (drives the GENERATED output via config.language).
+# Keys with {placeholders} are formatted in build_page.
+COCKPIT_STRINGS: dict[str, dict[str, str]] = {
+    "pt": {
+        "purpose": "cockpit de retomada operacional diaria da wiki",
+        "title": "Operacao - {repo}",
+        "owner": "Dono: {owner}.",
+        "updated": "Atualizado em: {now}.",
+        "h_state": "## Estado agora",
+        "compiled_from": "- Compilado de: branch `{branch}`, commit `{commit}` (ver `generated_from_commit` no frontmatter).",
+        "pr_open": "- PR aberto: verificar no GitHub antes de publicar ou concluir.",
+        "generated_by": "- Gerado por [scripts/wiki_operation_compile.py](../scripts/wiki_operation_compile.py); o conteudo deterministico do cockpit e verificado no CI via `--check` (igual ao recompilado em HEAD; `generated_from_commit` e proveniencia).",
+        "biggest_risk": "- Maior risco: consolidar memoria canonica sem PR ou sem fonte linkada.",
+        "h_decisions": "## Decisoes pendentes",
+        "th_decisions": "| Decisao | Contexto | Fonte |",
+        "empty_decisions": "| Sem decisoes pendentes registradas. | - | - |",
+        "h_actions": "## Acoes do dono ({owner})",
+        "th_actions": "| Acao | Contexto | Estado | Fonte |",
+        "empty_actions": "| Sem acoes registradas. | - | - | - |",
+        "h_queue": "## Fila de acoes pendentes",
+        "queue_listed": "Identificadores listados em [acoes/pendentes.md](acoes/pendentes.md):",
+        "empty_queue": "Sem acoes pendentes registradas.",
+        "h_alerts": "## Alertas",
+        "alert_stale": "- A pagina de operacao fica stale apos 1 dia.",
+        "alert_quadrants": "- Eventos de ingestao relevantes devem declarar quatro quadrantes ou ausencia explicita.",
+        "alert_pii": "- Dados pessoais (PII: nomes, valores, CPF/CNPJ, contrapartes) sao bem-vindos na wiki privada; redigir so antes de exportar/publicar.",
+        "alert_secrets": "- Segredos de acesso (tokens, senhas, chaves, cookies) nunca entram em lugar nenhum.",
+        "alert_stale_contexts": "- Contextos stale para revisar: {contexts}.",
+        "h_vitality": "## Vitalidade dos contextos",
+        "th_vitality": "| Contexto | Atualizacao | Janela (dias) | Vitalidade | Hub |",
+        "empty_vitality": "| Sem hubs de contexto registrados. | - | - | - | - |",
+        "h_karma": "## Karma e vitalidade (gamificacao)",
+        "karma_summary": "Eventos de score: {n} | karma total (com decaimento): {total}.",
+        "th_karma": "| Dimensao | Pontos |",
+        "empty_karma": "Sem eventos de score registrados (score-events.jsonl vazio/ausente).",
+        "h_links": "## Links de retomada",
+        "link_wiki": "Wiki", "link_log": "Log",
+        "link_coverage": "Cobertura", "link_coverage_meth": "Cobertura metodologia",
+        "vit_fresh": "fresca", "vit_stale": "stale", "vit_undetermined": "indeterminada",
+        "no_date": "sem data", "git_unknown": "desconhecida", "git_no_diff": "sem diff local",
+        "git_wt": "{n} entradas no working tree, {u} nao rastreadas",
+        "git_no_commit": "sem commit", "git_unknown_sha": "desconhecido",
+    },
+    "en": {
+        "purpose": "daily operational resume cockpit of the wiki",
+        "title": "Operations - {repo}",
+        "owner": "Owner: {owner}.",
+        "updated": "Updated at: {now}.",
+        "h_state": "## Current state",
+        "compiled_from": "- Compiled from: branch `{branch}`, commit `{commit}` (see `generated_from_commit` in the frontmatter).",
+        "pr_open": "- Open PR: check GitHub before publishing or concluding.",
+        "generated_by": "- Generated by [scripts/wiki_operation_compile.py](../scripts/wiki_operation_compile.py); the cockpit's deterministic content is verified in CI via `--check` (equal to a recompile at HEAD; `generated_from_commit` is provenance).",
+        "biggest_risk": "- Biggest risk: consolidating canonical memory without a PR or a linked source.",
+        "h_decisions": "## Pending decisions",
+        "th_decisions": "| Decision | Context | Source |",
+        "empty_decisions": "| No pending decisions recorded. | - | - |",
+        "h_actions": "## Owner actions ({owner})",
+        "th_actions": "| Action | Context | State | Source |",
+        "empty_actions": "| No actions recorded. | - | - | - |",
+        "h_queue": "## Pending action queue",
+        "queue_listed": "Identifiers listed in [acoes/pendentes.md](acoes/pendentes.md):",
+        "empty_queue": "No pending actions recorded.",
+        "h_alerts": "## Alerts",
+        "alert_stale": "- The operations page goes stale after 1 day.",
+        "alert_quadrants": "- Relevant ingestion events must declare the four quadrants or explicit absence.",
+        "alert_pii": "- Personal data (PII: names, amounts, tax IDs, counterparties) is welcome in the private wiki; redact only before exporting/publishing.",
+        "alert_secrets": "- Access secrets (tokens, passwords, keys, cookies) never go anywhere.",
+        "alert_stale_contexts": "- Stale contexts to review: {contexts}.",
+        "h_vitality": "## Context vitality",
+        "th_vitality": "| Context | Updated | Window (days) | Vitality | Hub |",
+        "empty_vitality": "| No context hubs recorded. | - | - | - | - |",
+        "h_karma": "## Karma and vitality (gamification)",
+        "karma_summary": "Score events: {n} | total karma (with decay): {total}.",
+        "th_karma": "| Dimension | Points |",
+        "empty_karma": "No score events recorded (score-events.jsonl empty/absent).",
+        "h_links": "## Resume links",
+        "link_wiki": "Wiki", "link_log": "Log",
+        "link_coverage": "Coverage", "link_coverage_meth": "Methodology coverage",
+        "vit_fresh": "fresh", "vit_stale": "stale", "vit_undetermined": "undetermined",
+        "no_date": "no date", "git_unknown": "unknown", "git_no_diff": "no local diff",
+        "git_wt": "{n} working-tree entries, {u} untracked",
+        "git_no_commit": "no commit", "git_unknown_sha": "unknown",
+    },
+}
+
+
+def _cs(language: str) -> dict[str, str]:
+    """Cockpit string table for the language (fallback en)."""
+    return COCKPIT_STRINGS.get(language, COCKPIT_STRINGS["en"])
+
+
+def stable_cockpit_view(page: str) -> str:
+    """Deterministic view of the cockpit for --check.
+
+    Keeps everything that comes from the CONTENT of memorias/ and removes whatever
+    depends on date, git state or karma/score. Covers the whole body (stable
+    frontmatter, Current state, Decisions, Actions, Queue, Alerts, Links), not just
+    3 sections. Commit hash equality is NOT required (by design: the recompile commit
+    cannot contain its own hash, and merge commits always differ); the gate is the content.
+    """
+    out: list[str] = []
+    in_fm = False
+    fm_closed = False
+    in_volatile_section = False
+    for line in page.splitlines():
+        if not fm_closed and line.strip() == "---":
+            in_fm = not in_fm
+            if not in_fm:
+                fm_closed = True
+            out.append(line)
+            continue
+        if in_fm:
+            key = line.split(":", 1)[0].strip() if ":" in line else ""
+            if key in VOLATILE_FRONTMATTER_KEYS:
+                continue
+            out.append(line)
+            continue
+        if line.startswith("## "):
+            header = line[3:].strip()
+            in_volatile_section = header.startswith(VOLATILE_SECTIONS)
+            if in_volatile_section:
+                continue
+            out.append(line)
+            continue
+        if in_volatile_section:
+            continue
+        if line.startswith(VOLATILE_BODY_PREFIXES):
+            continue
+        out.append(line)
+    return "\n".join(out).strip()
+
+
+def page_sections(page: str) -> dict[str, str]:
+    blocks: dict[str, str] = {}
+    current: str | None = None
+    buf: list[str] = []
+    for line in page.splitlines():
+        if line.startswith("## "):
+            if current is not None:
+                blocks[current] = "\n".join(buf).strip()
+            current = line[3:].strip()
+            buf = []
+        elif current is not None:
+            buf.append(line)
+    if current is not None:
+        blocks[current] = "\n".join(buf).strip()
+    return blocks
+
+
+def checked_sections(page: str) -> dict[str, str]:
+    return {
+        header: body
+        for header, body in page_sections(page).items()
+        if header.startswith(CHECKED_SECTION_PREFIXES)
+    }
+
+
+def git(args: list[str], cwd: Path) -> str:
+    try:
+        return subprocess.check_output(
+            ["git", *args], cwd=cwd, text=True, stderr=subprocess.DEVNULL
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return ""
+
+
+def parse_frontmatter(text: str) -> dict[str, str]:
+    """Minimal scalar frontmatter parser (block-list values are ignored)."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}
+    values: dict[str, str] = {}
+    for raw in lines[1:]:
+        stripped = raw.strip()
+        if stripped == "---":
+            break
+        if not stripped or stripped.startswith("#") or stripped.startswith("- "):
+            continue
+        if ":" not in raw:
+            continue
+        key, value = raw.split(":", 1)
+        values[key.strip()] = value.strip().strip('"')
+    return values
+
+
+def first_h1(text: str) -> str:
+    for line in text.splitlines():
+        match = H1_RE.match(line)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def first_state(text: str) -> str:
+    for line in text.splitlines():
+        match = STATE_RE.match(line.strip())
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def _clean_title(title: str, prefix: str) -> str:
+    """Strip a leading "Decisao - " / "Acao - " prefix and any markdown links."""
+    title = re.sub(r"^" + re.escape(prefix) + r"\s*-\s*", "", title)
+    title = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", title)
+    return title.strip()
+
+
+@dataclass(frozen=True)
+class Decision:
+    page_id: str
+    title: str
+    context: str
+    rel_link: str
+
+
+@dataclass(frozen=True)
+class Action:
+    page_id: str
+    title: str
+    context: str
+    state: str
+    rel_link: str
+
+
+def _rel_from_memory_root(path: Path, memory_root: Path) -> str:
+    """Link target relative to `memorias/operacao.md` (i.e. to the memory root)."""
+    return path.relative_to(memory_root).as_posix()
+
+
+def collect_decisions(paths: WikiPaths) -> list[Decision]:
+    decisoes_dir = paths.memory_root / "decisoes"
+    if not decisoes_dir.is_dir():
+        return []
+    decisions: list[Decision] = []
+    for path in sorted(decisoes_dir.glob("*.md")):
+        if path.name in {"index.md", "concluidas.md"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        fm = parse_frontmatter(text)
+        page_type = fm.get("page_type")
+        # Accept decision pages (and untyped files); skip indexes/other types.
+        if page_type is not None and page_type != "decision":
+            continue
+        title = _clean_title(first_h1(text), "Decisao") or path.stem
+        decisions.append(
+            Decision(
+                page_id=fm.get("page_id", path.stem),
+                title=title,
+                context=fm.get("context", "sistema"),
+                rel_link=_rel_from_memory_root(path, paths.memory_root),
+            )
+        )
+    return decisions
+
+
+def collect_actions(paths: WikiPaths) -> list[Action]:
+    acoes_dir = paths.memory_root / "acoes"
+    if not acoes_dir.is_dir():
+        return []
+    actions: list[Action] = []
+    for path in sorted(acoes_dir.glob("*.md")):
+        if path.name in {"index.md", "pendentes.md", "concluidas.md"}:
+            continue
+        text = path.read_text(encoding="utf-8")
+        fm = parse_frontmatter(text)
+        if fm.get("page_type") != "action":
+            continue
+        title = _clean_title(first_h1(text), "Acao") or path.stem
+        actions.append(
+            Action(
+                page_id=fm.get("page_id", path.stem),
+                title=title,
+                context=fm.get("context", "sistema"),
+                state=first_state(text) or "sem estado",
+                rel_link=_rel_from_memory_root(path, paths.memory_root),
+            )
+        )
+    return actions
+
+
+def pending_action_ids(paths: WikiPaths) -> list[str]:
+    pendentes = paths.memory_root / "acoes" / "pendentes.md"
+    if not pendentes.exists():
+        return []
+    ids: list[str] = []
+    body_started = False
+    for line in pendentes.read_text(encoding="utf-8").splitlines():
+        if line.startswith("# "):
+            body_started = True
+            continue
+        if not body_started:
+            continue
+        match = LIST_ITEM_RE.match(line)
+        if match:
+            ids.append(match.group(1).strip())
+    return ids
+
+
+@dataclass(frozen=True)
+class ContextVitality:
+    context: str
+    rel_link: str
+    updated_at: str
+    stale_after_days: int | None
+    vitality: str
+
+
+def _vitality_for(updated_at: str, stale_after_days: str, today: dt.date) -> tuple[str, int | None]:
+    """Returns a canonical vitality KEY (stale/fresh/undetermined) + window. The
+    translation for display happens in build_page via the language table."""
+    try:
+        updated = dt.date.fromisoformat(updated_at)
+        stale_after = int(stale_after_days)
+    except (ValueError, TypeError):
+        return "undetermined", None
+    deadline = updated + dt.timedelta(days=stale_after)
+    if deadline < today:
+        return "stale", stale_after
+    return "fresh", stale_after
+
+
+def collect_context_vitality(paths: WikiPaths, today: dt.date) -> list[ContextVitality]:
+    rows: list[ContextVitality] = []
+    if not paths.memory_root.is_dir():
+        return rows
+    for index_path in sorted(paths.memory_root.glob("*/index.md")):
+        fm = parse_frontmatter(index_path.read_text(encoding="utf-8"))
+        if fm.get("page_type") != CONTEXT_HUB_TYPE:
+            continue
+        updated_at = fm.get("updated_at", "")
+        vitality, stale_after = _vitality_for(updated_at, fm.get("stale_after_days", ""), today)
+        rows.append(
+            ContextVitality(
+                context=fm.get("context", index_path.parent.name),
+                rel_link=_rel_from_memory_root(index_path, paths.memory_root),
+                updated_at=updated_at,
+                stale_after_days=stale_after,
+                vitality=vitality,
+            )
+        )
+    return rows
+
+
+def _git_state(root: Path, s: dict[str, str]) -> tuple[str, str, str]:
+    branch = git(["branch", "--show-current"], root) or s["git_unknown"]
+    status_lines: list[str] = []
+    for line in git(["status", "--short"], root).splitlines():
+        if not line:
+            continue
+        rel = line[3:] if len(line) > 3 else line
+        if line.startswith("??") and rel.startswith(IGNORED_UNTRACKED_PREFIXES):
+            continue
+        status_lines.append(line)
+    if not status_lines:
+        status_summary = s["git_no_diff"]
+    else:
+        untracked = sum(1 for line in status_lines if line.startswith("??"))
+        status_summary = s["git_wt"].format(n=len(status_lines), u=untracked)
+    last_commit = git(["log", "-1", "--pretty=%h %cs %s"], root) or s["git_no_commit"]
+    return branch, status_summary, last_commit
+
+
+def build_page(root: Path, config: WikiConfig) -> str:
+    """Compile the cockpit Markdown for ``root`` using ``config``.
+
+    ``root`` is injectable so this can run against a minimal repo in tests.
+    """
+    paths = WikiPaths(root, config)
+    now = dt.datetime.now().replace(microsecond=0)
+    today = dt.date.today()
+    owner_label = config.owner_label
+    repo_id = config.repo_id
+
+    s = _cs(config.language)
+    branch, status_summary, last_commit = _git_state(root, s)
+    head_sha = git(["rev-parse", "HEAD"], root) or s["git_unknown_sha"]
+    decisions = collect_decisions(paths)
+    actions = collect_actions(paths)
+    pending_ids = pending_action_ids(paths)
+    vitality = collect_context_vitality(paths, today)
+
+    lines: list[str] = [
+        "---",
+        f"page_id: operacao-{config.repo_id}",
+        "page_type: dashboard",
+        "context: sistema",
+        f"visibility: {config.default_visibility}",
+        f"updated_at: {today.isoformat()}",
+        "stale_after_days: 1",
+        "sources_policy: memorias_logs_git_e_artefatos_derivados",
+        f"gate: {config.approval.get('gate', 'github_pr')}",
+        "sensitive_data_policy: private_sensitive_allowed",
+        f"purpose: {s['purpose']}",
+        f"generated_from_commit: {head_sha}",
+        f"generated_from_branch: {branch}",
+        "---",
+        "",
+        f"# {s['title'].format(repo=repo_id)}",
+        "",
+        s["owner"].format(owner=owner_label),
+        s["updated"].format(now=now.isoformat(sep=' ', timespec='minutes')),
+        "",
+        s["h_state"],
+        "",
+        s["compiled_from"].format(branch=branch, commit=last_commit),
+        s["pr_open"],
+        s["generated_by"],
+        s["biggest_risk"],
+        "",
+        s["h_decisions"],
+        "",
+        s["th_decisions"],
+        "| --- | --- | --- |",
+    ]
+
+    if decisions:
+        for decision in decisions:
+            lines.append(
+                f"| {decision.title} | {decision.context} | "
+                f"[{decision.page_id}]({decision.rel_link}) |"
+            )
+    else:
+        lines.append(s["empty_decisions"])
+
+    lines += [
+        "",
+        s["h_actions"].format(owner=owner_label),
+        "",
+        s["th_actions"],
+        "| --- | --- | --- | --- |",
+    ]
+
+    if actions:
+        for action in actions:
+            lines.append(
+                f"| {action.title} | {action.context} | {action.state} | "
+                f"[{action.page_id}]({action.rel_link}) |"
+            )
+    else:
+        lines.append(s["empty_actions"])
+
+    lines += [
+        "",
+        s["h_queue"],
+        "",
+    ]
+    if pending_ids:
+        lines.append(s["queue_listed"])
+        lines.append("")
+        for action_id in pending_ids:
+            lines.append(f"- `{action_id}`")
+    else:
+        lines.append(s["empty_queue"])
+
+    lines += [
+        "",
+        s["h_alerts"],
+        "",
+        s["alert_stale"],
+        s["alert_quadrants"],
+        s["alert_pii"],
+        s["alert_secrets"],
+    ]
+    stale_contexts = [row for row in vitality if row.vitality == "stale"]
+    if stale_contexts:
+        rendered = ", ".join(sorted(row.context for row in stale_contexts))
+        lines.append(s["alert_stale_contexts"].format(contexts=rendered))
+
+    lines += [
+        "",
+        s["h_vitality"],
+        "",
+        s["th_vitality"],
+        "| --- | --- | --- | --- | --- |",
+    ]
+    if vitality:
+        for row in vitality:
+            window = "-" if row.stale_after_days is None else str(row.stale_after_days)
+            updated = row.updated_at or s["no_date"]
+            vit = s.get(f"vit_{row.vitality}", row.vitality)
+            lines.append(
+                f"| {row.context} | {updated} | {window} | {vit} | "
+                f"[{row.rel_link}]({row.rel_link}) |"
+            )
+    else:
+        lines.append(s["empty_vitality"])
+
+    # Read the live ledger (gitignored) or the versioned mirror (clean clone/CI).
+    events = load_events(resolve_events_path(paths.derived_root))
+    karma = compute_karma(events)
+    lines += [
+        "",
+        s["h_karma"],
+        "",
+    ]
+    if events:
+        lines.append(s["karma_summary"].format(n=len(events), total=round(float(karma["total"]), 2)))
+        lines += ["", s["th_karma"], "| --- | --- |"]
+        for dim, points in sorted(karma["by_dimension"].items(), key=lambda kv: kv[1], reverse=True):
+            if points:
+                lines.append(f"| {dim} | {round(float(points), 2)} |")
+    else:
+        lines.append(s["empty_karma"])
+
+    lines += [
+        "",
+        s["h_links"],
+        "",
+        f"- {s['link_wiki']}: [memorias/index.md](index.md)",
+        f"- {s['link_log']}: [memorias/sistema/log.md](sistema/log.md)",
+        f"- {s['link_coverage']}: [memorias/sistema/cobertura-wiki.md](sistema/cobertura-wiki.md)",
+        f"- {s['link_coverage_meth']}: "
+        "[memorias/sistema/cobertura-metodologia-v5.md](sistema/cobertura-metodologia-v5.md)",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--write", action="store_true")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="fail if the cockpit's deterministic content diverges from a recompile at HEAD",
+    )
+    args = parser.parse_args()
+    config = load_config(ROOT)
+    page = build_page(ROOT, config)
+    paths = WikiPaths(ROOT, config)
+    target = paths.memory_root / "operacao.md"
+    if args.check:
+        if not target.exists():
+            print(f"{target.relative_to(ROOT)}: missing", file=sys.stderr)
+            return 1
+        committed = target.read_text(encoding="utf-8")
+        if stable_cockpit_view(page) != stable_cockpit_view(committed):
+            print(
+                "memorias/operacao.md out of date: recompile with "
+                "`python3 scripts/wiki_operation_compile.py --write` "
+                "(the cockpit's deterministic content diverges from a recompile at HEAD).",
+                file=sys.stderr,
+            )
+            return 1
+        print("operacao.md: cockpit deterministic content equal to a recompile at HEAD.")
+        return 0
+    if args.write:
+        target.write_text(page, encoding="utf-8")
+        # Stewardship: recompiling the cockpit generates a score-event (idempotent per day).
+        record_event(
+            paths.derived_root / "score-events.jsonl",
+            event_type="recompilar_pagina_antiga",
+            actor=config.owner_label,
+            context="sistema",
+            dedup_key=f"recompile-cockpit:{dt.date.today().isoformat()}",
+        )
+        print(target.relative_to(ROOT))
+        return 0
+    print(page)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

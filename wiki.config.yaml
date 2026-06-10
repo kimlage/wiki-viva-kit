@@ -1,0 +1,57 @@
+repo_id: wiki-viva-kit
+owner_label: "Wiki Owner"
+# Project language: drives generated output (cockpit, proposals).
+language: en
+default_visibility: private_self
+# Memory contexts of this repo (each must have `memorias/<ctx>/index.md`).
+# Comma-separated list. Replace with your repo's contexts.
+contexts: exemplo
+# Private by default. Personal data (PII -- tax IDs, names, amounts, counterparties)
+# is WELCOME on PRIVATE pages and raises no warning. The auditor only BLOCKS PII at
+# the public boundary (public/public_candidate page or --public-export). Access
+# secrets (tokens, passwords, keys, cookies) are ALWAYS blocked, in any file.
+# To re-enable strict mode (opt-in), set private_sensitive_allowed=false:
+# then PII on a private page becomes an error again.
+private_sensitive_allowed: true
+
+paths:
+  memory_root: memorias
+  references_root: docs/referencias
+  raw_root: data/raw
+  derived_root: data/derived/wiki
+  skills_root: .skills
+
+approval:
+  gate: github_pr
+  # Tool-neutral prefix: any agent (Claude, Codex, Gemini, ...) uses `wiki/<topic>`
+  # branches. Do not force a tool name into the convention.
+  branch_prefix: wiki/
+  require_operation_update: true
+  require_log_update: true
+
+llm:
+  # Real gate: the auditor fails a source whose emitted context package has chunks
+  # without a recorded LLM-pass result. The pass is performed by the AGENT that runs
+  # the repo (not by a Python client) via the wiki-llm-context-agent skill.
+  required_context_pass: true
+  cache_enabled: true
+  default_model_profile: deep_context
+  max_full_source_tokens: 0
+  chunk_target_tokens: 1200
+  chunk_overlap_tokens: 150
+  prompt_versions:
+    manifest_review: v1
+    context_deep_read: v1
+    quadrant_extraction: v1
+    crm_relationships: v1
+    operation_compile: v1
+    decision_action_synthesis: v1
+
+audit:
+  require_markdown_links: true
+  # Read by wiki_audit.py: blocks secrets/credentials (AWS, Google, JWT, PEM, Slack,
+  # high-entropy assignments) in any versioned text file, via wiki_core/detectors.
+  forbid_access_secrets: true
+  require_frontmatter: true
+  require_source_refs_for_facts: true
+  stale_check: true

@@ -1,0 +1,11 @@
+{
+  "note": "Registry of RAW sources centralized in Google Drive. Raw files are NOT versioned in git (see .gitignore: data/raw/** ignored). The agent that runs the repo downloads on demand into data/raw/ via the Drive connector (see skill wiki-raw-drive). Here we keep only filename -> drive_file_id; no content or PII.",
+  "folders": {
+    "example": {
+      "id": "<DRIVE_FOLDER_ID>",
+      "name": "Example",
+      "view_url": "https://drive.google.com/drive/folders/<DRIVE_FOLDER_ID>"
+    }
+  },
+  "files": {}
+}

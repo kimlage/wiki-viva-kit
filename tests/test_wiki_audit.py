@@ -1,0 +1,321 @@
+"""Offline tests for pure helpers/constants in scripts/wiki_audit.py.
+
+scripts/ is not a package, so the module is loaded directly from its file path
+via importlib.util.spec_from_file_location. wiki_audit.py inserts the repo ROOT
+on sys.path at import time, so its own `wiki_core` imports resolve.
+
+No network, no writes outside tmp_path. Production code is not modified.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+WIKI_AUDIT_PATH = ROOT / "scripts" / "wiki_audit.py"
+
+
+def _load_wiki_audit():
+    # Ensure ROOT is importable for the module's internal `wiki_core` imports.
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    spec = importlib.util.spec_from_file_location("wiki_audit_under_test", WIKI_AUDIT_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    # Register before exec so dataclasses / from __future__ resolve cleanly.
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="module")
+def audit():
+    return _load_wiki_audit()
+
+
+# ---------------------------------------------------------------------------
+# ABSOLUTE_USER_PATH_RE
+# ---------------------------------------------------------------------------
+
+
+def test_absolute_user_path_re_matches_and_stops_at_space(audit):
+    text = "/Users/foo/bar/baz.md sem link"
+    match = audit.ABSOLUTE_USER_PATH_RE.search(text)
+    assert match is not None
+    matched = match.group(0)
+    assert matched == "/Users/foo/bar/baz.md"
+    # Regression: the regex must stop at the space and not swallow "sem link".
+    assert " " not in matched
+    assert "sem" not in matched
+
+
+def test_absolute_user_path_re_does_not_match_relative(audit):
+    assert audit.ABSOLUTE_USER_PATH_RE.search("memorias/financeiro/index.md") is None
+
+
+# ---------------------------------------------------------------------------
+# HOME_TRAVERSAL_RE
+# ---------------------------------------------------------------------------
+
+
+def test_home_traversal_re_matches_downloads_traversal(audit):
+    assert audit.HOME_TRAVERSAL_RE.search("../../../../Downloads/x.pdf") is not None
+
+
+def test_home_traversal_re_ignores_normal_relative_path(audit):
+    # A normal relative path (no repeated parent traversal into Downloads).
+    assert audit.HOME_TRAVERSAL_RE.search("memorias/sistema/log.md") is None
+    assert audit.HOME_TRAVERSAL_RE.search("../docs/referencias/nota.md") is None
+
+
+# ---------------------------------------------------------------------------
+# QUADRANT_PLACEHOLDERS
+# ---------------------------------------------------------------------------
+
+
+def test_metodologia_is_not_a_placeholder(audit):
+    # Regression for the "todo" in "metodologia" bug: real prose must not match.
+    content = "metodologia de revisao contextual aplicada".lower()
+    assert not any(ph in content for ph in audit.QUADRANT_PLACEHOLDERS)
+
+
+def test_placeholder_phrase_matches(audit):
+    content = "A preencher apos leitura contextual.".lower()
+    assert any(ph in content for ph in audit.QUADRANT_PLACEHOLDERS)
+
+
+# ---------------------------------------------------------------------------
+# primary_pages: core + config-driven contexts (portability)
+# ---------------------------------------------------------------------------
+
+
+class _CtxConfig:
+    def __init__(self, contexts):
+        self.contexts = tuple(contexts)
+
+
+def test_primary_pages_core_plus_config_contexts(audit):
+    pages = audit.primary_pages(_CtxConfig(["alpha", "beta"]))
+    # Method core always present.
+    assert "memorias/index.md" in pages
+    assert "memorias/sistema/log.md" in pages
+    # One hub per context declared in the config (nothing hardcoded).
+    assert "memorias/alpha/index.md" in pages
+    assert "memorias/beta/index.md" in pages
+
+
+def test_primary_pages_no_contexts_is_core_only(audit):
+    pages = audit.primary_pages(_CtxConfig([]))
+    assert pages == audit.CORE_PAGES
+    # No personal context hardcoded.
+    assert not any("financeiro" in p for p in pages)
+
+
+# ---------------------------------------------------------------------------
+# parse_frontmatter
+# ---------------------------------------------------------------------------
+
+
+VALID_FRONTMATTER = """---
+page_id: pagina-teste
+page_type: dashboard
+context: contexto de teste
+visibility: private_self
+updated_at: 2026-06-09
+stale_after_days: 7
+sources_policy: required
+gate: github_pr
+sensitive_data_policy: private_sensitive_allowed
+---
+
+# Corpo
+
+Conteudo de teste.
+"""
+
+
+def test_parse_frontmatter_valid(tmp_path, audit):
+    path = tmp_path / "valida.md"
+    path.write_text(VALID_FRONTMATTER, encoding="utf-8")
+    values, errors = audit.parse_frontmatter(path)
+    assert errors == []
+    for key in audit.REQUIRED_KEYS:
+        assert key in values
+    assert values["page_id"] == "pagina-teste"
+    assert values["page_type"] == "dashboard"
+
+
+def test_parse_frontmatter_missing_block(tmp_path, audit):
+    path = tmp_path / "sem-frontmatter.md"
+    path.write_text("# Sem frontmatter\n\nso corpo aqui.\n", encoding="utf-8")
+    values, errors = audit.parse_frontmatter(path)
+    assert values == {}
+    assert "missing frontmatter block" in errors
+
+
+def test_parse_frontmatter_strips_quotes(tmp_path, audit):
+    # Finding 15: quoted visibility escaped the public PII block.
+    path = tmp_path / "aspas.md"
+    path.write_text(
+        '---\npage_id: p\npage_type: dashboard\ncontext: c\n'
+        'visibility: "public_candidate"\nupdated_at: 2026-06-09\n'
+        "stale_after_days: 7\nsources_policy: required\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n---\n\n# t\n",
+        encoding="utf-8",
+    )
+    values, _ = audit.parse_frontmatter(path)
+    assert values["visibility"] == "public_candidate"
+
+
+# ---------------------------------------------------------------------------
+# audit_stale_coverage: freshness for EVERY memory page
+# ---------------------------------------------------------------------------
+
+
+def _seed_memory_page(tmp_path, audit, monkeypatch, rel, *, stale_days, updated, extra=""):
+    page = tmp_path / rel
+    page.parent.mkdir(parents=True, exist_ok=True)
+    fm = f"---\nvisibility: private_self\nupdated_at: {updated}\n"
+    if stale_days is not None:
+        fm += f"stale_after_days: {stale_days}\n"
+    fm += extra + "---\n\n# pagina\n\ncorpo.\n"
+    page.write_text(fm, encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "markdown_files", lambda: [rel])
+    monkeypatch.setattr(audit, "primary_pages", lambda config: ())
+
+
+class _CfgPaths:
+    paths = {"memory_root": "memorias"}
+    contexts = ()
+
+
+def test_stale_coverage_warns_stale_outside_primary(tmp_path, audit, monkeypatch):
+    _seed_memory_page(
+        tmp_path, audit, monkeypatch, "memorias/x/old.md", stale_days=7, updated="2020-01-01"
+    )
+    warnings: list[str] = []
+    audit.audit_stale_coverage(warnings, _CfgPaths())
+    assert any("stale page" in w for w in warnings)
+
+
+def test_stale_coverage_reports_gap_without_field(tmp_path, audit, monkeypatch):
+    _seed_memory_page(
+        tmp_path, audit, monkeypatch, "memorias/x/nofield.md", stale_days=None, updated="2026-06-09"
+    )
+    warnings: list[str] = []
+    audit.audit_stale_coverage(warnings, _CfgPaths())
+    assert any("no declared freshness" in w for w in warnings)
+
+
+def test_stale_coverage_exempt_suppresses(tmp_path, audit, monkeypatch):
+    _seed_memory_page(
+        tmp_path,
+        audit,
+        monkeypatch,
+        "memorias/x/exempt.md",
+        stale_days=None,
+        updated="2026-06-09",
+        extra="stale_exempt: true\n",
+    )
+    warnings: list[str] = []
+    audit.audit_stale_coverage(warnings, _CfgPaths())
+    assert warnings == []
+
+
+# ---------------------------------------------------------------------------
+# audit_pii: private vs --public-export
+# ---------------------------------------------------------------------------
+
+
+class _PiiConfig:
+    """Minimal stand-in for WikiConfig (only the two fields audit_pii reads)."""
+
+    default_visibility = "private_self"
+    private_sensitive_allowed = True
+
+
+class _StrictPiiConfig(_PiiConfig):
+    """Opt-in strict mode: the owner disabled PII in private pages."""
+
+    private_sensitive_allowed = False
+
+
+def _seed_private_page_with_pii(tmp_path, audit, monkeypatch):
+    page = tmp_path / "memorias" / "pii.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "---\nvisibility: private_self\n---\n\n# Pagina\n\nCPF: 529.982.247-25\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "markdown_files", lambda: ["memorias/pii.md"])
+
+
+def test_audit_pii_private_is_silent(tmp_path, audit, monkeypatch):
+    # Personal private repo: PII in a private page produces neither error NOR warning.
+    _seed_private_page_with_pii(tmp_path, audit, monkeypatch)
+    errors: list[str] = []
+    warnings: list[str] = []
+    audit.audit_pii(errors, warnings, _PiiConfig(), public_export=False)
+    assert errors == []
+    assert warnings == []
+
+
+def test_audit_pii_public_export_promotes_to_error(tmp_path, audit, monkeypatch):
+    _seed_private_page_with_pii(tmp_path, audit, monkeypatch)
+    errors: list[str] = []
+    warnings: list[str] = []
+    audit.audit_pii(errors, warnings, _PiiConfig(), public_export=True)
+    assert any("cpf" in e for e in errors)
+    assert warnings == []
+
+
+def test_audit_pii_strict_mode_errors_in_private(tmp_path, audit, monkeypatch):
+    # When the owner disables PII in private (opt-in), it becomes an error again.
+    _seed_private_page_with_pii(tmp_path, audit, monkeypatch)
+    errors: list[str] = []
+    warnings: list[str] = []
+    audit.audit_pii(errors, warnings, _StrictPiiConfig(), public_export=False)
+    assert any("private_sensitive_allowed=false" in e for e in errors)
+
+
+def test_strict_local_requires_derived_link_to_exist(tmp_path, audit, monkeypatch):
+    # Link to a nonexistent derived (gitignored) artifact:
+    # tolerated by default, but an error in --strict-local.
+    page = tmp_path / "memorias" / "nota.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    href = "../data/derived/wiki/inexistente.json"
+
+    monkeypatch.setattr(audit, "STRICT_LOCAL", False)
+    assert audit.local_link_target_exists("memorias/nota.md", href) is True
+
+    monkeypatch.setattr(audit, "STRICT_LOCAL", True)
+    assert audit.local_link_target_exists("memorias/nota.md", href) is False
+
+    # If the artifact exists, --strict-local approves.
+    real = tmp_path / "data/derived/wiki/existe.json"
+    real.parent.mkdir(parents=True, exist_ok=True)
+    real.write_text("{}\n", encoding="utf-8")
+    assert audit.local_link_target_exists("memorias/nota.md", "../data/derived/wiki/existe.json") is True
+
+
+def test_audit_pii_public_visibility_errors_without_export(tmp_path, audit, monkeypatch):
+    # A page marked public (public_candidate) blocks PII even without --public-export.
+    page = tmp_path / "memorias" / "pub.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        "---\nvisibility: public_candidate\n---\n\n# Pagina\n\nCPF: 529.982.247-25\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "markdown_files", lambda: ["memorias/pub.md"])
+    errors: list[str] = []
+    warnings: list[str] = []
+    audit.audit_pii(errors, warnings, _PiiConfig(), public_export=False)
+    assert any("cpf" in e for e in errors)

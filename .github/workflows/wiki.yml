@@ -1,0 +1,29 @@
+name: wiki
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  audit-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install poppler (pdftotext)
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Tests
+        run: python -m pytest tests/ -q
+      - name: Wiki audit (segredos, PII em paginas publicas, links, quadrantes, gate de promocao)
+        run: python scripts/wiki_audit.py --check
+      - name: Methodology coverage (presenca + conteudo)
+        run: python scripts/wiki_check_methodology_coverage.py --check
+      - name: Operation cockpit freshness (decisoes/acoes)
+        run: python scripts/wiki_operation_compile.py --check

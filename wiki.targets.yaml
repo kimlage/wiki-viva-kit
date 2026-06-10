@@ -1,0 +1,18 @@
+# Local profile of this repo: maps context -> impacted pages and entities, used by
+# scripts/wiki_new_ingest.py. It is NOT part of the generic kit — each repo defines
+# its own. The script stays agnostic; specific names live only here.
+sistema:
+  pages:
+    - memorias/index.md
+    - memorias/sistema/contrato-wiki-operacional.md
+  entities:
+    - holon-sistema
+    - papel-wiki-steward
+    - responsabilidade-manter-wiki-operacional
+
+exemplo:
+  pages:
+    - memorias/exemplo/index.md
+  entities:
+    - holon-exemplo
+    - papel-curador-exemplo

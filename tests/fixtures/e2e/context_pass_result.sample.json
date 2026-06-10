@@ -1,0 +1,47 @@
+{
+  "cache_key": "PLACEHOLDER_cache_key_overridden_per_chunk_by_the_test",
+  "source_id": "PLACEHOLDER_source_id",
+  "chunk_id": "PLACEHOLDER_chunk_id",
+  "prompt_version": "v1",
+  "schema_version": "wiki_llm_context_pass.v2",
+  "model_profile": "deep_context",
+  "produced_by": "fixture-recorded-agent-read",
+  "quadrants": {
+    "interior_individual": "The owner takes responsibility for validating reconciliations before the close; there is explicit intent to avoid rework.",
+    "exterior_individual": "Concrete actions: run the pilot over a real source when authorized and keep the original out of git, linked through Drive.",
+    "interior_collective": "The team shares the value of only consolidating memory after deep reading; the gate becomes a cultural norm.",
+    "exterior_collective": "The ingestion system connects cockpit, privacy detectors and the gate state machine into a single organism."
+  },
+  "claims": [
+    "The LLM pass gate is blocking: no source becomes consolidated memory without contextual reading recorded in the cache."
+  ],
+  "decisions": [
+    "Adopt the LLM pass gate as blocking for source consolidation."
+  ],
+  "actions": [
+    "Run the pilot over a real source when the owner authorizes it, keeping the original out of git and linked through Drive."
+  ],
+  "risks": [
+    "Rework when the deep reading does not happen before consolidating canonical memory."
+  ],
+  "uncertainties": [
+    "The exact date of the real pilot depends on the owner's authorization."
+  ],
+  "relationships": [
+    {
+      "from": "sistema-ingestao",
+      "to": "cockpit-operacional",
+      "kind": "alimenta_score"
+    },
+    {
+      "from": "sistema-ingestao",
+      "to": "detectores-privacidade",
+      "kind": "pre_scan_na_captura"
+    }
+  ],
+  "sensitivity": {
+    "has_pii": false,
+    "has_secret": false,
+    "notes": "Synthetic source with no real data; safe to version."
+  }
+}
