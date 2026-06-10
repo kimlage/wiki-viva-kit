@@ -27,3 +27,5 @@ jobs:
         run: python scripts/wiki_check_methodology_coverage.py --check
       - name: Operation cockpit freshness (decisions/actions)
         run: python scripts/wiki_operation_compile.py --check
+      - name: Source registry freshness (state + last update)
+        run: python scripts/wiki_source_registry.py --check

@@ -39,11 +39,18 @@ llm:
   chunk_overlap_tokens: 150
   prompt_versions:
     manifest_review: v1
-    context_deep_read: v1
+    context_deep_read: v2
     quadrant_extraction: v1
     crm_relationships: v1
     operation_compile: v1
     decision_action_synthesis: v1
+
+# Per-context page freshness (stale_after_days): the CONTEXT sets the update
+# cadence. `default` applies to unlisted contexts; a `type:<page_type>` key
+# overrides per page type. Localized repos pin their own contexts here.
+freshness:
+  default: 30
+  example: 30
 
 audit:
   # Freshness budget (biting gate): audit FAILS when total stale pages exceed

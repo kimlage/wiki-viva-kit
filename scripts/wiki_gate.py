@@ -20,6 +20,12 @@ from wiki_core.paths import WikiPaths
 
 DEFAULT_DIR = WikiPaths(ROOT, load_config(ROOT)).ingest_dir
 
+# A proposal carries this marker while its contextual deep-read is pending; the
+# generator emits it instead of filler prose. The gate refuses to advance a
+# proposal into review/approval while the marker survives.
+PENDING_MARKER = "<!-- pending:"
+ADVANCE_STATES = {"ready_for_review", "needs_human_gate", "approved", "published"}
+
 
 def _iter_proposals(directory: Path):
     for md_path in sorted(directory.glob("*.md")):
@@ -53,6 +59,16 @@ def cmd_list(directory: Path) -> int:
 def cmd_transition(path: Path, to_state: str, reason: str | None) -> int:
     if not path.is_file():
         print(f"file does not exist: {path}", file=sys.stderr)
+        return 1
+    if to_state in ADVANCE_STATES and PENDING_MARKER in path.read_text(
+        encoding="utf-8", errors="replace"
+    ):
+        print(
+            f"error: {path.name} still carries a pending deep-read marker "
+            f"('{PENDING_MARKER} ...'); run the contextual deep-read and fill the "
+            f"quadrants/synthesis before transitioning to {to_state}",
+            file=sys.stderr,
+        )
         return 1
     try:
         proposal = write_state(path, to_state, reason=reason)

@@ -78,6 +78,10 @@ class WikiPaths:
         return self.root / self.config.paths["command_reference_page"]
 
     @property
+    def source_registry_page(self) -> Path:
+        return self.root / self.config.paths["source_registry_page"]
+
+    @property
     def templates_root(self) -> Path:
         return self.references_root / "templates" / "wiki"
 

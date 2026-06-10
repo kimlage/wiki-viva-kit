@@ -79,7 +79,7 @@ _ONTOLOGY_DIRNAME_GROUPS: dict[tuple[str, ...], set[str]] = {
     ("assignments", "atribuicoes"): {"ontology_index", "assignment"},
     ("projects", "projetos"): {"ontology_index", "project"},
     ("initiatives", "iniciativas"): {"ontology_index", "initiative"},
-    ("sources", "fontes"): {"ontology_index", "source", "source_catalog", "artifact"},
+    ("sources", "fontes"): {"ontology_index", "source", "source_catalog", "artifact", "source_registry"},
     ("claims",): {"ontology_index", "claim"},
     ("decisions", "decisoes"): {"ontology_index", "decision"},
     ("insights",): {"ontology_index", "insight"},
@@ -198,6 +198,22 @@ QUADRANTS_HEADERS = ("## Quadrantes", "## Quadrants")
 # them reference a local cache or the original on Drive and are not required in
 # the repo (otherwise the auditor would fail on a clean clone/CI).
 GITIGNORED_LINK_PREFIXES = ("data/raw", "data/derived")
+
+# Entity mention -> link (warn). Pages of these types (and any page in an ontology
+# dir) are "linkable entities": when their title/alias is named in another page's
+# prose without a link, the auditor WARNS (never blocks) so the wiki stays
+# connected. Conservative to avoid noise: minimum alias length + a common-word
+# denylist; matches outside code/links only; one warning per page.
+ENTITY_PAGE_TYPES = {
+    "person", "source", "decision", "holon", "role", "responsibility",
+    "project", "initiative", "claim", "insight", "action", "timeline",
+    "evidence", "assignment", "meeting", "external_card", "calendar_event",
+}
+MENTION_MIN_ALIAS_LEN = 4
+MENTION_COMMON_WORDS = {
+    "index", "source", "memory", "memoria", "memorias", "note", "page", "pages",
+    "status", "gate", "owner", "system", "sistema", "context", "contexto",
+}
 
 # Strict local mode (--strict-local): requires links to derived/raw artifacts
 # (gitignored) to actually exist on disk. Default False for clean clone/CI.
@@ -725,6 +741,62 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
                     )
 
 
+def _entity_alias_map(
+    catalog: dict[str, tuple[str, dict[str, object]]], config: WikiConfig
+) -> dict[str, tuple[str, str]]:
+    """Map lowercased alias/title -> (target_rel, display_name) for linkable
+    entities (ontology pages or ENTITY_PAGE_TYPES). Short/common names are dropped."""
+    out: dict[str, tuple[str, str]] = {}
+    for _page_id, (rel, values) in catalog.items():
+        directory = ontology_dir_for(rel, config)
+        page_type = str(values.get("page_type", ""))
+        if not directory and page_type not in ENTITY_PAGE_TYPES:
+            continue
+        names: list[str] = []
+        title = values.get("title")
+        if isinstance(title, str):
+            names.append(title)
+        names.extend(list_values(values, "aliases"))
+        for name in names:
+            name = name.strip()
+            if len(name) < MENTION_MIN_ALIAS_LEN:
+                continue
+            low = name.lower()
+            if low in MENTION_COMMON_WORDS:
+                continue
+            out.setdefault(low, (rel, name))
+    return out
+
+
+def audit_entity_mention_links(warnings: list[str], config: WikiConfig) -> None:
+    """WARN when a known entity's name appears in another memory page's prose
+    without a Markdown link to it. The goal is a connected wiki (info WITH links);
+    warn-only so common-name false positives never block a PR."""
+    prefix = memory_prefix(config)
+    alias_map = _entity_alias_map(page_catalog([], config), config)
+    if not alias_map:
+        return
+    pattern = re.compile(
+        r"(?<![\w-])(" + "|".join(re.escape(a) for a in sorted(alias_map, key=len, reverse=True)) + r")(?![\w-])",
+        re.IGNORECASE,
+    )
+    for rel in markdown_files():
+        if not rel.startswith(prefix):
+            continue
+        text = (ROOT / rel).read_text(encoding="utf-8", errors="replace")
+        found: dict[str, str] = {}
+        for _lineno, line in body_lines_without_frontmatter(text):
+            stripped = INLINE_CODE_RE.sub("", MARKDOWN_LINK_RE.sub("", line))
+            for match in pattern.finditer(stripped):
+                target_rel, display = alias_map[match.group(1).lower()]
+                if target_rel == rel:
+                    continue
+                found.setdefault(display, target_rel)
+        if found:
+            items = ", ".join(f"{name} ({target})" for name, target in sorted(found.items()))
+            warnings.append(f"{rel}: names known entities without a link: {items}")
+
+
 def audit_log_changed(errors: list[str], config: WikiConfig) -> None:
     paths = wiki_paths(config)
     prefix = memory_prefix(config)
@@ -1040,6 +1112,7 @@ def main() -> int:
     audit_secrets(errors, config)
     audit_pii(errors, warnings, config, public_export=args.public_export)
     audit_clickable_local_links(errors, config)
+    audit_entity_mention_links(warnings, config)
     audit_operation_page(errors, warnings, config)
     audit_ingestion_events(errors, config)
     audit_ingestion_proposals_gate_state(errors, config)

@@ -204,6 +204,7 @@ class WikiConfig:
             "operation_page": "memories/operations.md",
             "command_reference_page": "memories/system/wiki/command-reference.md",
             "wiki_coverage_page": "memories/system/wiki-coverage.md",
+            "source_registry_page": "memories/system/source-registry.md",
         }
     )
     # Methodology-coverage gate targets (wiki_check_methodology_coverage.py).
@@ -246,6 +247,12 @@ class WikiConfig:
             },
         }
     )
+    # Per-context page freshness (stale_after_days). CONTEXT drives the update
+    # cadence: a fast-moving context gets a short window, a reference context a
+    # long one. `default` applies when a context is not listed; a `type:<page_type>`
+    # key (optional) overrides per page type. Generators read this via
+    # freshness_for(); localized repos pin their own contexts' windows.
+    freshness: dict[str, int] = field(default_factory=lambda: {"default": 30})
     audit: dict[str, Any] = field(
         default_factory=lambda: {
             # Pages every wiki repo must keep tracked (wiki_audit core gate).
@@ -258,6 +265,7 @@ class WikiConfig:
                 "memories/system/git-approvals.md",
                 "memories/system/wiki-coverage.md",
                 "memories/system/ingestion/README.md",
+                "memories/system/source-registry.md",
             ],
             # Pages allowed to mention retired/legacy paths (e.g. migration docs).
             "allowed_old_path_references": [
@@ -305,5 +313,25 @@ def load_config(root: Path) -> WikiConfig:
         approval={**WikiConfig().approval, **dict(raw.get("approval", {}))},
         llm={**WikiConfig().llm, **dict(raw.get("llm", {}))},
         coverage={**WikiConfig().coverage, **dict(raw.get("coverage", {}))},
+        freshness={
+            **WikiConfig().freshness,
+            **{str(k): v for k, v in dict(raw.get("freshness", {})).items()},
+        },
         audit={**WikiConfig().audit, **dict(raw.get("audit", {}))},
     )
+
+
+def freshness_for(context: str, page_type: str, config: WikiConfig) -> int:
+    """stale_after_days for a page, driven by its CONTEXT (context determines the
+    update cadence). A `type:<page_type>` key overrides a context key; `default` is
+    the fallback. Always returns a positive int."""
+    fr = config.freshness
+    for key in (f"type:{page_type}", context, "default"):
+        if key in fr:
+            try:
+                days = int(fr[key])
+            except (TypeError, ValueError):
+                continue
+            if days > 0:
+                return days
+    return 30

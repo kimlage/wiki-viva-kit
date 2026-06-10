@@ -19,6 +19,12 @@ sources_policy: metadados_sem_dump
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 owner: {{owner_id}}
+# Ingestion state and last ingestion -- read by the source registry
+# (wiki_source_registry.py). source_type feeds the registry's Type column.
+source_type: reference
+ingestion_state: unread   # unread | partial | ingested | stale
+last_ingested_at: ""
+# config_ref: <ingestion-rules page for this source>   # optional, single purpose
 related_holons: []
 roles: []
 responsibilities: []
@@ -68,6 +74,17 @@ attachment_policy: "Keep the original traceable; attachments and derivatives mus
 - Keep a link to the original.
 - Never copy a token, cookie, password, access code, credential, individualized
   secure link, or full dump without judgment -- anywhere.
+
+## Ingestion log
+
+This page is the hierarchical node holding this source's ingestion log: each
+ingestion becomes a row linking the normalized event. The source registry
+([system/source-registry.md](../../../../memories/system/source-registry.md))
+indexes these pages with state and date.
+
+| Date | Event | State |
+| --- | --- | --- |
+|  |  |  |
 
 ## Related
 

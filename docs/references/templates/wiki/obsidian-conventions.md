@@ -88,6 +88,21 @@ attachment_policy: "Attachments go in data/raw, data/derived, or docs/references
   [page-contract.md](page-contract.md).
 - If a wikilink helps the graph, it may appear alongside the Markdown link, but
   the Markdown link remains the auditable source.
+- **Bring information WITH links.** A title, person, source, decision, or tool
+  named in the body must become a link to its page — information without a link
+  is a defect (an orphan title). The auditor WARNS when a known entity is named
+  without a link (`wiki_audit.py`, warning level).
+- **A person mention becomes a link** to that person's page (contacts/perspective).
+
+## Single purpose and rules on a separate page
+
+- Each page has **one purpose**. Heavy ingestion, search, and business rules do
+  NOT go inline on the content page: they go to a separate config page, linked
+  from frontmatter via `config_ref:`. That keeps the content page lean and the
+  config versioned and linkable on its own.
+- Example: a source page points `config_ref:` at its rules page; the
+  [source registry](../../../../memories/system/source-registry.md) indexes the
+  sources with state and last update.
 
 ## Tags for Dataview
 

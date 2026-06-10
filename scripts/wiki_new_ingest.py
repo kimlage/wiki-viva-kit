@@ -15,7 +15,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from wiki_core.config import load_config
+from wiki_core.config import freshness_for, load_config
 from wiki_core.detectors import scan_file
 from wiki_core.gate import rebase_pending
 from wiki_core.paths import WikiPaths
@@ -69,12 +69,13 @@ PROPOSAL_STRINGS: dict[str, dict[str, str]] = {
         "row_llm": "- Passagem LLM contextual: pendente ou cacheada conforme [scripts/wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py).",
         "h_quadrants": "## Quadrantes",
         "th_quadrants": "| Quadrante | Conteudo extraido | Ausencia/limite |",
-        "quad_ii": "| Interior individual | A preencher apos leitura contextual. | Explicitar se ausente. |",
-        "quad_ei": "| Exterior individual | Metadados da fonte ja registrados. | Conteudo depende de extracao. |",
-        "quad_ic": "| Interior coletivo | A preencher apos leitura contextual. | Explicitar se ausente. |",
-        "quad_ec": "| Exterior coletivo | Gate por PR e paginas impactadas ja previstos. | Sistema afetado depende da consolidacao. |",
+        "quad_ii": "| Interior individual |  |  |",
+        "quad_ei": "| Exterior individual |  |  |",
+        "quad_ic": "| Interior coletivo |  |  |",
+        "quad_ec": "| Exterior coletivo |  |  |",
+        "pending": "<!-- pendente: preenchido pela leitura contextual profunda (ver evento normalizado) -->",
         "h_synthesis": "## Sintese proposta",
-        "synthesis_note": "- Proposta gerada por metadados; revisar a fonte e extrair conteudo privado quando isso melhorar memoria operacional.",
+        "synthesis_note": "<!-- pendente: preenchido pela leitura contextual profunda (ver evento normalizado) -->",
         "h_pages": "## Paginas impactadas",
         "h_entities": "## Entidades impactadas",
         "h_risks": "## Riscos de privacidade",
@@ -124,12 +125,13 @@ PROPOSAL_STRINGS: dict[str, dict[str, str]] = {
         "row_llm": "- Contextual LLM pass: pending or cached per [scripts/wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py).",
         "h_quadrants": "## Quadrants",
         "th_quadrants": "| Quadrant | Extracted content | Absence/limit |",
-        "quad_ii": "| Interior individual | To fill in after contextual reading. | State if absent. |",
-        "quad_ei": "| Exterior individual | Source metadata already recorded. | Content depends on extraction. |",
-        "quad_ic": "| Interior collective | To fill in after contextual reading. | State if absent. |",
-        "quad_ec": "| Exterior collective | PR gate and impacted pages already foreseen. | Affected system depends on consolidation. |",
+        "quad_ii": "| Interior individual |  |  |",
+        "quad_ei": "| Exterior individual |  |  |",
+        "quad_ic": "| Interior collective |  |  |",
+        "quad_ec": "| Exterior collective |  |  |",
+        "pending": "<!-- pending: filled by the contextual deep-read (see the normalized event) -->",
         "h_synthesis": "## Proposed synthesis",
-        "synthesis_note": "- Proposal generated from metadata; review the source and extract private content when it improves operational memory.",
+        "synthesis_note": "<!-- pending: filled by the contextual deep-read (see the normalized event) -->",
         "h_pages": "## Impacted pages",
         "h_entities": "## Impacted entities",
         "h_risks": "## Privacy risks",
@@ -289,7 +291,7 @@ def build_proposal(source: str, context: str, date: dt.date, status: str, langua
             f"context: {context}",
             "visibility: private_self",
             f"updated_at: {date.isoformat()}",
-            "stale_after_days: 30",
+            f"stale_after_days: {freshness_for(context, 'source_catalog', CONFIG)}",
             "sources_policy: proposta_privada_com_links_reais",
             "gate: github_pr",
             "sensitive_data_policy: private_sensitive_allowed",
@@ -329,6 +331,8 @@ def build_proposal(source: str, context: str, date: dt.date, status: str, langua
             s["row_llm"],
             "",
             s["h_quadrants"],
+            "",
+            s["pending"],
             "",
             s["th_quadrants"],
             "| --- | --- | --- |",
