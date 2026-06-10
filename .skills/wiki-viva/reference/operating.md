@@ -2,8 +2,8 @@
 
 The loop is: **ingest → deep read → consolidate → cockpit → gates → PR**. All
 commands are deterministic and re-runnable; the only model step is the deep read,
-which is yours. Full per-CLI detail is in the
-[command reference](../../../memories/system/wiki/command-reference.md).
+which is yours. The full per-CLI catalog is the command-reference page in the
+meta-wiki (linked from [AGENTS.md](../../../AGENTS.md)).
 
 ```mermaid
 flowchart LR
@@ -62,15 +62,15 @@ python3 scripts/wiki_gate.py --rebase --rebase-key <logical-target>   # supersed
 ```
 
 Resolved proposals/events can be moved to the immutable archive with
-[wiki_archive.py](../../../scripts/wiki_archive.py). The approval cycle is in
-[git-approvals.md](../../../memories/system/git-approvals.md).
+[wiki_archive.py](../../../scripts/wiki_archive.py). The approval cycle is the
+git-approvals page in the meta-wiki (routed from [AGENTS.md](../../../AGENTS.md)).
 
 ## 4. Recompile the cockpit
 
 Never hand-edit the cockpit — recompile it from real Git/memory state:
 
 ```sh
-python3 scripts/wiki_operation_compile.py --write    # regenerate memories/operations.md
+python3 scripts/wiki_operation_compile.py --write    # regenerate the cockpit page
 python3 scripts/wiki_operation_compile.py --check    # CI: fails if semantically stale
 ```
 

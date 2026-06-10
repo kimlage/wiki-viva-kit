@@ -12,9 +12,17 @@ the agent running the repo — there is no LLM client in the toolkit.
 
 This is the **single entry point**. It covers the whole lifecycle — adopt →
 configure → ingest → deep read → consolidate → cockpit → gates → PR — and links
-to the focused playbooks and the meta-wiki for depth. You do not need any other
-skill installed to operate; the others ([listed below](#deeper-references)) are
-optional detail.
+to the focused playbooks for depth. You do not need any other skill installed to
+operate; the others ([listed below](#deeper-references)) are optional detail.
+
+> **Portability.** The links here point at the kit's invariant parts — the
+> deterministic [CLIs](../../scripts/), the [core](../../wiki_core/) and
+> [wiki.config.yaml](../../wiki.config.yaml) — the same in every repo. The
+> *configurable* pages (the memory root, the cockpit, the meta-wiki, the command
+> reference) live at whatever paths this repo declares in
+> [wiki.config.yaml](../../wiki.config.yaml); [AGENTS.md](../../AGENTS.md) routes
+> to them at this repo's real paths. Refer to those by role and let
+> [AGENTS.md](../../AGENTS.md) and the config resolve them.
 
 ## The model in one picture
 
@@ -42,12 +50,12 @@ free. The deep read is the only model step, and it is yours.
 1. Confirm the repo root and read [wiki.config.yaml](../../wiki.config.yaml):
    `language`, `contexts`, `paths` (English defaults, or a localized layout
    pinned per repo), the privacy policy and the gates.
-2. Read the root MOC [memories/index.md](../../memories/index.md), then the
-   cockpit [memories/operations.md](../../memories/operations.md) if present.
-3. The wiki **documents itself**: the meta-wiki at
-   [memories/system/wiki/index.md](../../memories/system/wiki/index.md) is the
-   official documentation, kept honest by the same gates. Read it when you need
-   the *why*, not just the *how*.
+2. Open [AGENTS.md](../../AGENTS.md) — it routes to this repo's root memory
+   index (the MOC) and its cockpit page at their real paths. Read the root index,
+   then the cockpit if it exists.
+3. The wiki **documents itself**: the meta-wiki (linked from
+   [AGENTS.md](../../AGENTS.md)) is the official documentation, kept honest by
+   the same gates. Read it when you need the *why*, not just the *how*.
 4. Pick the lifecycle step you are in (below) and open the matching reference.
 
 ## Lifecycle
@@ -69,9 +77,9 @@ enumerated structured facts, and Mermaid diagrams for structure and flow
 ontology, `mindmap`/`flowchart` for a map of contents, `timeline` for history).
 Prose carries nuance; it does not carry structure that a table or a diagram
 shows better. Architecture, flow, relationship and process pages should each
-carry at least one diagram. The page conventions live in
-[docs/references/templates/wiki/obsidian-conventions.md](../../docs/references/templates/wiki/obsidian-conventions.md);
-the templates ship the skeletons.
+carry at least one diagram. The page conventions live in the templates
+(`obsidian-conventions`, reached via [AGENTS.md](../../AGENTS.md)); the templates
+ship the skeletons, so a generated page starts with the scaffold.
 
 ## Hard rules (never break these)
 
@@ -83,8 +91,7 @@ the templates ship the skeletons.
 - **Privacy by boundary.** Personal data (PII) is welcome on private pages and
   raises no warning; it only blocks at the public boundary (`--public-export`).
 - **Canonical memory changes go through a `wiki/<theme>` branch and a PR.** Never
-  hand-edit the generated cockpit [memories/operations.md](../../memories/operations.md) —
-  recompile it.
+  hand-edit the generated cockpit page — recompile it.
 - **Gates must be green before the PR**, and stay deterministic (zero tokens).
 
 ## Deeper references
@@ -100,5 +107,6 @@ when you need the full procedure for a single step:
 - [wiki-privacy-publication](../wiki-privacy-publication/SKILL.md) — private vs public.
 - [wiki-raw-drive](../wiki-raw-drive/SKILL.md) — raw sources from a single Drive folder (never versioned).
 
-Agent-facing entry point for the repo: [AGENTS.md](../../AGENTS.md). Full CLI
-catalog: [command reference](../../memories/system/wiki/command-reference.md).
+Agent-facing entry point and per-repo router for every configurable page:
+[AGENTS.md](../../AGENTS.md). The full CLI catalog is the command-reference page
+in the meta-wiki (linked from [AGENTS.md](../../AGENTS.md)).

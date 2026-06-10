@@ -11,7 +11,7 @@ Run them before every PR.
 | --- | --- | --- |
 | Contract audit | Frontmatter, clickable local links, secrets blocked everywhere, PII at the public boundary, cockpit, ingestion events with quadrants, gate state, visibility promotion, LLM-pass gate, log update | [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` |
 | Methodology coverage | Presence **and content** of the method (pages, templates, scripts, config), real use of the perceptive layer, an executed LLM pass (not a plan) | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) `--check` |
-| Cockpit freshness | [memories/operations.md](../../../memories/operations.md) equals a recompile at HEAD (deterministic view) | [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) `--check` |
+| Cockpit freshness | The cockpit page equals a recompile at HEAD (deterministic view) | [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) `--check` |
 | Tests | The deterministic core behaves | `python3 -m pytest tests/` |
 
 Useful audit modes:
@@ -41,13 +41,14 @@ flowchart TD
   auditor. The ingestion pre-scan blocks them at the origin (exit `2`).
 - **Personal data (PII)** — names, amounts, counterparties, tax ids: welcome on
   private pages (that is the point of operational memory); blocked only at the
-  public boundary. Detail: [privacy.md](../../../memories/system/wiki/privacy.md)
-  and [wiki-privacy-publication](../../wiki-privacy-publication/SKILL.md).
+  public boundary. Detail: the privacy page in the meta-wiki (routed from
+  [AGENTS.md](../../../AGENTS.md)) and
+  [wiki-privacy-publication](../../wiki-privacy-publication/SKILL.md).
 
 ## The gate state machine (proposals)
 
 Proposals move through explicit states; transitions are recorded in
-`gate_history`. The exact states and edges are documented (and enforced) in
-[gates-and-audit.md](../../../memories/system/wiki/gates-and-audit.md); use
-[wiki_gate.py](../../../scripts/wiki_gate.py) to transition, and never edit
-`gate_state` by hand.
+`gate_history`. The exact states and edges are documented (and enforced) in the
+gates-and-audit page of the meta-wiki (routed from
+[AGENTS.md](../../../AGENTS.md)); use [wiki_gate.py](../../../scripts/wiki_gate.py)
+to transition, and never edit `gate_state` by hand.

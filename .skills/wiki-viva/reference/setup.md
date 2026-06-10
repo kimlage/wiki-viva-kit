@@ -2,8 +2,8 @@
 
 Goal: take a repo from nothing to a working living wiki whose gates are green.
 The kit is self-contained; "setup" is mostly **configuration + scaffolding**, not
-code. Paths below use the English defaults; if you pin a localized layout (step 4)
-substitute your own names.
+code. Names below are the English defaults; if you pin a localized layout
+(step 4) substitute your own.
 
 ## 1. Bring the kit in
 
@@ -60,11 +60,9 @@ The kit ships an `example` context — replace or keep it as a living sample.
 
 ## 4. (Optional) Pin a localized layout
 
-The defaults are English — [memories/](../../../memories/index.md),
-[memories/system/ingestion/](../../../memories/system/ingestion/README.md),
-[docs/references/](../../../docs/references/), cockpit at
-[memories/operations.md](../../../memories/operations.md). To run the tree in
-another language, pin every name you rename under `paths:` in
+The defaults are English; [wiki_core/config.py](../../../wiki_core/config.py)
+lists every layout key and its default. To run the tree in another language, pin
+every name you rename under the `paths:` block in
 [wiki.config.yaml](../../../wiki.config.yaml), plus `default_context`, the
 `coverage` pages and `audit.core_pages`. Example (Portuguese):
 
