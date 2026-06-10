@@ -7,9 +7,9 @@ never editing history.
 
 Examples:
   python3 scripts/wiki_score.py --add --event ingestar_fonte_valida \\
-      --actor kim --context sistema
+      --actor owner --context sistema
   python3 scripts/wiki_score.py --add --event criar_insight_aceito \\
-      --actor kim --context financeiro --quality 1.0 --impact 3 --rare
+      --actor owner --context financeiro --quality 1.0 --impact 3 --rare
   python3 scripts/wiki_score.py --summary
   python3 scripts/wiki_score.py --dashboard
 """

@@ -68,6 +68,23 @@ itself, kept honest by the same gates:
 
 Agent-facing entry point: [AGENTS.md](AGENTS.md).
 
+## Naming (Portuguese directory names)
+
+The kit predates its English-first policy, so a few **directory and page names
+remain in Portuguese** by design — they are stable identifiers used by code,
+links and frontmatter across every adopting repo (renaming would break all of
+them for cosmetic gain). Glossary:
+
+| Name | Meaning |
+| --- | --- |
+| `memorias/` | memories (the wiki) |
+| `memorias/operacao.md` | operations cockpit |
+| `memorias/sistema/ingestao/` | ingestion (proposals; `arquivo/` = archive) |
+| `docs/referencias/` | references |
+| `fontes/`, `eventos/` | sources, events |
+
+All prose, code, messages and generated output follow the configured language.
+
 ## Principles
 
 1. **Determinism first** — everything that can be deterministic is (hashing,

@@ -69,7 +69,7 @@ def test_cache_key_independent_of_source():
 
 
 def test_sha256_text_deterministic():
-    assert sha256_text("auvp openfinance") == sha256_text("auvp openfinance")
+    assert sha256_text("alpha beta") == sha256_text("alpha beta")
     assert sha256_text("a") != sha256_text("b")
     assert len(sha256_text("anything")) == 64
 
@@ -88,9 +88,9 @@ def test_slugify_normalizes():
 
 
 def test_sanitize_fts_query_slash_does_not_raise_and_quotes_term():
-    out = sanitize_fts_query("auvp/openfinance")
+    out = sanitize_fts_query("alpha/beta")
     # Single token (no spaces) -> one quoted term, slash kept inside the quotes.
-    assert out == '"auvp/openfinance"'
+    assert out == '"alpha/beta"'
 
 
 def test_sanitize_fts_query_splits_on_spaces():
@@ -121,7 +121,7 @@ def _write_chunks_json(chunks_dir: Path) -> None:
                 "ordinal": 0,
                 "hash_sha256": sha256_text("orcamento mensal openfinance"),
                 "token_estimate": 7,
-                "text": "Orcamento mensal de openfinance e conciliacao AUVP.",
+                "text": "Monthly budget review and reconciliation notes",
             },
             {
                 "chunk_id": "chunk-0002",
@@ -160,7 +160,7 @@ def test_search_with_slash_does_not_raise(tmp_path):
     build_index(chunks_dir, db_path)
 
     # A '/' in the query must not raise sqlite3.OperationalError; it is sanitized.
-    results = search(db_path, "auvp/openfinance")
+    results = search(db_path, "alpha/beta")
     assert isinstance(results, list)
 
     # Empty query and missing index both return [] without raising.

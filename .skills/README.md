@@ -1,22 +1,22 @@
 # Skills
 
-Skills portaveis do kit (`wiki-*`), genericas e sem nomes pessoais — copiaveis
-para outro repo sem ajuste profundo.
+Portable kit skills (`wiki-*`), generic and free of personal names — copyable
+to another repo without deep adjustments.
 
-## Kit reutilizavel (`wiki-*`)
+## Reusable kit (`wiki-*`)
 
-- `wiki-memory-router` — carrega a wiki e roteia contexto.
-- `wiki-ingestion-agent` — fonte -> evento normalizado -> proposta.
-- `wiki-llm-context-agent` — executa a passagem LLM contextual (delegada ao agente
-  que roda o repo) e grava o resultado no cache.
-- `wiki-operation-compiler` — mantem o cockpit [memorias/operacao.md](../memorias/operacao.md).
-- `wiki-source-auditor` — rastreabilidade de fontes.
-- `wiki-privacy-publication` — separa privado de publico.
-- `wiki-raw-drive` — busca/baixa fontes raw de uma pasta unica do Drive (raw nunca
-  e versionado).
+- `wiki-memory-router` — loads the wiki and routes context.
+- `wiki-ingestion-agent` — source -> normalized event -> proposal.
+- `wiki-llm-context-agent` — performs the contextual LLM pass (delegated to the
+  agent that runs the repo) and records the result in the cache.
+- `wiki-operation-compiler` — maintains the cockpit [memorias/operacao.md](../memorias/operacao.md).
+- `wiki-source-auditor` — source traceability.
+- `wiki-privacy-publication` — separates private from public.
+- `wiki-raw-drive` — fetches/downloads raw sources from a single Drive folder
+  (raw is never versioned).
 
-## Perfil local por repo
+## Per-repo local profile
 
-Cada repo que adota o kit pode adicionar suas proprias skills especificas (perfil
-local, ex.: prefixo `repo-*` ou `<nome>-*`) ao lado das `wiki-*`. Mantenha o perfil
-local separado para o kit continuar copiavel.
+Each repo adopting the kit can add its own specific skills (local profile, e.g.
+a `repo-*` or `<name>-*` prefix) alongside the `wiki-*` ones. Keep the local
+profile separate so the kit stays copyable.

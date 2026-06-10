@@ -1,19 +1,15 @@
-# Dependencias do kit de wiki viva (wiki_core/ + scripts/wiki_*.py).
-# Instalacao: pip install -r requirements.txt
+# Living wiki kit dependencies (wiki_core/ + scripts/wiki_*.py).
+# Install: pip install -r requirements.txt
 #
-# Dependencia de SISTEMA (nao instalavel por pip): poppler (binario `pdftotext`).
+# SYSTEM dependency (not pip-installable): poppler (the `pdftotext` binary).
 #   macOS:  brew install poppler
 #   debian: apt-get install poppler-utils
-# Sem poppler, a extracao de PDF emite warning `pdftotext_unavailable` e devolve
-# texto vazio (nunca bytes crus), em vez de poluir o indice.
+# Without poppler, PDF extraction emits a `pdftotext_unavailable` warning and
+# returns empty text (never raw bytes), instead of polluting the index.
 
-PyYAML>=6.0          # parsing de wiki.config.yaml e frontmatter
-openpyxl>=3.1        # extracao de planilhas .xlsx/.xlsm
-python-docx>=1.1     # extracao de documentos .docx
-
-# Dependencias do REPO (parsers financeiros em src/, fora do kit portavel da wiki).
-pandas>=2.0          # parsers de extrato/fatura
-pdfplumber>=0.11     # extracao de PDF dos parsers financeiros
+PyYAML>=6.0          # wiki.config.yaml and frontmatter parsing
+openpyxl>=3.1        # .xlsx/.xlsm spreadsheet extraction
+python-docx>=1.1     # .docx document extraction
 
 # Dev/test
 pytest>=8.0

@@ -9,12 +9,12 @@ starting point for persistent context is `memorias/`.
 
 - `memorias/`: living wiki, consolidated context and updatable pages.
 - `docs/referencias/`: perennial material used as evidence or template.
-- `docs/referencias/inventarios/`: inventory and verification snapshots.
-- `docs/referencias/decisoes/`: historical decisions that must not change.
 - `docs/referencias/templates/`: stable models for new records.
-- `docs/referencias/avaliacoes/`: one-off evaluations preserved as snapshots.
-- `docs/referencias/templates/wiki/`: models for the simple mode of the operational
-  wiki, including ingestion proposal, decision, insight and PR checklist.
+- `docs/referencias/templates/wiki/`: models for the operational wiki, including
+  ingestion proposal, decision, insight and PR checklist.
+- Optional per-repo subfolders (create on demand): `inventarios/` (inventory
+  snapshots), `decisoes/` (immutable historical decisions), `avaliacoes/`
+  (one-off evaluation snapshots).
 
 ## Reading rule
 

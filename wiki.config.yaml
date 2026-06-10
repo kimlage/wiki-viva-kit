@@ -48,6 +48,9 @@ llm:
     decision_action_synthesis: v1
 
 audit:
+  # Freshness budget (biting gate): audit FAILS when total stale pages exceed
+  # this cap. 0 disables. Tune per repo; a daily cron can reuse this gate.
+  freshness_budget: 0
   require_markdown_links: true
   # Read by wiki_audit.py: blocks secrets/credentials (AWS, Google, JWT, PEM, Slack,
   # high-entropy assignments) in any versioned text file, via wiki_core/detectors.

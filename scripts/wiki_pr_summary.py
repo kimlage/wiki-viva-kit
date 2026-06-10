@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -143,8 +144,15 @@ def main() -> int:
         print()
     print("## Privacy review hints")
     print()
-    print("- Review any `memorias/financeiro` changes for transaction-level detail.")
-    print("- Review any `docs/thoughtworks` changes for payroll, email, or third-party data.")
+    # Context-driven (no personal context hardcoded in the shared kit).
+    try:
+        sys.path.insert(0, str(ROOT))
+        from wiki_core.config import load_config  # noqa: PLC0415
+
+        for ctx in load_config(ROOT).contexts:
+            print(f"- Review any `memorias/{ctx}` changes for sensitive detail.")
+    except Exception:  # pragma: no cover - hints are best-effort
+        pass
     print("- Confirm `docs/` changes are references/templates/snapshots, not live memory.")
     print()
     print("## Validation checklist")
