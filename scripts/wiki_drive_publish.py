@@ -63,6 +63,19 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def execute_drive_upload(request, *, label: str) -> dict[str, str]:
+    """Execute a Drive upload request, using chunks when the request is resumable."""
+    next_chunk = getattr(request, "next_chunk", None)
+    if next_chunk is None:
+        return request.execute()
+    response = None
+    while response is None:
+        status, response = request.next_chunk()
+        if status:
+            print(f"{label}: upload {int(status.progress() * 100)}%", file=sys.stderr)
+    return response
+
+
 def load_manifest() -> dict[str, object]:
     if MANIFEST_PATH.exists():
         return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
@@ -119,12 +132,18 @@ def publish(paths: list[Path], folder_id: str, *, dry_run: bool = False) -> dict
             published.append(f"{name}: would upload ({path.stat().st_size} bytes)")
             continue
         mime = mimetypes.guess_type(name)[0] or "application/octet-stream"
-        media = MediaFileUpload(str(path), mimetype=mime, resumable=False)
+        media = MediaFileUpload(
+            str(path),
+            mimetype=mime,
+            chunksize=8 * 1024 * 1024,
+            resumable=True,
+        )
         existing_id = entry.get("drive_file_id")
         meta = None
         if existing_id:
             try:
-                meta = drive.files().update(fileId=existing_id, media_body=media, fields="id,webViewLink").execute()
+                request = drive.files().update(fileId=existing_id, media_body=media, fields="id,webViewLink")
+                meta = execute_drive_upload(request, label=name)
             except HttpError as exc:
                 # Dead manifest id (file trashed/deleted on Drive): fall back to
                 # search-by-name/create instead of aborting the whole batch.
@@ -142,13 +161,15 @@ def publish(paths: list[Path], folder_id: str, *, dry_run: bool = False) -> dict
             )
             hit = drive.files().list(q=q, fields="files(id)").execute().get("files", [])
             if hit:
-                meta = drive.files().update(fileId=hit[0]["id"], media_body=media, fields="id,webViewLink").execute()
+                request = drive.files().update(fileId=hit[0]["id"], media_body=media, fields="id,webViewLink")
+                meta = execute_drive_upload(request, label=name)
             else:
-                meta = (
-                    drive.files()
-                    .create(body={"name": name, "parents": [folder_id]}, media_body=media, fields="id,webViewLink")
-                    .execute()
+                request = drive.files().create(
+                    body={"name": name, "parents": [folder_id]},
+                    media_body=media,
+                    fields="id,webViewLink",
                 )
+                meta = execute_drive_upload(request, label=name)
         files[name] = {
             "drive_file_id": meta["id"],
             "view_url": meta.get("webViewLink", f"https://drive.google.com/file/d/{meta['id']}/view"),
