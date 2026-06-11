@@ -8,12 +8,12 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-06-10
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
-purpose: "Describes the complete path of a source in the living wiki: from manifest to PR, with pre-scan, LLM context package and consolidation."
+purpose: "Describes the complete path of a source in the living wiki: from manifest to PR, with pre-scan, LLM context package, consolidation and integration."
 moc_parent: memories/system/wiki/index.md
 related_pages:
   - memories/system/wiki/index.md
@@ -21,7 +21,7 @@ related_pages:
 
 # End-to-end ingestion flow
 
-Updated on: 2026-06-09.
+Updated on: 2026-06-10.
 
 This page describes the path a source travels in the living wiki, from the moment
 it is captured until it becomes consolidated memory via Pull Request. The deterministic
@@ -38,7 +38,7 @@ gate mechanics are in [gates and auditing](gates-and-audit.md).
 The deterministic sequence chained by the orchestrator
 ([ingestion pipeline](../../../wiki_core/ingest/pipeline.py)) is shown below. The
 deterministic steps run inside the toolkit; the deep read is the one step the agent
-owns; consolidation and the PR gate close the loop into memory.
+owns; consolidation, INTEGRATION and the PR gate close the loop into memory.
 
 ```mermaid
 flowchart TD
@@ -47,9 +47,9 @@ flowchart TD
     Index --> Prescan["Pre-scan"]
     Prescan --> Package["LLM context package"]
     Package --> DeepRead(["Deep read by the agent (into the cache)"])
-    DeepRead --> Event["Normalized event (quadrants)"]
-    Event --> Consolidation["Consolidation"]
-    Consolidation --> PR{"PR gate"}
+    DeepRead --> Event["Normalized event (quadrants) + integration packet"]
+    Event --> Integrate["Consolidate + integrate"]
+    Integrate --> PR{"PR gate"}
     PR --> Memory[("Consolidated memory")]
 ```
 
@@ -64,7 +64,8 @@ gate column says what can stop the source from advancing:
 | Pre-scan | [wiki_ingest.py](../../../scripts/wiki_ingest.py) | Secret/PII findings | secret BLOCKS (exit 2); PII informs |
 | Context package | [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--emit-request` | `-llm-context-request.json` | `required_context_pass` watches this file |
 | Deep read | [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--record-result` | Per-chunk result in the cache | `validate_result` rejects empty quadrants |
-| Event | proposal template | Quadrants event | empty/placeholder quadrant fails the audit |
+| Event | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--emit-event` (template as manual fallback) | Quadrants event with `consolidated_into: []` | empty/placeholder quadrant fails the audit |
+| Integration | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--packet`, then the agent integrates | Targets updated, conflicts resolved/recorded, `consolidated_into` closed | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` fails a read source without integration (CI) |
 | Consolidation + PR | [wiki_audit.py](../../../scripts/wiki_audit.py), then a PR | Updated memory | human approval on `main` |
 
 Invariant points of the design:
@@ -159,8 +160,12 @@ The result is written to the cache via
 [validate_result](../../../wiki_core/llm/context_pass.py) (rejects a missing key,
 an empty quadrant or `sensitivity` without `has_pii`) before persisting it in
 [data/derived/wiki/llm-cache/](../../../data/derived/wiki/). The agent NEVER writes
-canonical memory directly: it only feeds the cache. The same script with `--check`
-serves as a gate: it returns a non-zero exit while there is a pending chunk and
+canonical memory directly: it only feeds the cache. It is the consolidation step
+that turns the cache into integration: [wiki_consolidate.py](../../../scripts/wiki_consolidate.py)
+generates the normalized event and the integration packet from the cache, the agent
+integrates what it read into the target pages, and the canonical change lands via
+PR (step 8). [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py)
+with `--check` serves as a gate: it returns a non-zero exit while there is a pending chunk and
 `required_context_pass` (turned on in [wiki.config.yaml](../../../wiki.config.yaml))
 is active.
 
@@ -178,14 +183,31 @@ collective), following the template
 [ingestion-event.md](../../../docs/references/templates/wiki/ingestion-event.md).
 When a quadrant does not appear in the source, the absence is filled in explicitly
 as an operational finding, never left blank. The event lives in the ingestion
-events folder, referenced by the proposal. The proposal created by
+events folder, referenced by the proposal. Since v6.1 it is generated directly
+from the cache by [wiki_consolidate.py](../../../scripts/wiki_consolidate.py)
+`--emit-event` (quadrants filled — never a placeholder — and
+`consolidated_into: []` for the agent to close during integration). The proposal created by
 [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py) already includes the
 quadrants table to be filled and points to the manifest, the chunks and the expected event.
 
-## Step 8 - Consolidation and PR
+## Step 8 - Consolidation, integration and PR
 
 Consolidation transforms the synthesis into context memory - not just a link
-to the source. Local paths become clickable Markdown links, related pages
+to the source. Ingesting = integrating, and the stage has its own tool:
+[wiki_consolidate.py](../../../scripts/wiki_consolidate.py) with
+`--source <source_id> --emit-event --packet` generates the normalized event
+(step 7) and the integration packet (gitignored) with related pages, overlapping
+claims and potential conflicts per claim/entity. Guided by the packet, the agent
+updates the target hubs/concepts incrementally, creates/updates load-bearing
+claim pages (fields `supersedes`/`superseded_by`/`conflicts_with`/
+`conflict_resolution` when claims collide), resolves or records every conflict
+and ambiguity and fills in the event's `consolidated_into` — each target page
+references the source in `source_refs`. The `--check` (in CI) fails while there
+is a source with a complete deep read but no closed event; only then does the
+source page receive `ingestion_state: ingested` + `last_ingested_at` + a line in
+the ingestion log, and the source registry is regenerated.
+
+Local paths become clickable Markdown links, related pages
 and the [system log](../log.md) are updated, the auditing is run
 ([wiki_audit.py](../../../scripts/wiki_audit.py)) and the diff is reviewed in a PR. The
 merge only occurs after human approval - the gate-by-PR mechanics are in

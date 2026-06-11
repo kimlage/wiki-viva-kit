@@ -24,6 +24,11 @@ roles: []
 responsibilities: []
 source_refs: []
 claims: []
+# Incremental consolidation: claim versioning and conflict.
+supersedes: []          # claim-... that this claim replaces
+superseded_by: ""       # claim-... that replaced this one (reciprocal of supersedes)
+conflicts_with: []      # claim-... in open conflict
+conflict_resolution: "" # how the conflict was resolved (or why it remains open)
 decisions: []
 actions: []
 evidence_refs: []
@@ -43,3 +48,8 @@ Status: `fato` | `percepcao` | `hipotese` | `insight` | `proposta` | `decisao`.
 - Source:
 - Evidence:
 - Decisions:
+
+## Conflicts and ambiguities
+
+- Record here the conflict with other claims (linked), the ambiguity
+  observed, and the resolution (or the decision to keep the conflict open).

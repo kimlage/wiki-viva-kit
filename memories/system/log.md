@@ -14,6 +14,13 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](..) layer.
 
+## [2026-06-10] System | v6.1: real consolidation (ingestion that integrates knowledge)
+
+- New [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py): generates the normalized event from the llm cache (quadrants filled, `consolidated_into: []` to close) + the integration packet (related pages, overlapping claims, potential conflicts); `--check` in CI while there is a read source without integration.
+- `audit_consolidation` gate in [scripts/wiki_audit.py](../../scripts/wiki_audit.py): a new event requires `consolidated_into`, the target's reverse reference to the source (`source_refs`) and claims linked or `sem_claim: <reason>` — not skippable.
+- [scripts/wiki_build_index.py](../../scripts/wiki_build_index.py) `--rebuild` now also indexes the wiki's own pages (`page:<page_id>`): retrieval finds the existing knowledge before integrating the new.
+- Skills (wiki-viva, llm-context-agent, ingestion-agent, router) and method pages ([ingestion process](ingestion-process.md), [ingestion flow](wiki/ingestion-flow.md), [gates and audit](wiki/gates-and-audit.md), [command reference](wiki/command-reference.md)) with the full "ingesting = integrating" checklist; the cockpit shows "Sources awaiting consolidation".
+
 ## [2026-06-10] System | v6 Phase 2: external-tool entities + per-source config
 
 - External-tool entities (item 8): new page_types `meeting`, `external_card`, `calendar_event` in [scripts/wiki_audit.py](../../scripts/wiki_audit.py) (ONTOLOGY_DIRNAME_TYPES, en+pt superset: meetings/reunioes, cards/cartoes, calendar/calendario); templates [meeting.md](../../docs/references/templates/wiki/meeting.md), [external-card.md](../../docs/references/templates/wiki/external-card.md), [calendar-event.md](../../docs/references/templates/wiki/calendar-event.md). Live connectors (Jira/Calendar) stay with the agent/skill, not in the toolkit.

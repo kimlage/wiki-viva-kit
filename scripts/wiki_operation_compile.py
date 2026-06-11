@@ -34,6 +34,7 @@ sys.path.insert(0, str(ROOT))
 # working tree. Superset (pt + en) for compatibility with localized repos.
 IGNORED_UNTRACKED_PREFIXES = ("docs/memorias/", "docs/memories/")
 
+from wiki_core.consolidate import pending_consolidations
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
 from wiki_core.score import compute_karma, load_events, record_event, resolve_events_path
@@ -68,6 +69,9 @@ VOLATILE_BODY_PREFIXES = (
     "Atualizado em:", "Updated at:",
     "- Compilado de:", "- Compiled from:",
     "- Contextos stale para revisar:", "- Stale contexts to review:",
+    # Depends on the gitignored derived cache (llm-cache/extraction-events):
+    # present locally, absent on a clean clone — volatile by construction.
+    "- Fontes aguardando consolidacao:", "- Sources awaiting consolidation:",
 )
 
 # Cockpit string table per language (drives the GENERATED output via config.language).
@@ -92,6 +96,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "h_queue": "## Fila de acoes pendentes",
         "queue_listed": "Identificadores listados em [{pending_path}]({pending_path}):",
         "empty_queue": "Sem acoes pendentes registradas.",
+        "consolidation_pending": "- Fontes aguardando consolidacao: {count} — ver [scripts/wiki_consolidate.py]({script}).",
         "h_alerts": "## Alertas",
         "alert_stale": "- A pagina de operacao fica stale apos 1 dia.",
         "alert_quadrants": "- Eventos de ingestao relevantes devem declarar quatro quadrantes ou ausencia explicita.",
@@ -133,6 +138,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "h_queue": "## Pending action queue",
         "queue_listed": "Identifiers listed in [{pending_path}]({pending_path}):",
         "empty_queue": "No pending actions recorded.",
+        "consolidation_pending": "- Sources awaiting consolidation: {count} — see [scripts/wiki_consolidate.py]({script}).",
         "h_alerts": "## Alerts",
         "alert_stale": "- The operations page goes stale after 1 day.",
         "alert_quadrants": "- Relevant ingestion events must declare the four quadrants or explicit absence.",
@@ -580,6 +586,14 @@ def build_page(root: Path, config: WikiConfig) -> str:
     if stale_contexts:
         rendered = ", ".join(sorted(row.context for row in stale_contexts))
         lines.append(s["alert_stale_contexts"].format(contexts=rendered))
+    # Consolidation backlog (volatile: derived cache is local-only). Keeps the
+    # "ingesting = integrating" loop visible on every daily resume.
+    try:
+        consolidation_count = len(pending_consolidations(root, config))
+    except Exception:
+        consolidation_count = 0
+    consolidate_script = _rel_to_page_dir(root / "scripts" / "wiki_consolidate.py", paths.operation_page.parent)
+    lines.append(s["consolidation_pending"].format(count=consolidation_count, script=consolidate_script))
 
     lines += [
         "",

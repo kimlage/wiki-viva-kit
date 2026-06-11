@@ -103,6 +103,12 @@ flowchart LR
 - Related pages:
 - Expected backlinks:
 
+## Conflicts and ambiguities
+
+- Conflicts with existing claims/pages (use the integration packet from
+  [scripts/wiki_consolidate.py](../../../../scripts/wiki_consolidate.py)) and the resolution.
+- Ambiguities/uncertainties from the deep read that require a human decision.
+
 ## Privacy risks
 
 -

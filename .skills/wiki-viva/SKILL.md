@@ -66,7 +66,7 @@ free. The deep read is the only model step, and it is yours.
 | **Configure a source** | Create the source page + its config page (ingestion/search/business rules), register it; model meetings/cards/calendar as linked entities | [reference/sources.md](reference/sources.md) |
 | **Ingest** | Turn a source into manifest → chunks → index → pre-scan → context package → event → proposal | [reference/operating.md](reference/operating.md) |
 | **Deep read** | Perform the delegated LLM pass over the emitted package and record the result | [reference/operating.md](reference/operating.md) + [wiki-llm-context-agent](../wiki-llm-context-agent/SKILL.md) |
-| **Consolidate** | Move the proposal through the gate, open the PR (the human gate) | [reference/operating.md](reference/operating.md) |
+| **Consolidate** | Generate the event + integration packet with [wiki_consolidate.py](../../scripts/wiki_consolidate.py), integrate into the target pages, close `consolidated_into`, then move the proposal through the gate and open the PR (the human gate) | [reference/operating.md](reference/operating.md) |
 | **Cockpit + gates** | Recompile the cockpit and run the honesty gates before the PR | [reference/gates-and-privacy.md](reference/gates-and-privacy.md) |
 
 ## Rich representation is the default
@@ -84,6 +84,12 @@ ship the skeletons, so a generated page starts with the scaffold.
 
 ## Hard rules (never break these)
 
+- **Ingesting = integrating.** A source is only `ingested` when the wiki's
+  concepts reflect the new information: deep-read results are consolidated
+  ([wiki_consolidate.py](../../scripts/wiki_consolidate.py)), targets updated
+  incrementally, conflicts/ambiguities resolved or recorded, and the event's
+  `consolidated_into` closed — cataloging the source is NOT ingesting (the
+  audit + CI enforce this).
 - **Connectedness: bring information WITH links.** A person, source, decision or
   tool named in prose becomes a link to its page — a title with no link is a
   defect (the auditor warns on unlinked known-entity mentions). People get pages

@@ -3,7 +3,7 @@ page_id: system-ingestion-process
 page_type: operational_rule
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-06-10
 stale_after_days: 90
 sources_policy: contrato_wiki_operacional
 gate: github_pr
@@ -12,7 +12,7 @@ sensitive_data_policy: private_sensitive_allowed
 
 # Ingestion process
 
-Updated on: 2026-06-09
+Updated on: 2026-06-10
 
 This process turns a new source into a reviewable proposal, consolidated memory,
 or a decision not to ingest.
@@ -26,7 +26,12 @@ The deterministic steps 4-7 stopped being standalone CLIs: the orchestrator
 -> score-event `ingestar_fonte_valida`**. The proposal is born with `gate_state:
 created`. The LLM pass remains delegated to the agent that runs the repo (the skill
 reads the package and writes the result to the cache); the auditor only releases
-the merge when the deep reading is recorded (`required_context_pass`). The manual
+the merge when the deep reading is recorded (`required_context_pass`). And the
+ingestion only ends when what was read is INTEGRATED into the wiki:
+[scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) generates the
+normalized event and the integration packet from the cache, and its `--check`
+(in CI) blocks while there is a read source without integration — ingesting =
+integrating. The manual
 steps below are the breakdown of that flow, useful when running it step by step.
 
 To close the **Information -> Insight** cycle, [scripts/wiki_insight_job.py](../../scripts/wiki_insight_job.py)
@@ -43,7 +48,8 @@ flowchart LR
     Index --> Prescan["Pre-scan"]
     Prescan --> Package["LLM context package"]
     Package --> DeepRead(["Deep read by the agent"])
-    DeepRead --> Score["Score event"]
+    DeepRead --> Integrate["Consolidate + integrate"]
+    Integrate --> Score["Score event"]
     Score --> Proposal["Proposal"]
     Proposal --> Gate{"PR gate"}
     Gate -->|approved| Memory[("Memory")]
@@ -58,6 +64,7 @@ The deterministic stages, the command that runs each, and what gates it:
 | Index | [wiki_build_index.py](../../scripts/wiki_build_index.py) | none |
 | Pre-scan + context package | [wiki_ingest.py](../../scripts/wiki_ingest.py) | secret blocks (exit 2); emits the `-request.json` |
 | Deep read | [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) | `required_context_pass` requires a recorded result |
+| Consolidate + integrate | [wiki_consolidate.py](../../scripts/wiki_consolidate.py) | new event needs `consolidated_into`; `--check` fails a read source without integration (CI) |
 | Consolidation + audit | [wiki_audit.py](../../scripts/wiki_audit.py) | contract/links/secrets; human approval on the PR |
 
 ## Flow
@@ -75,16 +82,27 @@ The deterministic stages, the command that runs each, and what gates it:
    with four quadrants or an explicit absence.
 7. Plan the contextual LLM pass with [scripts/wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py)
    and record the cache/plan or a skip justification.
-8. If the decision is not trivial, generate a proposal in
+8. Consolidate and INTEGRATE with [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
+   `--source <source_id> --emit-event --packet` generates the normalized event
+   from the recorded deep read (quadrants filled, candidate claims/decisions/
+   actions, `consolidated_into: []` to close) and the integration packet
+   (gitignored, with related pages, overlapping claims and potential conflicts).
+   Guided by the packet: update the target hubs/concepts incrementally;
+   create/update load-bearing claim pages (fields `supersedes`/`superseded_by`/
+   `conflicts_with`/`conflict_resolution` when claims collide); resolve or
+   record every conflict and ambiguity; fill in the event's `consolidated_into`
+   (each target page references the source in `source_refs`). The `--check`
+   blocks CI while there is a read source without integration.
+9. If the decision is not trivial, generate a proposal in
    [memories/system/ingestion/YYYY-MM-DD-<topic>.md](ingestion/).
-9. Open or update a `wiki/*` branch.
-10. Consolidate the synthesis into the context memory, not just link the source.
-11. Turn every cited local path into a clickable Markdown link. The label may be
+10. Open or update a `wiki/*` branch.
+11. Consolidate the synthesis into the context memory, not just link the source.
+12. Turn every cited local path into a clickable Markdown link. The label may be
    the original path; the target must point to the existing file, directory, or
    original source.
-12. Update related pages and [memories/system/log.md](log.md).
-13. Run the audit and review the diff in a PR.
-14. Merge only after human approval.
+13. Update related pages and [memories/system/log.md](log.md).
+14. Run the audit and review the diff in a PR.
+15. Merge only after human approval.
 
 ## Private extraction criteria
 

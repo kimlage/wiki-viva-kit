@@ -1,6 +1,6 @@
 ---
 name: wiki-llm-context-agent
-description: Run the deep contextual reading (LLM pass) over the chunks selected by wiki_core and write the result to the cache. The intelligence lives in the agent that runs the repo (Claude/Codex/Gemini), not in a Python LLM client.
+description: Run the deep contextual reading (LLM pass) over the chunks selected by wiki_core, write the result to the cache, and then consolidate and INTEGRATE what was read into the target wiki pages (ingesting = integrating). The intelligence lives in the agent that runs the repo (Claude/Codex/Gemini), not in a Python LLM client.
 ---
 
 # Wiki LLM Context Agent
@@ -9,12 +9,16 @@ description: Run the deep contextual reading (LLM pass) over the chunks selected
 
 `wiki_core` does the deterministic work (download/gather sources, extract text,
 chunking, index, excerpt selection) and assembles a **context package**. YOU, the
-agent that runs this repo, perform the deep reading and write the result. There is
-no embedded Python LLM client — by design.
+agent that runs this repo, perform the deep reading, write the result, and then
+consolidate and INTEGRATE what you read into the target wiki pages — the work
+does not end at the cache. There is no embedded Python LLM client — by design.
 
 The honesty gate: as long as there is a chunk without a valid recorded result and
 `required_context_pass: true` in `wiki.config.yaml`, the auditor fails. A complex
-source is not consolidated without the deep reading.
+source is not consolidated without the deep reading. And the consolidation gate
+([scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) `--check`, in
+CI) fails while there is a source with a complete deep read but no closed event:
+ingesting = integrating.
 
 ## Flow
 
@@ -44,6 +48,31 @@ source is not consolidated without the deep reading.
    python3 scripts/wiki_llm_context_pass.py --source <source> --context <context> --check
    ```
    It should return `ok: true` / exit 0.
+6. Consolidate and INTEGRATE — the work does NOT end at `--record-result`.
+   Generate the normalized event and the integration packet with
+   [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
+   ```bash
+   python3 scripts/wiki_consolidate.py --source <source_id> --emit-event --packet
+   # optional: --source-page <path> / --source-ref <page_id> of the source's canonical page
+   ```
+   `--emit-event` generates the normalized event from the deep read recorded in
+   the llm cache (quadrants filled, candidate claims/decisions/actions and
+   `consolidated_into: []` for you to close); `--packet` emits the integration
+   packet (gitignored) with related pages, overlapping claims, and potential
+   conflicts per claim/entity.
+7. Guided by the packet, INTEGRATE for real: update the target hubs/concepts
+   incrementally; create/update load-bearing claim pages (with the conflict
+   fields `supersedes`/`superseded_by`/`conflicts_with`/`conflict_resolution`
+   when claims collide); resolve or record EVERY conflict and ambiguity; fill in
+   the event's `consolidated_into` (each target page must reference the source
+   in `source_refs`). Close with the gates green:
+   ```bash
+   python3 scripts/wiki_audit.py --check
+   python3 scripts/wiki_consolidate.py --check
+   ```
+   Only then does the source page receive `ingestion_state: ingested` +
+   `last_ingested_at` + a line in the ingestion log, the source registry is
+   regenerated, and the change goes out in a PR.
 
 ## Rules
 

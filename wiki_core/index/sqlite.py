@@ -10,6 +10,11 @@ from pathlib import Path
 _DIGEST_RE = re.compile(r"^[0-9a-f]{8,64}$")
 
 
+# Wiki pages are indexed under this source_id prefix so retrieval (integration
+# packet, --query) can find EXISTING knowledge, not only ingested sources.
+PAGE_SOURCE_PREFIX = "page:"
+
+
 def _source_prefix(source_id: str) -> str | None:
     """Versionless prefix of a source_id ('source-<slug>' for 'source-<slug>-<digest>').
 
@@ -124,14 +129,37 @@ def build_index(chunks_dir: Path, db_path: Path) -> dict[str, int]:
         total += _insert_chunks(conn, source_id, data.get("chunks", []))
     indexed = {row[0] for row in conn.execute("SELECT DISTINCT source_id FROM chunks").fetchall()}
     for orphan in indexed - present:
+        if orphan.startswith(PAGE_SOURCE_PREFIX):
+            continue  # wiki-page entries are managed by index_pages(), not chunks/
         _delete_source(conn, orphan)
     conn.commit()
     conn.close()
     return {"sources_indexed": sources, "chunks_indexed": total}
 
 
+def index_pages(db_path: Path, pages: list[tuple[str, list[dict[str, object]]]]) -> dict[str, int]:
+    """(Re)index wiki pages: ``pages`` is [(page_id, chunk dicts)]. Replaces every
+    existing page: entry (full page reindex — pages are small)."""
+    conn = _connect(db_path)
+    total = 0
+    try:
+        indexed = {row[0] for row in conn.execute("SELECT DISTINCT source_id FROM chunks").fetchall()}
+        for source_id in indexed:
+            if source_id.startswith(PAGE_SOURCE_PREFIX):
+                _delete_source(conn, source_id)
+        for page_id, chunks in pages:
+            total += _insert_chunks(conn, f"{PAGE_SOURCE_PREFIX}{page_id}", chunks)
+        conn.commit()
+    finally:
+        conn.close()
+    return {"pages_indexed": len(pages), "chunks_indexed": total}
+
+
 def prune_index(db_path: Path, keep_source_ids: set[str]) -> dict[str, int]:
-    """Remove from the index the sources that are not in ``keep_source_ids``."""
+    """Remove from the index the sources that are not in ``keep_source_ids``.
+
+    page: entries (wiki pages) are always kept — they are pruned/refreshed by
+    index_pages() on rebuild, not by the source GC."""
     if not db_path.exists():
         return {"pruned_sources": 0}
     conn = sqlite3.connect(db_path)
@@ -139,6 +167,8 @@ def prune_index(db_path: Path, keep_source_ids: set[str]) -> dict[str, int]:
     try:
         indexed = {row[0] for row in conn.execute("SELECT DISTINCT source_id FROM chunks").fetchall()}
         for source_id in indexed - keep_source_ids:
+            if source_id.startswith(PAGE_SOURCE_PREFIX):
+                continue
             _delete_source(conn, source_id)
             pruned += 1
         conn.commit()

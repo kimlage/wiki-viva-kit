@@ -1,15 +1,16 @@
 # Operating — the daily loop
 
-The loop is: **ingest → deep read → consolidate → cockpit → gates → PR**. All
-commands are deterministic and re-runnable; the only model step is the deep read,
-which is yours. The full per-CLI catalog is the command-reference page in the
-meta-wiki (linked from [AGENTS.md](../../../AGENTS.md)).
+The loop is: **ingest → deep read → consolidate + integrate → cockpit → gates →
+PR**. All commands are deterministic and re-runnable; the model steps — the deep
+read and the integration it feeds — are yours. The full per-CLI catalog is the
+command-reference page in the meta-wiki (linked from [AGENTS.md](../../../AGENTS.md)).
 
 ```mermaid
 flowchart LR
     A["Ingest source"] --> B["Deep read (you)"]
     B --> C["Record result"]
-    C --> D["Gate transition"]
+    C --> CI["Consolidate + integrate"]
+    CI --> D["Gate transition"]
     D --> E["Recompile cockpit"]
     E --> F["Run gates"]
     F --> G["Open PR (human gate)"]
@@ -50,7 +51,48 @@ For batch/cheap processing, export pending requests with
 [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) (Anthropic Message
 Batches format).
 
-## 3. Consolidate through the gate
+## 3. Consolidate and INTEGRATE (the missing half)
+
+Recording the deep read is **not** ingesting — ingesting = integrating. A source
+is only done when the wiki's concepts reflect the new information. Generate the
+normalized event and the integration packet from the recorded deep read with
+[wiki_consolidate.py](../../../scripts/wiki_consolidate.py):
+
+```sh
+python3 scripts/wiki_consolidate.py --source <source_id> --emit-event --packet
+# optional: --source-page <path> / --source-ref <page_id> of the canonical source page
+```
+
+`--emit-event` generates the normalized event from the llm-cache (quadrants
+filled — never placeholders —, claims/decisions/actions candidates, and
+`consolidated_into: []` for you to close); `--packet` emits the integration
+packet (gitignored) with the related pages, overlapping claims and potential
+conflicts per claim/entity, so you integrate with context instead of re-reading
+the whole wiki.
+
+Then **you integrate**, guided by the packet:
+
+- update the target hubs/concept pages incrementally;
+- create/update load-bearing claim pages, using the conflict fields
+  (`supersedes` / `superseded_by` / `conflicts_with` / `conflict_resolution`)
+  when claims collide;
+- resolve or record **every** conflict and ambiguity the packet surfaces;
+- fill the event's `consolidated_into` — each target page must reference the
+  source back in `source_refs`.
+
+Close the loop with the gates:
+
+```sh
+python3 scripts/wiki_audit.py --check          # audit_consolidation: closed events, reverse refs, claims
+python3 scripts/wiki_consolidate.py --check    # fails while a deep-read-complete source is unintegrated (CI)
+python3 scripts/wiki_consolidate.py --all-pending   # list what is still waiting
+```
+
+Only then does the source page get `ingestion_state: ingested` +
+`last_ingested_at` + a row in its ingestion log, and the source registry is
+regenerated.
+
+## 4. Move the proposal through the gate
 
 Proposals live flat under the ingestion dir and move through states via
 [wiki_gate.py](../../../scripts/wiki_gate.py):
@@ -65,7 +107,7 @@ Resolved proposals/events can be moved to the immutable archive with
 [wiki_archive.py](../../../scripts/wiki_archive.py). The approval cycle is the
 git-approvals page in the meta-wiki (routed from [AGENTS.md](../../../AGENTS.md)).
 
-## 4. Recompile the cockpit
+## 5. Recompile the cockpit
 
 Never hand-edit the cockpit — recompile it from real Git/memory state:
 
@@ -74,10 +116,11 @@ python3 scripts/wiki_operation_compile.py --write    # regenerate the cockpit pa
 python3 scripts/wiki_operation_compile.py --check    # CI: fails if semantically stale
 ```
 
-## 5. Run the gates and open the PR
+## 6. Run the gates and open the PR
 
 ```sh
 python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_consolidate.py --check                  # every deep-read source integrated
 python3 scripts/wiki_check_methodology_coverage.py --check   # when methodology files changed
 python3 scripts/wiki_operation_compile.py --check
 python3 -m pytest tests/ -q

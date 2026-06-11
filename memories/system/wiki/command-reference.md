@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-06-10
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Command reference
 
-Last updated: 2026-06-09.
+Last updated: 2026-06-10.
 
 This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
 
@@ -37,6 +37,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extracts text and stable chunks | Prepare the chunks before the LLM pass |
 | [wiki_build_index.py](../../../scripts/wiki_build_index.py) | Builds/inspects the SQLite index | (Re)index chunks for FTS search |
 | [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) | Assembles the context package and records the result | Emit/check the LLM pass delegated to the agent |
+| [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) | Consolidates the deep read into the wiki | Generate the event from the cache + integration packet; --check in CI |
 | [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) | Inspects the LLM cache and derived coverage | Diagnose the state of the derived artifacts |
 | [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) | Exports pending requests in the Batches API format | Run the deep read in batch (-50%), no LLM client |
 | [wiki_gc.py](../../../scripts/wiki_gc.py) | Garbage-collects orphan derived artifacts | Remove manifest/text/chunks of old source versions and prune the index |
@@ -112,10 +113,10 @@ python3 scripts/wiki_extract_text.py --source data/raw/example.pdf --context sys
 
 ### [wiki_build_index.py](../../../scripts/wiki_build_index.py) - local SQLite index
 
-Builds or inspects the SQLite chunk index ([data/](../../../data/) under `derived/wiki/indexes/wiki.sqlite` (created at runtime)), which serves the FTS search used by the `--query` pass.
+Builds or inspects the SQLite chunk index ([data/](../../../data/) under `derived/wiki/indexes/wiki.sqlite` (created at runtime)), which serves the FTS search used by the `--query` pass. Since v6.1, `--rebuild` also indexes the wiki's OWN pages (the body of each page with a `page_id`, indexed as `page:<page_id>`), so that retrieval — including the integration packet of [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) — finds the knowledge already consolidated, not just the source chunks.
 
 - (no flags): inspects and prints the state of the index in JSON.
-- `--rebuild`: rebuilds the index from the derived chunks.
+- `--rebuild`: rebuilds the index from the derived chunks and reindexes the wiki pages (`page:<page_id>`).
 - `--check`: exit `1` if the index does not exist.
 
 ```sh
@@ -139,6 +140,27 @@ python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --emit-
 python3 scripts/wiki_llm_context_pass.py --query "pending decisions" --context system
 python3 scripts/wiki_llm_context_pass.py --record-result result.json --context system
 python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --check
+```
+
+### [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) - consolidation and integration
+
+Closes the half of ingestion that was missing: it turns the deep read recorded in the cache into a normalized event + integration packet, and serves as a gate until the agent INTEGRATES what it read into the target pages. Ingesting = integrating: the source is only `ingested` when the wiki concepts reflect the new information, every conflict/ambiguity is resolved or recorded and the event's `consolidated_into` is closed (each target referencing the source in `source_refs`). The corresponding audit gate (`audit_consolidation`) is in [gates-and-audit.md](gates-and-audit.md).
+
+- `--source SOURCE_ID`: the source (the manifest's source_id) to consolidate.
+- `--emit-event`: generates the normalized event from the llm cache — quadrants filled (never a placeholder), candidate claims/decisions/actions and `consolidated_into: []` for the agent to close during integration.
+- `--packet`: emits the integration packet (gitignored): related pages, overlapping claims and potential conflicts per claim/entity.
+- `--source-page`: repo-relative path of the source's canonical page (linked in the event).
+- `--source-ref`: `page_id` of the source's canonical page (becomes the event's `source_ref`).
+- `--check`: exit `1` while there is a source with a complete deep read but no event, or with an event whose `consolidated_into` is empty (runs in CI).
+- `--all-pending`: lists every pending consolidation (JSON).
+- `--force`: overwrites an already existing event of the source.
+- `--context` (default `system`) and `--date` (default today) complement.
+
+```sh
+python3 scripts/wiki_consolidate.py --source source-example-abc123def456 --emit-event --packet
+python3 scripts/wiki_consolidate.py --source source-example-abc123def456 --emit-event --source-page memories/sources/example.md --source-ref source-example
+python3 scripts/wiki_consolidate.py --all-pending
+python3 scripts/wiki_consolidate.py --check
 ```
 
 ### [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) - cache/coverage inspection
@@ -276,7 +298,8 @@ linked in the numbered list below it:
 flowchart LR
     Capture["Capture the source"] --> Derive["Extract text and index"]
     Derive --> DeepRead(["Deep read by the agent"])
-    DeepRead --> GateStep["Transition the proposal"]
+    DeepRead --> Integrate["Consolidate + integrate"]
+    Integrate --> GateStep["Transition the proposal"]
     GateStep --> Compile["Compile the cockpit"]
     Compile --> Validate["Audit, coverage and PR summary"]
     Validate --> PR{"Human PR review"}
@@ -285,7 +308,8 @@ flowchart LR
 1. Capture: [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py) (or [wiki_ingest.py](../../../scripts/wiki_ingest.py) for the full flow).
 2. Derived: [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) -> [wiki_build_index.py](../../../scripts/wiki_build_index.py).
 3. Deep reading: [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--emit-request`, the agent reads and responds, then `--record-result`.
-4. Gate: [wiki_gate.py](../../../scripts/wiki_gate.py) to transition/supersede; see [git-approvals.md](../git-approvals.md).
-5. Cockpit and validation: [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) `--write`, then [wiki_audit.py](../../../scripts/wiki_audit.py) `--check`, [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) `--check` and [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py).
+4. Consolidation and integration: [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--emit-event --packet`; the agent integrates into the target pages (hubs/concepts/claims, conflicts resolved or recorded, `consolidated_into` closed with reverse `source_refs`) and confirms with `--check`.
+5. Gate: [wiki_gate.py](../../../scripts/wiki_gate.py) to transition/supersede; see [git-approvals.md](../git-approvals.md).
+6. Cockpit and validation: [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) `--write`, then [wiki_audit.py](../../../scripts/wiki_audit.py) `--check`, [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check`, [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) `--check` and [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py).
 
 For each agent's protocol, see [AGENTS.md](../../../AGENTS.md). Back to the root MOC in [memories/index.md](../../index.md) and to the cockpit in [memories/operations.md](../../operations.md).

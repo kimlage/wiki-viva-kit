@@ -8,12 +8,12 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-06-10
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
-purpose: "Map the honesty gates of the living wiki: contract auditing, coverage, cockpit freshness and execution modes."
+purpose: "Map the honesty gates of the living wiki: contract auditing, coverage, cockpit freshness, closed consolidation and execution modes."
 moc_parent: memories/system/wiki/index.md
 related_pages:
   - memories/system/wiki/index.md
@@ -21,16 +21,17 @@ related_pages:
 
 # Gates and auditing
 
-Updated on: 2026-06-09.
+Updated on: 2026-06-10.
 
-The gates are the honesty layer of the living wiki: deterministic scripts that fail (non-zero exit code) when the repository violates the contract, omits the deep read or leaves the cockpit out of date. They run in CI on the [gate by PR](../git-approvals.md) and locally before opening the proposal. Three families cover distinct dimensions: contract auditing ([wiki_audit.py](../../../scripts/wiki_audit.py)), methodology coverage ([wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py)) and cockpit freshness ([wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py)). The audited contract itself is described in [operational wiki contract](../operational-wiki-contract.md); here we document how it is verified.
+The gates are the honesty layer of the living wiki: deterministic scripts that fail (non-zero exit code) when the repository violates the contract, omits the deep read, leaves a read source without integration or leaves the cockpit out of date. They run in CI on the [gate by PR](../git-approvals.md) and locally before opening the proposal. Four families cover distinct dimensions: contract auditing ([wiki_audit.py](../../../scripts/wiki_audit.py)), methodology coverage ([wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py)), cockpit freshness ([wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py)) and closed consolidation ([wiki_consolidate.py](../../../scripts/wiki_consolidate.py)). The audited contract itself is described in [operational wiki contract](../operational-wiki-contract.md); here we document how it is verified.
 
-Running the three gates (check mode, fails with code != 0):
+Running the four gates (check mode, fails with code != 0):
 
 ```sh
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_consolidate.py --check
 ```
 
 The honesty gates at a glance — what each verifies and where it runs in CI:
@@ -41,6 +42,7 @@ The honesty gates at a glance — what each verifies and where it runs in CI:
 | Secret block | No access secret in any versioned text file | `wiki_audit.py --check` (`audit_secrets`) |
 | PII boundary | PII only crosses the public boundary when redacted | `wiki_audit.py --check` (`audit_pii`) |
 | LLM pass | Every requested chunk has a recorded, valid result | `wiki_audit.py --check` (`audit_context_pass_gate`) |
+| Consolidation closed | New event needs `consolidated_into` + each target references the source back in `source_refs` + candidate claims linked or `sem_claim` | [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` (CI) |
 | Gate state | Every proposal carries a valid `gate_state` | `wiki_audit.py --check` (`audit_ingestion_proposals_gate_state`) |
 | Methodology coverage | Required pages/templates exist with real content | `wiki_check_methodology_coverage.py --check` |
 | Cockpit freshness | The deterministic cockpit body matches a recompile at HEAD | `wiki_operation_compile.py --check` |
@@ -56,6 +58,7 @@ The honesty gates at a glance — what each verifies and where it runs in CI:
 - `audit_pii`: the public boundary. PII (CPF/CNPJ, values, dates, counterparties) is WELCOME in a private page of this personal repo — silent, with no error or warning, because keeping that data is the very purpose of the operational memory. PII only becomes an error when it crosses the public boundary: a `public` or `public_candidate` page, or a pre-publication export (`--public-export`). The strict-by-PII-in-private mode is opt-in, turned on only when the owner sets `private_sensitive_allowed=false`.
 - `audit_clickable_local_links`: the core of the rule this page obeys. Over memory pages, wiki templates, [AGENTS.md](../../../AGENTS.md) and the PR template, it requires that every repo path be a clickable Markdown link whose target exists; it fails a local path in inline code (backtick), a path cited in a command without a link on the same line, and a loose path in prose. Fenced code blocks are exempt.
 - `audit_context_pass_gate`: gate of the LLM pass in the context of the auditing (detailed below).
+- `audit_consolidation`: gate of the integration (detailed below). Every new event (with a `source_id`) needs `consolidated_into` filled in, each target page must reference the source back in `source_refs`, and candidate claims require linked `claims:` or an explicit `sem_claim: <reason>`. Legacy events without a `source_id` become only a warning.
 - `audit_ingestion_proposals_gate_state`: every flat proposal in [memories/system/ingestion](../../../memories/system/ingestion/README.md) must carry a valid `gate_state` (see [state machine](#gate-state-machine)). Without it, the living gate has nowhere for the proposal to enter.
 
 Other invariants of the same script: `audit_operation_page` (the cockpit must be `page_type: dashboard` with `stale_after_days: 1`); `audit_ingestion_events` (every normalized event has the integral quadrants section, with no empty cell or placeholder); `audit_ingestion_absolute_paths` (an absolute source path becomes a link, and disguised traversal up to the home is not portable); `audit_public_candidates` (every `public_candidate` page requires a redaction checklist and zero secret/PII); `audit_promotion_gate` (promoting visibility requires the consent/anonymization/reversion fields); `audit_llm_cache_metadata` (each cache result carries `prompt_version`, `schema_version`, `cache_key`); and `audit_log_changed` (changing [memories/](../../) without updating the change log fails). The flow of these last ones is detailed in [ingestion process](../ingestion-process.md).
@@ -72,6 +75,12 @@ Triggering the pass manually (recording of the result by the agent via skill):
 ```sh
 python3 scripts/wiki_llm_context_pass.py --record-result
 ```
+
+### Consolidation gate (ingesting = integrating)
+
+The deep read written to the cache does not end the ingestion: the source is only ingested when the wiki concepts reflect the new information. The gate closes that circuit from two sides — `audit_consolidation` (in [wiki_audit.py](../../../scripts/wiki_audit.py)) validates the events already emitted, and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` (in CI) fails while any source with a complete deep read has no event, or has an event with an empty `consolidated_into`. The gate's row in the honesty-gates table above is "Consolidation closed".
+
+`--all-pending` lists the pending consolidations in JSON, and the cockpit ([memories/operations.md](../../operations.md)) shows the alert "Sources awaiting consolidation: N" while anything is pending. Legacy events (without a `source_id`) do not block: they become a warning to be closed when the source is revisited.
 
 ## Methodology coverage (presence AND content)
 

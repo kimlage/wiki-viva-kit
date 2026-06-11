@@ -30,6 +30,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import wiki_core.score.karma as karma_module
+from wiki_core.consolidate import CONSOLIDATE_STRINGS
 from wiki_core.insight.job import INSIGHT_STRINGS, _proposal_markdown
 
 PLACEHOLDER_RE = re.compile(r"\{[a-z_]+\}")
@@ -52,6 +53,7 @@ TABLES: dict[str, dict[str, object]] = {
     "COCKPIT_STRINGS": OPERATION_COMPILE.COCKPIT_STRINGS,
     "PROPOSAL_STRINGS": NEW_INGEST.PROPOSAL_STRINGS,
     "INSIGHT_STRINGS": INSIGHT_STRINGS,
+    "CONSOLIDATE_STRINGS": CONSOLIDATE_STRINGS,
 }
 # Karma display tables: registered only if present in the tree (they may not
 # exist on older checkouts; when they do, they obey the same pt/en contract).
