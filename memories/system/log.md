@@ -14,6 +14,22 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](..) layer.
 
+## [2026-06-12] System | Source refresh cadence and Obsidian directory-link warnings
+
+- [wiki_source_registry.py](../../scripts/wiki_source_registry.py) now renders
+  next suggested refresh, refresh status and policy for canonical source pages.
+- Source and meeting templates document `refresh_policy`,
+  `refresh_cadence_days`, optional `next_refresh_at` and `refresh_trigger`.
+- New guide [source-refresh-cadence.md](../../docs/references/guides/source-refresh-cadence.md)
+  defines cadence choices for recurring sources, event-driven sources,
+  archival references and meetings.
+- [wiki_audit.py](../../scripts/wiki_audit.py) now warns on Markdown links that
+  point to local directories, because Obsidian may interpret them as note
+  creation instead of folder navigation; link `README.md` or `index.md`
+  instead.
+- [wiki-viva skill](../../.skills/wiki-viva/SKILL.md) now tells agents to use
+  source refresh metadata and concrete local index-file links.
+
 ## [2026-06-12] System | v6.3 quality and cost telemetry
 
 - Runtime bumped to `wiki_core.__version__ = "6.3.0"` in

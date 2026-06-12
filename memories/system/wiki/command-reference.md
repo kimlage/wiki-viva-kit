@@ -52,7 +52,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_score.py](../../../scripts/wiki_score.py) | Operational karma and vitality | Record/view append-only scoring |
 | [wiki_insight_job.py](../../../scripts/wiki_insight_job.py) | Closes the Information -> Insight cycle | Gather signals about a theme for an insight proposal |
 | [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) | Compiles the daily cockpit | (Re)generate [memories/operations.md](../../operations.md) |
-| [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Generates the canonical source registry | (Re)generate [source-registry.md](../source-registry.md) with state/date |
+| [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Generates the canonical source registry | (Re)generate [source-registry.md](../source-registry.md) with state/date/next refresh |
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audits the wiki contract | Validate contract/links/secrets at commit and in CI |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Checks the presence AND content of methodology v5 | Ensure the methodology is in fact implemented |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarizes the PR diff by context/entity | Generate the PR review summary |
@@ -315,7 +315,7 @@ python3 scripts/wiki_operation_compile.py --check
 
 ### [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) - canonical source registry
 
-Generates the [source registry](../source-registry.md) (deterministic): one row per canonical source page with link, type, ingestion state and last update. Each source page is the hierarchical node that holds that source's ingestion log; the registry is the index over those logs. The `--check` regenerates using the date already recorded on the page and fails if the content diverges (a CI gate, like the cockpit).
+Generates the [source registry](../source-registry.md) (deterministic): one row per canonical source page with link, type, ingestion state, last update and next suggested refresh. Each source page is the hierarchical node that holds that source's ingestion log; the registry is the index over those logs. The `--check` regenerates using the date already recorded on the page and fails if the content diverges (a CI gate, like the cockpit). Refresh cadence fields are documented in [source-refresh-cadence.md](../../../docs/references/guides/source-refresh-cadence.md).
 
 - (no flags): prints the registry to stdout.
 - `--write`: writes the registry page.

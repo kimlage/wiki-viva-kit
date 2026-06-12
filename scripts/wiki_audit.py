@@ -191,7 +191,9 @@ ABSOLUTE_USER_PATH_RE = re.compile(r"/Users/[A-Za-z0-9._-]+/[^\s)\]]+")
 # A traversal disguised as relative that climbs up to the author's home (e.g. ../../../../Downloads/...).
 HOME_TRAVERSAL_RE = re.compile(r"(?:\.\./){2,}[^\s)\]]*Downloads[^\s)\]]*")
 IMPACT_METADATA_FRONTMATTER_RE = re.compile(
-    r"^\s*(updated_at|last_updated|date_modified|modified_at):\s*.+$",
+    r"^\s*(updated_at|last_updated|date_modified|modified_at|last_ingested_at|"
+    r"source_type|ingestion_state|refresh_policy|refresh_cadence_days|"
+    r"next_refresh_at|refresh_trigger|refresh_priority):\s*.+$",
     re.IGNORECASE,
 )
 IMPACT_METADATA_BODY_RE = re.compile(
@@ -484,12 +486,12 @@ def is_external_link(href: str) -> bool:
     return bool(parsed.scheme) or href.startswith("#")
 
 
-def local_link_target_exists(source_rel: str, href: str) -> bool:
+def local_link_target_path(source_rel: str, href: str) -> Path | None:
     href = href.split("#", 1)[0]
     if not href:
-        return True
+        return None
     if is_external_link(href):
-        return True
+        return None
     href = unquote(href)
     if href.startswith("/"):
         target = ROOT / href.lstrip("/")
@@ -501,13 +503,25 @@ def local_link_target_exists(source_rel: str, href: str) -> bool:
         # Link points outside the repo (e.g. ~/Downloads): it is not a versioned
         # artifact, so the auditor does not validate its existence. (The non-
         # portability of these links is handled in separate content cleanup.)
-        return True
+        return None
     if rel.startswith(GITIGNORED_LINK_PREFIXES):
         # By default we tolerate links to derived/raw artifacts (gitignored): a
         # clean clone/CI does not have them. In --strict-local we require them to
         # actually exist on disk (catches a dangling derived reference in a real env).
-        return target.exists() if STRICT_LOCAL else True
+        return target if STRICT_LOCAL else None
+    return target
+
+
+def local_link_target_exists(source_rel: str, href: str) -> bool:
+    target = local_link_target_path(source_rel, href)
+    if target is None:
+        return True
     return target.exists()
+
+
+def local_link_target_is_directory(source_rel: str, href: str) -> bool:
+    target = local_link_target_path(source_rel, href)
+    return bool(target and target.exists() and target.is_dir())
 
 
 def bare_local_path_exists(value: str) -> bool:
@@ -893,6 +907,40 @@ def audit_clickable_local_links(errors: list[str], config: WikiConfig) -> None:
                     errors.append(
                         f"{rel}:{lineno}: local path must be a markdown link: `{value}`"
                     )
+
+
+def audit_obsidian_directory_links(warnings: list[str], config: WikiConfig) -> None:
+    """Warn on Markdown links that point to directories.
+
+    GitHub can render a directory target, but Obsidian treats many of these as a
+    note creation request. The portable pattern is to link a concrete index file
+    such as README.md or index.md.
+    """
+    offenders: dict[str, int] = {}
+    for rel in link_audit_files(config):
+        path = ROOT / rel
+        text = path.read_text(encoding="utf-8", errors="replace")
+        count = 0
+        for _lineno, line in body_lines_without_frontmatter(text):
+            for match in MARKDOWN_LINK_RE.finditer(line):
+                if local_link_target_is_directory(rel, match.group(1)):
+                    count += 1
+        if count:
+            offenders[rel] = count
+    if not offenders:
+        return
+    total = sum(offenders.values())
+    if LIST_STALE_GAPS:
+        for rel, count in sorted(offenders.items()):
+            warnings.append(
+                f"{rel}: {count} markdown link(s) point to directories; "
+                "link an index file for Obsidian navigation"
+            )
+    else:
+        warnings.append(
+            f"{total} markdown link(s) point to directories in {len(offenders)} file(s); "
+            "link README.md/index.md for Obsidian navigation. Use --list-stale-gaps to list."
+        )
 
 
 def _entity_alias_map(
@@ -1649,6 +1697,7 @@ def main() -> int:
     audit_secrets(errors, config)
     audit_pii(errors, warnings, config, public_export=args.public_export)
     audit_clickable_local_links(errors, config)
+    audit_obsidian_directory_links(warnings, config)
     audit_page_graph(errors, warnings, config)
     audit_page_type_registry(errors, config)
     audit_duplicate_entity_names(errors, config)
