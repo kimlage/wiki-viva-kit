@@ -45,7 +45,7 @@ CONTEXT_HUB_TYPE = "context_hub"
 
 H1_RE = re.compile(r"^#\s+(.*\S)\s*$")
 # Bilingual: action pages may carry "Estado:" (pt) or "State:" (en) lines.
-STATE_RE = re.compile(r"^(?:Estado|State):\s*`?([^`]+?)`?\s*\.?\s*$")
+STATE_PREFIX_RE = re.compile(r"^(?:Estado|State):\s*(.+?)\s*$")
 # Bilingual: H1 titles may carry "Decisao - " / "Decision - " / "Acao - " /
 # "Action - " prefixes; the cockpit tables list the bare title.
 TITLE_PREFIX_RE = re.compile(r"^(?:Decisao|Decision|Acao|Action)\s*-\s*")
@@ -292,9 +292,17 @@ def first_h1(text: str) -> str:
 
 def first_state(text: str) -> str:
     for line in text.splitlines():
-        match = STATE_RE.match(line.strip())
+        match = STATE_PREFIX_RE.match(line.strip())
         if match:
-            return match.group(1).strip()
+            raw = match.group(1).strip()
+            if raw.startswith("`"):
+                end = raw.find("`", 1)
+                if end > 1:
+                    return raw[1:end].strip()
+            for sep in (" — ", " -- "):
+                if sep in raw:
+                    raw = raw.split(sep, 1)[0].strip()
+            return raw.rstrip(".").strip()
     return ""
 
 

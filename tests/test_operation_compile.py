@@ -190,6 +190,30 @@ def test_build_page_reflects_actions_from_sources(compile_mod, config, minimal_r
     assert "## Acoes do dono (Alex Doe)" in page
 
 
+def test_build_page_extracts_state_before_inline_detail(compile_mod, config, minimal_repo):
+    _write(
+        minimal_repo / "memories" / "actions" / "terceira.md",
+        (
+            "---\n"
+            "page_id: acao-terceira\n"
+            "page_type: action\n"
+            "context: sistema\n"
+            "visibility: private_self\n"
+            "updated_at: 2026-06-08\n"
+            "stale_after_days: 30\n"
+            "sources_policy: contrato\n"
+            "gate: github_pr\n"
+            "sensitive_data_policy: private_sensitive_allowed\n"
+            "---\n\n"
+            "# Acao - Acompanhar bloqueio\n\n"
+            "Estado: `pendente` — detalhe operacional que nao deve virar estado.\n"
+        ),
+    )
+    page = compile_mod.build_page(minimal_repo, config)
+    assert "| Acompanhar bloqueio | sistema | pendente |" in page
+    assert "detalhe operacional que nao deve virar estado" not in page
+
+
 def test_build_page_lists_pending_action_ids(compile_mod, config, minimal_repo):
     page = compile_mod.build_page(minimal_repo, config)
     assert "`acao-primeira`" in page

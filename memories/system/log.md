@@ -39,6 +39,17 @@ Append-only record of changes in the [memories/](..) layer.
   body lines into the generated dashboard. This prevents generated pages from
   reintroducing unlinked known-entity mentions from source text or headings.
 
+## [2026-06-12] System | Cockpit parses inline action-state detail
+
+- [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now
+  parses action state lines like `State: pending — detail` /
+  `Estado: pendente — detalhe`, matching the operational-pass parser and
+  preventing owner actions from falling back to "no state" when the page carries
+  an inline explanation.
+- [test_operation_compile.py](../../tests/test_operation_compile.py) covers the
+  inline-detail case so generated operations dashboards keep action states
+  consistent with typed action pages.
+
 ## [2026-06-12] System | Source configs feed deep-read perspectives
 
 - [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) now applies
