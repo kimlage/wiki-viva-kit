@@ -50,6 +50,15 @@ Append-only record of changes in the [memories/](..) layer.
   inline-detail case so generated operations dashboards keep action states
   consistent with typed action pages.
 
+## [2026-06-12] System | Operational pass surfaces pending decisions
+
+- [operational_pass.py](../../wiki_core/operational_pass.py) now emits a
+  dedicated pending-decisions section and `pending_decisions` JSON payload,
+  linking each decision to its status, update date and related action ids.
+- [test_operational_pass.py](../../tests/test_operational_pass.py) covers the
+  decision queue so human choices are part of the deterministic operational
+  pass, not only the daily cockpit.
+
 ## [2026-06-12] System | Source configs feed deep-read perspectives
 
 - [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) now applies

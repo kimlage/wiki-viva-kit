@@ -36,6 +36,12 @@ Deterministic compilation for contexts: all. Use this page to compress next step
 | --- | --- | --- | --- | --- | --- |
 | No actions recorded. | - | - | - | - | - |
 
+## Pending decisions
+
+| Decision | Context | State | Updated | Linked actions | Signal |
+| --- | --- | --- | --- | --- | --- |
+| No pending decisions detected. | - | - | - | - | - |
+
 ## Problems and uncertainty
 
 | Context | Type | Page | Reason |

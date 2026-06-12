@@ -83,6 +83,7 @@ class OperationalPassReport:
     sources: tuple[SourceRow, ...]
     actions: tuple[PageRecord, ...]
     decisions: tuple[PageRecord, ...]
+    pending_decisions: tuple[PageRecord, ...]
     claims: tuple[PageRecord, ...]
     attention: tuple[AttentionRow, ...]
     pending_ids: tuple[str, ...]
@@ -182,6 +183,7 @@ def build_operational_pass_report(
         )
     )
     decisions = tuple(sorted((p for p in pages if p.page_type == "decision"), key=_page_sort_key))
+    pending_decisions = tuple(d for d in decisions if _decision_needs_attention(d))
     claims = tuple(sorted((p for p in pages if p.page_type == "claim"), key=_page_sort_key))
     memory_root = str(config.paths["memory_root"]).strip("/")
     hubs: dict[str, PageRecord] = {}
@@ -235,6 +237,7 @@ def build_operational_pass_report(
         sources=sources,
         actions=actions,
         decisions=decisions,
+        pending_decisions=pending_decisions,
         claims=claims,
         attention=attention,
         pending_ids=pending_ids,
@@ -317,6 +320,18 @@ def build_operational_pass_page(
     else:
         lines.append(s["empty_actions"])
 
+    lines += ["", s["h_decisions"], "", s["th_decisions"], "| --- | --- | --- | --- | --- | --- |"]
+    if report.pending_decisions:
+        for decision in report.pending_decisions:
+            actions = ", ".join(f"`{a}`" for a in decision.actions) if decision.actions else s["none"]
+            lines.append(
+                f"| {_page_link(decision, page_dir)} | {_escape(decision.context)} | "
+                f"`{_escape(decision.status or s['unknown'])}` | {_escape(decision.updated_at or s['none'])} | "
+                f"{actions} | {_escape(_attention_reason(decision) or s['ok'])} |"
+            )
+    else:
+        lines.append(s["empty_decisions"])
+
     lines += ["", s["h_attention"], "", s["th_attention"], "| --- | --- | --- | --- |"]
     if report.attention:
         for row in report.attention:
@@ -380,6 +395,16 @@ def report_to_dict(report: OperationalPassReport) -> dict[str, Any]:
                 "source_refs": list(a.source_refs),
             }
             for a in report.actions
+        ],
+        "pending_decisions": [
+            {
+                "page_id": d.page_id,
+                "path": d.rel,
+                "context": d.context,
+                "status": d.status,
+                "actions": list(d.actions),
+            }
+            for d in report.pending_decisions
         ],
         "attention": [
             {"context": a.context, "page_type": a.page.page_type, "path": a.page.rel, "reason": a.reason}
@@ -476,6 +501,11 @@ def _source_needs_attention(row: SourceRow) -> bool:
 def _page_needs_attention(page: PageRecord) -> bool:
     haystack = " ".join((page.title, page.status, page.body[:2000]))
     return bool(ATTENTION_RE.search(haystack))
+
+
+def _decision_needs_attention(page: PageRecord) -> bool:
+    status = page.status.lower().strip()
+    return status not in {"", "decidida", "decided", "active", "ativa"} and _page_needs_attention(page)
 
 
 def _attention_rows(
@@ -581,6 +611,8 @@ def _strings(language: str) -> dict[str, str]:
             "th_sources": "| Fonte | Contexto | Ingestao | Ultima atualizacao | Proxima revisao | Status | Acoes ligadas |",
             "h_actions": "## Acoes compiladas",
             "th_actions": "| Acao | Contexto | Estado | Atualizacao | Fontes | Sinal |",
+            "h_decisions": "## Decisoes pendentes",
+            "th_decisions": "| Decisao | Contexto | Estado | Atualizacao | Acoes ligadas | Sinal |",
             "h_attention": "## Problemas e incertezas",
             "th_attention": "| Contexto | Tipo | Pagina | Motivo |",
             "h_resume": "## Links de retomada",
@@ -599,6 +631,7 @@ def _strings(language: str) -> dict[str, str]:
             "empty_contexts": "| Sem contextos encontrados. | - | - | - | - | - | - | - | - |",
             "empty_sources": "| Sem fontes registradas. | - | - | - | - | - | - |",
             "empty_actions": "| Sem acoes registradas. | - | - | - | - | - |",
+            "empty_decisions": "| Sem decisoes pendentes detectadas. | - | - | - | - | - |",
             "empty_attention": "| Sem problemas ou incertezas detectados por heuristica. | - | - | - |",
         },
         "en": {
@@ -613,6 +646,8 @@ def _strings(language: str) -> dict[str, str]:
             "th_sources": "| Source | Context | Ingestion | Last update | Next refresh | Status | Linked actions |",
             "h_actions": "## Compiled actions",
             "th_actions": "| Action | Context | State | Updated | Sources | Signal |",
+            "h_decisions": "## Pending decisions",
+            "th_decisions": "| Decision | Context | State | Updated | Linked actions | Signal |",
             "h_attention": "## Problems and uncertainty",
             "th_attention": "| Context | Type | Page | Reason |",
             "h_resume": "## Resume links",
@@ -631,6 +666,7 @@ def _strings(language: str) -> dict[str, str]:
             "empty_contexts": "| No contexts found. | - | - | - | - | - | - | - | - |",
             "empty_sources": "| No sources recorded. | - | - | - | - | - | - |",
             "empty_actions": "| No actions recorded. | - | - | - | - | - |",
+            "empty_decisions": "| No pending decisions detected. | - | - | - | - | - |",
             "empty_attention": "| No heuristic problems or uncertainty detected. | - | - | - |",
         },
     }
