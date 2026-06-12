@@ -78,12 +78,33 @@ class AttentionRow:
 
 
 @dataclass(frozen=True)
+class ConsolidationOutputRow:
+    context: str
+    actions: int
+    problems: int
+    claims: int
+    decisions: int
+    context_notes: int
+    non_ingested_sources: int
+    signal: str
+
+
+@dataclass(frozen=True)
+class DecisionActionBlocker:
+    decision: PageRecord
+    action: PageRecord | None
+    action_id: str
+
+
+@dataclass(frozen=True)
 class OperationalPassReport:
     context_rows: tuple[ContextRow, ...]
+    consolidation_outputs: tuple[ConsolidationOutputRow, ...]
     sources: tuple[SourceRow, ...]
     actions: tuple[PageRecord, ...]
     decisions: tuple[PageRecord, ...]
     pending_decisions: tuple[PageRecord, ...]
+    decision_action_blockers: tuple[DecisionActionBlocker, ...]
     claims: tuple[PageRecord, ...]
     attention: tuple[AttentionRow, ...]
     pending_ids: tuple[str, ...]
@@ -185,6 +206,7 @@ def build_operational_pass_report(
     decisions = tuple(sorted((p for p in pages if p.page_type == "decision"), key=_page_sort_key))
     pending_decisions = tuple(d for d in decisions if _decision_needs_attention(d))
     claims = tuple(sorted((p for p in pages if p.page_type == "claim"), key=_page_sort_key))
+    context_notes = tuple(sorted((p for p in pages if p.page_type == "context_note"), key=_page_sort_key))
     memory_root = str(config.paths["memory_root"]).strip("/")
     hubs: dict[str, PageRecord] = {}
     for page in pages:
@@ -201,6 +223,7 @@ def build_operational_pass_report(
         + actions
         + claims
         + decisions
+        + context_notes
         + tuple(hubs.values())
     )
     context_names = _context_order(config.contexts, operational_pages, selected_contexts)
@@ -232,12 +255,25 @@ def build_operational_pass_report(
             key=lambda row: (row.context, row.page.page_type, row.page.title.lower(), row.page.rel),
         )
     )
+    decision_action_blockers = _decision_action_blockers(pending_decisions, actions)
+    consolidation_outputs = _consolidation_outputs(
+        context_names,
+        actions,
+        claims,
+        decisions,
+        context_notes,
+        sources,
+        attention,
+        decision_action_blockers,
+    )
     return OperationalPassReport(
         context_rows=tuple(context_rows),
+        consolidation_outputs=consolidation_outputs,
         sources=sources,
         actions=actions,
         decisions=decisions,
         pending_decisions=pending_decisions,
+        decision_action_blockers=decision_action_blockers,
         claims=claims,
         attention=attention,
         pending_ids=pending_ids,
@@ -296,6 +332,17 @@ def build_operational_pass_page(
     else:
         lines.append(s["empty_contexts"])
 
+    lines += ["", s["h_outputs"], "", s["th_outputs"], "| --- | --- | --- | --- | --- | --- | --- | --- |"]
+    if report.consolidation_outputs:
+        for row in report.consolidation_outputs:
+            signal = s.get("signal_" + row.signal, row.signal)
+            lines.append(
+                f"| {_escape(row.context)} | {row.actions} | {row.problems} | {row.claims} | "
+                f"{row.decisions} | {row.context_notes} | {row.non_ingested_sources} | {_escape(signal)} |"
+            )
+    else:
+        lines.append(s["empty_outputs"])
+
     lines += ["", s["h_sources"], "", s["th_sources"], "| --- | --- | --- | --- | --- | --- | --- |"]
     if report.sources:
         for row in report.sources:
@@ -331,6 +378,20 @@ def build_operational_pass_page(
             )
     else:
         lines.append(s["empty_decisions"])
+
+    lines += ["", s["h_decision_blocks"], "", s["th_decision_blocks"], "| --- | --- | --- | --- | --- |"]
+    if report.decision_action_blockers:
+        for blocker in report.decision_action_blockers:
+            action_link = _page_link(blocker.action, page_dir) if blocker.action else f"`{_escape(blocker.action_id)}`"
+            action_context = blocker.action.context if blocker.action else blocker.decision.context
+            action_status = blocker.action.status if blocker.action else s["missing_action"]
+            lines.append(
+                f"| {_page_link(blocker.decision, page_dir)} | {action_link} | {_escape(action_context)} | "
+                f"`{_escape(blocker.decision.status or s['unknown'])}` | "
+                f"`{_escape(action_status or s['unknown'])}` |"
+            )
+    else:
+        lines.append(s["empty_decision_blocks"])
 
     lines += ["", s["h_attention"], "", s["th_attention"], "| --- | --- | --- | --- |"]
     if report.attention:
@@ -374,6 +435,19 @@ def report_to_dict(report: OperationalPassReport) -> dict[str, Any]:
             }
             for r in report.context_rows
         ],
+        "consolidation_outputs": [
+            {
+                "context": r.context,
+                "actions": r.actions,
+                "problems": r.problems,
+                "claims": r.claims,
+                "decisions": r.decisions,
+                "context_notes": r.context_notes,
+                "non_ingested_sources": r.non_ingested_sources,
+                "signal": r.signal,
+            }
+            for r in report.consolidation_outputs
+        ],
         "sources": [
             {
                 "page_id": s.page.page_id,
@@ -405,6 +479,18 @@ def report_to_dict(report: OperationalPassReport) -> dict[str, Any]:
                 "actions": list(d.actions),
             }
             for d in report.pending_decisions
+        ],
+        "decision_action_blockers": [
+            {
+                "decision_page_id": b.decision.page_id,
+                "decision_path": b.decision.rel,
+                "decision_status": b.decision.status,
+                "action_page_id": b.action.page_id if b.action else "",
+                "action_path": b.action.rel if b.action else "",
+                "action_id": b.action_id,
+                "action_status": b.action.status if b.action else "",
+            }
+            for b in report.decision_action_blockers
         ],
         "attention": [
             {"context": a.context, "page_type": a.page.page_type, "path": a.page.rel, "reason": a.reason}
@@ -533,6 +619,76 @@ def _attention_reason(page: PageRecord) -> str:
     return ""
 
 
+def _decision_action_blockers(
+    pending_decisions: tuple[PageRecord, ...],
+    actions: tuple[PageRecord, ...],
+) -> tuple[DecisionActionBlocker, ...]:
+    by_id = {action.page_id: action for action in actions}
+    blockers: list[DecisionActionBlocker] = []
+    for decision in pending_decisions:
+        for action_id in decision.actions:
+            blockers.append(DecisionActionBlocker(decision, by_id.get(action_id), action_id))
+    return tuple(blockers)
+
+
+def _consolidation_outputs(
+    context_names: tuple[str, ...],
+    actions: tuple[PageRecord, ...],
+    claims: tuple[PageRecord, ...],
+    decisions: tuple[PageRecord, ...],
+    context_notes: tuple[PageRecord, ...],
+    sources: tuple[SourceRow, ...],
+    attention: tuple[AttentionRow, ...],
+    blockers: tuple[DecisionActionBlocker, ...],
+) -> tuple[ConsolidationOutputRow, ...]:
+    rows: list[ConsolidationOutputRow] = []
+    for context in context_names:
+        ctx_actions = [a for a in actions if a.context == context]
+        ctx_claims = [c for c in claims if c.context == context]
+        ctx_decisions = [d for d in decisions if d.context == context]
+        ctx_notes = [n for n in context_notes if n.context == context]
+        ctx_sources = [s for s in sources if s.page.context == context]
+        ctx_attention = [a for a in attention if a.context == context]
+        ctx_blockers = [
+            b
+            for b in blockers
+            if (b.action.context if b.action else b.decision.context) == context
+        ]
+        non_ingested = sum(1 for source in ctx_sources if _source_is_non_ingested(source))
+        rows.append(
+            ConsolidationOutputRow(
+                context=context,
+                actions=len(ctx_actions),
+                problems=len(ctx_attention),
+                claims=len(ctx_claims),
+                decisions=len(ctx_decisions),
+                context_notes=len(ctx_notes),
+                non_ingested_sources=non_ingested,
+                signal=_output_signal(ctx_attention, ctx_blockers, non_ingested),
+            )
+        )
+    return tuple(rows)
+
+
+def _source_is_non_ingested(source: SourceRow) -> bool:
+    state = source.ingestion_state.lower().replace("_", " ").replace("-", " ").strip()
+    return state in {"not ingested", "nao ingerida", "nao ingerido", "não ingerida", "não ingerido", "skipped"}
+
+
+def _output_signal(
+    attention: list[AttentionRow],
+    blockers: list[DecisionActionBlocker],
+    non_ingested_sources: int,
+) -> str:
+    if blockers:
+        return "blocked_by_decision"
+    if non_ingested_sources:
+        return "source_not_ingested"
+    if attention:
+        return "needs_review"
+    return "ok"
+
+
 def _next_steps(
     context: str,
     actions: list[PageRecord],
@@ -607,12 +763,16 @@ def _strings(language: str) -> dict[str, str]:
             "all_contexts": "todos",
             "h_contexts": "## Resumo por contexto",
             "th_contexts": "| Contexto | Hub | Vitalidade | Fontes | Fontes em atencao | Acoes | Acoes em atencao | Claims / decisoes | Proximos passos |",
+            "h_outputs": "## Matriz de saidas de consolidacao",
+            "th_outputs": "| Contexto | Acoes | Problemas | Claims | Decisoes | Contextos densos | Fontes nao ingeridas | Sinal |",
             "h_sources": "## Fontes por estado",
             "th_sources": "| Fonte | Contexto | Ingestao | Ultima atualizacao | Proxima revisao | Status | Acoes ligadas |",
             "h_actions": "## Acoes compiladas",
             "th_actions": "| Acao | Contexto | Estado | Atualizacao | Fontes | Sinal |",
             "h_decisions": "## Decisoes pendentes",
             "th_decisions": "| Decisao | Contexto | Estado | Atualizacao | Acoes ligadas | Sinal |",
+            "h_decision_blocks": "## Acoes bloqueadas por decisao pendente",
+            "th_decision_blocks": "| Decisao | Acao | Contexto da acao | Estado da decisao | Estado da acao |",
             "h_attention": "## Problemas e incertezas",
             "th_attention": "| Contexto | Tipo | Pagina | Motivo |",
             "h_resume": "## Links de retomada",
@@ -624,14 +784,21 @@ def _strings(language: str) -> dict[str, str]:
             "none": "-",
             "unknown": "desconhecido",
             "ok": "ok",
+            "missing_action": "acao sem pagina",
+            "signal_blocked_by_decision": "bloqueado por decisao",
+            "signal_source_not_ingested": "fonte nao ingerida",
+            "signal_needs_review": "revisar",
+            "signal_ok": "ok",
             "vital_fresh": "fresca",
             "vital_stale": "stale",
             "vital_missing": "sem hub",
             "vital_unknown": "indeterminada",
             "empty_contexts": "| Sem contextos encontrados. | - | - | - | - | - | - | - | - |",
+            "empty_outputs": "| Sem saidas de consolidacao. | - | - | - | - | - | - | - |",
             "empty_sources": "| Sem fontes registradas. | - | - | - | - | - | - |",
             "empty_actions": "| Sem acoes registradas. | - | - | - | - | - |",
             "empty_decisions": "| Sem decisoes pendentes detectadas. | - | - | - | - | - |",
+            "empty_decision_blocks": "| Nenhuma acao bloqueada por decisao pendente. | - | - | - | - |",
             "empty_attention": "| Sem problemas ou incertezas detectados por heuristica. | - | - | - |",
         },
         "en": {
@@ -642,12 +809,16 @@ def _strings(language: str) -> dict[str, str]:
             "all_contexts": "all",
             "h_contexts": "## Context summary",
             "th_contexts": "| Context | Hub | Vitality | Sources | Sources needing attention | Actions | Actions needing attention | Claims / decisions | Next steps |",
+            "h_outputs": "## Consolidation output matrix",
+            "th_outputs": "| Context | Actions | Problems | Claims | Decisions | Dense contexts | Non-ingested sources | Signal |",
             "h_sources": "## Sources by state",
             "th_sources": "| Source | Context | Ingestion | Last update | Next refresh | Status | Linked actions |",
             "h_actions": "## Compiled actions",
             "th_actions": "| Action | Context | State | Updated | Sources | Signal |",
             "h_decisions": "## Pending decisions",
             "th_decisions": "| Decision | Context | State | Updated | Linked actions | Signal |",
+            "h_decision_blocks": "## Actions gated by pending decisions",
+            "th_decision_blocks": "| Decision | Action | Action context | Decision state | Action state |",
             "h_attention": "## Problems and uncertainty",
             "th_attention": "| Context | Type | Page | Reason |",
             "h_resume": "## Resume links",
@@ -659,14 +830,21 @@ def _strings(language: str) -> dict[str, str]:
             "none": "-",
             "unknown": "unknown",
             "ok": "ok",
+            "missing_action": "missing action page",
+            "signal_blocked_by_decision": "blocked by decision",
+            "signal_source_not_ingested": "source not ingested",
+            "signal_needs_review": "needs review",
+            "signal_ok": "ok",
             "vital_fresh": "fresh",
             "vital_stale": "stale",
             "vital_missing": "missing hub",
             "vital_unknown": "unknown",
             "empty_contexts": "| No contexts found. | - | - | - | - | - | - | - | - |",
+            "empty_outputs": "| No consolidation outputs. | - | - | - | - | - | - | - |",
             "empty_sources": "| No sources recorded. | - | - | - | - | - | - |",
             "empty_actions": "| No actions recorded. | - | - | - | - | - |",
             "empty_decisions": "| No pending decisions detected. | - | - | - | - | - |",
+            "empty_decision_blocks": "| No action gated by a pending decision. | - | - | - | - |",
             "empty_attention": "| No heuristic problems or uncertainty detected. | - | - | - |",
         },
     }

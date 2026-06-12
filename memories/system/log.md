@@ -59,6 +59,17 @@ Append-only record of changes in the [memories/](..) layer.
   decision queue so human choices are part of the deterministic operational
   pass, not only the daily cockpit.
 
+## [2026-06-12] System | Operational pass compiles consolidation outputs
+
+- [operational_pass.py](../../wiki_core/operational_pass.py) now emits a
+  consolidation-output matrix with action, problem, claim, decision, dense
+  context and explicit non-ingestion counts per context.
+- The pass also links pending decisions to the action pages they block, making
+  owner choices visible before the agent starts editing target pages.
+- Runtime anchor bumped to `wiki_core.__version__ = "6.3.2"` and
+  [test_operational_pass.py](../../tests/test_operational_pass.py) covers the
+  new matrix, JSON payload and decision/action blocker table.
+
 ## [2026-06-12] System | Source configs feed deep-read perspectives
 
 - [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) now applies

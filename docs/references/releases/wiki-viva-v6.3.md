@@ -15,7 +15,7 @@ sensitive_data_policy: private_sensitive_allowed
 
 Status: implemented in the open-source kit first.
 
-Runtime anchor: `wiki_core.__version__ = "6.3.1"`.
+Runtime anchor: `wiki_core.__version__ = "6.3.2"`.
 
 ## Included
 
@@ -45,6 +45,10 @@ Runtime anchor: `wiki_core.__version__ = "6.3.1"`.
   [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py), compiling
   sources, actions, claims, decisions, problems and next steps by context before a
   consolidation round.
+- Patch v6.3.2 extends that pass with a consolidation-output matrix and a
+  decision/action blocking table, so a source review exposes which contexts
+  still need actions, problems, claims, decisions, dense context notes or an
+  explicit non-ingestion outcome.
 
 ## Why it matters
 

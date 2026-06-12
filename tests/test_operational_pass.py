@@ -4,7 +4,12 @@ import datetime as dt
 from pathlib import Path
 
 from wiki_core.config import WikiConfig, load_config
-from wiki_core.operational_pass import build_operational_pass_page, build_operational_pass_report, first_state
+from wiki_core.operational_pass import (
+    build_operational_pass_page,
+    build_operational_pass_report,
+    first_state,
+    report_to_dict,
+)
 
 
 def _write(path: Path, text: str) -> None:
@@ -94,6 +99,45 @@ def _claim() -> str:
     )
 
 
+def _context_note() -> str:
+    return (
+        "---\n"
+        "page_id: context-note-example\n"
+        "page_type: context_note\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-11\n"
+        "stale_after_days: 30\n"
+        "sources_policy: source\n"
+        "gate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        "---\n\n"
+        "# Context note - Example\n"
+    )
+
+
+def _non_ingested_source() -> str:
+    return (
+        "---\n"
+        "page_id: source-skipped\n"
+        "page_type: source\n"
+        "title: \"Source - Skipped export\"\n"
+        "source_type: csv\n"
+        "ingestion_state: skipped\n"
+        "last_ingested_at: 2026-06-11\n"
+        "refresh_policy: on_demand\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-11\n"
+        "stale_after_days: 30\n"
+        "sources_policy: source\n"
+        "gate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        "---\n\n"
+        "# Source - Skipped export\n"
+    )
+
+
 def test_operational_pass_crosses_sources_actions_and_uncertainty(tmp_path: Path):
     mem = tmp_path / "memories"
     _write(mem / "example" / "index.md", _hub("example"))
@@ -147,6 +191,40 @@ def test_operational_pass_surfaces_pending_decisions(tmp_path: Path):
     assert "## Pending decisions" in page
     assert "[Authorize live source](../decisions/authorize-source.md)" in page
     assert "`action-contact-owner`" in page
+
+
+def test_operational_pass_compiles_outputs_and_decision_blockers(tmp_path: Path):
+    mem = tmp_path / "memories"
+    _write(mem / "example" / "index.md", _hub("example"))
+    _write(mem / "sources" / "skipped.md", _non_ingested_source())
+    _write(mem / "actions" / "contact-owner.md", _action())
+    _write(mem / "contexts" / "example.md", _context_note())
+    _write(
+        mem / "decisions" / "authorize-source.md",
+        "---\npage_id: decision-authorize-source\npage_type: decision\ncontext: example\n"
+        "status: pending\nvisibility: private_self\nupdated_at: 2026-06-11\n"
+        "stale_after_days: 30\nsources_policy: x\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\nactions:\n"
+        "  - action-contact-owner\n---\n\n# Decision - Authorize live source\n",
+    )
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
+    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
+    payload = report_to_dict(report)
+
+    assert report.consolidation_outputs[0].context_notes == 1
+    assert report.consolidation_outputs[0].non_ingested_sources == 1
+    assert report.consolidation_outputs[0].signal == "blocked_by_decision"
+    assert len(report.decision_action_blockers) == 1
+    assert report.decision_action_blockers[0].action is not None
+    assert report.decision_action_blockers[0].action_id == "action-contact-owner"
+    assert "## Consolidation output matrix" in page
+    assert "## Actions gated by pending decisions" in page
+    assert "[Authorize live source](../decisions/authorize-source.md)" in page
+    assert "[Contact owner](../actions/contact-owner.md)" in page
+    assert payload["consolidation_outputs"][0]["signal"] == "blocked_by_decision"
+    assert payload["decision_action_blockers"][0]["action_page_id"] == "action-contact-owner"
 
 
 def test_context_root_index_wins_over_nested_context_hubs(tmp_path: Path):

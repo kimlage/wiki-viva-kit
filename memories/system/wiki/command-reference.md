@@ -346,7 +346,10 @@ Compiles a cross-context operational pass from canonical source pages, action
 pages, decisions, claims, context hubs and the pending-action queue. It is the
 bridge between "sources are known" and "the wiki has next steps compressed in the
 right place": every context gets a summary of source freshness, actions needing
-attention, claims/decisions and the top next steps.
+attention, claims/decisions and the top next steps. The report also exposes a
+consolidation-output matrix (actions, problems, claims, decisions, dense context
+notes and explicit non-ingestion outcomes) plus actions gated by pending
+decisions.
 
 - (no flags): prints the operational pass to stdout.
 - `--write`: writes the configured page

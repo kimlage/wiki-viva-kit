@@ -37,16 +37,17 @@ incorporating sources lives in [ingestion-process.md](../ingestion-process.md), 
 detailed automatic gates are in [gates-and-audit.md](gates-and-audit.md).
 For consolidation rounds, also compile the operational pass with
 [scripts/wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py), which
-materializes source freshness, action pressure, claims, decisions and next steps
-by context in [operational-pass.md](../operational-pass.md).
+materializes source freshness, action pressure, claims, decisions, output
+coverage, pending decision blockers and next steps by context in
+[operational-pass.md](../operational-pass.md).
 
 ## Overview of the loop
 
 The operational day is a short and repeatable cycle:
 
 1. Open the cockpit as the first screen and read the consolidated state.
-2. Compile/read the operational pass when the round is about sources, actions or
-   cross-context consolidation.
+2. Compile/read the operational pass when the round is about sources, actions,
+   pending decisions or cross-context consolidation.
 3. Decide what to touch (pending decisions, owner actions, queue, stale contexts).
 4. Work on a proposal branch (`wiki/<theme>`), never directly on the approved wiki.
 5. Run the local gates before opening the PR.

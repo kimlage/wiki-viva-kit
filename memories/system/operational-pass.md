@@ -24,6 +24,13 @@ Deterministic compilation for contexts: all. Use this page to compress next step
 | example | [Example context - hub](../example/index.md) | fresh | 0 | 0 | 0 | 0 | 0 / 0 | - |
 | system | [Memory - root MOC](../index.md) | fresh | 1 | 0 | 0 | 0 | 0 / 0 | - |
 
+## Consolidation output matrix
+
+| Context | Actions | Problems | Claims | Decisions | Dense contexts | Non-ingested sources | Signal |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| example | 0 | 0 | 0 | 0 | 0 | 0 | ok |
+| system | 0 | 0 | 0 | 0 | 0 | 0 | ok |
+
 ## Sources by state
 
 | Source | Context | Ingestion | Last update | Next refresh | Status | Linked actions |
@@ -41,6 +48,12 @@ Deterministic compilation for contexts: all. Use this page to compress next step
 | Decision | Context | State | Updated | Linked actions | Signal |
 | --- | --- | --- | --- | --- | --- |
 | No pending decisions detected. | - | - | - | - | - |
+
+## Actions gated by pending decisions
+
+| Decision | Action | Action context | Decision state | Action state |
+| --- | --- | --- | --- | --- |
+| No action gated by a pending decision. | - | - | - | - |
 
 ## Problems and uncertainty
 
