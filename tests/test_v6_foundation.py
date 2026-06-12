@@ -247,3 +247,35 @@ def test_registry_config_column_only_links_existing_config(tmp_path, monkeypatch
     rows = {r["title"]: r["config"] for r in reg.collect_sources(paths)}
     assert rows["S"] == "memories/sources/config/s.md"  # exists -> linkable
     assert rows["T"] == ""                              # missing -> not linked
+
+
+def test_source_registry_marks_next_refresh_status(tmp_path, monkeypatch):
+    reg = _load_script("wiki_source_registry")
+    cfg = WikiConfig()
+    paths = WikiPaths(tmp_path, cfg)
+    _write(
+        tmp_path / "memories/sources/s.md",
+        '---\npage_id: source-s\npage_type: source\ntitle: "S"\n'
+        "source_type: live\ningestion_state: ingested\nlast_ingested_at: 2026-06-01\n"
+        "refresh_policy: recurring\nrefresh_cadence_days: 7\n---\n",
+    )
+    monkeypatch.setattr(reg, "ROOT", tmp_path)
+    rendered = reg.build_registry(paths, cfg, "2026-06-10")
+    assert "| S |" not in rendered  # linked title, not bare filler
+    assert "2026-06-08" in rendered
+    assert "| due | recurring (7d) |" in rendered
+
+
+def test_obsidian_directory_links_warn(tmp_path, monkeypatch):
+    audit = _load_audit()
+    cfg = WikiConfig()
+    _write(tmp_path / "docs/README.md", "# Docs\n")
+    _write(
+        tmp_path / "memories/system/note.md",
+        "# Note\n[Docs folder](../../docs/) and [Docs index](../../docs/README.md).\n",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "link_audit_files", lambda _cfg: ["memories/system/note.md"])
+    warnings: list[str] = []
+    audit.audit_obsidian_directory_links(warnings, cfg)
+    assert any("directories" in warning and "Obsidian" in warning for warning in warnings)

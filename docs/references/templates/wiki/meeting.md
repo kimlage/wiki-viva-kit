@@ -20,6 +20,10 @@ context: example
 visibility: private_self
 updated_at: YYYY-MM-DD
 stale_after_days: 60
+refresh_policy: event_driven
+refresh_cadence_days: 7
+# next_refresh_at: YYYY-MM-DD  # ideally within 2 days after the meeting if decisions/actions exist
+# refresh_trigger: "review when there is a follow-up, open action, or new minutes"
 sources_policy: normalized_event_with_quadrants
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
@@ -40,6 +44,10 @@ evidence_refs: []
 # Meeting - topic
 
 Date: YYYY-MM-DD. Source: link to the recording/minutes/invite.
+
+Freshness: if the meeting still has open actions, review within 7 days; if it
+just happened, set `next_refresh_at` within 2 days so decisions, actions, claims
+and source links do not drift.
 
 ## Participants
 

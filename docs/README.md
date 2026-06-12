@@ -21,7 +21,9 @@ starting point for persistent context is `memories/`.
   migration guide in
   [wiki-viva-v6.2-migration.md](references/guides/wiki-viva-v6.2-migration.md)
   and the canonical entity navigation guide in
-  [canonical-entity-navigation.md](references/guides/canonical-entity-navigation.md).
+  [canonical-entity-navigation.md](references/guides/canonical-entity-navigation.md),
+  plus the source refresh cadence guide in
+  [source-refresh-cadence.md](references/guides/source-refresh-cadence.md).
 - `docs/references/templates/`: stable models for new records.
 - `docs/references/templates/wiki/`: models for the operational wiki, including
   ingestion proposal, decision, insight and PR checklist.

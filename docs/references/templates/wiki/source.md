@@ -24,6 +24,10 @@ owner: {{owner_id}}
 source_type: reference
 ingestion_state: unread   # unread | partial | ingested | stale
 last_ingested_at: ""
+refresh_policy: event_driven   # recurring | event_driven | on_demand | archival
+refresh_cadence_days: 45       # used with last_ingested_at/updated_at to suggest next refresh
+# next_refresh_at: YYYY-MM-DD  # optional explicit override when a known event drives the next read
+# refresh_trigger: "what should cause the next read"
 # config_ref: <ingestion-rules page for this source>   # optional, single purpose
 related_holons: []
 roles: []
@@ -81,6 +85,11 @@ This page is the hierarchical node holding this source's ingestion log: each
 ingestion becomes a row linking the normalized event. The source registry
 ([system/source-registry.md](../../../../memories/system/source-registry.md))
 indexes these pages with state and date.
+
+`refresh_policy` says whether the source should be revisited on a fixed cadence,
+because of an event, or only on demand. The source registry calculates the next
+refresh from `last_ingested_at` (or `updated_at`) + `refresh_cadence_days`,
+unless `next_refresh_at` is declared explicitly.
 
 | Date | Event | State |
 | --- | --- | --- |

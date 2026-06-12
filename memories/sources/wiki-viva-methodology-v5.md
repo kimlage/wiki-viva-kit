@@ -13,6 +13,12 @@ context: system
 visibility: private_self
 updated_at: 2026-06-09
 stale_after_days: 180
+source_type: reference
+ingestion_state: ingested
+last_ingested_at: 2026-06-09
+refresh_policy: archival
+refresh_cadence_days: 180
+refresh_trigger: "review only when the methodology proposal or implementation contract changes"
 sources_policy: fonte_metodologica
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
