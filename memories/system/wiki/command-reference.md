@@ -52,6 +52,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_score.py](../../../scripts/wiki_score.py) | Operational karma and vitality | Record/view append-only scoring |
 | [wiki_insight_job.py](../../../scripts/wiki_insight_job.py) | Closes the Information -> Insight cycle | Gather signals about a theme for an insight proposal |
 | [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) | Compiles the daily cockpit | (Re)generate [memories/operations.md](../../operations.md) |
+| [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py) | Compiles sources, actions and next steps by context | (Re)generate [operational-pass.md](../operational-pass.md) before a consolidation round |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Generates the canonical source registry | (Re)generate [source-registry.md](../source-registry.md) with state/date/next refresh |
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audits the wiki contract | Validate contract/links/secrets at commit and in CI |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Checks the presence AND content of methodology v5 | Ensure the methodology is in fact implemented |
@@ -337,6 +338,27 @@ Compiles the operational cockpit [memories/operations.md](../../operations.md) f
 ```sh
 python3 scripts/wiki_operation_compile.py --write
 python3 scripts/wiki_operation_compile.py --check
+```
+
+### [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py) - sources/actions/context pass
+
+Compiles a cross-context operational pass from canonical source pages, action
+pages, decisions, claims, context hubs and the pending-action queue. It is the
+bridge between "sources are known" and "the wiki has next steps compressed in the
+right place": every context gets a summary of source freshness, actions needing
+attention, claims/decisions and the top next steps.
+
+- (no flags): prints the operational pass to stdout.
+- `--write`: writes the configured page
+  ([operational-pass.md](../operational-pass.md) in the default layout).
+- `--check`: fails if the generated page is out of date.
+- `--format json`: emits the same compilation as structured data.
+- `--context`: restricts to one context; repeatable.
+
+```sh
+python3 scripts/wiki_operational_pass.py --write
+python3 scripts/wiki_operational_pass.py --check
+python3 scripts/wiki_operational_pass.py --format json
 ```
 
 ### [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) - canonical source registry

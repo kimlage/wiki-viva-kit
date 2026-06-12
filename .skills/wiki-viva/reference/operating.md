@@ -114,6 +114,8 @@ Never hand-edit the cockpit — recompile it from real Git/memory state:
 ```sh
 python3 scripts/wiki_operation_compile.py --write    # regenerate the cockpit page
 python3 scripts/wiki_operation_compile.py --check    # CI: fails if semantically stale
+python3 scripts/wiki_operational_pass.py --write     # regenerate source/action/context pass
+python3 scripts/wiki_operational_pass.py --check     # CI: fails if stale
 ```
 
 ## 6. Run the gates and open the PR
@@ -123,6 +125,7 @@ python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_consolidate.py --check                  # every deep-read source integrated
 python3 scripts/wiki_check_methodology_coverage.py --check   # when methodology files changed
 python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_operational_pass.py --check
 python3 -m pytest tests/ -q
 python3 scripts/wiki_pr_summary.py                           # paste into the PR
 ```

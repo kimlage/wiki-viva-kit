@@ -202,6 +202,7 @@ class WikiConfig:
             "pending_actions_filename": "pending.md",
             "sources_dirname": "sources",
             "operation_page": "memories/operations.md",
+            "operational_pass_page": "memories/system/operational-pass.md",
             "command_reference_page": "memories/system/wiki/command-reference.md",
             "wiki_coverage_page": "memories/system/wiki-coverage.md",
             "source_registry_page": "memories/system/source-registry.md",

@@ -74,6 +74,10 @@ class WikiPaths:
         return self.root / self.config.paths["operation_page"]
 
     @property
+    def operational_pass_page(self) -> Path:
+        return self.root / self.config.paths["operational_pass_page"]
+
+    @property
     def command_reference_page(self) -> Path:
         return self.root / self.config.paths["command_reference_page"]
 

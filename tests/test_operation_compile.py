@@ -356,6 +356,7 @@ def test_build_page_language_en(compile_mod, minimal_repo):
     # Footer links derive from the configured layout (en defaults here).
     assert "- Wiki: [memories/index.md](index.md)" in page
     assert "- Log: [memories/system/log.md](system/log.md)" in page
+    assert "- Operational pass: [memories/system/operational-pass.md](system/operational-pass.md)" in page
     assert "- Coverage: [memories/system/wiki-coverage.md](system/wiki-coverage.md)" in page
     assert (
         "- Methodology coverage: "
@@ -451,6 +452,7 @@ def test_build_page_with_pt_pinned_layout(compile_mod, tmp_path):
         "  actions_dirname: acoes\n"
         "  pending_actions_filename: pendentes.md\n"
         "  operation_page: memorias/operacao.md\n"
+        "  operational_pass_page: memorias/sistema/passagem-fontes-acoes-contextos.md\n"
         "  wiki_coverage_page: memorias/sistema/cobertura-wiki.md\n"
         "coverage:\n"
         "  coverage_matrix_page: memorias/sistema/cobertura-metodologia-v5.md\n",
@@ -476,6 +478,10 @@ def test_build_page_with_pt_pinned_layout(compile_mod, tmp_path):
     assert "[acoes/pendentes.md](acoes/pendentes.md):" in page
     assert "- Wiki: [memorias/index.md](index.md)" in page
     assert "- Log: [memorias/sistema/log.md](sistema/log.md)" in page
+    assert (
+        "- Passagem operacional: "
+        "[memorias/sistema/passagem-fontes-acoes-contextos.md](sistema/passagem-fontes-acoes-contextos.md)"
+    ) in page
     assert "- Cobertura: [memorias/sistema/cobertura-wiki.md](sistema/cobertura-wiki.md)" in page
     assert (
         "- Cobertura metodologia: "

@@ -35,21 +35,28 @@ GitHub PR, configured in [wiki.config.yaml](../../../wiki.config.yaml) (`gate:
 github_pr`) and described in [git-approvals.md](../git-approvals.md). The process of
 incorporating sources lives in [ingestion-process.md](../ingestion-process.md), and the
 detailed automatic gates are in [gates-and-audit.md](gates-and-audit.md).
+For consolidation rounds, also compile the operational pass with
+[scripts/wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py), which
+materializes source freshness, action pressure, claims, decisions and next steps
+by context in [operational-pass.md](../operational-pass.md).
 
 ## Overview of the loop
 
 The operational day is a short and repeatable cycle:
 
 1. Open the cockpit as the first screen and read the consolidated state.
-2. Decide what to touch (pending decisions, owner actions, queue, stale contexts).
-3. Work on a proposal branch (`wiki/<theme>`), never directly on the approved wiki.
-4. Run the local gates before opening the PR.
-5. Recompile the cockpit and open/update the PR.
-6. After the merge, the cockpit goes back to reflecting the approved wiki on the next compilation.
+2. Compile/read the operational pass when the round is about sources, actions or
+   cross-context consolidation.
+3. Decide what to touch (pending decisions, owner actions, queue, stale contexts).
+4. Work on a proposal branch (`wiki/<theme>`), never directly on the approved wiki.
+5. Run the local gates before opening the PR.
+6. Recompile the cockpit and operational pass, then open/update the PR.
+7. After the merge, the cockpit goes back to reflecting the approved wiki on the next compilation.
 
 ```mermaid
 flowchart LR
-    cockpit["Open the cockpit"] --> decide["Decide what to touch"]
+    cockpit["Open the cockpit"] --> pass["Compile operational pass"]
+    pass --> decide["Decide what to touch"]
     decide --> branch["Work on a proposal branch"]
     branch --> gates["Run the local gates"]
     gates --> ship["Recompile cockpit + open PR"]
@@ -78,6 +85,14 @@ python3 scripts/wiki_operation_compile.py --check
 
 If `--check` fails, the cockpit is out of date relative to the deterministic
 content of memories/ at HEAD; recompile before trusting it.
+
+For a deeper consolidation pass across sources, actions and contexts, generate or
+check [operational-pass.md](../operational-pass.md):
+
+```sh
+python3 scripts/wiki_operational_pass.py --check
+python3 scripts/wiki_operational_pass.py --write
+```
 
 ## 2. What to look at in the cockpit
 
@@ -177,10 +192,11 @@ pending items. The approval rules are in
 ## 5. Recompile the cockpit
 
 At the end of the round (and whenever memories/, decisions or actions change), recompile
-the cockpit so that it reflects the new state:
+the cockpit and the operational pass so that they reflect the new state:
 
 ```sh
 python3 scripts/wiki_operation_compile.py --write
+python3 scripts/wiki_operational_pass.py --write
 ```
 
 Recompiling is idempotent per day and records a curation score event
@@ -205,6 +221,7 @@ python3 scripts/wiki_audit.py --check                # gate 1: structure/links/s
 python3 scripts/wiki_pr_summary.py                   # gate 2: PR summary + checklist
 git diff --check                                     # gate 3: diff hygiene
 python3 scripts/wiki_operation_compile.py --write    # recompile the cockpit
+python3 scripts/wiki_operational_pass.py --write     # recompile source/action/context pass
 # ... open/update the PR (human gate) ...
 ```
 

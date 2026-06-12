@@ -29,6 +29,8 @@ jobs:
         run: python scripts/wiki_check_methodology_coverage.py --check
       - name: Operation cockpit freshness (decisions/actions)
         run: python scripts/wiki_operation_compile.py --check
+      - name: Operational pass freshness (sources/actions/contexts)
+        run: python scripts/wiki_operational_pass.py --check
       - name: Source registry freshness (state + last update)
         run: python scripts/wiki_source_registry.py --check
       - name: Consolidation closed (ingesting = integrating)

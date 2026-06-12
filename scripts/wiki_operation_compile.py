@@ -113,6 +113,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "h_links": "## Links de retomada",
         "link_wiki": "Wiki", "link_log": "Log",
         "link_coverage": "Cobertura", "link_coverage_meth": "Cobertura metodologia",
+        "link_operational_pass": "Passagem operacional",
         "vit_fresh": "fresca", "vit_stale": "stale", "vit_undetermined": "indeterminada",
         "no_state": "sem estado",
         "no_date": "sem data", "git_unknown": "desconhecida", "git_no_diff": "sem diff local",
@@ -155,6 +156,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "h_links": "## Resume links",
         "link_wiki": "Wiki", "link_log": "Log",
         "link_coverage": "Coverage", "link_coverage_meth": "Methodology coverage",
+        "link_operational_pass": "Operational pass",
         "vit_fresh": "fresh", "vit_stale": "stale", "vit_undetermined": "undetermined",
         "no_state": "no state",
         "no_date": "no date", "git_unknown": "unknown", "git_no_diff": "no local diff",
@@ -637,6 +639,7 @@ def build_page(root: Path, config: WikiConfig) -> str:
     resume_targets = (
         ("link_wiki", paths.memory_root / "index.md"),
         ("link_log", paths.log_page),
+        ("link_operational_pass", paths.operational_pass_page),
         ("link_coverage", root / config.paths["wiki_coverage_page"]),
         ("link_coverage_meth", root / str(config.coverage["coverage_matrix_page"])),
     )

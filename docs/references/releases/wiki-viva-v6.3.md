@@ -15,7 +15,7 @@ sensitive_data_policy: private_sensitive_allowed
 
 Status: implemented in the open-source kit first.
 
-Runtime anchor: `wiki_core.__version__ = "6.3.0"`.
+Runtime anchor: `wiki_core.__version__ = "6.3.1"`.
 
 ## Included
 
@@ -40,6 +40,11 @@ Runtime anchor: `wiki_core.__version__ = "6.3.0"`.
   [wiki-viva-v6.3-synthetic-pilot-2026-06-12.md](../reports/wiki-viva-v6.3-synthetic-pilot-2026-06-12.md).
 - Unit tests:
   [test_quality_report.py](../../../tests/test_quality_report.py).
+- Patch v6.3.1 adds the deterministic operational pass:
+  [wiki_core/operational_pass.py](../../../wiki_core/operational_pass.py) and
+  [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py), compiling
+  sources, actions, claims, decisions, problems and next steps by context before a
+  consolidation round.
 
 ## Why it matters
 

@@ -14,6 +14,21 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](..) layer.
 
+## [2026-06-12] System | Operational pass for sources, actions and contexts
+
+- Added deterministic core [operational_pass.py](../../wiki_core/operational_pass.py)
+  and CLI [wiki_operational_pass.py](../../scripts/wiki_operational_pass.py) to
+  compile canonical sources, actions, claims, decisions, context hubs and
+  pending-action queues into [operational-pass.md](operational-pass.md).
+- The new pass turns source-state review into a first-class consolidation step
+  before PRs: each context gets source freshness, action pressure,
+  problems/uncertainties and top next steps.
+- CI now checks the operational-pass page alongside the cockpit, source
+  registry, quality report, audit and consolidation gates.
+- Runtime anchor bumped to `wiki_core.__version__ = "6.3.1"` and the command
+  reference, daily-operation page, release notes and operation compiler skill
+  document the new step.
+
 ## [2026-06-12] System | Source configs feed deep-read perspectives
 
 - [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) now applies

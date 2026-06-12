@@ -71,7 +71,7 @@ free. The deep read is the only model step, and it is yours.
 | **Create typed pages** | Use [wiki_new.py](../../scripts/wiki_new.py) with `wiki.page-types.yaml`; do not start typed pages from blank files | [reference/operating.md](reference/operating.md) |
 | **Consolidate** | Generate the event + integration packet with [wiki_consolidate.py](../../scripts/wiki_consolidate.py), integrate into the target pages, close `consolidated_into` and `impact_closure`, then move the proposal through the gate and open the PR (the human gate) | [reference/operating.md](reference/operating.md) |
 | **Check quality/cost** | Run [wiki_quality_report.py](../../scripts/wiki_quality_report.py) to inspect density, repetition, consolidation gaps and cost/cache telemetry without enforcing a hard budget | [reference/gates-and-privacy.md](reference/gates-and-privacy.md) |
-| **Cockpit + gates** | Recompile the cockpit and run the honesty gates before the PR | [reference/gates-and-privacy.md](reference/gates-and-privacy.md) |
+| **Operational pass + cockpit + gates** | Recompile the source/action/context pass, recompile the cockpit and run the honesty gates before the PR | [reference/gates-and-privacy.md](reference/gates-and-privacy.md) |
 
 ## Rich representation is the default
 
@@ -134,7 +134,10 @@ ship the skeletons, so a generated page starts with the scaffold.
 - **Privacy by boundary.** Personal data (PII) is welcome on private pages and
   raises no warning; it only blocks at the public boundary (`--public-export`).
 - **Canonical memory changes go through a `wiki/<theme>` branch and a PR.** Never
-  hand-edit the generated cockpit page — recompile it.
+  hand-edit generated operational pages — recompile the cockpit with
+  [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) and the
+  source/action/context pass with
+  [wiki_operational_pass.py](../../scripts/wiki_operational_pass.py).
 - **Gates must be green before the PR**, and stay deterministic (zero tokens).
 
 ## Deeper references
