@@ -158,6 +158,54 @@ def test_duplicate_entity_canonical_name_errors(tmp_path, monkeypatch):
     assert any("duplicate entity canonical name `ana souza`" in e for e in errors)
 
 
+def test_operational_concept_links_error_when_hub_uses_plain_term(tmp_path, monkeypatch):
+    audit = _load_audit()
+    cfg = WikiConfig(
+        audit={
+            "operational_concept_links": {
+                "memories/companies/index.md": {
+                    "memories/sources/index.md": ["source"],
+                    "memories/claims/index.md": ["claim"],
+                }
+            }
+        }
+    )
+    _write(tmp_path / "memories/sources/index.md", "# Sources\n")
+    _write(tmp_path / "memories/claims/index.md", "# Claims\n")
+    _write(tmp_path / "memories/companies/index.md", "# Hub\nUse source and claim here.\n")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+
+    errors: list[str] = []
+    audit.audit_operational_concept_links(errors, cfg)
+
+    assert any("operational concepts without links" in e and "`source`" in e for e in errors)
+    assert any("operational concepts without links" in e and "`claim`" in e for e in errors)
+
+
+def test_operational_concept_links_accepts_markdown_links(tmp_path, monkeypatch):
+    audit = _load_audit()
+    cfg = WikiConfig(
+        audit={
+            "operational_concept_links": {
+                "memories/companies/index.md": {
+                    "memories/sources/index.md": ["source"],
+                }
+            }
+        }
+    )
+    _write(tmp_path / "memories/sources/index.md", "# Sources\n")
+    _write(
+        tmp_path / "memories/companies/index.md",
+        "# Hub\nUse [canonical sources](../sources/index.md) when a source appears here.\n",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+
+    errors: list[str] = []
+    audit.audit_operational_concept_links(errors, cfg)
+
+    assert errors == []
+
+
 def test_tracked_files_skip_deleted_paths(tmp_path, monkeypatch):
     audit = _load_audit()
     _write(tmp_path / "memories/people/ana.md", "# Ana\n")

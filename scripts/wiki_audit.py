@@ -1067,6 +1067,107 @@ def audit_entity_mention_links(
                 warnings.append(message)
 
 
+def _string_items(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, tuple):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        return [value.strip()] if value.strip() and value.strip() != "[]" else []
+    return [str(value).strip()] if str(value).strip() else []
+
+
+def _unlinked_line_text(line: str) -> str:
+    return INLINE_CODE_RE.sub("", MARKDOWN_LINK_RE.sub("", line))
+
+
+def _concept_pattern(term: str) -> re.Pattern[str]:
+    return re.compile(r"(?<![\w-])" + re.escape(term) + r"(?![\w-])", re.IGNORECASE)
+
+
+def _line_links_target(source_rel: str, line: str, target_rel: str) -> bool:
+    for match in MARKDOWN_LINK_RE.finditer(line):
+        target = local_link_target_path(source_rel, match.group(1))
+        if target is None:
+            continue
+        try:
+            rel = target.resolve().relative_to(ROOT.resolve()).as_posix()
+        except ValueError:
+            continue
+        if rel == target_rel:
+            return True
+        if target_rel.endswith("/index.md"):
+            target_dir = target_rel.rsplit("/", 1)[0] + "/"
+            if rel.startswith(target_dir):
+                return True
+    return False
+
+
+def audit_operational_concept_links(errors: list[str], config: WikiConfig) -> None:
+    """Require configured context hubs to link recurring operational concepts.
+
+    Entity mention checks cover named pages. This smaller gate covers generic
+    process nouns ("source", "claim", "action", "meeting"...) where the target is
+    a deliberate operational index. It is opt-in per page to avoid global noise.
+    """
+    raw = config.audit.get("operational_concept_links") or {}
+    if raw in ({}, []):
+        return
+    if not isinstance(raw, dict):
+        errors.append("config: audit.operational_concept_links must be a map")
+        return
+
+    for page_rel, targets in sorted(raw.items()):
+        page_rel = str(page_rel).strip()
+        if not page_rel:
+            errors.append("config: audit.operational_concept_links contains empty page path")
+            continue
+        if not isinstance(targets, dict):
+            errors.append(f"config: audit.operational_concept_links.{page_rel} must be a map")
+            continue
+
+        page_path = ROOT / page_rel
+        if not page_path.exists():
+            errors.append(f"{page_rel}: configured operational concept audit page does not exist")
+            continue
+
+        linked_targets: dict[str, set[str]] = {}
+        for target_rel, terms in sorted(targets.items()):
+            target_rel = str(target_rel).strip()
+            if not target_rel:
+                errors.append(f"{page_rel}: operational concept target is empty")
+                continue
+            if not (ROOT / target_rel).exists():
+                errors.append(f"{page_rel}: operational concept target does not exist: `{target_rel}`")
+                continue
+            for term in _string_items(terms):
+                linked_targets.setdefault(target_rel, set()).add(term)
+
+        if not linked_targets:
+            continue
+
+        offenders: dict[str, set[str]] = {}
+        text = page_path.read_text(encoding="utf-8", errors="replace")
+        for _lineno, line in body_lines_without_frontmatter(text):
+            if line.lstrip().startswith("#"):
+                continue
+            stripped = _unlinked_line_text(line)
+            for target_rel, terms in linked_targets.items():
+                if _line_links_target(page_rel, line, target_rel):
+                    continue
+                for term in terms:
+                    if _concept_pattern(term).search(stripped):
+                        offenders.setdefault(target_rel, set()).add(term)
+
+        for target_rel, terms in sorted(offenders.items()):
+            joined = ", ".join(f"`{term}`" for term in sorted(terms, key=str.lower))
+            errors.append(
+                f"{page_rel}: operational concepts without links to `{target_rel}`: {joined}"
+            )
+
+
 def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
     graph = build_page_graph(ROOT, config)
     audit_config = config.audit
@@ -1702,6 +1803,7 @@ def main() -> int:
     audit_page_type_registry(errors, config)
     audit_duplicate_entity_names(errors, config)
     audit_entity_mention_links(warnings, config, errors)
+    audit_operational_concept_links(errors, config)
     audit_impact(errors, config)
     audit_operation_page(errors, warnings, config)
     audit_ingestion_events(errors, config)
