@@ -1199,6 +1199,7 @@ def _added_lines_for_path(rel: str) -> list[str]:
         ["diff", "--unified=0", "--", rel],
         ["diff", "--cached", "--unified=0", "--", rel],
         ["diff", "--unified=0", "main...HEAD", "--", rel],
+        ["diff", "--unified=0", "origin/main...HEAD", "--", rel],
     ):
         for line in run_git(args).splitlines():
             if line.startswith("+") and not line.startswith("+++"):

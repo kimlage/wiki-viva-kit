@@ -14,6 +14,13 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](..) layer.
 
+## [2026-06-12] System | Impact ack audit works in PR CI
+
+- [wiki_audit.py](../../scripts/wiki_audit.py) now recognizes impact-ack ledger
+  lines added through `origin/main...HEAD`, in addition to `main...HEAD`.
+- This keeps the `audit_impact` gate deterministic in GitHub Actions PR
+  checkouts where a local `main` branch may not exist.
+
 ## [2026-06-12] System | Source refresh cadence and Obsidian directory-link warnings
 
 - [wiki_source_registry.py](../../scripts/wiki_source_registry.py) now renders
