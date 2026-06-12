@@ -404,7 +404,6 @@ def build_event_markdown(
     ]
     if rel_rows:
         body.extend([s["h_relationships"], "", s["th_relationships"], "| --- | --- | --- |", *rel_rows, ""])
-    body.extend([s["h_integration"], "", s["integration_note"], ""])
     return "\n".join(body)
 
 

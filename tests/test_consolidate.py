@@ -116,6 +116,8 @@ def test_event_markdown_is_specific_never_placeholder(repo, language, forbidden)
     assert "consolidated_into: []" in md             # integration to close
     assert "affected_pages: {must_update: [], should_review: []}" in md
     assert "impact_closure:" in md
+    assert "Cataloging the source is NOT ingesting" not in md
+    assert "Catalogar a fonte NAO e ingerir" not in md
     assert "| Tight window" not in md                # risks are bullets, not table rows
 
 

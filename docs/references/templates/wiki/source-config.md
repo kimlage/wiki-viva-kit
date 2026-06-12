@@ -34,6 +34,9 @@ claims: []
 decisions: []
 actions: []
 evidence_refs: []
+perspectives_required:
+  - perspective-technical
+perspectives_optional: []
 ---
 ```
 
@@ -45,6 +48,14 @@ Governs the source: link to the source page.
 
 - How to fetch/extract (format, frequency, scope); what to NEVER copy (access
   secrets, a full dump without judgment).
+
+## Perspectives
+
+- `perspectives_required` declares the reusable extraction lenses that must be
+  present in deep-read requests for this source. Every listed id must resolve to
+  a `perspective` page.
+- `perspectives_optional` lists useful lenses that can be skipped when the
+  source does not contain relevant material.
 
 ## Search rules
 

@@ -93,8 +93,10 @@ def test_entity_mention_without_link_warns(tmp_path, monkeypatch):
         lambda: ["memories/people/ana.md", "memories/system/note.md"],
     )
     audit.parse_frontmatter.cache_clear()
+    errors: list[str] = []
     warnings: list[str] = []
-    audit.audit_entity_mention_links(warnings, cfg)
+    audit.audit_entity_mention_links(warnings, cfg, errors)
+    assert not errors  # nothing changed in the diff: warn-only
     assert any("Ana Souza" in w and "note.md" in w for w in warnings)
 
 
@@ -116,9 +118,10 @@ def test_entity_mention_when_linked_does_not_warn(tmp_path, monkeypatch):
         lambda: ["memories/people/ana.md", "memories/system/note.md"],
     )
     audit.parse_frontmatter.cache_clear()
+    errors: list[str] = []
     warnings: list[str] = []
-    audit.audit_entity_mention_links(warnings, cfg)
-    assert not warnings
+    audit.audit_entity_mention_links(warnings, cfg, errors)
+    assert not errors and not warnings
 
 
 def test_entity_alias_map_drops_short_and_common_names():

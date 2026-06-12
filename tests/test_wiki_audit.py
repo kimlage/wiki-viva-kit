@@ -440,6 +440,95 @@ def test_repo_prompt_checksums_are_current(audit):
     assert errors == []
 
 
+def test_source_config_perspectives_must_exist(tmp_path, audit, monkeypatch):
+    audit.parse_frontmatter.cache_clear()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "markdown_files",
+        lambda: [
+            "memories/system/perspectives/technical.md",
+            "memories/sources/config/example.md",
+        ],
+    )
+    (tmp_path / "memories/system/perspectives").mkdir(parents=True)
+    (tmp_path / "memories/sources/config").mkdir(parents=True)
+    (tmp_path / "memories/system/perspectives/technical.md").write_text(
+        "---\n"
+        "page_id: perspective-technical\n"
+        "page_type: perspective\n"
+        "---\n"
+        "# Technical\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/sources/config/example.md").write_text(
+        "---\n"
+        "page_id: source-config-example\n"
+        "page_type: source_config\n"
+        "perspectives_required:\n"
+        "  - perspective-technical\n"
+        "  - perspective-missing\n"
+        "---\n"
+        "# Example\n",
+        encoding="utf-8",
+    )
+
+    errors: list[str] = []
+    config = WikiConfig(audit={**WikiConfig().audit, "perspective_coverage_check": True})
+    audit.audit_source_config_perspectives(errors, config)
+
+    assert errors == [
+        "memories/sources/config/example.md: perspectives_required `perspective-missing` is not a perspective page"
+    ]
+
+
+def test_ingestion_event_entity_mentions_stay_warning_when_changed(tmp_path, audit, monkeypatch):
+    audit.parse_frontmatter.cache_clear()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "changed_paths_for_audit",
+        lambda: {"memories/system/ingestion/events/e.md"},
+    )
+    monkeypatch.setattr(
+        audit,
+        "markdown_files",
+        lambda: [
+            "memories/people/marcelo.md",
+            "memories/system/ingestion/events/e.md",
+        ],
+    )
+    (tmp_path / "memories/people").mkdir(parents=True)
+    (tmp_path / "memories/system/ingestion/events").mkdir(parents=True)
+    (tmp_path / "memories/people/marcelo.md").write_text(
+        "---\n"
+        "page_id: person-marcelo\n"
+        "page_type: person\n"
+        "title: Marcelo\n"
+        "---\n"
+        "# Marcelo\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/system/ingestion/events/e.md").write_text(
+        "---\n"
+        "page_id: event-e\n"
+        "page_type: ingestion_event\n"
+        "---\n"
+        "# Event\n\nMarcelo appeared in extracted source text.\n",
+        encoding="utf-8",
+    )
+
+    warnings: list[str] = []
+    errors: list[str] = []
+    config = WikiConfig(audit={**WikiConfig().audit, "mention_links_on_changed": "error"})
+    audit.audit_entity_mention_links(warnings, config, errors)
+
+    assert errors == []
+    assert warnings == [
+        "memories/system/ingestion/events/e.md: names known entities without a link: Marcelo (memories/people/marcelo.md)"
+    ]
+
+
 # ---------------------------------------------------------------------------
 # parse_frontmatter memoization (perf): cached per path, cleared in main()
 # ---------------------------------------------------------------------------

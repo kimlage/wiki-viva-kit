@@ -21,6 +21,8 @@ FRONTMATTER_RE = re.compile(r"\A---\n.*?\n---\n?", re.DOTALL)
 CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 
 NAV_EXEMPT_TYPES = DEFAULT_ORPHAN_EXEMPT_TYPES | {"ingestion_event"}
+EVENT_INDEX_FILENAMES = {"readme.md", "index.md"}
+QUALITY_EXEMPT_ALL = "all"
 
 
 def strip_frontmatter(text: str) -> str:
@@ -86,6 +88,15 @@ def _list_values(value: Any) -> list[str]:
     return [str(value).strip()]
 
 
+def _quality_exemptions(values: dict[str, Any]) -> set[str]:
+    return set(_list_values(values.get("quality_exempt")))
+
+
+def _is_quality_exempt(values: dict[str, Any], key: str) -> bool:
+    exemptions = _quality_exemptions(values)
+    return QUALITY_EXEMPT_ALL in exemptions or key in exemptions
+
+
 def _read_json(path: Path) -> dict[str, Any] | None:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -113,15 +124,43 @@ def _event_pages(paths: WikiPaths) -> list[Path]:
     return sorted(paths.ingest_events_dir.rglob("*.md"))
 
 
+def _is_ingestion_event_page(path: Path, values: dict[str, Any]) -> bool:
+    if path.name.lower() in EVENT_INDEX_FILENAMES:
+        return False
+    if values.get("page_type") == "ingestion_event":
+        return True
+    # Legacy migrations sometimes wrote normalized event files in the canonical
+    # events directory while keeping a broader source/catalog page type. The
+    # directory is authoritative for quality metrics once the page carries event
+    # or source identity.
+    return bool(values.get("event_id") or values.get("source_id"))
+
+
+def _is_event_rel(paths: WikiPaths, rel: str) -> bool:
+    if not paths.ingest_events_dir.exists():
+        return False
+    try:
+        prefix = paths.ingest_events_dir.relative_to(paths.root).as_posix().rstrip("/") + "/"
+    except ValueError:
+        return False
+    name = Path(rel).name.lower()
+    return rel.startswith(prefix) and name not in EVENT_INDEX_FILENAMES
+
+
 def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
     paths = WikiPaths(root, config)
     graph = build_page_graph(root, config)
     pages: list[dict[str, Any]] = []
     repeated_index: dict[str, list[str]] = defaultdict(list)
     body_text_by_rel: dict[str, str] = {}
+    frontmatter_by_rel: dict[str, dict[str, Any]] = {}
+    quality_exempt_pages: list[dict[str, str]] = []
+    quality_exemption_missing_reason: list[str] = []
 
     for rel, node in graph.nodes.items():
         page_path = root / rel
+        values = parse_frontmatter(page_path)
+        frontmatter_by_rel[rel] = values
         text = page_path.read_text(encoding="utf-8", errors="replace")
         body = strip_frontmatter(text)
         body_text_by_rel[rel] = body
@@ -141,10 +180,23 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
                 "body_links": body_links,
                 "link_density_per_1000_words": round(outbound / max(body_words, 1) * 1000, 2),
                 "information_density_per_1000_words": round(len(useful) / max(body_words, 1) * 1000, 2),
+                "quality_exempt": sorted(_quality_exemptions(values)),
             }
         )
-        for block in repeated_blocks_for_page(body):
-            repeated_index[block].append(rel)
+        if _quality_exemptions(values):
+            reason = str(values.get("quality_exempt_reason") or "").strip()
+            quality_exempt_pages.append(
+                {
+                    "path": rel,
+                    "exemptions": ", ".join(sorted(_quality_exemptions(values))),
+                    "reason": reason,
+                }
+            )
+            if not reason:
+                quality_exemption_missing_reason.append(rel)
+        if not _is_event_rel(paths, rel):
+            for block in repeated_blocks_for_page(body):
+                repeated_index[block].append(rel)
 
     by_type = Counter(page["page_type"] for page in pages)
     by_context = Counter(page["context"] for page in pages)
@@ -152,6 +204,7 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
         page["path"]
         for page in pages
         if page["page_type"] not in NAV_EXEMPT_TYPES and page["useful_lines"] < 3
+        and not _is_quality_exempt(frontmatter_by_rel.get(page["path"], {}), "low_density")
     ]
     thin_link_pages = [
         page["path"]
@@ -163,6 +216,15 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
     bad_repetition: list[dict[str, Any]] = []
     for block, rels in sorted(repeated_index.items()):
         unique_rels = sorted(set(rels))
+        repeated_rels = [
+            rel
+            for rel in unique_rels
+            if not _is_quality_exempt(frontmatter_by_rel.get(rel, {}), "repetition")
+            and not _is_quality_exempt(frontmatter_by_rel.get(rel, {}), "bad_repetition")
+        ]
+        if len(repeated_rels) < 2:
+            continue
+        unique_rels = repeated_rels
         if len(unique_rels) < 2:
             continue
         contexts = {graph.nodes[rel].context for rel in unique_rels if rel in graph.nodes}
@@ -238,7 +300,7 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
     for path in _event_pages(paths):
         rel = path.relative_to(root).as_posix()
         values = parse_frontmatter(path)
-        if values.get("page_type") != "ingestion_event":
+        if not _is_ingestion_event_page(path, values):
             continue
         events_total += 1
         consolidated = _list_values(values.get("consolidated_into"))
@@ -263,6 +325,8 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
             "ingestion_events": events_total,
             "events_without_consolidated_into": len(events_without_consolidated_into),
             "events_without_impact_closure": len(events_without_impact_closure),
+            "quality_exempt_pages": len(quality_exempt_pages),
+            "quality_exemption_missing_reason": len(quality_exemption_missing_reason),
             "chunk_sources": len(chunk_payloads),
             "chunks_total": total_chunks,
             "estimated_context_tokens": total_tokens,
@@ -284,6 +348,8 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
             "repeated_blocks": repeated_blocks,
             "events_without_consolidated_into": events_without_consolidated_into,
             "events_without_impact_closure": events_without_impact_closure,
+            "quality_exempt_pages": quality_exempt_pages,
+            "quality_exemption_missing_reason": quality_exemption_missing_reason,
         },
         "pages": pages,
     }
@@ -311,6 +377,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         "ingestion_events",
         "events_without_consolidated_into",
         "events_without_impact_closure",
+        "quality_exempt_pages",
+        "quality_exemption_missing_reason",
         "chunk_sources",
         "chunks_total",
         "estimated_context_tokens",
@@ -350,6 +418,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         ("Thin link pages", "thin_link_pages"),
         ("Events without consolidated_into", "events_without_consolidated_into"),
         ("Events without impact_closure", "events_without_impact_closure"),
+        ("Quality exemptions missing reason", "quality_exemption_missing_reason"),
     ):
         lines.extend([f"### {title}", ""])
         values = flags[key]
@@ -364,6 +433,14 @@ def render_markdown(report: dict[str, Any]) -> str:
         for item in flags["bad_repetition_blocks"][:20]:
             pages = ", ".join(f"`{page}`" for page in item["pages"])
             lines.append(f"- {item['text_preview']}... ({pages})")
+    else:
+        lines.append("- None.")
+    lines.extend(["", "### Quality exempt pages", ""])
+    if flags["quality_exempt_pages"]:
+        for item in flags["quality_exempt_pages"][:50]:
+            lines.append(
+                f"- `{item['path']}` ({item['exemptions']}): {item['reason'] or 'missing reason'}"
+            )
     else:
         lines.append("- None.")
     lines.append("")

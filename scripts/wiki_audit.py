@@ -1040,6 +1040,7 @@ def audit_entity_mention_links(
         return
     changed = changed_paths_for_audit()
     escalate_changed = str(config.audit.get("mention_links_on_changed", "warning")) == "error"
+    events_prefix = wiki_paths(config).ingest_events_dir.relative_to(ROOT).as_posix().rstrip("/") + "/"
     pattern = re.compile(
         r"(?<![\w-])(" + "|".join(re.escape(a) for a in sorted(alias_map, key=len, reverse=True)) + r")(?![\w-])",
         re.IGNORECASE,
@@ -1061,7 +1062,14 @@ def audit_entity_mention_links(
             message = f"{rel}: names known entities without a link: {items}"
             values, _ = parse_frontmatter(ROOT / rel)
             page_type = str(values.get("page_type") or "")
-            if errors is not None and escalate_changed and rel in changed and page_type != "system_log":
+            is_ingestion_event = rel.startswith(events_prefix)
+            if (
+                errors is not None
+                and escalate_changed
+                and rel in changed
+                and page_type != "system_log"
+                and not is_ingestion_event
+            ):
                 errors.append(message)
             else:
                 warnings.append(message)
@@ -1707,6 +1715,24 @@ def audit_perspective_coverage(errors: list[str], config: WikiConfig) -> None:
                     )
 
 
+def audit_source_config_perspectives(errors: list[str], config: WikiConfig) -> None:
+    if not config.audit.get("perspective_coverage_check", False):
+        return
+    catalog = page_catalog([], config)
+    perspective_ids = {
+        page_id
+        for page_id, (_rel, values) in catalog.items()
+        if str(values.get("page_type") or "") == "perspective"
+    }
+    for _page_id, (rel, values) in sorted(catalog.items()):
+        if str(values.get("page_type") or "") != "source_config":
+            continue
+        for field in ("perspectives_required", "perspectives_optional"):
+            for perspective_id in list_values(values, field):
+                if perspective_id not in perspective_ids:
+                    errors.append(f"{rel}: {field} `{perspective_id}` is not a perspective page")
+
+
 def _closure_pages(value: object) -> tuple[set[str], dict[str, str]]:
     pages: set[str] = set()
     reasons: dict[str, str] = {}
@@ -1816,6 +1842,7 @@ def main() -> int:
     audit_context_pass_gate(errors, config, warnings)
     audit_prompt_checksums(errors)
     audit_llm_cache_metadata(errors, config)
+    audit_source_config_perspectives(errors, config)
     audit_perspective_coverage(errors, config)
     audit_impact_closure(errors, config)
     audit_log_changed(errors, config)

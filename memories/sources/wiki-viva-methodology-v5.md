@@ -30,11 +30,12 @@ owner:
 related_holons:
 roles:
 responsibilities:
-source_refs:
+source_refs: []
 claims:
 decisions:
 actions:
 evidence_refs:
+  - memories/system/methodology-coverage-v5.md
 ---
 
 # Living wiki methodology (source)

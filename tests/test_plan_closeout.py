@@ -162,6 +162,83 @@ def test_archive_add_stale_exempt_with_body_rule():
 
 
 # ---------------------------------------------------------------------------
+# Quality report gate: ratchet budgets
+# ---------------------------------------------------------------------------
+
+
+def _quality_report(summary_overrides: dict[str, int]) -> dict:
+    summary = {
+        "bad_repetition_blocks": 0,
+        "low_information_density_pages": 0,
+    }
+    summary.update(summary_overrides)
+    return {"summary": summary}
+
+
+def test_quality_report_check_fails_over_low_density_budget(monkeypatch, capsys):
+    quality_cli = _load("scripts/wiki_quality_report.py", "wqr_budget")
+    monkeypatch.setattr(quality_cli, "load_config", lambda _root: WikiConfig())
+    monkeypatch.setattr(
+        quality_cli,
+        "build_quality_report",
+        lambda _root, _config: _quality_report({"low_information_density_pages": 2}),
+    )
+
+    result = quality_cli.main(["--format", "json", "--check", "--max-low-density", "1"])
+
+    assert result == 1
+    assert "low_information_density_pages=2" in capsys.readouterr().err
+
+
+def test_quality_report_check_accepts_ratchet_budgets(monkeypatch):
+    quality_cli = _load("scripts/wiki_quality_report.py", "wqr_budget_ok")
+    monkeypatch.setattr(quality_cli, "load_config", lambda _root: WikiConfig())
+    monkeypatch.setattr(
+        quality_cli,
+        "build_quality_report",
+        lambda _root, _config: _quality_report(
+            {"low_information_density_pages": 2, "bad_repetition_blocks": 1}
+        ),
+    )
+
+    result = quality_cli.main(
+        [
+            "--format",
+            "json",
+            "--check",
+            "--max-low-density",
+            "2",
+            "--max-bad-repetition",
+            "1",
+        ]
+    )
+
+    assert result == 0
+
+
+def test_quality_report_check_reads_configured_budgets(monkeypatch):
+    quality_cli = _load("scripts/wiki_quality_report.py", "wqr_config_budget")
+    monkeypatch.setattr(
+        quality_cli,
+        "load_config",
+        lambda _root: WikiConfig(
+            audit={"quality_max_low_density": 2, "quality_max_bad_repetition": 1}
+        ),
+    )
+    monkeypatch.setattr(
+        quality_cli,
+        "build_quality_report",
+        lambda _root, _config: _quality_report(
+            {"low_information_density_pages": 2, "bad_repetition_blocks": 1}
+        ),
+    )
+
+    result = quality_cli.main(["--format", "json", "--check"])
+
+    assert result == 0
+
+
+# ---------------------------------------------------------------------------
 # Toolkit drift: single `git diff` for shared-content comparison
 # ---------------------------------------------------------------------------
 
@@ -198,3 +275,28 @@ def test_toolkit_drift_single_diff(tmp_path, monkeypatch):
     assert report["content_differs"] == ["scripts/wiki_x.py", "wiki_core/a.py"]
     assert report["only_in_head"] == ["wiki_core/new.py"]
     assert report["only_in_ref"] == []
+
+
+def test_toolkit_drift_ref_path_compares_checkouts(tmp_path, monkeypatch):
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_path_test")
+    current = tmp_path / "current"
+    ref = tmp_path / "ref"
+    for root in (current, ref):
+        (root / "wiki_core").mkdir(parents=True)
+        (root / "scripts").mkdir()
+        (root / "tests" / "__pycache__").mkdir(parents=True)
+    (current / "wiki_core" / "a.py").write_text("current\n", encoding="utf-8")
+    (ref / "wiki_core" / "a.py").write_text("ref\n", encoding="utf-8")
+    (current / "scripts" / "wiki_only_current.py").write_text("x\n", encoding="utf-8")
+    (ref / "scripts" / "wiki_only_ref.py").write_text("y\n", encoding="utf-8")
+    (current / "tests" / "__pycache__" / "ignored.pyc").write_bytes(b"cache")
+    (ref / "tests" / "__pycache__" / "ignored.pyc").write_bytes(b"other-cache")
+
+    monkeypatch.setattr(drift_mod, "ROOT", current)
+    monkeypatch.setattr(drift_mod, "IGNORE_FILE", current / ".toolkit-drift-ignore")
+
+    report = drift_mod.drift_against_path(ref)
+
+    assert report["content_differs"] == ["wiki_core/a.py"]
+    assert report["only_in_head"] == ["scripts/wiki_only_current.py"]
+    assert report["only_in_ref"] == ["scripts/wiki_only_ref.py"]

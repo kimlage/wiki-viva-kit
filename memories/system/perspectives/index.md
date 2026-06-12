@@ -33,6 +33,10 @@ as extracted, not applicable, pending, blocked or skipped with reason.
 | --- | --- |
 | [technical.md](technical.md) | Architecture, dependencies, decisions, risks and validation. |
 | [project.md](project.md) | Goals, status, deliverables, metrics, risks and next milestones. |
+| [stakeholder.md](stakeholder.md) | People, roles, relationships, commitments and privacy boundaries. |
+| [financial.md](financial.md) | Amounts, counterparties, categories, reconciliation state and evidence. |
+| [publication.md](publication.md) | Public/private boundaries, citations and publication readiness. |
+| [operations.md](operations.md) | Process state, runbooks, failure modes, validation gates and ownership. |
 
 ## Related
 

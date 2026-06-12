@@ -169,7 +169,11 @@ python3 scripts/wiki_build_index.py --check
 Calls no model at all. It gathers/selects chunks (by source or by sanitized FTS search), assembles a context PACKAGE (prompt + schema + chunk text), records in the cache the RESULT that the agent produced and serves as a gate (`--check`). The `--emit-request` writes the `-llm-context-request.json` that [wiki_audit.py](../../../scripts/wiki_audit.py) watches. Gate details in [gates-and-audit.md](gates-and-audit.md).
 
 - `--context` (required). Use ONE of: `--source`, `--query` or `--record-result`.
-- `--source` / `--query`: selects chunks by source or by FTS search.
+- `--source` / `--query`: selects chunks by source or by FTS search. If
+  `--source` points to a repo-local source page, the CLI looks up its
+  `source_config` through `config_ref` or matching `source_refs` and
+  automatically merges `perspectives_required` /
+  `perspectives_optional` into the request.
 - `--profile`: model profile (default comes from `default_model_profile`).
 - `--emit-request`: writes the package in extraction-events (instead of printing).
 - `--record-result PATH`: writes the agent's result to the cache (JSON object/array, or `-` for stdin).
@@ -229,14 +233,36 @@ and comparison; this command does not impose a hard budget.
 
 - `--format markdown|json`: output format, default `markdown`.
 - `--output`: write the report to a repo-relative path.
-- `--check`: fail only when bad repetition blocks exceed
-  `--max-bad-repetition`.
-- `--max-bad-repetition`: threshold for `--check`; cost never fails the check.
+- `--check`: fail when bad repetition or low-density pages exceed the configured
+  thresholds.
+- `--max-bad-repetition`: threshold for `--check`; default comes from
+  `audit.quality_max_bad_repetition` or `0`.
+- `--max-low-density`: low-information-density page threshold for `--check`;
+  default comes from `audit.quality_max_low_density` or `0`.
 
 ```sh
 python3 scripts/wiki_quality_report.py
 python3 scripts/wiki_quality_report.py --format json
-python3 scripts/wiki_quality_report.py --check --max-bad-repetition 0
+python3 scripts/wiki_quality_report.py --check
+```
+
+### [wiki_ingestion_closure_report.py](../../../scripts/wiki_ingestion_closure_report.py) - ingestion closure report
+
+Reports whether normalized ingestion events have been integrated into durable
+wiki pages. It counts unclosed events, candidate claims/decisions/actions and
+`ingested` source pages that do not yet have a matching closed event.
+
+- `--format markdown|json`: output format, default `markdown`.
+- `--output`: write the report to a repo-relative path.
+- `--check`: fail when an event lacks `consolidated_into` or source closure
+  gaps exceed the allowed budget.
+- `--allow-ingested-source-gaps`: temporary budget for ingested sources without
+  a matching closed event.
+
+```sh
+python3 scripts/wiki_ingestion_closure_report.py
+python3 scripts/wiki_ingestion_closure_report.py --format json
+python3 scripts/wiki_ingestion_closure_report.py --check --allow-ingested-source-gaps 0
 ```
 
 ### [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) - cache/coverage inspection

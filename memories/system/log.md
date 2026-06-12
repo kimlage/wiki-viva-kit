@@ -14,6 +14,95 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](..) layer.
 
+## [2026-06-12] System | Source configs feed deep-read perspectives
+
+- [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) now applies
+  `perspectives_required` and `perspectives_optional` from a repo-local source
+  page's matching `source_config`, found through `config_ref` or shared
+  `source_refs`.
+- New helper [source_config.py](../../wiki_core/source_config.py) centralizes the
+  lookup/merge behavior and [test_source_config.py](../../tests/test_source_config.py)
+  covers explicit config refs and source-ref fallback.
+- [ingestion-flow.md](wiki/ingestion-flow.md) and
+  [command-reference.md](wiki/command-reference.md) document the automatic
+  perspective application.
+
+## [2026-06-12] System | Source configs validate perspective ids
+
+- [wiki_audit.py](../../scripts/wiki_audit.py) now checks
+  `perspectives_required` and `perspectives_optional` on `source_config` pages
+  against existing `perspective` pages when perspective coverage is enabled.
+- [source-config.md](../../docs/references/templates/wiki/source-config.md)
+  documents the perspective fields, and [wiki.page-types.yaml](../../wiki.page-types.yaml)
+  types them as lists.
+- Changed ingestion event pages keep unlinked entity mentions as warnings, not
+  errors, because generated events preserve extracted source text; canonical
+  pages remain under the stricter changed-page rule.
+
+## [2026-06-12] System | Durable events drop integration boilerplate
+
+- [consolidate.py](../../wiki_core/consolidate.py) no longer emits the
+  repeated integration instruction into generated event pages; the operational
+  instruction remains in the integration packet where the agent actually uses
+  it.
+- [test_consolidate.py](../../tests/test_consolidate.py) now asserts generated
+  events do not reintroduce the "cataloging is not ingesting" boilerplate.
+
+## [2026-06-12] System | Canonical perspective set expands
+
+- Added canonical perspective pages for stakeholders, finance, publication and
+  operations under [perspectives](perspectives/index.md), complementing the
+  existing technical and project lenses.
+- The perspective registry now exposes six reusable lenses for deep-read
+  extraction and integration: technical, project, stakeholder, financial,
+  publication and operations.
+
+## [2026-06-12] System | Ingestion closure report
+
+- New deterministic module [closure.py](../../wiki_core/closure.py) and CLI
+  [wiki_ingestion_closure_report.py](../../scripts/wiki_ingestion_closure_report.py)
+  report whether normalized ingestion events have `consolidated_into`, how many
+  candidate claims/decisions/actions they still carry, and which `ingested`
+  source pages lack a matching closed event.
+- New synthetic test [test_ingestion_closure_report.py](../../tests/test_ingestion_closure_report.py)
+  covers closed events, open events, candidate counts and source gaps.
+- [command-reference.md](wiki/command-reference.md) documents the report and its
+  temporary source-gap budget for gradual adoption.
+
+## [2026-06-12] System | Critical page types gain real shapes
+
+- [wiki.page-types.yaml](../../wiki.page-types.yaml) now declares concrete
+  shapes for critical content types: action, claim, context_note, decision,
+  meeting, person, project, source and source_config.
+- The source shape now requires typed provenance fields and evidence refs while
+  keeping `source_refs` optional for root/source-of-record pages.
+- [test_page_types.py](../../tests/test_page_types.py) asserts that the repo
+  registry keeps these critical shapes instead of collapsing back to generic
+  contracts.
+
+## [2026-06-12] System | Quality ratchet includes low-density pages
+
+- [wiki_quality_report.py](../../scripts/wiki_quality_report.py) now supports
+  `--max-low-density` under `--check`, alongside `--max-bad-repetition`, and
+  reads defaults from `audit.quality_max_*` when flags are omitted.
+- The GitHub workflow runs `wiki_quality_report.py --check`; the open-source
+  kit keeps the default zero low-density pages and zero bad repetition blocks.
+- [command-reference.md](wiki/command-reference.md) documents both thresholds.
+
+## [2026-06-12] System | Quality sees legacy events and checkout drift
+
+- [quality.py](../../wiki_core/quality.py) now counts real ingestion events by
+  the canonical events directory, including legacy pages that still carry a
+  source/catalog page type but declare `event_id` or `source_id`.
+- The synthetic example event
+  [2026-06-09-example.md](ingestion/events/2026-06-09-example.md) now has
+  `consolidated_into`, so the kit baseline no longer advertises an unclosed
+  event.
+- [wiki_toolkit_drift.py](../../scripts/wiki_toolkit_drift.py) accepts
+  `--ref-path` for comparing against a real checkout instead of only a branch
+  ref, and the active ingestion-flow docs now reference
+  `wiki_llm_context_pass.v3`.
+
 ## [2026-06-12] System | Impact ack audit works in PR CI
 
 - [wiki_audit.py](../../scripts/wiki_audit.py) now recognizes impact-ack ledger

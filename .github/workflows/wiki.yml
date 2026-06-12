@@ -23,6 +23,8 @@ jobs:
         run: python -m pytest tests/ -q
       - name: Wiki audit (secrets, PII on public pages, links, quadrants, promotion gate)
         run: python scripts/wiki_audit.py --check
+      - name: Wiki quality ratchet
+        run: python scripts/wiki_quality_report.py --check
       - name: Methodology coverage (presence + content)
         run: python scripts/wiki_check_methodology_coverage.py --check
       - name: Operation cockpit freshness (decisions/actions)

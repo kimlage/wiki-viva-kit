@@ -136,7 +136,7 @@ deterministic `cache_key` ([cache.py](../../../wiki_core/llm/cache.py)) from
 `source_hash | chunk_hash | prompt_version | schema_version | model_profile`,
 checks whether a result already exists in the cache and marks `result_exists`. The package gathers:
 the versioned prompt (`context_deep_read`), the `schema_version`
-(`wiki_llm_context_pass.v2`), the mandatory quadrants, the list of
+(`wiki_llm_context_pass.v3`), the mandatory quadrants, the list of
 `result_required_keys`, the text of each chunk and the count `pending_llm_calls`. The
 orchestrator writes this package as
 `<source_id>-llm-context-request.json` in
@@ -168,6 +168,12 @@ PR (step 8). [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.p
 with `--check` serves as a gate: it returns a non-zero exit while there is a pending chunk and
 `required_context_pass` (turned on in [wiki.config.yaml](../../../wiki.config.yaml))
 is active.
+
+When `--source` points to a repo-local source page, the CLI looks up its
+`source_config` through `config_ref` or matching `source_refs`. Any
+`perspectives_required` and `perspectives_optional` declared there are merged
+into the request automatically, so source-level reading contracts travel with
+the source instead of depending on the operator remembering flags.
 
 ```sh
 python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --emit-request

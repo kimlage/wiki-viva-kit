@@ -30,6 +30,7 @@ from wiki_core.ids import sha256_text
 from wiki_core.index.sqlite import search
 from wiki_core.llm import build_context_request, source_pending, write_result
 from wiki_core.paths import WikiPaths
+from wiki_core.source_config import find_source_config, merge_perspectives
 from wiki_core.source_manifest import build_manifest
 
 
@@ -172,8 +173,10 @@ def main() -> int:
     if args.source:
         manifest = build_manifest(args.source, args.context)
         chunks = _chunks_for_source(paths, str(manifest["source_id"]))
+        source_config = find_source_config(ROOT, config, args.source)
     else:
         manifest, chunks = _chunks_for_query(paths, args.query or "")
+        source_config = None
 
     pending = source_pending(manifest, chunks, paths.llm_cache, prompt_version, schema_version, model_profile)
 
@@ -188,6 +191,11 @@ def main() -> int:
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 1 if (required and pending > 0) else 0
 
+    perspectives_required, perspectives_optional = merge_perspectives(
+        source_config,
+        required=args.required_perspective,
+        optional=args.optional_perspective,
+    )
     request = build_context_request(
         manifest,
         chunks,
@@ -195,9 +203,12 @@ def main() -> int:
         prompt_version,
         schema_version,
         model_profile,
-        perspectives_required=args.required_perspective,
-        perspectives_optional=args.optional_perspective,
+        perspectives_required=perspectives_required,
+        perspectives_optional=perspectives_optional,
     )
+    if source_config:
+        request["source_config_ref"] = source_config["path"]
+        request["source_config_perspectives_applied"] = True
 
     if args.emit_request:
         out = paths.extraction_events / f"{request['source_id']}-llm-context-request.json"

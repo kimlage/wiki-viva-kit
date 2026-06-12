@@ -25,6 +25,26 @@ def test_load_page_type_registry(tmp_path: Path) -> None:
     assert "claim" in registry.page_types
 
 
+def test_repo_registry_has_critical_content_shapes() -> None:
+    registry = load_page_type_registry(Path(__file__).resolve().parents[1])
+    assert registry is not None
+    for page_type in (
+        "action",
+        "claim",
+        "context_note",
+        "decision",
+        "meeting",
+        "person",
+        "project",
+        "source",
+        "source_config",
+    ):
+        shape = registry.page_types[page_type]
+        assert shape.get("required_frontmatter")
+        assert shape.get("field_types")
+        assert shape.get("template")
+
+
 def test_template_coverage_requires_reason_for_none(tmp_path: Path) -> None:
     assert template_coverage_error(tmp_path, "x", {"template": "none"}) is not None
     assert template_coverage_error(

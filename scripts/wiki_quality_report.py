@@ -19,7 +19,7 @@ from wiki_core.config import load_config
 from wiki_core.quality import build_quality_report, render_markdown
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--format",
@@ -31,15 +31,27 @@ def main() -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="fail when bad repetition blocks exceed --max-bad-repetition",
+        help="fail when quality metrics exceed their configured thresholds",
     )
     parser.add_argument(
         "--max-bad-repetition",
         type=int,
-        default=0,
-        help="maximum same-context/same-type repetition blocks allowed under --check",
+        default=None,
+        help=(
+            "maximum same-context/same-type repetition blocks allowed under --check "
+            "(default: audit.quality_max_bad_repetition or 0)"
+        ),
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--max-low-density",
+        type=int,
+        default=None,
+        help=(
+            "maximum low-information-density pages allowed under --check "
+            "(default: audit.quality_max_low_density or 0)"
+        ),
+    )
+    args = parser.parse_args(argv)
 
     config = load_config(ROOT)
     report = build_quality_report(ROOT, config)
@@ -58,10 +70,45 @@ def main() -> int:
 
     if args.check:
         bad = int(report["summary"]["bad_repetition_blocks"])
-        if bad > args.max_bad_repetition:
+        low_density = int(report["summary"]["low_information_density_pages"])
+        missing_exemption_reason = int(
+            report["summary"].get("quality_exemption_missing_reason", 0)
+        )
+        try:
+            max_bad_repetition = int(
+                args.max_bad_repetition
+                if args.max_bad_repetition is not None
+                else config.audit.get("quality_max_bad_repetition", 0)
+            )
+            max_low_density = int(
+                args.max_low_density
+                if args.max_low_density is not None
+                else config.audit.get("quality_max_low_density", 0)
+            )
+        except (TypeError, ValueError):
+            print(
+                "wiki_quality_report: invalid quality threshold in args/config",
+                file=sys.stderr,
+            )
+            return 2
+        if bad > max_bad_repetition:
             print(
                 f"wiki_quality_report: bad_repetition_blocks={bad} "
-                f"> max_bad_repetition={args.max_bad_repetition}",
+                f"> max_bad_repetition={max_bad_repetition}",
+                file=sys.stderr,
+            )
+            return 1
+        if low_density > max_low_density:
+            print(
+                f"wiki_quality_report: low_information_density_pages={low_density} "
+                f"> max_low_density={max_low_density}",
+                file=sys.stderr,
+            )
+            return 1
+        if missing_exemption_reason:
+            print(
+                "wiki_quality_report: "
+                f"quality_exemption_missing_reason={missing_exemption_reason}",
                 file=sys.stderr,
             )
             return 1

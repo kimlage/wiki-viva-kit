@@ -1,5 +1,49 @@
 schema_version: wiki_page_types.v1
 page_types:
+  action:
+    template: docs/references/templates/wiki/action.md
+    allowed_dirs:
+      - memories/actions
+    required_frontmatter: &relation_required
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - source_refs
+    field_types: &relation_field_types
+      updated_at: date
+      stale_after_days: string
+      source_refs: list
+      evidence_refs: list
+      claims: list
+      decisions: list
+      actions: list
+  claim:
+    template: docs/references/templates/wiki/claim.md
+    allowed_dirs:
+      - memories/claims
+    required_frontmatter: *relation_required
+    field_types:
+      <<: *relation_field_types
+      perspectives_required: list
+      perspectives_optional: list
+  context_note:
+    template: none
+    template_none_reason: "Context notes vary by domain, but still need provenance frontmatter."
+    allowed_dirs:
+      - memories
+    required_frontmatter:
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+    field_types:
+      updated_at: date
+      stale_after_days: string
   dashboard:
     template: docs/references/templates/wiki/operation.md
     allowed_dirs:
@@ -14,6 +58,12 @@ page_types:
     field_types: &common_field_types
       updated_at: date
       stale_after_days: string
+  decision:
+    template: docs/references/templates/wiki/decision.md
+    allowed_dirs:
+      - memories/decisions
+    required_frontmatter: *relation_required
+    field_types: *relation_field_types
   ingestion_event:
     template: docs/references/templates/wiki/ingestion-event.md
     allowed_dirs:
@@ -42,6 +92,28 @@ page_types:
       - memories
     required_frontmatter: *common_required
     field_types: *common_field_types
+  meeting:
+    template: docs/references/templates/wiki/meeting.md
+    allowed_dirs:
+      - memories/meetings
+    required_frontmatter: *relation_required
+    field_types:
+      <<: *relation_field_types
+      participants: list
+  person:
+    template: docs/references/templates/wiki/person.md
+    allowed_dirs:
+      - memories/people
+    required_frontmatter: *relation_required
+    field_types:
+      <<: *relation_field_types
+      aliases: list
+  project:
+    template: docs/references/templates/wiki/project.md
+    allowed_dirs:
+      - memories/projects
+    required_frontmatter: *relation_required
+    field_types: *relation_field_types
   perspective:
     template: docs/references/templates/wiki/perspective.md
     allowed_dirs:
@@ -77,8 +149,17 @@ page_types:
     template: docs/references/templates/wiki/source.md
     allowed_dirs:
       - memories/sources
-    required_frontmatter: *common_required
-    field_types: *common_field_types
+    required_frontmatter:
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - source_type
+    field_types:
+      <<: *relation_field_types
+      source_type: string
   source_catalog:
     template: none
     template_none_reason: "Catalog pages are navigation or generated registries with local structure."
@@ -86,6 +167,17 @@ page_types:
       - memories
     required_frontmatter: *common_required
     field_types: *common_field_types
+  source_config:
+    template: docs/references/templates/wiki/source-config.md
+    allowed_dirs:
+      - memories/sources/config
+    required_frontmatter: *relation_required
+    field_types: *relation_field_types
+    required_sections:
+      - Ingestion rules
+      - Search rules
+      - Business rules
+      - Privacy boundaries
   source_registry:
     template: none
     template_none_reason: "The source registry is generated from source frontmatter."

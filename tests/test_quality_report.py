@@ -141,3 +141,112 @@ def test_quality_report_surfaces_unclosed_synthetic_event(tmp_path: Path) -> Non
     assert report["quality_flags"]["events_without_consolidated_into"] == [
         "memories/system/ingestion/events/2026-06-12-synthetic.md"
     ]
+
+
+def test_quality_report_counts_legacy_event_files_in_events_directory(tmp_path: Path) -> None:
+    _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", "- Ready.\n"))
+    _write(
+        tmp_path / "memories/system/ingestion/events/README.md",
+        _page(
+            "events-index",
+            "source_catalog",
+            "Events Index",
+            "- [Legacy](2026-06-12-legacy.md)\n",
+            context="system",
+        ),
+    )
+    _write(
+        tmp_path / "memories/system/ingestion/events/2026-06-12-legacy.md",
+        _page(
+            "event-legacy",
+            "source_catalog",
+            "Legacy Event",
+            "## Source\n\n- Synthetic legacy event.\n",
+            context="system",
+        ).replace(
+            "sensitive_data_policy: private_sensitive_allowed",
+            (
+                "sensitive_data_policy: private_sensitive_allowed\n"
+                "event_id: ingestion-2026-06-12-legacy\n"
+                "source_id: source-legacy\n"
+                "consolidated_into: []"
+            ),
+        ),
+    )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+
+    assert report["summary"]["ingestion_events"] == 1
+    assert report["summary"]["events_without_consolidated_into"] == 1
+    assert report["quality_flags"]["events_without_consolidated_into"] == [
+        "memories/system/ingestion/events/2026-06-12-legacy.md"
+    ]
+
+
+def test_quality_report_ignores_repetition_inside_event_pages(tmp_path: Path) -> None:
+    _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", "- Ready.\n"))
+    repeated = (
+        "Repeated integration resolution text that is intentionally preserved in "
+        "event pages as an audit trail rather than canonical page prose."
+    )
+    for idx in (1, 2):
+        _write(
+            tmp_path / f"memories/system/ingestion/events/2026-06-12-event-{idx}.md",
+            _page(
+                f"event-{idx}",
+                "source_catalog",
+                f"Event {idx}",
+                repeated,
+                context="system",
+            ).replace(
+                "sensitive_data_policy: private_sensitive_allowed",
+                (
+                    "sensitive_data_policy: private_sensitive_allowed\n"
+                    f"event_id: event-{idx}\n"
+                    f"source_id: source-{idx}\n"
+                    "consolidated_into:\n"
+                    "  - memories/index.md"
+                ),
+            ),
+        )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+
+    assert report["summary"]["bad_repetition_blocks"] == 0
+
+
+def test_quality_report_allows_justified_low_density_exemption(tmp_path: Path) -> None:
+    _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", "- Ready.\n"))
+    exempt = _page(
+        "role-a",
+        "role",
+        "Role A",
+        "Short structural atom.\n",
+    ).replace(
+        "sensitive_data_policy: private_sensitive_allowed",
+        (
+            "sensitive_data_policy: private_sensitive_allowed\n"
+            "quality_exempt:\n"
+            "  - low_density\n"
+            "quality_exempt_reason: structural atom linked from the ontology hub"
+        ),
+    )
+    missing_reason = _page(
+        "role-b",
+        "role",
+        "Role B",
+        "Short structural atom.\n",
+    ).replace(
+        "sensitive_data_policy: private_sensitive_allowed",
+        "sensitive_data_policy: private_sensitive_allowed\nquality_exempt:\n  - low_density",
+    )
+    _write(tmp_path / "memories/roles/a.md", exempt)
+    _write(tmp_path / "memories/roles/b.md", missing_reason)
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+
+    assert "memories/roles/a.md" not in report["quality_flags"]["low_information_density_pages"]
+    assert "memories/roles/b.md" not in report["quality_flags"]["low_information_density_pages"]
+    assert report["summary"]["quality_exempt_pages"] == 2
+    assert report["summary"]["quality_exemption_missing_reason"] == 1
+    assert report["quality_flags"]["quality_exemption_missing_reason"] == ["memories/roles/b.md"]
