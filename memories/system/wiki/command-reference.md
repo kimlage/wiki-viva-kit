@@ -354,6 +354,11 @@ consolidation-output matrix (actions, problems, claims, decisions, dense context
 notes and explicit non-ingestion outcomes) plus actions gated by pending
 decisions.
 
+For a cross-context consolidation round, pair the generated pass with the
+[operational-pass-closeout.md](../../../docs/references/templates/wiki/operational-pass-closeout.md)
+template. The closeout records requirement-by-requirement evidence and keeps
+unopened live sources visible as actions, decisions or blocked source rows.
+
 - (no flags): prints the operational pass to stdout.
 - `--write`: writes the configured page
   ([operational-pass.md](../operational-pass.md) in the default layout).

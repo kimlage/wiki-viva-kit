@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-06-12
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -40,6 +40,10 @@ For consolidation rounds, also compile the operational pass with
 materializes source freshness, action pressure, claims, decisions, output
 coverage, pending decision blockers and next steps by context in
 [operational-pass.md](../operational-pass.md).
+Close the round with the
+[operational-pass-closeout.md](../../../docs/references/templates/wiki/operational-pass-closeout.md)
+template when the work touched cross-context sources, actions or live-source
+boundaries.
 
 ## Overview of the loop
 
@@ -51,8 +55,10 @@ The operational day is a short and repeatable cycle:
 3. Decide what to touch (pending decisions, owner actions, queue, stale contexts).
 4. Work on a proposal branch (`wiki/<theme>`), never directly on the approved wiki.
 5. Run the local gates before opening the PR.
-6. Recompile the cockpit and operational pass, then open/update the PR.
-7. After the merge, the cockpit goes back to reflecting the approved wiki on the next compilation.
+6. Write the operational pass closeout when the round needs an auditable
+   boundary between completed consolidation and live-source work left open.
+7. Recompile the cockpit and operational pass, then open/update the PR.
+8. After the merge, the cockpit goes back to reflecting the approved wiki on the next compilation.
 
 ```mermaid
 flowchart LR
@@ -60,7 +66,8 @@ flowchart LR
     pass --> decide["Decide what to touch"]
     decide --> branch["Work on a proposal branch"]
     branch --> gates["Run the local gates"]
-    gates --> ship["Recompile cockpit + open PR"]
+    gates --> closeout["Write closeout if needed"]
+    closeout --> ship["Recompile cockpit + open PR"]
     ship --> merge["Merge (human gate)"]
     merge -. next day .-> cockpit
 ```
@@ -131,7 +138,22 @@ In short, what decides the day's focus: pending decisions (what unblocks),
 owner actions and queue (what to execute), stale contexts (what is aging) and
 the karma level (whether the curation is up to date).
 
-## 3. Work on a proposal branch
+## 3. Close a consolidation round without hiding live-source gaps
+
+The operational pass is a compilation, not a proof that every source was opened.
+When a round is driven by a plan, a source review or cross-context action
+cleanup, add a short closeout report from
+[operational-pass-closeout.md](../../../docs/references/templates/wiki/operational-pass-closeout.md).
+The closeout should map each requirement to evidence and explicitly list live
+sources left open because they require access, owner approval or current
+readback.
+
+This is the honesty rule for source/action consolidation: a live source that
+was not read does not disappear. It becomes a pending action, a pending decision,
+a blocked-source row or a no-ingestion entry with a reason. The memory hubs
+carry the synthesis; the closeout carries the audit trail.
+
+## 4. Work on a proposal branch
 
 Every wiki change happens on a proposal branch, with the `wiki/` prefix
 (defined as `branch_prefix` in [wiki.config.yaml](../../../wiki.config.yaml)).
@@ -148,7 +170,7 @@ When consolidating durable memory, first update the relevant context hub,
 then the related pages, then the root MOC if the map changed, and add
 an append-only entry to the system log.
 
-## 4. Run the gates before the PR
+## 5. Run the gates before the PR
 
 Before opening or finalizing any wiki PR, run the three local gates. They
 are the deterministic door that the human PR trusts. The details of each gate (what
@@ -192,7 +214,7 @@ pending items. The approval rules are in
 [wiki.config.yaml](../../../wiki.config.yaml) (`require_operation_update`,
 `require_log_update`).
 
-## 5. Recompile the cockpit
+## 6. Recompile the cockpit
 
 At the end of the round (and whenever memories/, decisions or actions change), recompile
 the cockpit and the operational pass so that they reflect the new state:
@@ -223,6 +245,7 @@ git switch -c wiki/<topic>                           # proposal branch
 python3 scripts/wiki_audit.py --check                # gate 1: structure/links/secrets
 python3 scripts/wiki_pr_summary.py                   # gate 2: PR summary + checklist
 git diff --check                                     # gate 3: diff hygiene
+# ... write a closeout report if this was a cross-context consolidation round ...
 python3 scripts/wiki_operation_compile.py --write    # recompile the cockpit
 python3 scripts/wiki_operational_pass.py --write     # recompile source/action/context pass
 # ... open/update the PR (human gate) ...

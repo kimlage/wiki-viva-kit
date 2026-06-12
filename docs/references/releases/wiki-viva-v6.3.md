@@ -15,7 +15,7 @@ sensitive_data_policy: private_sensitive_allowed
 
 Status: implemented in the open-source kit first.
 
-Runtime anchor: `wiki_core.__version__ = "6.3.3"`.
+Runtime anchor: `wiki_core.__version__ = "6.3.4"`.
 
 ## Included
 
@@ -53,6 +53,12 @@ Runtime anchor: `wiki_core.__version__ = "6.3.3"`.
   operational detail in the queue file: rows like ``- `action-id`
   (deadline...)`` and Markdown-linked queue rows now still compile into the
   pending queue instead of being silently skipped.
+- Patch v6.3.4 adds the reusable operational pass closeout pattern:
+  [operational-pass-closeout.md](../templates/wiki/operational-pass-closeout.md)
+  plus meta-wiki guidance in [daily-operation.md](../../../memories/system/wiki/daily-operation.md)
+  and [command-reference.md](../../../memories/system/wiki/command-reference.md).
+  The closeout makes the boundary explicit between completed consolidation and
+  live-source work that remains blocked by access, owner approval or readback.
 
 ## Why it matters
 

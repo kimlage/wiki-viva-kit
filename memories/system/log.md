@@ -81,6 +81,20 @@ Append-only record of changes in the [memories/](..) layer.
   [test_operation_compile.py](../../tests/test_operation_compile.py) covers the
   enriched queue-row formats.
 
+## [2026-06-12] System | Operational pass closeout template
+
+- Added
+  [operational-pass-closeout.md](../../docs/references/templates/wiki/operational-pass-closeout.md)
+  as the reusable report template for closing cross-context source/action
+  consolidation rounds.
+- [daily-operation.md](wiki/daily-operation.md) and
+  [command-reference.md](wiki/command-reference.md) now document the boundary:
+  the operational pass compiles source/action state, while the closeout proves
+  requirements and keeps unopened live sources visible as actions, decisions or
+  blocked-source rows.
+- Runtime anchor bumped to `wiki_core.__version__ = "6.3.4"`; no runtime
+  behavior changed beyond the version marker.
+
 ## [2026-06-12] System | Source configs feed deep-read perspectives
 
 - [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) now applies
