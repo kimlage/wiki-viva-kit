@@ -325,6 +325,48 @@ def test_build_context_request_marks_result_exists_and_counts_pending(tmp_path):
     assert pending == 1
 
 
+def test_build_context_request_includes_perspectives(tmp_path):
+    request = build_context_request(
+        {"source_id": "source-x", "hash_sha256": "deadbeef" * 8},
+        [
+            {
+                "chunk_id": "chunk-1",
+                "hash_sha256": sha256_text("chunk"),
+                "text": "text",
+            }
+        ],
+        tmp_path / "cache",
+        "v3",
+        "wiki_llm_context_pass.v3",
+        "deep_context",
+        perspectives_required=["perspective-technical"],
+        perspectives_optional=["perspective-project"],
+    )
+
+    assert request["context_pass_schema_version"] == "wiki_llm_context_pass.v3"
+    assert request["perspectives_required"] == ["perspective-technical"]
+    assert request["perspectives_optional"] == ["perspective-project"]
+    assert "perspectives" in request["result_required_keys"]
+
+
+def test_validate_result_v3_requires_perspective_status():
+    result = _complete_result()
+    result["schema_version"] = "wiki_llm_context_pass.v3"
+    result["perspectives_required"] = ["perspective-technical"]
+    assert "perspectives_not_object" in validate_result(result)
+
+    result["perspectives"] = {"perspective-technical": {"status": "not_applicable"}}
+    assert "perspective_missing_reason:perspective-technical" in validate_result(result)
+
+    result["perspectives"] = {
+        "perspective-technical": {
+            "status": "not_applicable",
+            "reason": "No technical content in this chunk.",
+        }
+    }
+    assert validate_result(result) == []
+
+
 # ---------------------------------------------------------------------------
 # source_manifest.build_manifest
 # ---------------------------------------------------------------------------

@@ -135,6 +135,46 @@ def test_entity_alias_map_drops_short_and_common_names():
     assert "index" not in aliases
 
 
+def test_duplicate_entity_canonical_name_errors(tmp_path, monkeypatch):
+    audit = _load_audit()
+    cfg = WikiConfig()
+    _write(
+        tmp_path / "memories/people/ana.md",
+        '---\npage_id: person-ana\npage_type: person\ntitle: "Person - Ana Souza"\n---\n# Ana Souza\n',
+    )
+    _write(
+        tmp_path / "memories/people/ana-souza.md",
+        "---\npage_id: person-ana-souza\npage_type: person\n---\n# Ana Souza\n",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "markdown_files",
+        lambda: ["memories/people/ana.md", "memories/people/ana-souza.md"],
+    )
+    audit.parse_frontmatter.cache_clear()
+    errors: list[str] = []
+    audit.audit_duplicate_entity_names(errors, cfg)
+    assert any("duplicate entity canonical name `ana souza`" in e for e in errors)
+
+
+def test_tracked_files_skip_deleted_paths(tmp_path, monkeypatch):
+    audit = _load_audit()
+    _write(tmp_path / "memories/people/ana.md", "# Ana\n")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+
+    def fake_git(args):
+        if args == ["ls-files"]:
+            return "memories/people/ana.md\nmemories/people/deleted.md"
+        if args == ["ls-files", "--others", "--exclude-standard"]:
+            return ""
+        return ""
+
+    monkeypatch.setattr(audit, "run_git", fake_git)
+    audit.tracked_files.cache_clear()
+    assert audit.tracked_files() == ["memories/people/ana.md"]
+
+
 # --------------------------------------------------------------------------- #
 # D. Source registry: deterministic + language-aware
 # --------------------------------------------------------------------------- #

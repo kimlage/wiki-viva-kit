@@ -46,6 +46,7 @@ flowchart TD
     Gates --> PR["PR governance"]
     PR --> Privacy["Privacy"]
     Gates --> Costs["Costs"]
+    Gates --> Quality["Quality report"]
     Daily --> Karma["Karma"]
     Daily --> Perception["Perceptive layer"]
     Ingest --> Commands["Command reference"]
@@ -67,12 +68,13 @@ flowchart TD
 | [daily-operation.md](daily-operation.md) | The daily loop: cockpit, resumption and gates before the PR. |
 | [ingestion-flow.md](ingestion-flow.md) | Source -> manifest -> chunks -> index -> LLM -> event -> consolidation. |
 | [gates-and-audit.md](gates-and-audit.md) | The honesty gates: audit, coverage, freshness, LLM pass. |
+| [perspectives/index.md](../perspectives/index.md) | Reusable viewpoints for perspective-aware deep reads. |
 | [privacy.md](privacy.md) | Two axes: PII free in private; secrets blocked always. |
 | [karma-gamification.md](karma-gamification.md) | 8-dimension karma as a by-product, without a leaderboard. |
 | [perceptual-layer-insight.md](perceptual-layer-insight.md) | Journal/map and the Information -> Insight cycle. |
 | [pr-governance.md](pr-governance.md) | Human gate by PR, review, split and status across two dimensions. |
 | [operation-costs.md](operation-costs.md) | Where the cost goes (agent session, human) and levers: Batches, model by profile, budget. |
-| [command-reference.md](command-reference.md) | Reference of all the `wiki_*` CLIs. |
+| [command-reference.md](command-reference.md) | Reference of all the `wiki_*` CLIs, including [wiki_quality_report.py](../../../scripts/wiki_quality_report.py). |
 
 ## Related method pages
 

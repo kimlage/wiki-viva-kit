@@ -116,6 +116,53 @@ def test_primary_pages_no_contexts_is_core_only(audit):
     assert not any("financeiro" in p or "memorias" in p for p in pages)
 
 
+def test_impact_ack_uses_configured_ledger_path(tmp_path, monkeypatch, audit):
+    ledger = tmp_path / "memorias/sistema/impact-acks.md"
+    ledger.parent.mkdir(parents=True)
+    ledger.write_text(
+        "- 2026-06-12 | alterada: memorias/a.md | afetada: memorias/b.md | "
+        "sem_impacto: frontmatter only\n",
+        encoding="utf-8",
+    )
+    config = WikiConfig(
+        paths={
+            **WikiConfig().paths,
+            "memory_root": "memorias",
+            "impact_acks_page": "memorias/sistema/impact-acks.md",
+        }
+    )
+
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+
+    assert audit._impact_ack_added(config, "memorias/b.md") is True
+
+
+def test_semantic_impact_text_ignores_link_targets_dates_and_reflow(audit):
+    old = """---
+page_id: kim
+updated_at: 2026-06-01
+---
+
+Atualizado em: 2026-06-01
+
+Kim aparece junto a Michelle, Marcelo, [Celso Fujisawa](old/celso.md) e IFC.
+"""
+    new = """---
+page_id: kim
+updated_at: 2026-06-12
+---
+
+Atualizado em: 2026-06-12
+
+Kim aparece junto a [Michelle](michelle.md), [Marcelo](marcelo.md),
+[Celso Fujisawa](celso-fujisawa.md) e IFC.
+"""
+    changed = new.replace("IFC.", "SmartFIB.")
+
+    assert audit._semantic_impact_text(old) == audit._semantic_impact_text(new)
+    assert audit._semantic_impact_text(old) != audit._semantic_impact_text(changed)
+
+
 # ---------------------------------------------------------------------------
 # parse_frontmatter
 # ---------------------------------------------------------------------------

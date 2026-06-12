@@ -33,5 +33,6 @@ or makes the absence explicit - the absence is a finding, not an empty field.
 
 ## Related
 
+- Example event: [2026-06-09-example.md](2026-06-09-example.md).
 - Proposals: [README.md](../README.md).
 - Template: [ingestion-event.md](../../../../docs/references/templates/wiki/ingestion-event.md).

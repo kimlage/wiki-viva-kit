@@ -81,6 +81,7 @@ gates. It is the place to start if you want to understand the system itself.
 | Ingestion process | [system/ingestion-process.md](system/ingestion-process.md) |
 | Wiki contract | [system/operational-wiki-contract.md](system/operational-wiki-contract.md) |
 | Page conventions (Mermaid + tables by default) | [obsidian-conventions.md](../docs/references/templates/wiki/obsidian-conventions.md) |
+| Docs vs. memory boundary | [system/docs-review.md](system/docs-review.md) |
 | Change log | [system/log.md](system/log.md) |
 | Method coverage | [system/methodology-coverage-v5.md](system/methodology-coverage-v5.md) |
 

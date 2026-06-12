@@ -39,7 +39,7 @@ llm:
   chunk_overlap_tokens: 150
   prompt_versions:
     manifest_review: v1
-    context_deep_read: v2
+    context_deep_read: v3
     quadrant_extraction: v1
     crm_relationships: v1
     operation_compile: v1
@@ -52,7 +52,45 @@ freshness:
   default: 30
   example: 30
 
+templates:
+  overlays_root: docs/references/templates/overlays
+  page_type_overrides:
+    perspective:
+      template: docs/references/templates/wiki/perspective.md
+      overlay: docs/references/templates/overlays/perspective-example.md
+
 audit:
+  orphan_check: true
+  reachability_check: true
+  reachability_root: memories/index.md
+  min_outbound_links: 1
+  mention_links_on_changed: error
+  impact_check: true
+  page_type_registry_check: true
+  perspective_coverage_check: true
+  impact_closure_check: true
+  orphan_exempt_types:
+    - root_index
+    - context_hub
+    - ontology_index
+    - dashboard
+    - system_log
+    - source_registry
+    - source_catalog
+    - coverage
+    - operational_rule
+    - ingestion_event
+  impact_exempt_types:
+    - root_index
+    - context_hub
+    - ontology_index
+    - dashboard
+    - system_log
+    - source_registry
+    - source_catalog
+    - coverage
+    - operational_rule
+    - ingestion_event
   # Freshness budget (biting gate): audit FAILS when total stale pages exceed
   # this cap. 0 disables. Tune per repo; a daily cron can reuse this gate.
   freshness_budget: 0

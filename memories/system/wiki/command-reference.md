@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-10
+updated_at: 2026-06-12
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Command reference
 
-Last updated: 2026-06-10.
+Last updated: 2026-06-12.
 
 This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
 
@@ -32,12 +32,16 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | CLI | Role | When to use |
 | --- | --- | --- |
 | [wiki_ingest.py](../../../scripts/wiki_ingest.py) | Orchestrates ingestion end to end | Ingest a source from scratch in a single command |
+| [wiki_new.py](../../../scripts/wiki_new.py) | Creates a typed page from the registry template | Start a page from `wiki.page-types.yaml` instead of a blank file |
+| [wiki_migration_inventory.py](../../../scripts/wiki_migration_inventory.py) | Inventories legacy pages and suggests v6.2 frontmatter | Plan a migration before manually editing existing memory pages |
 | [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py) | Creates the ingestion proposal (Markdown) | Open the private proposal that enters the gate |
 | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | Generates the deterministic source manifest | Record the identity/hash of an isolated source |
 | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extracts text and stable chunks | Prepare the chunks before the LLM pass |
 | [wiki_build_index.py](../../../scripts/wiki_build_index.py) | Builds/inspects the SQLite index | (Re)index chunks for FTS search |
 | [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) | Assembles the context package and records the result | Emit/check the LLM pass delegated to the agent |
 | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) | Consolidates the deep read into the wiki | Generate the event from the cache + integration packet; --check in CI |
+| [wiki_page_graph.py](../../../scripts/wiki_page_graph.py) | Builds/checks the page graph and impact set | Validate orphans, reachability, wanted pages and same-PR impact |
+| [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Reports quality and cost telemetry | Measure density, repetition, consolidation gaps and cache/token use without a hard budget gate |
 | [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) | Inspects the LLM cache and derived coverage | Diagnose the state of the derived artifacts |
 | [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) | Exports pending requests in the Batches API format | Run the deep read in batch (-50%), no LLM client |
 | [wiki_gc.py](../../../scripts/wiki_gc.py) | Garbage-collects orphan derived artifacts | Remove manifest/text/chunks of old source versions and prune the index |
@@ -85,6 +89,42 @@ Generates the Markdown file of the private proposal (in [memories/system/ingesti
 ```sh
 python3 scripts/wiki_new_ingest.py --source data/raw/example.pdf --context system
 python3 scripts/wiki_new_ingest.py --source X.md --context system --dry-run
+```
+
+### [wiki_new.py](../../../scripts/wiki_new.py) - creates a typed page
+
+Instantiates a page from [wiki.page-types.yaml](../../../wiki.page-types.yaml)
+and the resolved base template plus optional overlay. It refuses unknown types,
+adds template provenance (`template_id`, `template_version`, `template_ref` and
+optional `template_overlay`) and writes to the first allowed directory unless
+`--output` is provided.
+
+- `--type` (required): page type declared in the registry.
+- `--title` (required): title used for the slug and generated `page_id`.
+- `--context`: context slug (default from config).
+- `--output`: explicit repo-relative destination.
+- `--dry-run`: print without writing.
+
+```sh
+python3 scripts/wiki_new.py --type perspective --title "Technical perspective" --context system --dry-run
+python3 scripts/wiki_new.py --type perspective --title "Publication perspective" --context system
+```
+
+### [wiki_migration_inventory.py](../../../scripts/wiki_migration_inventory.py) - migration inventory
+
+Scans the configured memory root for Markdown pages without frontmatter and
+prints conservative v6.2 metadata suggestions. It never edits pages. Use it when
+adopting v6.2 in an existing wiki before adding frontmatter manually or via a
+reviewed patch. The migration guide is
+[wiki-viva-v6.2-migration.md](../../../docs/references/guides/wiki-viva-v6.2-migration.md).
+
+- `--format markdown|json`: output format, default `markdown`.
+- `--show-frontmatter`: also print suggested frontmatter blocks.
+
+```sh
+python3 scripts/wiki_migration_inventory.py
+python3 scripts/wiki_migration_inventory.py --show-frontmatter
+python3 scripts/wiki_migration_inventory.py --format json
 ```
 
 ### [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) - source manifest
@@ -161,6 +201,42 @@ python3 scripts/wiki_consolidate.py --source source-example-abc123def456 --emit-
 python3 scripts/wiki_consolidate.py --source source-example-abc123def456 --emit-event --source-page memories/sources/example.md --source-ref source-example
 python3 scripts/wiki_consolidate.py --all-pending
 python3 scripts/wiki_consolidate.py --check
+```
+
+### [wiki_page_graph.py](../../../scripts/wiki_page_graph.py) - page graph and impact
+
+Builds the derived page graph once and reuses it for deterministic checks:
+inbound/outbound links, aliases, wanted pages, orphan pages, reachability from
+the root MOC and impact caused by the current diff.
+
+- `--write`: writes [data/](../../../data/) under `derived/wiki/page-graph/page-graph.json`.
+- `--check`: exits non-zero when graph invariants fail.
+- `--impact`: prints changed memory pages and pages affected by them.
+- `--base`: optional Git base for impact; defaults to upstream, `origin/main` or `main`.
+
+```sh
+python3 scripts/wiki_page_graph.py --write
+python3 scripts/wiki_page_graph.py --check
+python3 scripts/wiki_page_graph.py --impact --base origin/main
+```
+
+### [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) - quality and cost telemetry
+
+Builds the v6.3 quality report. It measures information density, link density,
+same-context/same-type repetition, ingestion events without consolidation
+closure, estimated context tokens and cache reuse. Cost is telemetry for control
+and comparison; this command does not impose a hard budget.
+
+- `--format markdown|json`: output format, default `markdown`.
+- `--output`: write the report to a repo-relative path.
+- `--check`: fail only when bad repetition blocks exceed
+  `--max-bad-repetition`.
+- `--max-bad-repetition`: threshold for `--check`; cost never fails the check.
+
+```sh
+python3 scripts/wiki_quality_report.py
+python3 scripts/wiki_quality_report.py --format json
+python3 scripts/wiki_quality_report.py --check --max-bad-repetition 0
 ```
 
 ### [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) - cache/coverage inspection
@@ -256,7 +332,7 @@ These three typically run at commit and in CI; the complete semantics of gates a
 
 ### [wiki_audit.py](../../../scripts/wiki_audit.py) - contract auditor
 
-Audits the Markdown/Git wiki contract: required frontmatter, ontology relations, clickable local links (repo paths ONLY as Markdown links), absolute blocking of secrets in any versioned file, PII only at the public boundary, cockpit, ingestion events with quadrants, gate state, visibility promotion gate, LLM pass gate and log update. It is the same auditor that validates this page. For detailed rules, see [operational-wiki-contract.md](../operational-wiki-contract.md).
+Audits the Markdown/Git wiki contract: required frontmatter, ontology relations, clickable local links (repo paths ONLY as Markdown links), page graph invariants, same-PR impact closure, absolute blocking of secrets in any versioned file, PII only at the public boundary, cockpit, ingestion events with quadrants, gate state, visibility promotion gate, LLM pass gate and log update. It is the same auditor that validates this page. For detailed rules, see [operational-wiki-contract.md](../operational-wiki-contract.md).
 
 - (no flags): prints warnings/errors and the total.
 - `--check`: exit `1` if there are errors (use in CI).

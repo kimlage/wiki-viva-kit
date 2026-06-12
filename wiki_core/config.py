@@ -253,6 +253,12 @@ class WikiConfig:
     # key (optional) overrides per page type. Generators read this via
     # freshness_for(); localized repos pin their own contexts' windows.
     freshness: dict[str, int] = field(default_factory=lambda: {"default": 30})
+    templates: dict[str, Any] = field(
+        default_factory=lambda: {
+            "overlays_root": "docs/references/templates/overlays",
+            "page_type_overrides": {},
+        }
+    )
     audit: dict[str, Any] = field(
         default_factory=lambda: {
             # Pages every wiki repo must keep tracked (wiki_audit core gate).
@@ -317,6 +323,7 @@ def load_config(root: Path) -> WikiConfig:
             **WikiConfig().freshness,
             **{str(k): v for k, v in dict(raw.get("freshness", {})).items()},
         },
+        templates={**WikiConfig().templates, **dict(raw.get("templates", {}))},
         audit={**WikiConfig().audit, **dict(raw.get("audit", {}))},
     )
 

@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-06-10
+updated_at: 2026-06-12
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,57 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](..) layer.
+
+## [2026-06-12] System | v6.3 quality and cost telemetry
+
+- Runtime bumped to `wiki_core.__version__ = "6.3.0"` in
+  [wiki_core](../../wiki_core/__init__.py).
+- New deterministic quality module [quality.py](../../wiki_core/quality.py) and
+  CLI [wiki_quality_report.py](../../scripts/wiki_quality_report.py) report
+  information density, link density, same-context/same-type repetition,
+  consolidation gaps, estimated context tokens and cache reuse.
+- Cost is now visible as telemetry for control and comparison, but it is not a
+  hard budget gate.
+- Synthetic fixtures for the open-source pilot live in
+  [v63-quality-cost](../../docs/references/fixtures/v63-quality-cost/multiperspective-source.md)
+  and are linked from the v6.3 roadmap
+  [wiki-viva-v6.3-quality-cost-control-2026-06-12.md](../../docs/references/proposals/wiki-viva-v6.3-quality-cost-control-2026-06-12.md).
+- Command reference [command-reference.md](wiki/command-reference.md) now
+  documents the quality report CLI.
+
+## [2026-06-11] System | v6.2 page graph reachability baseline
+
+- Root MOC [index.md](../index.md) now links the docs/memory boundary review
+  [docs-review.md](docs-review.md), making the operational rule reachable from
+  the graph root.
+- Ingestion events catalog [README.md](ingestion/events/README.md) now links the
+  synthetic normalized event [2026-06-09-example.md](ingestion/events/2026-06-09-example.md),
+  so the v6.2 reachability gate has a connected baseline before new events land.
+- Page type registry [wiki.page-types.yaml](../../wiki.page-types.yaml) added
+  with shapes for the kit's current page types; [wiki_audit.py](../../scripts/wiki_audit.py)
+  now validates declared types, minimal frontmatter, field types, directories,
+  section contracts and template coverage. The example event gained a stable
+  `page_id` to satisfy the new ingestion-event shape.
+- Perspective-aware deep reads added: template
+  [perspective.md](../../docs/references/templates/wiki/perspective.md), registry
+  [perspectives/index.md](perspectives/index.md), baseline perspectives
+  [technical.md](perspectives/technical.md) and [project.md](perspectives/project.md),
+  prompt [context_deep_read.v3.md](../../wiki_core/llm/prompts/context_deep_read.v3.md)
+  and cache/request validation for `perspectives_required`.
+- Consolidation impact closure added: integration packets are now
+  `wiki_integration_packet.v2` with `impact.must_update`/`impact.should_review`;
+  generated events carry `affected_pages` and `impact_closure`; the auditor
+  blocks `must_update` entries that are not closed as updated, no-change with
+  reason or blocked with reason.
+- Template overlays added: [templates.py](../../wiki_core/templates.py) resolves
+  base template plus optional overlay, [wiki_new.py](../../scripts/wiki_new.py)
+  instantiates typed pages with `template_id`/`template_version`/`template_ref`,
+  and the kit ships generic overlay
+  [perspective-example.md](../../docs/references/templates/overlays/perspective-example.md).
+- Open-source v6.2 pilot metrics recorded in
+  [wiki-viva-v6.2-pilot-metrics-2026-06-11.md](../../docs/references/reports/wiki-viva-v6.2-pilot-metrics-2026-06-11.md):
+  synthetic source, 1 chunk, 2 required perspectives, 1 cache result, 0 pending
+  calls and 0 perspective coverage errors.
 
 ## [2026-06-10] System | v6.1: real consolidation (ingestion that integrates knowledge)
 
