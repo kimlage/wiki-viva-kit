@@ -49,7 +49,8 @@ STATE_PREFIX_RE = re.compile(r"^(?:Estado|State):\s*(.+?)\s*$")
 # Bilingual: H1 titles may carry "Decisao - " / "Decision - " / "Acao - " /
 # "Action - " prefixes; the cockpit tables list the bare title.
 TITLE_PREFIX_RE = re.compile(r"^(?:Decisao|Decision|Acao|Action)\s*-\s*")
-LIST_ITEM_RE = re.compile(r"^\s*-\s+`?([^`]+?)`?\s*$")
+LIST_ITEM_RE = re.compile(r"^\s*-\s+(.+?)\s*$")
+ACTION_ID_RE = re.compile(r"`([^`]+)`|\b((?:acao|action)-[A-Za-z0-9_.:-]+)\b")
 
 # Deterministic sections derived from the memory-tree content (independent of
 # date/git state): fine granularity, still used by per-section drift tests.
@@ -416,8 +417,11 @@ def pending_action_ids(paths: WikiPaths) -> list[str]:
         if not body_started:
             continue
         match = LIST_ITEM_RE.match(line)
-        if match:
-            ids.append(match.group(1).strip())
+        if not match:
+            continue
+        id_match = ACTION_ID_RE.search(match.group(1))
+        if id_match:
+            ids.append((id_match.group(1) or id_match.group(2)).strip())
     return ids
 
 

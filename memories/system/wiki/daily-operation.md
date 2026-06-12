@@ -108,7 +108,9 @@ assembles the cockpit in fixed sections. In the daily loop, read in this order:
 - Owner actions: table derived from the memory's action pages, with the state read from the
   body of each action (`State:`). It is the active work list.
 - Pending action queue: identifiers listed on the action pending page,
-  in the queue's priority order. It is the explicit "next in the queue".
+  in the queue's priority order. Queue rows may include detail after the
+  identifier, but the first `action-*`/`acao-*` id is what gets compiled. It is
+  the explicit "next in the queue".
 - Context vitality: for each context hub (memories/<ctx>/index.md
   of type `context_hub`), it compares `updated_at + stale_after_days` with today's
   date and marks `fresh` or `stale`. `stale` contexts are priority candidates

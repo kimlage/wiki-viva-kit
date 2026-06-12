@@ -138,7 +138,10 @@ def minimal_repo(tmp_path: Path) -> Path:
         "---\npage_id: acoes-pendentes\npage_type: ontology_index\ncontext: sistema\n"
         "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 14\n"
         "sources_policy: x\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n"
-        "# Acoes pendentes\n\n- `acao-primeira`\n- `acao-segunda`\n",
+        "# Acoes pendentes\n\n"
+        "- `acao-primeira`\n"
+        "- `acao-segunda` (deadline 2026-06-12)\n"
+        "- [action-terceira](terceira.md) - linked queue row\n",
     )
 
     # Context hubs: one fresh, one deliberately stale.
@@ -218,6 +221,7 @@ def test_build_page_lists_pending_action_ids(compile_mod, config, minimal_repo):
     page = compile_mod.build_page(minimal_repo, config)
     assert "`acao-primeira`" in page
     assert "`acao-segunda`" in page
+    assert "`action-terceira`" in page
     # The queue intro links the CONFIGURED pending file (placeholder filled
     # relative to the cockpit page's directory), not a hardcoded pt path.
     assert "[actions/pending.md](actions/pending.md)" in page

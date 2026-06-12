@@ -70,6 +70,17 @@ Append-only record of changes in the [memories/](..) layer.
   [test_operational_pass.py](../../tests/test_operational_pass.py) covers the
   new matrix, JSON payload and decision/action blocker table.
 
+## [2026-06-12] System | Cockpit keeps enriched pending queues compilable
+
+- [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now
+  accepts operational detail after a pending action id and Markdown-linked queue
+  rows when compiling the daily cockpit.
+- This lets the queue page carry deadlines, blockers and context without making
+  the cockpit silently omit actions from the generated pending-action list.
+- Runtime anchor bumped to `wiki_core.__version__ = "6.3.3"` and
+  [test_operation_compile.py](../../tests/test_operation_compile.py) covers the
+  enriched queue-row formats.
+
 ## [2026-06-12] System | Source configs feed deep-read perspectives
 
 - [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) now applies

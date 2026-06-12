@@ -334,6 +334,9 @@ Compiles the operational cockpit [memories/operations.md](../../operations.md) f
 - (no flags): prints the cockpit to stdout.
 - `--write`: writes to [memories/operations.md](../../operations.md) and records a score-event idempotent per day.
 - `--check`: fails if the deterministic content diverges from the one recompiled at HEAD.
+- Pending-action queue rows can carry operational detail after the first
+  `action-*` or `acao-*` id; the compiler still extracts the id for the
+  generated cockpit.
 
 ```sh
 python3 scripts/wiki_operation_compile.py --write

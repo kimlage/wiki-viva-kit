@@ -15,7 +15,7 @@ sensitive_data_policy: private_sensitive_allowed
 
 Status: implemented in the open-source kit first.
 
-Runtime anchor: `wiki_core.__version__ = "6.3.2"`.
+Runtime anchor: `wiki_core.__version__ = "6.3.3"`.
 
 ## Included
 
@@ -49,6 +49,10 @@ Runtime anchor: `wiki_core.__version__ = "6.3.2"`.
   decision/action blocking table, so a source review exposes which contexts
   still need actions, problems, claims, decisions, dense context notes or an
   explicit non-ingestion outcome.
+- Patch v6.3.3 makes the daily cockpit pending-action parser tolerant of
+  operational detail in the queue file: rows like ``- `action-id`
+  (deadline...)`` and Markdown-linked queue rows now still compile into the
+  pending queue instead of being silently skipped.
 
 ## Why it matters
 
