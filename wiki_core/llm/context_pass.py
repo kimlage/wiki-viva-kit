@@ -19,7 +19,7 @@ from pathlib import Path
 
 from wiki_core.llm.cache import cache_key
 
-CONTEXT_PASS_SCHEMA_VERSION = "wiki_llm_context_pass.v2"
+CONTEXT_PASS_SCHEMA_VERSION = "wiki_llm_context_pass.v3"
 
 # cache_key is always a sha256 hex digest (wiki_core.llm.cache.cache_key) and is
 # used as a FILENAME in the cache dir: anything else is rejected to block path
@@ -50,6 +50,14 @@ RESULT_REQUIRED_KEYS = [
     "relationships",
     "sensitivity",
 ]
+
+PERSPECTIVE_STATUSES = {
+    "extracted",
+    "not_applicable",
+    "pending",
+    "blocked",
+    "skipped_with_reason",
+}
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
 
@@ -93,6 +101,24 @@ def validate_result(result: dict[str, object]) -> list[str]:
     sensitivity = result.get("sensitivity")
     if not isinstance(sensitivity, dict) or "has_pii" not in sensitivity:
         errors.append("sensitivity_missing_has_pii")
+    schema_version = str(result.get("schema_version") or "")
+    required_perspectives = result.get("perspectives_required") or []
+    if schema_version.endswith(".v3") or required_perspectives:
+        perspectives = result.get("perspectives")
+        if not isinstance(perspectives, dict):
+            errors.append("perspectives_not_object")
+        else:
+            for perspective_id in required_perspectives if isinstance(required_perspectives, list) else []:
+                block = perspectives.get(str(perspective_id))
+                if not isinstance(block, dict):
+                    errors.append(f"perspective_missing:{perspective_id}")
+                    continue
+                status = str(block.get("status") or "")
+                if status not in PERSPECTIVE_STATUSES:
+                    errors.append(f"perspective_invalid_status:{perspective_id}")
+                if status in {"not_applicable", "blocked", "skipped_with_reason"}:
+                    if not str(block.get("reason") or "").strip():
+                        errors.append(f"perspective_missing_reason:{perspective_id}")
     return errors
 
 
@@ -129,10 +155,14 @@ def build_context_request(
     *,
     prompt_name: str = "context_deep_read",
     quadrants: list[str] | None = None,
+    perspectives_required: list[str] | None = None,
+    perspectives_optional: list[str] | None = None,
 ) -> dict[str, object]:
     """Assemble the packet that the repo agent executes. Includes the chunk text,
     the versioned prompt, the output schema and the per-chunk cache status."""
     quadrants = quadrants or DEFAULT_QUADRANTS
+    perspectives_required = perspectives_required or []
+    perspectives_optional = perspectives_optional or []
     source_hash = _source_hash(manifest)  # packet metadata (not part of the cache_key)
     prompt_text = load_prompt(prompt_name, prompt_version)
     rows: list[dict[str, object]] = []
@@ -156,6 +186,9 @@ def build_context_request(
                 "result_exists": existing is not None,
             }
         )
+    result_required_keys = list(RESULT_REQUIRED_KEYS)
+    if perspectives_required:
+        result_required_keys.append("perspectives")
     return {
         "kind": "llm_context_request",
         "schema_version": schema_version,
@@ -166,7 +199,9 @@ def build_context_request(
         "prompt_version": prompt_version,
         "model_profile": model_profile,
         "quadrants_required": quadrants,
-        "result_required_keys": RESULT_REQUIRED_KEYS,
+        "perspectives_required": perspectives_required,
+        "perspectives_optional": perspectives_optional,
+        "result_required_keys": result_required_keys,
         "prompt": prompt_text,
         "chunks": rows,
         "pending_llm_calls": pending,

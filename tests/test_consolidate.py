@@ -114,6 +114,8 @@ def test_event_markdown_is_specific_never_placeholder(repo, language, forbidden)
     assert "Ana wants the migration" in md          # real content from the cache
     assert f"source_id: {SOURCE_ID}" in md           # gate hook
     assert "consolidated_into: []" in md             # integration to close
+    assert "affected_pages: {must_update: [], should_review: []}" in md
+    assert "impact_closure:" in md
     assert "| Tight window" not in md                # risks are bullets, not table rows
 
 
@@ -152,10 +154,12 @@ def test_packet_finds_entity_pages_and_claim_overlaps(repo):
     )
     agg = aggregate_results(request, paths.llm_cache)
     packet = build_packet(agg, tmp, cfg, paths)
+    assert packet["schema_version"] == "wiki_integration_packet.v2"
     ana = next(e for e in packet["entities"] if e["entity"] == "Ana Souza")
     assert ana["pages"] and ana["pages"][0]["page_id"] == "person-ana"
     assert packet["claims"][0]["overlapping_claims"], "claim overlap should be detected"
     assert packet["claims"][0]["potential_conflict"] is True
+    assert "memories/people/ana.md" in packet["impact"]["should_review"]
 
 
 # --------------------------------------------------------------------------- #
@@ -244,6 +248,51 @@ def test_claims_cannot_be_skipped_silently(tmp_path, monkeypatch):
     errors, warnings = [], []
     audit.audit_consolidation(errors, warnings, cfg)
     assert any("claim breakdown cannot be skipped" in e for e in errors)
+
+
+def test_audit_impact_closure_requires_closure_and_reason(tmp_path, monkeypatch):
+    audit = _load_audit()
+    cfg = WikiConfig(audit={**WikiConfig().audit, "impact_closure_check": True})
+    events = tmp_path / "memories/system/ingestion/events"
+    events.mkdir(parents=True)
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+
+    event = events / "e1.md"
+    event.write_text(
+        "---\n"
+        "page_id: event-x\n"
+        "affected_pages:\n"
+        "  must_update:\n"
+        "    - memories/projects/x.md\n"
+        "impact_closure:\n"
+        "  updated: []\n"
+        "  no_change: []\n"
+        "  blocked: []\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    errors: list[str] = []
+    audit.audit_impact_closure(errors, cfg)
+    assert any("not closed" in error for error in errors)
+
+    event.write_text(
+        "---\n"
+        "page_id: event-x\n"
+        "affected_pages:\n"
+        "  must_update:\n"
+        "    - memories/projects/x.md\n"
+        "impact_closure:\n"
+        "  updated: []\n"
+        "  no_change:\n"
+        "    - page: memories/projects/x.md\n"
+        "      reason: duplicate of existing status\n"
+        "  blocked: []\n"
+        "---\n",
+        encoding="utf-8",
+    )
+    errors = []
+    audit.audit_impact_closure(errors, cfg)
+    assert errors == []
 
 
 # --------------------------------------------------------------------------- #

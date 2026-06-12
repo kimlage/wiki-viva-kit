@@ -37,7 +37,7 @@ from wiki_core.paths import WikiPaths
 
 REQUEST_SUFFIX = "-llm-context-request.json"
 PACKET_SUFFIX = "-integration-packet.json"
-PACKET_SCHEMA_VERSION = "wiki_integration_packet.v1"
+PACKET_SCHEMA_VERSION = "wiki_integration_packet.v2"
 
 # Output strings per language (generated event; drives config.language).
 CONSOLIDATE_STRINGS: dict[str, dict[str, str]] = {
@@ -254,6 +254,7 @@ def build_event_markdown(
     risk_level: str = "medium",
     event_dir: Path | None = None,
     root: Path | None = None,
+    impact: dict[str, object] | None = None,
 ) -> str:
     """The normalized event, generated from the recorded deep read."""
     s = _strings(config.language)
@@ -262,6 +263,9 @@ def build_event_markdown(
     name = f"{date.isoformat()}-{slug}"
     quadrants = aggregated.get("quadrants") or {}
     confidence = aggregated.get("quadrant_confidence") or {}
+    impact = impact or {}
+    must_update = [str(p) for p in impact.get("must_update") or []]
+    should_review = [str(p) for p in impact.get("should_review") or []]
 
     def q_row(label: str, key: str) -> str:
         content = str(quadrants.get(key) or "").replace("|", "\\|").replace("\n", " ").strip()
@@ -330,6 +334,28 @@ def build_event_markdown(
             "requires_gate: true",
             "target_pages: []",
             "consolidated_into: []",
+        ]
+    )
+    if must_update or should_review:
+        fm.append("affected_pages:")
+        if must_update:
+            fm.append("  must_update:")
+            fm.extend(f"    - {page}" for page in must_update)
+        else:
+            fm.append("  must_update: []")
+        if should_review:
+            fm.append("  should_review:")
+            fm.extend(f"    - {page}" for page in should_review)
+        else:
+            fm.append("  should_review: []")
+    else:
+        fm.append("affected_pages: {must_update: [], should_review: []}")
+    fm.extend(
+        [
+            "impact_closure:",
+            "  updated: []",
+            "  no_change: []",
+            "  blocked: []",
             "---",
         ]
     )
@@ -467,10 +493,36 @@ def build_packet(
             }
         )
 
+    should_review = sorted(
+        {
+            str(page["rel"])
+            for row in entity_matches
+            for page in row.get("pages", [])
+            if isinstance(page, dict) and page.get("rel")
+        }
+        | {
+            str(page["rel"])
+            for row in claim_rows
+            for page in row.get("overlapping_claims", [])
+            if isinstance(page, dict) and page.get("rel")
+        }
+    )
+    must_update = sorted(
+        {
+            str(meta["rel"])
+            for meta in catalog.values()
+            if str(aggregated.get("source_id") or "") in (meta.get("source_refs") or [])
+        }
+    )
+
     return {
         "kind": "wiki_integration_packet",
         "schema_version": PACKET_SCHEMA_VERSION,
         "source_id": aggregated.get("source_id"),
+        "impact": {
+            "must_update": must_update,
+            "should_review": [page for page in should_review if page not in must_update],
+        },
         "claims": claim_rows,
         "entities": entity_matches,
         "uncertainties": aggregated.get("uncertainties") or [],

@@ -11,8 +11,11 @@ import json
 import re
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlparse
+
+import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +24,13 @@ sys.path.insert(0, str(ROOT))
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.detectors import scan_file
 from wiki_core.gate import STATES as GATE_STATES
+from wiki_core.graph import build_page_graph, compute_impact, min_outbound_violations, orphan_pages, unreachable_pages
+from wiki_core.page_types import (
+    PAGE_TYPES_SCHEMA_VERSION,
+    load_page_type_registry,
+    template_coverage_error,
+    validate_shape,
+)
 from wiki_core.paths import WikiPaths
 
 REQUIRED_KEYS = {
@@ -173,12 +183,21 @@ def build_local_path_regexes(config: WikiConfig) -> None:
 build_local_path_regexes(load_config(ROOT))
 
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+MARKDOWN_LINK_LABEL_RE = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 INLINE_CODE_RE = re.compile(r"`[^`\n]+`")
 # Fixed: stops at the first space/boundary (the old version swallowed the
 # following prose with the space inside the character class, making the check inert).
 ABSOLUTE_USER_PATH_RE = re.compile(r"/Users/[A-Za-z0-9._-]+/[^\s)\]]+")
 # A traversal disguised as relative that climbs up to the author's home (e.g. ../../../../Downloads/...).
 HOME_TRAVERSAL_RE = re.compile(r"(?:\.\./){2,}[^\s)\]]*Downloads[^\s)\]]*")
+IMPACT_METADATA_FRONTMATTER_RE = re.compile(
+    r"^\s*(updated_at|last_updated|date_modified|modified_at):\s*.+$",
+    re.IGNORECASE,
+)
+IMPACT_METADATA_BODY_RE = re.compile(
+    r"^\s*(Atualizado em|Last updated|Updated at):\s*.+$",
+    re.IGNORECASE,
+)
 
 TEXT_SCAN_SUFFIXES = {".md", ".py", ".yaml", ".yml", ".json", ".txt", ".csv", ".toml", ".ini", ".cfg", ".sh"}
 # Files that legitimately contain example secret patterns (fixtures, detector).
@@ -215,11 +234,18 @@ ENTITY_PAGE_TYPES = {
     "project", "initiative", "claim", "insight", "action", "timeline",
     "evidence", "assignment", "meeting", "external_card", "calendar_event",
 }
+ENTITY_CANONICAL_NAME_PAGE_TYPES = ENTITY_PAGE_TYPES - {
+    "action", "timeline", "evidence", "assignment",
+}
 MENTION_MIN_ALIAS_LEN = 4
 MENTION_COMMON_WORDS = {
     "index", "source", "memory", "memoria", "memorias", "note", "page", "pages",
     "status", "gate", "owner", "system", "sistema", "context", "contexto",
 }
+ENTITY_TITLE_PREFIX_RE = re.compile(
+    r"^(?:pessoa|person|fonte|source|projeto|project|claim|decisao|decision)\s*-\s*",
+    re.IGNORECASE,
+)
 
 # Strict local mode (--strict-local): requires links to derived/raw artifacts
 # (gitignored) to actually exist on disk. Default False for clean clone/CI.
@@ -233,9 +259,90 @@ LIST_STALE_GAPS = False
 
 def run_git(args: list[str]) -> str:
     try:
-        return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
+        return subprocess.check_output(
+            ["git", *args],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip()
     except subprocess.CalledProcessError:
         return ""
+
+
+def changed_paths_for_audit() -> set[str]:
+    """Current diff against the likely PR base plus working tree changes."""
+    changed: set[str] = set()
+    for base in ("origin/main", "main"):
+        if run_git(["rev-parse", "--verify", "--quiet", base]):
+            changed.update(run_git(["diff", "--name-only", f"{base}...HEAD"]).splitlines())
+            break
+    changed.update(run_git(["diff", "--name-only"]).splitlines())
+    changed.update(run_git(["diff", "--cached", "--name-only"]).splitlines())
+    return {path for path in changed if path}
+
+
+@functools.lru_cache(maxsize=1)
+def _audit_base_ref() -> str | None:
+    for base in ("origin/main", "main"):
+        if run_git(["rev-parse", "--verify", "--quiet", base]):
+            return base
+    return None
+
+
+@functools.lru_cache(maxsize=None)
+def _text_at_audit_base(rel: str) -> str | None:
+    base = _audit_base_ref()
+    if not base:
+        return None
+    if rel not in run_git(["ls-tree", "-r", "--name-only", base, "--", rel]).splitlines():
+        return None
+    return run_git(["show", f"{base}:{rel}"])
+
+
+def _semantic_impact_text(text: str) -> str:
+    """Text used by impact propagation.
+
+    Impact review is about downstream meaning. Link retargeting, date stamps and
+    markdown reflow are validated elsewhere, so they should not force every
+    backlink to be re-reviewed.
+    """
+    normalized: list[str] = []
+    in_frontmatter = False
+    for index, line in enumerate(text.splitlines()):
+        if index == 0 and line.strip() == "---":
+            in_frontmatter = True
+            continue
+        if in_frontmatter and line.strip() == "---":
+            in_frontmatter = False
+            continue
+        if in_frontmatter and IMPACT_METADATA_FRONTMATTER_RE.match(line):
+            continue
+        if IMPACT_METADATA_BODY_RE.match(line):
+            continue
+        normalized.append(MARKDOWN_LINK_LABEL_RE.sub(lambda match: match.group(1), line))
+    return re.sub(r"\s+", " ", "\n".join(normalized)).strip()
+
+
+def _link_or_metadata_only_change(rel: str) -> bool:
+    if not rel.endswith(".md"):
+        return False
+    current = ROOT / rel
+    if not current.exists():
+        return False
+    previous = _text_at_audit_base(rel)
+    if previous is None:
+        return False
+    return _semantic_impact_text(previous) == _semantic_impact_text(
+        current.read_text(encoding="utf-8", errors="replace")
+    )
+
+
+def _impact_relevant_changed_paths() -> set[str]:
+    return {
+        rel
+        for rel in changed_paths_for_audit()
+        if not _link_or_metadata_only_change(rel)
+    }
 
 
 @functools.lru_cache(maxsize=1)
@@ -245,7 +352,8 @@ def tracked_files() -> list[str]:
     # The file set does not change during a run; main() clears the cache.
     tracked = run_git(["ls-files"])
     untracked = run_git(["ls-files", "--others", "--exclude-standard"])
-    return sorted({line for output in (tracked, untracked) for line in output.splitlines() if line})
+    candidates = {line for output in (tracked, untracked) for line in output.splitlines() if line}
+    return sorted(rel for rel in candidates if (ROOT / rel).exists())
 
 
 def markdown_files() -> list[str]:
@@ -322,6 +430,20 @@ def parse_frontmatter(path: Path) -> tuple[dict[str, object], list[str]]:
     if missing:
         errors.append("missing keys: " + ", ".join(missing))
     return values, errors
+
+
+def parse_yaml_frontmatter(path: Path) -> dict[str, object]:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if not text.startswith("---\n"):
+        return {}
+    end = text.find("\n---", 4)
+    if end == -1:
+        return {}
+    try:
+        data = yaml.safe_load(text[4:end])
+    except yaml.YAMLError:
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def list_values(values: dict[str, object], key: str) -> list[str]:
@@ -681,7 +803,7 @@ LEGACY_DOCS_MARKERS = ("docs/2026", "docs/memorias", "docs/memories")
 
 def audit_old_paths(errors: list[str], config: WikiConfig) -> None:
     allowed = {str(rel) for rel in (config.audit.get("allowed_old_path_references") or ())}
-    for rel in [line for line in run_git(["ls-files"]).splitlines() if line]:
+    for rel in tracked_files():
         if rel.startswith(LEGACY_DOCS_PREFIXES):
             errors.append(f"{rel}: old docs path is still tracked")
         if not rel.endswith(".md"):
@@ -800,14 +922,76 @@ def _entity_alias_map(
     return out
 
 
-def audit_entity_mention_links(warnings: list[str], config: WikiConfig) -> None:
-    """WARN when a known entity's name appears in another memory page's prose
-    without a Markdown link to it. The goal is a connected wiki (info WITH links);
-    warn-only so common-name false positives never block a PR."""
+def _first_markdown_heading(path: Path) -> str:
+    for _lineno, line in body_lines_without_frontmatter(path.read_text(encoding="utf-8", errors="replace")):
+        stripped = line.strip()
+        if stripped.startswith("# "):
+            return stripped[2:].strip()
+    return ""
+
+
+def _canonical_entity_name(value: str) -> str:
+    value = ENTITY_TITLE_PREFIX_RE.sub("", value.strip())
+    value = unicodedata.normalize("NFKD", value)
+    value = "".join(ch for ch in value if not unicodedata.combining(ch))
+    value = re.sub(r"[^\w\s-]", " ", value, flags=re.UNICODE)
+    value = re.sub(r"[_\s-]+", " ", value).strip().lower()
+    return value
+
+
+def _entity_identity_names(rel: str, values: dict[str, object]) -> list[str]:
+    names: list[str] = []
+    title = values.get("title")
+    if isinstance(title, str):
+        names.append(title)
+    names.extend(list_values(values, "aliases"))
+    heading = _first_markdown_heading(ROOT / rel)
+    if heading:
+        names.append(heading)
+    return names
+
+
+def audit_duplicate_entity_names(errors: list[str], config: WikiConfig) -> None:
+    """Block duplicate canonical entity pages.
+
+    Broken navigation is not always a missing file: two person/project/source
+    pages can both resolve while splitting the same real entity. This gate keeps
+    the entity graph canonical by failing on repeated normalized names.
+    """
+    seen: dict[str, dict[str, str]] = {}
+    catalog = page_catalog(errors, config)
+    for _page_id, (rel, values) in catalog.items():
+        page_type = str(values.get("page_type", ""))
+        if page_type not in ENTITY_CANONICAL_NAME_PAGE_TYPES:
+            continue
+        for display in _entity_identity_names(rel, values):
+            canonical = _canonical_entity_name(display)
+            if len(canonical) < MENTION_MIN_ALIAS_LEN or canonical in MENTION_COMMON_WORDS:
+                continue
+            seen.setdefault(canonical, {}).setdefault(rel, display.strip())
+    for canonical, by_rel in sorted(seen.items()):
+        if len(by_rel) < 2:
+            continue
+        locations = ", ".join(
+            f"{rel} (`{display}`)" for rel, display in sorted(by_rel.items())
+        )
+        errors.append(f"duplicate entity canonical name `{canonical}`: {locations}")
+
+
+def audit_entity_mention_links(
+    warnings: list[str], config: WikiConfig, errors: list[str] | None = None
+) -> None:
+    """Warn on legacy unlinked entity mentions, and optionally error on regressions.
+
+    `audit.mention_links_on_changed: error` escalates only for pages touched in the
+    current diff; old stock remains warning-only to avoid gate fatigue.
+    """
     prefix = memory_prefix(config)
     alias_map = _entity_alias_map(page_catalog([], config), config)
     if not alias_map:
         return
+    changed = changed_paths_for_audit()
+    escalate_changed = str(config.audit.get("mention_links_on_changed", "warning")) == "error"
     pattern = re.compile(
         r"(?<![\w-])(" + "|".join(re.escape(a) for a in sorted(alias_map, key=len, reverse=True)) + r")(?![\w-])",
         re.IGNORECASE,
@@ -826,7 +1010,144 @@ def audit_entity_mention_links(warnings: list[str], config: WikiConfig) -> None:
                 found.setdefault(display, target_rel)
         if found:
             items = ", ".join(f"{name} ({target})" for name, target in sorted(found.items()))
-            warnings.append(f"{rel}: names known entities without a link: {items}")
+            message = f"{rel}: names known entities without a link: {items}"
+            values, _ = parse_frontmatter(ROOT / rel)
+            page_type = str(values.get("page_type") or "")
+            if errors is not None and escalate_changed and rel in changed and page_type != "system_log":
+                errors.append(message)
+            else:
+                warnings.append(message)
+
+
+def audit_page_graph(errors: list[str], warnings: list[str], config: WikiConfig) -> None:
+    graph = build_page_graph(ROOT, config)
+    audit_config = config.audit
+    if audit_config.get("orphan_check", False):
+        extra_exempt = set(audit_config.get("orphan_exempt_types") or [])
+        for rel in orphan_pages(graph, extra_exempt):
+            errors.append(f"{rel}: orphan memory page (no inbound body/frontmatter link)")
+    if audit_config.get("reachability_check", False):
+        root_page = str(
+            audit_config.get("reachability_root")
+            or f"{memory_prefix(config).rstrip('/')}/index.md"
+        )
+        for rel in unreachable_pages(graph, root_page):
+            errors.append(f"{rel}: unreachable from {root_page}")
+    try:
+        minimum = int(str(audit_config.get("min_outbound_links", 0) or 0))
+    except ValueError:
+        errors.append("config: audit.min_outbound_links invalid (integer expected)")
+        minimum = 0
+    if minimum > 0:
+        extra_exempt = set(audit_config.get("orphan_exempt_types") or [])
+        for rel in min_outbound_violations(graph, minimum=minimum, exempt_types=extra_exempt):
+            warnings.append(f"{rel}: fewer than {minimum} outbound graph links")
+
+
+def _added_lines_for_path(rel: str) -> list[str]:
+    lines: list[str] = []
+    for args in (
+        ["diff", "--unified=0", "--", rel],
+        ["diff", "--cached", "--unified=0", "--", rel],
+        ["diff", "--unified=0", "main...HEAD", "--", rel],
+    ):
+        for line in run_git(args).splitlines():
+            if line.startswith("+") and not line.startswith("+++"):
+                lines.append(line[1:])
+    return lines
+
+
+def _impact_ack_added(config: WikiConfig, affected_rel: str) -> bool:
+    ledger = ROOT / str(config.paths.get("impact_acks_page") or "")
+    if not str(config.paths.get("impact_acks_page") or "").strip():
+        ledger = wiki_paths(config).ingest_dir / "impact-acks.md"
+    try:
+        ledger_rel = ledger.relative_to(ROOT).as_posix()
+    except ValueError:
+        return False
+    tracked = bool(run_git(["ls-files", "--error-unmatch", ledger_rel]))
+    if not ledger.exists() and not tracked:
+        return False
+    lines = (
+        ledger.read_text(encoding="utf-8", errors="replace").splitlines()
+        if ledger.exists() and not tracked
+        else _added_lines_for_path(ledger_rel)
+    )
+    for line in lines:
+        low = line.lower()
+        if affected_rel not in line:
+            continue
+        if ("afetada:" in low or "affected:" in low) and (
+            "sem_impacto:" in low or "no_change:" in low or "reason:" in low
+        ):
+            return True
+    return False
+
+
+def audit_impact(errors: list[str], config: WikiConfig) -> None:
+    if not config.audit.get("impact_check", False):
+        return
+    graph = build_page_graph(ROOT, config)
+    changed_all = changed_paths_for_audit()
+    changed = _impact_relevant_changed_paths()
+    result = compute_impact(
+        graph,
+        changed,
+        exempt_types=set(config.audit.get("impact_exempt_types") or []),
+    )
+    if not result.changed_pages:
+        return
+    for affected in result.affected_pages:
+        if affected in changed_all:
+            continue
+        if _impact_ack_added(config, affected):
+            continue
+        refs = ", ".join(result.references.get(affected, ()))
+        errors.append(
+            f"{affected}: impacted by changed page(s) {refs}; update it in this diff "
+            "or add a new reasoned line to the impact ack ledger"
+        )
+
+
+def audit_page_type_registry(errors: list[str], config: WikiConfig) -> None:
+    if not config.audit.get("page_type_registry_check", False):
+        return
+    registry = load_page_type_registry(ROOT)
+    if registry is None:
+        errors.append("wiki.page-types.yaml: missing page type registry")
+        return
+    if registry.schema_version != PAGE_TYPES_SCHEMA_VERSION:
+        errors.append(
+            f"{registry.path.relative_to(ROOT).as_posix()}: schema_version must be "
+            f"{PAGE_TYPES_SCHEMA_VERSION}"
+        )
+    for page_type, shape in sorted(registry.page_types.items()):
+        error = template_coverage_error(ROOT, page_type, shape)
+        if error:
+            errors.append(f"{registry.path.relative_to(ROOT).as_posix()}: {error}")
+
+    prefix = memory_prefix(config)
+    used_types: set[str] = set()
+    for rel in markdown_files():
+        if not rel.startswith(prefix):
+            continue
+        path = ROOT / rel
+        values, _ = parse_frontmatter(path)
+        page_type = str(values.get("page_type") or "").strip()
+        if not page_type:
+            continue
+        used_types.add(page_type)
+        shape = registry.page_types.get(page_type)
+        if shape is None:
+            errors.append(f"{rel}: page_type `{page_type}` is not declared in wiki.page-types.yaml")
+            continue
+        errors.extend(validate_shape(ROOT, rel, values, path.read_text(encoding="utf-8"), shape))
+
+    unused = sorted(set(registry.page_types) - used_types)
+    for page_type in unused:
+        # Notify through warning would be noisy here; unused types are allowed for
+        # downstream repos once the shared kit grows a richer base registry.
+        _ = page_type
 
 
 # Consolidation gate: ingestion is only DONE when the wiki's concepts reflect
@@ -1036,7 +1357,7 @@ def audit_ingestion_proposals_gate_state(errors: list[str], config: WikiConfig) 
     if not ingest_dir.is_dir():
         return
     for path in sorted(ingest_dir.glob("*.md")):
-        if path.name == "README.md":
+        if path.name in {"README.md", "impact-acks.md"}:
             continue
         rel = path.relative_to(ROOT).as_posix()
         values, _ = parse_frontmatter(path)
@@ -1182,6 +1503,111 @@ def audit_llm_cache_metadata(errors: list[str], config: WikiConfig | None = None
                 errors.append(f"{rel}: cache result missing `{required}`")
 
 
+def audit_perspective_coverage(errors: list[str], config: WikiConfig) -> None:
+    if not config.audit.get("perspective_coverage_check", False):
+        return
+    paths = wiki_paths(config)
+    req_dir = paths.extraction_events
+    cache_dir = paths.llm_cache
+    if not req_dir.exists():
+        return
+    catalog = page_catalog([], config)
+    perspective_ids = {
+        page_id
+        for page_id, (_rel, values) in catalog.items()
+        if str(values.get("page_type") or "") == "perspective"
+    }
+    for request_path in sorted(req_dir.glob("*-llm-context-request.json")):
+        rel = request_path.relative_to(ROOT).as_posix()
+        try:
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        required = [str(item) for item in request.get("perspectives_required") or []]
+        if not required:
+            continue
+        for perspective_id in required:
+            if perspective_id not in perspective_ids:
+                errors.append(f"{rel}: required perspective `{perspective_id}` is not a perspective page")
+        for chunk in request.get("chunks", []):
+            key = str(chunk.get("cache_key") or "")
+            result_path = cache_dir / f"{key}.json"
+            if not result_path.exists():
+                continue
+            try:
+                result = json.loads(result_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                errors.append(f"{result_path.relative_to(ROOT).as_posix()}: invalid JSON")
+                continue
+            perspectives = result.get("perspectives")
+            if not isinstance(perspectives, dict):
+                errors.append(f"{result_path.relative_to(ROOT).as_posix()}: missing perspectives object")
+                continue
+            for perspective_id in required:
+                block = perspectives.get(perspective_id)
+                if not isinstance(block, dict):
+                    errors.append(
+                        f"{result_path.relative_to(ROOT).as_posix()}: missing required perspective `{perspective_id}`"
+                    )
+                    continue
+                status = str(block.get("status") or "")
+                if not status:
+                    errors.append(
+                        f"{result_path.relative_to(ROOT).as_posix()}: perspective `{perspective_id}` missing status"
+                    )
+
+
+def _closure_pages(value: object) -> tuple[set[str], dict[str, str]]:
+    pages: set[str] = set()
+    reasons: dict[str, str] = {}
+    if not isinstance(value, list):
+        return pages, reasons
+    for item in value:
+        if isinstance(item, str):
+            pages.add(item)
+        elif isinstance(item, dict):
+            page = str(item.get("page") or item.get("path") or "").strip()
+            if page:
+                pages.add(page)
+                reasons[page] = str(item.get("reason") or "").strip()
+    return pages, reasons
+
+
+def audit_impact_closure(errors: list[str], config: WikiConfig) -> None:
+    if not config.audit.get("impact_closure_check", False):
+        return
+    events_dir = wiki_paths(config).ingest_events_dir
+    if not events_dir.is_dir():
+        return
+    for path in sorted(events_dir.glob("*.md")):
+        if path.name == "README.md":
+            continue
+        rel = path.relative_to(ROOT).as_posix()
+        values = parse_yaml_frontmatter(path)
+        affected = values.get("affected_pages")
+        if not isinstance(affected, dict):
+            continue
+        must_update = {str(item) for item in affected.get("must_update") or []}
+        if not must_update:
+            continue
+        closure = values.get("impact_closure")
+        if not isinstance(closure, dict):
+            errors.append(f"{rel}: affected_pages.must_update present without impact_closure")
+            continue
+        updated, _ = _closure_pages(closure.get("updated"))
+        no_change, no_change_reasons = _closure_pages(closure.get("no_change"))
+        blocked, blocked_reasons = _closure_pages(closure.get("blocked"))
+        closed = updated | no_change | blocked
+        for page in sorted(must_update - closed):
+            errors.append(f"{rel}: must_update `{page}` is not closed in impact_closure")
+        for page in sorted(no_change):
+            if not no_change_reasons.get(page):
+                errors.append(f"{rel}: impact_closure.no_change `{page}` missing reason")
+        for page in sorted(blocked):
+            if not blocked_reasons.get(page):
+                errors.append(f"{rel}: impact_closure.blocked `{page}` missing reason")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="return non-zero on errors")
@@ -1223,7 +1649,11 @@ def main() -> int:
     audit_secrets(errors, config)
     audit_pii(errors, warnings, config, public_export=args.public_export)
     audit_clickable_local_links(errors, config)
-    audit_entity_mention_links(warnings, config)
+    audit_page_graph(errors, warnings, config)
+    audit_page_type_registry(errors, config)
+    audit_duplicate_entity_names(errors, config)
+    audit_entity_mention_links(warnings, config, errors)
+    audit_impact(errors, config)
     audit_operation_page(errors, warnings, config)
     audit_ingestion_events(errors, config)
     audit_consolidation(errors, warnings, config)
@@ -1234,6 +1664,8 @@ def main() -> int:
     audit_context_pass_gate(errors, config, warnings)
     audit_prompt_checksums(errors)
     audit_llm_cache_metadata(errors, config)
+    audit_perspective_coverage(errors, config)
+    audit_impact_closure(errors, config)
     audit_log_changed(errors, config)
 
     for warning in warnings:

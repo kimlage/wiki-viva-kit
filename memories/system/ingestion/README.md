@@ -50,8 +50,11 @@ stateDiagram-v2
 ```
 
 The auditor requires a valid `gate_state` on every proposal in this directory.
+Impact acknowledgements for same-PR propagation checks live in
+[impact-acks.md](impact-acks.md).
 
 ## Related
 
 - Process: [ingestion-process.md](../ingestion-process.md).
 - Events: [events/README.md](events/README.md).
+- Impact acknowledgements: [impact-acks.md](impact-acks.md).

@@ -131,6 +131,18 @@ def main() -> int:
     parser.add_argument("--query")
     parser.add_argument("--context", required=True)
     parser.add_argument("--profile")
+    parser.add_argument(
+        "--required-perspective",
+        action="append",
+        default=[],
+        help="required perspective page_id for this deep-read request",
+    )
+    parser.add_argument(
+        "--optional-perspective",
+        action="append",
+        default=[],
+        help="optional perspective page_id for this deep-read request",
+    )
     parser.add_argument("--emit-request", action="store_true", help="writes the package to extraction-events/")
     parser.add_argument("--record-result", help="path to JSON (object or array) or '-' for stdin")
     parser.add_argument(
@@ -153,7 +165,7 @@ def main() -> int:
 
     prompt_versions = dict(config.llm.get("prompt_versions", {}))
     prompt_version = str(prompt_versions.get("context_deep_read", "v1"))
-    schema_version = "wiki_llm_context_pass.v2"
+    schema_version = "wiki_llm_context_pass.v3"
     model_profile = args.profile or str(config.llm.get("default_model_profile", "deep_context"))
     required = bool(config.llm.get("required_context_pass", True))
 
@@ -177,7 +189,14 @@ def main() -> int:
         return 1 if (required and pending > 0) else 0
 
     request = build_context_request(
-        manifest, chunks, paths.llm_cache, prompt_version, schema_version, model_profile
+        manifest,
+        chunks,
+        paths.llm_cache,
+        prompt_version,
+        schema_version,
+        model_profile,
+        perspectives_required=args.required_perspective,
+        perspectives_optional=args.optional_perspective,
     )
 
     if args.emit_request:

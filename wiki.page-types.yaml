@@ -1,0 +1,102 @@
+schema_version: wiki_page_types.v1
+page_types:
+  dashboard:
+    template: docs/references/templates/wiki/operation.md
+    allowed_dirs:
+      - memories
+    required_frontmatter: &common_required
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+    field_types: &common_field_types
+      updated_at: date
+      stale_after_days: string
+  ingestion_event:
+    template: docs/references/templates/wiki/ingestion-event.md
+    allowed_dirs:
+      - memories/system/ingestion/events
+    required_frontmatter: *common_required
+    field_types: *common_field_types
+    required_sections:
+      - Source
+      - Quadrants
+  journal_entry:
+    template: docs/references/templates/wiki/journal.md
+    allowed_dirs:
+      - memories
+    required_frontmatter: *common_required
+    field_types: *common_field_types
+  ontology_index:
+    template: none
+    template_none_reason: "Ontology hubs are generated or hand-maintained indexes, not content instances."
+    allowed_dirs:
+      - memories
+    required_frontmatter: *common_required
+    field_types: *common_field_types
+  operational_rule:
+    template: docs/references/templates/wiki/gate.md
+    allowed_dirs:
+      - memories
+    required_frontmatter: *common_required
+    field_types: *common_field_types
+  perspective:
+    template: docs/references/templates/wiki/perspective.md
+    allowed_dirs:
+      - memories/system/perspectives
+    required_frontmatter:
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - applies_to_source_types
+      - extracts
+      - target_page_types
+      - prompt_profile
+    field_types:
+      updated_at: date
+      applies_to_source_types: list
+      extracts: list
+      target_page_types: list
+    required_sections:
+      - Concern
+      - Extraction Questions
+      - Target Pages
+      - Correspondence Rules
+  relationship_map:
+    template: docs/references/templates/wiki/relationship-map.md
+    allowed_dirs:
+      - memories
+    required_frontmatter: *common_required
+    field_types: *common_field_types
+  source:
+    template: docs/references/templates/wiki/source.md
+    allowed_dirs:
+      - memories/sources
+    required_frontmatter: *common_required
+    field_types: *common_field_types
+  source_catalog:
+    template: none
+    template_none_reason: "Catalog pages are navigation or generated registries with local structure."
+    allowed_dirs:
+      - memories
+    required_frontmatter: *common_required
+    field_types: *common_field_types
+  source_registry:
+    template: none
+    template_none_reason: "The source registry is generated from source frontmatter."
+    allowed_dirs:
+      - memories/system
+    required_frontmatter: *common_required
+    field_types: *common_field_types
+  system_log:
+    template: none
+    template_none_reason: "Append-only logs have local ledger structure rather than reusable content templates."
+    allowed_dirs:
+      - memories/system
+    required_frontmatter: *common_required
+    field_types: *common_field_types

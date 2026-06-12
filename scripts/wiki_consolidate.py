@@ -74,9 +74,9 @@ def consolidate_one(
         )
         return 1
     aggregated = aggregate_results(request, paths.llm_cache)
+    packet_data = build_packet(aggregated, ROOT, config, paths) if (packet or emit_event) else None
 
     if packet:
-        packet_data = build_packet(aggregated, ROOT, config, paths)
         paths.extraction_events.mkdir(parents=True, exist_ok=True)
         packet_file = paths.extraction_events / f"{source_id}{PACKET_SUFFIX}"
         packet_file.write_text(
@@ -107,6 +107,7 @@ def consolidate_one(
             source_ref=source_ref,
             event_dir=event_dir,
             root=ROOT,
+            impact=dict(packet_data.get("impact") or {}) if packet_data else None,
         )
         target = existing if existing is not None else (
             event_dir / f"{date.isoformat()}-{_source_slug(source_id)}.md"
