@@ -17,6 +17,14 @@ another) via skills — there is no embedded LLM client.
   manifest, text/chunks, index, pre-scan, LLM context package and score-event.
   The LLM pass is written to the cache by the agent (skill
   [wiki-llm-context-agent](.skills/wiki-llm-context-agent/SKILL.md)).
+- Core/toolkit corrections belong here first. Changes to [wiki_core/](wiki_core/),
+  [scripts/](scripts/), [.skills/](.skills/), templates, gates or shared
+  ingestion behavior must be implemented in this open-source repo, covered by a
+  synthetic fixture or unit test, and pass CI before being applied to private
+  downstream repos.
+- If a core bug is discovered in a private repo, reproduce the behavior here
+  with minimized synthetic data. Do not use private financial, personal or
+  client data as the proving ground for shared core behavior.
 - Before opening a PR, run the local gates (see below) and review the conceptual diff.
 
 ## Privacy (two axes)
