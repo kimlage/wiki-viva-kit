@@ -432,7 +432,7 @@ def test_clean_title_strips_bilingual_prefixes(compile_mod, config, minimal_repo
         "# Decision - Adopt the kit\n\nBody.\n",
     )
     page = compile_mod.build_page(minimal_repo, config)
-    assert "| Adopt the kit | sistema |" in page
+    assert "| [Adopt the kit](decisions/gamma.md) | sistema |" in page
     assert "Decision - Adopt the kit" not in page
 
 

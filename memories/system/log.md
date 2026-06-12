@@ -29,6 +29,16 @@ Append-only record of changes in the [memories/](..) layer.
   reference, daily-operation page, release notes and operation compiler skill
   document the new step.
 
+## [2026-06-12] System | Generated dashboards keep entities linked
+
+- [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now links
+  the decision title directly in the decisions table, avoiding generated rows
+  that name a decision as plain text while linking only the page id.
+- [operational_pass.py](../../wiki_core/operational_pass.py) now emits
+  structured attention reasons from page status instead of copying arbitrary
+  body lines into the generated dashboard. This prevents generated pages from
+  reintroducing unlinked known-entity mentions from source text or headings.
+
 ## [2026-06-12] System | Source configs feed deep-read perspectives
 
 - [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) now applies

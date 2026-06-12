@@ -537,8 +537,8 @@ def build_page(root: Path, config: WikiConfig) -> str:
     if decisions:
         for decision in decisions:
             lines.append(
-                f"| {decision.title} | {decision.context} | "
-                f"[{decision.page_id}]({decision.rel_link}) |"
+                f"| [{decision.title}]({decision.rel_link}) | {decision.context} | "
+                f"`{decision.page_id}` |"
             )
     else:
         lines.append(s["empty_decisions"])

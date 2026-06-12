@@ -497,10 +497,9 @@ def _attention_rows(
 
 def _attention_reason(page: PageRecord) -> str:
     if _page_needs_attention(page):
-        for line in page.body.splitlines():
-            if ATTENTION_RE.search(line):
-                return line.strip().lstrip("- ").replace("|", "\\|")[:180]
-        return page.status or "attention keyword"
+        if page.status:
+            return f"Status: `{page.status}`."
+        return "Attention keyword detected; see linked page."
     return ""
 
 
