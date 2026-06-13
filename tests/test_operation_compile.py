@@ -239,6 +239,84 @@ def test_build_page_derives_context_vitality(compile_mod, config, minimal_repo):
     assert "Contextos stale para revisar: financeiro." in page  # generated pt output, kept verbatim
 
 
+def _source_page(page_id: str, *, ingested: bool = True) -> str:
+    state = "ingested" if ingested else "pending"
+    return (
+        "---\n"
+        f"page_id: {page_id}\n"
+        "page_type: source\n"
+        "context: sistema\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-08\n"
+        "stale_after_days: 180\n"
+        "sources_policy: contrato\n"
+        "gate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        f"ingestion_state: {state}\n"
+        "last_ingested_at: 2026-06-08\n"
+        "---\n\n"
+        f"# Source {page_id}\n"
+    )
+
+
+def _event_page(event_id: str, source_ref: str, *, closed: bool) -> str:
+    # Block-list frontmatter (the "- item" shape parse_frontmatter_flat turns into
+    # a list[str]); inline "[a]" would flatten to the literal string "[a]".
+    consolidated = (
+        "consolidated_into:\n  - memories/sistema/index.md\n" if closed else ""
+    )
+    return (
+        "---\n"
+        f"page_id: {event_id}\n"
+        "page_type: ingestion_event\n"
+        f"event_id: {event_id}\n"
+        "context: sistema\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-08\n"
+        "stale_after_days: 180\n"
+        "sources_policy: contrato\n"
+        "gate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        "source_refs:\n"
+        f"  - {source_ref}\n"
+        f"{consolidated}"
+        "---\n\n"
+        f"# Ingestion event {event_id}\n\n"
+        "## Claims candidates\n\n- claim one\n- claim two\n"
+    )
+
+
+def test_build_page_closure_section_empty_without_events(compile_mod, config, minimal_repo):
+    # minimal_repo has no ingestion events: the closure section shows an honest
+    # empty placeholder (not a crash), and is a DETERMINISTIC section in --check.
+    page = compile_mod.build_page(minimal_repo, config)
+    assert "## Fechamento da ingestao" in page
+    assert "Sem eventos de ingestao registrados ainda." in page
+    view = compile_mod.stable_cockpit_view(page)
+    assert "## Fechamento da ingestao" in view  # deterministic -> stays in --check
+
+
+def test_build_page_closure_section_reflects_closed_ingestion(compile_mod, config, minimal_repo):
+    sources = minimal_repo / "memories" / "sources"
+    events = minimal_repo / "memories" / "system" / "ingestion" / "events"
+    _write(sources / "fonte-a.md", _source_page("fonte-a"))
+    _write(sources / "fonte-b.md", _source_page("fonte-b"))
+    _write(events / "ev-a.md", _event_page("ev-a", "fonte-a", closed=True))
+    _write(events / "ev-b.md", _event_page("ev-b", "fonte-b", closed=False))
+    page = compile_mod.build_page(minimal_repo, config)
+    # 2 events, 1 closed; 2 ingested sources, 1 with a closed event, 1 gap.
+    assert "| Eventos de ingestao fechados | 1/2 |" in page
+    assert "| Fontes ingeridas com evento fechado | 1/2 |" in page
+    assert "| Fontes ingeridas SEM evento fechado (0 = saudavel) | 1 |" in page
+    # The closure section is deterministic content -> drift is caught by --check.
+    view = compile_mod.stable_cockpit_view(page)
+    assert "Fontes ingeridas SEM evento fechado" in view
+    # Recompiling without changing the tree yields an identical stable view.
+    assert compile_mod.stable_cockpit_view(
+        compile_mod.build_page(minimal_repo, config)
+    ) == view
+
+
 def test_build_page_empty_repo_writes_honest_placeholders(compile_mod, config, tmp_path):
     (tmp_path / "memories").mkdir()
     page = compile_mod.build_page(tmp_path, config)

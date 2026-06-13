@@ -34,6 +34,7 @@ sys.path.insert(0, str(ROOT))
 # working tree. Superset (pt + en) for compatibility with localized repos.
 IGNORED_UNTRACKED_PREFIXES = ("docs/memorias/", "docs/memories/")
 
+from wiki_core.closure import build_ingestion_closure_report
 from wiki_core.consolidate import pending_consolidations
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
@@ -104,6 +105,15 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "alert_pii": "- Dados pessoais (PII: nomes, valores, CPF/CNPJ, contrapartes) sao bem-vindos na wiki privada; redigir so antes de exportar/publicar.",
         "alert_secrets": "- Segredos de acesso (tokens, senhas, chaves, cookies) nunca entram em lugar nenhum.",
         "alert_stale_contexts": "- Contextos stale para revisar: {contexts}.",
+        "h_closure": "## Fechamento da ingestao",
+        "closure_intro": "Sinal honesto: fonte ingerida so vale quando o evento e fechado (consolidado na memoria canonica). 0 fonte sem evento fechado = saudavel.",
+        "th_closure": "| Metrica | Valor |",
+        "closure_events_closed": "| Eventos de ingestao fechados | {closed}/{total} |",
+        "closure_sources_closed": "| Fontes ingeridas com evento fechado | {closed}/{total} |",
+        "closure_sources_gap": "| Fontes ingeridas SEM evento fechado (0 = saudavel) | {gap} |",
+        "closure_compression": "| Compressao candidatos -> alvos | {candidates} -> {targets} ({ratio} por alvo) |",
+        "closure_report_link": "- Relatorio detalhado: [scripts/wiki_ingestion_closure_report.py]({script}).",
+        "closure_empty": "Sem eventos de ingestao registrados ainda.",
         "h_vitality": "## Vitalidade dos contextos",
         "th_vitality": "| Contexto | Atualizacao | Janela (dias) | Vitalidade | Hub |",
         "empty_vitality": "| Sem hubs de contexto registrados. | - | - | - | - |",
@@ -147,6 +157,15 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "alert_pii": "- Personal data (PII: names, amounts, tax IDs, counterparties) is welcome in the private wiki; redact only before exporting/publishing.",
         "alert_secrets": "- Access secrets (tokens, passwords, keys, cookies) never go anywhere.",
         "alert_stale_contexts": "- Stale contexts to review: {contexts}.",
+        "h_closure": "## Ingestion closure",
+        "closure_intro": "Honest signal: an ingested source only counts once its event is closed (consolidated into canonical memory). 0 sources without a closed event = healthy.",
+        "th_closure": "| Metric | Value |",
+        "closure_events_closed": "| Closed ingestion events | {closed}/{total} |",
+        "closure_sources_closed": "| Ingested sources with a closed event | {closed}/{total} |",
+        "closure_sources_gap": "| Ingested sources WITHOUT a closed event (0 = healthy) | {gap} |",
+        "closure_compression": "| Candidate -> target compression | {candidates} -> {targets} ({ratio} per target) |",
+        "closure_report_link": "- Detailed report: [scripts/wiki_ingestion_closure_report.py]({script}).",
+        "closure_empty": "No ingestion events recorded yet.",
         "h_vitality": "## Context vitality",
         "th_vitality": "| Context | Updated | Window (days) | Vitality | Hub |",
         "empty_vitality": "| No context hubs recorded. | - | - | - | - |",
@@ -490,6 +509,58 @@ def _git_state(root: Path, s: dict[str, str]) -> tuple[str, str, str]:
     return branch, status_summary, last_commit
 
 
+def _closure_section_lines(
+    root: Path, config: WikiConfig, s: dict[str, str], page_dir: Path
+) -> list[str]:
+    """Deterministic "ingestion closure" section (Phase 4.1 primary metric).
+
+    Built from `build_ingestion_closure_report`, whose inputs are versioned page
+    frontmatter only — so the output is reproducible from committed content and
+    safe to keep in the --check stable view. On any read error we degrade to an
+    empty-but-honest placeholder rather than crashing the cockpit.
+    """
+    lines = ["", s["h_closure"], ""]
+    try:
+        summary = build_ingestion_closure_report(root, config)["summary"]
+    except Exception:
+        summary = None
+    if not summary or int(summary["events_total"]) == 0:
+        lines.append(s["closure_empty"])
+        return lines
+    report_link = _rel_to_page_dir(
+        root / "scripts" / "wiki_ingestion_closure_report.py", page_dir
+    )
+    lines.append(s["closure_intro"])
+    lines += ["", s["th_closure"], "| --- | ---: |"]
+    lines.append(
+        s["closure_events_closed"].format(
+            closed=int(summary["events_closed"]), total=int(summary["events_total"])
+        )
+    )
+    lines.append(
+        s["closure_sources_closed"].format(
+            closed=int(summary["ingested_sources"])
+            - int(summary["ingested_sources_without_closed_event"]),
+            total=int(summary["ingested_sources"]),
+        )
+    )
+    lines.append(
+        s["closure_sources_gap"].format(
+            gap=int(summary["ingested_sources_without_closed_event"])
+        )
+    )
+    lines.append(
+        s["closure_compression"].format(
+            candidates=int(summary["candidate_total"]),
+            targets=int(summary["consolidated_targets"]),
+            ratio=summary["candidate_units_per_target"],
+        )
+    )
+    lines.append("")
+    lines.append(s["closure_report_link"].format(script=report_link))
+    return lines
+
+
 def build_page(root: Path, config: WikiConfig) -> str:
     """Compile the cockpit Markdown for ``root`` using ``config``.
 
@@ -608,6 +679,14 @@ def build_page(root: Path, config: WikiConfig) -> str:
         consolidation_count = 0
     consolidate_script = _rel_to_page_dir(root / "scripts" / "wiki_consolidate.py", paths.operation_page.parent)
     lines.append(s["consolidation_pending"].format(count=consolidation_count, script=consolidate_script))
+
+    # PRIMARY HONEST METRIC (Phase 4.1): ingestion closure. The karma score left
+    # the cockpit; closure takes its place. This is DETERMINISTIC — derived from
+    # VERSIONED page frontmatter (source pages + ingestion-event pages), not from
+    # the gitignored derived cache — so it stays IN the --check stable view: a
+    # divergence between committed cockpit and recompile is a real signal, not
+    # churn. "0 sources without a closed event" is the healthy target.
+    lines += _closure_section_lines(root, config, s, paths.operation_page.parent)
 
     lines += [
         "",

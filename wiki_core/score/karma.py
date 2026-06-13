@@ -419,6 +419,15 @@ def context_vitality(
     operational indicators (`pages_meta`) into a 0-100 index. Positive indicators
     pull the index up; pending/orphan items pull it down.
 
+    GATING (Phase 4 audit): this is the score-driven vitality index. It is reached
+    ONLY through `scripts/wiki_score.py` (`--summary`/`--dashboard`), which is itself
+    a no-op when `karma.enabled=false` in wiki.config.yaml. So it is gated by the
+    same karma config flag as the rest of the gamification layer — when a repo turns
+    karma off (e.g. a single-owner private repo) this code is unreachable, but kept
+    for repos that opt into gamification. NOTE: the cockpit's "Context vitality"
+    table is a DIFFERENT, freshness-based computation
+    (`wiki_operation_compile.collect_context_vitality`) and does not call this.
+
     `pages_meta` (all optional, default 0):
       paginas_atualizadas, aprovacoes_no_sla, fontes_recentes,
       insights_revisados, acoes_com_resultado, riscos_privacidade_resolvidos,
