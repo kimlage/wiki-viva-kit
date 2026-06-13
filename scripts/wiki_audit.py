@@ -15,14 +15,14 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-import yaml
-
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.detectors import scan_file
+from wiki_core.frontmatter import parse_frontmatter as canonical_parse_frontmatter
+from wiki_core.frontmatter import parse_frontmatter_flat_with_errors
 from wiki_core.gate import STATES as GATE_STATES
 from wiki_core.graph import build_page_graph, compute_impact, min_outbound_violations, orphan_pages, unreachable_pages
 from wiki_core.page_types import (
@@ -376,79 +376,28 @@ def link_audit_files(config: WikiConfig) -> list[str]:
     return sorted(files)
 
 
-def _unquote(value: str) -> str:
-    """Remove a single/double quote pair around a frontmatter value.
-
-    Without this, `visibility: "public_candidate"` was parsed WITH the quotes and
-    did not match PUBLIC_VISIBILITIES — the public page escaped the PII block
-    (finding 15).
-    """
-    if len(value) >= 2 and value[0] in "\"'" and value[-1] == value[0]:
-        return value[1:-1]
-    return value
-
-
 @functools.lru_cache(maxsize=None)
 def parse_frontmatter(path: Path) -> tuple[dict[str, object], list[str]]:
     # Memoized per path: several audit_* checks re-parse the same pages within a
     # single run (frontmatter, stale coverage, relations, PII, promotion...).
     # The file set does not change during a run; main() clears the cache.
-    text = path.read_text(encoding="utf-8")
-    lines = text.splitlines()
-    if not lines or lines[0] != "---":
-        return {}, ["missing frontmatter block"]
-    try:
-        end = lines[1:].index("---") + 1
-    except ValueError:
-        return {}, ["unterminated frontmatter block"]
-
-    values: dict[str, object] = {}
-    errors: list[str] = []
-    current_key: str | None = None
-    for raw in lines[1:end]:
-        stripped = raw.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if raw.startswith((" ", "\t")) and stripped.startswith("- ") and current_key:
-            current = values.setdefault(current_key, [])
-            if isinstance(current, list):
-                current.append(_unquote(stripped[2:].strip()))
-            continue
-        if ":" not in raw:
-            errors.append(f"invalid frontmatter line: {raw}")
-            current_key = None
-            continue
-        key, value = raw.split(":", 1)
-        current_key = key.strip()
-        value = _unquote(value.strip())
-        if value == "[]":
-            values[current_key] = []
-        elif value:
-            values[current_key] = value
-        else:
-            values[current_key] = []
-
-    missing = sorted(REQUIRED_KEYS - values.keys())
-    if missing:
-        errors.append("missing keys: " + ", ".join(missing))
-    return values, errors
+    #
+    # Delegates to the canonical flat parser (string-flattening is LOAD-BEARING
+    # for the shape gate); REQUIRED_KEYS is enforced here as the audit contract.
+    return parse_frontmatter_flat_with_errors(path, required_keys=REQUIRED_KEYS)
 
 
 def parse_yaml_frontmatter(path: Path) -> dict[str, object]:
-    text = path.read_text(encoding="utf-8", errors="replace")
-    if not text.startswith("---\n"):
-        return {}
-    end = text.find("\n---", 4)
-    if end == -1:
-        return {}
-    try:
-        data = yaml.safe_load(text[4:end])
-    except yaml.YAMLError:
-        return {}
-    return data if isinstance(data, dict) else {}
+    # Structured (yaml) read for nested maps the flat parser can't represent
+    # (affected_pages.must_update, impact_closure).
+    values, _body = canonical_parse_frontmatter(path)
+    return values
 
 
 def list_values(values: dict[str, object], key: str) -> list[str]:
+    # Audit-local: takes (values, key) and does NOT strip items (the audit gate
+    # compares raw frontmatter text). Distinct from the canonical
+    # wiki_core.frontmatter.list_values, which strips and takes a bare value.
     value = values.get(key)
     if value is None:
         return []

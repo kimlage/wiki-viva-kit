@@ -33,6 +33,16 @@ def load_page_type_registry(root: Path, path: str = "wiki.page-types.yaml") -> P
 
 
 def list_values(value: Any) -> list[str]:
+    """Shape-validator normalization (intentionally NON-stripping).
+
+    This is the one ``list_values`` that does NOT delegate to the canonical
+    :func:`wiki_core.frontmatter.list_values`. The shape gate validates raw
+    frontmatter values verbatim (``field_type_error`` checks dates/enums against
+    the exact text), so stripping here could silently change a gate verdict. It
+    keeps items as-is, filtering only on truthiness after ``str(item)``, and does
+    not strip the single-string case. See ``wiki_core.frontmatter`` for the
+    differences this helper preserves.
+    """
     if value is None:
         return []
     if isinstance(value, list):

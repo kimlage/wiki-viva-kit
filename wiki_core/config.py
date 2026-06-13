@@ -5,11 +5,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# Home-grown but ROBUST config parser: the config drives the honesty gates,
-# so common YAML shapes must not silently disable verification. Supports:
-# inline comment (outside quotes), single/double quotes, YAML lists ('- item'),
-# case-insensitive booleans (true/false/yes/no/on/off) and integers. Malformed
-# values in key fields (language, contexts, booleans) FAIL LOUD.
+import yaml
+
+# The config drives the honesty gates, so it is parsed with PyYAML (the same
+# engine as every other YAML in the toolkit) and then a STRICT validation layer
+# (language/contexts/booleans) runs on top. Malformed values in those key fields
+# FAIL LOUD instead of silently disabling verification.
 
 _BOOL_TRUE = {"true", "yes", "on", "1"}
 _BOOL_FALSE = {"false", "no", "off", "0"}
@@ -17,106 +18,17 @@ _LANGUAGE_RE = re.compile(r"[a-z]{2,8}")
 _CONTEXT_SLUG_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
 
 
-def _strip_inline_comment(raw: str) -> str:
-    """Remove a '# ...' comment outside quotes, preserving indentation.
+def _load_yaml_mapping(path: Path) -> dict[str, Any]:
+    """Load the config file as a mapping via ``yaml.safe_load``.
 
-    In YAML, '#' only starts a comment when it is at the beginning of the line
-    or preceded by space/tab; a '#' glued to a character (e.g. hex color) is literal.
+    Replaces the former home-grown ``_simple_yaml``. PyYAML natively handles the
+    shapes the hand-rolled parser supported (inline comments outside quotes,
+    single/double quotes, YAML lists, nested maps, case-insensitive booleans and
+    integers) and more, while the strict layer below keeps the gate-critical
+    fields honest.
     """
-    out: list[str] = []
-    quote: str | None = None
-    for i, c in enumerate(raw):
-        if quote is not None:
-            out.append(c)
-            if c == quote:
-                quote = None
-            continue
-        if c in ('"', "'"):
-            quote = c
-            out.append(c)
-            continue
-        if c == "#" and (i == 0 or raw[i - 1] in " \t"):
-            break
-        out.append(c)
-    return "".join(out).rstrip()
-
-
-def _coerce(value: str) -> Any:
-    value = value.strip()
-    if len(value) >= 2 and value[0] in "\"'" and value[-1] == value[0]:
-        return value[1:-1]
-    low = value.lower()
-    # Boolean words become bool; "1"/"0" do NOT (they are integers in general parsing).
-    if low in {"true", "yes", "on"}:
-        return True
-    if low in {"false", "no", "off"}:
-        return False
-    if re.fullmatch(r"-?\d+", value):
-        return int(value)
-    return value
-
-
-def _simple_yaml(path: Path) -> dict[str, Any]:
-    """Restricted but honest YAML: nested maps by indentation + lists.
-
-    Each stack frame holds (indent, kind, container, parent, key). A list item
-    ('- x') converts the empty map just opened by its key into a list,
-    supporting both the indented form and the form at the same level as the key.
-    """
-    root: dict[str, Any] = {}
-    stack: list[dict[str, Any]] = [
-        {"indent": -1, "kind": "map", "container": root, "parent": None, "key": None}
-    ]
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        content = _strip_inline_comment(raw)
-        if not content.strip():
-            continue
-        indent = len(content) - len(content.lstrip(" "))
-        line = content.strip()
-
-        if line.startswith("- "):
-            item = _coerce(line[2:].strip())
-            # List items attach to the key whose indent is <= the item's (YAML
-            # allows the list at the same level as the key): we only pop frames
-            # that are STRICTLY shallower.
-            while len(stack) > 1 and indent < stack[-1]["indent"]:
-                stack.pop()
-            top = stack[-1]
-            if top["kind"] == "map" and top["parent"] is not None and not top["container"]:
-                new_list: list[Any] = []
-                top["parent"][top["key"]] = new_list
-                top["kind"] = "list"
-                top["container"] = new_list
-            if top["kind"] == "list":
-                top["container"].append(item)
-            continue
-
-        if ":" not in line:
-            continue
-        # Keys pop frames at the same level or shallower.
-        while len(stack) > 1 and indent <= stack[-1]["indent"]:
-            stack.pop()
-        top = stack[-1]
-        if top["kind"] != "map":
-            continue
-        key, _, value = line.partition(":")
-        key = key.strip()
-        value = value.strip()
-        if value:
-            top["container"][key] = _coerce(value)
-        else:
-            child: dict[str, Any] = {}
-            top["container"][key] = child
-            stack.append(
-                {
-                    "indent": indent,
-                    "kind": "map",
-                    "container": child,
-                    "parent": top["container"],
-                    "key": key,
-                }
-            )
-    return root
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else {}
 
 
 def _as_bool(value: Any, *, field_name: str) -> bool:
@@ -299,7 +211,7 @@ def load_config(root: Path) -> WikiConfig:
     path = root / "wiki.config.yaml"
     if not path.exists():
         return WikiConfig()
-    raw = _simple_yaml(path)
+    raw = _load_yaml_mapping(path)
 
     language = str(raw.get("language", "en")).strip().strip("\"'")
     if not _LANGUAGE_RE.fullmatch(language):

@@ -4,22 +4,9 @@ from pathlib import Path
 from typing import Any
 
 from wiki_core.config import WikiConfig
-from wiki_core.graph.page_graph import parse_frontmatter
+from wiki_core.frontmatter import list_values as _list_values
+from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.paths import WikiPaths
-
-
-def _list_values(value: Any) -> list[str]:
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return [str(item).strip() for item in value if str(item).strip()]
-    if isinstance(value, tuple):
-        return [str(item).strip() for item in value if str(item).strip()]
-    if isinstance(value, str):
-        if not value.strip() or value.strip() == "[]":
-            return []
-        return [value.strip()]
-    return [str(value).strip()]
 
 
 def _dedupe(values: list[str]) -> list[str]:

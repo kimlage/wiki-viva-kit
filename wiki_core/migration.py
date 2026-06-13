@@ -9,11 +9,9 @@ from typing import Any
 import yaml
 
 from wiki_core.config import WikiConfig, freshness_for
+from wiki_core.frontmatter import split_frontmatter
 from wiki_core.ids import slugify
 from wiki_core.page_types import PageTypeRegistry
-
-
-FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.S)
 
 DIR_PAGE_TYPE_HINTS = {
     "actions": "action",
@@ -66,15 +64,6 @@ class MigrationSuggestion:
     updated_at: str
     stale_after_days: str
     reason: str
-
-
-def split_frontmatter(text: str) -> tuple[dict[str, Any] | None, str]:
-    match = FRONTMATTER_RE.match(text)
-    if not match:
-        return None, text
-    data = yaml.safe_load(match.group(1)) or {}
-    values = data if isinstance(data, dict) else {}
-    return values, text[match.end() :]
 
 
 def title_from_markdown(text: str, fallback: str) -> str:

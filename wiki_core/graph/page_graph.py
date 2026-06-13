@@ -8,6 +8,8 @@ from typing import Any
 from urllib.parse import unquote, urlparse
 
 from wiki_core.config import WikiConfig
+from wiki_core.frontmatter import list_values as _fm_list_values
+from wiki_core.frontmatter import parse_frontmatter_flat
 
 PAGE_GRAPH_SCHEMA_VERSION = "wiki_page_graph.v1"
 
@@ -122,57 +124,18 @@ def _markdown_files(root: Path, memory_root: str) -> list[Path]:
 
 
 def parse_frontmatter(path: Path) -> dict[str, Any]:
-    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    if not lines or lines[0] != "---":
-        return {}
-    try:
-        end = lines[1:].index("---") + 1
-    except ValueError:
-        return {}
-    values: dict[str, Any] = {}
-    current_key: str | None = None
-    for raw in lines[1:end]:
-        stripped = raw.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if raw.startswith((" ", "\t")) and stripped.startswith("- ") and current_key:
-            current = values.setdefault(current_key, [])
-            if isinstance(current, list):
-                current.append(_unquote(stripped[2:].strip()))
-            continue
-        if ":" not in raw:
-            current_key = None
-            continue
-        key, value = raw.split(":", 1)
-        current_key = key.strip()
-        value = _unquote(value.strip())
-        if value == "[]":
-            values[current_key] = []
-        elif value:
-            values[current_key] = value
-        else:
-            values[current_key] = []
-    return values
+    """Flat (string-flattening) frontmatter parse for the link graph.
 
-
-def _unquote(value: str) -> str:
-    if len(value) >= 2 and value[0] in "\"'" and value[-1] == value[0]:
-        return value[1:-1]
-    return value
+    Thin wrapper over the canonical :func:`wiki_core.frontmatter.parse_frontmatter_flat`.
+    Re-exported here because ``closure``, ``quality`` and ``source_config`` import
+    it from this module; the graph wraps every read in ``str(...)`` so the flat
+    contract is what they expect.
+    """
+    return parse_frontmatter_flat(path)
 
 
 def _list_values(value: Any) -> tuple[str, ...]:
-    if value is None:
-        return ()
-    if isinstance(value, list):
-        return tuple(str(item).strip() for item in value if str(item).strip())
-    if isinstance(value, tuple):
-        return tuple(str(item).strip() for item in value if str(item).strip())
-    if isinstance(value, str):
-        if not value.strip() or value.strip() == "[]":
-            return ()
-        return (value.strip(),)
-    return (str(value).strip(),)
+    return tuple(_fm_list_values(value))
 
 
 def _path_from_link(root: Path, source_rel: str, href: str) -> str | None:

@@ -28,9 +28,8 @@ import json
 import re
 from pathlib import Path
 
-import yaml
-
 from wiki_core.config import WikiConfig, freshness_for
+from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.index.sqlite import sanitize_fts_query, search
 from wiki_core.llm.context_pass import read_result
 from wiki_core.paths import WikiPaths
@@ -113,19 +112,10 @@ def _strings(language: str) -> dict[str, str]:
 
 def _read_frontmatter(path: Path) -> dict[str, object]:
     try:
-        text = path.read_text(encoding="utf-8")
+        values, _body = parse_frontmatter(path)
     except OSError:
         return {}
-    if not text.startswith("---\n"):
-        return {}
-    end = text.find("\n---", 4)
-    if end == -1:
-        return {}
-    try:
-        data = yaml.safe_load(text[4:end])
-    except yaml.YAMLError:
-        return {}
-    return data if isinstance(data, dict) else {}
+    return values
 
 
 def load_requests(paths: WikiPaths) -> list[dict[str, object]]:
