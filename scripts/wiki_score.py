@@ -163,6 +163,14 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
+    # Karma is an opt-in gamification layer. When disabled in config every action
+    # is a no-op, so a repo that does not want gamification simply turns it off.
+    if not CONFIG.karma_enabled:
+        print(
+            "karma disabled in wiki.config.yaml (karma.enabled=false); "
+            "gamification is off, nothing to do"
+        )
+        return 0
     events_path = Path(args.events_path)
     # Badge/level names in the generated output follow the config language.
     language = CONFIG.language

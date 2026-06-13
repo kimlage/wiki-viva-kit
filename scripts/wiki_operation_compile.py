@@ -628,22 +628,27 @@ def build_page(root: Path, config: WikiConfig) -> str:
     else:
         lines.append(s["empty_vitality"])
 
-    # Read the live ledger (gitignored) or the versioned mirror (clean clone/CI).
-    events = load_events(resolve_events_path(paths.derived_root))
-    karma = compute_karma(events)
-    lines += [
-        "",
-        s["h_karma"],
-        "",
-    ]
-    if events:
-        lines.append(s["karma_summary"].format(n=len(events), total=round(float(karma["total"]), 2)))
-        lines += ["", s["th_karma"], "| --- | --- |"]
-        for dim, points in sorted(karma["by_dimension"].items(), key=lambda kv: kv[1], reverse=True):
-            if points:
-                lines.append(f"| {dim} | {round(float(points), 2)} |")
-    else:
-        lines.append(s["empty_karma"])
+    # Operational karma (gamification, opt-in via config.karma.enabled). When the
+    # repo disables karma, the cockpit omits the whole score section. The karma
+    # heading is already a VOLATILE_SECTION, so the --check stable view is
+    # unaffected either way.
+    if config.karma_enabled:
+        # Read the live ledger (gitignored) or the versioned mirror (clean clone/CI).
+        events = load_events(resolve_events_path(paths.derived_root))
+        karma = compute_karma(events)
+        lines += [
+            "",
+            s["h_karma"],
+            "",
+        ]
+        if events:
+            lines.append(s["karma_summary"].format(n=len(events), total=round(float(karma["total"]), 2)))
+            lines += ["", s["th_karma"], "| --- | --- |"]
+            for dim, points in sorted(karma["by_dimension"].items(), key=lambda kv: kv[1], reverse=True):
+                if points:
+                    lines.append(f"| {dim} | {round(float(points), 2)} |")
+        else:
+            lines.append(s["empty_karma"])
 
     # Resume links: labels are the repo-relative paths, targets are relative to
     # the cockpit page's directory — both derived from the configured layout.

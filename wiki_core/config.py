@@ -281,6 +281,18 @@ class WikiConfig:
             ],
         }
     )
+    # Operational karma (gamification layer). Opt-in feature, ENABLED by default
+    # in the kit so existing repos keep their cockpit unchanged; a repo turns it
+    # off with `karma:\n  enabled: false` in wiki.config.yaml (then wiki_score is a
+    # no-op and the cockpit omits the karma/score section).
+    karma: dict[str, Any] = field(default_factory=lambda: {"enabled": True})
+
+    @property
+    def karma_enabled(self) -> bool:
+        value = self.karma.get("enabled", True)
+        if isinstance(value, bool):
+            return value
+        return _as_bool(value, field_name="karma.enabled")
 
 
 def load_config(root: Path) -> WikiConfig:
@@ -326,6 +338,7 @@ def load_config(root: Path) -> WikiConfig:
         },
         templates={**WikiConfig().templates, **dict(raw.get("templates", {}))},
         audit={**WikiConfig().audit, **dict(raw.get("audit", {}))},
+        karma={**WikiConfig().karma, **dict(raw.get("karma", {}))},
     )
 
 
