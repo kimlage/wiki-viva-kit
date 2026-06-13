@@ -1733,6 +1733,75 @@ def audit_impact_closure(errors: list[str], config: WikiConfig) -> None:
                 errors.append(f"{rel}: impact_closure.blocked `{page}` missing reason")
 
 
+class AuditContext:
+    """Shared state threaded through every registered check.
+
+    Bundles the mutable `errors`/`warnings` accumulators, the loaded
+    `config`, and the run-time flag (`public_export`) that a couple of checks
+    need. Keeping this in one object lets the CHECKS registry stay declarative:
+    each runner takes a single `ctx` argument and forwards exactly the same
+    positional/keyword arguments the old hand-written main() used.
+    """
+
+    __slots__ = ("errors", "warnings", "config", "public_export")
+
+    def __init__(self, config: WikiConfig, public_export: bool = False) -> None:
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
+        self.config = config
+        self.public_export = public_export
+
+
+# Declarative audit registry: ordered (name, runner) pairs. The order and the
+# exact arguments each runner forwards MUST match the historical hand-written
+# call sequence in main() -- the 8 honesty gates depend on identical behavior
+# (same checks, same order, same output, same exit code). Adding a check means
+# appending an entry; --only filters this list without reordering it.
+#
+# Each runner receives the shared AuditContext and dispatches to the underlying
+# audit_* function with its original signature. Checks that emit errors and
+# warnings, errors-only, or warnings-only all funnel through the same ctx
+# accumulators, preserving the errors-vs-warnings separation (warnings never
+# block).
+CHECKS: tuple[tuple[str, "callable"], ...] = (
+    ("frontmatter", lambda ctx: audit_frontmatter(ctx.errors, ctx.warnings, ctx.config)),
+    ("stale_coverage", lambda ctx: audit_stale_coverage(ctx.warnings, ctx.config)),
+    ("freshness_budget", lambda ctx: audit_freshness_budget(ctx.errors, ctx.warnings, ctx.config)),
+    ("drive_artifact_links", lambda ctx: audit_drive_artifact_links(ctx.warnings, ctx.config)),
+    ("command_reference", lambda ctx: audit_command_reference(ctx.errors, ctx.config)),
+    ("relations", lambda ctx: audit_relations(ctx.errors, ctx.config)),
+    ("old_paths", lambda ctx: audit_old_paths(ctx.errors, ctx.config)),
+    ("secrets", lambda ctx: audit_secrets(ctx.errors, ctx.config)),
+    ("pii", lambda ctx: audit_pii(ctx.errors, ctx.warnings, ctx.config, public_export=ctx.public_export)),
+    ("clickable_local_links", lambda ctx: audit_clickable_local_links(ctx.errors, ctx.config)),
+    ("obsidian_directory_links", lambda ctx: audit_obsidian_directory_links(ctx.warnings, ctx.config)),
+    ("page_graph", lambda ctx: audit_page_graph(ctx.errors, ctx.warnings, ctx.config)),
+    ("page_type_registry", lambda ctx: audit_page_type_registry(ctx.errors, ctx.config)),
+    ("duplicate_entity_names", lambda ctx: audit_duplicate_entity_names(ctx.errors, ctx.config)),
+    ("entity_mention_links", lambda ctx: audit_entity_mention_links(ctx.warnings, ctx.config, ctx.errors)),
+    ("operational_concept_links", lambda ctx: audit_operational_concept_links(ctx.errors, ctx.config)),
+    ("impact", lambda ctx: audit_impact(ctx.errors, ctx.config)),
+    ("operation_page", lambda ctx: audit_operation_page(ctx.errors, ctx.warnings, ctx.config)),
+    ("ingestion_events", lambda ctx: audit_ingestion_events(ctx.errors, ctx.config)),
+    ("consolidation", lambda ctx: audit_consolidation(ctx.errors, ctx.warnings, ctx.config)),
+    ("ingestion_proposals_gate_state", lambda ctx: audit_ingestion_proposals_gate_state(ctx.errors, ctx.config)),
+    ("ingestion_absolute_paths", lambda ctx: audit_ingestion_absolute_paths(ctx.errors, ctx.config)),
+    ("public_candidates", lambda ctx: audit_public_candidates(ctx.errors, ctx.config)),
+    ("promotion_gate", lambda ctx: audit_promotion_gate(ctx.errors, ctx.config)),
+    ("context_pass_gate", lambda ctx: audit_context_pass_gate(ctx.errors, ctx.config, ctx.warnings)),
+    ("prompt_checksums", lambda ctx: audit_prompt_checksums(ctx.errors)),
+    ("llm_cache_metadata", lambda ctx: audit_llm_cache_metadata(ctx.errors, ctx.config)),
+    ("source_config_perspectives", lambda ctx: audit_source_config_perspectives(ctx.errors, ctx.config)),
+    ("perspective_coverage", lambda ctx: audit_perspective_coverage(ctx.errors, ctx.config)),
+    ("impact_closure", lambda ctx: audit_impact_closure(ctx.errors, ctx.config)),
+    ("log_changed", lambda ctx: audit_log_changed(ctx.errors, ctx.config)),
+)
+
+# Ordered names only -- introspectable without building a context (used by
+# --only validation and the registry coverage test).
+CHECK_NAMES: tuple[str, ...] = tuple(name for name, _ in CHECKS)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="return non-zero on errors")
@@ -1751,7 +1820,37 @@ def main() -> int:
         action="store_true",
         help="lists each memory page without declared freshness (instead of the total)",
     )
+    parser.add_argument(
+        "--only",
+        metavar="NAME[,NAME...]",
+        help=(
+            "run only the named checks (comma-separated), in registry order; "
+            "speeds up the dev loop. Names match the CHECKS registry; use "
+            "--list-checks to see them."
+        ),
+    )
+    parser.add_argument(
+        "--list-checks",
+        action="store_true",
+        help="print the registered check names in run order and exit",
+    )
     args = parser.parse_args()
+
+    if args.list_checks:
+        for name in CHECK_NAMES:
+            print(name)
+        return 0
+
+    selected = CHECKS
+    if args.only:
+        requested = [name.strip() for name in args.only.split(",") if name.strip()]
+        unknown = [name for name in requested if name not in CHECK_NAMES]
+        if unknown:
+            known = ", ".join(CHECK_NAMES)
+            parser.error(f"unknown check(s): {', '.join(unknown)}. known: {known}")
+        wanted = set(requested)
+        # Preserve registry order regardless of the order names were passed.
+        selected = tuple((name, run) for name, run in CHECKS if name in wanted)
 
     global STRICT_LOCAL, LIST_STALE_GAPS
     STRICT_LOCAL = args.strict_local
@@ -1762,39 +1861,11 @@ def main() -> int:
     config = load_config(ROOT)
     build_local_path_regexes(config)
 
-    errors: list[str] = []
-    warnings: list[str] = []
-    audit_frontmatter(errors, warnings, config)
-    audit_stale_coverage(warnings, config)
-    audit_freshness_budget(errors, warnings, config)
-    audit_drive_artifact_links(warnings, config)
-    audit_command_reference(errors, config)
-    audit_relations(errors, config)
-    audit_old_paths(errors, config)
-    audit_secrets(errors, config)
-    audit_pii(errors, warnings, config, public_export=args.public_export)
-    audit_clickable_local_links(errors, config)
-    audit_obsidian_directory_links(warnings, config)
-    audit_page_graph(errors, warnings, config)
-    audit_page_type_registry(errors, config)
-    audit_duplicate_entity_names(errors, config)
-    audit_entity_mention_links(warnings, config, errors)
-    audit_operational_concept_links(errors, config)
-    audit_impact(errors, config)
-    audit_operation_page(errors, warnings, config)
-    audit_ingestion_events(errors, config)
-    audit_consolidation(errors, warnings, config)
-    audit_ingestion_proposals_gate_state(errors, config)
-    audit_ingestion_absolute_paths(errors, config)
-    audit_public_candidates(errors, config)
-    audit_promotion_gate(errors, config)
-    audit_context_pass_gate(errors, config, warnings)
-    audit_prompt_checksums(errors)
-    audit_llm_cache_metadata(errors, config)
-    audit_source_config_perspectives(errors, config)
-    audit_perspective_coverage(errors, config)
-    audit_impact_closure(errors, config)
-    audit_log_changed(errors, config)
+    ctx = AuditContext(config, public_export=args.public_export)
+    for _name, run in selected:
+        run(ctx)
+    errors = ctx.errors
+    warnings = ctx.warnings
 
     for warning in warnings:
         print(f"WARN: {warning}")

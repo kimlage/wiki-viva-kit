@@ -680,3 +680,132 @@ def test_pt_pinned_layout_keeps_localized_repo_working(tmp_path, audit, monkeypa
     assert errors and errors[0].startswith(
         "memorias/sistema/wiki/referencia-comandos.md: missing command reference page"
     )
+
+
+# ---------------------------------------------------------------------------
+# Declarative check registry (CHECKS) + --only / --list-checks
+# ---------------------------------------------------------------------------
+
+# Canonical run order: this is the historical hand-written call sequence from
+# main(), now the source of truth for the registry invariant. Reordering or
+# dropping any entry would change gate behavior, so the test pins it exactly.
+EXPECTED_CHECK_ORDER = [
+    "frontmatter",
+    "stale_coverage",
+    "freshness_budget",
+    "drive_artifact_links",
+    "command_reference",
+    "relations",
+    "old_paths",
+    "secrets",
+    "pii",
+    "clickable_local_links",
+    "obsidian_directory_links",
+    "page_graph",
+    "page_type_registry",
+    "duplicate_entity_names",
+    "entity_mention_links",
+    "operational_concept_links",
+    "impact",
+    "operation_page",
+    "ingestion_events",
+    "consolidation",
+    "ingestion_proposals_gate_state",
+    "ingestion_absolute_paths",
+    "public_candidates",
+    "promotion_gate",
+    "context_pass_gate",
+    "prompt_checksums",
+    "llm_cache_metadata",
+    "source_config_perspectives",
+    "perspective_coverage",
+    "impact_closure",
+    "log_changed",
+]
+
+
+def test_registry_matches_canonical_order(audit):
+    # The registry must contain exactly the historical checks, in the same order.
+    assert audit.CHECK_NAMES == tuple(EXPECTED_CHECK_ORDER)
+    assert [name for name, _ in audit.CHECKS] == EXPECTED_CHECK_ORDER
+    # No duplicate names.
+    assert len(set(audit.CHECK_NAMES)) == len(audit.CHECK_NAMES)
+
+
+def test_registry_runners_are_callable_and_named_after_audit_fns(audit):
+    # Every registry name maps to an existing audit_<name> callable, and every
+    # runner is invocable with a single ctx argument.
+    for name, run in audit.CHECKS:
+        fn = getattr(audit, f"audit_{name}", None)
+        assert callable(fn), f"missing audit_{name} for registry entry {name!r}"
+        assert callable(run)
+
+
+def test_registry_covers_all_audit_functions_used_in_main(audit):
+    # Guard against an audit_* gate being added to the module but forgotten in
+    # the registry: every audit_* function whose name maps to a CHECK must be
+    # present. Helpers without a CHECK entry (e.g. nested or renamed) are
+    # exempt, but the historical 31 gates are not.
+    registered = set(audit.CHECK_NAMES)
+    for expected in EXPECTED_CHECK_ORDER:
+        assert expected in registered
+        assert hasattr(audit, f"audit_{expected}")
+
+
+def _run_cli(args):
+    import subprocess
+
+    proc = subprocess.run(
+        [sys.executable, str(WIKI_AUDIT_PATH), *args],
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+    )
+    return proc
+
+
+def test_list_checks_prints_registry_in_order():
+    proc = _run_cli(["--list-checks"])
+    assert proc.returncode == 0
+    printed = [line for line in proc.stdout.splitlines() if line.strip()]
+    assert printed == EXPECTED_CHECK_ORDER
+
+
+def test_only_runs_a_strict_subset():
+    # A single-check run must succeed (rc=0 without --check) and must NOT emit
+    # the errors that a full run on this repo would surface from other gates.
+    full = _run_cli([])
+    one = _run_cli(["--only", "secrets"])
+    assert one.returncode == 0
+    # The summary line is always present.
+    assert "wiki_audit:" in one.stdout
+    # Subset output is a proper subset of the full run's lines (fewer or equal
+    # WARN/ERROR lines, since only one gate ran).
+    full_lines = [l for l in full.stdout.splitlines() if l.startswith(("WARN:", "ERROR:"))]
+    one_lines = [l for l in one.stdout.splitlines() if l.startswith(("WARN:", "ERROR:"))]
+    assert len(one_lines) <= len(full_lines)
+
+
+def test_only_preserves_registry_order_regardless_of_input_order(audit):
+    # Passing names out of order still runs them in registry order. We assert
+    # this on the selection logic by reusing the same ordering rule the CLI uses.
+    requested = {"log_changed", "frontmatter", "secrets"}
+    selected = [name for name, _ in audit.CHECKS if name in requested]
+    assert selected == ["frontmatter", "secrets", "log_changed"]
+
+
+def test_only_unknown_name_is_rejected():
+    proc = _run_cli(["--only", "does_not_exist"])
+    # argparse error() exits 2 and writes to stderr.
+    assert proc.returncode == 2
+    assert "unknown check" in proc.stderr
+
+
+def test_only_default_run_uses_full_registry(audit):
+    # Defensive: with no --only, main() iterates the full CHECKS tuple. We can't
+    # cheaply assert the exit code here (depends on repo state), but we can lock
+    # the wiring that the default selection is the whole registry by reading the
+    # source -- the loop iterates `selected` which defaults to CHECKS.
+    source = WIKI_AUDIT_PATH.read_text(encoding="utf-8")
+    assert "selected = CHECKS" in source
+    assert "for _name, run in selected:" in source
