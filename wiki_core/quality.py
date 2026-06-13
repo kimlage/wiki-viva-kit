@@ -10,7 +10,7 @@ from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.graph import build_page_graph
-from wiki_core.graph.page_graph import DEFAULT_ORPHAN_EXEMPT_TYPES
+from wiki_core.graph.page_graph import DEFAULT_ORPHAN_EXEMPT_TYPES, PageGraph
 from wiki_core.llm.cache import cache_key
 from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION
 from wiki_core.paths import WikiPaths
@@ -133,6 +133,94 @@ def _is_event_rel(paths: WikiPaths, rel: str) -> bool:
         return False
     name = Path(rel).name.lower()
     return rel.startswith(prefix) and name not in EVENT_INDEX_FILENAMES
+
+
+def operational_coverage(
+    root: Path,
+    graph: PageGraph,
+    contexts: tuple[str, ...],
+    *,
+    default_context: str = "system",
+) -> dict[str, Any]:
+    """Deterministic coverage of the operational model (Fase 5).
+
+    Pure over the page graph: it crosses the ``responsibilities`` / ``roles`` /
+    ``actions`` frontmatter lists to surface four gaps. Telemetry only -- the
+    gate (opt-in, loose thresholds) lives in ``scripts/wiki_quality_report.py``.
+    """
+    roles: dict[str, dict[str, Any]] = {}
+    resps: dict[str, dict[str, Any]] = {}
+    acts: dict[str, dict[str, Any]] = {}
+    role_contexts: dict[str, set[str]] = defaultdict(set)
+    for rel, node in graph.nodes.items():
+        if node.page_type not in {"role", "responsibility", "action"}:
+            continue
+        values = parse_frontmatter(root / rel)
+        page_id = str(values.get("page_id") or "").strip()
+        if not page_id:
+            continue
+        record = {
+            "rel": rel,
+            "page_id": page_id,
+            "context": node.context,
+            "roles": tuple(_list_values(values.get("roles"))),
+            "responsibilities": tuple(_list_values(values.get("responsibilities"))),
+            "actions": tuple(_list_values(values.get("actions"))),
+        }
+        if node.page_type == "role":
+            roles[page_id] = record
+            role_contexts[node.context].add(page_id)
+        elif node.page_type == "responsibility":
+            resps[page_id] = record
+        else:
+            acts[page_id] = record
+
+    # An action references a responsibility iff either side lists the other.
+    resp_has_action: dict[str, bool] = {pid: bool(r["actions"]) for pid, r in resps.items()}
+    action_has_resp: dict[str, bool] = {pid: bool(a["responsibilities"]) for pid, a in acts.items()}
+    for aid, action in acts.items():
+        for rid in action["responsibilities"]:
+            if rid in resp_has_action:
+                resp_has_action[rid] = True
+        if any(aid in r["actions"] for r in resps.values()):
+            action_has_resp[aid] = True
+
+    responsibilities_without_action = sorted(
+        resps[pid]["rel"] for pid, has in resp_has_action.items() if not has
+    )
+    orphan_actions = sorted(
+        acts[pid]["rel"] for pid, has in action_has_resp.items() if not has
+    )
+    contexts_without_role = sorted(
+        ctx for ctx in contexts if ctx != default_context and not role_contexts.get(ctx)
+    )
+
+    mismatches: list[dict[str, str]] = []
+    seen_pairs: set[tuple[str, str]] = set()
+    for rid, role in roles.items():
+        for resp_id in role["responsibilities"]:
+            resp = resps.get(resp_id)
+            if resp is not None and rid not in resp["roles"]:
+                key = (rid, resp_id)
+                if key not in seen_pairs:
+                    seen_pairs.add(key)
+                    mismatches.append({"role": rid, "responsibility": resp_id})
+    for resp_id, resp in resps.items():
+        for rid in resp["roles"]:
+            role = roles.get(rid)
+            if role is not None and resp_id not in role["responsibilities"]:
+                key = (rid, resp_id)
+                if key not in seen_pairs:
+                    seen_pairs.add(key)
+                    mismatches.append({"role": rid, "responsibility": resp_id})
+    mismatches.sort(key=lambda m: (m["role"], m["responsibility"]))
+
+    return {
+        "responsibilities_without_action": responsibilities_without_action,
+        "contexts_without_role": contexts_without_role,
+        "orphan_actions": orphan_actions,
+        "role_responsibility_edge_mismatch": mismatches,
+    }
 
 
 def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
@@ -298,6 +386,10 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
         if "affected_pages:" in text and "impact_closure:" not in text:
             events_without_impact_closure.append(rel)
 
+    coverage = operational_coverage(
+        root, graph, config.contexts, default_context=config.default_context
+    )
+
     return {
         "schema_version": QUALITY_REPORT_SCHEMA_VERSION,
         "repo_id": config.repo_id,
@@ -315,6 +407,10 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
             "events_without_impact_closure": len(events_without_impact_closure),
             "quality_exempt_pages": len(quality_exempt_pages),
             "quality_exemption_missing_reason": len(quality_exemption_missing_reason),
+            "responsibilities_without_action": len(coverage["responsibilities_without_action"]),
+            "contexts_without_role": len(coverage["contexts_without_role"]),
+            "orphan_actions": len(coverage["orphan_actions"]),
+            "role_responsibility_edge_mismatch": len(coverage["role_responsibility_edge_mismatch"]),
             "chunk_sources": len(chunk_payloads),
             "chunks_total": total_chunks,
             "estimated_context_tokens": total_tokens,
@@ -338,6 +434,10 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
             "events_without_impact_closure": events_without_impact_closure,
             "quality_exempt_pages": quality_exempt_pages,
             "quality_exemption_missing_reason": quality_exemption_missing_reason,
+            "responsibilities_without_action": coverage["responsibilities_without_action"],
+            "contexts_without_role": coverage["contexts_without_role"],
+            "orphan_actions": coverage["orphan_actions"],
+            "role_responsibility_edge_mismatch": coverage["role_responsibility_edge_mismatch"],
         },
         "pages": pages,
     }
@@ -367,6 +467,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         "events_without_impact_closure",
         "quality_exempt_pages",
         "quality_exemption_missing_reason",
+        "responsibilities_without_action",
+        "contexts_without_role",
+        "orphan_actions",
+        "role_responsibility_edge_mismatch",
         "chunk_sources",
         "chunks_total",
         "estimated_context_tokens",
@@ -415,6 +519,27 @@ def render_markdown(report: dict[str, Any]) -> str:
         else:
             lines.append("- None.")
         lines.append("")
+
+    lines.extend(["### Operational model coverage", ""])
+    for title, key in (
+        ("Responsibilities without action", "responsibilities_without_action"),
+        ("Contexts without role", "contexts_without_role"),
+        ("Orphan actions", "orphan_actions"),
+    ):
+        lines.extend([f"#### {title}", ""])
+        values = flags[key]
+        if values:
+            lines.extend(f"- `{value}`" for value in values[:50])
+        else:
+            lines.append("- None.")
+        lines.append("")
+    lines.extend(["#### Role/responsibility edge mismatch", ""])
+    if flags["role_responsibility_edge_mismatch"]:
+        for item in flags["role_responsibility_edge_mismatch"][:50]:
+            lines.append(f"- `{item['role']}` <-> `{item['responsibility']}`")
+    else:
+        lines.append("- None.")
+    lines.append("")
 
     lines.extend(["### Bad repetition blocks", ""])
     if flags["bad_repetition_blocks"]:

@@ -51,6 +51,42 @@ def main(argv: list[str] | None = None) -> int:
             "(default: audit.quality_max_low_density or 0)"
         ),
     )
+    parser.add_argument(
+        "--max-responsibilities-without-action",
+        type=int,
+        default=None,
+        help=(
+            "maximum responsibilities without a linked action allowed under --check "
+            "(default: audit.quality_max_responsibilities_without_action or unlimited)"
+        ),
+    )
+    parser.add_argument(
+        "--max-contexts-without-role",
+        type=int,
+        default=None,
+        help=(
+            "maximum operational contexts without a role allowed under --check "
+            "(default: audit.quality_max_contexts_without_role or unlimited)"
+        ),
+    )
+    parser.add_argument(
+        "--max-orphan-actions",
+        type=int,
+        default=None,
+        help=(
+            "maximum actions without a responsibility allowed under --check "
+            "(default: audit.quality_max_orphan_actions or unlimited)"
+        ),
+    )
+    parser.add_argument(
+        "--max-role-responsibility-mismatch",
+        type=int,
+        default=None,
+        help=(
+            "maximum role/responsibility reciprocity mismatches allowed under --check "
+            "(default: audit.quality_max_role_responsibility_mismatch or unlimited)"
+        ),
+    )
     args = parser.parse_args(argv)
 
     config = load_config(ROOT)
@@ -112,6 +148,51 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 1
+
+        # Operational model coverage (Fase 5). Telemetry-first: the default
+        # threshold is unlimited (None) so the gate only bites once a repo opts
+        # in via args or audit.quality_max_* config. Loose by design.
+        coverage_gates = (
+            (
+                "responsibilities_without_action",
+                args.max_responsibilities_without_action,
+                "quality_max_responsibilities_without_action",
+            ),
+            (
+                "contexts_without_role",
+                args.max_contexts_without_role,
+                "quality_max_contexts_without_role",
+            ),
+            (
+                "orphan_actions",
+                args.max_orphan_actions,
+                "quality_max_orphan_actions",
+            ),
+            (
+                "role_responsibility_edge_mismatch",
+                args.max_role_responsibility_mismatch,
+                "quality_max_role_responsibility_mismatch",
+            ),
+        )
+        for metric, arg_value, config_key in coverage_gates:
+            raw_max = arg_value if arg_value is not None else config.audit.get(config_key)
+            if raw_max is None:
+                continue
+            try:
+                threshold = int(raw_max)
+            except (TypeError, ValueError):
+                print(
+                    f"wiki_quality_report: invalid threshold for {metric} in args/config",
+                    file=sys.stderr,
+                )
+                return 2
+            count = int(report["summary"][metric])
+            if count > threshold:
+                print(
+                    f"wiki_quality_report: {metric}={count} > max={threshold}",
+                    file=sys.stderr,
+                )
+                return 1
     return 0
 
 

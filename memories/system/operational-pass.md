@@ -3,7 +3,7 @@ page_id: operational-pass-wiki-viva-kit
 page_type: dashboard
 context: system
 visibility: private_self
-updated_at: 2026-06-12
+updated_at: 2026-06-13
 stale_after_days: 30
 sources_policy: memorias_fontes_acoes_contextos
 gate: github_pr
@@ -13,7 +13,7 @@ purpose: "cross-context compilation of sources, actions, uncertainty and next st
 
 # Operational pass - sources, actions and contexts
 
-Updated at: 2026-06-12.
+Updated at: 2026-06-13.
 
 Deterministic compilation for contexts: all. Use this page to compress next steps into actions, problems, claims, decisions and target pages; it does not replace human reading of live sources.
 
@@ -60,6 +60,10 @@ Deterministic compilation for contexts: all. Use this page to compress next step
 | Context | Type | Page | Reason |
 | --- | --- | --- | --- |
 | No heuristic problems or uncertainty detected. | - | - | - |
+
+## Operational model by context
+
+_(no roles filled per context.)_
 
 ## Resume links
 

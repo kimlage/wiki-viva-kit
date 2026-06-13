@@ -250,3 +250,85 @@ def test_quality_report_allows_justified_low_density_exemption(tmp_path: Path) -
     assert report["summary"]["quality_exempt_pages"] == 2
     assert report["summary"]["quality_exemption_missing_reason"] == 1
     assert report["quality_flags"]["quality_exemption_missing_reason"] == ["memories/roles/b.md"]
+
+
+def _model_page(page_id: str, page_type: str, context: str, **lists: list[str]) -> str:
+    extra = ""
+    for field_name, values in lists.items():
+        if values:
+            extra += f"{field_name}:\n" + "".join(f"  - {v}\n" for v in values)
+        else:
+            extra += f"{field_name}: []\n"
+    return (
+        f"---\npage_id: {page_id}\npage_type: {page_type}\n"
+        f'title: "{page_id}"\ncontext: {context}\nvisibility: private_self\n'
+        "updated_at: 2026-06-12\nstale_after_days: 30\nsources_policy: x\ngate: github_pr\n"
+        f"sensitive_data_policy: private_sensitive_allowed\n{extra}---\n\n# {page_id}\n\n"
+        "- [Root](../index.md)\n"
+    )
+
+
+def test_operational_coverage_surfaces_gaps(tmp_path: Path) -> None:
+    _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", "- Ready.\n"))
+    # role in fin links resp-a; resp-a does NOT list role back -> mismatch
+    _write(
+        tmp_path / "memories/papeis/steward.md",
+        _model_page("role-steward", "role", "fin", responsibilities=["resp-a"]),
+    )
+    # resp-a: no action and no role reciprocity -> responsibilities_without_action + mismatch
+    _write(
+        tmp_path / "memories/responsabilidades/a.md",
+        _model_page("resp-a", "responsibility", "fin", roles=[], actions=[]),
+    )
+    # orphan action: no responsibility either side
+    _write(
+        tmp_path / "memories/acoes/orphan.md",
+        _model_page("action-orphan", "action", "fin", responsibilities=[]),
+    )
+
+    config = WikiConfig(
+        repo_id="acme",
+        contexts=("fin", "doc"),
+        default_context="sistema",
+    )
+    report = build_quality_report(tmp_path, config)
+    summary = report["summary"]
+    flags = report["quality_flags"]
+
+    assert summary["responsibilities_without_action"] == 1
+    assert flags["responsibilities_without_action"] == ["memories/responsabilidades/a.md"]
+    assert summary["orphan_actions"] == 1
+    assert flags["orphan_actions"] == ["memories/acoes/orphan.md"]
+    assert summary["contexts_without_role"] == 1  # doc has no role; sistema is excluded
+    assert flags["contexts_without_role"] == ["doc"]
+    assert summary["role_responsibility_edge_mismatch"] == 1
+    assert flags["role_responsibility_edge_mismatch"] == [
+        {"role": "role-steward", "responsibility": "resp-a"}
+    ]
+    assert "Operational model coverage" in render_markdown(report)
+
+
+def test_operational_coverage_clean_when_edges_reciprocal(tmp_path: Path) -> None:
+    _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", "- Ready.\n"))
+    _write(
+        tmp_path / "memories/papeis/steward.md",
+        _model_page("role-steward", "role", "fin", responsibilities=["resp-a"]),
+    )
+    _write(
+        tmp_path / "memories/responsabilidades/a.md",
+        _model_page("resp-a", "responsibility", "fin", roles=["role-steward"], actions=["action-x"]),
+    )
+    _write(
+        tmp_path / "memories/acoes/x.md",
+        _model_page("action-x", "action", "fin", responsibilities=["resp-a"]),
+    )
+
+    report = build_quality_report(
+        tmp_path,
+        WikiConfig(repo_id="acme", contexts=("fin",), default_context="sistema"),
+    )
+    summary = report["summary"]
+    assert summary["responsibilities_without_action"] == 0
+    assert summary["orphan_actions"] == 0
+    assert summary["contexts_without_role"] == 0
+    assert summary["role_responsibility_edge_mismatch"] == 0

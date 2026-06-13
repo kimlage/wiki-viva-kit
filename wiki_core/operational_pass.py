@@ -13,6 +13,15 @@ from .config import WikiConfig, freshness_for
 from .paths import WikiPaths
 
 H1_RE = re.compile(r"^#\s+(.*\S)\s*$")
+NEXT_STEPS_HEADING_RE = re.compile(r"^#{2,6}\s+(?:Pr[oó]ximos passos|Next steps)\s*$", re.I)
+NEXT_STEP_ITEM_RE = re.compile(r"^[-*]\s+\[(?P<mark>[ xX])\]\s+(?P<rest>.+?)\s*$")
+NEXT_STEP_TRIGGER_RE = re.compile(
+    r"\s+(?:[-—]\s*)?(?:gatilho|trigger):\s*"
+    r"(?P<trigger>.+?)"
+    r"(?:\s+[-—]\s*(?:resultado|result):.*)?$",
+    re.I,
+)
+NEXT_STEP_RESULT_RE = re.compile(r"\s+[-—]\s*(?:resultado|result):.*$", re.I)
 STATE_PREFIX_RE = re.compile(r"^(?:Estado|State):\s*(.+?)\s*$", re.I)
 TITLE_PREFIX_RE = re.compile(r"^(?:Decisao|Decision|Acao|Action|Claim|Fonte|Source)\s*-\s*", re.I)
 ATTENTION_RE = re.compile(
@@ -97,6 +106,36 @@ class DecisionActionBlocker:
 
 
 @dataclass(frozen=True)
+class NextStep:
+    text: str
+    trigger: str
+    done: bool
+
+
+@dataclass(frozen=True)
+class ResponsibilityNode:
+    page: PageRecord
+    open_actions: tuple[PageRecord, ...]
+    next_steps: tuple[NextStep, ...]
+    health: str  # "ok" | "atencao" | "sem_acao"
+
+
+@dataclass(frozen=True)
+class RoleNode:
+    page: PageRecord
+    responsibilities: tuple[ResponsibilityNode, ...]
+    assignment: PageRecord | None
+    health: str  # "ok" | "sem_responsabilidade"
+
+
+@dataclass(frozen=True)
+class OperationalModelRow:
+    context: str
+    roles: tuple[RoleNode, ...]
+    roleless_context: bool
+
+
+@dataclass(frozen=True)
 class OperationalPassReport:
     context_rows: tuple[ContextRow, ...]
     consolidation_outputs: tuple[ConsolidationOutputRow, ...]
@@ -107,6 +146,7 @@ class OperationalPassReport:
     decision_action_blockers: tuple[DecisionActionBlocker, ...]
     claims: tuple[PageRecord, ...]
     attention: tuple[AttentionRow, ...]
+    operational_model: tuple[OperationalModelRow, ...]
     pending_ids: tuple[str, ...]
 
 
@@ -256,6 +296,7 @@ def build_operational_pass_report(
         )
     )
     decision_action_blockers = _decision_action_blockers(pending_decisions, actions)
+    operational_model = _operational_model_rows(pages, context_names)
     consolidation_outputs = _consolidation_outputs(
         context_names,
         actions,
@@ -276,6 +317,7 @@ def build_operational_pass_report(
         decision_action_blockers=decision_action_blockers,
         claims=claims,
         attention=attention,
+        operational_model=operational_model,
         pending_ids=pending_ids,
     )
 
@@ -403,6 +445,9 @@ def build_operational_pass_page(
     else:
         lines.append(s["empty_attention"])
 
+    lines.append("")
+    lines += _render_operational_model(report.operational_model, page_dir, s)
+
     lines += [
         "",
         s["h_resume"],
@@ -416,6 +461,62 @@ def build_operational_pass_page(
         "",
     ]
     return "\n".join(lines)
+
+
+def _render_operational_model(
+    rows: tuple[OperationalModelRow, ...], page_dir: Path, s: dict[str, str]
+) -> list[str]:
+    lines: list[str] = [s["h_operational_model"], ""]
+    has_content = any(row.roles for row in rows)
+    if not has_content:
+        lines.append(s["empty_operational_model"])
+        return lines
+    for row in rows:
+        if not row.roles:
+            continue
+        lines.append(f"### {_escape(row.context)}")
+        lines.append("")
+        for role_node in row.roles:
+            role_health = s.get("health_" + role_node.health, role_node.health)
+            lines.append(
+                f"- **{s['role_label']}:** {_page_link(role_node.page, page_dir)} "
+                f"— {s['role_health_label']} `{role_health}`"
+            )
+            if role_node.assignment is not None:
+                lines.append(
+                    f"  - {s['assignment_label']}: {_page_link(role_node.assignment, page_dir)}"
+                )
+            for resp_node in role_node.responsibilities:
+                resp_health = s.get("health_" + resp_node.health, resp_node.health)
+                if resp_node.health == "sem_acao":
+                    lines.append(
+                        f"  - **{s['responsibility_label']}:** "
+                        f"{_page_link(resp_node.page, page_dir)} — {s['responsibility_no_action']}"
+                    )
+                    continue
+                lines.append(
+                    f"  - **{s['responsibility_label']}:** "
+                    f"{_page_link(resp_node.page, page_dir)} — {s['responsibility_health_label']} `{resp_health}`"
+                )
+                for action in resp_node.open_actions:
+                    lines.append(
+                        f"    - {s['action_label']}: {_page_link(action, page_dir)} "
+                        f"`{_escape(action.status or s['unknown'])}`"
+                    )
+                    for step in parse_next_steps(action.body):
+                        if step.done:
+                            continue
+                        suffix = (
+                            f" — {s['trigger_label']}: {_escape(step.trigger)}"
+                            if step.trigger
+                            else ""
+                        )
+                        lines.append(
+                            f"      - {s['next_step_label']}: {_escape(step.text)}{suffix}"
+                        )
+        lines.append("")
+    lines.append(s["roleless_context"].format(count=sum(1 for r in rows if r.roleless_context)))
+    return lines
 
 
 def report_to_dict(report: OperationalPassReport) -> dict[str, Any]:
@@ -496,6 +597,38 @@ def report_to_dict(report: OperationalPassReport) -> dict[str, Any]:
             {"context": a.context, "page_type": a.page.page_type, "path": a.page.rel, "reason": a.reason}
             for a in report.attention
         ],
+        "operational_model": [
+            {
+                "context": row.context,
+                "roleless_context": row.roleless_context,
+                "roles": [
+                    {
+                        "page_id": role.page.page_id,
+                        "path": role.page.rel,
+                        "health": role.health,
+                        "assignment": role.assignment.page_id if role.assignment else "",
+                        "responsibilities": [
+                            {
+                                "page_id": resp.page.page_id,
+                                "path": resp.page.rel,
+                                "health": resp.health,
+                                "open_actions": [
+                                    {"page_id": a.page_id, "path": a.rel, "status": a.status}
+                                    for a in resp.open_actions
+                                ],
+                                "next_steps": [
+                                    {"text": step.text, "trigger": step.trigger, "done": step.done}
+                                    for step in resp.next_steps
+                                ],
+                            }
+                            for resp in role.responsibilities
+                        ],
+                    }
+                    for role in row.roles
+                ],
+            }
+            for row in report.operational_model
+        ],
         "pending_ids": list(report.pending_ids),
     }
 
@@ -522,6 +655,148 @@ def first_state(text: str) -> str:
                     raw = raw.split(sep, 1)[0].strip()
             return raw.rstrip(".").strip()
     return ""
+
+
+def parse_next_steps(body: str) -> tuple[NextStep, ...]:
+    """Extract ``- [ ]``/``- [x]`` items under a ``## Proximos passos`` section.
+
+    Each item becomes a :class:`NextStep`; the trigger is the text after a
+    ``gatilho:``/``trigger:`` marker. Parsing stops at the next heading so the
+    extraction is local to the section and deterministic.
+    """
+    steps: list[NextStep] = []
+    in_section = False
+    for raw in body.splitlines():
+        line = raw.strip()
+        if line.startswith("#"):
+            in_section = bool(NEXT_STEPS_HEADING_RE.match(line))
+            continue
+        if not in_section:
+            continue
+        match = NEXT_STEP_ITEM_RE.match(line)
+        if not match:
+            continue
+        done = match.group("mark").lower() == "x"
+        rest = match.group("rest").strip()
+        trigger = ""
+        trigger_match = NEXT_STEP_TRIGGER_RE.search(rest)
+        if trigger_match:
+            trigger = trigger_match.group("trigger").strip()
+            rest = rest[: trigger_match.start()].strip()
+        else:
+            rest = NEXT_STEP_RESULT_RE.sub("", rest).strip()
+        rest = rest.rstrip("—- ").strip()
+        steps.append(NextStep(text=rest, trigger=trigger, done=done))
+    return tuple(steps)
+
+
+def _action_is_closed(page: PageRecord) -> bool:
+    status = page.status.lower().strip()
+    return status in {"concluida", "concluída", "concluded", "done", "closed", "resolved", "resolvida"}
+
+
+def _build_responsibility_node(
+    resp: PageRecord, actions_by_id: dict[str, PageRecord]
+) -> ResponsibilityNode:
+    actions = tuple(
+        actions_by_id[aid]
+        for aid in resp.actions
+        if aid in actions_by_id
+    )
+    # Reciprocity: an action may point back at this responsibility even when the
+    # responsibility frontmatter does not list it (incremental fill-in).
+    for action in actions_by_id.values():
+        action_resps = _string_tuple(action.frontmatter.get("responsibilities"))
+        if resp.page_id in action_resps and action.page_id not in resp.actions:
+            actions = actions + (action,)
+    open_actions = tuple(
+        sorted(
+            (a for a in actions if not _action_is_closed(a)),
+            key=lambda a: (a.title.lower(), a.rel),
+        )
+    )
+    next_steps: list[NextStep] = []
+    for action in open_actions:
+        next_steps.extend(parse_next_steps(action.body))
+    if not actions:
+        health = "sem_acao"
+    elif any(_page_needs_attention(a) for a in open_actions):
+        health = "atencao"
+    else:
+        health = "ok"
+    return ResponsibilityNode(
+        page=resp,
+        open_actions=open_actions,
+        next_steps=tuple(next_steps),
+        health=health,
+    )
+
+
+def _build_role_node(
+    role: PageRecord,
+    resp_by_id: dict[str, PageRecord],
+    assign_by_role_id: dict[str, PageRecord],
+    actions_by_id: dict[str, PageRecord],
+) -> RoleNode:
+    resp_ids: list[str] = list(_string_tuple(role.frontmatter.get("responsibilities")))
+    # Reciprocity: responsibilities that list this role but are not yet listed
+    # back in the role frontmatter still belong to the role.
+    for resp in resp_by_id.values():
+        roles = _string_tuple(resp.frontmatter.get("roles"))
+        if role.page_id in roles and resp.page_id not in resp_ids:
+            resp_ids.append(resp.page_id)
+    nodes = tuple(
+        sorted(
+            (
+                _build_responsibility_node(resp_by_id[rid], actions_by_id)
+                for rid in dict.fromkeys(resp_ids)
+                if rid in resp_by_id
+            ),
+            key=lambda node: (node.page.title.lower(), node.page.rel),
+        )
+    )
+    health = "ok" if nodes else "sem_responsabilidade"
+    return RoleNode(
+        page=role,
+        responsibilities=nodes,
+        assignment=assign_by_role_id.get(role.page_id),
+        health=health,
+    )
+
+
+def _operational_model_rows(
+    pages: tuple[PageRecord, ...], contexts: tuple[str, ...]
+) -> tuple[OperationalModelRow, ...]:
+    resp_by_id = {p.page_id: p for p in pages if p.page_type == "responsibility"}
+    role_by_id = {p.page_id: p for p in pages if p.page_type == "role"}
+    actions_by_id = {p.page_id: p for p in pages if p.page_type == "action"}
+    assign_by_role_id: dict[str, PageRecord] = {}
+    for page in pages:
+        if page.page_type != "assignment":
+            continue
+        for role_id in _string_tuple(page.frontmatter.get("roles")):
+            assign_by_role_id.setdefault(role_id, page)
+
+    rows: list[OperationalModelRow] = []
+    for context in contexts:
+        ctx_roles = tuple(
+            sorted(
+                (r for r in role_by_id.values() if r.context == context),
+                key=lambda r: (r.title.lower(), r.rel),
+            )
+        )
+        role_nodes = tuple(
+            _build_role_node(role, resp_by_id, assign_by_role_id, actions_by_id)
+            for role in ctx_roles
+        )
+        rows.append(
+            OperationalModelRow(
+                context=context,
+                roles=role_nodes,
+                roleless_context=not role_nodes,
+            )
+        )
+    return tuple(rows)
 
 
 def _source_row(page: PageRecord, as_of: dt.date) -> SourceRow:
@@ -800,6 +1075,22 @@ def _strings(language: str) -> dict[str, str]:
             "empty_decisions": "| Sem decisoes pendentes detectadas. | - | - | - | - | - |",
             "empty_decision_blocks": "| Nenhuma acao bloqueada por decisao pendente. | - | - | - | - |",
             "empty_attention": "| Sem problemas ou incertezas detectados por heuristica. | - | - | - |",
+            "h_operational_model": "## Modelo operacional por contexto",
+            "role_label": "Papel",
+            "role_health_label": "saudavel?",
+            "responsibility_label": "Responsabilidade",
+            "responsibility_health_label": "em dia?",
+            "action_label": "Acao",
+            "next_step_label": "Proximo passo",
+            "trigger_label": "gatilho",
+            "assignment_label": "Atribuicao",
+            "responsibility_no_action": "sem acao aberta (preventiva)",
+            "roleless_context": "_(contextos sem papel preenchido: {count})_",
+            "empty_operational_model": "_(sem papeis preenchidos por contexto.)_",
+            "health_ok": "ok",
+            "health_atencao": "atencao",
+            "health_sem_acao": "sem acao",
+            "health_sem_responsabilidade": "sem responsabilidade",
         },
         "en": {
             "title": "Operational pass - sources, actions and contexts",
@@ -846,6 +1137,22 @@ def _strings(language: str) -> dict[str, str]:
             "empty_decisions": "| No pending decisions detected. | - | - | - | - | - |",
             "empty_decision_blocks": "| No action gated by a pending decision. | - | - | - | - |",
             "empty_attention": "| No heuristic problems or uncertainty detected. | - | - | - |",
+            "h_operational_model": "## Operational model by context",
+            "role_label": "Role",
+            "role_health_label": "healthy?",
+            "responsibility_label": "Responsibility",
+            "responsibility_health_label": "on track?",
+            "action_label": "Action",
+            "next_step_label": "Next step",
+            "trigger_label": "trigger",
+            "assignment_label": "Assignment",
+            "responsibility_no_action": "no open action (preventive)",
+            "roleless_context": "_(contexts without a filled role: {count})_",
+            "empty_operational_model": "_(no roles filled per context.)_",
+            "health_ok": "ok",
+            "health_atencao": "attention",
+            "health_sem_acao": "no action",
+            "health_sem_responsabilidade": "no responsibility",
         },
     }
     return strings.get(language, strings["en"])

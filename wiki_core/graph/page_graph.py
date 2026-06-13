@@ -27,6 +27,7 @@ FRONTMATTER_REF_FIELDS = (
     "owner",
     "roles",
     "responsibilities",
+    "assignments",
     "related_holons",
     "supersedes",
     "superseded_by",

@@ -102,6 +102,34 @@ def test_orphan_reachability_and_impact(tmp_path: Path) -> None:
     assert impact.references == {"memories/projects/summary.md": ("memories/projects/x.md",)}
 
 
+def test_assignments_frontmatter_field_becomes_an_edge(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "memories/index.md",
+        _page("root", "root_index", "Root", "- [Role](papeis/steward.md)\n"),
+    )
+    _write(
+        tmp_path / "memories/papeis/steward.md",
+        _page(
+            "role-steward",
+            "role",
+            "Role Steward",
+            "- [Root](../index.md)\n",
+            extra="assignments:\n  - assignment-kim-steward\n",
+        ),
+    )
+    _write(
+        tmp_path / "memories/atribuicoes/kim-steward.md",
+        _page("assignment-kim-steward", "assignment", "Assignment", "- [Root](../index.md)\n"),
+    )
+
+    graph = build_page_graph(tmp_path, WikiConfig())
+    role = graph.nodes["memories/papeis/steward.md"]
+    assert "memories/atribuicoes/kim-steward.md" in role.outbound_frontmatter_refs
+    assert "memories/papeis/steward.md" in graph.nodes[
+        "memories/atribuicoes/kim-steward.md"
+    ].inbound_links
+
+
 def test_impact_ignores_changes_to_exempt_operational_pages(tmp_path: Path) -> None:
     _write(
         tmp_path / "memories/index.md",

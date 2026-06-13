@@ -8,6 +8,7 @@ from wiki_core.operational_pass import (
     build_operational_pass_page,
     build_operational_pass_report,
     first_state,
+    parse_next_steps,
     report_to_dict,
 )
 
@@ -300,6 +301,172 @@ def test_first_state_keeps_unquoted_iso_dates():
         first_state("Estado: pendente (registrada em 2026-06-11 a partir da fonte).")
         == "pendente (registrada em 2026-06-11 a partir da fonte)"
     )
+
+
+def test_parse_next_steps_extracts_trigger_and_done_flag():
+    body = (
+        "# Action\n\nState: `pending`.\n\n"
+        "## Proximos passos\n\n"
+        "- [ ] renew browser session — gatilho: before any write — resultado: fresh session\n"
+        "- [x] confirm readback — trigger: after import\n"
+        "- [ ] plain step with no trigger\n\n"
+        "## Other\n\n- [ ] not a next step\n"
+    )
+    steps = parse_next_steps(body)
+    assert [s.text for s in steps] == [
+        "renew browser session",
+        "confirm readback",
+        "plain step with no trigger",
+    ]
+    # The trailing "resultado:" clause is dropped from the trigger.
+    assert steps[0].trigger == "before any write"
+    assert steps[0].done is False
+    assert steps[1].trigger == "after import"
+    assert steps[1].done is True
+    assert steps[2].trigger == ""
+
+
+def _role(page_id: str, context: str, responsibilities: list[str], *, assignment: bool = True) -> str:
+    resp_lines = "\n".join(f"  - {r}" for r in responsibilities) or "[]"
+    resp_block = f"responsibilities:\n{resp_lines}" if responsibilities else "responsibilities: []"
+    assign_block = f"assignments:\n  - assignment-{page_id}\n" if assignment else ""
+    return (
+        "---\n"
+        f"page_id: {page_id}\n"
+        "page_type: role\n"
+        f'title: "Role - {page_id}"\n'
+        f"context: {context}\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-12\n"
+        "stale_after_days: 45\n"
+        "sources_policy: x\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        f"{resp_block}\n"
+        f"{assign_block}"
+        "---\n\n"
+        f"# Role - {page_id}\n"
+    )
+
+
+def _responsibility(page_id: str, context: str, roles: list[str], actions: list[str]) -> str:
+    role_lines = "\n".join(f"  - {r}" for r in roles)
+    action_lines = "\n".join(f"  - {a}" for a in actions)
+    role_block = f"roles:\n{role_lines}" if roles else "roles: []"
+    action_block = f"actions:\n{action_lines}" if actions else "actions: []"
+    return (
+        "---\n"
+        f"page_id: {page_id}\n"
+        "page_type: responsibility\n"
+        f'title: "Responsibility - {page_id}"\n'
+        f"context: {context}\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-12\n"
+        "stale_after_days: 30\n"
+        "sources_policy: x\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        f"{role_block}\n"
+        f"{action_block}\n"
+        "---\n\n"
+        f"# Responsibility - {page_id}\n"
+    )
+
+
+def _model_action(page_id: str, context: str, responsibilities: list[str], state: str, steps: str = "") -> str:
+    resp_lines = "\n".join(f"  - {r}" for r in responsibilities)
+    resp_block = f"responsibilities:\n{resp_lines}" if responsibilities else "responsibilities: []"
+    return (
+        "---\n"
+        f"page_id: {page_id}\n"
+        "page_type: action\n"
+        f'title: "Action - {page_id}"\n'
+        f"context: {context}\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-12\n"
+        "stale_after_days: 15\n"
+        "sources_policy: x\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        f"{resp_block}\n"
+        "---\n\n"
+        f"# Action - {page_id}\n\n"
+        f"State: `{state}`.\n"
+        f"{steps}"
+    )
+
+
+def test_operational_model_renders_role_responsibility_action_tree(tmp_path: Path):
+    mem = tmp_path / "memories"
+    _write(mem / "fin" / "index.md", _hub("fin"))
+    _write(mem / "papeis" / "steward.md", _role("role-steward", "fin", ["resp-validate"]))
+    _write(
+        mem / "atribuicoes" / "kim-steward.md",
+        "---\npage_id: assignment-role-steward\npage_type: assignment\n"
+        'title: "Assignment - Kim steward"\ncontext: fin\nvisibility: private_self\n'
+        "updated_at: 2026-06-12\nstale_after_days: 30\nsources_policy: x\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\nroles:\n  - role-steward\n---\n\n# Assignment\n",
+    )
+    _write(
+        mem / "responsabilidades" / "validate.md",
+        _responsibility("resp-validate", "fin", ["role-steward"], ["action-revisar"]),
+    )
+    _write(
+        mem / "acoes" / "revisar.md",
+        _model_action(
+            "action-revisar",
+            "fin",
+            ["resp-validate"],
+            "pendente",
+            "\n## Proximos passos\n\n- [ ] renovar sessao Browser — gatilho: antes de escrever\n",
+        ),
+    )
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("fin",), language="pt")
+    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
+    payload = report_to_dict(report)
+
+    model = report.operational_model
+    assert [r.context for r in model] == ["fin"]
+    assert model[0].roles[0].page.page_id == "role-steward"
+    assert model[0].roles[0].assignment is not None
+    resp_node = model[0].roles[0].responsibilities[0]
+    assert resp_node.page.page_id == "resp-validate"
+    assert resp_node.health == "atencao"  # action body says pendente
+    assert resp_node.open_actions[0].page_id == "action-revisar"
+    assert resp_node.next_steps[0].trigger == "antes de escrever"
+
+    assert "## Modelo operacional por contexto" in page
+    assert "### fin" in page
+    assert "[Role - role-steward](../papeis/steward.md)" in page
+    assert "renovar sessao Browser" in page
+    assert payload["operational_model"][0]["roles"][0]["health"] == "ok"
+    assert (
+        payload["operational_model"][0]["roles"][0]["responsibilities"][0]["next_steps"][0][
+            "trigger"
+        ]
+        == "antes de escrever"
+    )
+
+
+def test_operational_model_marks_preventive_and_roleless(tmp_path: Path):
+    mem = tmp_path / "memories"
+    _write(mem / "fin" / "index.md", _hub("fin"))
+    _write(mem / "doc" / "index.md", _hub("doc"))
+    # role in fin with a responsibility that has no action (preventive)
+    _write(mem / "papeis" / "steward.md", _role("role-steward", "fin", ["resp-prevent"], assignment=False))
+    _write(
+        mem / "responsabilidades" / "prevent.md",
+        _responsibility("resp-prevent", "fin", ["role-steward"], []),
+    )
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("fin", "doc"), language="pt")
+    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
+
+    model = {r.context: r for r in report.operational_model}
+    assert model["fin"].roles[0].responsibilities[0].health == "sem_acao"
+    assert model["doc"].roleless_context is True
+    assert "sem acao aberta (preventiva)" in page
+    assert "_(contextos sem papel preenchido: 1)_" in page
 
 
 def test_operational_pass_page_uses_configured_localized_path(tmp_path: Path):
