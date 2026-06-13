@@ -7,6 +7,7 @@ value to look random (high Shannon entropy) before reporting.
 
 from __future__ import annotations
 
+import json
 import math
 import re
 
@@ -132,6 +133,137 @@ def _looks_random(value: str) -> bool:
     return _shannon_entropy(value) > _MIN_ENTROPY_BITS_PER_CHAR
 
 
+# --------------------------------------------------------------------------- #
+# Credential-file SHAPE detection.
+#
+# The content-based rules above match on the *value* (a high-entropy token, a
+# PEM header, a provider prefix). They miss a whole class of leak: a Google
+# credential FILE committed wholesale. ``credentials.json`` / ``token.json``
+# were the real gap in this repo's history. We catch them by their structural
+# shape -- the diagnostic SET of keys -- rather than by any single value, so a
+# leak is flagged even when the embedded token is short or low-entropy.
+#
+# Two shapes:
+#   * Google service-account key: a JSON object whose ``type`` is
+#     ``"service_account"`` together with a ``private_key`` and ``client_email``.
+#   * OAuth client/token: a JSON object carrying OAuth credential material --
+#     ``refresh_token`` / ``access_token`` / ``client_secret`` (with the
+#     companion ``client_id``). ``token.json`` and ``client_secret_*.json``.
+# --------------------------------------------------------------------------- #
+
+_SERVICE_ACCOUNT_TYPE = "service_account"
+# Service-account shape: the literal type marker plus the two fields that make
+# it a usable key. All three required so an unrelated {"type": ...} does not fire.
+_SERVICE_ACCOUNT_KEYS = ("private_key", "client_email")
+
+# OAuth credential material. ``client_secret`` alone is enough; the live tokens
+# (refresh/access) require the ``client_id`` companion so a bare {"access_token":
+# "<short>"} from unrelated APIs is less likely to false-positive. Tuned for the
+# google-auth ``token.json`` / ``client_secret_*.json`` shapes.
+_OAUTH_STRONG_KEYS = ("client_secret",)
+_OAUTH_TOKEN_KEYS = ("refresh_token", "access_token")
+
+# Fallback for malformed / partial JSON (truncated paste, trailing comma): the
+# key names still betray the shape. Quote-delimited so we match the JSON key,
+# not an English sentence that happens to contain the word.
+_SERVICE_ACCOUNT_TYPE_RE = re.compile(
+    r'"type"\s*:\s*"service_account"'
+)
+_KEY_PRESENT_RE = {
+    key: re.compile(r'"' + re.escape(key) + r'"\s*:')
+    for key in (
+        "private_key",
+        "client_email",
+        "client_secret",
+        "client_id",
+        "refresh_token",
+        "access_token",
+    )
+}
+
+
+def _redacted_shape_excerpt(kind: str, keys: tuple[str, ...]) -> str:
+    """A safe, value-free description of the credential file shape.
+
+    Never echoes any field value -- only the kind and the diagnostic key names,
+    so the finding stays shareable.
+    """
+    return f"{kind}{{{', '.join(keys)}}}"
+
+
+def _scan_credential_file_shape(text: str) -> list[Finding]:
+    """Detect whole Google credential files by their JSON shape.
+
+    Parses ``text`` as JSON when possible; otherwise falls back to quoted-key
+    presence so a truncated paste is still caught. At most one finding per shape
+    -- excerpts are value-free.
+    """
+    findings: list[Finding] = []
+
+    obj: object | None
+    try:
+        obj = json.loads(text)
+    except (ValueError, TypeError):
+        obj = None
+
+    present: set[str]
+    is_service_account: bool
+    if isinstance(obj, dict):
+        keys = {k for k in obj if isinstance(k, str)}
+        present = keys
+        is_service_account = obj.get("type") == _SERVICE_ACCOUNT_TYPE
+    else:
+        # Fallback: scan the raw text for quoted JSON keys / the type marker.
+        present = {
+            key for key, pat in _KEY_PRESENT_RE.items() if pat.search(text)
+        }
+        is_service_account = bool(_SERVICE_ACCOUNT_TYPE_RE.search(text))
+
+    if is_service_account and all(k in present for k in _SERVICE_ACCOUNT_KEYS):
+        matched = ("type=service_account", *_SERVICE_ACCOUNT_KEYS)
+        findings.append(
+            Finding(
+                kind="google_service_account_key",
+                category=_CATEGORY,
+                severity="critico",
+                line=1,
+                excerpt=_redacted_shape_excerpt(
+                    "google_service_account_key", matched
+                ),
+                detector=_DETECTOR,
+            )
+        )
+
+    has_strong = any(k in present for k in _OAUTH_STRONG_KEYS)
+    has_live_token = any(k in present for k in _OAUTH_TOKEN_KEYS)
+    has_client_id = "client_id" in present
+    if has_strong or (has_live_token and has_client_id):
+        matched = tuple(
+            k
+            for k in (
+                "client_id",
+                "client_secret",
+                "refresh_token",
+                "access_token",
+            )
+            if k in present
+        )
+        findings.append(
+            Finding(
+                kind="google_oauth_credentials",
+                category=_CATEGORY,
+                severity="critico",
+                line=1,
+                excerpt=_redacted_shape_excerpt(
+                    "google_oauth_credentials", matched
+                ),
+                detector=_DETECTOR,
+            )
+        )
+
+    return findings
+
+
 def scan_secrets(text: str) -> list[Finding]:
     """Detect credential-shaped secrets in ``text``."""
     findings: list[Finding] = []
@@ -168,6 +300,8 @@ def scan_secrets(text: str) -> list[Finding]:
                 detector=_DETECTOR,
             )
         )
+
+    findings.extend(_scan_credential_file_shape(text))
 
     return findings
 

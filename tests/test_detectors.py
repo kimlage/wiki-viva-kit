@@ -296,5 +296,112 @@ def test_dedup_identical_findings() -> None:
     assert len(findings) == 1
 
 
+# --------------------------------------------------------------------------- #
+# Credential-file SHAPE detection (Google service-account / OAuth token files).
+#
+# The real gap: the content/entropy rules miss a Google credential FILE
+# committed wholesale (credentials.json / token.json). We catch them by shape.
+# All fixture values below are fake.
+# --------------------------------------------------------------------------- #
+
+# A fake service-account key file. Built as a raw JSON string (no ``json``
+# import, kept off the top of the module so the line numbers of the PEM fixture
+# above stay stable for the working-tree secret scan). The ``private_key`` VALUE
+# is a value-free placeholder on purpose: the SHAPE detector keys off the
+# presence of the field name, not a real PEM block -- so we do not embed a
+# detectable private key in a test fixture.
+SERVICE_ACCOUNT_JSON = (
+    "{\n"
+    '  "type": "service_account",\n'
+    '  "project_id": "fake-project-123",\n'
+    '  "private_key_id": "0123456789abcdef0123456789abcdef01234567",\n'
+    '  "private_key": "FAKE-PLACEHOLDER-NOT-A-REAL-KEY",\n'
+    '  "client_email": "svc@fake-project-123.iam.gserviceaccount.com",\n'
+    '  "client_id": "100000000000000000000",\n'
+    '  "token_uri": "https://oauth2.googleapis.com/token"\n'
+    "}"
+)
+
+# A fake OAuth token file (google-auth ``token.json`` shape). All values fake.
+OAUTH_TOKEN_JSON = (
+    "{\n"
+    '  "token": "fake-access-token-value-0000",\n'
+    '  "refresh_token": "fake-refresh-token-value-0000",\n'
+    '  "access_token": "fake-access-token-value-0000",\n'
+    '  "client_id": "100000000000-fake.apps.googleusercontent.com",\n'
+    '  "client_secret": "fake-client-secret-0000",\n'
+    '  "scopes": ["https://www.googleapis.com/auth/drive"]\n'
+    "}"
+)
+
+
+def test_detects_service_account_json() -> None:
+    kinds = _kinds(scan_secrets(SERVICE_ACCOUNT_JSON))
+    assert "google_service_account_key" in kinds
+
+
+def test_detects_oauth_token_json() -> None:
+    kinds = _kinds(scan_secrets(OAUTH_TOKEN_JSON))
+    assert "google_oauth_credentials" in kinds
+
+
+def test_credential_shape_surfaces_via_scan_text_as_secret() -> None:
+    findings = scan_text(SERVICE_ACCOUNT_JSON)
+    secrets = [f for f in findings if f.category == "secret"]
+    assert any(f.kind == "google_service_account_key" for f in secrets)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        # Ordinary config JSON: has a "type" but not service_account, no creds.
+        '{"type": "object", "name": "widget", "count": 3}',
+        # A normal app settings file.
+        '{"theme": "dark", "client_id_label": "Conta", "items": []}',
+        # Prose that merely mentions the words is not a JSON credential file.
+        "O refresh_token expira; precisamos renovar o access_token no fluxo.",
+        # client_id alone (no secret, no live token) must not fire.
+        '{"client_id": "100000000000-fake.apps.googleusercontent.com"}',
+    ],
+)
+def test_no_false_positive_on_ordinary_json(payload: str) -> None:
+    kinds = _kinds(scan_secrets(payload))
+    assert "google_service_account_key" not in kinds
+    assert "google_oauth_credentials" not in kinds
+
+
+def test_credential_shape_fallback_on_malformed_json() -> None:
+    # Truncated / malformed paste: still betrayed by the quoted key shape.
+    broken = (
+        '{\n  "type": "service_account",\n'
+        '  "private_key": "FAKE-PLACEHOLDER-NOT-A-REAL-KEY",\n'
+        '  "client_email": "svc@fake.iam.gserviceaccount.com",\n'
+        # missing closing brace -> json.loads fails, fallback must catch it
+    )
+    assert "google_service_account_key" in _kinds(scan_secrets(broken))
+
+
+def test_credential_shape_excerpt_is_value_free() -> None:
+    # The excerpt must never echo a field VALUE -- only the kind + key names.
+    forbidden = (
+        "FAKE-PLACEHOLDER-NOT-A-REAL-KEY",
+        "fake-client-secret-0000",
+        "fake-refresh-token-value-0000",
+        "fake-access-token-value-0000",
+        "svc@fake",
+    )
+    for text in (SERVICE_ACCOUNT_JSON, OAUTH_TOKEN_JSON):
+        shape_findings = [
+            f
+            for f in scan_secrets(text)
+            if f.kind
+            in ("google_service_account_key", "google_oauth_credentials")
+        ]
+        assert shape_findings
+        for finding in shape_findings:
+            for value in forbidden:
+                assert value not in finding.excerpt
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
