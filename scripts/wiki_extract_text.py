@@ -8,8 +8,10 @@ import json
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+try:  # importing _common bootstraps sys.path so wiki_core resolves
+    from scripts._common import ROOT  # package/spec-loader import
+except ModuleNotFoundError:
+    from _common import ROOT  # direct run: scripts/ on sys.path
 
 from wiki_core.chunking import chunk_text
 from wiki_core.config import load_config

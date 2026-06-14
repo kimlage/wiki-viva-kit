@@ -6,10 +6,11 @@ from __future__ import annotations
 import subprocess
 import sys
 from collections import defaultdict
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
+try:  # importing _common bootstraps sys.path so wiki_core resolves
+    from scripts._common import ROOT  # package/spec-loader import
+except ModuleNotFoundError:
+    from _common import ROOT  # direct run: scripts/ on sys.path
 
 from wiki_core.config import load_config
 
