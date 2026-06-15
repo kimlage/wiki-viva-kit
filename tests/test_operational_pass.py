@@ -160,6 +160,7 @@ def test_operational_pass_crosses_sources_actions_and_uncertainty(tmp_path: Path
 
     config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
     report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
 
     assert report.context_rows[0].sources == 1
     assert report.context_rows[0].source_attention == 1  # next refresh was 2026-06-08
@@ -168,6 +169,8 @@ def test_operational_pass_crosses_sources_actions_and_uncertainty(tmp_path: Path
     assert report.context_rows[0].claims == 1
     assert report.context_rows[0].decisions == 1
     assert "Contact owner" in report.context_rows[0].next_steps[0]
+    assert "[Contact owner](../actions/contact-owner.md)" in page
+    assert "refresh source: [CRM export](../sources/crm.md)" in page
     assert any(row.page.page_id == "claim-missing-rating" for row in report.attention)
 
 

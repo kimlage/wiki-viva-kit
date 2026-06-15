@@ -20,6 +20,11 @@ in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
   deterministic (zero model tokens).
 - **Operational cockpit** ([memories/operations.md](memories/operations.md)):
   compiled daily, self-verifiable (`--check` fails if semantically stale).
+- **OKF interoperability**: export the rich Wiki Viva memory tree as an Open
+  Knowledge Format v0.1 bundle, check conformance, preview imports, and generate
+  a local HTML viewer without changing the internal page contracts. The adapter
+  follows Google's [Open Knowledge Format announcement](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing/)
+  and the [knowledge-catalog reference project](https://github.com/GoogleCloudPlatform/knowledge-catalog).
 - **Karma layer**: 8-dimension operational scoring as a by-product, append-only,
   no toxic leaderboard.
 
@@ -42,6 +47,12 @@ python3 scripts/wiki_operation_compile.py --check
 
 # 4. Compile the daily cockpit
 python3 scripts/wiki_operation_compile.py --write
+
+# 5. Optional: exchange the wiki through Open Knowledge Format
+python3 scripts/wiki_okf_export.py --out tmp/okf-bundle --clean
+python3 scripts/wiki_okf_check.py --bundle tmp/okf-bundle --check
+python3 scripts/wiki_okf_visualize.py --bundle tmp/okf-bundle
+python3 scripts/wiki_okf_import.py --bundle tmp/okf-bundle --context system --dry-run
 ```
 
 The deep reading itself is performed by the agent that runs the repo: the
@@ -75,6 +86,19 @@ is the context that explains how the wiki itself works:
 
 Agent-facing entry point: [AGENTS.md](AGENTS.md).
 
+## Related projects and reference pilot
+
+- **Open Knowledge Format (OKF)**: Wiki Viva v6.6 targets OKF v0.1 as described
+  in the Google Cloud [OKF article](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing/)
+  and the [GoogleCloudPlatform/knowledge-catalog](https://github.com/GoogleCloudPlatform/knowledge-catalog)
+  project. OKF is the exchange layer; Wiki Viva remains the richer operational
+  memory model.
+- **Reference pilot**: [Sargam Controle Pessoal](https://github.com/kimlage/sargam_controle_pessoal)
+  is Kim de Amorim Lage's private personal operations wiki and the dogfood
+  environment used to validate localized paths, private-data boundaries, finance,
+  document, tax and professional-memory workflows. Public marketing should
+  describe it as a private reference pilot and never expose private data.
+
 ## Layout
 
 The tree is **English by default**: `memories/` (the wiki, one hub per context),
@@ -99,6 +123,8 @@ list. Localized repos pin their own names there (e.g. a Portuguese repo sets
    reviewed by the owner.
 5. **Language by config** — code and docs in English; generated pages in the
    configured language.
+6. **Interop by adapter** — OKF is an exchange layer. The internal wiki keeps the
+   richer `page_type`, perspective, privacy and PR-gate contracts.
 
 ## License & contributing
 

@@ -21,6 +21,12 @@ jobs:
         run: pip install -r requirements.txt
       - name: Tests
         run: python -m pytest tests/ -q
+      - name: OKF interop smoke
+        run: |
+          python scripts/wiki_okf_export.py --out tmp/okf-ci --clean
+          python scripts/wiki_okf_check.py --bundle tmp/okf-ci --check
+          python scripts/wiki_okf_visualize.py --bundle tmp/okf-ci --out tmp/okf-ci/viz.html
+          python scripts/wiki_okf_import.py --bundle tmp/okf-ci --context system --dry-run
       - name: Wiki audit (secrets, PII on public pages, links, quadrants, promotion gate)
         run: python scripts/wiki_audit.py --check
       - name: Wiki quality ratchet

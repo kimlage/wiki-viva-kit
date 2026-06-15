@@ -36,6 +36,8 @@
 - [ ] `python3 scripts/wiki_ingest.py --source <source> --context <context> --dry-run`  Links: [scripts/wiki_ingest.py](../scripts/wiki_ingest.py).
 - [ ] `python3 scripts/wiki_check_methodology_coverage.py --check`  Links: [coverage](../scripts/wiki_check_methodology_coverage.py).
 - [ ] `python3 scripts/wiki_operation_compile.py --check`  Links: [cockpit](../scripts/wiki_operation_compile.py).
+- [ ] `python3 scripts/wiki_okf_export.py --out tmp/okf-smoke --clean`  Links: [scripts/wiki_okf_export.py](../scripts/wiki_okf_export.py).
+- [ ] `python3 scripts/wiki_okf_check.py --bundle tmp/okf-smoke --check`  Links: [scripts/wiki_okf_check.py](../scripts/wiki_okf_check.py).
 - [ ] `python3 scripts/wiki_pr_summary.py`  Links: [scripts/wiki_pr_summary.py](../scripts/wiki_pr_summary.py).
 - [ ] `git diff --check`
 

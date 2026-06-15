@@ -156,6 +156,7 @@ below carry the detail and the links to each module.
 | gate | Proposal state machine, history, rebase/supersede | Yes |
 | score | 8-dimension karma, vitality, append-only events | Yes |
 | insight | Gather signals and emit a skeleton insight proposal | Yes (signals only) |
+| okf | Export/check/import-preview/visualize Open Knowledge Format v0.1 bundles | Yes |
 | deep read | The interpretive read of each chunk | No (delegated to the agent) |
 
 ### config and paths (portable foundation)
@@ -293,6 +294,22 @@ candidato` (candidate). It does not write canonical memory and does not call a m
 the promotion is by PR. Exposed by
 [wiki_insight_job.py](../../../scripts/wiki_insight_job.py); see
 [perceptual-layer-insight.md](perceptual-layer-insight.md).
+
+### okf (Open Knowledge Format interoperability)
+
+[wiki_core/okf.py](../../../wiki_core/okf.py) is the deterministic adapter between
+Wiki Viva's richer internal contract and Open Knowledge Format v0.1. It exports
+the configured memory tree to a bundle of Markdown concepts with OKF `type`,
+`title`, `description`, `resource`, `tags` and `timestamp` fields, while
+preserving the original `page_type`, `page_id`, context, privacy and source
+metadata as extension fields. Source pages named `index.md` or `log.md` are
+reserved by OKF, so the exporter keeps their rich content as
+`_wiki_viva_reserved/` concepts and writes generated OKF directory indexes.
+The same module checks OKF conformance, previews dry-run imports and renders a
+local HTML viewer. Exposed by [wiki_okf_export.py](../../../scripts/wiki_okf_export.py),
+[wiki_okf_check.py](../../../scripts/wiki_okf_check.py),
+[wiki_okf_import.py](../../../scripts/wiki_okf_import.py) and
+[wiki_okf_visualize.py](../../../scripts/wiki_okf_visualize.py).
 
 ## Scripts that do not map 1:1 to a package
 

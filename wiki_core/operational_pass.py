@@ -365,7 +365,7 @@ def build_operational_pass_page(
     if report.context_rows:
         for row in report.context_rows:
             hub = _page_link(row.hub, page_dir) if row.hub else s["none"]
-            next_steps = "<br>".join(_escape(step) for step in row.next_steps) if row.next_steps else s["none"]
+            next_steps = _render_context_next_steps(row, report, page_dir, s)
             lines.append(
                 f"| {_escape(row.context)} | {hub} | {s.get('vital_' + row.vitality, row.vitality)} | "
                 f"{row.sources} | {row.source_attention} | {row.actions} | "
@@ -989,6 +989,33 @@ def _next_steps(
         if len(steps) >= 3:
             return tuple(steps)
     return tuple(steps)
+
+
+def _render_context_next_steps(
+    row: ContextRow,
+    report: OperationalPassReport,
+    page_dir: Path,
+    s: dict[str, str],
+) -> str:
+    if not row.next_steps:
+        return s["none"]
+    rendered: list[str] = []
+    context_actions = [action for action in report.actions if action.context == row.context]
+    context_sources = [source for source in report.sources if source.page.context == row.context]
+    for step in row.next_steps:
+        linked = ""
+        for action in context_actions:
+            status = action.status or "state unknown"
+            if step == f"{action.title} ({status})":
+                linked = f"{_page_link(action, page_dir)} ({_escape(status)})"
+                break
+        if not linked:
+            for source in context_sources:
+                if step == f"refresh source: {source.page.title} ({source.refresh_status})":
+                    linked = f"refresh source: {_page_link(source.page, page_dir)} ({_escape(source.refresh_status)})"
+                    break
+        rendered.append(linked or _escape(step))
+    return "<br>".join(rendered)
 
 
 def _vitality(hub: PageRecord | None, as_of: dt.date, config: WikiConfig) -> str:

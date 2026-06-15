@@ -14,6 +14,22 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](..) layer.
 
+## [2026-06-15] System | OKF v0.1 interoperability
+
+- Added deterministic Open Knowledge Format interop in
+  [okf.py](../../wiki_core/okf.py), plus export/check/import-preview/visualize
+  CLIs:
+  [wiki_okf_export.py](../../scripts/wiki_okf_export.py),
+  [wiki_okf_check.py](../../scripts/wiki_okf_check.py),
+  [wiki_okf_import.py](../../scripts/wiki_okf_import.py) and
+  [wiki_okf_visualize.py](../../scripts/wiki_okf_visualize.py).
+- The OKF adapter preserves the richer Wiki Viva contract instead of replacing
+  it: `page_type`, `page_id`, context, tags, privacy and source metadata remain
+  as extension fields; reserved source indexes/logs are exported as
+  `_wiki_viva_reserved/` concepts while generated OKF indexes satisfy v0.1.
+- Runtime anchor bumped to `wiki_core.__version__ = "6.6.0"` and release notes
+  were added in [wiki-viva-v6.6.md](../../docs/references/releases/wiki-viva-v6.6.md).
+
 ## [2026-06-12] System | Operational pass for sources, actions and contexts
 
 - Added deterministic core [operational_pass.py](../../wiki_core/operational_pass.py)

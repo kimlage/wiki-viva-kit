@@ -27,6 +27,9 @@ starting point for persistent context is `memories/`.
 - `docs/references/templates/`: stable models for new records.
 - `docs/references/templates/wiki/`: models for the operational wiki, including
   ingestion proposal, decision, insight and PR checklist.
+- `docs/references/releases/`: release notes, including the OKF v0.1
+  interoperability release in
+  [wiki-viva-v6.6.md](references/releases/wiki-viva-v6.6.md).
 - Optional per-repo subfolders (create on demand): `inventories/` (inventory
   snapshots), `decisions/` (immutable historical decisions), `evaluations/`
   (one-off evaluation snapshots).

@@ -51,6 +51,10 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Living gate: lists, transitions, rebases | Move proposals between states and supersede old ones |
 | [wiki_score.py](../../../scripts/wiki_score.py) | Operational karma and vitality | Record/view append-only scoring |
 | [wiki_insight_job.py](../../../scripts/wiki_insight_job.py) | Closes the Information -> Insight cycle | Gather signals about a theme for an insight proposal |
+| [wiki_okf_export.py](../../../scripts/wiki_okf_export.py) | Exports an Open Knowledge Format bundle | Share or test the wiki through OKF v0.1 without weakening internal contracts |
+| [wiki_okf_check.py](../../../scripts/wiki_okf_check.py) | Checks OKF v0.1 conformance | Validate an exported or external OKF bundle |
+| [wiki_okf_import.py](../../../scripts/wiki_okf_import.py) | Previews an OKF import | Inspect how an OKF bundle would map into Wiki Viva pages |
+| [wiki_okf_visualize.py](../../../scripts/wiki_okf_visualize.py) | Generates an HTML OKF viewer | Browse a bundle as concepts, links and backlinks |
 | [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) | Compiles the daily cockpit | (Re)generate [memories/operations.md](../../operations.md) |
 | [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py) | Compiles sources, actions and next steps by context | (Re)generate [operational-pass.md](../operational-pass.md) before a consolidation round |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Generates the canonical source registry | (Re)generate [source-registry.md](../source-registry.md) with state/date/next refresh |
@@ -325,6 +329,68 @@ Gathers already existing signals (score events + indexed chunks + memory pages) 
 ```sh
 python3 scripts/wiki_insight_job.py --theme "honesty gate" --context system
 python3 scripts/wiki_insight_job.py --theme "reconciliation" --context example --dry-run
+```
+
+## OKF interoperability
+
+### [wiki_okf_export.py](../../../scripts/wiki_okf_export.py) - OKF bundle export
+
+Exports the configured memory tree as an Open Knowledge Format v0.1 bundle. The
+export is an adapter, not a migration: the internal wiki keeps its richer
+`page_type`, privacy, perspective, quadrants and PR-gate fields. The OKF bundle
+gets the required `type` field plus recommended fields where available, while
+Wiki Viva metadata is preserved as extension fields.
+
+- `--out` (required): output bundle directory.
+- `--source-root`: optional repo-relative source root; defaults to
+  `paths.memory_root`.
+- `--clean`: delete the output directory before exporting.
+
+```sh
+python3 scripts/wiki_okf_export.py --out tmp/okf-bundle --clean
+```
+
+### [wiki_okf_check.py](../../../scripts/wiki_okf_check.py) - OKF conformance check
+
+Checks OKF v0.1 requirements: every non-reserved Markdown file has frontmatter
+and a non-empty `type`; reserved `index.md`/`log.md` files follow the OKF
+reserved-file contract. Broken internal links are warnings because the OKF
+specification requires permissive consumers.
+
+- `--bundle` (required): bundle root.
+- `--check`: return non-zero when conformance errors exist.
+
+```sh
+python3 scripts/wiki_okf_check.py --bundle tmp/okf-bundle --check
+```
+
+### [wiki_okf_import.py](../../../scripts/wiki_okf_import.py) - OKF import preview
+
+Reads an OKF bundle and prints a dry-run mapping into Wiki Viva page identities,
+page types and output paths. It does not write canonical memory; external
+knowledge still enters through an ingestion proposal and PR review.
+
+- `--bundle` (required): bundle root.
+- `--context`: target context; defaults to the repo default context.
+- `--memory-root`: target memory root; defaults to `paths.memory_root`.
+- `--dry-run`: required.
+
+```sh
+python3 scripts/wiki_okf_import.py --bundle tmp/okf-bundle --context system --dry-run
+```
+
+### [wiki_okf_visualize.py](../../../scripts/wiki_okf_visualize.py) - OKF HTML viewer
+
+Generates a local HTML artifact with concept search, detail, outgoing links and
+backlinks. It embeds the bundle data directly in the file and does not require a
+backend.
+
+- `--bundle` (required): bundle root.
+- `--out`: output HTML path; defaults to `<bundle>/viz.html`.
+- `--name`: display name.
+
+```sh
+python3 scripts/wiki_okf_visualize.py --bundle tmp/okf-bundle --name "Wiki Viva OKF"
 ```
 
 ### [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) - daily cockpit
