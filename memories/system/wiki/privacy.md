@@ -85,7 +85,8 @@ The module
 favors **precision over recall** — it prefers to let a doubtful case through rather than flood
 with false positives:
 
-- **Punctuated CPF and CNPJ**: fixed-format regex (`000.000.000-00`, `00.000.000/0000-00`).
+- **Punctuated CPF and CNPJ**: fixed-format regex for the Brazilian individual
+  and company taxpayer identifier formats.
 - **CPF and CNPJ without punctuation**: a sequence of 11 or 14 digits is only reported when
   the **check digit matches** (functions `_cpf_valid`/`_cnpj_valid`). This avoids
   matching phone numbers and random numbers; sequences of repeated digits are discarded.

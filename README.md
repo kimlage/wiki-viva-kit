@@ -86,18 +86,17 @@ is the context that explains how the wiki itself works:
 
 Agent-facing entry point: [AGENTS.md](AGENTS.md).
 
-## Related projects and reference pilot
+## Related projects and reference material
 
 - **Open Knowledge Format (OKF)**: Wiki Viva v6.6 targets OKF v0.1 as described
   in the Google Cloud [OKF article](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing/)
   and the [GoogleCloudPlatform/knowledge-catalog](https://github.com/GoogleCloudPlatform/knowledge-catalog)
   project. OKF is the exchange layer; Wiki Viva remains the richer operational
   memory model.
-- **Reference pilot**: [Sargam Controle Pessoal](https://github.com/kimlage/sargam_controle_pessoal)
-  is Kim de Amorim Lage's private personal operations wiki and the dogfood
-  environment used to validate localized paths, private-data boundaries, finance,
-  document, tax and professional-memory workflows. Public marketing should
-  describe it as a private reference pilot and never expose private data.
+- **Reference pattern**: Andrej Karpathy's
+  [LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+  article describes the persistent Markdown wiki pattern that inspired this
+  toolkit's source -> synthesis -> schema workflow.
 
 ## Layout
 

@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-06-12
+updated_at: 2026-06-16
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,12 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](..) layer.
+
+## [2026-06-16] System | Public-boundary privacy examples
+
+- [privacy.md](wiki/privacy.md) now describes CPF/CNPJ detector coverage without
+  synthetic numeric examples, so public-export audit does not flag the
+  documentation itself as PII.
 
 ## [2026-06-15] System | OKF v0.1 interoperability
 

@@ -49,10 +49,10 @@ wiki still uses typed pages, perspectives, quadrants, privacy gates, freshness,
 impact closure and PR review. OKF sits at the boundary as a producer/consumer
 adapter for other agents and tools.
 
-Reference pilot: [Sargam Controle Pessoal](https://github.com/kimlage/sargam_controle_pessoal)
-is the private dogfood project used to validate the adapter against a real
-localized personal operations wiki. It can be cited publicly as a private pilot,
-not as a public data source.
+Reference pattern: Andrej Karpathy's
+[LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+article describes the persistent Markdown wiki pattern behind the toolkit's
+source -> synthesis -> schema workflow.
 
 ## Validation
 
