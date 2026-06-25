@@ -703,7 +703,7 @@ def build_page(root: Path, config: WikiConfig) -> str:
         for action in actions:
             state = action.state or s["no_state"]
             lines.append(
-                f"| {action.title} | {action.context} | {state} | "
+                f"| [{action.title}]({action.rel_link}) | {action.context} | {state} | "
                 f"[{action.page_id}]({action.rel_link}) |"
             )
     else:
