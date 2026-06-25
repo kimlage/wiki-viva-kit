@@ -14,6 +14,14 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-25] System | Dynamic operation branch state
+
+- [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now renders
+  the cockpit state hint from the current branch: approved `main`, proposal
+  `wiki/*` branch or a generic branch-policy warning.
+- [operations.md](../operations.md) was recompiled so the generated cockpit no
+  longer claims every state is an open PR by default.
+
 ## [2026-06-25] System | Generated dashboards declare MOC parent
 
 - [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now emits
