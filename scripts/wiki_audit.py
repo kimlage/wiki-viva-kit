@@ -239,6 +239,10 @@ ENTITY_PAGE_TYPES = {
 ENTITY_CANONICAL_NAME_PAGE_TYPES = ENTITY_PAGE_TYPES - {
     "action", "timeline", "evidence", "assignment",
 }
+# Generated source events and append-only logs may intentionally preserve raw or
+# historical wording. Requiring retroactive link edits there creates audit noise
+# and can weaken provenance; canonical pages remain covered by mention links.
+MENTION_LINK_EXEMPT_PAGE_TYPES = {"ingestion_event", "system_log"}
 MENTION_MIN_ALIAS_LEN = 4
 MENTION_COMMON_WORDS = {
     "index", "source", "memory", "memoria", "memorias", "note", "page", "pages",
@@ -1011,6 +1015,8 @@ def audit_entity_mention_links(
             message = f"{rel}: names known entities without a link: {items}"
             values, _ = parse_frontmatter(ROOT / rel)
             page_type = str(values.get("page_type") or "")
+            if page_type in MENTION_LINK_EXEMPT_PAGE_TYPES:
+                continue
             is_ingestion_event = rel.startswith(events_prefix)
             if (
                 errors is not None

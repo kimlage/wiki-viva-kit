@@ -482,13 +482,16 @@ def test_source_config_perspectives_must_exist(tmp_path, audit, monkeypatch):
     ]
 
 
-def test_ingestion_event_entity_mentions_stay_warning_when_changed(tmp_path, audit, monkeypatch):
+def test_append_only_entity_mentions_are_ignored_when_changed(tmp_path, audit, monkeypatch):
     audit.parse_frontmatter.cache_clear()
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     monkeypatch.setattr(
         audit,
         "changed_paths_for_audit",
-        lambda: {"memories/system/ingestion/events/e.md"},
+        lambda: {
+            "memories/system/ingestion/events/e.md",
+            "memories/system/log.md",
+        },
     )
     monkeypatch.setattr(
         audit,
@@ -496,10 +499,12 @@ def test_ingestion_event_entity_mentions_stay_warning_when_changed(tmp_path, aud
         lambda: [
             "memories/people/marcelo.md",
             "memories/system/ingestion/events/e.md",
+            "memories/system/log.md",
         ],
     )
     (tmp_path / "memories/people").mkdir(parents=True)
     (tmp_path / "memories/system/ingestion/events").mkdir(parents=True)
+    (tmp_path / "memories/system").mkdir(parents=True, exist_ok=True)
     (tmp_path / "memories/people/marcelo.md").write_text(
         "---\n"
         "page_id: person-marcelo\n"
@@ -517,6 +522,14 @@ def test_ingestion_event_entity_mentions_stay_warning_when_changed(tmp_path, aud
         "# Event\n\nMarcelo appeared in extracted source text.\n",
         encoding="utf-8",
     )
+    (tmp_path / "memories/system/log.md").write_text(
+        "---\n"
+        "page_id: system-log\n"
+        "page_type: system_log\n"
+        "---\n"
+        "# Log\n\nMarcelo appeared in an append-only historical entry.\n",
+        encoding="utf-8",
+    )
 
     warnings: list[str] = []
     errors: list[str] = []
@@ -524,8 +537,53 @@ def test_ingestion_event_entity_mentions_stay_warning_when_changed(tmp_path, aud
     audit.audit_entity_mention_links(warnings, config, errors)
 
     assert errors == []
-    assert warnings == [
-        "memories/system/ingestion/events/e.md: names known entities without a link: Marcelo (memories/people/marcelo.md)"
+    assert warnings == []
+
+
+def test_changed_canonical_page_entity_mentions_still_error(tmp_path, audit, monkeypatch):
+    audit.parse_frontmatter.cache_clear()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "changed_paths_for_audit",
+        lambda: {"memories/example/note.md"},
+    )
+    monkeypatch.setattr(
+        audit,
+        "markdown_files",
+        lambda: [
+            "memories/people/marcelo.md",
+            "memories/example/note.md",
+        ],
+    )
+    (tmp_path / "memories/people").mkdir(parents=True)
+    (tmp_path / "memories/example").mkdir(parents=True)
+    (tmp_path / "memories/people/marcelo.md").write_text(
+        "---\n"
+        "page_id: person-marcelo\n"
+        "page_type: person\n"
+        "title: Marcelo\n"
+        "---\n"
+        "# Marcelo\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/example/note.md").write_text(
+        "---\n"
+        "page_id: example-note\n"
+        "page_type: source_catalog\n"
+        "---\n"
+        "# Note\n\nMarcelo is part of this canonical page and must be linked.\n",
+        encoding="utf-8",
+    )
+
+    warnings: list[str] = []
+    errors: list[str] = []
+    config = WikiConfig(audit={**WikiConfig().audit, "mention_links_on_changed": "error"})
+    audit.audit_entity_mention_links(warnings, config, errors)
+
+    assert warnings == []
+    assert errors == [
+        "memories/example/note.md: names known entities without a link: Marcelo (memories/people/marcelo.md)"
     ]
 
 
