@@ -609,6 +609,8 @@ def test_relation_prefixes_accept_en_and_pt_generated_ids(audit):
     # Superset: pt repos keep generating pt ids; en repos generate en ids.
     assert "person-" in audit.RELATION_PREFIXES["owner"]
     assert "pessoa-" in audit.RELATION_PREFIXES["owner"]
+    assert "root-" in audit.RELATION_PREFIXES["owner"]
+    assert "sources-" in audit.RELATION_PREFIXES["source_refs"]
     assert "decision-" in audit.RELATION_PREFIXES["decisions"]
     assert "decisao-" in audit.RELATION_PREFIXES["decisions"]
 

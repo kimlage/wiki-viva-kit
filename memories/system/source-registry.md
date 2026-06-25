@@ -4,7 +4,7 @@ page_type: source_registry
 title: "Canonical source registry"
 context: system
 visibility: private_self
-updated_at: 2026-06-12
+updated_at: 2026-06-25
 stale_after_days: 30
 sources_policy: memoria_consolidada
 gate: github_pr
@@ -14,7 +14,7 @@ moc_parent: memories/index.md
 
 # Canonical source registry
 
-Updated at: 2026-06-12.
+Updated at: 2026-06-25.
 
 Index of canonical sources: link, type, ingestion state, last update and next suggested refresh.
 
@@ -22,6 +22,6 @@ Each canonical source is a page (the hierarchical node that holds that source's 
 
 | Source | Type | State | Last update | Next refresh | Status | Policy | Config |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md) | `reference` | ingested | 2026-06-09 | 2026-12-06 | ok | archival (180d) | — |
+| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md) | `reference` | ingested | 2026-06-09 | 2026-12-06 | ok | archival (180d) | [config](../sources/config/wiki-viva-methodology-v5.md) |
 
 Back to the index at [memories/index.md](../index.md).

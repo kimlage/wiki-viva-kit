@@ -19,6 +19,7 @@ last_ingested_at: 2026-06-09
 refresh_policy: archival
 refresh_cadence_days: 180
 refresh_trigger: "review only when the methodology proposal or implementation contract changes"
+config_ref: memories/sources/config/wiki-viva-methodology-v5.md
 sources_policy: fonte_metodologica
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
@@ -26,6 +27,7 @@ purpose: "Source page that describes the living wiki methodology implemented by 
 moc_parent: memories/index.md
 related_pages:
   - memories/system/methodology-coverage-v5.md
+  - memories/sources/config/wiki-viva-methodology-v5.md
 owner:
 related_holons:
 roles:

@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-10
+updated_at: 2026-06-25
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # End-to-end ingestion flow
 
-Updated on: 2026-06-10.
+Updated on: 2026-06-25.
 
 This page describes the path a source travels in the living wiki, from the moment
 it is captured until it becomes consolidated memory via Pull Request. The deterministic
@@ -32,6 +32,10 @@ non-deterministic step, the deep read, is delegated to the agent that runs the r
 corresponding high-level operational process is in
 [ingestion process](../ingestion-process.md); the blocking criteria and the
 gate mechanics are in [gates and auditing](gates-and-audit.md).
+Before a source is interpreted, the repo's configured root entity and generated
+input stage define the default perspective bundle, channels, processes and
+target pages; in this kit those pages are [Wiki Viva Kit](../wiki-viva-kit.md)
+and [Input stage](../input-stage.md).
 
 ## Overview of the path
 
@@ -42,9 +46,12 @@ owns; consolidation, INTEGRATION and the PR gate close the loop into memory.
 
 ```mermaid
 flowchart TD
-    Manifest["Manifest"] --> Chunks["Text and chunks"]
+    Root["Root entity"] --> Stage["Input stage"]
+    Source["Source"] --> Manifest["Manifest"]
+    Manifest --> Chunks["Text and chunks"]
     Chunks --> Index["Index"]
     Index --> Prescan["Pre-scan"]
+    Stage --> Package["LLM context package"]
     Prescan --> Package["LLM context package"]
     Package --> DeepRead(["Deep read by the agent (into the cache)"])
     DeepRead --> Event["Normalized event (quadrants) + integration packet"]
@@ -58,6 +65,7 @@ gate column says what can stop the source from advancing:
 
 | Stage | Command | Output | Gate |
 | --- | --- | --- | --- |
+| Root/input stage | [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) | Generated [input-stage.md](../input-stage.md) + optional cache catalog | stale generated page fails `--check` |
 | Manifest | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | `<source_id>` manifest JSON | none |
 | Text + chunks | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extracted text + stable chunks | none |
 | Index | [wiki_build_index.py](../../../scripts/wiki_build_index.py) | SQLite FTS index | none |
@@ -73,10 +81,39 @@ Invariant points of the design:
 - The deterministic code never calls a model nor writes canonical memory. It
   prepares artifacts and a request package; the agent reads that package, executes the
   deep read and writes the result into the cache.
+- The input stage does not fetch Slack, Drive, Jira, email or any other system.
+  It compiles already-declared root/channel/source-config pages so the source
+  enters the LLM pass with the correct perspective bundle and target pages.
 - The pre-triage separates two types of finding: an access secret BLOCKS at the origin;
   PII (personal data) merely INFORMS, because this repo is private and personal data is
   welcome in a private page.
 - Nothing becomes memory until it passes through the gate by PR with human approval.
+
+## Step 0 - Root entity and input stage
+
+The initial context is not inferred from the source alone. The repo declares
+`root_entity` in [wiki.config.yaml](../../../wiki.config.yaml), pointing to a
+`page_type: root_entity` page such as [Wiki Viva Kit](../wiki-viva-kit.md). That
+page describes the subject of the wiki, the integral quadrant map, default
+perspectives, people/roles, artifacts, processes, input channels and source map.
+
+[wiki_input_stage.py](../../../scripts/wiki_input_stage.py) then compiles that
+root page together with `input_channel`, `source` and `source_config` pages into
+[input-stage.md](../input-stage.md). The generated catalog carries:
+
+| Field | Why it matters |
+| --- | --- |
+| Root entity | The semantic top entity that every source can update. |
+| Input channel | The declared source system/type, refresh policy, quadrants and process links. |
+| Perspective bundle | Required and optional lenses inherited from root, channel and source config. |
+| Target pages | Root page, context hub and source-specific pages that must be considered during integration. |
+| Ready inputs/warnings | Deterministic staging state before the agent reads anything. |
+
+```sh
+python3 scripts/wiki_input_stage.py --write
+python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_input_stage.py --ready
+```
 
 ## Step 1 - Manifest
 
@@ -136,8 +173,11 @@ deterministic `cache_key` ([cache.py](../../../wiki_core/llm/cache.py)) from
 `source_hash | chunk_hash | prompt_version | schema_version | model_profile`,
 checks whether a result already exists in the cache and marks `result_exists`. The package gathers:
 the versioned prompt (`context_deep_read`), the `schema_version`
-(`wiki_llm_context_pass.v3`), the mandatory quadrants, the list of
-`result_required_keys`, the text of each chunk and the count `pending_llm_calls`. The
+(`wiki_llm_context_pass.v4`), the mandatory quadrants, the list of
+`result_required_keys`, the text of each chunk and the count `pending_llm_calls`.
+When `--source` points to a repo-local source page, the package also includes
+`root_entity`, `input_channel`, `quadrant_map`, `target_pages` and
+`input_stage_status` inherited from the generated input-stage catalog. The
 orchestrator writes this package as
 `<source_id>-llm-context-request.json` in
 [data/derived/wiki/extraction-events/](../../../data/derived/wiki/). This
@@ -170,10 +210,10 @@ with `--check` serves as a gate: it returns a non-zero exit while there is a pen
 is active.
 
 When `--source` points to a repo-local source page, the CLI looks up its
-`source_config` through `config_ref` or matching `source_refs`. Any
-`perspectives_required` and `perspectives_optional` declared there are merged
-into the request automatically, so source-level reading contracts travel with
-the source instead of depending on the operator remembering flags.
+`source_config` through `config_ref` or matching `source_refs`, then merges
+root, input-channel and source-config perspectives automatically. Source-level
+reading contracts travel with the source instead of depending on the operator
+remembering flags.
 
 ```sh
 python3 scripts/wiki_llm_context_pass.py --source X.pdf --context system --emit-request
@@ -203,7 +243,8 @@ to the source. Ingesting = integrating, and the stage has its own tool:
 [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) with
 `--source <source_id> --emit-event --packet` generates the normalized event
 (step 7) and the integration packet (gitignored) with related pages, overlapping
-claims and potential conflicts per claim/entity. Guided by the packet, the agent
+claims, `root_impact`, target pages and potential conflicts per claim/entity.
+Guided by the packet, the agent
 updates the target hubs/concepts incrementally, creates/updates load-bearing
 claim pages (fields `supersedes`/`superseded_by`/`conflicts_with`/
 `conflict_resolution` when claims collide), resolves or records every conflict

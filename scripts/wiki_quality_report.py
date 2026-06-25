@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Report Wiki Viva v6.3 quality and cost telemetry.
+"""Report Wiki Viva quality and cost telemetry.
 
 The report is deterministic and has no LLM client. Cost is measured for control
-and comparison only; v6.3 intentionally does not enforce a hard budget.
+and comparison only; the report intentionally does not enforce a hard budget.
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ RATCHET_DEFECT_COUNTERS = (
     "bad_repetition_blocks",
     "low_information_density_pages",
     "thin_link_pages",
+    "relation_pages_without_parent",
     "orphan_actions",
     "contexts_without_role",
     "responsibilities_without_action",
@@ -155,6 +156,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--max-relation-pages-without-parent",
+        type=int,
+        default=None,
+        help=(
+            "maximum relation pages without an explicit hierarchy parent allowed under "
+            "--check (default: audit.quality_max_relation_pages_without_parent or unlimited)"
+        ),
+    )
+    parser.add_argument(
         "--max-role-responsibility-mismatch",
         type=int,
         default=None,
@@ -276,6 +286,11 @@ def main(argv: list[str] | None = None) -> int:
         # threshold is unlimited (None) so the gate only bites once a repo opts
         # in via args or audit.quality_max_* config. Loose by design.
         coverage_gates = (
+            (
+                "relation_pages_without_parent",
+                args.max_relation_pages_without_parent,
+                "quality_max_relation_pages_without_parent",
+            ),
             (
                 "responsibilities_without_action",
                 args.max_responsibilities_without_action,

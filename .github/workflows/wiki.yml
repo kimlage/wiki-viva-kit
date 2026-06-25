@@ -39,5 +39,7 @@ jobs:
         run: python scripts/wiki_operational_pass.py --check
       - name: Source registry freshness (state + last update)
         run: python scripts/wiki_source_registry.py --check
+      - name: Input stage freshness (root entity + channels)
+        run: python scripts/wiki_input_stage.py --check
       - name: Consolidation closed (ingesting = integrating)
         run: python scripts/wiki_consolidate.py --check

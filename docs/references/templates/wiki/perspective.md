@@ -31,6 +31,9 @@ metric_contract:
   required_metrics:
     - decision_count
 prompt_profile: perspective_example
+quadrant: q4
+inherits_from_root: true
+target_obligation: "updated_or_no_change_reason"
 ---
 ```
 
@@ -39,6 +42,14 @@ prompt_profile: perspective_example
 ## Concern
 
 State the stakeholder concern this viewpoint answers.
+
+## Quadrant
+
+| Field | Value |
+| --- | --- |
+| Quadrant | `q1` / `q2` / `q3` / `q4` / `boundary` |
+| Inherits from root entity | `true` / `false` |
+| Target obligation | `updated_or_no_change_reason` |
 
 ## Extraction Questions
 
@@ -52,3 +63,10 @@ State the stakeholder concern this viewpoint answers.
 ## Correspondence Rules
 
 - Which other perspectives or pages must remain consistent?
+
+## Inheritance Rules
+
+- When declared in a root entity bundle, this perspective applies to matching
+  input channels unless a source config skips it with a reason.
+- When declared directly in a source config, it is source-specific and overrides
+  optional root defaults.

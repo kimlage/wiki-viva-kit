@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-06-16
+updated_at: 2026-06-25
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,55 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](..) layer.
+
+## [2026-06-25] System | v6.8 root entity and input stage
+
+- Runtime anchor bumped to `wiki_core.__version__ = "6.8.0"` and release notes
+  were added in
+  [wiki-viva-v6.8.md](../../docs/references/releases/wiki-viva-v6.8.md).
+- [wiki.config.yaml](../../wiki.config.yaml) now declares a `root_entity`, and
+  [wiki_input_stage.py](../../scripts/wiki_input_stage.py) compiles
+  [input-stage.md](input-stage.md) from the root entity, input channels, source
+  pages and source configs.
+- [wiki_core/input_stage.py](../../wiki_core/input_stage.py),
+  [context_pass.py](../../wiki_core/llm/context_pass.py),
+  [pipeline.py](../../wiki_core/ingest/pipeline.py) and
+  [consolidate.py](../../wiki_core/consolidate.py) now carry inherited
+  perspectives, input-channel metadata and target pages through the source
+  ingestion flow.
+- The open-source kit dogfoods the model through
+  [wiki-viva-kit.md](wiki-viva-kit.md),
+  [methodology-reference.md](input-channels/methodology-reference.md) and
+  [wiki-methodology-maintenance.md](processes/wiki-methodology-maintenance.md).
+
+## [2026-06-16] System | v6.7 hierarchy quality gate and skills
+
+- Runtime anchor bumped to `wiki_core.__version__ = "6.7.0"` and release notes
+  were added in
+  [wiki-viva-v6.7.md](../../docs/references/releases/wiki-viva-v6.7.md).
+- [quality.py](../../wiki_core/quality.py) and
+  [wiki_quality_report.py](../../scripts/wiki_quality_report.py) now expose
+  `relation_pages_without_parent`; the kit config sets
+  `audit.quality_max_relation_pages_without_parent: 0`.
+- [wiki.page-types.yaml](../../wiki.page-types.yaml), typed templates such as
+  [action.md](../../docs/references/templates/wiki/action.md) and portable
+  skills in [.skills/README.md](../../.skills/README.md) now route relation
+  pages through `moc_parent` and preserve hub-first consolidation.
+
+## [2026-06-16] System | Short-term memory in the operational pass
+
+- [operational_pass.py](../../wiki_core/operational_pass.py) now renders a
+  compact "Short-term memory" section at the top of
+  [operational-pass.md](operational-pass.md), listing review items, primary
+  actions, pending decisions and latest updates before the full diagnostic
+  tables.
+- [operational-pass.md](operational-pass.md) now uses `stale_after_days: 1`, so
+  the resumption state is treated as daily memory instead of long-lived
+  reference.
+- The structural rationale is recorded in
+  [hierarchical-navigation-and-short-term-memory-2026-06-16.md](../../docs/references/proposals/hierarchical-navigation-and-short-term-memory-2026-06-16.md):
+  context hubs carry the main synthesis, while relation pages remain
+  supporting evidence and generated indexes.
 
 ## [2026-06-16] System | Public-boundary privacy examples
 

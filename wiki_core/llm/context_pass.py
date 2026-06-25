@@ -19,7 +19,7 @@ from pathlib import Path
 
 from wiki_core.llm.cache import cache_key
 
-CONTEXT_PASS_SCHEMA_VERSION = "wiki_llm_context_pass.v3"
+CONTEXT_PASS_SCHEMA_VERSION = "wiki_llm_context_pass.v4"
 
 # cache_key is always a sha256 hex digest (wiki_core.llm.cache.cache_key) and is
 # used as a FILENAME in the cache dir: anything else is rejected to block path
@@ -103,7 +103,7 @@ def validate_result(result: dict[str, object]) -> list[str]:
         errors.append("sensitivity_missing_has_pii")
     schema_version = str(result.get("schema_version") or "")
     required_perspectives = result.get("perspectives_required") or []
-    if schema_version.endswith(".v3") or required_perspectives:
+    if schema_version.endswith(".v3") or schema_version.endswith(".v4") or required_perspectives:
         perspectives = result.get("perspectives")
         if not isinstance(perspectives, dict):
             errors.append("perspectives_not_object")
@@ -157,12 +157,18 @@ def build_context_request(
     quadrants: list[str] | None = None,
     perspectives_required: list[str] | None = None,
     perspectives_optional: list[str] | None = None,
+    root_entity: dict[str, object] | None = None,
+    input_channel: dict[str, object] | None = None,
+    quadrant_map: dict[str, object] | None = None,
+    target_pages: list[str] | None = None,
+    input_stage_status: str | None = None,
 ) -> dict[str, object]:
     """Assemble the packet that the repo agent executes. Includes the chunk text,
     the versioned prompt, the output schema and the per-chunk cache status."""
     quadrants = quadrants or DEFAULT_QUADRANTS
     perspectives_required = perspectives_required or []
     perspectives_optional = perspectives_optional or []
+    target_pages = target_pages or []
     source_hash = _source_hash(manifest)  # packet metadata (not part of the cache_key)
     prompt_text = load_prompt(prompt_name, prompt_version)
     rows: list[dict[str, object]] = []
@@ -199,6 +205,11 @@ def build_context_request(
         "prompt_version": prompt_version,
         "model_profile": model_profile,
         "quadrants_required": quadrants,
+        "quadrant_map": quadrant_map or {},
+        "root_entity": root_entity or {},
+        "input_channel": input_channel or {},
+        "input_stage_status": input_stage_status or "",
+        "target_pages": target_pages,
         "perspectives_required": perspectives_required,
         "perspectives_optional": perspectives_optional,
         "result_required_keys": result_required_keys,

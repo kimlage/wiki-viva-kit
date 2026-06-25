@@ -117,9 +117,18 @@ def test_nested_maps_intact(tmp_path):
         "repo_id: r\nlanguage: en\n"
         "paths:\n  memory_root: mem\n  raw_root: raw\n"
         "llm:\n  chunk_target_tokens: 1200\n  prompt_versions:\n    context_deep_read: v1\n"
+        "root_entity:\n"
+        "  page: memories/root/example.md\n"
+        "  entity_type: team\n"
+        "  perspective_bundle:\n"
+        "    required:\n"
+        "      - perspective-identity-intent\n"
     )
     cfg = load_config(_write(tmp_path, body))
     assert cfg.paths["memory_root"] == "mem"
     assert cfg.paths["raw_root"] == "raw"
     assert cfg.llm["chunk_target_tokens"] == 1200
     assert cfg.llm["prompt_versions"]["context_deep_read"] == "v1"
+    assert cfg.root_entity["page"] == "memories/root/example.md"
+    assert cfg.root_entity["entity_type"] == "team"
+    assert cfg.root_entity["perspective_bundle"]["required"] == ["perspective-identity-intent"]

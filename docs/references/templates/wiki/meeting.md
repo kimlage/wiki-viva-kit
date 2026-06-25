@@ -28,6 +28,7 @@ sources_policy: normalized_event_with_quadrants
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 owner: person-organizer
+moc_parent: memories/index.md
 participants: []          # person-... ids; each one linked in the body
 related_holons: []
 roles: []
@@ -68,3 +69,9 @@ Each participant is a link to that person's page (see
 | --- | --- | --- | --- |
 | Decision |  |  |  |
 | Action |  |  |  |
+
+## Related
+
+- Parent MOC:
+- Source:
+- People:

@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-12
+updated_at: 2026-06-25
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Command reference
 
-Last updated: 2026-06-12.
+Last updated: 2026-06-25.
 
 This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
 
@@ -41,7 +41,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) | Assembles the context package and records the result | Emit/check the LLM pass delegated to the agent |
 | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) | Consolidates the deep read into the wiki | Generate the event from the cache + integration packet; --check in CI |
 | [wiki_page_graph.py](../../../scripts/wiki_page_graph.py) | Builds/checks the page graph and impact set | Validate orphans, reachability, wanted pages and same-PR impact |
-| [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Reports quality and cost telemetry | Measure density, repetition, consolidation gaps and cache/token use without a hard budget gate |
+| [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) | Reports quality and cost telemetry | Measure density, hierarchy-parent gaps, repetition, consolidation gaps and cache/token use without a hard budget gate |
 | [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py) | Inspects the LLM cache and derived coverage | Diagnose the state of the derived artifacts |
 | [wiki_export_batch.py](../../../scripts/wiki_export_batch.py) | Exports pending requests in the Batches API format | Run the deep read in batch (-50%), no LLM client |
 | [wiki_gc.py](../../../scripts/wiki_gc.py) | Garbage-collects orphan derived artifacts | Remove manifest/text/chunks of old source versions and prune the index |
@@ -58,6 +58,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) | Compiles the daily cockpit | (Re)generate [memories/operations.md](../../operations.md) |
 | [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py) | Compiles sources, actions and next steps by context | (Re)generate [operational-pass.md](../operational-pass.md) before a consolidation round |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Generates the canonical source registry | (Re)generate [source-registry.md](../source-registry.md) with state/date/next refresh |
+| [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) | Generates the root/channel/source input stage | (Re)generate [input-stage.md](../input-stage.md) before source routing or setup changes |
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audits the wiki contract | Validate contract/links/secrets at commit and in CI |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Checks the presence AND content of methodology v5 | Ensure the methodology is in fact implemented |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarizes the PR diff by context/entity | Generate the PR review summary |
@@ -171,13 +172,14 @@ python3 scripts/wiki_build_index.py --check
 
 ### [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) - delegated LLM pass
 
-Calls no model at all. It gathers/selects chunks (by source or by sanitized FTS search), assembles a context PACKAGE (prompt + schema + chunk text), records in the cache the RESULT that the agent produced and serves as a gate (`--check`). The `--emit-request` writes the `-llm-context-request.json` that [wiki_audit.py](../../../scripts/wiki_audit.py) watches. Gate details in [gates-and-audit.md](gates-and-audit.md).
+Calls no model at all. It gathers/selects chunks (by source or by sanitized FTS search), assembles a context PACKAGE (prompt + schema + chunk text), records in the cache the RESULT that the agent produced and serves as a gate (`--check`). When the source is a repo-local source page, it applies the root/input-stage context: root entity, input channel, quadrant map, inherited perspectives and target pages. The `--emit-request` writes the `-llm-context-request.json` that [wiki_audit.py](../../../scripts/wiki_audit.py) watches. Gate details in [gates-and-audit.md](gates-and-audit.md).
 
 - `--context` (required). Use ONE of: `--source`, `--query` or `--record-result`.
 - `--source` / `--query`: selects chunks by source or by FTS search. If
   `--source` points to a repo-local source page, the CLI looks up its
-  `source_config` through `config_ref` or matching `source_refs` and
-  automatically merges `perspectives_required` /
+  `source_config` through `config_ref` or matching `source_refs`, reads
+  [input-stage.md](../input-stage.md)'s deterministic inputs and automatically
+  merges root/channel/source-config `perspectives_required` /
   `perspectives_optional` into the request.
 - `--profile`: model profile (default comes from `default_model_profile`).
 - `--emit-request`: writes the package in extraction-events (instead of printing).
@@ -231,19 +233,23 @@ python3 scripts/wiki_page_graph.py --impact --base origin/main
 
 ### [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) - quality and cost telemetry
 
-Builds the v6.3 quality report. It measures information density, link density,
-same-context/same-type repetition, ingestion events without consolidation
-closure, estimated context tokens and cache reuse. Cost is telemetry for control
-and comparison; this command does not impose a hard budget.
+Builds the quality report. It measures information density, link density,
+relation pages without a hierarchy parent, same-context/same-type repetition,
+ingestion events without consolidation closure, estimated context tokens and
+cache reuse. Cost is telemetry for control and comparison; this command does
+not impose a hard budget.
 
 - `--format markdown|json`: output format, default `markdown`.
 - `--output`: write the report to a repo-relative path.
-- `--check`: fail when bad repetition or low-density pages exceed the configured
-  thresholds.
+- `--check`: fail when bad repetition, low-density pages or configured
+  hierarchy/coverage thresholds are exceeded.
 - `--max-bad-repetition`: threshold for `--check`; default comes from
   `audit.quality_max_bad_repetition` or `0`.
 - `--max-low-density`: low-information-density page threshold for `--check`;
   default comes from `audit.quality_max_low_density` or `0`.
+- `--max-relation-pages-without-parent`: relation pages without a declared
+  `moc_parent`/parent hub; default comes from
+  `audit.quality_max_relation_pages_without_parent` or unlimited.
 
 ```sh
 python3 scripts/wiki_quality_report.py
@@ -414,11 +420,11 @@ python3 scripts/wiki_operation_compile.py --check
 Compiles a cross-context operational pass from canonical source pages, action
 pages, decisions, claims, context hubs and the pending-action queue. It is the
 bridge between "sources are known" and "the wiki has next steps compressed in the
-right place": every context gets a summary of source freshness, actions needing
-attention, claims/decisions and the top next steps. The report also exposes a
-consolidation-output matrix (actions, problems, claims, decisions, dense context
-notes and explicit non-ingestion outcomes) plus actions gated by pending
-decisions.
+right place": the top section is a daily short-term memory, then every context
+gets a summary of source freshness, actions needing attention, claims/decisions
+and the top next steps. The report also exposes a consolidation-output matrix
+(actions, problems, claims, decisions, dense context notes and explicit
+non-ingestion outcomes) plus actions gated by pending decisions.
 
 For a cross-context consolidation round, pair the generated pass with the
 [operational-pass-closeout.md](../../../docs/references/templates/wiki/operational-pass-closeout.md)
@@ -449,6 +455,31 @@ Generates the [source registry](../source-registry.md) (deterministic): one row 
 ```sh
 python3 scripts/wiki_source_registry.py --write
 python3 scripts/wiki_source_registry.py --check
+```
+
+### [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) - root/entity input stage
+
+Compiles [wiki.config.yaml](../../../wiki.config.yaml)'s `root_entity`, the root
+entity page, `input_channel` pages, canonical `source` pages and `source_config`
+sidecars into [input-stage.md](../input-stage.md). The page is the deterministic
+staging list that tells the agent which channels are configured, which sources
+are ready, which warnings exist, and which perspectives/target pages will be
+injected into the LLM context package.
+
+- (no flags): prints the generated Markdown.
+- `--write`: writes [input-stage.md](../input-stage.md) and the optional
+  gitignored derived catalog.
+- `--check`: fails when the generated page differs from a recompile at HEAD; if
+  the gitignored JSON catalog exists, it is checked too.
+- `--format json`: prints the compiled catalog.
+- `--ready`: prints only source rows whose input status is ready/configured for
+  ingestion.
+
+```sh
+python3 scripts/wiki_input_stage.py --write
+python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_input_stage.py --format json
+python3 scripts/wiki_input_stage.py --ready
 ```
 
 ## Audit, coverage and PR review
@@ -498,7 +529,8 @@ linked in the numbered list below it:
 ```mermaid
 flowchart LR
     Capture["Capture the source"] --> Derive["Extract text and index"]
-    Derive --> DeepRead(["Deep read by the agent"])
+    Derive --> Stage["Compile input stage"]
+    Stage --> DeepRead(["Deep read by the agent"])
     DeepRead --> Integrate["Consolidate + integrate"]
     Integrate --> GateStep["Transition the proposal"]
     GateStep --> Compile["Compile the cockpit"]
@@ -508,9 +540,10 @@ flowchart LR
 
 1. Capture: [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py) (or [wiki_ingest.py](../../../scripts/wiki_ingest.py) for the full flow).
 2. Derived: [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) -> [wiki_build_index.py](../../../scripts/wiki_build_index.py).
-3. Deep reading: [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--emit-request`, the agent reads and responds, then `--record-result`.
-4. Consolidation and integration: [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--emit-event --packet`; the agent integrates into the target pages (hubs/concepts/claims, conflicts resolved or recorded, `consolidated_into` closed with reverse `source_refs`) and confirms with `--check`.
-5. Gate: [wiki_gate.py](../../../scripts/wiki_gate.py) to transition/supersede; see [git-approvals.md](../git-approvals.md).
-6. Cockpit and validation: [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) `--write`, then [wiki_audit.py](../../../scripts/wiki_audit.py) `--check`, [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check`, [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) `--check` and [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py).
+3. Input stage: [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) `--write` / `--check` when root/channel/source config changed.
+4. Deep reading: [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--emit-request`, the agent reads and responds, then `--record-result`.
+5. Consolidation and integration: [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--emit-event --packet`; the agent integrates into the target pages (hubs/concepts/claims, conflicts resolved or recorded, `consolidated_into` closed with reverse `source_refs`) and confirms with `--check`.
+6. Gate: [wiki_gate.py](../../../scripts/wiki_gate.py) to transition/supersede; see [git-approvals.md](../git-approvals.md).
+7. Cockpit and validation: [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) `--write`, [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) `--check`, then [wiki_audit.py](../../../scripts/wiki_audit.py) `--check`, [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check`, [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) `--check`, [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) `--check` and [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py).
 
 For each agent's protocol, see [AGENTS.md](../../../AGENTS.md). Back to the root MOC in [memories/index.md](../../index.md) and to the cockpit in [memories/operations.md](../../operations.md).

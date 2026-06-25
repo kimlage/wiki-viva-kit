@@ -50,6 +50,11 @@ perspectives_optional:
         "page_id": "source-config-example",
         "perspectives_required": ["perspective-technical"],
         "perspectives_optional": ["perspective-project"],
+        "perspectives_skip_with_reason": [],
+        "input_channel_ref": "",
+        "process_refs": [],
+        "target_pages": [],
+        "quadrants": [],
     }
 
 
@@ -89,15 +94,30 @@ perspectives_optional: []
     assert found["perspectives_required"] == ["perspective-operations"]
 
 
-def test_merge_perspectives_keeps_required_authoritative() -> None:
+def test_merge_perspectives_keeps_required_authoritative_and_inherits() -> None:
     merged_required, merged_optional = merge_perspectives(
         {
             "perspectives_required": ["perspective-technical"],
             "perspectives_optional": ["perspective-project", "perspective-ops"],
+            "perspectives_skip_with_reason": ["perspective-root-skip"],
         },
+        root_required=["perspective-root", "perspective-root-skip"],
+        root_optional=["perspective-root-optional"],
+        channel_required=["perspective-channel"],
+        channel_optional=["perspective-channel-optional"],
         required=["perspective-project"],
         optional=["perspective-technical", "perspective-extra"],
     )
 
-    assert merged_required == ["perspective-technical", "perspective-project"]
-    assert merged_optional == ["perspective-ops", "perspective-extra"]
+    assert merged_required == [
+        "perspective-root",
+        "perspective-channel",
+        "perspective-technical",
+        "perspective-project",
+    ]
+    assert merged_optional == [
+        "perspective-root-optional",
+        "perspective-channel-optional",
+        "perspective-ops",
+        "perspective-extra",
+    ]

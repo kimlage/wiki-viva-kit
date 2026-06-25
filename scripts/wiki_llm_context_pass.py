@@ -28,7 +28,8 @@ sys.path.insert(0, str(ROOT))
 from wiki_core.config import load_config
 from wiki_core.ids import sha256_text
 from wiki_core.index.sqlite import search
-from wiki_core.llm import build_context_request, source_pending, write_result
+from wiki_core.input_stage import input_context_for_source
+from wiki_core.llm import CONTEXT_PASS_SCHEMA_VERSION, build_context_request, source_pending, write_result
 from wiki_core.paths import WikiPaths
 from wiki_core.source_config import find_source_config, merge_perspectives
 from wiki_core.source_manifest import build_manifest
@@ -166,7 +167,7 @@ def main() -> int:
 
     prompt_versions = dict(config.llm.get("prompt_versions", {}))
     prompt_version = str(prompt_versions.get("context_deep_read", "v1"))
-    schema_version = "wiki_llm_context_pass.v3"
+    schema_version = CONTEXT_PASS_SCHEMA_VERSION
     model_profile = args.profile or str(config.llm.get("default_model_profile", "deep_context"))
     required = bool(config.llm.get("required_context_pass", True))
 
@@ -174,9 +175,19 @@ def main() -> int:
         manifest = build_manifest(args.source, args.context)
         chunks = _chunks_for_source(paths, str(manifest["source_id"]))
         source_config = find_source_config(ROOT, config, args.source)
+        input_context = input_context_for_source(ROOT, config, args.source)
     else:
         manifest, chunks = _chunks_for_query(paths, args.query or "")
         source_config = None
+        input_context = {
+            "root_entity": None,
+            "input_channel": None,
+            "quadrant_map": {},
+            "target_pages": [],
+            "perspectives_required": [],
+            "perspectives_optional": [],
+            "input_stage_status": "query",
+        }
 
     pending = source_pending(manifest, chunks, paths.llm_cache, prompt_version, schema_version, model_profile)
 
@@ -195,6 +206,8 @@ def main() -> int:
         source_config,
         required=args.required_perspective,
         optional=args.optional_perspective,
+        root_required=list(input_context.get("perspectives_required") or []),
+        root_optional=list(input_context.get("perspectives_optional") or []),
     )
     request = build_context_request(
         manifest,
@@ -205,6 +218,11 @@ def main() -> int:
         model_profile,
         perspectives_required=perspectives_required,
         perspectives_optional=perspectives_optional,
+        root_entity=input_context.get("root_entity") if isinstance(input_context.get("root_entity"), dict) else None,
+        input_channel=input_context.get("input_channel") if isinstance(input_context.get("input_channel"), dict) else None,
+        quadrant_map=input_context.get("quadrant_map") if isinstance(input_context.get("quadrant_map"), dict) else None,
+        target_pages=list(input_context.get("target_pages") or []),
+        input_stage_status=str(input_context.get("input_stage_status") or ""),
     )
     if source_config:
         request["source_config_ref"] = source_config["path"]

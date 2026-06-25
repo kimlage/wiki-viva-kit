@@ -12,7 +12,10 @@ Run them before every PR.
 | Contract audit | Frontmatter, clickable local links, secrets blocked everywhere, PII at the public boundary, cockpit, ingestion events with quadrants, gate state, visibility promotion, LLM-pass gate, log update | [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` |
 | Methodology coverage | Presence **and content** of the method (pages, templates, scripts, config), real use of the perceptive layer, an executed LLM pass (not a plan) | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) `--check` |
 | Cockpit freshness | The cockpit page equals a recompile at HEAD (deterministic view) | [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) `--check` |
+| Input stage freshness | The generated root/channel/source staging page equals a recompile at HEAD | [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) `--check` |
+| Source registry freshness | Canonical source registry equals source page frontmatter | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) `--check` |
 | Consolidation closed | Ingesting = integrating: a deep-read-complete source needs its event, the event needs `consolidated_into`, each target references the source back, and candidate claims are linked or explicitly waived (`sem_claim`) | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` + [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` |
+| Quality and hierarchy | Dense pages, low repetition, closed events, operational coverage and relation pages routed through `moc_parent`/parent hubs when configured | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) `--check` |
 | Tests | The deterministic core behaves | `python3 -m pytest tests/` |
 
 Useful audit modes:

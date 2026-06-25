@@ -127,11 +127,11 @@ def ontology_dir_for(rel: str, config: WikiConfig) -> str | None:
 # Portuguese prefixes: compatibility so one shared codebase validates localized
 # (pt) repos, whose pages already persist pt-generated ids.
 RELATION_PREFIXES = {
-    "owner": ("person-", "pessoa-", "role-", "papel-", "holon-"),
+    "owner": ("person-", "pessoa-", "role-", "papel-", "holon-", "root-"),
     "related_holons": ("holon-",),
     "roles": ("role-", "papel-"),
     "responsibilities": ("responsibility-", "responsabilidade-"),
-    "source_refs": ("source-", "fonte-", "evidence-", "evidencia-"),
+    "source_refs": ("source-", "sources-", "fonte-", "evidence-", "evidencia-"),
     "claims": ("claim-",),
     "decisions": ("decision-", "decisao-"),
     "actions": ("action-", "acao-"),

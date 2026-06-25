@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-06-25
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -26,7 +26,7 @@ related_pages:
 
 # Meta-wiki: how the living wiki works
 
-Last updated: 2026-06-09.
+Last updated: 2026-06-25.
 
 This is the **meta-wiki**: the living wiki itself used to document, in a
 complete and organized way, how the system **operates** and what its **process** is.
@@ -34,14 +34,17 @@ It serves equally the personal project and the open-source version — the syste
 tools) is the same in both. It is reached from the root map of content in
 [memories/index.md](../../index.md), as a first-class context, not a side manual.
 
-The pages group into three clusters — getting started, the pipeline, and the
+The pages group into four clusters — root/entity setup, the pipeline, and the
 governance and by-products that keep the wiki honest.
 
 ```mermaid
 flowchart TD
     Start["Start here"] --> Arch["Architecture"]
+    Start --> Root["Root entity"]
+    Root --> Stage["Input stage"]
     Start --> Daily["Daily operation"]
-    Arch --> Ingest["Ingestion flow"]
+    Stage --> Ingest["Ingestion flow"]
+    Arch --> Ingest
     Ingest --> Gates["Gates and audit"]
     Gates --> PR["PR governance"]
     PR --> Privacy["Privacy"]
@@ -56,7 +59,8 @@ flowchart TD
 
 | If you want to... | Read |
 | --- | --- |
-| Understand the system for the first time | [architecture.md](architecture.md), then [daily-operation.md](daily-operation.md) |
+| Understand the system for the first time | [../wiki-viva-kit.md](../wiki-viva-kit.md), [architecture.md](architecture.md), then [daily-operation.md](daily-operation.md) |
+| Configure a repo's top entity and source channels | [../wiki-viva-kit.md](../wiki-viva-kit.md), [../input-stage.md](../input-stage.md), then [command-reference.md](command-reference.md) |
 | Ingest a source | [ingestion-flow.md](ingestion-flow.md) |
 | Open or review a PR | [pr-governance.md](pr-governance.md) and [gates-and-audit.md](gates-and-audit.md) |
 
@@ -64,6 +68,8 @@ flowchart TD
 
 | Page | What it covers |
 | --- | --- |
+| [../wiki-viva-kit.md](../wiki-viva-kit.md) | Root entity of the open-source kit: identity, integral quadrants, input channels and source map. |
+| [../input-stage.md](../input-stage.md) | Generated input catalog from root entity, input channels, source pages and source configs. |
 | [architecture.md](architecture.md) | Overview, principles and map of the modules. |
 | [daily-operation.md](daily-operation.md) | The daily loop: cockpit, resumption and gates before the PR. |
 | [ingestion-flow.md](ingestion-flow.md) | Source -> manifest -> chunks -> index -> LLM -> event -> consolidation. |

@@ -18,6 +18,13 @@ stale_after_days: 180
 sources_policy: fonte_e_impacto
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
+owner: {{owner_id}}
+moc_parent: memories/index.md
+source_refs: []
+claims: []
+decisions: []
+actions: []
+evidence_refs: []
 ---
 ```
 
@@ -45,6 +52,7 @@ YYYY-MM-DD
 
 ## Related
 
+- Parent MOC:
 - Source:
 - Claims:
 - Actions:

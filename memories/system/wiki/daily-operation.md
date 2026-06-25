@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-12
+updated_at: 2026-06-25
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Daily operation
 
-Last updated: 2026-06-09.
+Last updated: 2026-06-25.
 
 This page describes the daily operational loop of the living wiki: how to resume
 work, what to watch, how to run the gates before opening the PR and how to
@@ -35,11 +35,14 @@ GitHub PR, configured in [wiki.config.yaml](../../../wiki.config.yaml) (`gate:
 github_pr`) and described in [git-approvals.md](../git-approvals.md). The process of
 incorporating sources lives in [ingestion-process.md](../ingestion-process.md), and the
 detailed automatic gates are in [gates-and-audit.md](gates-and-audit.md).
+The semantic root entity is [Wiki Viva Kit](../wiki-viva-kit.md), and the
+source/channel staging view is generated at [input-stage.md](../input-stage.md)
+by [scripts/wiki_input_stage.py](../../../scripts/wiki_input_stage.py).
 For consolidation rounds, also compile the operational pass with
 [scripts/wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py), which
-materializes source freshness, action pressure, claims, decisions, output
-coverage, pending decision blockers and next steps by context in
-[operational-pass.md](../operational-pass.md).
+starts with a compact short-term memory and then materializes source freshness,
+action pressure, claims, decisions, output coverage, pending decision blockers
+and next steps by context in [operational-pass.md](../operational-pass.md).
 Close the round with the
 [operational-pass-closeout.md](../../../docs/references/templates/wiki/operational-pass-closeout.md)
 template when the work touched cross-context sources, actions or live-source
@@ -50,20 +53,24 @@ boundaries.
 The operational day is a short and repeatable cycle:
 
 1. Open the cockpit as the first screen and read the consolidated state.
-2. Compile/read the operational pass when the round is about sources, actions,
-   pending decisions or cross-context consolidation.
-3. Decide what to touch (pending decisions, owner actions, queue, stale contexts).
-4. Work on a proposal branch (`wiki/<theme>`), never directly on the approved wiki.
-5. Run the local gates before opening the PR.
-6. Write the operational pass closeout when the round needs an auditable
+2. Check the root/input stage when the round touches sources, channels,
+   perspectives, templates or setup.
+3. Compile/read the short-term memory at the top of the operational pass when
+   the round is about sources, actions, pending decisions or cross-context
+   consolidation.
+4. Decide what to touch (pending decisions, owner actions, queue, stale contexts).
+5. Work on a proposal branch (`wiki/<theme>`), never directly on the approved wiki.
+6. Run the local gates before opening the PR.
+7. Write the operational pass closeout when the round needs an auditable
    boundary between completed consolidation and live-source work left open.
-7. Recompile the cockpit and operational pass, then open/update the PR.
-8. After the merge, the cockpit goes back to reflecting the approved wiki on the next compilation.
+8. Recompile the input stage, source registry, cockpit and operational pass, then open/update the PR.
+9. After the merge, the generated pages go back to reflecting the approved wiki on the next compilation.
 
 ```mermaid
 flowchart LR
     cockpit["Open the cockpit"] --> pass["Compile operational pass"]
-    pass --> decide["Decide what to touch"]
+    pass --> stage["Check input stage"]
+    stage --> decide["Decide what to touch"]
     decide --> branch["Work on a proposal branch"]
     branch --> gates["Run the local gates"]
     gates --> closeout["Write closeout if needed"]
@@ -102,6 +109,14 @@ python3 scripts/wiki_operational_pass.py --check
 python3 scripts/wiki_operational_pass.py --write
 ```
 
+If the work changes the root entity, source pages, source configs or input
+channels, also check the input-stage page before trusting target routing:
+
+```sh
+python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_input_stage.py --write
+```
+
 ## 2. What to look at in the cockpit
 
 [scripts/wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py)
@@ -138,6 +153,10 @@ In short, what decides the day's focus: pending decisions (what unblocks),
 owner actions and queue (what to execute), stale contexts (what is aging) and
 the karma level (whether the curation is up to date).
 
+The input stage decides a different question: which declared source inputs are
+ready, which input channels are unlinked and which root/channel/source-config
+perspectives and target pages will be injected into the next LLM package.
+
 ## 3. Close a consolidation round without hiding live-source gaps
 
 The operational pass is a compilation, not a proof that every source was opened.
@@ -169,6 +188,10 @@ git switch -c wiki/<topic>
 When consolidating durable memory, first update the relevant context hub,
 then the related pages, then the root MOC if the map changed, and add
 an append-only entry to the system log.
+Typed relation pages created during the round must declare `moc_parent` so
+navigation stays root MOC -> context/domain hub -> typed child page. A
+`source_refs` entry is still required for provenance, but it does not replace the
+parent hub.
 
 ## 5. Run the gates before the PR
 
@@ -217,9 +240,12 @@ pending items. The approval rules are in
 ## 6. Recompile the cockpit
 
 At the end of the round (and whenever memories/, decisions or actions change), recompile
-the cockpit and the operational pass so that they reflect the new state:
+the input stage, source registry, cockpit and operational pass so that they
+reflect the new state:
 
 ```sh
+python3 scripts/wiki_input_stage.py --write
+python3 scripts/wiki_source_registry.py --write
 python3 scripts/wiki_operation_compile.py --write
 python3 scripts/wiki_operational_pass.py --write
 ```
@@ -240,12 +266,15 @@ and the cycle begins again.
 
 ```sh
 python3 scripts/wiki_operation_compile.py --check   # cockpit up to date?
+python3 scripts/wiki_input_stage.py --check          # root/channels/sources up to date?
 git switch -c wiki/<topic>                           # proposal branch
 # ... edit memories/, decisions, actions ...
 python3 scripts/wiki_audit.py --check                # gate 1: structure/links/secrets
-python3 scripts/wiki_pr_summary.py                   # gate 2: PR summary + checklist
-git diff --check                                     # gate 3: diff hygiene
+python3 scripts/wiki_quality_report.py --check       # gate 2: quality/hierarchy telemetry
+python3 scripts/wiki_pr_summary.py                   # gate 3: PR summary + checklist
+git diff --check                                     # gate 4: diff hygiene
 # ... write a closeout report if this was a cross-context consolidation round ...
+python3 scripts/wiki_input_stage.py --write          # recompile root/channel/source staging
 python3 scripts/wiki_operation_compile.py --write    # recompile the cockpit
 python3 scripts/wiki_operational_pass.py --write     # recompile source/action/context pass
 # ... open/update the PR (human gate) ...
@@ -254,6 +283,8 @@ python3 scripts/wiki_operational_pass.py --write     # recompile source/action/c
 ## Related
 
 - Generated cockpit: [memories/operations.md](../../operations.md)
+- Root entity: [wiki-viva-kit.md](../wiki-viva-kit.md)
+- Input stage: [input-stage.md](../input-stage.md)
 - Root MOC: [memories/index.md](../../index.md)
 - Gates and audit: [gates-and-audit.md](gates-and-audit.md)
 - Approvals by Git/PR: [git-approvals.md](../git-approvals.md)

@@ -32,6 +32,7 @@ ATTENTION_RE = re.compile(
     r")\b",
     re.I,
 )
+SHORT_TERM_LIMIT = 5
 
 
 @dataclass(frozen=True)
@@ -148,6 +149,7 @@ class OperationalPassReport:
     attention: tuple[AttentionRow, ...]
     operational_model: tuple[OperationalModelRow, ...]
     pending_ids: tuple[str, ...]
+    recent_pages: tuple[PageRecord, ...]
 
 
 def read_markdown_page(path: Path, root: Path, default_context: str) -> PageRecord:
@@ -319,6 +321,7 @@ def build_operational_pass_report(
         attention=attention,
         operational_model=operational_model,
         pending_ids=pending_ids,
+        recent_pages=_recent_pages_from_pages(pages),
     )
 
 
@@ -344,7 +347,7 @@ def build_operational_pass_page(
         f"context: {config.default_context}",
         f"visibility: {config.default_visibility}",
         f"updated_at: {date.isoformat()}",
-        f"stale_after_days: {freshness_for(config.default_context, 'dashboard', config)}",
+        "stale_after_days: 1",
         "sources_policy: memorias_fontes_acoes_contextos",
         f"gate: {config.approval.get('gate', 'github_pr')}",
         "sensitive_data_policy: private_sensitive_allowed",
@@ -356,6 +359,12 @@ def build_operational_pass_page(
         s["updated"].format(date=date.isoformat()),
         "",
         s["intro"].format(contexts=context_label),
+        "",
+        s["h_short_memory"],
+        "",
+        s["short_intro"],
+        "",
+        *_render_short_term_memory(report, page_dir, s),
         "",
         s["h_contexts"],
         "",
@@ -461,6 +470,84 @@ def build_operational_pass_page(
         "",
     ]
     return "\n".join(lines)
+
+
+def _render_short_term_memory(
+    report: OperationalPassReport,
+    page_dir: Path,
+    s: dict[str, str],
+) -> list[str]:
+    lines: list[str] = []
+    review_items = [
+        f"- **{_escape(row.context)} / {_escape(row.page.page_type)}:** "
+        f"{_page_link(row.page, page_dir)} — {_escape(row.reason)}"
+        for row in report.attention[:SHORT_TERM_LIMIT]
+    ]
+    lines.extend(_short_block(s["short_review_now"], review_items, s["short_no_review"]))
+
+    actions_by_id = {action.page_id: action for action in report.actions}
+    selected_actions: list[PageRecord] = []
+    for action_id in report.pending_ids:
+        action = actions_by_id.get(action_id)
+        if action is not None:
+            selected_actions.append(action)
+        if len(selected_actions) >= SHORT_TERM_LIMIT:
+            break
+    if len(selected_actions) < SHORT_TERM_LIMIT:
+        for action in report.actions:
+            if action in selected_actions:
+                continue
+            if _page_needs_attention(action):
+                selected_actions.append(action)
+            if len(selected_actions) >= SHORT_TERM_LIMIT:
+                break
+    action_items = [
+        f"- **{_escape(action.context)}:** {_page_link(action, page_dir)} "
+        f"({_escape(action.status or s['unknown'])})"
+        for action in selected_actions[:SHORT_TERM_LIMIT]
+    ]
+    lines.extend(_short_block(s["short_actions"], action_items, s["short_no_actions"]))
+
+    decision_items = [
+        f"- **{_escape(decision.context)}:** {_page_link(decision, page_dir)} "
+        f"({_escape(decision.status or s['unknown'])})"
+        for decision in report.pending_decisions[:SHORT_TERM_LIMIT]
+    ]
+    lines.extend(_short_block(s["short_decisions"], decision_items, s["short_no_decisions"]))
+
+    recent_items = [
+        f"- **{_escape(page.context)}:** {_page_link(page, page_dir)} "
+        f"({_escape(page.updated_at or s['unknown'])})"
+        for page in _recent_pages(report)[:SHORT_TERM_LIMIT]
+    ]
+    lines.extend(_short_block(s["short_recent"], recent_items, s["short_no_recent"]))
+    return lines
+
+
+def _short_block(title: str, items: list[str], empty: str) -> list[str]:
+    if not items:
+        items = [f"- {empty}"]
+    return [f"### {title}", "", *items, ""]
+
+
+def _recent_pages(report: OperationalPassReport) -> list[PageRecord]:
+    return list(report.recent_pages)
+
+
+def _recent_pages_from_pages(pages: tuple[PageRecord, ...]) -> tuple[PageRecord, ...]:
+    seen: dict[str, PageRecord] = {}
+    for page in pages:
+        seen.setdefault(page.rel, page)
+    return sorted(
+        seen.values(),
+        key=lambda page: (
+            _parse_date(page.updated_at) or dt.date.min,
+            page.context,
+            page.title.lower(),
+            page.rel,
+        ),
+        reverse=True,
+    )
 
 
 def _render_operational_model(
@@ -630,6 +717,16 @@ def report_to_dict(report: OperationalPassReport) -> dict[str, Any]:
             for row in report.operational_model
         ],
         "pending_ids": list(report.pending_ids),
+        "recent_pages": [
+            {
+                "page_id": page.page_id,
+                "path": page.rel,
+                "context": page.context,
+                "page_type": page.page_type,
+                "updated_at": page.updated_at,
+            }
+            for page in report.recent_pages[:SHORT_TERM_LIMIT]
+        ],
     }
 
 
@@ -1062,6 +1159,16 @@ def _strings(language: str) -> dict[str, str]:
             "purpose": "compilacao transversal de fontes, acoes, incertezas e proximos passos por contexto",
             "updated": "Atualizado em: {date}.",
             "intro": "Compilacao deterministica para os contextos: {contexts}. Use esta pagina para comprimir proximos passos em acoes, problemas, claims, decisoes e paginas alvo; nao substitui a leitura humana das fontes vivas.",
+            "h_short_memory": "## Memoria de curto prazo",
+            "short_intro": "Leia isto primeiro: estado compacto e diario dos itens que ainda precisam de revisao, decisao ou acao. As secoes completas continuam abaixo.",
+            "short_review_now": "Revisar agora",
+            "short_actions": "Acoes principais",
+            "short_decisions": "Decisoes pendentes",
+            "short_recent": "Ultimas atualizacoes",
+            "short_no_review": "Nenhum item em atencao.",
+            "short_no_actions": "Nenhuma acao pendente priorizada.",
+            "short_no_decisions": "Nenhuma decisao pendente.",
+            "short_no_recent": "Nenhuma atualizacao registrada.",
             "all_contexts": "todos",
             "h_contexts": "## Resumo por contexto",
             "th_contexts": "| Contexto | Hub | Vitalidade | Fontes | Fontes em atencao | Acoes | Acoes em atencao | Claims / decisoes | Proximos passos |",
@@ -1124,6 +1231,16 @@ def _strings(language: str) -> dict[str, str]:
             "purpose": "cross-context compilation of sources, actions, uncertainty and next steps",
             "updated": "Updated at: {date}.",
             "intro": "Deterministic compilation for contexts: {contexts}. Use this page to compress next steps into actions, problems, claims, decisions and target pages; it does not replace human reading of live sources.",
+            "h_short_memory": "## Short-term memory",
+            "short_intro": "Read this first: a compact daily state of items that still need review, decision or action. Full diagnostic sections remain below.",
+            "short_review_now": "Review now",
+            "short_actions": "Primary actions",
+            "short_decisions": "Pending decisions",
+            "short_recent": "Latest updates",
+            "short_no_review": "No attention items.",
+            "short_no_actions": "No prioritized pending actions.",
+            "short_no_decisions": "No pending decisions.",
+            "short_no_recent": "No recorded updates.",
             "all_contexts": "all",
             "h_contexts": "## Context summary",
             "th_contexts": "| Context | Hub | Vitality | Sources | Sources needing attention | Actions | Actions needing attention | Claims / decisions | Next steps |",

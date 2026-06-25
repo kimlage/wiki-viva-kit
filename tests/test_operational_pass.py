@@ -169,6 +169,11 @@ def test_operational_pass_crosses_sources_actions_and_uncertainty(tmp_path: Path
     assert report.context_rows[0].claims == 1
     assert report.context_rows[0].decisions == 1
     assert "Contact owner" in report.context_rows[0].next_steps[0]
+    assert "stale_after_days: 1" in page
+    assert "## Short-term memory" in page
+    assert "### Review now" in page
+    assert "### Primary actions" in page
+    assert "### Latest updates" in page
     assert "[Contact owner](../actions/contact-owner.md)" in page
     assert "refresh source: [CRM export](../sources/crm.md)" in page
     assert any(row.page.page_id == "claim-missing-rating" for row in report.attention)

@@ -86,6 +86,12 @@ class WikiPaths:
         return self.root / self.config.paths["source_registry_page"]
 
     @property
+    def input_stage_page(self) -> Path:
+        root_entity = self.config.root_entity or {}
+        page = str(root_entity.get("input_stage_page") or "memories/system/input-stage.md")
+        return self.root / page
+
+    @property
     def templates_root(self) -> Path:
         return self.references_root / "templates" / "wiki"
 
@@ -121,6 +127,14 @@ class WikiPaths:
     def coverage(self) -> Path:
         return self.derived_root / "coverage"
 
+    @property
+    def input_stage(self) -> Path:
+        return self.derived_root / "input-stage"
+
+    @property
+    def input_stage_catalog(self) -> Path:
+        return self.input_stage / "input-catalog.json"
+
     def ensure(self) -> None:
         for path in (
             self.source_manifests,
@@ -130,5 +144,6 @@ class WikiPaths:
             self.extraction_events,
             self.llm_cache,
             self.coverage,
+            self.input_stage,
         ):
             path.mkdir(parents=True, exist_ok=True)

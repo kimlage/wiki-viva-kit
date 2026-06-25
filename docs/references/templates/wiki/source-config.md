@@ -26,6 +26,7 @@ sources_policy: operational_wiki_contract
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 owner: person-example
+moc_parent: memories/sources/index.md
 source_refs: []          # source-... this config governs (bidirectional)
 related_holons: []
 roles: []
@@ -37,6 +38,11 @@ evidence_refs: []
 perspectives_required:
   - perspective-technical
 perspectives_optional: []
+perspectives_skip_with_reason: []
+input_channel_ref: ""
+process_refs: []
+target_pages: []
+quadrants: []
 ---
 ```
 
@@ -56,6 +62,24 @@ Governs the source: link to the source page.
   a `perspective` page.
 - `perspectives_optional` lists useful lenses that can be skipped when the
   source does not contain relevant material.
+- `perspectives_skip_with_reason` can skip inherited root/channel perspectives,
+  but every skipped perspective must carry an explicit reason in the body or
+  linked decision.
+
+## Inheritance
+
+| Layer | What it contributes |
+| --- | --- |
+| Root entity | Default perspective bundle and target strategy. |
+| Input channel | Channel type, process map, quadrants, refresh and privacy. |
+| Source config | Source-specific required/optional perspectives and overrides. |
+
+## Input channel and process map
+
+- Input channel:
+- Processes:
+- Target pages:
+- Quadrants:
 
 ## Search rules
 

@@ -12,10 +12,12 @@ page_types:
       - updated_at
       - stale_after_days
       - source_refs
+      - moc_parent
     field_types: &relation_field_types
       updated_at: date
       stale_after_days: string
       source_refs: list
+      moc_parent: string
       evidence_refs: list
       claims: list
       decisions: list
@@ -58,10 +60,25 @@ page_types:
     field_types: &common_field_types
       updated_at: date
       stale_after_days: string
+  artifact:
+    template: docs/references/templates/wiki/artifact.md
+    allowed_dirs:
+      - memories/artifacts
+    required_frontmatter: *relation_required
+    field_types:
+      <<: *relation_field_types
+      artifact_type: string
   decision:
     template: docs/references/templates/wiki/decision.md
     allowed_dirs:
       - memories/decisions
+    required_frontmatter: *relation_required
+    field_types: *relation_field_types
+  holon:
+    template: docs/references/templates/wiki/holon.md
+    allowed_dirs:
+      - memories/holons
+      - memories
     required_frontmatter: *relation_required
     field_types: *relation_field_types
   ingestion_event:
@@ -92,6 +109,31 @@ page_types:
       - memories
     required_frontmatter: *common_required
     field_types: *common_field_types
+  input_channel:
+    template: docs/references/templates/wiki/input-channel.md
+    allowed_dirs:
+      - memories/input-channels
+      - memories/system/input-channels
+    required_frontmatter:
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - channel_type
+      - input_status
+      - moc_parent
+    field_types:
+      <<: *relation_field_types
+      channel_type: string
+      input_status: enum:declared,configured,staged,blocked,ready_for_ingest,ingesting,integrated,no_ingest
+      process_refs: list
+      source_config_refs: list
+      target_pages: list
+      perspectives_required: list
+      perspectives_optional: list
+      quadrants: list
   meeting:
     template: docs/references/templates/wiki/meeting.md
     allowed_dirs:
@@ -114,6 +156,16 @@ page_types:
       - memories/projects
     required_frontmatter: *relation_required
     field_types: *relation_field_types
+  process:
+    template: docs/references/templates/wiki/process.md
+    allowed_dirs:
+      - memories/processes
+      - memories/system/processes
+    required_frontmatter: *relation_required
+    field_types:
+      <<: *relation_field_types
+      cadence: string
+      input_channels: list
   perspective:
     template: docs/references/templates/wiki/perspective.md
     allowed_dirs:
@@ -145,6 +197,48 @@ page_types:
       - memories
     required_frontmatter: *common_required
     field_types: *common_field_types
+  responsibility:
+    template: docs/references/templates/wiki/responsibility.md
+    allowed_dirs:
+      - memories/responsibilities
+    required_frontmatter: *relation_required
+    field_types: *relation_field_types
+  role:
+    template: docs/references/templates/wiki/role.md
+    allowed_dirs:
+      - memories/roles
+    required_frontmatter: *relation_required
+    field_types: *relation_field_types
+  root_entity:
+    template: docs/references/templates/wiki/root-entity.md
+    allowed_dirs:
+      - memories
+      - memories/root
+    required_frontmatter:
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - root_entity_type
+      - primary_contexts
+      - input_stage_ref
+      - moc_parent
+    field_types:
+      <<: *relation_field_types
+      root_entity_type: enum:person,team,company,project,community,product
+      primary_contexts: list
+      input_stage_ref: string
+      input_channels: list
+      perspective_bundle_required: list
+      perspective_bundle_optional: list
+    required_sections:
+      - Identity and Scope
+      - Integral Quadrant Map
+      - Channels and Input Sources
+      - Perspective Bundle
+      - Source Ingestion Map
   source:
     template: docs/references/templates/wiki/source.md
     allowed_dirs:
@@ -157,6 +251,7 @@ page_types:
       - updated_at
       - stale_after_days
       - source_type
+      - moc_parent
     field_types:
       <<: *relation_field_types
       source_type: string
@@ -181,6 +276,13 @@ page_types:
   source_registry:
     template: none
     template_none_reason: "The source registry is generated from source frontmatter."
+    allowed_dirs:
+      - memories/system
+    required_frontmatter: *common_required
+    field_types: *common_field_types
+  input_stage:
+    template: none
+    template_none_reason: "The input stage is generated from the root entity, input channels, sources and source configs."
     allowed_dirs:
       - memories/system
     required_frontmatter: *common_required

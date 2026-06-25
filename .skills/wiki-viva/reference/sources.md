@@ -17,9 +17,15 @@ localized repo the paths differ — [AGENTS.md](../../../AGENTS.md) routes to th
    the relevant chunks), and **business rules** (domain logic — e.g. ledger
    append-only, readback required, dedup key). Point the source page's
    `config_ref:` at it (and the config page's `source_refs` back at the source).
-3. **Register it.** Run `wiki_source_registry.py --write` so the source appears in
+   Add `input_channel_ref`, `process_refs`, `target_pages`, `quadrants` and
+   perspective fields when the source should inherit the root/input-stage model.
+3. **Attach it to an input channel.** The input-channel page declares the source
+   system or document stream, its quadrants, refresh policy and target pages.
+4. **Register it.** Run `wiki_source_registry.py --write` so the source appears in
    the registry with its state, last update and a link to its config.
-4. **Ingest.** Run the pipeline (see [operating.md](operating.md)). The deep-read
+5. **Compile the input stage.** Run `wiki_input_stage.py --write` so the generated
+   stage lists the root entity, channel, inherited perspectives and target pages.
+6. **Ingest.** Run the pipeline (see [operating.md](operating.md)). The deep-read
    **reads the source's config rules** and applies them — the rules live in the
    page (agent-consumed), not hardcoded in the toolkit.
 

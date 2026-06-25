@@ -12,14 +12,20 @@ in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
 
 - **Memory layer** in [memories/](memories/index.md): consolidated, auditable
   Markdown pages with frontmatter contracts (freshness, visibility, gate).
+- **Root entity + input stage**: a configured top page defines the wiki's
+  subject, integral perspective bundle, input channels, source configs and
+  default target pages before ingestion starts.
 - **Ingestion pipeline**: source → deterministic manifest → stable chunks →
-  FTS index → secret pre-scan (blocks BEFORE persisting) → LLM context package
-  → normalized event → proposal that enters the human gate (GitHub PR).
+  FTS index → secret pre-scan (blocks BEFORE persisting) → input-stage-aware
+  LLM context package → normalized event → proposal that enters the human gate
+  (GitHub PR).
 - **Honesty gates in CI**: contract audit, methodology coverage, cockpit
-  freshness, required LLM pass, freshness budget, doc-code drift — all
-  deterministic (zero model tokens).
+  freshness, required LLM pass, freshness budget, quality/hierarchy telemetry,
+  doc-code drift — all deterministic (zero model tokens).
 - **Operational cockpit** ([memories/operations.md](memories/operations.md)):
   compiled daily, self-verifiable (`--check` fails if semantically stale).
+- **Hierarchical navigation**: root MOC -> context/domain hub -> typed
+  relation/evidence pages, with `moc_parent` checked by the quality report.
 - **OKF interoperability**: export the rich Wiki Viva memory tree as an Open
   Knowledge Format v0.1 bundle, check conformance, preview imports, and generate
   a local HTML viewer without changing the internal page contracts. The adapter
@@ -33,17 +39,21 @@ in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
 ```sh
 pip install -r requirements.txt
 
-# 1. Configure your repo profile
-$EDITOR wiki.config.yaml          # language, contexts, gates
+# 1. Configure your repo profile and root entity
+$EDITOR wiki.config.yaml          # language, root_entity, contexts, gates
 $EDITOR wiki.targets.yaml         # context -> pages/entities map
+$EDITOR memories/system/wiki-viva-kit.md
+python3 scripts/wiki_input_stage.py --write
 
 # 2. Ingest a source end to end
 python3 scripts/wiki_ingest.py --source path/to/source.md --context example
 
 # 3. Run the gates (same ones CI runs)
 python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_quality_report.py --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_input_stage.py --check
 
 # 4. Compile the daily cockpit
 python3 scripts/wiki_operation_compile.py --write
@@ -75,6 +85,9 @@ is the context that explains how the wiki itself works:
 
 | Page | Covers |
 | --- | --- |
+| [Default open-source process](docs/references/guides/default-open-source-process.md) | Complete default model: entities, ingestion, gates and PR flow |
+| [Root entity](memories/system/wiki-viva-kit.md) | Semantic top page for this kit and its integral quadrants |
+| [Input stage](memories/system/input-stage.md) | Generated catalog of root entity, channels, source configs and target pages |
 | [Meta-wiki index](memories/system/wiki/index.md) | Map of all documentation |
 | [Architecture](memories/system/wiki/architecture.md) | Principles and module map |
 | [Daily operation](memories/system/wiki/daily-operation.md) | The daily loop |
@@ -88,7 +101,7 @@ Agent-facing entry point: [AGENTS.md](AGENTS.md).
 
 ## Related projects and reference material
 
-- **Open Knowledge Format (OKF)**: Wiki Viva v6.6 targets OKF v0.1 as described
+- **Open Knowledge Format (OKF)**: Wiki Viva v6.6+ targets OKF v0.1 as described
   in the Google Cloud [OKF article](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing/)
   and the [GoogleCloudPlatform/knowledge-catalog](https://github.com/GoogleCloudPlatform/knowledge-catalog)
   project. OKF is the exchange layer; Wiki Viva remains the richer operational
@@ -122,7 +135,9 @@ list. Localized repos pin their own names there (e.g. a Portuguese repo sets
    reviewed by the owner.
 5. **Language by config** — code and docs in English; generated pages in the
    configured language.
-6. **Interop by adapter** — OKF is an exchange layer. The internal wiki keeps the
+6. **Root-driven operation** — setup starts by declaring the main entity and its
+   integral perspectives; source channels inherit that context deterministically.
+7. **Interop by adapter** — OKF is an exchange layer. The internal wiki keeps the
    richer `page_type`, perspective, privacy and PR-gate contracts.
 
 ## License & contributing
