@@ -65,6 +65,8 @@ and workflow platforms belong to Q4.
 
 - Which artifact, repository-as-output, document, report or metric appears?
 - What does the artifact prove or fail to prove?
+- Is this item output/evidence of the root holon, or is it a coordination
+  platform/process that belongs to Q4?
 - Which source/config page should own future refreshes?
 
 ## Target Pages
@@ -78,6 +80,8 @@ and workflow platforms belong to Q4.
 - Do not classify Slack, Jira, Drive, CI, calendars, portals or other
   coordination platforms as Q2 unless the specific item is an exported
   artifact/evidence. The operating platform itself is Q4.
+- The same file can carry Q2 evidence, Q3 interpretation and Q4 process context;
+  classify the fact being extracted, not just the file extension.
 
 ## Inheritance Rules
 

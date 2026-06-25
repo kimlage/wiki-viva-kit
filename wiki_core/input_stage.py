@@ -33,32 +33,54 @@ DEFAULT_QUADRANT_SEMANTICS = {
         "semantic_key": "interior_individual",
         "label": "Q1 - Interior individual",
         "aqal_position": "I / interior individual",
-        "operational_test": "First-person identity, intent, meaning, priorities or constraints of the root entity.",
+        "operational_test": (
+            "Interior view of the root holon: lived or declared identity, intent, "
+            "meaning, priorities or constraints. For a team/company/product, do "
+            "not invent consciousness; use stated mission, self-description or "
+            "stakeholder intent."
+        ),
     },
     "q2": {
         "semantic_key": "exterior_individual",
         "label": "Q2 - Exterior individual",
         "aqal_position": "It / exterior individual",
-        "operational_test": "Observable behavior, direct output, owned artifact, evidence or metric of the root entity as a single holon.",
+        "operational_test": (
+            "Exterior view of the root holon as one entity: observable behavior, "
+            "direct output, owned artifact, evidence or metric. The fact that "
+            "something is a document or repository is not enough; it must be an "
+            "output/evidence of the root entity."
+        ),
     },
     "q3": {
         "semantic_key": "interior_collective",
         "label": "Q3 - Interior collective",
         "aqal_position": "We / interior collective",
-        "operational_test": "Shared meaning, culture, roles, relationships, expectations and norms.",
+        "operational_test": (
+            "Interior view of the collective: shared meaning, culture, roles as "
+            "lived expectations, relationships, rituals and norms. A plain people "
+            "roster or formal org chart is not Q3 unless it carries the shared "
+            "meaning or relationship field."
+        ),
     },
     "q4": {
         "semantic_key": "exterior_collective",
         "label": "Q4 - Exterior collective",
         "aqal_position": "Its / exterior collective",
-        "operational_test": "Systems, channels, tools, platforms, workflows, rules, institutions and process infrastructure.",
+        "operational_test": (
+            "Exterior view of the collective: systems, channels, tools, platforms, "
+            "workflows, rules, institutions, governance and process infrastructure."
+        ),
     },
 }
 
 DEFAULT_QUADRANT_BOUNDARY_RULE = (
-    "A repository, document, dashboard or ticket is q2 when it is an owned "
-    "artifact/output/evidence of the root entity. The platform or workflow that "
-    "coordinates people around it is q4."
+    "Apply the quadrant to the root holon and the source's role in context. A "
+    "repository, document, dashboard or ticket is q2 only when it is an owned "
+    "artifact/output/evidence of the root entity. The platform, workflow, "
+    "governance rule or communication channel that coordinates people around it "
+    "is q4. People, roles and relationships are q3 only when read as shared "
+    "meaning, mutual expectation or culture; as externally administered structure "
+    "they belong to q4."
 )
 
 SOURCE_STATUS_TO_INPUT_STATUS = {

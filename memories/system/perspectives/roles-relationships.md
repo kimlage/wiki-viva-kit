@@ -49,8 +49,9 @@ related_pages:
 
 ## Concern
 
-Who participates, what roles and responsibilities exist, how relationships work
-and which shared meanings, norms or social expectations shape the operation.
+Who participates, what roles and responsibilities mean in practice, how
+relationships work and which shared meanings, norms or social expectations shape
+the operation.
 
 ## Quadrant
 
@@ -64,6 +65,8 @@ and which shared meanings, norms or social expectations shape the operation.
 
 - Which person as participant, role or responsibility appears or changes?
 - Which relationship, ritual, expectation or cultural rule matters?
+- Is the role being captured as lived meaning/expectation (Q3), or as a formal
+  administered structure/process that belongs to Q4?
 - Which uncertainty about a person or role must stay attached to the source?
 
 ## Target Pages
@@ -76,6 +79,9 @@ and which shared meanings, norms or social expectations shape the operation.
   publication decision.
 - A plain roster is not enough for Q3; capture the relationship, role,
   expectation, ritual, norm or culture that makes the roster meaningful.
+- If the source only states an externally managed org chart, RACI, approval rule
+  or workflow assignment, classify that fact as Q4 unless there is shared meaning
+  or relationship context to preserve.
 
 ## Inheritance Rules
 

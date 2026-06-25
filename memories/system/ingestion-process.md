@@ -176,10 +176,19 @@ Every ingestion ends in one of these states:
 
 Relevant events must record:
 
-- Interior individual: the person's perception, intention, tension, or reading;
-- Exterior individual: speech, task, commit, payment, document, or measure;
-- Interior collective: agreement, conflict, narrative, culture, or relationship;
-- Exterior collective: rule, system, process, contract, tool, or structure.
+- Interior individual: the root holon's lived or declared perception, intention,
+  tension, identity, priority or reading;
+- Exterior individual: observable behavior, direct output, artifact, evidence,
+  speech, task, commit, payment, document or measure of the root holon;
+- Interior collective: shared meaning, agreement, conflict, narrative, culture,
+  relationship, ritual, norm or role-as-lived-expectation;
+- Exterior collective: rule, system, process, contract, tool, institution,
+  workflow, governance structure or role-as-administered.
+
+Classify the fact being extracted, not merely the source type. A document can be
+Q2 as evidence, Q3 as shared interpretation and Q4 as a process artifact. A
+person list is not automatically Q3; it becomes Q3 only when the relationship,
+mutual expectation or culture is part of the finding.
 
 When a quadrant does not appear in the source, fill in the `Absence/limit`
 column. The absence is an operational finding, not an empty field.

@@ -131,6 +131,11 @@ and the gate is the GitHub PR described in [pr-governance.md](pr-governance.md).
   bias of only capturing external facts. Filling all four is mandatory and
   validated; see `validate_result` in
   [wiki_core/llm/context_pass.py](../../../wiki_core/llm/context_pass.py).
+  The quadrants follow AQAL's interior/exterior and individual/collective axes:
+  Q2 is not "any file" and Q3 is not "any person list". The classifier must
+  apply the quadrant to the root holon and to the specific fact being extracted:
+  outputs/evidence are Q2, shared meaning and lived expectations are Q3, and
+  administered workflows, tools, governance and role structures are Q4.
 - **Input stage as deterministic staging.** [wiki_input_stage.py](../../../scripts/wiki_input_stage.py)
   compiles the root entity, input-channel pages, source pages and source configs
   into [input-stage.md](../input-stage.md). The generated catalog does not fetch

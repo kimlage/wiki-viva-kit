@@ -48,6 +48,9 @@ related_pages:
 ## Concern
 
 What the root entity or stakeholder is trying to be, do, protect or prioritize.
+For non-person roots, this is declared intent, self-description, mission or
+stakeholder stance; it is not a claim that a product, company or team has literal
+individual consciousness.
 
 ## Quadrant
 
@@ -61,6 +64,7 @@ What the root entity or stakeholder is trying to be, do, protect or prioritize.
 
 - What intent, priority, constraint or preference changed?
 - What first-person or identity statement should be preserved?
+- For a non-person root, who expressed the intent or where is it declared?
 - What absence matters because the source does not speak from this viewpoint?
 
 ## Target Pages

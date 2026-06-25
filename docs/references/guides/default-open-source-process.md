@@ -164,7 +164,7 @@ The root page carries:
 | Area | Examples |
 | --- | --- |
 | Identity and scope | What the entity is, what it owns, what is out of boundary. |
-| Integral quadrants | Q1 intent, Q2 artifacts, Q3 roles/relationships, Q4 systems/processes. |
+| Integral quadrants | Q1 declared/lived intent, Q2 outputs/evidence of the root holon, Q3 shared meaning/roles-as-lived, Q4 systems/processes/governance. |
 | Perspective bundle | Required and optional perspectives inherited by sources. |
 | Input channels | Document streams, tools, folders, chats, calendars, issue trackers. |
 | Source map | Which canonical source/config pages feed which target pages. |
