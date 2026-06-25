@@ -344,6 +344,13 @@ def test_build_context_request_includes_perspectives(tmp_path):
         root_entity={"page_id": "root-example", "path": "memories/example/index.md"},
         input_channel={"page_id": "input-channel-docs"},
         quadrant_map={"q4": ["perspective-technical"]},
+        quadrant_semantics={
+            "q4": {
+                "semantic_key": "exterior_collective",
+                "aqal_position": "Its / exterior collective",
+            }
+        },
+        quadrant_boundary_rule="Tools and workflows are q4 when they coordinate work.",
         target_pages=["memories/example/index.md"],
         input_stage_status="configured",
     )
@@ -354,6 +361,8 @@ def test_build_context_request_includes_perspectives(tmp_path):
     assert request["root_entity"]["page_id"] == "root-example"
     assert request["input_channel"]["page_id"] == "input-channel-docs"
     assert request["quadrant_map"] == {"q4": ["perspective-technical"]}
+    assert request["quadrant_semantics"]["q4"]["semantic_key"] == "exterior_collective"
+    assert request["quadrant_boundary_rule"] == "Tools and workflows are q4 when they coordinate work."
     assert request["target_pages"] == ["memories/example/index.md"]
     assert request["input_stage_status"] == "configured"
     assert "perspectives" in request["result_required_keys"]

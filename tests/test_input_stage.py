@@ -146,6 +146,11 @@ def test_compile_input_stage_inherits_root_channel_and_source_config(tmp_path: P
     catalog = compile_input_stage(tmp_path, cfg, generated_at=dt.date(2026, 6, 25))
 
     assert catalog["schema_version"] == "wiki_input_stage.v1"
+    assert catalog["quadrant_semantics"]["q1"]["semantic_key"] == "interior_individual"
+    assert catalog["quadrant_semantics"]["q2"]["aqal_position"] == "It / exterior individual"
+    assert catalog["quadrant_semantics"]["q3"]["semantic_key"] == "interior_collective"
+    assert catalog["quadrant_semantics"]["q4"]["aqal_position"] == "Its / exterior collective"
+    assert "artifact/output/evidence" in catalog["quadrant_boundary_rule"]
     assert catalog["root_entity"]["page_id"] == "root-example-team"
     assert catalog["root_entity"]["entity_type"] == "team"
     assert len(catalog["sources"]) == 1
@@ -175,6 +180,8 @@ def test_input_context_for_source_returns_request_metadata(tmp_path: Path) -> No
     assert context["root_entity"]["page_id"] == "root-example-team"
     assert context["input_channel"]["page_id"] == "input-channel-team-docs"
     assert context["input_stage_status"] == "configured"
+    assert context["quadrant_semantics"]["q2"]["semantic_key"] == "exterior_individual"
+    assert "coordinates people" in context["quadrant_boundary_rule"]
     assert "perspective-systems-processes" in context["perspectives_required"]
     assert context["target_pages"] == ["memories/example/index.md"]
 
@@ -278,6 +285,9 @@ def test_render_input_stage_markdown_is_stable_and_links(tmp_path: Path) -> None
     assert "[Example team](../example/index.md)" in md
     assert "[Team docs](../input-channels/team-docs.md)" in md
     assert "[Team handbook](../sources/team-handbook.md)" in md
+    assert "## Quadrant semantics" in md
+    assert "`q2` | `exterior_individual` | It / exterior individual" in md
+    assert "Boundary rule: A repository, document, dashboard or ticket is q2" in md
     assert "perspective-identity-intent" in md
 
 
@@ -298,5 +308,6 @@ def test_render_input_stage_markdown_uses_localized_layout_and_language(tmp_path
     assert "context: sistema" in md
     assert "moc_parent: memorias/index.md" in md
     assert "## Entidade raiz" in md
+    assert "## Semantica dos quadrantes" in md
     assert "## Canais de entrada" in md
     assert "Atualizado em: 2026-06-25." in md
