@@ -357,6 +357,58 @@ def test_local_artifact_link_re_ignores_non_artifact_links(audit):
     assert audit.LOCAL_ARTIFACT_LINK_RE.search("[x](../docs/nota.jsonl)") is None
 
 
+def test_append_only_drive_artifact_links_are_ignored(tmp_path, audit, monkeypatch):
+    audit.parse_frontmatter.cache_clear()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "markdown_files",
+        lambda: [
+            "memories/system/ingestion/events/e.md",
+            "memories/system/log.md",
+            "memories/example/note.md",
+        ],
+    )
+    monkeypatch.setattr(audit, "tracked_files", lambda: [])
+    (tmp_path / "memories/system/ingestion/events").mkdir(parents=True)
+    (tmp_path / "memories/system").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "memories/example").mkdir(parents=True)
+    artifact_link = "[artifact](../../data/raw/historical.json)"
+    (tmp_path / "memories/system/ingestion/events/e.md").write_text(
+        "---\n"
+        "page_id: event-e\n"
+        "page_type: ingestion_event\n"
+        "---\n"
+        f"# Event\n\nHistorical link to {artifact_link}.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/system/log.md").write_text(
+        "---\n"
+        "page_id: system-log\n"
+        "page_type: system_log\n"
+        "---\n"
+        f"# Log\n\nAppend-only historical link to {artifact_link}.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/example/note.md").write_text(
+        "---\n"
+        "page_id: example-note\n"
+        "page_type: source_catalog\n"
+        "---\n"
+        f"# Note\n\nCanonical page link to {artifact_link}.\n",
+        encoding="utf-8",
+    )
+
+    warnings: list[str] = []
+    audit.audit_drive_artifact_links(warnings, WikiConfig())
+
+    assert warnings == [
+        "1 link(s) to unversioned local artifact in 1 page(s); "
+        "general rule: content on Drive (wiki_drive_publish) and the wiki points to the "
+        "manifest view_url. Use --list-stale-gaps to list."
+    ]
+
+
 # ---------------------------------------------------------------------------
 # audit_prompt_checksums: prompts must not drift silently
 # ---------------------------------------------------------------------------
