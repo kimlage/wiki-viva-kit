@@ -59,12 +59,26 @@ evidence_refs: []
 
 ## Integral Quadrant Map
 
+Use Wilber/AQAL semantics, not arbitrary buckets:
+
+| Quadrant | AQAL position | Operational test |
+| --- | --- | --- |
+| Q1 - Interior individual | `I` / interior individual | First-person identity, intent, meaning, priorities or constraints of the root entity. |
+| Q2 - Exterior individual | `It` / exterior individual | Observable behavior, direct output, owned artifact, evidence or metric of the root entity as a single holon. |
+| Q3 - Interior collective | `We` / interior collective | Shared meaning, culture, roles, relationships, expectations and norms. People are linked here as participants in the social field, not as a plain roster. |
+| Q4 - Exterior collective | `Its` / exterior collective | Systems, channels, tools, platforms, workflows, rules, institutions and process infrastructure that coordinate work. |
+
+Boundary rule: a repository, document or dashboard is Q2 when it is an owned
+artifact/output/evidence of the root entity. A tool or platform such as Slack,
+Jira, Drive, calendar, CI, CRM or a workflow engine is Q4 when it coordinates
+people, process, governance or infrastructure.
+
 | Quadrant | What belongs here | Canonical pages | Input channels |
 | --- | --- | --- | --- |
 | Q1 - Interior individual | Identity, intent, priorities, constraints, first-person stance |  |  |
-| Q2 - Exterior individual | Artifacts, outputs, observable evidence, repos, tools, documents |  |  |
-| Q3 - Interior collective | People, roles, relationships, culture, rituals, expectations |  |  |
-| Q4 - Exterior collective | Systems, channels, processes, cadences, governance and institutions |  |  |
+| Q2 - Exterior individual | Observable behavior, direct outputs, owned artifacts, evidence, metrics and documents |  |  |
+| Q3 - Interior collective | Shared meaning, roles, relationships, culture, rituals, expectations and participation |  |  |
+| Q4 - Exterior collective | Systems, tools/platforms, channels, processes, cadences, governance and institutions |  |  |
 
 ```mermaid
 flowchart TD
@@ -85,11 +99,15 @@ flowchart TD
 | --- | --- | --- | --- |
 |  |  |  |  |
 
-## Artifacts, Repositories and Tools
+## Artifacts and Observable Outputs
 
-| Artifact | Type | Owner | Source/config |
+| Artifact/output | Type | Owner | Source/config |
 | --- | --- | --- | --- |
 |  |  |  |  |
+
+Tools used as coordination platforms belong under
+[Processes and Cadences](#processes-and-cadences) or
+[Channels and Input Sources](#channels-and-input-sources), not here.
 
 ## Channels and Input Sources
 

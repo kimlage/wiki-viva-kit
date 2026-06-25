@@ -100,7 +100,7 @@ From that answer, the wiki can scaffold:
 - the root page;
 - default contexts;
 - central people/roles/responsibilities;
-- canonical artifacts and tools;
+- canonical artifacts/outputs and separate coordination tools/platforms;
 - communication channels;
 - process flows;
 - source pages;
@@ -132,9 +132,14 @@ obligations and perspective defaults.
 | Quadrant | Generic question | Person root | Team root | Company root |
 | --- | --- | --- | --- | --- |
 | Q1 - Interior individual | What is the first-person view, intent, identity, priorities and constraints? | Self-description, values, current focus, personal preferences, decision style, boundaries | Team purpose, shared intent from the team's own perspective, working agreements | Company mission, strategic intent, identity, leadership narrative |
-| Q2 - Exterior individual | What can be observed as artifacts, outputs, behavior and evidence? | Documents, deliverables, accounts, personal artifacts, activity traces | Repositories, services, dashboards, docs, tickets, owned assets | Products, systems, assets, reports, operational artifacts |
-| Q3 - Interior collective | Who is involved, what roles exist, what relationships, culture and expectations shape behavior? | Social contexts, companies, family/community roles, collaborators, communication norms | Members, roles, responsibilities, rituals, team norms, stakeholder relations | Teams, departments, roles, governance forums, culture, stakeholder map |
-| Q4 - Exterior collective | What systems, channels, processes and institutions coordinate the work? | Email, calendar, Drive, WhatsApp, processes, routines, external portals | Slack/Chat, Jira/board, calendar, recurring meetings, PDLC/agile flow, Drive folders | Operating model, PDLC/processes, CRM/ERP, support systems, document systems, governance cadence |
+| Q2 - Exterior individual | What observable behavior, direct output, owned artifact or evidence belongs to this root entity as a single holon? | Documents as evidence, deliverables, accounts, personal artifacts, activity traces and metrics. | Owned codebases, services as deliverables, dashboards as evidence, docs, tickets as output records, owned assets. | Products, assets, reports, operational artifacts and measurable outputs. |
+| Q3 - Interior collective | What shared meaning, roles, relationships, culture and expectations shape behavior? | Social contexts, companies, family/community roles, collaborators, communication norms. | Members as participants, roles, responsibilities, rituals, team norms, stakeholder relations. | Teams, departments, roles, governance forums, culture, stakeholder map. |
+| Q4 - Exterior collective | What systems, channels, tools, processes and institutions coordinate the work? | Email, calendar, Drive, WhatsApp, processes, routines, external portals. | Slack/Chat, Jira/board, calendar, recurring meetings, PDLC/agile flow, Drive folders, CI and release workflow. | Operating model, PDLC/processes, CRM/ERP, support systems, document systems, governance cadence. |
+
+Boundary rule: Q2 is not "all tools". A repo, document or dashboard is Q2 only
+when treated as an owned artifact/output/evidence. A tool/platform used for
+coordination, governance, communication, workflow, identity, storage or
+infrastructure is Q4.
 
 Each quadrant should have:
 
@@ -209,7 +214,7 @@ Required sections:
 1. Identity and scope.
 2. Integral quadrant map.
 3. People, roles and responsibilities.
-4. Artifacts, repositories and tools.
+4. Artifacts, repositories-as-outputs and evidence.
 5. Channels and input sources.
 6. Processes and cadences.
 7. Projects and initiatives.
@@ -245,9 +250,9 @@ Proposed core bundle:
 | Perspective | Quadrant | Extracts | Target pages |
 | --- | --- | --- | --- |
 | `perspective-identity-intent` | Q1 | intent, priorities, constraints, preferences, subjective stance | root entity, person/team/company page, decisions, claims |
-| `perspective-artifacts-evidence` | Q2 | artifacts, repos, docs, outputs, evidence, metrics | source pages, project pages, artifact pages, claims |
-| `perspective-roles-relationships` | Q3 | people, roles, responsibilities, relationships, rituals, culture | person, role, responsibility, meeting, relationship map |
-| `perspective-systems-processes` | Q4 | channels, recurring processes, governance, tools, workflows, queues | process, source_config, operation, project, initiative |
+| `perspective-artifacts-evidence` | Q2 | owned artifacts, repos-as-output, docs-as-evidence, direct outputs, behavior, metrics | source pages, project pages, artifact pages, claims |
+| `perspective-roles-relationships` | Q3 | people as participants, roles, responsibilities, relationships, rituals, culture | person, role, responsibility, meeting, relationship map |
+| `perspective-systems-processes` | Q4 | channels, recurring processes, governance, coordination tools/platforms, workflows, queues | process, source_config, operation, project, initiative |
 | `perspective-privacy-publication` | Boundary | PII, secrets, public-safe summaries, publication constraints | public candidate pages, privacy checklist |
 
 Source configs can add or remove perspectives, but the root bundle provides the
@@ -390,7 +395,7 @@ types. This refactor should make the core entity topology explicit.
 | `responsibility` | Register | Responsibilities connect people, roles and processes. |
 | `initiative` | Register/enrich | Teams and companies organize work below the root. |
 | `process` | Add | Q4 needs first-class process pages, not prose only. |
-| `artifact` | Add or model through `source`/`project` | Q2 needs owned artifacts, repos and tools. |
+| `artifact` | Add or model through `source`/`project` | Q2 needs owned artifacts, repos-as-outputs, evidence and direct outputs; coordination tools belong to Q4. |
 | `input_channel` | Add or generate | Input stage needs channel-level metadata. |
 | `source_config` | Enrich | It should inherit defaults from root entity and input stage. |
 | `perspective` | Enrich | It should declare quadrant, inheritance, target obligations and version. |
@@ -522,7 +527,7 @@ The integration packet should identify root-level impacts:
 - affected quadrant sections;
 - affected processes;
 - affected channels;
-- affected artifacts/repos/tools;
+- affected artifacts/repos-as-outputs and coordination tools/platforms;
 - affected people/roles/responsibilities;
 - affected projects/initiatives;
 - target hubs and typed pages.
