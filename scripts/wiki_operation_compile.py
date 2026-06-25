@@ -25,6 +25,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -359,6 +360,68 @@ def _rel_to_page_dir(path: Path, page_dir: Path) -> str:
 # Sibling pages that live next to decision/action items but are not items
 # themselves. Superset (pt + en) for compatibility with localized repos.
 NON_ITEM_BASENAMES = frozenset({"index.md", "concluidas.md", "completed.md"})
+NON_PENDING_DECISION_STATUS_SLUGS = frozenset(
+    {
+        "active",
+        "ativa",
+        "ativo",
+        "closed",
+        "complete",
+        "completed",
+        "concluida",
+        "concluido",
+        "concluded",
+        "decided",
+        "decidida",
+        "decidido",
+        "done",
+        "resolved",
+        "resolvida",
+        "resolvido",
+    }
+)
+NON_PENDING_DECISION_STATUS_PREFIXES = (
+    "closed_at_",
+    "closed_em_",
+    "completed_at_",
+    "completed_em_",
+    "concluida_at_",
+    "concluida_em_",
+    "concluido_at_",
+    "concluido_em_",
+    "concluded_at_",
+    "concluded_em_",
+    "decided_at_",
+    "decided_em_",
+    "decidida_at_",
+    "decidida_em_",
+    "decidido_at_",
+    "decidido_em_",
+    "done_at_",
+    "done_em_",
+    "resolved_at_",
+    "resolved_em_",
+    "resolvida_at_",
+    "resolvida_em_",
+    "resolvido_at_",
+    "resolvido_em_",
+)
+
+
+def _status_slug(status: str) -> str:
+    normalized = unicodedata.normalize("NFKD", status)
+    ascii_status = normalized.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "_", ascii_status.lower()).strip("_")
+
+
+def _decision_is_pending(values: dict[str, str], text: str) -> bool:
+    status = str(values.get("status") or first_state(text) or "").strip()
+    if not status:
+        return True
+    slug = _status_slug(status)
+    return slug not in NON_PENDING_DECISION_STATUS_SLUGS and not any(
+        slug.startswith(prefix) for prefix in NON_PENDING_DECISION_STATUS_PREFIXES
+    )
 
 
 def collect_decisions(paths: WikiPaths) -> list[Decision]:
@@ -375,6 +438,8 @@ def collect_decisions(paths: WikiPaths) -> list[Decision]:
         page_type = fm.get("page_type")
         # Accept decision pages (and untyped files); skip indexes/other types.
         if page_type is not None and page_type != "decision":
+            continue
+        if not _decision_is_pending(fm, text):
             continue
         title = _clean_title(first_h1(text)) or path.stem
         decisions.append(
