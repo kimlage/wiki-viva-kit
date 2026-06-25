@@ -244,6 +244,7 @@ ENTITY_CANONICAL_NAME_PAGE_TYPES = ENTITY_PAGE_TYPES - {
 # and can weaken provenance; canonical pages remain covered by mention links.
 MENTION_LINK_EXEMPT_PAGE_TYPES = {"ingestion_event", "system_log"}
 DIRECTORY_LINK_EXEMPT_PAGE_TYPES = {"ingestion_event", "system_log"}
+DRIVE_ARTIFACT_LINK_EXEMPT_PAGE_TYPES = {"ingestion_event", "system_log"}
 MENTION_MIN_ALIAS_LEN = 4
 MENTION_COMMON_WORDS = {
     "index", "source", "memory", "memoria", "memorias", "note", "page", "pages",
@@ -638,6 +639,10 @@ def audit_drive_artifact_links(warnings: list[str], config: WikiConfig) -> None:
     offenders: dict[str, int] = {}
     for rel in markdown_files():
         if not rel.startswith(prefix):
+            continue
+        values, _ = parse_frontmatter(ROOT / rel)
+        page_type = str(values.get("page_type", ""))
+        if page_type in DRIVE_ARTIFACT_LINK_EXEMPT_PAGE_TYPES:
             continue
         text = (ROOT / rel).read_text(encoding="utf-8")
         count = 0
