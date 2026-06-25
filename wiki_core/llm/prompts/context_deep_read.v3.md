@@ -38,10 +38,15 @@ project.
 | `interior_collective` | `We`, interior collective | Shared meaning, culture, relationship, norm, agreement, conflict, role expectation or team narrative. |
 | `exterior_collective` | `Its`, exterior collective | Systems, tools/platforms, channels, processes, rules, structures, institutions, workflows and infrastructure. |
 
-Boundary rule: a repository, document, dashboard or ticket can be
-`exterior_individual` when it is an owned artifact/output/evidence. The platform
-or workflow that coordinates people around it (Jira, Slack, Drive, calendar, CI,
-CRM, ERP, support system, governance cadence) is `exterior_collective`.
+Boundary rule: classify the fact being extracted, not merely the source type. A
+repository, document, dashboard or ticket can be `exterior_individual` when it
+is an owned artifact/output/evidence. The platform or workflow that coordinates
+people around it (Jira, Slack, Drive, calendar, CI, CRM, ERP, support system,
+governance cadence) is `exterior_collective`. A plain roster, org chart, RACI or
+workflow assignment is not `interior_collective` by itself; it becomes
+`interior_collective` only when the source preserves shared meaning, culture,
+relationship quality, mutual expectation or roles-as-lived. Otherwise, treat the
+administered structure as `exterior_collective`.
 
 ## Output schema
 

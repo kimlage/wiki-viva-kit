@@ -41,8 +41,8 @@ is emitted.
 | [publication.md](publication.md) | Public/private boundaries, citations and publication readiness. |
 | [operations.md](operations.md) | Process state, runbooks, failure modes, validation gates and ownership. |
 | [identity-intent.md](identity-intent.md) | Q1 identity, intent, priorities and constraints. |
-| [artifacts-evidence.md](artifacts-evidence.md) | Q2 owned artifacts, repositories-as-outputs, documents, outputs and evidence. |
-| [roles-relationships.md](roles-relationships.md) | Q3 people, roles, responsibilities and relationships. |
+| [artifacts-evidence.md](artifacts-evidence.md) | Q2 owned artifacts, repositories-as-outputs, documents-as-evidence, outputs and metrics; coordination platforms stay Q4. |
+| [roles-relationships.md](roles-relationships.md) | Q3 people only as participants in shared meaning, roles-as-lived, mutual expectations, relationships, rituals and culture; rosters and administered assignments stay Q4. |
 | [systems-processes.md](systems-processes.md) | Q4 systems, channels, processes and gates. |
 | [privacy-publication.md](privacy-publication.md) | Boundary lens for privacy, redaction and publication. |
 

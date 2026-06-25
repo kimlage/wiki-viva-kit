@@ -133,13 +133,16 @@ obligations and perspective defaults.
 | --- | --- | --- | --- | --- |
 | Q1 - Interior individual | What is the first-person view, intent, identity, priorities and constraints? | Self-description, values, current focus, personal preferences, decision style, boundaries | Team purpose, shared intent from the team's own perspective, working agreements | Company mission, strategic intent, identity, leadership narrative |
 | Q2 - Exterior individual | What observable behavior, direct output, owned artifact or evidence belongs to this root entity as a single holon? | Documents as evidence, deliverables, accounts, personal artifacts, activity traces and metrics. | Owned codebases, services as deliverables, dashboards as evidence, docs, tickets as output records, owned assets. | Products, assets, reports, operational artifacts and measurable outputs. |
-| Q3 - Interior collective | What shared meaning, roles, relationships, culture and expectations shape behavior? | Social contexts, companies, family/community roles, collaborators, communication norms. | Members as participants, roles, responsibilities, rituals, team norms, stakeholder relations. | Teams, departments, roles, governance forums, culture, stakeholder map. |
+| Q3 - Interior collective | What shared meaning, roles-as-lived, relationships, culture and expectations shape behavior? | Social contexts as lived relationships, family/community role expectations, collaborators and communication norms. | Members as participants in a relationship field, roles-as-lived, shared responsibility expectations, rituals, team norms and stakeholder relations. | Teams/departments only when used to preserve culture or shared meaning; relationship map, lived role expectations, norms and stakeholder trust. |
 | Q4 - Exterior collective | What systems, channels, tools, processes and institutions coordinate the work? | Email, calendar, Drive, WhatsApp, processes, routines, external portals. | Slack/Chat, Jira/board, calendar, recurring meetings, PDLC/agile flow, Drive folders, CI and release workflow. | Operating model, PDLC/processes, CRM/ERP, support systems, document systems, governance cadence. |
 
 Boundary rule: Q2 is not "all tools". A repo, document or dashboard is Q2 only
 when treated as an owned artifact/output/evidence. A tool/platform used for
 coordination, governance, communication, workflow, identity, storage or
-infrastructure is Q4.
+infrastructure is Q4. Q3 is not "all people or roles". A roster, org chart,
+RACI, governance forum or workflow assignment is Q3 only when the fact preserves
+shared meaning, relationship context, culture or roles-as-lived; as administered
+structure it is Q4.
 
 Each quadrant should have:
 
@@ -251,7 +254,7 @@ Proposed core bundle:
 | --- | --- | --- | --- |
 | `perspective-identity-intent` | Q1 | intent, priorities, constraints, preferences, subjective stance | root entity, person/team/company page, decisions, claims |
 | `perspective-artifacts-evidence` | Q2 | owned artifacts, repos-as-output, docs-as-evidence, direct outputs, behavior, metrics | source pages, project pages, artifact pages, claims |
-| `perspective-roles-relationships` | Q3 | people as participants, roles, responsibilities, relationships, rituals, culture | person, role, responsibility, meeting, relationship map |
+| `perspective-roles-relationships` | Q3 | people as participants in a shared field, roles-as-lived, responsibilities as mutual expectations, relationships, rituals, culture | person, role, responsibility, meeting, relationship map |
 | `perspective-systems-processes` | Q4 | channels, recurring processes, governance, coordination tools/platforms, workflows, queues | process, source_config, operation, project, initiative |
 | `perspective-privacy-publication` | Boundary | PII, secrets, public-safe summaries, publication constraints | public candidate pages, privacy checklist |
 
@@ -391,7 +394,7 @@ types. This refactor should make the core entity topology explicit.
 | --- | --- | --- |
 | `root_entity` | Add | One semantic entry point per wiki. |
 | `holon` | Register or keep as supporting type | Whole/part context model already has a template. |
-| `role` | Register | Roles are central to Q3 and team/company modeling. |
+| `role` | Register | Roles-as-lived are central to Q3 and team/company modeling; administered role structures and workflow assignments remain Q4. |
 | `responsibility` | Register | Responsibilities connect people, roles and processes. |
 | `initiative` | Register/enrich | Teams and companies organize work below the root. |
 | `process` | Add | Q4 needs first-class process pages, not prose only. |

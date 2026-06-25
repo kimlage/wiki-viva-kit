@@ -37,6 +37,26 @@ The deterministic mapping was not inverted:
 | `q3` | `We` / interior collective | Correct, but now clarified as shared meaning, roles-as-lived, relationships, norms and culture, not a roster. |
 | `q4` | `Its` / exterior collective | Correct, and now explicitly includes systems, tools, workflows, governance and roles-as-administered. |
 
+## External Application Compatibility Finding
+
+The current kit does not support the interpretation "Q3 = any people/roles
+list" or "Q2 = any file/repository". Those are stale or lossy readings. A
+consumer that attributes either rule to the kit is either reading a historical
+proposal without its boundary note, using a derived mapping from outside this
+repo, or collapsing the AQAL axes into entity buckets.
+
+The compatibility rule for downstream apps is:
+
+- expose the canonical axis pair (`interior/exterior` x
+  `individual/collective`);
+- preserve `q1/q2/q3/q4` as `I/It/We/Its`;
+- classify the extracted fact in relation to the root holon;
+- treat rosters, org charts, RACIs, governance forums and workflow assignments
+  as Q4 unless the source preserves shared meaning, relationship context,
+  culture or roles-as-lived;
+- treat files/repositories/tools as Q2 only when the specific fact is owned
+  output/evidence; the coordinating platform/workflow is Q4.
+
 ## Boundary Rule
 
 Classify the fact being extracted, not merely the source type:
@@ -53,9 +73,13 @@ Classify the fact being extracted, not merely the source type:
 - [wiki_core/input_stage.py](../../../wiki_core/input_stage.py) now emits the
   clarified quadrant semantics and boundary rule into generated input-stage
   catalogs.
+- [context_deep_read.v3.md](../../../wiki_core/llm/prompts/context_deep_read.v3.md)
+  now carries the same Q3/Q4 boundary so delegated LLM reads cannot reduce Q3 to
+  a roster or administered role structure.
 - [root-entity.md](../templates/wiki/root-entity.md), the kit root entity and
   perspective pages now teach the same boundary.
-- [tests/test_input_stage.py](../../../tests/test_input_stage.py) prevents
+- [tests/test_input_stage.py](../../../tests/test_input_stage.py) and
+  [test_aqal_quadrants.py](../../../tests/test_aqal_quadrants.py) prevent
   regression to the older ambiguous wording.
 
 ## Validation
@@ -63,6 +87,5 @@ Classify the fact being extracted, not merely the source type:
 ```sh
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_audit.py --check
-python3 -m pytest tests/test_input_stage.py
+python3 -m pytest tests/test_input_stage.py tests/test_aqal_quadrants.py
 ```
-
