@@ -455,6 +455,46 @@ def test_operational_model_renders_role_responsibility_action_tree(tmp_path: Pat
     )
 
 
+def test_operational_pass_treats_dated_closed_action_as_closed(tmp_path: Path):
+    mem = tmp_path / "memories"
+    _write(mem / "fin" / "index.md", _hub("fin"))
+    _write(mem / "papeis" / "steward.md", _role("role-steward", "fin", ["resp-validate"]))
+    _write(
+        mem / "responsabilidades" / "validate.md",
+        _responsibility("resp-validate", "fin", ["role-steward"], ["action-done"]),
+    )
+    _write(
+        mem / "acoes" / "done.md",
+        _model_action(
+            "action-done",
+            "fin",
+            ["resp-validate"],
+            "concluida_em_2026-06-12",
+            "\n## Next steps\n\n- [ ] pending readback would be stale if this were open\n",
+        ),
+    )
+    _write(
+        mem / "actions" / "pending.md",
+        "---\npage_id: pending\npage_type: ontology_index\ncontext: system\nvisibility: private_self\n"
+        "updated_at: 2026-06-12\nstale_after_days: 30\nsources_policy: x\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n---\n\n# Pending\n\n- `action-done`\n",
+    )
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("fin",))
+    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
+
+    assert report.context_rows[0].actions == 1
+    assert report.context_rows[0].action_attention == 0
+    assert report.context_rows[0].next_steps == ()
+    assert not any(row.page.page_id == "action-done" for row in report.attention)
+
+    resp_node = report.operational_model[0].roles[0].responsibilities[0]
+    assert resp_node.health == "ok"
+    assert resp_node.open_actions == ()
+    assert "No prioritized pending actions." in page
+
+
 def test_operational_model_marks_preventive_and_roleless(tmp_path: Path):
     mem = tmp_path / "memories"
     _write(mem / "fin" / "index.md", _hub("fin"))

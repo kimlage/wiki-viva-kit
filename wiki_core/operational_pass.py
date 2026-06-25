@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import os
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,40 @@ ATTENTION_RE = re.compile(
     re.I,
 )
 SHORT_TERM_LIMIT = 5
+CLOSED_ACTION_STATUS_SLUGS = frozenset(
+    {
+        "closed",
+        "complete",
+        "completed",
+        "concluida",
+        "concluido",
+        "concluded",
+        "done",
+        "resolved",
+        "resolvida",
+        "resolvido",
+    }
+)
+CLOSED_ACTION_STATUS_PREFIXES = (
+    "closed_at_",
+    "closed_em_",
+    "completed_at_",
+    "completed_em_",
+    "concluida_at_",
+    "concluida_em_",
+    "concluido_at_",
+    "concluido_em_",
+    "concluded_at_",
+    "concluded_em_",
+    "done_at_",
+    "done_em_",
+    "resolved_at_",
+    "resolved_em_",
+    "resolvida_at_",
+    "resolvida_em_",
+    "resolvido_at_",
+    "resolvido_em_",
+)
 
 
 @dataclass(frozen=True)
@@ -284,7 +319,7 @@ def build_operational_pass_report(
                 sources=len(ctx_sources),
                 source_attention=sum(1 for s in ctx_sources if _source_needs_attention(s)),
                 actions=len(ctx_actions),
-                action_attention=sum(1 for a in ctx_actions if _page_needs_attention(a)),
+                action_attention=sum(1 for a in ctx_actions if _action_needs_attention(a)),
                 claims=len(ctx_claims),
                 decisions=len(ctx_decisions),
                 next_steps=_next_steps(context, ctx_actions, ctx_sources, pending_ids),
@@ -489,7 +524,7 @@ def _render_short_term_memory(
     selected_actions: list[PageRecord] = []
     for action_id in report.pending_ids:
         action = actions_by_id.get(action_id)
-        if action is not None:
+        if action is not None and not _action_is_closed(action):
             selected_actions.append(action)
         if len(selected_actions) >= SHORT_TERM_LIMIT:
             break
@@ -497,7 +532,7 @@ def _render_short_term_memory(
         for action in report.actions:
             if action in selected_actions:
                 continue
-            if _page_needs_attention(action):
+            if _action_needs_attention(action):
                 selected_actions.append(action)
             if len(selected_actions) >= SHORT_TERM_LIMIT:
                 break
@@ -788,8 +823,20 @@ def parse_next_steps(body: str) -> tuple[NextStep, ...]:
 
 
 def _action_is_closed(page: PageRecord) -> bool:
-    status = page.status.lower().strip()
-    return status in {"concluida", "concluída", "concluded", "done", "closed", "resolved", "resolvida"}
+    status = _status_slug(page.status)
+    return status in CLOSED_ACTION_STATUS_SLUGS or any(
+        status.startswith(prefix) for prefix in CLOSED_ACTION_STATUS_PREFIXES
+    )
+
+
+def _status_slug(status: str) -> str:
+    normalized = unicodedata.normalize("NFKD", status)
+    ascii_status = normalized.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]+", "_", ascii_status.lower()).strip("_")
+
+
+def _action_needs_attention(page: PageRecord) -> bool:
+    return not _action_is_closed(page) and _page_needs_attention(page)
 
 
 def _build_responsibility_node(
@@ -976,7 +1023,11 @@ def _attention_rows(
         if _source_needs_attention(source):
             reason = f"source {source.ingestion_state or 'unknown'}; refresh {source.refresh_status}"
             rows.append(AttentionRow(source.page.context, source.page, reason))
-    for page in (*actions, *claims):
+    for page in actions:
+        reason = _attention_reason(page) if _action_needs_attention(page) else ""
+        if reason:
+            rows.append(AttentionRow(page.context, page, reason))
+    for page in claims:
         reason = _attention_reason(page)
         if reason:
             rows.append(AttentionRow(page.context, page, reason))
@@ -1071,12 +1122,12 @@ def _next_steps(
     steps: list[str] = []
     for action_id in pending_ids:
         action = by_id.get(action_id)
-        if action and action.context == context:
+        if action and action.context == context and not _action_is_closed(action):
             steps.append(f"{action.title} ({action.status or 'state unknown'})")
         if len(steps) >= 3:
             return tuple(steps)
     for action in actions:
-        if action.page_id not in pending_ids and _page_needs_attention(action):
+        if action.page_id not in pending_ids and _action_needs_attention(action):
             steps.append(f"{action.title} ({action.status or 'state unknown'})")
         if len(steps) >= 3:
             return tuple(steps)
