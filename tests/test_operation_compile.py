@@ -182,6 +182,34 @@ def test_build_page_reflects_decisions_from_sources(compile_mod, config, minimal
     assert "decisions-index" not in page
 
 
+def test_build_page_excludes_explicitly_closed_decisions(compile_mod, config, minimal_repo):
+    _write(
+        minimal_repo / "memories" / "decisions" / "gamma.md",
+        (
+            "---\n"
+            "page_id: decisao-gamma\n"
+            "page_type: decision\n"
+            "context: sistema\n"
+            "status: concluida\n"
+            "visibility: private_self\n"
+            "updated_at: 2026-06-08\n"
+            "stale_after_days: 180\n"
+            "sources_policy: contrato\n"
+            "gate: github_pr\n"
+            "sensitive_data_policy: private_sensitive_allowed\n"
+            "---\n\n"
+            "# Decisao - Fechar gamma\n\n"
+            "Historico: havia pendencia operacional, mas a decisao foi fechada.\n"
+        ),
+    )
+
+    page = compile_mod.build_page(minimal_repo, config)
+
+    assert "Aprovar o plano alfa" in page
+    assert "Escolher piloto beta" in page
+    assert "Fechar gamma" not in page
+
+
 def test_build_page_reflects_actions_from_sources(compile_mod, config, minimal_repo):
     page = compile_mod.build_page(minimal_repo, config)
     assert "Revisar cobertura" in page
