@@ -60,7 +60,7 @@ different paths in [scripts/wiki_audit.py](../../../scripts/wiki_audit.py).
 ## Axis 1 — Personal data (PII): welcome in private
 
 The function [audit_pii in scripts/wiki_audit.py](../../../scripts/wiki_audit.py)
-walks the Markdown files under [memories/](../../), reads the `visibility` from the frontmatter (falling back to the
+walks the Markdown files under [memories/](../../index.md), reads the `visibility` from the frontmatter (falling back to the
 `default_visibility` of [wiki.config.yaml](../../../wiki.config.yaml) when absent)
 and decides:
 

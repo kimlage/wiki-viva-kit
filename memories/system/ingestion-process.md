@@ -78,7 +78,7 @@ The deterministic stages, the command that runs each, and what gates it:
    when the source is a file, URL, or traceable artifact.
 5. Extract text and chunks with [scripts/wiki_extract_text.py](../../scripts/wiki_extract_text.py)
    when there is new semantic content.
-6. Record a normalized event in [memories/system/ingestion/events/](ingestion/events/)
+6. Record a normalized event in [memories/system/ingestion/events/](ingestion/events/README.md)
    with four quadrants or an explicit absence.
 7. Plan the contextual LLM pass with [scripts/wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py)
    and record the cache/plan or a skip justification.
@@ -94,7 +94,7 @@ The deterministic stages, the command that runs each, and what gates it:
    (each target page references the source in `source_refs`). The `--check`
    blocks CI while there is a read source without integration.
 9. If the decision is not trivial, generate a proposal in
-   [memories/system/ingestion/YYYY-MM-DD-<topic>.md](ingestion/).
+   [memories/system/ingestion/YYYY-MM-DD-<topic>.md](ingestion/README.md).
 10. Open or update a `wiki/*` branch.
 11. Consolidate the synthesis into the context memory, not just link the source.
 12. Turn every cited local path into a clickable Markdown link. The label may be

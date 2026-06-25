@@ -27,7 +27,7 @@ contexts of your repo.
 
 | Layer | State | Next evolution |
 | --- | --- | --- |
-| Contexts/hubs | one index hub per context in [memories/](../) | add contexts as needed |
+| Contexts/hubs | one index hub per context in [memories/](../index.md) | add contexts as needed |
 | Decisions/actions | fed to the cockpit when they exist | create as real work happens |
 
 ## Related

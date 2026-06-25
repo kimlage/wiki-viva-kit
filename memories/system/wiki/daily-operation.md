@@ -145,7 +145,7 @@ assembles the cockpit in fixed sections. In the daily loop, read in this order:
   decay, read from the derived event log. It signals, in a lightweight way, whether the
   curation work is happening. The scoring detail is in
   [scripts/wiki_score.py](../../../scripts/wiki_score.py) and in the score layer in
-  [wiki_core/score](../../../wiki_core/score/).
+  [wiki_core/score](../../../wiki_core/score/README.md).
 - Resumption links: shortcuts to the root MOC, the system log and the coverage
   pages.
 
@@ -224,7 +224,7 @@ The paths of the scripts: [scripts/wiki_audit.py](../../../scripts/wiki_audit.py
 [scripts/wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py). The ingestion-proposal
 gate (list, transition, rebase) uses
 [scripts/wiki_gate.py](../../../scripts/wiki_gate.py); run it when the round
-involves proposals in [memories/system/ingestion/](../ingestion/):
+involves proposals in [memories/system/ingestion/](../ingestion/README.md):
 
 ```sh
 python3 scripts/wiki_gate.py --list

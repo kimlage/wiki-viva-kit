@@ -123,7 +123,7 @@ depend on a Dataview query to be understandable.
   cache, or in the declared external live source.
 - Derivatives, OCR, chunks, indexes, and caches go in
   [data/derived](../../../../data/derived).
-- Immutable references and templates go in [docs/references/](../).
+- Immutable references and templates go in [docs/references/](../README.md).
 - The page must link the attachment or artifact, record its origin, and declare its limits.
 - Never attach tokens, cookies, passwords, access codes, credentials, or
   individualized secure links.

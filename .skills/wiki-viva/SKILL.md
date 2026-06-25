@@ -16,7 +16,7 @@ to the focused playbooks for depth. You do not need any other skill installed to
 operate; the others ([listed below](#deeper-references)) are optional detail.
 
 > **Portability.** The links here point at the kit's invariant parts — the
-> deterministic [CLIs](../../scripts/), the [core](../../wiki_core/) and
+> deterministic [CLIs](../../scripts/README.md), the [core](../../wiki_core/README.md) and
 > [wiki.config.yaml](../../wiki.config.yaml) — the same in every repo. The
 > *configurable* pages (the memory root, the cockpit, the meta-wiki, the command
 > reference) live at whatever paths this repo declares in

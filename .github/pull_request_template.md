@@ -19,7 +19,7 @@
 - [ ] Personal data/PII (values, CPF/CNPJ, counterparties, documents, relationships) were kept freely when they help operational memory, reconciliation, CRM, decision making, or context -- private personal repo, no warning.
 - [ ] No access secret (token, cookie, password, access code, credential, individualized secure link) nor full dump was copied -- nowhere.
 - [ ] If any page became public/public_candidate, I ran `wiki_audit.py --public-export` and redacted the PII.
-- [ ] [docs/](../docs/) was not used as primary memory.
+- [ ] [docs/](../docs/README.md) was not used as primary memory.
 - [ ] Local paths cited became real Markdown links.
 
 ## Decisions made
@@ -43,8 +43,8 @@
 
 ## Approval checklist
 
-- [ ] [memories/](../memories/) contains an actionable synthesis.
-- [ ] [docs/](../docs/) remains restricted to references, templates, snapshots, and evidence.
+- [ ] [memories/](../memories/index.md) contains an actionable synthesis.
+- [ ] [docs/](../docs/README.md) remains restricted to references, templates, snapshots, and evidence.
 - [ ] No full dump without criteria and no access secret was copied into Markdown.
 - [ ] [memories/system/log.md](../memories/system/log.md) was updated.
 - [ ] [scripts/wiki_audit.py](../scripts/wiki_audit.py) `--check` validated clickable local links.

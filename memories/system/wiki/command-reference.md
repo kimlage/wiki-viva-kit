@@ -23,7 +23,7 @@ related_pages:
 
 Last updated: 2026-06-25.
 
-This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
+This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/README.md) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
 
 General convention: most accept `--dry-run` (computes without writing) and `--check` (exits with a code != 0 when something is pending/invalid, for use in CI). Output paths are printed relative to the repo root.
 
@@ -135,7 +135,7 @@ python3 scripts/wiki_migration_inventory.py --format json
 
 ### [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) - source manifest
 
-Creates the deterministic manifest (source_id, type, SHA256 hash) of a single source and writes it in [data/](../../../data/) under `derived/wiki/source-manifests/` (created at runtime). Useful when you only want the stable identity of a source, without running the whole pipeline.
+Creates the deterministic manifest (source_id, type, SHA256 hash) of a single source and writes it in [data/](../../../data/README.md) under `derived/wiki/source-manifests/` (created at runtime). Useful when you only want the stable identity of a source, without running the whole pipeline.
 
 - `--source` (required), `--context` (required).
 - `--dry-run`: prints the manifest in JSON without writing.
@@ -146,7 +146,7 @@ python3 scripts/wiki_extract_source_manifest.py --source data/raw/example.pdf --
 
 ### [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) - text and stable chunks
 
-Extracts the source's text and breaks it into stable chunks (with a per-chunk hash) BEFORE any LLM pass, using `chunk_target_tokens`/`chunk_overlap_tokens` from the config. It writes text and chunks to [data/](../../../data/) under `derived/wiki/` (created at runtime) and also the manifest.
+Extracts the source's text and breaks it into stable chunks (with a per-chunk hash) BEFORE any LLM pass, using `chunk_target_tokens`/`chunk_overlap_tokens` from the config. It writes text and chunks to [data/](../../../data/README.md) under `derived/wiki/` (created at runtime) and also the manifest.
 
 - `--source` (required), `--context` (required).
 - `--dry-run`: prints a preview (count of units/chunks) without writing.
@@ -159,7 +159,7 @@ python3 scripts/wiki_extract_text.py --source data/raw/example.pdf --context sys
 
 ### [wiki_build_index.py](../../../scripts/wiki_build_index.py) - local SQLite index
 
-Builds or inspects the SQLite chunk index ([data/](../../../data/) under `derived/wiki/indexes/wiki.sqlite` (created at runtime)), which serves the FTS search used by the `--query` pass. Since v6.1, `--rebuild` also indexes the wiki's OWN pages (the body of each page with a `page_id`, indexed as `page:<page_id>`), so that retrieval — including the integration packet of [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) — finds the knowledge already consolidated, not just the source chunks.
+Builds or inspects the SQLite chunk index ([data/](../../../data/README.md) under `derived/wiki/indexes/wiki.sqlite` (created at runtime)), which serves the FTS search used by the `--query` pass. Since v6.1, `--rebuild` also indexes the wiki's OWN pages (the body of each page with a `page_id`, indexed as `page:<page_id>`), so that retrieval — including the integration packet of [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) — finds the knowledge already consolidated, not just the source chunks.
 
 - (no flags): inspects and prints the state of the index in JSON.
 - `--rebuild`: rebuilds the index from the derived chunks and reindexes the wiki pages (`page:<page_id>`).
@@ -220,7 +220,7 @@ Builds the derived page graph once and reuses it for deterministic checks:
 inbound/outbound links, aliases, wanted pages, orphan pages, reachability from
 the root MOC and impact caused by the current diff.
 
-- `--write`: writes [data/](../../../data/) under `derived/wiki/page-graph/page-graph.json`.
+- `--write`: writes [data/](../../../data/README.md) under `derived/wiki/page-graph/page-graph.json`.
 - `--check`: exits non-zero when graph invariants fail.
 - `--impact`: prints changed memory pages and pages affected by them.
 - `--base`: optional Git base for impact; defaults to upstream, `origin/main` or `main`.
@@ -295,7 +295,7 @@ python3 scripts/wiki_cache_inspect.py --source data/raw/example.pdf
 
 Lists proposals, applies valid state transitions and rebases/supersedes pending proposals of the same logical target. By default it operates in [memories/system/ingestion/](../../../memories/system/ingestion/README.md) (proposals live flat). It requires exactly one action: `--list`, `--transition` or `--rebase`. States and transition machine detailed in [gates-and-audit.md](gates-and-audit.md).
 
-- `--dir`: proposals directory (default [memories/system/ingestion/](../ingestion/)).
+- `--dir`: proposals directory (default [memories/system/ingestion/](../ingestion/README.md)).
 - `--list`: lists proposals and their `gate_state`.
 - `--transition PATH --to STATE [--reason ...]`: transitions a proposal (records in the `gate_history`).
 - `--rebase [--page ... | --context ... | --rebase-key ...]`: applies `rebase_pending` filtering the logical target.
@@ -308,13 +308,13 @@ python3 scripts/wiki_gate.py --rebase --rebase-key system-example
 
 ### [wiki_score.py](../../../scripts/wiki_score.py) - karma and vitality
 
-Gamification layer: records and aggregates append-only scoring events in [data/](../../../data/) under `derived/wiki/score-events.jsonl` (created at runtime), without a toxic global ranking. It acts as a Score Keeper (never edits history). It requires one action: `--add`, `--summary` or `--dashboard`.
+Gamification layer: records and aggregates append-only scoring events in [data/](../../../data/README.md) under `derived/wiki/score-events.jsonl` (created at runtime), without a toxic global ranking. It acts as a Score Keeper (never edits history). It requires one action: `--add`, `--summary` or `--dashboard`.
 
 - `--add`: records an event; requires `--event`, `--actor`, `--context`.
 - `--summary`: karma by dimension, vitality by context, badges and level.
 - `--dashboard`: prints the Markdown of the vitality section.
 - Event modifiers: `--quality` (0..1, default 1.0), `--collaborators` (splits credit), `--rare` (+50% for caring for a forgotten page), `--impact` (impacted contexts), `--ts` (ISO date).
-- `--events-path`: path of the JSONL (default: [data/](../../../data/) under `derived/wiki/score-events.jsonl`, created at runtime).
+- `--events-path`: path of the JSONL (default: [data/](../../../data/README.md) under `derived/wiki/score-events.jsonl`, created at runtime).
 
 ```sh
 python3 scripts/wiki_score.py --add --event ingestar_fonte_valida --actor owner --context system
@@ -502,7 +502,7 @@ python3 scripts/wiki_audit.py --public-export --check
 
 ### [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) - methodology v5 coverage
 
-Checks the PRESENCE AND CONTENT of methodology v5: each required file (pages, templates in [docs/references/templates/wiki/](../../../docs/references/templates/wiki/), support scripts, config, core) must exist with real content, not empty nor a placeholder. It also requires REAL use of the perceptive layer (at least one real journal and one real map/infographic) and that the coverage matrix mention visibility, agents, perceptive and karma. The LLM pass gate is portable (discovered from the versioned derived artifacts) and never accepts a mere LLM PLAN as proof of an executed pass.
+Checks the PRESENCE AND CONTENT of methodology v5: each required file (pages, templates in [docs/references/templates/wiki/](../../../docs/references/templates/wiki/README.md), support scripts, config, core) must exist with real content, not empty nor a placeholder. It also requires REAL use of the perceptive layer (at least one real journal and one real map/infographic) and that the coverage matrix mention visibility, agents, perceptive and karma. The LLM pass gate is portable (discovered from the versioned derived artifacts) and never accepts a mere LLM PLAN as proof of an executed pass.
 
 - (no flags): prints the report of checks in JSON.
 - `--check`: exit `1` if any check has `ok=false`.

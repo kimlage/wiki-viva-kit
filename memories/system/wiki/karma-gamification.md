@@ -33,7 +33,7 @@ and the command-line interface in [wiki_score.py](../../../scripts/wiki_score.py
 Two design principles separate this layer from a toxic points system:
 
 - Append-only: the "Score Keeper" only writes events, never edits or deletes the
-  history. Each event is a JSON line in [data/](../../../data/) under
+  history. Each event is a JSON line in [data/](../../../data/README.md) under
   `derived/wiki/score-events.jsonl` (created at runtime).
 - No global person-versus-person ranking: the aggregate is always by dimension
   (who you are becoming) and by context (the collective health of a page or
