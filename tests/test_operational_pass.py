@@ -202,6 +202,29 @@ def test_operational_pass_surfaces_pending_decisions(tmp_path: Path):
     assert "`action-contact-owner`" in page
 
 
+def test_operational_pass_treats_closed_decision_as_not_pending(tmp_path: Path):
+    mem = tmp_path / "memories"
+    _write(mem / "example" / "index.md", _hub("example"))
+    _write(mem / "actions" / "contact-owner.md", _action())
+    _write(
+        mem / "decisions" / "authorize-source.md",
+        "---\npage_id: decision-authorize-source\npage_type: decision\ncontext: example\n"
+        "status: concluida\nvisibility: private_self\nupdated_at: 2026-06-11\n"
+        "stale_after_days: 30\nsources_policy: x\ngate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\nactions:\n"
+        "  - action-contact-owner\n---\n\n# Decision - Authorize live source\n\n"
+        "Pending source work remains, but this decision is already closed.\n",
+    )
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
+    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
+
+    assert report.pending_decisions == ()
+    assert report.decision_action_blockers == ()
+    assert "No pending decisions." in page
+
+
 def test_operational_pass_compiles_outputs_and_decision_blockers(tmp_path: Path):
     mem = tmp_path / "memories"
     _write(mem / "example" / "index.md", _hub("example"))
