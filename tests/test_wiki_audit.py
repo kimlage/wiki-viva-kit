@@ -597,6 +597,65 @@ def test_changed_canonical_page_entity_mentions_still_error(tmp_path, audit, mon
     ]
 
 
+def test_append_only_directory_links_are_ignored(tmp_path, audit, monkeypatch):
+    audit.parse_frontmatter.cache_clear()
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "link_audit_files",
+        lambda _config: [
+            "memories/system/ingestion/events/e.md",
+            "memories/system/ingestion/events/legacy.md",
+            "memories/system/log.md",
+            "memories/example/note.md",
+        ],
+    )
+    (tmp_path / "docs").mkdir(parents=True)
+    (tmp_path / "memories/system/ingestion/events").mkdir(parents=True)
+    (tmp_path / "memories/system").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "memories/example").mkdir(parents=True)
+    (tmp_path / "memories/system/ingestion/events/e.md").write_text(
+        "---\n"
+        "page_id: event-e\n"
+        "page_type: ingestion_event\n"
+        "---\n"
+        "# Event\n\nHistorical link to [docs](../../../../docs/).\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/system/ingestion/events/legacy.md").write_text(
+        "---\n"
+        "page_id: legacy-event\n"
+        "page_type: source_catalog\n"
+        "---\n"
+        "# Legacy Event\n\nLegacy event link to [docs](../../../../docs/).\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/system/log.md").write_text(
+        "---\n"
+        "page_id: system-log\n"
+        "page_type: system_log\n"
+        "---\n"
+        "# Log\n\nAppend-only historical link to [docs](../../docs/).\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/example/note.md").write_text(
+        "---\n"
+        "page_id: example-note\n"
+        "page_type: source_catalog\n"
+        "---\n"
+        "# Note\n\nCanonical page link to [docs](../../docs/).\n",
+        encoding="utf-8",
+    )
+
+    warnings: list[str] = []
+    audit.audit_obsidian_directory_links(warnings, WikiConfig())
+
+    assert warnings == [
+        "1 markdown link(s) point to directories in 1 file(s); "
+        "link README.md/index.md for Obsidian navigation. Use --list-stale-gaps to list."
+    ]
+
+
 # ---------------------------------------------------------------------------
 # parse_frontmatter memoization (perf): cached per path, cleared in main()
 # ---------------------------------------------------------------------------
