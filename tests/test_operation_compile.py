@@ -380,6 +380,16 @@ def test_frontmatter_has_provenance(compile_mod, config, minimal_repo):
     assert "generated_from_branch:" in head
 
 
+def test_branch_state_line_is_not_always_open_pr(compile_mod):
+    pt = compile_mod._cs("pt")
+    en = compile_mod._cs("en")
+    assert "Estado aprovado em `main`" in compile_mod._branch_state_line("main", pt)
+    assert "Branch de proposta `wiki/*`" in compile_mod._branch_state_line("wiki/topic", pt)
+    assert "Branch `feature/topic`" in compile_mod._branch_state_line("feature/topic", pt)
+    assert "Approved state on `main`" in compile_mod._branch_state_line("main", en)
+    assert "Proposal branch `wiki/*`" in compile_mod._branch_state_line("wiki/topic", en)
+
+
 def test_checked_sections_detect_decision_drift(compile_mod, config, minimal_repo):
     page = compile_mod.build_page(minimal_repo, config)
     sections = compile_mod.checked_sections(page, config.language)
