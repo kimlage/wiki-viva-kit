@@ -243,6 +243,7 @@ ENTITY_CANONICAL_NAME_PAGE_TYPES = ENTITY_PAGE_TYPES - {
 # historical wording. Requiring retroactive link edits there creates audit noise
 # and can weaken provenance; canonical pages remain covered by mention links.
 MENTION_LINK_EXEMPT_PAGE_TYPES = {"ingestion_event", "system_log"}
+DIRECTORY_LINK_EXEMPT_PAGE_TYPES = {"ingestion_event", "system_log"}
 MENTION_MIN_ALIAS_LEN = 4
 MENTION_COMMON_WORDS = {
     "index", "source", "memory", "memoria", "memorias", "note", "page", "pages",
@@ -870,7 +871,12 @@ def audit_obsidian_directory_links(warnings: list[str], config: WikiConfig) -> N
     such as README.md or index.md.
     """
     offenders: dict[str, int] = {}
+    events_prefix = wiki_paths(config).ingest_events_dir.relative_to(ROOT).as_posix().rstrip("/") + "/"
     for rel in link_audit_files(config):
+        values, _ = parse_frontmatter(ROOT / rel)
+        page_type = str(values.get("page_type") or "")
+        if page_type in DIRECTORY_LINK_EXEMPT_PAGE_TYPES or rel.startswith(events_prefix):
+            continue
         path = ROOT / rel
         text = path.read_text(encoding="utf-8", errors="replace")
         count = 0
