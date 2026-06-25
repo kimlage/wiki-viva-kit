@@ -183,6 +183,8 @@ def main() -> int:
             "root_entity": None,
             "input_channel": None,
             "quadrant_map": {},
+            "quadrant_semantics": {},
+            "quadrant_boundary_rule": "",
             "target_pages": [],
             "perspectives_required": [],
             "perspectives_optional": [],
@@ -221,6 +223,10 @@ def main() -> int:
         root_entity=input_context.get("root_entity") if isinstance(input_context.get("root_entity"), dict) else None,
         input_channel=input_context.get("input_channel") if isinstance(input_context.get("input_channel"), dict) else None,
         quadrant_map=input_context.get("quadrant_map") if isinstance(input_context.get("quadrant_map"), dict) else None,
+        quadrant_semantics=input_context.get("quadrant_semantics")
+        if isinstance(input_context.get("quadrant_semantics"), dict)
+        else None,
+        quadrant_boundary_rule=str(input_context.get("quadrant_boundary_rule") or ""),
         target_pages=list(input_context.get("target_pages") or []),
         input_stage_status=str(input_context.get("input_stage_status") or ""),
     )

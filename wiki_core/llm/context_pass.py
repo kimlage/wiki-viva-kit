@@ -160,6 +160,8 @@ def build_context_request(
     root_entity: dict[str, object] | None = None,
     input_channel: dict[str, object] | None = None,
     quadrant_map: dict[str, object] | None = None,
+    quadrant_semantics: dict[str, object] | None = None,
+    quadrant_boundary_rule: str | None = None,
     target_pages: list[str] | None = None,
     input_stage_status: str | None = None,
 ) -> dict[str, object]:
@@ -206,6 +208,8 @@ def build_context_request(
         "model_profile": model_profile,
         "quadrants_required": quadrants,
         "quadrant_map": quadrant_map or {},
+        "quadrant_semantics": quadrant_semantics or {},
+        "quadrant_boundary_rule": quadrant_boundary_rule or "",
         "root_entity": root_entity or {},
         "input_channel": input_channel or {},
         "input_stage_status": input_stage_status or "",

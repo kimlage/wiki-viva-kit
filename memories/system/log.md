@@ -14,6 +14,16 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-25] System | Machine-readable quadrant contract
+
+- [wiki_input_stage.py](../../scripts/wiki_input_stage.py) now emits canonical
+  Wilber/AQAL `quadrant_semantics` and a Q2/Q4 boundary rule in
+  [input-stage.md](input-stage.md), separate from the routing-only
+  `quadrant_map`.
+- The delegated LLM context request now carries the same quadrant semantics, so
+  external consumers no longer need to infer whether Q2 means
+  exterior-individual artifacts or Q4 means exterior-collective systems.
+
 ## [2026-06-25] System | Integral quadrant semantics
 
 - The root entity template, kit dogfood root page, perspective pages and LLM

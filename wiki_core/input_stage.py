@@ -28,6 +28,39 @@ DEFAULT_QUADRANT_MAP = {
     "q4": ["perspective-systems-processes"],
 }
 
+DEFAULT_QUADRANT_SEMANTICS = {
+    "q1": {
+        "semantic_key": "interior_individual",
+        "label": "Q1 - Interior individual",
+        "aqal_position": "I / interior individual",
+        "operational_test": "First-person identity, intent, meaning, priorities or constraints of the root entity.",
+    },
+    "q2": {
+        "semantic_key": "exterior_individual",
+        "label": "Q2 - Exterior individual",
+        "aqal_position": "It / exterior individual",
+        "operational_test": "Observable behavior, direct output, owned artifact, evidence or metric of the root entity as a single holon.",
+    },
+    "q3": {
+        "semantic_key": "interior_collective",
+        "label": "Q3 - Interior collective",
+        "aqal_position": "We / interior collective",
+        "operational_test": "Shared meaning, culture, roles, relationships, expectations and norms.",
+    },
+    "q4": {
+        "semantic_key": "exterior_collective",
+        "label": "Q4 - Exterior collective",
+        "aqal_position": "Its / exterior collective",
+        "operational_test": "Systems, channels, tools, platforms, workflows, rules, institutions and process infrastructure.",
+    },
+}
+
+DEFAULT_QUADRANT_BOUNDARY_RULE = (
+    "A repository, document, dashboard or ticket is q2 when it is an owned "
+    "artifact/output/evidence of the root entity. The platform or workflow that "
+    "coordinates people around it is q4."
+)
+
 SOURCE_STATUS_TO_INPUT_STATUS = {
     "ingested": "integrated",
     "partial": "ingesting",
@@ -386,6 +419,8 @@ def compile_input_stage(
         "generated_at": date_text,
         "root_entity": root_entity,
         "quadrant_map": DEFAULT_QUADRANT_MAP,
+        "quadrant_semantics": DEFAULT_QUADRANT_SEMANTICS,
+        "quadrant_boundary_rule": DEFAULT_QUADRANT_BOUNDARY_RULE,
         "channels": channels,
         "declared_channels_without_sources": declared_channels,
         "sources": source_rows,
@@ -421,6 +456,8 @@ def input_context_for_source(
             "root_entity": root_entity,
             "input_channel": None,
             "quadrant_map": catalog.get("quadrant_map"),
+            "quadrant_semantics": catalog.get("quadrant_semantics"),
+            "quadrant_boundary_rule": catalog.get("quadrant_boundary_rule"),
             "target_pages": [root_entity.get("path")] if root_entity and root_entity.get("path") else [],
             "perspectives_required": list(root_bundle.get("required") or []),
             "perspectives_optional": list(root_bundle.get("optional") or []),
@@ -431,6 +468,8 @@ def input_context_for_source(
         "root_entity": root_entity,
         "input_channel": matched.get("input_channel"),
         "quadrant_map": catalog.get("quadrant_map"),
+        "quadrant_semantics": catalog.get("quadrant_semantics"),
+        "quadrant_boundary_rule": catalog.get("quadrant_boundary_rule"),
         "target_pages": matched.get("target_pages") or [],
         "perspectives_required": list(resolved.get("required") or []),
         "perspectives_optional": list(resolved.get("optional") or []),
@@ -456,6 +495,11 @@ def _labels(config: WikiConfig) -> dict[str, str]:
             "required_perspectives": "Perspectivas obrigatorias",
             "optional_perspectives": "Perspectivas opcionais",
             "input_channels": "Canais de entrada",
+            "quadrant_semantics": "Semantica dos quadrantes",
+            "semantic_key": "Chave semantica",
+            "aqal_position": "Posicao AQAL",
+            "operational_test": "Teste operacional",
+            "boundary_rule": "Regra de fronteira",
             "channel": "Canal",
             "type": "Tipo",
             "status": "Estado",
@@ -485,6 +529,11 @@ def _labels(config: WikiConfig) -> dict[str, str]:
         "required_perspectives": "Required perspectives",
         "optional_perspectives": "Optional perspectives",
         "input_channels": "Input channels",
+        "quadrant_semantics": "Quadrant semantics",
+        "semantic_key": "Semantic key",
+        "aqal_position": "AQAL position",
+        "operational_test": "Operational test",
+        "boundary_rule": "Boundary rule",
         "channel": "Channel",
         "type": "Type",
         "status": "Status",
@@ -584,11 +633,32 @@ def render_input_stage_markdown(catalog: dict[str, Any], config: WikiConfig) -> 
         f"| {labels['required_perspectives']} | {_join((root_entity or {}).get('perspective_bundle', {}).get('required') or [])} |",
         f"| {labels['optional_perspectives']} | {_join((root_entity or {}).get('perspective_bundle', {}).get('optional') or [])} |",
         "",
+        f"## {labels['quadrant_semantics']}",
+        "",
+        f"| {labels['quadrants']} | {labels['semantic_key']} | {labels['aqal_position']} | {labels['operational_test']} |",
+        "| --- | --- | --- | --- |",
+    ]
+    for qid, semantics in (catalog.get("quadrant_semantics") or {}).items():
+        lines.append(
+            f"| `{qid}` | `{semantics.get('semantic_key') or ''}`"
+            + f" | {semantics.get('aqal_position') or ''}"
+            + f" | {semantics.get('operational_test') or ''} |"
+        )
+    lines.extend(
+        [
+            "",
+            f"{labels['boundary_rule']}: {catalog.get('quadrant_boundary_rule') or ''}",
+            "",
+        ]
+    )
+    lines.extend(
+        [
         f"## {labels['input_channels']}",
         "",
         f"| {labels['channel']} | {labels['type']} | {labels['status']} | {labels['quadrants']} | {labels['sources']} |",
         "| --- | --- | --- | --- | --- |",
-    ]
+        ]
+    )
     for channel in catalog.get("channels", []):
         lines.append(
             "| "
