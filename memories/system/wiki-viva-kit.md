@@ -69,9 +69,13 @@ remains the technical root MOC.
 | Quadrant | What belongs here | Canonical pages | Input channels |
 | --- | --- | --- | --- |
 | Q1 - Interior individual | Method identity, design intent, tradeoffs, scope and operating stance | This root page, [architecture.md](wiki/architecture.md), [pr-governance.md](wiki/pr-governance.md) | Methodology reference |
-| Q2 - Exterior individual | Code, templates, tests, releases, docs and generated artifacts | [command-reference.md](wiki/command-reference.md), [source-registry.md](source-registry.md), [docs/README.md](../../docs/README.md) | Methodology reference |
-| Q3 - Interior collective | Roles, review expectations, governance, agent/human collaboration and perspective lenses | [git-approvals.md](git-approvals.md), [perspectives/index.md](perspectives/index.md) | Methodology reference |
-| Q4 - Exterior collective | Deterministic pipelines, source processes, input stage, gates and publication boundary | [input-stage.md](input-stage.md), [ingestion-flow.md](wiki/ingestion-flow.md), [gates-and-audit.md](wiki/gates-and-audit.md) | Methodology reference |
+| Q2 - Exterior individual | Observable outputs of the kit as a product: code, templates, tests, releases, docs and generated artifacts | [command-reference.md](wiki/command-reference.md), [source-registry.md](source-registry.md), [docs/README.md](../../docs/README.md) | Methodology reference |
+| Q3 - Interior collective | Shared review culture, roles, expectations, agent/human collaboration norms and perspective lenses | [git-approvals.md](git-approvals.md), [perspectives/index.md](perspectives/index.md) | Methodology reference |
+| Q4 - Exterior collective | Coordination systems: deterministic pipelines, source processes, input stage, gates, tools and publication boundary | [input-stage.md](input-stage.md), [ingestion-flow.md](wiki/ingestion-flow.md), [gates-and-audit.md](wiki/gates-and-audit.md) | Methodology reference |
+
+Boundary rule: code, templates and docs are Q2 when treated as observable
+outputs of this product. The same repo's CI, gates, source configs, channels and
+automation workflows are Q4 because they coordinate the system.
 
 ```mermaid
 flowchart TD
@@ -95,9 +99,9 @@ flowchart TD
 | Wiki owner | Maintainer/reviewer | Reviews conceptual changes before `main` becomes approved memory. | [git-approvals.md](git-approvals.md) |
 | Repo agent | Operator | Runs deterministic gates, prepares proposals and records delegated deep reads. | [AGENTS.md](../../AGENTS.md) |
 
-## Artifacts, Repositories and Tools
+## Artifacts and Observable Outputs
 
-| Artifact | Type | Owner | Source/config |
+| Artifact/output | Type | Owner | Source/config |
 | --- | --- | --- | --- |
 | [wiki_core](../../wiki_core/__init__.py) | Python package | Toolkit | Methodology source |
 | [scripts](../../scripts/wiki_input_stage.py) | CLI surface | Toolkit | Methodology source |

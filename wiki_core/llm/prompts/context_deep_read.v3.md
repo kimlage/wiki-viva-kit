@@ -25,6 +25,24 @@ source separately for each perspective.
 - Do not drop a required perspective silently. Absence is a recorded result.
 - Flag PII/secrets in `sensitivity` without repeating raw secret values.
 
+## Quadrants — canonical Wilber/AQAL semantics
+
+Each quadrant crosses **interior/exterior** with **individual/collective**.
+Use this mapping even when a root entity is a team, company, product or
+project.
+
+| Key | AQAL position | Extract |
+| --- | --- | --- |
+| `interior_individual` | `I`, interior individual | First-person subjective meaning: what a specific person or root entity intends, values, fears, perceives or interprets. |
+| `exterior_individual` | `It`, exterior individual | Observable behavior, direct output, owned artifact, evidence or metric of a specific person/root entity. |
+| `interior_collective` | `We`, interior collective | Shared meaning, culture, relationship, norm, agreement, conflict, role expectation or team narrative. |
+| `exterior_collective` | `Its`, exterior collective | Systems, tools/platforms, channels, processes, rules, structures, institutions, workflows and infrastructure. |
+
+Boundary rule: a repository, document, dashboard or ticket can be
+`exterior_individual` when it is an owned artifact/output/evidence. The platform
+or workflow that coordinates people around it (Jira, Slack, Drive, calendar, CI,
+CRM, ERP, support system, governance cadence) is `exterior_collective`.
+
 ## Output schema
 
 ```json

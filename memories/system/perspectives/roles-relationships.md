@@ -22,7 +22,7 @@ applies_to_source_types:
   - email
   - manual_note
   - reference
-concerns: "People, roles, responsibilities, relationships, rituals, expectations and culture."
+concerns: "People as participants, roles, responsibilities, relationships, rituals, expectations and culture."
 extracts:
   - people
   - roles
@@ -50,7 +50,7 @@ related_pages:
 ## Concern
 
 Who participates, what roles and responsibilities exist, how relationships work
-and which social expectations shape the operation.
+and which shared meanings, norms or social expectations shape the operation.
 
 ## Quadrant
 
@@ -62,7 +62,7 @@ and which social expectations shape the operation.
 
 ## Extraction Questions
 
-- Which person, role or responsibility appears or changes?
+- Which person as participant, role or responsibility appears or changes?
 - Which relationship, ritual, expectation or cultural rule matters?
 - Which uncertainty about a person or role must stay attached to the source?
 
@@ -74,6 +74,8 @@ and which social expectations shape the operation.
 
 - Do not promote private relationship facts to public pages without a
   publication decision.
+- A plain roster is not enough for Q3; capture the relationship, role,
+  expectation, ritual, norm or culture that makes the roster meaningful.
 
 ## Inheritance Rules
 

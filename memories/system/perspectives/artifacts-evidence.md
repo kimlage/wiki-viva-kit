@@ -22,7 +22,7 @@ applies_to_source_types:
   - repo
   - code_change
   - spreadsheet
-concerns: "Artifacts, repositories, documents, outputs, evidence and observable state."
+concerns: "Owned artifacts, direct outputs, documents-as-evidence, metrics and observable state."
 extracts:
   - artifacts
   - repositories
@@ -48,8 +48,10 @@ related_pages:
 
 ## Concern
 
-Which observable artifacts, outputs, repositories, documents or evidence should
-be preserved as part of the operational model.
+Which observable artifacts, outputs, documents or evidence should be preserved
+as the exterior-individual trace of the root entity. Repositories belong here
+only when they are treated as owned codebase/output/evidence; coordination tools
+and workflow platforms belong to Q4.
 
 ## Quadrant
 
@@ -61,7 +63,7 @@ be preserved as part of the operational model.
 
 ## Extraction Questions
 
-- Which artifact, repository, document, report or metric appears?
+- Which artifact, repository-as-output, document, report or metric appears?
 - What does the artifact prove or fail to prove?
 - Which source/config page should own future refreshes?
 
@@ -73,8 +75,11 @@ be preserved as part of the operational model.
 
 - Artifact evidence should back claims and should not replace root or hub
   synthesis.
+- Do not classify Slack, Jira, Drive, CI, calendars, portals or other
+  coordination platforms as Q2 unless the specific item is an exported
+  artifact/evidence. The operating platform itself is Q4.
 
 ## Inheritance Rules
 
-- Applies by default to channels that carry documents, repos, dashboards or
-  other observable outputs.
+- Applies by default to channels that carry documents, codebases as outputs,
+  dashboards as evidence or other observable outputs.

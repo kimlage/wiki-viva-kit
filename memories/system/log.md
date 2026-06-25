@@ -14,6 +14,16 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-25] System | Integral quadrant semantics
+
+- The root entity template, kit dogfood root page, perspective pages and LLM
+  deep-read prompt now state the Wilber/AQAL quadrant mapping explicitly:
+  Q1/I interior individual, Q2/It exterior individual, Q3/We interior
+  collective and Q4/Its exterior collective.
+- The kit now records the Q2/Q4 boundary directly: owned artifacts, direct
+  outputs and evidence are Q2; coordination platforms, channels, workflows,
+  process infrastructure and governance systems are Q4.
+
 ## [2026-06-25] System | v6.8 root entity and input stage
 
 - Runtime anchor bumped to `wiki_core.__version__ = "6.8.0"` and release notes

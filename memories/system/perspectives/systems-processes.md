@@ -22,7 +22,7 @@ applies_to_source_types:
   - reference
   - meeting
   - code_change
-concerns: "Systems, channels, processes, cadences, gates, queues and governance."
+concerns: "Systems, channels, coordination tools/platforms, processes, cadences, gates, queues and governance."
 extracts:
   - systems
   - channels
@@ -49,8 +49,8 @@ related_pages:
 
 ## Concern
 
-Which systems, input channels, processes, cadences, gates or governance rules
-coordinate the work.
+Which systems, input channels, coordination tools/platforms, processes,
+cadences, gates or governance rules coordinate the work.
 
 ## Quadrant
 
@@ -62,7 +62,7 @@ coordinate the work.
 
 ## Extraction Questions
 
-- Which process, channel, system or gate appears or changes?
+- Which process, channel, system, tool/platform or gate appears or changes?
 - What cadence or workflow should be preserved?
 - Which target page must be updated or explicitly left unchanged?
 
@@ -74,6 +74,9 @@ coordinate the work.
 ## Correspondence Rules
 
 - Process changes should update the root/entity hub or carry a no-change reason.
+- Coordination tools such as Slack, Jira, Drive, calendars, CI, CRM, ERP,
+  support systems and workflow engines belong here when they structure shared
+  work.
 
 ## Inheritance Rules
 
