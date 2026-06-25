@@ -39,6 +39,9 @@ starting point for persistent context is `memories/`.
   [wiki-viva-v6.7.md](references/releases/wiki-viva-v6.7.md), plus the
   root-entity/input-stage release in
   [wiki-viva-v6.8.md](references/releases/wiki-viva-v6.8.md).
+- `docs/references/reports/`: verification and evaluation reports, including the
+  AQAL quadrant alignment check in
+  [aqal-quadrant-alignment-2026-06-25.md](references/reports/aqal-quadrant-alignment-2026-06-25.md).
 - Optional per-repo subfolders (create on demand): `inventories/` (inventory
   snapshots), `decisions/` (immutable historical decisions), `evaluations/`
   (one-off evaluation snapshots).

@@ -64,6 +64,9 @@ cadences, gates or governance rules coordinate the work.
 
 - Which process, channel, system, tool/platform or gate appears or changes?
 - What cadence or workflow should be preserved?
+- Is a role/responsibility being described as externally administered
+  governance rather than shared meaning? If so, keep it in Q4 and link to the
+  Q3 relationship context only when one exists.
 - Which target page must be updated or explicitly left unchanged?
 
 ## Target Pages

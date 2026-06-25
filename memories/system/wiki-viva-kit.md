@@ -68,21 +68,24 @@ remains the technical root MOC.
 
 | Quadrant | What belongs here | Canonical pages | Input channels |
 | --- | --- | --- | --- |
-| Q1 - Interior individual | Method identity, design intent, tradeoffs, scope and operating stance | This root page, [architecture.md](wiki/architecture.md), [pr-governance.md](wiki/pr-governance.md) | Methodology reference |
+| Q1 - Interior individual | Declared method identity, design intent, tradeoffs, scope and operating stance | This root page, [architecture.md](wiki/architecture.md), [pr-governance.md](wiki/pr-governance.md) | Methodology reference |
 | Q2 - Exterior individual | Observable outputs of the kit as a product: code, templates, tests, releases, docs and generated artifacts | [command-reference.md](wiki/command-reference.md), [source-registry.md](source-registry.md), [docs/README.md](../../docs/README.md) | Methodology reference |
-| Q3 - Interior collective | Shared review culture, roles, expectations, agent/human collaboration norms and perspective lenses | [git-approvals.md](git-approvals.md), [perspectives/index.md](perspectives/index.md) | Methodology reference |
-| Q4 - Exterior collective | Coordination systems: deterministic pipelines, source processes, input stage, gates, tools and publication boundary | [input-stage.md](input-stage.md), [ingestion-flow.md](wiki/ingestion-flow.md), [gates-and-audit.md](wiki/gates-and-audit.md) | Methodology reference |
+| Q3 - Interior collective | Shared review culture, lived roles, expectations, agent/human collaboration norms and perspective lenses | [git-approvals.md](git-approvals.md), [perspectives/index.md](perspectives/index.md) | Methodology reference |
+| Q4 - Exterior collective | Coordination systems: deterministic pipelines, source processes, input stage, gates, tools, governance rules and publication boundary | [input-stage.md](input-stage.md), [ingestion-flow.md](wiki/ingestion-flow.md), [gates-and-audit.md](wiki/gates-and-audit.md) | Methodology reference |
 
-Boundary rule: code, templates and docs are Q2 when treated as observable
-outputs of this product. The same repo's CI, gates, source configs, channels and
-automation workflows are Q4 because they coordinate the system.
+Boundary rule: apply the quadrant to the root holon and the fact being
+extracted. Code, templates and docs are Q2 when treated as observable outputs of
+this product. The same repo's CI, gates, source configs, channels and automation
+workflows are Q4 because they coordinate the system. Roles are Q3 when they
+preserve shared expectations or collaboration culture; formal governance rules
+and assignments are Q4.
 
 ```mermaid
 flowchart TD
     root["Wiki Viva Kit"]
     q1["Q1 - identity and intent"]
-    q2["Q2 - code, templates and artifacts"]
-    q3["Q3 - roles and review culture"]
+    q2["Q2 - outputs and evidence"]
+    q3["Q3 - culture and relationships"]
     q4["Q4 - processes, gates and input channels"]
     stage["Input stage"]
     root --> q1
@@ -132,7 +135,7 @@ flowchart TD
 | --- | --- | --- | --- |
 | [Identity and intent](perspectives/identity-intent.md) | Q1 | yes | Root entity, architecture, decisions, claims |
 | [Artifacts and evidence](perspectives/artifacts-evidence.md) | Q2 | yes | Source, artifact, project and release pages |
-| [Roles and relationships](perspectives/roles-relationships.md) | Q3 | yes | Person, role, responsibility and governance pages |
+| [Roles and relationships](perspectives/roles-relationships.md) | Q3 | yes | Person, role, responsibility and governance pages when they preserve shared meaning, lived expectations or relationship context |
 | [Systems and processes](perspectives/systems-processes.md) | Q4 | yes | Process, source config, operation and gate pages |
 | [Privacy and publication](perspectives/privacy-publication.md) | Boundary | optional | Public boundary, release and publication pages |
 

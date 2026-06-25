@@ -63,29 +63,32 @@ Use Wilber/AQAL semantics, not arbitrary buckets:
 
 | Quadrant | AQAL position | Operational test |
 | --- | --- | --- |
-| Q1 - Interior individual | `I` / interior individual | First-person identity, intent, meaning, priorities or constraints of the root entity. |
-| Q2 - Exterior individual | `It` / exterior individual | Observable behavior, direct output, owned artifact, evidence or metric of the root entity as a single holon. |
-| Q3 - Interior collective | `We` / interior collective | Shared meaning, culture, roles, relationships, expectations and norms. People are linked here as participants in the social field, not as a plain roster. |
-| Q4 - Exterior collective | `Its` / exterior collective | Systems, channels, tools, platforms, workflows, rules, institutions and process infrastructure that coordinate work. |
+| Q1 - Interior individual | `I` / interior individual | Interior view of the root holon: lived or declared identity, intent, meaning, priorities or constraints. For a team/company/product, do not invent consciousness; use stated mission, self-description or stakeholder intent. |
+| Q2 - Exterior individual | `It` / exterior individual | Exterior view of the root holon as one entity: observable behavior, direct output, owned artifact, evidence or metric. A document/repository belongs here only when it is output/evidence of the root entity. |
+| Q3 - Interior collective | `We` / interior collective | Interior view of the collective: shared meaning, culture, roles as lived expectations, relationships, rituals and norms. People are linked here as participants in a social field, not as a plain roster. |
+| Q4 - Exterior collective | `Its` / exterior collective | Exterior view of the collective: systems, channels, tools, platforms, workflows, rules, institutions, governance and process infrastructure that coordinate work. |
 
-Boundary rule: a repository, document or dashboard is Q2 when it is an owned
+Boundary rule: apply the quadrant to the root holon and the source's role in
+context. A repository, document or dashboard is Q2 only when it is an owned
 artifact/output/evidence of the root entity. A tool or platform such as Slack,
 Jira, Drive, calendar, CI, CRM or a workflow engine is Q4 when it coordinates
-people, process, governance or infrastructure.
+people, process, governance or infrastructure. People, roles and relationships
+are Q3 only when read as shared meaning, mutual expectation or culture; as
+externally administered structure they belong to Q4.
 
 | Quadrant | What belongs here | Canonical pages | Input channels |
 | --- | --- | --- | --- |
-| Q1 - Interior individual | Identity, intent, priorities, constraints, first-person stance |  |  |
-| Q2 - Exterior individual | Observable behavior, direct outputs, owned artifacts, evidence, metrics and documents |  |  |
-| Q3 - Interior collective | Shared meaning, roles, relationships, culture, rituals, expectations and participation |  |  |
-| Q4 - Exterior collective | Systems, tools/platforms, channels, processes, cadences, governance and institutions |  |  |
+| Q1 - Interior individual | Identity, intent, priorities, constraints and first-person or declared stance |  |  |
+| Q2 - Exterior individual | Observable behavior, direct outputs, owned artifacts, evidence and metrics of the root holon |  |  |
+| Q3 - Interior collective | Shared meaning, culture, relationship quality, rituals, expectations and roles-as-lived |  |  |
+| Q4 - Exterior collective | Systems, tools/platforms, channels, processes, cadences, governance, institutions and roles-as-administered |  |  |
 
 ```mermaid
 flowchart TD
     root["Root entity"]
     q1["Q1 - intent"]
-    q2["Q2 - artifacts"]
-    q3["Q3 - roles and relationships"]
+    q2["Q2 - outputs and evidence"]
+    q3["Q3 - culture and relationships"]
     q4["Q4 - systems and processes"]
     root --> q1
     root --> q2
@@ -133,7 +136,7 @@ Tools used as coordination platforms belong under
 | --- | --- | --- | --- |
 | `perspective-identity-intent` | Q1 | yes | Root entity, decisions, claims |
 | `perspective-artifacts-evidence` | Q2 | yes | Source, artifact, project and claim pages |
-| `perspective-roles-relationships` | Q3 | yes | Person, role, responsibility and relationship pages |
+| `perspective-roles-relationships` | Q3 | yes | Person, role, responsibility and relationship pages when they preserve shared meaning, lived expectations or relationship context |
 | `perspective-systems-processes` | Q4 | yes | Process, operation, source-config and project pages |
 | `perspective-privacy-publication` | Boundary | optional | Publication and privacy checks |
 

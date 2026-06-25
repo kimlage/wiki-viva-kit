@@ -150,7 +150,11 @@ def test_compile_input_stage_inherits_root_channel_and_source_config(tmp_path: P
     assert catalog["quadrant_semantics"]["q2"]["aqal_position"] == "It / exterior individual"
     assert catalog["quadrant_semantics"]["q3"]["semantic_key"] == "interior_collective"
     assert catalog["quadrant_semantics"]["q4"]["aqal_position"] == "Its / exterior collective"
+    assert "do not invent consciousness" in catalog["quadrant_semantics"]["q1"]["operational_test"]
+    assert "not enough" in catalog["quadrant_semantics"]["q2"]["operational_test"]
+    assert "plain people roster" in catalog["quadrant_semantics"]["q3"]["operational_test"]
     assert "artifact/output/evidence" in catalog["quadrant_boundary_rule"]
+    assert "as externally administered structure they belong to q4" in catalog["quadrant_boundary_rule"]
     assert catalog["root_entity"]["page_id"] == "root-example-team"
     assert catalog["root_entity"]["entity_type"] == "team"
     assert len(catalog["sources"]) == 1
@@ -287,7 +291,8 @@ def test_render_input_stage_markdown_is_stable_and_links(tmp_path: Path) -> None
     assert "[Team handbook](../sources/team-handbook.md)" in md
     assert "## Quadrant semantics" in md
     assert "`q2` | `exterior_individual` | It / exterior individual" in md
-    assert "Boundary rule: A repository, document, dashboard or ticket is q2" in md
+    assert "Boundary rule: Apply the quadrant to the root holon" in md
+    assert "as externally administered structure they belong to q4" in md
     assert "perspective-identity-intent" in md
 
 

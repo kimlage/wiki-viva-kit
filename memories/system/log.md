@@ -14,6 +14,16 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-25] System | AQAL quadrant boundary alignment
+
+- [wiki_core/input_stage.py](../../wiki_core/input_stage.py) now clarifies the
+  canonical Wilber/AQAL quadrant semantics around the root holon: Q1 is lived or
+  declared interior stance, Q2 is observable output/evidence, Q3 is shared
+  meaning and roles-as-lived, and Q4 is systems/processes/governance.
+- [input-stage.md](input-stage.md), the root entity template, the kit root page,
+  the perspective pages and the default process guide were updated so external
+  apps cannot reduce Q3 to a roster or Q2 to any document/repository.
+
 ## [2026-06-25] System | Compile-time branch state label
 
 - [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now labels
