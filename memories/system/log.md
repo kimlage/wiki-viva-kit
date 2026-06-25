@@ -14,6 +14,14 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-25] System | Compile-time branch state label
+
+- [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now labels
+  the branch hint as compile-time state, so a cockpit page merged from a
+  proposal branch does not pretend to know the reader's current local branch.
+- [operations.md](../operations.md) was recompiled with the explicit
+  compile-time wording.
+
 ## [2026-06-25] System | Dynamic operation branch state
 
 - [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now renders
