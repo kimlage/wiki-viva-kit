@@ -214,6 +214,8 @@ def test_build_page_reflects_actions_from_sources(compile_mod, config, minimal_r
     page = compile_mod.build_page(minimal_repo, config)
     assert "Revisar cobertura" in page
     assert "Conciliar fila" in page
+    assert "[Revisar cobertura](actions/primeira.md)" in page
+    assert "[Conciliar fila](actions/segunda.md)" in page
     assert "recorrente" in page
     assert "pendente" in page
     assert "actions/primeira.md" in page
@@ -241,7 +243,7 @@ def test_build_page_extracts_state_before_inline_detail(compile_mod, config, min
         ),
     )
     page = compile_mod.build_page(minimal_repo, config)
-    assert "| Acompanhar bloqueio | sistema | pendente |" in page
+    assert "| [Acompanhar bloqueio](actions/terceira.md) | sistema | pendente |" in page
     assert "detalhe operacional que nao deve virar estado" not in page
 
 
@@ -523,10 +525,10 @@ def test_action_without_state_uses_language_fallback(compile_mod, config, minima
         "# Acao - Sem linha de estado\n\nCorpo.\n",
     )
     page_pt = compile_mod.build_page(minimal_repo, config)
-    assert "| Sem linha de estado | sistema | sem estado |" in page_pt
+    assert "| [Sem linha de estado](actions/terceira.md) | sistema | sem estado |" in page_pt
     en = compile_mod.WikiConfig(repo_id="acme-wiki", owner_label="Owner", language="en")
     page_en = compile_mod.build_page(minimal_repo, en)
-    assert "| Sem linha de estado | sistema | no state |" in page_en
+    assert "| [Sem linha de estado](actions/terceira.md) | sistema | no state |" in page_en
     assert "sem estado" not in page_en
 
 
@@ -543,9 +545,9 @@ def test_state_parser_accepts_estado_and_state(compile_mod, config, minimal_repo
     assert compile_mod.first_state("Estado: `pendente`.") == "pendente"
     assert compile_mod.first_state("State: `recurring`.") == "recurring"
     page = compile_mod.build_page(minimal_repo, config)
-    assert "| Review backlog | sistema | recurring |" in page
+    assert "| [Review backlog](actions/english.md) | sistema | recurring |" in page
     # The pt pages of the fixture keep working side by side.
-    assert "| Revisar cobertura | sistema | recorrente |" in page
+    assert "| [Revisar cobertura](actions/primeira.md) | sistema | recorrente |" in page
 
 
 def test_clean_title_strips_bilingual_prefixes(compile_mod, config, minimal_repo):
