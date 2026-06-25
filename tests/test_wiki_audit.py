@@ -490,6 +490,7 @@ def test_append_only_entity_mentions_are_ignored_when_changed(tmp_path, audit, m
         "changed_paths_for_audit",
         lambda: {
             "memories/system/ingestion/events/e.md",
+            "memories/system/ingestion/events/legacy.md",
             "memories/system/log.md",
         },
     )
@@ -499,6 +500,7 @@ def test_append_only_entity_mentions_are_ignored_when_changed(tmp_path, audit, m
         lambda: [
             "memories/people/marcelo.md",
             "memories/system/ingestion/events/e.md",
+            "memories/system/ingestion/events/legacy.md",
             "memories/system/log.md",
         ],
     )
@@ -520,6 +522,14 @@ def test_append_only_entity_mentions_are_ignored_when_changed(tmp_path, audit, m
         "page_type: ingestion_event\n"
         "---\n"
         "# Event\n\nMarcelo appeared in extracted source text.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/system/ingestion/events/legacy.md").write_text(
+        "---\n"
+        "page_id: legacy-event\n"
+        "page_type: source_catalog\n"
+        "---\n"
+        "# Legacy Event\n\nMarcelo appeared in a legacy normalized event.\n",
         encoding="utf-8",
     )
     (tmp_path / "memories/system/log.md").write_text(

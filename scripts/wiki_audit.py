@@ -1015,9 +1015,9 @@ def audit_entity_mention_links(
             message = f"{rel}: names known entities without a link: {items}"
             values, _ = parse_frontmatter(ROOT / rel)
             page_type = str(values.get("page_type") or "")
-            if page_type in MENTION_LINK_EXEMPT_PAGE_TYPES:
-                continue
             is_ingestion_event = rel.startswith(events_prefix)
+            if page_type in MENTION_LINK_EXEMPT_PAGE_TYPES or is_ingestion_event:
+                continue
             if (
                 errors is not None
                 and escalate_changed
