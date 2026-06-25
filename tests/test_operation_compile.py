@@ -369,6 +369,7 @@ def test_build_page_frontmatter_satisfies_auditor_contract(compile_mod, config, 
     assert "gate: github_pr" in head
     assert "sensitive_data_policy: private_sensitive_allowed" in head
     assert "purpose: cockpit de retomada operacional diaria da wiki" in head
+    assert "moc_parent: memories/index.md" in head
     # context comes from config.default_context (en default: "system").
     assert "context: system" in head
 

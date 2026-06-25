@@ -660,6 +660,7 @@ def build_page(root: Path, config: WikiConfig) -> str:
         f"gate: {config.approval.get('gate', 'github_pr')}",
         "sensitive_data_policy: private_sensitive_allowed",
         f"purpose: {s['purpose']}",
+        f"moc_parent: {config.paths['memory_root']}/index.md",
         f"generated_from_commit: {head_sha}",
         f"generated_from_branch: {branch}",
         "---",

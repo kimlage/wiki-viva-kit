@@ -566,6 +566,7 @@ def test_operational_pass_page_uses_configured_localized_path(tmp_path: Path):
     page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
 
     assert "page_id: passagem-operacional-acme" in page
+    assert "moc_parent: memorias/index.md" in page
     assert "# Passagem operacional - fontes, acoes e contextos" in page
     assert "[memorias/operacao.md](../operacao.md)" in page
     assert "[memorias/sistema/registro-fontes.md](registro-fontes.md)" in page

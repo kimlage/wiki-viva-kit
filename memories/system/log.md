@@ -14,6 +14,15 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-25] System | Generated dashboards declare MOC parent
+
+- [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now emits
+  `moc_parent` pointing to [memories/index.md](../index.md) for the generated daily cockpit
+  [operations.md](../operations.md).
+- [operational_pass.py](../../wiki_core/operational_pass.py) now emits the same
+  root MOC parent for [operational-pass.md](operational-pass.md), keeping the
+  generated transversal dashboards attached to the top navigation map.
+
 ## [2026-06-25] System | Machine-readable quadrant contract
 
 - [wiki_input_stage.py](../../scripts/wiki_input_stage.py) now emits canonical
