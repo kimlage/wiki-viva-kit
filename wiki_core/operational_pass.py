@@ -34,7 +34,7 @@ ATTENTION_RE = re.compile(
     re.I,
 )
 SHORT_TERM_LIMIT = 5
-CLOSED_ACTION_STATUS_SLUGS = frozenset(
+CLOSED_STATUS_SLUGS = frozenset(
     {
         "closed",
         "complete",
@@ -48,7 +48,7 @@ CLOSED_ACTION_STATUS_SLUGS = frozenset(
         "resolvido",
     }
 )
-CLOSED_ACTION_STATUS_PREFIXES = (
+CLOSED_STATUS_PREFIXES = (
     "closed_at_",
     "closed_em_",
     "completed_at_",
@@ -67,6 +67,17 @@ CLOSED_ACTION_STATUS_PREFIXES = (
     "resolvida_em_",
     "resolvido_at_",
     "resolvido_em_",
+)
+NON_PENDING_DECISION_STATUS_SLUGS = CLOSED_STATUS_SLUGS | frozenset(
+    {
+        "",
+        "active",
+        "ativa",
+        "ativo",
+        "decided",
+        "decidida",
+        "decidido",
+    }
 )
 
 
@@ -823,9 +834,13 @@ def parse_next_steps(body: str) -> tuple[NextStep, ...]:
 
 
 def _action_is_closed(page: PageRecord) -> bool:
-    status = _status_slug(page.status)
-    return status in CLOSED_ACTION_STATUS_SLUGS or any(
-        status.startswith(prefix) for prefix in CLOSED_ACTION_STATUS_PREFIXES
+    return _status_is_closed(page.status)
+
+
+def _status_is_closed(status: str) -> bool:
+    slug = _status_slug(status)
+    return slug in CLOSED_STATUS_SLUGS or any(
+        slug.startswith(prefix) for prefix in CLOSED_STATUS_PREFIXES
     )
 
 
@@ -1009,8 +1024,12 @@ def _page_needs_attention(page: PageRecord) -> bool:
 
 
 def _decision_needs_attention(page: PageRecord) -> bool:
-    status = page.status.lower().strip()
-    return status not in {"", "decidida", "decided", "active", "ativa"} and _page_needs_attention(page)
+    status = _status_slug(page.status)
+    return (
+        status not in NON_PENDING_DECISION_STATUS_SLUGS
+        and not _status_is_closed(page.status)
+        and _page_needs_attention(page)
+    )
 
 
 def _attention_rows(
