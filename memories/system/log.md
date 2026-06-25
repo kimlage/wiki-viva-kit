@@ -12,7 +12,7 @@ sensitive_data_policy: private_sensitive_allowed
 
 # Memory log
 
-Append-only record of changes in the [memories/](..) layer.
+Append-only record of changes in the [memories/](../index.md) layer.
 
 ## [2026-06-25] System | v6.8 root entity and input stage
 
@@ -400,9 +400,9 @@ Append-only record of changes in the [memories/](..) layer.
 ## [2026-06-09] setup | Open-source kit initialized
 
 - Living wiki initialized from the reusable kit: deterministic core in
-  [wiki_core/](../../wiki_core/), `wiki_*` CLIs in [scripts/](../../scripts/),
-  portable skills in [.skills/](../../.skills/) and templates in
-  [docs/references/templates/wiki/](../../docs/references/templates/wiki/).
+  [wiki_core/](../../wiki_core/README.md), `wiki_*` CLIs in [scripts/](../../scripts/README.md),
+  portable skills in [.skills/](../../.skills/README.md) and templates in
+  [docs/references/templates/wiki/](../../docs/references/templates/wiki/README.md).
 - Example context created ([example/index.md](../example/index.md)); contexts
   are configurable in [wiki.config.yaml](../../wiki.config.yaml).
 - Active gates: audit, coverage, cockpit and core tests.
@@ -413,9 +413,9 @@ Append-only record of changes in the [memories/](..) layer.
   cockpit ([operations.md](../operations.md)) is now rendered in English via the
   language-keyed string table in [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py).
 - All authored content translated to English: [AGENTS.md](../../AGENTS.md), every
-  page under [memories/](..) (methodology pages, meta-wiki, perceptive layer,
+  page under [memories/](../index.md) (methodology pages, meta-wiki, perceptive layer,
   example context and event), the `wiki-*` skills, the page templates under
-  [docs/references/templates/wiki/](../../docs/references/templates/wiki/),
+  [docs/references/templates/wiki/](../../docs/references/templates/wiki/README.md),
   [docs/README.md](../../docs/README.md), the PR template and config comments.
 - Language-dependent gate checks made bilingual so English content passes: the
   coverage required mentions are language-keyed, and the quadrants section/names

@@ -17,7 +17,7 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    (`--emit-request`, deep read by the agent, `--record-result`).
 6. Consolidate with [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
    `--source <source_id> --emit-event --packet` generates the normalized event
-   in [memories/system/ingestion/events/](../../memories/system/ingestion/events/)
+   in [memories/system/ingestion/events/](../../memories/system/ingestion/events/README.md)
    from the recorded deep read (quadrants filled, claims/decisions/actions
    candidates, `consolidated_into: []` to close) plus the gitignored integration
    packet; [docs/references/templates/wiki/ingestion-event.md](../../docs/references/templates/wiki/ingestion-event.md)

@@ -28,7 +28,7 @@ related_pages:
 
 Updated at: 2026-06-25.
 
-[memories/](.) is the main consolidated memory. [docs/](../docs/) holds
+[memories/](./index.md) is the main consolidated memory. [docs/](../docs/README.md) holds
 references, templates, and snapshots; [data/raw](../data/raw) and
 [data/derived](../data/derived) are cache (gitignored).
 

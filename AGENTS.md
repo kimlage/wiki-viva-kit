@@ -10,7 +10,7 @@ another) via skills — there is no embedded LLM client.
 
 - `main` is the approved wiki. Relevant changes go into a `wiki/<theme>` branch and
   pass through a **PR (human gate)**. The `wiki/` prefix is tool-neutral.
-- The consolidated memory lives in [memories/](memories/). [docs/](docs/) holds
+- The consolidated memory lives in [memories/](memories/index.md). [docs/](docs/README.md) holds
   references, templates and snapshots; [data/raw](data/raw) and
   [data/derived](data/derived) are cache (gitignored).
 - The configured root entity is [memories/system/wiki-viva-kit.md](memories/system/wiki-viva-kit.md).
@@ -21,8 +21,8 @@ another) via skills — there is no embedded LLM client.
   manifest, text/chunks, index, pre-scan, input-stage-aware LLM context package
   and score-event. The LLM pass is written to the cache by the agent (skill
   [wiki-llm-context-agent](.skills/wiki-llm-context-agent/SKILL.md)).
-- Core/toolkit corrections belong here first. Changes to [wiki_core/](wiki_core/),
-  [scripts/](scripts/), [.skills/](.skills/), templates, gates or shared
+- Core/toolkit corrections belong here first. Changes to [wiki_core/](wiki_core/README.md),
+  [scripts/](scripts/README.md), [.skills/](.skills/README.md), templates, gates or shared
   ingestion behavior must be implemented in this open-source repo, covered by a
   synthetic fixture or unit test, and pass CI before being applied to private
   downstream repos.
@@ -42,15 +42,15 @@ another) via skills — there is no embedded LLM client.
 
 ## Structure
 
-- [wiki_core/](wiki_core/) — deterministic core (config, chunking, detectors,
+- [wiki_core/](wiki_core/README.md) — deterministic core (config, chunking, detectors,
   extractors, gate, index, ingest, input_stage, insight, llm, paths, score,
   source_manifest).
-- [scripts/](scripts/) — `wiki_*` CLIs (ingest, audit, coverage, cockpit, gate,
+- [scripts/](scripts/README.md) — `wiki_*` CLIs (ingest, audit, coverage, cockpit, gate,
   score, insight job, LLM pass).
-- [.skills/](.skills/) — portable `wiki-*` skills for the agent.
-- [docs/references/templates/wiki/](docs/references/templates/wiki/) — page
+- [.skills/](.skills/README.md) — portable `wiki-*` skills for the agent.
+- [docs/references/templates/wiki/](docs/references/templates/wiki/README.md) — page
   contracts and templates.
-- [memories/system/](memories/system/) — method pages (ingestion process,
+- [memories/system/](memories/system/wiki/index.md) — method pages (ingestion process,
   contract, approvals, coverage, log, perception).
 
 ## Gates (run before the PR)
@@ -76,6 +76,6 @@ python3 -m pytest tests/
 ## Per-repo configuration
 
 Adjust [wiki.config.yaml](wiki.config.yaml): `repo_id`, `owner_label`,
-`root_entity`, `contexts` (one hub per context, in [memories/](memories/)),
+`root_entity`, `contexts` (one hub per context, in [memories/](memories/index.md)),
 privacy policy, gate and LLM parameters. The auditor and the coverage read the
 config — no context is hardcoded in the code.

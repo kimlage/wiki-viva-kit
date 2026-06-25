@@ -42,8 +42,8 @@ attachment_policy: "Optional diagram in data/derived with a Markdown link. Priva
 Updated on: 2026-06-09.
 
 > **Private** page and **perception** (an at-a-glance reading of the architecture),
-> not a contract. The source of truth for the modules is the code in [wiki_core/](../../../wiki_core/)
-> and [scripts/](../../../scripts/).
+> not a contract. The source of truth for the modules is the code in [wiki_core/](../../../wiki_core/README.md)
+> and [scripts/](../../../scripts/README.md).
 
 ## Plain-language summary
 

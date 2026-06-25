@@ -63,8 +63,8 @@ as `superseded`.
 
 ## PR checklist
 
-- [memories/](../) contains actionable synthesis.
-- [docs/](../../docs/) did not become the main memory.
+- [memories/](../index.md) contains actionable synthesis.
+- [docs/](../../docs/README.md) did not become the main memory.
 - Relevant personal data (PII) was extracted when useful (private repo).
 - No access secret, individualized secure link, or full dump without
   criteria was copied.

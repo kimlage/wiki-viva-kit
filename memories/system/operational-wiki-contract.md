@@ -14,7 +14,7 @@ sensitive_data_policy: private_sensitive_allowed
 
 Updated at: 2026-06-09.
 
-The canonical wiki is [memories/](../); the GitHub PR is the human gate. This contract
+The canonical wiki is [memories/](../index.md); the GitHub PR is the human gate. This contract
 defines what enters memory, how it enters, and how it is approved.
 
 ## Principles
@@ -28,7 +28,7 @@ defines what enters memory, how it enters, and how it is approved.
   and Markdown tables, keeping prose for nuance; architecture/flow/relationship/
   process pages carry at least one diagram. See the guideline in
   [obsidian-conventions.md](../../docs/references/templates/wiki/obsidian-conventions.md).
-- [docs/](../../docs/) holds references, templates and snapshots - it is not the main memory.
+- [docs/](../../docs/README.md) holds references, templates and snapshots - it is not the main memory.
 
 ## What enters memory
 

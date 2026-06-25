@@ -28,7 +28,7 @@ Updated on: 2026-06-09.
 
 This is a demonstration context. Each repo that adopts the kit declares its
 contexts in [wiki.config.yaml](../../wiki.config.yaml) (`contexts:`) and creates a context
-hub like this one (one index page per context, in [memories/](../)).
+hub like this one (one index page per context, in [memories/](../index.md)).
 
 ## What lives here
 

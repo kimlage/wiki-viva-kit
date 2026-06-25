@@ -47,13 +47,13 @@ related_pages:
 - [ ] `python3 scripts/wiki_audit.py --check`  Links: [scripts/wiki_audit.py](../../../../scripts/wiki_audit.py).
 - [ ] `python3 scripts/wiki_new_ingest.py --source data/raw/example.pdf --context system --dry-run`  Links: [scripts/wiki_new_ingest.py](../../../../scripts/wiki_new_ingest.py).
 - [ ] `python3 scripts/wiki_pr_summary.py`  Links: [scripts/wiki_pr_summary.py](../../../../scripts/wiki_pr_summary.py).
-- [ ] `rg -n "docs/2026|docs/memories" AGENTS.md memories docs scripts .skills`  Links: [AGENTS.md](../../../../AGENTS.md), historical path: [docs/2026](../../../).
+- [ ] `rg -n "docs/2026|docs/memories" AGENTS.md memories docs scripts .skills`  Links: [AGENTS.md](../../../../AGENTS.md), historical path: [docs/2026](../../../README.md).
 - [ ] `git diff --check`
 
 ## Approval
 
-- [ ] [memories/](../../../../memories/) contains an actionable synthesis.
-- [ ] [docs/](../../../) did not become the primary memory.
+- [ ] [memories/](../../../../memories/index.md) contains an actionable synthesis.
+- [ ] [docs/](../../../README.md) did not become the primary memory.
 - [ ] Relevant personal data (names, values, dates, relationships, documents) was extracted when useful -- private repo, no warning.
 - [ ] No full dump without criteria was copied into Markdown.
 - [ ] No token, cookie, password, access code, credential or individualized secure link was copied (anywhere).
