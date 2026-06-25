@@ -337,21 +337,31 @@ def test_build_context_request_includes_perspectives(tmp_path):
         ],
         tmp_path / "cache",
         "v3",
-        "wiki_llm_context_pass.v3",
+        "wiki_llm_context_pass.v4",
         "deep_context",
         perspectives_required=["perspective-technical"],
         perspectives_optional=["perspective-project"],
+        root_entity={"page_id": "root-example", "path": "memories/example/index.md"},
+        input_channel={"page_id": "input-channel-docs"},
+        quadrant_map={"q4": ["perspective-technical"]},
+        target_pages=["memories/example/index.md"],
+        input_stage_status="configured",
     )
 
-    assert request["context_pass_schema_version"] == "wiki_llm_context_pass.v3"
+    assert request["context_pass_schema_version"] == "wiki_llm_context_pass.v4"
     assert request["perspectives_required"] == ["perspective-technical"]
     assert request["perspectives_optional"] == ["perspective-project"]
+    assert request["root_entity"]["page_id"] == "root-example"
+    assert request["input_channel"]["page_id"] == "input-channel-docs"
+    assert request["quadrant_map"] == {"q4": ["perspective-technical"]}
+    assert request["target_pages"] == ["memories/example/index.md"]
+    assert request["input_stage_status"] == "configured"
     assert "perspectives" in request["result_required_keys"]
 
 
-def test_validate_result_v3_requires_perspective_status():
+def test_validate_result_v4_requires_perspective_status():
     result = _complete_result()
-    result["schema_version"] = "wiki_llm_context_pass.v3"
+    result["schema_version"] = "wiki_llm_context_pass.v4"
     result["perspectives_required"] = ["perspective-technical"]
     assert "perspectives_not_object" in validate_result(result)
 

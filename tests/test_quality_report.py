@@ -252,6 +252,47 @@ def test_quality_report_allows_justified_low_density_exemption(tmp_path: Path) -
     assert report["quality_flags"]["quality_exemption_missing_reason"] == ["memories/roles/b.md"]
 
 
+def test_quality_report_flags_relation_pages_without_hierarchy_parent(tmp_path: Path) -> None:
+    _write(tmp_path / "memories/index.md", _page("root", "root_index", "Root", "- Ready.\n"))
+    _write(
+        tmp_path / "memories/claims/orphan.md",
+        _page(
+            "claim-orphan",
+            "claim",
+            "Orphan Claim",
+            "- [Root](../index.md)\n- Has provenance fields but no conceptual parent.\n",
+        ).replace(
+            "sensitive_data_policy: private_sensitive_allowed",
+            "sensitive_data_policy: private_sensitive_allowed\nsource_refs:\n  - source-synthetic",
+        ),
+    )
+    _write(
+        tmp_path / "memories/claims/routed.md",
+        _page(
+            "claim-routed",
+            "claim",
+            "Routed Claim",
+            "- [Root](../index.md)\n- Routes upward through frontmatter.\n",
+        ).replace(
+            "sensitive_data_policy: private_sensitive_allowed",
+            (
+                "sensitive_data_policy: private_sensitive_allowed\n"
+                "source_refs:\n"
+                "  - source-synthetic\n"
+                "moc_parent: memories/index.md"
+            ),
+        ),
+    )
+
+    report = build_quality_report(tmp_path, WikiConfig(contexts=("example",)))
+
+    assert report["summary"]["relation_pages_without_parent"] == 1
+    assert report["quality_flags"]["relation_pages_without_parent"] == [
+        "memories/claims/orphan.md"
+    ]
+    assert "Relation pages without parent" in render_markdown(report)
+
+
 def _model_page(page_id: str, page_type: str, context: str, **lists: list[str]) -> str:
     extra = ""
     for field_name, values in lists.items():

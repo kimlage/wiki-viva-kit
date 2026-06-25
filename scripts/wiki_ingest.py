@@ -2,10 +2,10 @@
 """End-to-end ingestion orchestrator for the living wiki.
 
 Chains manifest -> text/chunks -> index -> pre-scan (secrets block; PII is
-informative, welcome on a private page) -> LLM context package (emits the
--request.json that the auditor gate watches) -> score-event. Replaces the manual
-step-by-step run (each module had its own CLI). The LLM pass stays delegated to
-the agent running the repo.
+informative, welcome on a private page) -> input-stage-aware LLM context package
+(emits the -request.json that the auditor gate watches) -> score-event. Replaces
+the manual step-by-step run (each module had its own CLI). The LLM pass stays
+delegated to the agent running the repo.
 
 Examples:
   python3 scripts/wiki_ingest.py --source data/raw/example.pdf --context system

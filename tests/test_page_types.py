@@ -30,12 +30,19 @@ def test_repo_registry_has_critical_content_shapes() -> None:
     assert registry is not None
     for page_type in (
         "action",
+        "artifact",
         "claim",
         "context_note",
         "decision",
+        "holon",
+        "input_channel",
         "meeting",
         "person",
+        "process",
         "project",
+        "responsibility",
+        "role",
+        "root_entity",
         "source",
         "source_config",
     ):
@@ -43,6 +50,31 @@ def test_repo_registry_has_critical_content_shapes() -> None:
         assert shape.get("required_frontmatter")
         assert shape.get("field_types")
         assert shape.get("template")
+
+
+def test_relation_page_types_require_hierarchy_parent() -> None:
+    registry = load_page_type_registry(Path(__file__).resolve().parents[1])
+    assert registry is not None
+    for page_type in (
+        "action",
+        "artifact",
+        "claim",
+        "decision",
+        "holon",
+        "input_channel",
+        "meeting",
+        "person",
+        "process",
+        "project",
+        "responsibility",
+        "role",
+        "root_entity",
+        "source",
+        "source_config",
+    ):
+        shape = registry.page_types[page_type]
+        assert "moc_parent" in shape.get("required_frontmatter", [])
+        assert shape.get("field_types", {}).get("moc_parent") == "string"
 
 
 def test_template_coverage_requires_reason_for_none(tmp_path: Path) -> None:

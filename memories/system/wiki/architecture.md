@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-06-25
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -24,7 +24,7 @@ related_pages:
 
 # Living wiki architecture
 
-Updated on: 2026-06-09.
+Updated on: 2026-06-25.
 
 This page is the overview of the **living wiki**: what the system is, the principles
 that sustain it, and the map of the modules. For the step-by-step ingestion, see
@@ -43,7 +43,7 @@ time. The kit has two complementary halves:
 - A deterministic Python package, [wiki_core](../../../wiki_core/ingest/pipeline.py),
   that does everything that can be done in a reproducible and auditable way: manifests,
   extraction, chunking, index, secret/PII detection, the gate state machine,
-  karma, and assembly of the context packages.
+  root/input-stage compilation, karma, and assembly of the context packages.
 - A layer of CLIs in [scripts](../../../scripts/wiki_audit.py) (all prefixed with
   `wiki_*`) that exposes each module of [wiki_core](../../../wiki_core/ingest/pipeline.py)
   on the command line, plus the auditor and the cockpit compiler.
@@ -53,15 +53,18 @@ live in Python: it is delegated to the AGENT that runs the repo. The contract of
 is in [operational-wiki-contract.md](../operational-wiki-contract.md) and
 [AGENTS.md](../../../AGENTS.md).
 
-The flowchart below is the canonical picture of the system: a source flows through
-the deterministic pipeline (manifest, chunks, index, pre-scan) into a context
-package; the agent performs the deep read; the proposal then passes the PR gate
-before it becomes consolidated memory. The deterministic toolkit and the agent are
-two distinct actors, joined at the context package and the cache.
+The flowchart below is the canonical picture of the system: the root entity and
+the input stage orient the source before it flows through the deterministic
+pipeline (manifest, chunks, index, pre-scan) into a context package; the agent
+performs the deep read; the proposal then passes the PR gate before it becomes
+consolidated memory. The deterministic toolkit and the agent are two distinct
+actors, joined at the context package and the cache.
 
 ```mermaid
 flowchart LR
     subgraph Toolkit["Deterministic toolkit (Python)"]
+        Root["Root entity"]
+        InputStage["Input stage catalog"]
         Source["Source (PDF, table, email, URL)"]
         Manifest["Manifest"]
         Chunks["Text and stable chunks"]
@@ -75,7 +78,9 @@ flowchart LR
     Gate{"PR gate (human review)"}
     Memory[("Consolidated memory")]
 
+    Root --> InputStage
     Source --> Manifest --> Chunks --> Index --> Prescan --> Package
+    InputStage --> Package
     Package --> Agent
     Agent --> Event --> Proposal --> Gate
     Gate -->|approved| Memory
@@ -85,6 +90,7 @@ flowchart LR
 Read the diagram alongside the prose links: the toolkit lives in
 [wiki_core](../../../wiki_core/ingest/pipeline.py) and [scripts](../../../scripts/wiki_audit.py),
 the secret pre-scan is in [the detectors](../../../wiki_core/detectors/__init__.py),
+the input-stage catalog is built by [input_stage.py](../../../wiki_core/input_stage.py),
 the context package is built by [context_pass.py](../../../wiki_core/llm/context_pass.py),
 and the gate is the GitHub PR described in [pr-governance.md](pr-governance.md).
 
@@ -95,10 +101,16 @@ and the gate is the GitHub PR described in [pr-governance.md](pr-governance.md).
   The portable configuration lives in [wiki.config.yaml](../../../wiki.config.yaml), read
   by [wiki_core/config.py](../../../wiki_core/config.py) with a proprietary and
   minimal YAML parser (no runtime dependency to load config).
+- **Root entity first.** Each repo declares a semantic top entity in
+  [wiki.config.yaml](../../../wiki.config.yaml): a person, team, company,
+  product, project or community page. That page defines the integral quadrant
+  map, default perspectives, input channels, artifacts, processes and target
+  pages before individual sources are read. In this repo the page is
+  [Wiki Viva Kit](../wiki-viva-kit.md).
 - **Ingestion as compilation.** A source does not become memory directly. It passes
   through a deterministic pipeline (manifest -> text -> chunks -> index -> pre-scan
-  -> context package -> event), exactly as source code is compiled into a
-  binary. The intermediate artifacts are derived and live outside Git (in
+  -> input-stage-aware context package -> event), exactly as source code is
+  compiled into a binary. The intermediate artifacts are derived and live outside Git (in
   [data/derived/wiki/](../../../data/derived/wiki/)); only the consolidated result is promoted. The orchestrator is
   [wiki_core/ingest/pipeline.py](../../../wiki_core/ingest/pipeline.py); details in
   [ingestion-flow.md](ingestion-flow.md).
@@ -119,9 +131,19 @@ and the gate is the GitHub PR described in [pr-governance.md](pr-governance.md).
   bias of only capturing external facts. Filling all four is mandatory and
   validated; see `validate_result` in
   [wiki_core/llm/context_pass.py](../../../wiki_core/llm/context_pass.py).
+- **Input stage as deterministic staging.** [wiki_input_stage.py](../../../scripts/wiki_input_stage.py)
+  compiles the root entity, input-channel pages, source pages and source configs
+  into [input-stage.md](../input-stage.md). The generated catalog does not fetch
+  external systems; it decides what context, perspectives and target pages must
+  accompany a source when the LLM package is emitted.
 - **Operational cockpit.** The living state (what to resume, what is stale, what is
   pending) is compiled into a daily panel from the wiki and the Git state, in
   [operations.md](../../operations.md). See [daily-operation.md](daily-operation.md).
+- **Hierarchical navigation.** The root MOC points to context/domain hubs; hubs
+  carry the current synthesis; typed relation pages (`action`, `claim`,
+  `decision`, `meeting`, `person`, `project`, `source`, `source_config`) sit
+  below those hubs through `moc_parent`. `source_refs` proves provenance, not
+  navigation.
 - **Karma as a byproduct, with no leaderboard.** Each useful action (ingesting a source,
   fixing a metadata field, closing an action) generates an append-only event that feeds a karma
   of 8 dimensions and the context vitality. There is no person-versus-person ranking.
@@ -145,7 +167,8 @@ below carry the detail and the links to each module.
 
 | Module | Responsibility | Deterministic? |
 | --- | --- | --- |
-| config + paths | Portable per-repo config, derived-path resolution, deterministic ids (`sha256`, `slugify`) | Yes |
+| config + paths | Portable per-repo config, root entity profile, derived-path resolution, deterministic ids (`sha256`, `slugify`) | Yes |
+| input_stage | Compile root entity, channels, source configs and target pages into the staging catalog | Yes |
 | source_manifest | Classify the source and compute a stable `source_id` + JSON manifest | Yes |
 | extractors | Turn each source type into text + structured units | Yes |
 | chunking | Split text into stable `TextChunk`s with a per-excerpt hash | Yes |
@@ -156,6 +179,7 @@ below carry the detail and the links to each module.
 | gate | Proposal state machine, history, rebase/supersede | Yes |
 | score | 8-dimension karma, vitality, append-only events | Yes |
 | insight | Gather signals and emit a skeleton insight proposal | Yes (signals only) |
+| quality | Density, repetition, integration closure, hierarchy-parent and operational-coverage telemetry | Yes |
 | okf | Export/check/import-preview/visualize Open Knowledge Format v0.1 bundles | Yes |
 | deep read | The interpretive read of each chunk | No (delegated to the agent) |
 
@@ -169,11 +193,24 @@ below carry the detail and the links to each module.
   prompt versions). It makes the config portable per repo, with no hardcoding.
 - [wiki_core/paths.py](../../../wiki_core/paths.py): defines `WikiPaths`, which resolves
   all derived directories from the root and the config — `source-manifests`,
-  `source-text`, `chunks`, `indexes`, `extraction-events`, `llm-cache`, `coverage` —
+  `source-text`, `chunks`, `indexes`, `extraction-events`, `llm-cache`,
+  `input-stage`, `coverage` —
   and the helper `ensure()` that creates them. It is the single source of truth about where each
   derived artifact lives.
 - [wiki_core/ids.py](../../../wiki_core/ids.py): deterministic utilities
   reused across all the rest — `sha256_file`, `sha256_text` and `slugify`.
+
+### input_stage (root entity -> source context)
+
+[wiki_core/input_stage.py](../../../wiki_core/input_stage.py) reads the configured
+root entity, input-channel pages, canonical source pages and source-config
+sidecars. It emits a deterministic catalog with the root entity, channel
+matches, inherited required/optional perspectives, target pages, quadrants,
+ready inputs and warnings. [wiki_input_stage.py](../../../scripts/wiki_input_stage.py)
+renders this catalog into [input-stage.md](../input-stage.md) and checks whether
+the page is stale. The same helper feeds [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py)
+and [wiki_ingest.py](../../../scripts/wiki_ingest.py), so a repo-local source
+inherits root/channel/source-config context without operator flags.
 
 ### source_manifest (pipeline entry)
 
@@ -237,7 +274,8 @@ are consumed by the pipeline, by the insight job and by the
 [wiki_core/llm/context_pass.py](../../../wiki_core/llm/context_pass.py) assembles the context
 PACKAGE (`build_context_request`) that the agent executes: it includes the text of each
 chunk, the versioned prompt, the output schema (`RESULT_REQUIRED_KEYS`, mandatory
-quadrants) and the per-chunk cache status. `validate_result` requires the four
+quadrants), root/input-stage metadata when available and the per-chunk cache
+status. `validate_result` requires the four
 quadrants filled and the sensitivity field; `write_result` only writes if the
 result passes. [wiki_core/llm/cache.py](../../../wiki_core/llm/cache.py) defines the
 deterministic `cache_key` (hash of source + chunk + prompt/schema version + model
@@ -250,7 +288,7 @@ by [wiki_cache_inspect.py](../../../scripts/wiki_cache_inspect.py).
 
 [wiki_core/ingest/pipeline.py](../../../wiki_core/ingest/pipeline.py) chains the
 deterministic steps in a single `run` call: manifest -> text + chunks ->
-index -> secret/PII pre-scan -> LLM context package (emits the
+index -> secret/PII pre-scan -> input-stage-aware LLM context package (emits the
 `-llm-context-request.json` that the gate watches) -> score event
 `ingestar_fonte_valida`. It does NOT write canonical memory nor call a model: it returns an
 `IngestResult` with `gate_state=created` and the LLM pass status derived from the

@@ -25,6 +25,26 @@ CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 NAV_EXEMPT_TYPES = DEFAULT_ORPHAN_EXEMPT_TYPES | {"ingestion_event"}
 EVENT_INDEX_FILENAMES = {"readme.md", "index.md"}
 QUALITY_EXEMPT_ALL = "all"
+RELATION_PAGE_TYPES = frozenset(
+    {
+        "action",
+        "claim",
+        "decision",
+        "meeting",
+        "person",
+        "project",
+        "source",
+        "source_config",
+    }
+)
+HIERARCHY_PARENT_FIELDS = (
+    "moc_parent",
+    "parent",
+    "parent_page",
+    "parent_hub",
+    "context_hub",
+    "hub_ref",
+)
 
 
 def strip_frontmatter(text: str) -> str:
@@ -83,6 +103,16 @@ def _quality_exemptions(values: dict[str, Any]) -> set[str]:
 def _is_quality_exempt(values: dict[str, Any], key: str) -> bool:
     exemptions = _quality_exemptions(values)
     return QUALITY_EXEMPT_ALL in exemptions or key in exemptions
+
+
+def _has_hierarchy_parent(values: dict[str, Any]) -> bool:
+    """Return whether a relation page declares its conceptual navigation parent.
+
+    Provenance fields such as ``source_refs`` intentionally do not count here:
+    they explain where a fact came from, not where the page belongs in the wiki
+    hierarchy. Relation pages should route upward to a MOC/context hub.
+    """
+    return any(_list_values(values.get(field)) for field in HIERARCHY_PARENT_FIELDS)
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -287,6 +317,15 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
         for page in pages
         if page["page_type"] not in NAV_EXEMPT_TYPES and page["outbound_links"] < 1
     ]
+    relation_pages_without_parent = [
+        page["path"]
+        for page in pages
+        if page["page_type"] in RELATION_PAGE_TYPES
+        and not _has_hierarchy_parent(frontmatter_by_rel.get(page["path"], {}))
+        and not _is_quality_exempt(
+            frontmatter_by_rel.get(page["path"], {}), "hierarchy_parent"
+        )
+    ]
 
     repeated_blocks: list[dict[str, Any]] = []
     bad_repetition: list[dict[str, Any]] = []
@@ -400,6 +439,7 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
             "contexts": dict(sorted(by_context.items())),
             "low_information_density_pages": len(low_density_pages),
             "thin_link_pages": len(thin_link_pages),
+            "relation_pages_without_parent": len(relation_pages_without_parent),
             "repeated_blocks": len(repeated_blocks),
             "bad_repetition_blocks": len(bad_repetition),
             "ingestion_events": events_total,
@@ -423,11 +463,12 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
             "schema_version": schema_version,
             "model_profile": model_profile,
             "source_costs": source_costs,
-            "note": "Telemetry only. v6.3 does not enforce a hard budget.",
+            "note": "Telemetry only. The quality report does not enforce a hard budget.",
         },
         "quality_flags": {
             "low_information_density_pages": low_density_pages,
             "thin_link_pages": thin_link_pages,
+            "relation_pages_without_parent": relation_pages_without_parent,
             "bad_repetition_blocks": bad_repetition,
             "repeated_blocks": repeated_blocks,
             "events_without_consolidated_into": events_without_consolidated_into,
@@ -460,6 +501,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "pages_total",
         "low_information_density_pages",
         "thin_link_pages",
+        "relation_pages_without_parent",
         "repeated_blocks",
         "bad_repetition_blocks",
         "ingestion_events",
@@ -488,7 +530,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"- Prompt version: `{cost['prompt_version']}`.",
             f"- Schema version: `{cost['schema_version']}`.",
             f"- Model profile: `{cost['model_profile']}`.",
-            "- Cost is measured for control and comparison; v6.3 does not enforce a hard budget.",
+            "- Cost is measured for control and comparison; the quality report does not enforce a hard budget.",
             "",
             "| Source | Chunks | Estimated tokens | Cached | Pending |",
             "| --- | ---: | ---: | ---: | ---: |",
@@ -508,6 +550,7 @@ def render_markdown(report: dict[str, Any]) -> str:
     for title, key in (
         ("Low information density pages", "low_information_density_pages"),
         ("Thin link pages", "thin_link_pages"),
+        ("Relation pages without parent", "relation_pages_without_parent"),
         ("Events without consolidated_into", "events_without_consolidated_into"),
         ("Events without impact_closure", "events_without_impact_closure"),
         ("Quality exemptions missing reason", "quality_exemption_missing_reason"),

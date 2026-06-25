@@ -7,7 +7,7 @@ to another repo without deep adjustments.
 
 - **`wiki-viva`** — the **entry skill**: install this one to both *configure*
   and *operate* the whole living wiki. It carries the full lifecycle (adopt →
-  configure → ingest → deep read → consolidate → cockpit → gates → PR) with
+  configure → input stage → ingest → deep read → consolidate → cockpit → gates → PR) with
   bundled references, and points to the focused skills below when you need the
   full procedure for a single step. You do not need the others installed to
   operate.
@@ -31,3 +31,10 @@ Optional depth for individual steps; `wiki-viva` orchestrates them.
 Each repo adopting the kit can add its own specific skills (local profile, e.g.
 a `repo-*` or `<name>-*` prefix) alongside the `wiki-*` ones. Keep the local
 profile separate so the kit stays copyable.
+
+The portable skills assume hierarchical navigation by default: root MOC ->
+context/domain hub -> entity/subdomain hub -> relation/evidence pages ->
+execution/event pages. Relation pages must declare `moc_parent` so multiple
+repos can reuse the kit without accumulating parallel, disconnected pages.
+Repos on v6.8+ also declare a semantic `root_entity` page and compile the
+generated input stage before source routing.

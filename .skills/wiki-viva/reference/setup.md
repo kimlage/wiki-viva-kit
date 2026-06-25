@@ -37,6 +37,7 @@ list and defaults. The essentials:
 | `language` | `en` or `pt` — drives **generated output** (cockpit, proposals) via string tables; code stays English |
 | `contexts` | Comma list; each needs a `<memory_root>/<ctx>/index.md` hub |
 | `default_context` | Context used when a command omits `--context` |
+| `root_entity` | Semantic top page, entity type, input-stage page and default perspective bundle |
 | `default_visibility` | Usually `private_self` |
 | `private_sensitive_allowed` | `true` = PII welcome on private pages; `false` = strict mode |
 | `paths` | Repo layout (English defaults; pin to localize — step 4) |
@@ -45,7 +46,36 @@ list and defaults. The essentials:
 | `llm` | Chunking, model profile, prompt versions, `required_context_pass` |
 | `audit` | `freshness_budget`, link/secret/frontmatter switches |
 
-## 3. Declare contexts and their targets
+## 3. Declare the root entity
+
+Create one top page that says what this wiki is about. For a personal wiki it
+is the person page; for a team it is the team page; for a company it is the
+company page; for this kit it is
+[wiki-viva-kit.md](../../../memories/system/wiki-viva-kit.md). Configure it in
+[wiki.config.yaml](../../../wiki.config.yaml):
+
+```yaml
+root_entity:
+  page: memories/system/wiki-viva-kit.md
+  entity_type: product
+  input_stage_page: memories/system/input-stage.md
+  perspective_bundle:
+    required:
+      - perspective-identity-intent
+      - perspective-artifacts-evidence
+      - perspective-roles-relationships
+      - perspective-systems-processes
+```
+
+Then create input-channel pages for the systems or document streams that feed
+the root entity, and run:
+
+```sh
+python3 scripts/wiki_input_stage.py --write
+python3 scripts/wiki_input_stage.py --check
+```
+
+## 4. Declare contexts and their targets
 
 A **context** is a top-level area of memory (e.g. `finance`, `system`). For each:
 
@@ -58,7 +88,7 @@ A **context** is a top-level area of memory (e.g. `finance`, `system`). For each
 
 The kit ships an `example` context — replace or keep it as a living sample.
 
-## 4. (Optional) Pin a localized layout
+## 5. (Optional) Pin a localized layout
 
 The defaults are English; [wiki_core/config.py](../../../wiki_core/config.py)
 lists every layout key and its default. To run the tree in another language, pin
@@ -87,12 +117,13 @@ The code never hardcodes layout paths; it reads them from here via
 [wiki_core/paths.py](../../../wiki_core/paths.py). The directory and file names
 then follow your pins, while code, comments and CLIs stay English.
 
-## 5. Verify the gates are green
+## 6. Verify the gates are green
 
 ```sh
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_input_stage.py --check
 python3 -m pytest tests/ -q
 ```
 

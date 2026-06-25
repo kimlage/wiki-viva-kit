@@ -30,10 +30,12 @@ from wiki_core.config import WikiConfig
 from wiki_core.detectors import scan_file, scan_text
 from wiki_core.extractors import extract_source
 from wiki_core.index.sqlite import index_source
+from wiki_core.input_stage import input_context_for_source
 from wiki_core.llm import build_context_request
 from wiki_core.llm.context_pass import CONTEXT_PASS_SCHEMA_VERSION
 from wiki_core.paths import WikiPaths
 from wiki_core.score import record_event
+from wiki_core.source_config import find_source_config, merge_perspectives
 from wiki_core.source_manifest import build_manifest, write_manifest
 
 SCHEMA_VERSION = "wiki_ingest_pipeline.v1"
@@ -206,9 +208,33 @@ def run(
     if chunk_dicts and not blocked:
         prompt_version = str(config.llm.get("prompt_versions", {}).get("context_deep_read", "v1"))
         model_profile = str(config.llm.get("default_model_profile", "deep_context"))
-        request = build_context_request(
-            manifest, chunk_dicts, paths.llm_cache, prompt_version, CONTEXT_PASS_SCHEMA_VERSION, model_profile
+        source_config = find_source_config(root, config, source)
+        input_context = input_context_for_source(root, config, source)
+        perspectives_required, perspectives_optional = merge_perspectives(
+            source_config,
+            required=[],
+            optional=[],
+            root_required=list(input_context.get("perspectives_required") or []),
+            root_optional=list(input_context.get("perspectives_optional") or []),
         )
+        request = build_context_request(
+            manifest,
+            chunk_dicts,
+            paths.llm_cache,
+            prompt_version,
+            CONTEXT_PASS_SCHEMA_VERSION,
+            model_profile,
+            perspectives_required=perspectives_required,
+            perspectives_optional=perspectives_optional,
+            root_entity=input_context.get("root_entity") if isinstance(input_context.get("root_entity"), dict) else None,
+            input_channel=input_context.get("input_channel") if isinstance(input_context.get("input_channel"), dict) else None,
+            quadrant_map=input_context.get("quadrant_map") if isinstance(input_context.get("quadrant_map"), dict) else None,
+            target_pages=list(input_context.get("target_pages") or []),
+            input_stage_status=str(input_context.get("input_stage_status") or ""),
+        )
+        if source_config:
+            request["source_config_ref"] = source_config["path"]
+            request["source_config_perspectives_applied"] = True
         pending = int(request.get("pending_llm_calls", 0))
         if persist:
             request_file = paths.extraction_events / f"{source_id}-llm-context-request.json"

@@ -203,6 +203,11 @@ def aggregate_results(request: dict[str, object], cache_dir: Path) -> dict[str, 
         "source_id": request.get("source_id"),
         "prompt_version": request.get("prompt_version"),
         "chunk_count": len(request.get("chunks") or []),
+        "root_entity": request.get("root_entity") or {},
+        "input_channel": request.get("input_channel") or {},
+        "quadrant_map": request.get("quadrant_map") or {},
+        "target_pages": request.get("target_pages") or [],
+        "input_stage_status": request.get("input_stage_status") or "",
         "quadrants": {key: _merge_quadrant(values) for key, values in quadrants.items()},
         "quadrant_confidence": confidence,
         **{name: _dedup(values) for name, values in lists.items()},
@@ -496,18 +501,33 @@ def build_packet(
             if isinstance(page, dict) and page.get("rel")
         }
     )
+    target_pages = {
+        str(page)
+        for page in (aggregated.get("target_pages") or [])
+        if str(page).strip()
+    }
     must_update = sorted(
         {
             str(meta["rel"])
             for meta in catalog.values()
             if str(aggregated.get("source_id") or "") in (meta.get("source_refs") or [])
         }
+        | target_pages
     )
+    root_entity = aggregated.get("root_entity") if isinstance(aggregated.get("root_entity"), dict) else {}
+    input_channel = aggregated.get("input_channel") if isinstance(aggregated.get("input_channel"), dict) else {}
 
     return {
         "kind": "wiki_integration_packet",
         "schema_version": PACKET_SCHEMA_VERSION,
         "source_id": aggregated.get("source_id"),
+        "root_impact": {
+            "root_entity": root_entity,
+            "input_channel": input_channel,
+            "input_stage_status": aggregated.get("input_stage_status") or "",
+            "quadrant_map": aggregated.get("quadrant_map") or {},
+            "target_pages": sorted(target_pages),
+        },
         "impact": {
             "must_update": must_update,
             "should_review": [page for page in should_review if page not in must_update],

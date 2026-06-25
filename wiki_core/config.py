@@ -172,6 +172,17 @@ class WikiConfig:
             "page_type_overrides": {},
         }
     )
+    # Optional semantic entry point for repos adopting the integral root model.
+    # Existing repos without this block keep the old context/source behavior.
+    root_entity: dict[str, Any] = field(
+        default_factory=lambda: {
+            "page": "",
+            "entity_type": "",
+            "input_stage_page": "memories/system/input-stage.md",
+            "perspective_bundle": {"required": [], "optional": []},
+            "default_target_strategy": "root_then_context_hub",
+        }
+    )
     audit: dict[str, Any] = field(
         default_factory=lambda: {
             # Pages every wiki repo must keep tracked (wiki_audit core gate).
@@ -249,6 +260,7 @@ def load_config(root: Path) -> WikiConfig:
             **{str(k): v for k, v in dict(raw.get("freshness", {})).items()},
         },
         templates={**WikiConfig().templates, **dict(raw.get("templates", {}))},
+        root_entity={**WikiConfig().root_entity, **dict(raw.get("root_entity", {}))},
         audit={**WikiConfig().audit, **dict(raw.get("audit", {}))},
         karma={**WikiConfig().karma, **dict(raw.get("karma", {}))},
     )

@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-11
+updated_at: 2026-06-25
 stale_after_days: 180
 sources_policy: append_only_impact_dispensas
 gate: github_pr
@@ -30,3 +30,8 @@ only to the current diff; it is not a permanent exemption.
 ## Entries
 
 - 2026-06-11 | changed: [memories/index.md](../../index.md) | affected: [memories/sources/wiki-viva-methodology-v5.md](../../sources/wiki-viva-methodology-v5.md) | no_change: root MOC only gained a link to the docs/memory boundary review; the methodology source still describes the same method and does not need prose changes.
+- 2026-06-25 | changed: [memories/sources/wiki-viva-methodology-v5.md](../../sources/wiki-viva-methodology-v5.md) | affected: [memories/sources/config/wiki-viva-methodology-v5.md](../../sources/config/wiki-viva-methodology-v5.md) | reason: v6.8 adds config_ref/input-stage linkage; the source config was created in this diff and already captures the required routing.
+- 2026-06-25 | changed: [memories/sources/wiki-viva-methodology-v5.md](../../sources/wiki-viva-methodology-v5.md) | affected: [memories/system/input-channels/methodology-reference.md](../input-channels/methodology-reference.md) | reason: v6.8 creates the methodology input channel in this diff; no separate downstream edit is needed.
+- 2026-06-25 | changed: [memories/sources/wiki-viva-methodology-v5.md](../../sources/wiki-viva-methodology-v5.md) | affected: [memories/system/input-stage.md](../input-stage.md) | reason: v6.8 regenerates the input-stage page in this diff from the linked source/config/channel.
+- 2026-06-25 | changed: [memories/sources/wiki-viva-methodology-v5.md](../../sources/wiki-viva-methodology-v5.md) | affected: [memories/system/processes/wiki-methodology-maintenance.md](../processes/wiki-methodology-maintenance.md) | reason: v6.8 creates the maintenance process in this diff and links it to the methodology source.
+- 2026-06-25 | changed: [memories/sources/wiki-viva-methodology-v5.md](../../sources/wiki-viva-methodology-v5.md) | affected: [memories/system/wiki-viva-kit.md](../wiki-viva-kit.md) | reason: v6.8 creates the root entity in this diff and uses the methodology source as its open-source source of record.

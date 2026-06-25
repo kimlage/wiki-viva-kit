@@ -1,6 +1,6 @@
 # Docs
 
-Updated on: 2026-06-12
+Updated on: 2026-06-25
 
 `docs/` holds only perennial references, snapshots, decisions and templates. The
 starting point for persistent context is `memories/`.
@@ -14,22 +14,31 @@ starting point for persistent context is `memories/`.
   templates and perspectives in
   [ingestion-validation-perspectives-roadmap-2026-06-11.md](references/proposals/ingestion-validation-perspectives-roadmap-2026-06-11.md)
   and the v6.3 quality/cost roadmap in
-  [wiki-viva-v6.3-quality-cost-control-2026-06-12.md](references/proposals/wiki-viva-v6.3-quality-cost-control-2026-06-12.md).
+  [wiki-viva-v6.3-quality-cost-control-2026-06-12.md](references/proposals/wiki-viva-v6.3-quality-cost-control-2026-06-12.md),
+  plus the v6.8 root-entity/input-stage refactor in
+  [integral-root-entity-and-input-stage-refactor-2026-06-25.md](references/proposals/integral-root-entity-and-input-stage-refactor-2026-06-25.md).
 - `docs/references/fixtures/`: synthetic sources used to test methodology
   behavior before applying it to private data.
-- `docs/references/guides/`: adoption and migration guides, including the v6.2
-  migration guide in
-  [wiki-viva-v6.2-migration.md](references/guides/wiki-viva-v6.2-migration.md)
-  and the canonical entity navigation guide in
-  [canonical-entity-navigation.md](references/guides/canonical-entity-navigation.md),
-  plus the source refresh cadence guide in
+- `docs/references/guides/`: adoption and migration guides, including the
+  default open-source process guide in
+  [default-open-source-process.md](references/guides/default-open-source-process.md),
+  the v6.2 migration guide in
+  [wiki-viva-v6.2-migration.md](references/guides/wiki-viva-v6.2-migration.md),
+  the canonical entity navigation guide in
+  [canonical-entity-navigation.md](references/guides/canonical-entity-navigation.md)
+  and the source refresh cadence guide in
   [source-refresh-cadence.md](references/guides/source-refresh-cadence.md).
 - `docs/references/templates/`: stable models for new records.
 - `docs/references/templates/wiki/`: models for the operational wiki, including
-  ingestion proposal, decision, insight and PR checklist.
+  root entities, input channels, processes, artifacts, ingestion proposal,
+  decision, insight and PR checklist.
 - `docs/references/releases/`: release notes, including the OKF v0.1
   interoperability release in
-  [wiki-viva-v6.6.md](references/releases/wiki-viva-v6.6.md).
+  [wiki-viva-v6.6.md](references/releases/wiki-viva-v6.6.md) and the hierarchy
+  / short-term-memory release in
+  [wiki-viva-v6.7.md](references/releases/wiki-viva-v6.7.md), plus the
+  root-entity/input-stage release in
+  [wiki-viva-v6.8.md](references/releases/wiki-viva-v6.8.md).
 - Optional per-repo subfolders (create on demand): `inventories/` (inventory
   snapshots), `decisions/` (immutable historical decisions), `evaluations/`
   (one-off evaluation snapshots).

@@ -3,8 +3,8 @@ page_id: operational-pass-wiki-viva-kit
 page_type: dashboard
 context: system
 visibility: private_self
-updated_at: 2026-06-13
-stale_after_days: 30
+updated_at: 2026-06-25
+stale_after_days: 1
 sources_policy: memorias_fontes_acoes_contextos
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
@@ -13,9 +13,34 @@ purpose: "cross-context compilation of sources, actions, uncertainty and next st
 
 # Operational pass - sources, actions and contexts
 
-Updated at: 2026-06-13.
+Updated at: 2026-06-25.
 
 Deterministic compilation for contexts: all. Use this page to compress next steps into actions, problems, claims, decisions and target pages; it does not replace human reading of live sources.
+
+## Short-term memory
+
+Read this first: a compact daily state of items that still need review, decision or action. Full diagnostic sections remain below.
+
+### Review now
+
+- No attention items.
+
+### Primary actions
+
+- No prioritized pending actions.
+
+### Pending decisions
+
+- No pending decisions.
+
+### Latest updates
+
+- **system:** [Wiki Viva Kit](wiki-viva-kit.md) (2026-06-25)
+- **system:** [Wiki methodology maintenance](processes/wiki-methodology-maintenance.md) (2026-06-25)
+- **system:** [Systems and processes perspective](perspectives/systems-processes.md) (2026-06-25)
+- **system:** [Source config - Living wiki methodology](../sources/config/wiki-viva-methodology-v5.md) (2026-06-25)
+- **system:** [Roles and relationships perspective](perspectives/roles-relationships.md) (2026-06-25)
+
 
 ## Context summary
 

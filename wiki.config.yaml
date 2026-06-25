@@ -59,6 +59,20 @@ templates:
       template: docs/references/templates/wiki/perspective.md
       overlay: docs/references/templates/overlays/perspective-example.md
 
+root_entity:
+  page: memories/system/wiki-viva-kit.md
+  entity_type: product
+  input_stage_page: memories/system/input-stage.md
+  perspective_bundle:
+    required:
+      - perspective-identity-intent
+      - perspective-artifacts-evidence
+      - perspective-roles-relationships
+      - perspective-systems-processes
+    optional:
+      - perspective-privacy-publication
+  default_target_strategy: root_then_context_hub
+
 audit:
   orphan_check: true
   reachability_check: true
@@ -101,3 +115,4 @@ audit:
   require_frontmatter: true
   require_source_refs_for_facts: true
   stale_check: true
+  quality_max_relation_pages_without_parent: 0

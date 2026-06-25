@@ -28,12 +28,14 @@ operate; the others ([listed below](#deeper-references)) are optional detail.
 
 ```mermaid
 flowchart LR
+    root["Root entity"] --> stage["Input stage"]
     src["Source (file / URL)"] --> man["Deterministic manifest"]
     man --> chunks["Stable chunks"]
     chunks --> idx["FTS index"]
     idx --> scan["Secret pre-scan"]
     scan -->|secret found| stop["Blocked at origin"]
     scan -->|clean| pkg["LLM context package"]
+    stage --> pkg
     pkg -.delegated deep read.-> agent["Agent (you)"]
     agent --> result["Recorded result (cache)"]
     result --> ev["Normalized event"]
@@ -48,11 +50,14 @@ free. The deep read is the only model step, and it is yours.
 ## How to start, every session
 
 1. Confirm the repo root and read [wiki.config.yaml](../../wiki.config.yaml):
-   `language`, `contexts`, `paths` (English defaults, or a localized layout
-   pinned per repo), the privacy policy and the gates.
+   `language`, `root_entity`, `contexts`, `paths` (English defaults, or a
+   localized layout pinned per repo), the privacy policy and the gates.
 2. Open [AGENTS.md](../../AGENTS.md) — it routes to this repo's root memory
-   index (the MOC) and its cockpit page at their real paths. Read the root index,
-   then the cockpit if it exists.
+   index (the MOC), configured root entity and cockpit page at their real paths.
+   Read the root index, the root entity, then the cockpit if it exists.
+   If the task is a resume, review or consolidation round, also read the top
+   "Short-term memory" section of the operational pass before opening older
+   execution pages.
 3. The wiki **documents itself**: the meta-wiki (linked from
    [AGENTS.md](../../AGENTS.md)) is the official documentation, kept honest by
    the same gates. Read it when you need the *why*, not just the *how*.
@@ -66,9 +71,10 @@ free. The deep read is the only model step, and it is yours.
 | **Migrate existing pages** | Inventory legacy Markdown pages, add reviewed v6.2 frontmatter, register page types and reconnect the graph | [wiki-viva-v6.2-migration.md](../../docs/references/guides/wiki-viva-v6.2-migration.md) |
 | **Canonicalize entities** | Merge duplicated people/projects/sources into one canonical page, keep aliases there and update inbound links | [canonical-entity-navigation.md](../../docs/references/guides/canonical-entity-navigation.md) |
 | **Configure a source** | Create the source page + its config page (ingestion/search/business rules), register it; model meetings/cards/calendar as linked entities | [reference/sources.md](reference/sources.md) |
-| **Ingest** | Turn a source into manifest → chunks → index → pre-scan → context package → event → proposal | [reference/operating.md](reference/operating.md) |
+| **Compile input stage** | Recompile the generated root/channel/source catalog before source routing or setup-sensitive ingestion | [reference/operating.md](reference/operating.md) |
+| **Ingest** | Turn a source into manifest → chunks → index → pre-scan → input-stage-aware context package → event → proposal | [reference/operating.md](reference/operating.md) |
 | **Deep read** | Perform the delegated LLM pass over the emitted package and record the result | [reference/operating.md](reference/operating.md) + [wiki-llm-context-agent](../wiki-llm-context-agent/SKILL.md) |
-| **Create typed pages** | Use [wiki_new.py](../../scripts/wiki_new.py) with `wiki.page-types.yaml`; do not start typed pages from blank files | [reference/operating.md](reference/operating.md) |
+| **Create typed pages** | Use [wiki_new.py](../../scripts/wiki_new.py) with `wiki.page-types.yaml`; do not start typed pages from blank files, and keep relation pages under a declared `moc_parent` hub | [reference/operating.md](reference/operating.md) |
 | **Consolidate** | Generate the event + integration packet with [wiki_consolidate.py](../../scripts/wiki_consolidate.py), integrate into the target pages, close `consolidated_into` and `impact_closure`, then move the proposal through the gate and open the PR (the human gate) | [reference/operating.md](reference/operating.md) |
 | **Check quality/cost** | Run [wiki_quality_report.py](../../scripts/wiki_quality_report.py) to inspect density, repetition, consolidation gaps and cost/cache telemetry without enforcing a hard budget | [reference/gates-and-privacy.md](reference/gates-and-privacy.md) |
 | **Operational pass + cockpit + gates** | Recompile the source/action/context pass, recompile the cockpit and run the honesty gates before the PR | [reference/gates-and-privacy.md](reference/gates-and-privacy.md) |
@@ -105,7 +111,19 @@ ship the skeletons, so a generated page starts with the scaffold.
   a new ingestion pattern to private data. Cost is measured for control and
   comparison, not as a hard budget gate; pages should be dense, well linked and
   avoid literal repetition unless the repeated fact is reframed by a different
-  perspective, context or zoom level.
+  perspective, context or zoom level. The report also flags relation pages
+  without a declared hierarchy parent (`moc_parent`/parent hub).
+- **v6.8 root/input stage.** A repo starts from a configured `root_entity` page
+  that defines the semantic top entity, integral perspective bundle, input
+  channels, processes and target pages. Run
+  [wiki_input_stage.py](../../scripts/wiki_input_stage.py) `--check`/`--write`
+  whenever root/channel/source config changes; the LLM package inherits this
+  context.
+- **Hierarchy before execution.** Keep the top navigation conceptual: root MOC →
+  context/domain hub → subdomain/entity hub → relation/evidence pages →
+  execution/event pages. New actions, claims, decisions, meetings, people,
+  projects, sources and source configs must declare `moc_parent`; `source_refs`
+  is provenance, not navigation.
 - **Legacy migration is review-first.** Use
   [wiki_migration_inventory.py](../../scripts/wiki_migration_inventory.py) and
   the v6.2 migration guide to plan frontmatter migration; do not rewrite
@@ -121,6 +139,10 @@ ship the skeletons, so a generated page starts with the scaffold.
   navigation, link concrete files (`README.md`/`index.md`) instead of directory
   targets; the audit warns on directory links because Obsidian may treat them as
   new notes.
+- **Consolidate into hubs before creating parallel pages.** The context hub
+  carries the current synthesis and points down to relation/evidence/execution
+  pages. Do not spread a general concept across many sibling pages when one hub
+  plus typed children is enough.
 - **Write about the subject, not the process.** The deep-read produces specific
   content (quadrants, entities, relationships, context-fit), never filler or
   meta-narration. A not-yet-read proposal carries a pending marker, not fake text.

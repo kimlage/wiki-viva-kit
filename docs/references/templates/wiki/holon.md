@@ -20,6 +20,7 @@ sources_policy: memorias_consolidadas
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 owner: {{owner_id}}
+moc_parent: memories/index.md
 related_holons: []
 roles: []
 responsibilities: []

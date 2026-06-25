@@ -19,6 +19,7 @@ sources_policy: evidencia_de_acao
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 owner: {{owner_id}}
+moc_parent: memories/index.md
 related_holons: []
 roles: []
 responsibilities: []
@@ -50,6 +51,6 @@ State: `pending` | `in_pr` | `completed` | `blocked` | `recurring`.
 
 ## Related
 
-- MOC:
+- Parent MOC:
 - Decisions:
 - Evidence:

@@ -13,9 +13,13 @@ another) via skills — there is no embedded LLM client.
 - The consolidated memory lives in [memories/](memories/). [docs/](docs/) holds
   references, templates and snapshots; [data/raw](data/raw) and
   [data/derived](data/derived) are cache (gitignored).
+- The configured root entity is [memories/system/wiki-viva-kit.md](memories/system/wiki-viva-kit.md).
+  It is the semantic top page of the wiki; [memories/index.md](memories/index.md)
+  remains the technical MOC. The generated input stage is
+  [memories/system/input-stage.md](memories/system/input-stage.md).
 - Every source ingestion uses the orchestrator [scripts/wiki_ingest.py](scripts/wiki_ingest.py):
-  manifest, text/chunks, index, pre-scan, LLM context package and score-event.
-  The LLM pass is written to the cache by the agent (skill
+  manifest, text/chunks, index, pre-scan, input-stage-aware LLM context package
+  and score-event. The LLM pass is written to the cache by the agent (skill
   [wiki-llm-context-agent](.skills/wiki-llm-context-agent/SKILL.md)).
 - Core/toolkit corrections belong here first. Changes to [wiki_core/](wiki_core/),
   [scripts/](scripts/), [.skills/](.skills/), templates, gates or shared
@@ -39,7 +43,8 @@ another) via skills — there is no embedded LLM client.
 ## Structure
 
 - [wiki_core/](wiki_core/) — deterministic core (config, chunking, detectors,
-  extractors, gate, index, ingest, insight, llm, paths, score, source_manifest).
+  extractors, gate, index, ingest, input_stage, insight, llm, paths, score,
+  source_manifest).
 - [scripts/](scripts/) — `wiki_*` CLIs (ingest, audit, coverage, cockpit, gate,
   score, insight job, LLM pass).
 - [.skills/](.skills/) — portable `wiki-*` skills for the agent.
@@ -54,6 +59,7 @@ another) via skills — there is no embedded LLM client.
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_input_stage.py --check
 python3 -m pytest tests/
 ```
 
@@ -63,10 +69,13 @@ python3 -m pytest tests/
   [scripts/wiki_check_methodology_coverage.py](scripts/wiki_check_methodology_coverage.py).
 - Cockpit: [memories/operations.md](memories/operations.md) equal to the one recompiled at
   HEAD — [scripts/wiki_operation_compile.py](scripts/wiki_operation_compile.py).
+- Input stage: [memories/system/input-stage.md](memories/system/input-stage.md) equal to the
+  root entity/channel/source compilation at HEAD —
+  [scripts/wiki_input_stage.py](scripts/wiki_input_stage.py).
 
 ## Per-repo configuration
 
-Adjust [wiki.config.yaml](wiki.config.yaml): `repo_id`, `owner_label`, `contexts`
-(one hub per context, in [memories/](memories/)), privacy policy, gate and
-LLM parameters. The auditor and the coverage read the config — no context is
-hardcoded in the code.
+Adjust [wiki.config.yaml](wiki.config.yaml): `repo_id`, `owner_label`,
+`root_entity`, `contexts` (one hub per context, in [memories/](memories/)),
+privacy policy, gate and LLM parameters. The auditor and the coverage read the
+config — no context is hardcoded in the code.

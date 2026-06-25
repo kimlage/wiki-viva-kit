@@ -8,12 +8,12 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-10
+updated_at: 2026-06-25
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
-purpose: "Map the honesty gates of the living wiki: contract auditing, coverage, cockpit freshness, closed consolidation and execution modes."
+purpose: "Map the honesty gates of the living wiki: contract auditing, coverage, generated-page freshness, closed consolidation and execution modes."
 moc_parent: memories/system/wiki/index.md
 related_pages:
   - memories/system/wiki/index.md
@@ -21,17 +21,36 @@ related_pages:
 
 # Gates and auditing
 
-Updated on: 2026-06-10.
+Updated on: 2026-06-25.
 
-The gates are the honesty layer of the living wiki: deterministic scripts that fail (non-zero exit code) when the repository violates the contract, omits the deep read, leaves a read source without integration or leaves the cockpit out of date. They run in CI on the [gate by PR](../git-approvals.md) and locally before opening the proposal. Four families cover distinct dimensions: contract auditing ([wiki_audit.py](../../../scripts/wiki_audit.py)), methodology coverage ([wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py)), cockpit freshness ([wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py)) and closed consolidation ([wiki_consolidate.py](../../../scripts/wiki_consolidate.py)). The audited contract itself is described in [operational wiki contract](../operational-wiki-contract.md); here we document how it is verified.
+The gates are the honesty layer of the living wiki: deterministic scripts that
+fail (non-zero exit code) when the repository violates the contract, omits the
+deep read, leaves a read source without integration, lets relation pages drift
+outside the hierarchy or leaves generated pages out of date. They run in CI on
+the [gate by PR](../git-approvals.md) and locally before opening the proposal.
+The families cover distinct dimensions: contract auditing
+([wiki_audit.py](../../../scripts/wiki_audit.py)), methodology coverage
+([wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py)),
+generated-page freshness ([wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py),
+[wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py),
+[wiki_source_registry.py](../../../scripts/wiki_source_registry.py) and
+[wiki_input_stage.py](../../../scripts/wiki_input_stage.py)), closed
+consolidation ([wiki_consolidate.py](../../../scripts/wiki_consolidate.py)) and
+quality/hierarchy telemetry ([wiki_quality_report.py](../../../scripts/wiki_quality_report.py)).
+The audited contract itself is described in [operational wiki contract](../operational-wiki-contract.md);
+here we document how it is verified.
 
-Running the four gates (check mode, fails with code != 0):
+Running the local gates (check mode, fails with code != 0):
 
 ```sh
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_operational_pass.py --check
+python3 scripts/wiki_source_registry.py --check
+python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_consolidate.py --check
+python3 scripts/wiki_quality_report.py --check
 ```
 
 The honesty gates at a glance — what each verifies and where it runs in CI:
@@ -43,9 +62,13 @@ The honesty gates at a glance — what each verifies and where it runs in CI:
 | PII boundary | PII only crosses the public boundary when redacted | `wiki_audit.py --check` (`audit_pii`) |
 | LLM pass | Every requested chunk has a recorded, valid result | `wiki_audit.py --check` (`audit_context_pass_gate`) |
 | Consolidation closed | New event needs `consolidated_into` + each target references the source back in `source_refs` + candidate claims linked or `sem_claim` | [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` and [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` (CI) |
+| Quality and hierarchy | Low-density/repeated pages, open integration flags, operational-coverage gaps and relation pages without `moc_parent` when configured | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) `--check` |
 | Gate state | Every proposal carries a valid `gate_state` | `wiki_audit.py --check` (`audit_ingestion_proposals_gate_state`) |
 | Methodology coverage | Required pages/templates exist with real content | `wiki_check_methodology_coverage.py --check` |
 | Cockpit freshness | The deterministic cockpit body matches a recompile at HEAD | `wiki_operation_compile.py --check` |
+| Operational pass freshness | The source/action/context pass matches a recompile at HEAD | `wiki_operational_pass.py --check` |
+| Source registry freshness | The generated source registry matches source page frontmatter | `wiki_source_registry.py --check` |
+| Input stage freshness | The generated root/channel/source input stage matches a recompile at HEAD | `wiki_input_stage.py --check` |
 | Public export | PII becomes an error on ANY page before publishing | `wiki_audit.py --check --public-export` |
 
 ## Contract auditing (wiki_audit)
@@ -99,6 +122,43 @@ Recompiling and writing the cockpit before committing:
 
 ```sh
 python3 scripts/wiki_operation_compile.py --write
+```
+
+## Input stage and source registry freshness
+
+[wiki_input_stage.py](../../../scripts/wiki_input_stage.py) compiles the
+configured root entity, input channels, source pages and source configs into
+[input-stage.md](../input-stage.md). Its `--check` compares the generated page
+against a recompile using the page's existing `updated_at`; if the gitignored
+catalog exists under the derived input-stage cache, it is checked too. This
+keeps root/channel/source routing deterministic without
+requiring cache files in a clean clone.
+
+[wiki_source_registry.py](../../../scripts/wiki_source_registry.py) performs the
+same freshness check for [source-registry.md](../source-registry.md), where
+canonical source pages are indexed by state, last update and refresh cadence.
+
+```sh
+python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_source_registry.py --check
+```
+
+## Quality and hierarchy telemetry
+
+[wiki_quality_report.py](../../../scripts/wiki_quality_report.py) measures
+quality surfaces that are too semantic for the link audit but still fully
+deterministic: density, same-context repetition, unclosed ingestion events,
+operational model coverage and relation pages without a declared parent hub. The
+hierarchy signal deliberately ignores `source_refs`: provenance tells where a
+fact came from, while `moc_parent`/parent hub tells where the page belongs.
+
+The gate is opt-in per threshold, read from
+[wiki.config.yaml](../../../wiki.config.yaml). This kit sets
+`audit.quality_max_relation_pages_without_parent: 0` so new typed relation pages
+cannot accumulate beside the conceptual hubs.
+
+```sh
+python3 scripts/wiki_quality_report.py --check
 ```
 
 ## --public-export and --strict-local modes

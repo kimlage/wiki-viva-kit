@@ -24,6 +24,7 @@ sources_policy: memorias_consolidadas
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 owner: person-example
+moc_parent: memories/people/index.md
 contacts:
   email: ""
   phone: ""
@@ -72,6 +73,6 @@ Update this when the perspective changes.
 
 ## Related
 
-- MOC: [memories/people/index.md](../../../../memories/people/index.md)
+- Parent MOC: [memories/people/index.md](../../../../memories/people/index.md)
 - Roles:
 - Responsibilities:
