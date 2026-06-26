@@ -35,13 +35,14 @@ ATTENTION_RE = re.compile(
 )
 OPEN_CLAIM_QUALIFIER_RE = re.compile(
     r"\b("
-    r"open risk|open gap|unresolved gap|risk of|"
-    r"risco aberto|risco de|lacuna aberta|lacuna que segue aberta|"
+    r"open risk|open gap|unresolved gap|"
+    r"risco aberto|lacuna aberta|lacuna que segue aberta|"
     r"segue aberta|segue aberto|pendencia aberta|pendencias abertas|"
     r"conflito aberto|conflito mantido aberto|mantido aberto|mantida aberta"
     r")\b",
     re.I,
 )
+OPEN_CLAIM_BULLET_RE = re.compile(r"(?im)^\s*-\s*(?:risk of|risco de)\b")
 SHORT_TERM_LIMIT = 5
 CLOSED_STATUS_SLUGS = frozenset(
     {
@@ -1159,7 +1160,10 @@ def _claim_needs_attention(page: PageRecord) -> bool:
 
 def _claim_has_open_attention_qualifier(page: PageRecord) -> bool:
     haystack = " ".join((page.status, page.body[:2000]))
-    return bool(OPEN_CLAIM_QUALIFIER_RE.search(haystack))
+    return bool(
+        OPEN_CLAIM_QUALIFIER_RE.search(haystack)
+        or OPEN_CLAIM_BULLET_RE.search(page.body[:2000])
+    )
 
 
 def _attention_rows(

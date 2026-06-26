@@ -145,6 +145,29 @@ def _factual_claim_with_open_lacuna() -> str:
     )
 
 
+def _factual_claim_with_open_risk_bullet() -> str:
+    return (
+        "---\n"
+        "page_id: claim-finance-fact-open-risk\n"
+        "page_type: claim\n"
+        "title: \"Claim - Financial snapshot with open risk\"\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-11\n"
+        "stale_after_days: 30\n"
+        "sources_policy: source\n"
+        "gate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        "source_refs:\n"
+        "  - source-crm\n"
+        "---\n\n"
+        "# Claim - Financial snapshot with open risk\n\n"
+        "Status: `fato`.\n\n"
+        "## Conflitos e ambiguidades\n\n"
+        "- Risco de chegar na assembleia sem demonstracoes prontas.\n"
+    )
+
+
 def _insight_claim_with_risk_words() -> str:
     return (
         "---\n"
@@ -163,8 +186,8 @@ def _insight_claim_with_risk_words() -> str:
         "---\n\n"
         "# Claim - PR gate reduces risk\n\n"
         "Status: `insight`.\n\n"
-        "A review gate reduces risk, but this is an accepted process insight, "
-        "not an operational blocker.\n"
+        "A review gate reduces risk of private leakage, but this is an accepted "
+        "process insight, not an operational blocker.\n"
     )
 
 
@@ -277,6 +300,22 @@ def test_operational_pass_surfaces_factual_claims_with_open_lacunas(
 
     assert report.context_rows[0].claims == 1
     assert report.attention[0].page.page_id == "claim-constitution-fact-open-gap"
+    assert report.consolidation_outputs[0].problems == 1
+    assert report.consolidation_outputs[0].signal == "needs_review"
+
+
+def test_operational_pass_surfaces_factual_claims_with_open_risk_bullets(
+    tmp_path: Path,
+):
+    mem = tmp_path / "memories"
+    _write(mem / "example" / "index.md", _hub("example"))
+    _write(mem / "claims" / "open-risk.md", _factual_claim_with_open_risk_bullet())
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
+    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+
+    assert report.context_rows[0].claims == 1
+    assert report.attention[0].page.page_id == "claim-finance-fact-open-risk"
     assert report.consolidation_outputs[0].problems == 1
     assert report.consolidation_outputs[0].signal == "needs_review"
 
