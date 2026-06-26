@@ -36,11 +36,11 @@ Read this first: a compact daily state of items that still need review, decision
 
 ### Latest updates
 
+- **system:** [Memory log](log.md) (2026-06-26)
 - **system:** [Wiki Viva Kit](wiki-viva-kit.md) (2026-06-25)
 - **system:** [Wiki methodology maintenance](processes/wiki-methodology-maintenance.md) (2026-06-25)
 - **system:** [Systems and processes perspective](perspectives/systems-processes.md) (2026-06-25)
 - **system:** [Source config - Living wiki methodology](../sources/config/wiki-viva-methodology-v5.md) (2026-06-25)
-- **system:** [Roles and relationships perspective](perspectives/roles-relationships.md) (2026-06-25)
 
 
 ## Context summary
