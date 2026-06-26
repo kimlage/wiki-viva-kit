@@ -52,11 +52,11 @@ A living wiki should start from an integral root entity:
 flowchart TD
     Root["Root entity page"] --> Q1["Q1 - subjective identity and intent"]
     Root --> Q2["Q2 - observable artifacts and evidence"]
-    Root --> Q3["Q3 - roles, people, culture and relationships"]
+    Root --> Q3["Q3 - shared meaning, culture and roles-as-lived"]
     Root --> Q4["Q4 - systems, channels, processes and governance"]
     Q1 --> Perspectives["Perspective bundle"]
     Q2 --> Artifacts["Artifact/source catalog"]
-    Q3 --> People["People, roles, responsibilities"]
+    Q3 --> SharedField["Relationships, norms and mutual expectations"]
     Q4 --> Inputs["Input stage and process map"]
     Inputs --> Ingest["Deterministic ingest pipeline"]
     Ingest --> Memory["Integrated wiki memory"]

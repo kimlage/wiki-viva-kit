@@ -78,6 +78,9 @@ Classify the fact being extracted, not merely the source type:
   a roster or administered role structure.
 - [root-entity.md](../templates/wiki/root-entity.md), the kit root entity and
   perspective pages now teach the same boundary.
+- Historical planning labels that could be read out of context were tightened:
+  Q3 is now described as shared meaning, culture, relationships and
+  roles-as-lived, not as a generic people/roles bucket.
 - [tests/test_input_stage.py](../../../tests/test_input_stage.py) and
   [test_aqal_quadrants.py](../../../tests/test_aqal_quadrants.py) prevent
   regression to the older ambiguous wording.

@@ -73,7 +73,7 @@ privacy_boundary: private_self
 
 | Quadrant | Required perspectives | Optional perspectives |
 | --- | --- | --- |
-| Q1/Q2/Q3/Q4 | identity, artifacts, roles, systems | privacy/publication |
+| Q1/Q2/Q3/Q4 | identity/intent, outputs/evidence, shared meaning/roles-as-lived, systems/processes | privacy/publication |
 
 ## Process Links
 

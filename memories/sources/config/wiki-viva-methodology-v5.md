@@ -63,8 +63,8 @@ Governs the source: [Living wiki methodology](../wiki-viva-methodology-v5.md).
 
 ## Perspectives
 
-- Required: identity/intent, artifacts/evidence, roles/relationships and
-  systems/processes.
+- Required: identity/intent, artifacts/evidence, roles-as-lived/relationships
+  and systems/processes.
 - Optional: privacy/publication when a change affects public docs, releases or
   examples.
 

@@ -30,6 +30,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
   list" or "Q2 = any file/repository"; delegated reads must classify the fact
   in relation to the root holon and keep administered structures in Q4 unless
   shared meaning or roles-as-lived are present.
+- Historical proposal and input-channel labels were also tightened so external
+  apps cannot cite the kit as teaching "Q3 = people/roles" out of context.
 
 ## [2026-06-25] System | Compile-time branch state label
 

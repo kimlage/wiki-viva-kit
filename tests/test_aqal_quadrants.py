@@ -31,3 +31,18 @@ def test_public_quadrant_report_rejects_lossy_entity_bucket_mapping() -> None:
     assert "Q3 = any people/roles" in report
     assert "Q2 = any file/repository" in report
     assert "classify the extracted fact in relation to the root holon" in report
+
+
+def test_methodology_references_do_not_teach_q3_as_plain_people_bucket() -> None:
+    proposal = (
+        ROOT
+        / "docs/references/proposals/integral-root-entity-and-input-stage-refactor-2026-06-25.md"
+    ).read_text(encoding="utf-8")
+    channel = (ROOT / "memories/system/input-channels/methodology-reference.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'Q3["Q3 - roles, people, culture and relationships"]' not in proposal
+    assert 'Q3 --> People["People, roles, responsibilities"]' not in proposal
+    assert "| Q1/Q2/Q3/Q4 | identity, artifacts, roles, systems |" not in channel
+    assert "shared meaning/roles-as-lived" in channel
