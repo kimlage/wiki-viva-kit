@@ -315,4 +315,9 @@ def test_render_input_stage_markdown_uses_localized_layout_and_language(tmp_path
     assert "## Entidade raiz" in md
     assert "## Semantica dos quadrantes" in md
     assert "## Canais de entrada" in md
+    assert "Vista interior do holon raiz" in md
+    assert "O fato de algo ser documento ou repositorio nao basta" in md
+    assert "cadastro simples de pessoas" in md
+    assert "Regra de fronteira: Aplicar o quadrante ao holon raiz" in md
+    assert "Apply the quadrant to the root holon" not in md
     assert "Atualizado em: 2026-06-25." in md
