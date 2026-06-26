@@ -26,9 +26,11 @@ Operational-pass insight claim noise release.
 - The operational pass still surfaces open hypotheses, proposals, uncertainties
   and claims without closed/accepted epistemic status when they contain attention
   terms such as risk, gap, pending or blocker.
+- Factual/confirmed claims still surface when they explicitly preserve an open
+  qualifier such as open risk, open gap, `risco aberto` or `lacuna que segue
+  aberta`.
 - [test_operational_pass.py](../../../tests/test_operational_pass.py) covers the
-  case where an accepted process insight mentions risk without becoming an
-  operational problem.
+  accepted-insight case and the factual-claim-with-open-gap case.
 
 ## Validation
 

@@ -28,8 +28,17 @@ TITLE_PREFIX_RE = re.compile(r"^(?:Decisao|Decision|Acao|Action|Claim|Fonte|Sour
 ATTENTION_RE = re.compile(
     r"\b("
     r"pending|blocked|blocker|stale|partial|unread|incomplete|unknown|gap|risk|"
-    r"pendente|bloquead[oa]?|stale|parcial|incomplet[oa]?|incerteza|problema|"
+    r"pendente|bloquead[oa]?|stale|parcial|incomplet[oa]?|incerteza|problema|lacuna|"
     r"contradicao|contradicao|risco|vencid[oa]?|sem evidencia"
+    r")\b",
+    re.I,
+)
+OPEN_CLAIM_QUALIFIER_RE = re.compile(
+    r"\b("
+    r"open risk|open gap|unresolved gap|risk of|"
+    r"risco aberto|risco de|lacuna aberta|lacuna que segue aberta|"
+    r"segue aberta|segue aberto|pendencia aberta|pendencias abertas|"
+    r"conflito aberto|conflito mantido aberto|mantido aberto|mantida aberta"
     r")\b",
     re.I,
 )
@@ -1142,7 +1151,15 @@ def _decision_needs_attention(page: PageRecord) -> bool:
 def _claim_needs_attention(page: PageRecord) -> bool:
     """Claims use epistemic status; facts should not become operational noise."""
     status = _status_slug(page.status)
-    return status not in NON_ATTENTION_CLAIM_STATUS_SLUGS and _page_needs_attention(page)
+    open_qualifier = _claim_has_open_attention_qualifier(page)
+    if status in NON_ATTENTION_CLAIM_STATUS_SLUGS:
+        return open_qualifier
+    return open_qualifier or _page_needs_attention(page)
+
+
+def _claim_has_open_attention_qualifier(page: PageRecord) -> bool:
+    haystack = " ".join((page.status, page.body[:2000]))
+    return bool(OPEN_CLAIM_QUALIFIER_RE.search(haystack))
 
 
 def _attention_rows(
