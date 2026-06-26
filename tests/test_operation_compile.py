@@ -238,6 +238,46 @@ def test_build_page_reflects_actions_from_sources(compile_mod, config, minimal_r
     assert "## Acoes do dono (Alex Doe)" in page
 
 
+def test_build_page_excludes_closed_actions_from_owner_table(
+    compile_mod, config, minimal_repo
+):
+    _write(
+        minimal_repo / "memories" / "actions" / "fechada.md",
+        _action(
+            "acao-fechada",
+            "sistema",
+            "Nao reabrir item concluido",
+            "concluida_em_2026-06-25",
+        ),
+    )
+    _write(
+        minimal_repo / "memories" / "actions" / "resolvida-frontmatter.md",
+        (
+            "---\n"
+            "page_id: acao-resolvida-frontmatter\n"
+            "page_type: action\n"
+            "context: sistema\n"
+            "status: resolved\n"
+            "visibility: private_self\n"
+            "updated_at: 2026-06-08\n"
+            "stale_after_days: 30\n"
+            "sources_policy: contrato\n"
+            "gate: github_pr\n"
+            "sensitive_data_policy: private_sensitive_allowed\n"
+            "---\n\n"
+            "# Acao - Nao reabrir item resolvido\n\n"
+            "State: `pending`.\n"
+        ),
+    )
+
+    page = compile_mod.build_page(minimal_repo, config)
+
+    assert "Revisar cobertura" in page
+    assert "Conciliar fila" in page
+    assert "Nao reabrir item concluido" not in page
+    assert "Nao reabrir item resolvido" not in page
+
+
 def test_build_page_extracts_state_before_inline_detail(compile_mod, config, minimal_repo):
     _write(
         minimal_repo / "memories" / "actions" / "terceira.md",
@@ -366,7 +406,7 @@ def test_build_page_empty_repo_writes_honest_placeholders(compile_mod, config, t
     (tmp_path / "memories").mkdir()
     page = compile_mod.build_page(tmp_path, config)
     assert "Sem decisoes pendentes registradas." in page
-    assert "Sem acoes registradas." in page
+    assert "Sem acoes abertas registradas." in page
     assert "Sem acoes pendentes registradas." in page
     assert "Sem hubs de contexto registrados." in page
     # Still portable / parameterized even when empty.
