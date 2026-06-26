@@ -219,7 +219,7 @@ def test_operational_pass_does_not_surface_factual_claims_as_attention(
     assert "Claim - Rating formerly pending" not in page
 
 
-def test_short_review_balances_attention_across_contexts(tmp_path: Path):
+def test_short_memory_balances_attention_and_actions_across_contexts(tmp_path: Path):
     def action_page(page_id: str, title: str, context: str) -> str:
         return (
             "---\n"
@@ -262,11 +262,18 @@ def test_short_review_balances_attention_across_contexts(tmp_path: Path):
     )
     page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
     review_block = page.split("### Review now", 1)[1].split("### Primary actions", 1)[0]
+    actions_block = page.split("### Primary actions", 1)[1].split(
+        "### Pending decisions", 1
+    )[0]
 
     assert "Finance review" in review_block
     assert "Professional review" in review_block
     assert "Docs 1" in review_block
     assert "Docs 5" not in review_block
+    assert "Finance review" in actions_block
+    assert "Professional review" in actions_block
+    assert "Docs 1" in actions_block
+    assert "Docs 5" not in actions_block
 
 
 def test_operational_pass_surfaces_pending_decisions(tmp_path: Path):

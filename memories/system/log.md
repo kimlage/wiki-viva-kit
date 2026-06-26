@@ -14,6 +14,17 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | Operational pass primary actions balance contexts
+
+- [operational_pass.py](../../wiki_core/operational_pass.py) now selects the
+  short `Primary actions` block with a context-balanced round-robin after
+  building the existing pending/attention candidate list.
+- The full action table and action eligibility rules are unchanged; only the
+  daily short-memory excerpt is balanced before truncation.
+- [test_operational_pass.py](../../tests/test_operational_pass.py) and the
+  [v6.8.5 release note](../../docs/references/releases/wiki-viva-v6.8.5.md)
+  document the expected behavior.
+
 ## [2026-06-26] System | Operational pass short memory balances contexts
 
 - [operational_pass.py](../../wiki_core/operational_pass.py) now selects the
