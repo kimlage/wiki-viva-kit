@@ -36,11 +36,11 @@ Read this first: a compact daily state of items that still need review, decision
 
 ### Latest updates
 
+- **system:** [Stakeholder perspective](perspectives/stakeholder.md) (2026-06-26)
+- **system:** [Perspectives](perspectives/index.md) (2026-06-26)
 - **system:** [Operations - wiki-viva-kit](../operations.md) (2026-06-26)
 - **system:** [Operational pass - sources, actions and contexts](operational-pass.md) (2026-06-26)
 - **system:** [Memory log](log.md) (2026-06-26)
-- **system:** [Input stage](input-stage.md) (2026-06-26)
-- **system:** [Wiki Viva Kit](wiki-viva-kit.md) (2026-06-25)
 
 
 ## Context summary

@@ -4,7 +4,7 @@ page_id: report-aqal-quadrant-alignment-2026-06-25
 page_type: evaluation_report
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-06-26
 stale_after_days: 180
 sources_policy: public_reference_concept_check
 gate: github_pr
@@ -56,6 +56,12 @@ The compatibility rule for downstream apps is:
   culture or roles-as-lived;
 - treat files/repositories/tools as Q2 only when the specific fact is owned
   output/evidence; the coordinating platform/workflow is Q4.
+
+Topical perspectives are not quadrant definitions. For example, the stakeholder
+perspective can extract people, roles and commitments across quadrants; only the
+roles-and-relationships perspective with `quadrant: q3` is the Q3 AQAL contract,
+and even there plain administered structures remain Q4 unless shared interior
+meaning is present.
 
 ## Boundary Rule
 
