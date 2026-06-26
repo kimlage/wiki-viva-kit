@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-06-26
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Command reference
 
-Last updated: 2026-06-25.
+Last updated: 2026-06-26.
 
 This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/README.md) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
 
@@ -59,6 +59,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_operational_pass.py](../../../scripts/wiki_operational_pass.py) | Compiles sources, actions and next steps by context | (Re)generate [operational-pass.md](../operational-pass.md) before a consolidation round |
 | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) | Generates the canonical source registry | (Re)generate [source-registry.md](../source-registry.md) with state/date/next refresh |
 | [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) | Generates the root/channel/source input stage | (Re)generate [input-stage.md](../input-stage.md) before source routing or setup changes |
+| [wiki_quadrant_contract.py](../../../scripts/wiki_quadrant_contract.py) | Prints the canonical Wilber/AQAL quadrant contract | Give external consumers the authoritative `q1/q2/q3/q4` mapping without scraping prose |
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audits the wiki contract | Validate contract/links/secrets at commit and in CI |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Checks the presence AND content of methodology v5 | Ensure the methodology is in fact implemented |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarizes the PR diff by context/entity | Generate the PR review summary |
@@ -481,6 +482,21 @@ python3 scripts/wiki_input_stage.py --write
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_input_stage.py --format json
 python3 scripts/wiki_input_stage.py --ready
+```
+
+### [wiki_quadrant_contract.py](../../../scripts/wiki_quadrant_contract.py) - canonical quadrant contract
+
+Prints the authoritative Wilber/AQAL quadrant contract used by the kit and by
+generated input-stage catalogs. Use it when a downstream application needs to
+map `q1/q2/q3/q4` without inferring semantics from templates, diagrams or
+historical proposals.
+
+- `--format json`: prints the machine-readable contract.
+- `--format markdown`: prints the same contract as a compact reference table.
+
+```sh
+python3 scripts/wiki_quadrant_contract.py --format json
+python3 scripts/wiki_quadrant_contract.py --format markdown
 ```
 
 ## Audit, coverage and PR review

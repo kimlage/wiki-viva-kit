@@ -10,3 +10,7 @@ reading remains delegated to the agent running the repo.
 Use [wiki_audit.py](wiki_audit.py), [wiki_input_stage.py](wiki_input_stage.py),
 [wiki_operation_compile.py](wiki_operation_compile.py) and
 [wiki_pr_summary.py](wiki_pr_summary.py) as the default PR gate surface.
+
+Use [wiki_quadrant_contract.py](wiki_quadrant_contract.py) when an external
+consumer needs the canonical Wilber/AQAL `q1/q2/q3/q4` mapping without scraping
+templates or historical proposals.

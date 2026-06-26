@@ -14,6 +14,21 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | AQAL quadrant contract exposed for external consumers
+
+- [quadrants.py](../../wiki_core/quadrants.py) centralizes the canonical
+  Wilber/AQAL mapping: Q1/I interior individual, Q2/It exterior individual,
+  Q3/We interior collective and Q4/Its exterior collective.
+- [wiki_quadrant_contract.py](../../scripts/wiki_quadrant_contract.py) prints
+  the same contract as JSON or Markdown so external applications do not infer
+  semantics from diagrams, templates or historical proposal wording.
+- [input_stage.py](../../wiki_core/input_stage.py) now reuses that contract, so
+  generated input-stage catalogs and external integration output share the same
+  source of truth.
+- [command-reference.md](wiki/command-reference.md) documents the new CLI, and
+  [test_aqal_quadrants.py](../../tests/test_aqal_quadrants.py) verifies both
+  the Python contract and CLI output.
+
 ## [2026-06-26] System | Operational pass filters insight claim noise
 
 - [operational_pass.py](../../wiki_core/operational_pass.py) now treats claim
