@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from pathlib import Path
+
+from wiki_core.quadrants import quadrant_contract
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -95,3 +100,45 @@ def test_topical_stakeholder_perspective_does_not_define_q3() -> None:
     assert "This is a topical stakeholder perspective, not the Q3 quadrant contract" in stakeholder
     assert "assignments as Q4 unless" in stakeholder
     assert "quadrant: q3" in roles
+
+
+def test_quadrant_contract_is_authoritative_for_external_consumers() -> None:
+    contract = quadrant_contract("en")
+    quadrants = contract["quadrants"]
+
+    assert contract["schema_version"] == "wiki_quadrant_contract.v1"
+    assert contract["axis_pair"] == {
+        "interior_exterior": "interior/exterior",
+        "individual_collective": "individual/collective",
+    }
+    assert quadrants["q1"]["semantic_key"] == "interior_individual"
+    assert quadrants["q1"]["aqal_position"] == "I / interior individual"
+    assert quadrants["q2"]["semantic_key"] == "exterior_individual"
+    assert quadrants["q2"]["aqal_position"] == "It / exterior individual"
+    assert quadrants["q3"]["semantic_key"] == "interior_collective"
+    assert quadrants["q3"]["aqal_position"] == "We / interior collective"
+    assert quadrants["q4"]["semantic_key"] == "exterior_collective"
+    assert quadrants["q4"]["aqal_position"] == "Its / exterior collective"
+    assert quadrants["q3"]["perspective_id"] == "perspective-roles-relationships"
+    assert "plain people roster" in quadrants["q3"]["operational_test"]
+    assert "output/evidence of the root entity" in quadrants["q2"]["operational_test"]
+    assert "q2 only" in contract["boundary_rule"]
+    assert "they belong to q4" in contract["boundary_rule"]
+    assert "Q3 = any person, role list, roster, org chart or RACI" in contract["anti_patterns"]
+
+
+def test_quadrant_contract_cli_matches_python_contract() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/wiki_quadrant_contract.py"),
+            "--format",
+            "json",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert json.loads(result.stdout) == quadrant_contract("en")

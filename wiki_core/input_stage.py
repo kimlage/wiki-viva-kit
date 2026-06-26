@@ -16,128 +16,15 @@ from typing import Any
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.paths import WikiPaths
+from wiki_core.quadrants import (
+    DEFAULT_QUADRANT_MAP,
+    quadrant_boundary_rule,
+    quadrant_semantics,
+)
 from wiki_core.source_config import find_source_config
 
 INPUT_STAGE_SCHEMA_VERSION = "wiki_input_stage.v1"
 SOURCE_PAGE_TYPES = {"source", "source_catalog", "artifact"}
-
-DEFAULT_QUADRANT_MAP = {
-    "q1": ["perspective-identity-intent"],
-    "q2": ["perspective-artifacts-evidence"],
-    "q3": ["perspective-roles-relationships"],
-    "q4": ["perspective-systems-processes"],
-}
-
-DEFAULT_QUADRANT_SEMANTICS = {
-    "q1": {
-        "semantic_key": "interior_individual",
-        "label": "Q1 - Interior individual",
-        "aqal_position": "I / interior individual",
-        "operational_test": (
-            "Interior view of the root holon: lived or declared identity, intent, "
-            "meaning, priorities or constraints. For a team/company/product, do "
-            "not invent consciousness; use stated mission, self-description or "
-            "stakeholder intent."
-        ),
-    },
-    "q2": {
-        "semantic_key": "exterior_individual",
-        "label": "Q2 - Exterior individual",
-        "aqal_position": "It / exterior individual",
-        "operational_test": (
-            "Exterior view of the root holon as one entity: observable behavior, "
-            "direct output, owned artifact, evidence or metric. The fact that "
-            "something is a document or repository is not enough; it must be an "
-            "output/evidence of the root entity."
-        ),
-    },
-    "q3": {
-        "semantic_key": "interior_collective",
-        "label": "Q3 - Interior collective",
-        "aqal_position": "We / interior collective",
-        "operational_test": (
-            "Interior view of the collective: shared meaning, culture, roles as "
-            "lived expectations, relationships, rituals and norms. A plain people "
-            "roster or formal org chart is not Q3 unless it carries the shared "
-            "meaning or relationship field."
-        ),
-    },
-    "q4": {
-        "semantic_key": "exterior_collective",
-        "label": "Q4 - Exterior collective",
-        "aqal_position": "Its / exterior collective",
-        "operational_test": (
-            "Exterior view of the collective: systems, channels, tools, platforms, "
-            "workflows, rules, institutions, governance and process infrastructure."
-        ),
-    },
-}
-
-DEFAULT_QUADRANT_SEMANTICS_PT = {
-    "q1": {
-        "semantic_key": "interior_individual",
-        "label": "Q1 - Interior individual",
-        "aqal_position": "I / interior individual",
-        "operational_test": (
-            "Vista interior do holon raiz: identidade, intencao, significado, "
-            "prioridades ou limites vividos ou declarados. Para time, empresa "
-            "ou produto, nao inventar consciencia; usar missao declarada, "
-            "autodescricao ou intencao de stakeholders."
-        ),
-    },
-    "q2": {
-        "semantic_key": "exterior_individual",
-        "label": "Q2 - Exterior individual",
-        "aqal_position": "It / exterior individual",
-        "operational_test": (
-            "Vista exterior do holon raiz como uma entidade: comportamento "
-            "observavel, output direto, artefato proprio, evidencia ou metrica. "
-            "O fato de algo ser documento ou repositorio nao basta; precisa ser "
-            "output/evidencia da entidade raiz."
-        ),
-    },
-    "q3": {
-        "semantic_key": "interior_collective",
-        "label": "Q3 - Interior coletivo",
-        "aqal_position": "We / interior collective",
-        "operational_test": (
-            "Vista interior do coletivo: significado compartilhado, cultura, "
-            "papeis como expectativas vividas, relacoes, rituais e normas. Um "
-            "cadastro simples de pessoas ou organograma formal nao e Q3 salvo "
-            "quando carrega significado compartilhado ou campo relacional."
-        ),
-    },
-    "q4": {
-        "semantic_key": "exterior_collective",
-        "label": "Q4 - Exterior coletivo",
-        "aqal_position": "Its / exterior collective",
-        "operational_test": (
-            "Vista exterior do coletivo: sistemas, canais, ferramentas, "
-            "plataformas, workflows, regras, instituicoes, governanca e "
-            "infraestrutura de processo."
-        ),
-    },
-}
-
-DEFAULT_QUADRANT_BOUNDARY_RULE = (
-    "Apply the quadrant to the root holon and the source's role in context. A "
-    "repository, document, dashboard or ticket is q2 only when it is an owned "
-    "artifact/output/evidence of the root entity. The platform, workflow, "
-    "governance rule or communication channel that coordinates people around it "
-    "is q4. People, roles and relationships are q3 only when read as shared "
-    "meaning, mutual expectation or culture; as externally administered structure "
-    "they belong to q4."
-)
-
-DEFAULT_QUADRANT_BOUNDARY_RULE_PT = (
-    "Aplicar o quadrante ao holon raiz e ao papel da fonte no contexto. Um "
-    "repositorio, documento, dashboard ou ticket e q2 apenas quando e um "
-    "artefato/output/evidencia proprio da entidade raiz. A plataforma, workflow, "
-    "regra de governanca ou canal de comunicacao que coordena pessoas ao redor "
-    "dele e q4. Pessoas, papeis e relacoes sao q3 apenas quando lidas como "
-    "significado compartilhado, expectativa mutua ou cultura; como estrutura "
-    "administrada externamente, pertencem a q4."
-)
 
 SOURCE_STATUS_TO_INPUT_STATUS = {
     "blocked": "blocked",
@@ -169,15 +56,11 @@ def _is_portuguese(config: WikiConfig) -> bool:
 
 
 def _quadrant_semantics(config: WikiConfig) -> dict[str, dict[str, str]]:
-    return (
-        DEFAULT_QUADRANT_SEMANTICS_PT
-        if _is_portuguese(config)
-        else DEFAULT_QUADRANT_SEMANTICS
-    )
+    return quadrant_semantics(getattr(config, "language", "en"))
 
 
 def _quadrant_boundary_rule(config: WikiConfig) -> str:
-    return DEFAULT_QUADRANT_BOUNDARY_RULE_PT if _is_portuguese(config) else DEFAULT_QUADRANT_BOUNDARY_RULE
+    return quadrant_boundary_rule(getattr(config, "language", "en"))
 
 
 def _rel(root: Path, path: Path) -> str:

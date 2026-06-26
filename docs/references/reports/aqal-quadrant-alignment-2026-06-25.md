@@ -45,6 +45,17 @@ consumer that attributes either rule to the kit is either reading a historical
 proposal without its boundary note, using a derived mapping from outside this
 repo, or collapsing the AQAL axes into entity buckets.
 
+External applications should consume the explicit kit contract instead of
+scraping prose from templates or historical proposals:
+
+```sh
+python3 scripts/wiki_quadrant_contract.py --format json
+```
+
+The same contract is available to Python consumers through
+`wiki_core.quadrants.quadrant_contract()`. This is the authoritative mapping for
+`q1/q2/q3/q4`; generated input-stage catalogs reuse it.
+
 The compatibility rule for downstream apps is:
 
 - expose the canonical axis pair (`interior/exterior` x
@@ -79,6 +90,11 @@ Classify the fact being extracted, not merely the source type:
 - [wiki_core/input_stage.py](../../../wiki_core/input_stage.py) now emits the
   clarified quadrant semantics and boundary rule into generated input-stage
   catalogs.
+- [wiki_core/quadrants.py](../../../wiki_core/quadrants.py) now centralizes the
+  canonical quadrant contract for code, CLIs and external integrations.
+- [wiki_quadrant_contract.py](../../../scripts/wiki_quadrant_contract.py)
+  prints the same contract in JSON or Markdown so consumers do not need to infer
+  quadrant semantics from page layout.
 - [wiki_core/config.py](../../../wiki_core/config.py) now defaults
   `context_deep_read` to `v3`, so external consumers that instantiate the kit
   without an explicit `wiki.config.yaml` receive the canonical root-holon AQAL
@@ -100,6 +116,7 @@ Classify the fact being extracted, not merely the source type:
 ```sh
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_quadrant_contract.py --format json
 python3 -m pytest tests/test_config.py tests/test_wiki_pipeline.py
 python3 -m pytest tests/test_input_stage.py tests/test_aqal_quadrants.py
 ```
