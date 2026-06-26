@@ -95,7 +95,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "empty_decisions": "| Sem decisoes pendentes registradas. | - | - |",
         "h_actions": "## Acoes do dono ({owner})",
         "th_actions": "| Acao | Contexto | Estado | Fonte |",
-        "empty_actions": "| Sem acoes registradas. | - | - | - |",
+        "empty_actions": "| Sem acoes abertas registradas. | - | - | - |",
         "h_queue": "## Fila de acoes pendentes",
         "queue_listed": "Identificadores listados em [{pending_path}]({pending_path}):",
         "empty_queue": "Sem acoes pendentes registradas.",
@@ -144,7 +144,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "empty_decisions": "| No pending decisions recorded. | - | - |",
         "h_actions": "## Owner actions ({owner})",
         "th_actions": "| Action | Context | State | Source |",
-        "empty_actions": "| No actions recorded. | - | - | - |",
+        "empty_actions": "| No open owner actions recorded. | - | - | - |",
         "h_queue": "## Pending action queue",
         "queue_listed": "Identifiers listed in [{pending_path}]({pending_path}):",
         "empty_queue": "No pending actions recorded.",
@@ -392,6 +392,40 @@ NON_PENDING_DECISION_STATUS_PREFIXES = (
     "resolvido_at_",
     "resolvido_em_",
 )
+CLOSED_ACTION_STATUS_SLUGS = frozenset(
+    {
+        "closed",
+        "complete",
+        "completed",
+        "concluida",
+        "concluido",
+        "concluded",
+        "done",
+        "resolved",
+        "resolvida",
+        "resolvido",
+    }
+)
+CLOSED_ACTION_STATUS_PREFIXES = (
+    "closed_at_",
+    "closed_em_",
+    "completed_at_",
+    "completed_em_",
+    "concluida_at_",
+    "concluida_em_",
+    "concluido_at_",
+    "concluido_em_",
+    "concluded_at_",
+    "concluded_em_",
+    "done_at_",
+    "done_em_",
+    "resolved_at_",
+    "resolved_em_",
+    "resolvida_at_",
+    "resolvida_em_",
+    "resolvido_at_",
+    "resolvido_em_",
+)
 
 
 def _status_slug(status: str) -> str:
@@ -407,6 +441,18 @@ def _decision_is_pending(values: dict[str, str], text: str) -> bool:
     slug = _status_slug(status)
     return slug not in NON_PENDING_DECISION_STATUS_SLUGS and not any(
         slug.startswith(prefix) for prefix in NON_PENDING_DECISION_STATUS_PREFIXES
+    )
+
+
+def _action_is_closed(values: dict[str, str], text: str) -> bool:
+    status = str(
+        values.get("status") or values.get("state") or first_state(text) or ""
+    ).strip()
+    if not status:
+        return False
+    slug = _status_slug(status)
+    return slug in CLOSED_ACTION_STATUS_SLUGS or any(
+        slug.startswith(prefix) for prefix in CLOSED_ACTION_STATUS_PREFIXES
     )
 
 
@@ -458,6 +504,8 @@ def collect_actions(paths: WikiPaths) -> list[Action]:
         text = path.read_text(encoding="utf-8")
         fm = parse_frontmatter(text)
         if fm.get("page_type") != "action":
+            continue
+        if _action_is_closed(fm, text):
             continue
         title = _clean_title(first_h1(text)) or path.stem
         actions.append(

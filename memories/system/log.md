@@ -14,6 +14,18 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | Daily cockpit filters closed owner actions
+
+- [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now
+  excludes explicitly closed or resolved action pages from the generated owner
+  actions table.
+- The pending queue remains a deterministic list of recorded action ids; only
+  the cockpit's active owner-action table drops completed historical rows such
+  as `concluida_em_YYYY-MM-DD` or `resolved_at_YYYY-MM-DD`.
+- [test_operation_compile.py](../../tests/test_operation_compile.py) and the
+  [v6.8.6 release note](../../docs/references/releases/wiki-viva-v6.8.6.md)
+  document the expected behavior.
+
 ## [2026-06-26] System | Operational pass primary actions balance contexts
 
 - [operational_pass.py](../../wiki_core/operational_pass.py) now selects the
