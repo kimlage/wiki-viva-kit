@@ -28,9 +28,10 @@ Operational-pass insight claim noise release.
   terms such as risk, gap, pending or blocker.
 - Factual/confirmed claims still surface when they explicitly preserve an open
   qualifier such as open risk, open gap, `risco aberto` or `lacuna que segue
-  aberta`.
+  aberta`, or when `risk of`/`risco de` appears as an explicit bullet item.
 - [test_operational_pass.py](../../../tests/test_operational_pass.py) covers the
-  accepted-insight case and the factual-claim-with-open-gap case.
+  accepted-insight case, accepted insight text that says `risk of`, factual
+  claims with open gaps, and factual claims with open-risk bullets.
 
 ## Validation
 
