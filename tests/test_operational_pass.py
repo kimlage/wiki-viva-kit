@@ -340,6 +340,8 @@ def test_parse_next_steps_extracts_trigger_and_done_flag():
         "## Proximos passos\n\n"
         "- [ ] renew browser session — gatilho: before any write — resultado: fresh session\n"
         "- [x] confirm readback — trigger: after import\n"
+        "- [ ] preserve final fiscal PDFs before memory update\n"
+        "  trigger: when the files are available\n"
         "- [ ] plain step with no trigger\n\n"
         "## Other\n\n- [ ] not a next step\n"
     )
@@ -347,6 +349,7 @@ def test_parse_next_steps_extracts_trigger_and_done_flag():
     assert [s.text for s in steps] == [
         "renew browser session",
         "confirm readback",
+        "preserve final fiscal PDFs before memory update",
         "plain step with no trigger",
     ]
     # The trailing "resultado:" clause is dropped from the trigger.
@@ -354,7 +357,8 @@ def test_parse_next_steps_extracts_trigger_and_done_flag():
     assert steps[0].done is False
     assert steps[1].trigger == "after import"
     assert steps[1].done is True
-    assert steps[2].trigger == ""
+    assert steps[2].trigger == "when the files are available"
+    assert steps[3].trigger == ""
 
 
 def _role(page_id: str, context: str, responsibilities: list[str], *, assignment: bool = True) -> str:

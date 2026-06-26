@@ -810,18 +810,19 @@ def parse_next_steps(body: str) -> tuple[NextStep, ...]:
     """
     steps: list[NextStep] = []
     in_section = False
-    for raw in body.splitlines():
-        line = raw.strip()
-        if line.startswith("#"):
-            in_section = bool(NEXT_STEPS_HEADING_RE.match(line))
-            continue
-        if not in_section:
-            continue
-        match = NEXT_STEP_ITEM_RE.match(line)
+    current: list[str] = []
+
+    def flush() -> None:
+        if not current:
+            return
+        match = NEXT_STEP_ITEM_RE.match(current[0])
         if not match:
-            continue
+            current.clear()
+            return
         done = match.group("mark").lower() == "x"
-        rest = match.group("rest").strip()
+        rest = " ".join(
+            [match.group("rest").strip(), *[line.strip() for line in current[1:] if line.strip()]]
+        ).strip()
         trigger = ""
         trigger_match = NEXT_STEP_TRIGGER_RE.search(rest)
         if trigger_match:
@@ -831,6 +832,24 @@ def parse_next_steps(body: str) -> tuple[NextStep, ...]:
             rest = NEXT_STEP_RESULT_RE.sub("", rest).strip()
         rest = rest.rstrip("—- ").strip()
         steps.append(NextStep(text=rest, trigger=trigger, done=done))
+        current.clear()
+
+    for raw in body.splitlines():
+        line = raw.strip()
+        if line.startswith("#"):
+            flush()
+            in_section = bool(NEXT_STEPS_HEADING_RE.match(line))
+            continue
+        if not in_section:
+            continue
+        match = NEXT_STEP_ITEM_RE.match(line)
+        if match:
+            flush()
+            current.append(line)
+            continue
+        if current and line:
+            current.append(line)
+    flush()
     return tuple(steps)
 
 
