@@ -122,6 +122,29 @@ def _factual_claim_with_historical_attention_words() -> str:
     )
 
 
+def _factual_claim_with_negated_open_qualifier() -> str:
+    return (
+        "---\n"
+        "page_id: claim-secret-alert-resolved\n"
+        "page_type: claim\n"
+        "title: \"Claim - Secret alert resolved\"\n"
+        "context: example\n"
+        "status: fato\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-11\n"
+        "stale_after_days: 30\n"
+        "sources_policy: source\n"
+        "gate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        "source_refs:\n"
+        "  - source-crm\n"
+        "---\n\n"
+        "# Claim - Secret alert resolved\n\n"
+        "Status: `fato` (resolved).\n\n"
+        "The alert was checked and closed. Sem pendencia aberta.\n"
+    )
+
+
 def _factual_claim_with_open_lacuna() -> str:
     return (
         "---\n"
@@ -286,6 +309,24 @@ def test_operational_pass_does_not_surface_factual_claims_as_attention(
     assert report.consolidation_outputs[0].problems == 0
     assert report.consolidation_outputs[0].signal == "ok"
     assert "Claim - Rating formerly pending" not in page
+
+
+def test_operational_pass_ignores_negated_open_claim_qualifiers(
+    tmp_path: Path,
+):
+    mem = tmp_path / "memories"
+    _write(mem / "example" / "index.md", _hub("example"))
+    _write(mem / "claims" / "secret-alert-resolved.md", _factual_claim_with_negated_open_qualifier())
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
+    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
+
+    assert report.context_rows[0].claims == 1
+    assert report.attention == ()
+    assert report.consolidation_outputs[0].problems == 0
+    assert report.consolidation_outputs[0].signal == "ok"
+    assert "Claim - Secret alert resolved" not in page
 
 
 def test_operational_pass_surfaces_factual_claims_with_open_lacunas(

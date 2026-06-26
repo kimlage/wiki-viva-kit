@@ -45,6 +45,10 @@ OPEN_CLAIM_QUALIFIER_RE = re.compile(
 OPEN_CLAIM_BULLET_RE = re.compile(
     r"(?im)^\s*-\s*(?P<qualifier>(?:risk of|risco de)\b.*)$"
 )
+NEGATED_OPEN_CLAIM_PREFIX_RE = re.compile(
+    r"(?:^|\b)(?:sem|no|not|without|nenhuma?|nao\s+ha|nao\s+existe)\s+$",
+    re.I,
+)
 SHORT_TERM_LIMIT = 5
 CLOSED_STATUS_SLUGS = frozenset(
     {
@@ -1173,10 +1177,19 @@ def _claim_open_attention_reason(page: PageRecord) -> str:
     bullet_match = OPEN_CLAIM_BULLET_RE.search(page.body[:2000])
     if bullet_match:
         return f"Open claim qualifier: `{_inline_excerpt(bullet_match.group('qualifier'))}`."
-    qualifier_match = OPEN_CLAIM_QUALIFIER_RE.search(haystack)
-    if qualifier_match:
+    for qualifier_match in OPEN_CLAIM_QUALIFIER_RE.finditer(haystack):
+        if _is_negated_open_claim_match(haystack, qualifier_match.start()):
+            continue
         return f"Open claim qualifier: `{_inline_excerpt(qualifier_match.group(1))}`."
     return ""
+
+
+def _is_negated_open_claim_match(text: str, match_start: int) -> bool:
+    prefix = text[max(0, match_start - 48) : match_start]
+    normalized = unicodedata.normalize("NFKD", prefix)
+    normalized = normalized.encode("ascii", "ignore").decode("ascii").lower()
+    normalized = re.sub(r"\s+", " ", normalized)
+    return bool(NEGATED_OPEN_CLAIM_PREFIX_RE.search(normalized))
 
 
 def _inline_excerpt(value: str, *, limit: int = 140) -> str:
