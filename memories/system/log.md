@@ -14,6 +14,18 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | Operational pass short memory balances contexts
+
+- [operational_pass.py](../../wiki_core/operational_pass.py) now selects the
+  short `Review now` block with a context-balanced round-robin, so one noisy
+  context cannot hide other active review signals.
+- The full [operational-pass.md](operational-pass.md) attention table still
+  keeps every problem and uncertainty; only the top short-memory excerpt is
+  balanced for daily entry.
+- [test_operational_pass.py](../../tests/test_operational_pass.py) and the
+  [v6.8.4 release note](../../docs/references/releases/wiki-viva-v6.8.4.md)
+  document the expected behavior.
+
 ## [2026-06-26] System | Operational pass filters factual claim noise
 
 - [operational_pass.py](../../wiki_core/operational_pass.py) now treats explicit

@@ -219,6 +219,56 @@ def test_operational_pass_does_not_surface_factual_claims_as_attention(
     assert "Claim - Rating formerly pending" not in page
 
 
+def test_short_review_balances_attention_across_contexts(tmp_path: Path):
+    def action_page(page_id: str, title: str, context: str) -> str:
+        return (
+            "---\n"
+            f"page_id: {page_id}\n"
+            "page_type: action\n"
+            f"title: \"Action - {title}\"\n"
+            f"context: {context}\n"
+            "status: pending\n"
+            "visibility: private_self\n"
+            "updated_at: 2026-06-11\n"
+            "stale_after_days: 14\n"
+            "sources_policy: source\n"
+            "gate: github_pr\n"
+            "sensitive_data_policy: private_sensitive_allowed\n"
+            "---\n\n"
+            f"# Action - {title}\n"
+        )
+
+    mem = tmp_path / "memories"
+    for context in ("finance", "documents", "professional"):
+        _write(mem / context / "index.md", _hub(context))
+    for idx in range(1, 6):
+        _write(
+            mem / "actions" / f"docs-{idx}.md",
+            action_page(f"action-docs-{idx}", f"Docs {idx}", "documents"),
+        )
+    _write(
+        mem / "actions" / "finance.md",
+        action_page("action-finance-review", "Finance review", "finance"),
+    )
+    _write(
+        mem / "actions" / "professional.md",
+        action_page("action-professional-review", "Professional review", "professional"),
+    )
+
+    config = WikiConfig(
+        repo_id="acme",
+        owner_label="Owner",
+        contexts=("finance", "documents", "professional"),
+    )
+    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
+    review_block = page.split("### Review now", 1)[1].split("### Primary actions", 1)[0]
+
+    assert "Finance review" in review_block
+    assert "Professional review" in review_block
+    assert "Docs 1" in review_block
+    assert "Docs 5" not in review_block
+
+
 def test_operational_pass_surfaces_pending_decisions(tmp_path: Path):
     mem = tmp_path / "memories"
     _write(mem / "example" / "index.md", _hub("example"))

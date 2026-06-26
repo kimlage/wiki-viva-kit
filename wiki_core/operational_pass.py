@@ -549,7 +549,7 @@ def _render_short_term_memory(
     review_items = [
         f"- **{_escape(row.context)} / {_escape(row.page.page_type)}:** "
         f"{_page_link(row.page, page_dir)} — {_escape(row.reason)}"
-        for row in report.attention[:SHORT_TERM_LIMIT]
+        for row in _balanced_attention_rows(report, SHORT_TERM_LIMIT)
     ]
     lines.extend(_short_block(s["short_review_now"], review_items, s["short_no_review"]))
 
@@ -590,6 +590,44 @@ def _render_short_term_memory(
     ]
     lines.extend(_short_block(s["short_recent"], recent_items, s["short_no_recent"]))
     return lines
+
+
+def _balanced_attention_rows(
+    report: OperationalPassReport, limit: int
+) -> tuple[AttentionRow, ...]:
+    """Pick short-memory attention rows across contexts before repeating one."""
+    if limit <= 0:
+        return ()
+    grouped: dict[str, list[AttentionRow]] = {}
+    for row in report.attention:
+        grouped.setdefault(row.context, []).append(row)
+    if not grouped:
+        return ()
+
+    ordered_contexts: list[str] = []
+    for context_row in report.context_rows:
+        if context_row.context in grouped and context_row.context not in ordered_contexts:
+            ordered_contexts.append(context_row.context)
+    for row in report.attention:
+        if row.context not in ordered_contexts:
+            ordered_contexts.append(row.context)
+
+    selected: list[AttentionRow] = []
+    depth = 0
+    while len(selected) < limit:
+        added = False
+        for context in ordered_contexts:
+            rows = grouped.get(context) or []
+            if depth >= len(rows):
+                continue
+            selected.append(rows[depth])
+            added = True
+            if len(selected) >= limit:
+                break
+        if not added:
+            break
+        depth += 1
+    return tuple(selected)
 
 
 def _short_block(title: str, items: list[str], empty: str) -> list[str]:
