@@ -116,7 +116,7 @@ The deep read written to the cache does not end the ingestion: the source is onl
 
 ## Cockpit freshness (--check compares the whole body)
 
-[wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) recompiles the cockpit ([memories/operations.md](../../operations.md)) from the content of [memories/](../../index.md) and, with `--check`, fails if the result diverges from what is versioned. The comparison uses `stable_cockpit_view`: it covers the ENTIRE deterministic body (stable frontmatter, state now, decisions, actions, queue, alerts, links) — not just three sections — and removes the volatile parts (date, git state, karma/score) so that "up to date" means "the deterministic content matches a recompile at HEAD". Commit hash equality is not required by design (the recompile commit cannot contain its own hash, and merges always differ); the gate is the content, not the hash.
+[wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) recompiles the cockpit ([memories/operations.md](../../operations.md)) from the content of [memories/](../../index.md) and, with `--check`, fails if the result diverges from what is versioned. The comparison uses `stable_cockpit_view`: it covers the ENTIRE deterministic body (stable frontmatter, state now, decisions, actions, queue, alerts, links) — not just three sections — and removes the volatile parts (date, legacy git provenance, karma/score) so that "up to date" means "the deterministic content matches a recompile at HEAD". Branch and commit are not versioned in the cockpit because they become stale after a PR merge; agents must check live Git state before acting.
 
 Recompiling and writing the cockpit before committing:
 

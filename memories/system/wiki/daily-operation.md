@@ -122,9 +122,10 @@ python3 scripts/wiki_input_stage.py --write
 [scripts/wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py)
 assembles the cockpit in fixed sections. In the daily loop, read in this order:
 
-- State now: branch and last commit from which the cockpit was compiled, a reminder
-  to check the open PR on GitHub and the biggest current risk. It is the
-  provenance anchor (`generated_from_commit` in the frontmatter).
+- State now: a reminder to check live Git state and the open PR before acting,
+  plus the biggest current risk. Branch and commit are deliberately not
+  versioned in the cockpit because a proposal branch snapshot goes stale as soon
+  as it is merged.
 - Pending decisions: table derived from the memory's decision pages (one decision per
   file). These are choices the owner needs to make before the wiki advances.
 - Owner actions: table derived from the memory's action pages, with the state read from the
@@ -254,9 +255,8 @@ Recompiling is idempotent per day and records a curation score event
 (`recompilar_pagina_antiga`), feeding the karma section of the cockpit itself. The
 deterministic content of the cockpit is verified in CI by the same `--check` from
 section 1: "up to date" means that the deterministic body matches a recompile
-at HEAD. Commit hash equality is not required (by design, the recompilation commit
-cannot contain its own hash, and merge commits always differ); the
-gate is the content, and `generated_from_commit` serves only as provenance.
+at HEAD. Commit/branch equality is not part of the gate and is not written to the
+versioned cockpit; check it live with `git status --short --branch` and the PR.
 
 Include the recompiled cockpit in the same PR as the change that motivated it, together with the
 log entry. After the merge, on the next compilation the cockpit already reflects the approved wiki

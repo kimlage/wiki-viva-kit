@@ -401,7 +401,7 @@ python3 scripts/wiki_okf_visualize.py --bundle tmp/okf-bundle --name "Wiki Viva 
 
 ### [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) - daily cockpit
 
-Compiles the operational cockpit [memories/operations.md](../../operations.md) from real sources (config, decisions, actions, vitality of the context hubs, karma and Git state), never from hardcoded content. The `--check` compares only the DETERMINISTIC view (ignores date/commit/karma) with a recompile at HEAD, so that CI can require the cockpit to be up to date.
+Compiles the operational cockpit [memories/operations.md](../../operations.md) from real sources (config, decisions, actions, vitality of the context hubs and karma), never from hardcoded content. Branch and commit are not written to the versioned cockpit because they become stale after merge; check live Git state separately. The `--check` compares only the DETERMINISTIC view (ignores date, legacy Git provenance and karma) with a recompile at HEAD, so that CI can require the cockpit to be up to date.
 
 - (no flags): prints the cockpit to stdout.
 - `--write`: writes to [memories/operations.md](../../operations.md) and records a score-event idempotent per day.

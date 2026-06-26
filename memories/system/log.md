@@ -14,6 +14,20 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | Versioned cockpit stops storing stale Git provenance
+
+- [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) no longer
+  writes `generated_from_commit` or `generated_from_branch` to the generated
+  [operations.md](../operations.md) cockpit.
+- The cockpit now tells agents to verify live Git state with
+  `git status --short --branch` and the PR before acting, because branch/commit
+  snapshots become stale after merge and are not canonical memory.
+- [daily operation](wiki/daily-operation.md),
+  [gates and audit](wiki/gates-and-audit.md), the
+  [command reference](wiki/command-reference.md) and the
+  [v6.8.2 release note](../../docs/references/releases/wiki-viva-v6.8.2.md)
+  document the new contract.
+
 ## [2026-06-26] System | AQAL default prompt fallback hardened
 
 - [wiki_core/config.py](../../wiki_core/config.py) now defaults
