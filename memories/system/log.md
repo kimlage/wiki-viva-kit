@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-06-26
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,16 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-06-26] System | Proposal branch state as historical provenance
+
+- [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now
+  renders the `wiki/*` branch state as historical compile-time provenance, not
+  as an active instruction to open or check a PR after the page has already been
+  merged.
+- [operations.md](../operations.md) was recompiled with the safer wording, and
+  [test_operation_compile.py](../../tests/test_operation_compile.py) blocks the
+  old active-instruction wording from returning.
 
 ## [2026-06-25] System | AQAL quadrant boundary alignment
 

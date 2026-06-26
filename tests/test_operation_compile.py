@@ -384,10 +384,15 @@ def test_branch_state_line_is_not_always_open_pr(compile_mod):
     pt = compile_mod._cs("pt")
     en = compile_mod._cs("en")
     assert "Estado no momento da compilacao: `main` aprovado" in compile_mod._branch_state_line("main", pt)
-    assert "branch de proposta `wiki/*`" in compile_mod._branch_state_line("wiki/topic", pt)
+    proposal_pt = compile_mod._branch_state_line("wiki/topic", pt)
+    assert "branch de proposta `wiki/*`" in proposal_pt
+    assert "proveniencia historica" in proposal_pt
+    assert "abrir ou verificar o PR antes de publicar ou concluir" not in proposal_pt
     assert "branch `feature/topic`" in compile_mod._branch_state_line("feature/topic", pt)
     assert "Compile-time state: approved `main`" in compile_mod._branch_state_line("main", en)
-    assert "proposal branch `wiki/*`" in compile_mod._branch_state_line("wiki/topic", en)
+    proposal_en = compile_mod._branch_state_line("wiki/topic", en)
+    assert "proposal branch `wiki/*`" in proposal_en
+    assert "historical provenance" in proposal_en
 
 
 def test_checked_sections_detect_decision_drift(compile_mod, config, minimal_repo):
