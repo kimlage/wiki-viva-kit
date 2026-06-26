@@ -42,7 +42,9 @@ OPEN_CLAIM_QUALIFIER_RE = re.compile(
     r")\b",
     re.I,
 )
-OPEN_CLAIM_BULLET_RE = re.compile(r"(?im)^\s*-\s*(?:risk of|risco de)\b")
+OPEN_CLAIM_BULLET_RE = re.compile(
+    r"(?im)^\s*-\s*(?P<qualifier>(?:risk of|risco de)\b.*)$"
+)
 SHORT_TERM_LIMIT = 5
 CLOSED_STATUS_SLUGS = frozenset(
     {
@@ -1159,11 +1161,29 @@ def _claim_needs_attention(page: PageRecord) -> bool:
 
 
 def _claim_has_open_attention_qualifier(page: PageRecord) -> bool:
+    return bool(_claim_open_attention_reason(page))
+
+
+def _claim_attention_reason(page: PageRecord) -> str:
+    return _claim_open_attention_reason(page) or _attention_reason(page)
+
+
+def _claim_open_attention_reason(page: PageRecord) -> str:
     haystack = " ".join((page.status, page.body[:2000]))
-    return bool(
-        OPEN_CLAIM_QUALIFIER_RE.search(haystack)
-        or OPEN_CLAIM_BULLET_RE.search(page.body[:2000])
-    )
+    bullet_match = OPEN_CLAIM_BULLET_RE.search(page.body[:2000])
+    if bullet_match:
+        return f"Open claim qualifier: `{_inline_excerpt(bullet_match.group('qualifier'))}`."
+    qualifier_match = OPEN_CLAIM_QUALIFIER_RE.search(haystack)
+    if qualifier_match:
+        return f"Open claim qualifier: `{_inline_excerpt(qualifier_match.group(1))}`."
+    return ""
+
+
+def _inline_excerpt(value: str, *, limit: int = 140) -> str:
+    excerpt = " ".join(value.split()).strip()
+    if len(excerpt) <= limit:
+        return excerpt
+    return excerpt[: limit - 3].rstrip() + "..."
 
 
 def _attention_rows(
@@ -1181,7 +1201,7 @@ def _attention_rows(
         if reason:
             rows.append(AttentionRow(page.context, page, reason))
     for page in claims:
-        reason = _attention_reason(page) if _claim_needs_attention(page) else ""
+        reason = _claim_attention_reason(page) if _claim_needs_attention(page) else ""
         if reason:
             rows.append(AttentionRow(page.context, page, reason))
     return rows
