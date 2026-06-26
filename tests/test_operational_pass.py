@@ -122,6 +122,29 @@ def _factual_claim_with_historical_attention_words() -> str:
     )
 
 
+def _insight_claim_with_risk_words() -> str:
+    return (
+        "---\n"
+        "page_id: claim-pr-gate-risk\n"
+        "page_type: claim\n"
+        "title: \"Claim - PR gate reduces risk\"\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-11\n"
+        "stale_after_days: 30\n"
+        "sources_policy: source\n"
+        "gate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        "source_refs:\n"
+        "  - source-crm\n"
+        "---\n\n"
+        "# Claim - PR gate reduces risk\n\n"
+        "Status: `insight`.\n\n"
+        "A review gate reduces risk, but this is an accepted process insight, "
+        "not an operational blocker.\n"
+    )
+
+
 def _context_note() -> str:
     return (
         "---\n"
@@ -217,6 +240,24 @@ def test_operational_pass_does_not_surface_factual_claims_as_attention(
     assert report.consolidation_outputs[0].problems == 0
     assert report.consolidation_outputs[0].signal == "ok"
     assert "Claim - Rating formerly pending" not in page
+
+
+def test_operational_pass_does_not_surface_insight_claims_as_attention(
+    tmp_path: Path,
+):
+    mem = tmp_path / "memories"
+    _write(mem / "example" / "index.md", _hub("example"))
+    _write(mem / "claims" / "pr-gate-risk.md", _insight_claim_with_risk_words())
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
+    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
+
+    assert report.context_rows[0].claims == 1
+    assert report.attention == ()
+    assert report.consolidation_outputs[0].problems == 0
+    assert report.consolidation_outputs[0].signal == "ok"
+    assert "Attention keyword detected" not in page
 
 
 def test_short_memory_balances_attention_and_actions_across_contexts(tmp_path: Path):
@@ -425,6 +466,7 @@ def test_root_moc_can_be_default_context_hub(tmp_path: Path):
 
 def test_first_state_keeps_unquoted_iso_dates():
     assert first_state("State: `pending` -- blocked by review.") == "pending"
+    assert first_state("Status: `insight`.") == "insight"
     assert (
         first_state("Estado: pendente (registrada em 2026-06-11 a partir da fonte).")
         == "pendente (registrada em 2026-06-11 a partir da fonte)"

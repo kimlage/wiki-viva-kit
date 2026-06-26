@@ -23,7 +23,7 @@ NEXT_STEP_TRIGGER_RE = re.compile(
     re.I,
 )
 NEXT_STEP_RESULT_RE = re.compile(r"\s+[-—]\s*(?:resultado|result):.*$", re.I)
-STATE_PREFIX_RE = re.compile(r"^(?:Estado|State):\s*(.+?)\s*$", re.I)
+STATE_PREFIX_RE = re.compile(r"^(?:Estado|State|Status):\s*(.+?)\s*$", re.I)
 TITLE_PREFIX_RE = re.compile(r"^(?:Decisao|Decision|Acao|Action|Claim|Fonte|Source)\s*-\s*", re.I)
 ATTENTION_RE = re.compile(
     r"\b("
@@ -89,6 +89,10 @@ NON_ATTENTION_CLAIM_STATUS_SLUGS = CLOSED_STATUS_SLUGS | frozenset(
         "confirmed",
         "confirmada",
         "confirmado",
+        "insight",
+        "insight_aceita",
+        "insight_aceito",
+        "accepted_insight",
         "proven",
         "provada",
         "provado",

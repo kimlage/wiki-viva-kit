@@ -14,6 +14,20 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | Operational pass filters insight claim noise
+
+- [operational_pass.py](../../wiki_core/operational_pass.py) now treats claim
+  status `insight` and accepted-insight aliases as consolidated, non-actionable
+  claim states.
+- Body status parsing now accepts `Status:` in addition to `State:` and
+  `Estado:`, matching claim pages that keep epistemic status in prose instead
+  of frontmatter.
+- This prevents process insights that mention risk from appearing as operational
+  problems after they have already been accepted.
+- [test_operational_pass.py](../../tests/test_operational_pass.py) and the
+  [v6.8.8 release note](../../docs/references/releases/wiki-viva-v6.8.8.md)
+  document the expected behavior.
+
 ## [2026-06-26] System | AQAL stakeholder perspective boundary hardened
 
 - The AQAL check still confirms the canonical mapping: Q1/I interior
