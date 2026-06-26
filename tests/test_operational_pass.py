@@ -300,6 +300,7 @@ def test_operational_pass_surfaces_factual_claims_with_open_lacunas(
 
     assert report.context_rows[0].claims == 1
     assert report.attention[0].page.page_id == "claim-constitution-fact-open-gap"
+    assert report.attention[0].reason == "Open claim qualifier: `lacuna que segue aberta`."
     assert report.consolidation_outputs[0].problems == 1
     assert report.consolidation_outputs[0].signal == "needs_review"
 
@@ -316,6 +317,10 @@ def test_operational_pass_surfaces_factual_claims_with_open_risk_bullets(
 
     assert report.context_rows[0].claims == 1
     assert report.attention[0].page.page_id == "claim-finance-fact-open-risk"
+    assert (
+        report.attention[0].reason
+        == "Open claim qualifier: `Risco de chegar na assembleia sem demonstracoes prontas.`."
+    )
     assert report.consolidation_outputs[0].problems == 1
     assert report.consolidation_outputs[0].signal == "needs_review"
 
