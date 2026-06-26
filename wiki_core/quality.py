@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from wiki_core.config import WikiConfig
+from wiki_core.config import DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION, WikiConfig
 from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.graph import build_page_graph
@@ -369,7 +369,9 @@ def build_quality_report(root: Path, config: WikiConfig) -> dict[str, Any]:
 
     chunk_payloads = _chunk_payloads(paths)
     prompt_version = str(
-        dict(config.llm.get("prompt_versions", {})).get("context_deep_read", "v1")
+        dict(config.llm.get("prompt_versions", {})).get(
+            "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION
+        )
     )
     schema_version = CONTEXT_PASS_SCHEMA_VERSION
     model_profile = str(config.llm.get("default_model_profile", "deep_context"))

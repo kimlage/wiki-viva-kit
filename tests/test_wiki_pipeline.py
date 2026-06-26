@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from wiki_core.config import WikiConfig
+from wiki_core.config import DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION, WikiConfig
 from wiki_core.index.sqlite import search
 from wiki_core.ingest import run
 
@@ -61,6 +61,7 @@ def test_pipeline_produces_all_artifacts(tmp_path: Path) -> None:
         (derived / "extraction-events" / f"{result.source_id}-llm-context-request.json").read_text(encoding="utf-8")
     )
     assert request["pending_llm_calls"] == result.chunk_count
+    assert request["prompt_version"] == DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION
     assert result.llm_context_status == "pending"
 
     # 5. score-event append-only

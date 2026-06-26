@@ -26,7 +26,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from wiki_core.chunking import chunk_text
-from wiki_core.config import WikiConfig
+from wiki_core.config import DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION, WikiConfig
 from wiki_core.detectors import scan_file, scan_text
 from wiki_core.extractors import extract_source
 from wiki_core.index.sqlite import index_source
@@ -206,7 +206,11 @@ def run(
     request_path: str | None = None
     pending = 0
     if chunk_dicts and not blocked:
-        prompt_version = str(config.llm.get("prompt_versions", {}).get("context_deep_read", "v1"))
+        prompt_version = str(
+            config.llm.get("prompt_versions", {}).get(
+                "context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION
+            )
+        )
         model_profile = str(config.llm.get("default_model_profile", "deep_context"))
         source_config = find_source_config(root, config, source)
         input_context = input_context_for_source(root, config, source)

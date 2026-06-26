@@ -25,7 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from wiki_core.config import load_config
+from wiki_core.config import DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION, load_config
 from wiki_core.ids import sha256_text
 from wiki_core.index.sqlite import search
 from wiki_core.input_stage import input_context_for_source
@@ -166,7 +166,9 @@ def main() -> int:
         parser.error("provide --source, --query or --record-result")
 
     prompt_versions = dict(config.llm.get("prompt_versions", {}))
-    prompt_version = str(prompt_versions.get("context_deep_read", "v1"))
+    prompt_version = str(
+        prompt_versions.get("context_deep_read", DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION)
+    )
     schema_version = CONTEXT_PASS_SCHEMA_VERSION
     model_profile = args.profile or str(config.llm.get("default_model_profile", "deep_context"))
     required = bool(config.llm.get("required_context_pass", True))

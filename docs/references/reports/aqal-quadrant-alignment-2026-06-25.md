@@ -73,6 +73,10 @@ Classify the fact being extracted, not merely the source type:
 - [wiki_core/input_stage.py](../../../wiki_core/input_stage.py) now emits the
   clarified quadrant semantics and boundary rule into generated input-stage
   catalogs.
+- [wiki_core/config.py](../../../wiki_core/config.py) now defaults
+  `context_deep_read` to `v3`, so external consumers that instantiate the kit
+  without an explicit `wiki.config.yaml` receive the canonical root-holon AQAL
+  contract instead of the historical prompt.
 - [context_deep_read.v3.md](../../../wiki_core/llm/prompts/context_deep_read.v3.md)
   now carries the same Q3/Q4 boundary so delegated LLM reads cannot reduce Q3 to
   a roster or administered role structure.
@@ -90,5 +94,6 @@ Classify the fact being extracted, not merely the source type:
 ```sh
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_audit.py --check
+python3 -m pytest tests/test_config.py tests/test_wiki_pipeline.py
 python3 -m pytest tests/test_input_stage.py tests/test_aqal_quadrants.py
 ```

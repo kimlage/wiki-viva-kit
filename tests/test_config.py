@@ -10,7 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from wiki_core.config import _as_bool, _parse_contexts, load_config
+from wiki_core.config import (
+    DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION,
+    _as_bool,
+    _parse_contexts,
+    load_config,
+)
 
 
 def _write(tmp_path: Path, body: str) -> Path:
@@ -110,6 +115,15 @@ def test_language_invalid_raises(tmp_path, bad):
 # ---------------------------------------------------------------------------
 # Nested maps remain intact
 # ---------------------------------------------------------------------------
+
+
+def test_default_context_deep_read_prompt_is_current_aqal_contract(tmp_path):
+    cfg = load_config(_write(tmp_path, "repo_id: r\nlanguage: en\ncontexts: example\n"))
+    assert (
+        cfg.llm["prompt_versions"]["context_deep_read"]
+        == DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION
+    )
+    assert DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION == "v3"
 
 
 def test_nested_maps_intact(tmp_path):
