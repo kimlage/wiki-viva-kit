@@ -389,25 +389,22 @@ def test_build_page_frontmatter_satisfies_auditor_contract(compile_mod, config, 
     assert "context: system" in head
 
 
-def test_frontmatter_has_provenance(compile_mod, config, minimal_repo):
+def test_frontmatter_omits_versioned_git_provenance(compile_mod, config, minimal_repo):
     head = compile_mod.build_page(minimal_repo, config).split("---", 2)[1]
-    assert "generated_from_commit:" in head
-    assert "generated_from_branch:" in head
+    assert "generated_from_commit:" not in head
+    assert "generated_from_branch:" not in head
 
 
-def test_branch_state_line_is_not_always_open_pr(compile_mod):
-    pt = compile_mod._cs("pt")
-    en = compile_mod._cs("en")
-    assert "Estado no momento da compilacao: `main` aprovado" in compile_mod._branch_state_line("main", pt)
-    proposal_pt = compile_mod._branch_state_line("wiki/topic", pt)
-    assert "branch de proposta `wiki/*`" in proposal_pt
-    assert "proveniencia historica" in proposal_pt
-    assert "abrir ou verificar o PR antes de publicar ou concluir" not in proposal_pt
-    assert "branch `feature/topic`" in compile_mod._branch_state_line("feature/topic", pt)
-    assert "Compile-time state: approved `main`" in compile_mod._branch_state_line("main", en)
-    proposal_en = compile_mod._branch_state_line("wiki/topic", en)
-    assert "proposal branch `wiki/*`" in proposal_en
-    assert "historical provenance" in proposal_en
+def test_build_page_points_to_live_git_state_instead_of_versioned_provenance(
+    compile_mod, config, minimal_repo
+):
+    page = compile_mod.build_page(minimal_repo, config)
+
+    assert "Estado Git atual:" in page
+    assert "git status --short --branch" in page
+    assert "commit e branch nao sao versionados" in page
+    assert "Compilado de:" not in page
+    assert "Estado no momento da compilacao:" not in page
 
 
 def test_checked_sections_detect_decision_drift(compile_mod, config, minimal_repo):
@@ -455,7 +452,7 @@ def test_stable_view_covers_whole_body_excludes_volatile(compile_mod, config, mi
     assert "## Acoes do dono" in view or "Acoes do dono" in view
     assert "## Links de retomada" in view
     assert "## Alertas" in view
-    # Excludes what is volatile (date, git state, karma, commit provenance).
+    # Excludes what is volatile (date, git state, karma, legacy commit provenance).
     view_lines = view.splitlines()
     assert not any(l.startswith("generated_from_commit:") for l in view_lines)
     assert not any(l.startswith("generated_from_branch:") for l in view_lines)
@@ -476,18 +473,27 @@ def test_stable_view_detects_drift_outside_decisoes(compile_mod, config, minimal
     assert compile_mod.stable_cockpit_view(tampered) != view
 
 
-def test_stable_view_ignores_commit_and_date_churn(compile_mod, config, minimal_repo):
-    # Swapping generated_from_commit / updated_at / "Compilado de" must NOT change the
-    # stable view (they are volatile) -> avoids a false positive in --check.
+def test_stable_view_ignores_legacy_commit_and_date_churn(compile_mod, config, minimal_repo):
+    # Legacy generated_from_commit / updated_at / "Compilado de" must NOT change
+    # the stable view (they are volatile) -> avoids a false positive in --check.
     page = compile_mod.build_page(minimal_repo, config)
     view = compile_mod.stable_cockpit_view(page)
-    churned = (
-        page.replace("generated_from_commit: ", "generated_from_commit: deadbeef")
-        if "generated_from_commit: " in page else page
-    )
     import re as _re
+    churned = page.replace(
+        "moc_parent: memories/index.md\n",
+        "moc_parent: memories/index.md\n"
+        "generated_from_commit: deadbeefcafe\n"
+        "generated_from_branch: wiki/old-topic\n",
+    )
+    churned = churned.replace(
+        "- Estado Git atual: verifique ao vivo com `git status --short --branch` e o PR antes de agir; commit e branch nao sao versionados no cockpit porque ficam obsoletos apos merge.",
+        "- Compilado de: branch `wiki/old-topic`, commit `deadbee 2026-06-26 Old topic` (ver `generated_from_commit` no frontmatter).\n"
+        "- Estado no momento da compilacao: branch de proposta `wiki/*`; depois do merge, trate esta linha como proveniencia historica e verifique o estado atual do repo/PR antes de agir.\n"
+        "- Estado Git atual: verifique ao vivo com `git status --short --branch` e o PR antes de agir; commit e branch nao sao versionados no cockpit porque ficam obsoletos apos merge.",
+    )
     churned = _re.sub(r"generated_from_commit: \S+", "generated_from_commit: deadbeefcafe", churned)
     churned = _re.sub(r"generated_from_branch: \S+", "generated_from_branch: outra-branch", churned)
+    churned = _re.sub(r"updated_at: \S+", "updated_at: 2099-01-01", churned)
     assert compile_mod.stable_cockpit_view(churned) == view
 
 
