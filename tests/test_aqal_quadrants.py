@@ -46,3 +46,34 @@ def test_methodology_references_do_not_teach_q3_as_plain_people_bucket() -> None
     assert 'Q3 --> People["People, roles, responsibilities"]' not in proposal
     assert "| Q1/Q2/Q3/Q4 | identity, artifacts, roles, systems |" not in channel
     assert "shared meaning/roles-as-lived" in channel
+
+
+def test_root_overlays_preserve_aqal_boundary_when_read_without_base_template() -> None:
+    person = (ROOT / "docs/references/templates/wiki/root-person.md").read_text(
+        encoding="utf-8"
+    )
+    team = (ROOT / "docs/references/templates/wiki/root-team.md").read_text(
+        encoding="utf-8"
+    )
+    company = (ROOT / "docs/references/templates/wiki/root-company.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "Social contexts are Q3 only" in person
+    assert (
+        "Communication channels such as email, calendar, Drive and chat are Q4"
+        in person
+    )
+    assert (
+        "Team membership, org charts, RACI rows and workflow assignments are not Q3"
+        in team
+    )
+    assert "Repositories, tools and boards are Q2 only" in team
+    assert (
+        "Units, departments, governance forums and reporting lines are not Q3"
+        in company
+    )
+    assert (
+        "Systems of record, CRM/ERP, document systems, support systems, calendars"
+        in company
+    )
