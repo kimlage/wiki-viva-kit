@@ -14,6 +14,20 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | AQAL default prompt fallback hardened
+
+- [wiki_core/config.py](../../wiki_core/config.py) now defaults
+  `context_deep_read` to `v3`, matching [wiki.config.yaml](../../wiki.config.yaml)
+  and the canonical root-holon AQAL contract.
+- [pipeline.py](../../wiki_core/ingest/pipeline.py),
+  [quality.py](../../wiki_core/quality.py) and
+  [wiki_llm_context_pass.py](../../scripts/wiki_llm_context_pass.py) no longer
+  fall back to the historical `v1` prompt when `prompt_versions` is absent.
+- The [AQAL quadrant alignment check](../../docs/references/reports/aqal-quadrant-alignment-2026-06-25.md)
+  and [v6.8.1 release note](../../docs/references/releases/wiki-viva-v6.8.1.md)
+  record that the kit's public contract is `I/It/We/Its` with Q2/Q3/Q4 boundary
+  rules, not entity buckets such as "Q3 = people" or "Q2 = files".
+
 ## [2026-06-26] System | Perspective declarations audited beyond source configs
 
 - [wiki_audit.py](../../scripts/wiki_audit.py) now validates declared

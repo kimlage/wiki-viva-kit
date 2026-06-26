@@ -16,6 +16,7 @@ _BOOL_TRUE = {"true", "yes", "on", "1"}
 _BOOL_FALSE = {"false", "no", "off", "0"}
 _LANGUAGE_RE = re.compile(r"[a-z]{2,8}")
 _CONTEXT_SLUG_RE = re.compile(r"[a-z0-9][a-z0-9-]*")
+DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION = "v3"
 
 
 def _load_yaml_mapping(path: Path) -> dict[str, Any]:
@@ -152,7 +153,7 @@ class WikiConfig:
             "chunk_overlap_tokens": 150,
             "prompt_versions": {
                 "manifest_review": "v1",
-                "context_deep_read": "v1",
+                "context_deep_read": DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION,
                 "quadrant_extraction": "v1",
                 "crm_relationships": "v1",
                 "operation_compile": "v1",
