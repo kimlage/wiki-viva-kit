@@ -23,6 +23,15 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - [input-stage.md](input-stage.md), the root entity template, the kit root page,
   the perspective pages and the default process guide were updated so external
   apps cannot reduce Q3 to a roster or Q2 to any document/repository.
+- [context_deep_read.v3.md](../../wiki_core/llm/prompts/context_deep_read.v3.md),
+  [perspectives/index.md](perspectives/index.md) and the
+  [AQAL quadrant alignment check](../../docs/references/reports/aqal-quadrant-alignment-2026-06-25.md)
+  now explicitly reject lossy external mappings such as "Q3 = any people/roles
+  list" or "Q2 = any file/repository"; delegated reads must classify the fact
+  in relation to the root holon and keep administered structures in Q4 unless
+  shared meaning or roles-as-lived are present.
+- Historical proposal and input-channel labels were also tightened so external
+  apps cannot cite the kit as teaching "Q3 = people/roles" out of context.
 
 ## [2026-06-25] System | Compile-time branch state label
 

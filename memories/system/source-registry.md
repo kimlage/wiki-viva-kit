@@ -22,6 +22,6 @@ Each canonical source is a page (the hierarchical node that holds that source's 
 
 | Source | Type | State | Last update | Next refresh | Status | Policy | Config |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md) | `reference` | ingested | 2026-06-09 | 2026-12-06 | ok | archival (180d) | [config](../sources/config/wiki-viva-methodology-v5.md) |
+| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md) | `reference` | ingested | 2026-06-25 | 2026-12-22 | ok | archival (180d) | [config](../sources/config/wiki-viva-methodology-v5.md) |
 
 Back to the index at [memories/index.md](../index.md).

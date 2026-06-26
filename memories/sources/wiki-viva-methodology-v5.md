@@ -11,11 +11,11 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-09
+updated_at: 2026-06-25
 stale_after_days: 180
 source_type: reference
 ingestion_state: ingested
-last_ingested_at: 2026-06-09
+last_ingested_at: 2026-06-25
 refresh_policy: archival
 refresh_cadence_days: 180
 refresh_trigger: "review only when the methodology proposal or implementation contract changes"
@@ -42,7 +42,7 @@ evidence_refs:
 
 # Living wiki methodology (source)
 
-Updated on: 2026-06-09.
+Updated on: 2026-06-25.
 
 This page is the methodological source of the kit: it describes, at a high level, the model of
 the living operational wiki that the code implements. Implementation coverage is
@@ -56,7 +56,7 @@ tracked in [methodology-coverage-v5.md](../system/methodology-coverage-v5.md).
 | Ingestion as compilation | A source becomes a manifest, text/chunks, an index, a context package, a normalized event, and consolidation. |
 | Code first, LLM for deep context | The Python is deterministic; the deep reading belongs to the agent that runs the repo, recorded in the cache (gate `required_context_pass`). |
 | Privacy per page | PII is welcome on private pages; secrets are always blocked; PII only becomes an error at the public boundary. |
-| Four quadrants | An ingestion lens (interior/exterior, individual/collective), with explicit absence. |
+| Four quadrants | Wilber/AQAL lens crossing interior/exterior with individual/collective: Q1/I identity-intent, Q2/It output-evidence, Q3/We shared meaning/roles-as-lived, Q4/Its systems-processes-governance, with explicit absence. |
 | Operation page (cockpit) | The first resumption screen. |
 | Karma gamification | A by-product, without toxic ranking. |
 | Perceptive layer | Journal and map, before becoming canonical memory. |

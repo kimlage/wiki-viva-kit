@@ -61,7 +61,7 @@ Read this first: a compact daily state of items that still need review, decision
 
 | Source | Context | Ingestion | Last update | Next refresh | Status | Linked actions |
 | --- | --- | --- | --- | --- | --- | --- |
-| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md) | system | `ingested` | 2026-06-09 | 2026-12-06 | ok | - |
+| [Living wiki methodology (source)](../sources/wiki-viva-methodology-v5.md) | system | `ingested` | 2026-06-25 | 2026-12-22 | ok | - |
 
 ## Compiled actions
 
