@@ -24,6 +24,9 @@ Append-only record of changes in the [memories/](../index.md) layer.
   of frontmatter.
 - This prevents process insights that mention risk from appearing as operational
   problems after they have already been accepted.
+- Factual/confirmed claims still surface when they explicitly preserve an open
+  qualifier such as open risk, open gap, `risco aberto` or `lacuna que segue
+  aberta`.
 - [test_operational_pass.py](../../tests/test_operational_pass.py) and the
   [v6.8.8 release note](../../docs/references/releases/wiki-viva-v6.8.8.md)
   document the expected behavior.

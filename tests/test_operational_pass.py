@@ -122,6 +122,29 @@ def _factual_claim_with_historical_attention_words() -> str:
     )
 
 
+def _factual_claim_with_open_lacuna() -> str:
+    return (
+        "---\n"
+        "page_id: claim-constitution-fact-open-gap\n"
+        "page_type: claim\n"
+        "title: \"Claim - Constituted with open registry gap\"\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-11\n"
+        "stale_after_days: 30\n"
+        "sources_policy: source\n"
+        "gate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        "source_refs:\n"
+        "  - source-crm\n"
+        "---\n\n"
+        "# Claim - Constituted with open registry gap\n\n"
+        "Status: `fato`.\n\n"
+        "The event is confirmed, but a lacuna que segue aberta requires registry "
+        "readback.\n"
+    )
+
+
 def _insight_claim_with_risk_words() -> str:
     return (
         "---\n"
@@ -240,6 +263,22 @@ def test_operational_pass_does_not_surface_factual_claims_as_attention(
     assert report.consolidation_outputs[0].problems == 0
     assert report.consolidation_outputs[0].signal == "ok"
     assert "Claim - Rating formerly pending" not in page
+
+
+def test_operational_pass_surfaces_factual_claims_with_open_lacunas(
+    tmp_path: Path,
+):
+    mem = tmp_path / "memories"
+    _write(mem / "example" / "index.md", _hub("example"))
+    _write(mem / "claims" / "open-lacuna.md", _factual_claim_with_open_lacuna())
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
+    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+
+    assert report.context_rows[0].claims == 1
+    assert report.attention[0].page.page_id == "claim-constitution-fact-open-gap"
+    assert report.consolidation_outputs[0].problems == 1
+    assert report.consolidation_outputs[0].signal == "needs_review"
 
 
 def test_operational_pass_does_not_surface_insight_claims_as_attention(
