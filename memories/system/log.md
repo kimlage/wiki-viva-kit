@@ -14,6 +14,21 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | Input stage ready queue excludes configured-only sources
+
+- [input_stage.py](../../wiki_core/input_stage.py) now keeps `configured`
+  sources in the full catalog without listing them as actionable `ready_inputs`.
+- Source states `staged`, `ready_for_ingest` and `blocked` are preserved in the
+  input-stage status mapper instead of collapsing to `configured`.
+- [wiki_input_stage.py](../../scripts/wiki_input_stage.py) `--ready` now prints
+  only `staged` or `ready_for_ingest` rows; docs were updated in
+  [command-reference.md](wiki/command-reference.md),
+  [ingestion-flow.md](wiki/ingestion-flow.md) and the
+  [default process guide](../../docs/references/guides/default-open-source-process.md).
+- [test_input_stage.py](../../tests/test_input_stage.py) and the
+  [v6.8.7 release note](../../docs/references/releases/wiki-viva-v6.8.7.md)
+  document the expected behavior.
+
 ## [2026-06-26] System | Daily cockpit filters closed owner actions
 
 - [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now

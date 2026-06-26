@@ -186,7 +186,7 @@ metadata and target pages.
 | Root entity | Default top-page impact and perspective bundle. |
 | Channels | Systems/document streams that sources belong to. |
 | Sources | Canonical source pages, states, configs and target pages. |
-| Ready inputs | Declared sources that can be ingested or refreshed. |
+| Ready inputs | Sources with current material staged or already clean enough for ingestion (`staged` / `ready_for_ingest`). |
 | Warnings | Missing config/channel links to fix before ingestion. |
 
 ### Context

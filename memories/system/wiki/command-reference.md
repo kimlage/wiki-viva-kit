@@ -472,8 +472,9 @@ injected into the LLM context package.
 - `--check`: fails when the generated page differs from a recompile at HEAD; if
   the gitignored JSON catalog exists, it is checked too.
 - `--format json`: prints the compiled catalog.
-- `--ready`: prints only source rows whose input status is ready/configured for
-  ingestion.
+- `--ready`: prints only source rows whose input status is `staged` or
+  `ready_for_ingest`; configured sources stay in the catalog but are not treated
+  as immediate work.
 
 ```sh
 python3 scripts/wiki_input_stage.py --write

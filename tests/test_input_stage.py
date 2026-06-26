@@ -12,6 +12,56 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _source_page(
+    page_id: str,
+    title: str,
+    ingestion_state: str,
+    config_ref: str,
+) -> str:
+    return (
+        "---\n"
+        f"page_id: {page_id}\n"
+        "page_type: source\n"
+        f"title: \"{title}\"\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-25\n"
+        "stale_after_days: 45\n"
+        "source_type: reference\n"
+        f"ingestion_state: {ingestion_state}\n"
+        "moc_parent: memories/example/index.md\n"
+        f"config_ref: {config_ref}\n"
+        "source_refs: []\n"
+        "---\n\n"
+        f"# {title}\n"
+    )
+
+
+def _source_config_page(page_id: str, source_ref: str) -> str:
+    return (
+        "---\n"
+        f"page_id: {page_id}\n"
+        "page_type: source_config\n"
+        f"title: \"{page_id}\"\n"
+        "context: example\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-25\n"
+        "stale_after_days: 90\n"
+        "moc_parent: memories/example/index.md\n"
+        "source_refs:\n"
+        f"  - {source_ref}\n"
+        "input_channel_ref: input-channel-team-docs\n"
+        "quadrants:\n"
+        "  - q4\n"
+        "perspectives_required:\n"
+        "  - perspective-roles-relationships\n"
+        "target_pages:\n"
+        "  - memories/example/index.md\n"
+        "---\n\n"
+        f"# {page_id}\n"
+    )
+
+
 def _fixture_repo(tmp_path: Path) -> WikiConfig:
     cfg = WikiConfig(
         contexts=("example",),
@@ -174,6 +224,57 @@ def test_compile_input_stage_inherits_root_channel_and_source_config(tmp_path: P
         "perspective-project",
     ]
     assert source["target_pages"] == ["memories/example/index.md"]
+    assert catalog["ready_inputs"] == []
+
+
+def test_ready_inputs_exclude_configured_sources_until_staged(
+    tmp_path: Path,
+) -> None:
+    cfg = _fixture_repo(tmp_path)
+    _write(
+        tmp_path / "memories/sources/staged-handbook.md",
+        _source_page(
+            "source-staged-handbook",
+            "Staged handbook",
+            "staged",
+            "memories/sources/config/staged-handbook.md",
+        ),
+    )
+    _write(
+        tmp_path / "memories/sources/config/staged-handbook.md",
+        _source_config_page("source-config-staged-handbook", "source-staged-handbook"),
+    )
+    _write(
+        tmp_path / "memories/sources/ready-handbook.md",
+        _source_page(
+            "source-ready-handbook",
+            "Ready handbook",
+            "ready_for_ingest",
+            "memories/sources/config/ready-handbook.md",
+        ),
+    )
+    _write(
+        tmp_path / "memories/sources/config/ready-handbook.md",
+        _source_config_page("source-config-ready-handbook", "source-ready-handbook"),
+    )
+
+    catalog = compile_input_stage(tmp_path, cfg, generated_at=dt.date(2026, 6, 25))
+    ready = {source["source_page_id"]: source["input_status"] for source in catalog["ready_inputs"]}
+
+    assert ready == {
+        "source-ready-handbook": "ready_for_ingest",
+        "source-staged-handbook": "staged",
+    }
+    assert next(
+        source
+        for source in catalog["sources"]
+        if source["source_page_id"] == "source-team-handbook"
+    )["input_status"] == "configured"
+
+    ready_section = render_input_stage_markdown(catalog, cfg).split("## Ready inputs", 1)[1]
+    assert "Team handbook" not in ready_section
+    assert "Staged handbook" in ready_section
+    assert "Ready handbook" in ready_section
 
 
 def test_input_context_for_source_returns_request_metadata(tmp_path: Path) -> None:
