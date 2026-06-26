@@ -14,6 +14,19 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | Perspective declarations audited beyond source configs
+
+- [wiki_audit.py](../../scripts/wiki_audit.py) now validates declared
+  perspectives in `root_entity.perspective_bundle`, root entity frontmatter,
+  input channels and source configs, instead of checking only source configs.
+- [test_wiki_audit.py](../../tests/test_wiki_audit.py) covers missing
+  perspective ids across all four declaration surfaces, so a root-level or
+  channel-level typo cannot silently reach the input stage or delegated LLM
+  package.
+- [operations.md](../operations.md) and
+  [operational-pass.md](operational-pass.md) were recompiled for the current
+  branch/date.
+
 ## [2026-06-26] System | Proposal branch state as historical provenance
 
 - [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) now

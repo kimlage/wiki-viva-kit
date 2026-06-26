@@ -492,19 +492,47 @@ def test_repo_prompt_checksums_are_current(audit):
     assert errors == []
 
 
-def test_source_config_perspectives_must_exist(tmp_path, audit, monkeypatch):
+def test_declared_perspectives_must_exist(tmp_path, audit, monkeypatch):
     audit.parse_frontmatter.cache_clear()
     monkeypatch.setattr(audit, "ROOT", tmp_path)
     monkeypatch.setattr(
         audit,
         "markdown_files",
         lambda: [
+            "memories/example/index.md",
+            "memories/system/input-channels/repository.md",
             "memories/system/perspectives/technical.md",
             "memories/sources/config/example.md",
         ],
     )
+    (tmp_path / "memories/example").mkdir(parents=True)
+    (tmp_path / "memories/system/input-channels").mkdir(parents=True)
     (tmp_path / "memories/system/perspectives").mkdir(parents=True)
     (tmp_path / "memories/sources/config").mkdir(parents=True)
+    (tmp_path / "memories/example/index.md").write_text(
+        "---\n"
+        "page_id: root-example\n"
+        "page_type: root_entity\n"
+        "perspective_bundle_required:\n"
+        "  - perspective-technical\n"
+        "perspective_bundle_optional:\n"
+        "  - perspective-missing-root\n"
+        "---\n"
+        "# Example\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/system/input-channels/repository.md").write_text(
+        "---\n"
+        "page_id: channel-repository\n"
+        "page_type: input_channel\n"
+        "perspectives_required:\n"
+        "  - perspective-technical\n"
+        "perspectives_optional:\n"
+        "  - perspective-missing-channel\n"
+        "---\n"
+        "# Repository\n",
+        encoding="utf-8",
+    )
     (tmp_path / "memories/system/perspectives/technical.md").write_text(
         "---\n"
         "page_id: perspective-technical\n"
@@ -526,10 +554,22 @@ def test_source_config_perspectives_must_exist(tmp_path, audit, monkeypatch):
     )
 
     errors: list[str] = []
-    config = WikiConfig(audit={**WikiConfig().audit, "perspective_coverage_check": True})
+    config = WikiConfig(
+        audit={**WikiConfig().audit, "perspective_coverage_check": True},
+        root_entity={
+            **WikiConfig().root_entity,
+            "perspective_bundle": {
+                "required": ["perspective-technical", "perspective-missing-config"],
+                "optional": [],
+            },
+        },
+    )
     audit.audit_source_config_perspectives(errors, config)
 
     assert errors == [
+        "config root_entity.perspective_bundle.required `perspective-missing-config` is not a perspective page",
+        "memories/system/input-channels/repository.md: perspectives_optional `perspective-missing-channel` is not a perspective page",
+        "memories/example/index.md: perspective_bundle_optional `perspective-missing-root` is not a perspective page",
         "memories/sources/config/example.md: perspectives_required `perspective-missing` is not a perspective page"
     ]
 
