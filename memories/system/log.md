@@ -14,6 +14,19 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | AQAL stakeholder perspective boundary hardened
+
+- The AQAL check still confirms the canonical mapping: Q1/I interior
+  individual, Q2/It exterior individual, Q3/We interior collective and Q4/Its
+  exterior collective.
+- [stakeholder.md](perspectives/stakeholder.md) and the
+  [perspective registry](perspectives/index.md) now state that topical
+  stakeholder extraction is cross-quadrant and is not the Q3 AQAL contract.
+- [aqal-quadrant-alignment-2026-06-25.md](../../docs/references/reports/aqal-quadrant-alignment-2026-06-25.md)
+  records the downstream compatibility rule, and
+  [test_aqal_quadrants.py](../../tests/test_aqal_quadrants.py) prevents the
+  stakeholder perspective from being treated as "Q3 = people/roles".
+
 ## [2026-06-26] System | Input stage ready queue excludes configured-only sources
 
 - [input_stage.py](../../wiki_core/input_stage.py) now keeps `configured`

@@ -10,7 +10,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-12
+updated_at: 2026-06-26
 stale_after_days: 90
 sources_policy: perspective_contract
 gate: github_pr
@@ -38,6 +38,8 @@ prompt_profile: perspective_stakeholder
 moc_parent: memories/system/perspectives/index.md
 related_pages:
   - memories/system/perspectives/index.md
+  - memories/system/perspectives/roles-relationships.md
+  - memories/system/perspectives/systems-processes.md
 ---
 
 # Stakeholder perspective
@@ -46,6 +48,15 @@ related_pages:
 
 Who is involved, what role they play, how they relate to the work, and which
 commitments or boundaries changed.
+
+## AQAL Boundary
+
+This is a topical stakeholder perspective, not the Q3 quadrant contract. It can
+extract people, roles and commitments across quadrants. Use
+[roles-relationships.md](roles-relationships.md) for Q3 when the source
+preserves shared meaning, lived expectations, relationship quality, rituals or
+culture. Treat plain rosters, org charts, RACI rows, approval rules and workflow
+assignments as Q4 unless that shared interior context is present.
 
 ## Extraction Questions
 

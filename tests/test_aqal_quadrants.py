@@ -77,3 +77,21 @@ def test_root_overlays_preserve_aqal_boundary_when_read_without_base_template() 
         "Systems of record, CRM/ERP, document systems, support systems, calendars"
         in company
     )
+
+
+def test_topical_stakeholder_perspective_does_not_define_q3() -> None:
+    registry = (ROOT / "memories/system/perspectives/index.md").read_text(
+        encoding="utf-8"
+    )
+    stakeholder = (ROOT / "memories/system/perspectives/stakeholder.md").read_text(
+        encoding="utf-8"
+    )
+    roles = (ROOT / "memories/system/perspectives/roles-relationships.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "topical perspectives" in registry
+    assert "not the Q3 AQAL contract" in registry
+    assert "This is a topical stakeholder perspective, not the Q3 quadrant contract" in stakeholder
+    assert "assignments as Q4 unless" in stakeholder
+    assert "quadrant: q3" in roles
