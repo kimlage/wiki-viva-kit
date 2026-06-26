@@ -107,7 +107,7 @@ root page together with `input_channel`, `source` and `source_config` pages into
 | Input channel | The declared source system/type, refresh policy, quadrants and process links. |
 | Perspective bundle | Required and optional lenses inherited from root, channel and source config. |
 | Target pages | Root page, context hub and source-specific pages that must be considered during integration. |
-| Ready inputs/warnings | Deterministic staging state before the agent reads anything. |
+| Ready inputs/warnings | Deterministic staging state before the agent reads anything; only `staged` and `ready_for_ingest` rows enter the action list. |
 
 ```sh
 python3 scripts/wiki_input_stage.py --write

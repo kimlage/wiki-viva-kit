@@ -140,11 +140,17 @@ DEFAULT_QUADRANT_BOUNDARY_RULE_PT = (
 )
 
 SOURCE_STATUS_TO_INPUT_STATUS = {
+    "blocked": "blocked",
     "ingested": "integrated",
     "partial": "ingesting",
+    "ready_for_ingest": "ready_for_ingest",
+    "registered": "configured",
+    "staged": "staged",
     "stale": "configured",
     "unread": "configured",
 }
+
+READY_INPUT_STATUSES = frozenset({"ready_for_ingest", "staged"})
 
 
 def _dedupe(values: list[str]) -> list[str]:
@@ -506,7 +512,7 @@ def compile_input_stage(
     ready = [
         source
         for source in source_rows
-        if source.get("input_status") in {"ready_for_ingest", "configured", "staged"}
+        if source.get("input_status") in READY_INPUT_STATUSES
     ]
     return {
         "schema_version": INPUT_STAGE_SCHEMA_VERSION,

@@ -27,7 +27,11 @@ def main() -> int:
     parser.add_argument("--write", action="store_true", help="write the input-stage page and catalog")
     parser.add_argument("--check", action="store_true", help="fail if generated files differ")
     parser.add_argument("--format", choices=["json", "markdown"], default="markdown")
-    parser.add_argument("--ready", action="store_true", help="print ready input rows as JSON")
+    parser.add_argument(
+        "--ready",
+        action="store_true",
+        help="print staged or ready_for_ingest input rows as JSON",
+    )
     args = parser.parse_args()
 
     config = load_config(ROOT)

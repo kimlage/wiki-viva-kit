@@ -211,7 +211,7 @@ below carry the detail and the links to each module.
 root entity, input-channel pages, canonical source pages and source-config
 sidecars. It emits a deterministic catalog with the root entity, channel
 matches, inherited required/optional perspectives, target pages, quadrants,
-ready inputs and warnings. [wiki_input_stage.py](../../../scripts/wiki_input_stage.py)
+configured sources, staged/ready inputs and warnings. [wiki_input_stage.py](../../../scripts/wiki_input_stage.py)
 renders this catalog into [input-stage.md](../input-stage.md) and checks whether
 the page is stale. The same helper feeds [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py)
 and [wiki_ingest.py](../../../scripts/wiki_ingest.py), so a repo-local source
