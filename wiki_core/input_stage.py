@@ -73,6 +73,52 @@ DEFAULT_QUADRANT_SEMANTICS = {
     },
 }
 
+DEFAULT_QUADRANT_SEMANTICS_PT = {
+    "q1": {
+        "semantic_key": "interior_individual",
+        "label": "Q1 - Interior individual",
+        "aqal_position": "I / interior individual",
+        "operational_test": (
+            "Vista interior do holon raiz: identidade, intencao, significado, "
+            "prioridades ou limites vividos ou declarados. Para time, empresa "
+            "ou produto, nao inventar consciencia; usar missao declarada, "
+            "autodescricao ou intencao de stakeholders."
+        ),
+    },
+    "q2": {
+        "semantic_key": "exterior_individual",
+        "label": "Q2 - Exterior individual",
+        "aqal_position": "It / exterior individual",
+        "operational_test": (
+            "Vista exterior do holon raiz como uma entidade: comportamento "
+            "observavel, output direto, artefato proprio, evidencia ou metrica. "
+            "O fato de algo ser documento ou repositorio nao basta; precisa ser "
+            "output/evidencia da entidade raiz."
+        ),
+    },
+    "q3": {
+        "semantic_key": "interior_collective",
+        "label": "Q3 - Interior coletivo",
+        "aqal_position": "We / interior collective",
+        "operational_test": (
+            "Vista interior do coletivo: significado compartilhado, cultura, "
+            "papeis como expectativas vividas, relacoes, rituais e normas. Um "
+            "cadastro simples de pessoas ou organograma formal nao e Q3 salvo "
+            "quando carrega significado compartilhado ou campo relacional."
+        ),
+    },
+    "q4": {
+        "semantic_key": "exterior_collective",
+        "label": "Q4 - Exterior coletivo",
+        "aqal_position": "Its / exterior collective",
+        "operational_test": (
+            "Vista exterior do coletivo: sistemas, canais, ferramentas, "
+            "plataformas, workflows, regras, instituicoes, governanca e "
+            "infraestrutura de processo."
+        ),
+    },
+}
+
 DEFAULT_QUADRANT_BOUNDARY_RULE = (
     "Apply the quadrant to the root holon and the source's role in context. A "
     "repository, document, dashboard or ticket is q2 only when it is an owned "
@@ -81,6 +127,16 @@ DEFAULT_QUADRANT_BOUNDARY_RULE = (
     "is q4. People, roles and relationships are q3 only when read as shared "
     "meaning, mutual expectation or culture; as externally administered structure "
     "they belong to q4."
+)
+
+DEFAULT_QUADRANT_BOUNDARY_RULE_PT = (
+    "Aplicar o quadrante ao holon raiz e ao papel da fonte no contexto. Um "
+    "repositorio, documento, dashboard ou ticket e q2 apenas quando e um "
+    "artefato/output/evidencia proprio da entidade raiz. A plataforma, workflow, "
+    "regra de governanca ou canal de comunicacao que coordena pessoas ao redor "
+    "dele e q4. Pessoas, papeis e relacoes sao q3 apenas quando lidas como "
+    "significado compartilhado, expectativa mutua ou cultura; como estrutura "
+    "administrada externamente, pertencem a q4."
 )
 
 SOURCE_STATUS_TO_INPUT_STATUS = {
@@ -100,6 +156,22 @@ def _dedupe(values: list[str]) -> list[str]:
         seen.add(value)
         out.append(value)
     return out
+
+
+def _is_portuguese(config: WikiConfig) -> bool:
+    return str(getattr(config, "language", "en")).lower().startswith("pt")
+
+
+def _quadrant_semantics(config: WikiConfig) -> dict[str, dict[str, str]]:
+    return (
+        DEFAULT_QUADRANT_SEMANTICS_PT
+        if _is_portuguese(config)
+        else DEFAULT_QUADRANT_SEMANTICS
+    )
+
+
+def _quadrant_boundary_rule(config: WikiConfig) -> str:
+    return DEFAULT_QUADRANT_BOUNDARY_RULE_PT if _is_portuguese(config) else DEFAULT_QUADRANT_BOUNDARY_RULE
 
 
 def _rel(root: Path, path: Path) -> str:
@@ -441,8 +513,8 @@ def compile_input_stage(
         "generated_at": date_text,
         "root_entity": root_entity,
         "quadrant_map": DEFAULT_QUADRANT_MAP,
-        "quadrant_semantics": DEFAULT_QUADRANT_SEMANTICS,
-        "quadrant_boundary_rule": DEFAULT_QUADRANT_BOUNDARY_RULE,
+        "quadrant_semantics": _quadrant_semantics(config),
+        "quadrant_boundary_rule": _quadrant_boundary_rule(config),
         "channels": channels,
         "declared_channels_without_sources": declared_channels,
         "sources": source_rows,
@@ -505,7 +577,7 @@ def _input_stage_dir(config: WikiConfig) -> str:
 
 
 def _labels(config: WikiConfig) -> dict[str, str]:
-    if str(getattr(config, "language", "en")).lower().startswith("pt"):
+    if _is_portuguese(config):
         return {
             "title": "Estagio de entrada",
             "updated_on": "Atualizado em",
