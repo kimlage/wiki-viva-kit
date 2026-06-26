@@ -60,12 +60,14 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-def _decision(page_id: str, context: str, title: str) -> str:
+def _decision(page_id: str, context: str, title: str, status: str | None = "pendente") -> str:
+    status_line = f"status: {status}\n" if status is not None else ""
     return (
         "---\n"
         f"page_id: {page_id}\n"
         "page_type: decision\n"
         f"context: {context}\n"
+        f"{status_line}"
         "visibility: private_self\n"
         "updated_at: 2026-06-08\n"
         "stale_after_days: 180\n"
@@ -208,6 +210,19 @@ def test_build_page_excludes_explicitly_closed_decisions(compile_mod, config, mi
     assert "Aprovar o plano alfa" in page
     assert "Escolher piloto beta" in page
     assert "Fechar gamma" not in page
+
+
+def test_build_page_excludes_statusless_structural_decisions(compile_mod, config, minimal_repo):
+    _write(
+        minimal_repo / "memories" / "decisions" / "structural.md",
+        _decision("decisao-structural", "sistema", "Convencao estrutural", status=None),
+    )
+
+    page = compile_mod.build_page(minimal_repo, config)
+
+    assert "Aprovar o plano alfa" in page
+    assert "Escolher piloto beta" in page
+    assert "Convencao estrutural" not in page
 
 
 def test_build_page_reflects_actions_from_sources(compile_mod, config, minimal_repo):
@@ -579,7 +594,7 @@ def test_clean_title_strips_bilingual_prefixes(compile_mod, config, minimal_repo
     _write(
         minimal_repo / "memories" / "decisions" / "gamma.md",
         "---\npage_id: decisao-gamma\npage_type: decision\ncontext: sistema\n"
-        "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 180\n"
+        "status: pendente\nvisibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 180\n"
         "sources_policy: contrato\ngate: github_pr\nsensitive_data_policy: private_sensitive_allowed\n---\n\n"
         "# Decision - Adopt the kit\n\nBody.\n",
     )

@@ -425,7 +425,7 @@ def _status_slug(status: str) -> str:
 def _decision_is_pending(values: dict[str, str], text: str) -> bool:
     status = str(values.get("status") or first_state(text) or "").strip()
     if not status:
-        return True
+        return False
     slug = _status_slug(status)
     return slug not in NON_PENDING_DECISION_STATUS_SLUGS and not any(
         slug.startswith(prefix) for prefix in NON_PENDING_DECISION_STATUS_PREFIXES
