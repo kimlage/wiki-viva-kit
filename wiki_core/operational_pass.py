@@ -6,7 +6,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import yaml
 
@@ -554,25 +554,21 @@ def _render_short_term_memory(
     lines.extend(_short_block(s["short_review_now"], review_items, s["short_no_review"]))
 
     actions_by_id = {action.page_id: action for action in report.actions}
-    selected_actions: list[PageRecord] = []
+    action_candidates: list[PageRecord] = []
     for action_id in report.pending_ids:
         action = actions_by_id.get(action_id)
         if action is not None and not _action_is_closed(action):
-            selected_actions.append(action)
-        if len(selected_actions) >= SHORT_TERM_LIMIT:
-            break
-    if len(selected_actions) < SHORT_TERM_LIMIT:
-        for action in report.actions:
-            if action in selected_actions:
-                continue
-            if _action_needs_attention(action):
-                selected_actions.append(action)
-            if len(selected_actions) >= SHORT_TERM_LIMIT:
-                break
+            action_candidates.append(action)
+    for action in report.actions:
+        if action in action_candidates:
+            continue
+        if _action_needs_attention(action):
+            action_candidates.append(action)
+    selected_actions = _balanced_page_rows(report, action_candidates, SHORT_TERM_LIMIT)
     action_items = [
         f"- **{_escape(action.context)}:** {_page_link(action, page_dir)} "
         f"({_escape(action.status or s['unknown'])})"
-        for action in selected_actions[:SHORT_TERM_LIMIT]
+        for action in selected_actions
     ]
     lines.extend(_short_block(s["short_actions"], action_items, s["short_no_actions"]))
 
@@ -596,11 +592,38 @@ def _balanced_attention_rows(
     report: OperationalPassReport, limit: int
 ) -> tuple[AttentionRow, ...]:
     """Pick short-memory attention rows across contexts before repeating one."""
+    return _balanced_rows_by_context(
+        report,
+        list(report.attention),
+        limit,
+        context_of=lambda row: row.context,
+    )
+
+
+def _balanced_page_rows(
+    report: OperationalPassReport, pages: list[PageRecord], limit: int
+) -> tuple[PageRecord, ...]:
+    """Pick short-memory pages across contexts before repeating one."""
+    return _balanced_rows_by_context(
+        report,
+        pages,
+        limit,
+        context_of=lambda page: page.context,
+    )
+
+
+def _balanced_rows_by_context(
+    report: OperationalPassReport,
+    rows: list[Any],
+    limit: int,
+    *,
+    context_of: Callable[[Any], str],
+) -> tuple[Any, ...]:
     if limit <= 0:
         return ()
-    grouped: dict[str, list[AttentionRow]] = {}
-    for row in report.attention:
-        grouped.setdefault(row.context, []).append(row)
+    grouped: dict[str, list[Any]] = {}
+    for row in rows:
+        grouped.setdefault(context_of(row), []).append(row)
     if not grouped:
         return ()
 
@@ -608,11 +631,12 @@ def _balanced_attention_rows(
     for context_row in report.context_rows:
         if context_row.context in grouped and context_row.context not in ordered_contexts:
             ordered_contexts.append(context_row.context)
-    for row in report.attention:
-        if row.context not in ordered_contexts:
-            ordered_contexts.append(row.context)
+    for row in rows:
+        context = context_of(row)
+        if context not in ordered_contexts:
+            ordered_contexts.append(context)
 
-    selected: list[AttentionRow] = []
+    selected: list[Any] = []
     depth = 0
     while len(selected) < limit:
         added = False
