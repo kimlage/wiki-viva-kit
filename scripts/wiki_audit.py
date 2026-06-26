@@ -1690,10 +1690,29 @@ def audit_source_config_perspectives(errors: list[str], config: WikiConfig) -> N
         for page_id, (_rel, values) in catalog.items()
         if str(values.get("page_type") or "") == "perspective"
     }
+
+    bundle = (config.root_entity or {}).get("perspective_bundle") or {}
+    if isinstance(bundle, dict):
+        for field in ("required", "optional"):
+            raw_ids = bundle.get(field)
+            perspective_ids_from_config = raw_ids if isinstance(raw_ids, list) else []
+            for perspective_id in [str(item) for item in perspective_ids_from_config if item]:
+                if perspective_id not in perspective_ids:
+                    errors.append(
+                        "config root_entity.perspective_bundle."
+                        f"{field} `{perspective_id}` is not a perspective page"
+                    )
+
+    fields_by_type = {
+        "root_entity": ("perspective_bundle_required", "perspective_bundle_optional"),
+        "input_channel": ("perspectives_required", "perspectives_optional"),
+        "source_config": ("perspectives_required", "perspectives_optional"),
+    }
     for _page_id, (rel, values) in sorted(catalog.items()):
-        if str(values.get("page_type") or "") != "source_config":
+        fields = fields_by_type.get(str(values.get("page_type") or ""))
+        if not fields:
             continue
-        for field in ("perspectives_required", "perspectives_optional"):
+        for field in fields:
             for perspective_id in list_values(values, field):
                 if perspective_id not in perspective_ids:
                     errors.append(f"{rel}: {field} `{perspective_id}` is not a perspective page")
