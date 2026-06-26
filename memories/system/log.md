@@ -14,6 +14,18 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-06-26] System | Operational pass filters factual claim noise
+
+- [operational_pass.py](../../wiki_core/operational_pass.py) now treats explicit
+  factual/closed claim statuses as consolidated evidence, not as operational
+  attention items caused by historical words like "pending", "risk" or
+  "unknown" in titles or body text.
+- Statusless or open claims still surface when their content contains attention
+  markers, preserving the previous behavior for real uncertainty.
+- [test_operational_pass.py](../../tests/test_operational_pass.py) and the
+  [v6.8.3 release note](../../docs/references/releases/wiki-viva-v6.8.3.md)
+  document the regression and expected behavior.
+
 ## [2026-06-26] System | Versioned cockpit stops storing stale Git provenance
 
 - [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) no longer

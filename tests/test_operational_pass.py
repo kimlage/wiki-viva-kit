@@ -100,6 +100,28 @@ def _claim() -> str:
     )
 
 
+def _factual_claim_with_historical_attention_words() -> str:
+    return (
+        "---\n"
+        "page_id: claim-rating-closed\n"
+        "page_type: claim\n"
+        "title: \"Claim - Rating formerly pending\"\n"
+        "context: example\n"
+        "status: fato\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-06-11\n"
+        "stale_after_days: 30\n"
+        "sources_policy: source\n"
+        "gate: github_pr\n"
+        "sensitive_data_policy: private_sensitive_allowed\n"
+        "source_refs:\n"
+        "  - source-crm\n"
+        "---\n\n"
+        "# Claim - Rating formerly pending\n\n"
+        "Status: `fato`. This was pending in the source title, but the claim is now confirmed.\n"
+    )
+
+
 def _context_note() -> str:
     return (
         "---\n"
@@ -177,6 +199,24 @@ def test_operational_pass_crosses_sources_actions_and_uncertainty(tmp_path: Path
     assert "[Contact owner](../actions/contact-owner.md)" in page
     assert "refresh source: [CRM export](../sources/crm.md)" in page
     assert any(row.page.page_id == "claim-missing-rating" for row in report.attention)
+
+
+def test_operational_pass_does_not_surface_factual_claims_as_attention(
+    tmp_path: Path,
+):
+    mem = tmp_path / "memories"
+    _write(mem / "example" / "index.md", _hub("example"))
+    _write(mem / "claims" / "rating-closed.md", _factual_claim_with_historical_attention_words())
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("example",))
+    report = build_operational_pass_report(tmp_path, config, as_of=dt.date(2026, 6, 12))
+    page = build_operational_pass_page(tmp_path, config, updated_at="2026-06-12")
+
+    assert report.context_rows[0].claims == 1
+    assert report.attention == ()
+    assert report.consolidation_outputs[0].problems == 0
+    assert report.consolidation_outputs[0].signal == "ok"
+    assert "Claim - Rating formerly pending" not in page
 
 
 def test_operational_pass_surfaces_pending_decisions(tmp_path: Path):

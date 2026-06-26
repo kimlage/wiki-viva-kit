@@ -79,6 +79,27 @@ NON_PENDING_DECISION_STATUS_SLUGS = CLOSED_STATUS_SLUGS | frozenset(
         "decidido",
     }
 )
+NON_ATTENTION_CLAIM_STATUS_SLUGS = CLOSED_STATUS_SLUGS | frozenset(
+    {
+        "decisao_operacional",
+        "fact",
+        "factual",
+        "fato",
+        "fato_operacional",
+        "confirmed",
+        "confirmada",
+        "confirmado",
+        "proven",
+        "provada",
+        "provado",
+        "resolved",
+        "resolvida",
+        "resolvido",
+        "sintese",
+        "sintese_segura",
+        "safe_synthesis",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -1052,6 +1073,12 @@ def _decision_needs_attention(page: PageRecord) -> bool:
     )
 
 
+def _claim_needs_attention(page: PageRecord) -> bool:
+    """Claims use epistemic status; facts should not become operational noise."""
+    status = _status_slug(page.status)
+    return status not in NON_ATTENTION_CLAIM_STATUS_SLUGS and _page_needs_attention(page)
+
+
 def _attention_rows(
     sources: tuple[SourceRow, ...],
     actions: tuple[PageRecord, ...],
@@ -1067,7 +1094,7 @@ def _attention_rows(
         if reason:
             rows.append(AttentionRow(page.context, page, reason))
     for page in claims:
-        reason = _attention_reason(page)
+        reason = _attention_reason(page) if _claim_needs_attention(page) else ""
         if reason:
             rows.append(AttentionRow(page.context, page, reason))
     return rows
