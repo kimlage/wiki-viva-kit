@@ -122,11 +122,11 @@ function Nav({ active }: { active: string }) {
 
 function actionTitle(action: ActionCard): string {
   const labels: Record<string, string> = {
-    "git-status": "Check workspace",
-    "review-local-changes": "Review content changes",
-    "run-honesty-gates": "Run approval checks",
-    "pr-summary": "Build review packet",
-    "graph-check": "Check content map"
+    "git-status": "Check work state",
+    "review-local-changes": "Inspect changed content",
+    "run-honesty-gates": "Verify approval readiness",
+    "pr-summary": "Prepare approval summary",
+    "graph-check": "Check related content"
   };
   return labels[action.id] || action.title;
 }
@@ -134,8 +134,8 @@ function actionTitle(action: ActionCard): string {
 function actionReason(action: ActionCard): string {
   const labels: Record<string, string> = {
     "review-local-changes": "Shows changed content before saving a version or preparing approval.",
-    "run-honesty-gates": "Runs the deterministic checks that should be green before human approval.",
-    "pr-summary": "Builds the review packet from changed content, affected areas and privacy notes.",
+    "run-honesty-gates": "Confirms whether local checks support the next human decision.",
+    "pr-summary": "Prepares a human-readable summary from changed content, affected areas and privacy notes.",
     "graph-check": "Checks whether related content and impact links still make sense."
   };
   return labels[action.id] || action.human_reason;
@@ -156,8 +156,8 @@ function actionResultLabel(action: ActionCard): string {
   const labels: Record<string, string> = {
     "git-status": "Workspace state",
     "review-local-changes": "Changed content list",
-    "run-honesty-gates": "Pass/fail validation",
-    "pr-summary": "Review packet",
+    "run-honesty-gates": "Readiness signal",
+    "pr-summary": "Approval summary",
     "graph-check": "Link and impact signal"
   };
   return labels[action.id] || "Local result";
@@ -194,7 +194,7 @@ function ActionStack({ actions, onRun }: { actions: ActionCard[]; onRun: (action
                 <dd>{actionResultLabel(action)}</dd>
               </dl>
               <details className="inlineDetails">
-                <summary>Technical command</summary>
+                <summary>Local run details</summary>
                 <code>{action.commands.map((command) => command.argv.join(" ")).join(" && ")}</code>
               </details>
             </div>
@@ -498,10 +498,11 @@ function freshnessLabel(state: string): string {
 
 function contentKindLabel(kind: string): string {
   const labels: Record<string, string> = {
-    root_index: "home map",
+    root_index: "home overview",
     context_hub: "area overview",
-    operational_rule: "operating rule",
+    operational_rule: "operating guide",
     source: "evidence source",
+    source_catalog: "source library",
     dashboard: "dashboard",
     proposal: "review draft"
   };
@@ -602,7 +603,7 @@ function DiffFrame({ file }: { file: DiffFile }) {
         {file.risk_hints.length === 0 && <StatusPill tone="muted">no explicit risk</StatusPill>}
       </div>
       <details className="inlineDetails">
-        <summary>Exact file</summary>
+        <summary>File details</summary>
         <code>{file.path}</code>
       </details>
       {file.preview.length > 0 && <pre className="diffPreview">{file.preview.join("\n")}</pre>}
@@ -631,7 +632,7 @@ function DiffFilmstrip({ bundle }: { bundle: SnapshotBundle }) {
         {files.length === 0 && <p>No saved or local changes in this view.</p>}
       </div>
       <details className="auditDetails">
-        <summary>Technical audit trail</summary>
+        <summary>Comparison details</summary>
         <dl className="kv diffCompare">
           <dt>Compared with</dt>
           <dd>{bundle.diff.compare.base_ref || bundle.diff.compare.default_branch || "not available"}</dd>
@@ -716,7 +717,7 @@ function mapIntentCopy(intent: MapIntentId, bundle: SnapshotBundle): { label: st
   }
   return {
     label: "Find a page",
-    detail: "All available content, kept as a navigable map.",
+    detail: "All available content, ready to browse.",
     tone: "info",
     count: pages.length
   };
@@ -736,10 +737,10 @@ function mapIntentDecision(intent: MapIntentId, count: number): string {
 }
 
 function mapIntentAction(intent: MapIntentId): string {
-  if (intent === "review") return "The highlighted items are added to the decision packet automatically.";
+  if (intent === "review") return "The highlighted items are added to the review packet automatically.";
   if (intent === "evidence") return "Open one item, check its evidence links, then add it to the packet if it matters.";
   if (intent === "stale") return "Open one item and decide whether it needs a new source read.";
-  return "Pick any node to preview it without changing the packet.";
+  return "Pick any content item to preview it without changing the packet.";
 }
 
 function connectionPages(bundle: SnapshotBundle, selected: PageRecord | undefined, direction: "in" | "out"): PageRecord[] {
@@ -806,7 +807,7 @@ function impactReviewText(bundle: SnapshotBundle, pages: PageRecord[]): string {
   const sourceRefs = [...new Set(pages.flatMap((page) => page.source_refs))];
   const checks = bundle.gates.gates.map((gate) => `- [ ] ${gateCheckLabel(gate.id)}`);
   return [
-    "Decision Packet",
+    "Review Packet",
     "",
     `Workspace: ${approvalWorkspaceLabel(bundle.git)}`,
     `Approval request: ${bundle.git.proposal.draft_pr_url ? "linked" : gateStatusLabel(bundle.git.proposal.human_gate_state)}`,
@@ -822,7 +823,7 @@ function impactReviewText(bundle: SnapshotBundle, pages: PageRecord[]): string {
     "",
     "Human decision: approve, request changes, or ask for more evidence in the review request.",
     "",
-    "Technical references:",
+    "Source and file references:",
     ...pages.map((page) => `- ${page.path}`)
   ].join("\n");
 }
@@ -843,7 +844,7 @@ function MapIntentPanel({
   return (
     <section className="panel mapIntentPanel">
       <div className="panelHeader">
-        <h2>Use The Map To</h2>
+        <h2>Choose A Task</h2>
         <StatusPill tone={activeCopy.tone}>{activeCopy.count} highlighted</StatusPill>
       </div>
       <div className="mapDecisionStrip" aria-label="Current map decision">
@@ -882,7 +883,7 @@ function MapIntentPanel({
             {page.title}
           </button>
         ))}
-        {activePages.length === 0 && <p>No content matches this map mode in the current view.</p>}
+        {activePages.length === 0 && <p>No content matches this task in the current view.</p>}
       </div>
     </section>
   );
@@ -914,7 +915,7 @@ function PageActionDrawer({
   return (
     <section className="panel pageActionDrawer">
       <div className="panelHeader">
-        <h2>Selected Item</h2>
+        <h2>Content Preview</h2>
         <StatusPill tone={selected.freshness_state === "fresh" ? "good" : selected.freshness_state === "stale" ? "warn" : "muted"}>
           {freshnessLabel(selected.freshness_state)}
         </StatusPill>
@@ -924,9 +925,9 @@ function PageActionDrawer({
           <h3>{selected.title}</h3>
           <p>{selected.summary || "No summary in this view."}</p>
         </div>
-        <a className="secondaryButton" href={`/pages/${encodeURIComponent(selected.id)}`} title="Open page cockpit">
+        <a className="secondaryButton" href={`/pages/${encodeURIComponent(selected.id)}`} title="Open content details">
           <ExternalLink size={16} />
-          <span>Open page</span>
+          <span>Open content</span>
         </a>
       </div>
       <dl className="kv">
@@ -940,7 +941,7 @@ function PageActionDrawer({
         <dd>{updatedLabel(selected.updated_at)}</dd>
       </dl>
       <details className="auditDetails">
-        <summary>Technical address</summary>
+        <summary>Source and file details</summary>
         <code>{selected.path}</code>
       </details>
       <div className="routeRail" aria-label="Route from root to selected page">
@@ -952,12 +953,12 @@ function PageActionDrawer({
       </div>
       <div className="drawerGrid">
         <div>
-          <h3>Evidence Links</h3>
+          <h3>Evidence</h3>
           <ul className="plainList compactList">
             {proofs.map((page) => (
               <li key={page.id}><button className="textButton" onClick={() => onSelect(page.id)}>{page.title}</button></li>
             ))}
-            {proofs.length === 0 && <li>{selected.source_refs.length ? `${selected.source_refs.length} recorded evidence link(s). Open technical address for exact ids.` : "No evidence links listed."}</li>}
+            {proofs.length === 0 && <li>{selected.source_refs.length ? `${selected.source_refs.length} recorded evidence link(s). Open details for source references.` : "No evidence links listed."}</li>}
           </ul>
         </div>
         <div>
@@ -975,8 +976,8 @@ function PageActionDrawer({
           <ListChecks size={16} />
           <span>{isBundled ? "Remove from packet" : "Add to decision packet"}</span>
         </button>
-        {graphAction && <button className="secondaryButton" onClick={() => onRun(graphAction)}><Search size={16} /><span>Check map</span></button>}
-        {reviewAction && <button className="secondaryButton" onClick={() => onRun(reviewAction)}><GitBranch size={16} /><span>Review changes</span></button>}
+        {graphAction && <button className="secondaryButton" onClick={() => onRun(graphAction)}><Search size={16} /><span>Check related content</span></button>}
+        {reviewAction && <button className="secondaryButton" onClick={() => onRun(reviewAction)}><GitBranch size={16} /><span>Inspect changes</span></button>}
       </div>
     </section>
   );
@@ -1004,9 +1005,9 @@ function ImpactBundlePanel({
   const reviewText = impactReviewText(bundle, pages);
   const actions = bundle.actions.actions.filter((action) => ["graph-check", "review-local-changes", "pr-summary"].includes(action.id));
   return (
-    <section className="panel impactBundlePanel" aria-label="Decision Packet">
+    <section className="panel impactBundlePanel" aria-label="Review Packet">
       <div className="panelHeader">
-        <h2>Decision Packet</h2>
+        <h2>Review Packet</h2>
         <StatusPill tone={pages.length ? "info" : "muted"}>{pages.length} pages</StatusPill>
       </div>
       <div className="bundleMetrics" aria-label="Impact bundle metrics">
@@ -1052,7 +1053,7 @@ function ImpactBundlePanel({
             <li>{related.length ? `${related.length} nearby item(s) may be affected.` : "No nearby content is highlighted."}</li>
           </ul>
           <details className="auditDetails">
-            <summary>Copyable decision packet</summary>
+            <summary>Copy review notes</summary>
             <pre className="bundlePreview">{reviewText}</pre>
           </details>
           <div className="buttonCluster">
@@ -1105,11 +1106,11 @@ function KnowledgeExplorer({
     <div className="knowledgeGrid">
       <section className="panel searchPanel">
         <div className="panelHeader">
-          <h2>Explore Content</h2>
+          <h2>Find Content</h2>
           <StatusPill tone="info">{results.length}</StatusPill>
         </div>
         <label className="field">
-          <span>Find content</span>
+          <span>Search content</span>
           <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="title, area, type, evidence" />
         </label>
         <div className="searchResults" role="listbox" aria-label="Content search results">
@@ -1270,7 +1271,7 @@ function prHandoffBody(bundle: SnapshotBundle): string {
     "## Approval Checklist",
     "- [ ] Conceptual review completed by a human",
     "- [ ] Privacy/publication boundary checked",
-    "- [ ] Exact content changes inspected",
+    "- [ ] Content changes inspected",
     "- [ ] Final merge/approval handled outside the cockpit"
   ].join("\n");
 }
@@ -1735,7 +1736,7 @@ function SyncMainPanel({
           <dd>{git.worktree.clean ? "none" : "needs review"}</dd>
         </dl>
         <details className="auditDetails syncCommand">
-          <summary>Terminal details</summary>
+          <summary>Refresh details</summary>
           <code>git fetch --prune {git.upstream.remote || "origin"}</code>
           <code>git pull --ff-only {git.upstream.remote || "origin"} {git.default_branch}</code>
         </details>
@@ -1856,7 +1857,7 @@ function ReviewView({
         <GitWorkflowPanel bundle={bundle} onWorkflow={onWorkflow} />
         <section className="panel">
           <div className="panelHeader">
-            <h2>Exact Content Changes</h2>
+            <h2>Changed Content Details</h2>
             <StatusPill tone={bundle.git.worktree.changed_files.length ? "warn" : "good"}>
               {bundle.git.worktree.changed_files.length}
             </StatusPill>
@@ -1997,7 +1998,7 @@ function HealthView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action:
         </section>
         <section className="panel">
           <div className="panelHeader">
-            <h2>Exact Checks</h2>
+            <h2>Check Details</h2>
             <StatusPill tone={gateStatusTone(bundle.gates.status)}>{gateStatusLabel(bundle.gates.status)}</StatusPill>
           </div>
           <ul className="plainList commandList">
@@ -2005,7 +2006,7 @@ function HealthView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action:
               <li key={gate.id}>
                 <strong>{gateCheckLabel(gate.id)}</strong>
                 <details className="auditDetails">
-                  <summary>Terminal command</summary>
+                  <summary>Local check details</summary>
                   <code>{gate.argv.join(" ")}</code>
                 </details>
               </li>
@@ -2138,7 +2139,7 @@ function IngestionPipeline({
               <p>{stage.detail}</p>
               {stage.command && (
                 <details className="auditDetails stageCommand">
-                  <summary>Technical command</summary>
+                  <summary>Local run details</summary>
                   <code>{stage.command.join(" ")}</code>
                 </details>
               )}
@@ -2311,7 +2312,7 @@ function SourcesView({
               </article>
             </div>
             <details className="auditDetails sourceTechnicalDetails">
-              <summary>Technical source details</summary>
+              <summary>Source details</summary>
               <dl className="kv">
                 <dt>Source key</dt>
                 <dd>{result.source_id || "not available"}</dd>
@@ -2339,7 +2340,7 @@ function SourcesView({
                   <h3>Suggested Content</h3>
                   <p>{targetPages.length ? `${targetPages.length} existing page(s) may need to receive or reference this source.` : "No existing page was matched automatically."}</p>
                   <details className="auditDetails">
-                    <summary>Exact target pages</summary>
+                    <summary>Suggested pages</summary>
                     <ul className="plainList compactList">
                       {targetPages.map((page) => (
                         <li key={page}>{page}</li>
@@ -2352,7 +2353,7 @@ function SourcesView({
                   <h3>Known Entities</h3>
                   <p>{targetEntities.length ? `${targetEntities.length} existing entity link(s) were suggested.` : "No known entity was matched automatically."}</p>
                   <details className="auditDetails">
-                    <summary>Exact entity references</summary>
+                    <summary>Suggested entities</summary>
                     <ul className="plainList compactList">
                       {targetEntities.map((entity) => (
                         <li key={entity}>{entity}</li>

@@ -44,10 +44,11 @@ function freshnessLabel(state: string): string {
 
 function contentKindLabel(kind: string): string {
   const labels: Record<string, string> = {
-    root_index: "home map",
+    root_index: "home overview",
     context_hub: "area overview",
-    operational_rule: "operating rule",
+    operational_rule: "operating guide",
     source: "evidence source",
+    source_catalog: "source library",
     dashboard: "dashboard",
     proposal: "review proposal"
   };
@@ -355,7 +356,7 @@ function SceneFallback({
 
 function SceneIntentBadge({ intent }: { intent: SceneIntent }) {
   return (
-    <div className="sceneIntentBadge" aria-label="Current map task">
+    <div className="sceneIntentBadge" aria-label="Current task">
       <span>{intent.count} highlighted</span>
       <strong>{intent.label}</strong>
       <p>{intent.detail}</p>
@@ -367,12 +368,12 @@ function SceneProof({ node, layout, profile }: { node: LayoutNode | null; layout
   if (!node) return null;
   return (
     <div className="sceneProof" aria-live="polite">
-      <span>Selected item</span>
+      <span>Selected content</span>
       <strong>{node.title}</strong>
       <p>{node.context} · {contentKindLabel(node.page_type)} · {freshnessLabel(node.freshness_state)}</p>
       <a href={`/pages/${encodeURIComponent(node.id)}`}>Open content</a>
       <details className="sceneTechnicalDetails">
-        <summary>Technical address</summary>
+        <summary>Source and file details</summary>
         <code>{node.path}</code>
         <small>{profile.label} · {layout.nodes.length} nodes{layout.truncated ? ` · ${layout.truncated} hidden` : ""}</small>
       </details>

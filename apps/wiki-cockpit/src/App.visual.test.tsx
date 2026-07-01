@@ -238,12 +238,12 @@ describe("visual route contract", () => {
   it("renders the core cockpit routes with textual fallbacks", async () => {
     await renderRoute("/ops");
     expect(await screen.findByRole("heading", { name: "What needs attention?" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Use The Map To" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Choose A Task" })).toBeTruthy();
     expect(screen.getByText("Current task")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Check evidence/ })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Explore Content" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Selected Item" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Decision Packet" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Find Content" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Content Preview" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Review Packet" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Next Steps" })).toBeTruthy();
     expect(screen.getAllByText("Use when").length).toBeGreaterThan(0);
     expect(screen.getByRole("heading", { name: "Activity Signal" })).toBeTruthy();
@@ -280,7 +280,7 @@ describe("visual route contract", () => {
 
     await renderRoute("/demo");
     expect(await screen.findByRole("heading", { name: "What needs attention?" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Explore Content" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Find Content" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Activity Signal" })).toBeTruthy();
   });
 
@@ -289,7 +289,7 @@ describe("visual route contract", () => {
     const sourceResult = await screen.findByRole("button", { name: /Source Fixture/ });
     fireEvent.click(sourceResult, { shiftKey: true });
 
-    const impactBundle = screen.getByRole("region", { name: "Decision Packet" });
+    const impactBundle = screen.getByRole("region", { name: "Review Packet" });
     expect(within(impactBundle).getByText("Source Fixture")).toBeTruthy();
     expect(within(impactBundle).getAllByText(/system · evidence source · ok/).length).toBeGreaterThan(0);
     expect(within(impactBundle).getByText(/No evidence links are available/)).toBeTruthy();
