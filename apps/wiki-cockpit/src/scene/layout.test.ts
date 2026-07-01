@@ -127,4 +127,13 @@ describe("scene performance profile", () => {
     expect(profile.maxNodes).toBeGreaterThanOrEqual(96);
     expect(profile.dpr[1]).toBeLessThanOrEqual(1.6);
   });
+
+  it("keeps the rich tier for large repos on strong machines", () => {
+    // Repo size caps visible nodes/edges but must not kill particles/curves.
+    const profile = scenePerformanceProfile(532, { width: 1440, pixelRatio: 2, hardwareConcurrency: 14 });
+    expect(profile.quality).toBe("rich");
+    expect(profile.maxNodes).toBe(160);
+    // Dense repos trade geometry detail, not effects.
+    expect(profile.geometrySegments).toBeLessThanOrEqual(18);
+  });
 });

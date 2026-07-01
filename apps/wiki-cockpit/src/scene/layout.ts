@@ -65,6 +65,9 @@ const SLOT_DEPTH = 0.34;
 const ANGLE_PAD = 0.04;
 export const DEADLINE_F = 0.7;
 
+// The tier reflects DEVICE capability only. Repo size never downgrades the
+// visual tier (a big wiki on a strong machine keeps particles and curves);
+// it is absorbed by the per-tier maxNodes/maxEdges caps instead.
 export function scenePerformanceProfile(
   nodeCount: number,
   options: { width?: number; pixelRatio?: number; hardwareConcurrency?: number; reducedMotion?: boolean } = {}
@@ -73,7 +76,8 @@ export function scenePerformanceProfile(
   const cores = options.hardwareConcurrency ?? 4;
   const pixelRatio = options.pixelRatio ?? 1;
   const reduced = Boolean(options.reducedMotion);
-  if (reduced || width < 640 || cores <= 4 || nodeCount > 180) {
+  const dense = nodeCount > 110;
+  if (reduced || width < 640 || cores <= 4) {
     return {
       quality: "compact",
       maxNodes: 64,
@@ -84,13 +88,13 @@ export function scenePerformanceProfile(
       label: "compact"
     };
   }
-  if (width < 1100 || cores <= 6 || nodeCount > 110) {
+  if (width < 1100 || cores <= 6) {
     return {
       quality: "balanced",
       maxNodes: 110,
       maxEdges: 200,
       dpr: [1, Math.min(1.35, pixelRatio)],
-      geometrySegments: 18,
+      geometrySegments: dense ? 14 : 18,
       enableIntro: true,
       label: "balanced"
     };
@@ -100,9 +104,9 @@ export function scenePerformanceProfile(
     maxNodes: 160,
     maxEdges: 320,
     dpr: [1, Math.min(1.6, pixelRatio)],
-    geometrySegments: 24,
+    geometrySegments: dense ? 18 : 24,
     enableIntro: true,
-    label: "rich"
+    label: dense ? "rich·dense" : "rich"
   };
 }
 
