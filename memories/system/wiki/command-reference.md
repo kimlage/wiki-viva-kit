@@ -578,6 +578,13 @@ Operator endpoints:
   dry-run by default in the UI.
 - `POST /api/sources/triage`: source manifest preview, target lookup and
   secret/PII pre-triage before ingestion persistence.
+- `POST /api/ingestion/plan`: source triage plus the ordered ingestion pipeline
+  stages for proposal preview, ingest dry-run, proposal write, LLM request
+  preview/emit and PR handoff.
+- `POST /api/ingestion/run`: executes a single ingestion wizard step using the
+  existing CLIs; read/dry-run steps can run immediately, while write steps are
+  dry-run by default and still require the proposal branch conditions enforced by
+  the backend.
 
 - `--host`: bind host, default `127.0.0.1`.
 - `--port`: bind port, default `8765`.

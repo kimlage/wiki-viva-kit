@@ -1302,6 +1302,10 @@ Implementation note, 2026-07-01:
   shell input.
 - `/sources` now provides a source inbox plus `/api/sources/triage`, using the
   deterministic source manifest and detector stack before any ingestion write.
+- The source inbox now includes an ingestion wizard backed by
+  `/api/ingestion/plan` and `/api/ingestion/run`; it shows the ordered pipeline,
+  runs proposal preview and ingest dry-run through existing CLIs, and keeps
+  proposal/LLM request writes behind explicit controls.
 - Hosted deployment remains adapter work: Vercel is static/read-only by default;
   a future GCP/Cloud Run operator runner must keep credentials private and still
   write through branch/PR workflows.

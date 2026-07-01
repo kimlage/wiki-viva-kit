@@ -33,9 +33,13 @@ Vite proxies `/api` to `http://127.0.0.1:8765`. The Python server exposes:
 - `/api/actions/run` for allowlisted fixed checks and derived writes;
 - `/api/git/workflow` for proposal-branch workflows, dry-run by default;
 - `/api/sources/triage` for local source pre-triage before ingestion.
+- `/api/ingestion/plan` and `/api/ingestion/run` for the source ingestion
+  wizard, including proposal preview, ingest dry-run and LLM request handoff.
 
 It does not provide arbitrary shell access. Mutating Git operations are scoped
 to proposal branches and the Pull Request handoff remains the human gate.
+The ingestion wizard executes read/dry-run steps directly, while write steps
+stay behind an explicit UI toggle and proposal-branch checks.
 
 ## Build
 

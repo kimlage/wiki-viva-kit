@@ -14,6 +14,17 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-01] System | Source inbox gains ingestion wizard pipeline
+
+- The `/sources` cockpit view now builds a local ingestion plan after source
+  triage, showing the ordered pipeline from source pre-scan to proposal preview,
+  ingest dry-run, LLM request handoff and PR gate.
+- The operator API gained `/api/ingestion/plan` and `/api/ingestion/run`, both
+  backed by the existing deterministic CLIs rather than a parallel ingestion
+  path.
+- Write steps remain dry-run by default and are constrained by proposal-branch
+  conditions, preserving the GitHub PR human gate.
+
 ## [2026-07-01] System | Local cockpit operates proposal Git and source triage
 
 - The localhost operator API now separates fixed allowlisted actions from

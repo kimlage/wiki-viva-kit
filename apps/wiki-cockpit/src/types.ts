@@ -182,8 +182,6 @@ export type WorkflowRunResult = {
   results: CommandResultEntry[];
 };
 
-export type CommandRunResult = ActionRunResult | WorkflowRunResult;
-
 export type SourceFinding = {
   kind: string;
   category: string;
@@ -213,3 +211,35 @@ export type SourceTriageResult = {
   };
   next_steps?: string[];
 };
+
+export type IngestionStage = {
+  id: string;
+  label: string;
+  status: "complete" | "ready" | "waiting" | "blocked" | "warning" | string;
+  detail: string;
+  command: string[] | null;
+  writes: boolean;
+};
+
+export type IngestionPlan = {
+  ok: boolean;
+  source: string;
+  context: string;
+  source_id?: string;
+  triage: SourceTriageResult;
+  stages: IngestionStage[];
+  next_blocked_stage?: IngestionStage;
+  error?: string;
+};
+
+export type IngestionStepResult = {
+  ok: boolean;
+  step_id: string;
+  dry_run: boolean;
+  summary: string;
+  error?: string;
+  results: CommandResultEntry[];
+  plan: IngestionPlan;
+};
+
+export type CommandRunResult = ActionRunResult | WorkflowRunResult | IngestionStepResult;

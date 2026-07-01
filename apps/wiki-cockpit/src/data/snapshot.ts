@@ -1,4 +1,4 @@
-import type { SnapshotBundle, SourceTriageResult, WorkflowRunResult } from "../types";
+import type { IngestionPlan, IngestionStepResult, SnapshotBundle, SourceTriageResult, WorkflowRunResult } from "../types";
 
 const FILES = {
   manifest: "manifest.json",
@@ -89,6 +89,37 @@ export async function triageSource(source: string, context?: string): Promise<So
   const result = (await response.json()) as SourceTriageResult;
   if (!response.ok && !result.risk_flags && !result.error) {
     throw new Error(`source triage failed: ${response.status}`);
+  }
+  return result;
+}
+
+export async function buildIngestionPlan(source: string, context?: string): Promise<IngestionPlan> {
+  const response = await fetch("/api/ingestion/plan", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ source, context })
+  });
+  const result = (await response.json()) as IngestionPlan;
+  if (!response.ok && !result.stages) {
+    throw new Error(result.error || `ingestion plan failed: ${response.status}`);
+  }
+  return result;
+}
+
+export async function runIngestionStep(
+  source: string,
+  context: string,
+  stepId: string,
+  dryRun = true
+): Promise<IngestionStepResult> {
+  const response = await fetch("/api/ingestion/run", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ source, context, step_id: stepId, dry_run: dryRun })
+  });
+  const result = (await response.json()) as IngestionStepResult;
+  if (!response.ok && !result.step_id) {
+    throw new Error(result.error || `ingestion step failed: ${response.status}`);
   }
   return result;
 }

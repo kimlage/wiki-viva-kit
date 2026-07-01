@@ -20,8 +20,8 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { SystemScene } from "./components/SystemScene";
 import { gitGateLabel, pageById, qualityFlagCount, reviewChecklist, topActions } from "./data/model";
-import { loadSnapshotBundle, runCockpitAction, runGitWorkflow, triageSource } from "./data/snapshot";
-import type { ActionCard, CommandRunResult, PageRecord, SnapshotBundle, SourceTriageResult } from "./types";
+import { buildIngestionPlan, loadSnapshotBundle, runCockpitAction, runGitWorkflow, runIngestionStep } from "./data/snapshot";
+import type { ActionCard, CommandRunResult, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceTriageResult } from "./types";
 import "./styles.css";
 
 type LoadState =
@@ -374,9 +374,78 @@ function sourceResultTone(result: SourceTriageResult | null): "good" | "warn" | 
   return "good";
 }
 
-function SourcesView({ bundle }: { bundle: SnapshotBundle }) {
+function stageTone(stage: IngestionStage): "good" | "warn" | "bad" | "info" | "muted" {
+  if (stage.status === "complete") return "good";
+  if (stage.status === "ready") return "info";
+  if (stage.status === "warning" || stage.status === "waiting") return "warn";
+  if (stage.status === "blocked") return "bad";
+  return "muted";
+}
+
+function runnableStage(stage: IngestionStage): boolean {
+  return Boolean(stage.command) && stage.status !== "blocked";
+}
+
+function IngestionPipeline({
+  plan,
+  executeWrites,
+  busyStep,
+  onRun
+}: {
+  plan: IngestionPlan | null;
+  executeWrites: boolean;
+  busyStep: string;
+  onRun: (stage: IngestionStage) => void;
+}) {
+  if (!plan) return null;
+  return (
+    <section className="pipelinePanel">
+      <div className="panelHeader">
+        <h3>Pipeline</h3>
+        <StatusPill tone={plan.ok ? "good" : "bad"}>{plan.ok ? "ready" : "blocked"}</StatusPill>
+      </div>
+      <div className="pipelineRail" aria-label="Ingestion pipeline">
+        {plan.stages.map((stage, index) => (
+          <article className={`pipelineStage stage-${stage.status}`} key={stage.id}>
+            <div className="stageIndex">{index + 1}</div>
+            <div>
+              <div className="stageTitle">
+                <strong>{stage.label}</strong>
+                <StatusPill tone={stageTone(stage)}>{stage.status}</StatusPill>
+              </div>
+              <p>{stage.detail}</p>
+              {stage.command && <code>{stage.command.join(" ")}</code>}
+            </div>
+            {runnableStage(stage) && (
+              <button className={stage.writes ? "secondaryButton risky" : "secondaryButton"} onClick={() => onRun(stage)} title={stage.detail}>
+                <Play size={16} />
+                <span>{busyStep === stage.id ? "Running" : stage.writes && !executeWrites ? "Dry-run" : "Run"}</span>
+              </button>
+            )}
+          </article>
+        ))}
+      </div>
+      {plan.next_blocked_stage && (
+        <p className="pipelineNote">
+          Next stop: <strong>{plan.next_blocked_stage.label}</strong> · {plan.next_blocked_stage.detail}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function SourcesView({
+  bundle,
+  onCommand
+}: {
+  bundle: SnapshotBundle;
+  onCommand: (result: CommandRunResult) => void;
+}) {
   const contexts = useMemo(
-    () => [...new Set([...Object.keys(bundle.freshness.by_context), ...bundle.pages.pages.map((page) => page.context)])].filter(Boolean),
+    () => {
+      const values = [...new Set([...Object.keys(bundle.freshness.by_context), ...bundle.pages.pages.map((page) => page.context)])].filter(Boolean);
+      return values.length ? values : ["system"];
+    },
     [bundle]
   );
   const firstSource = bundle.sources.sources[0];
@@ -384,16 +453,49 @@ function SourcesView({ bundle }: { bundle: SnapshotBundle }) {
   const [source, setSource] = useState(firstSource?.path || "");
   const [context, setContext] = useState(firstSource?.context || defaultContext);
   const [result, setResult] = useState<SourceTriageResult | null>(null);
+  const [plan, setPlan] = useState<IngestionPlan | null>(null);
   const [busy, setBusy] = useState(false);
+  const [busyStep, setBusyStep] = useState("");
+  const [executeWrites, setExecuteWrites] = useState(false);
 
   const runTriage = async () => {
     setBusy(true);
     try {
-      setResult(await triageSource(source, context));
+      const nextPlan = await buildIngestionPlan(source, context);
+      setPlan(nextPlan);
+      setResult(nextPlan.triage);
     } catch (error) {
+      setPlan(null);
       setResult({ ok: false, error: error instanceof Error ? error.message : "source triage failed" });
     } finally {
       setBusy(false);
+    }
+  };
+  const runStage = async (stage: IngestionStage) => {
+    setBusyStep(stage.id);
+    try {
+      const stepResult = await runIngestionStep(source, context, stage.id, stage.writes ? !executeWrites : false);
+      setPlan(stepResult.plan);
+      setResult(stepResult.plan.triage);
+      onCommand(stepResult);
+    } catch (error) {
+      onCommand({
+        ok: false,
+        step_id: stage.id,
+        dry_run: stage.writes ? !executeWrites : false,
+        summary: stage.label,
+        error: error instanceof Error ? error.message : "ingestion step failed",
+        results: [],
+        plan: plan || {
+          ok: false,
+          source,
+          context,
+          triage: result || { ok: false, error: "ingestion step failed" },
+          stages: []
+        }
+      });
+    } finally {
+      setBusyStep("");
     }
   };
 
@@ -412,6 +514,8 @@ function SourcesView({ bundle }: { bundle: SnapshotBundle }) {
               onClick={() => {
                 setSource(item.path);
                 setContext(item.context || context);
+                setPlan(null);
+                setResult(null);
               }}
               title={item.path}
             >
@@ -424,7 +528,7 @@ function SourcesView({ bundle }: { bundle: SnapshotBundle }) {
       </section>
       <section className="panel">
         <div className="panelHeader">
-          <h2>Source Triage</h2>
+          <h2>Ingestion Wizard</h2>
           <StatusPill tone={sourceResultTone(result)}>{result ? (result.ok ? "ready" : "blocked") : "idle"}</StatusPill>
         </div>
         <div className="workflowGrid">
@@ -444,8 +548,12 @@ function SourcesView({ bundle }: { bundle: SnapshotBundle }) {
           </label>
           <button className="secondaryButton" disabled={!source || busy} onClick={runTriage} title="Run local source triage">
             <Search size={16} />
-            <span>{busy ? "Triaging" : "Triage source"}</span>
+            <span>{busy ? "Planning" : "Plan ingestion"}</span>
           </button>
+          <label className="toggleControl wideToggle">
+            <input type="checkbox" checked={executeWrites} onChange={(event) => setExecuteWrites(event.target.checked)} />
+            <span>Execute write steps</span>
+          </label>
         </div>
         {result && (
           <div className="triageResult">
@@ -510,6 +618,7 @@ function SourcesView({ bundle }: { bundle: SnapshotBundle }) {
             )}
           </div>
         )}
+        <IngestionPipeline plan={plan} executeWrites={executeWrites} busyStep={busyStep} onRun={runStage} />
       </section>
     </main>
   );
@@ -616,7 +725,7 @@ export function App() {
     if (loadState.status === "error") return <main className="workspace"><section className="panel"><h1>Snapshot unavailable</h1><p>{loadState.error}</p></section></main>;
     const { bundle } = loadState;
     if (route.view === "review") return <ReviewView bundle={bundle} onRun={runAction} onWorkflow={runWorkflow} />;
-    if (route.view === "sources") return <SourcesView bundle={bundle} />;
+    if (route.view === "sources") return <SourcesView bundle={bundle} onCommand={setCommandResult} />;
     if (route.view === "health") return <HealthView bundle={bundle} />;
     if (route.view === "pages") return <PagesView bundle={bundle} pageId={route.pageId} />;
     return <OpsView bundle={bundle} onRun={runAction} />;

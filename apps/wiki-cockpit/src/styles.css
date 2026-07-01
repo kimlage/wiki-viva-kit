@@ -348,6 +348,12 @@ code {
   background: #233139;
 }
 
+.secondaryButton.risky {
+  border-color: #7d5b29;
+  background: #2c2114;
+  color: #ffe3ad;
+}
+
 .secondaryButton:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -412,6 +418,10 @@ code {
   align-items: center;
   gap: 8px;
   min-height: 30px;
+}
+
+.wideToggle {
+  grid-column: 1 / -1;
 }
 
 .toggleControl input {
@@ -538,6 +548,69 @@ code {
   display: grid;
   gap: 14px;
   margin-top: 18px;
+}
+
+.pipelinePanel {
+  margin-top: 18px;
+  border-top: 1px solid #26343b;
+  padding-top: 16px;
+}
+
+.pipelineRail {
+  display: grid;
+  gap: 10px;
+}
+
+.pipelineStage {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  background: #0e1417;
+  padding: 12px;
+}
+
+.stage-complete {
+  border-color: #2d604b;
+}
+
+.stage-ready {
+  border-color: #2f5361;
+}
+
+.stage-warning,
+.stage-waiting {
+  border-color: #6e5126;
+}
+
+.stage-blocked {
+  border-color: #6a3333;
+}
+
+.stageIndex {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: #dce8ef;
+  background: #182126;
+  border-radius: 999px;
+  font-weight: 900;
+}
+
+.stageTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 5px;
+}
+
+.pipelineStage p,
+.pipelineNote {
+  margin-bottom: 8px;
 }
 
 .tagCloud {
@@ -701,6 +774,7 @@ pre {
   .statGrid,
   .actionRow,
   .fileRow,
+  .pipelineStage,
   .kv,
   .workflowGrid,
   .targetGrid {
@@ -709,7 +783,8 @@ pre {
 
   .field.wide,
   .buttonCluster.wide,
-  .secondaryButton.wide {
+  .secondaryButton.wide,
+  .wideToggle {
     grid-column: auto;
   }
 

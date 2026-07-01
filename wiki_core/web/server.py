@@ -14,6 +14,7 @@ from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
 from wiki_core.web.commands import run_action
 from wiki_core.web.git_workflows import run_git_workflow
+from wiki_core.web.ingestion_plan import build_ingestion_plan, run_ingestion_step
 from wiki_core.web.snapshot import build_snapshot, write_snapshot
 from wiki_core.web.source_triage import triage_source
 
@@ -101,7 +102,13 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
-        if parsed.path not in {"/api/actions/run", "/api/git/workflow", "/api/sources/triage"}:
+        if parsed.path not in {
+            "/api/actions/run",
+            "/api/git/workflow",
+            "/api/sources/triage",
+            "/api/ingestion/plan",
+            "/api/ingestion/run",
+        }:
             self._send_error("not found", status=HTTPStatus.NOT_FOUND)
             return
         length = int(self.headers.get("content-length") or "0")
@@ -127,6 +134,31 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 return
             dry_run = bool(payload.get("dry_run", True))
             result = run_git_workflow(self.server.root, self.server.config, operation, payload, dry_run=dry_run)
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+        if parsed.path in {"/api/ingestion/plan", "/api/ingestion/run"}:
+            source = str(payload.get("source") or "")
+            context = None if payload.get("context") is None else str(payload.get("context"))
+            if not source:
+                self._send_error("missing source", status=HTTPStatus.BAD_REQUEST)
+                return
+            if parsed.path == "/api/ingestion/plan":
+                result = build_ingestion_plan(self.server.root, self.server.config, source, context=context)
+                self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+                return
+            step_id = str(payload.get("step_id") or "")
+            if not step_id:
+                self._send_error("missing step_id", status=HTTPStatus.BAD_REQUEST)
+                return
+            dry_run = bool(payload.get("dry_run", True))
+            result = run_ingestion_step(
+                self.server.root,
+                self.server.config,
+                source,
+                context or self.server.config.default_context,
+                step_id,
+                dry_run=dry_run,
+            )
             self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
             return
         source = str(payload.get("source") or "")
