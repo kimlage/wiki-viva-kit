@@ -622,13 +622,14 @@ code {
 
 .approvalQueue {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+  max-width: 1080px;
 }
 
 .approvalItem {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   align-content: start;
   padding: 16px;
   border: 1px solid #2a3840;
@@ -656,7 +657,7 @@ code {
 
 .approvalFacts {
   display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
+  grid-template-columns: 124px minmax(0, 1fr);
   gap: 8px 12px;
   margin: 0;
   color: #cfd9df;
@@ -1694,6 +1695,49 @@ code {
   font-size: 13px;
 }
 
+.pageListLead {
+  margin: 0;
+  color: #a9b7c1;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.contentModeBar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.contentModeButton {
+  display: grid;
+  gap: 3px;
+  min-height: 54px;
+  padding: 9px;
+  text-align: left;
+  color: #dbe8ef;
+  background: #0f1518;
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.contentModeButton:hover,
+.contentModeButton.active {
+  background: #1a2327;
+  border-color: #6bd7ff;
+}
+
+.contentModeButton span {
+  color: #e8f2f7;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.contentModeButton small {
+  color: #94a2ad;
+  font-weight: 800;
+}
+
 .pageLink {
   display: grid;
   gap: 3px;
@@ -1713,9 +1757,61 @@ code {
   line-height: 1.35;
 }
 
-.pageSummary {
-  margin-top: 18px;
-  font-size: 16px;
+.pageVerificationIntro {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.pageVerificationIntro h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.pageVerificationIntro p {
+  max-width: 760px;
+  margin: 0;
+  color: #b8c5ce;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.contentDecisionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.contentDecisionCard {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-height: 128px;
+  padding: 12px;
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.contentDecisionCard span {
+  color: #94a2ad;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.contentDecisionCard strong {
+  color: #eef7fb;
+  font-size: 17px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.contentDecisionCard p {
+  margin: 0;
+  color: #a9b7c1;
+  line-height: 1.4;
 }
 
 .externalLink {
@@ -1861,6 +1957,7 @@ pre {
   .sourceDecisionGrid,
   .healthDecisionGrid,
   .targetGrid,
+  .contentDecisionGrid,
   .outputFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1949,6 +2046,8 @@ pre {
   .sourceFinding,
   .healthDecisionGrid,
   .healthAttentionItem,
+  .contentDecisionGrid,
+  .contentModeBar,
   .outputFacts,
   .targetGrid,
   .radarBands,

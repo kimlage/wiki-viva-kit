@@ -436,6 +436,55 @@ function evidenceLabel(page: PageRecord): string {
   return `${page.source_refs.length} evidence links`;
 }
 
+function pageNeedsAttention(page: PageRecord): boolean {
+  return page.risk_flags.length > 0 || page.freshness_state === "stale" || page.approved_state !== "approved";
+}
+
+function pageDecisionLabel(page: PageRecord): string {
+  if (page.risk_flags.length > 0) return "Review risk";
+  if (page.freshness_state === "stale") return "Refresh before trusting";
+  if (page.approved_state !== "approved") return "Needs approval";
+  return "Ready to trust";
+}
+
+function pageDecisionDetail(page: PageRecord): string {
+  if (page.risk_flags.length > 0) return `Check ${humanList(page.risk_flags.map(riskHintLabel))} before using this content.`;
+  if (page.freshness_state === "stale") return "The content may still be useful, but it should be refreshed before a decision depends on it.";
+  if (page.approved_state !== "approved") return "This item has not reached the approved wiki state yet.";
+  return "No freshness or risk issue is currently visible in the cockpit.";
+}
+
+function pageEvidenceDetail(page: PageRecord): string {
+  if (page.source_refs.length === 0) return "No source link is listed for this item.";
+  if (page.source_refs.length === 1) return "One source link is available for verification.";
+  return `${page.source_refs.length} source links are available for verification.`;
+}
+
+type ContentViewMode = "attention" | "evidence" | "trusted" | "all";
+
+const CONTENT_VIEW_MODES: { id: ContentViewMode; label: string; description: string }[] = [
+  { id: "attention", label: "Needs attention", description: "Stale, risky or not approved" },
+  { id: "evidence", label: "Has evidence", description: "Items with source links" },
+  { id: "trusted", label: "Ready to trust", description: "Fresh and risk-free" },
+  { id: "all", label: "All content", description: "Every wiki item" }
+];
+
+function pagesForContentMode(pages: PageRecord[], mode: ContentViewMode): PageRecord[] {
+  if (mode === "attention") return pages.filter(pageNeedsAttention);
+  if (mode === "evidence") return pages.filter((page) => page.source_refs.length > 0 || page.page_type === "source");
+  if (mode === "trusted") return pages.filter((page) => page.freshness_state === "fresh" && page.risk_flags.length === 0 && page.approved_state === "approved");
+  return pages;
+}
+
+function contentModeCounts(pages: PageRecord[]): Record<ContentViewMode, number> {
+  return {
+    attention: pagesForContentMode(pages, "attention").length,
+    evidence: pagesForContentMode(pages, "evidence").length,
+    trusted: pagesForContentMode(pages, "trusted").length,
+    all: pages.length
+  };
+}
+
 function updatedLabel(value: string): string {
   if (!value) return "Not dated";
   return value.replace("T", " ").replace("Z", "").slice(0, 16);
@@ -1166,15 +1215,19 @@ function ApprovalInbox({
   const prAction = bundle.actions.actions.find((action) => action.id === "pr-summary");
   const gateAction = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
   const reviewAction = bundle.actions.actions.find((action) => action.id === "review-local-changes");
-  const evidenceLinkCount = bundle.pages.pages.reduce((total, page) => total + page.source_refs.length, 0);
   const changedFiles = bundle.diff.files.slice(0, 6);
+  const primaryChangedFiles = changedFiles.slice(0, 3);
   const changedAreas = [...new Set(bundle.diff.files.map((file) => changeAreaLabel(file.category)).filter(Boolean))].slice(0, 8);
   const riskyFiles = bundle.diff.files.filter((file) => file.risk_hints.length > 0).slice(0, 6);
   const requestUrl = bundle.git.proposal.draft_pr_url;
-  const hasLocalEdits = !bundle.git.worktree.clean || bundle.diff.summary.working_tree_file_count > 0;
   const checkTone = gateStatusTone(bundle.gates.status);
   const checkReady = checkTone === "good";
   const checkLabels = bundle.gates.gates.map((gate) => gateCheckLabel(gate.id));
+  const changedFileLine = primaryChangedFiles.length
+    ? `${primaryChangedFiles.map((file) => `${file.path} (${changeStatusLabel(file.status || "changed")})`).join(", ")}${
+        bundle.diff.files.length > primaryChangedFiles.length ? ` and ${bundle.diff.files.length - primaryChangedFiles.length} more` : ""
+      }`
+    : "No changed files listed.";
 
   return (
     <section className="approvalInbox" aria-label="Approval inbox">
@@ -1205,12 +1258,12 @@ function ApprovalInbox({
             </StatusPill>
           </div>
           <dl className="approvalFacts">
-            <dt>Decision basis</dt>
-            <dd>{bundle.diff.summary.file_count} item(s), {bundle.diff.summary.insertions} added and {bundle.diff.summary.deletions} removed.</dd>
-            <dt>Evidence</dt>
-            <dd>{bundle.diff.summary.branch_file_count} saved for review, {bundle.diff.summary.working_tree_file_count} still local.</dd>
+            <dt>Decision</dt>
+            <dd>{bundle.diff.summary.file_count ? "Review whether these changes belong in one approval request." : "No changed content needs approval in this view."}</dd>
+            <dt>Primary items</dt>
+            <dd>{changedFileLine}</dd>
             <dt>What to check</dt>
-            <dd>{changedAreas.length ? `${humanList(changedAreas)}; exact files are in the item details.` : "No changed content listed."}</dd>
+            <dd>{changedAreas.length ? humanList(changedAreas) : "No changed content listed."}</dd>
           </dl>
           <details className="approvalItemDetails">
             <summary>Show changed items</summary>
@@ -1241,12 +1294,12 @@ function ApprovalInbox({
             </StatusPill>
           </div>
           <dl className="approvalFacts">
+            <dt>Decision</dt>
+            <dd>{bundle.diff.summary.privacy_review_required || risks.length ? "Inspect and resolve these notes before asking for approval." : "No privacy or risk blocker is visible."}</dd>
             <dt>Risk notes</dt>
             <dd>{risks.length ? risks.map(riskHintLabel).join(", ") : "No explicit risk notes."}</dd>
             <dt>Privacy</dt>
             <dd>{bundle.diff.summary.privacy_review_required ? "Review required before approval." : "No privacy flag in the changed content."}</dd>
-            <dt>Evidence links</dt>
-            <dd>{evidenceLinkCount} link(s) available across the current content view.</dd>
           </dl>
           <details className="approvalItemDetails">
             <summary>Show files with risk notes</summary>
@@ -1269,8 +1322,8 @@ function ApprovalInbox({
             <StatusPill tone={checkTone}>{gateStatusLabel(bundle.gates.status)}</StatusPill>
           </div>
           <dl className="approvalFacts">
-            <dt>Current state</dt>
-            <dd>{checkReady ? "Checks are passing in this view." : "Run or inspect checks before approval."}</dd>
+            <dt>Decision</dt>
+            <dd>{checkReady ? "Automated validation is ready for human review." : "Run or inspect checks before approval."}</dd>
             <dt>Available checks</dt>
             <dd>{bundle.gates.gates.length} check(s): {humanList(checkLabels)}.</dd>
             <dt>Checklist</dt>
@@ -1301,12 +1354,12 @@ function ApprovalInbox({
             </StatusPill>
           </div>
           <dl className="approvalFacts">
+            <dt>Decision</dt>
+            <dd>{requestUrl ? "Use the linked request as the human gate." : "Open or link a request before final approval."}</dd>
             <dt>Workspace</dt>
             <dd>{approvalWorkspaceLabel(bundle.git)}</dd>
             <dt>Shared copy</dt>
             <dd>{approvalSharedCopyLabel(bundle.git)}</dd>
-            <dt>Local edits</dt>
-            <dd>{hasLocalEdits ? "Needs review before approval." : "No unsaved local edits."}</dd>
           </dl>
           <div className="approvalItemActions">
             {requestUrl && (
@@ -2157,11 +2210,17 @@ function PageList({
   pages,
   selected,
   search,
+  mode,
+  modeCounts,
+  onModeChange,
   onSearch
 }: {
   pages: PageRecord[];
   selected: PageRecord | undefined;
   search: string;
+  mode: ContentViewMode;
+  modeCounts: Record<ContentViewMode, number>;
+  onModeChange: (mode: ContentViewMode) => void;
   onSearch: (value: string) => void;
 }) {
   return (
@@ -2169,7 +2228,23 @@ function PageList({
       <div className="pageListHeader">
         <div>
           <h2>Browse Content</h2>
-          <span>{pages.length} item(s)</span>
+          <span>{pages.length} visible item(s)</span>
+        </div>
+        <p className="pageListLead">Choose a verification queue, then open an item for the decision summary.</p>
+        <div className="contentModeBar" role="group" aria-label="Content verification filters">
+          {CONTENT_VIEW_MODES.map((item) => (
+            <button
+              aria-pressed={mode === item.id}
+              className={mode === item.id ? "contentModeButton active" : "contentModeButton"}
+              key={item.id}
+              onClick={() => onModeChange(item.id)}
+              title={item.description}
+              type="button"
+            >
+              <span>{item.label}</span>
+              <small>{modeCounts[item.id]}</small>
+            </button>
+          ))}
         </div>
         <label className="field">
           <span>Find</span>
@@ -2189,14 +2264,25 @@ function PageList({
 
 function PagesView({ bundle, pageId }: { bundle: SnapshotBundle; pageId?: string }) {
   const [search, setSearch] = useState("");
+  const [mode, setMode] = useState<ContentViewMode>("attention");
+  const modeCounts = useMemo(() => contentModeCounts(bundle.pages.pages), [bundle.pages.pages]);
+  const modePages = useMemo(() => pagesForContentMode(bundle.pages.pages, mode), [bundle.pages.pages, mode]);
   const results = useMemo(
-    () => bundle.pages.pages.filter((page) => pageMatches(page, search)),
-    [bundle.pages.pages, search]
+    () => modePages.filter((page) => pageMatches(page, search)),
+    [modePages, search]
   );
-  const selected = pageById(results.length ? results : bundle.pages.pages, pageId);
+  const selected = pageId ? pageById(bundle.pages.pages, pageId) : pageById(results.length ? results : modePages, pageId);
   return (
     <main className="workspace pagesWorkspace">
-      <PageList pages={results} selected={selected} search={search} onSearch={setSearch} />
+      <PageList
+        mode={mode}
+        modeCounts={modeCounts}
+        onModeChange={setMode}
+        onSearch={setSearch}
+        pages={results}
+        search={search}
+        selected={selected}
+      />
       <section className="panel pageDetail">
         {selected && (
           <>
@@ -2206,22 +2292,41 @@ function PagesView({ bundle, pageId }: { bundle: SnapshotBundle; pageId?: string
                 {freshnessLabel(selected.freshness_state)}
               </StatusPill>
             </div>
-            <dl className="kv">
-              <dt>What it is</dt>
-              <dd>{contentKindLabel(selected.page_type)}</dd>
-              <dt>Area</dt>
-              <dd>{selected.context}</dd>
-              <dt>Evidence links</dt>
-              <dd>{evidenceLabel(selected)}</dd>
-              <dt>Last update</dt>
-              <dd>{updatedLabel(selected.updated_at)}</dd>
-            </dl>
-            <p className="pageSummary">{selected.summary || "No summary in this view."}</p>
+            <div className="pageVerificationIntro">
+              <h2>Verification Summary</h2>
+              <p>{selected.summary || "No short summary is available in this view."}</p>
+            </div>
+            <div className="contentDecisionGrid" aria-label="Content verification summary">
+              <article className="contentDecisionCard">
+                <span>Decision</span>
+                <strong>{pageDecisionLabel(selected)}</strong>
+                <p>{pageDecisionDetail(selected)}</p>
+              </article>
+              <article className="contentDecisionCard">
+                <span>Evidence</span>
+                <strong>{evidenceLabel(selected)}</strong>
+                <p>{pageEvidenceDetail(selected)}</p>
+              </article>
+              <article className="contentDecisionCard">
+                <span>Area</span>
+                <strong>{selected.context || "No area"}</strong>
+                <p>{contentKindLabel(selected.page_type)}</p>
+              </article>
+              <article className="contentDecisionCard">
+                <span>Last update</span>
+                <strong>{updatedLabel(selected.updated_at)}</strong>
+                <p>{freshnessLabel(selected.freshness_state)}</p>
+              </article>
+            </div>
             <details className="auditDetails">
-              <summary>Technical references</summary>
+              <summary>Open technical references</summary>
               <dl className="kv">
                 <dt>File address</dt>
                 <dd>{selected.path}</dd>
+                <dt>Approval state</dt>
+                <dd>{selected.approved_state || "not listed"}</dd>
+                <dt>Risk flags</dt>
+                <dd>{selected.risk_flags.length ? humanList(selected.risk_flags.map(riskHintLabel)) : "none listed"}</dd>
                 <dt>Evidence ids</dt>
                 <dd>{selected.source_refs.length ? selected.source_refs.join(", ") : "none listed"}</dd>
               </dl>

@@ -269,6 +269,9 @@ describe("visual route contract", () => {
     await renderRoute("/pages/root");
     expect(await screen.findByRole("heading", { name: "Root" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Browse Content" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Needs attention/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Ready to trust/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Verification Summary" })).toBeTruthy();
     cleanup();
 
     await renderRoute("/demo");
