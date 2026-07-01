@@ -1629,32 +1629,129 @@ function ReviewView({
   );
 }
 
-function HealthView({ bundle }: { bundle: SnapshotBundle }) {
+function healthDecision(
+  bundle: SnapshotBundle,
+  qualityFlags: number
+): { label: string; detail: string; tone: "good" | "warn" | "bad" | "info" | "muted" } {
+  const stale = bundle.freshness.summary.stale ?? 0;
+  const unknown = bundle.freshness.summary.unknown ?? 0;
+  const gateTone = gateStatusTone(bundle.gates.status);
+  if (gateTone === "bad") {
+    return { label: "Do not rely yet", detail: "A required check is failing. Fix that before trusting or approving this wiki state.", tone: "bad" };
+  }
+  if (gateTone === "warn") {
+    return { label: "Check before relying", detail: "The content can be browsed, but validation has not proved this state yet.", tone: "warn" };
+  }
+  if (qualityFlags || stale || unknown) {
+    return { label: "Usable with review", detail: "The wiki is usable, but some content needs attention before high-confidence decisions.", tone: "warn" };
+  }
+  return { label: "Ready to trust", detail: "Checks are passing and the current content health signals are clear.", tone: "good" };
+}
+
+function HealthView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: ActionCard) => void }) {
   const qualityFlags = qualityFlagCount(bundle);
+  const decision = healthDecision(bundle, qualityFlags);
+  const fresh = bundle.freshness.summary.fresh ?? 0;
+  const stale = bundle.freshness.summary.stale ?? 0;
+  const unknown = bundle.freshness.summary.unknown ?? 0;
+  const gateAction = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
+  const stalePages = bundle.pages.pages.filter((page) => page.freshness_state === "stale").slice(0, 8);
+  const riskPages = bundle.pages.pages.filter((page) => page.risk_flags.length > 0).slice(0, 8);
+  const attentionPages = [...new Map([...riskPages, ...stalePages].map((page) => [page.id, page])).values()].slice(0, 10);
   return (
     <main className="workspace">
-      <section className="statGrid">
-        <Stat icon={<ShieldCheck size={18} />} label="Checks" value={bundle.gates.gates.length} tone="info" />
-        <Stat icon={<CircleAlert size={18} />} label="Content warnings" value={qualityFlags} tone={qualityFlags ? "warn" : "good"} />
-        <Stat icon={<FileText size={18} />} label="Content" value={bundle.pages.pages.length} tone="info" />
-        <Stat icon={<Search size={18} />} label="Evidence sources" value={bundle.sources.sources.length} tone="info" />
-      </section>
-      <section className="panel">
+      <section className="panel healthHero">
         <div className="panelHeader">
           <h1>Wiki Health</h1>
-          <StatusPill tone="info">{Object.keys(bundle.freshness.by_context).length} areas</StatusPill>
+          <StatusPill tone={decision.tone}>{decision.label}</StatusPill>
         </div>
-        <div className="contextGrid">
-          {Object.entries(bundle.freshness.by_context).map(([context, stats]) => (
-            <article className="contextTile" key={context}>
-              <h2>{context}</h2>
-              <span>ok {stats.fresh ?? 0}</span>
-              <span>needs refresh {stats.stale ?? 0}</span>
-              <span>not checked {stats.unknown ?? 0}</span>
-            </article>
-          ))}
+        <p className="panelLead">{decision.detail}</p>
+        <div className="healthDecisionGrid" aria-label="Wiki health decision summary">
+          <article className="healthDecisionCard">
+            <ShieldCheck size={18} />
+            <span>Validation</span>
+            <strong>{gateStatusLabel(bundle.gates.status)}</strong>
+            <p>{bundle.gates.gates.length} local check(s) are available for approval confidence.</p>
+            {gateAction && <ActionButton action={gateAction} onRun={onRun} />}
+          </article>
+          <article className="healthDecisionCard">
+            <Clock3 size={18} />
+            <span>Freshness</span>
+            <strong>{stale ? `${stale} need refresh` : "Current"}</strong>
+            <p>{fresh} ready, {unknown} not checked.</p>
+          </article>
+          <article className="healthDecisionCard">
+            <CircleAlert size={18} />
+            <span>Review warnings</span>
+            <strong>{qualityFlags}</strong>
+            <p>{qualityFlags ? "Inspect warnings before relying on affected content." : "No current warning is exposed in this view."}</p>
+          </article>
+          <article className="healthDecisionCard">
+            <Search size={18} />
+            <span>Evidence</span>
+            <strong>{bundle.sources.sources.length}</strong>
+            <p>Evidence source(s) are available to verify content claims.</p>
+          </article>
         </div>
       </section>
+
+      <section className="panel">
+        <div className="panelHeader">
+          <h2>Needs Attention</h2>
+          <StatusPill tone={attentionPages.length ? "warn" : "good"}>{attentionPages.length ? `${attentionPages.length} item(s)` : "clear"}</StatusPill>
+        </div>
+        <div className="healthAttentionList">
+          {attentionPages.map((page) => (
+            <a className="healthAttentionItem" href={`/pages/${encodeURIComponent(page.id)}`} key={page.id}>
+              <div>
+                <strong>{page.title}</strong>
+                <span>{pageMetaLabel(page)} · {evidenceLabel(page)}</span>
+              </div>
+              <StatusPill tone={pageStatusTone(page)}>
+                {page.risk_flags.length ? "review risk" : freshnessLabel(page.freshness_state)}
+              </StatusPill>
+            </a>
+          ))}
+          {attentionPages.length === 0 && <p>No content item needs attention in this view.</p>}
+        </div>
+      </section>
+
+      <details className="reviewUtilityDetails">
+        <summary>Area rollup and exact checks</summary>
+        <section className="panel">
+          <div className="panelHeader">
+            <h2>Area Readiness</h2>
+            <StatusPill tone="info">{Object.keys(bundle.freshness.by_context).length} areas</StatusPill>
+          </div>
+          <div className="contextGrid">
+            {Object.entries(bundle.freshness.by_context).map(([context, stats]) => (
+              <article className="contextTile" key={context}>
+                <h2>{context}</h2>
+                <span>ready {stats.fresh ?? 0}</span>
+                <span>needs refresh {stats.stale ?? 0}</span>
+                <span>not checked {stats.unknown ?? 0}</span>
+              </article>
+            ))}
+          </div>
+        </section>
+        <section className="panel">
+          <div className="panelHeader">
+            <h2>Exact Checks</h2>
+            <StatusPill tone={gateStatusTone(bundle.gates.status)}>{gateStatusLabel(bundle.gates.status)}</StatusPill>
+          </div>
+          <ul className="plainList commandList">
+            {bundle.gates.gates.map((gate) => (
+              <li key={gate.id}>
+                <strong>{gateCheckLabel(gate.id)}</strong>
+                <details className="auditDetails">
+                  <summary>Terminal command</summary>
+                  <code>{gate.argv.join(" ")}</code>
+                </details>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </details>
     </main>
   );
 }
@@ -2185,7 +2282,7 @@ export function App() {
     const { bundle } = loadState;
     if (route.view === "review") return <ReviewView bundle={bundle} onRun={runAction} onWorkflow={runWorkflow} />;
     if (route.view === "sources") return <SourcesView bundle={bundle} onCommand={setCommandResult} />;
-    if (route.view === "health") return <HealthView bundle={bundle} />;
+    if (route.view === "health") return <HealthView bundle={bundle} onRun={runAction} />;
     if (route.view === "pages") return <PagesView bundle={bundle} pageId={route.pageId} />;
     if (route.view === "demo") return <OpsView bundle={bundle} onRun={runAction} />;
     return <OpsView bundle={bundle} onRun={runAction} />;

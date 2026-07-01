@@ -935,6 +935,93 @@ code {
   color: #adbac4;
 }
 
+.healthHero {
+  display: grid;
+  gap: 16px;
+}
+
+.healthDecisionGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.healthDecisionCard,
+.healthAttentionItem {
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.healthDecisionCard {
+  min-height: 188px;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 8px;
+  align-content: start;
+  padding: 14px;
+}
+
+.healthDecisionCard svg {
+  color: #6bd7ff;
+}
+
+.healthDecisionCard span {
+  color: #94a2ad;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.healthDecisionCard strong {
+  color: #eef7fb;
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.healthDecisionCard p {
+  margin: 0;
+  color: #a9b7c1;
+  line-height: 1.4;
+}
+
+.healthDecisionCard .actionButton {
+  align-self: end;
+  justify-self: start;
+}
+
+.healthAttentionList {
+  display: grid;
+  gap: 10px;
+}
+
+.healthAttentionItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+}
+
+.healthAttentionItem:hover {
+  background: #1a2327;
+  border-color: #40515b;
+}
+
+.healthAttentionItem div {
+  display: grid;
+  gap: 4px;
+}
+
+.healthAttentionItem strong {
+  color: #eef7fb;
+}
+
+.healthAttentionItem span {
+  color: #94a2ad;
+  line-height: 1.35;
+}
+
 .sourcesWorkspace {
   grid-template-columns: 360px minmax(0, 1fr);
   align-items: start;
@@ -1708,6 +1795,7 @@ pre {
   }
 
   .sourceDecisionGrid,
+  .healthDecisionGrid,
   .targetGrid,
   .outputFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1789,6 +1877,8 @@ pre {
   .workflowGrid,
   .sourceDecisionGrid,
   .sourceFinding,
+  .healthDecisionGrid,
+  .healthAttentionItem,
   .outputFacts,
   .targetGrid,
   .radarBands,
