@@ -98,6 +98,8 @@ def test_build_snapshot_contains_plan_files_and_local_data(tmp_path: Path) -> No
     assert snapshot["manifest.json"]["schema_version"] == WEB_SNAPSHOT_SCHEMA_VERSION
     assert snapshot["manifest.json"]["repo"]["repo_id"] == "sample"
     assert snapshot["manifest.json"]["repo"]["branch_prefix"] == "wiki/"
+    assert snapshot["manifest.json"]["repo"]["default_context"] == "system"
+    assert snapshot["manifest.json"]["repo"]["karma_enabled"] is True
     assert snapshot["git.json"]["current_branch"] == "main"
     assert snapshot["operations.json"]["title"] == "Operations"
     assert snapshot["freshness.json"]["summary"]["fresh"] >= 1
@@ -140,10 +142,65 @@ Conteudo sintetico.
         default_context="sistema",
         contexts=("financeiro",),
         paths={**WikiConfig().paths, "memory_root": "memorias", "operation_page": "memorias/operacao.md"},
+        karma={"enabled": False},
     )
 
     snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")
 
     assert snapshot["manifest.json"]["repo"]["memory_root"] == "memorias"
+    assert snapshot["manifest.json"]["repo"]["default_context"] == "sistema"
+    assert snapshot["manifest.json"]["repo"]["karma_enabled"] is False
     assert snapshot["pages.json"]["pages"][0]["path"] == "memorias/index.md"
     assert snapshot["pages.json"]["pages"][0]["context"] == "sistema"
+
+
+def test_snapshot_handles_dense_localized_contexts_without_english_paths(tmp_path: Path) -> None:
+    _write(
+        tmp_path / "memorias/index.md",
+        """---
+page_id: raiz
+page_type: root_index
+title: "Raiz"
+context: sistema
+visibility: private_self
+updated_at: 2026-07-01
+stale_after_days: 30
+---
+
+# Raiz
+""",
+    )
+    for index in range(18):
+        _write(
+            tmp_path / "memorias/financeiro" / f"nota-{index:02d}.md",
+            f"""---
+page_id: nota-{index:02d}
+page_type: source_note
+title: "Nota {index:02d}"
+context: financeiro
+visibility: private_self
+updated_at: 2026-07-01
+stale_after_days: 30
+---
+
+# Nota {index:02d}
+
+Conteudo sintetico para volume local.
+""",
+        )
+    config = WikiConfig(
+        repo_id="pt-denso",
+        language="pt",
+        default_context="sistema",
+        contexts=("financeiro", "projetos"),
+        paths={**WikiConfig().paths, "memory_root": "memorias", "operation_page": "memorias/operacao.md"},
+        karma={"enabled": False},
+    )
+
+    snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")
+
+    assert snapshot["manifest.json"]["repo"]["memory_root"] == "memorias"
+    assert snapshot["manifest.json"]["repo"]["default_context"] == "sistema"
+    assert snapshot["freshness.json"]["by_context"]["financeiro"]["fresh"] == 18
+    assert len(snapshot["sources.json"]["sources"]) == 18
+    assert all(str(page["path"]).startswith("memorias/") for page in snapshot["pages.json"]["pages"])

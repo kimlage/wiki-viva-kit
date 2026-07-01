@@ -19,6 +19,8 @@
   "repo": {
     "branch_prefix": "wiki/",
     "default_branch": "main",
+    "default_context": "system",
+    "karma_enabled": true,
     "language": "en",
     "memory_root": "memories",
     "repo_id": "wiki-viva-kit-sample"

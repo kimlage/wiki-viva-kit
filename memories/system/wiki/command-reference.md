@@ -556,6 +556,9 @@ adapter without recompiling.
 Generates the JSON read model consumed by the Vite/React + Three.js cockpit:
 manifest, operations, graph, pages, sources, actions, decisions, freshness,
 gates, Git state, ingestion closure, quality and commands.
+The manifest repo block includes `memory_root`, `default_context` and
+`karma_enabled`, so downstream/localized repos can avoid
+[memories/](../../index.md) or `system` assumptions in the frontend.
 
 - `--out`: output directory; defaults to
   [data/derived/wiki/web-snapshot](../../../data/README.md).

@@ -107,6 +107,8 @@ export type SnapshotBundle = {
       repo_id: string;
       language: string;
       memory_root: string;
+      default_context: string;
+      karma_enabled: boolean;
       default_branch: string;
       branch_prefix: string;
     };

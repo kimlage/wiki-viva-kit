@@ -1312,6 +1312,9 @@ Implementation note, 2026-07-01:
 - The frontend now reads `wiki-cockpit.config.json` at runtime (`api_base`,
   `snapshot_base`, `repo_label`, `mode`) and the deployment guide documents
   Vercel static review plus a controlled GCP Cloud Run operator adapter boundary.
+- The web snapshot manifest now carries `default_context` and `karma_enabled`;
+  tests cover a dense localized `memorias/` fixture with karma disabled so the
+  frontend is not forced through `memories/` or `system` assumptions.
 
 ## External implementation references
 

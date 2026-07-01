@@ -332,6 +332,8 @@ def build_snapshot(
             "repo_id": config.repo_id,
             "language": config.language,
             "memory_root": config.paths["memory_root"],
+            "default_context": config.default_context,
+            "karma_enabled": config.karma_enabled,
             "default_branch": git_payload.get("default_branch") or "main",
             "branch_prefix": config.approval.get("branch_prefix", "wiki/"),
         },

@@ -445,14 +445,14 @@ function SourcesView({
   const contexts = useMemo(
     () => {
       const values = [...new Set([...Object.keys(bundle.freshness.by_context), ...bundle.pages.pages.map((page) => page.context)])].filter(Boolean);
-      return values.length ? values : ["system"];
+      return values.length ? values : [bundle.manifest.repo.default_context || "system"];
     },
     [bundle]
   );
   const firstSource = bundle.sources.sources[0];
-  const defaultContext = contexts[0] || "system";
+  const defaultContext = firstSource?.context || bundle.manifest.repo.default_context || contexts[0] || "system";
   const [source, setSource] = useState(firstSource?.path || "");
-  const [context, setContext] = useState(firstSource?.context || defaultContext);
+  const [context, setContext] = useState(defaultContext);
   const [result, setResult] = useState<SourceTriageResult | null>(null);
   const [plan, setPlan] = useState<IngestionPlan | null>(null);
   const [busy, setBusy] = useState(false);

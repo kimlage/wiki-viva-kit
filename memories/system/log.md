@@ -14,6 +14,15 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-01] System | Web snapshot carries downstream context metadata
+
+- The web snapshot manifest now includes `default_context` and `karma_enabled`
+  alongside `memory_root`, letting the cockpit avoid hardcoded `system` fallback
+  for localized downstream repos.
+- Snapshot tests now include a dense synthetic `memorias/` fixture with context
+  `financeiro` and karma disabled, proving the public kit behavior without
+  private downstream data.
+
 ## [2026-07-01] System | Web cockpit runtime config supports deploy adapters
 
 - The web cockpit now reads `wiki-cockpit.config.json` at runtime, separating
