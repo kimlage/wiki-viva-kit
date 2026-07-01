@@ -991,10 +991,72 @@ code {
   margin-top: 18px;
 }
 
+.sourceDecisionGrid,
+.outputFacts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sourceDecisionCard,
+.sourceTargetCard,
+.sourceFinding,
+.outputFacts span,
+.outputSummary,
+.outputError,
+.outputEmpty {
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.sourceDecisionCard,
+.sourceTargetCard,
+.outputFacts span {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 12px;
+}
+
+.sourceDecisionCard span,
+.outputFacts span {
+  color: #94a2ad;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sourceDecisionCard strong,
+.outputFacts strong {
+  color: #eef7fb;
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.sourceDecisionCard p,
+.sourceTargetCard p,
+.sourceFinding p,
+.outputSummary p,
+.outputError,
+.outputEmpty {
+  margin: 0;
+  color: #a9b7c1;
+  line-height: 1.4;
+}
+
+.sourceTechnicalDetails {
+  margin-top: 0;
+}
+
 .pipelinePanel {
   margin-top: 18px;
   border-top: 1px solid #26343b;
   padding-top: 16px;
+}
+
+.pipelinePanel .panelLead {
+  margin-bottom: 14px;
 }
 
 .pipelineRail {
@@ -1049,6 +1111,10 @@ code {
   margin-bottom: 5px;
 }
 
+.stageCommand {
+  margin-top: 8px;
+}
+
 .pipelineStage p,
 .pipelineNote {
   margin-bottom: 8px;
@@ -1064,6 +1130,29 @@ code {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.sourceTargetCard h3 {
+  margin: 0;
+}
+
+.sourceFindingList {
+  display: grid;
+  gap: 10px;
+}
+
+.sourceFinding {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+}
+
+.sourceFinding strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #eef7fb;
 }
 
 .compactList {
@@ -1494,6 +1583,56 @@ code {
 
 .outputPanel {
   margin: 0 22px 22px;
+  display: grid;
+  gap: 12px;
+}
+
+.outputSummary {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.outputSummary strong {
+  color: #eef7fb;
+  font-size: 18px;
+}
+
+.outputFacts {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.outputStepList {
+  display: grid;
+  gap: 10px;
+}
+
+.outputStep summary {
+  justify-content: space-between;
+}
+
+.commandMeta {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.commandMeta span {
+  width: fit-content;
+  color: #9eacb6;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.commandMeta code {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.outputError,
+.outputEmpty {
+  padding: 12px;
 }
 
 details {
@@ -1565,6 +1704,12 @@ pre {
   }
 
   .intentButtons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sourceDecisionGrid,
+  .targetGrid,
+  .outputFacts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1642,6 +1787,9 @@ pre {
   .handoffGrid,
   .syncGrid,
   .workflowGrid,
+  .sourceDecisionGrid,
+  .sourceFinding,
+  .outputFacts,
   .targetGrid,
   .radarBands,
   .intentButtons,

@@ -23,7 +23,7 @@ import { SystemScene } from "./components/SystemScene";
 import { gitGateLabel, pageById, qualityFlagCount, reviewChecklist, topActions } from "./data/model";
 import { buildIngestionPlan, loadSnapshotBundle, runCockpitAction, runGitWorkflow, runIngestionStep } from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
-import type { ActionCard, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceTriageResult, TimelineEvent } from "./types";
+import type { ActionCard, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult, TimelineEvent } from "./types";
 import "./styles.css";
 
 type LoadState =
@@ -178,26 +178,78 @@ function ActionStack({ actions, onRun }: { actions: ActionCard[]; onRun: (action
   );
 }
 
+function commandResultTitle(result: CommandRunResult): string {
+  if ("summary" in result && result.summary) return result.summary;
+  if ("operation" in result) return result.operation.replaceAll("_", " ");
+  if ("action_id" in result) {
+    const labels: Record<string, string> = {
+      "git-status": "Workspace check finished",
+      "review-local-changes": "Content review finished",
+      "run-honesty-gates": "Approval checks finished",
+      "pr-summary": "Review packet prepared",
+      "graph-check": "Content map check finished"
+    };
+    return labels[result.action_id] || result.action_id.replaceAll("_", " ");
+  }
+  return "Action finished";
+}
+
+function commandResultMode(result: CommandRunResult): string {
+  return result.dry_run ? "preview only" : "applied";
+}
+
+function commandEntryLabel(entry: CommandResultEntry, index: number): string {
+  return `Step ${index + 1} ${entry.ok ? "completed" : "needs attention"}`;
+}
+
 function CommandOutput({ result }: { result: CommandRunResult | null }) {
   if (!result) return null;
-  const label = "summary" in result ? result.summary : result.action_id;
+  const passedCount = result.results.filter((entry) => entry.ok).length;
+  const failedCount = result.results.length - passedCount;
   return (
     <section className="panel outputPanel">
       <div className="panelHeader">
-        <h2>Action Log</h2>
-        <StatusPill tone={result.ok ? "good" : "bad"}>{result.ok ? "passed" : "failed"}</StatusPill>
+        <h2>Action Result</h2>
+        <StatusPill tone={result.ok ? "good" : "bad"}>{result.ok ? "completed" : "needs attention"}</StatusPill>
       </div>
-      <p>{label}</p>
-      {result.results.map((entry, index) => (
-        <details open={index === 0} key={`${entry.argv.join(" ")}-${index}`}>
-          <summary>
-            <TerminalSquare size={16} />
-            <span>{entry.argv.join(" ")}</span>
-          </summary>
-          <pre>{[entry.stdout, entry.stderr].filter(Boolean).join("\n") || "No output."}</pre>
-        </details>
-      ))}
-      {result.results.length === 0 && <pre>{result.error || "No command output."}</pre>}
+      <div className="outputSummary">
+        <strong>{commandResultTitle(result)}</strong>
+        <p>
+          {result.ok ? "The local action finished. Review the step output only if something looks unexpected." : "The action did not finish cleanly. Use the details below to diagnose it."}
+        </p>
+      </div>
+      <div className="outputFacts" aria-label="Action result facts">
+        <span>
+          <strong>{commandResultMode(result)}</strong>
+          Mode
+        </span>
+        <span>
+          <strong>{passedCount}/{result.results.length}</strong>
+          Steps completed
+        </span>
+        <span>
+          <strong>{failedCount}</strong>
+          Needs attention
+        </span>
+      </div>
+      {result.error && <p className="outputError">{result.error}</p>}
+      <div className="outputStepList">
+        {result.results.map((entry, index) => (
+          <details className="auditDetails outputStep" key={`${entry.argv.join(" ")}-${index}`}>
+            <summary>
+              <TerminalSquare size={16} />
+              <span>{commandEntryLabel(entry, index)}</span>
+              <StatusPill tone={entry.ok ? "good" : "bad"}>{entry.ok ? "ok" : "failed"}</StatusPill>
+            </summary>
+            <div className="commandMeta">
+              <span>{entry.dry_run ? "preview only" : "applied"}</span>
+              <code>{entry.argv.join(" ")}</code>
+            </div>
+            <pre>{[entry.stdout, entry.stderr].filter(Boolean).join("\n") || "No output."}</pre>
+          </details>
+        ))}
+      </div>
+      {result.results.length === 0 && !result.error && <p className="outputEmpty">No terminal output was returned.</p>}
     </section>
   );
 }
@@ -1614,6 +1666,60 @@ function sourceResultTone(result: SourceTriageResult | null): "good" | "warn" | 
   return "good";
 }
 
+function sourceReadyLabel(result: SourceTriageResult): string {
+  if (result.secret_block) return "Blocked by secret";
+  if (result.error) return "Needs attention";
+  if (result.ok) return "Ready to review";
+  return "Needs review";
+}
+
+function sourceReadyDetail(result: SourceTriageResult): string {
+  if (result.error) return result.error;
+  if (result.secret_block) return "Remove access secrets before this source can enter the wiki flow.";
+  if ((result.risk_flags || []).length > 0) return "Safe to continue only after the flagged items are reviewed.";
+  return "No blocking issue was found in the local triage.";
+}
+
+function sourceTypeLabel(value?: string): string {
+  const labels: Record<string, string> = {
+    file: "Local file",
+    url: "Web link",
+    markdown: "Markdown note",
+    pdf: "PDF document",
+    text: "Text document",
+    unknown: "Unknown source"
+  };
+  return labels[value || "unknown"] || (value || "unknown").replaceAll("_", " ");
+}
+
+function sourceFoundLabel(value?: boolean | null): string {
+  if (value === true) return "Found";
+  if (value === false) return "Not found";
+  return "Not checked";
+}
+
+function sourceRiskLabel(value: string): string {
+  const labels: Record<string, string> = {
+    secret: "Access secret",
+    secret_block: "Access secret",
+    pii: "Personal data",
+    public_boundary: "Public boundary",
+    missing_context: "Missing area",
+    unresolved_target: "Unclear destination"
+  };
+  return labels[value] || value.replaceAll("_", " ");
+}
+
+function sourceRiskSummary(result: SourceTriageResult): string {
+  if (result.secret_block) return "Blocked";
+  if ((result.risk_flags || []).length > 0) return `${result.risk_flags?.length || 0} flag(s)`;
+  return "No flags";
+}
+
+function sourceFindingLabel(finding: SourceFinding): string {
+  return `${sourceRiskLabel(finding.category)} · ${finding.kind.replaceAll("_", " ")}`;
+}
+
 function stageTone(stage: IngestionStage): "good" | "warn" | "bad" | "info" | "muted" {
   if (stage.status === "complete") return "good";
   if (stage.status === "ready") return "info";
@@ -1622,8 +1728,25 @@ function stageTone(stage: IngestionStage): "good" | "warn" | "bad" | "info" | "m
   return "muted";
 }
 
+function stageStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    complete: "done",
+    ready: "ready",
+    waiting: "waiting",
+    blocked: "blocked",
+    warning: "needs review"
+  };
+  return labels[status] || status.replaceAll("_", " ");
+}
+
 function runnableStage(stage: IngestionStage): boolean {
   return Boolean(stage.command) && stage.status !== "blocked";
+}
+
+function stageButtonLabel(stage: IngestionStage, executeWrites: boolean, busyStep: string): string {
+  if (busyStep === stage.id) return "Running";
+  if (stage.writes) return executeWrites ? "Apply" : "Preview";
+  return "Review";
 }
 
 function IngestionPipeline({
@@ -1641,9 +1764,10 @@ function IngestionPipeline({
   return (
     <section className="pipelinePanel">
       <div className="panelHeader">
-        <h3>Add Flow</h3>
-        <StatusPill tone={plan.ok ? "good" : "bad"}>{plan.ok ? "ready" : "blocked"}</StatusPill>
+        <h3>Add Checklist</h3>
+        <StatusPill tone={plan.ok ? "good" : "bad"}>{plan.ok ? "ready to start" : "blocked"}</StatusPill>
       </div>
+      <p className="panelLead">Preview each step locally first. Turn on review writes only when this source should be added to the review workspace.</p>
       <div className="pipelineRail" aria-label="Add knowledge flow">
         {plan.stages.map((stage, index) => (
           <article className={`pipelineStage stage-${stage.status}`} key={stage.id}>
@@ -1651,15 +1775,20 @@ function IngestionPipeline({
             <div>
               <div className="stageTitle">
                 <strong>{stage.label}</strong>
-                <StatusPill tone={stageTone(stage)}>{stage.status}</StatusPill>
+                <StatusPill tone={stageTone(stage)}>{stageStatusLabel(stage.status)}</StatusPill>
               </div>
               <p>{stage.detail}</p>
-              {stage.command && <code>{stage.command.join(" ")}</code>}
+              {stage.command && (
+                <details className="auditDetails stageCommand">
+                  <summary>Technical command</summary>
+                  <code>{stage.command.join(" ")}</code>
+                </details>
+              )}
             </div>
             {runnableStage(stage) && (
               <button className={stage.writes ? "secondaryButton risky" : "secondaryButton"} onClick={() => onRun(stage)} title={stage.detail}>
                 <Play size={16} />
-                <span>{busyStep === stage.id ? "Running" : stage.writes && !executeWrites ? "Dry-run" : "Run"}</span>
+                <span>{stageButtonLabel(stage, executeWrites, busyStep)}</span>
               </button>
             )}
           </article>
@@ -1697,6 +1826,10 @@ function SourcesView({
   const [busy, setBusy] = useState(false);
   const [busyStep, setBusyStep] = useState("");
   const [executeWrites, setExecuteWrites] = useState(false);
+  const resultRiskFlags = result?.risk_flags || [];
+  const resultFindings = result?.findings || [];
+  const targetPages = result?.targets?.target_pages || [];
+  const targetEntities = result?.targets?.target_entities || [];
 
   const runTriage = async () => {
     setBusy(true);
@@ -1797,61 +1930,112 @@ function SourcesView({
         </div>
         {result && (
           <div className="triageResult">
-            <dl className="kv">
-              <dt>Source key</dt>
-              <dd>{result.source_id || "not available"}</dd>
-              <dt>Content type</dt>
-              <dd>{result.source_type || "unknown"}</dd>
-              <dt>Found</dt>
-              <dd>{String(result.exists)}</dd>
-              <dt>Area</dt>
-              <dd>{result.context || context}</dd>
-            </dl>
-            <div className="tagCloud">
-              {(result.risk_flags || []).map((flag) => (
+            <div className="sourceDecisionGrid" aria-label="Source decision summary">
+              <article className="sourceDecisionCard">
+                <span>Decision</span>
+                <strong>{sourceReadyLabel(result)}</strong>
+                <p>{sourceReadyDetail(result)}</p>
+              </article>
+              <article className="sourceDecisionCard">
+                <span>Risk</span>
+                <strong>{sourceRiskSummary(result)}</strong>
+                <p>{resultRiskFlags.length ? "Review the flagged items before approving the source." : "No access-secret or risk flag was found in triage."}</p>
+              </article>
+              <article className="sourceDecisionCard">
+                <span>Destination</span>
+                <strong>{result.context || context}</strong>
+                <p>{targetPages.length ? `${targetPages.length} suggested content item(s)` : "No exact target suggested yet."}</p>
+              </article>
+              <article className="sourceDecisionCard">
+                <span>Evidence</span>
+                <strong>{sourceFoundLabel(result.exists)}</strong>
+                <p>{sourceTypeLabel(result.source_type)}</p>
+              </article>
+            </div>
+            <details className="auditDetails sourceTechnicalDetails">
+              <summary>Technical source details</summary>
+              <dl className="kv">
+                <dt>Source key</dt>
+                <dd>{result.source_id || "not available"}</dd>
+                <dt>Source</dt>
+                <dd>{result.source || source}</dd>
+                <dt>Content type</dt>
+                <dd>{result.source_type || "unknown"}</dd>
+                <dt>Found</dt>
+                <dd>{String(result.exists)}</dd>
+                <dt>Area</dt>
+                <dd>{result.context || context}</dd>
+              </dl>
+            </details>
+            <div className="tagCloud" aria-label="Source risk flags">
+              {resultRiskFlags.map((flag) => (
                 <StatusPill tone={flag === "secret_block" ? "bad" : "warn"} key={flag}>
-                  {flag}
+                  {sourceRiskLabel(flag)}
                 </StatusPill>
               ))}
-              {(result.risk_flags || []).length === 0 && <StatusPill tone="good">no flags</StatusPill>}
+              {resultRiskFlags.length === 0 && <StatusPill tone="good">No flags</StatusPill>}
             </div>
             {result.targets && (
               <div className="targetGrid">
-                <div>
-                  <h3>Target Content</h3>
-                  <ul className="plainList compactList">
-                    {result.targets.target_pages.map((page) => (
-                      <li key={page}>{page}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
+                <article className="sourceTargetCard">
+                  <h3>Suggested Content</h3>
+                  <p>{targetPages.length ? `${targetPages.length} existing page(s) may need to receive or reference this source.` : "No existing page was matched automatically."}</p>
+                  <details className="auditDetails">
+                    <summary>Exact target pages</summary>
+                    <ul className="plainList compactList">
+                      {targetPages.map((page) => (
+                        <li key={page}>{page}</li>
+                      ))}
+                      {targetPages.length === 0 && <li>none</li>}
+                    </ul>
+                  </details>
+                </article>
+                <article className="sourceTargetCard">
                   <h3>Known Entities</h3>
-                  <ul className="plainList compactList">
-                    {result.targets.target_entities.map((entity) => (
-                      <li key={entity}>{entity}</li>
-                    ))}
-                    {result.targets.target_entities.length === 0 && <li>none</li>}
-                  </ul>
-                </div>
+                  <p>{targetEntities.length ? `${targetEntities.length} existing entity link(s) were suggested.` : "No known entity was matched automatically."}</p>
+                  <details className="auditDetails">
+                    <summary>Exact entity references</summary>
+                    <ul className="plainList compactList">
+                      {targetEntities.map((entity) => (
+                        <li key={entity}>{entity}</li>
+                      ))}
+                      {targetEntities.length === 0 && <li>none</li>}
+                    </ul>
+                  </details>
+                </article>
               </div>
             )}
-            <h3>Next Steps</h3>
-            <ul className="plainList compactList">
-              {(result.next_steps || []).map((step) => (
-                <li key={step}>{step}</li>
-              ))}
-            </ul>
-            {(result.findings || []).length > 0 && (
+            {(result.next_steps || []).length > 0 && (
               <>
-                <h3>Findings</h3>
-                <div className="fileTable">
-                  {(result.findings || []).map((finding) => (
-                    <div className="fileRow findingRow" key={`${finding.kind}-${finding.line}-${finding.excerpt}`}>
-                      <code>{finding.category}</code>
-                      <span>{finding.kind} · line {finding.line} · {finding.excerpt}</span>
+                <h3>Recommended Next Steps</h3>
+                <ul className="plainList compactList">
+                  {(result.next_steps || []).map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {resultFindings.length > 0 && (
+              <>
+                <h3>Review Findings</h3>
+                <div className="sourceFindingList">
+                  {resultFindings.map((finding) => (
+                    <article className="sourceFinding" key={`${finding.kind}-${finding.line}-${finding.excerpt}`}>
+                      <div>
+                        <strong>{sourceFindingLabel(finding)}</strong>
+                        <p>{finding.excerpt}</p>
+                        <details className="auditDetails">
+                          <summary>Detection details</summary>
+                          <dl className="kv">
+                            <dt>Line</dt>
+                            <dd>{finding.line}</dd>
+                            <dt>Detector</dt>
+                            <dd>{finding.detector}</dd>
+                          </dl>
+                        </details>
+                      </div>
                       <StatusPill tone={finding.category === "secret" ? "bad" : "warn"}>{finding.severity}</StatusPill>
-                    </div>
+                    </article>
                   ))}
                 </div>
               </>
