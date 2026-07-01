@@ -2656,8 +2656,12 @@ export function App() {
 
   const announceResult = (title: string, ok: boolean) => {
     setNotice({ text: ok ? `${title}: completed` : `${title}: needs attention`, tone: ok ? "good" : "warn", showResult: true });
-    scrollToResult();
   };
+
+  // Scroll after React commits the result panel to the DOM.
+  useEffect(() => {
+    if (commandResult) scrollToResult();
+  }, [commandResult]);
 
   const active = route.view === "pages" ? "pages" : route.view;
   const runAction = async (action: ActionCard) => {
