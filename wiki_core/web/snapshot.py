@@ -13,8 +13,10 @@ from wiki_core.graph import build_page_graph
 from wiki_core.paths import WikiPaths
 from wiki_core.quality import build_quality_report
 from wiki_core.web.commands import build_action_cards
+from wiki_core.web.diff import build_diff_payload
 from wiki_core.web.git_ops import build_git_state
 from wiki_core.web.schemas import SNAPSHOT_FILES, WEB_GATE_SCHEMA_VERSION, WEB_SNAPSHOT_SCHEMA_VERSION
+from wiki_core.web.timeline import build_timeline_payload
 
 H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
 H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
@@ -343,10 +345,20 @@ def build_snapshot(
         "files": list(SNAPSHOT_FILES),
     }
     pages = _pages_payload(root, config)
+    operations = _operations_payload(root, config)
     actions = build_action_cards(config)
+    timeline = build_timeline_payload(
+        root,
+        config,
+        pages,
+        operations,
+        git_payload,
+        generated_at=generated_at,
+    )
+    diff = build_diff_payload(root, config, git_payload)
     payloads = {
         "manifest.json": manifest,
-        "operations.json": _operations_payload(root, config),
+        "operations.json": operations,
         "graph.json": _graph_payload(root, config, pages),
         "pages.json": pages,
         "sources.json": _sources_payload(pages),
@@ -355,6 +367,8 @@ def build_snapshot(
         "freshness.json": _freshness_payload(pages, config),
         "gates.json": _gates_payload(),
         "git.json": git_payload,
+        "timeline.json": timeline,
+        "diff.json": diff,
         "ingestion.json": _safe_ingestion(root, config),
         "quality.json": _safe_quality(root, config),
         "commands.json": _commands_payload(actions),

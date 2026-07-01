@@ -1,0 +1,84 @@
+{
+  "bands": {
+    "last_30_days": 1,
+    "last_7_days": 4,
+    "older": 0,
+    "undated": 0
+  },
+  "events": [
+    {
+      "commit": "",
+      "context": "system",
+      "id": "snapshot-generated",
+      "kind": "snapshot",
+      "label": "Snapshot generated",
+      "path": "",
+      "status": "not_opened",
+      "timestamp": "2026-07-01T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "abc123def456",
+      "context": "git",
+      "id": "git-abc123def456",
+      "kind": "git_commit",
+      "label": "refine local cockpit git operations",
+      "path": "",
+      "status": "committed",
+      "timestamp": "2026-07-01T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "system",
+      "id": "page-sample-pr-governance",
+      "kind": "page_updated",
+      "label": "PR Governance",
+      "path": "memories/system/wiki/pr-governance.md",
+      "status": "fresh",
+      "timestamp": "2026-07-01T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "system",
+      "id": "operations-updated",
+      "kind": "operations_updated",
+      "label": "Operations",
+      "path": "memories/operations.md",
+      "status": "fresh",
+      "timestamp": "2026-07-01T00:00:00Z",
+      "weight": 3
+    },
+    {
+      "commit": "",
+      "context": "example",
+      "id": "page-sample-example-hub",
+      "kind": "page_updated",
+      "label": "Example Context",
+      "path": "memories/example/index.md",
+      "status": "stale",
+      "timestamp": "2026-06-20T00:00:00Z",
+      "weight": 1
+    }
+  ],
+  "generated_at": "2026-07-01T00:00:00Z",
+  "repo_id": "wiki-viva-kit-sample",
+  "schema_version": "wiki_web_timeline.v1",
+  "summary": {
+    "by_context": {
+      "example": 1,
+      "git": 1,
+      "system": 3
+    },
+    "by_kind": {
+      "git_commit": 1,
+      "operations_updated": 1,
+      "page_updated": 2,
+      "snapshot": 1
+    },
+    "event_count": 5,
+    "first_at": "2026-06-20T00:00:00Z",
+    "last_at": "2026-07-01T00:00:00Z"
+  }
+}

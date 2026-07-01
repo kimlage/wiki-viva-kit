@@ -29,6 +29,12 @@ The Vite app reads `/wiki-cockpit.config.json` at runtime:
 The static build never needs repository write credentials. Any hosted writer
 must still operate through proposal branches and Pull Requests.
 
+Static snapshots include operational JSON files such as `manifest.json`,
+`operations.json`, `git.json`, `timeline.json` and `diff.json`. Treat
+`diff.json` as review evidence: public deployments should use synthetic/open
+snapshots, while private implementations should keep real branch diffs behind
+their private deployment boundary.
+
 ## Vercel Static Review
 
 Use Vercel as a static/read-only review surface.

@@ -22,7 +22,7 @@ import { SystemScene } from "./components/SystemScene";
 import { gitGateLabel, pageById, qualityFlagCount, reviewChecklist, topActions } from "./data/model";
 import { buildIngestionPlan, loadSnapshotBundle, runCockpitAction, runGitWorkflow, runIngestionStep } from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
-import type { ActionCard, CommandRunResult, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceTriageResult } from "./types";
+import type { ActionCard, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceTriageResult, TimelineEvent } from "./types";
 import "./styles.css";
 
 type LoadState =
@@ -131,6 +131,140 @@ function CommandOutput({ result }: { result: CommandRunResult | null }) {
   );
 }
 
+function formatEventTime(timestamp: string): string {
+  if (!timestamp) return "undated";
+  return timestamp.replace("T", " ").replace("Z", " UTC").slice(0, 16);
+}
+
+function eventTone(event: TimelineEvent): "good" | "warn" | "bad" | "info" | "muted" {
+  if (event.status === "stale") return "warn";
+  if (event.kind === "snapshot") return "info";
+  if (event.kind === "git_commit") return "muted";
+  if (event.status === "fresh" || event.status === "committed") return "good";
+  return "muted";
+}
+
+function TimelineRadar({ bundle }: { bundle: SnapshotBundle }) {
+  const bands = [
+    { key: "last_7_days", label: "7d" },
+    { key: "last_30_days", label: "30d" },
+    { key: "older", label: "older" }
+  ];
+  const maxBand = Math.max(1, ...bands.map((band) => bundle.timeline.bands[band.key] || 0));
+  const events = bundle.timeline.events.slice(0, 8);
+  return (
+    <section className="panel timelinePanel">
+      <div className="panelHeader">
+        <h2>Timeline Radar</h2>
+        <StatusPill tone="info">{bundle.timeline.summary.event_count} events</StatusPill>
+      </div>
+      <div className="radarBands" aria-label="Timeline activity bands">
+        {bands.map((band) => {
+          const value = bundle.timeline.bands[band.key] || 0;
+          return (
+            <div className="radarBand" key={band.key}>
+              <span>{band.label}</span>
+              <div><i style={{ width: `${Math.max(8, (value / maxBand) * 100)}%` }} /></div>
+              <strong>{value}</strong>
+            </div>
+          );
+        })}
+      </div>
+      <div className="timelineList">
+        {events.map((event) => (
+          <article className="timelineEvent" key={event.id}>
+            <Clock3 size={16} />
+            <div>
+              <strong>{event.label}</strong>
+              <span>{formatEventTime(event.timestamp)} · {event.context}{event.path ? ` · ${event.path}` : ""}</span>
+            </div>
+            <StatusPill tone={eventTone(event)}>{event.kind.replaceAll("_", " ")}</StatusPill>
+          </article>
+        ))}
+        {events.length === 0 && <p>No timeline events in this snapshot.</p>}
+      </div>
+    </section>
+  );
+}
+
+function diffTone(file: DiffFile): "good" | "warn" | "bad" | "info" | "muted" {
+  if (file.risk_hints.includes("public_boundary") || file.risk_hints.includes("deletion_review")) return "bad";
+  if (file.risk_hints.includes("memory_review") || file.risk_hints.includes("method_contract")) return "warn";
+  if (file.known_generated || file.risk_hints.includes("test_coverage")) return "info";
+  return "muted";
+}
+
+function hintTone(hint: string): "good" | "warn" | "bad" | "info" | "muted" {
+  if (hint === "public_boundary" || hint === "deletion_review") return "bad";
+  if (hint === "generated_artifact" || hint === "test_coverage") return "info";
+  if (hint === "memory_review" || hint === "method_contract") return "warn";
+  return "muted";
+}
+
+function DiffFrame({ file }: { file: DiffFile }) {
+  return (
+    <article className="diffFrame">
+      <div className="diffFrameHeader">
+        <div>
+          <strong>{file.path}</strong>
+          <span>{file.category} · {file.change_sources.join(", ")}</span>
+        </div>
+        <StatusPill tone={diffTone(file)}>{file.status || "changed"}</StatusPill>
+      </div>
+      <div className="diffMeta">
+        <span>+{file.additions}</span>
+        <span>-{file.deletions}</span>
+        {file.staged && <span>staged</span>}
+        {file.unstaged && <span>unstaged</span>}
+      </div>
+      <div className="riskPills">
+        {file.risk_hints.map((hint) => (
+          <StatusPill tone={hintTone(hint)} key={hint}>{hint.replaceAll("_", " ")}</StatusPill>
+        ))}
+        {file.risk_hints.length === 0 && <StatusPill tone="muted">no hints</StatusPill>}
+      </div>
+      {file.preview.length > 0 && <pre className="diffPreview">{file.preview.join("\n")}</pre>}
+    </article>
+  );
+}
+
+function DiffFilmstrip({ bundle }: { bundle: SnapshotBundle }) {
+  const files = bundle.diff.files.slice(0, 8);
+  return (
+    <section className="panel diffFilmstrip">
+      <div className="panelHeader">
+        <h2>Semantic Diff</h2>
+        <StatusPill tone={bundle.diff.summary.privacy_review_required ? "warn" : "good"}>
+          {bundle.diff.summary.file_count} files
+        </StatusPill>
+      </div>
+      <div className="diffSummary">
+        <span><GitBranch size={16} /> Branch {bundle.diff.summary.branch_file_count}</span>
+        <span><ListChecks size={16} /> Local {bundle.diff.summary.working_tree_file_count}</span>
+        <span><FileText size={16} /> +{bundle.diff.summary.insertions} / -{bundle.diff.summary.deletions}</span>
+        <span><CircleAlert size={16} /> Privacy {bundle.diff.summary.privacy_review_required ? "yes" : "no"}</span>
+      </div>
+      <dl className="kv diffCompare">
+        <dt>Base</dt>
+        <dd>{bundle.diff.compare.base_ref || bundle.diff.compare.default_branch || "not available"}</dd>
+        <dt>Merge base</dt>
+        <dd>{bundle.diff.compare.merge_base || "not available"}</dd>
+        <dt>Head</dt>
+        <dd>{bundle.diff.compare.head_commit || "not available"}</dd>
+      </dl>
+      <div className="filmstripTrack" aria-label="Semantic diff filmstrip">
+        {files.map((file) => <DiffFrame file={file} key={`${file.status}-${file.path}`} />)}
+        {files.length === 0 && <p>No branch or local diff in this snapshot.</p>}
+      </div>
+      <ul className="plainList commandList diffCommands">
+        {bundle.diff.commands.slice(0, 4).map((command) => (
+          <li key={command.join(" ")}><code>{command.join(" ")}</code></li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: ActionCard) => void }) {
   const stale = bundle.freshness.summary.stale ?? 0;
   const fresh = bundle.freshness.summary.fresh ?? 0;
@@ -151,6 +285,7 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
         <Stat icon={<GitBranch size={18} />} label="Branch" value={bundle.git.current_branch || "none"} tone={bundle.git.proposal.is_proposal_branch ? "warn" : "info"} />
         <Stat icon={<ListChecks size={18} />} label="Changed files" value={changed} tone={changed ? "warn" : "good"} />
       </section>
+      <TimelineRadar bundle={bundle} />
       <div className="twoColumn">
         <ActionStack actions={topActions(bundle)} onRun={onRun} />
         <section className="panel">
@@ -303,6 +438,7 @@ function ReviewView({
         {prAction && <ActionButton action={prAction} onRun={onRun} />}
       </section>
       <GitWorkflowPanel bundle={bundle} onWorkflow={onWorkflow} />
+      <DiffFilmstrip bundle={bundle} />
       <section className="panel">
         <div className="panelHeader">
           <h2>Changed Files</h2>

@@ -11,6 +11,8 @@ const FILES = {
   freshness: "freshness.json",
   gates: "gates.json",
   git: "git.json",
+  timeline: "timeline.json",
+  diff: "diff.json",
   sources: "sources.json",
   decisions: "decisions.json",
   ingestion: "ingestion.json",

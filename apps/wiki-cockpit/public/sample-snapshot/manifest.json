@@ -10,6 +10,8 @@
     "freshness.json",
     "gates.json",
     "git.json",
+    "timeline.json",
+    "diff.json",
     "ingestion.json",
     "quality.json",
     "commands.json"

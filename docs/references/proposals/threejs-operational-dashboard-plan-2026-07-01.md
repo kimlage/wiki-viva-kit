@@ -1321,6 +1321,10 @@ Implementation note, 2026-07-01:
 - `SystemScene` now detects missing WebGL or reduced-motion preference and
   renders a stable 2D fallback with branch state and node freshness instead of
   forcing a canvas.
+- The snapshot contract now emits `timeline.json` and `diff.json`; `/ops` shows
+  a timeline radar from page, operations and Git events, while `/review` shows a
+  semantic diff filmstrip that separates branch diff, local worktree changes,
+  privacy hints and exact Git commands for the human gate.
 
 ## External implementation references
 

@@ -128,6 +128,80 @@ const bundle: SnapshotBundle = {
       human_gate_state: "not_opened"
     }
   },
+  timeline: {
+    schema_version: "wiki_web_timeline.v1",
+    repo_id: "visual-fixture",
+    generated_at: "2026-07-01T00:00:00Z",
+    summary: {
+      event_count: 2,
+      first_at: "2026-07-01T00:00:00Z",
+      last_at: "2026-07-01T00:00:00Z",
+      by_kind: { page_updated: 1, snapshot: 1 },
+      by_context: { system: 2 }
+    },
+    bands: { last_7_days: 2, last_30_days: 0, older: 0 },
+    events: [
+      {
+        id: "snapshot-generated",
+        kind: "snapshot",
+        timestamp: "2026-07-01T00:00:00Z",
+        label: "Snapshot generated",
+        context: "system",
+        path: "",
+        status: "not_opened",
+        weight: 1,
+        commit: ""
+      },
+      {
+        id: "page-root",
+        kind: "page_updated",
+        timestamp: "2026-07-01T00:00:00Z",
+        label: "Root",
+        context: "system",
+        path: "memories/index.md",
+        status: "fresh",
+        weight: 2,
+        commit: ""
+      }
+    ]
+  },
+  diff: {
+    schema_version: "wiki_web_diff.v1",
+    repo_id: "visual-fixture",
+    available: true,
+    compare: {
+      default_branch: "main",
+      base_ref: "main",
+      merge_base: "abc123",
+      head_commit: "def456",
+      current_branch: "wiki/visual-fixture"
+    },
+    summary: {
+      file_count: 1,
+      branch_file_count: 1,
+      working_tree_file_count: 0,
+      insertions: 4,
+      deletions: 1,
+      status_counts: { M: 1 },
+      privacy_review_required: true
+    },
+    commands: [["git", "diff", "--stat", "abc123..HEAD"]],
+    files: [
+      {
+        path: "memories/index.md",
+        status: "M",
+        category: "memory",
+        change_sources: ["branch"],
+        additions: 4,
+        deletions: 1,
+        known_generated: false,
+        staged: false,
+        unstaged: false,
+        risk_hints: ["memory_review"],
+        preview: ["@@ -1 +1 @@", "+Root summary"]
+      }
+    ]
+  },
   sources: { sources: [] },
   decisions: { decisions: [] },
   ingestion: {},
@@ -164,12 +238,14 @@ describe("visual route contract", () => {
   it("renders the core cockpit routes with textual fallbacks", async () => {
     await renderRoute("/ops");
     expect(await screen.findByRole("heading", { name: "Operations" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Timeline Radar" })).toBeTruthy();
     expect(screen.getByTestId("scene-fallback")).toBeTruthy();
     cleanup();
 
     await renderRoute("/review");
     expect(await screen.findByRole("heading", { name: "Human Gate" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Git Workflow" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Semantic Diff" })).toBeTruthy();
     cleanup();
 
     await renderRoute("/sources");

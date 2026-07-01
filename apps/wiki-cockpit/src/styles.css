@@ -694,6 +694,172 @@ code {
   grid-template-columns: 86px minmax(0, 1fr) auto;
 }
 
+.timelinePanel {
+  display: grid;
+  gap: 14px;
+}
+
+.radarBands {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.radarBand {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 8px;
+  color: #d7e2e8;
+}
+
+.radarBand span {
+  color: #a6b2bc;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.radarBand div {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #0b1012;
+  border: 1px solid #283740;
+}
+
+.radarBand i {
+  display: block;
+  height: 100%;
+  min-width: 8px;
+  border-radius: inherit;
+  background: #6bd7ff;
+}
+
+.timelineList {
+  display: grid;
+  gap: 8px;
+}
+
+.timelineEvent {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #223038;
+}
+
+.timelineEvent svg {
+  color: #6bd7ff;
+}
+
+.timelineEvent strong,
+.timelineEvent span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.timelineEvent span {
+  color: #98a6b1;
+  font-size: 13px;
+}
+
+.diffFilmstrip {
+  display: grid;
+  gap: 14px;
+}
+
+.diffSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  color: #dce7ee;
+}
+
+.diffSummary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  color: #b9c5ce;
+}
+
+.diffSummary svg {
+  color: #6bd7ff;
+}
+
+.diffCompare {
+  border-top: 1px solid #223038;
+  border-bottom: 1px solid #223038;
+  padding: 12px 0;
+}
+
+.filmstripTrack {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(280px, 420px);
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.diffFrame {
+  min-height: 250px;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(96px, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #2a3840;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.diffFrameHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.diffFrameHeader strong,
+.diffFrameHeader span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.diffFrameHeader span {
+  color: #96a5b0;
+  font-size: 13px;
+}
+
+.diffMeta,
+.riskPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.diffMeta span {
+  color: #c4cfd8;
+  background: #0b1012;
+  border: 1px solid #26343b;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.diffPreview {
+  max-height: 150px;
+  margin: 0;
+}
+
+.diffCommands {
+  border-top: 1px solid #223038;
+  padding-top: 12px;
+}
+
 .pagesWorkspace {
   grid-template-columns: 320px minmax(0, 1fr);
   align-items: start;
@@ -819,6 +985,29 @@ pre {
     padding-right: 14px;
   }
 
+  .topBar {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .topBar div {
+    display: grid;
+    gap: 4px;
+  }
+
+  .topBar span {
+    white-space: normal;
+    line-height: 1.35;
+  }
+
+  .topBar > .pill {
+    justify-self: start;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
   .heroBand {
     min-height: unset;
   }
@@ -831,10 +1020,17 @@ pre {
   .actionRow,
   .fileRow,
   .pipelineStage,
+  .timelineEvent,
   .kv,
   .workflowGrid,
-  .targetGrid {
+  .targetGrid,
+  .radarBands {
     grid-template-columns: 1fr;
+  }
+
+  .filmstripTrack {
+    grid-auto-flow: row;
+    grid-auto-columns: unset;
   }
 
   .field.wide,

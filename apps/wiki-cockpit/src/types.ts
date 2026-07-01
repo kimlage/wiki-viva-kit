@@ -33,6 +33,32 @@ export type GitState = {
   };
 };
 
+export type TimelineEvent = {
+  id: string;
+  kind: string;
+  timestamp: string;
+  label: string;
+  context: string;
+  path: string;
+  status: string;
+  weight: number;
+  commit: string;
+};
+
+export type DiffFile = {
+  path: string;
+  status: string;
+  category: string;
+  change_sources: string[];
+  additions: number;
+  deletions: number;
+  known_generated: boolean;
+  staged: boolean;
+  unstaged: boolean;
+  risk_hints: string[];
+  preview: string[];
+};
+
 export type PageRecord = {
   id: string;
   path: string;
@@ -141,6 +167,43 @@ export type SnapshotBundle = {
     gates: GateRecord[];
   };
   git: GitState;
+  timeline: {
+    schema_version: string;
+    repo_id: string;
+    generated_at: string;
+    summary: {
+      event_count: number;
+      first_at: string;
+      last_at: string;
+      by_kind: Record<string, number>;
+      by_context: Record<string, number>;
+    };
+    bands: Record<string, number>;
+    events: TimelineEvent[];
+  };
+  diff: {
+    schema_version: string;
+    repo_id: string;
+    available: boolean;
+    compare: {
+      default_branch: string;
+      base_ref: string;
+      merge_base: string;
+      head_commit: string;
+      current_branch: string;
+    };
+    summary: {
+      file_count: number;
+      branch_file_count: number;
+      working_tree_file_count: number;
+      insertions: number;
+      deletions: number;
+      status_counts: Record<string, number>;
+      privacy_review_required: boolean;
+    };
+    commands: string[][];
+    files: DiffFile[];
+  };
   sources: {
     sources: PageRecord[];
   };

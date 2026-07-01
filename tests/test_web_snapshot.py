@@ -101,6 +101,8 @@ def test_build_snapshot_contains_plan_files_and_local_data(tmp_path: Path) -> No
     assert snapshot["manifest.json"]["repo"]["default_context"] == "system"
     assert snapshot["manifest.json"]["repo"]["karma_enabled"] is True
     assert snapshot["git.json"]["current_branch"] == "main"
+    assert snapshot["timeline.json"]["summary"]["event_count"] >= 1
+    assert snapshot["diff.json"]["summary"]["file_count"] == 0
     assert snapshot["operations.json"]["title"] == "Operations"
     assert snapshot["freshness.json"]["summary"]["fresh"] >= 1
     assert any(node["id"] == "example-hub" for node in snapshot["graph.json"]["nodes"])
@@ -116,6 +118,76 @@ def test_write_snapshot_creates_all_json_files(tmp_path: Path) -> None:
     assert set(written) == set(SNAPSHOT_FILES)
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["files"] == list(SNAPSHOT_FILES)
+
+
+def test_snapshot_diff_tracks_branch_and_worktree_changes(tmp_path: Path) -> None:
+    config = _sample_repo(tmp_path)
+    subprocess.run(["git", "checkout", "-b", "wiki/review-fixture"], cwd=tmp_path, check=True, capture_output=True)
+    _write(
+        tmp_path / "memories/example/index.md",
+        """---
+page_id: example-hub
+page_type: context_hub
+title: "Example"
+context: example
+visibility: private_self
+updated_at: 2026-07-01
+stale_after_days: 30
+moc_parent: memories/index.md
+---
+
+# Example
+
+Operational sample context with a branch proposal update.
+""",
+    )
+    subprocess.run(["git", "add", "memories/example/index.md"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "update example hub"], cwd=tmp_path, check=True, capture_output=True)
+    _write(
+        tmp_path / "memories/operations.md",
+        """---
+page_id: operations
+page_type: dashboard
+title: "Operations"
+context: system
+visibility: private_self
+updated_at: 2026-07-01
+stale_after_days: 1
+---
+
+# Operations
+
+## Current state
+
+- Git state is checked live.
+- Worktree has a local operator note.
+""",
+    )
+
+    snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")
+    diff = snapshot["diff.json"]
+
+    assert diff["compare"]["current_branch"] == "wiki/review-fixture"
+    assert diff["summary"]["branch_file_count"] == 1
+    assert diff["summary"]["working_tree_file_count"] == 1
+    assert diff["summary"]["privacy_review_required"] is True
+    by_path = {file["path"]: file for file in diff["files"]}
+    assert by_path["memories/example/index.md"]["change_sources"] == ["branch"]
+    assert "memory_review" in by_path["memories/example/index.md"]["risk_hints"]
+    assert by_path["memories/operations.md"]["change_sources"] == ["working_tree"]
+    assert any("branch proposal update" in line for line in by_path["memories/example/index.md"]["preview"])
+
+
+def test_snapshot_timeline_includes_pages_operations_and_commits(tmp_path: Path) -> None:
+    config = _sample_repo(tmp_path)
+
+    snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T12:00:00Z")
+    timeline = snapshot["timeline.json"]
+
+    kinds = {event["kind"] for event in timeline["events"]}
+    assert {"snapshot", "operations_updated", "page_updated", "git_commit"}.issubset(kinds)
+    assert timeline["summary"]["by_context"]["example"] == 1
+    assert timeline["bands"]["last_7_days"] >= 1
 
 
 def test_snapshot_respects_localized_memory_root(tmp_path: Path) -> None:
