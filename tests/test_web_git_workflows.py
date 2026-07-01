@@ -85,3 +85,22 @@ def test_stage_commit_and_pr_workflows_are_scoped_to_proposal_branch(tmp_path: P
         "--body",
         "Updated body",
     ]
+
+
+def test_sync_main_is_fast_forward_only_from_default_branch(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    _run(tmp_path, "switch", "-c", "wiki/system-threejs")
+
+    blocked = run_git_workflow(tmp_path, config, "sync_main", dry_run=True)
+    assert blocked["ok"] is False
+    assert blocked["error"] == "checkout must be on the approved branch before syncing main"
+
+    _run(tmp_path, "switch", "main")
+    sync = run_git_workflow(tmp_path, config, "sync_main", dry_run=True)
+
+    assert sync["ok"] is True
+    assert sync["summary"] == "Fast-forward main"
+    assert [result["argv"] for result in sync["results"]] == [
+        ["git", "fetch", "--prune", "origin"],
+        ["git", "pull", "--ff-only", "origin", "main"],
+    ]

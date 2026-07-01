@@ -249,6 +249,8 @@ describe("visual route contract", () => {
     expect(await screen.findByRole("heading", { name: "Human Gate" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "PR Handoff" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Update Draft PR" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Approved Wiki Sync" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Sync Main" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Git Workflow" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Semantic Diff" })).toBeTruthy();
     cleanup();

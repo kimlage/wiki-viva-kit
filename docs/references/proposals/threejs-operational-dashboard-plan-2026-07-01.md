@@ -1350,6 +1350,9 @@ Implementation note, 2026-07-01:
   state track, generated draft PR title/body from local diff/gates/privacy
   hints, dry-run-first publish/open/update controls and a new allowlisted
   `update_draft_pr` workflow backed by `gh pr edit`.
+- `/review` now also exposes an Approved Wiki Sync panel for the post-merge
+  path: it shows the exact fast-forward-only `fetch`/`pull` commands and keeps
+  `sync_main` disabled unless the local checkout is on the approved branch.
 - `scripts/wiki_web_deploy_bundle.py` now gives each implementation a local
   deployment proof path: it writes runtime config, deterministic snapshot JSON
   and `DEPLOYMENT.md` into a chosen output directory so Vercel/static or

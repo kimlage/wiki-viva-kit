@@ -477,6 +477,10 @@ code {
   gap: 14px;
 }
 
+.syncPanel {
+  align-self: start;
+}
+
 .gateTrack {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -537,6 +541,31 @@ code {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: end;
+}
+
+.syncGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.8fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.syncCommand {
+  display: grid;
+  gap: 8px;
+  align-self: stretch;
+}
+
+.syncCommand code {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid #283943;
+  border-radius: 8px;
+  background: #0c1215;
+  color: #b9c6cf;
+  overflow-wrap: anywhere;
 }
 
 .field {
@@ -1329,6 +1358,7 @@ pre {
   .bundleRow,
   .kv,
   .handoffGrid,
+  .syncGrid,
   .workflowGrid,
   .targetGrid,
   .radarBands,

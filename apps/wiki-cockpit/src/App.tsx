@@ -836,6 +836,75 @@ function PrHandoffPanel({
   );
 }
 
+function syncTone(bundle: SnapshotBundle): "good" | "warn" | "bad" | "info" | "muted" {
+  const git = bundle.git;
+  if (!git.available) return "bad";
+  if (git.current_branch === git.default_branch) return git.worktree.clean ? "good" : "warn";
+  if (git.proposal.human_gate_state === "merged") return "info";
+  return "muted";
+}
+
+function syncStatus(bundle: SnapshotBundle): string {
+  const git = bundle.git;
+  if (!git.available) return "git unavailable";
+  if (git.current_branch === git.default_branch) return git.worktree.clean ? "ready" : "local changes";
+  if (git.proposal.human_gate_state === "merged") return "merged PR";
+  return "external review";
+}
+
+function SyncMainPanel({
+  bundle,
+  onWorkflow
+}: {
+  bundle: SnapshotBundle;
+  onWorkflow: (operation: string, payload?: Record<string, unknown>, dryRun?: boolean) => void;
+}) {
+  const [execute, setExecute] = useState(false);
+  const git = bundle.git;
+  const onDefaultBranch = git.current_branch === git.default_branch;
+  const dryRun = !execute;
+
+  return (
+    <section className="panel syncPanel">
+      <div className="panelHeader">
+        <h2>Approved Wiki Sync</h2>
+        <StatusPill tone={syncTone(bundle)}>{syncStatus(bundle)}</StatusPill>
+      </div>
+      <div className="syncGrid">
+        <dl className="kv">
+          <dt>Approved branch</dt>
+          <dd>{git.default_branch}</dd>
+          <dt>Current branch</dt>
+          <dd>{git.current_branch || "unknown"}</dd>
+          <dt>Remote</dt>
+          <dd>{git.upstream.remote || "origin"}</dd>
+          <dt>Behind</dt>
+          <dd>{git.upstream.behind}</dd>
+          <dt>Worktree</dt>
+          <dd>{git.worktree.clean ? "clean" : "changed"}</dd>
+        </dl>
+        <div className="syncCommand">
+          <code>git fetch --prune {git.upstream.remote || "origin"}</code>
+          <code>git pull --ff-only {git.upstream.remote || "origin"} {git.default_branch}</code>
+        </div>
+        <label className="toggleControl">
+          <input type="checkbox" checked={execute} onChange={(event) => setExecute(event.target.checked)} disabled={!onDefaultBranch} />
+          <span>Execute local pull</span>
+        </label>
+        <button
+          className="secondaryButton wide"
+          onClick={() => onWorkflow("sync_main", {}, dryRun)}
+          disabled={!onDefaultBranch}
+          title={onDefaultBranch ? "Fast-forward the approved local branch" : "Sync is available only from the approved branch"}
+        >
+          <RefreshCw size={16} />
+          <span>Sync Main</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function GitWorkflowPanel({
   bundle,
   onWorkflow
@@ -962,6 +1031,7 @@ function ReviewView({
         {prAction && <ActionButton action={prAction} onRun={onRun} />}
       </section>
       <PrHandoffPanel bundle={bundle} onWorkflow={onWorkflow} />
+      <SyncMainPanel bundle={bundle} onWorkflow={onWorkflow} />
       <GitWorkflowPanel bundle={bundle} onWorkflow={onWorkflow} />
       <DiffFilmstrip bundle={bundle} />
       <section className="panel">
