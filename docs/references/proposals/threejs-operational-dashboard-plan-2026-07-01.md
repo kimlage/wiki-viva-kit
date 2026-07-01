@@ -516,6 +516,8 @@ data/derived/wiki/web-snapshot/
   freshness.json
   gates.json
   git.json
+  timeline.json
+  diff.json
   ingestion.json
   quality.json
   commands.json
@@ -1325,6 +1327,16 @@ Implementation note, 2026-07-01:
   a timeline radar from page, operations and Git events, while `/review` shows a
   semantic diff filmstrip that separates branch diff, local worktree changes,
   privacy hints and exact Git commands for the human gate.
+- The scene now computes the knowledge-galaxy layout through a Web Worker with a
+  synchronous fallback, adapts visible-node budget/DPR/geometry detail to local
+  device conditions, renders repeated graph nodes through instancing, and uses
+  an on-demand render loop with a short camera intro.
+- `/demo` and `?demo=1` force the bundled public sample snapshot for onboarding
+  and deterministic visual checks; `?visual=1` forces the stable 2D scene
+  fallback used by screenshot baselines.
+- `npm run test:visual` now runs Playwright screenshot regression checks for
+  `/demo`, `/review`, `/sources`, `/health` and `/pages/:id` against local sample
+  data.
 
 ## External implementation references
 

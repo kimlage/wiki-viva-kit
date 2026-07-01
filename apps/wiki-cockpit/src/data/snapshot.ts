@@ -22,6 +22,11 @@ const FILES = {
 
 export const SAMPLE_BASE = "/sample-snapshot";
 
+function demoModeRequested(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.location.pathname.startsWith("/demo") || new URLSearchParams(window.location.search).get("demo") === "1";
+}
+
 async function fetchJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { headers: { accept: "application/json" } });
   if (!response.ok) {
@@ -38,6 +43,13 @@ async function loadFromBase(base: string): Promise<SnapshotBundle> {
 }
 
 export async function loadSnapshotBundle(): Promise<{ bundle: SnapshotBundle; source: string; runtime: RuntimeConfig }> {
+  if (demoModeRequested()) {
+    return {
+      bundle: await loadFromBase(SAMPLE_BASE),
+      source: SAMPLE_BASE,
+      runtime: { apiBase: "", snapshotBase: SAMPLE_BASE, repoLabel: "wiki-viva-kit demo", mode: "static_demo" }
+    };
+  }
   const configured = import.meta.env.VITE_WIKI_SNAPSHOT_BASE as string | undefined;
   const runtime = await loadRuntimeConfig();
   const runtimeBase = runtime.snapshotBase || "";

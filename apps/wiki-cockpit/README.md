@@ -11,6 +11,8 @@ npm run dev
 
 The app falls back to `public/sample-snapshot/` when no local operator API is
 running.
+Open `/demo` to force the bundled sample snapshot even when a local operator API
+is available.
 
 ## Run against a local checkout
 
@@ -46,7 +48,13 @@ stay behind an explicit UI toggle and proposal-branch checks.
 ```sh
 npm test
 npm run build
+npm run test:visual
 ```
+
+`npm run test:visual` builds the static app, serves it with Vite preview and
+compares screenshot baselines for `/demo`, `/review`, `/sources`, `/health` and
+`/pages/:id` using the bundled sample data. Use `npm run test:visual:update`
+only when intentionally accepting visual changes.
 
 ## Runtime config
 

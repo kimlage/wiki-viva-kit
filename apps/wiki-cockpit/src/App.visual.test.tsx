@@ -259,5 +259,10 @@ describe("visual route contract", () => {
 
     await renderRoute("/pages/root");
     expect(await screen.findByRole("heading", { name: "Root" })).toBeTruthy();
+    cleanup();
+
+    await renderRoute("/demo");
+    expect(await screen.findByRole("heading", { name: "Operations" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Timeline Radar" })).toBeTruthy();
   });
 });

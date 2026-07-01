@@ -174,6 +174,7 @@ code {
 }
 
 .sceneShell {
+  position: relative;
   min-height: 360px;
   border: 1px solid #27343b;
   border-radius: 8px;
@@ -217,12 +218,22 @@ code {
   min-height: 36px;
   display: flex;
   align-items: center;
+  width: 100%;
   padding: 8px 10px;
   border: 1px solid #2b3941;
   border-radius: 8px;
   background: #0f1518;
   color: #dce7ee;
+  font: inherit;
+  text-align: left;
   overflow-wrap: anywhere;
+}
+
+.fallbackNode:hover,
+.fallbackNode:focus {
+  background: #182126;
+  outline: 2px solid #6bd7ff;
+  outline-offset: 2px;
 }
 
 .node-fresh {
@@ -235,6 +246,36 @@ code {
 
 .node-unknown {
   border-color: #3b4650;
+}
+
+.sceneProof {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  max-width: min(420px, calc(100% - 28px));
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid #31414a;
+  border-radius: 8px;
+  background: rgba(12, 18, 21, 0.86);
+  backdrop-filter: blur(10px);
+}
+
+.sceneProof strong,
+.sceneProof span,
+.sceneProof small {
+  overflow-wrap: anywhere;
+}
+
+.sceneProof span,
+.sceneProof small {
+  color: #aab7c1;
+}
+
+.sceneProof code {
+  width: fit-content;
+  max-width: 100%;
 }
 
 .statGrid {
@@ -1014,6 +1055,12 @@ pre {
 
   .sceneShell {
     min-height: 280px;
+  }
+
+  .sceneProof {
+    position: static;
+    max-width: none;
+    margin: 10px;
   }
 
   .statGrid,

@@ -6,6 +6,7 @@ node_modules/
 apps/wiki-cockpit/node_modules/
 apps/wiki-cockpit/dist/
 apps/wiki-cockpit/coverage/
+apps/wiki-cockpit/test-results/
 
 # Local agent/tool state.
 tmp/

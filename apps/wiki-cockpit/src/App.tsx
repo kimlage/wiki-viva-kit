@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Sparkles,
   TerminalSquare
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -30,8 +31,9 @@ type LoadState =
   | { status: "error"; error: string }
   | { status: "ready"; bundle: SnapshotBundle; source: string; runtime: RuntimeConfig };
 
-function routeView(): { view: "ops" | "review" | "health" | "sources" | "pages"; pageId?: string } {
+function routeView(): { view: "ops" | "review" | "health" | "sources" | "pages" | "demo"; pageId?: string } {
   const path = window.location.pathname;
+  if (path.startsWith("/demo")) return { view: "demo" };
   if (path.startsWith("/review")) return { view: "review" };
   if (path.startsWith("/health")) return { view: "health" };
   if (path.startsWith("/sources")) return { view: "sources" };
@@ -60,7 +62,8 @@ function Nav({ active }: { active: string }) {
     { href: "/review", label: "Review", icon: <GitPullRequest size={17} /> },
     { href: "/sources", label: "Sources", icon: <Inbox size={17} /> },
     { href: "/health", label: "Health", icon: <ShieldCheck size={17} /> },
-    { href: "/pages", label: "Pages", icon: <FileText size={17} /> }
+    { href: "/pages", label: "Pages", icon: <FileText size={17} /> },
+    { href: "/demo", label: "Demo", icon: <Sparkles size={17} /> }
   ];
   return (
     <nav className="navRail" aria-label="Cockpit views">
@@ -865,6 +868,7 @@ export function App() {
     if (route.view === "sources") return <SourcesView bundle={bundle} onCommand={setCommandResult} />;
     if (route.view === "health") return <HealthView bundle={bundle} />;
     if (route.view === "pages") return <PagesView bundle={bundle} pageId={route.pageId} />;
+    if (route.view === "demo") return <OpsView bundle={bundle} onRun={runAction} />;
     return <OpsView bundle={bundle} onRun={runAction} />;
   }, [loadState, route]);
 
