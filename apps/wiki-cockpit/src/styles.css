@@ -329,6 +329,97 @@ code {
   text-overflow: ellipsis;
 }
 
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+  color: #eaf4fb;
+  background: #1b262b;
+  border: 1px solid #34454f;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.secondaryButton:hover {
+  background: #233139;
+}
+
+.secondaryButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.workflowPanel {
+  align-self: start;
+}
+
+.workflowGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field.wide,
+.buttonCluster.wide,
+.secondaryButton.wide {
+  grid-column: 1 / -1;
+}
+
+.field span,
+.toggleControl span {
+  color: #a8b5bf;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  color: #eef6fb;
+  background: #0c1215;
+  border: 1px solid #2a3a43;
+  border-radius: 8px;
+  padding: 9px 10px;
+  resize: vertical;
+}
+
+.field textarea {
+  min-height: 90px;
+}
+
+.buttonCluster {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.toggleControl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.toggleControl input {
+  width: 16px;
+  height: 16px;
+  accent-color: #83efc0;
+}
+
 .plainList,
 .checkList {
   margin: 0;
@@ -400,6 +491,78 @@ code {
 
 .contextTile span {
   color: #adbac4;
+}
+
+.sourcesWorkspace {
+  grid-template-columns: 360px minmax(0, 1fr);
+  align-items: start;
+}
+
+.sourceInbox {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 102px);
+  overflow: auto;
+}
+
+.sourceList {
+  display: grid;
+  gap: 8px;
+}
+
+.sourceCard {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  color: #e7eef5;
+  background: #0f1518;
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.sourceCard:hover,
+.sourceCard.active {
+  background: #1a2327;
+  border-color: #40515b;
+}
+
+.sourceCard small {
+  color: #94a2ad;
+  overflow-wrap: anywhere;
+}
+
+.triageResult {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.tagCloud {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.targetGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.compactList {
+  gap: 6px;
+}
+
+.compactList li {
+  padding-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+
+.findingRow {
+  grid-template-columns: 86px minmax(0, 1fr) auto;
 }
 
 .pagesWorkspace {
@@ -500,7 +663,8 @@ pre {
   .heroBand,
   .twoColumn,
   .gateGrid,
-  .pagesWorkspace {
+  .pagesWorkspace,
+  .sourcesWorkspace {
     grid-template-columns: 1fr;
   }
 
@@ -511,6 +675,11 @@ pre {
   .pageList {
     position: static;
     max-height: 260px;
+  }
+
+  .sourceInbox {
+    position: static;
+    max-height: 320px;
   }
 }
 
@@ -532,8 +701,16 @@ pre {
   .statGrid,
   .actionRow,
   .fileRow,
-  .kv {
+  .kv,
+  .workflowGrid,
+  .targetGrid {
     grid-template-columns: 1fr;
+  }
+
+  .field.wide,
+  .buttonCluster.wide,
+  .secondaryButton.wide {
+    grid-column: auto;
   }
 
   h1 {

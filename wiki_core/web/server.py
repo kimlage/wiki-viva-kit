@@ -13,7 +13,9 @@ from urllib.parse import unquote, urlparse
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
 from wiki_core.web.commands import run_action
+from wiki_core.web.git_workflows import run_git_workflow
 from wiki_core.web.snapshot import build_snapshot, write_snapshot
+from wiki_core.web.source_triage import triage_source
 
 
 class CockpitServer(ThreadingHTTPServer):
@@ -99,7 +101,7 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
-        if parsed.path != "/api/actions/run":
+        if parsed.path not in {"/api/actions/run", "/api/git/workflow", "/api/sources/triage"}:
             self._send_error("not found", status=HTTPStatus.NOT_FOUND)
             return
         length = int(self.headers.get("content-length") or "0")
@@ -108,13 +110,28 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             self._send_error("invalid JSON", status=HTTPStatus.BAD_REQUEST)
             return
-        action_id = str(payload.get("action_id") or "")
-        if not action_id:
-            self._send_error("missing action_id", status=HTTPStatus.BAD_REQUEST)
+        if parsed.path == "/api/actions/run":
+            action_id = str(payload.get("action_id") or "")
+            if not action_id:
+                self._send_error("missing action_id", status=HTTPStatus.BAD_REQUEST)
+                return
+            dry_run_raw = payload.get("dry_run")
+            dry_run = None if dry_run_raw is None else bool(dry_run_raw)
+            result = run_action(self.server.root, self.server.config, action_id, dry_run=dry_run)
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
             return
-        dry_run_raw = payload.get("dry_run")
-        dry_run = None if dry_run_raw is None else bool(dry_run_raw)
-        result = run_action(self.server.root, self.server.config, action_id, dry_run=dry_run)
+        if parsed.path == "/api/git/workflow":
+            operation = str(payload.get("operation") or "")
+            if not operation:
+                self._send_error("missing operation", status=HTTPStatus.BAD_REQUEST)
+                return
+            dry_run = bool(payload.get("dry_run", True))
+            result = run_git_workflow(self.server.root, self.server.config, operation, payload, dry_run=dry_run)
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+        source = str(payload.get("source") or "")
+        context = None if payload.get("context") is None else str(payload.get("context"))
+        result = triage_source(self.server.root, self.server.config, source, context=context)
         self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
 
 

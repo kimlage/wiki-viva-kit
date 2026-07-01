@@ -8,6 +8,7 @@ import {
   FileText,
   GitBranch,
   GitPullRequest,
+  Inbox,
   ListChecks,
   Play,
   RefreshCw,
@@ -19,8 +20,8 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { SystemScene } from "./components/SystemScene";
 import { gitGateLabel, pageById, qualityFlagCount, reviewChecklist, topActions } from "./data/model";
-import { loadSnapshotBundle, runCockpitAction } from "./data/snapshot";
-import type { ActionCard, ActionRunResult, PageRecord, SnapshotBundle } from "./types";
+import { loadSnapshotBundle, runCockpitAction, runGitWorkflow, triageSource } from "./data/snapshot";
+import type { ActionCard, CommandRunResult, PageRecord, SnapshotBundle, SourceTriageResult } from "./types";
 import "./styles.css";
 
 type LoadState =
@@ -28,10 +29,11 @@ type LoadState =
   | { status: "error"; error: string }
   | { status: "ready"; bundle: SnapshotBundle; source: string };
 
-function routeView(): { view: "ops" | "review" | "health" | "pages"; pageId?: string } {
+function routeView(): { view: "ops" | "review" | "health" | "sources" | "pages"; pageId?: string } {
   const path = window.location.pathname;
   if (path.startsWith("/review")) return { view: "review" };
   if (path.startsWith("/health")) return { view: "health" };
+  if (path.startsWith("/sources")) return { view: "sources" };
   if (path === "/pages") return { view: "pages" };
   if (path.startsWith("/pages/")) return { view: "pages", pageId: decodeURIComponent(path.slice("/pages/".length)) };
   return { view: "ops" };
@@ -55,6 +57,7 @@ function Nav({ active }: { active: string }) {
   const items = [
     { href: "/ops", label: "Ops", icon: <Activity size={17} /> },
     { href: "/review", label: "Review", icon: <GitPullRequest size={17} /> },
+    { href: "/sources", label: "Sources", icon: <Inbox size={17} /> },
     { href: "/health", label: "Health", icon: <ShieldCheck size={17} /> },
     { href: "/pages", label: "Pages", icon: <FileText size={17} /> }
   ];
@@ -103,14 +106,16 @@ function ActionStack({ actions, onRun }: { actions: ActionCard[]; onRun: (action
   );
 }
 
-function CommandOutput({ result }: { result: ActionRunResult | null }) {
+function CommandOutput({ result }: { result: CommandRunResult | null }) {
   if (!result) return null;
+  const label = "summary" in result ? result.summary : result.action_id;
   return (
     <section className="panel outputPanel">
       <div className="panelHeader">
         <h2>Command Log</h2>
         <StatusPill tone={result.ok ? "good" : "bad"}>{result.ok ? "passed" : "failed"}</StatusPill>
       </div>
+      <p>{label}</p>
       {result.results.map((entry, index) => (
         <details open={index === 0} key={`${entry.argv.join(" ")}-${index}`}>
           <summary>
@@ -120,6 +125,7 @@ function CommandOutput({ result }: { result: ActionRunResult | null }) {
           <pre>{[entry.stdout, entry.stderr].filter(Boolean).join("\n") || "No output."}</pre>
         </details>
       ))}
+      {result.results.length === 0 && <pre>{result.error || "No command output."}</pre>}
     </section>
   );
 }
@@ -163,7 +169,101 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
   );
 }
 
-function ReviewView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: ActionCard) => void }) {
+function splitPathInput(value: string): string[] {
+  return value
+    .split(/[\n,]/)
+    .map((path) => path.trim())
+    .filter(Boolean);
+}
+
+function GitWorkflowPanel({
+  bundle,
+  onWorkflow
+}: {
+  bundle: SnapshotBundle;
+  onWorkflow: (operation: string, payload?: Record<string, unknown>, dryRun?: boolean) => void;
+}) {
+  const defaultTheme = bundle.git.proposal.theme || "system-threejs-operational-dashboard";
+  const [theme, setTheme] = useState(defaultTheme);
+  const [paths, setPaths] = useState(bundle.git.worktree.changed_files.map((file) => file.path).join("\n"));
+  const [message, setMessage] = useState("refine local cockpit git operations");
+  const [prTitle, setPrTitle] = useState("Refine local cockpit Git operations");
+  const [prBody, setPrBody] = useState("Local cockpit update with source triage and Git human-gate workflows.");
+  const [execute, setExecute] = useState(false);
+  const dryRun = !execute;
+
+  return (
+    <section className="panel workflowPanel">
+      <div className="panelHeader">
+        <h2>Git Workflow</h2>
+        <label className="toggleControl">
+          <input type="checkbox" checked={execute} onChange={(event) => setExecute(event.target.checked)} />
+          <span>Execute locally</span>
+        </label>
+      </div>
+      <div className="workflowGrid">
+        <label className="field">
+          <span>Proposal theme</span>
+          <input value={theme} onChange={(event) => setTheme(event.target.value)} />
+        </label>
+        <div className="buttonCluster">
+          <button className="secondaryButton" onClick={() => onWorkflow("list_proposals", {}, false)} title="List local proposal branches">
+            <ListChecks size={16} />
+            <span>List</span>
+          </button>
+          <button className="secondaryButton" onClick={() => onWorkflow("start_proposal", { theme }, dryRun)} title="Create proposal branch">
+            <GitBranch size={16} />
+            <span>Branch</span>
+          </button>
+        </div>
+        <label className="field wide">
+          <span>Stage paths</span>
+          <textarea value={paths} onChange={(event) => setPaths(event.target.value)} rows={4} />
+        </label>
+        <button className="secondaryButton wide" onClick={() => onWorkflow("stage_paths", { paths: splitPathInput(paths) }, dryRun)} title="Stage selected changed paths">
+          <ListChecks size={16} />
+          <span>Stage paths</span>
+        </button>
+        <label className="field">
+          <span>Commit message</span>
+          <input value={message} onChange={(event) => setMessage(event.target.value)} />
+        </label>
+        <button className="secondaryButton" onClick={() => onWorkflow("commit_proposal", { message }, dryRun)} title="Commit proposal changes">
+          <CheckCircle2 size={16} />
+          <span>Commit</span>
+        </button>
+        <label className="field">
+          <span>PR title</span>
+          <input value={prTitle} onChange={(event) => setPrTitle(event.target.value)} />
+        </label>
+        <label className="field">
+          <span>PR body</span>
+          <textarea value={prBody} onChange={(event) => setPrBody(event.target.value)} rows={4} />
+        </label>
+        <div className="buttonCluster wide">
+          <button className="secondaryButton" onClick={() => onWorkflow("publish_proposal", {}, dryRun)} title="Push proposal branch">
+            <RefreshCw size={16} />
+            <span>Publish</span>
+          </button>
+          <button className="secondaryButton" onClick={() => onWorkflow("open_draft_pr", { title: prTitle, body: prBody }, dryRun)} title="Open draft pull request">
+            <GitPullRequest size={16} />
+            <span>Draft PR</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ReviewView({
+  bundle,
+  onRun,
+  onWorkflow
+}: {
+  bundle: SnapshotBundle;
+  onRun: (action: ActionCard) => void;
+  onWorkflow: (operation: string, payload?: Record<string, unknown>, dryRun?: boolean) => void;
+}) {
   const checks = reviewChecklist(bundle);
   const prAction = bundle.actions.actions.find((action) => action.id === "pr-summary");
   return (
@@ -201,6 +301,7 @@ function ReviewView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action:
         </div>
         {prAction && <ActionButton action={prAction} onRun={onRun} />}
       </section>
+      <GitWorkflowPanel bundle={bundle} onWorkflow={onWorkflow} />
       <section className="panel">
         <div className="panelHeader">
           <h2>Changed Files</h2>
@@ -266,6 +367,154 @@ function HealthView({ bundle }: { bundle: SnapshotBundle }) {
   );
 }
 
+function sourceResultTone(result: SourceTriageResult | null): "good" | "warn" | "bad" | "muted" {
+  if (!result) return "muted";
+  if (result.secret_block || result.error) return "bad";
+  if ((result.risk_flags || []).length > 0) return "warn";
+  return "good";
+}
+
+function SourcesView({ bundle }: { bundle: SnapshotBundle }) {
+  const contexts = useMemo(
+    () => [...new Set([...Object.keys(bundle.freshness.by_context), ...bundle.pages.pages.map((page) => page.context)])].filter(Boolean),
+    [bundle]
+  );
+  const firstSource = bundle.sources.sources[0];
+  const defaultContext = contexts[0] || "system";
+  const [source, setSource] = useState(firstSource?.path || "");
+  const [context, setContext] = useState(firstSource?.context || defaultContext);
+  const [result, setResult] = useState<SourceTriageResult | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const runTriage = async () => {
+    setBusy(true);
+    try {
+      setResult(await triageSource(source, context));
+    } catch (error) {
+      setResult({ ok: false, error: error instanceof Error ? error.message : "source triage failed" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <main className="workspace sourcesWorkspace">
+      <section className="panel sourceInbox">
+        <div className="panelHeader">
+          <h1>Sources</h1>
+          <StatusPill tone="info">{bundle.sources.sources.length}</StatusPill>
+        </div>
+        <div className="sourceList">
+          {bundle.sources.sources.map((item) => (
+            <button
+              className={source === item.path ? "sourceCard active" : "sourceCard"}
+              key={item.id}
+              onClick={() => {
+                setSource(item.path);
+                setContext(item.context || context);
+              }}
+              title={item.path}
+            >
+              <span>{item.title}</span>
+              <small>{item.context} · {item.path}</small>
+            </button>
+          ))}
+          {bundle.sources.sources.length === 0 && <p>No source pages in this snapshot.</p>}
+        </div>
+      </section>
+      <section className="panel">
+        <div className="panelHeader">
+          <h2>Source Triage</h2>
+          <StatusPill tone={sourceResultTone(result)}>{result ? (result.ok ? "ready" : "blocked") : "idle"}</StatusPill>
+        </div>
+        <div className="workflowGrid">
+          <label className="field wide">
+            <span>Source path or URL</span>
+            <input value={source} onChange={(event) => setSource(event.target.value)} />
+          </label>
+          <label className="field">
+            <span>Context</span>
+            <select value={context} onChange={(event) => setContext(event.target.value)}>
+              {contexts.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="secondaryButton" disabled={!source || busy} onClick={runTriage} title="Run local source triage">
+            <Search size={16} />
+            <span>{busy ? "Triaging" : "Triage source"}</span>
+          </button>
+        </div>
+        {result && (
+          <div className="triageResult">
+            <dl className="kv">
+              <dt>Source ID</dt>
+              <dd>{result.source_id || "not available"}</dd>
+              <dt>Type</dt>
+              <dd>{result.source_type || "unknown"}</dd>
+              <dt>Exists</dt>
+              <dd>{String(result.exists)}</dd>
+              <dt>Context</dt>
+              <dd>{result.context || context}</dd>
+            </dl>
+            <div className="tagCloud">
+              {(result.risk_flags || []).map((flag) => (
+                <StatusPill tone={flag === "secret_block" ? "bad" : "warn"} key={flag}>
+                  {flag}
+                </StatusPill>
+              ))}
+              {(result.risk_flags || []).length === 0 && <StatusPill tone="good">no flags</StatusPill>}
+            </div>
+            {result.targets && (
+              <div className="targetGrid">
+                <div>
+                  <h3>Pages</h3>
+                  <ul className="plainList compactList">
+                    {result.targets.target_pages.map((page) => (
+                      <li key={page}>{page}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h3>Entities</h3>
+                  <ul className="plainList compactList">
+                    {result.targets.target_entities.map((entity) => (
+                      <li key={entity}>{entity}</li>
+                    ))}
+                    {result.targets.target_entities.length === 0 && <li>none</li>}
+                  </ul>
+                </div>
+              </div>
+            )}
+            <h3>Next Steps</h3>
+            <ul className="plainList compactList">
+              {(result.next_steps || []).map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ul>
+            {(result.findings || []).length > 0 && (
+              <>
+                <h3>Findings</h3>
+                <div className="fileTable">
+                  {(result.findings || []).map((finding) => (
+                    <div className="fileRow findingRow" key={`${finding.kind}-${finding.line}-${finding.excerpt}`}>
+                      <code>{finding.category}</code>
+                      <span>{finding.kind} · line {finding.line} · {finding.excerpt}</span>
+                      <StatusPill tone={finding.category === "secret" ? "bad" : "warn"}>{finding.severity}</StatusPill>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
 function PageList({ pages, selected }: { pages: PageRecord[]; selected: PageRecord | undefined }) {
   return (
     <aside className="pageList" aria-label="Pages">
@@ -318,7 +567,7 @@ function PagesView({ bundle, pageId }: { bundle: SnapshotBundle; pageId?: string
 export function App() {
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [route, setRoute] = useState(routeView());
-  const [commandResult, setCommandResult] = useState<ActionRunResult | null>(null);
+  const [commandResult, setCommandResult] = useState<CommandRunResult | null>(null);
 
   useEffect(() => {
     loadSnapshotBundle()
@@ -346,12 +595,28 @@ export function App() {
       });
     }
   };
+  const runWorkflow = async (operation: string, payload: Record<string, unknown> = {}, dryRun = true) => {
+    try {
+      setCommandResult(await runGitWorkflow(operation, payload, dryRun));
+    } catch (error) {
+      setCommandResult({
+        ok: false,
+        operation,
+        dry_run: dryRun,
+        summary: operation,
+        error: error instanceof Error ? error.message : "workflow failed",
+        data: {},
+        results: []
+      });
+    }
+  };
 
   const content = useMemo(() => {
     if (loadState.status === "loading") return <main className="workspace"><section className="panel"><h1>Loading cockpit</h1></section></main>;
     if (loadState.status === "error") return <main className="workspace"><section className="panel"><h1>Snapshot unavailable</h1><p>{loadState.error}</p></section></main>;
     const { bundle } = loadState;
-    if (route.view === "review") return <ReviewView bundle={bundle} onRun={runAction} />;
+    if (route.view === "review") return <ReviewView bundle={bundle} onRun={runAction} onWorkflow={runWorkflow} />;
+    if (route.view === "sources") return <SourcesView bundle={bundle} />;
     if (route.view === "health") return <HealthView bundle={bundle} />;
     if (route.view === "pages") return <PagesView bundle={bundle} pageId={route.pageId} />;
     return <OpsView bundle={bundle} onRun={runAction} />;

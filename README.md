@@ -74,6 +74,11 @@ python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
 cd apps/wiki-cockpit && npm install && npm run dev
 ```
 
+The local operator server serves snapshot JSON, allowlisted checks, source
+pre-triage and proposal-branch Git workflows. Mutating Git operations are dry-run
+first in the UI and stay oriented around `wiki/<topic>` branches plus draft PRs;
+hosted deployments are later adapters, not a prerequisite for local operation.
+
 The deep reading itself is performed by the agent that runs the repo: the
 pipeline emits a `*-llm-context-request.json` package; the agent records results
 back with `scripts/wiki_llm_context_pass.py --record-result` (provenance is

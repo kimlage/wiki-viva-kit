@@ -155,17 +155,61 @@ export type SnapshotBundle = {
   };
 };
 
+export type CommandResultEntry = {
+  argv: string[];
+  ok: boolean;
+  returncode: number | null;
+  stdout: string;
+  stderr: string;
+  dry_run: boolean;
+};
+
 export type ActionRunResult = {
   ok: boolean;
   action_id: string;
   dry_run: boolean;
   error?: string;
-  results: {
-    argv: string[];
-    ok: boolean;
-    returncode: number | null;
-    stdout: string;
-    stderr: string;
-    dry_run: boolean;
-  }[];
+  results: CommandResultEntry[];
+};
+
+export type WorkflowRunResult = {
+  ok: boolean;
+  operation: string;
+  dry_run: boolean;
+  summary: string;
+  error?: string;
+  data: Record<string, unknown>;
+  results: CommandResultEntry[];
+};
+
+export type CommandRunResult = ActionRunResult | WorkflowRunResult;
+
+export type SourceFinding = {
+  kind: string;
+  category: string;
+  severity: string;
+  line: number;
+  excerpt: string;
+  detector: string;
+};
+
+export type SourceTriageResult = {
+  ok: boolean;
+  error?: string;
+  source?: string;
+  context?: string;
+  available_contexts?: string[];
+  manifest?: Record<string, unknown>;
+  source_id?: string;
+  source_type?: string;
+  exists?: boolean | null;
+  risk_flags?: string[];
+  secret_block?: boolean;
+  findings?: SourceFinding[];
+  targets?: {
+    context: string;
+    target_pages: string[];
+    target_entities: string[];
+  };
+  next_steps?: string[];
 };

@@ -1282,17 +1282,29 @@ The base open-source version is done when:
 
 ## First implementation PR checklist
 
-- [ ] Add this plan to `docs/references/proposals/`.
-- [ ] Add no private data or downstream snapshot.
-- [ ] Add `wiki_web_snapshot.v1` schema draft.
-- [ ] Add Git/PR state schema draft.
-- [ ] Add minimal sample snapshot fixture.
-- [ ] Add tests proving path config is not hardcoded.
-- [ ] Document the local run path before documenting hosted deploys.
-- [ ] Keep mutating Git actions behind branch/PR workflows.
-- [ ] Keep Vercel/GCP deployment as adapter examples, not prerequisites.
-- [ ] Keep existing Python CLI behavior unchanged.
-- [ ] Document how to run the future static cockpit.
+- [x] Add this plan to `docs/references/proposals/`.
+- [x] Add no private data or downstream snapshot.
+- [x] Add `wiki_web_snapshot.v1` schema draft.
+- [x] Add Git/PR state schema draft.
+- [x] Add minimal sample snapshot fixture.
+- [x] Add tests proving path config is not hardcoded.
+- [x] Document the local run path before documenting hosted deploys.
+- [x] Keep mutating Git actions behind branch/PR workflows.
+- [x] Keep Vercel/GCP deployment as adapter examples, not prerequisites.
+- [x] Keep existing Python CLI behavior unchanged.
+- [x] Document how to run the future static cockpit.
+
+Implementation note, 2026-07-01:
+
+- Local operator mode now includes `/api/git/workflow` for proposal branch
+  creation/switching, staging, commits, publishing and draft PR creation. The
+  React UI keeps these workflows dry-run by default and never exposes arbitrary
+  shell input.
+- `/sources` now provides a source inbox plus `/api/sources/triage`, using the
+  deterministic source manifest and detector stack before any ingestion write.
+- Hosted deployment remains adapter work: Vercel is static/read-only by default;
+  a future GCP/Cloud Run operator runner must keep credentials private and still
+  write through branch/PR workflows.
 
 ## External implementation references
 

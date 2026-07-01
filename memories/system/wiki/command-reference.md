@@ -567,6 +567,18 @@ Serves the same snapshot model and runs allowlisted read/derive actions on
 `127.0.0.1` by default. The UI uses it through `/api/snapshot/*.json` and
 `/api/actions/run`; mutating workflows stay branch/PR-oriented.
 
+Operator endpoints:
+
+- `GET /api/snapshot/*.json`: deterministic web read model.
+- `POST /api/actions/run`: allowlisted fixed actions such as status, gates,
+  PR summary and cockpit refresh.
+- `POST /api/git/workflow`: proposal Git workflows (`list_proposals`,
+  `start_proposal`, `switch_proposal`, `stage_paths`, `commit_proposal`,
+  `publish_proposal`, `open_draft_pr`, `sync_main`). Mutating operations are
+  dry-run by default in the UI.
+- `POST /api/sources/triage`: source manifest preview, target lookup and
+  secret/PII pre-triage before ingestion persistence.
+
 - `--host`: bind host, default `127.0.0.1`.
 - `--port`: bind port, default `8765`.
 

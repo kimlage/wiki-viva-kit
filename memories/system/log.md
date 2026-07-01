@@ -14,6 +14,19 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-01] System | Local cockpit operates proposal Git and source triage
+
+- The localhost operator API now separates fixed allowlisted actions from
+  proposal Git workflows: `/api/git/workflow` supports proposal branch creation,
+  proposal switching, staging known changed paths, committing, publishing and
+  opening draft PRs with dry-run as the UI default.
+- The cockpit gained a `/sources` view backed by `/api/sources/triage`; it
+  previews deterministic source manifests, `wiki.targets.yaml` targets and
+  detector findings before any ingestion persistence.
+- [threejs-operational-dashboard-plan-2026-07-01.md](../../docs/references/proposals/threejs-operational-dashboard-plan-2026-07-01.md)
+  now records this local-first implementation boundary and keeps Vercel/GCP as
+  later deployment adapters rather than prerequisites.
+
 ## [2026-07-01] System | Local web cockpit command surface documented
 
 - [command-reference.md](wiki/command-reference.md) now documents the local web

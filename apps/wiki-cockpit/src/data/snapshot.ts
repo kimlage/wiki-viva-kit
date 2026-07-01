@@ -1,4 +1,4 @@
-import type { SnapshotBundle } from "../types";
+import type { SnapshotBundle, SourceTriageResult, WorkflowRunResult } from "../types";
 
 const FILES = {
   manifest: "manifest.json",
@@ -61,4 +61,34 @@ export async function runCockpitAction(
     throw new Error(payload.error || `action failed: ${response.status}`);
   }
   return payload;
+}
+
+export async function runGitWorkflow(
+  operation: string,
+  payload: Record<string, unknown> = {},
+  dryRun = true
+): Promise<WorkflowRunResult> {
+  const response = await fetch("/api/git/workflow", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ...payload, operation, dry_run: dryRun })
+  });
+  const result = (await response.json()) as WorkflowRunResult;
+  if (!response.ok && !result.operation) {
+    throw new Error(result.error || `workflow failed: ${response.status}`);
+  }
+  return result;
+}
+
+export async function triageSource(source: string, context?: string): Promise<SourceTriageResult> {
+  const response = await fetch("/api/sources/triage", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ source, context })
+  });
+  const result = (await response.json()) as SourceTriageResult;
+  if (!response.ok && !result.risk_flags && !result.error) {
+    throw new Error(`source triage failed: ${response.status}`);
+  }
+  return result;
 }
