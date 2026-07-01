@@ -226,9 +226,10 @@ function TimelineRadar({ bundle }: { bundle: SnapshotBundle }) {
   return (
     <section className="panel timelinePanel">
       <div className="panelHeader">
-        <h2>Timeline Radar</h2>
+        <h2>Recent Activity</h2>
         <StatusPill tone="info">{bundle.timeline.summary.event_count} events</StatusPill>
       </div>
+      <p className="panelLead">Use this to decide whether the wiki has been reviewed recently enough before trusting or approving changes.</p>
       <div className="radarBands" aria-label="Timeline activity bands">
         {bands.map((band) => {
           const value = bundle.timeline.bands[band.key] || 0;
@@ -247,7 +248,7 @@ function TimelineRadar({ bundle }: { bundle: SnapshotBundle }) {
             <Clock3 size={16} />
             <div>
               <strong>{event.label}</strong>
-              <span>{formatEventTime(event.timestamp)} · {event.context}{event.path ? ` · ${event.path}` : ""}</span>
+              <span>{formatEventTime(event.timestamp)} · {event.context || "system"}</span>
             </div>
             <StatusPill tone={eventTone(event)}>{event.kind.replaceAll("_", " ")}</StatusPill>
           </article>
@@ -364,6 +365,28 @@ function contentKindLabel(kind: string): string {
     proposal: "review draft"
   };
   return labels[kind] || kind.replaceAll("_", " ") || "content";
+}
+
+function pageStatusTone(page: PageRecord): "good" | "warn" | "bad" | "info" | "muted" {
+  if (page.risk_flags.length > 0) return "warn";
+  if (page.freshness_state === "fresh") return "good";
+  if (page.freshness_state === "stale") return "warn";
+  return "muted";
+}
+
+function pageMetaLabel(page: PageRecord): string {
+  return `${page.context || "No area"} · ${contentKindLabel(page.page_type)} · ${freshnessLabel(page.freshness_state)}`;
+}
+
+function evidenceLabel(page: PageRecord): string {
+  if (page.source_refs.length === 0) return "No evidence links listed";
+  if (page.source_refs.length === 1) return "1 evidence link";
+  return `${page.source_refs.length} evidence links`;
+}
+
+function updatedLabel(value: string): string {
+  if (!value) return "Not dated";
+  return value.replace("T", " ").replace("Z", "").slice(0, 16);
 }
 
 function DiffFrame({ file }: { file: DiffFile }) {
@@ -565,26 +588,26 @@ function relatedImpactPages(bundle: SnapshotBundle, pages: PageRecord[]): PageRe
 function impactReviewText(bundle: SnapshotBundle, pages: PageRecord[]): string {
   const contexts = [...new Set(pages.map((page) => page.context).filter(Boolean))];
   const sourceRefs = [...new Set(pages.flatMap((page) => page.source_refs))];
-  const commands = bundle.actions.actions
-    .filter((action) => ["graph-check", "review-local-changes", "pr-summary", "run-honesty-gates"].includes(action.id))
-    .flatMap((action) => action.commands.map((command) => `- ${command.argv.join(" ")}`));
+  const checks = bundle.gates.gates.map((gate) => `- [ ] ${gateCheckLabel(gate.id)}`);
   return [
-    "Review Packet",
+    "Decision Packet",
     "",
-    `Repo: ${bundle.manifest.repo.repo_id}`,
-    `Workspace: ${bundle.git.current_branch || "unknown"}`,
-    `Approval state: ${bundle.git.proposal.human_gate_state}`,
-    `Selected content: ${pages.length}`,
-    `Areas: ${contexts.join(", ") || "none"}`,
-    `Evidence links: ${sourceRefs.length ? sourceRefs.join(", ") : "none"}`,
+    `Workspace: ${approvalWorkspaceLabel(bundle.git)}`,
+    `Approval request: ${bundle.git.proposal.draft_pr_url ? "linked" : gateStatusLabel(bundle.git.proposal.human_gate_state)}`,
+    `Selected content: ${pages.length} item(s)`,
+    `Areas touched: ${contexts.length ? humanList(contexts) : "none"}`,
+    `Evidence links: ${sourceRefs.length}`,
     "",
-    "Content to review:",
-    ...pages.map((page) => `- ${page.path} [${page.context} / ${contentKindLabel(page.page_type || "page")}] status=${freshnessLabel(page.freshness_state)} evidence links=${page.source_refs.length}`),
+    "Content to inspect:",
+    ...pages.map((page) => `- ${page.title}: ${pageMetaLabel(page)}; ${evidenceLabel(page)}`),
     "",
     "Checks to run before approval:",
-    ...(commands.length ? commands : ["- No review checks available in this view."]),
+    ...(checks.length ? checks : ["- [ ] No review checks available in this view."]),
     "",
-    "Human decision: approve or request changes in the review request."
+    "Human decision: approve, request changes, or ask for more evidence in the review request.",
+    "",
+    "Technical references:",
+    ...pages.map((page) => `- ${page.path}`)
   ].join("\n");
 }
 
@@ -673,15 +696,19 @@ function PageActionDrawer({
         </a>
       </div>
       <dl className="kv">
-        <dt>Page address</dt>
-        <dd>{selected.path}</dd>
-        <dt>Content kind</dt>
+        <dt>What it is</dt>
         <dd>{contentKindLabel(selected.page_type)}</dd>
         <dt>Area</dt>
         <dd>{selected.context}</dd>
-        <dt>Evidence state</dt>
-        <dd>{selected.source_refs.length} evidence link(s) · {selected.visibility}</dd>
+        <dt>Trust signal</dt>
+        <dd>{evidenceLabel(selected)} · {selected.visibility}</dd>
+        <dt>Last update</dt>
+        <dd>{updatedLabel(selected.updated_at)}</dd>
       </dl>
+      <details className="auditDetails">
+        <summary>Technical address</summary>
+        <code>{selected.path}</code>
+      </details>
       <div className="routeRail" aria-label="Route from root to selected page">
         {route.map((page) => (
           <button key={page.id} onClick={() => onSelect(page.id)} title={page.path}>
@@ -696,7 +723,7 @@ function PageActionDrawer({
             {proofs.map((page) => (
               <li key={page.id}><button className="textButton" onClick={() => onSelect(page.id)}>{page.title}</button></li>
             ))}
-            {proofs.length === 0 && <li>{selected.source_refs.length ? selected.source_refs.join(", ") : "No evidence links listed."}</li>}
+            {proofs.length === 0 && <li>{selected.source_refs.length ? `${selected.source_refs.length} recorded evidence link(s). Open technical address for exact ids.` : "No evidence links listed."}</li>}
           </ul>
         </div>
         <div>
@@ -712,7 +739,7 @@ function PageActionDrawer({
       <div className="buttonCluster">
         <button className={isBundled ? "secondaryButton active" : "secondaryButton"} onClick={() => onToggleBundle(selected.id)} title="Toggle impact review bundle">
           <ListChecks size={16} />
-          <span>{isBundled ? "Remove from packet" : "Add to review packet"}</span>
+          <span>{isBundled ? "Remove from packet" : "Add to decision packet"}</span>
         </button>
         {graphAction && <button className="secondaryButton" onClick={() => onRun(graphAction)}><Search size={16} /><span>Check map</span></button>}
         {reviewAction && <button className="secondaryButton" onClick={() => onRun(reviewAction)}><GitBranch size={16} /><span>Review changes</span></button>}
@@ -743,9 +770,9 @@ function ImpactBundlePanel({
   const reviewText = impactReviewText(bundle, pages);
   const actions = bundle.actions.actions.filter((action) => ["graph-check", "review-local-changes", "pr-summary"].includes(action.id));
   return (
-    <section className="panel impactBundlePanel" aria-label="Review Packet">
+    <section className="panel impactBundlePanel" aria-label="Decision Packet">
       <div className="panelHeader">
-        <h2>Review Packet</h2>
+        <h2>Decision Packet</h2>
         <StatusPill tone={pages.length ? "info" : "muted"}>{pages.length} pages</StatusPill>
       </div>
       <div className="bundleMetrics" aria-label="Impact bundle metrics">
@@ -764,8 +791,8 @@ function ImpactBundlePanel({
             {pages.map((page) => (
               <article className="bundleRow" key={page.id}>
                 <button className="textButton bundleTitle" onClick={() => onSelect(page.id)} title={page.path}>{page.title}</button>
-                <span>{page.context} / {contentKindLabel(page.page_type)} / {freshnessLabel(page.freshness_state)}</span>
-                <code>{page.path}</code>
+                <span>{pageMetaLabel(page)}</span>
+                <StatusPill tone={pageStatusTone(page)}>{evidenceLabel(page)}</StatusPill>
                 <button className="textButton" onClick={() => onRemove(page.id)}>Remove</button>
               </article>
             ))}
@@ -783,13 +810,22 @@ function ImpactBundlePanel({
           )}
         </div>
         <div>
-          <h3>Approval Notes</h3>
-          <pre className="bundlePreview">{reviewText}</pre>
+          <h3>Decision Summary</h3>
+          <ul className="plainList compactList decisionSummaryList">
+            <li>{pages.length ? `${pages.length} content item(s) selected for review.` : "No content selected yet."}</li>
+            <li>{sourceRefs.length ? `${sourceRefs.length} evidence link(s) are available.` : "No evidence links are available in the current selection."}</li>
+            <li>{staleCount ? `${staleCount} selected item(s) need refresh.` : "Selected content is not stale."}</li>
+            <li>{related.length ? `${related.length} nearby item(s) may be affected.` : "No nearby content is highlighted."}</li>
+          </ul>
+          <details className="auditDetails">
+            <summary>Copyable decision packet</summary>
+            <pre className="bundlePreview">{reviewText}</pre>
+          </details>
           <div className="buttonCluster">
             {actions.map((action) => (
-              <button className="secondaryButton" key={action.id} onClick={() => onRun(action)} title={action.human_reason}>
+              <button className="secondaryButton" key={action.id} onClick={() => onRun(action)} title={actionReason(action)}>
                 {action.id === "pr-summary" ? <GitPullRequest size={16} /> : <ListChecks size={16} />}
-                <span>{action.title}</span>
+                <span>{actionTitle(action)}</span>
               </button>
             ))}
           </div>
@@ -840,7 +876,7 @@ function KnowledgeExplorer({
         </div>
         <label className="field">
           <span>Find content</span>
-          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="title, page address, area, source" />
+          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="title, area, type, evidence" />
         </label>
         <div className="searchResults" role="listbox" aria-label="Content search results">
           {results.map((page) => (
@@ -851,7 +887,7 @@ function KnowledgeExplorer({
               title={page.path}
             >
               <span>{page.title}</span>
-              <small>{page.context} · {contentKindLabel(page.page_type)} · {page.path}</small>
+              <small>{pageMetaLabel(page)} · {evidenceLabel(page)}</small>
             </button>
           ))}
           {results.length === 0 && <p>No content matched the current search.</p>}
@@ -905,7 +941,7 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
         <div className="heroCopy">
           <StatusPill tone={bundle.git.proposal.is_proposal_branch ? "warn" : "good"}>{gitGateLabel(bundle.git)}</StatusPill>
           <h1>What needs attention?</h1>
-          <p>{bundle.operations.title} · {bundle.manifest.repo.repo_id} · {bundle.manifest.generated_at}</p>
+          <p>{bundle.operations.title} · {bundle.manifest.repo.repo_id} · updated {updatedLabel(bundle.manifest.generated_at)}</p>
         </div>
         <SystemScene nodes={bundle.graph.nodes} git={bundle.git} selectedPageId={selectedPageId} highlightedPageIds={highlightedPageIds} onNodeSelect={setSelectedPageId} />
       </section>
@@ -1724,7 +1760,7 @@ function SourcesView({
               title={item.path}
             >
               <span>{item.title}</span>
-              <small>{item.context} · {item.path}</small>
+              <small>{pageMetaLabel(item)} · {evidenceLabel(item)}</small>
             </button>
           ))}
           {bundle.sources.sources.length === 0 && <p>No evidence sources in this view.</p>}
@@ -1828,24 +1864,50 @@ function SourcesView({
   );
 }
 
-function PageList({ pages, selected }: { pages: PageRecord[]; selected: PageRecord | undefined }) {
+function PageList({
+  pages,
+  selected,
+  search,
+  onSearch
+}: {
+  pages: PageRecord[];
+  selected: PageRecord | undefined;
+  search: string;
+  onSearch: (value: string) => void;
+}) {
   return (
-    <aside className="pageList" aria-label="Content">
+    <aside className="pageList" aria-label="Content browser">
+      <div className="pageListHeader">
+        <div>
+          <h2>Browse Content</h2>
+          <span>{pages.length} item(s)</span>
+        </div>
+        <label className="field">
+          <span>Find</span>
+          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="title, area, type, evidence" />
+        </label>
+      </div>
       {pages.slice(0, 120).map((page) => (
         <a className={selected?.id === page.id ? "pageLink active" : "pageLink"} href={`/pages/${encodeURIComponent(page.id)}`} key={page.id}>
           <span>{page.title}</span>
-          <small>{page.context} · {contentKindLabel(page.page_type)}</small>
+          <small>{pageMetaLabel(page)} · {evidenceLabel(page)}</small>
         </a>
       ))}
+      {pages.length === 0 && <p>No content matched the current search.</p>}
     </aside>
   );
 }
 
 function PagesView({ bundle, pageId }: { bundle: SnapshotBundle; pageId?: string }) {
-  const selected = pageById(bundle.pages.pages, pageId);
+  const [search, setSearch] = useState("");
+  const results = useMemo(
+    () => bundle.pages.pages.filter((page) => pageMatches(page, search)),
+    [bundle.pages.pages, search]
+  );
+  const selected = pageById(results.length ? results : bundle.pages.pages, pageId);
   return (
     <main className="workspace pagesWorkspace">
-      <PageList pages={bundle.pages.pages} selected={selected} />
+      <PageList pages={results} selected={selected} search={search} onSearch={setSearch} />
       <section className="panel pageDetail">
         {selected && (
           <>
@@ -1856,20 +1918,29 @@ function PagesView({ bundle, pageId }: { bundle: SnapshotBundle; pageId?: string
               </StatusPill>
             </div>
             <dl className="kv">
-              <dt>Page address</dt>
-              <dd>{selected.path}</dd>
-              <dt>Content kind</dt>
+              <dt>What it is</dt>
               <dd>{contentKindLabel(selected.page_type)}</dd>
               <dt>Area</dt>
               <dd>{selected.context}</dd>
               <dt>Evidence links</dt>
-              <dd>{selected.source_refs.length ? selected.source_refs.join(", ") : "none listed"}</dd>
+              <dd>{evidenceLabel(selected)}</dd>
+              <dt>Last update</dt>
+              <dd>{updatedLabel(selected.updated_at)}</dd>
             </dl>
             <p className="pageSummary">{selected.summary || "No summary in this view."}</p>
-            <a className="externalLink" href={`/${selected.path}`} title="Open Markdown path">
-              <ExternalLink size={16} />
-              <span>{selected.path}</span>
-            </a>
+            <details className="auditDetails">
+              <summary>Technical references</summary>
+              <dl className="kv">
+                <dt>File address</dt>
+                <dd>{selected.path}</dd>
+                <dt>Evidence ids</dt>
+                <dd>{selected.source_refs.length ? selected.source_refs.join(", ") : "none listed"}</dd>
+              </dl>
+              <a className="externalLink" href={`/${selected.path}`} title="Open Markdown file">
+                <ExternalLink size={16} />
+                <span>Open Markdown file</span>
+              </a>
+            </details>
           </>
         )}
       </section>

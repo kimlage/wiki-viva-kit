@@ -242,8 +242,8 @@ describe("visual route contract", () => {
     expect(screen.getByRole("button", { name: /Verify evidence/ })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Explore Content" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Content Preview" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Review Packet" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Timeline Radar" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Decision Packet" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Recent Activity" })).toBeTruthy();
     expect(screen.getByTestId("scene-fallback")).toBeTruthy();
     cleanup();
 
@@ -268,12 +268,13 @@ describe("visual route contract", () => {
 
     await renderRoute("/pages/root");
     expect(await screen.findByRole("heading", { name: "Root" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Browse Content" })).toBeTruthy();
     cleanup();
 
     await renderRoute("/demo");
     expect(await screen.findByRole("heading", { name: "What needs attention?" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Explore Content" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Timeline Radar" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Recent Activity" })).toBeTruthy();
   });
 
   it("adds a searched page to the local impact bundle with shift-click", async () => {
@@ -281,9 +282,9 @@ describe("visual route contract", () => {
     const sourceResult = await screen.findByRole("button", { name: /Source Fixture/ });
     fireEvent.click(sourceResult, { shiftKey: true });
 
-    const impactBundle = screen.getByRole("region", { name: "Review Packet" });
+    const impactBundle = screen.getByRole("region", { name: "Decision Packet" });
     expect(within(impactBundle).getByText("Source Fixture")).toBeTruthy();
-    expect(within(impactBundle).getByText("memories/sources/source-fixture.md")).toBeTruthy();
-    expect(within(impactBundle).getByText(/Approval state: not_opened/)).toBeTruthy();
+    expect(within(impactBundle).getAllByText(/system · evidence source · ok/).length).toBeGreaterThan(0);
+    expect(within(impactBundle).getByText(/No evidence links are available/)).toBeTruthy();
   });
 });
