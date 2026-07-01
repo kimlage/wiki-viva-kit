@@ -1315,6 +1315,9 @@ Implementation note, 2026-07-01:
 - The web snapshot manifest now carries `default_context` and `karma_enabled`;
   tests cover a dense localized `memorias/` fixture with karma disabled so the
   frontend is not forced through `memories/` or `system` assumptions.
+- The frontend test suite now includes a DOM route contract smoke test for
+  `/ops`, `/review`, `/sources`, `/health` and `/pages/:id`, mocking the 3D scene
+  to verify the 2D textual fallback and core route affordances.
 
 ## External implementation references
 

@@ -14,6 +14,14 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-01] System | Cockpit core routes have DOM visual smoke coverage
+
+- The React cockpit test suite now renders `/ops`, `/review`, `/sources`,
+  `/health` and `/pages/:id` under a DOM test environment with the Three.js
+  scene mocked as a textual fallback.
+- This gives the route layout and 2D evidence surfaces regression coverage
+  before adding heavier screenshot-based visual tests.
+
 ## [2026-07-01] System | Web snapshot carries downstream context metadata
 
 - The web snapshot manifest now includes `default_context` and `karma_enabled`
