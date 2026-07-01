@@ -37,6 +37,8 @@ This plan defines a **mind-blowing but operationally honest** web interface for 
 
 The first implementation target is the open-source `wiki-viva-kit`. The private/local wiki becomes a downstream adapter and validation target only after the base contracts, UI patterns and safety model are implemented in the public kit without personal context.
 
+The initial product must be designed to run locally from a real repository checkout. Cloud deployment is a later adapter concern: each implementation/downstream wiki owns its own deployment target, while the open-source kit supplies clean build artifacts, runtime contracts and examples that make Vercel or GCP deployment straightforward when a repo is ready for it.
+
 ## Mission
 
 Build a **human operations dashboard** for a living wiki.
@@ -47,7 +49,8 @@ The interface should answer, as the first screen of the day:
 2. What is stale, blocked, risky or waiting for approval?
 3. Which sources/actions/decisions are driving the next update?
 4. What changed, why did it change, and what proof supports it?
-5. What button can a non-technical owner safely press to advance the wiki?
+5. Which Git branch, proposal or Pull Request needs human attention?
+6. What button can a non-technical owner safely press to advance the wiki?
 
 The web cockpit must not replace the existing Markdown/Git model. It is an operating layer over the same contracts:
 
@@ -123,6 +126,7 @@ The Three.js layer exists to make invisible wiki dynamics visible:
 - Do not make Three.js the only way to use the wiki; every 3D view needs a 2D/list fallback.
 - Do not leak downstream/private repo details into the open-source kit.
 - Do not make a beautiful dashboard that can silently write to `main`.
+- Do not make Vercel, GCP or any hosted platform required for the first implementation.
 
 ## Experience principles
 
@@ -179,13 +183,34 @@ Mutating actions should produce one of these states:
 
 There should be no “apply directly to approved wiki” button in the base UI.
 
-### 5. 3D as sensemaking, 2D as precision
+### 5. Git items are first-class operational objects
+
+The cockpit should operate Git and PR state as human workflows, not as hidden implementation details. Branches, commits, diffs, local dirty state, upstream divergence, draft PRs, gate results and review readiness should each have visible UI state.
+
+The user-facing actions are:
+
+- “Sync approved wiki”
+- “Create proposal branch”
+- “Switch proposal”
+- “Review local changes”
+- “Stage known generated files”
+- “Commit proposal”
+- “Publish proposal branch”
+- “Open/update draft PR”
+- “Run PR summary”
+- “Prepare for human review”
+
+The base UI must not expose force push, hard reset, direct merge to `main`, arbitrary checkout, arbitrary rebase or remote deletion as normal actions. If later versions add advanced maintenance flows, they need a separate safety design.
+
+### 6. 3D as sensemaking, 2D as precision
 
 The 3D interface should create spatial understanding and emotional salience. Precise editing, reading and review still needs crisp 2D panels, tables, Markdown preview and diffs.
 
-### 6. Local-first, public-safe
+### 7. Local-first, public-safe
 
 The read-only cockpit must run from a static snapshot. The action runner should be an explicit local server mode bound to localhost, with command allowlists and visible logs.
+
+The local version is not a lesser demo. It is the primary first implementation because it can operate a real checkout, respect private data boundaries and make every write visible before any network or hosted deployment exists.
 
 ## Information architecture
 
@@ -428,11 +453,43 @@ The first implementation can be deterministic search + action matching. A later 
 
 The backend should provide a clean separation between **read model**, **action model** and **Git/proposal model**.
 
+### Local execution contract
+
+The first usable implementation should assume one human is running the cockpit against one local checkout:
+
+```text
+repo checkout
+  -> Python snapshot/command server on 127.0.0.1
+  -> Vite dev server or static frontend build
+  -> browser UI
+```
+
+Local execution requirements:
+
+- no cloud account required;
+- no GitHub token required for read-only mode;
+- current repo path, branch and remote freshness always visible;
+- every mutating action starts with preview/dry-run when possible;
+- versioned writes happen only on `wiki/<theme>` proposal branches;
+- remote writes are separate actions with explicit confirmation;
+- local logs and raw command output are retained for the session, not hidden by animation;
+- all commands can be reproduced from the terminal.
+
+Suggested local commands:
+
+```sh
+python3 scripts/wiki_web_snapshot.py --out data/derived/wiki/web-snapshot --clean
+python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
+cd apps/wiki-cockpit && npm install && npm run dev
+```
+
+The static snapshot command should remain useful by itself. The local server adds actions; it should not be required for read-only exploration.
+
 ### Operating modes
 
 #### Mode A - Static snapshot, read-only
 
-Goal: public demo, GitHub Pages/local file, zero server.
+Goal: public demo, GitHub Pages/local file, local static preview, zero server.
 
 - CLI generates JSON snapshots from the repo.
 - Frontend reads JSON only.
@@ -458,6 +515,7 @@ data/derived/wiki/web-snapshot/
   decisions.json
   freshness.json
   gates.json
+  git.json
   ingestion.json
   quality.json
   commands.json
@@ -471,7 +529,9 @@ Goal: safe local operation of a repo checkout.
 - Serves snapshot data.
 - Runs allowlisted commands.
 - Streams logs.
+- Reads local Git state and upstream divergence.
 - Creates/updates proposal branches.
+- Stages and commits only known/previewed paths.
 - Opens/updates draft PRs only when configured.
 
 Proposed command:
@@ -490,6 +550,39 @@ Goal: inspect PRs, statuses and branch metadata through GitHub API.
 - Read PR metadata/statuses.
 - Create draft PR only from a local proposal branch.
 - Never auto-merge in base version.
+
+#### Mode D - Hosted read/review deployment
+
+Goal: make the cockpit easy to host later without changing the product contract.
+
+- Vercel/GitHub Pages: static snapshot viewer or read-only review UI.
+- GCP Cloud Run: optional read/review service or controlled operator service.
+- Hosted mutating actions require an explicit repo runner/GitHub App design.
+- Hosted deployments still write through proposal branches and PRs, never directly to `main`.
+- Each downstream implementation owns its deployment configuration, secrets, domain and rollout process.
+
+The open-source kit should provide examples and adapters, not a single blessed hosted state.
+
+### Deployment ownership model
+
+Each implementation should own its own deployment proof:
+
+- local implementation PRs must include a reproducible local run path;
+- hosted implementation PRs must describe their deployment target, build command, runtime mode and data boundary;
+- downstream/private deployments must keep private snapshots, secrets and operator credentials outside the public kit;
+- deploy previews can read synthetic/open data, but must not publish private wiki state by accident;
+- the same frontend should support static/read-only hosting and localhost operator mode through explicit runtime configuration.
+
+Deployment adapters should be thin:
+
+| Target | Intended mode | Contract |
+| --- | --- | --- |
+| Local dev | static + local operator | Vite frontend, localhost Python server, real checkout. |
+| Static file/GitHub Pages | static snapshot | Generated JSON only, no writes, public sample data. |
+| Vercel | static/read-only review | Build frontend, load configured snapshot URL or bundled sample snapshot. |
+| GCP Cloud Run | read/review service or controlled operator | Containerized app/server with explicit repo runner and GitHub App/token design. |
+
+The first implementation should make these targets easy later by avoiding hardcoded filesystem paths, using environment/runtime config for snapshot URLs, keeping operator APIs separate from static UI routes and keeping all mutating operations behind the proposal/PR model.
 
 ### Proposed code layout
 
@@ -622,6 +715,41 @@ Action cards:
 }
 ```
 
+Git state:
+
+```json
+{
+  "default_branch": "main",
+  "current_branch": "wiki/example-proposal",
+  "branch_prefix": "wiki/",
+  "worktree": {
+    "clean": false,
+    "changed_files": [
+      {
+        "path": "memories/system/wiki/example.md",
+        "status": "modified",
+        "known_generated": false,
+        "suggested_stage": true
+      }
+    ]
+  },
+  "upstream": {
+    "remote": "origin",
+    "ahead": 1,
+    "behind": 0,
+    "last_fetch_at": "2026-07-01T00:00:00Z"
+  },
+  "proposal": {
+    "is_proposal_branch": true,
+    "theme": "example-proposal",
+    "draft_pr_url": null,
+    "human_gate_state": "not_opened|draft|ready_for_review|approved|merged|blocked"
+  }
+}
+```
+
+This data should be generated without a GitHub token from local Git whenever possible. GitHub metadata enriches the model, but the UI must still operate from local branch and diff state when offline.
+
 ## Backend action model
 
 ### Allowlisted command runner
@@ -645,6 +773,39 @@ Allowed in base local operator mode:
 - `wiki_gate.py --list|...`
 - `wiki_okf_export.py --out ... --clean`
 - `wiki_okf_check.py --bundle ... --check`
+
+Allowed Git operations in base local operator mode:
+
+- `git status --short --branch`
+- `git rev-parse --show-toplevel|--verify HEAD`
+- `git branch --show-current`
+- `git log --oneline --decorate --max-count ...`
+- `git diff --stat|--name-status|-- ...`
+- `git diff --cached --stat|--name-status|-- ...`
+- `git fetch --prune <configured-remote>`
+- `git pull --ff-only <configured-remote> <default-branch>` when on a clean default branch
+- `git switch <existing-wiki-branch>`
+- `git switch -c wiki/<theme>`
+- `git add <known-previewed-paths>`
+- `git commit -m <generated-or-user-reviewed-message>`
+- `git push -u <configured-remote> wiki/<theme>` after explicit remote-write confirmation
+
+Optional GitHub operations:
+
+- `gh pr view|status|checks` or equivalent GitHub API read calls;
+- `gh pr create --draft` or equivalent GitHub API call from a published proposal branch;
+- `gh pr edit` for generated PR body/checklist updates.
+
+Explicitly excluded from the base UI:
+
+- direct merge to `main`;
+- `git reset --hard`;
+- force push;
+- arbitrary rebase;
+- arbitrary checkout of non-proposal branches;
+- branch deletion;
+- remote deletion;
+- arbitrary shell command input.
 
 Dangerous shell access is not part of the UI. No arbitrary command textbox.
 
@@ -673,11 +834,16 @@ The backend should expose Git as human workflows:
 
 | Human action | Backend operations |
 | --- | --- |
+| Sync approved wiki | fetch remote -> compare `main` with upstream -> fast-forward only when clean and confirmed. |
+| Inspect worktree | read branch, dirty files, upstream ahead/behind, proposal status and changed paths. |
 | Start proposal | verify clean/acceptable state -> create `wiki/<theme>` branch -> snapshot. |
-| Save changes | stage known paths -> commit with generated message -> rerun checks. |
+| Switch proposal | list existing `wiki/*` branches -> switch only to a selected proposal branch. |
+| Save generated changes | show path preview -> stage known paths -> commit with generated/user-reviewed message -> rerun checks. |
 | Review changes | run `git diff`, `wiki_pr_summary.py`, audit checks -> produce review bundle. |
-| Open draft PR | call GitHub API or print exact command/URL if not connected. |
-| Update proposal | commit new generated files and update draft PR body. |
+| Publish proposal | push proposal branch after explicit remote-write confirmation. |
+| Open draft PR | call GitHub API/CLI or print exact command/URL if not connected. |
+| Update proposal PR | commit new files, rerun summary/checks and update draft PR body. |
+| Prepare human gate | mark checklist readiness in UI and surface exact GitHub PR for final review. |
 | Supersede proposal | use `wiki_gate.py` where applicable, update state and PR note. |
 
 The UI should never hide the branch. It should translate it:
@@ -685,6 +851,36 @@ The UI should never hide the branch. It should translate it:
 - “Approved wiki” = `main`.
 - “Draft proposal” = `wiki/<theme>` branch.
 - “Human gate” = GitHub PR.
+
+### Pull Request human gate state machine
+
+The cockpit should model PR review as a state machine:
+
+```text
+local clean main
+  -> proposal branch created
+  -> local changes previewed
+  -> commit created
+  -> gates run
+  -> branch published
+  -> draft PR opened/updated
+  -> machine checks visible
+  -> human checklist reviewed
+  -> ready for GitHub review
+  -> merged outside or by an explicitly designed future flow
+  -> local main synced
+```
+
+The base UI can create/update draft PRs and prepare a human review bundle. It must not present merge as an ordinary base action. If a user merges in GitHub, the local cockpit should detect the merged PR, guide a fast-forward pull of `main`, and refresh the snapshot.
+
+The gate visualization must distinguish:
+
+- local branch exists but no PR;
+- draft PR exists but gates have not passed;
+- gates passed but human checklist is incomplete;
+- human checklist complete but GitHub review/merge is still external;
+- PR merged and local checkout not yet synced;
+- PR merged and approved wiki refreshed locally.
 
 ## Key human workflows
 
@@ -726,17 +922,20 @@ Acceptance criteria:
 ### Workflow 3 - Review a PR as the human gate
 
 1. User opens `/review`.
-2. UI loads branch/PR diff, `wiki_pr_summary.py`, audit status and changed pages.
-3. 3D review room groups changed pages by context.
-4. User reads conceptual diff summary and privacy hints.
-5. User checks the human-only checklist.
-6. UI allows marking ready/opening draft PR, but not auto-merging in base version.
+2. UI loads local branch state, draft/ready PR metadata when available, `wiki_pr_summary.py`, audit status and changed pages.
+3. UI shows whether the proposal is only local, published without PR, draft PR, ready PR, merged-but-not-synced or fully synced.
+4. 3D review room groups changed pages by context.
+5. User reads conceptual diff summary, privacy hints, gate output and exact Markdown diffs.
+6. User checks the human-only checklist.
+7. UI allows publishing the proposal branch, opening/updating a draft PR, regenerating the PR body and marking the bundle ready for external human review.
+8. UI does not auto-merge in the base version; after an external merge, it guides a fast-forward sync of local `main`.
 
 Acceptance criteria:
 
 - mechanical pass and human approval are visually different;
 - privacy review is explicit;
-- the user can open the exact changed Markdown page and raw diff.
+- the user can open the exact changed Markdown page and raw diff;
+- a PR is treated as the approval gate, not as a decorative link.
 
 ### Workflow 4 - Fix a stale context
 
@@ -876,6 +1075,8 @@ Deliverables:
 
 - this plan;
 - `wiki_web_snapshot.v1` schema draft;
+- `git.json` / PR state schema draft;
+- local execution contract;
 - sample static snapshot fixture;
 - decision: app path and dependency strategy.
 
@@ -883,6 +1084,8 @@ Acceptance:
 
 - no private data;
 - plan links to existing Wiki Viva contracts;
+- Git/PR state is modeled as a first-class data contract;
+- local execution works without cloud accounts;
 - implementation can start without changing existing CLI behavior.
 
 ### Phase 1 - Static read model
@@ -892,13 +1095,15 @@ Deliverables:
 - `wiki_core/web/snapshot.py`;
 - `scripts/wiki_web_snapshot.py`;
 - snapshot JSON files for sample repo state;
-- tests for graph nodes, edges, operations, actions, freshness and gates.
+- Git/read model from local checkout state;
+- tests for graph nodes, edges, operations, actions, freshness, gates and Git state.
 
 Acceptance:
 
 - snapshot generation is deterministic;
 - existing audit/tests still pass;
 - no server required;
+- branch/default-branch/upstream status is represented when Git is available;
 - localized path config is respected.
 
 ### Phase 2 - Read-only web cockpit
@@ -908,6 +1113,7 @@ Deliverables:
 - `apps/wiki-cockpit` Vite/React/TypeScript app;
 - `/ops`, `/health`, `/pages/:page_id` routes;
 - static snapshot loader;
+- documented local dev path;
 - 2D cards and tables before heavy 3D;
 - first Three.js system pulse orb.
 
@@ -915,6 +1121,7 @@ Acceptance:
 
 - user can open the dashboard and understand daily operational state;
 - all status cards link to underlying pages/commands;
+- local static execution works before any hosted deployment exists;
 - reduced-motion and 2D fallback work.
 
 ### Phase 3 - Knowledge galaxy
@@ -943,13 +1150,16 @@ Deliverables:
 - streaming logs;
 - action cards for refresh, audit, graph check and PR summary;
 - branch status read model.
+- proposal branch create/switch workflow;
+- known-path staging and commit preview.
 
 Acceptance:
 
 - all commands are visible before run;
 - dry-run is default for risky actions;
 - no arbitrary shell execution;
-- generated changes are reviewable.
+- generated changes are reviewable;
+- versioned writes stay on `wiki/<theme>` branches.
 
 ### Phase 5 - Human gate review console
 
@@ -960,6 +1170,7 @@ Deliverables:
 - gate shield visualization;
 - conceptual review checklist;
 - privacy hints;
+- local branch/published branch/draft PR/ready PR/merged states;
 - draft PR body generator/update helper.
 
 Acceptance:
@@ -967,6 +1178,7 @@ Acceptance:
 - UI separates machine checks from human approval;
 - PR summary can be regenerated;
 - user can inspect exact Markdown diff.
+- base UI can prepare/open/update draft PRs but does not auto-merge.
 
 ### Phase 6 - Source inbox and ingestion wizard
 
@@ -1018,6 +1230,23 @@ Acceptance:
 - app remains usable with keyboard/2D fallback;
 - performance stays within budget on sample and medium repos.
 
+### Phase 9 - Deployment adapters
+
+Deliverables:
+
+- documented static build path for sample/open snapshots;
+- Vercel read-only deployment example;
+- GCP Cloud Run container example for read/review or controlled operator mode;
+- runtime config contract for snapshot URL, repo label, mode and API base URL;
+- clear boundary between public sample deploys and private downstream deploys.
+
+Acceptance:
+
+- every hosted example can be deployed without private data;
+- Vercel path does not require mutating repo access;
+- GCP path documents token/GitHub App scope and still writes through PRs;
+- downstream implementations can own their deploy without forking core cockpit logic.
+
 ## Definition of done for base version
 
 The base open-source version is done when:
@@ -1026,7 +1255,10 @@ The base open-source version is done when:
 - a user can open the web cockpit and see the same operational priorities as `memories/operations.md`;
 - a user can inspect page freshness, graph relations, source_refs and gate status through the UI;
 - a user can run read/derive checks through local operator mode without arbitrary shell access;
+- a user can create, inspect, commit and publish a proposal branch through explicit Git workflows;
+- a user can open/update a draft PR as the human gate handoff;
 - every mutating action is branch/PR-oriented and reviewable;
+- the default path runs locally before any hosted deployment is required;
 - the app works with configured paths and language labels;
 - no private downstream content is present in the public repo;
 - reduced motion and 2D fallback are first-class;
@@ -1044,14 +1276,21 @@ The base open-source version is done when:
 | Users think CI green means conceptually approved | Visualize machine gates and human review as separate states. |
 | Localized repos break assumptions | Read all paths/language/context labels from `wiki.config.yaml`. |
 | Web app dependencies bloat the core | Put web dependencies under `apps/wiki-cockpit` and optional Python extras. |
+| Git UI encourages unsafe repository operations | Allowlist Git commands, exclude destructive operations and keep `main` write-protected by design. |
+| Hosted deployment accidentally exposes private state | Make deploy adapters opt-in, synthetic by default and explicit about snapshot/data boundaries. |
+| Vercel/serverless path cannot run local Git safely | Treat Vercel as static/read-only unless a separate trusted runner is designed. |
 
 ## First implementation PR checklist
 
 - [ ] Add this plan to `docs/references/proposals/`.
 - [ ] Add no private data or downstream snapshot.
 - [ ] Add `wiki_web_snapshot.v1` schema draft.
+- [ ] Add Git/PR state schema draft.
 - [ ] Add minimal sample snapshot fixture.
 - [ ] Add tests proving path config is not hardcoded.
+- [ ] Document the local run path before documenting hosted deploys.
+- [ ] Keep mutating Git actions behind branch/PR workflows.
+- [ ] Keep Vercel/GCP deployment as adapter examples, not prerequisites.
 - [ ] Keep existing Python CLI behavior unchanged.
 - [ ] Document how to run the future static cockpit.
 
