@@ -1,0 +1,57 @@
+{
+  "pages": [
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "id": "sample-root",
+      "moc_parent": "",
+      "page_type": "root_index",
+      "path": "memories/index.md",
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "active",
+      "summary": "Root content map of the sample living wiki.",
+      "title": "Sample Memory",
+      "updated_at": "2026-07-01",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "example",
+      "freshness_state": "stale",
+      "id": "sample-example-hub",
+      "moc_parent": "memories/index.md",
+      "page_type": "context_hub",
+      "path": "memories/example/index.md",
+      "risk_flags": ["stale"],
+      "source_refs": ["sample-source"],
+      "stale_after_days": "7",
+      "status": "active",
+      "summary": "Example context with source pressure and a pending refresh proposal.",
+      "title": "Example Context",
+      "updated_at": "2026-06-20",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "proposal",
+      "context": "system",
+      "freshness_state": "fresh",
+      "id": "sample-pr-governance",
+      "moc_parent": "memories/index.md",
+      "page_type": "operational_rule",
+      "path": "memories/system/wiki/pr-governance.md",
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "60",
+      "status": "active",
+      "summary": "PR remains the human gate for canonical memory changes.",
+      "title": "PR Governance",
+      "updated_at": "2026-07-01",
+      "visibility": "private_self"
+    }
+  ],
+  "repo_id": "wiki-viva-kit-sample",
+  "schema_version": "wiki_web_pages.v1"
+}

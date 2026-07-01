@@ -1,0 +1,27 @@
+{
+  "by_context": {
+    "example": {
+      "fresh": 0,
+      "stale": 1,
+      "unknown": 0
+    },
+    "system": {
+      "fresh": 2,
+      "stale": 0,
+      "unknown": 0
+    }
+  },
+  "schema_version": "wiki_web_freshness.v1",
+  "stale_pages": [
+    {
+      "context": "example",
+      "path": "memories/example/index.md",
+      "title": "Example Context"
+    }
+  ],
+  "summary": {
+    "fresh": 2,
+    "stale": 1,
+    "unknown": 0
+  }
+}

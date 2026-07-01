@@ -14,3 +14,7 @@ Use [wiki_audit.py](wiki_audit.py), [wiki_input_stage.py](wiki_input_stage.py),
 Use [wiki_quadrant_contract.py](wiki_quadrant_contract.py) when an external
 consumer needs the canonical Wilber/AQAL `q1/q2/q3/q4` mapping without scraping
 templates or historical proposals.
+
+Use [wiki_web_snapshot.py](wiki_web_snapshot.py) to generate the local/static
+JSON read model for the web cockpit, and [wiki_web_server.py](wiki_web_server.py)
+to run the localhost-only operator API with allowlisted commands.

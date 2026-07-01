@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-06-26
+updated_at: 2026-07-01
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,18 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-07-01] System | Local web cockpit command surface documented
+
+- [command-reference.md](wiki/command-reference.md) now documents the local web
+  cockpit CLIs: [wiki_web_snapshot.py](../../scripts/wiki_web_snapshot.py)
+  generates the static/local JSON read model, and
+  [wiki_web_server.py](../../scripts/wiki_web_server.py) serves the
+  localhost-only operator API with allowlisted actions.
+- The command lifecycle now includes optional
+  [wiki_web_snapshot.py](../../scripts/wiki_web_snapshot.py) output before PR
+  validation, keeping the web interface tied to deterministic Markdown/Git
+  state instead of a separate database.
 
 ## [2026-06-26] System | AQAL quadrant contract exposed for external consumers
 

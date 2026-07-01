@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-26
+updated_at: 2026-07-01
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Command reference
 
-Last updated: 2026-06-26.
+Last updated: 2026-07-01.
 
 This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/README.md) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
 
@@ -63,6 +63,8 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audits the wiki contract | Validate contract/links/secrets at commit and in CI |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Checks the presence AND content of methodology v5 | Ensure the methodology is in fact implemented |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarizes the PR diff by context/entity | Generate the PR review summary |
+| [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) | Generates the web cockpit snapshot | Produce JSON read models for static/local cockpit execution |
+| [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Runs the local web cockpit operator API | Serve snapshots and allowlisted actions on localhost |
 
 ## Ingestion pipeline
 
@@ -538,6 +540,41 @@ Summarizes the current diff (against `main`, the working tree and the index) gro
 python3 scripts/wiki_pr_summary.py
 ```
 
+## Web cockpit
+
+The web cockpit is local-first. Static mode reads generated JSON only. Operator
+mode runs on localhost and executes only allowlisted actions; it is not an
+arbitrary shell.
+
+### [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) - web snapshot
+
+Generates the JSON read model consumed by the Vite/React + Three.js cockpit:
+manifest, operations, graph, pages, sources, actions, decisions, freshness,
+gates, Git state, ingestion closure, quality and commands.
+
+- `--out`: output directory; defaults to
+  [data/derived/wiki/web-snapshot](../../../data/README.md).
+- `--clean`: removes existing `*.json` in the output directory before writing.
+- `--mode static|local_operator|github_connected`: marks the snapshot mode.
+
+```sh
+python3 scripts/wiki_web_snapshot.py --out data/derived/wiki/web-snapshot --clean
+```
+
+### [wiki_web_server.py](../../../scripts/wiki_web_server.py) - local operator API
+
+Serves the same snapshot model and runs allowlisted read/derive actions on
+`127.0.0.1` by default. The UI uses it through `/api/snapshot/*.json` and
+`/api/actions/run`; mutating workflows stay branch/PR-oriented.
+
+- `--host`: bind host, default `127.0.0.1`.
+- `--port`: bind port, default `8765`.
+
+```sh
+python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
+cd apps/wiki-cockpit && npm run dev
+```
+
 ## Typical order of use
 
 The command lifecycle, from capture to a reviewed PR — each box is run by the CLI
@@ -561,6 +598,6 @@ flowchart LR
 4. Deep reading: [wiki_llm_context_pass.py](../../../scripts/wiki_llm_context_pass.py) `--emit-request`, the agent reads and responds, then `--record-result`.
 5. Consolidation and integration: [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--emit-event --packet`; the agent integrates into the target pages (hubs/concepts/claims, conflicts resolved or recorded, `consolidated_into` closed with reverse `source_refs`) and confirms with `--check`.
 6. Gate: [wiki_gate.py](../../../scripts/wiki_gate.py) to transition/supersede; see [git-approvals.md](../git-approvals.md).
-7. Cockpit and validation: [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) `--write`, [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) `--check`, then [wiki_audit.py](../../../scripts/wiki_audit.py) `--check`, [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check`, [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) `--check`, [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) `--check` and [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py).
+7. Cockpit and validation: [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) `--write`, optionally [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) for the local UI, [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) `--check`, then [wiki_audit.py](../../../scripts/wiki_audit.py) `--check`, [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check`, [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) `--check`, [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) `--check` and [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py).
 
 For each agent's protocol, see [AGENTS.md](../../../AGENTS.md). Back to the root MOC in [memories/index.md](../../index.md) and to the cockpit in [memories/operations.md](../../operations.md).

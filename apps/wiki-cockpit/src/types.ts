@@ -1,0 +1,171 @@
+export type FreshnessState = "fresh" | "stale" | "unknown";
+
+export type GitFile = {
+  path: string;
+  status: string;
+  staged: boolean;
+  unstaged: boolean;
+  known_generated: boolean;
+  suggested_stage: boolean;
+};
+
+export type GitState = {
+  available: boolean;
+  default_branch: string;
+  current_branch: string;
+  branch_prefix: string;
+  worktree: {
+    clean: boolean;
+    changed_files: GitFile[];
+  };
+  upstream: {
+    remote: string;
+    ahead: number;
+    behind: number;
+    name: string;
+    last_fetch_at: string | null;
+  };
+  proposal: {
+    is_proposal_branch: boolean;
+    theme: string;
+    draft_pr_url: string | null;
+    human_gate_state: string;
+  };
+};
+
+export type PageRecord = {
+  id: string;
+  path: string;
+  title: string;
+  page_type: string;
+  context: string;
+  visibility: string;
+  status: string;
+  updated_at: string;
+  stale_after_days: string;
+  freshness_state: FreshnessState;
+  approved_state: string;
+  risk_flags: string[];
+  source_refs: string[];
+  moc_parent: string;
+  summary: string;
+};
+
+export type GraphNode = {
+  id: string;
+  path: string;
+  title: string;
+  page_type: string;
+  context: string;
+  freshness_state: FreshnessState;
+  approved_state: string;
+  risk_flags: string[];
+  metrics: {
+    inbound_links: number;
+    outbound_links: number;
+    source_ref_count: number;
+  };
+};
+
+export type GraphEdge = {
+  source: string;
+  target: string;
+  type: string;
+  status: string;
+  weight: number;
+};
+
+export type ActionCommand = {
+  label: string;
+  argv: string[];
+  writes: boolean;
+};
+
+export type ActionCard = {
+  id: string;
+  kind: string;
+  title: string;
+  human_reason: string;
+  risk_level: "read" | "derive" | "proposal_write" | "external_write" | "destructive";
+  default_dry_run: boolean;
+  commands: ActionCommand[];
+};
+
+export type GateRecord = {
+  id: string;
+  status: string;
+  argv: string[];
+};
+
+export type SnapshotBundle = {
+  manifest: {
+    schema_version: string;
+    generated_at: string;
+    mode: string;
+    source_commit: string | null;
+    repo: {
+      repo_id: string;
+      language: string;
+      memory_root: string;
+      default_branch: string;
+      branch_prefix: string;
+    };
+    files: string[];
+  };
+  operations: {
+    title: string;
+    path: string;
+    updated_at: string;
+    freshness_state: FreshnessState;
+    sections: { title: string; body: string; bullets: string[] }[];
+  };
+  graph: {
+    nodes: GraphNode[];
+    edges: GraphEdge[];
+  };
+  pages: {
+    pages: PageRecord[];
+  };
+  actions: {
+    actions: ActionCard[];
+  };
+  freshness: {
+    summary: Record<FreshnessState, number>;
+    by_context: Record<string, Record<FreshnessState, number>>;
+    stale_pages: { path: string; title: string; context: string }[];
+  };
+  gates: {
+    status: string;
+    gates: GateRecord[];
+  };
+  git: GitState;
+  sources: {
+    sources: PageRecord[];
+  };
+  decisions: {
+    decisions: PageRecord[];
+  };
+  ingestion: Record<string, unknown>;
+  quality: {
+    summary?: Record<string, number | string | Record<string, number>>;
+    quality_flags?: Record<string, unknown[]>;
+  };
+  commands: {
+    commands: ActionCommand[];
+  };
+};
+
+export type ActionRunResult = {
+  ok: boolean;
+  action_id: string;
+  dry_run: boolean;
+  error?: string;
+  results: {
+    argv: string[];
+    ok: boolean;
+    returncode: number | null;
+    stdout: string;
+    stderr: string;
+    dry_run: boolean;
+  }[];
+};

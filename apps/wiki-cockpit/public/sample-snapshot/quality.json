@@ -1,0 +1,16 @@
+{
+  "quality_flags": {
+    "bad_repetition_blocks": [],
+    "events_without_consolidated_into": [],
+    "low_information_density_pages": ["memories/example/index.md"]
+  },
+  "schema_version": "wiki_quality_report.v1",
+  "summary": {
+    "contexts": {
+      "example": 1,
+      "system": 2
+    },
+    "low_information_density_pages": 1,
+    "pages_total": 3
+  }
+}

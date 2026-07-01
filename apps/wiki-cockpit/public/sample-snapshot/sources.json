@@ -1,0 +1,22 @@
+{
+  "schema_version": "wiki_web_sources.v1",
+  "sources": [
+    {
+      "approved_state": "approved",
+      "context": "example",
+      "freshness_state": "fresh",
+      "id": "sample-source",
+      "moc_parent": "memories/example/index.md",
+      "page_type": "source_catalog",
+      "path": "memories/sources/sample-source.md",
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "active",
+      "summary": "Synthetic source used by the sample cockpit.",
+      "title": "Sample Source",
+      "updated_at": "2026-07-01",
+      "visibility": "private_self"
+    }
+  ]
+}

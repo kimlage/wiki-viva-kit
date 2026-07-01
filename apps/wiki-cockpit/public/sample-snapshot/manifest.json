@@ -1,0 +1,28 @@
+{
+  "files": [
+    "manifest.json",
+    "operations.json",
+    "graph.json",
+    "pages.json",
+    "sources.json",
+    "actions.json",
+    "decisions.json",
+    "freshness.json",
+    "gates.json",
+    "git.json",
+    "ingestion.json",
+    "quality.json",
+    "commands.json"
+  ],
+  "generated_at": "2026-07-01T00:00:00Z",
+  "mode": "static",
+  "repo": {
+    "branch_prefix": "wiki/",
+    "default_branch": "main",
+    "language": "en",
+    "memory_root": "memories",
+    "repo_id": "wiki-viva-kit-sample"
+  },
+  "schema_version": "wiki_web_snapshot.v1",
+  "source_commit": null
+}

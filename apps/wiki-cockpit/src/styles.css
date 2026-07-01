@@ -1,0 +1,552 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #0a0d0f;
+  color: #e9edf1;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(25, 34, 39, 0.92), rgba(10, 13, 15, 1) 46%),
+    #0a0d0f;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+}
+
+.appShell {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.navRail {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 16px 10px;
+  background: #11171a;
+  border-right: 1px solid #253038;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.navItem {
+  min-height: 64px;
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  color: #aeb8c2;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.navItem span {
+  font-size: 12px;
+}
+
+.navItem.active,
+.navItem:hover {
+  color: #f5fbff;
+  background: #1a2428;
+  border-color: #31414a;
+}
+
+.mainColumn {
+  min-width: 0;
+}
+
+.topBar {
+  min-height: 58px;
+  padding: 12px 22px;
+  border-bottom: 1px solid #253038;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(12, 17, 19, 0.92);
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  backdrop-filter: blur(12px);
+}
+
+.topBar div {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topBar span {
+  color: #9aa7b4;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace {
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+}
+
+.heroBand {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.4fr);
+  gap: 18px;
+  min-height: 360px;
+  align-items: stretch;
+}
+
+.heroCopy,
+.panel,
+.stat,
+.contextTile,
+.pageList {
+  border: 1px solid #27343b;
+  background: #12181b;
+  border-radius: 8px;
+}
+
+.heroCopy {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  font-size: 34px;
+  line-height: 1.05;
+  margin-bottom: 4px;
+  max-width: 760px;
+}
+
+h2 {
+  font-size: 18px;
+  margin-bottom: 0;
+}
+
+h3 {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+p {
+  color: #aab4bd;
+  line-height: 1.5;
+}
+
+code {
+  font-size: 12px;
+  color: #d8e2ea;
+  background: #0b1012;
+  border: 1px solid #26343b;
+  border-radius: 6px;
+  padding: 3px 6px;
+  overflow-wrap: anywhere;
+}
+
+.sceneShell {
+  min-height: 360px;
+  border: 1px solid #27343b;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0b1117;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  padding: 14px;
+  min-height: 82px;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  gap: 3px 10px;
+}
+
+.stat strong {
+  grid-column: 2;
+  font-size: 21px;
+}
+
+.statIcon {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+}
+
+.statLabel {
+  color: #a7b2bc;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.stat-good .statIcon,
+.ok svg {
+  color: #5ee6a8;
+}
+
+.stat-warn .statIcon,
+.wait svg {
+  color: #ffb454;
+}
+
+.stat-info .statIcon {
+  color: #6bd7ff;
+}
+
+.twoColumn,
+.gateGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.panel {
+  padding: 18px;
+  min-width: 0;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+}
+
+.pill-good {
+  color: #5ee6a8;
+  background: rgba(94, 230, 168, 0.12);
+}
+
+.pill-warn {
+  color: #ffb454;
+  background: rgba(255, 180, 84, 0.12);
+}
+
+.pill-bad {
+  color: #ff7a7a;
+  background: rgba(255, 122, 122, 0.12);
+}
+
+.pill-info {
+  color: #6bd7ff;
+  background: rgba(107, 215, 255, 0.12);
+}
+
+.pill-muted {
+  color: #a8b1ba;
+  background: rgba(168, 177, 186, 0.1);
+}
+
+.actionStack {
+  display: grid;
+  gap: 10px;
+}
+
+.actionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid #2a3840;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.actionRow p {
+  margin-bottom: 8px;
+}
+
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+  color: #071012;
+  background: #83efc0;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 800;
+  max-width: 220px;
+}
+
+.actionButton.risky {
+  background: #ffcf7a;
+}
+
+.actionButton span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.plainList,
+.checkList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.plainList li,
+.checkList li {
+  border-bottom: 1px solid #223038;
+  padding-bottom: 10px;
+  color: #d4dce3;
+}
+
+.checkList li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.kv dt {
+  color: #94a2ad;
+}
+
+.kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.fileTable,
+.contextGrid {
+  display: grid;
+  gap: 8px;
+}
+
+.fileRow {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.commandList code {
+  display: inline-block;
+}
+
+.contextGrid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.contextTile {
+  padding: 14px;
+  display: grid;
+  gap: 7px;
+}
+
+.contextTile span {
+  color: #adbac4;
+}
+
+.pagesWorkspace {
+  grid-template-columns: 320px minmax(0, 1fr);
+  align-items: start;
+}
+
+.pageList {
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+  max-height: calc(100vh - 102px);
+  overflow: auto;
+  position: sticky;
+  top: 80px;
+}
+
+.pageLink {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.pageLink:hover,
+.pageLink.active {
+  background: #1a2327;
+  border-color: #30404a;
+}
+
+.pageLink small {
+  color: #94a2ad;
+}
+
+.pageSummary {
+  margin-top: 18px;
+  font-size: 16px;
+}
+
+.externalLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: #6bd7ff;
+}
+
+.outputPanel {
+  margin: 0 22px 22px;
+}
+
+details {
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  padding: 10px;
+  background: #0e1417;
+}
+
+details + details {
+  margin-top: 10px;
+}
+
+summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+  color: #d9e1e8;
+  background: #080c0e;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+@media (max-width: 980px) {
+  .appShell {
+    grid-template-columns: 1fr;
+  }
+
+  .navRail {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .navItem {
+    min-width: 82px;
+  }
+
+  .heroBand,
+  .twoColumn,
+  .gateGrid,
+  .pagesWorkspace {
+    grid-template-columns: 1fr;
+  }
+
+  .statGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pageList {
+    position: static;
+    max-height: 260px;
+  }
+}
+
+@media (max-width: 620px) {
+  .workspace,
+  .topBar {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .heroBand {
+    min-height: unset;
+  }
+
+  .sceneShell {
+    min-height: 280px;
+  }
+
+  .statGrid,
+  .actionRow,
+  .fileRow,
+  .kv {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
