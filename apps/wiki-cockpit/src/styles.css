@@ -479,6 +479,26 @@ code {
   margin-bottom: 8px;
 }
 
+.actionFacts {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 5px 10px;
+  margin: 0 0 8px;
+  color: #c9d5dc;
+}
+
+.actionFacts dt {
+  color: #94a2ad;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.actionFacts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .inlineDetails {
   color: #9aa8b2;
   font-size: 0.82rem;

@@ -141,6 +141,28 @@ function actionReason(action: ActionCard): string {
   return labels[action.id] || action.human_reason;
 }
 
+function actionWhenLabel(action: ActionCard): string {
+  const labels: Record<string, string> = {
+    "git-status": "When you need to know whether the local workspace is clean.",
+    "review-local-changes": "Before asking someone to approve the current changes.",
+    "run-honesty-gates": "Before relying on the wiki or moving a request forward.",
+    "pr-summary": "When the approval request needs a human-readable packet.",
+    "graph-check": "When related content may have been missed."
+  };
+  return labels[action.id] || "When this step is the next useful check.";
+}
+
+function actionResultLabel(action: ActionCard): string {
+  const labels: Record<string, string> = {
+    "git-status": "Workspace state",
+    "review-local-changes": "Changed content list",
+    "run-honesty-gates": "Pass/fail validation",
+    "pr-summary": "Review packet",
+    "graph-check": "Link and impact signal"
+  };
+  return labels[action.id] || "Local result";
+}
+
 function ActionButton({ action, onRun }: { action: ActionCard; onRun: (action: ActionCard) => void }) {
   const risky = action.risk_level !== "read";
   const title = actionTitle(action);
@@ -156,8 +178,8 @@ function ActionStack({ actions, onRun }: { actions: ActionCard[]; onRun: (action
   return (
     <section className="panel">
       <div className="panelHeader">
-        <h2>Do Now</h2>
-        <StatusPill tone="info">{actions.length} actions</StatusPill>
+        <h2>Next Steps</h2>
+        <StatusPill tone="info">{actions.length} ready</StatusPill>
       </div>
       <div className="actionStack">
         {actions.map((action) => (
@@ -165,8 +187,14 @@ function ActionStack({ actions, onRun }: { actions: ActionCard[]; onRun: (action
             <div>
               <h3>{actionTitle(action)}</h3>
               <p>{actionReason(action)}</p>
+              <dl className="actionFacts">
+                <dt>Use when</dt>
+                <dd>{actionWhenLabel(action)}</dd>
+                <dt>Gives you</dt>
+                <dd>{actionResultLabel(action)}</dd>
+              </dl>
               <details className="inlineDetails">
-                <summary>Command details</summary>
+                <summary>Technical command</summary>
                 <code>{action.commands.map((command) => command.argv.join(" ")).join(" && ")}</code>
               </details>
             </div>
@@ -267,21 +295,46 @@ function eventTone(event: TimelineEvent): "good" | "warn" | "bad" | "info" | "mu
   return "muted";
 }
 
+function eventKindLabel(kind: string): string {
+  const labels: Record<string, string> = {
+    git_commit: "saved change",
+    snapshot: "snapshot",
+    source_ingested: "new source",
+    source_reviewed: "source review",
+    gate_run: "check run",
+    page_updated: "content update"
+  };
+  return labels[kind] || kind.replaceAll("_", " ");
+}
+
+function timelineDecision(bundle: SnapshotBundle): { label: string; detail: string; tone: "good" | "warn" | "bad" | "info" | "muted" } {
+  const stale = bundle.freshness.summary.stale ?? 0;
+  const recent = bundle.timeline.bands.last_7_days || 0;
+  if (stale > 0) {
+    return { label: "Review before relying", detail: `${stale} content item(s) need refresh. Use activity only as context, not proof.`, tone: "warn" };
+  }
+  if (recent > 0) {
+    return { label: "Recent signal exists", detail: `${recent} activity item(s) in the last 7 days. Check the list before approving.`, tone: "good" };
+  }
+  return { label: "No recent signal", detail: "No recent activity is visible. Refresh or verify important content before relying on it.", tone: "warn" };
+}
+
 function TimelineRadar({ bundle }: { bundle: SnapshotBundle }) {
   const bands = [
-    { key: "last_7_days", label: "7d" },
-    { key: "last_30_days", label: "30d" },
-    { key: "older", label: "older" }
+    { key: "last_7_days", label: "This week" },
+    { key: "last_30_days", label: "This month" },
+    { key: "older", label: "Older" }
   ];
   const maxBand = Math.max(1, ...bands.map((band) => bundle.timeline.bands[band.key] || 0));
   const events = bundle.timeline.events.slice(0, 8);
+  const decision = timelineDecision(bundle);
   return (
     <section className="panel timelinePanel">
       <div className="panelHeader">
-        <h2>Recent Activity</h2>
-        <StatusPill tone="info">{bundle.timeline.summary.event_count} events</StatusPill>
+        <h2>Activity Signal</h2>
+        <StatusPill tone={decision.tone}>{decision.label}</StatusPill>
       </div>
-      <p className="panelLead">Use this to decide whether the wiki has been reviewed recently enough before trusting or approving changes.</p>
+      <p className="panelLead">{decision.detail}</p>
       <div className="radarBands" aria-label="Timeline activity bands">
         {bands.map((band) => {
           const value = bundle.timeline.bands[band.key] || 0;
@@ -302,7 +355,7 @@ function TimelineRadar({ bundle }: { bundle: SnapshotBundle }) {
               <strong>{event.label}</strong>
               <span>{formatEventTime(event.timestamp)} · {event.context || "system"}</span>
             </div>
-            <StatusPill tone={eventTone(event)}>{event.kind.replaceAll("_", " ")}</StatusPill>
+            <StatusPill tone={eventTone(event)}>{eventKindLabel(event.kind)}</StatusPill>
           </article>
         ))}
         {events.length === 0 && <p>No timeline events in this view.</p>}

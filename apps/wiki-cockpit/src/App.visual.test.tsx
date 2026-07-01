@@ -244,7 +244,9 @@ describe("visual route contract", () => {
     expect(screen.getByRole("heading", { name: "Explore Content" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Selected Item" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Decision Packet" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Recent Activity" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Next Steps" })).toBeTruthy();
+    expect(screen.getAllByText("Use when").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Activity Signal" })).toBeTruthy();
     expect(screen.getByTestId("scene-fallback")).toBeTruthy();
     cleanup();
 
@@ -278,7 +280,7 @@ describe("visual route contract", () => {
     await renderRoute("/demo");
     expect(await screen.findByRole("heading", { name: "What needs attention?" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Explore Content" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Recent Activity" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Activity Signal" })).toBeTruthy();
   });
 
   it("adds a searched page to the local impact bundle with shift-click", async () => {
