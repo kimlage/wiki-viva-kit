@@ -1337,22 +1337,31 @@ Implementation note, 2026-07-01:
 - `npm run test:visual` now runs Playwright screenshot regression checks for
   `/demo`, `/review`, `/sources`, `/health` and `/pages/:id` against local sample
   data.
-- `/ops` now includes Graph Search and a Page Action Drawer backed by the local
+- `/ops` now includes Explore Content and Content Preview backed by the local
   snapshot: search highlights matching graph nodes, selecting a result or node
-  exposes the page path/type/context/freshness/source_refs, route from the root
-  via `moc_parent`, related graph pages and safe review actions.
+  exposes the page address/content kind/area/freshness/evidence refs, route
+  from the root via `moc_parent`, related content and safe review actions.
 - `/ops` now supports multi-page impact bundles in the local snapshot UI:
   shift-selecting search results or adding the drawer page highlights the graph
   set, groups selected pages by review context, counts stale/source-ref pressure
   and emits a human-readable review handoff for the Pull Request gate without
   writing outside the repo.
-- `/review` now exposes a PR Handoff panel with an explicit Pull Request gate
-  state track, generated draft PR title/body from local diff/gates/privacy
-  hints, dry-run-first publish/open/update controls and a new allowlisted
-  `update_draft_pr` workflow backed by `gh pr edit`.
+- `/review` now exposes a Prepare Approval Request panel with an explicit Pull
+  Request gate state track, generated review-request title/body from local
+  diff/check/privacy hints, dry-run-first send/open/update controls and a new
+  allowlisted `update_draft_pr` workflow backed by `gh pr edit`.
 - `/review` now also exposes an Approved Wiki Sync panel for the post-merge
   path: it shows the exact fast-forward-only `fetch`/`pull` commands and keeps
   `sync_main` disabled unless the local checkout is on the approved branch.
+- `/review` has been reframed as an Approval Desk instead of a technical Git
+  console: the first screen now shows the decision state, approval path,
+  decision packet, evidence/risk/check summary and review-request controls
+  before exposing low-level local Git operations.
+- `/ops` now gives the graph an explicit job: map modes let a human choose
+  whether they are deciding what changed, verifying evidence, refreshing old
+  content or browsing the wiki. The selected mode highlights relevant nodes,
+  selects navigable content and builds the review packet without requiring the
+  user to understand graph internals.
 - `scripts/wiki_web_deploy_bundle.py` now gives each implementation a local
   deployment proof path: it writes runtime config, deterministic snapshot JSON
   and `DEPLOYMENT.md` into a chosen output directory so Vercel/static or

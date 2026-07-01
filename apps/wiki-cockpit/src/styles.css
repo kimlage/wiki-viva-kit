@@ -472,6 +472,73 @@ code {
   align-self: start;
 }
 
+.decisionLead {
+  max-width: 920px;
+  margin: -4px 0 4px;
+  color: #b8c4cd;
+  line-height: 1.5;
+}
+
+.decisionPacket,
+.approvalJourney,
+.mapIntentPanel {
+  display: grid;
+  gap: 14px;
+}
+
+.decisionCards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.decisionCards article {
+  min-height: 118px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #2a3840;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.decisionCards strong {
+  color: #eef6fb;
+}
+
+.decisionCards p,
+.journeyStep p,
+.intentButton span,
+.intentPages p {
+  margin: 0;
+  color: #9eacb6;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.journeySteps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.journeyStep {
+  min-height: 132px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #2a3840;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.journeyStep strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
 .prHandoffPanel {
   display: grid;
   gap: 14px;
@@ -566,6 +633,47 @@ code {
   background: #0c1215;
   color: #b9c6cf;
   overflow-wrap: anywhere;
+}
+
+.intentButtons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.intentButton {
+  min-height: 130px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  padding: 12px;
+  color: #dce8ef;
+  text-align: left;
+  background: #0f1518;
+  border: 1px solid #2a3840;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.intentButton:hover,
+.intentButton.active {
+  background: #172126;
+  border-color: #557484;
+}
+
+.intentButton strong {
+  overflow-wrap: anywhere;
+}
+
+.intentButton .pill {
+  justify-self: start;
+}
+
+.intentPages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .field {
@@ -1277,6 +1385,9 @@ pre {
   .knowledgeGrid,
   .impactGrid,
   .gateGrid,
+  .decisionCards,
+  .journeySteps,
+  .intentButtons,
   .pagesWorkspace,
   .sourcesWorkspace {
     grid-template-columns: 1fr;
@@ -1289,6 +1400,11 @@ pre {
 
   .gateTrack {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .decisionCards,
+  .intentButtons {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .pageList {
@@ -1362,6 +1478,9 @@ pre {
   .workflowGrid,
   .targetGrid,
   .radarBands,
+  .decisionCards,
+  .journeySteps,
+  .intentButtons,
   .gateTrack {
     grid-template-columns: 1fr;
   }

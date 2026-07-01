@@ -59,6 +59,13 @@ describe("cockpit model", () => {
   });
 
   it("builds review checklist and counts quality flags", () => {
+    expect(reviewChecklist(bundle).map((item) => item.label)).toEqual([
+      "Work is isolated for review",
+      "Changed content is visible",
+      "Automated checks are available",
+      "Approval summary can be regenerated",
+      "Final approval stays in the Pull Request"
+    ]);
     expect(reviewChecklist(bundle).filter((item) => item.ok)).toHaveLength(5);
     expect(qualityFlagCount(bundle)).toBe(2);
   });

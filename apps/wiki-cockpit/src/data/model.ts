@@ -39,11 +39,11 @@ export function pageById(pages: PageRecord[], id: string | undefined): PageRecor
 export function reviewChecklist(bundle: SnapshotBundle): { label: string; ok: boolean }[] {
   const git = bundle.git;
   return [
-    { label: "Proposal branch", ok: git.proposal.is_proposal_branch },
-    { label: "Changed files visible", ok: git.worktree.changed_files.length > 0 || git.worktree.clean },
-    { label: "Machine gates listed", ok: bundle.gates.gates.length > 0 },
-    { label: "PR summary action available", ok: bundle.actions.actions.some((action) => action.id === "pr-summary") },
-    { label: "Human merge stays external", ok: true }
+    { label: "Work is isolated for review", ok: git.proposal.is_proposal_branch },
+    { label: "Changed content is visible", ok: git.worktree.changed_files.length > 0 || git.worktree.clean },
+    { label: "Automated checks are available", ok: bundle.gates.gates.length > 0 },
+    { label: "Approval summary can be regenerated", ok: bundle.actions.actions.some((action) => action.id === "pr-summary") },
+    { label: "Final approval stays in the Pull Request", ok: true }
   ];
 }
 

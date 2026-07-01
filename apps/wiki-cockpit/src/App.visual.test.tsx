@@ -237,22 +237,27 @@ afterEach(() => {
 describe("visual route contract", () => {
   it("renders the core cockpit routes with textual fallbacks", async () => {
     await renderRoute("/ops");
-    expect(await screen.findByRole("heading", { name: "Operations" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Graph Search" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Page Action Drawer" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Impact Bundle" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "What needs attention?" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Use The Map To" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Verify evidence/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Explore Content" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Content Preview" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Review Packet" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Timeline Radar" })).toBeTruthy();
     expect(screen.getByTestId("scene-fallback")).toBeTruthy();
     cleanup();
 
     await renderRoute("/review");
-    expect(await screen.findByRole("heading", { name: "Human Gate" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "PR Handoff" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Update Draft PR" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Approval Desk" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Can I Approve?" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Approval Path" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Decision Packet" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Prepare Approval Request" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Update Review Request" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Approved Wiki Sync" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sync Main" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Git Workflow" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Semantic Diff" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Prepare Local Change" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Evidence Board" })).toBeTruthy();
     cleanup();
 
     await renderRoute("/sources");
@@ -269,8 +274,8 @@ describe("visual route contract", () => {
     cleanup();
 
     await renderRoute("/demo");
-    expect(await screen.findByRole("heading", { name: "Operations" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Graph Search" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "What needs attention?" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Explore Content" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Timeline Radar" })).toBeTruthy();
   });
 
@@ -279,9 +284,9 @@ describe("visual route contract", () => {
     const sourceResult = await screen.findByRole("button", { name: /Source Fixture/ });
     fireEvent.click(sourceResult, { shiftKey: true });
 
-    const impactBundle = screen.getByRole("region", { name: "Impact Bundle" });
+    const impactBundle = screen.getByRole("region", { name: "Review Packet" });
     expect(within(impactBundle).getByText("Source Fixture")).toBeTruthy();
     expect(within(impactBundle).getByText("memories/sources/source-fixture.md")).toBeTruthy();
-    expect(within(impactBundle).getByText(/Human gate: not_opened/)).toBeTruthy();
+    expect(within(impactBundle).getByText(/Approval state: not_opened/)).toBeTruthy();
   });
 });
