@@ -62,6 +62,9 @@ build only after reviewing the data boundary for that implementation.
 ## Vercel Static Review
 
 Use Vercel as a static/read-only review surface.
+Start from
+[vercel.static.json](../templates/deploy/web-cockpit/vercel.static.json) when an
+implementation wants a copyable host config.
 
 ```sh
 cd apps/wiki-cockpit
@@ -108,6 +111,13 @@ Recommended runtime config for a trusted operator adapter:
   "mode": "controlled_operator"
 }
 ```
+
+The copyable example files are
+[cloud-run.operator.Dockerfile](../templates/deploy/web-cockpit/cloud-run.operator.Dockerfile)
+and
+[cloud-run-service.template.yaml](../templates/deploy/web-cockpit/cloud-run-service.template.yaml).
+They intentionally omit credentials; each implementation must supply identity
+and access control outside the public kit.
 
 The open-source kit provides this contract and local server. Each downstream
 deployment must provide its own proof, credentials design and rollback plan.

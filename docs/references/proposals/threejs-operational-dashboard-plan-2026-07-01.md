@@ -1359,6 +1359,10 @@ Implementation note, 2026-07-01:
   Request through `gh pr view` when available, filling the PR URL and
   `draft`/`ready_for_review`/`merged` human-gate state while preserving the
   existing local-only fallback when GitHub metadata is unavailable.
+- The deployment guide now has copyable templates for later host-owned
+  deployments: `vercel.static.json` for static/read-only review and Cloud Run
+  operator Dockerfile/service YAML examples that omit credentials and keep
+  identity decisions outside the public kit.
 
 ## External implementation references
 

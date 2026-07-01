@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from wiki_core.config import WikiConfig
@@ -61,3 +62,20 @@ def test_resolve_and_instantiate_template_with_overlay(tmp_path: Path) -> None:
     assert default_output_path(registry, "perspective", "Technical Lens") == (
         "memories/system/perspectives/technical-lens.md"
     )
+
+
+def test_web_cockpit_deploy_templates_are_static_or_controlled() -> None:
+    root = Path(__file__).resolve().parents[1]
+    template_root = root / "docs/references/templates/deploy/web-cockpit"
+
+    vercel = json.loads((template_root / "vercel.static.json").read_text(encoding="utf-8"))
+    assert vercel["outputDirectory"] == "apps/wiki-cockpit/dist"
+    assert "npm run build" in vercel["buildCommand"]
+    assert not any("api" in rewrite["source"] for rewrite in vercel["rewrites"])
+
+    dockerfile = (template_root / "cloud-run.operator.Dockerfile").read_text(encoding="utf-8")
+    service = (template_root / "cloud-run-service.template.yaml").read_text(encoding="utf-8")
+    assert "wiki_web_server.py" in dockerfile
+    assert "run.googleapis.com/ingress: internal-and-cloud-load-balancing" in service
+    assert "TOKEN" not in service
+    assert "PASSWORD" not in service

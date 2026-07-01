@@ -1,0 +1,24 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: wiki-cockpit-operator
+  annotations:
+    run.googleapis.com/ingress: internal-and-cloud-load-balancing
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "2"
+    spec:
+      containerConcurrency: 4
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT/REPOSITORY/wiki-cockpit-operator:TAG
+          ports:
+            - containerPort: 8080
+          env:
+            - name: WIKI_COCKPIT_MODE
+              value: controlled_operator
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
