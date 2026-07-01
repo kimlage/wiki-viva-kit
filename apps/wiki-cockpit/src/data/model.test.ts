@@ -7,7 +7,7 @@ const bundle = {
     actions: [
       { id: "review-local-changes", title: "Review", human_reason: "", kind: "review", risk_level: "read", default_dry_run: false, commands: [] },
       { id: "run-honesty-gates", title: "Gates", human_reason: "", kind: "review", risk_level: "read", default_dry_run: false, commands: [] },
-      { id: "pr-summary", title: "PR", human_reason: "", kind: "approve", risk_level: "read", default_dry_run: false, commands: [] }
+      { id: "pr-summary", title: "Build review packet", human_reason: "", kind: "approve", risk_level: "read", default_dry_run: false, commands: [] }
     ]
   },
   gates: { gates: [{ id: "audit", status: "not_run", argv: [] }], status: "not_run" },
@@ -47,10 +47,10 @@ const bundle = {
 
 describe("cockpit model", () => {
   it("labels proposal branches as local proposal gate state", () => {
-    expect(gitGateLabel(bundle.git)).toBe("Local proposal branch");
+    expect(gitGateLabel(bundle.git)).toBe("Draft change");
   });
 
-  it("prioritizes gate and PR actions", () => {
+  it("prioritizes checks and review-request actions", () => {
     expect(topActions(bundle).map((action) => action.id)).toEqual([
       "run-honesty-gates",
       "pr-summary",
@@ -64,7 +64,7 @@ describe("cockpit model", () => {
       "Changed content is visible",
       "Automated checks are available",
       "Approval summary can be regenerated",
-      "Final approval stays in the Pull Request"
+      "Final approval stays in the review request"
     ]);
     expect(reviewChecklist(bundle).filter((item) => item.ok)).toHaveLength(5);
     expect(qualityFlagCount(bundle)).toBe(2);

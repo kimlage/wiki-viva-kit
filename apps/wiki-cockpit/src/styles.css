@@ -408,6 +408,23 @@ code {
   margin-bottom: 8px;
 }
 
+.inlineDetails {
+  color: #9aa8b2;
+  font-size: 0.82rem;
+}
+
+.inlineDetails summary {
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+
+.inlineDetails code {
+  display: inline-block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .actionButton {
   display: inline-flex;
   align-items: center;

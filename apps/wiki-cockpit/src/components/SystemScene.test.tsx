@@ -40,8 +40,8 @@ describe("SystemScene fallback", () => {
 
     render(<SystemScene nodes={nodes} git={git} />);
 
-    expect(screen.getByLabelText("Operational 2D wiki state")).toBeTruthy();
-    expect(screen.getByText("Proposal branch")).toBeTruthy();
+    expect(screen.getByLabelText("Content map")).toBeTruthy();
+    expect(screen.getByText("Draft change")).toBeTruthy();
     expect(screen.getByText("Root")).toBeTruthy();
   });
 });

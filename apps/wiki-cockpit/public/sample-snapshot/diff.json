@@ -44,8 +44,8 @@
       "path": "docs/references/proposals/threejs-operational-dashboard-plan-2026-07-01.md",
       "preview": [
         "@@ -188 +188 @@",
-        "+The cockpit should operate Git and PR state as human workflows.",
-        "+Pull Requests remain the human gate for canonical memory."
+        "+The cockpit should operate review state as a human workflow.",
+        "+Approval requests remain the human gate for canonical memory."
       ],
       "risk_hints": [
         "method_contract"

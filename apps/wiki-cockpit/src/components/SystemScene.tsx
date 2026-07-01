@@ -36,6 +36,30 @@ function shouldUseFallback(): boolean {
   return isVisualTestMode() || prefersReducedMotion() || !canUseWebGL();
 }
 
+function freshnessLabel(state: string): string {
+  if (state === "fresh") return "ok";
+  if (state === "stale") return "needs refresh";
+  return "not checked";
+}
+
+function contentKindLabel(kind: string): string {
+  const labels: Record<string, string> = {
+    root_index: "home map",
+    context_hub: "area overview",
+    operational_rule: "operating rule",
+    source: "evidence source",
+    dashboard: "dashboard",
+    proposal: "review proposal"
+  };
+  return labels[kind] || kind.replaceAll("_", " ") || "content";
+}
+
+function workspaceLabel(git: GitState): string {
+  if (git.proposal.is_proposal_branch) return git.proposal.theme ? `review: ${git.proposal.theme}` : "review workspace";
+  if (git.current_branch === git.default_branch) return "approved workspace";
+  return "current workspace";
+}
+
 function viewportSnapshot() {
   if (typeof window === "undefined") {
     return { width: 1200, pixelRatio: 1, hardwareConcurrency: 4, reducedMotion: false };
@@ -290,10 +314,10 @@ function SceneFallback({
 }) {
   const visibleNodes = nodes.slice(0, 8);
   return (
-    <div className="sceneFallback" aria-label="Operational 2D wiki state">
+    <div className="sceneFallback" aria-label="Content map">
       <div className="fallbackCore">
-        <strong>{git.proposal.is_proposal_branch ? "Proposal branch" : "Approved branch"}</strong>
-        <span>{git.current_branch || git.default_branch}</span>
+        <strong>{git.proposal.is_proposal_branch ? "Draft change" : "Approved content"}</strong>
+        <span>{workspaceLabel(git)}</span>
       </div>
       <div className="fallbackNodeGrid">
         {visibleNodes.map((node) => (
@@ -316,7 +340,7 @@ function SceneProof({ node, layout, profile }: { node: LayoutNode | null; layout
   return (
     <div className="sceneProof" aria-live="polite">
       <strong>{node.title}</strong>
-      <span>{node.context} · {node.page_type || "page"} · {node.freshness_state}</span>
+      <span>{node.context} · {contentKindLabel(node.page_type)} · {freshnessLabel(node.freshness_state)}</span>
       <code>{node.path}</code>
       <small>{profile.label} · {layout.nodes.length} nodes{layout.truncated ? ` · ${layout.truncated} hidden` : ""}</small>
     </div>
@@ -373,7 +397,7 @@ export function SystemScene({
   }, []);
 
   return (
-    <div className="sceneShell" aria-label="Operational 3D wiki state">
+    <div className="sceneShell" aria-label="Content relationship map">
       {fallback ? (
         <SceneFallback nodes={nodes} git={git} selectedPageId={selectedPageId || selected?.id || ""} highlightedIds={highlightedIds} onNodeSelect={onNodeSelect} />
       ) : (

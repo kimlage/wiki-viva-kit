@@ -46,6 +46,49 @@ function StatusPill({ tone, children }: { tone: "good" | "warn" | "bad" | "info"
   return <span className={`pill pill-${tone}`}>{children}</span>;
 }
 
+function modeLabel(mode: string): string {
+  const labels: Record<string, string> = {
+    static: "read-only",
+    static_demo: "demo data",
+    local_operator: "local operator",
+    github_connected: "review connected",
+    controlled_operator: "controlled operator"
+  };
+  return labels[mode] || mode.replaceAll("_", " ");
+}
+
+function gateStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    approved: "approved",
+    clear: "clear",
+    clean: "none",
+    dirty: "needs review",
+    linked: "linked",
+    needs_publish: "needs send",
+    pass: "passed",
+    published: "sent",
+    ready: "ready",
+    warn: "needs attention",
+    fail: "blocked",
+    not_run: "not checked",
+    not_opened: "not opened",
+    outside_flow: "outside review flow",
+    unknown: "not checked"
+  };
+  return labels[status] || status.replaceAll("_", " ");
+}
+
+function workspaceDisplayLabel(git: SnapshotBundle["git"]): string {
+  if (git.proposal.is_proposal_branch) return git.proposal.theme ? `review: ${git.proposal.theme}` : "review workspace";
+  if (git.current_branch === git.default_branch) return "approved content";
+  return git.current_branch ? "current workspace" : "not detected";
+}
+
+function sharedCopyLabel(git: SnapshotBundle["git"]): string {
+  if (git.upstream.name && git.proposal.theme) return `sent review: ${git.proposal.theme}`;
+  return git.upstream.name || git.upstream.remote || "not configured";
+}
+
 function Stat({ icon, label, value, tone = "info" }: { icon: ReactNode; label: string; value: string | number; tone?: "good" | "warn" | "bad" | "info" | "muted" }) {
   return (
     <div className={`stat stat-${tone}`}>
@@ -100,7 +143,10 @@ function ActionStack({ actions, onRun }: { actions: ActionCard[]; onRun: (action
             <div>
               <h3>{action.title}</h3>
               <p>{action.human_reason}</p>
-              <code>{action.commands.map((command) => command.argv.join(" ")).join(" && ")}</code>
+              <details className="inlineDetails">
+                <summary>Command details</summary>
+                <code>{action.commands.map((command) => command.argv.join(" ")).join(" && ")}</code>
+              </details>
             </div>
             <ActionButton action={action} onRun={onRun} />
           </article>
@@ -184,7 +230,7 @@ function TimelineRadar({ bundle }: { bundle: SnapshotBundle }) {
             <StatusPill tone={eventTone(event)}>{event.kind.replaceAll("_", " ")}</StatusPill>
           </article>
         ))}
-        {events.length === 0 && <p>No timeline events in this snapshot.</p>}
+        {events.length === 0 && <p>No timeline events in this view.</p>}
       </div>
     </section>
   );
@@ -204,27 +250,83 @@ function hintTone(hint: string): "good" | "warn" | "bad" | "info" | "muted" {
   return "muted";
 }
 
+function changeStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    M: "changed",
+    A: "new",
+    D: "removed",
+    R: "renamed",
+    C: "copied",
+    "??": "new local file",
+    modified: "changed",
+    added: "new",
+    deleted: "removed"
+  };
+  return labels[status] || status.replaceAll("_", " ") || "changed";
+}
+
+function changeSourceLabel(source: string): string {
+  const labels: Record<string, string> = {
+    branch: "saved review",
+    working_tree: "still local",
+    worktree: "still local",
+    staged: "included",
+    unstaged: "not included yet"
+  };
+  return labels[source] || source.replaceAll("_", " ");
+}
+
+function riskHintLabel(hint: string): string {
+  const labels: Record<string, string> = {
+    public_boundary: "public sharing review",
+    deletion_review: "deletion review",
+    generated_artifact: "generated content",
+    memory_review: "content review",
+    method_contract: "operating rule review",
+    test_coverage: "test coverage"
+  };
+  return labels[hint] || hint.replaceAll("_", " ");
+}
+
+function freshnessLabel(state: string): string {
+  if (state === "fresh") return "ok";
+  if (state === "stale") return "needs refresh";
+  return "not checked";
+}
+
+function contentKindLabel(kind: string): string {
+  const labels: Record<string, string> = {
+    root_index: "home map",
+    context_hub: "area overview",
+    operational_rule: "operating rule",
+    source: "evidence source",
+    dashboard: "dashboard",
+    proposal: "review draft"
+  };
+  return labels[kind] || kind.replaceAll("_", " ") || "content";
+}
+
 function DiffFrame({ file }: { file: DiffFile }) {
   return (
     <article className="diffFrame">
       <div className="diffFrameHeader">
         <div>
           <strong>{file.path}</strong>
-          <span>{file.category} · {file.change_sources.join(", ")}</span>
+          <span>{file.category} · {file.change_sources.map(changeSourceLabel).join(", ")}</span>
         </div>
-        <StatusPill tone={diffTone(file)}>{file.status || "changed"}</StatusPill>
+        <StatusPill tone={diffTone(file)}>{changeStatusLabel(file.status || "changed")}</StatusPill>
       </div>
       <div className="diffMeta">
-        <span>+{file.additions}</span>
-        <span>-{file.deletions}</span>
-        {file.staged && <span>staged</span>}
-        {file.unstaged && <span>unstaged</span>}
+        <span>{file.additions} added</span>
+        <span>{file.deletions} removed</span>
+        {file.staged && <span>included</span>}
+        {file.unstaged && <span>still local</span>}
       </div>
       <div className="riskPills">
         {file.risk_hints.map((hint) => (
-          <StatusPill tone={hintTone(hint)} key={hint}>{hint.replaceAll("_", " ")}</StatusPill>
+          <StatusPill tone={hintTone(hint)} key={hint}>{riskHintLabel(hint)}</StatusPill>
         ))}
-        {file.risk_hints.length === 0 && <StatusPill tone="muted">no hints</StatusPill>}
+        {file.risk_hints.length === 0 && <StatusPill tone="muted">no explicit risk</StatusPill>}
       </div>
       {file.preview.length > 0 && <pre className="diffPreview">{file.preview.join("\n")}</pre>}
     </article>
@@ -238,32 +340,35 @@ function DiffFilmstrip({ bundle }: { bundle: SnapshotBundle }) {
       <div className="panelHeader">
         <h2>Evidence Board</h2>
         <StatusPill tone={bundle.diff.summary.privacy_review_required ? "warn" : "good"}>
-          {bundle.diff.summary.file_count} files
+          {bundle.diff.summary.file_count} item(s)
         </StatusPill>
       </div>
       <div className="diffSummary">
-        <span><GitBranch size={16} /> Branch {bundle.diff.summary.branch_file_count}</span>
-        <span><ListChecks size={16} /> Local {bundle.diff.summary.working_tree_file_count}</span>
+        <span><GitBranch size={16} /> Saved review {bundle.diff.summary.branch_file_count}</span>
+        <span><ListChecks size={16} /> Still local {bundle.diff.summary.working_tree_file_count}</span>
         <span><FileText size={16} /> +{bundle.diff.summary.insertions} / -{bundle.diff.summary.deletions}</span>
         <span><CircleAlert size={16} /> Privacy {bundle.diff.summary.privacy_review_required ? "yes" : "no"}</span>
       </div>
-      <dl className="kv diffCompare">
-        <dt>Base</dt>
-        <dd>{bundle.diff.compare.base_ref || bundle.diff.compare.default_branch || "not available"}</dd>
-        <dt>Merge base</dt>
-        <dd>{bundle.diff.compare.merge_base || "not available"}</dd>
-        <dt>Head</dt>
-        <dd>{bundle.diff.compare.head_commit || "not available"}</dd>
-      </dl>
-      <div className="filmstripTrack" aria-label="Semantic diff filmstrip">
+      <div className="filmstripTrack" aria-label="Changed content board">
         {files.map((file) => <DiffFrame file={file} key={`${file.status}-${file.path}`} />)}
-        {files.length === 0 && <p>No branch or local diff in this snapshot.</p>}
+        {files.length === 0 && <p>No saved or local changes in this view.</p>}
       </div>
-      <ul className="plainList commandList diffCommands">
-        {bundle.diff.commands.slice(0, 4).map((command) => (
-          <li key={command.join(" ")}><code>{command.join(" ")}</code></li>
-        ))}
-      </ul>
+      <details className="auditDetails">
+        <summary>Technical audit trail</summary>
+        <dl className="kv diffCompare">
+          <dt>Compared with</dt>
+          <dd>{bundle.diff.compare.base_ref || bundle.diff.compare.default_branch || "not available"}</dd>
+          <dt>Review base</dt>
+          <dd>{bundle.diff.compare.merge_base || "not available"}</dd>
+          <dt>Current version</dt>
+          <dd>{bundle.diff.compare.head_commit || "not available"}</dd>
+        </dl>
+        <ul className="plainList commandList diffCommands">
+          {bundle.diff.commands.slice(0, 4).map((command) => (
+            <li key={command.join(" ")}><code>{command.join(" ")}</code></li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }
@@ -309,7 +414,7 @@ function mapIntentCopy(intent: MapIntentId, bundle: SnapshotBundle): { label: st
   if (intent === "review") {
     return {
       label: "Decide what changed",
-      detail: "Highlight pages touched by the current proposal plus risky or stale neighbors.",
+      detail: "Highlight pages touched by the current review set plus risky or old neighbors.",
       tone: pages.length ? "warn" : "good",
       count: pages.length
     };
@@ -317,7 +422,7 @@ function mapIntentCopy(intent: MapIntentId, bundle: SnapshotBundle): { label: st
   if (intent === "evidence") {
     return {
       label: "Verify evidence",
-      detail: "Show pages with source references or source records before trusting a claim.",
+      detail: "Show pages with evidence links or source records before trusting a claim.",
       tone: pages.length ? "info" : "muted",
       count: pages.length
     };
@@ -411,15 +516,15 @@ function impactReviewText(bundle: SnapshotBundle, pages: PageRecord[]): string {
     `Approval state: ${bundle.git.proposal.human_gate_state}`,
     `Selected content: ${pages.length}`,
     `Areas: ${contexts.join(", ") || "none"}`,
-    `Evidence refs: ${sourceRefs.length ? sourceRefs.join(", ") : "none"}`,
+    `Evidence links: ${sourceRefs.length ? sourceRefs.join(", ") : "none"}`,
     "",
     "Content to review:",
-    ...pages.map((page) => `- ${page.path} [${page.context}/${page.page_type || "page"}] freshness=${page.freshness_state} refs=${page.source_refs.length}`),
+    ...pages.map((page) => `- ${page.path} [${page.context} / ${contentKindLabel(page.page_type || "page")}] status=${freshnessLabel(page.freshness_state)} evidence links=${page.source_refs.length}`),
     "",
     "Checks to run before approval:",
-    ...(commands.length ? commands : ["- No review checks available in this snapshot."]),
+    ...(commands.length ? commands : ["- No review checks available in this view."]),
     "",
-    "Human decision: approve or request changes in the Pull Request."
+    "Human decision: approve or request changes in the review request."
   ].join("\n");
 }
 
@@ -460,7 +565,7 @@ function MapIntentPanel({
             {page.title}
           </button>
         ))}
-        {activePages.length === 0 && <p>No pages match this map mode in the current snapshot.</p>}
+        {activePages.length === 0 && <p>No content matches this map mode in the current view.</p>}
       </div>
     </section>
   );
@@ -494,13 +599,13 @@ function PageActionDrawer({
       <div className="panelHeader">
         <h2>Content Preview</h2>
         <StatusPill tone={selected.freshness_state === "fresh" ? "good" : selected.freshness_state === "stale" ? "warn" : "muted"}>
-          {selected.freshness_state}
+          {freshnessLabel(selected.freshness_state)}
         </StatusPill>
       </div>
       <div className="drawerLead">
         <div>
           <h3>{selected.title}</h3>
-          <p>{selected.summary || "No summary text in snapshot."}</p>
+          <p>{selected.summary || "No summary in this view."}</p>
         </div>
         <a className="secondaryButton" href={`/pages/${encodeURIComponent(selected.id)}`} title="Open page cockpit">
           <ExternalLink size={16} />
@@ -511,11 +616,11 @@ function PageActionDrawer({
         <dt>Page address</dt>
         <dd>{selected.path}</dd>
         <dt>Content kind</dt>
-        <dd>{selected.page_type || "unknown"}</dd>
+        <dd>{contentKindLabel(selected.page_type)}</dd>
         <dt>Area</dt>
         <dd>{selected.context}</dd>
         <dt>Evidence state</dt>
-        <dd>frontmatter page · {selected.visibility} · source_refs {selected.source_refs.length}</dd>
+        <dd>{selected.source_refs.length} evidence link(s) · {selected.visibility}</dd>
       </dl>
       <div className="routeRail" aria-label="Route from root to selected page">
         {route.map((page) => (
@@ -531,7 +636,7 @@ function PageActionDrawer({
             {proofs.map((page) => (
               <li key={page.id}><button className="textButton" onClick={() => onSelect(page.id)}>{page.title}</button></li>
             ))}
-            {proofs.length === 0 && <li>{selected.source_refs.length ? selected.source_refs.join(", ") : "No source refs listed."}</li>}
+            {proofs.length === 0 && <li>{selected.source_refs.length ? selected.source_refs.join(", ") : "No evidence links listed."}</li>}
           </ul>
         </div>
         <div>
@@ -540,7 +645,7 @@ function PageActionDrawer({
             {related.map((page) => (
               <li key={page.id}><button className="textButton" onClick={() => onSelect(page.id)}>{page.title}</button></li>
             ))}
-            {related.length === 0 && <li>No graph neighbors in snapshot.</li>}
+            {related.length === 0 && <li>No nearby content in this view.</li>}
           </ul>
         </div>
       </div>
@@ -584,10 +689,10 @@ function ImpactBundlePanel({
         <StatusPill tone={pages.length ? "info" : "muted"}>{pages.length} pages</StatusPill>
       </div>
       <div className="bundleMetrics" aria-label="Impact bundle metrics">
-        <Stat icon={<FileText size={18} />} label="Contexts" value={contexts.length} tone="info" />
-        <Stat icon={<Clock3 size={18} />} label="Stale" value={staleCount} tone={staleCount ? "warn" : "good"} />
-        <Stat icon={<Search size={18} />} label="Source refs" value={sourceRefs.length} tone={sourceRefs.length ? "info" : "muted"} />
-        <Stat icon={<GitPullRequest size={18} />} label="Gate" value={bundle.git.proposal.human_gate_state} tone={bundle.git.proposal.is_proposal_branch ? "warn" : "info"} />
+        <Stat icon={<FileText size={18} />} label="Areas" value={contexts.length} tone="info" />
+        <Stat icon={<Clock3 size={18} />} label="Needs refresh" value={staleCount} tone={staleCount ? "warn" : "good"} />
+        <Stat icon={<Search size={18} />} label="Evidence links" value={sourceRefs.length} tone={sourceRefs.length ? "info" : "muted"} />
+        <Stat icon={<GitPullRequest size={18} />} label="Approval" value={gateStatusLabel(bundle.git.proposal.human_gate_state)} tone={bundle.git.proposal.is_proposal_branch ? "warn" : "info"} />
       </div>
       <div className="impactGrid">
         <div>
@@ -599,12 +704,12 @@ function ImpactBundlePanel({
             {pages.map((page) => (
               <article className="bundleRow" key={page.id}>
                 <button className="textButton bundleTitle" onClick={() => onSelect(page.id)} title={page.path}>{page.title}</button>
-                <span>{page.context} / {page.page_type || "page"} / {page.freshness_state}</span>
+                <span>{page.context} / {contentKindLabel(page.page_type)} / {freshnessLabel(page.freshness_state)}</span>
                 <code>{page.path}</code>
                 <button className="textButton" onClick={() => onRemove(page.id)}>Remove</button>
               </article>
             ))}
-            {pages.length === 0 && <p>No pages selected.</p>}
+            {pages.length === 0 && <p>No content selected.</p>}
           </div>
           {related.length > 0 && (
             <>
@@ -686,7 +791,7 @@ function KnowledgeExplorer({
               title={page.path}
             >
               <span>{page.title}</span>
-              <small>{page.context} · {page.page_type || "page"} · {page.path}</small>
+              <small>{page.context} · {contentKindLabel(page.page_type)} · {page.path}</small>
             </button>
           ))}
           {results.length === 0 && <p>No content matched the current search.</p>}
@@ -747,7 +852,7 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
       <section className="statGrid" aria-label="Operational summary">
         <Stat icon={<BadgeCheck size={18} />} label="Up to date" value={fresh} tone="good" />
         <Stat icon={<Clock3 size={18} />} label="Needs refresh" value={stale} tone={stale ? "warn" : "good"} />
-        <Stat icon={<GitBranch size={18} />} label="Workspace" value={bundle.git.current_branch || "none"} tone={bundle.git.proposal.is_proposal_branch ? "warn" : "info"} />
+        <Stat icon={<GitBranch size={18} />} label="Workspace" value={workspaceDisplayLabel(bundle.git)} tone={bundle.git.proposal.is_proposal_branch ? "warn" : "info"} />
         <Stat icon={<ListChecks size={18} />} label="Review items" value={changed} tone={changed ? "warn" : "good"} />
       </section>
       <MapIntentPanel bundle={bundle} activeIntent={mapIntent} onChoose={chooseMapIntent} onSelect={setSelectedPageId} />
@@ -781,7 +886,7 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
             {bundle.operations.sections.flatMap((section) => section.bullets).slice(0, 8).map((bullet) => (
               <li key={bullet}>{bullet}</li>
             ))}
-            {bundle.operations.sections.length === 0 && <li>No operation sections in snapshot.</li>}
+            {bundle.operations.sections.length === 0 && <li>No operational notes in this view.</li>}
           </ul>
         </section>
       </div>
@@ -797,26 +902,26 @@ function splitPathInput(value: string): string[] {
 }
 
 function prHandoffTitle(bundle: SnapshotBundle): string {
-  const theme = bundle.git.proposal.theme || bundle.git.current_branch || bundle.manifest.repo.repo_id;
+  const theme = bundle.git.proposal.theme || bundle.manifest.repo.repo_id;
   return `Review ${theme}`;
 }
 
 function prHandoffBody(bundle: SnapshotBundle): string {
   const files = bundle.diff.files.slice(0, 20);
   const changedLines = files.length
-    ? files.map((file) => `- ${file.path} (${file.status || "changed"}, +${file.additions}/-${file.deletions}, ${file.category})`)
-    : ["- No changed files in the current snapshot."];
+    ? files.map((file) => `- ${file.path} (${changeStatusLabel(file.status || "changed")}, ${file.additions} added / ${file.deletions} removed, ${file.category})`)
+    : ["- No changed content in the current view."];
   const gateLines = bundle.gates.gates.length
     ? bundle.gates.gates.map((gate) => `- [ ] ${gate.argv.join(" ")}`)
-    : ["- [ ] No machine gates listed in the current snapshot."];
+    : ["- [ ] No automated checks listed in the current view."];
   const riskHints = [...new Set(files.flatMap((file) => file.risk_hints))];
   return [
     "## Summary",
-    `- Branch: ${bundle.git.current_branch || "unknown"}`,
-    `- Base: ${bundle.diff.compare.base_ref || bundle.git.default_branch}`,
-    `- Files: ${bundle.diff.summary.file_count} total, ${bundle.diff.summary.branch_file_count} branch, ${bundle.diff.summary.working_tree_file_count} local`,
+    `- Workspace: ${workspaceDisplayLabel(bundle.git)}`,
+    `- Compared with: ${bundle.diff.compare.base_ref || bundle.git.default_branch}`,
+    `- Content: ${bundle.diff.summary.file_count} total, ${bundle.diff.summary.branch_file_count} saved for review, ${bundle.diff.summary.working_tree_file_count} still local`,
     `- Privacy review: ${bundle.diff.summary.privacy_review_required ? "required" : "not flagged"}`,
-    `- Risk hints: ${riskHints.length ? riskHints.join(", ") : "none"}`,
+    `- Risk notes: ${riskHints.length ? riskHints.map(riskHintLabel).join(", ") : "none"}`,
     "",
     "## Content Changed",
     ...changedLines,
@@ -827,8 +932,8 @@ function prHandoffBody(bundle: SnapshotBundle): string {
     "## Approval Checklist",
     "- [ ] Conceptual review completed by a human",
     "- [ ] Privacy/publication boundary checked",
-    "- [ ] Markdown diff inspected",
-    "- [ ] No merge from the cockpit"
+    "- [ ] Exact content changes inspected",
+    "- [ ] Final merge/approval handled outside the cockpit"
   ].join("\n");
 }
 
@@ -854,24 +959,24 @@ function gateStatusTone(status: string): "good" | "warn" | "bad" | "info" | "mut
 
 function approvalDecision(bundle: SnapshotBundle): { label: string; detail: string; tone: "good" | "warn" | "bad" | "info" | "muted" } {
   const git = bundle.git;
-  if (!git.available) return { label: "Cannot decide yet", detail: "Git state is unavailable in this snapshot.", tone: "bad" };
+  if (!git.available) return { label: "Cannot decide yet", detail: "Workspace state is unavailable in this view.", tone: "bad" };
   if (!git.proposal.is_proposal_branch && git.current_branch !== git.default_branch) {
-    return { label: "Outside the approval flow", detail: "Move the work to a proposal branch before asking for approval.", tone: "bad" };
+    return { label: "Outside the approval flow", detail: "Move the work into a review workspace before asking for approval.", tone: "bad" };
   }
   if (git.current_branch === git.default_branch) {
-    return { label: "Approved wiki view", detail: "You are looking at the approved branch. Use sync only after an external PR merge.", tone: git.worktree.clean ? "good" : "warn" };
+    return { label: "Approved content view", detail: "You are looking at approved content. Refresh it only after an external approval is merged.", tone: git.worktree.clean ? "good" : "warn" };
   }
   if (bundle.diff.summary.privacy_review_required) {
-    return { label: "Needs privacy review", detail: "Inspect the changed content and risk hints before opening the Pull Request.", tone: "warn" };
+    return { label: "Needs privacy review", detail: "Inspect the changed content and risk notes before opening the approval request.", tone: "warn" };
   }
   if (!git.proposal.draft_pr_url) {
-    return { label: "Prepare the approval request", detail: "The proposal is local/published, but no Pull Request is linked in this snapshot.", tone: "warn" };
+    return { label: "Prepare the approval request", detail: "The change exists locally or remotely, but no approval request is linked in this view.", tone: "warn" };
   }
   if (git.proposal.human_gate_state === "draft") {
-    return { label: "Ready for human review", detail: "Open the draft Pull Request, inspect the packet, then mark it ready outside the cockpit.", tone: "info" };
+    return { label: "Ready for human review", detail: "Open the draft request, inspect the packet, then mark it ready outside the cockpit.", tone: "info" };
   }
   if (git.proposal.human_gate_state === "ready_for_review") {
-    return { label: "Waiting on human approval", detail: "The Pull Request is the human gate; merge remains external to the base cockpit.", tone: "info" };
+    return { label: "Waiting on human approval", detail: "The review request is the human gate; merge remains external to the base cockpit.", tone: "info" };
   }
   if (git.proposal.human_gate_state === "merged") {
     return { label: "Approved externally", detail: "Switch to the approved branch and fast-forward sync the local checkout.", tone: "good" };
@@ -885,7 +990,7 @@ function ApprovalJourney({ bundle }: { bundle: SnapshotBundle }) {
     {
       label: "Understand the change",
       status: bundle.diff.summary.file_count ? "ready" : "empty",
-      detail: `${bundle.diff.summary.file_count} changed file(s), +${bundle.diff.summary.insertions} / -${bundle.diff.summary.deletions}`
+      detail: `${bundle.diff.summary.file_count} changed item(s), ${bundle.diff.summary.insertions} added / ${bundle.diff.summary.deletions} removed`
     },
     {
       label: "Check evidence",
@@ -895,17 +1000,17 @@ function ApprovalJourney({ bundle }: { bundle: SnapshotBundle }) {
     {
       label: "Review risk",
       status: bundle.diff.summary.privacy_review_required ? "needs_review" : "clear",
-      detail: risks.length ? risks.map((hint) => hint.replaceAll("_", " ")).join(", ") : "No risk hints in the current diff"
+      detail: risks.length ? risks.map(riskHintLabel).join(", ") : "No risk notes in the changed content"
     },
     {
       label: "Prepare approval request",
       status: bundle.git.proposal.draft_pr_url ? "linked" : bundle.git.proposal.human_gate_state,
-      detail: bundle.git.proposal.draft_pr_url || "No Pull Request linked yet"
+      detail: bundle.git.proposal.draft_pr_url || "No approval request linked yet"
     },
     {
       label: "Approve externally",
       status: bundle.git.proposal.human_gate_state,
-      detail: "Final approval and merge stay in the GitHub Pull Request"
+      detail: "Final approval and merge stay in the review request"
     }
   ];
   return (
@@ -922,7 +1027,7 @@ function ApprovalJourney({ bundle }: { bundle: SnapshotBundle }) {
               <strong>{step.label}</strong>
               <p>{step.detail}</p>
             </div>
-            <StatusPill tone={gateStepTone(step.status)}>{step.status.replaceAll("_", " ")}</StatusPill>
+            <StatusPill tone={gateStepTone(step.status)}>{gateStatusLabel(step.status)}</StatusPill>
           </article>
         ))}
       </div>
@@ -945,19 +1050,19 @@ function DecisionPacket({ bundle }: { bundle: SnapshotBundle }) {
       <div className="decisionCards">
         <article>
           <strong>What changed</strong>
-          <p>{bundle.diff.summary.file_count} file(s), {bundle.diff.summary.branch_file_count} from the branch and {bundle.diff.summary.working_tree_file_count} still local.</p>
+          <p>{bundle.diff.summary.file_count} item(s), {bundle.diff.summary.branch_file_count} saved for review and {bundle.diff.summary.working_tree_file_count} still local.</p>
         </article>
         <article>
           <strong>Evidence available</strong>
-          <p>{sourceRefCount} source reference(s) across the snapshot, plus {bundle.gates.gates.length} automated check command(s).</p>
+          <p>{sourceRefCount} evidence link(s) across this view, plus {bundle.gates.gates.length} automated check(s).</p>
         </article>
         <article>
           <strong>Risk to review</strong>
-          <p>{risks.length ? risks.map((hint) => hint.replaceAll("_", " ")).join(", ") : "No explicit risk hints in the diff."}</p>
+          <p>{risks.length ? risks.map(riskHintLabel).join(", ") : "No explicit risk notes in the changed content."}</p>
         </article>
         <article>
           <strong>Approval request</strong>
-          <p>{prUrl ? "Pull Request is linked and can be opened for the human decision." : "No Pull Request linked yet; prepare or update the review request below."}</p>
+          <p>{prUrl ? "The review request is linked and can be opened for the human decision." : "No review request linked yet; prepare or update it below."}</p>
         </article>
       </div>
     </section>
@@ -969,34 +1074,34 @@ function prGateSteps(bundle: SnapshotBundle): { label: string; status: string; d
   const published = Boolean(git.upstream.name) && git.upstream.ahead === 0;
   return [
     {
-      label: "Proposal branch",
+      label: "Review workspace",
       status: git.proposal.is_proposal_branch ? "ready" : git.current_branch === git.default_branch ? "approved" : "outside_flow",
-      detail: git.current_branch || "no branch"
+      detail: workspaceDisplayLabel(git)
     },
     {
-      label: "Publish",
+      label: "Send for review",
       status: published ? "published" : git.proposal.is_proposal_branch ? "needs_publish" : "blocked",
-      detail: git.upstream.name || git.upstream.remote || "no upstream"
+      detail: published ? sharedCopyLabel(git) : "not sent"
     },
     {
-      label: "Worktree",
+      label: "Local edits",
       status: git.worktree.clean ? "clean" : "dirty",
-      detail: `${git.worktree.changed_files.length} changed file(s)`
+      detail: `${git.worktree.changed_files.length} changed item(s)`
     },
     {
-      label: "Machine gates",
+      label: "Checks",
       status: bundle.gates.status,
-      detail: `${bundle.gates.gates.length} gate command(s)`
+      detail: `${bundle.gates.gates.length} automated check(s)`
     },
     {
-      label: "Draft PR",
+      label: "Review request",
       status: git.proposal.draft_pr_url ? "linked" : git.proposal.human_gate_state || "not_opened",
-      detail: git.proposal.draft_pr_url || "not linked in snapshot"
+      detail: git.proposal.draft_pr_url || "not linked in this view"
     },
     {
-      label: "Human review",
+      label: "Human decision",
       status: git.proposal.human_gate_state,
-      detail: "GitHub Pull Request gate"
+      detail: "Final approval happens outside the cockpit"
     }
   ];
 }
@@ -1026,14 +1131,14 @@ function PrHandoffPanel({
         <h2>Prepare Approval Request</h2>
         <label className="toggleControl">
           <input type="checkbox" checked={execute} onChange={(event) => setExecute(event.target.checked)} />
-          <span>Execute remote writes</span>
+          <span>Allow online send</span>
         </label>
       </div>
-      <div className="gateTrack" aria-label="Pull Request human gate state">
+      <div className="gateTrack" aria-label="Human approval state">
         {steps.map((step) => (
           <article className={`gateStep gateStep-${gateStepTone(step.status)}`} key={step.label}>
             <strong>{step.label}</strong>
-            <StatusPill tone={gateStepTone(step.status)}>{step.status}</StatusPill>
+            <StatusPill tone={gateStepTone(step.status)}>{gateStatusLabel(step.status)}</StatusPill>
             <span>{step.detail}</span>
           </article>
         ))}
@@ -1043,30 +1148,30 @@ function PrHandoffPanel({
           <span>Review request title</span>
           <input value={title} onChange={(event) => setTitle(event.target.value)} />
         </label>
-        <button className="secondaryButton" onClick={resetGenerated} title="Regenerate the local PR handoff body from the current snapshot">
+        <button className="secondaryButton" onClick={resetGenerated} title="Regenerate these review notes from the current view">
           <RefreshCw size={16} />
           <span>Regenerate</span>
         </button>
         <label className="field wide">
-          <span>Decision notes for the Pull Request</span>
+          <span>Decision notes for the review request</span>
           <textarea className="handoffBody" value={body} onChange={(event) => setBody(event.target.value)} rows={13} />
         </label>
         {bundle.git.proposal.draft_pr_url && (
-          <a className="secondaryButton wide" href={bundle.git.proposal.draft_pr_url} title="Open GitHub Pull Request">
+          <a className="secondaryButton wide" href={bundle.git.proposal.draft_pr_url} title="Open review request">
             <ExternalLink size={16} />
-            <span>Open PR</span>
+            <span>Open request</span>
           </a>
         )}
         <div className="buttonCluster wide">
-          <button className="secondaryButton" onClick={() => onWorkflow("publish_proposal", {}, dryRun)} title="Push the current proposal branch">
+          <button className="secondaryButton" onClick={() => onWorkflow("publish_proposal", {}, dryRun)} title="Send the current review workspace">
             <RefreshCw size={16} />
-            <span>Send Branch</span>
+            <span>Send changes</span>
           </button>
-          <button className="secondaryButton" onClick={() => onWorkflow("open_draft_pr", { title, body }, dryRun)} title="Create a draft GitHub Pull Request">
+          <button className="secondaryButton" onClick={() => onWorkflow("open_draft_pr", { title, body }, dryRun)} title="Create a draft review request">
             <GitPullRequest size={16} />
-            <span>Open Pull Request Draft</span>
+            <span>Open review draft</span>
           </button>
-          <button className="secondaryButton" onClick={() => onWorkflow("update_draft_pr", { title, body }, dryRun)} title="Update the current branch Pull Request body">
+          <button className="secondaryButton" onClick={() => onWorkflow("update_draft_pr", { title, body }, dryRun)} title="Update the current review request body">
             <FileText size={16} />
             <span>Update Review Request</span>
           </button>
@@ -1088,7 +1193,7 @@ function syncStatus(bundle: SnapshotBundle): string {
   const git = bundle.git;
   if (!git.available) return "git unavailable";
   if (git.current_branch === git.default_branch) return git.worktree.clean ? "ready" : "local changes";
-  if (git.proposal.human_gate_state === "merged") return "merged PR";
+  if (git.proposal.human_gate_state === "merged") return "approved externally";
   return "external review";
 }
 
@@ -1107,29 +1212,30 @@ function SyncMainPanel({
   return (
     <section className="panel syncPanel">
       <div className="panelHeader">
-        <h2>Approved Wiki Sync</h2>
+        <h2>Refresh Approved Content</h2>
         <StatusPill tone={syncTone(bundle)}>{syncStatus(bundle)}</StatusPill>
       </div>
       <div className="syncGrid">
         <dl className="kv">
-          <dt>Approved branch</dt>
+          <dt>Approved version</dt>
           <dd>{git.default_branch}</dd>
-          <dt>Current branch</dt>
-          <dd>{git.current_branch || "unknown"}</dd>
-          <dt>Remote</dt>
-          <dd>{git.upstream.remote || "origin"}</dd>
-          <dt>Behind</dt>
+          <dt>Current workspace</dt>
+          <dd>{workspaceDisplayLabel(git)}</dd>
+          <dt>Online copy</dt>
+          <dd>{sharedCopyLabel(git)}</dd>
+          <dt>Available updates</dt>
           <dd>{git.upstream.behind}</dd>
-          <dt>Worktree</dt>
-          <dd>{git.worktree.clean ? "clean" : "changed"}</dd>
+          <dt>Local edits</dt>
+          <dd>{git.worktree.clean ? "none" : "needs review"}</dd>
         </dl>
-        <div className="syncCommand">
+        <details className="auditDetails syncCommand">
+          <summary>Terminal details</summary>
           <code>git fetch --prune {git.upstream.remote || "origin"}</code>
           <code>git pull --ff-only {git.upstream.remote || "origin"} {git.default_branch}</code>
-        </div>
+        </details>
         <label className="toggleControl">
           <input type="checkbox" checked={execute} onChange={(event) => setExecute(event.target.checked)} disabled={!onDefaultBranch} />
-          <span>Execute local pull</span>
+          <span>Allow local refresh</span>
         </label>
         <button
           className="secondaryButton wide"
@@ -1138,7 +1244,7 @@ function SyncMainPanel({
           title={onDefaultBranch ? "Fast-forward the approved local branch" : "Sync is available only from the approved branch"}
         >
           <RefreshCw size={16} />
-          <span>Sync Main</span>
+          <span>Refresh approved</span>
         </button>
       </div>
     </section>
@@ -1155,9 +1261,9 @@ function GitWorkflowPanel({
   const defaultTheme = bundle.git.proposal.theme || "system-threejs-operational-dashboard";
   const [theme, setTheme] = useState(defaultTheme);
   const [paths, setPaths] = useState(bundle.git.worktree.changed_files.map((file) => file.path).join("\n"));
-  const [message, setMessage] = useState("refine local cockpit git operations");
-  const [prTitle, setPrTitle] = useState("Refine local cockpit Git operations");
-  const [prBody, setPrBody] = useState("Local cockpit update with source triage and Git human-gate workflows.");
+  const [message, setMessage] = useState("refine human approval cockpit");
+  const [prTitle, setPrTitle] = useState("Refine human approval cockpit");
+  const [prBody, setPrBody] = useState("Cockpit update with task-based navigation, evidence checks and approval flow.");
   const [execute, setExecute] = useState(false);
   const dryRun = !execute;
 
@@ -1176,20 +1282,20 @@ function GitWorkflowPanel({
           <input value={theme} onChange={(event) => setTheme(event.target.value)} />
         </label>
         <div className="buttonCluster">
-          <button className="secondaryButton" onClick={() => onWorkflow("list_proposals", {}, false)} title="List local proposal branches">
+          <button className="secondaryButton" onClick={() => onWorkflow("list_proposals", {}, false)} title="Show saved review workspaces">
             <ListChecks size={16} />
             <span>List</span>
           </button>
-          <button className="secondaryButton" onClick={() => onWorkflow("start_proposal", { theme }, dryRun)} title="Create proposal branch">
+          <button className="secondaryButton" onClick={() => onWorkflow("start_proposal", { theme }, dryRun)} title="Start a review workspace">
             <GitBranch size={16} />
-            <span>Start proposal</span>
+            <span>Start review</span>
           </button>
         </div>
         <label className="field wide">
           <span>Content to include</span>
           <textarea value={paths} onChange={(event) => setPaths(event.target.value)} rows={4} />
         </label>
-        <button className="secondaryButton wide" onClick={() => onWorkflow("stage_paths", { paths: splitPathInput(paths) }, dryRun)} title="Stage selected changed paths">
+        <button className="secondaryButton wide" onClick={() => onWorkflow("stage_paths", { paths: splitPathInput(paths) }, dryRun)} title="Include selected changed content">
           <ListChecks size={16} />
           <span>Include selected content</span>
         </button>
@@ -1197,7 +1303,7 @@ function GitWorkflowPanel({
           <span>Version note</span>
           <input value={message} onChange={(event) => setMessage(event.target.value)} />
         </label>
-        <button className="secondaryButton" onClick={() => onWorkflow("commit_proposal", { message }, dryRun)} title="Commit proposal changes">
+        <button className="secondaryButton" onClick={() => onWorkflow("commit_proposal", { message }, dryRun)} title="Save a named local version">
           <CheckCircle2 size={16} />
           <span>Save version</span>
         </button>
@@ -1210,11 +1316,11 @@ function GitWorkflowPanel({
           <textarea value={prBody} onChange={(event) => setPrBody(event.target.value)} rows={4} />
         </label>
         <div className="buttonCluster wide">
-          <button className="secondaryButton" onClick={() => onWorkflow("publish_proposal", {}, dryRun)} title="Push proposal branch">
+          <button className="secondaryButton" onClick={() => onWorkflow("publish_proposal", {}, dryRun)} title="Send the current review workspace">
             <RefreshCw size={16} />
-            <span>Send branch</span>
+            <span>Send changes</span>
           </button>
-          <button className="secondaryButton" onClick={() => onWorkflow("open_draft_pr", { title: prTitle, body: prBody }, dryRun)} title="Open draft pull request">
+          <button className="secondaryButton" onClick={() => onWorkflow("open_draft_pr", { title: prTitle, body: prBody }, dryRun)} title="Open a review request">
             <GitPullRequest size={16} />
             <span>Open review request</span>
           </button>
@@ -1249,13 +1355,13 @@ function ReviewView({
             <h2>Decision Snapshot</h2>
             <dl className="kv">
               <dt>Workspace</dt>
-              <dd>{bundle.git.current_branch || "detached/unknown"}</dd>
+              <dd>{workspaceDisplayLabel(bundle.git)}</dd>
               <dt>Review request</dt>
-              <dd>{bundle.git.proposal.draft_pr_url ? "linked" : bundle.git.proposal.human_gate_state}</dd>
-              <dt>Remote state</dt>
-              <dd>{bundle.git.upstream.name || bundle.git.upstream.remote || "not configured"} · ahead {bundle.git.upstream.ahead} / behind {bundle.git.upstream.behind}</dd>
-              <dt>Local edits</dt>
-              <dd>{bundle.git.worktree.clean ? "clean" : "changed"}</dd>
+              <dd>{bundle.git.proposal.draft_pr_url ? "linked" : gateStatusLabel(bundle.git.proposal.human_gate_state)}</dd>
+              <dt>Shared copy</dt>
+              <dd>{sharedCopyLabel(bundle.git)} · sent {bundle.git.upstream.ahead} / pending {bundle.git.upstream.behind}</dd>
+              <dt>Unsaved local edits</dt>
+              <dd>{bundle.git.worktree.clean ? "none" : "needs review"}</dd>
             </dl>
           </div>
           <div>
@@ -1280,7 +1386,7 @@ function ReviewView({
       <GitWorkflowPanel bundle={bundle} onWorkflow={onWorkflow} />
       <section className="panel">
         <div className="panelHeader">
-          <h2>Exact Changed Content</h2>
+          <h2>Exact Content Changes</h2>
           <StatusPill tone={bundle.git.worktree.changed_files.length ? "warn" : "good"}>
             {bundle.git.worktree.changed_files.length}
           </StatusPill>
@@ -1293,13 +1399,13 @@ function ReviewView({
               <StatusPill tone={file.known_generated ? "info" : "muted"}>{file.known_generated ? "generated" : "manual"}</StatusPill>
             </div>
           ))}
-          {bundle.git.worktree.changed_files.length === 0 && <p>No local changes in this snapshot.</p>}
+          {bundle.git.worktree.changed_files.length === 0 && <p>No local changes in this view.</p>}
         </div>
       </section>
       <section className="panel">
         <div className="panelHeader">
           <h2>Automated Checks</h2>
-          <StatusPill tone={gateStatusTone(bundle.gates.status)}>{bundle.gates.status}</StatusPill>
+          <StatusPill tone={gateStatusTone(bundle.gates.status)}>{gateStatusLabel(bundle.gates.status)}</StatusPill>
         </div>
         <ul className="plainList commandList">
           {bundle.gates.gates.map((gate) => (
@@ -1319,22 +1425,22 @@ function HealthView({ bundle }: { bundle: SnapshotBundle }) {
     <main className="workspace">
       <section className="statGrid">
         <Stat icon={<ShieldCheck size={18} />} label="Checks" value={bundle.gates.gates.length} tone="info" />
-        <Stat icon={<CircleAlert size={18} />} label="Quality flags" value={qualityFlags} tone={qualityFlags ? "warn" : "good"} />
+        <Stat icon={<CircleAlert size={18} />} label="Content warnings" value={qualityFlags} tone={qualityFlags ? "warn" : "good"} />
         <Stat icon={<FileText size={18} />} label="Content" value={bundle.pages.pages.length} tone="info" />
         <Stat icon={<Search size={18} />} label="Evidence sources" value={bundle.sources.sources.length} tone="info" />
       </section>
       <section className="panel">
         <div className="panelHeader">
-          <h1>Context Vitality</h1>
-          <StatusPill tone="info">{Object.keys(bundle.freshness.by_context).length} contexts</StatusPill>
+          <h1>Wiki Health</h1>
+          <StatusPill tone="info">{Object.keys(bundle.freshness.by_context).length} areas</StatusPill>
         </div>
         <div className="contextGrid">
           {Object.entries(bundle.freshness.by_context).map(([context, stats]) => (
             <article className="contextTile" key={context}>
               <h2>{context}</h2>
-              <span>fresh {stats.fresh ?? 0}</span>
-              <span>stale {stats.stale ?? 0}</span>
-              <span>unknown {stats.unknown ?? 0}</span>
+              <span>ok {stats.fresh ?? 0}</span>
+              <span>needs refresh {stats.stale ?? 0}</span>
+              <span>not checked {stats.unknown ?? 0}</span>
             </article>
           ))}
         </div>
@@ -1499,7 +1605,7 @@ function SourcesView({
               <small>{item.context} · {item.path}</small>
             </button>
           ))}
-          {bundle.sources.sources.length === 0 && <p>No source pages in this snapshot.</p>}
+          {bundle.sources.sources.length === 0 && <p>No evidence sources in this view.</p>}
         </div>
       </section>
       <section className="panel">
@@ -1528,7 +1634,7 @@ function SourcesView({
           </button>
           <label className="toggleControl wideToggle">
             <input type="checkbox" checked={executeWrites} onChange={(event) => setExecuteWrites(event.target.checked)} />
-            <span>Allow proposal writes</span>
+            <span>Allow review writes</span>
           </label>
         </div>
         {result && (
@@ -1606,7 +1712,7 @@ function PageList({ pages, selected }: { pages: PageRecord[]; selected: PageReco
       {pages.slice(0, 120).map((page) => (
         <a className={selected?.id === page.id ? "pageLink active" : "pageLink"} href={`/pages/${encodeURIComponent(page.id)}`} key={page.id}>
           <span>{page.title}</span>
-          <small>{page.context} · {page.page_type || "page"}</small>
+          <small>{page.context} · {contentKindLabel(page.page_type)}</small>
         </a>
       ))}
     </aside>
@@ -1624,20 +1730,20 @@ function PagesView({ bundle, pageId }: { bundle: SnapshotBundle; pageId?: string
             <div className="panelHeader">
               <h1>{selected.title}</h1>
               <StatusPill tone={selected.freshness_state === "fresh" ? "good" : selected.freshness_state === "stale" ? "warn" : "muted"}>
-                {selected.freshness_state}
+                {freshnessLabel(selected.freshness_state)}
               </StatusPill>
             </div>
             <dl className="kv">
               <dt>Page address</dt>
               <dd>{selected.path}</dd>
               <dt>Content kind</dt>
-              <dd>{selected.page_type || "unknown"}</dd>
+              <dd>{contentKindLabel(selected.page_type)}</dd>
               <dt>Area</dt>
               <dd>{selected.context}</dd>
-              <dt>Evidence refs</dt>
+              <dt>Evidence links</dt>
               <dd>{selected.source_refs.length ? selected.source_refs.join(", ") : "none listed"}</dd>
             </dl>
-            <p className="pageSummary">{selected.summary || "No summary text in snapshot."}</p>
+            <p className="pageSummary">{selected.summary || "No summary in this view."}</p>
             <a className="externalLink" href={`/${selected.path}`} title="Open Markdown path">
               <ExternalLink size={16} />
               <span>{selected.path}</span>
@@ -1717,13 +1823,13 @@ export function App() {
             <strong>Wiki Viva Cockpit</strong>
             {loadState.status === "ready" && (
               <span>
-                {loadState.runtime.repoLabel || loadState.bundle.manifest.repo.repo_id} · {loadState.runtime.mode || loadState.bundle.manifest.mode} · {loadState.source}
+                {loadState.runtime.repoLabel || loadState.bundle.manifest.repo.repo_id} · {modeLabel(loadState.runtime.mode || loadState.bundle.manifest.mode)}
               </span>
             )}
           </div>
           {loadState.status === "ready" && (
             <StatusPill tone={loadState.bundle.git.proposal.is_proposal_branch ? "warn" : "good"}>
-              {loadState.bundle.git.current_branch || "no branch"}
+              {gitGateLabel(loadState.bundle.git)}
             </StatusPill>
           )}
         </header>

@@ -88,8 +88,8 @@ const bundle: SnapshotBundle = {
       {
         id: "run-honesty-gates",
         kind: "review",
-        title: "Run local honesty gates",
-        human_reason: "Run gates",
+        title: "Run approval checks",
+        human_reason: "Run checks",
         risk_level: "read",
         default_dry_run: false,
         commands: [{ label: "audit", argv: ["python3", "scripts/wiki_audit.py", "--check"], writes: false }]
@@ -97,8 +97,8 @@ const bundle: SnapshotBundle = {
       {
         id: "pr-summary",
         kind: "approve",
-        title: "Generate PR review summary",
-        human_reason: "Summarize PR",
+        title: "Build review packet",
+        human_reason: "Summarize approval evidence",
         risk_level: "read",
         default_dry_run: false,
         commands: [{ label: "summary", argv: ["python3", "scripts/wiki_pr_summary.py"], writes: false }]
@@ -254,8 +254,8 @@ describe("visual route contract", () => {
     expect(screen.getByRole("heading", { name: "Decision Packet" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Prepare Approval Request" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Update Review Request" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Approved Wiki Sync" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Sync Main" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Refresh Approved Content" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Refresh approved" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Prepare Local Change" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Evidence Board" })).toBeTruthy();
     cleanup();
@@ -266,7 +266,7 @@ describe("visual route contract", () => {
     cleanup();
 
     await renderRoute("/health");
-    expect(await screen.findByRole("heading", { name: "Context Vitality" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Wiki Health" })).toBeTruthy();
     cleanup();
 
     await renderRoute("/pages/root");

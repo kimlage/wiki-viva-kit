@@ -31,9 +31,9 @@
     {
       "commit": "",
       "context": "system",
-      "id": "page-sample-pr-governance",
+      "id": "page-sample-approval-governance",
       "kind": "page_updated",
-      "label": "PR Governance",
+      "label": "Approval Governance",
       "path": "memories/system/wiki/pr-governance.md",
       "status": "fresh",
       "timestamp": "2026-07-01T00:00:00Z",

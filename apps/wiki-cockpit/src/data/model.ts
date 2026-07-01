@@ -7,15 +7,15 @@ export function freshnessTone(state: FreshnessState): "good" | "warn" | "muted" 
 }
 
 export function gitGateLabel(git: GitState): string {
-  if (!git.available) return "Git unavailable";
+  if (!git.available) return "Workspace unavailable";
   if (git.current_branch === git.default_branch) {
-    return git.worktree.clean ? "Approved wiki" : "Main has local changes";
+    return git.worktree.clean ? "Approved content" : "Approved content has local edits";
   }
   if (git.proposal.is_proposal_branch) {
-    if (git.proposal.draft_pr_url) return "Draft PR gate";
-    return "Local proposal branch";
+    if (git.proposal.draft_pr_url) return "Approval request open";
+    return "Draft change";
   }
-  return "Outside proposal flow";
+  return "Needs review setup";
 }
 
 export function topActions(bundle: SnapshotBundle): ActionCard[] {
@@ -43,7 +43,7 @@ export function reviewChecklist(bundle: SnapshotBundle): { label: string; ok: bo
     { label: "Changed content is visible", ok: git.worktree.changed_files.length > 0 || git.worktree.clean },
     { label: "Automated checks are available", ok: bundle.gates.gates.length > 0 },
     { label: "Approval summary can be regenerated", ok: bundle.actions.actions.some((action) => action.id === "pr-summary") },
-    { label: "Final approval stays in the Pull Request", ok: true }
+    { label: "Final approval stays in the review request", ok: true }
   ];
 }
 

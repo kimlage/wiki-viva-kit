@@ -5,18 +5,18 @@
   "schema_version": "wiki_web_operations.v1",
   "sections": [
     {
-      "body": "- Current Git state is proposal branch `wiki/sample-cockpit`.\n- Biggest risk: stale context reaches PR without owner review.",
+      "body": "- Current work is isolated in a review workspace for sample cockpit.\n- Biggest risk: old context reaches approval without owner review.",
       "bullets": [
-        "Current Git state is proposal branch `wiki/sample-cockpit`.",
-        "Biggest risk: stale context reaches PR without owner review."
+        "Current work is isolated in a review workspace for sample cockpit.",
+        "Biggest risk: old context reaches approval without owner review."
       ],
       "title": "Current state"
     },
     {
-      "body": "- Example context is stale.\n- PR summary should be regenerated before human review.",
+      "body": "- Example context needs refresh.\n- Review packet should be regenerated before human review.",
       "bullets": [
-        "Example context is stale.",
-        "PR summary should be regenerated before human review."
+        "Example context needs refresh.",
+        "Review packet should be regenerated before human review."
       ],
       "title": "Alerts"
     }

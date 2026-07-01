@@ -112,8 +112,8 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
         CockpitAction(
             id="git-status",
             kind="review",
-            title="Inspect Git state",
-            human_reason="Shows current branch, changed files and whether the checkout is clean.",
+            title="Check workspace",
+            human_reason="Shows where you are working, what changed and whether local edits are clean.",
             risk_level="read",
             default_dry_run=False,
             commands=(("git", "status", "--short", "--branch"),),
@@ -121,8 +121,8 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
         CockpitAction(
             id="review-local-changes",
             kind="review",
-            title="Review local changes",
-            human_reason="Shows changed paths before any proposal commit or PR handoff.",
+            title="Review content changes",
+            human_reason="Shows changed content before saving a version or preparing approval.",
             risk_level="read",
             default_dry_run=False,
             commands=(("git", "diff", "--stat"), ("git", "diff", "--name-status")),
@@ -130,8 +130,8 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
         CockpitAction(
             id="refresh-cockpit-check",
             kind="refresh",
-            title="Check cockpit freshness",
-            human_reason="Verifies whether the committed operations page equals a deterministic recompile.",
+            title="Check home view",
+            human_reason="Verifies whether the operational home view matches a deterministic refresh.",
             risk_level="read",
             default_dry_run=False,
             commands=(("python3", "scripts/wiki_operation_compile.py", "--check"),),
@@ -139,8 +139,8 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
         CockpitAction(
             id="refresh-cockpit-write",
             kind="refresh",
-            title="Refresh cockpit artifact",
-            human_reason="Recompiles the operations page as a proposal-branch change.",
+            title="Refresh home view",
+            human_reason="Refreshes the operations page as a reviewable change.",
             risk_level="derive",
             default_dry_run=True,
             commands=(("python3", "scripts/wiki_operation_compile.py", "--write"),),
@@ -148,8 +148,8 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
         CockpitAction(
             id="run-honesty-gates",
             kind="review",
-            title="Run local honesty gates",
-            human_reason="Runs the deterministic checks that should be green before a PR review.",
+            title="Run approval checks",
+            human_reason="Runs the deterministic checks that should be green before human approval.",
             risk_level="read",
             default_dry_run=False,
             commands=(
@@ -162,8 +162,8 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
         CockpitAction(
             id="pr-summary",
             kind="approve",
-            title="Generate PR review summary",
-            human_reason="Builds a human review bundle from branch diff, changed contexts and privacy hints.",
+            title="Build review packet",
+            human_reason="Builds a human review packet from changed content, affected areas and privacy hints.",
             risk_level="read",
             default_dry_run=False,
             commands=(("python3", "scripts/wiki_pr_summary.py"),),
@@ -171,8 +171,8 @@ def build_action_cards(config: WikiConfig) -> dict[str, Any]:
         CockpitAction(
             id="graph-check",
             kind="review",
-            title="Check page graph",
-            human_reason="Verifies graph and impact constraints before a proposal reaches the human gate.",
+            title="Check content map",
+            human_reason="Verifies relationship and impact constraints before approval.",
             risk_level="read",
             default_dry_run=False,
             commands=(("python3", "scripts/wiki_page_graph.py", "--check"),),

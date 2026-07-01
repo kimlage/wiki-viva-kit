@@ -29,7 +29,7 @@
       "source_refs": ["sample-source"],
       "stale_after_days": "7",
       "status": "active",
-      "summary": "Example context with source pressure and a pending refresh proposal.",
+      "summary": "Example context with source pressure and a pending refresh review.",
       "title": "Example Context",
       "updated_at": "2026-06-20",
       "visibility": "private_self"
@@ -38,7 +38,7 @@
       "approved_state": "proposal",
       "context": "system",
       "freshness_state": "fresh",
-      "id": "sample-pr-governance",
+      "id": "sample-approval-governance",
       "moc_parent": "memories/index.md",
       "page_type": "operational_rule",
       "path": "memories/system/wiki/pr-governance.md",
@@ -46,8 +46,8 @@
       "source_refs": [],
       "stale_after_days": "60",
       "status": "active",
-      "summary": "PR remains the human gate for canonical memory changes.",
-      "title": "PR Governance",
+      "summary": "Approval requests remain the human gate for canonical memory changes.",
+      "title": "Approval Governance",
       "updated_at": "2026-07-01",
       "visibility": "private_self"
     }

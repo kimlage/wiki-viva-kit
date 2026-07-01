@@ -15,7 +15,7 @@
       "weight": 2
     },
     {
-      "source": "sample-pr-governance",
+      "source": "sample-approval-governance",
       "status": "valid",
       "target": "sample-root",
       "type": "moc_parent",
@@ -65,7 +65,7 @@
       "approved_state": "proposal",
       "context": "system",
       "freshness_state": "fresh",
-      "id": "sample-pr-governance",
+      "id": "sample-approval-governance",
       "metrics": {
         "inbound_links": 0,
         "outbound_links": 1,
@@ -76,7 +76,7 @@
       "risk_flags": [],
       "stale_after_days": "60",
       "status": "active",
-      "title": "PR Governance",
+      "title": "Approval Governance",
       "updated_at": "2026-07-01",
       "visibility": "private_self"
     }

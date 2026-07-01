@@ -14,7 +14,7 @@
         }
       ],
       "default_dry_run": false,
-      "human_reason": "Runs deterministic checks before the PR reaches the human gate.",
+      "human_reason": "Runs deterministic checks before the approval request reaches the human gate.",
       "id": "run-honesty-gates",
       "kind": "review",
       "risk_level": "read",
@@ -29,11 +29,11 @@
         }
       ],
       "default_dry_run": false,
-      "human_reason": "Builds a review bundle from branch diff and privacy hints.",
+      "human_reason": "Builds a review packet from the changed content and privacy notes.",
       "id": "pr-summary",
       "kind": "approve",
       "risk_level": "read",
-      "title": "Generate PR review summary"
+      "title": "Build review packet"
     },
     {
       "commands": [
@@ -44,7 +44,7 @@
         }
       ],
       "default_dry_run": false,
-      "human_reason": "Shows changed paths before any proposal commit or PR handoff.",
+      "human_reason": "Shows changed content before it is saved or sent for review.",
       "id": "review-local-changes",
       "kind": "review",
       "risk_level": "read",

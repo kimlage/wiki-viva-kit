@@ -1339,7 +1339,7 @@ Implementation note, 2026-07-01:
   data.
 - `/ops` now includes Explore Content and Content Preview backed by the local
   snapshot: search highlights matching graph nodes, selecting a result or node
-  exposes the page address/content kind/area/freshness/evidence refs, route
+  exposes the page address/content kind/area/freshness/evidence links, route
   from the root via `moc_parent`, related content and safe review actions.
 - `/ops` now supports multi-page impact bundles in the local snapshot UI:
   shift-selecting search results or adding the drawer page highlights the graph
@@ -1378,6 +1378,12 @@ Implementation note, 2026-07-01:
   deployments: `vercel.static.json` for static/read-only review and Cloud Run
   operator Dockerfile/service YAML examples that omit credentials and keep
   identity decisions outside the public kit.
+- The cockpit status language has been tightened around human decisions instead
+  of raw Git concepts: top-level badges, action cards, the content map, approval
+  desk, health view and page views now say approved content, draft change,
+  review workspace, evidence links, content warnings and refresh needs first;
+  commands, branch names and low-level refs remain available only as progressive
+  audit detail where they help reproduce the decision.
 
 ## External implementation references
 
