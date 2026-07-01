@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const routes = [
   { name: "ops-demo", path: "/demo?visual=1", heading: "What needs attention?", focus: "Use The Map To" },
-  { name: "review-demo", path: "/review?demo=1&visual=1", heading: "Approval Inbox", focus: "Changed content" },
+  { name: "review-demo", path: "/review?demo=1&visual=1", heading: "Approval Inbox", focus: "Scope to approve" },
   { name: "sources-demo", path: "/sources?demo=1&visual=1", heading: "Add Knowledge", focus: "Review New Source" },
   { name: "health-demo", path: "/health?demo=1&visual=1", heading: "Wiki Health", focus: "Wiki Health" },
   { name: "page-demo", path: "/pages/sample-root?demo=1&visual=1", heading: "Sample Memory", focus: "Sample Memory" }

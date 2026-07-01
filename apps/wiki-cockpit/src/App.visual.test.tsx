@@ -252,12 +252,13 @@ describe("visual route contract", () => {
 
     await renderRoute("/review");
     expect(await screen.findByRole("heading", { name: "Approval Inbox" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Changed content" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Risk and privacy" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Checks" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Approval request" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Build review packet" })).toBeTruthy();
-    expect(screen.getByText("Request editor and exact evidence")).toBeTruthy();
+    expect(screen.getByText("What is being approved?")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Scope to approve" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Approval blockers" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Validation evidence" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Human gate" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Prepare packet" })).toBeTruthy();
+    expect(screen.getByText("Advanced: request editor and exact evidence")).toBeTruthy();
     cleanup();
 
     await renderRoute("/sources");

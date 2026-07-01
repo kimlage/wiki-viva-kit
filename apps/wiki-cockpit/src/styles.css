@@ -640,6 +640,47 @@ code {
   line-height: 1;
 }
 
+.inboxDecisionCards strong {
+  font-size: 19px;
+}
+
+.approvalBrief {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 1080px;
+}
+
+.approvalBrief article {
+  display: grid;
+  gap: 7px;
+  min-height: 132px;
+  padding: 14px;
+  border: 1px solid #2a3840;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.approvalBrief span {
+  color: #94a2ad;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.approvalBrief strong {
+  color: #eef7fb;
+  font-size: 18px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.approvalBrief p {
+  margin: 0;
+  color: #aab7c1;
+  line-height: 1.4;
+}
+
 .approvalQueue {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1623,6 +1664,14 @@ code {
   font-size: 13px;
 }
 
+.timelineEventActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .diffFilmstrip {
   display: grid;
   gap: 14px;
@@ -1665,7 +1714,7 @@ code {
 .diffFrame {
   min-height: 250px;
   display: grid;
-  grid-template-rows: auto auto auto minmax(96px, 1fr);
+  grid-template-rows: auto auto auto auto minmax(96px, 1fr);
   gap: 10px;
   padding: 12px;
   border: 1px solid #2a3840;
@@ -2090,6 +2139,7 @@ pre {
   .inboxCounters,
   .approvalInboxHeader,
   .approvalQueue,
+  .approvalBrief,
   .approvalItemHeader,
   .approvalFacts,
   .mapDecisionStrip,

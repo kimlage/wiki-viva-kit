@@ -355,7 +355,14 @@ function TimelineRadar({ bundle }: { bundle: SnapshotBundle }) {
               <strong>{event.label}</strong>
               <span>{formatEventTime(event.timestamp)} · {event.context || "system"}</span>
             </div>
-            <StatusPill tone={eventTone(event)}>{eventKindLabel(event.kind)}</StatusPill>
+            <div className="timelineEventActions">
+              <StatusPill tone={eventTone(event)}>{eventKindLabel(event.kind)}</StatusPill>
+              {event.path && (
+                <a className="textButton" href={`/pages/${encodeURIComponent(event.path)}`} title="Open related content">
+                  Open
+                </a>
+              )}
+            </div>
           </article>
         ))}
         {events.length === 0 && <p>No timeline events in this view.</p>}
@@ -421,6 +428,35 @@ function changeAreaLabel(category: string): string {
     workflow: "workflow docs"
   };
   return labels[category] || category.replaceAll("_", " ");
+}
+
+function pathTitle(path: string): string {
+  const fileName = path.split("/").pop() || path;
+  return fileName
+    .replace(/\.[^.]+$/, "")
+    .replace(/^\d{4}-\d{2}-\d{2}-?/, "")
+    .replaceAll("_", " ")
+    .replaceAll("-", " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (value) => value.toUpperCase());
+}
+
+function humanFileLabel(file: DiffFile): string {
+  if (file.path.includes("apps/wiki-cockpit/src/App.tsx")) return "Cockpit flow";
+  if (file.path.includes("apps/wiki-cockpit/src/styles.css")) return "Cockpit layout";
+  if (file.path.includes("apps/wiki-cockpit/src/App.visual.test.tsx")) return "Visual route checks";
+  if (file.path.includes("apps/wiki-cockpit/src/")) return `Cockpit ${pathTitle(file.path)}`;
+  if (file.path.includes("/proposals/")) return `Proposal: ${pathTitle(file.path)}`;
+  if (file.path.startsWith("memories/")) return `Wiki content: ${pathTitle(file.path)}`;
+  if (file.path.startsWith("docs/")) return `Reference: ${pathTitle(file.path)}`;
+  if (file.path.startsWith("scripts/")) return `Local operation: ${pathTitle(file.path)}`;
+  if (file.path.startsWith("tests/")) return `Validation: ${pathTitle(file.path)}`;
+  return pathTitle(file.path);
+}
+
+function humanFileSummary(file: DiffFile): string {
+  return `${humanFileLabel(file)} · ${changeAreaLabel(file.category)} · ${changeStatusLabel(file.status || "changed")}`;
 }
 
 function gateCheckLabel(id: string): string {
@@ -548,8 +584,8 @@ function DiffFrame({ file }: { file: DiffFile }) {
     <article className="diffFrame">
       <div className="diffFrameHeader">
         <div>
-          <strong>{file.path}</strong>
-          <span>{file.category} · {file.change_sources.map(changeSourceLabel).join(", ")}</span>
+          <strong>{humanFileLabel(file)}</strong>
+          <span>{changeAreaLabel(file.category)} · {file.change_sources.map(changeSourceLabel).join(", ")}</span>
         </div>
         <StatusPill tone={diffTone(file)}>{changeStatusLabel(file.status || "changed")}</StatusPill>
       </div>
@@ -565,6 +601,10 @@ function DiffFrame({ file }: { file: DiffFile }) {
         ))}
         {file.risk_hints.length === 0 && <StatusPill tone="muted">no explicit risk</StatusPill>}
       </div>
+      <details className="inlineDetails">
+        <summary>Exact file</summary>
+        <code>{file.path}</code>
+      </details>
       {file.preview.length > 0 && <pre className="diffPreview">{file.preview.join("\n")}</pre>}
     </article>
   );
@@ -653,7 +693,7 @@ function mapIntentCopy(intent: MapIntentId, bundle: SnapshotBundle): { label: st
   if (intent === "review") {
     return {
       label: "Approve a change",
-      detail: "Start with the content touched by this review and anything nearby that could block approval.",
+      detail: "Content touched by this review, plus nearby items that could block approval.",
       tone: pages.length ? "warn" : "good",
       count: pages.length
     };
@@ -661,7 +701,7 @@ function mapIntentCopy(intent: MapIntentId, bundle: SnapshotBundle): { label: st
   if (intent === "evidence") {
     return {
       label: "Check evidence",
-      detail: "Open content that has source links or source records before trusting a claim.",
+      detail: "Items with source links or source records behind their claims.",
       tone: pages.length ? "info" : "muted",
       count: pages.length
     };
@@ -669,14 +709,14 @@ function mapIntentCopy(intent: MapIntentId, bundle: SnapshotBundle): { label: st
   if (intent === "stale") {
     return {
       label: "Update old content",
-      detail: "Find content that needs a new read before it supports a decision.",
+      detail: "Content that needs a new read before it supports a decision.",
       tone: pages.length ? "warn" : "good",
       count: pages.length
     };
   }
   return {
     label: "Find a page",
-    detail: "Use the map as navigation: pick a node, follow its route and open the content.",
+    detail: "All available content, kept as a navigable map.",
     tone: "info",
     count: pages.length
   };
@@ -1295,6 +1335,33 @@ function approvalSharedCopyLabel(git: SnapshotBundle["git"]): string {
   return "Shared copy is up to date.";
 }
 
+function changedScopeLabel(bundle: SnapshotBundle): string {
+  const files = bundle.diff.files;
+  if (files.length === 0) return "No changed content is listed.";
+  const areas = [...new Set(files.map((file) => changeAreaLabel(file.category)).filter(Boolean))];
+  return `${files.length} item(s) across ${humanList(areas, "unknown areas")}.`;
+}
+
+function approvalMissingItems(bundle: SnapshotBundle, risks: string[], checkReady: boolean, requestUrl: string | null): string[] {
+  const missing: string[] = [];
+  if (!bundle.git.proposal.is_proposal_branch && bundle.git.current_branch !== bundle.git.default_branch) missing.push("review workspace");
+  if (bundle.diff.summary.file_count > 0) missing.push("scope review");
+  if (bundle.diff.summary.privacy_review_required || risks.length > 0) missing.push("risk review");
+  if (!checkReady) missing.push("validation evidence");
+  if (bundle.git.upstream.ahead > 0) missing.push("send local changes");
+  if (!requestUrl && bundle.git.current_branch !== bundle.git.default_branch) missing.push("linked approval request");
+  return missing;
+}
+
+function approvalActionLabel(actionId: string): string {
+  const labels: Record<string, string> = {
+    "pr-summary": "Prepare packet",
+    "review-local-changes": "Inspect changes",
+    "run-honesty-gates": "Run checks"
+  };
+  return labels[actionId] || actionId.replaceAll("_", " ");
+}
+
 function ApprovalInbox({
   bundle,
   onRun
@@ -1316,11 +1383,12 @@ function ApprovalInbox({
   const checkTone = gateStatusTone(bundle.gates.status);
   const checkReady = checkTone === "good";
   const checkLabels = bundle.gates.gates.map((gate) => gateCheckLabel(gate.id));
+  const missingItems = approvalMissingItems(bundle, risks, checkReady, requestUrl);
   const changedFileLine = primaryChangedFiles.length
-    ? `${primaryChangedFiles.map((file) => `${file.path} (${changeStatusLabel(file.status || "changed")})`).join(", ")}${
+    ? `${primaryChangedFiles.map((file) => humanFileSummary(file)).join(", ")}${
         bundle.diff.files.length > primaryChangedFiles.length ? ` and ${bundle.diff.files.length - primaryChangedFiles.length} more` : ""
       }`
-    : "No changed files listed.";
+    : "No changed content listed.";
 
   return (
     <section className="approvalInbox" aria-label="Approval inbox">
@@ -1328,23 +1396,41 @@ function ApprovalInbox({
         <div>
           <StatusPill tone={decision.tone}>{decision.label}</StatusPill>
           <h1>Approval Inbox</h1>
-          <p>{decision.detail}</p>
+          <p>{decision.detail} Each inbox item below contains the decision, available evidence and the next action.</p>
         </div>
-        <div className="inboxCounters" aria-label="Approval summary">
-          <span><strong>{bundle.diff.summary.file_count}</strong> changed</span>
-          <span><strong>{risks.length}</strong> risk notes</span>
-          <span><strong>{bundle.gates.gates.length}</strong> checks</span>
-          <span><strong>{requestUrl ? "1" : "0"}</strong> request</span>
+        <div className="inboxCounters inboxDecisionCards" aria-label="Approval summary">
+          <span><strong>{bundle.diff.summary.file_count ? "Review" : "Clear"}</strong> Scope</span>
+          <span><strong>{risks.length || bundle.diff.summary.privacy_review_required ? "Check" : "Clear"}</strong> Risk</span>
+          <span><strong>{checkReady ? "Ready" : "Needed"}</strong> Validation</span>
+          <span><strong>{requestUrl ? "Linked" : "Missing"}</strong> Human gate</span>
         </div>
       </div>
+
+      <section className="approvalBrief" aria-label="Approval decision brief">
+        <article>
+          <span>What is being approved?</span>
+          <strong>{changedScopeLabel(bundle)}</strong>
+          <p>{changedAreas.length ? `Touched areas: ${humanList(changedAreas)}.` : "No changed area is listed."}</p>
+        </article>
+        <article>
+          <span>What blocks approval?</span>
+          <strong>{missingItems.length ? `${missingItems.length} open requirement(s)` : "No blocker visible"}</strong>
+          <p>{missingItems.length ? `${humanList(missingItems)}. Resolve or consciously accept them before the final human decision.` : "The visible evidence is enough for the next human decision."}</p>
+        </article>
+        <article>
+          <span>Where is the final yes/no?</span>
+          <strong>{requestUrl ? "Review request" : "Not linked yet"}</strong>
+          <p>{approvalWorkspaceLabel(bundle.git)}. {approvalSharedCopyLabel(bundle.git)}</p>
+        </article>
+      </section>
 
       <div className="approvalQueue">
         <article className="approvalItem">
           <div className="approvalItemHeader">
             <span className="stageIndex">1</span>
             <div>
-              <h2>Changed content</h2>
-              <p>Decide whether the scope of this review is clear enough to approve.</p>
+              <h2>Scope to approve</h2>
+              <p>Confirm whether these changes belong in one approval request.</p>
             </div>
             <StatusPill tone={bundle.diff.summary.file_count ? "warn" : "good"}>
               {bundle.diff.summary.file_count ? "needs review" : "clear"}
@@ -1353,25 +1439,37 @@ function ApprovalInbox({
           <dl className="approvalFacts">
             <dt>Decision</dt>
             <dd>{bundle.diff.summary.file_count ? "Review whether these changes belong in one approval request." : "No changed content needs approval in this view."}</dd>
-            <dt>Primary items</dt>
+            <dt>Evidence</dt>
             <dd>{changedFileLine}</dd>
-            <dt>What to check</dt>
-            <dd>{changedAreas.length ? humanList(changedAreas) : "No changed content listed."}</dd>
+            <dt>Next</dt>
+            <dd>{bundle.diff.summary.file_count ? "Prepare the review packet, then inspect exact changes only when scope is unclear." : "Move to validation or the human gate."}</dd>
           </dl>
           <details className="approvalItemDetails">
-            <summary>Show changed items</summary>
+            <summary>See exact changed files</summary>
             <ul className="plainList compactList">
               {changedFiles.map((file) => (
                 <li key={`${file.status}-${file.path}`}>
-                  {file.path} · {changeStatusLabel(file.status || "changed")} · {file.additions} added / {file.deletions} removed
+                  {humanFileSummary(file)} · {file.additions} added / {file.deletions} removed
+                  <br />
+                  <code>{file.path}</code>
                 </li>
               ))}
               {bundle.diff.files.length > changedFiles.length && <li>{bundle.diff.files.length - changedFiles.length} more item(s) in exact evidence.</li>}
             </ul>
           </details>
           <div className="approvalItemActions">
-            {prAction && <ActionButton action={prAction} onRun={onRun} />}
-            {reviewAction && <ActionButton action={reviewAction} onRun={onRun} />}
+            {prAction && (
+              <button className="actionButton" onClick={() => onRun(prAction)} title={actionReason(prAction)}>
+                <Play size={16} />
+                <span>{approvalActionLabel(prAction.id)}</span>
+              </button>
+            )}
+            {reviewAction && (
+              <button className="secondaryButton" onClick={() => onRun(reviewAction)} title={actionReason(reviewAction)}>
+                <Search size={16} />
+                <span>{approvalActionLabel(reviewAction.id)}</span>
+              </button>
+            )}
           </div>
         </article>
 
@@ -1379,8 +1477,8 @@ function ApprovalInbox({
           <div className="approvalItemHeader">
             <span className="stageIndex">2</span>
             <div>
-              <h2>Risk and privacy</h2>
-              <p>Decide whether anything here blocks approval or public publication later.</p>
+              <h2>Approval blockers</h2>
+              <p>Check whether risk or privacy notes stop this from moving forward.</p>
             </div>
             <StatusPill tone={bundle.diff.summary.privacy_review_required || risks.length ? "warn" : "good"}>
               {bundle.diff.summary.privacy_review_required || risks.length ? "needs review" : "clear"}
@@ -1388,17 +1486,21 @@ function ApprovalInbox({
           </div>
           <dl className="approvalFacts">
             <dt>Decision</dt>
-            <dd>{bundle.diff.summary.privacy_review_required || risks.length ? "Inspect and resolve these notes before asking for approval." : "No privacy or risk blocker is visible."}</dd>
-            <dt>Risk notes</dt>
+            <dd>{bundle.diff.summary.privacy_review_required || risks.length ? "Resolve the listed blockers or call them out in the review request." : "No privacy or risk blocker is visible."}</dd>
+            <dt>Evidence</dt>
             <dd>{risks.length ? risks.map(riskHintLabel).join(", ") : "No explicit risk notes."}</dd>
-            <dt>Privacy</dt>
+            <dt>Next</dt>
             <dd>{bundle.diff.summary.privacy_review_required ? "Review required before approval." : "No privacy flag in the changed content."}</dd>
           </dl>
           <details className="approvalItemDetails">
-            <summary>Show files with risk notes</summary>
+            <summary>See files with risk notes</summary>
             <ul className="plainList compactList">
               {riskyFiles.map((file) => (
-                <li key={file.path}>{file.path} · {file.risk_hints.map(riskHintLabel).join(", ")}</li>
+                <li key={file.path}>
+                  {humanFileLabel(file)} · {file.risk_hints.map(riskHintLabel).join(", ")}
+                  <br />
+                  <code>{file.path}</code>
+                </li>
               ))}
               {riskyFiles.length === 0 && <li>No changed files carry explicit risk notes.</li>}
             </ul>
@@ -1409,21 +1511,21 @@ function ApprovalInbox({
           <div className="approvalItemHeader">
             <span className="stageIndex">3</span>
             <div>
-              <h2>Checks</h2>
-              <p>Decide whether automated validation is strong enough for a human review.</p>
+              <h2>Validation evidence</h2>
+              <p>Confirm that automated signals support the human decision.</p>
             </div>
             <StatusPill tone={checkTone}>{gateStatusLabel(bundle.gates.status)}</StatusPill>
           </div>
           <dl className="approvalFacts">
             <dt>Decision</dt>
             <dd>{checkReady ? "Automated validation is ready for human review." : "Run or inspect checks before approval."}</dd>
-            <dt>Available checks</dt>
+            <dt>Evidence</dt>
             <dd>{bundle.gates.gates.length} check(s): {humanList(checkLabels)}.</dd>
-            <dt>Checklist</dt>
+            <dt>Next</dt>
             <dd>{checks.filter((check) => check.ok).length}/{checks.length} approval checklist item(s) ready.</dd>
           </dl>
           <details className="approvalItemDetails">
-            <summary>Show approval checklist</summary>
+            <summary>See validation checklist</summary>
             <ul className="plainList compactList">
               {checks.map((check) => (
                 <li key={check.label}>{check.ok ? "Ready" : "Needs work"} · {check.label}</li>
@@ -1431,7 +1533,12 @@ function ApprovalInbox({
             </ul>
           </details>
           <div className="approvalItemActions">
-            {gateAction && <ActionButton action={gateAction} onRun={onRun} />}
+            {gateAction && (
+              <button className="actionButton" onClick={() => onRun(gateAction)} title={actionReason(gateAction)}>
+                <Play size={16} />
+                <span>{approvalActionLabel(gateAction.id)}</span>
+              </button>
+            )}
           </div>
         </article>
 
@@ -1439,8 +1546,8 @@ function ApprovalInbox({
           <div className="approvalItemHeader">
             <span className="stageIndex">4</span>
             <div>
-              <h2>Approval request</h2>
-              <p>Decide whether the request is ready for the final human decision.</p>
+              <h2>Human gate</h2>
+              <p>Confirm where the final approval, change request or rejection will happen.</p>
             </div>
             <StatusPill tone={requestUrl ? "info" : "warn"}>
               {requestUrl ? "linked" : "not opened"}
@@ -1449,9 +1556,9 @@ function ApprovalInbox({
           <dl className="approvalFacts">
             <dt>Decision</dt>
             <dd>{requestUrl ? "Use the linked request as the human gate." : "Open or link a request before final approval."}</dd>
-            <dt>Workspace</dt>
+            <dt>Evidence</dt>
             <dd>{approvalWorkspaceLabel(bundle.git)}</dd>
-            <dt>Shared copy</dt>
+            <dt>Next</dt>
             <dd>{approvalSharedCopyLabel(bundle.git)}</dd>
           </dl>
           <div className="approvalItemActions">
@@ -1742,7 +1849,7 @@ function ReviewView({
     <main className="workspace">
       <ApprovalInbox bundle={bundle} onRun={onRun} />
       <details className="reviewUtilityDetails">
-        <summary>Request editor and exact evidence</summary>
+        <summary>Advanced: request editor and exact evidence</summary>
         <PrHandoffPanel bundle={bundle} onWorkflow={onWorkflow} />
         <DiffFilmstrip bundle={bundle} />
         <SyncMainPanel bundle={bundle} onWorkflow={onWorkflow} />
@@ -2412,15 +2519,15 @@ function PagesView({ bundle, pageId }: { bundle: SnapshotBundle; pageId?: string
               </article>
             </div>
             <details className="auditDetails">
-              <summary>Open technical references</summary>
+              <summary>Source and file details</summary>
               <dl className="kv">
-                <dt>File address</dt>
+                <dt>Content address</dt>
                 <dd>{selected.path}</dd>
                 <dt>Approval state</dt>
                 <dd>{selected.approved_state || "not listed"}</dd>
                 <dt>Risk flags</dt>
                 <dd>{selected.risk_flags.length ? humanList(selected.risk_flags.map(riskHintLabel)) : "none listed"}</dd>
-                <dt>Evidence ids</dt>
+                <dt>Source references</dt>
                 <dd>{selected.source_refs.length ? selected.source_refs.join(", ") : "none listed"}</dd>
               </dl>
               <a className="externalLink" href={`/${selected.path}`} title="Open Markdown file">
