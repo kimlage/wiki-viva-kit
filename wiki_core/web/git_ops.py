@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -109,12 +110,44 @@ def _fetch_head_time(root: Path) -> str | None:
     return stamp.isoformat().replace("+00:00", "Z")
 
 
+def _gh_pr_metadata(root: Path, current_branch: str) -> dict[str, Any] | None:
+    if not current_branch:
+        return None
+    try:
+        proc = subprocess.run(
+            ["gh", "pr", "view", current_branch, "--json", "url,isDraft,state,mergeStateStatus"],
+            cwd=root,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=6,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if proc.returncode != 0 or not proc.stdout.strip():
+        return None
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
 def _human_gate_state(
-    *, current_branch: str, default_branch: str, branch_prefix: str, clean: bool
+    *, current_branch: str, default_branch: str, branch_prefix: str, clean: bool, pr_metadata: dict[str, Any] | None = None
 ) -> str:
     if current_branch == default_branch:
         return "approved" if clean else "blocked"
     if current_branch.startswith(branch_prefix):
+        if pr_metadata:
+            state = str(pr_metadata.get("state") or "").upper()
+            if state == "MERGED":
+                return "merged"
+            if state == "CLOSED":
+                return "blocked"
+            if pr_metadata.get("isDraft"):
+                return "draft"
+            return "ready_for_review"
         return "not_opened"
     return "blocked"
 
@@ -150,6 +183,7 @@ def build_git_state(root: Path, config: WikiConfig) -> dict[str, Any]:
         row["suggested_stage"] = bool(row["known_generated"] or current_branch.startswith(branch_prefix))
     clean = not changed
     is_proposal = current_branch.startswith(branch_prefix)
+    pr_metadata = _gh_pr_metadata(root, current_branch) if is_proposal else None
     return {
         "schema_version": WEB_GIT_SCHEMA_VERSION,
         "available": True,
@@ -167,12 +201,13 @@ def build_git_state(root: Path, config: WikiConfig) -> dict[str, Any]:
         "proposal": {
             "is_proposal_branch": is_proposal,
             "theme": current_branch[len(branch_prefix):] if is_proposal else "",
-            "draft_pr_url": None,
+            "draft_pr_url": str((pr_metadata or {}).get("url") or "") or None,
             "human_gate_state": _human_gate_state(
                 current_branch=current_branch,
                 default_branch=default_branch,
                 branch_prefix=branch_prefix,
                 clean=clean,
+                pr_metadata=pr_metadata,
             ),
         },
     }

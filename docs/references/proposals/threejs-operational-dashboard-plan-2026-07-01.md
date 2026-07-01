@@ -1355,6 +1355,10 @@ Implementation note, 2026-07-01:
   and `DEPLOYMENT.md` into a chosen output directory so Vercel/static or
   GCP/operator adapters can own their target-specific deploy without moving
   secrets or private snapshots into the public kit.
+- The Git read model now opportunistically reads the current branch Pull
+  Request through `gh pr view` when available, filling the PR URL and
+  `draft`/`ready_for_review`/`merged` human-gate state while preserving the
+  existing local-only fallback when GitHub metadata is unavailable.
 
 ## External implementation references
 
