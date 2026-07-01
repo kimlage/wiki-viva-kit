@@ -1432,6 +1432,15 @@ Implementation note, 2026-07-01:
   obey the same motion governor and performance tiers as the rest of the
   scene (off on compact, reduced on balanced).
 
+## Follow-up plan
+
+The navigation, page-cockpit and knowledge-galaxy sections of this plan are
+extended and partially superseded by the
+[3D-first navigation, perspectives and in-world reader plan](cockpit-3d-navigation-plan-2026-07-01.md)
+(2026-07-01), produced by a deep critical audit after the freshness radar
+shipped. The operator backend, safety model, review/ingestion flows and the
+honest-encoding invariants defined here remain authoritative.
+
 ## External implementation references
 
 These references guide implementation choices; they are not new project requirements.
