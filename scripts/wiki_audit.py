@@ -547,7 +547,8 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
         except (KeyError, ValueError):
             errors.append(f"{rel}: invalid updated_at or stale_after_days")
             continue
-        if updated_at + dt.timedelta(days=stale_after) < today:
+        stale_exempt = str(values.get("stale_exempt", "")).strip().lower() in {"true", "yes", "on", "1"}
+        if not stale_exempt and updated_at + dt.timedelta(days=stale_after) < today:
             warnings.append(f"{rel}: stale page")
 
         directory = ontology_dir_for(rel, config)

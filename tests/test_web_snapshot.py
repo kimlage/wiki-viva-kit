@@ -322,3 +322,19 @@ Conteudo sintetico para volume local.
     assert snapshot["freshness.json"]["by_context"]["financeiro"]["fresh"] == 18
     assert len(snapshot["sources.json"]["sources"]) == 18
     assert all(str(page["path"]).startswith("memorias/") for page in snapshot["pages.json"]["pages"])
+
+
+def test_freshness_state_honors_stale_exempt() -> None:
+    from wiki_core.web.snapshot import _freshness_state
+    import datetime as dt
+
+    today = dt.date(2026, 7, 1)
+    old_record = {"updated_at": "2025-03-01", "stale_after_days": "30"}
+    assert _freshness_state(old_record, today=today) == "stale"
+    # Evergreen records opt out of the freshness window entirely.
+    exempt_record = {**old_record, "stale_exempt": "true"}
+    assert _freshness_state(exempt_record, today=today) == "fresh"
+    exempt_bool = {**old_record, "stale_exempt": True}
+    assert _freshness_state(exempt_bool, today=today) == "fresh"
+    not_exempt = {**old_record, "stale_exempt": "false"}
+    assert _freshness_state(not_exempt, today=today) == "stale"

@@ -235,7 +235,7 @@ function CommandOutput({ result }: { result: CommandRunResult | null }) {
   const passedCount = result.results.filter((entry) => entry.ok).length;
   const failedCount = result.results.length - passedCount;
   return (
-    <section className="panel outputPanel">
+    <section className="panel outputPanel" id="actionResult">
       <div className="panelHeader">
         <h2>Action Result</h2>
         <StatusPill tone={result.ok ? "good" : "bad"}>{result.ok ? "completed" : "needs attention"}</StatusPill>
@@ -1180,7 +1180,7 @@ function HeroGlass({ bundle, rows }: { bundle: SnapshotBundle; rows: HeroRow[] }
   );
 }
 
-function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: ActionCard) => void }) {
+function OpsView({ bundle, onRun, onNotice }: { bundle: SnapshotBundle; onRun: (action: ActionCard) => void; onNotice?: (text: string) => void }) {
   const stale = bundle.freshness.summary.stale ?? 0;
   const changed = bundle.git.worktree.changed_files.length;
   const [search, setSearch] = useState("");
@@ -1200,6 +1200,8 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
     setSearch("");
     if (pages[0]) setSelectedPageId(pages[0].id);
     if (intent !== "browse") setReviewPageIds(pages.slice(0, 8).map((page) => page.id));
+    const copy = mapIntentCopy(intent, bundle);
+    onNotice?.(`Task set: ${copy.label} — ${pages.length} item(s) highlighted on the map.`);
   };
   const highlightedPageIds = useMemo(
     () => {
@@ -1221,16 +1223,14 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
       onClick: () => chooseMapIntent("review")
     });
   }
-  if (gateTone !== "good") {
+  const gateAction = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
+  if (gateTone !== "good" && gateAction) {
     heroRows.push({
       key: "checks",
       label: "Run the checks",
       detail: `Validation is ${gateStatusLabel(bundle.gates.status)}. Run it before relying on the wiki.`,
       tone: gateTone === "bad" ? "bad" : "warn",
-      onClick: () => {
-        const gateAction = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
-        if (gateAction) onRun(gateAction);
-      }
+      onClick: () => onRun(gateAction)
     });
   }
   if (stale > 0) {
@@ -2628,6 +2628,8 @@ export function App() {
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [route, setRoute] = useState(routeView());
   const [commandResult, setCommandResult] = useState<CommandRunResult | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ text: string; tone: "good" | "warn" | "info"; showResult: boolean } | null>(null);
 
   useEffect(() => {
     loadSnapshotBundle()
@@ -2641,10 +2643,32 @@ export function App() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // Transient notices auto-dismiss; the busy toast stays until the run ends.
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = window.setTimeout(() => setNotice(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
+  const scrollToResult = () => {
+    document.getElementById("actionResult")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const announceResult = (title: string, ok: boolean) => {
+    setNotice({ text: ok ? `${title}: completed` : `${title}: needs attention`, tone: ok ? "good" : "warn", showResult: true });
+    scrollToResult();
+  };
+
   const active = route.view === "pages" ? "pages" : route.view;
   const runAction = async (action: ActionCard) => {
+    if (busyAction) return;
+    const title = actionTitle(action);
+    setBusyAction(title);
+    setNotice(null);
     try {
-      setCommandResult(await runCockpitAction(action.id, action.default_dry_run));
+      const result = await runCockpitAction(action.id, action.default_dry_run);
+      setCommandResult(result);
+      announceResult(title, result.ok);
     } catch (error) {
       setCommandResult({
         ok: false,
@@ -2653,11 +2677,20 @@ export function App() {
         error: error instanceof Error ? error.message : "action failed",
         results: []
       });
+      announceResult(title, false);
+    } finally {
+      setBusyAction(null);
     }
   };
   const runWorkflow = async (operation: string, payload: Record<string, unknown> = {}, dryRun = true) => {
+    if (busyAction) return;
+    const title = operation.replaceAll("_", " ");
+    setBusyAction(title);
+    setNotice(null);
     try {
-      setCommandResult(await runGitWorkflow(operation, payload, dryRun));
+      const result = await runGitWorkflow(operation, payload, dryRun);
+      setCommandResult(result);
+      announceResult(title, result.ok);
     } catch (error) {
       setCommandResult({
         ok: false,
@@ -2668,8 +2701,12 @@ export function App() {
         data: {},
         results: []
       });
+      announceResult(title, false);
+    } finally {
+      setBusyAction(null);
     }
   };
+  const notify = (text: string) => setNotice({ text, tone: "info", showResult: false });
 
   const content = useMemo(() => {
     if (loadState.status === "loading") return <main className="workspace"><section className="panel"><h1>Loading cockpit</h1></section></main>;
@@ -2679,8 +2716,8 @@ export function App() {
     if (route.view === "sources") return <SourcesView bundle={bundle} onCommand={setCommandResult} />;
     if (route.view === "health") return <HealthView bundle={bundle} onRun={runAction} />;
     if (route.view === "pages") return <PagesView bundle={bundle} pageId={route.pageId} />;
-    if (route.view === "demo") return <OpsView bundle={bundle} onRun={runAction} />;
-    return <OpsView bundle={bundle} onRun={runAction} />;
+    if (route.view === "demo") return <OpsView bundle={bundle} onRun={runAction} onNotice={notify} />;
+    return <OpsView bundle={bundle} onRun={runAction} onNotice={notify} />;
   }, [loadState, route]);
 
   return (
@@ -2712,6 +2749,27 @@ export function App() {
         )}
         {content}
         <CommandOutput result={commandResult} />
+        {busyAction && (
+          <div className="actionToast running" role="status">
+            <span className="toastSpinner" aria-hidden />
+            <span>
+              Running <strong>{busyAction}</strong>… checks can take a minute.
+            </span>
+          </div>
+        )}
+        {!busyAction && notice && (
+          <div className={`actionToast tone-${notice.tone}`} role="status">
+            <span>{notice.text}</span>
+            {notice.showResult && (
+              <button onClick={scrollToResult} type="button">
+                View result
+              </button>
+            )}
+            <button className="toastClose" onClick={() => setNotice(null)} title="Dismiss" type="button">
+              ×
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -80,6 +80,10 @@ def _summary(body: str) -> str:
     return text[:260].rstrip()
 
 
+def _stale_exempt(values: dict[str, Any]) -> bool:
+    return str(values.get("stale_exempt", "")).strip().lower() in {"true", "yes", "on", "1"}
+
+
 def _freshness_state(values: dict[str, Any], *, today: dt.date | None = None) -> str:
     updated = str(values.get("updated_at") or values.get("date") or "").strip()
     if not updated:
@@ -88,6 +92,10 @@ def _freshness_state(values: dict[str, Any], *, today: dt.date | None = None) ->
         updated_date = dt.date.fromisoformat(updated[:10])
     except ValueError:
         return "unknown"
+    # Evergreen records (statements, closed events, historical snapshots)
+    # opt out of the freshness window: verified once, they do not decay.
+    if _stale_exempt(values):
+        return "fresh"
     try:
         window = int(values.get("stale_after_days") or 0)
     except (TypeError, ValueError):

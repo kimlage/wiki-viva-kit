@@ -108,6 +108,89 @@ button {
   gap: 18px;
 }
 
+.actionToast {
+  position: fixed;
+  z-index: 60;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 40px));
+  padding: 11px 14px;
+  border: 1px solid #31414a;
+  border-radius: 10px;
+  background: rgba(10, 16, 20, 0.95);
+  backdrop-filter: blur(12px);
+  color: #dbe7ee;
+  font-size: 13px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.actionToast.running {
+  border-color: rgba(107, 215, 255, 0.4);
+}
+
+.actionToast.tone-good {
+  border-color: rgba(94, 230, 168, 0.45);
+}
+
+.actionToast.tone-warn {
+  border-color: rgba(255, 180, 84, 0.5);
+}
+
+.actionToast strong {
+  color: #eef7fb;
+}
+
+.actionToast button {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: #a8e3ff;
+  background: transparent;
+  border: 1px solid #2b3f4b;
+  border-radius: 6px;
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.actionToast button:hover {
+  border-color: #3d5560;
+  color: #eef7fb;
+}
+
+.actionToast .toastClose {
+  border: none;
+  color: #93a4b1;
+  font-size: 15px;
+  padding: 0 4px;
+}
+
+.toastSpinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid rgba(107, 215, 255, 0.25);
+  border-top-color: #6bd7ff;
+  animation: toastSpin 0.9s linear infinite;
+}
+
+@keyframes toastSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toastSpinner {
+    animation: none;
+    border-top-color: #6bd7ff;
+  }
+}
+
 .demoBanner {
   display: flex;
   align-items: center;
