@@ -546,6 +546,11 @@ The web cockpit is local-first. Static mode reads generated JSON only. Operator
 mode runs on localhost and executes only allowlisted actions; it is not an
 arbitrary shell.
 
+The frontend reads `apps/wiki-cockpit/public/wiki-cockpit.config.json` at
+runtime. `api_base`, `snapshot_base`, `repo_label` and `mode` let the same build
+run as localhost operator, static read-only review or future controlled operator
+adapter without recompiling.
+
 ### [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) - web snapshot
 
 Generates the JSON read model consumed by the Vite/React + Three.js cockpit:

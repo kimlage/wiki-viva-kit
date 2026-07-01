@@ -48,6 +48,27 @@ npm test
 npm run build
 ```
 
+## Runtime config
+
+The app loads `/wiki-cockpit.config.json` at runtime:
+
+```json
+{
+  "api_base": "/api",
+  "snapshot_base": "",
+  "repo_label": "",
+  "mode": "local_operator"
+}
+```
+
+- `api_base`: operator API base URL. Use `/api` for local Vite proxy or a
+  trusted Cloud Run operator adapter.
+- `snapshot_base`: optional static snapshot base URL. When empty, the app tries
+  `${api_base}/snapshot` and then bundled sample data.
+- `repo_label`: optional display label for hosted review surfaces.
+- `mode`: display/runtime mode label such as `static`, `local_operator` or
+  `github_connected`.
+
 The static build can be hosted later with a configured snapshot URL or bundled
 sample/open data. Vercel should be treated as static/read-only unless a separate
 trusted operator runner exists. GCP/Cloud Run can host a controlled operator

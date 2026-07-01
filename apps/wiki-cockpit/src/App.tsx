@@ -21,13 +21,14 @@ import { useEffect, useMemo, useState } from "react";
 import { SystemScene } from "./components/SystemScene";
 import { gitGateLabel, pageById, qualityFlagCount, reviewChecklist, topActions } from "./data/model";
 import { buildIngestionPlan, loadSnapshotBundle, runCockpitAction, runGitWorkflow, runIngestionStep } from "./data/snapshot";
+import type { RuntimeConfig } from "./data/runtimeConfig";
 import type { ActionCard, CommandRunResult, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceTriageResult } from "./types";
 import "./styles.css";
 
 type LoadState =
   | { status: "loading" }
   | { status: "error"; error: string }
-  | { status: "ready"; bundle: SnapshotBundle; source: string };
+  | { status: "ready"; bundle: SnapshotBundle; source: string; runtime: RuntimeConfig };
 
 function routeView(): { view: "ops" | "review" | "health" | "sources" | "pages"; pageId?: string } {
   const path = window.location.pathname;
@@ -680,7 +681,7 @@ export function App() {
 
   useEffect(() => {
     loadSnapshotBundle()
-      .then(({ bundle, source }) => setLoadState({ status: "ready", bundle, source }))
+      .then(({ bundle, source, runtime }) => setLoadState({ status: "ready", bundle, source, runtime }))
       .catch((error: Error) => setLoadState({ status: "error", error: error.message }));
   }, []);
 
@@ -738,7 +739,11 @@ export function App() {
         <header className="topBar">
           <div>
             <strong>Wiki Viva Cockpit</strong>
-            {loadState.status === "ready" && <span>{loadState.bundle.manifest.repo.repo_id} · {loadState.source}</span>}
+            {loadState.status === "ready" && (
+              <span>
+                {loadState.runtime.repoLabel || loadState.bundle.manifest.repo.repo_id} · {loadState.runtime.mode || loadState.bundle.manifest.mode} · {loadState.source}
+              </span>
+            )}
           </div>
           {loadState.status === "ready" && (
             <StatusPill tone={loadState.bundle.git.proposal.is_proposal_branch ? "warn" : "good"}>

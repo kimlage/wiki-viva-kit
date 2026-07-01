@@ -101,6 +101,7 @@ is the context that explains how the wiki itself works:
 | Page | Covers |
 | --- | --- |
 | [Default open-source process](docs/references/guides/default-open-source-process.md) | Complete default model: entities, ingestion, gates and PR flow |
+| [Web cockpit deployment adapters](docs/references/guides/web-cockpit-deployment.md) | Runtime config plus Vercel read-only and GCP controlled-operator examples |
 | [Root entity](memories/system/wiki-viva-kit.md) | Semantic top page for this kit and its integral quadrants |
 | [Input stage](memories/system/input-stage.md) | Generated catalog of root entity, channels, source configs and target pages |
 | [Meta-wiki index](memories/system/wiki/index.md) | Map of all documentation |

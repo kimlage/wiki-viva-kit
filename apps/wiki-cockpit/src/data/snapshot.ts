@@ -1,4 +1,6 @@
 import type { IngestionPlan, IngestionStepResult, SnapshotBundle, SourceTriageResult, WorkflowRunResult } from "../types";
+import type { RuntimeConfig } from "./runtimeConfig";
+import { apiUrl, loadRuntimeConfig } from "./runtimeConfig";
 
 const FILES = {
   manifest: "manifest.json",
@@ -33,13 +35,16 @@ async function loadFromBase(base: string): Promise<SnapshotBundle> {
   return Object.fromEntries(entries) as SnapshotBundle;
 }
 
-export async function loadSnapshotBundle(): Promise<{ bundle: SnapshotBundle; source: string }> {
+export async function loadSnapshotBundle(): Promise<{ bundle: SnapshotBundle; source: string; runtime: RuntimeConfig }> {
   const configured = import.meta.env.VITE_WIKI_SNAPSHOT_BASE as string | undefined;
-  const bases = configured ? [configured, "/api/snapshot", SAMPLE_BASE] : ["/api/snapshot", SAMPLE_BASE];
+  const runtime = await loadRuntimeConfig();
+  const runtimeBase = runtime.snapshotBase || "";
+  const apiBase = `${runtime.apiBase}/snapshot`;
+  const bases = [configured, runtimeBase, apiBase, SAMPLE_BASE].filter((base): base is string => Boolean(base));
   let lastError: unknown = null;
   for (const base of bases) {
     try {
-      return { bundle: await loadFromBase(base), source: base };
+      return { bundle: await loadFromBase(base), source: base, runtime };
     } catch (error) {
       lastError = error;
     }
@@ -51,7 +56,7 @@ export async function runCockpitAction(
   actionId: string,
   dryRun?: boolean
 ): Promise<import("../types").ActionRunResult> {
-  const response = await fetch("/api/actions/run", {
+  const response = await fetch(await apiUrl("/actions/run"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ action_id: actionId, dry_run: dryRun })
@@ -68,7 +73,7 @@ export async function runGitWorkflow(
   payload: Record<string, unknown> = {},
   dryRun = true
 ): Promise<WorkflowRunResult> {
-  const response = await fetch("/api/git/workflow", {
+  const response = await fetch(await apiUrl("/git/workflow"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ...payload, operation, dry_run: dryRun })
@@ -81,7 +86,7 @@ export async function runGitWorkflow(
 }
 
 export async function triageSource(source: string, context?: string): Promise<SourceTriageResult> {
-  const response = await fetch("/api/sources/triage", {
+  const response = await fetch(await apiUrl("/sources/triage"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ source, context })
@@ -94,7 +99,7 @@ export async function triageSource(source: string, context?: string): Promise<So
 }
 
 export async function buildIngestionPlan(source: string, context?: string): Promise<IngestionPlan> {
-  const response = await fetch("/api/ingestion/plan", {
+  const response = await fetch(await apiUrl("/ingestion/plan"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ source, context })
@@ -112,7 +117,7 @@ export async function runIngestionStep(
   stepId: string,
   dryRun = true
 ): Promise<IngestionStepResult> {
-  const response = await fetch("/api/ingestion/run", {
+  const response = await fetch(await apiUrl("/ingestion/run"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ source, context, step_id: stepId, dry_run: dryRun })

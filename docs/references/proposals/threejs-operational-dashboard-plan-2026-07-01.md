@@ -1309,6 +1309,9 @@ Implementation note, 2026-07-01:
 - Hosted deployment remains adapter work: Vercel is static/read-only by default;
   a future GCP/Cloud Run operator runner must keep credentials private and still
   write through branch/PR workflows.
+- The frontend now reads `wiki-cockpit.config.json` at runtime (`api_base`,
+  `snapshot_base`, `repo_label`, `mode`) and the deployment guide documents
+  Vercel static review plus a controlled GCP Cloud Run operator adapter boundary.
 
 ## External implementation references
 

@@ -14,6 +14,15 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-01] System | Web cockpit runtime config supports deploy adapters
+
+- The web cockpit now reads `wiki-cockpit.config.json` at runtime, separating
+  `api_base`, `snapshot_base`, `repo_label` and `mode` from the compiled React
+  bundle.
+- [web-cockpit-deployment.md](../../docs/references/guides/web-cockpit-deployment.md)
+  documents Vercel as static/read-only and GCP Cloud Run as a future controlled
+  operator adapter that must still write through proposal branches and PRs.
+
 ## [2026-07-01] System | Source inbox gains ingestion wizard pipeline
 
 - The `/sources` cockpit view now builds a local ingestion plan after source
