@@ -210,7 +210,9 @@ const bundle: SnapshotBundle = {
 };
 
 vi.mock("./components/SystemScene", () => ({
-  SystemScene: () => <div data-testid="scene-fallback">Scene fallback</div>
+  SystemScene: ({ children }: { children?: import("react").ReactNode }) => (
+    <div data-testid="scene-fallback">{children}</div>
+  )
 }));
 
 vi.mock("./data/snapshot", () => ({

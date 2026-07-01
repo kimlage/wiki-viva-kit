@@ -1,8 +1,12 @@
+import { configurePresentation } from "./presentation";
+import type { PresentationOverrides } from "./presentation";
+
 export type RuntimeConfig = {
   apiBase: string;
   snapshotBase: string;
   repoLabel: string;
   mode: string;
+  presentation: PresentationOverrides;
 };
 
 type RawRuntimeConfig = {
@@ -10,13 +14,17 @@ type RawRuntimeConfig = {
   snapshot_base?: string;
   repo_label?: string;
   mode?: string;
+  page_types?: PresentationOverrides["page_types"];
+  contexts?: PresentationOverrides["contexts"];
+  trust_colors?: PresentationOverrides["trust_colors"];
 };
 
 const DEFAULT_CONFIG: RuntimeConfig = {
   apiBase: "/api",
   snapshotBase: "",
   repoLabel: "",
-  mode: "local_operator"
+  mode: "local_operator",
+  presentation: {}
 };
 
 let runtimeConfigPromise: Promise<RuntimeConfig> | null = null;
@@ -30,7 +38,12 @@ function normalize(raw: RawRuntimeConfig): RuntimeConfig {
     apiBase: cleanBase(raw.api_base) || DEFAULT_CONFIG.apiBase,
     snapshotBase: cleanBase(raw.snapshot_base),
     repoLabel: String(raw.repo_label || "").trim(),
-    mode: String(raw.mode || DEFAULT_CONFIG.mode).trim() || DEFAULT_CONFIG.mode
+    mode: String(raw.mode || DEFAULT_CONFIG.mode).trim() || DEFAULT_CONFIG.mode,
+    presentation: {
+      page_types: raw.page_types || {},
+      contexts: raw.contexts || {},
+      trust_colors: raw.trust_colors || {}
+    }
   };
 }
 
@@ -41,7 +54,11 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
         if (!response.ok) return DEFAULT_CONFIG;
         return normalize((await response.json()) as RawRuntimeConfig);
       })
-      .catch(() => DEFAULT_CONFIG);
+      .catch(() => DEFAULT_CONFIG)
+      .then((config) => {
+        configurePresentation(config.presentation);
+        return config;
+      });
   }
   return runtimeConfigPromise;
 }

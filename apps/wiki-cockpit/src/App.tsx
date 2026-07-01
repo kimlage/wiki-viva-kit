@@ -1,6 +1,5 @@
 import {
   Activity,
-  BadgeCheck,
   CheckCircle2,
   CircleAlert,
   Clock3,
@@ -21,6 +20,7 @@ import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { SystemScene } from "./components/SystemScene";
 import { gitGateLabel, pageById, qualityFlagCount, reviewChecklist, topActions } from "./data/model";
+import { contextLabel, pageTypeLabel } from "./data/presentation";
 import { buildIngestionPlan, loadSnapshotBundle, runCockpitAction, runGitWorkflow, runIngestionStep } from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
 import type { ActionCard, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult, TimelineEvent } from "./types";
@@ -497,16 +497,7 @@ function freshnessLabel(state: string): string {
 }
 
 function contentKindLabel(kind: string): string {
-  const labels: Record<string, string> = {
-    root_index: "home overview",
-    context_hub: "area overview",
-    operational_rule: "operating guide",
-    source: "evidence source",
-    source_catalog: "source library",
-    dashboard: "dashboard",
-    proposal: "review draft"
-  };
-  return labels[kind] || kind.replaceAll("_", " ") || "content";
+  return pageTypeLabel(kind);
 }
 
 function pageStatusTone(page: PageRecord): "good" | "warn" | "bad" | "info" | "muted" {
@@ -517,7 +508,7 @@ function pageStatusTone(page: PageRecord): "good" | "warn" | "bad" | "info" | "m
 }
 
 function pageMetaLabel(page: PageRecord): string {
-  return `${page.context || "No area"} · ${contentKindLabel(page.page_type)} · ${freshnessLabel(page.freshness_state)}`;
+  return `${page.context ? contextLabel(page.context) : "No area"} · ${contentKindLabel(page.page_type)} · ${freshnessLabel(page.freshness_state)}`;
 }
 
 function evidenceLabel(page: PageRecord): string {
@@ -1140,9 +1131,57 @@ function KnowledgeExplorer({
   );
 }
 
+type HeroRow = {
+  key: string;
+  label: string;
+  detail: string;
+  tone: "good" | "warn" | "bad" | "info" | "muted";
+  onClick: () => void;
+};
+
+function HeroGlass({ bundle, rows }: { bundle: SnapshotBundle; rows: HeroRow[] }) {
+  // On narrow screens the map gets the fold; the attention card starts folded.
+  const [collapsed, setCollapsed] = useState(
+    () => typeof window !== "undefined" && Boolean(window.matchMedia?.("(max-width: 900px)").matches)
+  );
+  if (collapsed) {
+    return (
+      <button className="heroGlass collapsed" onClick={() => setCollapsed(false)} title="Show what needs attention" type="button">
+        <StatusPill tone={bundle.git.proposal.is_proposal_branch ? "warn" : "good"}>{rows.filter((row) => row.tone !== "good").length || "ok"}</StatusPill>
+        <span>Start here</span>
+      </button>
+    );
+  }
+  return (
+    <div className="heroGlass" role="region" aria-label="Start here">
+      <div className="heroGlassHead">
+        <StatusPill tone={bundle.git.proposal.is_proposal_branch ? "warn" : "good"}>{gitGateLabel(bundle.git)}</StatusPill>
+        <button className="heroGlassCollapse" onClick={() => setCollapsed(true)} title="Collapse" type="button">
+          ‹
+        </button>
+      </div>
+      <h1>What needs attention?</h1>
+      <p className="heroGlassMeta">
+        {bundle.operations.title} · {bundle.manifest.repo.repo_id} · updated {updatedLabel(bundle.manifest.generated_at)}
+      </p>
+      <div className="heroDoNow" aria-label="Start here">
+        {rows.slice(0, 3).map((row, index) => (
+          <button className="heroDoNowRow" key={row.key} onClick={row.onClick} type="button">
+            <span className="stageIndex">{index + 1}</span>
+            <span className="heroDoNowCopy">
+              <strong>{row.label}</strong>
+              <small>{row.detail}</small>
+            </span>
+            <StatusPill tone={row.tone}>{row.tone === "good" ? "clear" : "do now"}</StatusPill>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: ActionCard) => void }) {
   const stale = bundle.freshness.summary.stale ?? 0;
-  const fresh = bundle.freshness.summary.fresh ?? 0;
   const changed = bundle.git.worktree.changed_files.length;
   const [search, setSearch] = useState("");
   const [selectedPageId, setSelectedPageId] = useState(bundle.pages.pages[0]?.id || "");
@@ -1171,28 +1210,70 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
     },
     [bundle.pages.pages, intentPages, reviewPages, search]
   );
+  const gateTone = gateStatusTone(bundle.gates.status);
+  const heroRows: HeroRow[] = [];
+  if (changed > 0) {
+    heroRows.push({
+      key: "review",
+      label: "Approve a change",
+      detail: `${changed} changed item(s) are waiting for a human decision.`,
+      tone: "warn",
+      onClick: () => chooseMapIntent("review")
+    });
+  }
+  if (gateTone !== "good") {
+    heroRows.push({
+      key: "checks",
+      label: "Run the checks",
+      detail: `Validation is ${gateStatusLabel(bundle.gates.status)}. Run it before relying on the wiki.`,
+      tone: gateTone === "bad" ? "bad" : "warn",
+      onClick: () => {
+        const gateAction = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
+        if (gateAction) onRun(gateAction);
+      }
+    });
+  }
+  if (stale > 0) {
+    heroRows.push({
+      key: "stale",
+      label: "Update old content",
+      detail: `${stale} item(s) passed their freshness window.`,
+      tone: "warn",
+      onClick: () => chooseMapIntent("stale")
+    });
+  }
+  if (heroRows.length === 0) {
+    heroRows.push({
+      key: "browse",
+      label: "All clear — explore the wiki",
+      detail: "No blocker is visible. Browse content or add a new source.",
+      tone: "good",
+      onClick: () => chooseMapIntent("browse")
+    });
+  }
+  const intentOptions = MAP_INTENTS.map((intentId) => {
+    const copy = mapIntentCopy(intentId, bundle);
+    return { id: intentId, label: copy.label, count: copy.count };
+  });
   return (
     <main className="workspace">
-      <section className="heroBand">
-        <div className="heroCopy">
-          <StatusPill tone={bundle.git.proposal.is_proposal_branch ? "warn" : "good"}>{gitGateLabel(bundle.git)}</StatusPill>
-          <h1>What needs attention?</h1>
-          <p>{bundle.operations.title} · {bundle.manifest.repo.repo_id} · updated {updatedLabel(bundle.manifest.generated_at)}</p>
-        </div>
+      <section className="radarHero" aria-label="Operations radar">
         <SystemScene
           nodes={bundle.graph.nodes}
+          edges={bundle.graph.edges}
           git={bundle.git}
           selectedPageId={selectedPageId}
           highlightedPageIds={highlightedPageIds}
           intent={{ label: activeMapIntent.label, detail: activeMapIntent.detail, count: activeMapIntent.count }}
+          intentOptions={intentOptions}
+          snapshotAt={bundle.manifest.generated_at}
+          activityLevel={bundle.timeline.bands.last_7_days || 0}
           onNodeSelect={setSelectedPageId}
-        />
-      </section>
-      <section className="statGrid" aria-label="Operational summary">
-        <Stat icon={<BadgeCheck size={18} />} label="Up to date" value={fresh} tone="good" />
-        <Stat icon={<Clock3 size={18} />} label="Needs refresh" value={stale} tone={stale ? "warn" : "good"} />
-        <Stat icon={<GitBranch size={18} />} label="Workspace" value={workspaceDisplayLabel(bundle.git)} tone={bundle.git.proposal.is_proposal_branch ? "warn" : "info"} />
-        <Stat icon={<ListChecks size={18} />} label="Review items" value={changed} tone={changed ? "warn" : "good"} />
+          onIntentChange={(intentId) => chooseMapIntent(intentId as MapIntentId)}
+          onAddToPacket={toggleReviewPage}
+        >
+          <HeroGlass bundle={bundle} rows={heroRows} />
+        </SystemScene>
       </section>
       <MapIntentPanel bundle={bundle} activeIntent={mapIntent} onChoose={chooseMapIntent} onSelect={setSelectedPageId} />
       <KnowledgeExplorer
@@ -2621,6 +2702,14 @@ export function App() {
             </StatusPill>
           )}
         </header>
+        {loadState.status === "ready" && (loadState.runtime.mode === "static_demo" || loadState.bundle.manifest.mode === "static_demo") && (
+          <div className="demoBanner" role="note">
+            <Sparkles size={15} />
+            <span>
+              Interface demo with synthetic sample data. Run the cockpit against a real checkout to operate your own wiki here.
+            </span>
+          </div>
+        )}
         {content}
         <CommandOutput result={commandResult} />
       </div>

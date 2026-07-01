@@ -1384,6 +1384,53 @@ Implementation note, 2026-07-01:
   review workspace, evidence links, content warnings and refresh needs first;
   commands, branch names and low-level refs remain available only as progressive
   audit detail where they help reproduce the decision.
+- The knowledge map is now information-dense with practical encodings: typed
+  graph edges are rendered (navigation, evidence, reference, PR impact,
+  ingestion chain), node shape maps to content kind (source crystal, decision
+  diamond, task comet, rule slab, event spark, hub, sphere), color maps to
+  trust state, risk flags draw halo rings, context orbits carry labeled count
+  pills, the selected page shows a floating label plus its real `moc_parent`
+  route, and a "Map key" legend reports live counts for every encoding. The 2D
+  fallback mirrors the same counts. Layout uses a golden-angle spiral per
+  context with per-context orbit radii so dense repos stay legible.
+- Presentation is modular per implementation: `src/data/presentation.ts` owns
+  page-type labels/shapes/accents, context labels/accents and trust colors,
+  with runtime overrides read from `wiki-cockpit.config.json` (`page_types`,
+  `contexts`, `trust_colors`). Unknown localized page types degrade to readable
+  defaults, keeping downstream repos free to define their own templates and
+  visual language without forking the cockpit.
+- `/ops` is decision-first above the fold: the hero pairs a ranked "start
+  here" stack (approve changes, run checks, refresh stale content) and compact
+  operational stats with the map, and the 3D canvas is height-bounded (fixing a
+  resize feedback loop that could grow the page unbounded on desktop widths).
+- The bundled sample snapshot is now a dense synthetic example wiki (five
+  contexts, evidence chains, drafts, stale and risk states) that exercises the
+  full interface, and demo mode shows a persistent banner separating interface
+  examples from a real checkout's wiki; the boundary is documented in
+  `apps/wiki-cockpit/README.md`.
+- After an owner review judged the first knowledge-galaxy scene uninformative,
+  the map was rebuilt as a **freshness radar** through a multi-lens design
+  critique: angle = context wedge (sqrt-weighted, rim pills with status dot
+  counts), radius = time-until-stale with an amber deadline arc per wedge,
+  height = draft changes floating on stems, color = trust with inverted
+  salience (healthy content dim, stale/draft/risk glowing via additive canvas
+  sprites — no postprocessing dependency), shape = three legible super-families,
+  and always-on annotated labels for the attention set ("8d overdue",
+  "draft change", risk flags). The canvas is full-bleed with a thin intent bar
+  (task selector + gate chip), a bottom status strip whose trust chips filter
+  the scene, hover tooltips, a dismissable selection card and a collapsible
+  glass "start here" panel. Ambient motion (root breathing, stale pulses)
+  runs only when the tab is visible and reduced motion is off; the 2D fallback
+  renders a deterministic SVG plan view of the same worker-computed layout, so
+  `?visual=1` baselines pin the real geometry.
+- The radar gained data-bound particle simulation (`src/scene/particles.ts`):
+  a core aura whose density tracks last-7-days activity, provenance sparks
+  traveling the evidence/ingestion/review arcs (intensified on the selected
+  node), amber embers rising from overdue pages (reach scales with how overdue
+  they are) and purple sparks climbing draft stems. Particles are analytic
+  functions of elapsed time — seeded, deterministic, no physics state — and
+  obey the same motion governor and performance tiers as the rest of the
+  scene (off on compact, reduced on balanced).
 
 ## External implementation references
 

@@ -108,12 +108,17 @@ button {
   gap: 18px;
 }
 
-.heroBand {
-  display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.4fr);
-  gap: 18px;
-  min-height: 360px;
-  align-items: stretch;
+.demoBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 22px -6px;
+  padding: 8px 12px;
+  border: 1px dashed #4b3f63;
+  border-radius: 8px;
+  background: rgba(92, 62, 133, 0.16);
+  color: #cdbfe8;
+  font-size: 13px;
 }
 
 .heroCopy,
@@ -126,12 +131,45 @@ button {
   border-radius: 8px;
 }
 
-.heroCopy {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 14px;
+.heroDoNow {
+  display: grid;
+  gap: 8px;
+}
+
+.heroDoNowRow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #2b3941;
+  border-radius: 8px;
+  background: #0f1518;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.heroDoNowRow:hover,
+.heroDoNowRow:focus {
+  background: #182126;
+  border-color: #3d5560;
+}
+
+.heroDoNowCopy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.heroDoNowCopy strong {
+  font-size: 14px;
+  color: #eef7fb;
+}
+
+.heroDoNowCopy small {
+  color: #9aa7b4;
+  line-height: 1.35;
 }
 
 h1,
@@ -175,19 +213,555 @@ code {
 
 .sceneShell {
   position: relative;
-  min-height: 360px;
+  height: clamp(380px, 48vh, 540px);
   border: 1px solid #27343b;
   border-radius: 8px;
   overflow: hidden;
   background: #0b1117;
 }
 
+.sceneCanvasFrame {
+  position: absolute;
+  inset: 40px 0 32px;
+}
+
+/* Radar shell: full-bleed command view with thin HUD bars. */
+.radarShell {
+  height: clamp(480px, 58vh, 680px);
+  background: #05090e;
+  border-color: #1c2934;
+  box-shadow: inset 0 0 80px rgba(20, 60, 90, 0.18);
+}
+
+.radarShell.fallbackMode {
+  height: auto;
+  min-height: 320px;
+}
+
+.radarShell .sceneCanvasFrame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 35%, rgba(30, 60, 80, 0.2), transparent 65%);
+}
+
+.radarIntentBar {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  background: rgba(8, 13, 17, 0.82);
+  border-bottom: 1px solid rgba(107, 215, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.intentSelect select {
+  font: inherit;
+  font-weight: 800;
+  font-size: 13px;
+  color: #eef7fb;
+  background: transparent;
+  border: 1px solid #2b3f4b;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.intentSelect select:hover {
+  border-color: #3d5560;
+}
+
+.intentSelect option {
+  background: #0c1215;
+}
+
+.radarIntentBar .intentDetail {
+  color: #93a4b1;
+  font-size: 12px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gateChip {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+  max-width: 42vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gateChip.proposal {
+  color: #dcb8ff;
+  border-color: rgba(197, 124, 255, 0.5);
+  background: rgba(197, 124, 255, 0.12);
+}
+
+.gateChip.approved {
+  color: #a8e3ff;
+  border-color: rgba(107, 215, 255, 0.5);
+  background: rgba(107, 215, 255, 0.1);
+}
+
+.radarStatusStrip {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: rgba(8, 13, 17, 0.82);
+  border-top: 1px solid rgba(107, 215, 255, 0.1);
+  backdrop-filter: blur(10px);
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.stripLabel {
+  flex: none;
+  color: #7e8d99;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.stripChip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  font-size: 12px;
+  color: #c3cfd8;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+
+button.stripChip {
+  cursor: pointer;
+  border-color: #253442;
+}
+
+button.stripChip:hover {
+  border-color: #33454f;
+  color: #eef7fb;
+}
+
+.stripChip.active {
+  border-color: #6bd7ff;
+  color: #eef7fb;
+  background: rgba(107, 215, 255, 0.1);
+}
+
+.stripChip i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+
+.stripChip.keyChip {
+  margin-left: auto;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 11px;
+  color: #94a2ad;
+}
+
+.radarKeyPopover {
+  position: absolute;
+  right: 10px;
+  bottom: 38px;
+  width: min(340px, calc(100vw - 60px));
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #31414a;
+  border-radius: 10px;
+  background: rgba(10, 16, 20, 0.96);
+  backdrop-filter: blur(12px);
+  font-size: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.radarKeyPopover span {
+  display: block;
+  color: #7e8d99;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 3px;
+}
+
+.radarKeyPopover p {
+  margin: 0;
+  color: #c3cfd8;
+  line-height: 1.45;
+}
+
+.radarKeyPopover ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.radarKeyPopover li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #c3cfd8;
+}
+
+.radarKeyPopover i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.heroGlass {
+  position: absolute;
+  z-index: 6;
+  top: 52px;
+  left: 14px;
+  width: min(380px, calc(100% - 28px));
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid rgba(107, 215, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(10, 16, 20, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.heroGlass h1 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.heroGlassMeta {
+  margin: 0;
+  font-size: 12px;
+  color: #93a4b1;
+}
+
+.heroGlassHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.heroGlassCollapse {
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: #93a4b1;
+  background: transparent;
+  border: 1px solid #2b3f4b;
+  border-radius: 6px;
+  padding: 2px 9px;
+  cursor: pointer;
+}
+
+.heroGlassCollapse:hover {
+  color: #eef7fb;
+  border-color: #3d5560;
+}
+
+.heroGlass.collapsed {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #c3cfd8;
+  font: inherit;
+  font-weight: 700;
+}
+
+.fallbackMode .heroGlass {
+  position: static;
+  width: auto;
+  margin: 14px 14px 0;
+}
+
+@media (max-width: 900px) {
+  .radarShell:not(.fallbackMode) {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .radarShell:not(.fallbackMode) .radarIntentBar {
+    position: static;
+    order: 0;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+
+  .radarShell:not(.fallbackMode) .heroGlass {
+    position: static;
+    order: 1;
+    width: auto;
+    margin: 12px;
+  }
+
+  .radarShell:not(.fallbackMode) .sceneCanvasFrame {
+    position: relative;
+    order: 2;
+    inset: auto;
+    height: 340px;
+  }
+
+  .radarShell:not(.fallbackMode) .radarSelectedCard {
+    position: static;
+    order: 3;
+    width: auto;
+    margin: 0 12px 8px;
+  }
+
+  .radarShell:not(.fallbackMode) .radarStatusStrip {
+    position: static;
+    order: 4;
+    height: auto;
+    min-height: 32px;
+    flex-wrap: wrap;
+    padding: 6px 12px;
+  }
+
+  .radarKeyPopover {
+    bottom: auto;
+    top: auto;
+    position: static;
+    width: auto;
+    margin-top: 6px;
+  }
+}
+
+.radarSelectedCard {
+  position: absolute;
+  z-index: 6;
+  right: 14px;
+  bottom: 44px;
+  width: min(300px, calc(100% - 28px));
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid #31414a;
+  border-radius: 10px;
+  background: rgba(10, 16, 20, 0.92);
+  backdrop-filter: blur(12px);
+}
+
+.radarSelectedHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.radarSelectedHead span {
+  color: #94a2ad;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.radarSelectedHead button {
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: #93a4b1;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.radarSelectedCard strong {
+  color: #eef7fb;
+  overflow-wrap: anywhere;
+}
+
+.radarSelectedCard p {
+  margin: 0;
+  font-size: 12px;
+  color: #aab7c1;
+}
+
+.radarSelectedActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.radarSelectedActions a {
+  color: #6bd7ff;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.radarSelectedActions button {
+  font: inherit;
+  font-size: 12px;
+  color: #c3cfd8;
+  background: transparent;
+  border: 1px solid #2b3f4b;
+  border-radius: 6px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+
+.radarSelectedActions button:hover {
+  color: #eef7fb;
+  border-color: #3d5560;
+}
+
+.radarTooltip {
+  position: absolute;
+  z-index: 7;
+  display: grid;
+  gap: 2px;
+  max-width: 280px;
+  padding: 8px 11px;
+  border: 1px solid #3d5560;
+  border-radius: 8px;
+  background: rgba(8, 13, 17, 0.95);
+  pointer-events: none;
+  font-size: 12px;
+  color: #aab7c1;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.radarTooltip strong {
+  color: #eef7fb;
+  font-size: 13px;
+}
+
+.radarTooltip .tooltipRisk {
+  color: #ff9daa;
+}
+
+.radarLabel span {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: rgba(5, 9, 14, 0.78);
+  border: 1px solid rgba(107, 215, 255, 0.1);
+  font-size: 13px;
+  color: #dbe7ee;
+  white-space: nowrap;
+}
+
+.radarLabel strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #eef7fb;
+}
+
+.radarLabel em {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.radarDeadlineCaption span {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px dashed rgba(255, 180, 84, 0.5);
+  background: rgba(5, 9, 14, 0.7);
+  color: #ffcf94;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.radarLabel.selected span {
+  border-color: rgba(223, 248, 255, 0.55);
+  box-shadow: 0 0 12px rgba(107, 215, 255, 0.25);
+}
+
+.radarRimPill button {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  font: inherit;
+  padding: 5px 12px;
+  border: 1px solid;
+  border-radius: 999px;
+  background: rgba(8, 13, 17, 0.85);
+  color: #dbe7ee;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.radarRimPill strong {
+  font-size: 13px;
+}
+
+.radarRimPill small {
+  color: #93a4b1;
+  font-size: 11px;
+}
+
+.radarRimPill .rimDots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.radarRimPill .rimDots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.fallbackPlan {
+  width: min(420px, 100%);
+  margin: 0 auto;
+  display: block;
+}
+
+.planContextLabel {
+  fill: #93a4b1;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .sceneFallback {
-  min-height: 360px;
+  height: 100%;
+  min-height: 280px;
   padding: 22px;
   display: grid;
   align-content: center;
   gap: 18px;
+  overflow: auto;
 }
 
 .sceneIntentBadge {
@@ -292,47 +866,6 @@ code {
   border-color: #3b4650;
 }
 
-.sceneProof {
-  position: absolute;
-  left: 14px;
-  bottom: 14px;
-  max-width: min(420px, calc(100% - 28px));
-  display: grid;
-  gap: 5px;
-  padding: 10px 12px;
-  border: 1px solid #31414a;
-  border-radius: 8px;
-  background: rgba(12, 18, 21, 0.86);
-  backdrop-filter: blur(10px);
-}
-
-.sceneProof strong,
-.sceneProof span,
-.sceneProof p,
-.sceneProof a,
-.sceneProof small {
-  overflow-wrap: anywhere;
-}
-
-.sceneProof span {
-  color: #94a2ad;
-  font-size: 12px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.sceneProof p,
-.sceneProof small {
-  margin: 0;
-  color: #aab7c1;
-}
-
-.sceneProof a {
-  width: fit-content;
-  color: #6bd7ff;
-  font-weight: 800;
-}
-
 .sceneTechnicalDetails {
   margin-top: 3px;
   padding: 8px;
@@ -346,6 +879,34 @@ code {
 .sceneTechnicalDetails code {
   width: fit-content;
   max-width: 100%;
+}
+
+.sceneHtmlLabel {
+  pointer-events: none;
+}
+
+.fallbackCensus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fallbackCensus span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid #2b3941;
+  border-radius: 999px;
+  background: #0f1518;
+  color: #c3cfd8;
+  font-size: 12px;
+}
+
+.fallbackCensus i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
 }
 
 .statGrid {
@@ -2108,18 +2669,14 @@ pre {
     overflow-wrap: anywhere;
   }
 
-  .heroBand {
-    min-height: unset;
-  }
-
   .sceneShell {
+    height: auto;
     min-height: 280px;
   }
 
-  .sceneProof {
-    position: static;
-    max-width: none;
-    margin: 10px;
+  .sceneCanvasFrame {
+    position: relative;
+    height: 300px;
   }
 
   .sceneShell > .sceneIntentBadge {

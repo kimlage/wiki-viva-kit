@@ -1,84 +1,177 @@
 {
-  "bands": {
-    "last_30_days": 1,
-    "last_7_days": 4,
-    "older": 0,
-    "undated": 0
+ "bands": {
+  "last_30_days": 3,
+  "last_7_days": 9,
+  "older": 1,
+  "undated": 0
+ },
+ "events": [
+  {
+   "commit": "",
+   "context": "system",
+   "id": "snapshot-generated",
+   "kind": "snapshot",
+   "label": "Snapshot generated",
+   "path": "",
+   "status": "not_opened",
+   "timestamp": "2026-07-01T00:00:00Z",
+   "weight": 1
   },
-  "events": [
-    {
-      "commit": "",
-      "context": "system",
-      "id": "snapshot-generated",
-      "kind": "snapshot",
-      "label": "Snapshot generated",
-      "path": "",
-      "status": "not_opened",
-      "timestamp": "2026-07-01T00:00:00Z",
-      "weight": 1
-    },
-    {
-      "commit": "abc123def456",
-      "context": "git",
-      "id": "git-abc123def456",
-      "kind": "git_commit",
-      "label": "refine local cockpit git operations",
-      "path": "",
-      "status": "committed",
-      "timestamp": "2026-07-01T00:00:00Z",
-      "weight": 2
-    },
-    {
-      "commit": "",
-      "context": "system",
-      "id": "page-sample-approval-governance",
-      "kind": "page_updated",
-      "label": "Approval Governance",
-      "path": "memories/system/wiki/pr-governance.md",
-      "status": "fresh",
-      "timestamp": "2026-07-01T00:00:00Z",
-      "weight": 2
-    },
-    {
-      "commit": "",
-      "context": "system",
-      "id": "operations-updated",
-      "kind": "operations_updated",
-      "label": "Operations",
-      "path": "memories/operations.md",
-      "status": "fresh",
-      "timestamp": "2026-07-01T00:00:00Z",
-      "weight": 3
-    },
-    {
-      "commit": "",
-      "context": "example",
-      "id": "page-sample-example-hub",
-      "kind": "page_updated",
-      "label": "Example Context",
-      "path": "memories/example/index.md",
-      "status": "stale",
-      "timestamp": "2026-06-20T00:00:00Z",
-      "weight": 1
-    }
-  ],
-  "generated_at": "2026-07-01T00:00:00Z",
-  "repo_id": "wiki-viva-kit-sample",
-  "schema_version": "wiki_web_timeline.v1",
-  "summary": {
-    "by_context": {
-      "example": 1,
-      "git": 1,
-      "system": 3
-    },
-    "by_kind": {
-      "git_commit": 1,
-      "operations_updated": 1,
-      "page_updated": 2,
-      "snapshot": 1
-    },
-    "event_count": 5,
-    "first_at": "2026-06-20T00:00:00Z",
-    "last_at": "2026-07-01T00:00:00Z"
+  {
+   "commit": "abc123def456",
+   "context": "git",
+   "id": "git-abc123def456",
+   "kind": "git_commit",
+   "label": "refine local cockpit git operations",
+   "path": "",
+   "status": "committed",
+   "timestamp": "2026-07-01T00:00:00Z",
+   "weight": 2
+  },
+  {
+   "commit": "",
+   "context": "system",
+   "id": "page-sample-approval-governance",
+   "kind": "page_updated",
+   "label": "Approval Governance",
+   "path": "memories/system/wiki/pr-governance.md",
+   "status": "fresh",
+   "timestamp": "2026-07-01T00:00:00Z",
+   "weight": 2
+  },
+  {
+   "commit": "",
+   "context": "system",
+   "id": "operations-updated",
+   "kind": "operations_updated",
+   "label": "Operations",
+   "path": "memories/operations.md",
+   "status": "fresh",
+   "timestamp": "2026-07-01T00:00:00Z",
+   "weight": 3
+  },
+  {
+   "commit": "",
+   "context": "product",
+   "id": "page-sample-metrics",
+   "kind": "page_updated",
+   "label": "Usage Metrics Export",
+   "path": "memories/sources/usage-metrics-2026-06.md",
+   "status": "fresh",
+   "timestamp": "2026-06-30T09:00:00Z",
+   "weight": 2
+  },
+  {
+   "commit": "",
+   "context": "finance",
+   "id": "source-market-report",
+   "kind": "source_ingested",
+   "label": "Market Cost Report 2026",
+   "path": "memories/sources/market-cost-report-2026.md",
+   "status": "fresh",
+   "timestamp": "2026-06-29T14:00:00Z",
+   "weight": 3
+  },
+  {
+   "commit": "",
+   "context": "system",
+   "id": "event-market-report",
+   "kind": "page_updated",
+   "label": "Market Report Ingestion",
+   "path": "memories/system/ingestion/events/2026-06-29-market-report.md",
+   "status": "fresh",
+   "timestamp": "2026-06-29T15:00:00Z",
+   "weight": 2
+  },
+  {
+   "commit": "",
+   "context": "research",
+   "id": "meeting-research-sync",
+   "kind": "page_updated",
+   "label": "Research Sync 2026-06-28",
+   "path": "memories/meetings/2026-06-28-research-sync.md",
+   "status": "fresh",
+   "timestamp": "2026-06-28T17:00:00Z",
+   "weight": 1
+  },
+  {
+   "commit": "",
+   "context": "system",
+   "id": "gate-run-audit",
+   "kind": "gate_run",
+   "label": "Honesty gates passed",
+   "path": "",
+   "status": "pass",
+   "timestamp": "2026-06-28T09:00:00Z",
+   "weight": 2
+  },
+  {
+   "commit": "",
+   "context": "product",
+   "id": "page-onboarding-journal",
+   "kind": "page_updated",
+   "label": "Onboarding Redesign Journal",
+   "path": "memories/product/onboarding-journal.md",
+   "status": "fresh",
+   "timestamp": "2026-06-27T11:00:00Z",
+   "weight": 1
+  },
+  {
+   "commit": "",
+   "context": "research",
+   "id": "source-interviews",
+   "kind": "source_ingested",
+   "label": "Customer Interview Notes",
+   "path": "memories/sources/customer-interviews-2026-06.md",
+   "status": "fresh",
+   "timestamp": "2026-06-26T10:00:00Z",
+   "weight": 2
+  },
+  {
+   "commit": "",
+   "context": "example",
+   "id": "page-example-hub",
+   "kind": "page_updated",
+   "label": "Example Context",
+   "path": "memories/example/index.md",
+   "status": "stale",
+   "timestamp": "2026-06-20T08:00:00Z",
+   "weight": 1
+  },
+  {
+   "commit": "",
+   "context": "finance",
+   "id": "page-budget",
+   "kind": "page_updated",
+   "label": "Budget 2026",
+   "path": "memories/finance/budget-2026.md",
+   "status": "stale",
+   "timestamp": "2026-05-15T08:00:00Z",
+   "weight": 1
   }
+ ],
+ "generated_at": "2026-07-01T00:00:00Z",
+ "repo_id": "wiki-viva-kit-sample",
+ "schema_version": "wiki_web_timeline.v1",
+ "summary": {
+  "by_context": {
+   "example": 1,
+   "finance": 2,
+   "git": 1,
+   "product": 2,
+   "research": 2,
+   "system": 5
+  },
+  "by_kind": {
+   "gate_run": 1,
+   "git_commit": 1,
+   "operations_updated": 1,
+   "page_updated": 7,
+   "snapshot": 1,
+   "source_ingested": 2
+  },
+  "event_count": 13,
+  "first_at": "2026-05-15T08:00:00Z",
+  "last_at": "2026-07-01T00:00:00Z"
+ }
 }

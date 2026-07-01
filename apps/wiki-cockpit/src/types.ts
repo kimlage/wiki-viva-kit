@@ -86,6 +86,8 @@ export type GraphNode = {
   freshness_state: FreshnessState;
   approved_state: string;
   risk_flags: string[];
+  updated_at?: string;
+  stale_after_days?: string;
   metrics: {
     inbound_links: number;
     outbound_links: number;

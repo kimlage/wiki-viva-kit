@@ -44,10 +44,12 @@ async function loadFromBase(base: string): Promise<SnapshotBundle> {
 
 export async function loadSnapshotBundle(): Promise<{ bundle: SnapshotBundle; source: string; runtime: RuntimeConfig }> {
   if (demoModeRequested()) {
+    // Load the runtime config anyway so presentation overrides still apply to demo data.
+    const demoRuntime = await loadRuntimeConfig();
     return {
       bundle: await loadFromBase(SAMPLE_BASE),
       source: SAMPLE_BASE,
-      runtime: { apiBase: "", snapshotBase: SAMPLE_BASE, repoLabel: "wiki-viva-kit demo", mode: "static_demo" }
+      runtime: { ...demoRuntime, apiBase: "", snapshotBase: SAMPLE_BASE, repoLabel: "wiki-viva-kit demo", mode: "static_demo" }
     };
   }
   const configured = import.meta.env.VITE_WIKI_SNAPSHOT_BASE as string | undefined;
