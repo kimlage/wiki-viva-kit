@@ -181,6 +181,62 @@ code {
   background: #0b1117;
 }
 
+.sceneFallback {
+  min-height: 360px;
+  padding: 22px;
+  display: grid;
+  align-content: center;
+  gap: 18px;
+}
+
+.fallbackCore {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid #33505f;
+  border-radius: 8px;
+  background: #111b20;
+}
+
+.fallbackCore strong {
+  font-size: 18px;
+}
+
+.fallbackCore span {
+  color: #aebbc5;
+  overflow-wrap: anywhere;
+}
+
+.fallbackNodeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.fallbackNode {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid #2b3941;
+  border-radius: 8px;
+  background: #0f1518;
+  color: #dce7ee;
+  overflow-wrap: anywhere;
+}
+
+.node-fresh {
+  border-color: #2d604b;
+}
+
+.node-stale {
+  border-color: #6e5126;
+}
+
+.node-unknown {
+  border-color: #3b4650;
+}
+
 .statGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

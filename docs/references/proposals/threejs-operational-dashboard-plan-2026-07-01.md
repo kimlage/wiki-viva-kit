@@ -1318,6 +1318,9 @@ Implementation note, 2026-07-01:
 - The frontend test suite now includes a DOM route contract smoke test for
   `/ops`, `/review`, `/sources`, `/health` and `/pages/:id`, mocking the 3D scene
   to verify the 2D textual fallback and core route affordances.
+- `SystemScene` now detects missing WebGL or reduced-motion preference and
+  renders a stable 2D fallback with branch state and node freshness instead of
+  forcing a canvas.
 
 ## External implementation references
 

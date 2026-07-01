@@ -1,6 +1,6 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { GraphNode, GitState } from "../types";
 
@@ -11,6 +11,25 @@ const COLORS = {
   proposal: "#c57cff",
   root: "#6bd7ff"
 };
+
+export function canUseWebGL(): boolean {
+  if (typeof document === "undefined") return false;
+  const canvas = document.createElement("canvas");
+  try {
+    return Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl"));
+  } catch {
+    return false;
+  }
+}
+
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined" || !window.matchMedia) return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function shouldUseFallback(): boolean {
+  return prefersReducedMotion() || !canUseWebGL();
+}
 
 function NodeOrb({ node, index, total }: { node: GraphNode; index: number; total: number }) {
   const ref = useRef<THREE.Mesh>(null);
@@ -71,12 +90,45 @@ function SceneContent({ nodes, git }: { nodes: GraphNode[]; git: GitState }) {
   );
 }
 
+function SceneFallback({ nodes, git }: { nodes: GraphNode[]; git: GitState }) {
+  const visibleNodes = nodes.slice(0, 8);
+  return (
+    <div className="sceneFallback" aria-label="Operational 2D wiki state">
+      <div className="fallbackCore">
+        <strong>{git.proposal.is_proposal_branch ? "Proposal branch" : "Approved branch"}</strong>
+        <span>{git.current_branch || git.default_branch}</span>
+      </div>
+      <div className="fallbackNodeGrid">
+        {visibleNodes.map((node) => (
+          <span className={`fallbackNode node-${node.freshness_state}`} key={`${node.id}-${node.path}`}>
+            {node.title}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function SystemScene({ nodes, git }: { nodes: GraphNode[]; git: GitState }) {
+  const [fallback, setFallback] = useState(shouldUseFallback);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setFallback(shouldUseFallback());
+    update();
+    media.addEventListener?.("change", update);
+    return () => media.removeEventListener?.("change", update);
+  }, []);
+
   return (
     <div className="sceneShell" aria-label="Operational 3D wiki state">
-      <Canvas camera={{ position: [0, 2.6, 5.3], fov: 46 }} dpr={[1, 1.75]}>
-        <SceneContent nodes={nodes} git={git} />
-      </Canvas>
+      {fallback ? (
+        <SceneFallback nodes={nodes} git={git} />
+      ) : (
+        <Canvas camera={{ position: [0, 2.6, 5.3], fov: 46 }} dpr={[1, 1.75]}>
+          <SceneContent nodes={nodes} git={git} />
+        </Canvas>
+      )}
     </div>
   );
 }

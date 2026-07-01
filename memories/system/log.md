@@ -21,6 +21,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
   scene mocked as a textual fallback.
 - This gives the route layout and 2D evidence surfaces regression coverage
   before adding heavier screenshot-based visual tests.
+- `SystemScene` itself now falls back to a 2D branch/node freshness panel when
+  WebGL is unavailable or reduced-motion is requested.
 
 ## [2026-07-01] System | Web snapshot carries downstream context metadata
 
