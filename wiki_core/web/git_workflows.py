@@ -208,6 +208,21 @@ def run_git_workflow(
         )
         return _ok_response(operation, dry_run=dry_run, summary=f"Open draft PR for {current_branch}", results=[result], data={"branch": current_branch, "base": default_branch})
 
+    if operation == "update_draft_pr":
+        if not current_branch.startswith(prefix):
+            return _error(operation, "current branch is not a proposal branch", dry_run=dry_run)
+        title = str(payload.get("title") or current_branch).strip()
+        body = str(payload.get("body") or "Updated by Wiki Viva cockpit.").strip()
+        if len(title) < 4:
+            return _error(operation, "PR title is too short", dry_run=dry_run)
+        result = _run(
+            root,
+            ["gh", "pr", "edit", current_branch, "--title", title, "--body", body],
+            dry_run=dry_run,
+            timeout_seconds=180,
+        )
+        return _ok_response(operation, dry_run=dry_run, summary=f"Update draft PR for {current_branch}", results=[result], data={"branch": current_branch})
+
     if operation == "sync_main":
         if current_branch != default_branch:
             return _error(operation, "checkout must be on the approved branch before syncing main", dry_run=dry_run)

@@ -681,6 +681,161 @@ function splitPathInput(value: string): string[] {
     .filter(Boolean);
 }
 
+function prHandoffTitle(bundle: SnapshotBundle): string {
+  const theme = bundle.git.proposal.theme || bundle.git.current_branch || bundle.manifest.repo.repo_id;
+  return `Review ${theme}`;
+}
+
+function prHandoffBody(bundle: SnapshotBundle): string {
+  const files = bundle.diff.files.slice(0, 20);
+  const changedLines = files.length
+    ? files.map((file) => `- ${file.path} (${file.status || "changed"}, +${file.additions}/-${file.deletions}, ${file.category})`)
+    : ["- No changed files in the current snapshot."];
+  const gateLines = bundle.gates.gates.length
+    ? bundle.gates.gates.map((gate) => `- [ ] ${gate.argv.join(" ")}`)
+    : ["- [ ] No machine gates listed in the current snapshot."];
+  const riskHints = [...new Set(files.flatMap((file) => file.risk_hints))];
+  return [
+    "## Summary",
+    `- Branch: ${bundle.git.current_branch || "unknown"}`,
+    `- Base: ${bundle.diff.compare.base_ref || bundle.git.default_branch}`,
+    `- Files: ${bundle.diff.summary.file_count} total, ${bundle.diff.summary.branch_file_count} branch, ${bundle.diff.summary.working_tree_file_count} local`,
+    `- Privacy review: ${bundle.diff.summary.privacy_review_required ? "required" : "not flagged"}`,
+    `- Risk hints: ${riskHints.length ? riskHints.join(", ") : "none"}`,
+    "",
+    "## Changed Files",
+    ...changedLines,
+    "",
+    "## Machine Gates",
+    ...gateLines,
+    "",
+    "## Human Gate Checklist",
+    "- [ ] Conceptual review completed by a human",
+    "- [ ] Privacy/publication boundary checked",
+    "- [ ] Markdown diff inspected",
+    "- [ ] No merge from the cockpit"
+  ].join("\n");
+}
+
+function gateStepTone(status: string): "good" | "warn" | "bad" | "info" | "muted" {
+  if (["ready", "published", "linked", "clean"].includes(status)) return "good";
+  if (["blocked", "outside_flow"].includes(status)) return "bad";
+  if (["needs_publish", "dirty", "not_run", "not_opened"].includes(status)) return "warn";
+  return "info";
+}
+
+function prGateSteps(bundle: SnapshotBundle): { label: string; status: string; detail: string }[] {
+  const git = bundle.git;
+  const published = Boolean(git.upstream.name) && git.upstream.ahead === 0;
+  return [
+    {
+      label: "Proposal branch",
+      status: git.proposal.is_proposal_branch ? "ready" : git.current_branch === git.default_branch ? "approved" : "outside_flow",
+      detail: git.current_branch || "no branch"
+    },
+    {
+      label: "Publish",
+      status: published ? "published" : git.proposal.is_proposal_branch ? "needs_publish" : "blocked",
+      detail: git.upstream.name || git.upstream.remote || "no upstream"
+    },
+    {
+      label: "Worktree",
+      status: git.worktree.clean ? "clean" : "dirty",
+      detail: `${git.worktree.changed_files.length} changed file(s)`
+    },
+    {
+      label: "Machine gates",
+      status: bundle.gates.status,
+      detail: `${bundle.gates.gates.length} gate command(s)`
+    },
+    {
+      label: "Draft PR",
+      status: git.proposal.draft_pr_url ? "linked" : git.proposal.human_gate_state || "not_opened",
+      detail: git.proposal.draft_pr_url || "not linked in snapshot"
+    },
+    {
+      label: "Human review",
+      status: git.proposal.human_gate_state,
+      detail: "GitHub Pull Request gate"
+    }
+  ];
+}
+
+function PrHandoffPanel({
+  bundle,
+  onWorkflow
+}: {
+  bundle: SnapshotBundle;
+  onWorkflow: (operation: string, payload?: Record<string, unknown>, dryRun?: boolean) => void;
+}) {
+  const generatedTitle = useMemo(() => prHandoffTitle(bundle), [bundle]);
+  const generatedBody = useMemo(() => prHandoffBody(bundle), [bundle]);
+  const steps = useMemo(() => prGateSteps(bundle), [bundle]);
+  const [title, setTitle] = useState(generatedTitle);
+  const [body, setBody] = useState(generatedBody);
+  const [execute, setExecute] = useState(false);
+  const dryRun = !execute;
+  const resetGenerated = () => {
+    setTitle(generatedTitle);
+    setBody(generatedBody);
+  };
+
+  return (
+    <section className="panel prHandoffPanel">
+      <div className="panelHeader">
+        <h2>PR Handoff</h2>
+        <label className="toggleControl">
+          <input type="checkbox" checked={execute} onChange={(event) => setExecute(event.target.checked)} />
+          <span>Execute remote writes</span>
+        </label>
+      </div>
+      <div className="gateTrack" aria-label="Pull Request human gate state">
+        {steps.map((step) => (
+          <article className={`gateStep gateStep-${gateStepTone(step.status)}`} key={step.label}>
+            <strong>{step.label}</strong>
+            <StatusPill tone={gateStepTone(step.status)}>{step.status}</StatusPill>
+            <span>{step.detail}</span>
+          </article>
+        ))}
+      </div>
+      <div className="handoffGrid">
+        <label className="field">
+          <span>PR title</span>
+          <input value={title} onChange={(event) => setTitle(event.target.value)} />
+        </label>
+        <button className="secondaryButton" onClick={resetGenerated} title="Regenerate the local PR handoff body from the current snapshot">
+          <RefreshCw size={16} />
+          <span>Regenerate</span>
+        </button>
+        <label className="field wide">
+          <span>Draft PR body</span>
+          <textarea className="handoffBody" value={body} onChange={(event) => setBody(event.target.value)} rows={13} />
+        </label>
+        {bundle.git.proposal.draft_pr_url && (
+          <a className="secondaryButton wide" href={bundle.git.proposal.draft_pr_url} title="Open GitHub Pull Request">
+            <ExternalLink size={16} />
+            <span>Open PR</span>
+          </a>
+        )}
+        <div className="buttonCluster wide">
+          <button className="secondaryButton" onClick={() => onWorkflow("publish_proposal", {}, dryRun)} title="Push the current proposal branch">
+            <RefreshCw size={16} />
+            <span>Publish Branch</span>
+          </button>
+          <button className="secondaryButton" onClick={() => onWorkflow("open_draft_pr", { title, body }, dryRun)} title="Create a draft GitHub Pull Request">
+            <GitPullRequest size={16} />
+            <span>Open Draft PR</span>
+          </button>
+          <button className="secondaryButton" onClick={() => onWorkflow("update_draft_pr", { title, body }, dryRun)} title="Update the current branch Pull Request body">
+            <FileText size={16} />
+            <span>Update Draft PR</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function GitWorkflowPanel({
   bundle,
   onWorkflow
@@ -806,6 +961,7 @@ function ReviewView({
         </div>
         {prAction && <ActionButton action={prAction} onRun={onRun} />}
       </section>
+      <PrHandoffPanel bundle={bundle} onWorkflow={onWorkflow} />
       <GitWorkflowPanel bundle={bundle} onWorkflow={onWorkflow} />
       <DiffFilmstrip bundle={bundle} />
       <section className="panel">

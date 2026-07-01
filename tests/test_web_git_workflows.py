@@ -72,3 +72,16 @@ def test_stage_commit_and_pr_workflows_are_scoped_to_proposal_branch(tmp_path: P
     assert pr["ok"] is True
     assert pr["results"][0]["argv"][:4] == ["gh", "pr", "create", "--draft"]
     assert pr["data"]["base"] == "main"
+
+    update = run_git_workflow(tmp_path, config, "update_draft_pr", {"title": "System Threejs", "body": "Updated body"}, dry_run=True)
+    assert update["ok"] is True
+    assert update["results"][0]["argv"] == [
+        "gh",
+        "pr",
+        "edit",
+        "wiki/system-threejs",
+        "--title",
+        "System Threejs",
+        "--body",
+        "Updated body",
+    ]

@@ -1346,6 +1346,10 @@ Implementation note, 2026-07-01:
   set, groups selected pages by review context, counts stale/source-ref pressure
   and emits a human-readable review handoff for the Pull Request gate without
   writing outside the repo.
+- `/review` now exposes a PR Handoff panel with an explicit Pull Request gate
+  state track, generated draft PR title/body from local diff/gates/privacy
+  hints, dry-run-first publish/open/update controls and a new allowlisted
+  `update_draft_pr` workflow backed by `gh pr edit`.
 
 ## External implementation references
 

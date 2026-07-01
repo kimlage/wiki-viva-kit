@@ -33,7 +33,8 @@ Vite proxies `/api` to `http://127.0.0.1:8765`. The Python server exposes:
 
 - `/api/snapshot/*.json` for the deterministic read model;
 - `/api/actions/run` for allowlisted fixed checks and derived writes;
-- `/api/git/workflow` for proposal-branch workflows, dry-run by default;
+- `/api/git/workflow` for proposal-branch workflows and draft PR
+  open/update handoff, dry-run by default;
 - `/api/sources/triage` for local source pre-triage before ingestion.
 - `/api/ingestion/plan` and `/api/ingestion/run` for the source ingestion
   wizard, including proposal preview, ingest dry-run and LLM request handoff.
