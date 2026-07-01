@@ -190,6 +190,44 @@ code {
   gap: 18px;
 }
 
+.sceneIntentBadge {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+  max-width: min(360px, calc(100% - 28px));
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #31414a;
+  border-radius: 8px;
+  background: rgba(12, 18, 21, 0.86);
+  backdrop-filter: blur(10px);
+}
+
+.sceneFallback .sceneIntentBadge {
+  position: static;
+  max-width: none;
+}
+
+.sceneIntentBadge span {
+  color: #94a2ad;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sceneIntentBadge strong {
+  color: #eef7fb;
+}
+
+.sceneIntentBadge p {
+  margin: 0;
+  color: #aab7c1;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
 .fallbackCore {
   display: grid;
   gap: 6px;
@@ -270,16 +308,42 @@ code {
 
 .sceneProof strong,
 .sceneProof span,
+.sceneProof p,
+.sceneProof a,
 .sceneProof small {
   overflow-wrap: anywhere;
 }
 
-.sceneProof span,
+.sceneProof span {
+  color: #94a2ad;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sceneProof p,
 .sceneProof small {
+  margin: 0;
   color: #aab7c1;
 }
 
-.sceneProof code {
+.sceneProof a {
+  width: fit-content;
+  color: #6bd7ff;
+  font-weight: 800;
+}
+
+.sceneTechnicalDetails {
+  margin-top: 3px;
+  padding: 8px;
+}
+
+.sceneTechnicalDetails summary {
+  color: #dff4ff;
+  font-weight: 800;
+}
+
+.sceneTechnicalDetails code {
   width: fit-content;
   max-width: 100%;
 }
@@ -1851,6 +1915,12 @@ pre {
   }
 
   .sceneProof {
+    position: static;
+    max-width: none;
+    margin: 10px;
+  }
+
+  .sceneShell > .sceneIntentBadge {
     position: static;
     max-width: none;
     margin: 10px;

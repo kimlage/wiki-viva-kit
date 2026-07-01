@@ -967,6 +967,7 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
   const [mapIntent, setMapIntent] = useState<MapIntentId>("review");
   const reviewPages = useMemo(() => pagesFromIds(bundle.pages.pages, reviewPageIds), [bundle.pages.pages, reviewPageIds]);
   const intentPages = useMemo(() => pagesForMapIntent(bundle, mapIntent), [bundle, mapIntent]);
+  const activeMapIntent = useMemo(() => mapIntentCopy(mapIntent, bundle), [bundle, mapIntent]);
   const toggleReviewPage = (id: string) => {
     setReviewPageIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   };
@@ -995,7 +996,14 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
           <h1>What needs attention?</h1>
           <p>{bundle.operations.title} · {bundle.manifest.repo.repo_id} · updated {updatedLabel(bundle.manifest.generated_at)}</p>
         </div>
-        <SystemScene nodes={bundle.graph.nodes} git={bundle.git} selectedPageId={selectedPageId} highlightedPageIds={highlightedPageIds} onNodeSelect={setSelectedPageId} />
+        <SystemScene
+          nodes={bundle.graph.nodes}
+          git={bundle.git}
+          selectedPageId={selectedPageId}
+          highlightedPageIds={highlightedPageIds}
+          intent={{ label: activeMapIntent.label, detail: activeMapIntent.detail, count: activeMapIntent.count }}
+          onNodeSelect={setSelectedPageId}
+        />
       </section>
       <section className="statGrid" aria-label="Operational summary">
         <Stat icon={<BadgeCheck size={18} />} label="Up to date" value={fresh} tone="good" />

@@ -38,10 +38,12 @@ describe("SystemScene fallback", () => {
   it("uses the 2D fallback when WebGL is unavailable", () => {
     expect(canUseWebGL()).toBe(false);
 
-    render(<SystemScene nodes={nodes} git={git} />);
+    render(<SystemScene nodes={nodes} git={git} highlightedPageIds={["root"]} intent={{ label: "Inspect evidence", detail: "Use the map to verify selected content.", count: 1 }} />);
 
     expect(screen.getByLabelText("Content map")).toBeTruthy();
     expect(screen.getByText("Draft change")).toBeTruthy();
+    expect(screen.getByText("Inspect evidence")).toBeTruthy();
+    expect(screen.getByText("1 highlighted")).toBeTruthy();
     expect(screen.getByText("Root")).toBeTruthy();
   });
 });

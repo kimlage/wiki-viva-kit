@@ -60,6 +60,12 @@ function workspaceLabel(git: GitState): string {
   return "current workspace";
 }
 
+type SceneIntent = {
+  label: string;
+  detail: string;
+  count: number;
+};
+
 function viewportSnapshot() {
   if (typeof window === "undefined") {
     return { width: 1200, pixelRatio: 1, hardwareConcurrency: 4, reducedMotion: false };
@@ -304,12 +310,14 @@ function SceneFallback({
   git,
   selectedPageId,
   highlightedIds,
+  intent,
   onNodeSelect
 }: {
   nodes: GraphNode[];
   git: GitState;
   selectedPageId: string;
   highlightedIds: Set<string>;
+  intent: SceneIntent;
   onNodeSelect?: (nodeId: string) => void;
 }) {
   const visibleNodes = nodes.slice(0, 8);
@@ -319,6 +327,7 @@ function SceneFallback({
         <strong>{git.proposal.is_proposal_branch ? "Draft change" : "Approved content"}</strong>
         <span>{workspaceLabel(git)}</span>
       </div>
+      <SceneIntentBadge intent={intent} />
       <div className="fallbackNodeGrid">
         {visibleNodes.map((node) => (
           <button
@@ -335,14 +344,29 @@ function SceneFallback({
   );
 }
 
+function SceneIntentBadge({ intent }: { intent: SceneIntent }) {
+  return (
+    <div className="sceneIntentBadge" aria-label="Current map task">
+      <span>{intent.count} highlighted</span>
+      <strong>{intent.label}</strong>
+      <p>{intent.detail}</p>
+    </div>
+  );
+}
+
 function SceneProof({ node, layout, profile }: { node: LayoutNode | null; layout: GalaxyLayout; profile: ScenePerformanceProfile }) {
   if (!node) return null;
   return (
     <div className="sceneProof" aria-live="polite">
+      <span>Selected content</span>
       <strong>{node.title}</strong>
-      <span>{node.context} · {contentKindLabel(node.page_type)} · {freshnessLabel(node.freshness_state)}</span>
-      <code>{node.path}</code>
-      <small>{profile.label} · {layout.nodes.length} nodes{layout.truncated ? ` · ${layout.truncated} hidden` : ""}</small>
+      <p>{node.context} · {contentKindLabel(node.page_type)} · {freshnessLabel(node.freshness_state)}</p>
+      <a href={`/pages/${encodeURIComponent(node.id)}`}>Open content</a>
+      <details className="sceneTechnicalDetails">
+        <summary>Technical address</summary>
+        <code>{node.path}</code>
+        <small>{profile.label} · {layout.nodes.length} nodes{layout.truncated ? ` · ${layout.truncated} hidden` : ""}</small>
+      </details>
     </div>
   );
 }
@@ -352,12 +376,14 @@ export function SystemScene({
   git,
   selectedPageId = "",
   highlightedPageIds = [],
+  intent = { label: "Browse the wiki", detail: "Pick a node to inspect the related content.", count: highlightedPageIds.length },
   onNodeSelect
 }: {
   nodes: GraphNode[];
   git: GitState;
   selectedPageId?: string;
   highlightedPageIds?: string[];
+  intent?: SceneIntent;
   onNodeSelect?: (nodeId: string) => void;
 }) {
   const [fallback, setFallback] = useState(shouldUseFallback);
@@ -399,9 +425,10 @@ export function SystemScene({
   return (
     <div className="sceneShell" aria-label="Content relationship map">
       {fallback ? (
-        <SceneFallback nodes={nodes} git={git} selectedPageId={selectedPageId || selected?.id || ""} highlightedIds={highlightedIds} onNodeSelect={onNodeSelect} />
+        <SceneFallback nodes={nodes} git={git} selectedPageId={selectedPageId || selected?.id || ""} highlightedIds={highlightedIds} intent={intent} onNodeSelect={onNodeSelect} />
       ) : (
         <>
+          <SceneIntentBadge intent={intent} />
           <Canvas
             camera={{ position: [0, 2.6, 5.3], fov: 46 }}
             dpr={profile.dpr}
