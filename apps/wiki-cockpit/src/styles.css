@@ -496,64 +496,166 @@ code {
   line-height: 1.5;
 }
 
-.decisionPacket,
-.approvalJourney,
-.mapIntentPanel {
+.approvalInbox {
   display: grid;
+  gap: 16px;
+}
+
+.approvalInboxHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  padding: 22px;
+  border: 1px solid #2a3840;
+  border-radius: 8px;
+  background: #11191d;
+}
+
+.approvalInboxHeader h1 {
+  margin: 10px 0 8px;
+}
+
+.approvalInboxHeader p {
+  max-width: 760px;
+  margin: 0;
+  color: #b7c4cc;
+  line-height: 1.45;
+}
+
+.inboxCounters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(92px, 1fr));
+  gap: 8px;
+  min-width: 260px;
+}
+
+.inboxCounters span {
+  display: grid;
+  gap: 3px;
+  min-height: 58px;
+  padding: 10px;
+  color: #9facb6;
+  background: #0d1417;
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.inboxCounters strong {
+  color: #eef7fb;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.approvalQueue {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
-.decisionCards {
+.approvalItem {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.decisionCards article {
-  min-height: 118px;
-  display: grid;
+  gap: 14px;
   align-content: start;
-  gap: 8px;
-  padding: 12px;
+  padding: 16px;
   border: 1px solid #2a3840;
   border-radius: 8px;
   background: #0f1518;
 }
 
-.decisionCards strong {
-  color: #eef6fb;
+.approvalItemHeader {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
 }
 
-.decisionCards p,
-.journeyStep p,
+.approvalItemHeader h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.approvalItemHeader p {
+  margin: 0;
+  color: #9eacb6;
+  line-height: 1.38;
+}
+
+.approvalFacts {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 8px 12px;
+  margin: 0;
+  color: #cfd9df;
+}
+
+.approvalFacts dt {
+  color: #91a0aa;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.approvalFacts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.approvalItemDetails {
+  color: #aab7c0;
+  border-top: 1px solid #223038;
+  padding-top: 10px;
+}
+
+.approvalItemDetails summary {
+  cursor: pointer;
+  color: #dff4ff;
+  font-weight: 800;
+}
+
+.approvalItemActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.reviewUtilityDetails {
+  display: grid;
+  gap: 14px;
+}
+
+.reviewUtilityDetails > summary {
+  cursor: pointer;
+  width: fit-content;
+  padding: 10px 12px;
+  color: #dff4ff;
+  background: #10191d;
+  border: 1px solid #2a3840;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.reviewUtilityDetails[open] {
+  padding-top: 4px;
+}
+
+.reviewUtilityDetails[open] > summary {
+  margin-bottom: 14px;
+}
+
+.mapIntentPanel {
+  display: grid;
+  gap: 14px;
+}
+
 .intentButton span,
 .intentPages p {
   margin: 0;
   color: #9eacb6;
   font-size: 13px;
   line-height: 1.4;
-}
-
-.journeySteps {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.journeyStep {
-  min-height: 132px;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid #2a3840;
-  border-radius: 8px;
-  background: #0f1518;
-}
-
-.journeyStep strong {
-  display: block;
-  margin-bottom: 5px;
 }
 
 .prHandoffPanel {
@@ -1401,9 +1503,9 @@ pre {
   .twoColumn,
   .knowledgeGrid,
   .impactGrid,
+  .approvalInboxHeader,
+  .approvalQueue,
   .gateGrid,
-  .decisionCards,
-  .journeySteps,
   .intentButtons,
   .pagesWorkspace,
   .sourcesWorkspace {
@@ -1411,7 +1513,8 @@ pre {
   }
 
   .statGrid,
-  .bundleMetrics {
+  .bundleMetrics,
+  .inboxCounters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1419,7 +1522,6 @@ pre {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .decisionCards,
   .intentButtons {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1487,6 +1589,11 @@ pre {
   .drawerLead,
   .drawerGrid,
   .bundleMetrics,
+  .inboxCounters,
+  .approvalInboxHeader,
+  .approvalQueue,
+  .approvalItemHeader,
+  .approvalFacts,
   .impactGrid,
   .bundleRow,
   .kv,
@@ -1495,8 +1602,6 @@ pre {
   .workflowGrid,
   .targetGrid,
   .radarBands,
-  .decisionCards,
-  .journeySteps,
   .intentButtons,
   .gateTrack {
     grid-template-columns: 1fr;

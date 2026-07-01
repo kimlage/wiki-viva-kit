@@ -248,16 +248,13 @@ describe("visual route contract", () => {
     cleanup();
 
     await renderRoute("/review");
-    expect(await screen.findByRole("heading", { name: "Approval Desk" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Can I Approve?" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Approval Path" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Decision Packet" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Prepare Approval Request" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Update Review Request" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Refresh Approved Content" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Refresh approved" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Prepare Local Change" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Evidence Board" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Approval Inbox" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Changed content" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Risk and privacy" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Checks" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Approval request" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Build review packet" })).toBeTruthy();
+    expect(screen.getByText("Request editor and exact evidence")).toBeTruthy();
     cleanup();
 
     await renderRoute("/sources");
