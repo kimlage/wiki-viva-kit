@@ -58,17 +58,17 @@ function Stat({ icon, label, value, tone = "info" }: { icon: ReactNode; label: s
 
 function Nav({ active }: { active: string }) {
   const items = [
-    { href: "/ops", label: "Ops", icon: <Activity size={17} /> },
-    { href: "/review", label: "Review", icon: <GitPullRequest size={17} /> },
-    { href: "/sources", label: "Sources", icon: <Inbox size={17} /> },
-    { href: "/health", label: "Health", icon: <ShieldCheck size={17} /> },
-    { href: "/pages", label: "Pages", icon: <FileText size={17} /> },
-    { href: "/demo", label: "Demo", icon: <Sparkles size={17} /> }
+    { href: "/ops", id: "ops", label: "Home", icon: <Activity size={17} /> },
+    { href: "/review", id: "review", label: "Approve", icon: <GitPullRequest size={17} /> },
+    { href: "/sources", id: "sources", label: "Add", icon: <Inbox size={17} /> },
+    { href: "/health", id: "health", label: "Health", icon: <ShieldCheck size={17} /> },
+    { href: "/pages", id: "pages", label: "Content", icon: <FileText size={17} /> },
+    { href: "/demo", id: "demo", label: "Demo", icon: <Sparkles size={17} /> }
   ];
   return (
     <nav className="navRail" aria-label="Cockpit views">
       {items.map((item) => (
-        <a className={active === item.label.toLowerCase() ? "navItem active" : "navItem"} href={item.href} key={item.href} title={item.label}>
+        <a className={active === item.id ? "navItem active" : "navItem"} href={item.href} key={item.href} title={item.label}>
           {item.icon}
           <span>{item.label}</span>
         </a>
@@ -116,7 +116,7 @@ function CommandOutput({ result }: { result: CommandRunResult | null }) {
   return (
     <section className="panel outputPanel">
       <div className="panelHeader">
-        <h2>Command Log</h2>
+        <h2>Action Log</h2>
         <StatusPill tone={result.ok ? "good" : "bad"}>{result.ok ? "passed" : "failed"}</StatusPill>
       </div>
       <p>{label}</p>
@@ -1318,10 +1318,10 @@ function HealthView({ bundle }: { bundle: SnapshotBundle }) {
   return (
     <main className="workspace">
       <section className="statGrid">
-        <Stat icon={<ShieldCheck size={18} />} label="Gates" value={bundle.gates.gates.length} tone="info" />
+        <Stat icon={<ShieldCheck size={18} />} label="Checks" value={bundle.gates.gates.length} tone="info" />
         <Stat icon={<CircleAlert size={18} />} label="Quality flags" value={qualityFlags} tone={qualityFlags ? "warn" : "good"} />
-        <Stat icon={<FileText size={18} />} label="Pages" value={bundle.pages.pages.length} tone="info" />
-        <Stat icon={<Search size={18} />} label="Sources" value={bundle.sources.sources.length} tone="info" />
+        <Stat icon={<FileText size={18} />} label="Content" value={bundle.pages.pages.length} tone="info" />
+        <Stat icon={<Search size={18} />} label="Evidence sources" value={bundle.sources.sources.length} tone="info" />
       </section>
       <section className="panel">
         <div className="panelHeader">
@@ -1377,10 +1377,10 @@ function IngestionPipeline({
   return (
     <section className="pipelinePanel">
       <div className="panelHeader">
-        <h3>Pipeline</h3>
+        <h3>Add Flow</h3>
         <StatusPill tone={plan.ok ? "good" : "bad"}>{plan.ok ? "ready" : "blocked"}</StatusPill>
       </div>
-      <div className="pipelineRail" aria-label="Ingestion pipeline">
+      <div className="pipelineRail" aria-label="Add knowledge flow">
         {plan.stages.map((stage, index) => (
           <article className={`pipelineStage stage-${stage.status}`} key={stage.id}>
             <div className="stageIndex">{index + 1}</div>
@@ -1403,7 +1403,7 @@ function IngestionPipeline({
       </div>
       {plan.next_blocked_stage && (
         <p className="pipelineNote">
-          Next stop: <strong>{plan.next_blocked_stage.label}</strong> · {plan.next_blocked_stage.detail}
+          Next required step: <strong>{plan.next_blocked_stage.label}</strong> · {plan.next_blocked_stage.detail}
         </p>
       )}
     </section>
@@ -1479,7 +1479,7 @@ function SourcesView({
     <main className="workspace sourcesWorkspace">
       <section className="panel sourceInbox">
         <div className="panelHeader">
-          <h1>Sources</h1>
+          <h1>Add Knowledge</h1>
           <StatusPill tone="info">{bundle.sources.sources.length}</StatusPill>
         </div>
         <div className="sourceList">
@@ -1504,16 +1504,16 @@ function SourcesView({
       </section>
       <section className="panel">
         <div className="panelHeader">
-          <h2>Ingestion Wizard</h2>
+          <h2>Review New Source</h2>
           <StatusPill tone={sourceResultTone(result)}>{result ? (result.ok ? "ready" : "blocked") : "idle"}</StatusPill>
         </div>
         <div className="workflowGrid">
           <label className="field wide">
-            <span>Source path or URL</span>
+            <span>File or URL to add</span>
             <input value={source} onChange={(event) => setSource(event.target.value)} />
           </label>
           <label className="field">
-            <span>Context</span>
+            <span>Area</span>
             <select value={context} onChange={(event) => setContext(event.target.value)}>
               {contexts.map((item) => (
                 <option key={item} value={item}>
@@ -1524,23 +1524,23 @@ function SourcesView({
           </label>
           <button className="secondaryButton" disabled={!source || busy} onClick={runTriage} title="Run local source triage">
             <Search size={16} />
-            <span>{busy ? "Planning" : "Plan ingestion"}</span>
+            <span>{busy ? "Checking" : "Check source"}</span>
           </button>
           <label className="toggleControl wideToggle">
             <input type="checkbox" checked={executeWrites} onChange={(event) => setExecuteWrites(event.target.checked)} />
-            <span>Execute write steps</span>
+            <span>Allow proposal writes</span>
           </label>
         </div>
         {result && (
           <div className="triageResult">
             <dl className="kv">
-              <dt>Source ID</dt>
+              <dt>Source key</dt>
               <dd>{result.source_id || "not available"}</dd>
-              <dt>Type</dt>
+              <dt>Content type</dt>
               <dd>{result.source_type || "unknown"}</dd>
-              <dt>Exists</dt>
+              <dt>Found</dt>
               <dd>{String(result.exists)}</dd>
-              <dt>Context</dt>
+              <dt>Area</dt>
               <dd>{result.context || context}</dd>
             </dl>
             <div className="tagCloud">
@@ -1554,7 +1554,7 @@ function SourcesView({
             {result.targets && (
               <div className="targetGrid">
                 <div>
-                  <h3>Pages</h3>
+                  <h3>Target Content</h3>
                   <ul className="plainList compactList">
                     {result.targets.target_pages.map((page) => (
                       <li key={page}>{page}</li>
@@ -1562,7 +1562,7 @@ function SourcesView({
                   </ul>
                 </div>
                 <div>
-                  <h3>Entities</h3>
+                  <h3>Known Entities</h3>
                   <ul className="plainList compactList">
                     {result.targets.target_entities.map((entity) => (
                       <li key={entity}>{entity}</li>
@@ -1602,7 +1602,7 @@ function SourcesView({
 
 function PageList({ pages, selected }: { pages: PageRecord[]; selected: PageRecord | undefined }) {
   return (
-    <aside className="pageList" aria-label="Pages">
+    <aside className="pageList" aria-label="Content">
       {pages.slice(0, 120).map((page) => (
         <a className={selected?.id === page.id ? "pageLink active" : "pageLink"} href={`/pages/${encodeURIComponent(page.id)}`} key={page.id}>
           <span>{page.title}</span>
@@ -1628,13 +1628,13 @@ function PagesView({ bundle, pageId }: { bundle: SnapshotBundle; pageId?: string
               </StatusPill>
             </div>
             <dl className="kv">
-              <dt>Path</dt>
+              <dt>Page address</dt>
               <dd>{selected.path}</dd>
-              <dt>Type</dt>
+              <dt>Content kind</dt>
               <dd>{selected.page_type || "unknown"}</dd>
-              <dt>Context</dt>
+              <dt>Area</dt>
               <dd>{selected.context}</dd>
-              <dt>Sources</dt>
+              <dt>Evidence refs</dt>
               <dd>{selected.source_refs.length ? selected.source_refs.join(", ") : "none listed"}</dd>
             </dl>
             <p className="pageSummary">{selected.summary || "No summary text in snapshot."}</p>

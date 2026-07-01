@@ -1362,6 +1362,9 @@ Implementation note, 2026-07-01:
   content or browsing the wiki. The selected mode highlights relevant nodes,
   selects navigable content and builds the review packet without requiring the
   user to understand graph internals.
+- The global navigation and source flow now use human task language: Home,
+  Approve, Add, Health and Content; `/sources` is Add Knowledge with a Review
+  New Source flow and an Add Flow that appears only after a source is checked.
 - `scripts/wiki_web_deploy_bundle.py` now gives each implementation a local
   deployment proof path: it writes runtime config, deterministic snapshot JSON
   and `DEPLOYMENT.md` into a chosen output directory so Vercel/static or

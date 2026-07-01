@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const routes = [
   { name: "ops-demo", path: "/demo?visual=1", heading: "What needs attention?", focus: "Use The Map To" },
   { name: "review-demo", path: "/review?demo=1&visual=1", heading: "Approval Desk", focus: "Evidence Board" },
-  { name: "sources-demo", path: "/sources?demo=1&visual=1", heading: "Sources", focus: "Ingestion Wizard" },
+  { name: "sources-demo", path: "/sources?demo=1&visual=1", heading: "Add Knowledge", focus: "Review New Source" },
   { name: "health-demo", path: "/health?demo=1&visual=1", heading: "Context Vitality", focus: "Context Vitality" },
   { name: "page-demo", path: "/pages/sample-root?demo=1&visual=1", heading: "Sample Memory", focus: "Sample Memory" }
 ] as const;

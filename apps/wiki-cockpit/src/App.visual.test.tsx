@@ -261,8 +261,8 @@ describe("visual route contract", () => {
     cleanup();
 
     await renderRoute("/sources");
-    expect(await screen.findByRole("heading", { name: "Sources" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Ingestion Wizard" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Add Knowledge" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Review New Source" })).toBeTruthy();
     cleanup();
 
     await renderRoute("/health");
