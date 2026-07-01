@@ -451,6 +451,12 @@ code {
   background: #233139;
 }
 
+.secondaryButton.active {
+  border-color: #5e8fa2;
+  background: #23363d;
+  color: #e9fbff;
+}
+
 .secondaryButton.risky {
   border-color: #7d5b29;
   background: #2c2114;
@@ -780,6 +786,11 @@ code {
   border-color: #4c6674;
 }
 
+.searchResult.bundled {
+  border-color: #5e8fa2;
+  box-shadow: 0 0 0 1px rgba(107, 215, 255, 0.18) inset;
+}
+
 .searchResult small {
   color: #94a2ad;
   overflow-wrap: anywhere;
@@ -844,6 +855,71 @@ code {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.impactBundlePanel {
+  display: grid;
+  gap: 14px;
+}
+
+.bundleMetrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.impactGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.bundleSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.bundleRows {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.bundleRow {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(160px, 0.8fr) minmax(180px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.bundleRow span {
+  color: #aab7c1;
+  overflow-wrap: anywhere;
+}
+
+.bundleTitle {
+  font-weight: 800;
+}
+
+.bundlePreview {
+  min-height: 260px;
+  max-height: 420px;
+  margin: 0 0 12px;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  background: #0b1012;
+  color: #dbe8ef;
+  white-space: pre-wrap;
 }
 
 .timelinePanel {
@@ -1110,13 +1186,15 @@ pre {
   .heroBand,
   .twoColumn,
   .knowledgeGrid,
+  .impactGrid,
   .gateGrid,
   .pagesWorkspace,
   .sourcesWorkspace {
     grid-template-columns: 1fr;
   }
 
-  .statGrid {
+  .statGrid,
+  .bundleMetrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1182,6 +1260,9 @@ pre {
   .timelineEvent,
   .drawerLead,
   .drawerGrid,
+  .bundleMetrics,
+  .impactGrid,
+  .bundleRow,
   .kv,
   .workflowGrid,
   .targetGrid,

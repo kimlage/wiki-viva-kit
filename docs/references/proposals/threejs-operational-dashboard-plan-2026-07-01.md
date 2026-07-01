@@ -1341,6 +1341,11 @@ Implementation note, 2026-07-01:
   snapshot: search highlights matching graph nodes, selecting a result or node
   exposes the page path/type/context/freshness/source_refs, route from the root
   via `moc_parent`, related graph pages and safe review actions.
+- `/ops` now supports multi-page impact bundles in the local snapshot UI:
+  shift-selecting search results or adding the drawer page highlights the graph
+  set, groups selected pages by review context, counts stale/source-ref pressure
+  and emits a human-readable review handoff for the Pull Request gate without
+  writing outside the repo.
 
 ## External implementation references
 

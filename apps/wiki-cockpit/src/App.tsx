@@ -17,7 +17,7 @@ import {
   Sparkles,
   TerminalSquare
 } from "lucide-react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { SystemScene } from "./components/SystemScene";
 import { gitGateLabel, pageById, qualityFlagCount, reviewChecklist, topActions } from "./data/model";
@@ -312,15 +312,69 @@ function selectedRoute(bundle: SnapshotBundle, selected: PageRecord | undefined)
   return route;
 }
 
+function pagesFromIds(pages: PageRecord[], ids: string[]): PageRecord[] {
+  const byId = new Map<string, PageRecord>();
+  pages.forEach((page) => {
+    byId.set(page.id, page);
+    byId.set(page.path, page);
+  });
+  return ids.flatMap((id) => {
+    const page = byId.get(id);
+    return page ? [page] : [];
+  });
+}
+
+function relatedImpactPages(bundle: SnapshotBundle, pages: PageRecord[]): PageRecord[] {
+  const selected = new Set(pages.flatMap((page) => [page.id, page.path]));
+  const neighbors = new Set<string>();
+  bundle.graph.edges.forEach((edge) => {
+    if (selected.has(edge.source)) neighbors.add(edge.target);
+    if (selected.has(edge.target)) neighbors.add(edge.source);
+  });
+  return bundle.pages.pages
+    .filter((page) => !selected.has(page.id) && !selected.has(page.path) && (neighbors.has(page.id) || neighbors.has(page.path)))
+    .slice(0, 8);
+}
+
+function impactReviewText(bundle: SnapshotBundle, pages: PageRecord[]): string {
+  const contexts = [...new Set(pages.map((page) => page.context).filter(Boolean))];
+  const sourceRefs = [...new Set(pages.flatMap((page) => page.source_refs))];
+  const commands = bundle.actions.actions
+    .filter((action) => ["graph-check", "review-local-changes", "pr-summary", "run-honesty-gates"].includes(action.id))
+    .flatMap((action) => action.commands.map((command) => `- ${command.argv.join(" ")}`));
+  return [
+    "Impact Review Bundle",
+    "",
+    `Repo: ${bundle.manifest.repo.repo_id}`,
+    `Branch: ${bundle.git.current_branch || "unknown"}`,
+    `Human gate: ${bundle.git.proposal.human_gate_state}`,
+    `Pages: ${pages.length}`,
+    `Contexts: ${contexts.join(", ") || "none"}`,
+    `Source refs: ${sourceRefs.length ? sourceRefs.join(", ") : "none"}`,
+    "",
+    "Selected pages:",
+    ...pages.map((page) => `- ${page.path} [${page.context}/${page.page_type || "page"}] freshness=${page.freshness_state} refs=${page.source_refs.length}`),
+    "",
+    "Suggested local checks:",
+    ...(commands.length ? commands : ["- No review commands available in this snapshot."]),
+    "",
+    "Human review: pending in the GitHub Pull Request gate."
+  ].join("\n");
+}
+
 function PageActionDrawer({
   bundle,
   selected,
+  isBundled,
   onSelect,
+  onToggleBundle,
   onRun
 }: {
   bundle: SnapshotBundle;
   selected: PageRecord | undefined;
+  isBundled: boolean;
   onSelect: (id: string) => void;
+  onToggleBundle: (id: string) => void;
   onRun: (action: ActionCard) => void;
 }) {
   const inbound = connectionPages(bundle, selected, "in");
@@ -387,8 +441,90 @@ function PageActionDrawer({
         </div>
       </div>
       <div className="buttonCluster">
+        <button className={isBundled ? "secondaryButton active" : "secondaryButton"} onClick={() => onToggleBundle(selected.id)} title="Toggle impact review bundle">
+          <ListChecks size={16} />
+          <span>{isBundled ? "Remove bundle" : "Add bundle"}</span>
+        </button>
         {graphAction && <button className="secondaryButton" onClick={() => onRun(graphAction)}><Search size={16} /><span>Graph check</span></button>}
         {reviewAction && <button className="secondaryButton" onClick={() => onRun(reviewAction)}><GitBranch size={16} /><span>Review diff</span></button>}
+      </div>
+    </section>
+  );
+}
+
+function ImpactBundlePanel({
+  bundle,
+  pages,
+  onSelect,
+  onRemove,
+  onClear,
+  onRun
+}: {
+  bundle: SnapshotBundle;
+  pages: PageRecord[];
+  onSelect: (id: string) => void;
+  onRemove: (id: string) => void;
+  onClear: () => void;
+  onRun: (action: ActionCard) => void;
+}) {
+  const contexts = [...new Set(pages.map((page) => page.context).filter(Boolean))];
+  const sourceRefs = [...new Set(pages.flatMap((page) => page.source_refs))];
+  const staleCount = pages.filter((page) => page.freshness_state === "stale").length;
+  const related = relatedImpactPages(bundle, pages);
+  const reviewText = impactReviewText(bundle, pages);
+  const actions = bundle.actions.actions.filter((action) => ["graph-check", "review-local-changes", "pr-summary"].includes(action.id));
+  return (
+    <section className="panel impactBundlePanel" aria-label="Impact Bundle">
+      <div className="panelHeader">
+        <h2>Impact Bundle</h2>
+        <StatusPill tone={pages.length ? "info" : "muted"}>{pages.length} pages</StatusPill>
+      </div>
+      <div className="bundleMetrics" aria-label="Impact bundle metrics">
+        <Stat icon={<FileText size={18} />} label="Contexts" value={contexts.length} tone="info" />
+        <Stat icon={<Clock3 size={18} />} label="Stale" value={staleCount} tone={staleCount ? "warn" : "good"} />
+        <Stat icon={<Search size={18} />} label="Source refs" value={sourceRefs.length} tone={sourceRefs.length ? "info" : "muted"} />
+        <Stat icon={<GitPullRequest size={18} />} label="Gate" value={bundle.git.proposal.human_gate_state} tone={bundle.git.proposal.is_proposal_branch ? "warn" : "info"} />
+      </div>
+      <div className="impactGrid">
+        <div>
+          <div className="bundleSectionHeader">
+            <h3>Selected Pages</h3>
+            <button className="textButton" onClick={onClear} disabled={!pages.length}>Clear</button>
+          </div>
+          <div className="bundleRows">
+            {pages.map((page) => (
+              <article className="bundleRow" key={page.id}>
+                <button className="textButton bundleTitle" onClick={() => onSelect(page.id)} title={page.path}>{page.title}</button>
+                <span>{page.context} / {page.page_type || "page"} / {page.freshness_state}</span>
+                <code>{page.path}</code>
+                <button className="textButton" onClick={() => onRemove(page.id)}>Remove</button>
+              </article>
+            ))}
+            {pages.length === 0 && <p>No pages selected.</p>}
+          </div>
+          {related.length > 0 && (
+            <>
+              <h3>Related Graph Pages</h3>
+              <ul className="plainList compactList">
+                {related.map((page) => (
+                  <li key={page.id}><button className="textButton" onClick={() => onSelect(page.id)}>{page.title}</button></li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+        <div>
+          <h3>Review Handoff</h3>
+          <pre className="bundlePreview">{reviewText}</pre>
+          <div className="buttonCluster">
+            {actions.map((action) => (
+              <button className="secondaryButton" key={action.id} onClick={() => onRun(action)} title={action.human_reason}>
+                {action.id === "pr-summary" ? <GitPullRequest size={16} /> : <ListChecks size={16} />}
+                <span>{action.title}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   );
@@ -397,23 +533,35 @@ function PageActionDrawer({
 function KnowledgeExplorer({
   bundle,
   selectedPageId,
+  bundledPageIds,
   search,
   onSearch,
   onSelect,
+  onToggleBundle,
   onRun
 }: {
   bundle: SnapshotBundle;
   selectedPageId: string;
+  bundledPageIds: string[];
   search: string;
   onSearch: (value: string) => void;
   onSelect: (id: string) => void;
+  onToggleBundle: (id: string) => void;
   onRun: (action: ActionCard) => void;
 }) {
   const results = useMemo(
     () => bundle.pages.pages.filter((page) => pageMatches(page, search)).slice(0, 12),
     [bundle.pages.pages, search]
   );
-  const selected = results.length ? pageById(bundle.pages.pages, selectedPageId || results[0]?.id) : undefined;
+  const bundledIds = useMemo(() => new Set(bundledPageIds), [bundledPageIds]);
+  const selected = pageById(bundle.pages.pages, selectedPageId || results[0]?.id);
+  const handleResultClick = (event: MouseEvent<HTMLButtonElement>, page: PageRecord) => {
+    if (event.shiftKey) {
+      onToggleBundle(page.id);
+      return;
+    }
+    onSelect(page.id);
+  };
   return (
     <div className="knowledgeGrid">
       <section className="panel searchPanel">
@@ -428,9 +576,9 @@ function KnowledgeExplorer({
         <div className="searchResults" role="listbox" aria-label="Graph search results">
           {results.map((page) => (
             <button
-              className={selected?.id === page.id ? "searchResult active" : "searchResult"}
+              className={`searchResult${selected?.id === page.id ? " active" : ""}${bundledIds.has(page.id) || bundledIds.has(page.path) ? " bundled" : ""}`}
               key={page.id}
-              onClick={() => onSelect(page.id)}
+              onClick={(event) => handleResultClick(event, page)}
               title={page.path}
             >
               <span>{page.title}</span>
@@ -440,7 +588,14 @@ function KnowledgeExplorer({
           {results.length === 0 && <p>No page matched the current search.</p>}
         </div>
       </section>
-      <PageActionDrawer bundle={bundle} selected={selected} onSelect={onSelect} onRun={onRun} />
+      <PageActionDrawer
+        bundle={bundle}
+        selected={selected}
+        isBundled={Boolean(selected && (bundledIds.has(selected.id) || bundledIds.has(selected.path)))}
+        onSelect={onSelect}
+        onToggleBundle={onToggleBundle}
+        onRun={onRun}
+      />
     </div>
   );
 }
@@ -451,9 +606,19 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
   const changed = bundle.git.worktree.changed_files.length;
   const [search, setSearch] = useState("");
   const [selectedPageId, setSelectedPageId] = useState(bundle.pages.pages[0]?.id || "");
+  const [reviewPageIds, setReviewPageIds] = useState<string[]>([]);
+  const reviewPages = useMemo(() => pagesFromIds(bundle.pages.pages, reviewPageIds), [bundle.pages.pages, reviewPageIds]);
+  const toggleReviewPage = (id: string) => {
+    setReviewPageIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  };
+  const clearReviewPages = () => setReviewPageIds([]);
   const highlightedPageIds = useMemo(
-    () => bundle.pages.pages.filter((page) => pageMatches(page, search)).slice(0, 16).flatMap((page) => [page.id, page.path]),
-    [bundle.pages.pages, search]
+    () => {
+      const searchHits = bundle.pages.pages.filter((page) => pageMatches(page, search)).slice(0, 16).flatMap((page) => [page.id, page.path]);
+      const bundleHits = reviewPages.flatMap((page) => [page.id, page.path]);
+      return [...new Set([...searchHits, ...bundleHits])];
+    },
+    [bundle.pages.pages, reviewPages, search]
   );
   return (
     <main className="workspace">
@@ -471,7 +636,24 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
         <Stat icon={<GitBranch size={18} />} label="Branch" value={bundle.git.current_branch || "none"} tone={bundle.git.proposal.is_proposal_branch ? "warn" : "info"} />
         <Stat icon={<ListChecks size={18} />} label="Changed files" value={changed} tone={changed ? "warn" : "good"} />
       </section>
-      <KnowledgeExplorer bundle={bundle} selectedPageId={selectedPageId} search={search} onSearch={setSearch} onSelect={setSelectedPageId} onRun={onRun} />
+      <KnowledgeExplorer
+        bundle={bundle}
+        selectedPageId={selectedPageId}
+        bundledPageIds={reviewPageIds}
+        search={search}
+        onSearch={setSearch}
+        onSelect={setSelectedPageId}
+        onToggleBundle={toggleReviewPage}
+        onRun={onRun}
+      />
+      <ImpactBundlePanel
+        bundle={bundle}
+        pages={reviewPages}
+        onSelect={setSelectedPageId}
+        onRemove={toggleReviewPage}
+        onClear={clearReviewPages}
+        onRun={onRun}
+      />
       <TimelineRadar bundle={bundle} />
       <div className="twoColumn">
         <ActionStack actions={topActions(bundle)} onRun={onRun} />

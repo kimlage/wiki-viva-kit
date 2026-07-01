@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { SnapshotBundle } from "./types";
@@ -240,6 +240,7 @@ describe("visual route contract", () => {
     expect(await screen.findByRole("heading", { name: "Operations" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Graph Search" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Page Action Drawer" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Impact Bundle" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Timeline Radar" })).toBeTruthy();
     expect(screen.getByTestId("scene-fallback")).toBeTruthy();
     cleanup();
@@ -267,5 +268,16 @@ describe("visual route contract", () => {
     expect(await screen.findByRole("heading", { name: "Operations" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Graph Search" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Timeline Radar" })).toBeTruthy();
+  });
+
+  it("adds a searched page to the local impact bundle with shift-click", async () => {
+    await renderRoute("/ops");
+    const sourceResult = await screen.findByRole("button", { name: /Source Fixture/ });
+    fireEvent.click(sourceResult, { shiftKey: true });
+
+    const impactBundle = screen.getByRole("region", { name: "Impact Bundle" });
+    expect(within(impactBundle).getByText("Source Fixture")).toBeTruthy();
+    expect(within(impactBundle).getByText("memories/sources/source-fixture.md")).toBeTruthy();
+    expect(within(impactBundle).getByText(/Human gate: not_opened/)).toBeTruthy();
   });
 });
