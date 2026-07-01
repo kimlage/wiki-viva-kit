@@ -57,6 +57,18 @@ compares screenshot baselines for `/demo`, `/review`, `/sources`, `/health` and
 `/pages/:id` using the bundled sample data. Use `npm run test:visual:update`
 only when intentionally accepting visual changes.
 
+## Deployment inputs
+
+Each implementation can prepare its own static deploy inputs from the repo root:
+
+```sh
+python3 scripts/wiki_web_deploy_bundle.py --out data/derived/wiki/web-cockpit-deploy --target vercel_static --mode static --clean
+```
+
+The bundle contains `wiki-cockpit.config.json`, `snapshot/*.json` and a
+`DEPLOYMENT.md` review proof. Keep private snapshots under the implementation's
+own deployment boundary; the public kit should only ship sample/open data.
+
 ## Runtime config
 
 The app loads `/wiki-cockpit.config.json` at runtime:

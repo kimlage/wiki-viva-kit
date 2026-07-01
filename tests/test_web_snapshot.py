@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from wiki_core.config import WikiConfig
+from wiki_core.web.deploy_bundle import write_deploy_bundle
 from wiki_core.web.schemas import SNAPSHOT_FILES, WEB_SNAPSHOT_SCHEMA_VERSION
 from wiki_core.web.snapshot import build_snapshot, write_snapshot
 
@@ -118,6 +119,51 @@ def test_write_snapshot_creates_all_json_files(tmp_path: Path) -> None:
     assert set(written) == set(SNAPSHOT_FILES)
     manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["files"] == list(SNAPSHOT_FILES)
+
+
+def test_write_deploy_bundle_creates_runtime_config_snapshot_and_proof(tmp_path: Path) -> None:
+    config = _sample_repo(tmp_path)
+    out_dir = tmp_path / "deploy"
+
+    written = write_deploy_bundle(
+        tmp_path,
+        out_dir,
+        config,
+        snapshot_base="/sample-review",
+        repo_label="Sample Review",
+        runtime_mode="static",
+        data_boundary="synthetic_open",
+        target="vercel_static",
+        clean=True,
+    )
+
+    assert "config" in written
+    assert "proof" in written
+    assert (out_dir / "sample-review" / "manifest.json").exists()
+    runtime_config = json.loads((out_dir / "wiki-cockpit.config.json").read_text(encoding="utf-8"))
+    assert runtime_config == {
+        "api_base": "",
+        "mode": "static",
+        "repo_label": "Sample Review",
+        "snapshot_base": "/sample-review",
+    }
+    proof = (out_dir / "DEPLOYMENT.md").read_text(encoding="utf-8")
+    assert "vercel_static" in proof
+    assert "synthetic_open" in proof
+    assert "Pull Requests" in proof
+
+    url_out = tmp_path / "deploy-url"
+    write_deploy_bundle(
+        tmp_path,
+        url_out,
+        config,
+        snapshot_base="https://cdn.example.test/wiki/snapshot",
+        target="vercel_static",
+        clean=True,
+    )
+    url_config = json.loads((url_out / "wiki-cockpit.config.json").read_text(encoding="utf-8"))
+    assert url_config["snapshot_base"] == "https://cdn.example.test/wiki/snapshot"
+    assert (url_out / "snapshot" / "manifest.json").exists()
 
 
 def test_snapshot_diff_tracks_branch_and_worktree_changes(tmp_path: Path) -> None:

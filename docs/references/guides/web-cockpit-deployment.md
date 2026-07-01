@@ -35,6 +35,30 @@ Static snapshots include operational JSON files such as `manifest.json`,
 snapshots, while private implementations should keep real branch diffs behind
 their private deployment boundary.
 
+## Implementation Deploy Bundle
+
+Each implementation should generate its own deploy inputs and review proof:
+
+```sh
+python3 scripts/wiki_web_deploy_bundle.py \
+  --out data/derived/wiki/web-cockpit-deploy \
+  --target vercel_static \
+  --mode static \
+  --snapshot-base /snapshot \
+  --data-boundary synthetic_or_public \
+  --clean
+```
+
+The command writes:
+
+- `wiki-cockpit.config.json` with the runtime API/snapshot contract;
+- `snapshot/*.json` from the deterministic web snapshot;
+- `DEPLOYMENT.md` with the declared target, mode, data boundary and review
+  checklist.
+
+The output stays under `data/derived/` by default. Copy it into a host-specific
+build only after reviewing the data boundary for that implementation.
+
 ## Vercel Static Review
 
 Use Vercel as a static/read-only review surface.

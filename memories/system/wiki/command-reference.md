@@ -64,6 +64,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Checks the presence AND content of methodology v5 | Ensure the methodology is in fact implemented |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarizes the PR diff by context/entity | Generate the PR review summary |
 | [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) | Generates the web cockpit snapshot | Produce JSON read models for static/local cockpit execution |
+| [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepares web cockpit deployment inputs | Write runtime config, snapshot JSON and deploy proof for one implementation |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Runs the local web cockpit operator API | Serve snapshots and allowlisted actions on localhost |
 
 ## Ingestion pipeline
@@ -569,6 +570,31 @@ The manifest repo block includes `memory_root`, `default_context` and
 python3 scripts/wiki_web_snapshot.py --out data/derived/wiki/web-snapshot --clean
 ```
 
+### [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) - deployment bundle
+
+Prepares implementation-owned deploy inputs without choosing a host inside the
+core kit. It writes `wiki-cockpit.config.json`, deterministic `snapshot/*.json`
+and a `DEPLOYMENT.md` proof with target, runtime mode, data boundary and review
+checklist.
+
+- `--out`: output directory; defaults to
+  [data/derived/wiki/web-cockpit-deploy](../../../data/README.md).
+- `--snapshot-base`: runtime snapshot base path or URL, default `/snapshot`.
+- `--api-base`: trusted operator API base URL; leave empty for static/read-only
+  deploys.
+- `--repo-label`: display label for the deployed cockpit.
+- `--mode static|local_operator|github_connected|controlled_operator`: runtime
+  mode written to the config and snapshot manifest.
+- `--data-boundary`: declared boundary for the deploy proof, e.g.
+  `synthetic_or_public` or `private_internal`.
+- `--target`: deployment target label, e.g. `vercel_static` or
+  `cloud_run_operator`.
+- `--clean`: removes existing snapshot `*.json` before writing.
+
+```sh
+python3 scripts/wiki_web_deploy_bundle.py --out data/derived/wiki/web-cockpit-deploy --target vercel_static --mode static --clean
+```
+
 ### [wiki_web_server.py](../../../scripts/wiki_web_server.py) - local operator API
 
 Serves the same snapshot model and runs allowlisted read/derive actions on
@@ -582,8 +608,8 @@ Operator endpoints:
   PR summary and cockpit refresh.
 - `POST /api/git/workflow`: proposal Git workflows (`list_proposals`,
   `start_proposal`, `switch_proposal`, `stage_paths`, `commit_proposal`,
-  `publish_proposal`, `open_draft_pr`, `sync_main`). Mutating operations are
-  dry-run by default in the UI.
+  `publish_proposal`, `open_draft_pr`, `update_draft_pr`, `sync_main`).
+  Mutating operations are dry-run by default in the UI.
 - `POST /api/sources/triage`: source manifest preview, target lookup and
   secret/PII pre-triage before ingestion persistence.
 - `POST /api/ingestion/plan`: source triage plus the ordered ingestion pipeline

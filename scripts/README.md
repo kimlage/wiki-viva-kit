@@ -18,3 +18,6 @@ templates or historical proposals.
 Use [wiki_web_snapshot.py](wiki_web_snapshot.py) to generate the local/static
 JSON read model for the web cockpit, and [wiki_web_server.py](wiki_web_server.py)
 to run the localhost-only operator API with allowlisted commands.
+Use [wiki_web_deploy_bundle.py](wiki_web_deploy_bundle.py) when one
+implementation needs portable static deploy inputs plus a deployment proof
+without choosing Vercel, GCP or any other host inside the core kit.
