@@ -239,9 +239,10 @@ describe("visual route contract", () => {
     await renderRoute("/ops");
     expect(await screen.findByRole("heading", { name: "What needs attention?" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Use The Map To" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Verify evidence/ })).toBeTruthy();
+    expect(screen.getByText("Current task")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Check evidence/ })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Explore Content" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Content Preview" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Selected Item" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Decision Packet" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Recent Activity" })).toBeTruthy();
     expect(screen.getByTestId("scene-fallback")).toBeTruthy();

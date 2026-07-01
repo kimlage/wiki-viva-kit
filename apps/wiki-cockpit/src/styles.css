@@ -722,6 +722,42 @@ code {
   gap: 14px;
 }
 
+.mapDecisionStrip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mapDecisionStrip > div {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-height: 112px;
+  padding: 12px;
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  background: #0f1518;
+}
+
+.mapDecisionStrip span {
+  color: #94a2ad;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.mapDecisionStrip strong {
+  color: #eef7fb;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.mapDecisionStrip p {
+  margin: 0;
+  color: #a9b7c1;
+  line-height: 1.4;
+}
+
 .intentButton span,
 .intentPages p {
   margin: 0;
@@ -2036,6 +2072,7 @@ pre {
   .approvalQueue,
   .approvalItemHeader,
   .approvalFacts,
+  .mapDecisionStrip,
   .impactGrid,
   .bundleRow,
   .kv,

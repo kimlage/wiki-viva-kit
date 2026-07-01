@@ -320,7 +320,16 @@ function SceneFallback({
   intent: SceneIntent;
   onNodeSelect?: (nodeId: string) => void;
 }) {
-  const visibleNodes = nodes.slice(0, 8);
+  const visibleNodes = useMemo(() => {
+    const priority = [...nodes].sort((a, b) => {
+      const aSelected = a.id === selectedPageId || a.path === selectedPageId ? 1 : 0;
+      const bSelected = b.id === selectedPageId || b.path === selectedPageId ? 1 : 0;
+      const aHighlighted = highlightedIds.has(a.id) || highlightedIds.has(a.path) ? 1 : 0;
+      const bHighlighted = highlightedIds.has(b.id) || highlightedIds.has(b.path) ? 1 : 0;
+      return bSelected - aSelected || bHighlighted - aHighlighted || a.title.localeCompare(b.title);
+    });
+    return priority.slice(0, 8);
+  }, [highlightedIds, nodes, selectedPageId]);
   return (
     <div className="sceneFallback" aria-label="Content map">
       <div className="fallbackCore">
@@ -358,7 +367,7 @@ function SceneProof({ node, layout, profile }: { node: LayoutNode | null; layout
   if (!node) return null;
   return (
     <div className="sceneProof" aria-live="polite">
-      <span>Selected content</span>
+      <span>Selected item</span>
       <strong>{node.title}</strong>
       <p>{node.context} · {contentKindLabel(node.page_type)} · {freshnessLabel(node.freshness_state)}</p>
       <a href={`/pages/${encodeURIComponent(node.id)}`}>Open content</a>

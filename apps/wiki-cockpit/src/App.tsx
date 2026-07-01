@@ -568,6 +568,8 @@ function pageMatches(page: PageRecord, query: string): boolean {
 
 type MapIntentId = "review" | "evidence" | "stale" | "browse";
 
+const MAP_INTENTS: MapIntentId[] = ["review", "evidence", "stale", "browse"];
+
 function pathsInReview(bundle: SnapshotBundle): Set<string> {
   return new Set([
     ...bundle.diff.files.map((file) => file.path),
@@ -597,34 +599,54 @@ function mapIntentCopy(intent: MapIntentId, bundle: SnapshotBundle): { label: st
   const pages = pagesForMapIntent(bundle, intent);
   if (intent === "review") {
     return {
-      label: "Decide what changed",
-      detail: "Highlight pages touched by the current review set plus risky or old neighbors.",
+      label: "Approve a change",
+      detail: "Start with the content touched by this review and anything nearby that could block approval.",
       tone: pages.length ? "warn" : "good",
       count: pages.length
     };
   }
   if (intent === "evidence") {
     return {
-      label: "Verify evidence",
-      detail: "Show pages with evidence links or source records before trusting a claim.",
+      label: "Check evidence",
+      detail: "Open content that has source links or source records before trusting a claim.",
       tone: pages.length ? "info" : "muted",
       count: pages.length
     };
   }
   if (intent === "stale") {
     return {
-      label: "Refresh old content",
-      detail: "Focus the map on pages that may need a new read or update.",
+      label: "Update old content",
+      detail: "Find content that needs a new read before it supports a decision.",
       tone: pages.length ? "warn" : "good",
       count: pages.length
     };
   }
   return {
-    label: "Browse the wiki",
-    detail: "Use the map as navigation: pick a node, follow its route and open the page.",
+    label: "Find a page",
+    detail: "Use the map as navigation: pick a node, follow its route and open the content.",
     tone: "info",
     count: pages.length
   };
+}
+
+function mapIntentDecision(intent: MapIntentId, count: number): string {
+  if (intent === "review") {
+    return count ? "Inspect these items before approving the request." : "No review content is highlighted.";
+  }
+  if (intent === "evidence") {
+    return count ? "Verify the available sources, then decide whether the claim is trustworthy." : "No evidence-backed item is visible.";
+  }
+  if (intent === "stale") {
+    return count ? "Refresh these items before using them as current knowledge." : "No stale item is visible.";
+  }
+  return count ? "Open a content item and follow its nearby route." : "No content is available in this view.";
+}
+
+function mapIntentAction(intent: MapIntentId): string {
+  if (intent === "review") return "The highlighted items are added to the decision packet automatically.";
+  if (intent === "evidence") return "Open one item, check its evidence links, then add it to the packet if it matters.";
+  if (intent === "stale") return "Open one item and decide whether it needs a new source read.";
+  return "Pick any node to preview it without changing the packet.";
 }
 
 function connectionPages(bundle: SnapshotBundle, selected: PageRecord | undefined, direction: "in" | "out"): PageRecord[] {
@@ -723,19 +745,37 @@ function MapIntentPanel({
   onChoose: (intent: MapIntentId) => void;
   onSelect: (id: string) => void;
 }) {
-  const intents: MapIntentId[] = ["review", "evidence", "stale", "browse"];
   const activePages = pagesForMapIntent(bundle, activeIntent);
+  const activeCopy = mapIntentCopy(activeIntent, bundle);
   return (
     <section className="panel mapIntentPanel">
       <div className="panelHeader">
         <h2>Use The Map To</h2>
-        <StatusPill tone="info">{mapIntentCopy(activeIntent, bundle).count} highlighted</StatusPill>
+        <StatusPill tone={activeCopy.tone}>{activeCopy.count} highlighted</StatusPill>
+      </div>
+      <div className="mapDecisionStrip" aria-label="Current map decision">
+        <div>
+          <span>Current task</span>
+          <strong>{activeCopy.label}</strong>
+          <p>{mapIntentDecision(activeIntent, activePages.length)}</p>
+        </div>
+        <div>
+          <span>How to use it</span>
+          <strong>{activePages.length ? `${activePages.length} item(s)` : "Nothing queued"}</strong>
+          <p>{mapIntentAction(activeIntent)}</p>
+        </div>
       </div>
       <div className="intentButtons" aria-label="Map work modes">
-        {intents.map((intent) => {
+        {MAP_INTENTS.map((intent) => {
           const copy = mapIntentCopy(intent, bundle);
           return (
-            <button className={activeIntent === intent ? "intentButton active" : "intentButton"} onClick={() => onChoose(intent)} key={intent}>
+            <button
+              aria-pressed={activeIntent === intent}
+              className={activeIntent === intent ? "intentButton active" : "intentButton"}
+              onClick={() => onChoose(intent)}
+              key={intent}
+              type="button"
+            >
               <strong>{copy.label}</strong>
               <span>{copy.detail}</span>
               <StatusPill tone={copy.tone}>{copy.count}</StatusPill>
@@ -781,7 +821,7 @@ function PageActionDrawer({
   return (
     <section className="panel pageActionDrawer">
       <div className="panelHeader">
-        <h2>Content Preview</h2>
+        <h2>Selected Item</h2>
         <StatusPill tone={selected.freshness_state === "fresh" ? "good" : selected.freshness_state === "stale" ? "warn" : "muted"}>
           {freshnessLabel(selected.freshness_state)}
         </StatusPill>
@@ -797,12 +837,12 @@ function PageActionDrawer({
         </a>
       </div>
       <dl className="kv">
-        <dt>What it is</dt>
-        <dd>{contentKindLabel(selected.page_type)}</dd>
-        <dt>Area</dt>
-        <dd>{selected.context}</dd>
-        <dt>Trust signal</dt>
-        <dd>{evidenceLabel(selected)} · {selected.visibility}</dd>
+        <dt>Decision</dt>
+        <dd>{pageDecisionLabel(selected)}</dd>
+        <dt>Evidence</dt>
+        <dd>{evidenceLabel(selected)}</dd>
+        <dt>Impact</dt>
+        <dd>{related.length ? `${related.length} nearby item(s)` : "No nearby content highlighted."}</dd>
         <dt>Last update</dt>
         <dd>{updatedLabel(selected.updated_at)}</dd>
       </dl>
