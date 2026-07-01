@@ -268,10 +268,193 @@ function DiffFilmstrip({ bundle }: { bundle: SnapshotBundle }) {
   );
 }
 
+function pageMatches(page: PageRecord, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return true;
+  return [page.title, page.path, page.context, page.page_type, page.summary, ...page.source_refs]
+    .join(" ")
+    .toLowerCase()
+    .includes(needle);
+}
+
+function connectionPages(bundle: SnapshotBundle, selected: PageRecord | undefined, direction: "in" | "out"): PageRecord[] {
+  if (!selected) return [];
+  const ids = new Set(
+    bundle.graph.edges
+      .filter((edge) => (direction === "in" ? edge.target === selected.id : edge.source === selected.id))
+      .map((edge) => (direction === "in" ? edge.source : edge.target))
+  );
+  return bundle.pages.pages.filter((page) => ids.has(page.id) || ids.has(page.path)).slice(0, 8);
+}
+
+function sourceProofs(bundle: SnapshotBundle, selected: PageRecord | undefined): PageRecord[] {
+  if (!selected) return [];
+  const refs = new Set(selected.source_refs);
+  return bundle.pages.pages
+    .filter((page) => refs.has(page.id) || refs.has(page.path) || refs.has(page.title))
+    .slice(0, 6);
+}
+
+function selectedRoute(bundle: SnapshotBundle, selected: PageRecord | undefined): PageRecord[] {
+  if (!selected) return [];
+  const byId = new Map(bundle.pages.pages.map((page) => [page.id, page]));
+  const byPath = new Map(bundle.pages.pages.map((page) => [page.path, page]));
+  const route: PageRecord[] = [selected];
+  let cursor: PageRecord | undefined = selected;
+  const seen = new Set([selected.id]);
+  while (cursor?.moc_parent) {
+    const parentPage: PageRecord | undefined = byPath.get(cursor.moc_parent) || byId.get(cursor.moc_parent);
+    if (!parentPage || seen.has(parentPage.id)) break;
+    route.unshift(parentPage);
+    seen.add(parentPage.id);
+    cursor = parentPage;
+  }
+  return route;
+}
+
+function PageActionDrawer({
+  bundle,
+  selected,
+  onSelect,
+  onRun
+}: {
+  bundle: SnapshotBundle;
+  selected: PageRecord | undefined;
+  onSelect: (id: string) => void;
+  onRun: (action: ActionCard) => void;
+}) {
+  const inbound = connectionPages(bundle, selected, "in");
+  const outbound = connectionPages(bundle, selected, "out");
+  const related = [...new Map([...inbound, ...outbound].map((page) => [page.id, page])).values()].slice(0, 8);
+  const proofs = sourceProofs(bundle, selected);
+  const route = selectedRoute(bundle, selected);
+  const graphAction = bundle.actions.actions.find((action) => action.id === "graph-check");
+  const reviewAction = bundle.actions.actions.find((action) => action.id === "review-local-changes");
+  if (!selected) return null;
+  return (
+    <section className="panel pageActionDrawer">
+      <div className="panelHeader">
+        <h2>Page Action Drawer</h2>
+        <StatusPill tone={selected.freshness_state === "fresh" ? "good" : selected.freshness_state === "stale" ? "warn" : "muted"}>
+          {selected.freshness_state}
+        </StatusPill>
+      </div>
+      <div className="drawerLead">
+        <div>
+          <h3>{selected.title}</h3>
+          <p>{selected.summary || "No summary text in snapshot."}</p>
+        </div>
+        <a className="secondaryButton" href={`/pages/${encodeURIComponent(selected.id)}`} title="Open page cockpit">
+          <ExternalLink size={16} />
+          <span>Open</span>
+        </a>
+      </div>
+      <dl className="kv">
+        <dt>Path</dt>
+        <dd>{selected.path}</dd>
+        <dt>Type</dt>
+        <dd>{selected.page_type || "unknown"}</dd>
+        <dt>Context</dt>
+        <dd>{selected.context}</dd>
+        <dt>Why visible</dt>
+        <dd>frontmatter page · {selected.visibility} · source_refs {selected.source_refs.length}</dd>
+      </dl>
+      <div className="routeRail" aria-label="Route from root to selected page">
+        {route.map((page) => (
+          <button key={page.id} onClick={() => onSelect(page.id)} title={page.path}>
+            {page.title}
+          </button>
+        ))}
+      </div>
+      <div className="drawerGrid">
+        <div>
+          <h3>Proof Links</h3>
+          <ul className="plainList compactList">
+            {proofs.map((page) => (
+              <li key={page.id}><button className="textButton" onClick={() => onSelect(page.id)}>{page.title}</button></li>
+            ))}
+            {proofs.length === 0 && <li>{selected.source_refs.length ? selected.source_refs.join(", ") : "No source refs listed."}</li>}
+          </ul>
+        </div>
+        <div>
+          <h3>Related Pages</h3>
+          <ul className="plainList compactList">
+            {related.map((page) => (
+              <li key={page.id}><button className="textButton" onClick={() => onSelect(page.id)}>{page.title}</button></li>
+            ))}
+            {related.length === 0 && <li>No graph neighbors in snapshot.</li>}
+          </ul>
+        </div>
+      </div>
+      <div className="buttonCluster">
+        {graphAction && <button className="secondaryButton" onClick={() => onRun(graphAction)}><Search size={16} /><span>Graph check</span></button>}
+        {reviewAction && <button className="secondaryButton" onClick={() => onRun(reviewAction)}><GitBranch size={16} /><span>Review diff</span></button>}
+      </div>
+    </section>
+  );
+}
+
+function KnowledgeExplorer({
+  bundle,
+  selectedPageId,
+  search,
+  onSearch,
+  onSelect,
+  onRun
+}: {
+  bundle: SnapshotBundle;
+  selectedPageId: string;
+  search: string;
+  onSearch: (value: string) => void;
+  onSelect: (id: string) => void;
+  onRun: (action: ActionCard) => void;
+}) {
+  const results = useMemo(
+    () => bundle.pages.pages.filter((page) => pageMatches(page, search)).slice(0, 12),
+    [bundle.pages.pages, search]
+  );
+  const selected = results.length ? pageById(bundle.pages.pages, selectedPageId || results[0]?.id) : undefined;
+  return (
+    <div className="knowledgeGrid">
+      <section className="panel searchPanel">
+        <div className="panelHeader">
+          <h2>Graph Search</h2>
+          <StatusPill tone="info">{results.length}</StatusPill>
+        </div>
+        <label className="field">
+          <span>Search pages</span>
+          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="title, path, context, source" />
+        </label>
+        <div className="searchResults" role="listbox" aria-label="Graph search results">
+          {results.map((page) => (
+            <button
+              className={selected?.id === page.id ? "searchResult active" : "searchResult"}
+              key={page.id}
+              onClick={() => onSelect(page.id)}
+              title={page.path}
+            >
+              <span>{page.title}</span>
+              <small>{page.context} · {page.page_type || "page"} · {page.path}</small>
+            </button>
+          ))}
+          {results.length === 0 && <p>No page matched the current search.</p>}
+        </div>
+      </section>
+      <PageActionDrawer bundle={bundle} selected={selected} onSelect={onSelect} onRun={onRun} />
+    </div>
+  );
+}
+
 function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: ActionCard) => void }) {
   const stale = bundle.freshness.summary.stale ?? 0;
   const fresh = bundle.freshness.summary.fresh ?? 0;
   const changed = bundle.git.worktree.changed_files.length;
+  const [search, setSearch] = useState("");
+  const [selectedPageId, setSelectedPageId] = useState(bundle.pages.pages[0]?.id || "");
+  const highlightedPageIds = useMemo(
+    () => bundle.pages.pages.filter((page) => pageMatches(page, search)).slice(0, 16).flatMap((page) => [page.id, page.path]),
+    [bundle.pages.pages, search]
+  );
   return (
     <main className="workspace">
       <section className="heroBand">
@@ -280,7 +463,7 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
           <h1>{bundle.operations.title}</h1>
           <p>{bundle.manifest.repo.repo_id} · {bundle.manifest.mode} · {bundle.manifest.generated_at}</p>
         </div>
-        <SystemScene nodes={bundle.graph.nodes} git={bundle.git} />
+        <SystemScene nodes={bundle.graph.nodes} git={bundle.git} selectedPageId={selectedPageId} highlightedPageIds={highlightedPageIds} onNodeSelect={setSelectedPageId} />
       </section>
       <section className="statGrid" aria-label="Operational summary">
         <Stat icon={<BadgeCheck size={18} />} label="Fresh pages" value={fresh} tone="good" />
@@ -288,6 +471,7 @@ function OpsView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: Ac
         <Stat icon={<GitBranch size={18} />} label="Branch" value={bundle.git.current_branch || "none"} tone={bundle.git.proposal.is_proposal_branch ? "warn" : "info"} />
         <Stat icon={<ListChecks size={18} />} label="Changed files" value={changed} tone={changed ? "warn" : "good"} />
       </section>
+      <KnowledgeExplorer bundle={bundle} selectedPageId={selectedPageId} search={search} onSearch={setSearch} onSelect={setSelectedPageId} onRun={onRun} />
       <TimelineRadar bundle={bundle} />
       <div className="twoColumn">
         <ActionStack actions={topActions(bundle)} onRun={onRun} />

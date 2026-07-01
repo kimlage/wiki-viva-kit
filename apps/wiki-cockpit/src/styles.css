@@ -236,6 +236,12 @@ code {
   outline-offset: 2px;
 }
 
+.fallbackNode.active,
+.fallbackNode.highlighted {
+  background: #17242a;
+  box-shadow: 0 0 0 2px rgba(107, 215, 255, 0.22) inset;
+}
+
 .node-fresh {
   border-color: #2d604b;
 }
@@ -735,6 +741,111 @@ code {
   grid-template-columns: 86px minmax(0, 1fr) auto;
 }
 
+.knowledgeGrid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.15fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.searchPanel,
+.pageActionDrawer {
+  display: grid;
+  gap: 14px;
+}
+
+.searchResults {
+  display: grid;
+  gap: 8px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.searchResult {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  color: #e7eef5;
+  background: #0f1518;
+  border: 1px solid #26343b;
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.searchResult:hover,
+.searchResult.active {
+  background: #1a2327;
+  border-color: #4c6674;
+}
+
+.searchResult small {
+  color: #94a2ad;
+  overflow-wrap: anywhere;
+}
+
+.drawerLead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+}
+
+.drawerLead p {
+  margin-bottom: 0;
+}
+
+.routeRail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid #223038;
+  border-bottom: 1px solid #223038;
+}
+
+.routeRail button,
+.textButton {
+  color: #dff4ff;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.routeRail button {
+  padding: 5px 8px;
+  border: 1px solid #33454f;
+  border-radius: 999px;
+  background: #0d1417;
+}
+
+.routeRail button::after {
+  content: ">";
+  margin-left: 8px;
+  color: #6bd7ff;
+}
+
+.routeRail button:last-child::after {
+  content: "";
+  margin-left: 0;
+}
+
+.textButton:hover,
+.routeRail button:hover {
+  color: #6bd7ff;
+}
+
+.drawerGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .timelinePanel {
   display: grid;
   gap: 14px;
@@ -998,6 +1109,7 @@ pre {
 
   .heroBand,
   .twoColumn,
+  .knowledgeGrid,
   .gateGrid,
   .pagesWorkspace,
   .sourcesWorkspace {
@@ -1068,6 +1180,8 @@ pre {
   .fileRow,
   .pipelineStage,
   .timelineEvent,
+  .drawerLead,
+  .drawerGrid,
   .kv,
   .workflowGrid,
   .targetGrid,

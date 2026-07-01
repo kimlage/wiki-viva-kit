@@ -238,6 +238,8 @@ describe("visual route contract", () => {
   it("renders the core cockpit routes with textual fallbacks", async () => {
     await renderRoute("/ops");
     expect(await screen.findByRole("heading", { name: "Operations" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Graph Search" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Page Action Drawer" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Timeline Radar" })).toBeTruthy();
     expect(screen.getByTestId("scene-fallback")).toBeTruthy();
     cleanup();
@@ -263,6 +265,7 @@ describe("visual route contract", () => {
 
     await renderRoute("/demo");
     expect(await screen.findByRole("heading", { name: "Operations" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Graph Search" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Timeline Radar" })).toBeTruthy();
   });
 });

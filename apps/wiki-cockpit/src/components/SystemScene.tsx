@@ -99,12 +99,14 @@ function InstancedNodeMesh({
   items,
   profile,
   selectedId,
+  highlightedIds,
   color,
   onSelect
 }: {
   items: LayoutNode[];
   profile: ScenePerformanceProfile;
   selectedId: string;
+  highlightedIds: Set<string>;
   color: string;
   onSelect: (node: LayoutNode) => void;
 }) {
@@ -115,7 +117,7 @@ function InstancedNodeMesh({
   useLayoutEffect(() => {
     if (!ref.current) return;
     items.forEach((node, index) => {
-      const selected = node.id === selectedId ? 1.18 : 1;
+      const selected = node.id === selectedId || node.path === selectedId ? 1.24 : highlightedIds.has(node.id) || highlightedIds.has(node.path) ? 1.12 : 1;
       matrix.compose(
         new THREE.Vector3(...node.position),
         quaternion,
@@ -125,7 +127,7 @@ function InstancedNodeMesh({
     });
     ref.current.instanceMatrix.needsUpdate = true;
     invalidate();
-  }, [invalidate, items, matrix, quaternion, selectedId]);
+  }, [highlightedIds, invalidate, items, matrix, quaternion, selectedId]);
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
     if (typeof event.instanceId === "number" && items[event.instanceId]) {
@@ -144,11 +146,13 @@ function InstancedNodeLayer({
   items,
   profile,
   selectedId,
+  highlightedIds,
   onSelect
 }: {
   items: LayoutNode[];
   profile: ScenePerformanceProfile;
   selectedId: string;
+  highlightedIds: Set<string>;
   onSelect: (node: LayoutNode) => void;
 }) {
   const groups = useMemo(() => {
@@ -163,7 +167,7 @@ function InstancedNodeLayer({
   return (
     <>
       {groups.map(([color, group]) => (
-        <InstancedNodeMesh key={color} items={group} profile={profile} selectedId={selectedId} color={color} onSelect={onSelect} />
+        <InstancedNodeMesh key={color} items={group} profile={profile} selectedId={selectedId} highlightedIds={highlightedIds} color={color} onSelect={onSelect} />
       ))}
     </>
   );
@@ -190,6 +194,23 @@ function GateRing({ git }: { git: GitState }) {
       <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.36} />
     </mesh>
   );
+}
+
+function SelectedRoute({ node }: { node: LayoutNode | null }) {
+  const route = useMemo(() => {
+    const points = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(...(node?.position || [0, 0, 0]))];
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({ color: "#dff8ff", transparent: true, opacity: 0.88 });
+    return { line: new THREE.Line(geometry, material), geometry, material };
+  }, [node]);
+  useEffect(() => {
+    return () => {
+      route.geometry.dispose();
+      route.material.dispose();
+    };
+  }, [route]);
+  if (!node) return null;
+  return <primitive object={route.line} />;
 }
 
 function CameraIntro({ enabled }: { enabled: boolean }) {
@@ -223,14 +244,17 @@ function SceneContent({
   git,
   profile,
   selectedId,
+  highlightedIds,
   onSelect
 }: {
   layout: GalaxyLayout;
   git: GitState;
   profile: ScenePerformanceProfile;
   selectedId: string;
+  highlightedIds: Set<string>;
   onSelect: (node: LayoutNode) => void;
 }) {
+  const selectedNode = layout.nodes.find((node) => node.id === selectedId || node.path === selectedId) || null;
   return (
     <>
       <color attach="background" args={["#0b1117"]} />
@@ -243,14 +267,27 @@ function SceneContent({
       </mesh>
       <ContextAnchors layout={layout} />
       <GateRing git={git} />
-      <InstancedNodeLayer items={layout.nodes} profile={profile} selectedId={selectedId} onSelect={onSelect} />
+      <SelectedRoute node={selectedNode} />
+      <InstancedNodeLayer items={layout.nodes} profile={profile} selectedId={selectedId} highlightedIds={highlightedIds} onSelect={onSelect} />
       <CameraIntro enabled={profile.enableIntro} />
       <OrbitControls enablePan={false} minDistance={3.2} maxDistance={7.8} enableDamping={profile.quality !== "compact"} />
     </>
   );
 }
 
-function SceneFallback({ nodes, git }: { nodes: GraphNode[]; git: GitState }) {
+function SceneFallback({
+  nodes,
+  git,
+  selectedPageId,
+  highlightedIds,
+  onNodeSelect
+}: {
+  nodes: GraphNode[];
+  git: GitState;
+  selectedPageId: string;
+  highlightedIds: Set<string>;
+  onNodeSelect?: (nodeId: string) => void;
+}) {
   const visibleNodes = nodes.slice(0, 8);
   return (
     <div className="sceneFallback" aria-label="Operational 2D wiki state">
@@ -260,7 +297,12 @@ function SceneFallback({ nodes, git }: { nodes: GraphNode[]; git: GitState }) {
       </div>
       <div className="fallbackNodeGrid">
         {visibleNodes.map((node) => (
-          <button className={`fallbackNode node-${node.freshness_state}`} key={`${node.id}-${node.path}`} title={node.path}>
+          <button
+            className={`fallbackNode node-${node.freshness_state}${node.id === selectedPageId || node.path === selectedPageId ? " active" : ""}${highlightedIds.has(node.id) || highlightedIds.has(node.path) ? " highlighted" : ""}`}
+            key={`${node.id}-${node.path}`}
+            onClick={() => onNodeSelect?.(node.id)}
+            title={node.path}
+          >
             {node.title}
           </button>
         ))}
@@ -281,17 +323,42 @@ function SceneProof({ node, layout, profile }: { node: LayoutNode | null; layout
   );
 }
 
-export function SystemScene({ nodes, git }: { nodes: GraphNode[]; git: GitState }) {
+export function SystemScene({
+  nodes,
+  git,
+  selectedPageId = "",
+  highlightedPageIds = [],
+  onNodeSelect
+}: {
+  nodes: GraphNode[];
+  git: GitState;
+  selectedPageId?: string;
+  highlightedPageIds?: string[];
+  onNodeSelect?: (nodeId: string) => void;
+}) {
   const [fallback, setFallback] = useState(shouldUseFallback);
   const profile = useSceneProfile(nodes.length);
   const layout = useGalaxyLayout(nodes, profile);
   const [selected, setSelected] = useState<LayoutNode | null>(null);
+  const highlightedIds = useMemo(() => new Set(highlightedPageIds), [highlightedPageIds]);
   useEffect(() => {
     if (!layout.nodes.length) return;
-    if (!selected || !layout.nodes.some((node) => node.id === selected.id)) {
-      setSelected(layout.nodes[0]);
+    const externalSelection = selectedPageId ? layout.nodes.find((node) => node.id === selectedPageId || node.path === selectedPageId) : null;
+    if (externalSelection && selected?.id !== externalSelection.id) {
+      setSelected(externalSelection);
+      return;
     }
-  }, [layout.nodes, selected]);
+    if (!selected || !layout.nodes.some((node) => node.id === selected.id)) {
+      const highlighted = highlightedPageIds.length
+        ? layout.nodes.find((node) => highlightedIds.has(node.id) || highlightedIds.has(node.path))
+        : null;
+      setSelected(highlighted || layout.nodes[0]);
+    }
+  }, [highlightedIds, highlightedPageIds.length, layout.nodes, selected, selectedPageId]);
+  const selectNode = (node: LayoutNode) => {
+    setSelected(node);
+    onNodeSelect?.(node.id);
+  };
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -308,7 +375,7 @@ export function SystemScene({ nodes, git }: { nodes: GraphNode[]; git: GitState 
   return (
     <div className="sceneShell" aria-label="Operational 3D wiki state">
       {fallback ? (
-        <SceneFallback nodes={nodes} git={git} />
+        <SceneFallback nodes={nodes} git={git} selectedPageId={selectedPageId || selected?.id || ""} highlightedIds={highlightedIds} onNodeSelect={onNodeSelect} />
       ) : (
         <>
           <Canvas
@@ -317,7 +384,7 @@ export function SystemScene({ nodes, git }: { nodes: GraphNode[]; git: GitState 
             frameloop="demand"
             gl={{ antialias: profile.quality !== "compact", powerPreference: "high-performance" }}
           >
-            <SceneContent layout={layout} git={git} profile={profile} selectedId={selected?.id || ""} onSelect={setSelected} />
+            <SceneContent layout={layout} git={git} profile={profile} selectedId={selectedPageId || selected?.id || ""} highlightedIds={highlightedIds} onSelect={selectNode} />
           </Canvas>
           <SceneProof node={selected} layout={layout} profile={profile} />
         </>

@@ -1337,6 +1337,10 @@ Implementation note, 2026-07-01:
 - `npm run test:visual` now runs Playwright screenshot regression checks for
   `/demo`, `/review`, `/sources`, `/health` and `/pages/:id` against local sample
   data.
+- `/ops` now includes Graph Search and a Page Action Drawer backed by the local
+  snapshot: search highlights matching graph nodes, selecting a result or node
+  exposes the page path/type/context/freshness/source_refs, route from the root
+  via `moc_parent`, related graph pages and safe review actions.
 
 ## External implementation references
 
