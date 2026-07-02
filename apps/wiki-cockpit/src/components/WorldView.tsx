@@ -328,14 +328,25 @@ export function WorldView({
       onClick: () => navigate(route.demo ? "/demo/review" : "/review")
     });
   }
-  if (gateTone(bundle.gates.status) !== "good" && gateAction) {
+  if (gateTone(bundle.gates.status) !== "good") {
+    // Honest per-gate status right in the radar; clicking opens the Checks dock
+    // (per-gate Run + output + fix) instead of firing a blind multi-command
+    // action that surfaced only as a cryptic 400.
+    const gates = bundle.gates?.gates ?? [];
+    const passing = gates.filter((g) => g.status === "pass").length;
+    const failing = gates.filter((g) => g.status === "fail").map((g) => g.id);
+    const anyRun = gates.some((g) => g.status !== "not_run");
     missionRows.push({
       key: "checks",
       label: t("mission.checks.label"),
-      detail: t("mission.checks.detail"),
+      detail: anyRun
+        ? t("mission.checks.detailStatus", { pass: passing, total: gates.length, failing: failing.length })
+        : gates.length
+          ? t("mission.checks.detailNotRun", { total: gates.length })
+          : t("mission.checks.detail"),
       help: t("mission.checks.help"),
       tone: gateTone(bundle.gates.status),
-      onClick: () => onRun(gateAction)
+      onClick: () => navigateWorld({ dock: "gates" })
     });
   }
   if (stale > 0) {

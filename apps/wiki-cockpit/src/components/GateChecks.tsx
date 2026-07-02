@@ -10,6 +10,7 @@ import { Check, Play, Sparkles } from "lucide-react";
 import { t } from "../data/i18n";
 import { gateFixSpec, trimGateOutput } from "../data/approval";
 import { runGate } from "../data/snapshot";
+import { ExpandablePre } from "./ExpandablePre";
 import type { BriefSpec, GateRecord, GateRunResult } from "../types";
 
 const GATE_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
@@ -145,7 +146,9 @@ export function GateChecks({
                   )}
                 </div>
               )}
-              {openOutput === gate.id && output && <pre className="gateDiff gateOutput">{output}</pre>}
+              {openOutput === gate.id && output && (
+                <ExpandablePre text={output} title={gateName(gate.id)} className="gateOutput" />
+              )}
               {failing && !output && <small className="gateRowHint">{t("gate.output.pending")}</small>}
             </li>
           );

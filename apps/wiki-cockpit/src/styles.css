@@ -3904,6 +3904,82 @@ pre {
   background: rgba(3, 7, 10, 0.62);
 }
 
+/* Expandable monospace output (shared: command output, gate output, diffs). */
+.expandablePre {
+  position: relative;
+}
+.expandablePreBody {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+}
+/* Higher specificity than a bare .gateDiff/.gateOutput passed as className, so
+   the clamped inline view always WRAPS (no horizontal overflow breaking the
+   dock) regardless of the styling class it borrows. The modal shows it full. */
+.expandablePre > .expandablePreBody {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.expandPreButton {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(9, 16, 22, 0.9);
+  font-size: 11px;
+}
+/* The full-content modal sits above every dock/studio (z 63/66). */
+.outputModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(3, 7, 10, 0.7);
+  backdrop-filter: blur(3px);
+}
+.outputModal {
+  position: fixed;
+  top: 4vh;
+  bottom: 4vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 71;
+  width: min(900px, 94vw);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #2f4250;
+  border-radius: 12px;
+  background: rgba(8, 14, 20, 0.99);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+.outputModalHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #22303a;
+}
+.outputModalHead strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.outputModalBody {
+  margin: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 14px 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
 /* Comfortable reading modal: the dock expands to a centered column (key F). */
 .pageReader.expanded {
   top: 4vh;

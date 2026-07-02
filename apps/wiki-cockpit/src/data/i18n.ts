@@ -61,8 +61,10 @@ const EN: Dict = {
     "Someone (you or an agent) edited wiki content. Nothing becomes 'official' until a human reviews it. Click to open the approval inbox: read what changed, then approve, ask for fixes, or reject. Nothing is published without you.",
   "mission.checks.label": "Run the checks",
   "mission.checks.detail": "Automatic validation has not confirmed this wiki state yet.",
+  "mission.checks.detailStatus": "{pass}/{total} passing · {failing} failing",
+  "mission.checks.detailNotRun": "{total} checks — not run yet",
   "mission.checks.help":
-    "The checks are automatic honesty tests: broken links, missing sources, privacy leaks, stale operations. Click to run them locally — you get a pass/fail report. Nothing is changed by running them; they only tell you if the wiki can be trusted right now.",
+    "The checks are automatic honesty tests: broken links, missing sources, privacy leaks, stale operations. Opens the Checks panel where each one shows its status and output, with a Run button and a fix path. Nothing changes by running them; they only tell you if the wiki can be trusted right now.",
   "mission.stale.label": "Update old content",
   "mission.stale.detail": "{n} page(s) passed their freshness window.",
   "mission.stale.help":
@@ -415,6 +417,12 @@ const EN: Dict = {
   "actionTitle.pr-summary": "Review packet prepared",
   "actionTitle.graph-check": "Content map check finished",
 
+  // Expandable output (shared: command output, gate output, file diffs)
+  "output.expand": "Expand",
+  "output.copy": "Copy",
+  "output.copied": "Copied",
+  "output.empty": "No output.",
+
   // Misc
   "misc.opening": "Opening in the world…",
   "misc.noDate": "no date",
@@ -474,8 +482,10 @@ const PT: Dict = {
     "Alguém (você ou um agente) editou conteúdo da wiki. Nada vira 'oficial' até um humano revisar. Clique para abrir a caixa de aprovação: leia o que mudou e aprove, peça ajustes ou rejeite. Nada é publicado sem você.",
   "mission.checks.label": "Rodar as verificações",
   "mission.checks.detail": "A validação automática ainda não confirmou este estado da wiki.",
+  "mission.checks.detailStatus": "{pass}/{total} passando · {failing} falhando",
+  "mission.checks.detailNotRun": "{total} verificações — ainda não rodadas",
   "mission.checks.help":
-    "As verificações são testes automáticos de honestidade: links quebrados, fontes faltando, vazamento de privacidade, operações desatualizadas. Clique para rodá-las localmente — você recebe um relatório passou/falhou. Rodar não muda nada; só diz se dá para confiar na wiki agora.",
+    "As verificações são testes automáticos de honestidade: links quebrados, fontes faltando, vazamento de privacidade, operações desatualizadas. Abre o painel de Verificações onde cada uma mostra status e saída, com botão Rodar e um caminho de correção. Rodar não muda nada; só diz se dá para confiar na wiki agora.",
   "mission.stale.label": "Atualizar conteúdo antigo",
   "mission.stale.detail": "{n} página(s) passaram da janela de frescor.",
   "mission.stale.help":
@@ -812,6 +822,11 @@ const PT: Dict = {
   "actionTitle.run-honesty-gates": "Checagens de aprovação concluídas",
   "actionTitle.pr-summary": "Pacote de revisão preparado",
   "actionTitle.graph-check": "Checagem do mapa de conteúdo concluída",
+
+  "output.expand": "Expandir",
+  "output.copy": "Copiar",
+  "output.copied": "Copiado",
+  "output.empty": "Sem saída.",
 
   "misc.opening": "Abrindo no mundo…",
   "misc.noDate": "sem data",

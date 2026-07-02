@@ -25,6 +25,7 @@ import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
 import { WorkDock } from "./components/WorkDock";
+import { ExpandablePre } from "./components/ExpandablePre";
 import { configureLanguage, t } from "./data/i18n";
 import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel, registerContextPalette } from "./data/presentation";
@@ -233,7 +234,11 @@ function CommandOutput({ result }: { result: CommandRunResult | null }) {
               <span>{entry.dry_run ? t("action.previewOnly") : t("action.applied")}</span>
               <code>{entry.argv.join(" ")}</code>
             </div>
-            <pre>{[entry.stdout, entry.stderr].filter(Boolean).join("\n") || t("action.noOutput")}</pre>
+            <ExpandablePre
+              text={[entry.stdout, entry.stderr].filter(Boolean).join("\n")}
+              title={commandEntryLabel(entry, index)}
+              emptyLabel={t("action.noOutput")}
+            />
           </details>
         ))}
       </div>

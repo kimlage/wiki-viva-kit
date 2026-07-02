@@ -13,6 +13,7 @@ import { deriveApproval } from "../data/approval";
 import { contextLabel } from "../data/presentation";
 import { loadFileDiff } from "../data/snapshot";
 import { GateChecks } from "./GateChecks";
+import { ExpandablePre } from "./ExpandablePre";
 import type { BriefSpec, DiffFile, PageRecord, SnapshotBundle } from "../types";
 
 const TONE: Record<string, "good" | "warn" | "bad" | "info" | "muted"> = {
@@ -67,7 +68,17 @@ function FileRow({ file, page }: { file: DiffFile; page?: PageRecord }) {
           {open ? t("gate.hideDiff") : t("gate.viewDiff")}
         </button>
       </div>
-      {open && <pre className="gateDiff">{busy ? "…" : lines && lines.length ? lines.join("\n") : t("gate.diffEmpty")}</pre>}
+      {open &&
+        (busy ? (
+          <pre className="gateDiff">…</pre>
+        ) : (
+          <ExpandablePre
+            text={lines && lines.length ? lines.join("\n") : ""}
+            title={file.path}
+            className="gateDiff"
+            emptyLabel={t("gate.diffEmpty")}
+          />
+        ))}
     </div>
   );
 }

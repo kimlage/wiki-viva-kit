@@ -393,7 +393,12 @@ export async function runCockpitAction(
     body: JSON.stringify({ action_id: actionId, dry_run: dryRun })
   });
   const payload = (await response.json()) as import("../types").ActionRunResult;
-  if (!response.ok) {
+  // A check that RAN and failed is a RESULT, not a transport error: the
+  // operator returns 400 with a full `results[]` (per-step stdout/stderr).
+  // Surface it so the UI can show WHICH gate failed — throwing here turned an
+  // honest "operation_compile out of date" into a cryptic "action failed: 400".
+  // Only a truly malformed response (no results array) is an exception.
+  if (!response.ok && !Array.isArray(payload.results)) {
     throw new Error(payload.error || `action failed: ${response.status}`);
   }
   return payload;
