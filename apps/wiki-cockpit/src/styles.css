@@ -4581,8 +4581,10 @@ pre {
   position: fixed;
   inset: 0;
   z-index: 62;
-  background: rgba(4, 8, 12, 0.55);
-  backdrop-filter: blur(2px);
+  /* Kept light so the world stays present behind every dock — the approve dock's
+     purple gate halos must read through, not be blurred into the dark. */
+  background: rgba(4, 8, 12, 0.32);
+  backdrop-filter: blur(1px);
 }
 .worldDock {
   position: fixed;

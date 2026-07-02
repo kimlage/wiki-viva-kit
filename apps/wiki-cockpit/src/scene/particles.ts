@@ -40,6 +40,19 @@ export type StemParticle = {
   speed: number;
 };
 
+// Evidence-gap motes: content pages that cite NO source. They SINK and fade
+// (missing something, not active) — the inverse read of a rising stem. On the
+// real wiki 212/532 pages are unsourced: the single biggest real variance, and
+// invisible until now. Shown only on demand (?filter=unsourced) so it never
+// competes with embers at rest.
+export type GapParticle = {
+  kind: "gap";
+  origin: [number, number, number];
+  drop: number;
+  phase: number;
+  speed: number;
+};
+
 export function seededRandom(seed: number): () => number {
   let state = seed || 1;
   return () => {
@@ -57,12 +70,29 @@ export function buildAuraParticles(activityLevel: number, maxCount = 120): AuraP
   const random = seededRandom(4241);
   return Array.from({ length: count }, () => ({
     kind: "aura" as const,
-    radius: 0.55 + random() * 0.38,
-    yBase: (random() - 0.5) * 0.26,
-    wobble: 0.04 + random() * 0.07,
+    // A wider orbit so the activity heartbeat is legible at the resting camera
+    // (which frames the whole disc) instead of a few pixels hugging the root.
+    radius: 1.1 + random() * 0.7,
+    yBase: (random() - 0.5) * 0.3,
+    wobble: 0.05 + random() * 0.08,
     phase: random(),
     speed: 0.05 + random() * 0.09
   }));
+}
+
+// One sinking mote per unsourced content node, capped and dim.
+export function buildGapParticles(gapNodes: LayoutNode[], maxParticles = 60): GapParticle[] {
+  const sorted = [...gapNodes].sort((a, b) => a.id.localeCompare(b.id)).slice(0, maxParticles);
+  return sorted.map((node) => {
+    const random = seededRandom(node.id.split("").reduce((total, char) => (total * 41 + char.charCodeAt(0)) % 2147483000, 11) + 17);
+    return {
+      kind: "gap" as const,
+      origin: node.position,
+      drop: 0.5 + random() * 0.3,
+      phase: random(),
+      speed: 0.06 + random() * 0.05
+    };
+  });
 }
 
 export type FlowEdgeInput = {
@@ -188,4 +218,10 @@ export function stemPoint(particle: StemParticle, t: number): [number, number, n
     particle.base[2] + (particle.top[2] - particle.base[2]) * u,
     Math.sin(u * Math.PI) * 0.85
   ];
+}
+
+export function gapPoint(particle: GapParticle, t: number): [number, number, number, number] {
+  const u = (particle.phase + t * particle.speed) % 1;
+  // Sinks below the node and fades — a page quietly missing its evidence.
+  return [particle.origin[0], particle.origin[1] - u * particle.drop, particle.origin[2], (1 - u) * 0.45];
 }

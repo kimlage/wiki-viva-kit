@@ -33,6 +33,28 @@
   },
   "files": [
     {
+      "additions": 9,
+      "category": "memory",
+      "change_sources": [
+        "branch",
+        "working_tree"
+      ],
+      "deletions": 3,
+      "known_generated": false,
+      "path": "memories/system/wiki/pr-governance.md",
+      "preview": [
+        "@@ -14 +14 @@",
+        "+Canonical memory changes wait at the human gate before merge.",
+        "+The cockpit prepares the packet; a person decides yes/no."
+      ],
+      "risk_hints": [
+        "memory_review"
+      ],
+      "staged": false,
+      "status": "M",
+      "unstaged": true
+    },
+    {
       "additions": 12,
       "category": "docs",
       "change_sources": [
@@ -76,14 +98,14 @@
   "repo_id": "wiki-viva-kit-sample",
   "schema_version": "wiki_web_diff.v1",
   "summary": {
-    "branch_file_count": 2,
-    "deletions": 2,
-    "file_count": 2,
-    "insertions": 20,
-    "privacy_review_required": false,
+    "branch_file_count": 3,
+    "deletions": 5,
+    "file_count": 3,
+    "insertions": 29,
+    "privacy_review_required": true,
     "status_counts": {
-      "M": 2
+      "M": 3
     },
-    "working_tree_file_count": 1
+    "working_tree_file_count": 2
   }
 }

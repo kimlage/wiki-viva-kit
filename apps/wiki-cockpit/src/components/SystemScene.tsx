@@ -23,9 +23,11 @@ import {
   buildAuraParticles,
   buildEmberParticles,
   buildFlowParticles,
+  buildGapParticles,
   buildStemParticles,
   emberPoint,
   flowPoint,
+  gapPoint,
   stemPoint
 } from "../scene/particles";
 import type { FlowEdgeInput } from "../scene/particles";
@@ -858,12 +860,14 @@ function HorizonBeacons({ beacons, onJump }: { beacons: Beacon[]; onJump: (conte
 function GlowSprites({
   nodes,
   highlightedIds,
+  approvalIds,
   selectedId,
   walkTargetId,
   registerPulse
 }: {
   nodes: LayoutNode[];
   highlightedIds: Set<string>;
+  approvalIds: Set<string>;
   selectedId: string;
   walkTargetId: string;
   registerPulse: (kind: "stale" | "highlight", material: THREE.SpriteMaterial | null) => void;
@@ -877,31 +881,41 @@ function GlowSprites({
           node.risk_flags.length > 0 ||
           highlightedIds.has(node.id) ||
           highlightedIds.has(node.path) ||
+          approvalIds.has(node.id) ||
+          approvalIds.has(node.path) ||
           node.id === selectedId ||
           node.path === selectedId ||
           node.id === walkTargetId
       ),
-    [highlightedIds, nodes, selectedId, walkTargetId]
+    [highlightedIds, approvalIds, nodes, selectedId, walkTargetId]
   );
   if (!texture) return null;
   return (
     <group>
       {glowing.map((node) => {
+        const approval = approvalIds.has(node.id) || approvalIds.has(node.path);
         const highlighted = highlightedIds.has(node.id) || highlightedIds.has(node.path);
         const selected = node.id === selectedId || node.path === selectedId || node.id === walkTargetId;
         const trust = nodeTrustKey(node);
-        // Search/packet/hover matches get a bright cyan marker glow — the
-        // largest and most opaque — so selected cells pop unmistakably against
-        // the trust-colored field instead of blending into the green mass.
-        const color = selected ? "#dff8ff" : highlighted ? "#79e6ff" : trustDisplayColor(node);
-        const size = node.scale * (highlighted ? 6.4 : selected ? 6 : 4.2);
-        const opacity = highlighted ? 0.75 : selected ? 0.62 : trust === "stale" ? 0.38 : 0.3;
+        // Approval (a changed content page at the gate) gets a distinct PURPLE
+        // halo — the loudest thing, pulsing — so the operator SEES which pages
+        // the human gate is about, not just a list in the dock. Search/packet/
+        // hover stay cyan; the two never collide.
+        const color = approval
+          ? "#c57cff"
+          : selected
+          ? "#dff8ff"
+          : highlighted
+          ? "#79e6ff"
+          : trustDisplayColor(node);
+        const size = node.scale * (approval ? 6.8 : highlighted ? 6.4 : selected ? 6 : 4.2);
+        const opacity = approval ? 0.82 : highlighted ? 0.75 : selected ? 0.62 : trust === "stale" ? 0.38 : 0.3;
         return (
           <sprite key={`glow-${node.id}`} position={node.position} scale={[size, size, 1]}>
             <spriteMaterial
               ref={(material) => {
-                if (trust === "stale" && !selected && !highlighted) registerPulse("stale", material);
-                if (highlighted) registerPulse("highlight", material);
+                if (trust === "stale" && !selected && !highlighted && !approval) registerPulse("stale", material);
+                if (highlighted || approval) registerPulse("highlight", material);
               }}
               map={texture}
               color={color}
@@ -1358,6 +1372,9 @@ function ParticleCloud<P>({
         sizeAttenuation
         vertexColors
         transparent
+        // Clip the near-invisible glow fringe: crisper motes, less overdraw in
+        // dense clouds, without hardening the soft additive core.
+        alphaTest={0.02}
         depthWrite={false}
         blending={THREE.AdditiveBlending}
         toneMapped={false}
@@ -1366,18 +1383,37 @@ function ParticleCloud<P>({
   );
 }
 
+// Hoisted so its identity is stable across renders — an inline arrow here would
+// bust ParticleCloud's buffer memo (keyed on colorFor) and rebuild the typed
+// arrays every frame the parent re-renders.
+function flowParticleColor(particle: { color: string }): string {
+  return particle.color;
+}
+
+// An evidence gap: a content page that cites NO source. Structural nodes (root
+// index, context hubs) and the raw/source layer itself are exempt — they are not
+// expected to carry citations. On the real wiki this is the single biggest
+// variance (212/532 pages) and it was invisible until the gap cloud.
+function isEvidenceGap(pageType: string, sourceRefCount: number): boolean {
+  if (pageType === "root_index" || pageType === "context_hub") return false;
+  if (isRawData(pageType)) return false;
+  return sourceRefCount === 0;
+}
+
 function SceneParticles({
   layout,
   flowEdges,
   activityLevel,
   quality,
-  motion
+  motion,
+  showGaps
 }: {
   layout: WorldLayout;
   flowEdges: SceneEdge[];
   activityLevel: number;
   quality: string;
   motion: boolean;
+  showGaps: boolean;
 }) {
   const rich = quality === "rich";
   const aura = useMemo(() => buildAuraParticles(activityLevel, rich ? 120 : 60), [activityLevel, rich]);
@@ -1401,13 +1437,27 @@ function SceneParticles({
     () => buildStemParticles(layout.nodes.filter((node) => node.approved_state === "proposal" && node.position[1] > 0.05), 3, 24),
     [layout.nodes]
   );
+  // Gap motes are opt-in (the ?filter=unsourced lens) so they never compete with
+  // embers at rest. Cold indigo that SINKS: a page quietly missing its evidence,
+  // the visual inverse of the rising proposal stems.
+  const gaps = useMemo(
+    () =>
+      showGaps
+        ? buildGapParticles(
+            layout.nodes.filter((node) => isEvidenceGap(node.page_type, node.source_ref_count)),
+            rich ? 140 : 70
+          )
+        : [],
+    [layout.nodes, rich, showGaps]
+  );
   if (!motion || quality === "compact") return null;
   return (
     <group>
       <ParticleCloud particles={aura} evaluate={auraPoint} size={0.62} baseColor={trustColor("root")} />
-      <ParticleCloud particles={flow} evaluate={flowPoint} size={0.58} colorFor={(particle) => particle.color} />
+      <ParticleCloud particles={flow} evaluate={flowPoint} size={0.58} colorFor={flowParticleColor} />
       <ParticleCloud particles={embers} evaluate={emberPoint} size={0.6} baseColor="#ffd27a" />
       <ParticleCloud particles={stems} evaluate={stemPoint} size={0.6} baseColor="#e2aaff" />
+      {gaps.length > 0 && <ParticleCloud particles={gaps} evaluate={gapPoint} size={0.5} baseColor="#8b93c9" />}
     </group>
   );
 }
@@ -1447,6 +1497,7 @@ function SceneContent({
   profile,
   selectedId,
   highlightedIds,
+  approvalIds,
   focusedGroupKey,
   isolateRelation,
   walk,
@@ -1470,11 +1521,12 @@ function SceneContent({
   profile: ScenePerformanceProfile;
   selectedId: string;
   highlightedIds: Set<string>;
+  approvalIds: Set<string>;
   focusedGroupKey: string;
   isolateRelation: RelationIsolation | null;
   walk: { ids: string[]; step: number } | null;
   morph: React.RefObject<MorphState>;
-  filter: TrustKey | "raw" | null;
+  filter: SceneFilter | null;
   motion: boolean;
   activityLevel: number;
   onSelect: (node: LayoutNode) => void;
@@ -1550,6 +1602,7 @@ function SceneContent({
   const dimTest = useCallback(
     (node: LayoutNode) => {
       if (filter === "raw") return !isRawData(node.page_type) && !node.isRoot;
+      if (filter === "unsourced") return !isEvidenceGap(node.page_type, node.source_ref_count) && !node.isRoot;
       if (filter) return nodeTrustKey(node) !== filter && !node.isRoot;
       if (highlightedIds.size > 0) {
         return !highlightedIds.has(node.id) && !highlightedIds.has(node.path) && !node.isRoot && !node.isHub;
@@ -1627,9 +1680,9 @@ function SceneContent({
           />
         </mesh>
       )}
-      <GlowSprites nodes={layout.nodes} highlightedIds={highlightedIds} selectedId={selectedId} walkTargetId={walkTargetId} registerPulse={registerPulse} />
+      <GlowSprites nodes={layout.nodes} highlightedIds={highlightedIds} approvalIds={approvalIds} selectedId={selectedId} walkTargetId={walkTargetId} registerPulse={registerPulse} />
       <RingSprites nodes={layout.nodes} />
-      <SceneParticles layout={layout} flowEdges={flowEdges} activityLevel={activityLevel} quality={profile.quality} motion={motion} />
+      <SceneParticles layout={layout} flowEdges={flowEdges} activityLevel={activityLevel} quality={profile.quality} motion={motion} showGaps={filter === "unsourced"} />
       <NodeLabels labels={labels} selectedId={selectedId} />
       <GroupRimPills groups={layout.groups} focusedGroupKey={focusedGroupKey} onGroupSelect={onGroupSelect} />
       <ClusterStars stars={layout.clusterStars} onDrill={onStarDrill} />
@@ -1650,6 +1703,7 @@ type SceneCensus = {
   trust: { key: TrustKey; label: string; color: string; count: number }[];
   riskCount: number;
   evidenceCount: number;
+  unsourcedCount: number;
   rawCount: number;
   edgeCounts: { key: string; label: string; color: string; count: number }[];
   hidden: number;
@@ -1684,6 +1738,7 @@ function sceneCensus(nodes: GraphNode[], edges: GraphEdge[], layout: WorldLayout
     trust,
     riskCount: visible.filter((node) => node.risk_flags.length > 0).length,
     evidenceCount: visible.filter((node) => node.metrics.source_ref_count > 0).length,
+    unsourcedCount: visible.filter((node) => isEvidenceGap(node.page_type, node.metrics.source_ref_count)).length,
     rawCount: visible.filter((node) => isRawData(node.page_type)).length,
     edgeCounts: [...edgeCounts.entries()]
       .map(([key, count]) => ({ key, label: edgeStyle(key).label, color: edgeStyle(key).color, count }))
@@ -1693,7 +1748,7 @@ function sceneCensus(nodes: GraphNode[], edges: GraphEdge[], layout: WorldLayout
   };
 }
 
-type SceneFilter = TrustKey | "raw";
+type SceneFilter = TrustKey | "raw" | "unsourced";
 
 function StatusStrip({
   census,
@@ -1731,6 +1786,17 @@ function StatusStrip({
           <i style={{ background: edgeStyle("source_ref").color }} />
           {t("scene.evidence")} {census.evidenceCount}
         </span>
+      )}
+      {census.unsourcedCount > 0 && (
+        <button
+          className={filter === "unsourced" ? "stripChip active" : "stripChip"}
+          onClick={() => onFilter(filter === "unsourced" ? null : ("unsourced" as SceneFilter))}
+          title={t("misc.showOnly", { label: t("scene.unsourced") })}
+          type="button"
+        >
+          <i style={{ background: "#8b93c9" }} />
+          {t("scene.unsourced")} {census.unsourcedCount}
+        </button>
       )}
       {census.rawCount > 0 && (
         <button
@@ -2016,6 +2082,7 @@ export function SystemScene({
   route,
   packetIds = NO_IDS,
   highlightedPageIds = NO_IDS,
+  approvalPageIds = NO_IDS,
   isolateRelation = null,
   walk = null,
   snapshotAt,
@@ -2034,6 +2101,7 @@ export function SystemScene({
   route: SceneRoute;
   packetIds?: string[];
   highlightedPageIds?: string[];
+  approvalPageIds?: string[];
   isolateRelation?: RelationIsolation | null;
   walk?: { ids: string[]; step: number } | null;
   snapshotAt?: string;
@@ -2075,15 +2143,18 @@ export function SystemScene({
   const [minimapExpanded, setMinimapExpanded] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const highlightedIds = useMemo(() => new Set(highlightedPageIds), [highlightedPageIds]);
+  const approvalIds = useMemo(() => new Set(approvalPageIds), [approvalPageIds]);
   const census = useMemo(() => sceneCensus(nodes, edges, layout), [edges, layout, nodes]);
   const nodeIndex = useMemo(() => layoutNodeIndex(layout), [layout]);
   const selectedId = route.pageId ?? "";
-  const filter: (TrustKey | "raw") | null =
+  const filter: SceneFilter | null =
     route.filter === "raw"
       ? "raw"
-      : (["fresh", "stale", "unknown", "proposal"] as TrustKey[]).includes(route.filter as TrustKey)
-        ? (route.filter as TrustKey)
-        : null;
+      : route.filter === "unsourced"
+        ? "unsourced"
+        : (["fresh", "stale", "unknown", "proposal"] as TrustKey[]).includes(route.filter as TrustKey)
+          ? (route.filter as TrustKey)
+          : null;
 
   const navigate = useCallback((patch: ScenePatch) => onNavigate?.(patch), [onNavigate]);
   const hrefFor = useCallback((patch: ScenePatch) => (makeHref ? makeHref(patch) : "#"), [makeHref]);
@@ -2401,6 +2472,7 @@ export function SystemScene({
                 profile={profile}
                 selectedId={selectedId}
                 highlightedIds={highlightedIds}
+                approvalIds={approvalIds}
                 focusedGroupKey={focusedGroupKey}
                 isolateRelation={isolateRelation}
                 walk={walk}

@@ -5,9 +5,11 @@ import {
   buildAuraParticles,
   buildEmberParticles,
   buildFlowParticles,
+  buildGapParticles,
   buildStemParticles,
   emberPoint,
   flowPoint,
+  gapPoint,
   stemPoint
 } from "./particles";
 
@@ -78,6 +80,14 @@ describe("particle builders", () => {
     expect(particles[0].base[1]).toBe(0);
     expect(particles[0].top[1]).toBeCloseTo(0.5);
   });
+
+  it("caps gap motes and is deterministic per node", () => {
+    const nodes = Array.from({ length: 90 }, (_, index) => layoutNode(`gap-${index}`));
+    const particles = buildGapParticles(nodes, 60);
+    expect(particles).toHaveLength(60);
+    expect(particles.every((p) => p.drop > 0 && p.speed > 0)).toBe(true);
+    expect(JSON.stringify(buildGapParticles(nodes, 60))).toEqual(JSON.stringify(particles));
+  });
 });
 
 describe("analytic evaluation", () => {
@@ -97,5 +107,12 @@ describe("analytic evaluation", () => {
     const [, yTop, , alphaEnd] = stemPoint({ ...stem, phase: 0.999, speed: 0 }, 0);
     expect(yTop).toBeGreaterThan(0.45);
     expect(alphaEnd).toBeLessThan(0.05);
+    // Gap motes SINK below their node and fade — the inverse read of a stem.
+    const gap = buildGapParticles([layoutNode("g", { position: [1, 2, 1] })])[0];
+    const [, yStart, , alphaStart] = gapPoint({ ...gap, phase: 0, speed: 0 }, 0);
+    const [, ySunk] = gapPoint({ ...gap, phase: 0.999, speed: 0 }, 0);
+    expect(yStart).toBeCloseTo(2, 5);
+    expect(ySunk).toBeLessThan(yStart);
+    expect(alphaStart).toBeCloseTo(0.45, 2);
   });
 });
