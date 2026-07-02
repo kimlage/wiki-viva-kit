@@ -22,7 +22,9 @@ def _write(path: Path, text: str) -> None:
 def _repo(root: Path) -> WikiConfig:
     subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
     _write(root / "AGENTS.md", "# Agents\nHard rules.\n")
-    _write(root / "wiki.config.yaml", "repo_id: srv-test\ndefault_context: system\n")
+    # Pin codex disabled so the capability gate is deterministic regardless of
+    # whether the test machine has a working codex CLI installed.
+    _write(root / "wiki.config.yaml", "repo_id: srv-test\ndefault_context: system\ncodex:\n  enabled: false\n")
     _write(
         root / "memories/index.md",
         """---
@@ -92,6 +94,15 @@ def test_health_carries_codex_capability(server: _Server) -> None:
     assert body["ok"] is True
     assert "codex" in body
     assert set(body["codex"]) >= {"installed", "authed", "usable", "enabled"}
+
+
+def test_health_carries_operator_handshake(server: _Server) -> None:
+    status, body = server.get("/api/health")
+    assert status == 200
+    # The handshake lets the cockpit detect a stale operator (old process).
+    assert body["server_version"].startswith("wiki_web_server.")
+    assert "codex" in body["schema_capabilities"]
+    assert "briefs" in body["schema_capabilities"]
 
 
 def test_codex_capability_endpoint(server: _Server) -> None:

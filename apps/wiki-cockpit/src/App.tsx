@@ -20,6 +20,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { WorldView } from "./components/WorldView";
 import { BriefStudio } from "./components/BriefStudio";
+import { CodexDock } from "./components/CodexDock";
 import { configureLanguage, t } from "./data/i18n";
 import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel } from "./data/presentation";
@@ -38,7 +39,7 @@ import {
   spawnCodexJob
 } from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
-import { buildUrl, installLinkInterceptor, navigate, parseRoute, useRouteUrl, worldFromRoute } from "./router";
+import { buildUrl, installLinkInterceptor, navigate, parseRoute, patchWorld, useRouteUrl, worldFromRoute } from "./router";
 import type { Route } from "./router";
 import { groupKeyForPage } from "./scene/perspectives";
 import type { ActionCard, BriefRecord, BriefSpec, CodexCapability, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
@@ -1636,6 +1637,7 @@ export function App() {
   const [activeBrief, setActiveBrief] = useState<BriefRecord | null>(null);
   const [briefBusy, setBriefBusy] = useState(false);
   const [codexCapability, setCodexCapability] = useState<CodexCapability>(CODEX_UNAVAILABLE);
+  const [codexBusy, setCodexBusy] = useState(false);
 
   // One snapshot bundle per universe, loaded once per session — it survives
   // all navigation. Demo is an in-memory switch, never a document reload.
@@ -1665,6 +1667,21 @@ export function App() {
       .catch(() => setCodexCapability(CODEX_UNAVAILABLE));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadState.status, route.demo]);
+
+  // Re-probe on demand (the Codex diagnostics dock's Re-verify button): the
+  // moment the owner reinstalls / logs in / restarts the operator, the ladder
+  // flips without a page reload.
+  const reverifyCodex = () => {
+    if (loadState.status !== "ready" || codexBusy) return;
+    setCodexBusy(true);
+    loadCodexCapability(loadState.runtime)
+      .then(setCodexCapability)
+      .catch(() => setCodexCapability(CODEX_UNAVAILABLE))
+      .finally(() => setCodexBusy(false));
+  };
+  const openCodexDock = () => {
+    if (route.kind === "world") navigate(buildUrl(patchWorld(route, { dock: "codex" })));
+  };
 
   // The base system is English; the whole UI flips when the wiki's configured
   // language starts with "pt" (runtime config wins over the manifest).
@@ -1920,12 +1937,15 @@ export function App() {
           onComposeBrief={runBrief}
           onResumeBrief={resumeBrief}
           onReturnJob={returnJob}
+          onDiagnoseCodex={openCodexDock}
           codexCapability={codexCapability}
         />
       );
     }
     return null;
   })();
+
+  const codexDockOpen = route.kind === "world" && route.query.dock === "codex";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -1961,8 +1981,17 @@ export function App() {
             onSaveText={saveBrief}
             onDiscard={removeBrief}
             onExecute={codexCapability.usable ? executeBrief : undefined}
+            onDiagnose={openCodexDock}
             onNotice={notify}
             onClose={() => setActiveBrief(null)}
+          />
+        )}
+        {codexDockOpen && worldRoute && (
+          <CodexDock
+            capability={codexCapability}
+            busy={codexBusy}
+            onReverify={reverifyCodex}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}
         {commandResult && (

@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
-import { t } from "../data/i18n";
+import { codexUnavailableReason, t } from "../data/i18n";
 import type { BriefRecord, CodexCapability, CodexJobRecord } from "../types";
 import {
   cancelCodexJob,
@@ -41,6 +41,7 @@ export function WorkTray({
   demo,
   onResumeBrief,
   onReturn,
+  onDiagnose,
   onNotice,
   onClose
 }: {
@@ -48,6 +49,7 @@ export function WorkTray({
   demo: boolean;
   onResumeBrief: (briefId: string) => void;
   onReturn?: (jobId: string, feedback: string) => void;
+  onDiagnose?: () => void;
   onNotice: (text: string) => void;
   onClose: () => void;
 }) {
@@ -121,7 +123,14 @@ export function WorkTray({
     <div className="workTray" role="region" aria-label={t("work.aria")}>
       <header>
         <strong>{t("work.title")}</strong>
-        {!capability.usable && !demo && <span className="pill pill-muted">{t("work.unavailable")}</span>}
+        {!capability.usable && !demo &&
+          (onDiagnose ? (
+            <button className="pill pill-warn workCodexChip" onClick={onDiagnose} type="button">
+              {codexUnavailableReason(capability)} · {t("codex.dock.open")}
+            </button>
+          ) : (
+            <span className="pill pill-muted">{t("work.unavailable")}</span>
+          ))}
         <button className="textButton" onClick={load} title={t("work.refresh")} type="button">
           <RefreshCw size={13} />
         </button>

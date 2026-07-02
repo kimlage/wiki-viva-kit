@@ -5,6 +5,7 @@ import type {
   CodexJobRecord,
   IngestionPlan,
   IngestionStepResult,
+  OperatorHealth,
   PageContent,
   SnapshotBundle,
   SourceTriageResult,
@@ -154,10 +155,31 @@ export async function loadPageContent(
   };
 }
 
-// Live Codex capability. Only the local operator can run Codex, so demo/static
-// mode never fetches — it reports the honest "unavailable" record straight away.
-// A network/parse failure also degrades to unavailable rather than throwing:
-// the launch CTA must fail closed, never fake availability.
+// The operator handshake. Old operators (process older than the code on disk)
+// omit server_version/schema_capabilities entirely, which is how we detect
+// staleness and show the honest "restart the operator" state everywhere.
+export async function loadHealth(): Promise<OperatorHealth | null> {
+  try {
+    const response = await fetch(await apiUrl("/health"), { headers: { accept: "application/json" } });
+    if (!response.ok) return null;
+    return (await response.json()) as OperatorHealth;
+  } catch {
+    return null;
+  }
+}
+
+// True when the operator serves a capability its own code should — i.e. NOT a
+// stale process. Used to render "operador desatualizado — reinicie" instead of
+// a raw 404 for every one-world endpoint.
+export function operatorSupports(health: OperatorHealth | null, capability: string): boolean {
+  return Boolean(health?.ok && (health.schema_capabilities || []).includes(capability));
+}
+
+// Live Codex capability, read from /api/health (one fetch — the health payload
+// already carries the full probe record). Only the local operator can run
+// Codex, so demo/static mode never fetches. A stale operator (no `codex`
+// capability) is reported as operator_outdated, NOT as "not installed" — the
+// old code lied about a machine where codex is installed and authed.
 export async function loadCodexCapability(runtime: RuntimeConfig): Promise<CodexCapability> {
   if (runtime.mode === "static_demo" || !runtime.codexEnabled) {
     return {
@@ -168,14 +190,22 @@ export async function loadCodexCapability(runtime: RuntimeConfig): Promise<Codex
         : "Codex is turned off for this wiki."
     };
   }
-  try {
-    const response = await fetch(await apiUrl("/codex/capability"), { headers: { accept: "application/json" } });
-    if (!response.ok) return { ...CODEX_UNAVAILABLE, reason: `capability check failed: ${response.status}` };
-    const payload = (await response.json()) as CodexCapability;
-    return { ...CODEX_UNAVAILABLE, ...payload };
-  } catch (error) {
-    return { ...CODEX_UNAVAILABLE, reason: error instanceof Error ? error.message : "capability check failed" };
+  const health = await loadHealth();
+  if (health === null) {
+    return { ...CODEX_UNAVAILABLE, reason: "operator not reachable" };
   }
+  // An operator that serves a codex probe is trusted — that IS the live reading,
+  // even if it predates the schema_capabilities handshake (the handshake gates
+  // the OTHER one-world endpoints, not codex itself). Only a codex block that is
+  // entirely absent means a truly old operator (predates codex): restart it.
+  if (health.codex) {
+    return { ...CODEX_UNAVAILABLE, ...health.codex };
+  }
+  return {
+    ...CODEX_UNAVAILABLE,
+    operator_outdated: true,
+    reason: "the local operator predates the codex API — restart it"
+  };
 }
 
 // Work briefs — the agent-neutral compose/edit/save/discard surface. Compose
