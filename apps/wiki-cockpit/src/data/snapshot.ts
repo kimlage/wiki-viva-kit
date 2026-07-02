@@ -1,4 +1,6 @@
 import type {
+  BriefRecord,
+  BriefSpec,
   CodexCapability,
   IngestionPlan,
   IngestionStepResult,
@@ -173,6 +175,55 @@ export async function loadCodexCapability(runtime: RuntimeConfig): Promise<Codex
   } catch (error) {
     return { ...CODEX_UNAVAILABLE, reason: error instanceof Error ? error.message : "capability check failed" };
   }
+}
+
+// Work briefs — the agent-neutral compose/edit/save/discard surface. Compose
+// is deterministic and zero-token server-side; it also persists a draft so the
+// brief is inspectable and (Phase 2) executable by its stable id + sha.
+export async function composeBrief(spec: BriefSpec): Promise<BriefRecord> {
+  const response = await fetch(await apiUrl("/briefs"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ spec })
+  });
+  const result = (await response.json()) as BriefRecord;
+  if (!response.ok && !result.brief_id) {
+    throw new Error(result.error || `brief compose failed: ${response.status}`);
+  }
+  return result;
+}
+
+export async function listBriefs(): Promise<BriefRecord[]> {
+  const response = await fetch(await apiUrl("/briefs"), { headers: { accept: "application/json" } });
+  if (!response.ok) return [];
+  const result = (await response.json()) as { ok: boolean; briefs: BriefRecord[] };
+  return result.briefs || [];
+}
+
+export async function saveBriefText(briefId: string, text: string): Promise<BriefRecord> {
+  const response = await fetch(await apiUrl(`/briefs/${encodeURIComponent(briefId)}`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text })
+  });
+  const result = (await response.json()) as BriefRecord;
+  if (!response.ok && !result.brief_id) {
+    throw new Error(result.error || `brief save failed: ${response.status}`);
+  }
+  return result;
+}
+
+export async function discardBrief(briefId: string): Promise<BriefRecord> {
+  const response = await fetch(await apiUrl(`/briefs/${encodeURIComponent(briefId)}/discard`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({})
+  });
+  const result = (await response.json()) as BriefRecord;
+  if (!response.ok && !result.brief_id) {
+    throw new Error(result.error || `brief discard failed: ${response.status}`);
+  }
+  return result;
 }
 
 export async function runCockpitAction(

@@ -14,7 +14,7 @@ import type { PerspectiveId } from "../scene/perspectives";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
 import type { RuntimeConfig } from "../data/runtimeConfig";
-import type { ActionCard, PageRecord, SnapshotBundle } from "../types";
+import type { ActionCard, BriefSpec, PageRecord, SnapshotBundle } from "../types";
 import { CoachMarks, tourSeen } from "./CoachMarks";
 import { HelpTip } from "./HelpTip";
 import { MissionsPanel } from "./MissionsPanel";
@@ -75,13 +75,15 @@ export function WorldView({
   runtime,
   route,
   onRun,
-  onNotice
+  onNotice,
+  onComposeBrief
 }: {
   bundle: SnapshotBundle;
   runtime: RuntimeConfig;
   route: WorldRoute;
   onRun: (action: ActionCard) => void;
   onNotice?: (text: string) => void;
+  onComposeBrief?: (spec: BriefSpec) => void;
 }) {
   const pages = bundle.pages.pages;
   // Always navigate from the CURRENT route: async callbacks (debounce timers,
@@ -431,6 +433,7 @@ export function WorldView({
             onClose={() => navigateWorld({ reader: false })}
             onTogglePacket={togglePacket}
             onRunAction={onRun}
+            onComposeBrief={onComposeBrief}
             onHoverLink={setHoverLinkId}
             onIsolateRelation={setIsolateRelation}
             onEvidenceStep={(ids, step) => setWalk({ ids, step })}
@@ -562,6 +565,14 @@ export function WorldView({
               setMissionsOpen(false);
               navigateWorld({ pageId: id, reader: true });
             }}
+            onComposeBrief={
+              onComposeBrief
+                ? (spec) => {
+                    setMissionsOpen(false);
+                    onComposeBrief(spec);
+                  }
+                : undefined
+            }
             onClose={() => setMissionsOpen(false)}
           />
         )}

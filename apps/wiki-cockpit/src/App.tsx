@@ -19,15 +19,27 @@ import {
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { WorldView } from "./components/WorldView";
+import { BriefStudio } from "./components/BriefStudio";
 import { configureLanguage, t } from "./data/i18n";
 import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel } from "./data/presentation";
-import { buildIngestionPlan, loadSnapshotBundle, runCockpitAction, runGitWorkflow, runIngestionStep } from "./data/snapshot";
+import {
+  buildIngestionPlan,
+  composeBrief,
+  discardBrief,
+  loadCodexCapability,
+  loadSnapshotBundle,
+  runCockpitAction,
+  runGitWorkflow,
+  runIngestionStep,
+  saveBriefText
+} from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
 import { buildUrl, installLinkInterceptor, navigate, parseRoute, useRouteUrl, worldFromRoute } from "./router";
 import type { Route } from "./router";
 import { groupKeyForPage } from "./scene/perspectives";
-import type { ActionCard, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
+import type { ActionCard, BriefRecord, BriefSpec, CodexCapability, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
+import { CODEX_UNAVAILABLE } from "./types";
 import "./styles.css";
 
 type LoadState =
@@ -1618,6 +1630,9 @@ export function App() {
   const [commandResult, setCommandResult] = useState<CommandRunResult | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; tone: "good" | "warn" | "info"; showResult: boolean } | null>(null);
+  const [activeBrief, setActiveBrief] = useState<BriefRecord | null>(null);
+  const [briefBusy, setBriefBusy] = useState(false);
+  const [codexCapability, setCodexCapability] = useState<CodexCapability>(CODEX_UNAVAILABLE);
 
   // One snapshot bundle per universe, loaded once per session — it survives
   // all navigation. Demo is an in-memory switch, never a document reload.
@@ -1637,6 +1652,16 @@ export function App() {
   useEffect(() => installLinkInterceptor(), []);
 
   const loadState = route.demo ? demoState : realState;
+
+  // Live Codex capability: only meaningful with the local operator, so it is
+  // probed once the real bundle is ready and never in the demo. It fails closed.
+  useEffect(() => {
+    if (loadState.status !== "ready") return;
+    loadCodexCapability(loadState.runtime)
+      .then(setCodexCapability)
+      .catch(() => setCodexCapability(CODEX_UNAVAILABLE));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadState.status, route.demo]);
 
   // The base system is English; the whole UI flips when the wiki's configured
   // language starts with "pt" (runtime config wins over the manifest).
@@ -1749,6 +1774,57 @@ export function App() {
   };
   const notify = (text: string) => setNotice({ text, tone: "info", showResult: false });
 
+  // Compose a work brief from a grounding spec and open the studio. Briefs need
+  // the local operator (they read repo files) — the demo degrades honestly.
+  const runBrief = async (spec: BriefSpec) => {
+    if (briefBusy) return;
+    if (route.demo) {
+      setNotice({ text: t("brief.demoOff"), tone: "info", showResult: false });
+      return;
+    }
+    setBriefBusy(true);
+    try {
+      const record = await composeBrief(spec);
+      setActiveBrief(record);
+    } catch (error) {
+      setNotice({
+        text: t("brief.compose.failed", { error: error instanceof Error ? error.message : "failed" }),
+        tone: "warn",
+        showResult: false
+      });
+    } finally {
+      setBriefBusy(false);
+    }
+  };
+  const saveBrief = async (briefId: string, text: string) => {
+    setBriefBusy(true);
+    try {
+      const record = await saveBriefText(briefId, text);
+      setActiveBrief(record);
+      setNotice({ text: t("brief.exit.saved"), tone: "good", showResult: false });
+    } catch (error) {
+      setNotice({
+        text: t("brief.exit.saveFailed", { error: error instanceof Error ? error.message : "failed" }),
+        tone: "warn",
+        showResult: false
+      });
+    } finally {
+      setBriefBusy(false);
+    }
+  };
+  const removeBrief = async (briefId: string) => {
+    setBriefBusy(true);
+    try {
+      await discardBrief(briefId);
+      setNotice({ text: t("brief.exit.discarded"), tone: "info", showResult: false });
+    } catch {
+      // A failed discard is non-fatal; just close the studio.
+    } finally {
+      setBriefBusy(false);
+      setActiveBrief(null);
+    }
+  };
+
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
 
@@ -1775,6 +1851,7 @@ export function App() {
           route={worldRoute}
           onRun={runAction}
           onNotice={notify}
+          onComposeBrief={runBrief}
         />
       );
     }
@@ -1807,6 +1884,17 @@ export function App() {
           </div>
         )}
         {content}
+        {activeBrief && (
+          <BriefStudio
+            brief={activeBrief}
+            capability={codexCapability}
+            busy={briefBusy}
+            onSaveText={saveBrief}
+            onDiscard={removeBrief}
+            onNotice={notify}
+            onClose={() => setActiveBrief(null)}
+          />
+        )}
         {commandResult && (
           <div className={isWorld ? "worldOutputDock" : undefined}>
             {isWorld && (

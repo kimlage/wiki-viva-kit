@@ -6,9 +6,10 @@
 // plus context vitality. No XP is fabricated in the UI.
 
 import { useMemo } from "react";
+import { Sparkles } from "lucide-react";
 import { t, uiLanguage } from "../data/i18n";
 import { contextLabel, isRawData, pageTypeStyle, trustColor } from "../data/presentation";
-import type { PageRecord, SnapshotBundle } from "../types";
+import type { BriefSpec, PageRecord, SnapshotBundle } from "../types";
 import { HelpTip } from "./HelpTip";
 
 export type Mission = {
@@ -104,6 +105,20 @@ export function deriveMissions(bundle: SnapshotBundle, demo: boolean): Mission[]
   return missions;
 }
 
+// Map a mission to a work-brief spec: refresh/verify/evidence ground in the
+// page and seed the intent from the mission's own "why"; approve is the human
+// gate and never gets a brief.
+export function missionBriefSpec(mission: Mission): BriefSpec | null {
+  if (!mission.pageId) return null;
+  const kind = mission.kind === "verify" ? "verify" : mission.kind === "evidence" ? "evidence" : "refresh";
+  return {
+    mission_kind: kind,
+    theme: `${mission.kind}-${mission.pageId}`,
+    grounding: { page_ids: [mission.pageId] },
+    intent: mission.why
+  };
+}
+
 function ProgressBar({ value, max, tone }: { value: number; max: number; tone: string }) {
   const ratio = max > 0 ? Math.min(value / max, 1) : 0;
   return (
@@ -117,11 +132,13 @@ export function MissionsPanel({
   bundle,
   demo,
   onOpenPage,
+  onComposeBrief,
   onClose
 }: {
   bundle: SnapshotBundle;
   demo: boolean;
   onOpenPage: (id: string) => void;
+  onComposeBrief?: (spec: BriefSpec) => void;
   onClose: () => void;
 }) {
   const language = uiLanguage();
@@ -143,6 +160,26 @@ export function MissionsPanel({
         </button>
       </header>
       <p className="missionsIntro">{t("missions.intro")}</p>
+
+      {onComposeBrief && missions.length > 0 && (
+        <div className="missionsBriefTopRow">
+          <button
+            className="secondaryButton missionsBriefTop"
+            onClick={() =>
+              onComposeBrief({
+                mission_kind: "state",
+                theme: "top-problems",
+                grounding: { state_report: { scope: "missions", limit: 6 } }
+              })
+            }
+            type="button"
+          >
+            <Sparkles size={14} />
+            <span>{t("missions.brief.top")}</span>
+          </button>
+          <HelpTip title={t("missions.brief.generate")} body={t("missions.brief.help")} />
+        </div>
+      )}
 
       <div className="missionsProgress" aria-label={t("missions.title")}>
         <div className="missionStat">
@@ -174,9 +211,23 @@ export function MissionsPanel({
               <small>{mission.why}</small>
             </div>
             {mission.pageId && (
-              <button className="textButton" onClick={() => onOpenPage(mission.pageId!)} type="button">
-                {t("missions.open")}
-              </button>
+              <div className="missionActions">
+                <button className="textButton" onClick={() => onOpenPage(mission.pageId!)} type="button">
+                  {t("missions.open")}
+                </button>
+                {onComposeBrief && (
+                  <button
+                    className="textButton missionBriefButton"
+                    onClick={() => {
+                      const spec = missionBriefSpec(mission);
+                      if (spec) onComposeBrief(spec);
+                    }}
+                    type="button"
+                  >
+                    {t("missions.brief.generate")}
+                  </button>
+                )}
+              </div>
             )}
             {mission.href && (
               <a className="textButton" href={mission.href}>

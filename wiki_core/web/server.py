@@ -12,6 +12,7 @@ from urllib.parse import unquote, urlparse
 
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
+from wiki_core.web.briefs import BriefStore, compose_and_save
 from wiki_core.web.codex_probe import probe_codex_for
 from wiki_core.web.commands import run_action
 from wiki_core.web.content import build_page_content
@@ -83,6 +84,18 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/codex/capability":
             self._send_json(probe_codex_for(self.server.config))
             return
+        if path == "/api/briefs":
+            store = BriefStore(self.server.root, self.server.config)
+            self._send_json({"ok": True, "briefs": store.list()})
+            return
+        if path.startswith("/api/briefs/"):
+            brief_id = path[len("/api/briefs/") :].strip("/")
+            record = BriefStore(self.server.root, self.server.config).get(brief_id)
+            if record is None:
+                self._send_error("unknown brief", status=HTTPStatus.NOT_FOUND)
+                return
+            self._send_json({"ok": True, **record})
+            return
         if path == "/api/snapshot":
             self._send_json(self.server.snapshot_payloads())
             return
@@ -121,6 +134,15 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        length = int(self.headers.get("content-length") or "0")
+        try:
+            payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            self._send_error("invalid JSON", status=HTTPStatus.BAD_REQUEST)
+            return
+        if parsed.path == "/api/briefs" or parsed.path.startswith("/api/briefs/"):
+            self._handle_briefs_post(parsed.path, payload)
+            return
         if parsed.path not in {
             "/api/actions/run",
             "/api/git/workflow",
@@ -129,12 +151,6 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             "/api/ingestion/run",
         }:
             self._send_error("not found", status=HTTPStatus.NOT_FOUND)
-            return
-        length = int(self.headers.get("content-length") or "0")
-        try:
-            payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
-        except json.JSONDecodeError:
-            self._send_error("invalid JSON", status=HTTPStatus.BAD_REQUEST)
             return
         if parsed.path == "/api/actions/run":
             action_id = str(payload.get("action_id") or "")
@@ -184,6 +200,34 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         context = None if payload.get("context") is None else str(payload.get("context"))
         result = triage_source(self.server.root, self.server.config, source, context=context)
         self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+
+    def _handle_briefs_post(self, path: str, payload: dict[str, Any]) -> None:
+        store = BriefStore(self.server.root, self.server.config)
+        if path == "/api/briefs":
+            spec = payload.get("spec", payload)
+            record = compose_and_save(
+                self.server.root, self.server.config, self.server.snapshot_payloads(), spec=spec
+            )
+            self._send_json({"ok": True, **record})
+            return
+        rest = path[len("/api/briefs/") :].strip("/")
+        if rest.endswith("/discard"):
+            brief_id = rest[: -len("/discard")].strip("/")
+            record = store.set_status(brief_id, "discarded")
+            if record is None:
+                self._send_error("unknown brief", status=HTTPStatus.NOT_FOUND)
+                return
+            self._send_json({"ok": True, **record})
+            return
+        brief_id = rest
+        result = store.update_text(brief_id, str(payload.get("text") or ""))
+        if result is None:
+            self._send_error("unknown brief", status=HTTPStatus.NOT_FOUND)
+            return
+        if result.get("ok") is False:
+            self._send_json(result, status=HTTPStatus.BAD_REQUEST)
+            return
+        self._send_json({"ok": True, **result})
 
 
 def serve(root: Path, *, host: str = "127.0.0.1", port: int = 8765) -> None:
