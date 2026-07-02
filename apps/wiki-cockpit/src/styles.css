@@ -4905,22 +4905,75 @@ pre {
 .gateFileHints {
   color: #c9a86a;
 }
-/* Per-check rows (shared GateChecks). */
-.gateRowMeta {
-  display: block;
-  color: #7f95a3;
-  font-size: 11px;
+/* Per-check rows (shared GateChecks): a STACKED card. The old flex-wrap row
+   let the command, run button and output collide (the running label wrapped
+   one letter per line) — each part now gets its own line. */
+.gateRow {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+.gateRowHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.gateStatusIcon {
+  display: inline-flex;
+  width: 14px;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.gateSpin {
+  color: #8aa0ad;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.gateRowName {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.gateRowMeta code {
+.gateRunBtn {
+  flex: 0 0 auto;
+}
+.gateRowCmd {
+  display: block;
+  color: #7f95a3;
   font-size: 11px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+.gateRowTime {
+  color: #6b7f8c;
+  font-size: 10.5px;
+}
+/* The one-line WHY of a failure — visible without opening anything. */
+.gateRowReason {
+  margin: 2px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(122, 59, 65, 0.18);
+  border: 1px solid #7a3b41;
+  color: #f0c2c7;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 .gateRowActions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 .gateFixButton {
   color: #c57cff;

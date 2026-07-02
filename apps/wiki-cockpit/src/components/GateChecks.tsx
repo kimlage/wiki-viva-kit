@@ -6,7 +6,7 @@
 // flows straight into delegated work instead of a dead end.
 
 import { useState } from "react";
-import { Check, Play, Sparkles } from "lucide-react";
+import { Check, Loader2, Play, Sparkles } from "lucide-react";
 import { t } from "../data/i18n";
 import { gateFixSpec, trimGateOutput } from "../data/approval";
 import { runGate } from "../data/snapshot";
@@ -19,6 +19,18 @@ const GATE_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
   partial: "warn",
   not_run: "muted"
 };
+
+// The first meaningful line of a failure — the human-readable WHY, capped so it
+// stays one line inline. Skips a leading "…" (the trimmed-tail marker) and
+// blank lines; the full log still lives one click away.
+function failureReason(output: string): string {
+  const line = output
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l && l !== "…" && l !== "--- stderr ---");
+  if (!line) return "";
+  return line.length > 200 ? `${line.slice(0, 200)}…` : line;
+}
 
 // Human names for the five honesty gates (EN+PT via i18n; id is the fallback
 // for gates this build does not know yet).
@@ -104,26 +116,35 @@ export function GateChecks({
           const output = runResult ? trimGateOutput(runResult.stdout ?? "", runResult.stderr ?? "") : "";
           const rowBusy = running === gate.id || running === "*";
           const failing = status === "fail";
+          // The one-line WHY of a failure, shown inline so the operator sees
+          // what broke without opening anything ("Ver saída" reveals the full
+          // log). Loading/running rows show a spinner and mute stale verdicts.
+          const reason = failing ? failureReason(output) : "";
+          const pillTone = rowBusy ? "muted" : GATE_TONE[status] ?? "muted";
+          const pillLabel = rowBusy ? t("gate.running") : t(`gate.gate.${status}`);
           return (
-            <li key={gate.id} className={`gateRow gateRow-${GATE_TONE[status] ?? "muted"}`}>
+            <li key={gate.id} className={`gateRow gateRow-${rowBusy ? "muted" : GATE_TONE[status] ?? "muted"}`}>
               <div className="gateRowHead">
-                {status === "pass" ? (
-                  <Check size={14} className="rungOk" aria-hidden />
-                ) : (
-                  <span className={`rungDot ${failing ? "rungBlocked" : "rungPending"}`} aria-hidden />
-                )}
-                <span>{gateName(gate.id)}</span>
-                <span className={`pill pill-${GATE_TONE[status] ?? "muted"}`}>{t(`gate.gate.${status}`)}</span>
-                <button className="textButton" onClick={() => run(gate.id)} disabled={rowBusy || Boolean(busy)} type="button">
+                <span className="gateStatusIcon" aria-hidden>
+                  {rowBusy ? (
+                    <Loader2 size={13} className="gateSpin" />
+                  ) : status === "pass" ? (
+                    <Check size={14} className="rungOk" />
+                  ) : (
+                    <span className={`rungDot ${failing ? "rungBlocked" : "rungPending"}`} />
+                  )}
+                </span>
+                <span className="gateRowName">{gateName(gate.id)}</span>
+                <span className={`pill pill-${pillTone}`}>{pillLabel}</span>
+                <button className="textButton gateRunBtn" onClick={() => run(gate.id)} disabled={rowBusy || Boolean(busy)} type="button">
                   <Play size={12} />
-                  <span>{rowBusy ? t("gate.running") : t("gate.run")}</span>
+                  <span>{t("gate.run")}</span>
                 </button>
               </div>
-              <small className="gateRowMeta">
-                <code>{gate.argv.join(" ")}</code>
-                {finished ? ` · ${finished.replace("T", " ").slice(0, 16)}` : ""}
-              </small>
-              {(output || failing) && (
+              <code className="gateRowCmd">{gate.argv.join(" ")}</code>
+              {finished && <span className="gateRowTime">{finished.replace("T", " ").slice(0, 16)}</span>}
+              {failing && reason && <p className="gateRowReason">{reason}</p>}
+              {(output || (failing && onComposeBrief)) && (
                 <div className="gateRowActions">
                   {output && (
                     <button
@@ -149,7 +170,7 @@ export function GateChecks({
               {openOutput === gate.id && output && (
                 <ExpandablePre text={output} title={gateName(gate.id)} className="gateOutput" />
               )}
-              {failing && !output && <small className="gateRowHint">{t("gate.output.pending")}</small>}
+              {failing && !output && !rowBusy && <small className="gateRowHint">{t("gate.output.pending")}</small>}
             </li>
           );
         })}
