@@ -101,15 +101,25 @@ function sharedCopyLabel(git: SnapshotBundle["git"]): string {
   return git.upstream.name || git.upstream.remote || "not configured";
 }
 
-function Nav({ active, demo }: { active: string; demo: boolean }) {
+function Nav({
+  active,
+  demo,
+  dockHref
+}: {
+  active: string;
+  demo: boolean;
+  dockHref: (dock: "approve" | "intake" | "gates") => string;
+}) {
   // /demo prefixes ALL generated URLs — the demo universe never cross-links
-  // into the real snapshot. Anchors are intercepted by the SPA router.
+  // into the real snapshot. Anchors are intercepted by the SPA router. The
+  // Approve/Add/Health items open the world dock in place (dockHref carries the
+  // demo prefix through patchWorld), so no legacy-redirect flash.
   const prefix = demo ? "/demo" : "";
   const items = [
     { href: `${prefix}/w/radar`, id: "world", label: t("nav.home"), icon: <Activity size={17} /> },
-    { href: `${prefix}/review`, id: "review", label: t("nav.approve"), icon: <GitPullRequest size={17} /> },
-    { href: `${prefix}/sources`, id: "sources", label: t("nav.add"), icon: <Inbox size={17} /> },
-    { href: `${prefix}/health`, id: "health", label: t("nav.health"), icon: <ShieldCheck size={17} /> },
+    { href: dockHref("approve"), id: "review", label: t("nav.approve"), icon: <GitPullRequest size={17} /> },
+    { href: dockHref("intake"), id: "sources", label: t("nav.add"), icon: <Inbox size={17} /> },
+    { href: dockHref("gates"), id: "health", label: t("nav.health"), icon: <ShieldCheck size={17} /> },
     { href: `${prefix}/w/atlas`, id: "content", label: t("nav.content"), icon: <FileText size={17} /> },
     demo
       ? { href: "/w/radar", id: "demo", label: t("nav.exitDemo"), icon: <Sparkles size={17} /> }
@@ -163,24 +173,22 @@ function commandResultTitle(result: CommandRunResult): string {
   if ("summary" in result && result.summary) return result.summary;
   if ("operation" in result) return result.operation.replaceAll("_", " ");
   if ("action_id" in result) {
-    const labels: Record<string, string> = {
-      "git-status": "Workspace check finished",
-      "review-local-changes": "Content review finished",
-      "run-honesty-gates": "Approval checks finished",
-      "pr-summary": "Review packet prepared",
-      "graph-check": "Content map check finished"
-    };
-    return labels[result.action_id] || result.action_id.replaceAll("_", " ");
+    const key = `actionTitle.${result.action_id}`;
+    const label = t(key);
+    return label === key ? result.action_id.replaceAll("_", " ") : label;
   }
-  return "Action finished";
+  return t("action.finished");
 }
 
 function commandResultMode(result: CommandRunResult): string {
-  return result.dry_run ? "preview only" : "applied";
+  return result.dry_run ? t("action.previewOnly") : t("action.applied");
 }
 
 function commandEntryLabel(entry: CommandResultEntry, index: number): string {
-  return `Step ${index + 1} ${entry.ok ? "completed" : "needs attention"}`;
+  return t("action.stepLabel", {
+    index: index + 1,
+    state: entry.ok ? t("action.completed") : t("action.needsAttention")
+  });
 }
 
 function CommandOutput({ result }: { result: CommandRunResult | null }) {
@@ -190,27 +198,25 @@ function CommandOutput({ result }: { result: CommandRunResult | null }) {
   return (
     <section className="panel outputPanel" id="actionResult">
       <div className="panelHeader">
-        <h2>Action Result</h2>
-        <StatusPill tone={result.ok ? "good" : "bad"}>{result.ok ? "completed" : "needs attention"}</StatusPill>
+        <h2>{t("action.title")}</h2>
+        <StatusPill tone={result.ok ? "good" : "bad"}>{result.ok ? t("action.completed") : t("action.needsAttention")}</StatusPill>
       </div>
       <div className="outputSummary">
         <strong>{commandResultTitle(result)}</strong>
-        <p>
-          {result.ok ? "The local action finished. Review the step output only if something looks unexpected." : "The action did not finish cleanly. Use the details below to diagnose it."}
-        </p>
+        <p>{result.ok ? t("action.okBody") : t("action.failBody")}</p>
       </div>
-      <div className="outputFacts" aria-label="Action result facts">
+      <div className="outputFacts" aria-label={t("action.facts")}>
         <span>
           <strong>{commandResultMode(result)}</strong>
-          Mode
+          {t("action.mode")}
         </span>
         <span>
           <strong>{passedCount}/{result.results.length}</strong>
-          Steps completed
+          {t("action.stepsCompleted")}
         </span>
         <span>
           <strong>{failedCount}</strong>
-          Needs attention
+          {t("action.needsAttentionFact")}
         </span>
       </div>
       {result.error && <p className="outputError">{result.error}</p>}
@@ -220,17 +226,17 @@ function CommandOutput({ result }: { result: CommandRunResult | null }) {
             <summary>
               <TerminalSquare size={16} />
               <span>{commandEntryLabel(entry, index)}</span>
-              <StatusPill tone={entry.ok ? "good" : "bad"}>{entry.ok ? "ok" : "failed"}</StatusPill>
+              <StatusPill tone={entry.ok ? "good" : "bad"}>{entry.ok ? t("action.ok") : t("action.failed")}</StatusPill>
             </summary>
             <div className="commandMeta">
-              <span>{entry.dry_run ? "preview only" : "applied"}</span>
+              <span>{entry.dry_run ? t("action.previewOnly") : t("action.applied")}</span>
               <code>{entry.argv.join(" ")}</code>
             </div>
-            <pre>{[entry.stdout, entry.stderr].filter(Boolean).join("\n") || "No output."}</pre>
+            <pre>{[entry.stdout, entry.stderr].filter(Boolean).join("\n") || t("action.noOutput")}</pre>
           </details>
         ))}
       </div>
-      {result.results.length === 0 && !result.error && <p className="outputEmpty">No terminal output was returned.</p>}
+      {result.results.length === 0 && !result.error && <p className="outputEmpty">{t("action.noTerminalOutput")}</p>}
     </section>
   );
 }
@@ -1754,12 +1760,22 @@ export function App() {
     document.getElementById("actionResult")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  // When a world dock is open, the left rail highlights the item that opened it
+  // (approve→review, gates→health, intake→sources) instead of always "world".
+  const dockNavId: Record<string, string> = { approve: "review", gates: "health", intake: "sources" };
   const active =
     route.kind === "world" || route.kind === "pageAlias"
-      ? route.kind === "world" && route.perspective === "atlas"
-        ? "content"
-        : "world"
+      ? route.kind === "world" && route.query.dock && dockNavId[route.query.dock]
+        ? dockNavId[route.query.dock]
+        : route.kind === "world" && route.perspective === "atlas"
+          ? "content"
+          : "world"
       : route.kind;
+
+  // Nav points straight at the dock on the CURRENT world (no redirect hop),
+  // preserving the operator's perspective/context.
+  const navWorld = worldFromRoute(route);
+  const dockHref = (dock: "approve" | "intake" | "gates") => buildUrl(patchWorld(navWorld, { dock }));
 
   const runAction = async (action: ActionCard) => {
     if (busyAction) return;
@@ -1975,7 +1991,7 @@ export function App() {
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
-      <Nav active={active} demo={route.demo} />
+      <Nav active={active} demo={route.demo} dockHref={dockHref} />
       <div className="mainColumn">
         <header className="topBar">
           <div>

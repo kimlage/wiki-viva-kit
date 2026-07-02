@@ -276,6 +276,17 @@ export function WorldView({
     return [...ids];
   }, [hoverLinkId, packetPages, searchHits]);
 
+  // Purple gate halos: while the Gate dock is open, the content pages that the
+  // human is about to approve glow in the world. The scene stops being a
+  // backdrop to the dock and starts pointing at exactly what is under review.
+  // Matches on node.path (diff paths are repo-relative, like node.path).
+  const approvalPageIds = useMemo(() => {
+    if (route.query.dock !== "approve") return [];
+    return (bundle.diff.files ?? [])
+      .filter((file) => file.category === "memory")
+      .map((file) => file.path);
+  }, [bundle.diff.files, route.query.dock]);
+
   const togglePacket = (id: string) => {
     const page = findPage(pages, id);
     const keys = new Set([id, page?.id, page?.path].filter(Boolean) as string[]);
@@ -370,6 +381,7 @@ export function WorldView({
         route={sceneRoute}
         packetIds={route.query.packet}
         highlightedPageIds={highlightedIds}
+        approvalPageIds={approvalPageIds}
         isolateRelation={isolateRelation}
         walk={walk}
         snapshotAt={bundle.manifest.generated_at}
