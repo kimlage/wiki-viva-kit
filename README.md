@@ -17,6 +17,16 @@ The shot above is the bundled demo (synthetic sample data — no account, no
 tokens): `npm --prefix apps/wiki-cockpit install && npm --prefix
 apps/wiki-cockpit run dev`, then open `http://localhost:5173/demo/w/radar`.
 
+## Four perspectives, one world
+
+![MORPH between perspectives — Radar → Atlas → Districts → Radar (demo)](docs/assets/cockpit-morph-demo.gif)
+
+The same pages, four arrangements — **Radar** (what needs attention now),
+**Atlas** (what lives where), **Districts** (everything by kind), **Trails**
+(one page's connections). Switching (keys `1–4`) MORPHs the world: every node
+keeps its identity and glides to its new place, so nothing is lost between
+views. The URL follows you — back button, refresh and sharing just work.
+
 The official language of this project is **English**. Generated pages and
 artifacts (cockpit, ingestion proposals) are rendered in the language configured
 in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
