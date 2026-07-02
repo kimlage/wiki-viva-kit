@@ -251,7 +251,27 @@ vi.mock("./data/snapshot", () => ({
   runCockpitAction: vi.fn(),
   runGitWorkflow: vi.fn(),
   buildIngestionPlan: vi.fn(),
-  runIngestionStep: vi.fn()
+  runIngestionStep: vi.fn(),
+  loadCodexCapability: vi.fn(async () => ({
+    enabled: true,
+    installed: false,
+    runnable: false,
+    authed: false,
+    auth_mode: null,
+    version: null,
+    usable: false,
+    reason: "not available in test"
+  })),
+  composeBrief: vi.fn(),
+  saveBriefText: vi.fn(),
+  discardBrief: vi.fn(),
+  getBrief: vi.fn(),
+  spawnCodexJob: vi.fn(),
+  returnCodexJob: vi.fn(),
+  listCodexJobs: vi.fn(async () => []),
+  listBriefs: vi.fn(async () => []),
+  streamCodexLog: vi.fn(async () => ""),
+  cancelCodexJob: vi.fn()
 }));
 
 async function renderRoute(path: string) {

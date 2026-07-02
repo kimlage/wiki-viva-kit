@@ -12,6 +12,9 @@ from urllib.parse import unquote, urlparse
 
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
+from wiki_core.web.briefs import BriefStore, compose_and_save, compose_return_brief
+from wiki_core.web.codex_jobs import JobRunner
+from wiki_core.web.codex_probe import probe_codex_for
 from wiki_core.web.commands import run_action
 from wiki_core.web.content import build_page_content
 from wiki_core.web.git_workflows import run_git_workflow
@@ -28,6 +31,8 @@ class CockpitServer(ThreadingHTTPServer):
         self.snapshot_dir = WikiPaths(root, config).derived_root / "web-snapshot"
         self._snapshot_lock = threading.Lock()
         self._snapshot_cache: tuple[float, dict[str, dict[str, Any]]] | None = None
+        # One serialized Codex job stream per operator process.
+        self.jobs = JobRunner(root, config)
 
     def snapshot_payloads(self) -> dict[str, dict[str, Any]]:
         with self._snapshot_lock:
@@ -75,8 +80,39 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     "ok": True,
                     "repo": self.server.config.repo_id,
                     "snapshot_dir": self.server.snapshot_dir.relative_to(self.server.root).as_posix(),
+                    "codex": probe_codex_for(self.server.config),
                 }
             )
+            return
+        if path == "/api/codex/capability":
+            self._send_json(probe_codex_for(self.server.config))
+            return
+        if path == "/api/briefs":
+            store = BriefStore(self.server.root, self.server.config)
+            self._send_json({"ok": True, "briefs": store.list()})
+            return
+        if path.startswith("/api/briefs/"):
+            brief_id = path[len("/api/briefs/") :].strip("/")
+            record = BriefStore(self.server.root, self.server.config).get(brief_id)
+            if record is None:
+                self._send_error("unknown brief", status=HTTPStatus.NOT_FOUND)
+                return
+            self._send_json({"ok": True, **record})
+            return
+        if path == "/api/codex/jobs":
+            self._send_json({"ok": True, "jobs": self.server.jobs.list()})
+            return
+        if path.startswith("/api/codex/jobs/"):
+            rest = path[len("/api/codex/jobs/") :].strip("/")
+            if rest.endswith("/log"):
+                job_id = rest[: -len("/log")].strip("/")
+                self._send_json({"ok": True, "job_id": job_id, "log": self.server.jobs.read_log(job_id)})
+                return
+            record = self.server.jobs.get(rest)
+            if record is None:
+                self._send_error("unknown job", status=HTTPStatus.NOT_FOUND)
+                return
+            self._send_json({"ok": True, **record})
             return
         if path == "/api/snapshot":
             self._send_json(self.server.snapshot_payloads())
@@ -116,6 +152,18 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        length = int(self.headers.get("content-length") or "0")
+        try:
+            payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except json.JSONDecodeError:
+            self._send_error("invalid JSON", status=HTTPStatus.BAD_REQUEST)
+            return
+        if parsed.path == "/api/briefs" or parsed.path.startswith("/api/briefs/"):
+            self._handle_briefs_post(parsed.path, payload)
+            return
+        if parsed.path == "/api/codex/jobs" or parsed.path.startswith("/api/codex/jobs/"):
+            self._handle_codex_post(parsed.path, payload)
+            return
         if parsed.path not in {
             "/api/actions/run",
             "/api/git/workflow",
@@ -124,12 +172,6 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             "/api/ingestion/run",
         }:
             self._send_error("not found", status=HTTPStatus.NOT_FOUND)
-            return
-        length = int(self.headers.get("content-length") or "0")
-        try:
-            payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
-        except json.JSONDecodeError:
-            self._send_error("invalid JSON", status=HTTPStatus.BAD_REQUEST)
             return
         if parsed.path == "/api/actions/run":
             action_id = str(payload.get("action_id") or "")
@@ -179,6 +221,87 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         context = None if payload.get("context") is None else str(payload.get("context"))
         result = triage_source(self.server.root, self.server.config, source, context=context)
         self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+
+    def _handle_briefs_post(self, path: str, payload: dict[str, Any]) -> None:
+        store = BriefStore(self.server.root, self.server.config)
+        if path == "/api/briefs":
+            spec = payload.get("spec", payload)
+            record = compose_and_save(
+                self.server.root, self.server.config, self.server.snapshot_payloads(), spec=spec
+            )
+            self._send_json({"ok": True, **record})
+            return
+        rest = path[len("/api/briefs/") :].strip("/")
+        if rest.endswith("/discard"):
+            brief_id = rest[: -len("/discard")].strip("/")
+            record = store.set_status(brief_id, "discarded")
+            if record is None:
+                self._send_error("unknown brief", status=HTTPStatus.NOT_FOUND)
+                return
+            self._send_json({"ok": True, **record})
+            return
+        brief_id = rest
+        result = store.update_text(brief_id, str(payload.get("text") or ""))
+        if result is None:
+            self._send_error("unknown brief", status=HTTPStatus.NOT_FOUND)
+            return
+        if result.get("ok") is False:
+            self._send_json(result, status=HTTPStatus.BAD_REQUEST)
+            return
+        self._send_json({"ok": True, **result})
+
+    def _handle_codex_post(self, path: str, payload: dict[str, Any]) -> None:
+        jobs = self.server.jobs
+        if path == "/api/codex/jobs":
+            capability = probe_codex_for(self.server.config)
+            if not capability.get("usable"):
+                self._send_json(
+                    {"ok": False, "error": capability.get("reason") or "Codex is not available", "codex": capability},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
+                return
+            brief_id = str(payload.get("brief_id") or "")
+            brief_sha = str(payload.get("brief_sha") or "")
+            if not brief_id or not brief_sha:
+                self._send_error("missing brief_id or brief_sha", status=HTTPStatus.BAD_REQUEST)
+                return
+            result = jobs.submit(
+                brief_id=brief_id,
+                brief_sha=brief_sha,
+                dry_run=bool(payload.get("dry_run", True)),
+                force=bool(payload.get("force", False)),
+                parent_job_id=(str(payload["parent_job_id"]) if payload.get("parent_job_id") else None),
+            )
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+        rest = path[len("/api/codex/jobs/") :].strip("/")
+        if rest.endswith("/cancel"):
+            job_id = rest[: -len("/cancel")].strip("/")
+            result = jobs.cancel(job_id)
+            if result is None:
+                self._send_error("unknown job", status=HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+        if rest.endswith("/return"):
+            job_id = rest[: -len("/return")].strip("/")
+            parent = jobs.get(job_id)
+            if parent is None:
+                self._send_error("unknown job", status=HTTPStatus.NOT_FOUND)
+                return
+            brief = compose_return_brief(
+                self.server.root,
+                self.server.config,
+                self.server.snapshot_payloads(),
+                parent_job=parent,
+                feedback=str(payload.get("feedback") or "").strip(),
+            )
+            if brief is None:
+                self._send_json({"ok": False, "error": "job has no branch to continue"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json({"ok": True, **brief})
+            return
+        self._send_error("not found", status=HTTPStatus.NOT_FOUND)
 
 
 def serve(root: Path, *, host: str = "127.0.0.1", port: int = 8765) -> None:

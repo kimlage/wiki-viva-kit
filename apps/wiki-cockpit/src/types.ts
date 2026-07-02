@@ -316,6 +316,92 @@ export type WorkflowRunResult = {
   results: CommandResultEntry[];
 };
 
+// Live Codex capability from GET /api/codex/capability (mirrors
+// wiki_core.web.codex_probe). `usable` is the single flag the UI gates the
+// launch CTA on; `reason` is a ready-to-show plain-language explanation.
+export type CodexCapability = {
+  schema_version?: string;
+  enabled: boolean;
+  installed: boolean;
+  runnable: boolean;
+  authed: boolean;
+  auth_mode: string | null;
+  version: string | null;
+  usable: boolean;
+  reason: string;
+};
+
+export const CODEX_UNAVAILABLE: CodexCapability = {
+  enabled: true,
+  installed: false,
+  runnable: false,
+  authed: false,
+  auth_mode: null,
+  version: null,
+  usable: false,
+  reason: ""
+};
+
+// A work-brief spec: what the operator points the composer at. Mirrors
+// wiki_core.web.briefs.normalize_spec.
+export type BriefSpec = {
+  mission_kind?: string | null;
+  grounding: {
+    page_ids?: string[];
+    source?: { path: string; context?: string | null } | null;
+    attach_context_package?: boolean;
+    state_report?: { scope: "missions" | "quality" | "audit"; context?: string | null; limit?: number } | null;
+    resume?: { branch: string; parent_job_id?: string | null } | null;
+  };
+  intent?: string;
+  theme?: string;
+  materialize?: "refs" | "full";
+};
+
+// A Codex job record (mirrors wiki_core.web.codex_jobs). Also the submit
+// response shape (with ok/error on rejection).
+export type CodexJobStep = { id: string; label: string; status: string };
+export type CodexJobRecord = {
+  ok?: boolean;
+  error?: string;
+  reason?: string;
+  job_id: string;
+  brief_id: string;
+  brief_sha: string;
+  parent_job_id: string | null;
+  created_at?: string;
+  updated_at?: string;
+  status: "queued" | "running" | "committing" | "delivered" | "returned" | "done" | "failed" | "cancelled" | string;
+  dry_run?: boolean;
+  mission_kind?: string | null;
+  intent?: string;
+  theme?: string;
+  steps: CodexJobStep[];
+  branch: string | null;
+  draft_pr_url: string | null;
+  log_path?: string;
+  human_gate_state?: string | null;
+};
+
+// A composed/persisted work brief (the complete prompt + its metadata).
+export type BriefRecord = {
+  ok?: boolean;
+  brief_id: string;
+  created_at?: string;
+  updated_at?: string;
+  status: "draft" | "executed" | "discarded" | string;
+  spec: BriefSpec;
+  brief_sha: string;
+  size_chars: number;
+  snapshot_generated_at: string;
+  target_paths: string[];
+  target_hashes?: Record<string, string>;
+  context_pages: string[];
+  job_id: string | null;
+  text: string;
+  error?: string;
+};
+
 export type SourceFinding = {
   kind: string;
   category: string;

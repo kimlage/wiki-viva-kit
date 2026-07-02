@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { configureLanguage, glossary, t, uiLanguage } from "./i18n";
+import { __dictKeysForTest, codexUnavailableReason, configureLanguage, glossary, t, uiLanguage } from "./i18n";
 
 afterEach(() => configureLanguage("en"));
 
@@ -40,5 +40,25 @@ describe("i18n", () => {
     configureLanguage("en");
     expect(glossary("freshness")?.title).toBe("Freshness");
     expect(glossary("nope")).toBeNull();
+  });
+
+  it("keeps EN and PT dictionaries in full parity (no silent English leaks)", () => {
+    const en = new Set(__dictKeysForTest.en);
+    const pt = new Set(__dictKeysForTest.pt);
+    const missingInPt = [...en].filter((key) => !pt.has(key));
+    const missingInEn = [...pt].filter((key) => !en.has(key));
+    expect(missingInPt, `keys missing in PT: ${missingInPt.join(", ")}`).toEqual([]);
+    expect(missingInEn, `keys missing in EN: ${missingInEn.join(", ")}`).toEqual([]);
+  });
+
+  it("derives a localized Codex-unavailable headline from capability booleans", () => {
+    const base = { enabled: true, installed: true, runnable: true, authed: true };
+    configureLanguage("pt");
+    expect(codexUnavailableReason({ ...base, enabled: false })).toBe("Codex está desligado nesta wiki");
+    expect(codexUnavailableReason({ ...base, installed: false })).toBe("Codex não está instalado");
+    expect(codexUnavailableReason({ ...base, runnable: false })).toBe("Codex está instalado mas não executa");
+    expect(codexUnavailableReason({ ...base, authed: false })).toContain("codex login");
+    configureLanguage("en");
+    expect(codexUnavailableReason({ ...base, installed: false })).toBe("Codex is not installed");
   });
 });

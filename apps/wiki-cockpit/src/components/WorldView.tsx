@@ -5,20 +5,23 @@
 // tray, minimap hint). The old below-the-fold panel stack is gone: every ops
 // action is reachable inside the viewport.
 
-import { GitPullRequest, ListChecks, Play, Search, Trophy } from "lucide-react";
+import { Activity, GitPullRequest, ListChecks, Play, Search, Trophy } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { t } from "../data/i18n";
 import { contextLabel, isRawData, perspectiveLabel, worldGroupLabel } from "../data/presentation";
 import { groupKeyForPage } from "../scene/perspectives";
 import type { PerspectiveId } from "../scene/perspectives";
+import { rankPages } from "../scene/search";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
 import type { RuntimeConfig } from "../data/runtimeConfig";
-import type { ActionCard, PageRecord, SnapshotBundle } from "../types";
+import type { ActionCard, BriefSpec, CodexCapability, PageRecord, SnapshotBundle } from "../types";
 import { CoachMarks, tourSeen } from "./CoachMarks";
 import { HelpTip } from "./HelpTip";
 import { MissionsPanel } from "./MissionsPanel";
 import { PageReader } from "./PageReader";
+import { WorkTray } from "./WorkTray";
 import type { RelationGroupKey } from "./PageReader";
 import { SystemScene } from "./SystemScene";
 import type { ScenePatch } from "./SystemScene";
@@ -28,14 +31,7 @@ function findPage(pages: PageRecord[], key: string | undefined): PageRecord | un
   return pages.find((page) => page.id === key || page.path === key);
 }
 
-function pageMatches(page: PageRecord, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return false;
-  return [page.title, page.path, page.context, page.page_type, page.summary, ...page.source_refs]
-    .join(" ")
-    .toLowerCase()
-    .includes(needle);
-}
+const SEARCH_VISIBLE = 10;
 
 function gateTone(status: string): "good" | "warn" | "bad" {
   const value = status.toLowerCase();
@@ -75,13 +71,21 @@ export function WorldView({
   runtime,
   route,
   onRun,
-  onNotice
+  onNotice,
+  onComposeBrief,
+  onResumeBrief,
+  onReturnJob,
+  codexCapability
 }: {
   bundle: SnapshotBundle;
   runtime: RuntimeConfig;
   route: WorldRoute;
   onRun: (action: ActionCard) => void;
   onNotice?: (text: string) => void;
+  onComposeBrief?: (spec: BriefSpec) => void;
+  onResumeBrief?: (briefId: string) => void;
+  onReturnJob?: (jobId: string, feedback: string) => void;
+  codexCapability?: CodexCapability;
 }) {
   const pages = bundle.pages.pages;
   // Always navigate from the CURRENT route: async callbacks (debounce timers,
@@ -89,8 +93,10 @@ export function WorldView({
   const routeRef = useRef(route);
   routeRef.current = route;
   const [searchDraft, setSearchDraft] = useState(route.query.q);
+  const [activeHit, setActiveHit] = useState(0);
   const [trayOpen, setTrayOpen] = useState(false);
   const [missionsOpen, setMissionsOpen] = useState(false);
+  const [workOpen, setWorkOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -222,9 +228,34 @@ export function WorldView({
   }, [searchDraft]);
 
   const searchHits = useMemo(
-    () => (route.query.q ? pages.filter((page) => pageMatches(page, route.query.q)) : []),
+    () => (route.query.q ? rankPages(pages, route.query.q) : []),
     [pages, route.query.q]
   );
+  // Keyboard result navigation resets whenever the query changes.
+  useEffect(() => setActiveHit(0), [route.query.q]);
+  const visibleHits = searchHits.slice(0, SEARCH_VISIBLE);
+  const openHit = (page?: PageRecord) => {
+    if (page) navigateWorld({ pageId: page.id, reader: true });
+  };
+  const onSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (!visibleHits.length) {
+      if (event.key === "Escape") setSearchDraft("");
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveHit((index) => Math.min(index + 1, visibleHits.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveHit((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      openHit(visibleHits[activeHit] ?? visibleHits[0]);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setSearchDraft("");
+    }
+  };
   const packetPages = useMemo(
     () => route.query.packet.map((id) => findPage(pages, id)).filter((page): page is PageRecord => Boolean(page)),
     [pages, route.query.packet]
@@ -394,13 +425,16 @@ export function WorldView({
           {route.query.q && (
             <div className="missionSearchResults" aria-label={t("world.results", { n: searchHits.length })}>
               <span className="missionSearchCount">
-                {searchHits.length > 8 ? t("world.resultsCapped", { n: searchHits.length }) : t("world.results", { n: searchHits.length })}
+                {searchHits.length > SEARCH_VISIBLE
+                  ? t("world.resultsCapped", { n: searchHits.length, shown: SEARCH_VISIBLE })
+                  : t("world.results", { n: searchHits.length })}
               </span>
-              {searchHits.slice(0, 8).map((page) => (
+              {visibleHits.map((page, index) => (
                 <button
-                  className="textButton"
+                  className={index === activeHit ? "textButton searchHitActive" : "textButton"}
                   key={page.id}
-                  onClick={() => navigateWorld({ pageId: page.id, reader: true })}
+                  onMouseEnter={() => setActiveHit(index)}
+                  onClick={() => openHit(page)}
                   title={page.path}
                   type="button"
                 >
@@ -413,6 +447,7 @@ export function WorldView({
                   </small>
                 </button>
               ))}
+              {searchHits.length === 0 && <span className="missionSearchCount">{t("world.noResults")}</span>}
             </div>
           )}
         </div>
@@ -431,6 +466,7 @@ export function WorldView({
             onClose={() => navigateWorld({ reader: false })}
             onTogglePacket={togglePacket}
             onRunAction={onRun}
+            onComposeBrief={onComposeBrief}
             onHoverLink={setHoverLinkId}
             onIsolateRelation={setIsolateRelation}
             onEvidenceStep={(ids, step) => setWalk({ ids, step })}
@@ -445,6 +481,7 @@ export function WorldView({
               ref={searchRef}
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
+              onKeyDown={onSearchKeyDown}
               placeholder={t("world.searchPlaceholder")}
               aria-label={t("world.searchAria")}
             />
@@ -472,6 +509,7 @@ export function WorldView({
             onClick={() => {
               setTrayOpen((value) => !value);
               setMissionsOpen(false);
+              setWorkOpen(false);
             }}
             type="button"
             aria-expanded={trayOpen}
@@ -485,6 +523,7 @@ export function WorldView({
             onClick={() => {
               setMissionsOpen((value) => !value);
               setTrayOpen(false);
+              setWorkOpen(false);
             }}
             type="button"
             aria-expanded={missionsOpen}
@@ -492,6 +531,21 @@ export function WorldView({
             <Trophy size={14} />
             <span>{t("world.missions")}</span>
           </button>
+          {onComposeBrief && (
+            <button
+              className={workOpen ? "trayButton workButton active" : "trayButton workButton"}
+              onClick={() => {
+                setWorkOpen((value) => !value);
+                setTrayOpen(false);
+                setMissionsOpen(false);
+              }}
+              type="button"
+              aria-expanded={workOpen}
+            >
+              <Activity size={14} />
+              <span>{t("work.title")}</span>
+            </button>
+          )}
           <button className="trayButton tourButton" onClick={() => setTourOpen(true)} type="button">
             <span aria-hidden>?</span>
             <span className="visuallyHidden">{t("tour.reopen")}</span>
@@ -562,7 +616,35 @@ export function WorldView({
               setMissionsOpen(false);
               navigateWorld({ pageId: id, reader: true });
             }}
+            onComposeBrief={
+              onComposeBrief
+                ? (spec) => {
+                    setMissionsOpen(false);
+                    onComposeBrief(spec);
+                  }
+                : undefined
+            }
             onClose={() => setMissionsOpen(false)}
+          />
+        )}
+        {workOpen && onComposeBrief && (
+          <WorkTray
+            capability={codexCapability ?? { enabled: true, installed: false, runnable: false, authed: false, auth_mode: null, version: null, usable: false, reason: "" }}
+            demo={route.demo}
+            onResumeBrief={(id) => {
+              setWorkOpen(false);
+              onResumeBrief?.(id);
+            }}
+            onReturn={
+              onReturnJob
+                ? (jobId, feedback) => {
+                    setWorkOpen(false);
+                    onReturnJob(jobId, feedback);
+                  }
+                : undefined
+            }
+            onNotice={(text) => onNotice?.(text)}
+            onClose={() => setWorkOpen(false)}
           />
         )}
       </SystemScene>

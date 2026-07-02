@@ -626,9 +626,17 @@ function InstancedNodeMesh({
   registerMaterial: (trust: TrustKey | "root", dimmed: boolean, material: THREE.MeshStandardMaterial | null) => void;
 }) {
   const ref = useRef<THREE.InstancedMesh>(null);
+  // Invisible companion mesh with generously enlarged spheres that OWNS the
+  // pointer events. Tiny nodes at 532-page scale are almost unclickable and
+  // hover flickers between adjacent instanced meshes; a fat, uniform hit target
+  // makes clicking/hovering reliable without changing the visuals.
+  const hitRef = useRef<THREE.InstancedMesh>(null);
   const { invalidate } = useThree();
   const matrix = useMemo(() => new THREE.Matrix4(), []);
+  const hitMatrix = useMemo(() => new THREE.Matrix4(), []);
   const quaternion = useMemo(() => new THREE.Quaternion(), []);
+  const scaleVec = useMemo(() => new THREE.Vector3(), []);
+  const posVec = useMemo(() => new THREE.Vector3(), []);
 
   const applyPositions = useCallback(
     (t: number) => {
@@ -645,16 +653,19 @@ function InstancedNodeMesh({
         const y = from ? from[1] + (node.position[1] - from[1]) * eased : node.position[1];
         const z = from ? from[2] + (node.position[2] - from[2]) * eased : node.position[2];
         const dampen = node.faint ? 0.85 : 1;
-        matrix.compose(
-          new THREE.Vector3(x, y, z),
-          quaternion,
-          new THREE.Vector3(node.scale * selected * dampen, node.scale * selected * dampen, node.scale * selected * dampen)
-        );
+        const visScale = node.scale * selected * dampen;
+        posVec.set(x, y, z);
+        matrix.compose(posVec, quaternion, scaleVec.set(visScale, visScale, visScale));
         ref.current?.setMatrixAt(index, matrix);
+        // Hit sphere: at least a comfortable minimum radius, ~1.7× the node.
+        const hit = Math.max(visScale * 1.7, 0.34);
+        hitMatrix.compose(posVec, quaternion, scaleVec.set(hit, hit, hit));
+        hitRef.current?.setMatrixAt(index, hitMatrix);
       });
       if (ref.current) ref.current.instanceMatrix.needsUpdate = true;
+      if (hitRef.current) hitRef.current.instanceMatrix.needsUpdate = true;
     },
-    [group.items, matrix, morph, quaternion, selectedId]
+    [group.items, matrix, hitMatrix, morph, quaternion, scaleVec, posVec, selectedId]
   );
 
   useLayoutEffect(() => {
@@ -676,43 +687,56 @@ function InstancedNodeMesh({
   const baseColor = useMemo(() => new THREE.Color(group.material.color).multiplyScalar(dim), [dim, group.material.color]);
   const emissiveColor = useMemo(() => new THREE.Color(trustColor(group.trust as TrustKey | "root")).multiplyScalar(dim), [dim, group.trust]);
   return (
-    <instancedMesh
-      ref={ref}
-      args={[undefined, undefined, Math.max(group.items.length, 1)]}
-      // Never frustum-cull: three culls an InstancedMesh by its GEOMETRY
-      // bounding sphere (a unit sphere at the origin), not by the instance
-      // spread, so drilling/focusing away from the center would cull the whole
-      // mesh — every node would vanish and become unclickable. Counts are
-      // capped at ~160, so skipping the cull test is free.
-      frustumCulled={false}
-      onClick={(event) => {
-        event.stopPropagation();
-        if (typeof event.instanceId === "number" && group.items[event.instanceId]) onSelect(group.items[event.instanceId]);
-      }}
-      onPointerMove={(event) => {
-        if (typeof event.instanceId === "number" && group.items[event.instanceId]) onHover(group.items[event.instanceId], event);
-      }}
-      onPointerOut={() => onHover(null)}
-    >
-      {group.shape === "crystal" ? (
-        <octahedronGeometry args={[1, 0]} />
-      ) : group.shape === "hub" ? (
-        <icosahedronGeometry args={[1, 1]} />
-      ) : (
-        <sphereGeometry args={[1, profile.geometrySegments, profile.geometrySegments]} />
-      )}
-      <meshStandardMaterial
-        ref={(material) => registerMaterial(group.trust, group.dimmed, material)}
-        color={baseColor}
-        emissive={emissiveColor}
-        emissiveIntensity={group.material.emissiveIntensity * dim}
-        transparent={group.material.opacity < 1}
-        opacity={group.material.opacity}
-        roughness={0.5}
-        metalness={0.1}
-        flatShading={group.shape !== "sphere"}
-      />
-    </instancedMesh>
+    <group>
+      <instancedMesh
+        ref={ref}
+        args={[undefined, undefined, Math.max(group.items.length, 1)]}
+        // Never frustum-cull: three culls an InstancedMesh by its GEOMETRY
+        // bounding sphere (a unit sphere at the origin), not by the instance
+        // spread, so drilling/focusing away from the center would cull the whole
+        // mesh — every node would vanish and become unclickable. Counts are
+        // capped at ~160, so skipping the cull test is free.
+        frustumCulled={false}
+      >
+        {group.shape === "crystal" ? (
+          <octahedronGeometry args={[1, 0]} />
+        ) : group.shape === "hub" ? (
+          <icosahedronGeometry args={[1, 1]} />
+        ) : (
+          <sphereGeometry args={[1, profile.geometrySegments, profile.geometrySegments]} />
+        )}
+        <meshStandardMaterial
+          ref={(material) => registerMaterial(group.trust, group.dimmed, material)}
+          color={baseColor}
+          emissive={emissiveColor}
+          emissiveIntensity={group.material.emissiveIntensity * dim}
+          transparent={group.material.opacity < 1}
+          opacity={group.material.opacity}
+          roughness={0.5}
+          metalness={0.1}
+          flatShading={group.shape !== "sphere"}
+        />
+      </instancedMesh>
+      {/* Invisible, generously-sized hit layer that owns all pointer events so
+          tiny nodes stay reliably clickable/hoverable at scale. */}
+      <instancedMesh
+        ref={hitRef}
+        args={[undefined, undefined, Math.max(group.items.length, 1)]}
+        frustumCulled={false}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (typeof event.instanceId === "number" && group.items[event.instanceId]) onSelect(group.items[event.instanceId]);
+        }}
+        onPointerMove={(event) => {
+          event.stopPropagation();
+          if (typeof event.instanceId === "number" && group.items[event.instanceId]) onHover(group.items[event.instanceId], event);
+        }}
+        onPointerOut={() => onHover(null)}
+      >
+        <sphereGeometry args={[1, 8, 8]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+      </instancedMesh>
+    </group>
   );
 }
 
@@ -866,9 +890,12 @@ function GlowSprites({
         const highlighted = highlightedIds.has(node.id) || highlightedIds.has(node.path);
         const selected = node.id === selectedId || node.path === selectedId || node.id === walkTargetId;
         const trust = nodeTrustKey(node);
-        const color = selected ? "#dff8ff" : trustDisplayColor(node);
-        const size = node.scale * (selected || highlighted ? 5.2 : 4.2);
-        const opacity = selected ? 0.6 : highlighted ? 0.5 : trust === "stale" ? 0.38 : 0.3;
+        // Search/packet/hover matches get a bright cyan marker glow — the
+        // largest and most opaque — so selected cells pop unmistakably against
+        // the trust-colored field instead of blending into the green mass.
+        const color = selected ? "#dff8ff" : highlighted ? "#79e6ff" : trustDisplayColor(node);
+        const size = node.scale * (highlighted ? 6.4 : selected ? 6 : 4.2);
+        const opacity = highlighted ? 0.75 : selected ? 0.62 : trust === "stale" ? 0.38 : 0.3;
         return (
           <sprite key={`glow-${node.id}`} position={node.position} scale={[size, size, 1]}>
             <spriteMaterial

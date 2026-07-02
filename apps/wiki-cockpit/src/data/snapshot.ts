@@ -1,4 +1,8 @@
 import type {
+  BriefRecord,
+  BriefSpec,
+  CodexCapability,
+  CodexJobRecord,
   IngestionPlan,
   IngestionStepResult,
   PageContent,
@@ -6,6 +10,7 @@ import type {
   SourceTriageResult,
   WorkflowRunResult
 } from "../types";
+import { CODEX_UNAVAILABLE } from "../types";
 import type { RuntimeConfig } from "./runtimeConfig";
 import { apiUrl, loadRuntimeConfig } from "./runtimeConfig";
 
@@ -147,6 +152,163 @@ export async function loadPageContent(
     ok: false,
     error: lastError instanceof Error ? lastError.message : "conteúdo indisponível neste modo"
   };
+}
+
+// Live Codex capability. Only the local operator can run Codex, so demo/static
+// mode never fetches — it reports the honest "unavailable" record straight away.
+// A network/parse failure also degrades to unavailable rather than throwing:
+// the launch CTA must fail closed, never fake availability.
+export async function loadCodexCapability(runtime: RuntimeConfig): Promise<CodexCapability> {
+  if (runtime.mode === "static_demo" || !runtime.codexEnabled) {
+    return {
+      ...CODEX_UNAVAILABLE,
+      enabled: runtime.codexEnabled,
+      reason: runtime.codexEnabled
+        ? "Codex runs only with the local operator — not in this demo."
+        : "Codex is turned off for this wiki."
+    };
+  }
+  try {
+    const response = await fetch(await apiUrl("/codex/capability"), { headers: { accept: "application/json" } });
+    if (!response.ok) return { ...CODEX_UNAVAILABLE, reason: `capability check failed: ${response.status}` };
+    const payload = (await response.json()) as CodexCapability;
+    return { ...CODEX_UNAVAILABLE, ...payload };
+  } catch (error) {
+    return { ...CODEX_UNAVAILABLE, reason: error instanceof Error ? error.message : "capability check failed" };
+  }
+}
+
+// Work briefs — the agent-neutral compose/edit/save/discard surface. Compose
+// is deterministic and zero-token server-side; it also persists a draft so the
+// brief is inspectable and (Phase 2) executable by its stable id + sha.
+export async function composeBrief(spec: BriefSpec): Promise<BriefRecord> {
+  const response = await fetch(await apiUrl("/briefs"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ spec })
+  });
+  const result = (await response.json()) as BriefRecord;
+  if (!response.ok && !result.brief_id) {
+    throw new Error(result.error || `brief compose failed: ${response.status}`);
+  }
+  return result;
+}
+
+export async function listBriefs(): Promise<BriefRecord[]> {
+  const response = await fetch(await apiUrl("/briefs"), { headers: { accept: "application/json" } });
+  if (!response.ok) return [];
+  const result = (await response.json()) as { ok: boolean; briefs: BriefRecord[] };
+  return result.briefs || [];
+}
+
+export async function getBrief(briefId: string): Promise<BriefRecord | null> {
+  const response = await fetch(await apiUrl(`/briefs/${encodeURIComponent(briefId)}`), {
+    headers: { accept: "application/json" }
+  });
+  if (!response.ok) return null;
+  return (await response.json()) as BriefRecord;
+}
+
+export async function saveBriefText(briefId: string, text: string): Promise<BriefRecord> {
+  const response = await fetch(await apiUrl(`/briefs/${encodeURIComponent(briefId)}`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text })
+  });
+  const result = (await response.json()) as BriefRecord;
+  // A refused save (e.g. non-draft) comes back ok:false WITH a brief_id — fail
+  // closed so callers never treat a rejection as a saved record.
+  if (!response.ok || result.ok === false) {
+    throw new Error(result.error || `brief save failed: ${response.status}`);
+  }
+  return result;
+}
+
+export async function discardBrief(briefId: string): Promise<BriefRecord> {
+  const response = await fetch(await apiUrl(`/briefs/${encodeURIComponent(briefId)}/discard`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({})
+  });
+  const result = (await response.json()) as BriefRecord;
+  if (!response.ok && !result.brief_id) {
+    throw new Error(result.error || `brief discard failed: ${response.status}`);
+  }
+  return result;
+}
+
+// Codex jobs — the execute exit. Submit returns the queued job record, or an
+// ok:false rejection (codex unusable / sha mismatch / stale targets).
+export async function spawnCodexJob(
+  briefId: string,
+  briefSha: string,
+  options: { dryRun?: boolean; force?: boolean; parentJobId?: string } = {}
+): Promise<CodexJobRecord> {
+  const response = await fetch(await apiUrl("/codex/jobs"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      brief_id: briefId,
+      brief_sha: briefSha,
+      dry_run: options.dryRun ?? false,
+      force: options.force ?? false,
+      parent_job_id: options.parentJobId
+    })
+  });
+  const result = (await response.json()) as CodexJobRecord;
+  if (!response.ok && !result.job_id) {
+    throw new Error(result.error || `codex job failed: ${response.status}`);
+  }
+  return result;
+}
+
+export async function listCodexJobs(): Promise<CodexJobRecord[]> {
+  const response = await fetch(await apiUrl("/codex/jobs"), { headers: { accept: "application/json" } });
+  if (!response.ok) return [];
+  const result = (await response.json()) as { ok: boolean; jobs: CodexJobRecord[] };
+  return result.jobs || [];
+}
+
+export async function pollCodexJob(jobId: string): Promise<CodexJobRecord | null> {
+  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}`), {
+    headers: { accept: "application/json" }
+  });
+  if (!response.ok) return null;
+  return (await response.json()) as CodexJobRecord;
+}
+
+export async function streamCodexLog(jobId: string): Promise<string> {
+  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}/log`), {
+    headers: { accept: "application/json" }
+  });
+  if (!response.ok) return "";
+  const result = (await response.json()) as { ok: boolean; log: string };
+  return result.log || "";
+}
+
+// Return a delivered job with feedback: composes a follow-up brief that
+// continues the SAME branch. Returns the brief to open in the studio.
+export async function returnCodexJob(jobId: string, feedback: string): Promise<BriefRecord> {
+  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}/return`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ feedback })
+  });
+  const result = (await response.json()) as BriefRecord;
+  if (!response.ok && !result.brief_id) {
+    throw new Error(result.error || `return failed: ${response.status}`);
+  }
+  return result;
+}
+
+export async function cancelCodexJob(jobId: string): Promise<CodexJobRecord | null> {
+  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}/cancel`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({})
+  });
+  if (!response.ok && response.status === 404) return null;
+  return (await response.json()) as CodexJobRecord;
 }
 
 export async function runCockpitAction(

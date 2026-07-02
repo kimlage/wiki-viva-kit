@@ -4256,3 +4256,322 @@ pre {
   color: #8fd0e8;
   font-size: 12px;
 }
+
+/* ---- Brief studio (Codex work briefs) ---- */
+.briefStudioBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  background: rgba(4, 8, 12, 0.55);
+  backdrop-filter: blur(2px);
+}
+.briefStudio {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 63;
+  width: min(52%, 720px);
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border-left: 1px solid #2a3944;
+  background: rgba(7, 13, 19, 0.98);
+  backdrop-filter: blur(12px);
+  box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
+}
+.briefStudioHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.briefStudioHeader > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+.briefStudioMeta {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  color: #8aa0ad;
+}
+.briefStudioMeta small {
+  font-size: 11px;
+}
+.briefStudioHint {
+  margin: 0;
+  color: #9fb4c2;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.briefTextArea {
+  flex: 1;
+  min-height: 240px;
+  resize: none;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #263845;
+  border-radius: 8px;
+  background: #0a121a;
+  color: #d7e6ef;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  tab-size: 2;
+}
+.briefTextArea:focus {
+  outline: none;
+  border-color: #3d6c86;
+}
+.briefStudioPinned {
+  margin: 0;
+  color: #7f95a3;
+  font-size: 11.5px;
+  font-style: italic;
+}
+.briefStudioActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid #2f6d54;
+  border-radius: 7px;
+  background: #1f5a43;
+  color: #eafff5;
+  font-size: 13px;
+  cursor: pointer;
+}
+.primaryButton:hover:not(:disabled) {
+  background: #276b50;
+}
+.primaryButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.dangerButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid #6d2f36;
+  border-radius: 7px;
+  background: transparent;
+  color: #e59aa2;
+  font-size: 13px;
+  cursor: pointer;
+}
+.dangerButton:hover:not(:disabled) {
+  background: rgba(109, 47, 54, 0.25);
+}
+.dangerButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Mission-panel brief entry points */
+.missionsBriefTopRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 4px;
+}
+.missionsBriefTop {
+  flex: 1;
+  justify-content: center;
+}
+.missionActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.missionBriefButton {
+  color: #9ecbe4;
+}
+
+@media (max-width: 980px) {
+  .briefStudio {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+/* ---- Work tray (Codex jobs + saved briefs) ---- */
+.trayButton.workButton.active {
+  border-color: #3d6c86;
+}
+.workTray {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 46px;
+  z-index: 36;
+  max-width: 720px;
+  margin: 0 auto;
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  border: 1px solid #2a3944;
+  border-radius: 12px;
+  background: rgba(8, 15, 21, 0.96);
+  backdrop-filter: blur(8px);
+  padding: 12px 14px;
+}
+.workTray > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.workTray > header strong {
+  font-size: 14px;
+}
+.workTray > header .readerClose {
+  margin-left: auto;
+}
+.workBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.workSection h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7f95a3;
+}
+.workRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid #22323d;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+.workRowMain {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.workRowMain small {
+  color: #8aa0ad;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workJob {
+  border: 1px solid #22323d;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.workJobHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.workJobHead strong {
+  font-size: 13px;
+}
+.workJobHead .textButton {
+  margin-left: auto;
+}
+.workJobReason {
+  display: block;
+  color: #8aa0ad;
+  font-size: 11px;
+  margin: 4px 0;
+}
+.workSteps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+.workStep {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid #2a3944;
+  color: #9fb4c2;
+}
+.workStep-good {
+  border-color: #2f7a5a;
+  color: #6fd0a0;
+}
+.workStep-info {
+  border-color: #3d6c86;
+  color: #8fd0e8;
+}
+.workStep-bad {
+  border-color: #7a3b41;
+  color: #e59aa2;
+}
+.workStep-muted {
+  opacity: 0.6;
+}
+.workJobLinks {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.workLog {
+  margin: 8px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #05090d;
+  color: #b8ccd6;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.workEmpty {
+  color: #7f95a3;
+  font-size: 12.5px;
+}
+
+.workReturn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.workReturn textarea {
+  width: 100%;
+  min-height: 60px;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid #263845;
+  border-radius: 6px;
+  background: #0a121a;
+  color: #d7e6ef;
+  font-size: 12.5px;
+}
+.workReturn .secondaryButton {
+  align-self: flex-start;
+}
+
+/* Keyboard-highlighted search result */
+.missionSearchResults .textButton.searchHitActive {
+  background: rgba(61, 108, 134, 0.28);
+  border-radius: 6px;
+  outline: 1px solid #3d6c86;
+}

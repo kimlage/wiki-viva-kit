@@ -31,7 +31,8 @@ const EN: Dict = {
   "world.missions": "Missions",
   "world.hintKeys": "M minimap · Esc back",
   "world.results": "{n} result(s)",
-  "world.resultsCapped": "{n} result(s) · showing 8",
+  "world.resultsCapped": "{n} result(s) · top {shown} · ↑↓ Enter",
+  "world.noResults": "no matches — try fewer or different words",
   "world.partialSummary": "partial summary",
   "world.raw": "raw data",
   "world.missingInUniverse": "This item does not exist in this data universe.",
@@ -231,6 +232,65 @@ const EN: Dict = {
   "demo.gitOff": "Demo: git workflows are disabled in this synthetic universe.",
   "demo.noteTitle": "Demo note",
 
+  // Codex agentic missions (capability states)
+  "codex.available": "Codex ready",
+  "codex.checking": "checking Codex…",
+  "codex.unavailable": "Codex not available",
+  "codex.notInstalled": "Codex is not installed",
+  "codex.notRunnable": "Codex is installed but not runnable",
+  "codex.notAuthed": "Codex is not signed in — run `codex login`",
+  "codex.disabled": "Codex is turned off for this wiki",
+  "codex.demoOff": "Codex runs only with the local operator",
+
+  // Brief studio + entry points
+  "brief.studio.title": "Work brief",
+  "brief.studio.composing": "Composing the work brief…",
+  "brief.studio.editHint": "Read it, then edit anything — including your intent in section 4. This exact text is what runs.",
+  "brief.studio.snapshot": "from snapshot {when}",
+  "brief.studio.size": "{n} characters",
+  "brief.studio.reset": "Restore composed",
+  "brief.studio.pinnedNote": "Section 5 (the output contract) ships with every brief and is enforced structurally.",
+  "brief.studio.close": "Close studio",
+  "brief.exit.copy": "Copy prompt",
+  "brief.exit.copied": "Work brief copied — paste it into any agent.",
+  "brief.exit.save": "Save edits",
+  "brief.exit.saved": "Edits saved.",
+  "brief.exit.saveFailed": "Could not save: {error}",
+  "brief.exit.execute": "Execute with Codex",
+  "brief.exit.discard": "Discard",
+  "brief.exit.discarded": "Brief discarded.",
+  "brief.compose.failed": "Could not compose the brief: {error}",
+  "brief.demoOff": "Briefs need the local operator — not available in the demo.",
+  "codex.job.started": "Codex job started ({status}). It will land as a draft PR.",
+  "codex.job.failed": "Could not start Codex: {error}",
+
+  // Work tray
+  "work.title": "Work",
+  "work.aria": "Codex work: briefs and jobs",
+  "work.tab.drafts": "Saved briefs",
+  "work.tab.jobs": "Jobs",
+  "work.empty": "No saved briefs or jobs yet. Generate a brief to start.",
+  "work.demoOff": "The Work tray needs the local operator — not available in the demo.",
+  "work.unavailable": "Codex is not available, so no jobs can run. Saved briefs still work.",
+  "work.draft.resume": "Open",
+  "work.draft.discard": "Discard",
+  "work.job.openPr": "Open draft PR",
+  "work.job.branch": "branch {branch}",
+  "work.job.cancel": "Cancel",
+  "work.job.showLog": "Show log",
+  "work.job.hideLog": "Hide log",
+  "work.job.localOnly": "local branch only (dry run)",
+  "work.job.reason": "{reason}",
+  "work.job.return": "Return with feedback",
+  "work.job.returnPlaceholder": "What should Codex fix on this branch?",
+  "work.job.returnSend": "Send back",
+  "work.refresh": "Refresh",
+  "missions.brief.generate": "Generate brief",
+  "missions.brief.top": "Brief the top problems",
+  "missions.brief.help":
+    "Compose a complete, editable prompt from this item's real state — conventions, the evidence, the target and your intent. Copy it into any agent, save it, or (with Codex) run it into a draft PR.",
+  "reader.brief": "Generate brief",
+
   // Toasts
   "toast.packetAdded": "Added to the decision packet.",
   "toast.packetRemoved": "Removed from the packet.",
@@ -270,7 +330,8 @@ const PT: Dict = {
   "world.missions": "Missões",
   "world.hintKeys": "M minimapa · Esc voltar",
   "world.results": "{n} resultado(s)",
-  "world.resultsCapped": "{n} resultado(s) · mostrando 8",
+  "world.resultsCapped": "{n} resultado(s) · top {shown} · ↑↓ Enter",
+  "world.noResults": "nada encontrado — tente menos palavras ou outras",
   "world.partialSummary": "resumo parcial",
   "world.raw": "dado bruto",
   "world.missingInUniverse": "Este item não existe neste universo de dados.",
@@ -461,6 +522,62 @@ const PT: Dict = {
   "demo.gitOff": "Demo: fluxos git ficam desabilitados neste universo sintético.",
   "demo.noteTitle": "Nota do demo",
 
+  "codex.available": "Codex pronto",
+  "codex.checking": "verificando Codex…",
+  "codex.unavailable": "Codex indisponível",
+  "codex.notInstalled": "Codex não está instalado",
+  "codex.notRunnable": "Codex está instalado mas não executa",
+  "codex.notAuthed": "Codex não está conectado — rode `codex login`",
+  "codex.disabled": "Codex está desligado nesta wiki",
+  "codex.demoOff": "Codex só funciona com o operador local",
+
+  "brief.studio.title": "Ordem de trabalho",
+  "brief.studio.composing": "Compondo a ordem de trabalho…",
+  "brief.studio.editHint": "Leia e edite o que quiser — inclusive sua intenção na seção 4. Este texto exato é o que roda.",
+  "brief.studio.snapshot": "do snapshot {when}",
+  "brief.studio.size": "{n} caracteres",
+  "brief.studio.reset": "Restaurar composto",
+  "brief.studio.pinnedNote": "A seção 5 (contrato de saída) acompanha todo brief e é garantida estruturalmente.",
+  "brief.studio.close": "Fechar estúdio",
+  "brief.exit.copy": "Copiar prompt",
+  "brief.exit.copied": "Ordem de trabalho copiada — cole em qualquer agente.",
+  "brief.exit.save": "Salvar edições",
+  "brief.exit.saved": "Edições salvas.",
+  "brief.exit.saveFailed": "Não foi possível salvar: {error}",
+  "brief.exit.execute": "Executar com Codex",
+  "brief.exit.discard": "Descartar",
+  "brief.exit.discarded": "Brief descartado.",
+  "brief.compose.failed": "Não foi possível compor o brief: {error}",
+  "brief.demoOff": "Briefs precisam do operador local — indisponível no demo.",
+  "codex.job.started": "Job do Codex iniciado ({status}). Vai chegar como draft PR.",
+  "codex.job.failed": "Não foi possível iniciar o Codex: {error}",
+
+  "work.title": "Trabalho",
+  "work.aria": "Trabalho do Codex: briefs e jobs",
+  "work.tab.drafts": "Briefs salvos",
+  "work.tab.jobs": "Jobs",
+  "work.empty": "Nenhum brief salvo ou job ainda. Gere um brief para começar.",
+  "work.demoOff": "A bandeja de Trabalho precisa do operador local — indisponível no demo.",
+  "work.unavailable": "Codex indisponível, então nenhum job roda. Briefs salvos ainda funcionam.",
+  "work.draft.resume": "Abrir",
+  "work.draft.discard": "Descartar",
+  "work.job.openPr": "Abrir draft PR",
+  "work.job.branch": "branch {branch}",
+  "work.job.cancel": "Cancelar",
+  "work.job.showLog": "Ver log",
+  "work.job.hideLog": "Ocultar log",
+  "work.job.localOnly": "só branch local (dry run)",
+  "work.job.reason": "{reason}",
+  "work.job.return": "Devolver com ajustes",
+  "work.job.returnPlaceholder": "O que o Codex deve corrigir nesta branch?",
+  "work.job.returnSend": "Devolver",
+  "work.refresh": "Atualizar",
+  "missions.brief.generate": "Gerar brief",
+  "missions.brief.top": "Brief dos principais problemas",
+  "missions.brief.help":
+    "Componha um prompt completo e editável a partir do estado real deste item — convenções, evidência, alvo e sua intenção. Copie para qualquer agente, salve, ou (com Codex) rode até um draft PR.",
+  "reader.brief": "Gerar brief",
+
   "toast.packetAdded": "Adicionado ao pacote de decisão.",
   "toast.packetRemoved": "Removido do pacote.",
   "toast.viewResult": "Ver resultado",
@@ -533,6 +650,10 @@ export const GLOSSARY: Record<UiLanguage, Record<string, { title: string; body: 
   }
 };
 
+// Test-only: expose the raw key sets so a parity guard can assert EN and PT
+// stay in lockstep (a missing PT key silently ships English otherwise).
+export const __dictKeysForTest = { en: Object.keys(EN), pt: Object.keys(PT) };
+
 let language: UiLanguage = "en";
 let overrides: Dict = {};
 
@@ -558,4 +679,20 @@ export function t(key: string, params?: Record<string, string | number>): string
 
 export function glossary(term: string): { title: string; body: string } | null {
   return GLOSSARY[language][term] ?? GLOSSARY.en[term] ?? null;
+}
+
+// One localized headline for "why Codex can't run", derived from the capability
+// booleans (most-specific first). The raw server `reason` can be shown as a
+// technical secondary line; this is the human-facing headline.
+export function codexUnavailableReason(cap: {
+  enabled: boolean;
+  installed: boolean;
+  runnable: boolean;
+  authed: boolean;
+}): string {
+  if (!cap.enabled) return t("codex.disabled");
+  if (!cap.installed) return t("codex.notInstalled");
+  if (!cap.runnable) return t("codex.notRunnable");
+  if (!cap.authed) return t("codex.notAuthed");
+  return t("codex.unavailable");
 }

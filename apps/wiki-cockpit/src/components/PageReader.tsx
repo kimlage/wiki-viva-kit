@@ -7,12 +7,12 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import type { Token } from "marked";
-import { ExternalLink, GitBranch, ListChecks, Maximize2, Minimize2, Search, X } from "lucide-react";
+import { ExternalLink, GitBranch, ListChecks, Maximize2, Minimize2, Search, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../data/i18n";
 import { contextLabel, isRawData, pageTypeLabel, trustColor } from "../data/presentation";
 import { loadPageContent } from "../data/snapshot";
-import type { ActionCard, PageContent, PageRecord, ResolvedLink, SnapshotBundle } from "../types";
+import type { ActionCard, BriefSpec, PageContent, PageRecord, ResolvedLink, SnapshotBundle } from "../types";
 
 export type RelationGroupKey = "hierarquia" | "evidencia" | "links" | "citado-por";
 
@@ -320,6 +320,7 @@ export function PageReader({
   onClose,
   onTogglePacket,
   onRunAction,
+  onComposeBrief,
   onHoverLink,
   onIsolateRelation,
   onEvidenceStep
@@ -335,6 +336,7 @@ export function PageReader({
   onClose: () => void;
   onTogglePacket: (id: string) => void;
   onRunAction?: (action: ActionCard) => void;
+  onComposeBrief?: (spec: BriefSpec) => void;
   onHoverLink?: (id: string | null) => void;
   onIsolateRelation?: (relation: RelationGroupKey | null) => void;
   onEvidenceStep?: (ids: string[], step: number) => void;
@@ -577,6 +579,22 @@ export function PageReader({
             <ListChecks size={15} />
             <span>{inPacket ? t("reader.removePacket") : t("reader.addPacket")}</span>
           </button>
+          {onComposeBrief && (
+            <button
+              className="secondaryButton"
+              onClick={() =>
+                onComposeBrief({
+                  mission_kind: "refresh",
+                  theme: `edit-${page.id}`,
+                  grounding: { page_ids: [page.id] }
+                })
+              }
+              type="button"
+            >
+              <Sparkles size={15} />
+              <span>{t("reader.brief")}</span>
+            </button>
+          )}
           {onRunAction && graphAction && (
             <button className="secondaryButton" onClick={() => onRunAction(graphAction)} type="button">
               <Search size={15} />
