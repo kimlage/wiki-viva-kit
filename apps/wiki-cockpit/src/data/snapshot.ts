@@ -201,6 +201,14 @@ export async function listBriefs(): Promise<BriefRecord[]> {
   return result.briefs || [];
 }
 
+export async function getBrief(briefId: string): Promise<BriefRecord | null> {
+  const response = await fetch(await apiUrl(`/briefs/${encodeURIComponent(briefId)}`), {
+    headers: { accept: "application/json" }
+  });
+  if (!response.ok) return null;
+  return (await response.json()) as BriefRecord;
+}
+
 export async function saveBriefText(briefId: string, text: string): Promise<BriefRecord> {
   const response = await fetch(await apiUrl(`/briefs/${encodeURIComponent(briefId)}`), {
     method: "POST",

@@ -5,7 +5,7 @@
 // tray, minimap hint). The old below-the-fold panel stack is gone: every ops
 // action is reachable inside the viewport.
 
-import { GitPullRequest, ListChecks, Play, Search, Trophy } from "lucide-react";
+import { Activity, GitPullRequest, ListChecks, Play, Search, Trophy } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../data/i18n";
 import { contextLabel, isRawData, perspectiveLabel, worldGroupLabel } from "../data/presentation";
@@ -14,11 +14,12 @@ import type { PerspectiveId } from "../scene/perspectives";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
 import type { RuntimeConfig } from "../data/runtimeConfig";
-import type { ActionCard, BriefSpec, PageRecord, SnapshotBundle } from "../types";
+import type { ActionCard, BriefSpec, CodexCapability, PageRecord, SnapshotBundle } from "../types";
 import { CoachMarks, tourSeen } from "./CoachMarks";
 import { HelpTip } from "./HelpTip";
 import { MissionsPanel } from "./MissionsPanel";
 import { PageReader } from "./PageReader";
+import { WorkTray } from "./WorkTray";
 import type { RelationGroupKey } from "./PageReader";
 import { SystemScene } from "./SystemScene";
 import type { ScenePatch } from "./SystemScene";
@@ -76,7 +77,9 @@ export function WorldView({
   route,
   onRun,
   onNotice,
-  onComposeBrief
+  onComposeBrief,
+  onResumeBrief,
+  codexCapability
 }: {
   bundle: SnapshotBundle;
   runtime: RuntimeConfig;
@@ -84,6 +87,8 @@ export function WorldView({
   onRun: (action: ActionCard) => void;
   onNotice?: (text: string) => void;
   onComposeBrief?: (spec: BriefSpec) => void;
+  onResumeBrief?: (briefId: string) => void;
+  codexCapability?: CodexCapability;
 }) {
   const pages = bundle.pages.pages;
   // Always navigate from the CURRENT route: async callbacks (debounce timers,
@@ -93,6 +98,7 @@ export function WorldView({
   const [searchDraft, setSearchDraft] = useState(route.query.q);
   const [trayOpen, setTrayOpen] = useState(false);
   const [missionsOpen, setMissionsOpen] = useState(false);
+  const [workOpen, setWorkOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -475,6 +481,7 @@ export function WorldView({
             onClick={() => {
               setTrayOpen((value) => !value);
               setMissionsOpen(false);
+              setWorkOpen(false);
             }}
             type="button"
             aria-expanded={trayOpen}
@@ -488,6 +495,7 @@ export function WorldView({
             onClick={() => {
               setMissionsOpen((value) => !value);
               setTrayOpen(false);
+              setWorkOpen(false);
             }}
             type="button"
             aria-expanded={missionsOpen}
@@ -495,6 +503,21 @@ export function WorldView({
             <Trophy size={14} />
             <span>{t("world.missions")}</span>
           </button>
+          {onComposeBrief && (
+            <button
+              className={workOpen ? "trayButton workButton active" : "trayButton workButton"}
+              onClick={() => {
+                setWorkOpen((value) => !value);
+                setTrayOpen(false);
+                setMissionsOpen(false);
+              }}
+              type="button"
+              aria-expanded={workOpen}
+            >
+              <Activity size={14} />
+              <span>{t("work.title")}</span>
+            </button>
+          )}
           <button className="trayButton tourButton" onClick={() => setTourOpen(true)} type="button">
             <span aria-hidden>?</span>
             <span className="visuallyHidden">{t("tour.reopen")}</span>
@@ -574,6 +597,18 @@ export function WorldView({
                 : undefined
             }
             onClose={() => setMissionsOpen(false)}
+          />
+        )}
+        {workOpen && onComposeBrief && (
+          <WorkTray
+            capability={codexCapability ?? { enabled: true, installed: false, runnable: false, authed: false, auth_mode: null, version: null, usable: false, reason: "" }}
+            demo={route.demo}
+            onResumeBrief={(id) => {
+              setWorkOpen(false);
+              onResumeBrief?.(id);
+            }}
+            onNotice={(text) => onNotice?.(text)}
+            onClose={() => setWorkOpen(false)}
           />
         )}
       </SystemScene>

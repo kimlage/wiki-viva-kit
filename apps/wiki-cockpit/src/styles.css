@@ -4406,3 +4406,144 @@ pre {
     min-width: 0;
   }
 }
+
+/* ---- Work tray (Codex jobs + saved briefs) ---- */
+.trayButton.workButton.active {
+  border-color: #3d6c86;
+}
+.workTray {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 46px;
+  z-index: 36;
+  max-width: 720px;
+  margin: 0 auto;
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  border: 1px solid #2a3944;
+  border-radius: 12px;
+  background: rgba(8, 15, 21, 0.96);
+  backdrop-filter: blur(8px);
+  padding: 12px 14px;
+}
+.workTray > header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.workTray > header strong {
+  font-size: 14px;
+}
+.workTray > header .readerClose {
+  margin-left: auto;
+}
+.workBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.workSection h4 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7f95a3;
+}
+.workRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid #22323d;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+.workRowMain {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.workRowMain small {
+  color: #8aa0ad;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workJob {
+  border: 1px solid #22323d;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.workJobHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.workJobHead strong {
+  font-size: 13px;
+}
+.workJobHead .textButton {
+  margin-left: auto;
+}
+.workJobReason {
+  display: block;
+  color: #8aa0ad;
+  font-size: 11px;
+  margin: 4px 0;
+}
+.workSteps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+.workStep {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid #2a3944;
+  color: #9fb4c2;
+}
+.workStep-good {
+  border-color: #2f7a5a;
+  color: #6fd0a0;
+}
+.workStep-info {
+  border-color: #3d6c86;
+  color: #8fd0e8;
+}
+.workStep-bad {
+  border-color: #7a3b41;
+  color: #e59aa2;
+}
+.workStep-muted {
+  opacity: 0.6;
+}
+.workJobLinks {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.workLog {
+  margin: 8px 0 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #05090d;
+  color: #b8ccd6;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.workEmpty {
+  color: #7f95a3;
+  font-size: 12.5px;
+}

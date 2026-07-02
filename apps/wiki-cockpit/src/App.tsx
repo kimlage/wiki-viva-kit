@@ -27,6 +27,7 @@ import {
   buildIngestionPlan,
   composeBrief,
   discardBrief,
+  getBrief,
   loadCodexCapability,
   loadSnapshotBundle,
   runCockpitAction,
@@ -1825,6 +1826,19 @@ export function App() {
       setActiveBrief(null);
     }
   };
+  // Reopen a saved draft brief from the Work tray into the studio.
+  const resumeBrief = async (briefId: string) => {
+    try {
+      const record = await getBrief(briefId);
+      if (record) setActiveBrief(record);
+    } catch (error) {
+      setNotice({
+        text: t("brief.compose.failed", { error: error instanceof Error ? error.message : "failed" }),
+        tone: "warn",
+        showResult: false
+      });
+    }
+  };
   // Execute exit: what you see is what runs — persist the current text first,
   // then submit the job by its verified sha. The endpoint fails closed when
   // Codex is unusable, so this only ever renders when capability.usable.
@@ -1881,6 +1895,8 @@ export function App() {
           onRun={runAction}
           onNotice={notify}
           onComposeBrief={runBrief}
+          onResumeBrief={resumeBrief}
+          codexCapability={codexCapability}
         />
       );
     }
