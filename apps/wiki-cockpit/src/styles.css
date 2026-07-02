@@ -4798,3 +4798,83 @@ pre {
   color: #7f95a3;
   font-style: italic;
 }
+
+/* ---- Gates dock (health as gates) ---- */
+.gatesList {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.gateRow {
+  border: 1px solid #22323d;
+  border-radius: 8px;
+  padding: 9px 11px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gateRow-bad {
+  border-color: #7a3b41;
+}
+.gateRowHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+.gateFinished {
+  color: #7f95a3;
+  font-size: 11px;
+}
+.gateRow .textButton {
+  margin-left: auto;
+}
+
+/* ---- Intake dock (add knowledge) ---- */
+.intakeField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.intakeField span {
+  font-size: 11.5px;
+  color: #8aa0ad;
+}
+.intakeField input,
+.intakeField select {
+  padding: 8px 10px;
+  border: 1px solid #263845;
+  border-radius: 7px;
+  background: #0a121a;
+  color: #d7e6ef;
+  font-size: 13px;
+}
+.intakeField input:focus,
+.intakeField select:focus {
+  outline: none;
+  border-color: #3d6c86;
+}
+.intakeResult {
+  border-top: 1px solid #1c2a33;
+  padding-top: 10px;
+  margin-top: 6px;
+}
+.intakeAdded {
+  margin: 0 0 6px;
+  color: #6fd0a0;
+  font-size: 13px;
+  word-break: break-all;
+}
+.intakeCatalog {
+  border-top: 1px solid #1c2a33;
+  padding-top: 8px;
+  margin-top: auto;
+  font-style: italic;
+}

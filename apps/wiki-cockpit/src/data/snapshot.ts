@@ -356,6 +356,20 @@ export async function loadFileDiff(
   }
 }
 
+// Intake: copy an external file (local path or repo-relative) into data/raw/,
+// secret-scanned and sandboxed server-side. The fix for the ~/Downloads dead-end.
+export async function intakeCopy(
+  sourcePath: string,
+  context: string
+): Promise<{ ok: boolean; path?: string; context?: string; filename?: string; error?: string; reason?: string }> {
+  const response = await fetch(await apiUrl("/intake/copy"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ source_path: sourcePath, context })
+  });
+  return (await response.json()) as { ok: boolean; path?: string };
+}
+
 // Run one honesty gate; the server persists a receipt so the gate turns green.
 export async function runGate(gateId: string): Promise<{ ok: boolean; gate_id?: string; returncode?: number | null; error?: string }> {
   const response = await fetch(await apiUrl("/gates/run"), {

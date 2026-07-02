@@ -273,7 +273,8 @@ vi.mock("./data/snapshot", () => ({
   streamCodexLog: vi.fn(async () => ""),
   cancelCodexJob: vi.fn(),
   loadFileDiff: vi.fn(async () => ({ ok: true, diff: [] })),
-  runGate: vi.fn(async () => ({ ok: true }))
+  runGate: vi.fn(async () => ({ ok: true })),
+  intakeCopy: vi.fn(async () => ({ ok: true, path: "data/raw/system/x" }))
 }));
 
 async function renderRoute(path: string) {
@@ -304,11 +305,13 @@ describe("visual route contract", () => {
     cleanup();
 
     await renderRoute("/sources");
-    expect(await screen.findByRole("heading", { name: "Add Knowledge" })).toBeTruthy();
+    // /sources dissolved into the world Intake dock (?dock=intake) — Adicionar died.
+    expect(await screen.findByRole("dialog", { name: "Add knowledge" })).toBeTruthy();
     cleanup();
 
     await renderRoute("/health");
-    expect(await screen.findByRole("heading", { name: "Wiki Health" })).toBeTruthy();
+    // /health dissolved into the world Gates dock (?dock=gates) — Saúde is weather.
+    expect(await screen.findByRole("dialog", { name: "Checks" })).toBeTruthy();
     cleanup();
 
     await renderRoute("/demo/w/radar");

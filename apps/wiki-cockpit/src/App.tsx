@@ -22,6 +22,8 @@ import { WorldView } from "./components/WorldView";
 import { BriefStudio } from "./components/BriefStudio";
 import { CodexDock } from "./components/CodexDock";
 import { GateDock } from "./components/GateDock";
+import { GatesDock } from "./components/GatesDock";
+import { IntakeDock } from "./components/IntakeDock";
 import { configureLanguage, t } from "./data/i18n";
 import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel } from "./data/presentation";
@@ -1698,11 +1700,16 @@ export function App() {
     loadState.status === "ready" ? loadState.runtime.strings : undefined
   );
 
-  // The legacy 2D pages dissolve into world docks. /review becomes the Gate
-  // (?dock=approve); bookmarks never break. (/sources, /health follow.)
+  // The legacy 2D pages dissolve into world docks. /review → the Gate, /health →
+  // the Gates dock (health is the weather); bookmarks never break. (/sources
+  // follows in Phase 4.)
   useEffect(() => {
     if (route.kind === "review") {
       navigate(buildUrl(patchWorld(worldFromRoute(route), { dock: "approve" })), { replace: true });
+    } else if (route.kind === "health") {
+      navigate(buildUrl(patchWorld(worldFromRoute(route), { dock: "gates" })), { replace: true });
+    } else if (route.kind === "sources") {
+      navigate(buildUrl(patchWorld(worldFromRoute(route), { dock: "intake" })), { replace: true });
     }
   }, [route.kind]);
 
@@ -1963,6 +1970,8 @@ export function App() {
 
   const codexDockOpen = route.kind === "world" && route.query.dock === "codex";
   const gateDockOpen = route.kind === "world" && route.query.dock === "approve";
+  const gatesDockOpen = route.kind === "world" && route.query.dock === "gates";
+  const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -2018,6 +2027,23 @@ export function App() {
             onWorkflow={runWorkflow}
             onNotice={notify}
             onRefetch={refetchReal}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+          />
+        )}
+        {gatesDockOpen && worldRoute && loadState.status === "ready" && (
+          <GatesDock
+            bundle={loadState.bundle}
+            onNotice={notify}
+            onRefetch={refetchReal}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+          />
+        )}
+        {intakeDockOpen && worldRoute && loadState.status === "ready" && (
+          <IntakeDock
+            bundle={loadState.bundle}
+            initialSrc={worldRoute.query.src}
+            onComposeBrief={runBrief}
+            onNotice={notify}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}

@@ -292,6 +292,21 @@ const EN: Dict = {
   "gate.pr.prepare": "Prepare draft PR",
   "gate.pr.none": "No open request yet.",
 
+  // The Intake (?dock=intake) — add knowledge, world-first
+  "intake.title": "Add knowledge",
+  "intake.intro": "Point at a file (a path, even one in ~/Downloads) — it is copied into the raw area, secret-scanned, ready to ingest.",
+  "intake.path": "File path or URL",
+  "intake.pathPlaceholder": "/Users/you/Downloads/statement.pdf",
+  "intake.context": "Area",
+  "intake.add": "Add file",
+  "intake.adding": "adding…",
+  "intake.added": "Added to {path}",
+  "intake.failed": "Could not add: {error}",
+  "intake.secretBlock": "Refused — the file appears to contain a secret.",
+  "intake.next": "Next: draft the ingestion with Codex, or triage it.",
+  "intake.brief": "Draft ingestion brief",
+  "intake.catalog": "Already-added sources live in the Districts view (raw data).",
+
   // Brief studio + entry points
   "brief.studio.title": "Work brief",
   "brief.studio.composing": "Composing the work brief…",
@@ -628,6 +643,20 @@ const PT: Dict = {
   "gate.pr.contract": "O cockpit prepara. O GitHub decide.",
   "gate.pr.prepare": "Preparar rascunho de PR",
   "gate.pr.none": "Nenhum pedido aberto ainda.",
+
+  "intake.title": "Adicionar conhecimento",
+  "intake.intro": "Aponte para um arquivo (um caminho, mesmo em ~/Downloads) — ele é copiado para a área bruta, escaneado por segredos, pronto para ingerir.",
+  "intake.path": "Caminho do arquivo ou URL",
+  "intake.pathPlaceholder": "/Users/voce/Downloads/extrato.pdf",
+  "intake.context": "Área",
+  "intake.add": "Adicionar arquivo",
+  "intake.adding": "adicionando…",
+  "intake.added": "Adicionado em {path}",
+  "intake.failed": "Não foi possível adicionar: {error}",
+  "intake.secretBlock": "Recusado — o arquivo parece conter um segredo.",
+  "intake.next": "Depois: rascunhe a ingestão com o Codex, ou faça a triagem.",
+  "intake.brief": "Rascunhar brief de ingestão",
+  "intake.catalog": "Fontes já adicionadas vivem na visão de Distritos (dado bruto).",
 
   "brief.studio.title": "Ordem de trabalho",
   "brief.studio.composing": "Compondo a ordem de trabalho…",

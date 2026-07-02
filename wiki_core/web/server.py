@@ -19,6 +19,7 @@ from wiki_core.web.commands import run_action
 from wiki_core.web.content import build_page_content
 from wiki_core.web.diff import file_diff
 from wiki_core.web.gates import run_gate
+from wiki_core.web.intake import intake_copy
 from wiki_core.web.git_workflows import run_git_workflow
 from wiki_core.web.ingestion_plan import build_ingestion_plan, run_ingestion_step
 from wiki_core.web.schemas import SCHEMA_CAPABILITIES, WEB_SERVER_VERSION
@@ -179,6 +180,15 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             result = run_gate(self.server.root, self.server.config, gate_id)
             # A failing gate still RAN (200); only an unknown gate id is a 400.
             self._send_json(result, status=HTTPStatus.BAD_REQUEST if result.get("error") else HTTPStatus.OK)
+            return
+        if parsed.path == "/api/intake/copy":
+            result = intake_copy(
+                self.server.root,
+                self.server.config,
+                str(payload.get("source_path") or ""),
+                str(payload.get("context") or ""),
+            )
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
             return
         if parsed.path not in {
             "/api/actions/run",
