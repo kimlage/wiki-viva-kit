@@ -78,11 +78,15 @@ coordinate is operational data:
   on a discrete labeled "sem dados" band — radius never fakes a date.
 - **Height** = approval state: draft changes float above the disc on visible
   stems; approved content stays on the plane.
-- **Color** = trust, with inverted salience: healthy pages are dark and quiet,
-  while stale, draft and risk-flagged pages glow. **Shape** = kind (crystal =
-  evidence source, faceted hub = navigation, sphere = content). **Lines** =
-  typed relations (navigation, evidence, review impact, ingestion chains);
-  hovering a node reveals its full neighborhood.
+- **Hue** = area (context): every page keeps its area's color everywhere —
+  wedge rims, group pills, beacons and node bodies all agree. **State** shows
+  as aging, never as hue: up-to-date pages sit vivid and quiet, overdue pages
+  darken and radiate amber heat (emissive pulse + rising embers), never-checked
+  pages wash out behind a gray veil, and drafts bleach toward white while
+  floating on stems. Salience stays inverted: healthy is calm, problems glow.
+  **Shape** = kind (crystal = evidence source, faceted hub = navigation,
+  sphere = content). **Lines** = typed relations (navigation, evidence, review
+  impact, ingestion chains); hovering a node reveals its full neighborhood.
 - The attention set (risk flags, overdue pages, drafts, review items, hubs)
   carries always-on labels with annotations such as `8d overdue` or
   `draft change`, so the map answers "what needs attention" without a click.
@@ -227,7 +231,7 @@ presentation overrides consumed by `src/data/presentation.ts`:
     "meu_tipo_local": { "label": "nota de campo", "family": "content", "shape": "sphere" }
   },
   "contexts": {
-    "financeiro": { "label": "Finanças", "accent": "#ffb454" }
+    "financeiro": { "label": "Finanças", "accent": "#4cb58c" }
   },
   "trust_colors": {
     "stale": "#ff9c54"
@@ -238,17 +242,22 @@ presentation overrides consumed by `src/data/presentation.ts`:
 - `page_types.<type>`: override `label` (shown across lists, previews and the
   3D map), `shape` (one of `sphere`, `hub`, `crystal`, `diamond`, `comet`,
   `slab`, `spark`), `family` (legend grouping) and `accent`.
-- `contexts.<name>`: override the display `label` and the orbit/legend `accent`
-  color of a context.
-- `trust_colors`: override the freshness/approval palette (`fresh`, `stale`,
-  `unknown`, `proposal`, `root`, `risk`).
+- `contexts.<name>`: override the display `label` and the area `accent` color
+  (node bodies, wedge rims, group pills, legend). Without an override, sorted
+  context names get distinct slots from the built-in 12-color palette. Avoid
+  the reserved state accents (amber `#ffb454`, purple `#c57cff`, risk red
+  `#ff7a8a`) — an area must never impersonate a state.
+- `trust_colors`: override the state-accent palette used by annotations —
+  chips, deadline arcs, embers/stems, glows (`fresh`, `stale`, `unknown`,
+  `proposal`, `root`, `risk`).
 
 Unknown page types fall back to a readable default (underscores become spaces,
 sphere shape), so localized repos with custom `wiki.page-types.yaml` entries
-work without any frontend change. In the 3D map, **color always means trust
-state, shape always means content kind, and lines always mean typed relations**
-(`moc_parent` navigation, `source_ref` evidence, links, PR impact, ingestion
-chains) — overrides restyle those encodings but must not repurpose them.
+work without any frontend change. In the 3D map, **hue always means the page's
+area, tone/aging always means state, shape always means content kind, and
+lines always mean typed relations** (`moc_parent` navigation, `source_ref`
+evidence, links, PR impact, ingestion chains) — overrides restyle those
+encodings but must not repurpose them.
 
 The static build can be hosted later with a configured snapshot URL or bundled
 sample/open data. Vercel should be treated as static/read-only unless a separate

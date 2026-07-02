@@ -163,6 +163,20 @@ export type GateRecord = {
   id: string;
   status: string;
   argv: string[];
+  finished_at?: string | null;
+};
+
+// The transient response of POST /api/gates/run — unlike the persisted receipt
+// it carries the redacted stdout/stderr, which is what makes per-check
+// diagnosis (and "fix with Codex") possible.
+export type GateRunResult = {
+  ok: boolean;
+  gate_id?: string;
+  returncode?: number | null;
+  stdout?: string;
+  stderr?: string;
+  finished_at?: string;
+  error?: string;
 };
 
 export type SnapshotBundle = {
@@ -384,6 +398,8 @@ export type CodexJobRecord = {
   parent_job_id: string | null;
   created_at?: string;
   updated_at?: string;
+  started_at?: string | null;
+  finished_at?: string | null;
   status: "queued" | "running" | "committing" | "delivered" | "returned" | "done" | "failed" | "cancelled" | string;
   dry_run?: boolean;
   mission_kind?: string | null;
@@ -391,6 +407,7 @@ export type CodexJobRecord = {
   theme?: string;
   steps: CodexJobStep[];
   branch: string | null;
+  branch_mode?: "fresh" | "resume" | "continue_current" | string | null;
   draft_pr_url: string | null;
   log_path?: string;
   human_gate_state?: string | null;

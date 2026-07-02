@@ -4,6 +4,29 @@ A Markdown/Git-first **living operational wiki** with a deterministic Python cor
 honesty gates in CI, and deep reading delegated to the AI agent that runs the
 repo (Claude, Codex, Gemini or any other) — no LLM client embedded in the code.
 
+![The 3D knowledge world — Radar perspective, bundled demo with synthetic data](docs/assets/cockpit-radar-demo.png)
+
+Your wiki is a **navigable 3D world**, not a file tree. Every dot is a page:
+**hue = its area** (finance stays one color everywhere), and **state shows as
+aging** — up-to-date pages sit vivid and calm, overdue ones darken and shed
+amber embers, drafts float bleached on stems, never-checked pages recede behind
+a gray veil. Shape = kind, lines = real relations, hidden pages are always
+countable. Nothing is decorative: **if it glows, it needs you.**
+
+The shot above is the bundled demo (synthetic sample data — no account, no
+tokens): `npm --prefix apps/wiki-cockpit install && npm --prefix
+apps/wiki-cockpit run dev`, then open `http://localhost:5173/demo/w/radar`.
+
+## Four perspectives, one world
+
+![MORPH between perspectives — Radar → Atlas → Districts → Radar (demo)](docs/assets/cockpit-morph-demo.gif)
+
+The same pages, four arrangements — **Radar** (what needs attention now),
+**Atlas** (what lives where), **Districts** (everything by kind), **Trails**
+(one page's connections). Switching (keys `1–4`) MORPHs the world: every node
+keeps its identity and glides to its new place, so nothing is lost between
+views. The URL follows you — back button, refresh and sharing just work.
+
 The official language of this project is **English**. Generated pages and
 artifacts (cockpit, ingestion proposals) are rendered in the language configured
 in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
@@ -37,6 +60,18 @@ in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
   and the [knowledge-catalog reference project](https://github.com/GoogleCloudPlatform/knowledge-catalog).
 - **Karma layer**: 8-dimension operational scoring as a by-product, append-only,
   no toxic leaderboard.
+
+## The human gate, in-world
+
+![Approve changes — the gate dock over the 3D world (demo)](docs/assets/cockpit-gate-demo.png)
+
+Approving, adding knowledge, health checks and local Codex jobs are **docks
+inside the world** (`?dock=approve|intake|gates|codex|work`) — deep-linkable
+URL state, not separate pages. The gate shows changed **content pages first**
+(title · area · state, per-file diffs on demand), repository code collapsed
+into one crate, every honesty check with its real status and output, and a
+one-click **"Fix with Codex"** brief when a check fails. The cockpit prepares;
+GitHub decides.
 
 ## Quickstart
 

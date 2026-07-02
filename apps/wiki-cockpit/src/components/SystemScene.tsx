@@ -1,8 +1,10 @@
 // SystemScene: the navigable 3D knowledge world. The space itself is the
 // navigation — drill level is camera altitude bound to the URL, perspectives
 // re-arrange the same node identities (MORPH), and reading happens in-world.
-// Honest encodings are non-negotiable: color = trust, shape = kind,
-// line = typed relation; hidden pages are always countable cluster-stars.
+// Honest encodings are non-negotiable: hue = context (area), tone = state
+// (aging: bleached draft > calm fresh > aged stale > veiled unknown, with
+// attention riding on amber emissive/glow/embers), shape = kind, line = typed
+// relation; hidden pages are always countable cluster-stars.
 
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -12,7 +14,7 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { GraphEdge, GraphNode, GitState } from "../types";
 import { t } from "../data/i18n";
-import { contextStyle, edgeStyle, isRawData, pageTypeLabel, pageTypeStyle, trustColor, worldGroupLabel } from "../data/presentation";
+import { agedColor, contextStyle, edgeStyle, isRawData, pageTypeLabel, pageTypeStyle, trustColor, worldGroupLabel } from "../data/presentation";
 import { glowTexture, ringTexture } from "../scene/glow";
 import { scenePerformanceProfile } from "../scene/layout";
 import type { LayoutNode, ScenePerformanceProfile } from "../scene/layout";
@@ -103,14 +105,18 @@ function nodeTrustKey(node: Pick<LayoutNode, "approved_state" | "freshness_state
   return "unknown";
 }
 
-// Salience inversion: healthy content is dark and quiet, everything that
-// needs a human glows. Trust hexes stay the legend colors.
-const TRUST_MATERIALS: Record<TrustKey | "root", { color: string; emissiveIntensity: number; opacity: number; glows: boolean }> = {
-  fresh: { color: "#37906b", emissiveIntensity: 0.32, opacity: 1, glows: false },
-  stale: { color: "#ffb454", emissiveIntensity: 1.1, opacity: 1, glows: true },
-  proposal: { color: "#c57cff", emissiveIntensity: 1.0, opacity: 1, glows: true },
-  unknown: { color: "#77808c", emissiveIntensity: 0.14, opacity: 0.6, glows: false },
-  root: { color: "#6bd7ff", emissiveIntensity: 0.9, opacity: 1, glows: true }
+// State → material treatment. Since the re-encoding, the node BODY hue is the
+// context identity (per-instance colors, see InstancedNodeMesh); this table
+// keeps what per-instance attributes cannot express: per-state emissive
+// (attention glows — amber heat for stale, purple for drafts), opacity (the
+// unknown veil) and the glow-sprite gate. Salience inversion survives: fresh
+// bodies sit in a calm lightness band with no emissive; problems radiate.
+const TRUST_MATERIALS: Record<TrustKey | "root", { emissiveIntensity: number; opacity: number; glows: boolean }> = {
+  fresh: { emissiveIntensity: 0.05, opacity: 1, glows: false },
+  stale: { emissiveIntensity: 1.1, opacity: 1, glows: true },
+  proposal: { emissiveIntensity: 1.0, opacity: 1, glows: true },
+  unknown: { emissiveIntensity: 0, opacity: 0.6, glows: false },
+  root: { emissiveIntensity: 0.9, opacity: 1, glows: true }
 };
 
 function trustMaterial(node: LayoutNode) {
@@ -118,6 +124,16 @@ function trustMaterial(node: LayoutNode) {
   return TRUST_MATERIALS[nodeTrustKey(node)];
 }
 
+// Hue = context (who the node is), tone = state (how it is): the aged context
+// accent. Used by every 2D twin of the 3D body (minimap dots, fallback chips).
+function nodeDisplayColor(node: LayoutNode): string {
+  if (node.isRoot) return trustColor("root");
+  return agedColor(contextStyle(node.context).accent, nodeTrustKey(node));
+}
+
+// State ANNOTATION color (glow sprites, chips, guides): the trust palette
+// survives as the state accent language even though it no longer paints
+// node bodies.
 function trustDisplayColor(node: LayoutNode): string {
   if (node.isRoot) return trustColor("root");
   return trustColor(nodeTrustKey(node));
@@ -686,8 +702,28 @@ function InstancedNodeMesh({
   });
 
   const dim = group.dimmed ? 0.25 : 1;
-  const baseColor = useMemo(() => new THREE.Color(group.material.color).multiplyScalar(dim), [dim, group.material.color]);
+  // The shader multiplies material.color × instanceColor, so the material base
+  // is WHITE (scaled by the dim factor) and each instance carries its context
+  // hue with the state tone premixed (agedColor). Emissive stays uniform per
+  // partition — that is exactly the per-state attention channel.
+  const baseColor = useMemo(() => new THREE.Color(1, 1, 1).multiplyScalar(dim), [dim]);
   const emissiveColor = useMemo(() => new THREE.Color(trustColor(group.trust as TrustKey | "root")).multiplyScalar(dim), [dim, group.trust]);
+
+  // Per-instance context colors. useLayoutEffect (pre-paint, refs attached) so
+  // no white-flash frame; keyed on group.items — the same dependency
+  // applyPositions uses — so same-length membership swaps recolor correctly.
+  // NEVER inside the morph loop: instanceColor is independent of matrices.
+  const colorScratch = useMemo(() => new THREE.Color(), []);
+  useLayoutEffect(() => {
+    const mesh = ref.current;
+    if (!mesh) return;
+    group.items.forEach((node, index) => {
+      const hex = group.trust === "root" ? trustColor("root") : agedColor(contextStyle(node.context).accent, group.trust as TrustKey);
+      mesh.setColorAt(index, colorScratch.set(hex));
+    });
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    invalidate();
+  }, [colorScratch, group.items, group.trust, invalidate]);
   return (
     <group>
       <instancedMesh
@@ -909,7 +945,9 @@ function GlowSprites({
           ? "#79e6ff"
           : trustDisplayColor(node);
         const size = node.scale * (approval ? 6.8 : highlighted ? 6.4 : selected ? 6 : 4.2);
-        const opacity = approval ? 0.82 : highlighted ? 0.75 : selected ? 0.62 : trust === "stale" ? 0.38 : 0.3;
+        // Stale's STATIC base is strong enough to read without animation —
+        // reduced-motion/compact tiers must never lose the attention cue.
+        const opacity = approval ? 0.82 : highlighted ? 0.75 : selected ? 0.62 : trust === "stale" ? 0.5 : 0.3;
         return (
           <sprite key={`glow-${node.id}`} position={node.position} scale={[size, size, 1]}>
             <spriteMaterial
@@ -1478,7 +1516,8 @@ function AmbientDriver({
       const breath = 1 + Math.sin(t * Math.PI * 0.5) * 0.03;
       rootRef.current.scale.setScalar(0.5 * breath);
     }
-    const stalePulse = 0.3 + 0.09 * Math.sin((t * Math.PI * 2) / 2.4);
+    // Pulse AROUND the static 0.5 base (never below the no-motion floor).
+    const stalePulse = 0.5 + 0.12 * Math.sin((t * Math.PI * 2) / 2.4);
     for (const material of pulses.current?.stale ?? []) material.opacity = stalePulse;
     const staleEmissive = 0.9 + 0.35 * Math.sin((t * Math.PI * 2) / 2.4);
     for (const material of pulses.current?.staleMaterials ?? []) material.emissiveIntensity = staleEmissive;
@@ -1672,7 +1711,7 @@ function SceneContent({
         >
           <sphereGeometry args={[1, profile.geometrySegments + 8, profile.geometrySegments + 8]} />
           <meshStandardMaterial
-            color={TRUST_MATERIALS.root.color}
+            color={trustColor("root")}
             emissive={trustColor("root")}
             emissiveIntensity={TRUST_MATERIALS.root.emissiveIntensity}
             roughness={0.3}
@@ -1705,6 +1744,7 @@ type SceneCensus = {
   evidenceCount: number;
   unsourcedCount: number;
   rawCount: number;
+  contexts: { key: string; label: string; color: string; count: number }[];
   edgeCounts: { key: string; label: string; color: string; count: number }[];
   hidden: number;
   total: number;
@@ -1740,6 +1780,14 @@ function sceneCensus(nodes: GraphNode[], edges: GraphEdge[], layout: WorldLayout
     evidenceCount: visible.filter((node) => node.metrics.source_ref_count > 0).length,
     unsourcedCount: visible.filter((node) => isEvidenceGap(node.page_type, node.metrics.source_ref_count)).length,
     rawCount: visible.filter((node) => isRawData(node.page_type)).length,
+    // Hue = area: the live color legend (Key popover) lists what is on screen.
+    contexts: [...visible.reduce((map, node) => {
+      const key = node.context || "system";
+      map.set(key, (map.get(key) || 0) + 1);
+      return map;
+    }, new Map<string, number>()).entries()]
+      .map(([key, count]) => ({ key, label: contextStyle(key).label, color: contextStyle(key).accent, count }))
+      .sort((a, b) => b.count - a.count),
     edgeCounts: [...edgeCounts.entries()]
       .map(([key, count]) => ({ key, label: edgeStyle(key).label, color: edgeStyle(key).color, count }))
       .sort((a, b) => b.count - a.count),
@@ -1818,6 +1866,18 @@ function StatusStrip({
       </button>
       {keyOpen && (
         <div className="radarKeyPopover" role="dialog" aria-label="Map key">
+          <div>
+            <span>{t("scene.keyColorLabel")}</span>
+            <p>{t("scene.keyColor")}</p>
+            <ul>
+              {census.contexts.map((entry) => (
+                <li key={entry.key}>
+                  <i style={{ background: entry.color }} />
+                  {entry.label} · {entry.count}
+                </li>
+              ))}
+            </ul>
+          </div>
           <div>
             <span>{t("scene.keyPositionLabel")}</span>
             <p>{t("scene.keyPosition")}</p>
@@ -1948,14 +2008,20 @@ export function FallbackPlanView({
       {layout.nodes.map((node) => {
         const highlighted = highlightedIds.has(node.id) || highlightedIds.has(node.path);
         const selected = node.id === selectedPageId || node.path === selectedPageId;
+        // At 2-4px, STATE wins the pixel: attention dots take the state accent
+        // and a size bump; calm dots carry the context hue (aged). Premixing
+        // hue+tone at this size reads as murk for everyone.
+        const trust = nodeTrustKey(node);
+        const attention = trust === "stale" || trust === "proposal";
+        const fill = node.isRoot ? trustColor("root") : attention ? trustColor(trust) : nodeDisplayColor(node);
         return (
           <circle
             key={`plan-${node.id}`}
             cx={px(node.position[0])}
             cy={px(node.position[2])}
-            r={Math.max(3, node.scale * scale * 1.6)}
-            fill={trustDisplayColor(node)}
-            fillOpacity={node.freshness_state === "fresh" && !selected && !highlighted ? 0.55 : 0.95}
+            r={Math.max(attention ? 4 : 3, node.scale * scale * (attention ? 2 : 1.6))}
+            fill={fill}
+            fillOpacity={trust === "fresh" && !selected && !highlighted ? 0.55 : trust === "unknown" ? 0.7 : 0.95}
             stroke={selected ? "#dff8ff" : highlighted ? "#8fd0e8" : node.risk_flags.length > 0 ? trustColor("risk") : "none"}
             strokeWidth={selected || highlighted ? 2 : 1.4}
             onClick={() => onNodeSelect?.(node.id)}
@@ -2051,20 +2117,27 @@ function SceneFallback({
         )}
       </nav>
       <div className="fallbackNodeGrid">
-        {layout.nodes.slice(0, 24).map((node) => (
-          <a
-            className={`fallbackNode node-${node.freshness_state}${node.id === selectedPageId || node.path === selectedPageId ? " active" : ""}${highlightedIds.has(node.id) || highlightedIds.has(node.path) ? " highlighted" : ""}`}
-            key={`${node.id}-${node.path}`}
-            href={makeHref({ pageId: node.id, reader: true })}
-            onClick={(event) => {
-              event.preventDefault();
-              onNodeSelect?.(node.id);
-            }}
-            title={node.path}
-          >
-            {node.title}
-          </a>
-        ))}
+        {layout.nodes.slice(0, 24).map((node) => {
+          const trust = nodeTrustKey(node);
+          return (
+            <a
+              className={`fallbackNode node-${node.freshness_state}${node.id === selectedPageId || node.path === selectedPageId ? " active" : ""}${highlightedIds.has(node.id) || highlightedIds.has(node.path) ? " highlighted" : ""}`}
+              key={`${node.id}-${node.path}`}
+              href={makeHref({ pageId: node.id, reader: true })}
+              onClick={(event) => {
+                event.preventDefault();
+                onNodeSelect?.(node.id);
+              }}
+              // Border = context identity; the state ALSO gets a text chip so
+              // the fallback never encodes meaning in color alone (WCAG 1.4.1).
+              style={{ borderColor: nodeDisplayColor(node) }}
+              title={node.path}
+            >
+              {node.title}
+              {trust !== "fresh" && <small className="fallbackNodeState">{t(`scene.trust.${trust}`)}</small>}
+            </a>
+          );
+        })}
       </div>
     </div>
   );

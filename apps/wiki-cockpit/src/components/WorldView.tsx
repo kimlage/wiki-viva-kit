@@ -16,12 +16,11 @@ import { rankPages } from "../scene/search";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
 import type { RuntimeConfig } from "../data/runtimeConfig";
-import type { ActionCard, BriefSpec, CodexCapability, PageRecord, SnapshotBundle } from "../types";
+import type { ActionCard, BriefSpec, PageRecord, SnapshotBundle } from "../types";
 import { CoachMarks, tourSeen } from "./CoachMarks";
 import { HelpTip } from "./HelpTip";
 import { MissionsPanel } from "./MissionsPanel";
 import { PageReader } from "./PageReader";
-import { WorkTray } from "./WorkTray";
 import type { RelationGroupKey } from "./PageReader";
 import { SystemScene } from "./SystemScene";
 import type { ScenePatch } from "./SystemScene";
@@ -66,17 +65,32 @@ type MissionRow = {
   onClick: () => void;
 };
 
+// The mission card is collapsible — a map you can actually SEE beats a panel
+// you did not ask for. The preference is remembered per browser (UI state,
+// not world state: it stays out of the URL on purpose).
+const MISSION_CARD_KEY = "wiki-cockpit.missionCard";
+function missionCardPref(): boolean {
+  try {
+    return window.localStorage.getItem(MISSION_CARD_KEY) !== "closed";
+  } catch {
+    return true;
+  }
+}
+function persistMissionCard(open: boolean): void {
+  try {
+    window.localStorage.setItem(MISSION_CARD_KEY, open ? "open" : "closed");
+  } catch {
+    /* private mode — session-only */
+  }
+}
+
 export function WorldView({
   bundle,
   runtime,
   route,
   onRun,
   onNotice,
-  onComposeBrief,
-  onResumeBrief,
-  onReturnJob,
-  onDiagnoseCodex,
-  codexCapability
+  onComposeBrief
 }: {
   bundle: SnapshotBundle;
   runtime: RuntimeConfig;
@@ -84,10 +98,6 @@ export function WorldView({
   onRun: (action: ActionCard) => void;
   onNotice?: (text: string) => void;
   onComposeBrief?: (spec: BriefSpec) => void;
-  onResumeBrief?: (briefId: string) => void;
-  onReturnJob?: (jobId: string, feedback: string) => void;
-  onDiagnoseCodex?: () => void;
-  codexCapability?: CodexCapability;
 }) {
   const pages = bundle.pages.pages;
   // Always navigate from the CURRENT route: async callbacks (debounce timers,
@@ -98,7 +108,7 @@ export function WorldView({
   const [activeHit, setActiveHit] = useState(0);
   const [trayOpen, setTrayOpen] = useState(false);
   const [missionsOpen, setMissionsOpen] = useState(false);
-  const [workOpen, setWorkOpen] = useState(false);
+  const [missionCardOpen, setMissionCardOpen] = useState(missionCardPref);
   const [tourOpen, setTourOpen] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -318,14 +328,25 @@ export function WorldView({
       onClick: () => navigate(route.demo ? "/demo/review" : "/review")
     });
   }
-  if (gateTone(bundle.gates.status) !== "good" && gateAction) {
+  if (gateTone(bundle.gates.status) !== "good") {
+    // Honest per-gate status right in the radar; clicking opens the Checks dock
+    // (per-gate Run + output + fix) instead of firing a blind multi-command
+    // action that surfaced only as a cryptic 400.
+    const gates = bundle.gates?.gates ?? [];
+    const passing = gates.filter((g) => g.status === "pass").length;
+    const failing = gates.filter((g) => g.status === "fail").map((g) => g.id);
+    const anyRun = gates.some((g) => g.status !== "not_run");
     missionRows.push({
       key: "checks",
       label: t("mission.checks.label"),
-      detail: t("mission.checks.detail"),
+      detail: anyRun
+        ? t("mission.checks.detailStatus", { pass: passing, total: gates.length, failing: failing.length })
+        : gates.length
+          ? t("mission.checks.detailNotRun", { total: gates.length })
+          : t("mission.checks.detail"),
       help: t("mission.checks.help"),
       tone: gateTone(bundle.gates.status),
-      onClick: () => onRun(gateAction)
+      onClick: () => navigateWorld({ dock: "gates" })
     });
   }
   if (stale > 0) {
@@ -416,27 +437,24 @@ export function WorldView({
           </div>
         </div>
 
-        {/* LEFT mission card: current intent with do-now rows. */}
-        <div className="worldMissionCard" role="region" aria-label={t("world.missionAria")}>
-          <header>
-            <strong>{perspectiveLabel(route.perspective).label}</strong>
-            <span>{perspectiveLabel(route.perspective).hint}</span>
-          </header>
-          <div className="missionRows">
-            {missionRows.slice(0, 3).map((row, index) => (
-              <div className={`missionRow tone-${row.tone}`} key={row.key}>
-                <button className="missionRowMain" onClick={row.onClick} type="button">
-                  <span className="stageIndex">{index + 1}</span>
-                  <span className="missionCopy">
-                    <strong>{row.label}</strong>
-                    <small>{row.detail}</small>
-                  </span>
-                </button>
-                {row.help && <HelpTip title={row.label} body={row.help} />}
-              </div>
-            ))}
-          </div>
-          {route.query.q && (
+        {/* LEFT mission surface. Collapsed by choice it is a single honest
+            chip (worst tone + pending count) — the world stays visible;
+            expanded it is the do-now card. Search results always render:
+            the keyboard search flow must never depend on the card state. */}
+        {(() => {
+          const actionable = missionRows.filter((row) => row.key !== "browse");
+          const worstTone = actionable.some((row) => row.tone === "bad")
+            ? "bad"
+            : actionable.some((row) => row.tone === "warn")
+              ? "warn"
+              : "good";
+          const toggleCard = () => {
+            setMissionCardOpen((open) => {
+              persistMissionCard(!open);
+              return !open;
+            });
+          };
+          const searchBlock = route.query.q ? (
             <div className="missionSearchResults" aria-label={t("world.results", { n: searchHits.length })}>
               <span className="missionSearchCount">
                 {searchHits.length > SEARCH_VISIBLE
@@ -463,8 +481,54 @@ export function WorldView({
               ))}
               {searchHits.length === 0 && <span className="missionSearchCount">{t("world.noResults")}</span>}
             </div>
-          )}
-        </div>
+          ) : null;
+          if (!missionCardOpen) {
+            return (
+              <div className="worldMissionSlim" role="region" aria-label={t("world.missionAria")}>
+                <button
+                  className={`worldMissionChip tone-${worstTone}`}
+                  onClick={toggleCard}
+                  aria-expanded={false}
+                  title={perspectiveLabel(route.perspective).hint}
+                  type="button"
+                >
+                  <i aria-hidden />
+                  <strong>{perspectiveLabel(route.perspective).label}</strong>
+                  <span>
+                    {actionable.length > 0 ? t("world.missionCount", { n: actionable.length }) : t("world.missionClear")}
+                  </span>
+                </button>
+                {searchBlock && <div className="worldMissionCard searchOnly">{searchBlock}</div>}
+              </div>
+            );
+          }
+          return (
+            <div className="worldMissionCard" role="region" aria-label={t("world.missionAria")}>
+              <header>
+                <strong>{perspectiveLabel(route.perspective).label}</strong>
+                <span>{perspectiveLabel(route.perspective).hint}</span>
+                <button className="readerClose missionCollapse" onClick={toggleCard} title={t("world.missionCollapse")} type="button">
+                  –
+                </button>
+              </header>
+              <div className="missionRows">
+                {missionRows.slice(0, 3).map((row, index) => (
+                  <div className={`missionRow tone-${row.tone}`} key={row.key}>
+                    <button className="missionRowMain" onClick={row.onClick} type="button">
+                      <span className="stageIndex">{index + 1}</span>
+                      <span className="missionCopy">
+                        <strong>{row.label}</strong>
+                        <small>{row.detail}</small>
+                      </span>
+                    </button>
+                    {row.help && <HelpTip title={row.label} body={row.help} />}
+                  </div>
+                ))}
+              </div>
+              {searchBlock}
+            </div>
+          );
+        })()}
 
         {/* RIGHT: the in-world reader dock. */}
         {readerOpen && selectedPage && (
@@ -523,7 +587,6 @@ export function WorldView({
             onClick={() => {
               setTrayOpen((value) => !value);
               setMissionsOpen(false);
-              setWorkOpen(false);
             }}
             type="button"
             aria-expanded={trayOpen}
@@ -537,7 +600,6 @@ export function WorldView({
             onClick={() => {
               setMissionsOpen((value) => !value);
               setTrayOpen(false);
-              setWorkOpen(false);
             }}
             type="button"
             aria-expanded={missionsOpen}
@@ -547,14 +609,17 @@ export function WorldView({
           </button>
           {onComposeBrief && (
             <button
-              className={workOpen ? "trayButton workButton active" : "trayButton workButton"}
+              className={route.query.dock === "work" ? "trayButton workButton active" : "trayButton workButton"}
               onClick={() => {
-                setWorkOpen((value) => !value);
+                // The Work surface is a DOCK (deep-linkable URL state), not a
+                // local tray: monitoring delegated jobs must survive reloads
+                // and be shareable. patchWorld closes any open tray for us.
                 setTrayOpen(false);
                 setMissionsOpen(false);
+                navigateWorld({ dock: route.query.dock === "work" ? null : "work" });
               }}
               type="button"
-              aria-expanded={workOpen}
+              aria-expanded={route.query.dock === "work"}
             >
               <Activity size={14} />
               <span>{t("work.title")}</span>
@@ -639,34 +704,6 @@ export function WorldView({
                 : undefined
             }
             onClose={() => setMissionsOpen(false)}
-          />
-        )}
-        {workOpen && onComposeBrief && (
-          <WorkTray
-            capability={codexCapability ?? { enabled: true, installed: false, runnable: false, authed: false, auth_mode: null, version: null, usable: false, reason: "" }}
-            demo={route.demo}
-            onResumeBrief={(id) => {
-              setWorkOpen(false);
-              onResumeBrief?.(id);
-            }}
-            onReturn={
-              onReturnJob
-                ? (jobId, feedback) => {
-                    setWorkOpen(false);
-                    onReturnJob(jobId, feedback);
-                  }
-                : undefined
-            }
-            onDiagnose={
-              onDiagnoseCodex
-                ? () => {
-                    setWorkOpen(false);
-                    onDiagnoseCodex();
-                  }
-                : undefined
-            }
-            onNotice={(text) => onNotice?.(text)}
-            onClose={() => setWorkOpen(false)}
           />
         )}
       </SystemScene>

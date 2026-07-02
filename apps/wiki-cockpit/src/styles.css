@@ -2992,10 +2992,66 @@ pre {
 }
 
 .worldMissionCard header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "title collapse" "hint collapse";
+  column-gap: 8px;
+  row-gap: 2px;
+  margin-bottom: 8px;
+}
+.worldMissionCard header strong {
+  grid-area: title;
+}
+.worldMissionCard header span {
+  grid-area: hint;
+}
+.missionCollapse {
+  grid-area: collapse;
+  align-self: start;
+}
+/* Collapsed mission surface: one honest chip, the world owns the screen. */
+.worldMissionSlim {
+  position: absolute;
+  top: 46px;
+  left: 12px;
+  z-index: 28;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-bottom: 8px;
+  gap: 6px;
+  align-items: flex-start;
+}
+.worldMissionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border: 1px solid #24333d;
+  border-radius: 999px;
+  background: rgba(8, 15, 21, 0.88);
+  backdrop-filter: blur(6px);
+  color: #dff2fb;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.worldMissionChip span {
+  color: #7d93a3;
+}
+.worldMissionChip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.worldMissionChip.tone-good i {
+  background: #5ee6a8;
+}
+.worldMissionChip.tone-warn i {
+  background: #ffb454;
+}
+.worldMissionChip.tone-bad i {
+  background: #ff7a8a;
+}
+.worldMissionSlim .worldMissionCard.searchOnly {
+  position: static;
 }
 
 .worldMissionCard header strong {
@@ -3848,6 +3904,99 @@ pre {
   background: rgba(3, 7, 10, 0.62);
 }
 
+/* Brief studio pre-flight: WHERE the job will run, before Execute. */
+.briefStudioGitNote {
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid #24424f;
+  background: rgba(30, 58, 70, 0.35);
+  color: #9fd0e0;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.briefStudioGitWarn {
+  border-color: #6e5126;
+  background: rgba(110, 81, 38, 0.22);
+  color: #e8c268;
+}
+
+/* Expandable monospace output (shared: command output, gate output, diffs). */
+.expandablePre {
+  position: relative;
+}
+.expandablePreBody {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+}
+/* Higher specificity than a bare .gateDiff/.gateOutput passed as className, so
+   the clamped inline view always WRAPS (no horizontal overflow breaking the
+   dock) regardless of the styling class it borrows. The modal shows it full. */
+.expandablePre > .expandablePreBody {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.expandPreButton {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(9, 16, 22, 0.9);
+  font-size: 11px;
+}
+/* The full-content modal sits above every dock/studio (z 63/66). */
+.outputModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(3, 7, 10, 0.7);
+  backdrop-filter: blur(3px);
+}
+.outputModal {
+  position: fixed;
+  top: 4vh;
+  bottom: 4vh;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 71;
+  width: min(900px, 94vw);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #2f4250;
+  border-radius: 12px;
+  background: rgba(8, 14, 20, 0.99);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65);
+  overflow: hidden;
+}
+.outputModalHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #22303a;
+}
+.outputModalHead strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.outputModalBody {
+  margin: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 14px 16px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
 /* Comfortable reading modal: the dock expands to a centered column (key F). */
 .pageReader.expanded {
   top: 4vh;
@@ -4258,10 +4407,15 @@ pre {
 }
 
 /* ---- Brief studio (Codex work briefs) ---- */
+/* The studio sits ABOVE the world docks (z 62/63): briefs are composed FROM
+   docks ("Fix with Codex" in the gate rows, Resume/Return in the work dock),
+   and the studio must paint over the dock that spawned it. Closing the studio
+   returns to the still-open dock — the right flow for fixing several checks
+   in sequence. */
 .briefStudioBackdrop {
   position: fixed;
   inset: 0;
-  z-index: 62;
+  z-index: 65;
   background: rgba(4, 8, 12, 0.55);
   backdrop-filter: blur(2px);
 }
@@ -4270,7 +4424,7 @@ pre {
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: 63;
+  z-index: 66;
   width: min(52%, 720px);
   min-width: 320px;
   display: flex;
@@ -4411,33 +4565,25 @@ pre {
 .trayButton.workButton.active {
   border-color: #3d6c86;
 }
-.workTray {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 46px;
-  z-index: 36;
-  max-width: 720px;
-  margin: 0 auto;
-  max-height: min(70vh, 560px);
-  overflow-y: auto;
-  border: 1px solid #2a3944;
-  border-radius: 12px;
-  background: rgba(8, 15, 21, 0.96);
-  backdrop-filter: blur(8px);
-  padding: 12px 14px;
+/* WorkDock (?dock=work): the jobs/agents monitoring surface. Shares the
+   worldDock chrome; only the work-specific bits live here. */
+.workDockPanel .dockHeader {
+  flex-wrap: wrap;
 }
-.workTray > header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.workTray > header strong {
-  font-size: 14px;
-}
-.workTray > header .readerClose {
+.workDockPanel .dockHeader .textButton {
   margin-left: auto;
+}
+.workDockPanel .dockHeader .readerClose {
+  margin-left: 0;
+}
+.workJobClock {
+  color: #7f95a3;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.workLogMore {
+  align-self: flex-start;
+  font-size: 11px;
 }
 .workBody {
   display: flex;
@@ -4748,6 +4894,126 @@ pre {
   border: 1px solid #1c2a33;
   border-radius: 7px;
   margin-bottom: 6px;
+}
+/* Change summary chips under the Gate dock header. */
+.gateSummary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.gateSummaryDelta {
+  font-variant-numeric: tabular-nums;
+}
+/* The human identity of a changed content page (title · area · state). */
+.gateFilePage {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 9px 0;
+}
+.gateFilePage strong {
+  font-size: 13px;
+}
+.gateFilePage small {
+  color: #8aa0ad;
+  font-size: 11px;
+}
+.gateFileHints {
+  color: #c9a86a;
+}
+/* Per-check rows (shared GateChecks): a STACKED card. The old flex-wrap row
+   let the command, run button and output collide (the running label wrapped
+   one letter per line) — each part now gets its own line. */
+.gateRow {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+.gateRowHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.gateStatusIcon {
+  display: inline-flex;
+  width: 14px;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.gateSpin {
+  color: #8aa0ad;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.gateRowName {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gateRunBtn {
+  flex: 0 0 auto;
+}
+.gateRowCmd {
+  display: block;
+  color: #7f95a3;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+.gateRowTime {
+  color: #6b7f8c;
+  font-size: 10.5px;
+}
+/* The one-line WHY of a failure — visible without opening anything. */
+.gateRowReason {
+  margin: 2px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(122, 59, 65, 0.18);
+  border: 1px solid #7a3b41;
+  color: #f0c2c7;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.gateRowActions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.gateFixButton {
+  color: #c57cff;
+}
+.gateRowHint {
+  color: #8aa0ad;
+  font-size: 11px;
+}
+.gateOutput {
+  border-top: none;
+  border: 1px solid #1c2a33;
+  border-radius: 6px;
+}
+.gateChecksActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+/* State never rides on color alone in the 2D fallback (WCAG 1.4.1). */
+.fallbackNodeState {
+  display: block;
+  color: #8aa0ad;
+  font-size: 10px;
 }
 .gateFileHead {
   display: flex;

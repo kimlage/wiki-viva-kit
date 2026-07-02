@@ -47,6 +47,13 @@ class CockpitServer(ThreadingHTTPServer):
             self._snapshot_cache = (now, payloads)
             return payloads
 
+    def invalidate_snapshot_cache(self) -> None:
+        """Drop the cached snapshot after a mutating action (e.g. a gate run
+        writes a receipt), so the very next refetch reflects reality instead of
+        the 8s window — the UI must never show green rows under a red header."""
+        with self._snapshot_lock:
+            self._snapshot_cache = None
+
 
 class CockpitRequestHandler(BaseHTTPRequestHandler):
     server: CockpitServer
@@ -117,6 +124,9 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             rest = path[len("/api/codex/jobs/") :].strip("/")
             if rest.endswith("/log"):
                 job_id = rest[: -len("/log")].strip("/")
+                if self.server.jobs.get(job_id) is None:
+                    self._send_error("unknown job", status=HTTPStatus.NOT_FOUND)
+                    return
                 self._send_json({"ok": True, "job_id": job_id, "log": self.server.jobs.read_log(job_id)})
                 return
             record = self.server.jobs.get(rest)
@@ -178,6 +188,8 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/gates/run":
             gate_id = str(payload.get("gate_id") or "")
             result = run_gate(self.server.root, self.server.config, gate_id)
+            # The run wrote a receipt — the next snapshot fetch must see it.
+            self.server.invalidate_snapshot_cache()
             # A failing gate still RAN (200); only an unknown gate id is a 400.
             self._send_json(result, status=HTTPStatus.BAD_REQUEST if result.get("error") else HTTPStatus.OK)
             return

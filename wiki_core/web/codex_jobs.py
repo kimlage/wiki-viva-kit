@@ -59,7 +59,10 @@ def _redact(text: str) -> str:
 
 def build_codex_argv(binary: str, root: Path, final_path: Path) -> list[str]:
     """The headless, sandboxed, streamed Codex invocation. Never ``--yolo`` /
-    ``--dangerously-bypass-*``; network stays off under ``workspace-write``."""
+    ``--dangerously-bypass-*``; network stays off under ``workspace-write``.
+    NOTE: ``codex exec`` is non-interactive — it has NO approvals flag (``-a``
+    was rejected with exit 2 by codex-cli 0.142.x); the sandbox policy is the
+    entire containment contract here."""
     return [
         binary,
         "exec",
@@ -68,8 +71,6 @@ def build_codex_argv(binary: str, root: Path, final_path: Path) -> list[str]:
         str(root),
         "--sandbox",
         "workspace-write",
-        "-a",
-        "on-request",
         "--json",
         "-o",
         str(final_path),
@@ -172,6 +173,13 @@ class JobRunner:
         record["status"] = status
         if reason:
             record["reason"] = reason
+        # Wall-clock milestones so the monitoring surface can show honest
+        # elapsed/turnaround times (updated_at moves on every write, so it
+        # cannot serve as either).
+        if status == "running" and not record.get("started_at"):
+            record["started_at"] = _now_iso()
+        if status in {"delivered", "failed", "cancelled"} and not record.get("finished_at"):
+            record["finished_at"] = _now_iso()
         return self._write(record)
 
     def _set_step(self, record: dict[str, Any], step_id: str, status: str) -> dict[str, Any]:
@@ -184,6 +192,28 @@ class JobRunner:
         record = self.get(job_id)
         if record and record["status"] not in {"done", "cancelled"}:
             self._set_status(record, "failed", reason=reason)
+
+    def _dirty_hashes(self) -> dict[str, str]:
+        """Content fingerprint of every uncommitted path. This is the baseline
+        that lets an in-place job commit ONLY what Codex changed — the owner's
+        in-progress edits must never be swept into a job commit."""
+        from wiki_core.web.git_ops import build_git_state
+
+        fingerprints: dict[str, str] = {}
+        for entry in build_git_state(self.root, self.config)["worktree"]["changed_files"]:
+            path = str(entry.get("path") or "")
+            if not path:
+                continue
+            file = self.root / path
+            if file.is_file():
+                proc = subprocess.run(  # noqa: S603 - fixed argv, no shell
+                    ["git", "hash-object", "--", path],
+                    cwd=self.root, capture_output=True, text=True, check=False,
+                )
+                fingerprints[path] = proc.stdout.strip() or "unhashable"
+            else:
+                fingerprints[path] = "deleted"
+        return fingerprints
 
     # -- submit ------------------------------------------------------------- #
     def submit(
@@ -229,6 +259,8 @@ class JobRunner:
             "resume_branch": resume_branch,
             "created_at": _now_iso(),
             "updated_at": _now_iso(),
+            "started_at": None,
+            "finished_at": None,
             "status": "queued",
             "reason": "",
             "dry_run": bool(dry_run),
@@ -238,6 +270,7 @@ class JobRunner:
             "steps": [{"id": sid, "label": label, "status": "pending"} for sid, label in _STEP_TEMPLATE],
             "codex": {"final_message_path": None, "session_started": False},
             "branch": None,
+            "branch_mode": None,
             "draft_pr_url": None,
             "log_path": f"codex-jobs/{job_id}/log.jsonl",
             "human_gate_state": None,
@@ -281,11 +314,28 @@ class JobRunner:
         if job_id in self._cancelled:  # cancel landed after the claim
             return self._set_status(record, "cancelled", reason="cancelled")
 
-        # 1) Get onto the proposal branch. A return CONTINUES the parent's branch
-        #    (switch); a fresh job CREATES one (start). Both are prefix-gated.
+        # 1) Get onto a proposal branch. Three modes:
+        #    - resume: a return CONTINUES the parent's branch (switch, needs clean tree);
+        #    - continue_current: the repo is ALREADY on a proposal branch — the
+        #      operator's normal mid-work state. Work in place: no switch, no
+        #      clean-tree requirement; the commit step scopes to Codex's delta so
+        #      the owner's uncommitted work is never swept into the job commit;
+        #    - fresh: create a new branch (needs a clean tree).
+        from wiki_core.web.git_ops import build_git_state
+
+        prefix = str(self.config.approval.get("branch_prefix") or "wiki/")
+        git_state = build_git_state(self.root, self.config)
+        current_branch = str(git_state.get("current_branch") or "")
+        default_branch = str(git_state.get("default_branch") or "main")
+        branch_mode = "fresh"
         if resume_branch:
+            branch_mode = "resume"
             start = run_git_workflow(self.root, self.config, "switch_proposal", {"branch": resume_branch}, dry_run=False)
             branch = resume_branch
+        elif current_branch.startswith(prefix) and current_branch != default_branch:
+            branch_mode = "continue_current"
+            start = {"ok": True}
+            branch = current_branch
         else:
             start = run_git_workflow(self.root, self.config, "start_proposal", {"theme": theme}, dry_run=False)
             branch = start.get("data", {}).get("branch")
@@ -293,41 +343,100 @@ class JobRunner:
             self._set_step(record, "branch", "failed")
             return self._set_status(record, "failed", reason=f"branch: {start.get('error') or start.get('summary')}")
         record["branch"] = branch
+        record["branch_mode"] = branch_mode
         self._set_step(self._write(record), "branch", "complete")
 
+        # Baseline BEFORE Codex runs: in continue_current mode these paths (and
+        # these exact contents) belong to the owner, not to this job.
+        baseline = self._dirty_hashes() if branch_mode == "continue_current" else {}
+
+        def unwind() -> None:
+            # Failure/cancel cleanup. NEVER reset --hard over the owner's
+            # in-progress edits: in continue_current we only unstage and stay on
+            # the branch (Codex's edits stay visible, uncommitted, for review).
+            if branch_mode == "continue_current":
+                subprocess.run(["git", "reset"], cwd=self.root, capture_output=True, check=False)  # noqa: S603
+            else:
+                self._abort_branch(branch, delete=branch_mode == "fresh")
+
         # 2) Run Codex on the branch, streaming redacted JSONL to the log.
+        # The brief's output contract is written for EXTERNAL agents (copy it
+        # into anything) and tells them to create the proposal branch — but when
+        # THIS runner executes, the runner owns git. Without this preamble a
+        # dutiful agent creates the branch itself and the runner then commits on
+        # the wrong checkout (observed with codex-cli on a real job).
         self._set_step(record, "codex", "running")
         final_path = job_dir / "final.md"
         brief_path = job_dir / "brief.md"
-        brief_path.write_text(brief["text"], encoding="utf-8")
+        preamble = (
+            "<runner-context>\n"
+            f"This brief is being executed by the wiki operator's job runner, already on proposal branch `{branch}`.\n"
+            "The runner owns git: do NOT create or switch branches, do NOT run `git commit`, `git push` or open PRs —\n"
+            "make the file edits only. The runner stages, commits and opens the draft PR afterwards.\n"
+            "This overrides any branch-creation or commit step in the output contract below.\n"
+            "</runner-context>\n\n"
+        )
+        stdin_text = preamble + brief["text"]
+        # The artifact is the ACTUAL stdin — what you see is what ran.
+        brief_path.write_text(stdin_text, encoding="utf-8")
         # codex_cmd is [binary] in prod, or [python3, shim] in tests; either way
         # the exec flags follow the command prefix.
         argv = [*self.codex_cmd, *build_codex_argv(self.codex_cmd[0], self.root, final_path)[1:]]
-        rc, cancelled = self._run_codex(job_id, argv, brief["text"], job_dir / "log.jsonl")
+        rc, cancelled = self._run_codex(job_id, argv, stdin_text, job_dir / "log.jsonl")
         if cancelled:
-            self._abort_branch(branch, delete=not resume_branch)
+            unwind()
             return self._set_status(self.get(job_id) or record, "cancelled", reason="cancelled during Codex run")
         record = self.get(job_id) or record
         if rc != 0:
             self._set_step(record, "codex", "failed")
-            self._abort_branch(branch, delete=not resume_branch)
+            unwind()
             return self._set_status(record, "failed", reason=f"codex exited {rc}")
         if final_path.is_file():
             record["codex"]["final_message_path"] = str(final_path.relative_to(self.root)) if final_path.is_relative_to(self.root) else str(final_path)
         self._set_step(self._write(record), "codex", "complete")
 
-        # 3) Stage the changed files + commit (single-line message).
-        from wiki_core.web.git_ops import build_git_state
+        # Re-anchor: despite the preamble, an agent may still move the checkout.
+        # If the stray branch carries no extra commits, come back (uncommitted
+        # edits follow the switch) and delete it; if the agent COMMITTED there,
+        # adopt the stray branch honestly — orphaning commits would lose work.
+        actual_branch = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            ["git", "branch", "--show-current"], cwd=self.root, capture_output=True, text=True, check=False
+        ).stdout.strip()
+        if actual_branch and branch and actual_branch != branch:
+            ahead = subprocess.run(  # noqa: S603
+                ["git", "rev-list", "--count", f"{branch}..{actual_branch}"],
+                cwd=self.root, capture_output=True, text=True, check=False,
+            ).stdout.strip()
+            if ahead == "0":
+                subprocess.run(["git", "switch", branch], cwd=self.root, capture_output=True, check=False)  # noqa: S603
+                subprocess.run(["git", "branch", "-D", actual_branch], cwd=self.root, capture_output=True, check=False)  # noqa: S603
+            else:
+                branch = actual_branch
+                record["branch"] = branch
+                self._write(record)
 
-        changed = sorted(str(r.get("path")) for r in build_git_state(self.root, self.config)["worktree"]["changed_files"])
-        if not changed:
+        # 3) Stage Codex's delta + commit (single-line message). In
+        #    continue_current mode the delta is computed against the baseline:
+        #    NEW dirty paths are Codex's; a path that was already dirty and whose
+        #    content changed is MIXED (owner + Codex edits, inseparable) — it is
+        #    left uncommitted for the owner's review, never committed silently.
+        after = self._dirty_hashes()
+        codex_paths = sorted(path for path in after if path not in baseline)
+        mixed_paths = sorted(path for path in after if path in baseline and after[path] != baseline[path])
+        if not codex_paths:
             self._set_step(record, "commit", "failed")
-            self._abort_branch(branch, delete=not resume_branch)
-            return self._set_status(record, "failed", reason="Codex made no file changes")
-        stage = run_git_workflow(self.root, self.config, "stage_paths", {"paths": changed}, dry_run=False)
+            unwind()
+            reason = (
+                "Codex only touched file(s) that already had your uncommitted edits "
+                f"({', '.join(mixed_paths[:5])}) — commit or stash your work and run it again"
+                if mixed_paths
+                else "Codex made no file changes"
+            )
+            return self._set_status(record, "failed", reason=reason)
+        stage = run_git_workflow(self.root, self.config, "stage_paths", {"paths": codex_paths}, dry_run=False)
         if not stage.get("ok"):
             self._set_step(record, "commit", "failed")
-            self._abort_branch(branch, delete=not resume_branch)
+            unwind()
             return self._set_status(record, "failed", reason=f"stage: {stage.get('error') or stage.get('summary')}")
         message = self._commit_message(record)
         commit = run_git_workflow(self.root, self.config, "commit_proposal", {"message": message}, dry_run=False)
@@ -335,8 +444,16 @@ class JobRunner:
             self._set_step(record, "commit", "failed")
             # A rejecting commit hook leaves staged edits on the branch — unwind
             # like every other failure so the checkout is never stranded.
-            self._abort_branch(branch, delete=not resume_branch)
+            unwind()
             return self._set_status(record, "failed", reason=f"commit: {commit.get('error') or commit.get('summary')}")
+        # Honest note appended to the delivery reason: edits Codex made to
+        # already-dirty files could NOT be attributed cleanly and stayed
+        # uncommitted for the owner's review.
+        mixed_note = (
+            f" · left {len(mixed_paths)} mixed-edit file(s) uncommitted for your review: " + ", ".join(mixed_paths[:5])
+            if mixed_paths
+            else ""
+        )
         self._set_step(self._write(record), "commit", "complete")
 
         # 4) Publish + open a draft PR (only when not a dry run).
@@ -345,15 +462,17 @@ class JobRunner:
             self._set_step(record, "publish", "skipped")
             record["human_gate_state"] = "local_only"
             return self._set_status(
-                record, "delivered", reason="local branch only (dry run) — confirm to publish"
+                record, "delivered", reason="local branch only (dry run) — confirm to publish" + mixed_note
             )
         publish = run_git_workflow(self.root, self.config, "publish_proposal", {}, dry_run=False)
         if not publish.get("ok"):
             self._set_step(record, "publish", "failed")
             return self._set_status(record, "failed", reason=f"publish: {publish.get('error') or publish.get('summary')}")
         body = self._pr_body(final_path)
-        # A return updates the existing draft PR; a fresh job opens one.
-        pr_op = "update_draft_pr" if resume_branch else "open_draft_pr"
+        # A return updates the existing draft PR; a fresh job opens one. An
+        # in-place job updates when the current branch already has a draft PR.
+        existing_pr = str(build_git_state(self.root, self.config).get("proposal", {}).get("draft_pr_url") or "")
+        pr_op = "update_draft_pr" if (resume_branch or (branch_mode == "continue_current" and existing_pr)) else "open_draft_pr"
         pr = run_git_workflow(
             self.root, self.config, pr_op,
             {"title": f"Codex: {theme}", "body": body}, dry_run=False,
@@ -364,7 +483,7 @@ class JobRunner:
         record["draft_pr_url"] = self._extract_pr_url(pr)
         record["human_gate_state"] = "awaiting_review"
         self._set_step(self._write(record), "publish", "complete")
-        return self._set_status(record, "delivered", reason="draft PR opened — the human gate owns it now")
+        return self._set_status(record, "delivered", reason="draft PR opened — the human gate owns it now" + mixed_note)
 
     # -- codex subprocess --------------------------------------------------- #
     def _run_codex(self, job_id: str, argv: list[str], brief_text: str, log_path: Path) -> tuple[int, bool]:
