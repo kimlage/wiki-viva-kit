@@ -12,7 +12,7 @@ from urllib.parse import unquote, urlparse
 
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
-from wiki_core.web.briefs import BriefStore, compose_and_save
+from wiki_core.web.briefs import BriefStore, compose_and_save, compose_return_brief
 from wiki_core.web.codex_jobs import JobRunner
 from wiki_core.web.codex_probe import probe_codex_for
 from wiki_core.web.commands import run_action
@@ -282,6 +282,24 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 self._send_error("unknown job", status=HTTPStatus.NOT_FOUND)
                 return
             self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+        if rest.endswith("/return"):
+            job_id = rest[: -len("/return")].strip("/")
+            parent = jobs.get(job_id)
+            if parent is None:
+                self._send_error("unknown job", status=HTTPStatus.NOT_FOUND)
+                return
+            brief = compose_return_brief(
+                self.server.root,
+                self.server.config,
+                self.server.snapshot_payloads(),
+                parent_job=parent,
+                feedback=str(payload.get("feedback") or "").strip(),
+            )
+            if brief is None:
+                self._send_json({"ok": False, "error": "job has no branch to continue"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json({"ok": True, **brief})
             return
         self._send_error("not found", status=HTTPStatus.NOT_FOUND)
 

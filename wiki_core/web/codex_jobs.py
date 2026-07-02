@@ -207,6 +207,11 @@ class JobRunner:
                 "brief_id": brief_id,
                 "reason": "targets_stale",
             }
+        # A return brief continues an existing proposal branch instead of forking.
+        resume = (brief.get("spec", {}).get("grounding") or {}).get("resume")
+        resume_branch = resume.get("branch") if resume else None
+        if resume and not parent_job_id:
+            parent_job_id = resume.get("parent_job_id")
         job_id = "j" + uuid.uuid4().hex[:12]
         record = {
             "job_id": job_id,
@@ -214,6 +219,7 @@ class JobRunner:
             "brief_id": brief_id,
             "brief_sha": brief_sha,
             "parent_job_id": parent_job_id,
+            "resume_branch": resume_branch,
             "created_at": _now_iso(),
             "updated_at": _now_iso(),
             "status": "queued",
@@ -250,13 +256,19 @@ class JobRunner:
         self._set_status(record, "running")
         self._set_step(record, "ground", "complete")
         theme = record["theme"]
+        resume_branch = record.get("resume_branch")
 
-        # 1) Create the proposal branch (real — Codex must edit on wiki/<theme>).
-        start = run_git_workflow(self.root, self.config, "start_proposal", {"theme": theme}, dry_run=False)
+        # 1) Get onto the proposal branch. A return CONTINUES the parent's branch
+        #    (switch); a fresh job CREATES one (start). Both are prefix-gated.
+        if resume_branch:
+            start = run_git_workflow(self.root, self.config, "switch_proposal", {"branch": resume_branch}, dry_run=False)
+            branch = resume_branch
+        else:
+            start = run_git_workflow(self.root, self.config, "start_proposal", {"theme": theme}, dry_run=False)
+            branch = start.get("data", {}).get("branch")
         if not start.get("ok"):
             self._set_step(record, "branch", "failed")
             return self._set_status(record, "failed", reason=f"branch: {start.get('error') or start.get('summary')}")
-        branch = start.get("data", {}).get("branch")
         record["branch"] = branch
         self._set_step(self._write(record), "branch", "complete")
 
@@ -270,12 +282,12 @@ class JobRunner:
         argv = [*self.codex_cmd, *build_codex_argv(self.codex_cmd[0], self.root, final_path)[1:]]
         rc, cancelled = self._run_codex(job_id, argv, brief["text"], job_dir / "log.jsonl")
         if cancelled:
-            self._abort_branch(branch)
+            self._abort_branch(branch, delete=not resume_branch)
             return self._set_status(self.get(job_id) or record, "cancelled", reason="cancelled during Codex run")
         record = self.get(job_id) or record
         if rc != 0:
             self._set_step(record, "codex", "failed")
-            self._abort_branch(branch)
+            self._abort_branch(branch, delete=not resume_branch)
             return self._set_status(record, "failed", reason=f"codex exited {rc}")
         if final_path.is_file():
             record["codex"]["final_message_path"] = str(final_path.relative_to(self.root)) if final_path.is_relative_to(self.root) else str(final_path)
@@ -287,12 +299,12 @@ class JobRunner:
         changed = sorted(str(r.get("path")) for r in build_git_state(self.root, self.config)["worktree"]["changed_files"])
         if not changed:
             self._set_step(record, "commit", "failed")
-            self._abort_branch(branch)
+            self._abort_branch(branch, delete=not resume_branch)
             return self._set_status(record, "failed", reason="Codex made no file changes")
         stage = run_git_workflow(self.root, self.config, "stage_paths", {"paths": changed}, dry_run=False)
         if not stage.get("ok"):
             self._set_step(record, "commit", "failed")
-            self._abort_branch(branch)
+            self._abort_branch(branch, delete=not resume_branch)
             return self._set_status(record, "failed", reason=f"stage: {stage.get('error') or stage.get('summary')}")
         message = self._commit_message(record)
         commit = run_git_workflow(self.root, self.config, "commit_proposal", {"message": message}, dry_run=False)
@@ -314,8 +326,10 @@ class JobRunner:
             self._set_step(record, "publish", "failed")
             return self._set_status(record, "failed", reason=f"publish: {publish.get('error') or publish.get('summary')}")
         body = self._pr_body(final_path)
+        # A return updates the existing draft PR; a fresh job opens one.
+        pr_op = "update_draft_pr" if resume_branch else "open_draft_pr"
         pr = run_git_workflow(
-            self.root, self.config, "open_draft_pr",
+            self.root, self.config, pr_op,
             {"title": f"Codex: {theme}", "body": body}, dry_run=False,
         )
         if not pr.get("ok"):
@@ -405,12 +419,13 @@ class JobRunner:
                     return token
         return None
 
-    def _abort_branch(self, branch: str | None) -> None:
+    def _abort_branch(self, branch: str | None, *, delete: bool = True) -> None:
         """Best-effort return to the default branch after a failed/cancelled run so
-        the operator's checkout is not left stranded on a half-built proposal."""
+        the operator's checkout is not left stranded on a half-built proposal. A
+        RETURN keeps the branch (``delete=False``) — it belongs to the parent
+        proposal — and only discards this run's uncommitted edits."""
         if not branch:
             return
-        state = run_git_workflow(self.root, self.config, "list_proposals", {}, dry_run=False)
         default = "main"
         try:
             from wiki_core.web.git_ops import build_git_state
@@ -420,5 +435,5 @@ class JobRunner:
             pass
         subprocess.run(["git", "checkout", "--", "."], cwd=self.root, capture_output=True, check=False)
         subprocess.run(["git", "switch", default], cwd=self.root, capture_output=True, check=False)
-        subprocess.run(["git", "branch", "-D", branch], cwd=self.root, capture_output=True, check=False)
-        _ = state
+        if delete:
+            subprocess.run(["git", "branch", "-D", branch], cwd=self.root, capture_output=True, check=False)

@@ -149,6 +149,40 @@ def test_log_is_redacted(tmp_path, monkeypatch) -> None:
     assert "sk-test1234567890" not in log
 
 
+def test_return_continues_the_same_branch(tmp_path) -> None:
+    from wiki_core.web.briefs import compose_return_brief
+
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    runner = _runner(tmp_path, config)
+    first = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)
+    runner.run_job(first["job_id"])
+    parent = runner.get(first["job_id"])
+    assert parent["status"] == "delivered"
+    branch = parent["branch"]
+
+    # Get back onto a clean default branch (the forward run leaves us on wiki/).
+    subprocess.run(["git", "switch", "main"], cwd=tmp_path, capture_output=True)
+
+    snapshot = build_snapshot(tmp_path, config, mode="local_operator", generated_at=SNAPSHOT_AT)
+    follow = compose_return_brief(tmp_path, config, snapshot, parent_job=parent, feedback="tighten the wording")
+    assert follow is not None
+    assert "RETURN" in follow["text"]
+    assert branch in follow["text"]
+
+    second = runner.submit(brief_id=follow["brief_id"], brief_sha=follow["brief_sha"], dry_run=True)
+    assert second["ok"] is True
+    assert second["resume_branch"] == branch
+    assert second["parent_job_id"] == parent["job_id"]
+    runner.run_job(second["job_id"])
+    child = runner.get(second["job_id"])
+    assert child["status"] == "delivered"
+    # The follow-up committed onto the SAME branch, not a new one.
+    assert child["branch"] == branch
+    branches = subprocess.run(["git", "branch"], cwd=tmp_path, capture_output=True, text=True).stdout
+    assert branches.count(branch.split("/")[-1]) == 1
+
+
 def test_cancel_interrupts_a_running_job(tmp_path, monkeypatch) -> None:
     config = _repo(tmp_path)
     brief = _saved_brief(tmp_path, config)

@@ -4547,3 +4547,24 @@ pre {
   color: #7f95a3;
   font-size: 12.5px;
 }
+
+.workReturn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.workReturn textarea {
+  width: 100%;
+  min-height: 60px;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid #263845;
+  border-radius: 6px;
+  background: #0a121a;
+  color: #d7e6ef;
+  font-size: 12.5px;
+}
+.workReturn .secondaryButton {
+  align-self: flex-start;
+}

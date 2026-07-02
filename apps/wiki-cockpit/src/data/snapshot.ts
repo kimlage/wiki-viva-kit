@@ -284,6 +284,21 @@ export async function streamCodexLog(jobId: string): Promise<string> {
   return result.log || "";
 }
 
+// Return a delivered job with feedback: composes a follow-up brief that
+// continues the SAME branch. Returns the brief to open in the studio.
+export async function returnCodexJob(jobId: string, feedback: string): Promise<BriefRecord> {
+  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}/return`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ feedback })
+  });
+  const result = (await response.json()) as BriefRecord;
+  if (!response.ok && !result.brief_id) {
+    throw new Error(result.error || `return failed: ${response.status}`);
+  }
+  return result;
+}
+
 export async function cancelCodexJob(jobId: string): Promise<CodexJobRecord | null> {
   const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}/cancel`), {
     method: "POST",

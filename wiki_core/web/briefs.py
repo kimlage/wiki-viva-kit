@@ -96,6 +96,17 @@ def normalize_spec(spec: dict[str, Any]) -> dict[str, Any]:
                     "context": (str(state_report["context"]) if state_report.get("context") else None),
                     "limit": max(1, min(limit, _STATE_LIMIT_MAX)),
                 }
+    # Return/resume grounding: continue an existing proposal branch rather than
+    # opening a new one (the "hand it back with feedback" loop).
+    resume = grounding.get("resume") or None
+    if resume is not None:
+        if not isinstance(resume, dict) or not resume.get("branch"):
+            resume = None
+        else:
+            resume = {
+                "branch": str(resume["branch"]),
+                "parent_job_id": (str(resume["parent_job_id"]) if resume.get("parent_job_id") else None),
+            }
     materialize = spec.get("materialize")
     if materialize not in _MATERIALIZE:
         materialize = "refs"
@@ -109,6 +120,7 @@ def normalize_spec(spec: dict[str, Any]) -> dict[str, Any]:
                        if source else None),
             "attach_context_package": bool(grounding.get("attach_context_package")),
             "state_report": state_report,
+            "resume": resume,
         },
         "intent": str(spec.get("intent") or "").strip(),
         "theme": sanitize_theme(spec.get("theme") or "", fallback=fallback_theme),
@@ -342,16 +354,29 @@ def _section_targets(
     return "\n".join(lines), target_paths
 
 
-def _section_intent(intent: str) -> str:
-    body = intent.strip() or "_(none provided — state your intent before delegating.)_"
-    return "## 4 · Operator intent — in your own words\n\n" + body
+def _section_intent(intent: str, resume: dict[str, Any] | None) -> str:
+    lines = ["## 4 · Operator intent — in your own words", ""]
+    if resume:
+        lines.append(
+            f"**This is a RETURN.** You are continuing an existing proposal on branch "
+            f"`{resume['branch']}`. Inspect its current diff, apply the feedback below, and commit "
+            f"onto the SAME branch — do NOT open a new one."
+        )
+        lines.append("")
+        lines.append("Reviewer feedback:")
+    lines.append(intent.strip() or "_(none provided — state your intent before delegating.)_")
+    return "\n".join(lines)
 
 
-def _section_contract(config: WikiConfig, theme: str) -> str:
+def _section_contract(config: WikiConfig, theme: str, resume: dict[str, Any] | None) -> str:
     prefix = str(config.approval.get("branch_prefix", "wiki/")).rstrip("/")
+    if resume:
+        branch_line = f"- Continue on the EXISTING `{resume['branch']}` branch; do not create a new branch."
+    else:
+        branch_line = f"- Work on a `{prefix}/{theme}` branch (create it; never commit to the default branch)."
     return (
         "## 5 · Output contract — ships with every brief (pinned)\n\n"
-        f"- Work on a `{prefix}/{theme}` branch (create it; never commit to the default branch).\n"
+        f"{branch_line}\n"
         "- Edit files directly; create typed pages ONLY via `scripts/wiki_new.py`, never from blank files.\n"
         "- Summarize your changes in a short paragraph suitable for a draft-PR body.\n"
         "- **NEVER** push to the default branch, mark a PR ready, or merge. A human owns the gate.\n"
@@ -379,6 +404,7 @@ def compose_brief(
     index = {str(p.get("id")): p for p in snapshot.get("pages.json", {}).get("pages", [])}
 
     grounding = norm["grounding"]
+    resume = grounding.get("resume")
     ingest = norm["mission_kind"] == "ingest" or grounding["source"] is not None
 
     header = (
@@ -402,8 +428,8 @@ def compose_brief(
             _section_conventions(root, config, norm["materialize"], ingest),
             section2,
             section3,
-            _section_intent(norm["intent"]),
-            _section_contract(config, norm["theme"]),
+            _section_intent(norm["intent"], resume),
+            _section_contract(config, norm["theme"], resume),
         ]
     ).rstrip() + "\n"
 
@@ -547,3 +573,26 @@ def compose_and_save(
     composed = compose_brief(root, config, snapshot, spec=spec)
     store = BriefStore(root, config)
     return store.save_new(composed)
+
+
+def compose_return_brief(
+    root: Path,
+    config: WikiConfig,
+    snapshot: dict[str, dict[str, Any]],
+    *,
+    parent_job: dict[str, Any],
+    feedback: str,
+) -> dict[str, Any] | None:
+    """Compose + save a FOLLOW-UP brief that continues a delivered job's branch
+    with reviewer feedback (the "return, not restart" loop). Returns None if the
+    parent has no branch to continue."""
+    branch = parent_job.get("branch")
+    if not branch:
+        return None
+    spec = {
+        "mission_kind": parent_job.get("mission_kind"),
+        "theme": parent_job.get("theme") or "update",
+        "intent": feedback,
+        "grounding": {"resume": {"branch": branch, "parent_job_id": parent_job.get("job_id")}},
+    }
+    return compose_and_save(root, config, snapshot, spec=spec)

@@ -351,6 +351,7 @@ export type BriefSpec = {
     source?: { path: string; context?: string | null } | null;
     attach_context_package?: boolean;
     state_report?: { scope: "missions" | "quality" | "audit"; context?: string | null; limit?: number } | null;
+    resume?: { branch: string; parent_job_id?: string | null } | null;
   };
   intent?: string;
   theme?: string;

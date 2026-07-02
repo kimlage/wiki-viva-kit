@@ -265,7 +265,13 @@ vi.mock("./data/snapshot", () => ({
   composeBrief: vi.fn(),
   saveBriefText: vi.fn(),
   discardBrief: vi.fn(),
-  spawnCodexJob: vi.fn()
+  getBrief: vi.fn(),
+  spawnCodexJob: vi.fn(),
+  returnCodexJob: vi.fn(),
+  listCodexJobs: vi.fn(async () => []),
+  listBriefs: vi.fn(async () => []),
+  streamCodexLog: vi.fn(async () => ""),
+  cancelCodexJob: vi.fn()
 }));
 
 async function renderRoute(path: string) {

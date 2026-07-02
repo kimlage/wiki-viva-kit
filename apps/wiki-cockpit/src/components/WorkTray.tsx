@@ -40,12 +40,14 @@ export function WorkTray({
   capability,
   demo,
   onResumeBrief,
+  onReturn,
   onNotice,
   onClose
 }: {
   capability: CodexCapability;
   demo: boolean;
   onResumeBrief: (briefId: string) => void;
+  onReturn?: (jobId: string, feedback: string) => void;
   onNotice: (text: string) => void;
   onClose: () => void;
 }) {
@@ -53,6 +55,8 @@ export function WorkTray({
   const [drafts, setDrafts] = useState<BriefRecord[]>([]);
   const [openLog, setOpenLog] = useState<string | null>(null);
   const [logText, setLogText] = useState("");
+  const [returnFor, setReturnFor] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("");
   const timer = useRef<number | null>(null);
 
   const load = useCallback(async () => {
@@ -189,8 +193,42 @@ export function WorkTray({
                   >
                     {openLog === job.job_id ? t("work.job.hideLog") : t("work.job.showLog")}
                   </button>
+                  {onReturn && job.status === "delivered" && (
+                    <button
+                      className="textButton"
+                      onClick={() => {
+                        setReturnFor(returnFor === job.job_id ? null : job.job_id);
+                        setFeedback("");
+                      }}
+                      type="button"
+                    >
+                      {t("work.job.return")}
+                    </button>
+                  )}
                 </div>
                 {openLog === job.job_id && <pre className="workLog">{logText || "…"}</pre>}
+                {returnFor === job.job_id && onReturn && (
+                  <div className="workReturn">
+                    <textarea
+                      value={feedback}
+                      onChange={(event) => setFeedback(event.target.value)}
+                      placeholder={t("work.job.returnPlaceholder")}
+                      aria-label={t("work.job.return")}
+                    />
+                    <button
+                      className="secondaryButton"
+                      disabled={!feedback.trim()}
+                      onClick={() => {
+                        onReturn(job.job_id, feedback.trim());
+                        setReturnFor(null);
+                        setFeedback("");
+                      }}
+                      type="button"
+                    >
+                      {t("work.job.returnSend")}
+                    </button>
+                  </div>
+                )}
               </article>
             ))}
           </section>

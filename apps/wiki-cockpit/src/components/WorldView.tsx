@@ -79,6 +79,7 @@ export function WorldView({
   onNotice,
   onComposeBrief,
   onResumeBrief,
+  onReturnJob,
   codexCapability
 }: {
   bundle: SnapshotBundle;
@@ -88,6 +89,7 @@ export function WorldView({
   onNotice?: (text: string) => void;
   onComposeBrief?: (spec: BriefSpec) => void;
   onResumeBrief?: (briefId: string) => void;
+  onReturnJob?: (jobId: string, feedback: string) => void;
   codexCapability?: CodexCapability;
 }) {
   const pages = bundle.pages.pages;
@@ -607,6 +609,14 @@ export function WorldView({
               setWorkOpen(false);
               onResumeBrief?.(id);
             }}
+            onReturn={
+              onReturnJob
+                ? (jobId, feedback) => {
+                    setWorkOpen(false);
+                    onReturnJob(jobId, feedback);
+                  }
+                : undefined
+            }
             onNotice={(text) => onNotice?.(text)}
             onClose={() => setWorkOpen(false)}
           />

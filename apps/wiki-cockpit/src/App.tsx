@@ -30,6 +30,7 @@ import {
   getBrief,
   loadCodexCapability,
   loadSnapshotBundle,
+  returnCodexJob,
   runCockpitAction,
   runGitWorkflow,
   runIngestionStep,
@@ -1826,6 +1827,24 @@ export function App() {
       setActiveBrief(null);
     }
   };
+  // Return a delivered job with feedback → compose a follow-up brief that
+  // continues the SAME branch, and open it in the studio for review/execute.
+  const returnJob = async (jobId: string, feedback: string) => {
+    try {
+      const brief = await returnCodexJob(jobId, feedback);
+      if (brief.ok === false) {
+        setNotice({ text: t("codex.job.failed", { error: brief.error || "return failed" }), tone: "warn", showResult: false });
+        return;
+      }
+      setActiveBrief(brief);
+    } catch (error) {
+      setNotice({
+        text: t("codex.job.failed", { error: error instanceof Error ? error.message : "failed" }),
+        tone: "warn",
+        showResult: false
+      });
+    }
+  };
   // Reopen a saved draft brief from the Work tray into the studio.
   const resumeBrief = async (briefId: string) => {
     try {
@@ -1896,6 +1915,7 @@ export function App() {
           onNotice={notify}
           onComposeBrief={runBrief}
           onResumeBrief={resumeBrief}
+          onReturnJob={returnJob}
           codexCapability={codexCapability}
         />
       );
