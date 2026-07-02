@@ -260,6 +260,8 @@ const EN: Dict = {
   "brief.exit.discarded": "Brief discarded.",
   "brief.compose.failed": "Could not compose the brief: {error}",
   "brief.demoOff": "Briefs need the local operator — not available in the demo.",
+  "codex.job.started": "Codex job started ({status}). It will land as a draft PR.",
+  "codex.job.failed": "Could not start Codex: {error}",
   "missions.brief.generate": "Generate brief",
   "missions.brief.top": "Brief the top problems",
   "missions.brief.help":
@@ -523,6 +525,8 @@ const PT: Dict = {
   "brief.exit.discarded": "Brief descartado.",
   "brief.compose.failed": "Não foi possível compor o brief: {error}",
   "brief.demoOff": "Briefs precisam do operador local — indisponível no demo.",
+  "codex.job.started": "Job do Codex iniciado ({status}). Vai chegar como draft PR.",
+  "codex.job.failed": "Não foi possível iniciar o Codex: {error}",
   "missions.brief.generate": "Gerar brief",
   "missions.brief.top": "Brief dos principais problemas",
   "missions.brief.help":

@@ -264,7 +264,8 @@ vi.mock("./data/snapshot", () => ({
   })),
   composeBrief: vi.fn(),
   saveBriefText: vi.fn(),
-  discardBrief: vi.fn()
+  discardBrief: vi.fn(),
+  spawnCodexJob: vi.fn()
 }));
 
 async function renderRoute(path: string) {

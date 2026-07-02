@@ -357,6 +357,31 @@ export type BriefSpec = {
   materialize?: "refs" | "full";
 };
 
+// A Codex job record (mirrors wiki_core.web.codex_jobs). Also the submit
+// response shape (with ok/error on rejection).
+export type CodexJobStep = { id: string; label: string; status: string };
+export type CodexJobRecord = {
+  ok?: boolean;
+  error?: string;
+  reason?: string;
+  job_id: string;
+  brief_id: string;
+  brief_sha: string;
+  parent_job_id: string | null;
+  created_at?: string;
+  updated_at?: string;
+  status: "queued" | "running" | "committing" | "delivered" | "returned" | "done" | "failed" | "cancelled" | string;
+  dry_run?: boolean;
+  mission_kind?: string | null;
+  intent?: string;
+  theme?: string;
+  steps: CodexJobStep[];
+  branch: string | null;
+  draft_pr_url: string | null;
+  log_path?: string;
+  human_gate_state?: string | null;
+};
+
 // A composed/persisted work brief (the complete prompt + its metadata).
 export type BriefRecord = {
   ok?: boolean;

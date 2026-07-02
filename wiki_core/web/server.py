@@ -13,6 +13,7 @@ from urllib.parse import unquote, urlparse
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
 from wiki_core.web.briefs import BriefStore, compose_and_save
+from wiki_core.web.codex_jobs import JobRunner
 from wiki_core.web.codex_probe import probe_codex_for
 from wiki_core.web.commands import run_action
 from wiki_core.web.content import build_page_content
@@ -30,6 +31,8 @@ class CockpitServer(ThreadingHTTPServer):
         self.snapshot_dir = WikiPaths(root, config).derived_root / "web-snapshot"
         self._snapshot_lock = threading.Lock()
         self._snapshot_cache: tuple[float, dict[str, dict[str, Any]]] | None = None
+        # One serialized Codex job stream per operator process.
+        self.jobs = JobRunner(root, config)
 
     def snapshot_payloads(self) -> dict[str, dict[str, Any]]:
         with self._snapshot_lock:
@@ -96,6 +99,21 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 return
             self._send_json({"ok": True, **record})
             return
+        if path == "/api/codex/jobs":
+            self._send_json({"ok": True, "jobs": self.server.jobs.list()})
+            return
+        if path.startswith("/api/codex/jobs/"):
+            rest = path[len("/api/codex/jobs/") :].strip("/")
+            if rest.endswith("/log"):
+                job_id = rest[: -len("/log")].strip("/")
+                self._send_json({"ok": True, "job_id": job_id, "log": self.server.jobs.read_log(job_id)})
+                return
+            record = self.server.jobs.get(rest)
+            if record is None:
+                self._send_error("unknown job", status=HTTPStatus.NOT_FOUND)
+                return
+            self._send_json({"ok": True, **record})
+            return
         if path == "/api/snapshot":
             self._send_json(self.server.snapshot_payloads())
             return
@@ -142,6 +160,9 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/briefs" or parsed.path.startswith("/api/briefs/"):
             self._handle_briefs_post(parsed.path, payload)
+            return
+        if parsed.path == "/api/codex/jobs" or parsed.path.startswith("/api/codex/jobs/"):
+            self._handle_codex_post(parsed.path, payload)
             return
         if parsed.path not in {
             "/api/actions/run",
@@ -228,6 +249,41 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             self._send_json(result, status=HTTPStatus.BAD_REQUEST)
             return
         self._send_json({"ok": True, **result})
+
+    def _handle_codex_post(self, path: str, payload: dict[str, Any]) -> None:
+        jobs = self.server.jobs
+        if path == "/api/codex/jobs":
+            capability = probe_codex_for(self.server.config)
+            if not capability.get("usable"):
+                self._send_json(
+                    {"ok": False, "error": capability.get("reason") or "Codex is not available", "codex": capability},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
+                return
+            brief_id = str(payload.get("brief_id") or "")
+            brief_sha = str(payload.get("brief_sha") or "")
+            if not brief_id or not brief_sha:
+                self._send_error("missing brief_id or brief_sha", status=HTTPStatus.BAD_REQUEST)
+                return
+            result = jobs.submit(
+                brief_id=brief_id,
+                brief_sha=brief_sha,
+                dry_run=bool(payload.get("dry_run", True)),
+                force=bool(payload.get("force", False)),
+                parent_job_id=(str(payload["parent_job_id"]) if payload.get("parent_job_id") else None),
+            )
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+        rest = path[len("/api/codex/jobs/") :].strip("/")
+        if rest.endswith("/cancel"):
+            job_id = rest[: -len("/cancel")].strip("/")
+            result = jobs.cancel(job_id)
+            if result is None:
+                self._send_error("unknown job", status=HTTPStatus.NOT_FOUND)
+                return
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+        self._send_error("not found", status=HTTPStatus.NOT_FOUND)
 
 
 def serve(root: Path, *, host: str = "127.0.0.1", port: int = 8765) -> None:

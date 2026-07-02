@@ -2,6 +2,7 @@ import type {
   BriefRecord,
   BriefSpec,
   CodexCapability,
+  CodexJobRecord,
   IngestionPlan,
   IngestionStepResult,
   PageContent,
@@ -224,6 +225,65 @@ export async function discardBrief(briefId: string): Promise<BriefRecord> {
     throw new Error(result.error || `brief discard failed: ${response.status}`);
   }
   return result;
+}
+
+// Codex jobs — the execute exit. Submit returns the queued job record, or an
+// ok:false rejection (codex unusable / sha mismatch / stale targets).
+export async function spawnCodexJob(
+  briefId: string,
+  briefSha: string,
+  options: { dryRun?: boolean; force?: boolean; parentJobId?: string } = {}
+): Promise<CodexJobRecord> {
+  const response = await fetch(await apiUrl("/codex/jobs"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      brief_id: briefId,
+      brief_sha: briefSha,
+      dry_run: options.dryRun ?? false,
+      force: options.force ?? false,
+      parent_job_id: options.parentJobId
+    })
+  });
+  const result = (await response.json()) as CodexJobRecord;
+  if (!response.ok && !result.job_id) {
+    throw new Error(result.error || `codex job failed: ${response.status}`);
+  }
+  return result;
+}
+
+export async function listCodexJobs(): Promise<CodexJobRecord[]> {
+  const response = await fetch(await apiUrl("/codex/jobs"), { headers: { accept: "application/json" } });
+  if (!response.ok) return [];
+  const result = (await response.json()) as { ok: boolean; jobs: CodexJobRecord[] };
+  return result.jobs || [];
+}
+
+export async function pollCodexJob(jobId: string): Promise<CodexJobRecord | null> {
+  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}`), {
+    headers: { accept: "application/json" }
+  });
+  if (!response.ok) return null;
+  return (await response.json()) as CodexJobRecord;
+}
+
+export async function streamCodexLog(jobId: string): Promise<string> {
+  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}/log`), {
+    headers: { accept: "application/json" }
+  });
+  if (!response.ok) return "";
+  const result = (await response.json()) as { ok: boolean; log: string };
+  return result.log || "";
+}
+
+export async function cancelCodexJob(jobId: string): Promise<CodexJobRecord | null> {
+  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}/cancel`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({})
+  });
+  if (!response.ok && response.status === 404) return null;
+  return (await response.json()) as CodexJobRecord;
 }
 
 export async function runCockpitAction(

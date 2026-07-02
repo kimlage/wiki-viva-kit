@@ -32,7 +32,8 @@ import {
   runCockpitAction,
   runGitWorkflow,
   runIngestionStep,
-  saveBriefText
+  saveBriefText,
+  spawnCodexJob
 } from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
 import { buildUrl, installLinkInterceptor, navigate, parseRoute, useRouteUrl, worldFromRoute } from "./router";
@@ -1824,6 +1825,34 @@ export function App() {
       setActiveBrief(null);
     }
   };
+  // Execute exit: what you see is what runs — persist the current text first,
+  // then submit the job by its verified sha. The endpoint fails closed when
+  // Codex is unusable, so this only ever renders when capability.usable.
+  const executeBrief = async (brief: BriefRecord, text: string) => {
+    setBriefBusy(true);
+    try {
+      const saved = brief.status === "draft" ? await saveBriefText(brief.brief_id, text) : brief;
+      const job = await spawnCodexJob(saved.brief_id, saved.brief_sha, { dryRun: false });
+      if (job.ok === false) {
+        setNotice({
+          text: t("codex.job.failed", { error: job.error || job.reason || "rejected" }),
+          tone: "warn",
+          showResult: false
+        });
+        return;
+      }
+      setNotice({ text: t("codex.job.started", { status: job.status }), tone: "good", showResult: false });
+      setActiveBrief(null);
+    } catch (error) {
+      setNotice({
+        text: t("codex.job.failed", { error: error instanceof Error ? error.message : "failed" }),
+        tone: "warn",
+        showResult: false
+      });
+    } finally {
+      setBriefBusy(false);
+    }
+  };
 
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
@@ -1891,6 +1920,7 @@ export function App() {
             busy={briefBusy}
             onSaveText={saveBrief}
             onDiscard={removeBrief}
+            onExecute={codexCapability.usable ? executeBrief : undefined}
             onNotice={notify}
             onClose={() => setActiveBrief(null)}
           />

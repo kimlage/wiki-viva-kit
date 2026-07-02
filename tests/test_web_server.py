@@ -141,6 +141,22 @@ def test_unknown_brief_is_404(server: _Server) -> None:
     assert body.get("ok") is False
 
 
+def test_codex_jobs_list_empty_and_unknown_404(server: _Server) -> None:
+    status, body = server.get("/api/codex/jobs")
+    assert status == 200 and body["ok"] is True and body["jobs"] == []
+    status, body = server.get("/api/codex/jobs/jnope")
+    assert status == 404
+
+
+def test_codex_job_submit_gated_on_capability(server: _Server) -> None:
+    # This machine's codex is not usable (broken/absent), so the launch endpoint
+    # must refuse honestly rather than create a doomed branch.
+    status, body = server.post("/api/codex/jobs", {"brief_id": "b1", "brief_sha": "x", "dry_run": True})
+    assert status == 400
+    assert body.get("ok") is False
+    assert "codex" in body
+
+
 def test_existing_endpoints_still_route(server: _Server) -> None:
     # The do_POST refactor must not break the git/workflow allowlist path.
     status, body = server.post("/api/git/workflow", {"operation": "status", "dry_run": True})
