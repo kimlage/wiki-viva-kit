@@ -47,8 +47,17 @@ export function reviewChecklist(bundle: SnapshotBundle): { label: string; ok: bo
   ];
 }
 
+// Meta-lists that are NOT problems (the roster of deliberately exempt pages),
+// and subset flags that would double-count (bad_repetition ⊂ repeated_blocks).
+// The old sum counted all of them, inflating "55 warnings" from ~8 real ones.
+const QUALITY_FLAGS_IGNORED = new Set(["quality_exempt_pages"]);
+const QUALITY_FLAGS_SUBSET = new Set(["bad_repetition_blocks"]);
+
 export function qualityFlagCount(bundle: SnapshotBundle): number {
   const flags = bundle.quality.quality_flags;
   if (!flags) return 0;
-  return Object.values(flags).reduce((total, entries) => total + (Array.isArray(entries) ? entries.length : 0), 0);
+  return Object.entries(flags).reduce((total, [key, entries]) => {
+    if (QUALITY_FLAGS_IGNORED.has(key) || QUALITY_FLAGS_SUBSET.has(key)) return total;
+    return total + (Array.isArray(entries) ? entries.length : 0);
+  }, 0);
 }

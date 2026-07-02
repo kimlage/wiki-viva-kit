@@ -320,22 +320,12 @@ def _freshness_payload(pages_payload: dict[str, Any], config: WikiConfig) -> dic
     }
 
 
-def _gates_payload() -> dict[str, Any]:
-    commands = (
-        ("wiki_audit", ["python3", "scripts/wiki_audit.py", "--check"]),
-        ("methodology_coverage", ["python3", "scripts/wiki_check_methodology_coverage.py", "--check"]),
-        ("operation_compile", ["python3", "scripts/wiki_operation_compile.py", "--check"]),
-        ("input_stage", ["python3", "scripts/wiki_input_stage.py", "--check"]),
-        ("pytest", ["python3", "-m", "pytest", "tests/"]),
-    )
-    return {
-        "schema_version": WEB_GATE_SCHEMA_VERSION,
-        "status": "not_run",
-        "gates": [
-            {"id": gate_id, "status": "not_run", "argv": argv}
-            for gate_id, argv in commands
-        ],
-    }
+def _gates_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
+    # Read model backed by persisted run receipts: a gate that last passed shows
+    # green; "not_run" means genuinely never run. (See wiki_core.web.gates.)
+    from wiki_core.web.gates import gates_payload
+
+    return gates_payload(root, config)
 
 
 def _commands_payload(actions_payload: dict[str, Any]) -> dict[str, Any]:
@@ -494,7 +484,7 @@ def build_snapshot(
         "actions.json": actions,
         "decisions.json": _decisions_payload(pages),
         "freshness.json": _freshness_payload(pages, config),
-        "gates.json": _gates_payload(),
+        "gates.json": _gates_payload(root, config),
         "git.json": git_payload,
         "timeline.json": timeline,
         "diff.json": diff,

@@ -17,6 +17,7 @@ from wiki_core.web.codex_jobs import JobRunner
 from wiki_core.web.codex_probe import probe_codex_for
 from wiki_core.web.commands import run_action
 from wiki_core.web.content import build_page_content
+from wiki_core.web.gates import run_gate
 from wiki_core.web.git_workflows import run_git_workflow
 from wiki_core.web.ingestion_plan import build_ingestion_plan, run_ingestion_step
 from wiki_core.web.schemas import SCHEMA_CAPABILITIES, WEB_SERVER_VERSION
@@ -166,6 +167,12 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/codex/jobs" or parsed.path.startswith("/api/codex/jobs/"):
             self._handle_codex_post(parsed.path, payload)
+            return
+        if parsed.path == "/api/gates/run":
+            gate_id = str(payload.get("gate_id") or "")
+            result = run_gate(self.server.root, self.server.config, gate_id)
+            # A failing gate still RAN (200); only an unknown gate id is a 400.
+            self._send_json(result, status=HTTPStatus.BAD_REQUEST if result.get("error") else HTTPStatus.OK)
             return
         if parsed.path not in {
             "/api/actions/run",

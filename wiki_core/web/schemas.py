@@ -16,6 +16,7 @@ WEB_SERVER_VERSION = "wiki_web_server.v2"
 SCHEMA_CAPABILITIES = (
     "codex",  # /api/codex/capability + /api/codex/jobs
     "briefs",  # /api/briefs
+    "gates",  # /api/gates/run (persisted receipts)
 )
 
 SNAPSHOT_FILES = (

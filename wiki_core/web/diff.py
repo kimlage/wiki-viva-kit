@@ -104,7 +104,11 @@ def _risk_hints(path: str, status: str, config: WikiConfig) -> list[str]:
         hints.append("method_contract")
     if category == "tests":
         hints.append("test_coverage")
-    if "public" in path or path.startswith("public/"):
+    # Public-boundary is about publishing WIKI CONTENT, not app build assets.
+    # The old `"public" in path` fired on apps/wiki-cockpit/public/** (the
+    # cockpit's own demo snapshot — 19 false alarms on the real repo). Anchor it
+    # to memory-root content in a published area only.
+    if category == "memory" and "public" in path.lower():
         hints.append("public_boundary")
     if status.startswith("D"):
         hints.append("deletion_review")
