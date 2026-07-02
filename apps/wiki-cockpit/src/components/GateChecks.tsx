@@ -30,12 +30,14 @@ export function gateName(id: string): string {
 export function GateChecks({
   gates,
   busy,
+  demo,
   onComposeBrief,
   onNotice,
   onRefetch
 }: {
   gates: GateRecord[];
   busy?: boolean;
+  demo?: boolean;
   onComposeBrief?: (spec: BriefSpec) => void;
   onNotice: (text: string) => void;
   onRefetch: () => void;
@@ -44,25 +46,44 @@ export function GateChecks({
   const [lastRun, setLastRun] = useState<Record<string, GateRunResult>>({});
   const [openOutput, setOpenOutput] = useState<string | null>(null);
 
-  const run = async (gateId: string) => {
-    setRunning(gateId);
+  // A run result may only PAINT a row when the gate genuinely executed
+  // (returncode present). A 400 (unknown gate / version skew) or a transport
+  // failure must toast, never fabricate a red "fail" over an honest receipt.
+  const runOne = async (gateId: string) => {
     try {
       const result = await runGate(gateId);
-      setLastRun((prev) => ({ ...prev, [gateId]: result }));
-      if (!result.ok && !result.gate_id) {
+      if (result.ok || typeof result.returncode === "number") {
+        setLastRun((prev) => ({ ...prev, [gateId]: result }));
+      } else {
         onNotice(t("gate.runFailed", { gate: gateName(gateId), error: result.error || "?" }));
       }
+    } catch (error) {
+      onNotice(t("gate.runFailed", { gate: gateName(gateId), error: error instanceof Error ? error.message : "offline" }));
+    }
+  };
+  const run = async (gateId: string) => {
+    if (demo) {
+      onNotice(t("demo.actionsOff"));
+      return;
+    }
+    setRunning(gateId);
+    try {
+      await runOne(gateId);
       onRefetch();
     } finally {
       setRunning(null);
     }
   };
   const runAll = async () => {
+    if (demo) {
+      onNotice(t("demo.actionsOff"));
+      return;
+    }
     setRunning("*");
     try {
+      // One failing/skewed gate must not silently strand the rest.
       for (const gate of gates) {
-        const result = await runGate(gate.id);
-        setLastRun((prev) => ({ ...prev, [gate.id]: result }));
+        await runOne(gate.id);
       }
       onRefetch();
     } finally {

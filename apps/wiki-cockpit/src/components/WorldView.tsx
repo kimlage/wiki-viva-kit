@@ -65,6 +65,25 @@ type MissionRow = {
   onClick: () => void;
 };
 
+// The mission card is collapsible — a map you can actually SEE beats a panel
+// you did not ask for. The preference is remembered per browser (UI state,
+// not world state: it stays out of the URL on purpose).
+const MISSION_CARD_KEY = "wiki-cockpit.missionCard";
+function missionCardPref(): boolean {
+  try {
+    return window.localStorage.getItem(MISSION_CARD_KEY) !== "closed";
+  } catch {
+    return true;
+  }
+}
+function persistMissionCard(open: boolean): void {
+  try {
+    window.localStorage.setItem(MISSION_CARD_KEY, open ? "open" : "closed");
+  } catch {
+    /* private mode — session-only */
+  }
+}
+
 export function WorldView({
   bundle,
   runtime,
@@ -89,6 +108,7 @@ export function WorldView({
   const [activeHit, setActiveHit] = useState(0);
   const [trayOpen, setTrayOpen] = useState(false);
   const [missionsOpen, setMissionsOpen] = useState(false);
+  const [missionCardOpen, setMissionCardOpen] = useState(missionCardPref);
   const [tourOpen, setTourOpen] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -406,27 +426,24 @@ export function WorldView({
           </div>
         </div>
 
-        {/* LEFT mission card: current intent with do-now rows. */}
-        <div className="worldMissionCard" role="region" aria-label={t("world.missionAria")}>
-          <header>
-            <strong>{perspectiveLabel(route.perspective).label}</strong>
-            <span>{perspectiveLabel(route.perspective).hint}</span>
-          </header>
-          <div className="missionRows">
-            {missionRows.slice(0, 3).map((row, index) => (
-              <div className={`missionRow tone-${row.tone}`} key={row.key}>
-                <button className="missionRowMain" onClick={row.onClick} type="button">
-                  <span className="stageIndex">{index + 1}</span>
-                  <span className="missionCopy">
-                    <strong>{row.label}</strong>
-                    <small>{row.detail}</small>
-                  </span>
-                </button>
-                {row.help && <HelpTip title={row.label} body={row.help} />}
-              </div>
-            ))}
-          </div>
-          {route.query.q && (
+        {/* LEFT mission surface. Collapsed by choice it is a single honest
+            chip (worst tone + pending count) — the world stays visible;
+            expanded it is the do-now card. Search results always render:
+            the keyboard search flow must never depend on the card state. */}
+        {(() => {
+          const actionable = missionRows.filter((row) => row.key !== "browse");
+          const worstTone = actionable.some((row) => row.tone === "bad")
+            ? "bad"
+            : actionable.some((row) => row.tone === "warn")
+              ? "warn"
+              : "good";
+          const toggleCard = () => {
+            setMissionCardOpen((open) => {
+              persistMissionCard(!open);
+              return !open;
+            });
+          };
+          const searchBlock = route.query.q ? (
             <div className="missionSearchResults" aria-label={t("world.results", { n: searchHits.length })}>
               <span className="missionSearchCount">
                 {searchHits.length > SEARCH_VISIBLE
@@ -453,8 +470,54 @@ export function WorldView({
               ))}
               {searchHits.length === 0 && <span className="missionSearchCount">{t("world.noResults")}</span>}
             </div>
-          )}
-        </div>
+          ) : null;
+          if (!missionCardOpen) {
+            return (
+              <div className="worldMissionSlim" role="region" aria-label={t("world.missionAria")}>
+                <button
+                  className={`worldMissionChip tone-${worstTone}`}
+                  onClick={toggleCard}
+                  aria-expanded={false}
+                  title={perspectiveLabel(route.perspective).hint}
+                  type="button"
+                >
+                  <i aria-hidden />
+                  <strong>{perspectiveLabel(route.perspective).label}</strong>
+                  <span>
+                    {actionable.length > 0 ? t("world.missionCount", { n: actionable.length }) : t("world.missionClear")}
+                  </span>
+                </button>
+                {searchBlock && <div className="worldMissionCard searchOnly">{searchBlock}</div>}
+              </div>
+            );
+          }
+          return (
+            <div className="worldMissionCard" role="region" aria-label={t("world.missionAria")}>
+              <header>
+                <strong>{perspectiveLabel(route.perspective).label}</strong>
+                <span>{perspectiveLabel(route.perspective).hint}</span>
+                <button className="readerClose missionCollapse" onClick={toggleCard} title={t("world.missionCollapse")} type="button">
+                  –
+                </button>
+              </header>
+              <div className="missionRows">
+                {missionRows.slice(0, 3).map((row, index) => (
+                  <div className={`missionRow tone-${row.tone}`} key={row.key}>
+                    <button className="missionRowMain" onClick={row.onClick} type="button">
+                      <span className="stageIndex">{index + 1}</span>
+                      <span className="missionCopy">
+                        <strong>{row.label}</strong>
+                        <small>{row.detail}</small>
+                      </span>
+                    </button>
+                    {row.help && <HelpTip title={row.label} body={row.help} />}
+                  </div>
+                ))}
+              </div>
+              {searchBlock}
+            </div>
+          );
+        })()}
 
         {/* RIGHT: the in-world reader dock. */}
         {readerOpen && selectedPage && (

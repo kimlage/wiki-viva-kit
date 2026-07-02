@@ -3,7 +3,8 @@
 // The same node identities are re-arranged by four perspectives — radar
 // (verification), atlas (hierarchy), districts (taxonomy), trails (relations)
 // — across drill levels (galaxy → context → group → page). Every layout obeys
-// the honest-encoding contract: color = trust, shape = kind, line = relation,
+// the honest-encoding contract: hue = context, tone = state (aging), shape =
+// kind, line = relation,
 // and no visual implies data that does not exist. The per-level node cap keeps
 // draw calls bounded while cluster-stars carry the TRUE hidden counts, so all
 // pages stay countable and one drill away.

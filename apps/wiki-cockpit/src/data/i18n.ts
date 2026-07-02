@@ -38,6 +38,9 @@ const EN: Dict = {
   "world.missingInUniverse": "This item does not exist in this data universe.",
   "world.breadcrumbsAria": "Breadcrumbs",
   "world.missionAria": "Current mission",
+  "world.missionCount": "{n} pending",
+  "world.missionClear": "all clear",
+  "world.missionCollapse": "Collapse — the map stays visible; click the chip to reopen",
   "world.commandBarAria": "Command bar",
   "world.trailAria": "Navigation trail",
 
@@ -450,6 +453,9 @@ const PT: Dict = {
   "world.missingInUniverse": "Este item não existe neste universo de dados.",
   "world.breadcrumbsAria": "Trilha de navegação",
   "world.missionAria": "Missão atual",
+  "world.missionCount": "{n} pendências",
+  "world.missionClear": "em dia",
+  "world.missionCollapse": "Recolher — o mapa fica visível; clique no chip para reabrir",
   "world.commandBarAria": "Barra de comando",
   "world.trailAria": "Trilha de leitura",
 

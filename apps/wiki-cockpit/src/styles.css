@@ -2992,10 +2992,66 @@ pre {
 }
 
 .worldMissionCard header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "title collapse" "hint collapse";
+  column-gap: 8px;
+  row-gap: 2px;
+  margin-bottom: 8px;
+}
+.worldMissionCard header strong {
+  grid-area: title;
+}
+.worldMissionCard header span {
+  grid-area: hint;
+}
+.missionCollapse {
+  grid-area: collapse;
+  align-self: start;
+}
+/* Collapsed mission surface: one honest chip, the world owns the screen. */
+.worldMissionSlim {
+  position: absolute;
+  top: 46px;
+  left: 12px;
+  z-index: 28;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin-bottom: 8px;
+  gap: 6px;
+  align-items: flex-start;
+}
+.worldMissionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border: 1px solid #24333d;
+  border-radius: 999px;
+  background: rgba(8, 15, 21, 0.88);
+  backdrop-filter: blur(6px);
+  color: #dff2fb;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.worldMissionChip span {
+  color: #7d93a3;
+}
+.worldMissionChip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.worldMissionChip.tone-good i {
+  background: #5ee6a8;
+}
+.worldMissionChip.tone-warn i {
+  background: #ffb454;
+}
+.worldMissionChip.tone-bad i {
+  background: #ff7a8a;
+}
+.worldMissionSlim .worldMissionCard.searchOnly {
+  position: static;
 }
 
 .worldMissionCard header strong {
@@ -4258,10 +4314,15 @@ pre {
 }
 
 /* ---- Brief studio (Codex work briefs) ---- */
+/* The studio sits ABOVE the world docks (z 62/63): briefs are composed FROM
+   docks ("Fix with Codex" in the gate rows, Resume/Return in the work dock),
+   and the studio must paint over the dock that spawned it. Closing the studio
+   returns to the still-open dock — the right flow for fixing several checks
+   in sequence. */
 .briefStudioBackdrop {
   position: fixed;
   inset: 0;
-  z-index: 62;
+  z-index: 65;
   background: rgba(4, 8, 12, 0.55);
   backdrop-filter: blur(2px);
 }
@@ -4270,7 +4331,7 @@ pre {
   top: 0;
   right: 0;
   bottom: 0;
-  z-index: 63;
+  z-index: 66;
   width: min(52%, 720px);
   min-width: 320px;
   display: flex;

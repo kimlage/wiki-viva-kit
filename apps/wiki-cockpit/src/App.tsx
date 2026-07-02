@@ -2049,6 +2049,7 @@ export function App() {
           <GateDock
             bundle={loadState.bundle}
             busy={Boolean(busyAction)}
+            demo={route.demo}
             onWorkflow={runWorkflow}
             onComposeBrief={runBrief}
             onNotice={notify}
@@ -2059,6 +2060,7 @@ export function App() {
         {gatesDockOpen && worldRoute && loadState.status === "ready" && (
           <GatesDock
             bundle={loadState.bundle}
+            demo={route.demo}
             onComposeBrief={runBrief}
             onNotice={notify}
             onRefetch={refetchReal}

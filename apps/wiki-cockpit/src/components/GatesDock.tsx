@@ -19,12 +19,14 @@ const GATE_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
 
 export function GatesDock({
   bundle,
+  demo,
   onComposeBrief,
   onNotice,
   onRefetch,
   onClose
 }: {
   bundle: SnapshotBundle;
+  demo?: boolean;
   onComposeBrief?: (spec: BriefSpec) => void;
   onNotice: (text: string) => void;
   onRefetch: () => void;
@@ -46,7 +48,7 @@ export function GatesDock({
         </header>
         <p className="dockIntro">{t("gate.intro")}</p>
 
-        <GateChecks gates={gates} onComposeBrief={onComposeBrief} onNotice={onNotice} onRefetch={onRefetch} />
+        <GateChecks gates={gates} demo={demo} onComposeBrief={onComposeBrief} onNotice={onNotice} onRefetch={onRefetch} />
       </aside>
     </>
   );

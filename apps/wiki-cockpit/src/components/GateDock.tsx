@@ -75,6 +75,7 @@ function FileRow({ file, page }: { file: DiffFile; page?: PageRecord }) {
 export function GateDock({
   bundle,
   busy,
+  demo,
   onWorkflow,
   onComposeBrief,
   onNotice,
@@ -83,6 +84,7 @@ export function GateDock({
 }: {
   bundle: SnapshotBundle;
   busy: boolean;
+  demo?: boolean;
   onWorkflow: (operation: string, payload?: Record<string, unknown>, dryRun?: boolean) => void;
   onComposeBrief?: (spec: BriefSpec) => void;
   onNotice: (text: string) => void;
@@ -171,6 +173,7 @@ export function GateDock({
           <GateChecks
             gates={bundle.gates?.gates ?? []}
             busy={busy}
+            demo={demo}
             onComposeBrief={onComposeBrief}
             onNotice={onNotice}
             onRefetch={onRefetch}

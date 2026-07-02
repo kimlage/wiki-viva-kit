@@ -1,8 +1,10 @@
 // SystemScene: the navigable 3D knowledge world. The space itself is the
 // navigation — drill level is camera altitude bound to the URL, perspectives
 // re-arrange the same node identities (MORPH), and reading happens in-world.
-// Honest encodings are non-negotiable: color = trust, shape = kind,
-// line = typed relation; hidden pages are always countable cluster-stars.
+// Honest encodings are non-negotiable: hue = context (area), tone = state
+// (aging: bleached draft > calm fresh > aged stale > veiled unknown, with
+// attention riding on amber emissive/glow/embers), shape = kind, line = typed
+// relation; hidden pages are always countable cluster-stars.
 
 import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
