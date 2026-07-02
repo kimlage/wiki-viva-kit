@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-import re
 import subprocess
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
 from wiki_core.config import WikiConfig
+from wiki_core.web.commands import SECRET_VALUE_RE  # single source: handles JSON/Bearer forms
 from wiki_core.web.schemas import WEB_DIFF_SCHEMA_VERSION
-
-SECRET_VALUE_RE = re.compile(
-    r"(?i)(token|password|passwd|secret|api[_-]?key|cookie)(\s*[:=]\s*)([^\s]+)"
-)
 
 
 def _run_git(root: Path, args: list[str], *, timeout: int = 15) -> tuple[int, str, str]:
@@ -313,4 +309,44 @@ def build_diff_payload(root: Path, config: WikiConfig, git_payload: dict[str, An
         },
         "commands": commands,
         "files": files,
+    }
+
+
+def _safe_rel_path(path: str) -> str | None:
+    value = str(path or "").strip()
+    if not value or value.startswith("/") or "\x00" in value:
+        return None
+    parts = Path(value).parts
+    if any(part == ".." for part in parts):
+        return None
+    return value
+
+
+def file_diff(root: Path, config: WikiConfig, path: str, *, max_lines: int = 600) -> dict[str, Any]:
+    """Full, secret-redacted unified diff for ONE file — the PageReader Diff tab.
+    Covers branch commits + working tree in one pass; untracked files diff
+    against /dev/null so new pages still render."""
+    safe = _safe_rel_path(path)
+    if safe is None:
+        return {"ok": False, "error": "invalid path", "path": path}
+    if not _is_git_repo(root):
+        return {"ok": False, "error": "not a git repository", "path": safe}
+    tracked = _run_git(root, ["ls-files", "--error-unmatch", "--", safe])[0] == 0
+    if tracked:
+        base_ref = _base_ref(root, "main") or _base_ref(root, "master")
+        merge_base = _merge_base(root, base_ref) if base_ref else ""
+        # <ref> (no ...) compares ref to the WORKING TREE: committed + uncommitted.
+        args = ["diff", "--no-color", "--no-ext-diff", *( [merge_base] if merge_base else [] ), "--", safe]
+    else:
+        args = ["diff", "--no-color", "--no-ext-diff", "--no-index", "--", "/dev/null", safe]
+    code, stdout, _stderr = _run_git(root, args, timeout=20)
+    # --no-index returns rc 1 when files differ (expected), so ignore rc there.
+    lines = [_redact(raw.rstrip())[:400] for raw in stdout.splitlines()]
+    truncated = len(lines) > max_lines
+    return {
+        "ok": True,
+        "path": safe,
+        "tracked": tracked,
+        "truncated": truncated,
+        "diff": lines[:max_lines],
     }

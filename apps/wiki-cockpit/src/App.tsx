@@ -21,6 +21,9 @@ import { useEffect, useMemo, useState } from "react";
 import { WorldView } from "./components/WorldView";
 import { BriefStudio } from "./components/BriefStudio";
 import { CodexDock } from "./components/CodexDock";
+import { GateDock } from "./components/GateDock";
+import { GatesDock } from "./components/GatesDock";
+import { IntakeDock } from "./components/IntakeDock";
 import { configureLanguage, t } from "./data/i18n";
 import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel } from "./data/presentation";
@@ -1646,6 +1649,13 @@ export function App() {
       .then(({ bundle, source, runtime }) => setRealState({ status: "ready", bundle, source, runtime }))
       .catch((error: Error) => setRealState({ status: "error", error: error.message }));
   }, []);
+  // Refetch the real bundle after a mutating action (e.g. running gates writes
+  // receipts) so the world reacts. Keeps the same runtime/source.
+  const refetchReal = () => {
+    loadSnapshotBundle({ demo: false })
+      .then(({ bundle, source, runtime }) => setRealState({ status: "ready", bundle, source, runtime }))
+      .catch(() => undefined);
+  };
   useEffect(() => {
     if (!route.demo || demoState.status === "ready") return;
     loadSnapshotBundle({ demo: true })
@@ -1689,6 +1699,19 @@ export function App() {
     loadState.status === "ready" ? loadState.runtime.language || loadState.bundle.manifest.repo.language : "en",
     loadState.status === "ready" ? loadState.runtime.strings : undefined
   );
+
+  // The legacy 2D pages dissolve into world docks. /review → the Gate, /health →
+  // the Gates dock (health is the weather); bookmarks never break. (/sources
+  // follows in Phase 4.)
+  useEffect(() => {
+    if (route.kind === "review") {
+      navigate(buildUrl(patchWorld(worldFromRoute(route), { dock: "approve" })), { replace: true });
+    } else if (route.kind === "health") {
+      navigate(buildUrl(patchWorld(worldFromRoute(route), { dock: "gates" })), { replace: true });
+    } else if (route.kind === "sources") {
+      navigate(buildUrl(patchWorld(worldFromRoute(route), { dock: "intake" })), { replace: true });
+    }
+  }, [route.kind]);
 
   // Legacy alias: /pages/:id lands on the same page in the new world
   // (/w/atlas/:context/:group/:id?reader=1). /pages lists become the atlas.
@@ -1946,6 +1969,9 @@ export function App() {
   })();
 
   const codexDockOpen = route.kind === "world" && route.query.dock === "codex";
+  const gateDockOpen = route.kind === "world" && route.query.dock === "approve";
+  const gatesDockOpen = route.kind === "world" && route.query.dock === "gates";
+  const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -1991,6 +2017,33 @@ export function App() {
             capability={codexCapability}
             busy={codexBusy}
             onReverify={reverifyCodex}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+          />
+        )}
+        {gateDockOpen && worldRoute && loadState.status === "ready" && (
+          <GateDock
+            bundle={loadState.bundle}
+            busy={Boolean(busyAction)}
+            onWorkflow={runWorkflow}
+            onNotice={notify}
+            onRefetch={refetchReal}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+          />
+        )}
+        {gatesDockOpen && worldRoute && loadState.status === "ready" && (
+          <GatesDock
+            bundle={loadState.bundle}
+            onNotice={notify}
+            onRefetch={refetchReal}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+          />
+        )}
+        {intakeDockOpen && worldRoute && loadState.status === "ready" && (
+          <IntakeDock
+            bundle={loadState.bundle}
+            initialSrc={worldRoute.query.src}
+            onComposeBrief={runBrief}
+            onNotice={notify}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}

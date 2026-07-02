@@ -341,6 +341,45 @@ export async function cancelCodexJob(jobId: string): Promise<CodexJobRecord | nu
   return (await response.json()) as CodexJobRecord;
 }
 
+// Full per-file diff for the Gate dock / reader Diff tab (secret-redacted
+// server-side; untracked files diff against /dev/null).
+export async function loadFileDiff(
+  path: string
+): Promise<{ ok: boolean; path?: string; tracked?: boolean; truncated?: boolean; diff?: string[]; error?: string }> {
+  try {
+    const response = await fetch(await apiUrl(`/diff/file?path=${encodeURIComponent(path)}`), {
+      headers: { accept: "application/json" }
+    });
+    return (await response.json()) as { ok: boolean; diff?: string[] };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "diff failed" };
+  }
+}
+
+// Intake: copy an external file (local path or repo-relative) into data/raw/,
+// secret-scanned and sandboxed server-side. The fix for the ~/Downloads dead-end.
+export async function intakeCopy(
+  sourcePath: string,
+  context: string
+): Promise<{ ok: boolean; path?: string; context?: string; filename?: string; error?: string; reason?: string }> {
+  const response = await fetch(await apiUrl("/intake/copy"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ source_path: sourcePath, context })
+  });
+  return (await response.json()) as { ok: boolean; path?: string };
+}
+
+// Run one honesty gate; the server persists a receipt so the gate turns green.
+export async function runGate(gateId: string): Promise<{ ok: boolean; gate_id?: string; returncode?: number | null; error?: string }> {
+  const response = await fetch(await apiUrl("/gates/run"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ gate_id: gateId })
+  });
+  return (await response.json()) as { ok: boolean; gate_id?: string };
+}
+
 export async function runCockpitAction(
   actionId: string,
   dryRun?: boolean
