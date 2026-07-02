@@ -66,6 +66,9 @@ def test_build_argv_is_sandboxed_and_never_yolo() -> None:
     assert "--sandbox" in argv and "workspace-write" in argv
     assert "--json" in argv
     assert not any("yolo" in a or "dangerous" in a for a in argv)
+    # codex exec is non-interactive: it has no approvals flag, and passing -a
+    # makes the CLI exit 2 before doing anything (regression: codex-cli 0.142).
+    assert "-a" not in argv
 
 
 def test_pipeline_dry_run_reaches_delivered(tmp_path, monkeypatch) -> None:
@@ -298,3 +301,44 @@ def test_continue_current_overlap_only_fails_without_destroying_edits(tmp_path, 
     assert branch == "wiki/in-progress"
     log = subprocess.run(["git", "log", "--oneline", "-1"], cwd=tmp_path, capture_output=True, text=True).stdout
     assert "codex:" not in log
+
+
+def test_runner_reanchors_when_agent_switches_branches(tmp_path, monkeypatch) -> None:
+    """An agent that follows the brief's external contract and creates the
+    proposal branch itself must not derail the job: the runner re-anchors to
+    ITS branch, deletes the stray one, and commits where the record says."""
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    subprocess.run(["git", "switch", "-c", "wiki/in-progress"], cwd=tmp_path, check=True, capture_output=True)
+    monkeypatch.setenv("CODEX_SHIM_SWITCH_BRANCH", "wiki/stray-agent-branch")
+
+    runner = _runner(tmp_path, config)
+    result = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)
+    runner.run_job(result["job_id"])
+    record = runner.get(result["job_id"])
+    assert record["status"] == "delivered", record["reason"]
+    assert record["branch"] == "wiki/in-progress"
+    branch = subprocess.run(["git", "branch", "--show-current"], cwd=tmp_path, capture_output=True, text=True).stdout.strip()
+    assert branch == "wiki/in-progress"
+    branches = subprocess.run(["git", "branch"], cwd=tmp_path, capture_output=True, text=True).stdout
+    assert "stray-agent-branch" not in branches
+    log = subprocess.run(["git", "log", "--oneline", "-1"], cwd=tmp_path, capture_output=True, text=True).stdout
+    assert "codex:" in log
+
+
+def test_runner_preamble_reaches_codex_and_the_artifact(tmp_path) -> None:
+    """What ran is what the artifact shows: the executed stdin carries the
+    runner-context preamble (runner owns git) on top of the composed brief."""
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    runner = _runner(tmp_path, config)
+    result = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)
+    runner.run_job(result["job_id"])
+    record = runner.get(result["job_id"])
+    assert record["status"] == "delivered", record["reason"]
+    matches = list(tmp_path.rglob(f"codex-jobs/{result['job_id']}/brief.md"))
+    assert matches, "job brief.md artifact not found"
+    artifact = matches[0].read_text(encoding="utf-8")
+    assert artifact.startswith("<runner-context>")
+    assert record["branch"] in artifact
+    assert "do NOT create or switch branches" in artifact

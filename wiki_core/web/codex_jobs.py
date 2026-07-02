@@ -59,7 +59,10 @@ def _redact(text: str) -> str:
 
 def build_codex_argv(binary: str, root: Path, final_path: Path) -> list[str]:
     """The headless, sandboxed, streamed Codex invocation. Never ``--yolo`` /
-    ``--dangerously-bypass-*``; network stays off under ``workspace-write``."""
+    ``--dangerously-bypass-*``; network stays off under ``workspace-write``.
+    NOTE: ``codex exec`` is non-interactive — it has NO approvals flag (``-a``
+    was rejected with exit 2 by codex-cli 0.142.x); the sandbox policy is the
+    entire containment contract here."""
     return [
         binary,
         "exec",
@@ -68,8 +71,6 @@ def build_codex_argv(binary: str, root: Path, final_path: Path) -> list[str]:
         str(root),
         "--sandbox",
         "workspace-write",
-        "-a",
-        "on-request",
         "--json",
         "-o",
         str(final_path),
@@ -359,14 +360,29 @@ class JobRunner:
                 self._abort_branch(branch, delete=branch_mode == "fresh")
 
         # 2) Run Codex on the branch, streaming redacted JSONL to the log.
+        # The brief's output contract is written for EXTERNAL agents (copy it
+        # into anything) and tells them to create the proposal branch — but when
+        # THIS runner executes, the runner owns git. Without this preamble a
+        # dutiful agent creates the branch itself and the runner then commits on
+        # the wrong checkout (observed with codex-cli on a real job).
         self._set_step(record, "codex", "running")
         final_path = job_dir / "final.md"
         brief_path = job_dir / "brief.md"
-        brief_path.write_text(brief["text"], encoding="utf-8")
+        preamble = (
+            "<runner-context>\n"
+            f"This brief is being executed by the wiki operator's job runner, already on proposal branch `{branch}`.\n"
+            "The runner owns git: do NOT create or switch branches, do NOT run `git commit`, `git push` or open PRs —\n"
+            "make the file edits only. The runner stages, commits and opens the draft PR afterwards.\n"
+            "This overrides any branch-creation or commit step in the output contract below.\n"
+            "</runner-context>\n\n"
+        )
+        stdin_text = preamble + brief["text"]
+        # The artifact is the ACTUAL stdin — what you see is what ran.
+        brief_path.write_text(stdin_text, encoding="utf-8")
         # codex_cmd is [binary] in prod, or [python3, shim] in tests; either way
         # the exec flags follow the command prefix.
         argv = [*self.codex_cmd, *build_codex_argv(self.codex_cmd[0], self.root, final_path)[1:]]
-        rc, cancelled = self._run_codex(job_id, argv, brief["text"], job_dir / "log.jsonl")
+        rc, cancelled = self._run_codex(job_id, argv, stdin_text, job_dir / "log.jsonl")
         if cancelled:
             unwind()
             return self._set_status(self.get(job_id) or record, "cancelled", reason="cancelled during Codex run")
@@ -378,6 +394,26 @@ class JobRunner:
         if final_path.is_file():
             record["codex"]["final_message_path"] = str(final_path.relative_to(self.root)) if final_path.is_relative_to(self.root) else str(final_path)
         self._set_step(self._write(record), "codex", "complete")
+
+        # Re-anchor: despite the preamble, an agent may still move the checkout.
+        # If the stray branch carries no extra commits, come back (uncommitted
+        # edits follow the switch) and delete it; if the agent COMMITTED there,
+        # adopt the stray branch honestly — orphaning commits would lose work.
+        actual_branch = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            ["git", "branch", "--show-current"], cwd=self.root, capture_output=True, text=True, check=False
+        ).stdout.strip()
+        if actual_branch and branch and actual_branch != branch:
+            ahead = subprocess.run(  # noqa: S603
+                ["git", "rev-list", "--count", f"{branch}..{actual_branch}"],
+                cwd=self.root, capture_output=True, text=True, check=False,
+            ).stdout.strip()
+            if ahead == "0":
+                subprocess.run(["git", "switch", branch], cwd=self.root, capture_output=True, check=False)  # noqa: S603
+                subprocess.run(["git", "branch", "-D", actual_branch], cwd=self.root, capture_output=True, check=False)  # noqa: S603
+            else:
+                branch = actual_branch
+                record["branch"] = branch
+                self._write(record)
 
         # 3) Stage Codex's delta + commit (single-line message). In
         #    continue_current mode the delta is computed against the baseline:

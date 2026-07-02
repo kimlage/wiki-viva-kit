@@ -51,6 +51,17 @@ def main() -> int:
     if sleep:
         time.sleep(float(sleep))
 
+    if os.environ.get("CODEX_SHIM_SWITCH_BRANCH"):
+        # Simulate an agent that dutifully follows the brief's EXTERNAL output
+        # contract and creates the proposal branch itself (observed with
+        # codex-cli on a real job) — the runner must re-anchor afterwards.
+        import subprocess
+
+        subprocess.run(
+            ["git", "switch", "-c", os.environ["CODEX_SHIM_SWITCH_BRANCH"]],
+            cwd=cd, capture_output=True, check=False,
+        )
+
     if not os.environ.get("CODEX_SHIM_NOEDIT"):
         target = os.environ.get("CODEX_SHIM_TARGET")
         path = None
