@@ -459,14 +459,19 @@ export function PageReader({
   const prAction = bundle.actions.actions.find((action) => action.id === "pr-summary");
 
   return (
-    <aside
-      className={expanded ? "pageReader expanded" : "pageReader"}
-      aria-label={t("reader.aria", { title: page.title })}
-      role="dialog"
-      aria-modal={expanded}
-      ref={dockRef}
-      tabIndex={-1}
-    >
+    <>
+      {/* Comfortable-reading modal gets a scrim so the scene and the left HUD
+          are dimmed and non-interactive behind the centered column. Clicking
+          it collapses back to the docked reader (matching the F toggle). */}
+      {expanded && <div className="readerBackdrop" onClick={() => setExpanded(false)} aria-hidden="true" />}
+      <aside
+        className={expanded ? "pageReader expanded" : "pageReader"}
+        aria-label={t("reader.aria", { title: page.title })}
+        role="dialog"
+        aria-modal={expanded}
+        ref={dockRef}
+        tabIndex={-1}
+      >
       {trail.length > 1 && (
         <nav className="readerTrail" aria-label={t("world.trailAria")}>
           {trail.slice(-5).map((hop) => (
@@ -601,6 +606,7 @@ export function PageReader({
           )}
         </footer>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

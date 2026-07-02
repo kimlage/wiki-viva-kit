@@ -306,6 +306,10 @@ code {
 .sceneCanvasFrame {
   position: absolute;
   inset: 40px 0 32px;
+  /* Contain the diegetic drei <Html> layer (labels/pills/stars/target-lock,
+     z-index up to 50) in its own stacking context so it never paints over the
+     HUD panels, the reader dock/modal or the tooltip that are its siblings. */
+  isolation: isolate;
 }
 
 /* Radar shell: full-bleed command view with thin HUD bars. */
@@ -413,8 +417,9 @@ code {
   background: rgba(8, 13, 17, 0.82);
   border-top: 1px solid rgba(107, 215, 255, 0.1);
   backdrop-filter: blur(10px);
-  overflow-x: auto;
-  overflow-y: visible;
+  /* visible (not overflow-x:auto) so the Key popover, a child of the strip,
+     is never clipped by a forced scroll box. */
+  overflow: visible;
 }
 
 .stripLabel {
@@ -760,18 +765,29 @@ button.stripChip:hover {
   font-size: 13px;
   color: #dbe7ee;
   white-space: nowrap;
+  max-width: 160px;
 }
 
+/* Long Portuguese titles are truncated so labels never overprint each other
+   in dense scenes; the full title is still on the node's hover tooltip. */
 .radarLabel strong {
   font-size: 13px;
   font-weight: 700;
   color: #eef7fb;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .radarLabel em {
   font-style: normal;
   font-size: 12px;
   font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .radarDeadlineCaption span {
@@ -2768,6 +2784,19 @@ pre {
     margin: 10px;
   }
 
+  /* Command bar: search takes the first full row, controls wrap below; the
+     keyboard-hint caption is desktop-only. */
+  .worldCommandBar {
+    row-gap: 6px;
+    padding: 6px 10px;
+  }
+  .worldCommandBar .commandSearch {
+    flex-basis: 100%;
+  }
+  .worldCommandBar .commandHint {
+    display: none;
+  }
+
   .statGrid,
   .actionRow,
   .fileRow,
@@ -2850,6 +2879,33 @@ pre {
 .worldWorkspace .sceneShell.fallbackMode {
   height: auto;
   min-height: 520px;
+}
+
+/* Narrow viewports: the nav collapses to a top row and the header stack grows,
+   so a fixed calc(100vh - 96px) shell pushes the command bar off-screen. Let
+   the shell flex into exactly the leftover space instead. */
+@media (max-width: 980px) {
+  .worldShellMode .mainColumn {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+  .worldShellMode .worldWorkspace {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .worldWorkspace .sceneShell:not(.fallbackMode) {
+    height: 100%;
+    min-height: 0;
+  }
+  /* The overview disc is redundant with the full 3D map on a small screen and
+     only overlaps it; drop it. */
+  .worldWorkspace .radarShell:not(.fallbackMode) .worldMinimap {
+    display: none;
+  }
+  .worldWorkspace .radarStatusStrip {
+    max-width: calc(100% - 24px);
+  }
 }
 
 .worldWorkspace .sceneCanvasFrame {
@@ -3034,6 +3090,8 @@ pre {
   display: flex;
   align-items: center;
   gap: 10px;
+  row-gap: 8px;
+  flex-wrap: wrap;
   padding: 7px 12px;
   background: linear-gradient(0deg, rgba(6, 12, 18, 0.94), rgba(6, 12, 18, 0.6) 85%, transparent);
 }
@@ -3047,7 +3105,8 @@ pre {
   padding: 5px 8px;
   background: rgba(10, 18, 25, 0.9);
   color: #7d93a3;
-  min-width: 180px;
+  flex: 1 1 200px;
+  min-width: 0;
 }
 
 .commandSearch input {
@@ -3284,6 +3343,9 @@ pre {
   font-size: 13px;
   line-height: 1.55;
   color: #c8d8e2;
+  /* Long unbroken pt tokens/URLs/paths wrap instead of pushing past the dock. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .readerBody h1,
@@ -3308,6 +3370,9 @@ pre {
 }
 
 .readerBody table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
   border-collapse: collapse;
   font-size: 12px;
 }
@@ -3699,13 +3764,23 @@ pre {
 
 /* Trust-filter strip: docked ABOVE the command bar in the world shell, and
    clear of the minimap disc — it was fully occluded before. */
+/* Content-hugging pill anchored bottom-left: wraps its chips (never clips the
+   Key button) and never runs under the reader dock (right) or minimap. */
 .worldWorkspace .radarStatusStrip {
   bottom: 46px;
-  right: 150px;
-  left: 0;
+  left: 12px;
+  right: auto;
+  width: auto;
+  max-width: min(680px, calc(100% - 170px));
+  height: auto;
+  flex-wrap: wrap;
+  row-gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #24333d;
+  border-radius: 8px;
   z-index: 27;
-  background: linear-gradient(0deg, rgba(8, 13, 17, 0.85), rgba(8, 13, 17, 0.55));
-  border-top: none;
+  background: rgba(8, 13, 17, 0.9);
+  border-top: 1px solid #24333d;
 }
 
 .worldWorkspace .radarKeyPopover {
@@ -3764,6 +3839,15 @@ pre {
    UX batch 2: comfortable reading, diagrams, raw-data layer, learning system,
    missions & honest rewards. */
 
+/* Scrim behind the comfortable-reading modal: dims the scene + edge HUD and
+   blocks interaction, so only the centered column is live. */
+.readerBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 47;
+  background: rgba(3, 7, 10, 0.62);
+}
+
 /* Comfortable reading modal: the dock expands to a centered column (key F). */
 .pageReader.expanded {
   top: 4vh;
@@ -3775,7 +3859,7 @@ pre {
   border: 1px solid #2f4250;
   border-radius: 12px;
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65);
-  z-index: 44;
+  z-index: 48;
 }
 
 .pageReader.expanded .readerBody {
@@ -3873,6 +3957,21 @@ pre {
   text-align: left;
   white-space: normal;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
+/* Portaled variant (fixed to the viewport, anchored to the button rect): never
+   clipped by a scrolling panel. Sits above the coach overlay (z-90). */
+.helpTipPopover.fixed {
+  position: fixed;
+  z-index: 95;
+  left: 0;
+  top: 0;
+  transform: translateY(6px);
+  width: min(320px, calc(100vw - 24px));
+}
+
+.helpTipPopover.fixed.placeUp {
+  transform: translateY(-100%) translateY(-6px);
 }
 
 .helpTipPopover strong {

@@ -222,7 +222,10 @@ function starFor(
     labelKey,
     count: hidden.length,
     position: [Number(position[0].toFixed(4)), Number(position[1].toFixed(4)), Number(position[2].toFixed(4))],
-    scale: Number(Math.min(0.2 + Math.sqrt(hidden.length) * 0.045, 0.5).toFixed(4)),
+    // A cluster-star is an aggregate marker, not a planet: a log curve for
+    // gentle magnitude separation, capped BELOW the largest real node (0.31)
+    // so hidden-count markers never dwarf actual pages at scale.
+    scale: Number(Math.min(0.16 + Math.log2(hidden.length + 1) * 0.02, 0.26).toFixed(4)),
     histogram: histogram(hidden),
     drill
   };

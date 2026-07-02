@@ -779,8 +779,8 @@ function ClusterStars({ stars, onDrill }: { stars: ClusterStar[]; onDrill: (star
             <meshStandardMaterial color="#334a5c" emissive="#6bd7ff" emissiveIntensity={0.5} flatShading toneMapped={false} />
           </mesh>
           {texture && (
-            <sprite scale={[star.scale * 4.6, star.scale * 4.6, 1]}>
-              <spriteMaterial map={texture} color="#6bd7ff" transparent opacity={0.35} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+            <sprite scale={[star.scale * 2.6, star.scale * 2.6, 1]}>
+              <spriteMaterial map={texture} color="#6bd7ff" transparent opacity={0.25} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
             </sprite>
           )}
           <Html position={[0, star.scale * 2 + 0.16, 0]} center distanceFactor={5.2} wrapperClass="sceneHtmlLabel" className="clusterStarLabel" zIndexRange={[35, 0]}>
@@ -2390,7 +2390,10 @@ export function SystemScene({
           <HoverTooltip hover={hover} />
           <StatusStrip census={census} filter={filter} onFilter={(key) => navigate({ filter: key })} />
           {/* Minimap: persistent overview disc; M or click expands it as an
-              instant, motion-free zoom-to-galaxy. */}
+              instant, motion-free zoom-to-galaxy. Hidden while the reader dock
+              is open (the dock would fully cover the disc); M still expands it
+              fullscreen over the dock. */}
+          {(!route.reader || minimapExpanded) && (
           <div className={minimapExpanded ? "worldMinimap expanded" : "worldMinimap"} aria-label={t("scene.minimap")}>
             <FallbackPlanView
               layout={layout}
@@ -2414,6 +2417,7 @@ export function SystemScene({
               {minimapExpanded ? "×" : "M"}
             </button>
           </div>
+          )}
         </>
       )}
     </div>
