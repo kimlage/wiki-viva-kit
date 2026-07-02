@@ -10,8 +10,16 @@ from typing import Any
 from wiki_core.config import WikiConfig
 from wiki_core.web.schemas import WEB_ACTION_SCHEMA_VERSION
 
+# Redacts `key: value`, `key = value` AND JSON `"key": "value"` — the last is
+# exactly what `codex exec --json` emits, so it must be covered. Group 1 = the
+# key (with any surrounding quotes), group 2 = the separator (with an optional
+# opening quote); the `_redact` helpers keep both and blank the value.
 SECRET_VALUE_RE = re.compile(
-    r"(?i)(token|password|passwd|secret|api[_-]?key|cookie)(\s*[:=]\s*)([^\s]+)"
+    r"(?i)"
+    r"([\"']?(?:token|password|passwd|secret|api[_-]?key|access[_-]?token|"
+    r"refresh[_-]?token|id[_-]?token|openai_api_key|bearer|authorization|cookie)[\"']?)"
+    r"(\s*[:=]\s*[\"']?(?:bearer\s+)?)"
+    r"([^\s\"',}]+)"
 )
 
 

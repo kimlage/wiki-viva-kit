@@ -101,6 +101,7 @@ class JobRunner:
         self._lock = threading.Lock()
         self._procs: dict[str, subprocess.Popen] = {}
         self._cancelled: set[str] = set()
+        self._running_id: str | None = None  # the job the worker has claimed
         self._worker: threading.Thread | None = None
         if autostart:
             self.start()
@@ -120,6 +121,9 @@ class JobRunner:
             except Exception as exc:  # noqa: BLE001 - a job never crashes the worker
                 self._fail(job_id, f"runner error: {exc}")
             finally:
+                with self._lock:
+                    if self._running_id == job_id:
+                        self._running_id = None
                 self._queue.task_done()
 
     # -- store helpers ------------------------------------------------------ #
@@ -198,7 +202,10 @@ class JobRunner:
                 "brief_id": brief_id,
                 "reason": "sha_mismatch",
             }
-        # Staleness guard: the wiki must not have moved under the brief.
+        # Staleness guard: the page targets must not have moved under the brief.
+        # Resume/return briefs have no page targets (target_paths is empty) — that
+        # is not a hole: their branch is validated at run time by switch_proposal,
+        # which fails honestly if the branch was merged or deleted.
         current = hash_targets(self.root, brief.get("target_paths", []))
         if not force and current != brief.get("target_hashes", {}):
             return {
@@ -245,18 +252,34 @@ class JobRunner:
         record = self.get(job_id)
         if record is None:
             return {"ok": False, "error": "unknown job"}
-        if job_id in self._cancelled:
-            return self._set_status(record, "cancelled", reason="cancelled before start")
+        # Claim the job atomically with the cancel path: if a cancel landed while
+        # this was still queued, honor it; otherwise mark it claimed so a
+        # concurrent cancel knows the worker already owns it (no false "cancelled"
+        # on a job that actually runs).
+        with self._lock:
+            if job_id in self._cancelled:
+                return self._set_status(record, "cancelled", reason="cancelled before start")
+            self._running_id = job_id
         job_dir = self._job_dir(job_id)
         job_dir.mkdir(parents=True, exist_ok=True)
         brief = self.briefs.get(record["brief_id"])
         if brief is None:
             return self._set_status(record, "failed", reason="brief disappeared")
+        # Integrity re-check (TOCTOU): the sha was verified at submit, but the
+        # brief file could have changed on disk since. Execute ONLY text that
+        # still matches the job's recorded sha.
+        import hashlib
+
+        if hashlib.sha256(brief["text"].encode("utf-8")).hexdigest() != record.get("brief_sha"):
+            return self._set_status(record, "failed", reason="brief changed on disk since submit — recompose")
 
         self._set_status(record, "running")
         self._set_step(record, "ground", "complete")
         theme = record["theme"]
         resume_branch = record.get("resume_branch")
+
+        if job_id in self._cancelled:  # cancel landed after the claim
+            return self._set_status(record, "cancelled", reason="cancelled")
 
         # 1) Get onto the proposal branch. A return CONTINUES the parent's branch
         #    (switch); a fresh job CREATES one (start). Both are prefix-gated.
@@ -310,6 +333,9 @@ class JobRunner:
         commit = run_git_workflow(self.root, self.config, "commit_proposal", {"message": message}, dry_run=False)
         if not commit.get("ok"):
             self._set_step(record, "commit", "failed")
+            # A rejecting commit hook leaves staged edits on the branch — unwind
+            # like every other failure so the checkout is never stranded.
+            self._abort_branch(branch, delete=not resume_branch)
             return self._set_status(record, "failed", reason=f"commit: {commit.get('error') or commit.get('summary')}")
         self._set_step(self._write(record), "commit", "complete")
 
@@ -356,30 +382,44 @@ class JobRunner:
             return 127, False
         with self._lock:
             self._procs[job_id] = proc
-        try:
-            if proc.stdin:
-                proc.stdin.write(brief_text)
-                proc.stdin.close()
-        except (BrokenPipeError, OSError):
-            pass
-        cancelled = False
+
+        # Feed the whole brief on a SEPARATE thread: a large brief can exceed the
+        # OS pipe buffer, and writing it to completion before reading stdout would
+        # deadlock (the child blocks writing stdout while we block writing stdin).
+        def _feed() -> None:
+            try:
+                if proc.stdin:
+                    proc.stdin.write(brief_text)
+                    proc.stdin.close()
+            except (BrokenPipeError, OSError):
+                pass
+
+        threading.Thread(target=_feed, daemon=True).start()
+
+        # Independent watchdog: kill the process after the timeout even if it
+        # produces NO output and never closes stdout (a silent hang would
+        # otherwise block the read loop — and the single worker — forever).
+        finished = threading.Event()
+
+        def _watchdog() -> None:
+            if not finished.wait(self.timeout_seconds):
+                proc.kill()
+
+        threading.Thread(target=_watchdog, daemon=True).start()
+
         with log_path.open("w", encoding="utf-8") as log:
             assert proc.stdout is not None
             for line in proc.stdout:
                 log.write(_redact(line))
                 log.flush()
                 if job_id in self._cancelled:
-                    cancelled = True
                     proc.terminate()
                     break
-        try:
-            rc = proc.wait(timeout=self.timeout_seconds)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            rc = -9
+        rc = proc.wait()  # stdout is drained/closed (exit, terminate or watchdog kill)
+        finished.set()
         with self._lock:
             self._procs.pop(job_id, None)
-        return rc, cancelled
+        return rc, job_id in self._cancelled
 
     def cancel(self, job_id: str) -> dict[str, Any] | None:
         record = self.get(job_id)
@@ -387,14 +427,19 @@ class JobRunner:
             return None
         if record["status"] in {"done", "delivered", "failed", "cancelled"}:
             return {"ok": False, "error": f"job already {record['status']}", **record}
-        self._cancelled.add(job_id)
+        # Set the flag and read the claim atomically w.r.t. run_job's claim.
         with self._lock:
+            self._cancelled.add(job_id)
+            claimed = self._running_id == job_id
             proc = self._procs.get(job_id)
         if proc and proc.poll() is None:
             proc.terminate()
-        # If it never started (still queued), mark cancelled now.
-        if record["status"] == "queued":
+        if not claimed:
+            # The worker has not claimed it yet (still queued). Finalize now;
+            # run_job's own locked check bails if it dequeues this later.
             return {"ok": True, **self._set_status(record, "cancelled", reason="cancelled while queued")}
+        # Claimed & running: the read loop / watchdog winds it down and run_job
+        # writes the terminal 'cancelled' status itself.
         return {"ok": True, **(self.get(job_id) or record)}
 
     # -- helpers ------------------------------------------------------------ #
@@ -433,7 +478,10 @@ class JobRunner:
             default = str(build_git_state(self.root, self.config).get("default_branch") or "main")
         except Exception:  # noqa: BLE001
             pass
-        subprocess.run(["git", "checkout", "--", "."], cwd=self.root, capture_output=True, check=False)
+        # reset --hard clears BOTH staged and unstaged edits back to the branch
+        # tip (there are no commits yet on a fresh proposal; on a resume it keeps
+        # the parent's commits and only drops this run's uncommitted edits).
+        subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=self.root, capture_output=True, check=False)
         subprocess.run(["git", "switch", default], cwd=self.root, capture_output=True, check=False)
         if delete:
             subprocess.run(["git", "branch", "-D", branch], cwd=self.root, capture_output=True, check=False)

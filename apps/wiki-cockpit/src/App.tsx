@@ -1865,6 +1865,10 @@ export function App() {
     setBriefBusy(true);
     try {
       const saved = brief.status === "draft" ? await saveBriefText(brief.brief_id, text) : brief;
+      if (!saved.brief_sha) {
+        setNotice({ text: t("brief.exit.saveFailed", { error: saved.error || "no sha" }), tone: "warn", showResult: false });
+        return;
+      }
       const job = await spawnCodexJob(saved.brief_id, saved.brief_sha, { dryRun: false });
       if (job.ok === false) {
         setNotice({

@@ -40,9 +40,12 @@ def main() -> int:
     brief = sys.stdin.read()
     _emit({"type": "thread.started", "brief_chars": len(brief)})
     if os.environ.get("CODEX_SHIM_LEAK"):
-        # A token-shaped string the redactor must scrub before it reaches disk.
+        # Token-shaped strings the redactor must scrub before they reach disk —
+        # both the KEY=value form and the JSON "key": "value" form Codex emits.
         _emit({"type": "item.completed", "item": {"type": "agent_message",
                 "text": "using OPENAI_API_KEY=sk-test1234567890ABCDEFisagreatsecretvalue"}})
+        _emit({"type": "item.completed", "item": {"type": "command",
+                "openai_api_key": "sk-jsonleak0987654321FEDCBAsupersecretvalue"}})
 
     sleep = os.environ.get("CODEX_SHIM_SLEEP")
     if sleep:

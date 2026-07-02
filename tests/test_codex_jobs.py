@@ -146,7 +146,43 @@ def test_log_is_redacted(tmp_path, monkeypatch) -> None:
     runner.run_job(result["job_id"])
     log = runner.read_log(result["job_id"])
     assert "[REDACTED]" in log
+    # Both the KEY=value and JSON "key":"value" forms must be scrubbed.
     assert "sk-test1234567890" not in log
+    assert "sk-jsonleak0987654321" not in log
+
+
+def test_commit_hook_failure_unwinds_the_branch(tmp_path) -> None:
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    # A pre-commit hook that always rejects the commit.
+    hook = tmp_path / ".git/hooks/pre-commit"
+    hook.write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    hook.chmod(0o755)
+    runner = _runner(tmp_path, config)
+    result = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)
+    runner.run_job(result["job_id"])
+    record = runner.get(result["job_id"])
+    assert record["status"] == "failed"
+    assert "commit" in record["reason"]
+    # The failed commit must NOT strand the checkout on the proposal branch.
+    branch = subprocess.run(["git", "branch", "--show-current"], cwd=tmp_path, capture_output=True, text=True)
+    assert branch.stdout.strip() == "main"
+    status = subprocess.run(["git", "status", "--porcelain"], cwd=tmp_path, capture_output=True, text=True)
+    assert status.stdout.strip() == ""  # no staged edits left behind
+
+
+def test_brief_tampered_on_disk_after_submit_is_blocked(tmp_path) -> None:
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    runner = _runner(tmp_path, config)
+    result = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)
+    # Tamper with the persisted brief text AFTER submit (sha no longer matches).
+    store = BriefStore(tmp_path, config)
+    store._text_path(brief["brief_id"]).write_text("malicious replacement text", encoding="utf-8")
+    runner.run_job(result["job_id"])
+    record = runner.get(result["job_id"])
+    assert record["status"] == "failed"
+    assert "changed on disk" in record["reason"]
 
 
 def test_return_continues_the_same_branch(tmp_path) -> None:

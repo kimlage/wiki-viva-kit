@@ -216,7 +216,9 @@ export async function saveBriefText(briefId: string, text: string): Promise<Brie
     body: JSON.stringify({ text })
   });
   const result = (await response.json()) as BriefRecord;
-  if (!response.ok && !result.brief_id) {
+  // A refused save (e.g. non-draft) comes back ok:false WITH a brief_id — fail
+  // closed so callers never treat a rejection as a saved record.
+  if (!response.ok || result.ok === false) {
     throw new Error(result.error || `brief save failed: ${response.status}`);
   }
   return result;
