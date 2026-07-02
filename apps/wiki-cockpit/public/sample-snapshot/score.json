@@ -1,0 +1,79 @@
+{
+  "badges": [
+    {
+      "en": "Living source",
+      "id": "fonte_viva",
+      "pt": "Fonte viva"
+    },
+    {
+      "en": "Steady gardener",
+      "id": "jardineiro_constante",
+      "pt": "Jardineiro constante"
+    }
+  ],
+  "by_dimension": {
+    "acao": 2.0,
+    "aprendizado": 3.0,
+    "clareza": 3.2,
+    "conexao": 4.5,
+    "confiabilidade": 9.6,
+    "cuidado": 2.0,
+    "inspiracao": 0.0,
+    "stewardship": 7.1
+  },
+  "enabled": true,
+  "event_count": 14,
+  "level": "polinizador",
+  "level_labels": {
+    "en": "Pollinator",
+    "pt": "Polinizador"
+  },
+  "schema_version": "wiki_web_score.v1",
+  "total": 31.4,
+  "vitality": {
+    "finance": {
+      "context": "finance",
+      "eventos": 5,
+      "indicadores": {},
+      "indice_vitalidade": 72.0,
+      "participacao_distribuida": 1,
+      "participantes": [
+        "owner"
+      ],
+      "score_aggregado": 9.4
+    },
+    "product": {
+      "context": "product",
+      "eventos": 4,
+      "indicadores": {},
+      "indice_vitalidade": 58.0,
+      "participacao_distribuida": 1,
+      "participantes": [
+        "owner"
+      ],
+      "score_aggregado": 6.1
+    },
+    "research": {
+      "context": "research",
+      "eventos": 2,
+      "indicadores": {},
+      "indice_vitalidade": 35.0,
+      "participacao_distribuida": 1,
+      "participantes": [
+        "owner"
+      ],
+      "score_aggregado": 3.0
+    },
+    "system": {
+      "context": "system",
+      "eventos": 3,
+      "indicadores": {},
+      "indice_vitalidade": 66.0,
+      "participacao_distribuida": 1,
+      "participantes": [
+        "owner"
+      ],
+      "score_aggregado": 8.9
+    }
+  }
+}

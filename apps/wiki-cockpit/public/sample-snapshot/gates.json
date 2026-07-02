@@ -1,0 +1,21 @@
+{
+  "gates": [
+    {
+      "argv": ["python3", "scripts/wiki_audit.py", "--check"],
+      "id": "wiki_audit",
+      "status": "not_run"
+    },
+    {
+      "argv": ["python3", "scripts/wiki_operation_compile.py", "--check"],
+      "id": "operation_compile",
+      "status": "not_run"
+    },
+    {
+      "argv": ["python3", "scripts/wiki_input_stage.py", "--check"],
+      "id": "input_stage",
+      "status": "not_run"
+    }
+  ],
+  "schema_version": "wiki_web_gates.v1",
+  "status": "not_run"
+}

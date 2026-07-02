@@ -1,0 +1,75 @@
+{
+ "schema_version": "wiki_web_sources.v1",
+ "sources": [
+  {
+   "approved_state": "approved",
+   "context": "example",
+   "freshness_state": "fresh",
+   "id": "sample-source",
+   "moc_parent": "memories/example/index.md",
+   "page_type": "source",
+   "path": "memories/sources/sample-source.md",
+   "risk_flags": [],
+   "source_refs": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "summary": "Synthetic source used by the sample cockpit.",
+   "title": "Sample Source",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "research",
+   "freshness_state": "fresh",
+   "id": "sample-source-interview-notes",
+   "moc_parent": "memories/research/index.md",
+   "page_type": "source",
+   "path": "memories/sources/customer-interviews-2026-06.md",
+   "risk_flags": [],
+   "source_refs": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "summary": "Notes from six synthetic customer interviews.",
+   "title": "Customer Interview Notes",
+   "updated_at": "2026-06-26",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-source-usage-metrics",
+   "moc_parent": "memories/product/index.md",
+   "page_type": "source",
+   "path": "memories/sources/usage-metrics-2026-06.md",
+   "risk_flags": [],
+   "source_refs": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "summary": "Monthly product metrics export feeding the dashboard.",
+   "title": "Usage Metrics Export",
+   "updated_at": "2026-06-30",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "finance",
+   "freshness_state": "fresh",
+   "id": "sample-source-market-report",
+   "moc_parent": "memories/finance/index.md",
+   "page_type": "source",
+   "path": "memories/sources/market-cost-report-2026.md",
+   "risk_flags": [
+    "public_boundary"
+   ],
+   "source_refs": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "summary": "External cost benchmark; check the public boundary before sharing.",
+   "title": "Market Cost Report 2026",
+   "updated_at": "2026-06-29",
+   "visibility": "private_self"
+  }
+ ]
+}

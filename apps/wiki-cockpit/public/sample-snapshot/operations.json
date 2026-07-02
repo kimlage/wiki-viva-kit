@@ -1,0 +1,30 @@
+{
+ "freshness_state": "fresh",
+ "path": "memories/operations.md",
+ "repo_id": "wiki-viva-kit-sample",
+ "schema_version": "wiki_web_operations.v1",
+ "sections": [
+  {
+   "body": "- Current work is isolated in a review workspace for sample cockpit.\n- Two draft items wait at the human gate: pricing decision and governance update.\n- Biggest risk: the finance context reaches approval without a refresh.",
+   "bullets": [
+    "Current work is isolated in a review workspace for sample cockpit.",
+    "Two draft items wait at the human gate: pricing decision and governance update.",
+    "Biggest risk: the finance context reaches approval without a refresh."
+   ],
+   "title": "Current state"
+  },
+  {
+   "body": "- Finance context and Budget 2026 passed their freshness window.\n- Market Cost Report 2026 carries a public boundary flag; review before sharing.\n- Infra cost claim needs a re-read of its source before it supports decisions.\n- Review packet should be regenerated before human review.",
+   "bullets": [
+    "Finance context and Budget 2026 passed their freshness window.",
+    "Market Cost Report 2026 carries a public boundary flag; review before sharing.",
+    "Infra cost claim needs a re-read of its source before it supports decisions.",
+    "Review packet should be regenerated before human review."
+   ],
+   "title": "Alerts"
+  }
+ ],
+ "stale_after_days": "1",
+ "title": "Operations - Sample Wiki",
+ "updated_at": "2026-07-01"
+}

@@ -24,6 +24,10 @@ in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
   doc-code drift — all deterministic (zero model tokens).
 - **Operational cockpit** ([memories/operations.md](memories/operations.md)):
   compiled daily, self-verifiable (`--check` fails if semantically stale).
+- **Local web cockpit** ([apps/wiki-cockpit](apps/wiki-cockpit)): a Vite/React
+  + Three.js interface over generated snapshot JSON and a localhost-only
+  allowlisted operator API. Static/sample mode needs no GitHub token or cloud
+  account; mutating workflows remain proposal/PR-oriented.
 - **Hierarchical navigation**: root MOC -> context/domain hub -> typed
   relation/evidence pages, with `moc_parent` checked by the quality report.
 - **OKF interoperability**: export the rich Wiki Viva memory tree as an Open
@@ -63,7 +67,18 @@ python3 scripts/wiki_okf_export.py --out tmp/okf-bundle --clean
 python3 scripts/wiki_okf_check.py --bundle tmp/okf-bundle --check
 python3 scripts/wiki_okf_visualize.py --bundle tmp/okf-bundle
 python3 scripts/wiki_okf_import.py --bundle tmp/okf-bundle --context system --dry-run
+
+# 6. Optional: run the local web cockpit
+python3 scripts/wiki_web_snapshot.py --out data/derived/wiki/web-snapshot --clean
+python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
+cd apps/wiki-cockpit && npm install && npm run dev
 ```
+
+The local operator server serves snapshot JSON, allowlisted checks, source
+pre-triage, the ingestion wizard and proposal-branch Git workflows. Mutating Git
+and ingestion write steps are dry-run first in the UI and stay oriented around
+`wiki/<topic>` branches plus draft PRs; hosted deployments are later adapters,
+not a prerequisite for local operation.
 
 The deep reading itself is performed by the agent that runs the repo: the
 pipeline emits a `*-llm-context-request.json` package; the agent records results
@@ -86,6 +101,7 @@ is the context that explains how the wiki itself works:
 | Page | Covers |
 | --- | --- |
 | [Default open-source process](docs/references/guides/default-open-source-process.md) | Complete default model: entities, ingestion, gates and PR flow |
+| [Web cockpit deployment adapters](docs/references/guides/web-cockpit-deployment.md) | Runtime config plus Vercel read-only and GCP controlled-operator examples |
 | [Root entity](memories/system/wiki-viva-kit.md) | Semantic top page for this kit and its integral quadrants |
 | [Input stage](memories/system/input-stage.md) | Generated catalog of root entity, channels, source configs and target pages |
 | [Meta-wiki index](memories/system/wiki/index.md) | Map of all documentation |

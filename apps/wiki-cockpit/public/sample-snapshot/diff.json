@@ -1,0 +1,89 @@
+{
+  "available": true,
+  "commands": [
+    [
+      "git",
+      "diff",
+      "--stat",
+      "abc123def456..HEAD"
+    ],
+    [
+      "git",
+      "diff",
+      "--name-status",
+      "abc123def456..HEAD"
+    ],
+    [
+      "git",
+      "diff",
+      "--stat"
+    ],
+    [
+      "git",
+      "diff",
+      "--name-status"
+    ]
+  ],
+  "compare": {
+    "base_ref": "main",
+    "current_branch": "wiki/sample-cockpit",
+    "default_branch": "main",
+    "head_commit": "def456abc123",
+    "merge_base": "abc123def456"
+  },
+  "files": [
+    {
+      "additions": 12,
+      "category": "docs",
+      "change_sources": [
+        "branch",
+        "working_tree"
+      ],
+      "deletions": 2,
+      "known_generated": false,
+      "path": "docs/references/proposals/threejs-operational-dashboard-plan-2026-07-01.md",
+      "preview": [
+        "@@ -188 +188 @@",
+        "+The cockpit should operate review state as a human workflow.",
+        "+Approval requests remain the human gate for canonical memory."
+      ],
+      "risk_hints": [
+        "method_contract"
+      ],
+      "staged": false,
+      "status": "M",
+      "unstaged": true
+    },
+    {
+      "additions": 8,
+      "category": "web_cockpit",
+      "change_sources": [
+        "branch"
+      ],
+      "deletions": 0,
+      "known_generated": false,
+      "path": "apps/wiki-cockpit/src/App.tsx",
+      "preview": [
+        "@@ -259 +259 @@",
+        "+<DiffFilmstrip bundle={bundle} />"
+      ],
+      "risk_hints": [],
+      "staged": false,
+      "status": "M",
+      "unstaged": false
+    }
+  ],
+  "repo_id": "wiki-viva-kit-sample",
+  "schema_version": "wiki_web_diff.v1",
+  "summary": {
+    "branch_file_count": 2,
+    "deletions": 2,
+    "file_count": 2,
+    "insertions": 20,
+    "privacy_review_required": false,
+    "status_counts": {
+      "M": 2
+    },
+    "working_tree_file_count": 1
+  }
+}

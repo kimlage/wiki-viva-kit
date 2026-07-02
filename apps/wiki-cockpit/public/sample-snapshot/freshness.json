@@ -1,0 +1,57 @@
+{
+ "by_context": {
+  "example": {
+   "fresh": 1,
+   "stale": 1,
+   "unknown": 0
+  },
+  "finance": {
+   "fresh": 2,
+   "stale": 2,
+   "unknown": 0
+  },
+  "product": {
+   "fresh": 7,
+   "stale": 0,
+   "unknown": 1
+  },
+  "research": {
+   "fresh": 6,
+   "stale": 1,
+   "unknown": 0
+  },
+  "system": {
+   "fresh": 7,
+   "stale": 0,
+   "unknown": 0
+  }
+ },
+ "schema_version": "wiki_web_freshness.v1",
+ "stale_pages": [
+  {
+   "context": "example",
+   "path": "memories/example/index.md",
+   "title": "Example Context"
+  },
+  {
+   "context": "research",
+   "path": "memories/claims/infra-cost-growth.md",
+   "title": "Infra Cost Grows 8 Percent Monthly"
+  },
+  {
+   "context": "finance",
+   "path": "memories/finance/index.md",
+   "title": "Finance Area"
+  },
+  {
+   "context": "finance",
+   "path": "memories/finance/budget-2026.md",
+   "title": "Budget 2026"
+  }
+ ],
+ "summary": {
+  "fresh": 23,
+  "stale": 4,
+  "unknown": 1
+ }
+}

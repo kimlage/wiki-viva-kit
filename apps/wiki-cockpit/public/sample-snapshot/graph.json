@@ -1,0 +1,866 @@
+{
+ "edges": [
+  {
+   "source": "sample-example-hub",
+   "status": "valid",
+   "target": "sample-root",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-example-hub",
+   "status": "valid",
+   "target": "sample-source",
+   "type": "source_ref",
+   "weight": 1
+  },
+  {
+   "source": "sample-approval-governance",
+   "status": "valid",
+   "target": "sample-root",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-daily-operation",
+   "status": "valid",
+   "target": "sample-root",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-source-registry",
+   "status": "valid",
+   "target": "sample-root",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-input-stage",
+   "status": "valid",
+   "target": "sample-root",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-person-owner",
+   "status": "valid",
+   "target": "sample-root",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-product-hub",
+   "status": "valid",
+   "target": "sample-root",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-product-overview",
+   "status": "valid",
+   "target": "sample-product-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-product-roadmap",
+   "status": "valid",
+   "target": "sample-product-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-product-metrics",
+   "status": "valid",
+   "target": "sample-product-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-onboarding-journal",
+   "status": "valid",
+   "target": "sample-product-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-decision-onboarding",
+   "status": "valid",
+   "target": "sample-product-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-decision-onboarding",
+   "status": "valid",
+   "target": "sample-source-usage-metrics",
+   "type": "source_ref",
+   "weight": 1
+  },
+  {
+   "source": "sample-action-update-pricing-page",
+   "status": "valid",
+   "target": "sample-product-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-research-hub",
+   "status": "valid",
+   "target": "sample-root",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-claim-onboarding",
+   "status": "valid",
+   "target": "sample-research-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-claim-onboarding",
+   "status": "valid",
+   "target": "sample-source-interview-notes",
+   "type": "source_ref",
+   "weight": 1
+  },
+  {
+   "source": "sample-claim-onboarding",
+   "status": "valid",
+   "target": "sample-source-usage-metrics",
+   "type": "source_ref",
+   "weight": 1
+  },
+  {
+   "source": "sample-claim-costs",
+   "status": "valid",
+   "target": "sample-research-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-claim-costs",
+   "status": "valid",
+   "target": "sample-source-market-report",
+   "type": "source_ref",
+   "weight": 1
+  },
+  {
+   "source": "sample-persona-map",
+   "status": "valid",
+   "target": "sample-research-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-meeting-research-sync",
+   "status": "valid",
+   "target": "sample-research-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-action-interviews",
+   "status": "valid",
+   "target": "sample-research-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-finance-hub",
+   "status": "valid",
+   "target": "sample-root",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-budget-2026",
+   "status": "valid",
+   "target": "sample-finance-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-decision-pricing",
+   "status": "valid",
+   "target": "sample-finance-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-decision-pricing",
+   "status": "valid",
+   "target": "sample-source-market-report",
+   "type": "source_ref",
+   "weight": 1
+  },
+  {
+   "source": "sample-event-market-report",
+   "status": "valid",
+   "target": "sample-root",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-event-market-report",
+   "status": "valid",
+   "target": "sample-source-market-report",
+   "type": "source_ref",
+   "weight": 1
+  },
+  {
+   "source": "sample-source",
+   "status": "valid",
+   "target": "sample-example-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-source-interview-notes",
+   "status": "valid",
+   "target": "sample-research-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-source-usage-metrics",
+   "status": "valid",
+   "target": "sample-product-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-source-market-report",
+   "status": "valid",
+   "target": "sample-finance-hub",
+   "type": "moc_parent",
+   "weight": 2
+  },
+  {
+   "source": "sample-root",
+   "status": "valid",
+   "target": "sample-example-hub",
+   "type": "markdown_link",
+   "weight": 1
+  },
+  {
+   "source": "sample-product-roadmap",
+   "status": "valid",
+   "target": "sample-claim-onboarding",
+   "type": "markdown_link",
+   "weight": 1
+  },
+  {
+   "source": "sample-product-overview",
+   "status": "valid",
+   "target": "sample-persona-map",
+   "type": "markdown_link",
+   "weight": 1
+  },
+  {
+   "source": "sample-budget-2026",
+   "status": "valid",
+   "target": "sample-claim-costs",
+   "type": "markdown_link",
+   "weight": 1
+  },
+  {
+   "source": "sample-daily-operation",
+   "status": "valid",
+   "target": "sample-source-registry",
+   "type": "markdown_link",
+   "weight": 1
+  },
+  {
+   "source": "sample-meeting-research-sync",
+   "status": "valid",
+   "target": "sample-claim-onboarding",
+   "type": "markdown_link",
+   "weight": 1
+  },
+  {
+   "source": "sample-decision-onboarding",
+   "status": "valid",
+   "target": "sample-claim-onboarding",
+   "type": "markdown_link",
+   "weight": 1
+  },
+  {
+   "source": "sample-source-market-report",
+   "status": "valid",
+   "target": "sample-event-market-report",
+   "type": "ingestion_chain",
+   "weight": 2
+  },
+  {
+   "source": "sample-event-market-report",
+   "status": "proposal",
+   "target": "sample-decision-pricing",
+   "type": "ingestion_chain",
+   "weight": 2
+  },
+  {
+   "source": "sample-approval-governance",
+   "status": "proposal",
+   "target": "sample-decision-pricing",
+   "type": "pr_impact",
+   "weight": 1
+  },
+  {
+   "source": "sample-approval-governance",
+   "status": "proposal",
+   "target": "sample-action-update-pricing-page",
+   "type": "pr_impact",
+   "weight": 1
+  }
+ ],
+ "nodes": [
+  {
+   "approved_state": "approved",
+   "context": "system",
+   "freshness_state": "fresh",
+   "id": "sample-root",
+   "metrics": {
+    "inbound_links": 10,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "root_index",
+   "path": "memories/index.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Sample Memory",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "example",
+   "freshness_state": "stale",
+   "id": "sample-example-hub",
+   "metrics": {
+    "inbound_links": 2,
+    "outbound_links": 2,
+    "source_ref_count": 1
+   },
+   "page_type": "context_hub",
+   "path": "memories/example/index.md",
+   "risk_flags": [
+    "stale"
+   ],
+   "stale_after_days": "7",
+   "status": "active",
+   "title": "Example Context",
+   "updated_at": "2026-06-20",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "proposal",
+   "context": "system",
+   "freshness_state": "fresh",
+   "id": "sample-approval-governance",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 3,
+    "source_ref_count": 0
+   },
+   "page_type": "operational_rule",
+   "path": "memories/system/wiki/pr-governance.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Approval Governance",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "system",
+   "freshness_state": "fresh",
+   "id": "sample-daily-operation",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 2,
+    "source_ref_count": 0
+   },
+   "page_type": "operational_rule",
+   "path": "memories/system/wiki/daily-operation.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Daily Operation Guide",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "system",
+   "freshness_state": "fresh",
+   "id": "sample-source-registry",
+   "metrics": {
+    "inbound_links": 1,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "source_registry",
+   "path": "memories/system/source-registry.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Source Registry",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "system",
+   "freshness_state": "fresh",
+   "id": "sample-input-stage",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "input_stage",
+   "path": "memories/system/input-stage.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Input Stage",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "system",
+   "freshness_state": "fresh",
+   "id": "sample-person-owner",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "person",
+   "path": "memories/people/alex-operator.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Alex Operator",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-product-hub",
+   "metrics": {
+    "inbound_links": 7,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "context_hub",
+   "path": "memories/product/index.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Product Area",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-product-overview",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 2,
+    "source_ref_count": 0
+   },
+   "page_type": "context_note",
+   "path": "memories/product/overview.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Product Overview",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-product-roadmap",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 2,
+    "source_ref_count": 0
+   },
+   "page_type": "project",
+   "path": "memories/product/roadmap.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Product Roadmap",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "unknown",
+   "id": "sample-product-metrics",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "dashboard",
+   "path": "memories/product/metrics.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Usage Dashboard",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-onboarding-journal",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "journal_entry",
+   "path": "memories/product/onboarding-journal.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Onboarding Redesign Journal",
+   "updated_at": "2026-06-27",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-decision-onboarding",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 3,
+    "source_ref_count": 1
+   },
+   "page_type": "decision",
+   "path": "memories/decisions/redesign-onboarding.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Redesign Onboarding Flow",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "proposal",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-action-update-pricing-page",
+   "metrics": {
+    "inbound_links": 1,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "action",
+   "path": "memories/actions/update-pricing-docs.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Update Pricing Docs",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "research",
+   "freshness_state": "fresh",
+   "id": "sample-research-hub",
+   "metrics": {
+    "inbound_links": 6,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "context_hub",
+   "path": "memories/research/index.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Research Area",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "research",
+   "freshness_state": "fresh",
+   "id": "sample-claim-onboarding",
+   "metrics": {
+    "inbound_links": 3,
+    "outbound_links": 3,
+    "source_ref_count": 2
+   },
+   "page_type": "claim",
+   "path": "memories/claims/onboarding-drop.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Users Drop At Onboarding Step 3",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "research",
+   "freshness_state": "stale",
+   "id": "sample-claim-costs",
+   "metrics": {
+    "inbound_links": 1,
+    "outbound_links": 2,
+    "source_ref_count": 1
+   },
+   "page_type": "claim",
+   "path": "memories/claims/infra-cost-growth.md",
+   "risk_flags": [
+    "stale"
+   ],
+   "stale_after_days": "21",
+   "status": "active",
+   "title": "Infra Cost Grows 8 Percent Monthly",
+   "updated_at": "2026-05-30",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "research",
+   "freshness_state": "fresh",
+   "id": "sample-persona-map",
+   "metrics": {
+    "inbound_links": 1,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "relationship_map",
+   "path": "memories/research/persona-map.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Persona Relationship Map",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "research",
+   "freshness_state": "fresh",
+   "id": "sample-meeting-research-sync",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 2,
+    "source_ref_count": 0
+   },
+   "page_type": "meeting",
+   "path": "memories/meetings/2026-06-28-research-sync.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Research Sync 2026-06-28",
+   "updated_at": "2026-06-28",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "research",
+   "freshness_state": "fresh",
+   "id": "sample-action-interviews",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "action",
+   "path": "memories/actions/follow-up-interviews.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Schedule Follow-Up Interviews",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "finance",
+   "freshness_state": "stale",
+   "id": "sample-finance-hub",
+   "metrics": {
+    "inbound_links": 3,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "context_hub",
+   "path": "memories/finance/index.md",
+   "risk_flags": [
+    "stale"
+   ],
+   "stale_after_days": "14",
+   "status": "active",
+   "title": "Finance Area",
+   "updated_at": "2026-06-05",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "finance",
+   "freshness_state": "stale",
+   "id": "sample-budget-2026",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 2,
+    "source_ref_count": 0
+   },
+   "page_type": "context_note",
+   "path": "memories/finance/budget-2026.md",
+   "risk_flags": [
+    "stale"
+   ],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Budget 2026",
+   "updated_at": "2026-05-15",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "proposal",
+   "context": "finance",
+   "freshness_state": "fresh",
+   "id": "sample-decision-pricing",
+   "metrics": {
+    "inbound_links": 2,
+    "outbound_links": 2,
+    "source_ref_count": 1
+   },
+   "page_type": "decision",
+   "path": "memories/decisions/usage-based-pricing.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Adopt Usage-Based Pricing",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "system",
+   "freshness_state": "fresh",
+   "id": "sample-event-market-report",
+   "metrics": {
+    "inbound_links": 1,
+    "outbound_links": 3,
+    "source_ref_count": 1
+   },
+   "page_type": "ingestion_event",
+   "path": "memories/system/ingestion/events/2026-06-29-market-report.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Market Report Ingestion",
+   "updated_at": "2026-06-29",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "example",
+   "freshness_state": "fresh",
+   "id": "sample-source",
+   "metrics": {
+    "inbound_links": 1,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "source",
+   "path": "memories/sources/sample-source.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Sample Source",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "research",
+   "freshness_state": "fresh",
+   "id": "sample-source-interview-notes",
+   "metrics": {
+    "inbound_links": 1,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "source",
+   "path": "memories/sources/customer-interviews-2026-06.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Customer Interview Notes",
+   "updated_at": "2026-06-26",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-source-usage-metrics",
+   "metrics": {
+    "inbound_links": 2,
+    "outbound_links": 1,
+    "source_ref_count": 0
+   },
+   "page_type": "source",
+   "path": "memories/sources/usage-metrics-2026-06.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Usage Metrics Export",
+   "updated_at": "2026-06-30",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "finance",
+   "freshness_state": "fresh",
+   "id": "sample-source-market-report",
+   "metrics": {
+    "inbound_links": 3,
+    "outbound_links": 2,
+    "source_ref_count": 0
+   },
+   "page_type": "source",
+   "path": "memories/sources/market-cost-report-2026.md",
+   "risk_flags": [
+    "public_boundary"
+   ],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Market Cost Report 2026",
+   "updated_at": "2026-06-29",
+   "visibility": "private_self"
+  }
+ ],
+ "repo_id": "wiki-viva-kit-sample",
+ "schema_version": "wiki_web_graph.v1",
+ "wanted_pages": []
+}

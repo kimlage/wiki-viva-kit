@@ -1,0 +1,56 @@
+{
+  "actions": [
+    {
+      "commands": [
+        {
+          "argv": ["python3", "scripts/wiki_audit.py", "--check"],
+          "label": "wiki audit",
+          "writes": false
+        },
+        {
+          "argv": ["python3", "scripts/wiki_operation_compile.py", "--check"],
+          "label": "wiki operation compile",
+          "writes": false
+        }
+      ],
+      "default_dry_run": false,
+      "human_reason": "Runs deterministic checks before the approval request reaches the human gate.",
+      "id": "run-honesty-gates",
+      "kind": "review",
+      "risk_level": "read",
+      "title": "Run local honesty gates"
+    },
+    {
+      "commands": [
+        {
+          "argv": ["python3", "scripts/wiki_pr_summary.py"],
+          "label": "wiki pr summary",
+          "writes": false
+        }
+      ],
+      "default_dry_run": false,
+      "human_reason": "Builds a review packet from the changed content and privacy notes.",
+      "id": "pr-summary",
+      "kind": "approve",
+      "risk_level": "read",
+      "title": "Build review packet"
+    },
+    {
+      "commands": [
+        {
+          "argv": ["git", "diff", "--stat"],
+          "label": "git diff --stat",
+          "writes": false
+        }
+      ],
+      "default_dry_run": false,
+      "human_reason": "Shows changed content before it is saved or sent for review.",
+      "id": "review-local-changes",
+      "kind": "review",
+      "risk_level": "read",
+      "title": "Review local changes"
+    }
+  ],
+  "repo_id": "wiki-viva-kit-sample",
+  "schema_version": "wiki_web_actions.v1"
+}

@@ -1,0 +1,42 @@
+{
+  "backlinks": [],
+  "body": "# Usage Dashboard\n\nWeekly usage dashboard compiled from the metrics export.\n\n## Situação\n\n- Área: product\n- Tipo: dashboard\n- Frescor: unknown\n- Atualizado: 2026-07-01\n\n## Conexões\n\n- [Product Area](memories/product/index.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "product",
+    "page_type": "dashboard",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-07-01",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "product",
+    "freshness_state": "unknown",
+    "moc_parent": "memories/product/index.md",
+    "page_id": "sample-product-metrics",
+    "page_type": "dashboard",
+    "path": "memories/product/metrics.md",
+    "summary": "Weekly usage dashboard compiled from the metrics export.",
+    "summary_truncated": false,
+    "title": "Usage Dashboard",
+    "updated_at": "2026-07-01"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "href": "memories/product/index.md",
+      "kind": "page",
+      "page_id": "sample-product-hub",
+      "page_type": "context_hub",
+      "path": "memories/product/index.md",
+      "text": "Product Area",
+      "title": "Product Area"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

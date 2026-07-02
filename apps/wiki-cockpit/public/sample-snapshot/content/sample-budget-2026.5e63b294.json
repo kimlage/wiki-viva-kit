@@ -1,0 +1,54 @@
+{
+  "backlinks": [],
+  "body": "# Budget 2026\n\nAnnual budget assumptions; the infra cost line is under review.\n\n## Situação\n\n- Área: finance\n- Tipo: context_note\n- Frescor: stale\n- Atualizado: 2026-05-15\n\n## Conexões\n\n- [Finance Area](memories/finance/index.md) — página relacionada\n- [Infra Cost Grows 8 Percent Monthly](memories/claims/infra-cost-growth.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "finance",
+    "page_type": "context_note",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-05-15",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "finance",
+    "freshness_state": "stale",
+    "moc_parent": "memories/finance/index.md",
+    "page_id": "sample-budget-2026",
+    "page_type": "context_note",
+    "path": "memories/finance/budget-2026.md",
+    "summary": "Annual budget assumptions; the infra cost line is under review.",
+    "summary_truncated": false,
+    "title": "Budget 2026",
+    "updated_at": "2026-05-15"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "stale",
+      "href": "memories/finance/index.md",
+      "kind": "page",
+      "page_id": "sample-finance-hub",
+      "page_type": "context_hub",
+      "path": "memories/finance/index.md",
+      "text": "Finance Area",
+      "title": "Finance Area"
+    },
+    {
+      "approved_state": "approved",
+      "context": "research",
+      "freshness_state": "stale",
+      "href": "memories/claims/infra-cost-growth.md",
+      "kind": "page",
+      "page_id": "sample-claim-costs",
+      "page_type": "claim",
+      "path": "memories/claims/infra-cost-growth.md",
+      "text": "Infra Cost Grows 8 Percent Monthly",
+      "title": "Infra Cost Grows 8 Percent Monthly"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

@@ -1,0 +1,21 @@
+{
+ "quality_flags": {
+  "bad_repetition_blocks": [],
+  "events_without_consolidated_into": [],
+  "low_information_density_pages": [
+   "memories/example/index.md"
+  ]
+ },
+ "schema_version": "wiki_quality_report.v1",
+ "summary": {
+  "contexts": {
+   "example": 2,
+   "finance": 4,
+   "product": 8,
+   "research": 7,
+   "system": 7
+  },
+  "low_information_density_pages": 1,
+  "pages_total": 28
+ }
+}

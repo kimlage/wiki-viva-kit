@@ -1,0 +1,85 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "proposal",
+      "context": "finance",
+      "freshness_state": "fresh",
+      "page_id": "sample-decision-pricing",
+      "page_type": "decision",
+      "path": "memories/decisions/usage-based-pricing.md",
+      "relation": "source_ref",
+      "title": "Adopt Usage-Based Pricing"
+    },
+    {
+      "approved_state": "approved",
+      "context": "research",
+      "freshness_state": "stale",
+      "page_id": "sample-claim-costs",
+      "page_type": "claim",
+      "path": "memories/claims/infra-cost-growth.md",
+      "relation": "source_ref",
+      "title": "Infra Cost Grows 8 Percent Monthly"
+    },
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "page_id": "sample-event-market-report",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/2026-06-29-market-report.md",
+      "relation": "source_ref",
+      "title": "Market Report Ingestion"
+    }
+  ],
+  "body": "# Market Cost Report 2026\n\nExternal cost benchmark; check the public boundary before sharing.\n\n## Situação\n\n- Área: finance\n- Tipo: source\n- Frescor: fresh\n- Atualizado: 2026-06-29\n\n## Conexões\n\n- [Finance Area](memories/finance/index.md) — página relacionada\n- [Market Report Ingestion](memories/system/ingestion/events/2026-06-29-market-report.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "finance",
+    "page_type": "source",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-06-29",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "finance",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/finance/index.md",
+    "page_id": "sample-source-market-report",
+    "page_type": "source",
+    "path": "memories/sources/market-cost-report-2026.md",
+    "summary": "External cost benchmark; check the public boundary before sharing.",
+    "summary_truncated": false,
+    "title": "Market Cost Report 2026",
+    "updated_at": "2026-06-29"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "stale",
+      "href": "memories/finance/index.md",
+      "kind": "page",
+      "page_id": "sample-finance-hub",
+      "page_type": "context_hub",
+      "path": "memories/finance/index.md",
+      "text": "Finance Area",
+      "title": "Finance Area"
+    },
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "href": "memories/system/ingestion/events/2026-06-29-market-report.md",
+      "kind": "page",
+      "page_id": "sample-event-market-report",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/2026-06-29-market-report.md",
+      "text": "Market Report Ingestion",
+      "title": "Market Report Ingestion"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

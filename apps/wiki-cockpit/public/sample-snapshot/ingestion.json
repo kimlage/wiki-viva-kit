@@ -1,0 +1,8 @@
+{
+  "metrics": {
+    "closed_events": 1,
+    "ingested_sources": 1,
+    "sources_without_closed_event": 0
+  },
+  "schema_version": "wiki_ingestion_closure.v1"
+}

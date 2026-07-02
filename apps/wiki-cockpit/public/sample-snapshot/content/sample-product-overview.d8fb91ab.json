@@ -1,0 +1,54 @@
+{
+  "backlinks": [],
+  "body": "# Product Overview\n\nWhat the sample product does and who uses it.\n\n## Situação\n\n- Área: product\n- Tipo: context_note\n- Frescor: fresh\n- Atualizado: 2026-07-01\n\n## Conexões\n\n- [Product Area](memories/product/index.md) — página relacionada\n- [Persona Relationship Map](memories/research/persona-map.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "product",
+    "page_type": "context_note",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-07-01",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "product",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/product/index.md",
+    "page_id": "sample-product-overview",
+    "page_type": "context_note",
+    "path": "memories/product/overview.md",
+    "summary": "What the sample product does and who uses it.",
+    "summary_truncated": false,
+    "title": "Product Overview",
+    "updated_at": "2026-07-01"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "href": "memories/product/index.md",
+      "kind": "page",
+      "page_id": "sample-product-hub",
+      "page_type": "context_hub",
+      "path": "memories/product/index.md",
+      "text": "Product Area",
+      "title": "Product Area"
+    },
+    {
+      "approved_state": "approved",
+      "context": "research",
+      "freshness_state": "fresh",
+      "href": "memories/research/persona-map.md",
+      "kind": "page",
+      "page_id": "sample-persona-map",
+      "page_type": "relationship_map",
+      "path": "memories/research/persona-map.md",
+      "text": "Persona Relationship Map",
+      "title": "Persona Relationship Map"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

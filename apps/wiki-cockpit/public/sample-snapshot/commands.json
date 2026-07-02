@@ -1,0 +1,25 @@
+{
+  "commands": [
+    {
+      "argv": ["python3", "scripts/wiki_audit.py", "--check"],
+      "label": "wiki audit",
+      "writes": false
+    },
+    {
+      "argv": ["python3", "scripts/wiki_operation_compile.py", "--check"],
+      "label": "wiki operation compile",
+      "writes": false
+    },
+    {
+      "argv": ["python3", "scripts/wiki_pr_summary.py"],
+      "label": "wiki pr summary",
+      "writes": false
+    },
+    {
+      "argv": ["git", "diff", "--stat"],
+      "label": "git diff --stat",
+      "writes": false
+    }
+  ],
+  "schema_version": "wiki_web_commands.v1"
+}

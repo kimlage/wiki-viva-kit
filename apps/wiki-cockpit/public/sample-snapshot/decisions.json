@@ -1,0 +1,43 @@
+{
+ "decisions": [
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-decision-onboarding",
+   "moc_parent": "memories/product/index.md",
+   "page_type": "decision",
+   "path": "memories/decisions/redesign-onboarding.md",
+   "risk_flags": [],
+   "source_refs": [
+    "sample-source-usage-metrics"
+   ],
+   "stale_after_days": "30",
+   "status": "active",
+   "summary": "Approved decision to rebuild onboarding around step 3 drop-off.",
+   "title": "Redesign Onboarding Flow",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "proposal",
+   "context": "finance",
+   "freshness_state": "fresh",
+   "id": "sample-decision-pricing",
+   "moc_parent": "memories/finance/index.md",
+   "page_type": "decision",
+   "path": "memories/decisions/usage-based-pricing.md",
+   "risk_flags": [],
+   "source_refs": [
+    "sample-source-market-report"
+   ],
+   "stale_after_days": "30",
+   "status": "active",
+   "summary": "Draft decision waiting on the human gate; links to the market report.",
+   "title": "Adopt Usage-Based Pricing",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
+  }
+ ],
+ "schema_version": "wiki_web_decisions.v1"
+}

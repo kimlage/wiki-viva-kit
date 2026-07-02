@@ -1,0 +1,53 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "proposal",
+      "context": "system",
+      "freshness_state": "fresh",
+      "page_id": "sample-approval-governance",
+      "page_type": "operational_rule",
+      "path": "memories/system/wiki/pr-governance.md",
+      "relation": "pr_impact",
+      "title": "Approval Governance"
+    }
+  ],
+  "body": "# Update Pricing Docs\n\nDraft task: align public pricing docs with the new usage-based model.\n\n## Situação\n\n- Área: product\n- Tipo: action\n- Frescor: fresh\n- Atualizado: 2026-07-01\n\n## Conexões\n\n- [Product Area](memories/product/index.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "product",
+    "page_type": "action",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-07-01",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "proposal",
+    "context": "product",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/product/index.md",
+    "page_id": "sample-action-update-pricing-page",
+    "page_type": "action",
+    "path": "memories/actions/update-pricing-docs.md",
+    "summary": "Draft task: align public pricing docs with the new usage-based model.",
+    "summary_truncated": false,
+    "title": "Update Pricing Docs",
+    "updated_at": "2026-07-01"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "href": "memories/product/index.md",
+      "kind": "page",
+      "page_id": "sample-product-hub",
+      "page_type": "context_hub",
+      "path": "memories/product/index.md",
+      "text": "Product Area",
+      "title": "Product Area"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

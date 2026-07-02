@@ -1,0 +1,78 @@
+{
+  "backlinks": [],
+  "body": "# Redesign Onboarding Flow\n\nApproved decision to rebuild onboarding around step 3 drop-off.\n\n## Situação\n\n- Área: product\n- Tipo: decision\n- Frescor: fresh\n- Atualizado: 2026-07-01\n\n## Conexões\n\n- [Product Area](memories/product/index.md) — página relacionada\n- [Usage Metrics Export](memories/sources/usage-metrics-2026-06.md) — fonte de evidência\n- [Users Drop At Onboarding Step 3](memories/claims/onboarding-drop.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "product",
+    "page_type": "decision",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-07-01",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "product",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/product/index.md",
+    "page_id": "sample-decision-onboarding",
+    "page_type": "decision",
+    "path": "memories/decisions/redesign-onboarding.md",
+    "summary": "Approved decision to rebuild onboarding around step 3 drop-off.",
+    "summary_truncated": false,
+    "title": "Redesign Onboarding Flow",
+    "updated_at": "2026-07-01"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "href": "memories/product/index.md",
+      "kind": "page",
+      "page_id": "sample-product-hub",
+      "page_type": "context_hub",
+      "path": "memories/product/index.md",
+      "text": "Product Area",
+      "title": "Product Area"
+    },
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "href": "memories/sources/usage-metrics-2026-06.md",
+      "kind": "page",
+      "page_id": "sample-source-usage-metrics",
+      "page_type": "source",
+      "path": "memories/sources/usage-metrics-2026-06.md",
+      "text": "Usage Metrics Export",
+      "title": "Usage Metrics Export"
+    },
+    {
+      "approved_state": "approved",
+      "context": "research",
+      "freshness_state": "fresh",
+      "href": "memories/claims/onboarding-drop.md",
+      "kind": "page",
+      "page_id": "sample-claim-onboarding",
+      "page_type": "claim",
+      "path": "memories/claims/onboarding-drop.md",
+      "text": "Users Drop At Onboarding Step 3",
+      "title": "Users Drop At Onboarding Step 3"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "page_id": "sample-source-usage-metrics",
+      "page_type": "source",
+      "path": "memories/sources/usage-metrics-2026-06.md",
+      "ref": "sample-source-usage-metrics",
+      "resolved": true,
+      "title": "Usage Metrics Export"
+    }
+  ]
+}

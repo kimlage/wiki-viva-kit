@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-06-26
+updated_at: 2026-07-01
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,70 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-07-01] System | Cockpit core routes have DOM visual smoke coverage
+
+- The React cockpit test suite now renders `/ops`, `/review`, `/sources`,
+  `/health` and `/pages/:id` under a DOM test environment with the Three.js
+  scene mocked as a textual fallback.
+- This gives the route layout and 2D evidence surfaces regression coverage
+  before adding heavier screenshot-based visual tests.
+- `SystemScene` itself now falls back to a 2D branch/node freshness panel when
+  WebGL is unavailable or reduced-motion is requested.
+
+## [2026-07-01] System | Web snapshot carries downstream context metadata
+
+- The web snapshot manifest now includes `default_context` and `karma_enabled`
+  alongside `memory_root`, letting the cockpit avoid hardcoded `system` fallback
+  for localized downstream repos.
+- Snapshot tests now include a dense synthetic `memorias/` fixture with context
+  `financeiro` and karma disabled, proving the public kit behavior without
+  private downstream data.
+
+## [2026-07-01] System | Web cockpit runtime config supports deploy adapters
+
+- The web cockpit now reads `wiki-cockpit.config.json` at runtime, separating
+  `api_base`, `snapshot_base`, `repo_label` and `mode` from the compiled React
+  bundle.
+- [web-cockpit-deployment.md](../../docs/references/guides/web-cockpit-deployment.md)
+  documents Vercel as static/read-only and GCP Cloud Run as a future controlled
+  operator adapter that must still write through proposal branches and PRs.
+
+## [2026-07-01] System | Source inbox gains ingestion wizard pipeline
+
+- The `/sources` cockpit view now builds a local ingestion plan after source
+  triage, showing the ordered pipeline from source pre-scan to proposal preview,
+  ingest dry-run, LLM request handoff and PR gate.
+- The operator API gained `/api/ingestion/plan` and `/api/ingestion/run`, both
+  backed by the existing deterministic CLIs rather than a parallel ingestion
+  path.
+- Write steps remain dry-run by default and are constrained by proposal-branch
+  conditions, preserving the GitHub PR human gate.
+
+## [2026-07-01] System | Local cockpit operates proposal Git and source triage
+
+- The localhost operator API now separates fixed allowlisted actions from
+  proposal Git workflows: `/api/git/workflow` supports proposal branch creation,
+  proposal switching, staging known changed paths, committing, publishing and
+  opening draft PRs with dry-run as the UI default.
+- The cockpit gained a `/sources` view backed by `/api/sources/triage`; it
+  previews deterministic source manifests, `wiki.targets.yaml` targets and
+  detector findings before any ingestion persistence.
+- [threejs-operational-dashboard-plan-2026-07-01.md](../../docs/references/proposals/threejs-operational-dashboard-plan-2026-07-01.md)
+  now records this local-first implementation boundary and keeps Vercel/GCP as
+  later deployment adapters rather than prerequisites.
+
+## [2026-07-01] System | Local web cockpit command surface documented
+
+- [command-reference.md](wiki/command-reference.md) now documents the local web
+  cockpit CLIs: [wiki_web_snapshot.py](../../scripts/wiki_web_snapshot.py)
+  generates the static/local JSON read model, and
+  [wiki_web_server.py](../../scripts/wiki_web_server.py) serves the
+  localhost-only operator API with allowlisted actions.
+- The command lifecycle now includes optional
+  [wiki_web_snapshot.py](../../scripts/wiki_web_snapshot.py) output before PR
+  validation, keeping the web interface tied to deterministic Markdown/Git
+  state instead of a separate database.
 
 ## [2026-06-26] System | AQAL quadrant contract exposed for external consumers
 

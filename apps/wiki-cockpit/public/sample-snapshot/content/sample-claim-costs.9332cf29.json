@@ -1,0 +1,77 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "stale",
+      "page_id": "sample-budget-2026",
+      "page_type": "context_note",
+      "path": "memories/finance/budget-2026.md",
+      "relation": "markdown_link",
+      "title": "Budget 2026"
+    }
+  ],
+  "body": "# Infra Cost Grows 8 Percent Monthly\n\nCost growth claim that needs a re-read of the market report.\n\n## Situação\n\n- Área: research\n- Tipo: claim\n- Frescor: stale\n- Atualizado: 2026-05-30\n\n## Conexões\n\n- [Research Area](memories/research/index.md) — página relacionada\n- [Market Cost Report 2026](memories/sources/market-cost-report-2026.md) — fonte de evidência\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "research",
+    "page_type": "claim",
+    "stale_after_days": "21",
+    "status": "active",
+    "updated_at": "2026-05-30",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "research",
+    "freshness_state": "stale",
+    "moc_parent": "memories/research/index.md",
+    "page_id": "sample-claim-costs",
+    "page_type": "claim",
+    "path": "memories/claims/infra-cost-growth.md",
+    "summary": "Cost growth claim that needs a re-read of the market report.",
+    "summary_truncated": false,
+    "title": "Infra Cost Grows 8 Percent Monthly",
+    "updated_at": "2026-05-30"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "research",
+      "freshness_state": "fresh",
+      "href": "memories/research/index.md",
+      "kind": "page",
+      "page_id": "sample-research-hub",
+      "page_type": "context_hub",
+      "path": "memories/research/index.md",
+      "text": "Research Area",
+      "title": "Research Area"
+    },
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "fresh",
+      "href": "memories/sources/market-cost-report-2026.md",
+      "kind": "page",
+      "page_id": "sample-source-market-report",
+      "page_type": "source",
+      "path": "memories/sources/market-cost-report-2026.md",
+      "text": "Market Cost Report 2026",
+      "title": "Market Cost Report 2026"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "fresh",
+      "page_id": "sample-source-market-report",
+      "page_type": "source",
+      "path": "memories/sources/market-cost-report-2026.md",
+      "ref": "sample-source-market-report",
+      "resolved": true,
+      "title": "Market Cost Report 2026"
+    }
+  ]
+}
