@@ -679,6 +679,12 @@ function InstancedNodeMesh({
     <instancedMesh
       ref={ref}
       args={[undefined, undefined, Math.max(group.items.length, 1)]}
+      // Never frustum-cull: three culls an InstancedMesh by its GEOMETRY
+      // bounding sphere (a unit sphere at the origin), not by the instance
+      // spread, so drilling/focusing away from the center would cull the whole
+      // mesh — every node would vanish and become unclickable. Counts are
+      // capped at ~160, so skipping the cull test is free.
+      frustumCulled={false}
       onClick={(event) => {
         event.stopPropagation();
         if (typeof event.instanceId === "number" && group.items[event.instanceId]) onSelect(group.items[event.instanceId]);
@@ -1576,6 +1582,7 @@ function SceneContent({
           ref={rootRef}
           position={rootNode.position}
           scale={rootNode.scale}
+          frustumCulled={false}
           onClick={(event) => {
             event.stopPropagation();
             onSelect(rootNode);
