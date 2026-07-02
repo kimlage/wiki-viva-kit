@@ -210,6 +210,12 @@ class WikiConfig:
     # off with `karma:\n  enabled: false` in wiki.config.yaml (then wiki_score is a
     # no-op and the cockpit omits the karma/score section).
     karma: dict[str, Any] = field(default_factory=lambda: {"enabled": True})
+    # Codex agentic missions (local Codex jobs → draft PRs from the cockpit).
+    # Opt-in feature, ENABLED by default so a machine with a usable Codex CLI can
+    # offer it; a repo/deploy turns it off with `codex:\n  enabled: false` in
+    # wiki.config.yaml (then the cockpit never advertises a Codex launch, even if
+    # the binary is present). `binary` overrides the CLI name/path.
+    codex: dict[str, Any] = field(default_factory=lambda: {"enabled": True, "binary": "codex"})
 
     @property
     def karma_enabled(self) -> bool:
@@ -217,6 +223,13 @@ class WikiConfig:
         if isinstance(value, bool):
             return value
         return _as_bool(value, field_name="karma.enabled")
+
+    @property
+    def codex_enabled(self) -> bool:
+        value = self.codex.get("enabled", True)
+        if isinstance(value, bool):
+            return value
+        return _as_bool(value, field_name="codex.enabled")
 
 
 def load_config(root: Path) -> WikiConfig:
@@ -264,6 +277,7 @@ def load_config(root: Path) -> WikiConfig:
         root_entity={**WikiConfig().root_entity, **dict(raw.get("root_entity", {}))},
         audit={**WikiConfig().audit, **dict(raw.get("audit", {}))},
         karma={**WikiConfig().karma, **dict(raw.get("karma", {}))},
+        codex={**WikiConfig().codex, **dict(raw.get("codex", {}))},
     )
 
 

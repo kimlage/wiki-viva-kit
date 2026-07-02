@@ -12,6 +12,7 @@ from urllib.parse import unquote, urlparse
 
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
+from wiki_core.web.codex_probe import probe_codex_for
 from wiki_core.web.commands import run_action
 from wiki_core.web.content import build_page_content
 from wiki_core.web.git_workflows import run_git_workflow
@@ -75,8 +76,12 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     "ok": True,
                     "repo": self.server.config.repo_id,
                     "snapshot_dir": self.server.snapshot_dir.relative_to(self.server.root).as_posix(),
+                    "codex": probe_codex_for(self.server.config),
                 }
             )
+            return
+        if path == "/api/codex/capability":
+            self._send_json(probe_codex_for(self.server.config))
             return
         if path == "/api/snapshot":
             self._send_json(self.server.snapshot_payloads())

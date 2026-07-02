@@ -316,6 +316,32 @@ export type WorkflowRunResult = {
   results: CommandResultEntry[];
 };
 
+// Live Codex capability from GET /api/codex/capability (mirrors
+// wiki_core.web.codex_probe). `usable` is the single flag the UI gates the
+// launch CTA on; `reason` is a ready-to-show plain-language explanation.
+export type CodexCapability = {
+  schema_version?: string;
+  enabled: boolean;
+  installed: boolean;
+  runnable: boolean;
+  authed: boolean;
+  auth_mode: string | null;
+  version: string | null;
+  usable: boolean;
+  reason: string;
+};
+
+export const CODEX_UNAVAILABLE: CodexCapability = {
+  enabled: true,
+  installed: false,
+  runnable: false,
+  authed: false,
+  auth_mode: null,
+  version: null,
+  usable: false,
+  reason: ""
+};
+
 export type SourceFinding = {
   kind: string;
   category: string;

@@ -231,6 +231,16 @@ const EN: Dict = {
   "demo.gitOff": "Demo: git workflows are disabled in this synthetic universe.",
   "demo.noteTitle": "Demo note",
 
+  // Codex agentic missions (capability states)
+  "codex.available": "Codex ready",
+  "codex.checking": "checking Codex…",
+  "codex.unavailable": "Codex not available",
+  "codex.notInstalled": "Codex is not installed",
+  "codex.notRunnable": "Codex is installed but not runnable",
+  "codex.notAuthed": "Codex is not signed in — run `codex login`",
+  "codex.disabled": "Codex is turned off for this wiki",
+  "codex.demoOff": "Codex runs only with the local operator",
+
   // Toasts
   "toast.packetAdded": "Added to the decision packet.",
   "toast.packetRemoved": "Removed from the packet.",
@@ -461,6 +471,15 @@ const PT: Dict = {
   "demo.gitOff": "Demo: fluxos git ficam desabilitados neste universo sintético.",
   "demo.noteTitle": "Nota do demo",
 
+  "codex.available": "Codex pronto",
+  "codex.checking": "verificando Codex…",
+  "codex.unavailable": "Codex indisponível",
+  "codex.notInstalled": "Codex não está instalado",
+  "codex.notRunnable": "Codex está instalado mas não executa",
+  "codex.notAuthed": "Codex não está conectado — rode `codex login`",
+  "codex.disabled": "Codex está desligado nesta wiki",
+  "codex.demoOff": "Codex só funciona com o operador local",
+
   "toast.packetAdded": "Adicionado ao pacote de decisão.",
   "toast.packetRemoved": "Removido do pacote.",
   "toast.viewResult": "Ver resultado",
@@ -533,6 +552,10 @@ export const GLOSSARY: Record<UiLanguage, Record<string, { title: string; body: 
   }
 };
 
+// Test-only: expose the raw key sets so a parity guard can assert EN and PT
+// stay in lockstep (a missing PT key silently ships English otherwise).
+export const __dictKeysForTest = { en: Object.keys(EN), pt: Object.keys(PT) };
+
 let language: UiLanguage = "en";
 let overrides: Dict = {};
 
@@ -558,4 +581,20 @@ export function t(key: string, params?: Record<string, string | number>): string
 
 export function glossary(term: string): { title: string; body: string } | null {
   return GLOSSARY[language][term] ?? GLOSSARY.en[term] ?? null;
+}
+
+// One localized headline for "why Codex can't run", derived from the capability
+// booleans (most-specific first). The raw server `reason` can be shown as a
+// technical secondary line; this is the human-facing headline.
+export function codexUnavailableReason(cap: {
+  enabled: boolean;
+  installed: boolean;
+  runnable: boolean;
+  authed: boolean;
+}): string {
+  if (!cap.enabled) return t("codex.disabled");
+  if (!cap.installed) return t("codex.notInstalled");
+  if (!cap.runnable) return t("codex.notRunnable");
+  if (!cap.authed) return t("codex.notAuthed");
+  return t("codex.unavailable");
 }

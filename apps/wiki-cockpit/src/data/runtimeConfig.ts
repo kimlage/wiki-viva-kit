@@ -9,6 +9,7 @@ export type RuntimeConfig = {
   language: string;
   strings: Record<string, string>;
   presentation: PresentationOverrides;
+  codexEnabled: boolean;
 };
 
 type RawRuntimeConfig = {
@@ -21,6 +22,7 @@ type RawRuntimeConfig = {
   page_types?: PresentationOverrides["page_types"];
   contexts?: PresentationOverrides["contexts"];
   trust_colors?: PresentationOverrides["trust_colors"];
+  codex?: { enabled?: boolean };
 };
 
 const DEFAULT_CONFIG: RuntimeConfig = {
@@ -30,7 +32,8 @@ const DEFAULT_CONFIG: RuntimeConfig = {
   mode: "local_operator",
   language: "",
   strings: {},
-  presentation: {}
+  presentation: {},
+  codexEnabled: true
 };
 
 let runtimeConfigPromise: Promise<RuntimeConfig> | null = null;
@@ -51,7 +54,8 @@ function normalize(raw: RawRuntimeConfig): RuntimeConfig {
       page_types: raw.page_types || {},
       contexts: raw.contexts || {},
       trust_colors: raw.trust_colors || {}
-    }
+    },
+    codexEnabled: raw.codex?.enabled !== false
   };
 }
 

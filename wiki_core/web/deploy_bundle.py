@@ -92,6 +92,11 @@ def write_deploy_bundle(
         "snapshot_base": clean_snapshot_base,
         "repo_label": repo_label.strip() or config.repo_id,
         "mode": runtime_mode,
+        # Static/hosted deploys can never *run* Codex (there is no operator
+        # server to launch it), but they still honor the repo's opt-out so the
+        # surface is hidden when codex.enabled is false. The live capability
+        # (installed/authed/usable) only ever comes from /api/codex/capability.
+        "codex": {"enabled": bool(config.codex_enabled)},
     }
     config_path = out_dir / "wiki-cockpit.config.json"
     proof_path = out_dir / "DEPLOYMENT.md"

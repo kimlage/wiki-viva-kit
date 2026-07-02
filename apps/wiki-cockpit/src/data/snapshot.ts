@@ -1,4 +1,5 @@
 import type {
+  CodexCapability,
   IngestionPlan,
   IngestionStepResult,
   PageContent,
@@ -6,6 +7,7 @@ import type {
   SourceTriageResult,
   WorkflowRunResult
 } from "../types";
+import { CODEX_UNAVAILABLE } from "../types";
 import type { RuntimeConfig } from "./runtimeConfig";
 import { apiUrl, loadRuntimeConfig } from "./runtimeConfig";
 
@@ -147,6 +149,30 @@ export async function loadPageContent(
     ok: false,
     error: lastError instanceof Error ? lastError.message : "conteúdo indisponível neste modo"
   };
+}
+
+// Live Codex capability. Only the local operator can run Codex, so demo/static
+// mode never fetches — it reports the honest "unavailable" record straight away.
+// A network/parse failure also degrades to unavailable rather than throwing:
+// the launch CTA must fail closed, never fake availability.
+export async function loadCodexCapability(runtime: RuntimeConfig): Promise<CodexCapability> {
+  if (runtime.mode === "static_demo" || !runtime.codexEnabled) {
+    return {
+      ...CODEX_UNAVAILABLE,
+      enabled: runtime.codexEnabled,
+      reason: runtime.codexEnabled
+        ? "Codex runs only with the local operator — not in this demo."
+        : "Codex is turned off for this wiki."
+    };
+  }
+  try {
+    const response = await fetch(await apiUrl("/codex/capability"), { headers: { accept: "application/json" } });
+    if (!response.ok) return { ...CODEX_UNAVAILABLE, reason: `capability check failed: ${response.status}` };
+    const payload = (await response.json()) as CodexCapability;
+    return { ...CODEX_UNAVAILABLE, ...payload };
+  } catch (error) {
+    return { ...CODEX_UNAVAILABLE, reason: error instanceof Error ? error.message : "capability check failed" };
+  }
 }
 
 export async function runCockpitAction(

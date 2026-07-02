@@ -2,5 +2,6 @@
   "api_base": "/api",
   "snapshot_base": "",
   "repo_label": "",
-  "mode": "local_operator"
+  "mode": "local_operator",
+  "codex": { "enabled": true }
 }
