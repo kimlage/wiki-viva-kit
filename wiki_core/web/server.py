@@ -8,7 +8,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
@@ -17,6 +17,7 @@ from wiki_core.web.codex_jobs import JobRunner
 from wiki_core.web.codex_probe import probe_codex_for
 from wiki_core.web.commands import run_action
 from wiki_core.web.content import build_page_content
+from wiki_core.web.diff import file_diff
 from wiki_core.web.gates import run_gate
 from wiki_core.web.git_workflows import run_git_workflow
 from wiki_core.web.ingestion_plan import build_ingestion_plan, run_ingestion_step
@@ -90,6 +91,11 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/codex/capability":
             self._send_json(probe_codex_for(self.server.config))
+            return
+        if path == "/api/diff/file":
+            file_path = (parse_qs(parsed.query).get("path") or [""])[0]
+            result = file_diff(self.server.root, self.server.config, file_path)
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
             return
         if path == "/api/briefs":
             store = BriefStore(self.server.root, self.server.config)

@@ -17,6 +17,7 @@ SCHEMA_CAPABILITIES = (
     "codex",  # /api/codex/capability + /api/codex/jobs
     "briefs",  # /api/briefs
     "gates",  # /api/gates/run (persisted receipts)
+    "diff",  # /api/diff/file (per-file full diff)
 )
 
 SNAPSHOT_FILES = (

@@ -21,6 +21,7 @@ import { useEffect, useMemo, useState } from "react";
 import { WorldView } from "./components/WorldView";
 import { BriefStudio } from "./components/BriefStudio";
 import { CodexDock } from "./components/CodexDock";
+import { GateDock } from "./components/GateDock";
 import { configureLanguage, t } from "./data/i18n";
 import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel } from "./data/presentation";
@@ -1646,6 +1647,13 @@ export function App() {
       .then(({ bundle, source, runtime }) => setRealState({ status: "ready", bundle, source, runtime }))
       .catch((error: Error) => setRealState({ status: "error", error: error.message }));
   }, []);
+  // Refetch the real bundle after a mutating action (e.g. running gates writes
+  // receipts) so the world reacts. Keeps the same runtime/source.
+  const refetchReal = () => {
+    loadSnapshotBundle({ demo: false })
+      .then(({ bundle, source, runtime }) => setRealState({ status: "ready", bundle, source, runtime }))
+      .catch(() => undefined);
+  };
   useEffect(() => {
     if (!route.demo || demoState.status === "ready") return;
     loadSnapshotBundle({ demo: true })
@@ -1689,6 +1697,14 @@ export function App() {
     loadState.status === "ready" ? loadState.runtime.language || loadState.bundle.manifest.repo.language : "en",
     loadState.status === "ready" ? loadState.runtime.strings : undefined
   );
+
+  // The legacy 2D pages dissolve into world docks. /review becomes the Gate
+  // (?dock=approve); bookmarks never break. (/sources, /health follow.)
+  useEffect(() => {
+    if (route.kind === "review") {
+      navigate(buildUrl(patchWorld(worldFromRoute(route), { dock: "approve" })), { replace: true });
+    }
+  }, [route.kind]);
 
   // Legacy alias: /pages/:id lands on the same page in the new world
   // (/w/atlas/:context/:group/:id?reader=1). /pages lists become the atlas.
@@ -1946,6 +1962,7 @@ export function App() {
   })();
 
   const codexDockOpen = route.kind === "world" && route.query.dock === "codex";
+  const gateDockOpen = route.kind === "world" && route.query.dock === "approve";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -1991,6 +2008,16 @@ export function App() {
             capability={codexCapability}
             busy={codexBusy}
             onReverify={reverifyCodex}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+          />
+        )}
+        {gateDockOpen && worldRoute && loadState.status === "ready" && (
+          <GateDock
+            bundle={loadState.bundle}
+            busy={Boolean(busyAction)}
+            onWorkflow={runWorkflow}
+            onNotice={notify}
+            onRefetch={refetchReal}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}

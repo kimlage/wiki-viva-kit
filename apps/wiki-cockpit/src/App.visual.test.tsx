@@ -271,7 +271,9 @@ vi.mock("./data/snapshot", () => ({
   listCodexJobs: vi.fn(async () => []),
   listBriefs: vi.fn(async () => []),
   streamCodexLog: vi.fn(async () => ""),
-  cancelCodexJob: vi.fn()
+  cancelCodexJob: vi.fn(),
+  loadFileDiff: vi.fn(async () => ({ ok: true, diff: [] })),
+  runGate: vi.fn(async () => ({ ok: true }))
 }));
 
 async function renderRoute(path: string) {
@@ -297,8 +299,8 @@ describe("visual route contract", () => {
     cleanup();
 
     await renderRoute("/review");
-    expect(await screen.findByRole("heading", { name: "Approval Inbox" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Scope to approve" })).toBeTruthy();
+    // /review dissolved into the world Gate dock (?dock=approve) — Aprovar died.
+    expect(await screen.findByRole("dialog", { name: "Approve changes" })).toBeTruthy();
     cleanup();
 
     await renderRoute("/sources");
