@@ -329,6 +329,9 @@ export type CodexCapability = {
   version: string | null;
   usable: boolean;
   reason: string;
+  // The local operator process predates the code on disk (its /api/health lacks
+  // the codex capability). This is rung 0 of the diagnostics ladder: restart it.
+  operator_outdated?: boolean;
 };
 
 export const CODEX_UNAVAILABLE: CodexCapability = {
@@ -339,7 +342,17 @@ export const CODEX_UNAVAILABLE: CodexCapability = {
   auth_mode: null,
   version: null,
   usable: false,
-  reason: ""
+  reason: "",
+  operator_outdated: false
+};
+
+// The operator handshake from GET /api/health — used to detect a stale operator.
+export type OperatorHealth = {
+  ok: boolean;
+  repo?: string;
+  server_version?: string;
+  schema_capabilities?: string[];
+  codex?: CodexCapability;
 };
 
 // A work-brief spec: what the operator points the composer at. Mirrors

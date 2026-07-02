@@ -75,6 +75,7 @@ export function WorldView({
   onComposeBrief,
   onResumeBrief,
   onReturnJob,
+  onDiagnoseCodex,
   codexCapability
 }: {
   bundle: SnapshotBundle;
@@ -85,6 +86,7 @@ export function WorldView({
   onComposeBrief?: (spec: BriefSpec) => void;
   onResumeBrief?: (briefId: string) => void;
   onReturnJob?: (jobId: string, feedback: string) => void;
+  onDiagnoseCodex?: () => void;
   codexCapability?: CodexCapability;
 }) {
   const pages = bundle.pages.pages;
@@ -640,6 +642,14 @@ export function WorldView({
                 ? (jobId, feedback) => {
                     setWorkOpen(false);
                     onReturnJob(jobId, feedback);
+                  }
+                : undefined
+            }
+            onDiagnose={
+              onDiagnoseCodex
+                ? () => {
+                    setWorkOpen(false);
+                    onDiagnoseCodex();
                   }
                 : undefined
             }

@@ -16,7 +16,26 @@ export type WorldQuery = {
   reader: boolean;
   // Test-harness flag: forces the 2D fallback; must survive every redirect.
   visual: boolean;
+  // One-world task surfaces (the three 2D pages, dissolved into the world).
+  dock: DockId; // "" | approve | intake | gates | codex
+  src: string; // intake source path/url (meaningful with dock=intake)
+  diff: boolean; // PageReader opens on the Diff tab (needs a locked page)
+  station: number; // gate station 1..6 (0 = none)
+  ack: string[]; // acknowledged blocker ids (scope/risk)
+  tray: TrayId; // "" | packet | missions | work (trays are URL state now)
 };
+
+export const DOCKS = ["approve", "intake", "gates", "codex"] as const;
+export type DockId = "" | (typeof DOCKS)[number];
+export const TRAYS = ["packet", "missions", "work"] as const;
+export type TrayId = "" | (typeof TRAYS)[number];
+
+function asDock(value: string | null): DockId {
+  return (DOCKS as readonly string[]).includes(value || "") ? (value as DockId) : "";
+}
+function asTray(value: string | null): TrayId {
+  return (TRAYS as readonly string[]).includes(value || "") ? (value as TrayId) : "";
+}
 
 export type WorldRoute = {
   kind: "world";
@@ -35,7 +54,19 @@ export type Route =
   | { kind: "health"; demo: boolean }
   | { kind: "pageAlias"; demo: boolean; pageId?: string; query: WorldQuery };
 
-const EMPTY_QUERY: WorldQuery = { q: "", filter: "", packet: [], reader: false, visual: false };
+const EMPTY_QUERY: WorldQuery = {
+  q: "",
+  filter: "",
+  packet: [],
+  reader: false,
+  visual: false,
+  dock: "",
+  src: "",
+  diff: false,
+  station: 0,
+  ack: [],
+  tray: ""
+};
 
 function isPerspective(value: string): value is PerspectiveId {
   return (PERSPECTIVES as readonly string[]).includes(value);
@@ -43,12 +74,19 @@ function isPerspective(value: string): value is PerspectiveId {
 
 function parseQuery(search: string): WorldQuery {
   const params = new URLSearchParams(search);
+  const stationRaw = Number.parseInt(params.get("station") || "0", 10);
   return {
     q: params.get("q") || "",
     filter: params.get("filter") || "",
     packet: (params.get("packet") || "").split(",").map((item) => item.trim()).filter(Boolean),
     reader: params.get("reader") === "1",
-    visual: params.get("visual") === "1"
+    visual: params.get("visual") === "1",
+    dock: asDock(params.get("dock")),
+    src: params.get("src") || "",
+    diff: params.get("diff") === "1",
+    station: Number.isFinite(stationRaw) && stationRaw > 0 ? stationRaw : 0,
+    ack: (params.get("ack") || "").split(",").map((item) => item.trim()).filter(Boolean),
+    tray: asTray(params.get("tray"))
   };
 }
 
@@ -110,6 +148,12 @@ export function buildUrl(route: Route): string {
   if (route.query.packet.length > 0) params.set("packet", route.query.packet.join(","));
   if (route.query.reader) params.set("reader", "1");
   if (route.query.visual) params.set("visual", "1");
+  if (route.query.dock) params.set("dock", route.query.dock);
+  if (route.query.src) params.set("src", route.query.src);
+  if (route.query.diff) params.set("diff", "1");
+  if (route.query.station > 0) params.set("station", String(route.query.station));
+  if (route.query.ack.length > 0) params.set("ack", route.query.ack.join(","));
+  if (route.query.tray) params.set("tray", route.query.tray);
   const suffix = params.toString();
   return `${prefix}/w/${segments.join("/")}${suffix ? `?${suffix}` : ""}`;
 }
@@ -124,6 +168,12 @@ export type WorldPatch = {
   filter?: string | null;
   packet?: string[];
   reader?: boolean;
+  dock?: DockId | null;
+  src?: string | null;
+  diff?: boolean;
+  station?: number | null;
+  ack?: string[];
+  tray?: TrayId | null;
 };
 
 export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
@@ -139,7 +189,13 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
       filter: patch.filter === null ? "" : patch.filter ?? route.query.filter,
       packet: patch.packet ?? route.query.packet,
       reader: patch.reader ?? route.query.reader,
-      visual: route.query.visual
+      visual: route.query.visual,
+      dock: patch.dock === null ? "" : patch.dock ?? route.query.dock,
+      src: patch.src === null ? "" : patch.src ?? route.query.src,
+      diff: patch.diff ?? route.query.diff,
+      station: patch.station === null ? 0 : patch.station ?? route.query.station,
+      ack: patch.ack ?? route.query.ack,
+      tray: patch.tray === null ? "" : patch.tray ?? route.query.tray
     }
   };
   // Grammar is positional: a group needs a context, and a locked page needs
@@ -154,7 +210,16 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
     // perspective-specific, so drop the group unless explicitly kept.
     next.group = undefined;
   }
-  if (!next.pageId) next.query.reader = false;
+  if (!next.pageId) {
+    next.query.reader = false;
+    next.query.diff = false; // the Diff tab needs a locked page
+  }
+  // Opening a dock and a bottom tray occupy the same shell slot — mutually
+  // exclusive so the URL never claims two surfaces are open at once.
+  if (patch.dock && next.query.dock) next.query.tray = "";
+  if (patch.tray && next.query.tray) next.query.dock = "";
+  // The gate station only means something inside the approve dock.
+  if (next.query.dock !== "approve") next.query.station = 0;
   return next;
 }
 
@@ -170,7 +235,12 @@ export function retreat(route: WorldRoute): WorldRoute {
 export function worldFromRoute(route: Route): WorldRoute {
   if (route.kind === "world") return route;
   const query = route.kind === "pageAlias" ? route.query : EMPTY_QUERY;
-  return { kind: "world", demo: route.demo, perspective: "radar", query: { ...query, packet: [...query.packet] } };
+  return {
+    kind: "world",
+    demo: route.demo,
+    perspective: "radar",
+    query: { ...query, packet: [...query.packet], ack: [...query.ack] }
+  };
 }
 
 // --- history plumbing -------------------------------------------------------

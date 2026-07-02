@@ -17,6 +17,7 @@ export function BriefStudio({
   onSaveText,
   onDiscard,
   onExecute,
+  onDiagnose,
   onNotice,
   onClose
 }: {
@@ -26,6 +27,7 @@ export function BriefStudio({
   onSaveText: (briefId: string, text: string) => void;
   onDiscard: (briefId: string) => void;
   onExecute?: (brief: BriefRecord, text: string) => void;
+  onDiagnose?: () => void;
   onNotice: (text: string) => void;
   onClose: () => void;
 }) {
@@ -129,6 +131,18 @@ export function BriefStudio({
             <span>{t("brief.exit.discard")}</span>
           </button>
         </div>
+        {!capability.usable && (
+          // Honest, VISIBLE reason (not a disabled-button tooltip) + a door to
+          // the diagnostics dock — the owner always has a next step.
+          <p className="briefStudioCodexNote">
+            <span>{codexUnavailableReason(capability)}</span>
+            {onDiagnose && (
+              <button className="textButton" onClick={onDiagnose} type="button">
+                {t("codex.dock.open")}
+              </button>
+            )}
+          </p>
+        )}
       </aside>
     </>
   );

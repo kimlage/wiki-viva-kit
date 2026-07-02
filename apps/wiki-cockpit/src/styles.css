@@ -4575,3 +4575,143 @@ pre {
   border-radius: 6px;
   outline: 1px solid #3d6c86;
 }
+
+/* ---- World docks (Codex diagnostics; shared dock chrome) ---- */
+.dockBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  background: rgba(4, 8, 12, 0.55);
+  backdrop-filter: blur(2px);
+}
+.worldDock {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 63;
+  width: min(46%, 560px);
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border-left: 1px solid #2a3944;
+  background: rgba(7, 13, 19, 0.98);
+  backdrop-filter: blur(12px);
+  box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
+  overflow-y: auto;
+}
+.dockHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dockHeader strong {
+  font-size: 15px;
+}
+.dockHeader .readerClose {
+  margin-left: auto;
+}
+.dockIntro {
+  margin: 0;
+  color: #9fb4c2;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.dockActions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+.codexLadder {
+  list-style: none;
+  margin: 4px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.codexRung {
+  border: 1px solid #22323d;
+  border-radius: 9px;
+  padding: 9px 11px;
+}
+.codexRung.rung-blocked {
+  border-color: #7a3b41;
+  background: rgba(122, 59, 65, 0.12);
+}
+.rungHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.rung-pending .rungHead {
+  opacity: 0.5;
+}
+.rungOk {
+  color: #6fd0a0;
+}
+.rungDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+.rungBlocked {
+  background: #e05a63;
+  box-shadow: 0 0 8px rgba(224, 90, 99, 0.6);
+}
+.rungPending {
+  background: #3a4a55;
+}
+.rungBody {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rungFix {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rungFix code {
+  background: #05090d;
+  border: 1px solid #263845;
+  border-radius: 6px;
+  padding: 5px 9px;
+  color: #d7e6ef;
+  font-size: 12.5px;
+}
+.rungReason {
+  margin: 0;
+  font-size: 11.5px;
+  color: #8aa0ad;
+  word-break: break-word;
+}
+.rungReason code {
+  color: #b8ccd6;
+}
+.briefStudioCodexNote {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: #e5b98f;
+}
+.workCodexChip {
+  cursor: pointer;
+  border: none;
+}
+@media (max-width: 980px) {
+  .worldDock {
+    width: 100%;
+    min-width: 0;
+  }
+}

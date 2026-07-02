@@ -19,6 +19,7 @@ from wiki_core.web.commands import run_action
 from wiki_core.web.content import build_page_content
 from wiki_core.web.git_workflows import run_git_workflow
 from wiki_core.web.ingestion_plan import build_ingestion_plan, run_ingestion_step
+from wiki_core.web.schemas import SCHEMA_CAPABILITIES, WEB_SERVER_VERSION
 from wiki_core.web.snapshot import build_snapshot, write_snapshot
 from wiki_core.web.source_triage import triage_source
 
@@ -80,6 +81,8 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                     "ok": True,
                     "repo": self.server.config.repo_id,
                     "snapshot_dir": self.server.snapshot_dir.relative_to(self.server.root).as_posix(),
+                    "server_version": WEB_SERVER_VERSION,
+                    "schema_capabilities": list(SCHEMA_CAPABILITIES),
                     "codex": probe_codex_for(self.server.config),
                 }
             )

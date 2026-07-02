@@ -1,13 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { buildUrl, parseRoute, patchWorld, retreat } from "./router";
-import type { WorldRoute } from "./router";
+import type { WorldQuery, WorldRoute } from "./router";
 
-const world = (over: Partial<WorldRoute> = {}): WorldRoute => ({
+const BASE_QUERY: WorldQuery = {
+  q: "",
+  filter: "",
+  packet: [],
+  reader: false,
+  visual: false,
+  dock: "",
+  src: "",
+  diff: false,
+  station: 0,
+  ack: [],
+  tray: ""
+};
+
+const world = (
+  over: Partial<Omit<WorldRoute, "query">> & { query?: Partial<WorldQuery> } = {}
+): WorldRoute => ({
   kind: "world",
   demo: false,
   perspective: "radar",
-  query: { q: "", filter: "", packet: [], reader: false, visual: false },
-  ...over
+  ...over,
+  query: { ...BASE_QUERY, ...(over.query ?? {}) }
 });
 
 describe("router grammar", () => {
@@ -74,8 +90,48 @@ describe("router grammar", () => {
     expect(switched).toMatchObject({ perspective: "districts", context: "financeiro", pageId: "x", group: undefined });
   });
 
+  it("parses and round-trips the one-world grammar (dock/src/diff/station/ack/tray)", () => {
+    const route = parseRoute("/w/radar", "?dock=approve&station=3&ack=scope,risk&diff=1&reader=1&tray=work&src=data%2Fraw%2Fx.pdf");
+    // diff needs a locked page, so with no pageId the parse still records diff
+    // (the invariant only applies in patchWorld); dock/station/ack survive.
+    expect(route).toMatchObject({
+      kind: "world",
+      query: { dock: "approve", station: 3, ack: ["scope", "risk"], tray: "work", src: "data/raw/x.pdf" }
+    });
+    const built = world({ query: { dock: "gates", tray: "missions", ack: ["a"], src: "u" } });
+    const url = buildUrl(built);
+    expect(url).toContain("dock=gates");
+    expect(url).toContain("tray=missions");
+    expect(url).toContain("ack=a");
+    const [pathname, search] = url.split("?");
+    expect(parseRoute(pathname, `?${search}`)).toMatchObject({
+      query: { dock: "gates", tray: "missions", ack: ["a"], src: "u" }
+    });
+  });
+
+  it("rejects unknown dock/tray values (fail closed to '')", () => {
+    const route = parseRoute("/w/radar", "?dock=hack&tray=bogus");
+    expect(route.kind).toBe("world");
+    expect((route as WorldRoute).query).toMatchObject({ dock: "", tray: "" });
+  });
+
+  it("patchWorld: dock and tray are mutually exclusive", () => {
+    const withTray = world({ query: { tray: "work" } });
+    expect(patchWorld(withTray, { dock: "approve" }).query).toMatchObject({ dock: "approve", tray: "" });
+    const withDock = world({ query: { dock: "approve" } });
+    expect(patchWorld(withDock, { tray: "missions" }).query).toMatchObject({ tray: "missions", dock: "" });
+  });
+
+  it("patchWorld: diff needs a locked page; station needs the approve dock", () => {
+    const base = world({ context: "a", pageId: "p", query: { dock: "approve", station: 4, diff: true, reader: true } });
+    // Releasing the page clears diff.
+    expect(patchWorld(base, { pageId: null }).query.diff).toBe(false);
+    // Leaving the approve dock clears the station.
+    expect(patchWorld(base, { dock: "gates" }).query.station).toBe(0);
+  });
+
   it("retreat walks exactly one level up: page → group → context → galaxy", () => {
-    const locked = world({ context: "a", group: "b", pageId: "c", query: { q: "", filter: "", packet: [], reader: true, visual: false } });
+    const locked = world({ context: "a", group: "b", pageId: "c", query: { reader: true } });
     const atGroup = retreat(locked);
     expect(atGroup).toMatchObject({ context: "a", group: "b", pageId: undefined });
     const atContext = retreat(atGroup);
