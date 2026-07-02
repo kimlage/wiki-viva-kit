@@ -31,6 +31,10 @@ export type LayoutNode = {
   isRoot: boolean;
   position: [number, number, number];
   scale: number;
+  // Perspective extras: ring index (atlas/trails) and a faint flag for
+  // 2nd-hop context nodes that are shown for orientation, not emphasis.
+  ring?: number;
+  faint?: boolean;
 };
 
 export type LayoutWedge = {
@@ -38,7 +42,10 @@ export type LayoutWedge = {
   startAngle: number;
   endAngle: number;
   centerAngle: number;
+  // Honest counts: computed over ALL nodes of the context, never just the
+  // rendered slice. `shown` is how many made it on screen at this level.
   count: number;
+  shown: number;
   freshCount: number;
   staleCount: number;
   unknownCount: number;
@@ -53,6 +60,10 @@ export type GalaxyLayout = {
   rInner: number;
   rOuter: number;
   deadlineF: number;
+  // Discrete "no freshness data" band: unknown pages sit here, labeled,
+  // instead of pretending to be nearly stale.
+  unknownR: number;
+  totals: { total: number; shown: number; hidden: number };
   truncated: number;
 };
 
@@ -64,6 +75,9 @@ const MIN_WEDGE = 0.35;
 const SLOT_DEPTH = 0.34;
 const ANGLE_PAD = 0.04;
 export const DEADLINE_F = 0.7;
+// Unknown freshness renders on a discrete outer band ("no data"), so radius
+// never encodes a date that does not exist.
+export const UNKNOWN_F = 1.08;
 
 // The tier reflects DEVICE capability only. Repo size never downgrades the
 // visual tier (a big wiki on a strong machine keeps particles and curves);
@@ -110,7 +124,7 @@ export function scenePerformanceProfile(
   };
 }
 
-function nodeWeight(node: GraphNode): number {
+export function nodeWeight(node: GraphNode): number {
   const root = node.page_type === "root_index" ? 10000 : 0;
   const hub = node.page_type === "context_hub" ? 5000 : 0;
   const attention = node.risk_flags.length > 0 || node.freshness_state === "stale" || node.approved_state === "proposal" ? 1000 : 0;
@@ -119,20 +133,20 @@ function nodeWeight(node: GraphNode): number {
   return root + hub + attention + source + links;
 }
 
-function parseDateMs(value: string): number | null {
+export function parseDateMs(value: string): number | null {
   if (!value) return null;
   const parsed = Date.parse(value.length === 10 ? `${value}T00:00:00Z` : value);
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-function staleBudgetDays(node: GraphNode & { stale_after_days?: string }): number {
+export function staleBudgetDays(node: GraphNode & { stale_after_days?: string }): number {
   const raw = Number.parseFloat(String((node as { stale_after_days?: string }).stale_after_days ?? ""));
   return Number.isFinite(raw) && raw > 0 ? raw : 90;
 }
 
 // Freshness fraction: 0 = just verified, DEADLINE_F = at the freshness window,
 // 1 = long past it. Radius is a direct read of "how overdue is this page".
-function freshnessFraction(node: GraphNode, ageDays: number | null): number {
+export function freshnessFraction(node: GraphNode, ageDays: number | null): number {
   const budget = staleBudgetDays(node);
   if (node.freshness_state === "stale") {
     if (ageDays === null) return DEADLINE_F + 0.12;
@@ -143,11 +157,11 @@ function freshnessFraction(node: GraphNode, ageDays: number | null): number {
     if (ageDays === null) return 0.24;
     return 0.1 + Math.min(Math.max(ageDays / budget, 0), 1) * (DEADLINE_F - 0.25);
   }
-  return DEADLINE_F - 0.08;
+  return UNKNOWN_F;
 }
 
 // The radar core: an explicit root page when typed, else the top-level index.
-function rootNodeId(nodes: GraphNode[]): string | null {
+export function rootNodeId(nodes: GraphNode[]): string | null {
   const byType = (type: string) =>
     nodes
       .filter((node) => node.page_type === type)
@@ -160,12 +174,45 @@ function rootNodeId(nodes: GraphNode[]): string | null {
   return indexPage ? indexPage.id : null;
 }
 
-export function computeGalaxyLayout(nodes: GraphNode[], maxNodes: number, snapshotAt?: string): GalaxyLayout {
-  // Deterministic clock: prefer the snapshot timestamp, fall back to the
-  // newest updated_at in the data. Never the wall clock.
-  const snapshotMs =
+// Deterministic clock: prefer the snapshot timestamp, fall back to the
+// newest updated_at in the data. Never the wall clock.
+export function snapshotClock(nodes: GraphNode[], snapshotAt?: string): number {
+  return (
     (snapshotAt ? parseDateMs(snapshotAt) : null) ??
-    Math.max(0, ...nodes.map((node) => parseDateMs(node.updated_at ?? "") ?? 0));
+    Math.max(0, ...nodes.map((node) => parseDateMs(node.updated_at ?? "") ?? 0))
+  );
+}
+
+export type WedgeSpan = { key: string; startAngle: number; endAngle: number; centerAngle: number };
+
+// Wedge allocation shared by every circular perspective: sqrt-weighted width
+// with a floor so tiny groups stay clickable; deterministic placement.
+export function allocateWedgeSpans(entries: { key: string; weight: number }[]): WedgeSpan[] {
+  if (entries.length === 0) return [];
+  const placement = [...entries].sort((a, b) => b.weight - a.weight || a.key.localeCompare(b.key));
+  const weights = placement.map((entry) => Math.sqrt(Math.max(entry.weight, 1)));
+  const totalGap = WEDGE_GAP * placement.length;
+  const available = Math.PI * 2 - totalGap;
+  const weightSum = weights.reduce((total, weight) => total + weight, 0) || 1;
+  let spans = weights.map((weight) => (available * weight) / weightSum);
+  if (placement.length > 1) {
+    const clamped = spans.map((span) => Math.max(span, MIN_WEDGE));
+    const clampedSum = clamped.reduce((total, span) => total + span, 0);
+    spans = clamped.map((span) => (span / clampedSum) * available);
+  }
+  const out: WedgeSpan[] = [];
+  let cursor = 0.35 + (spans[0] ?? 0) / 2;
+  placement.forEach((entry, index) => {
+    const span = spans[index];
+    const startAngle = cursor - span;
+    out.push({ key: entry.key, startAngle, endAngle: cursor, centerAngle: cursor - span / 2 });
+    cursor = startAngle - WEDGE_GAP;
+  });
+  return out;
+}
+
+export function computeGalaxyLayout(nodes: GraphNode[], maxNodes: number, snapshotAt?: string): GalaxyLayout {
+  const snapshotMs = snapshotClock(nodes, snapshotAt);
 
   const rootId = rootNodeId(nodes);
   const visible = [...nodes]
@@ -179,7 +226,12 @@ export function computeGalaxyLayout(nodes: GraphNode[], maxNodes: number, snapsh
     )
     .slice(0, maxNodes);
 
-  const contexts = [...new Set(visible.filter((node) => node.id !== rootId).map((node) => node.context || "system"))].sort();
+  // Contexts and their counts come from ALL nodes — the map never lies about
+  // a context's true size just because the render slice is capped.
+  const contexts = [...new Set(nodes.filter((node) => node.id !== rootId).map((node) => node.context || "system"))].sort();
+  const byContextAll = new Map(
+    contexts.map((context) => [context, nodes.filter((node) => node.id !== rootId && (node.context || "system") === context)])
+  );
   const byContext = new Map(
     contexts.map((context) => [context, visible.filter((node) => node.id !== rootId && (node.context || "system") === context)])
   );
@@ -187,45 +239,31 @@ export function computeGalaxyLayout(nodes: GraphNode[], maxNodes: number, snapsh
   const rOuter = Math.min(4.2 + Math.sqrt(Math.max(visible.length - 24, 0)) * 0.12, 6.5);
   const band = rOuter - R_INNER;
 
-  // Wedge allocation: sqrt-weighted width with a floor so tiny contexts stay
-  // clickable. The largest wedge is placed first, centered toward the open
-  // right side of the canvas (the hero card docks on the left).
-  const placement = [...contexts].sort(
-    (a, b) => (byContext.get(b)?.length ?? 0) - (byContext.get(a)?.length ?? 0) || a.localeCompare(b)
+  // Wedge allocation shared with the perspective engine; the largest wedge is
+  // placed first, centered toward the open right side of the canvas.
+  const spans = allocateWedgeSpans(
+    contexts.map((context) => ({ key: context, weight: byContextAll.get(context)?.length ?? 0 }))
   );
-  const weights = placement.map((context) => Math.sqrt(Math.max(byContext.get(context)?.length ?? 0, 1)));
-  const totalGap = WEDGE_GAP * placement.length;
-  const available = Math.PI * 2 - totalGap;
-  const weightSum = weights.reduce((total, weight) => total + weight, 0) || 1;
-  let spans = weights.map((weight) => (available * weight) / weightSum);
-  if (placement.length > 1) {
-    const clamped = spans.map((span) => Math.max(span, MIN_WEDGE));
-    const clampedSum = clamped.reduce((total, span) => total + span, 0);
-    spans = clamped.map((span) => (span / clampedSum) * available);
-  }
-
-  const wedges: LayoutWedge[] = [];
-  let cursor = 0.35 + (spans[0] ?? 0) / 2;
-  placement.forEach((context, index) => {
-    const span = spans[index];
-    const startAngle = cursor - span;
-    const endAngle = cursor;
-    const centerAngle = cursor - span / 2;
-    const group = byContext.get(context) ?? [];
-    wedges.push({
+  const wedges: LayoutWedge[] = spans.map(({ key: context, startAngle, endAngle, centerAngle }) => {
+    const group = byContextAll.get(context) ?? [];
+    return {
       context,
       startAngle,
       endAngle,
       centerAngle,
       count: group.length,
+      shown: byContext.get(context)?.length ?? 0,
       freshCount: group.filter((node) => node.freshness_state === "fresh").length,
       staleCount: group.filter((node) => node.freshness_state === "stale").length,
       unknownCount: group.filter((node) => node.freshness_state === "unknown").length,
       proposalCount: group.filter((node) => node.approved_state === "proposal").length,
       riskCount: group.filter((node) => node.risk_flags.length > 0).length,
-      rimPosition: [Math.cos(centerAngle) * (rOuter + 0.45), 0.05, Math.sin(centerAngle) * (rOuter + 0.45)]
-    });
-    cursor = startAngle - WEDGE_GAP;
+      rimPosition: [Math.cos(centerAngle) * (rOuter + 0.45), 0.05, Math.sin(centerAngle) * (rOuter + 0.45)] as [
+        number,
+        number,
+        number
+      ]
+    };
   });
   wedges.sort((a, b) => a.context.localeCompare(b.context));
   const wedgeByContext = new Map(wedges.map((wedge) => [wedge.context, wedge]));
@@ -331,6 +369,12 @@ export function computeGalaxyLayout(nodes: GraphNode[], maxNodes: number, snapsh
     rInner: R_INNER,
     rOuter,
     deadlineF: DEADLINE_F,
+    unknownR: R_INNER + band * UNKNOWN_F,
+    totals: {
+      total: nodes.length,
+      shown: layoutNodes.length,
+      hidden: Math.max(0, nodes.length - layoutNodes.length)
+    },
     truncated: Math.max(0, nodes.length - visible.length)
   };
 }

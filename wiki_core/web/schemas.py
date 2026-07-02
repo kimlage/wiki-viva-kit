@@ -23,4 +23,5 @@ SNAPSHOT_FILES = (
     "ingestion.json",
     "quality.json",
     "commands.json",
+    "score.json",
 )

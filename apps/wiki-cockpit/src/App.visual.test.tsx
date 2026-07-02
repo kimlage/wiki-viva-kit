@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import type { SnapshotBundle } from "./types";
@@ -10,6 +10,7 @@ const bundle: SnapshotBundle = {
     schema_version: "wiki_web_snapshot.v1",
     generated_at: "2026-07-01T00:00:00Z",
     mode: "local_operator",
+    content_sidecars: false,
     source_commit: null,
     repo: {
       repo_id: "visual-fixture",
@@ -62,7 +63,8 @@ const bundle: SnapshotBundle = {
         risk_flags: [],
         source_refs: [],
         moc_parent: "",
-        summary: "Root summary"
+        summary: "Root summary",
+        summary_truncated: false
       },
       {
         id: "source-fixture",
@@ -78,8 +80,9 @@ const bundle: SnapshotBundle = {
         approved_state: "approved",
         risk_flags: [],
         source_refs: [],
-        moc_parent: "",
-        summary: "Source summary"
+        moc_parent: "memories/index.md",
+        summary: "Source summary",
+        summary_truncated: true
       }
     ]
   },
@@ -133,37 +136,14 @@ const bundle: SnapshotBundle = {
     repo_id: "visual-fixture",
     generated_at: "2026-07-01T00:00:00Z",
     summary: {
-      event_count: 2,
+      event_count: 1,
       first_at: "2026-07-01T00:00:00Z",
       last_at: "2026-07-01T00:00:00Z",
-      by_kind: { page_updated: 1, snapshot: 1 },
-      by_context: { system: 2 }
+      by_kind: { snapshot: 1 },
+      by_context: { system: 1 }
     },
-    bands: { last_7_days: 2, last_30_days: 0, older: 0 },
-    events: [
-      {
-        id: "snapshot-generated",
-        kind: "snapshot",
-        timestamp: "2026-07-01T00:00:00Z",
-        label: "Snapshot generated",
-        context: "system",
-        path: "",
-        status: "not_opened",
-        weight: 1,
-        commit: ""
-      },
-      {
-        id: "page-root",
-        kind: "page_updated",
-        timestamp: "2026-07-01T00:00:00Z",
-        label: "Root",
-        context: "system",
-        path: "memories/index.md",
-        status: "fresh",
-        weight: 2,
-        commit: ""
-      }
-    ]
+    bands: { last_7_days: 1, last_30_days: 0, older: 0 },
+    events: []
   },
   diff: {
     schema_version: "wiki_web_diff.v1",
@@ -206,10 +186,22 @@ const bundle: SnapshotBundle = {
   decisions: { decisions: [] },
   ingestion: {},
   quality: { quality_flags: {} },
-  commands: { commands: [] }
+  commands: { commands: [] },
+  score: {
+    schema_version: "wiki_web_score.v1",
+    enabled: true,
+    event_count: 3,
+    total: 12.5,
+    level: "jardineiro",
+    level_labels: { en: "Gardener", pt: "Jardineiro" },
+    by_dimension: { confiabilidade: 6.5, stewardship: 6 },
+    badges: [{ id: "first_source", en: "First source", pt: "Primeira fonte" }],
+    vitality: {}
+  }
 };
 
 vi.mock("./components/SystemScene", () => ({
+  canUseWebGL: () => false,
   SystemScene: ({ children }: { children?: import("react").ReactNode }) => (
     <div data-testid="scene-fallback">{children}</div>
   )
@@ -219,8 +211,43 @@ vi.mock("./data/snapshot", () => ({
   loadSnapshotBundle: vi.fn(async () => ({
     bundle,
     source: "/api/snapshot",
-    runtime: { apiBase: "/api", snapshotBase: "", repoLabel: "", mode: "local_operator" }
+    runtime: { apiBase: "/api", snapshotBase: "", repoLabel: "", mode: "local_operator", presentation: {} }
   })),
+  loadPageContent: vi.fn(async () => ({
+    ok: true,
+    page: {
+      page_id: "root",
+      path: "memories/index.md",
+      title: "Root",
+      context: "system",
+      page_type: "root_index",
+      freshness_state: "fresh",
+      approved_state: "approved",
+      summary: "Root summary",
+      summary_truncated: false,
+      updated_at: "2026-07-01",
+      moc_parent: ""
+    },
+    frontmatter: {},
+    body: "# Root\n\nCorpo completo da página com [Source Fixture](sources/source-fixture.md).\n\n## Detalhes\n\nMais texto.",
+    resolved_links: [
+      {
+        kind: "page",
+        text: "Source Fixture",
+        href: "sources/source-fixture.md",
+        page_id: "source-fixture",
+        path: "memories/sources/source-fixture.md",
+        title: "Source Fixture",
+        context: "system",
+        page_type: "source",
+        freshness_state: "fresh",
+        approved_state: "approved"
+      }
+    ],
+    backlinks: [],
+    source_refs: []
+  })),
+  sidecarName: (id: string) => `${id}.json`,
   runCockpitAction: vi.fn(),
   runGitWorkflow: vi.fn(),
   buildIngestionPlan: vi.fn(),
@@ -237,63 +264,56 @@ afterEach(() => {
 });
 
 describe("visual route contract", () => {
-  it("renders the core cockpit routes with textual fallbacks", async () => {
-    await renderRoute("/ops");
-    expect(await screen.findByRole("heading", { name: "What needs attention?" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Choose A Task" })).toBeTruthy();
-    expect(screen.getByText("Current task")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Check evidence/ })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Find Content" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Content Preview" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Review Packet" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Next Steps" })).toBeTruthy();
-    expect(screen.getAllByText("Use when").length).toBeGreaterThan(0);
-    expect(screen.getByRole("heading", { name: "Activity Signal" })).toBeTruthy();
+  it("renders the world shell with HUD, perspectives and 2D routes", async () => {
+    await renderRoute("/w/radar");
+    expect(await screen.findByLabelText("3D knowledge world")).toBeTruthy();
+    expect(screen.getByText("Galaxy")).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Perspectives (keys 1–4)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Districts/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Trails/ })).toBeTruthy();
+    expect(screen.getByLabelText("Search content")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Packet 0/ })).toBeTruthy();
     expect(screen.getByTestId("scene-fallback")).toBeTruthy();
     cleanup();
 
     await renderRoute("/review");
     expect(await screen.findByRole("heading", { name: "Approval Inbox" })).toBeTruthy();
-    expect(screen.getByText("What is being approved?")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Scope to approve" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Approval blockers" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Validation evidence" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Human gate" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Prepare packet" })).toBeTruthy();
-    expect(screen.getByText("Advanced: request editor and exact evidence")).toBeTruthy();
     cleanup();
 
     await renderRoute("/sources");
     expect(await screen.findByRole("heading", { name: "Add Knowledge" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Review New Source" })).toBeTruthy();
     cleanup();
 
     await renderRoute("/health");
     expect(await screen.findByRole("heading", { name: "Wiki Health" })).toBeTruthy();
     cleanup();
 
-    await renderRoute("/pages/root");
-    expect(await screen.findByRole("heading", { name: "Root" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Browse Content" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Needs attention/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Ready to trust/ })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Verification Summary" })).toBeTruthy();
-    cleanup();
-
-    await renderRoute("/demo");
-    expect(await screen.findByRole("heading", { name: "What needs attention?" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Find Content" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Activity Signal" })).toBeTruthy();
+    await renderRoute("/demo/w/radar");
+    expect(await screen.findByText(/Interface demo with synthetic sample data/)).toBeTruthy();
   });
 
-  it("adds a searched page to the local impact bundle with shift-click", async () => {
-    await renderRoute("/ops");
-    const sourceResult = await screen.findByRole("button", { name: /Source Fixture/ });
-    fireEvent.click(sourceResult, { shiftKey: true });
+  it("redirects legacy /pages/:id bookmarks into the world with the reader open", async () => {
+    await renderRoute("/pages/root");
+    await waitFor(() => {
+      expect(window.location.pathname).toBe("/w/atlas/system/sem-pai/root");
+    });
+    expect(window.location.search).toContain("reader=1");
+    expect(await screen.findByLabelText("Reader: Root")).toBeTruthy();
+    // Full markdown body rendered inside the world shell — no truncation.
+    expect(await screen.findByText(/Corpo completo da página/)).toBeTruthy();
+  });
 
-    const impactBundle = screen.getByRole("region", { name: "Review Packet" });
-    expect(within(impactBundle).getByText("Source Fixture")).toBeTruthy();
-    expect(within(impactBundle).getAllByText(/system · evidence source · ok/).length).toBeGreaterThan(0);
-    expect(within(impactBundle).getByText(/No evidence links are available/)).toBeTruthy();
+  it("keeps search as URL state and lists results in the mission card", async () => {
+    await renderRoute("/w/radar?q=Source");
+    expect(await screen.findByLabelText("3D knowledge world")).toBeTruthy();
+    expect(await screen.findByText(/1 result/)).toBeTruthy();
+    const hit = screen.getByRole("button", { name: /Source Fixture/ });
+    fireEvent.click(hit);
+    await waitFor(() => {
+      expect(window.location.pathname).toContain("/w/radar/system/");
+      expect(window.location.pathname).toContain("source-fixture");
+    });
+    expect(window.location.search).toContain("reader=1");
   });
 });

@@ -2829,3 +2829,1331 @@ pre {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   World shell: the 3D scene as the primary navigation surface. HUD elements
+   are fixed to the sceneShell edges; the below-the-fold panel stack is gone. */
+
+.worldShellMode .mainColumn {
+  min-height: 100vh;
+}
+
+.worldWorkspace {
+  padding: 10px 14px 14px;
+}
+
+.worldWorkspace .sceneShell {
+  height: calc(100vh - 96px);
+  min-height: 520px;
+}
+
+.worldWorkspace .sceneShell.fallbackMode {
+  height: auto;
+  min-height: 520px;
+}
+
+.worldWorkspace .sceneCanvasFrame {
+  inset: 44px 0 46px;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* TOP strip: breadcrumbs + snapshot meta. */
+.worldTopStrip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, rgba(6, 12, 18, 0.92), rgba(6, 12, 18, 0.55) 80%, transparent);
+  font-size: 12px;
+}
+
+.worldBreadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  color: #9fb6c6;
+}
+
+.worldBreadcrumbs i {
+  font-style: normal;
+  color: #4c5f6d;
+  margin: 0 3px;
+}
+
+.worldBreadcrumbs strong {
+  color: #e6f2f8;
+}
+
+.crumbButton {
+  background: none;
+  border: none;
+  color: #7fd0e8;
+  cursor: pointer;
+  font: inherit;
+  padding: 2px 3px;
+  border-radius: 4px;
+}
+
+.crumbButton:hover {
+  background: rgba(107, 215, 255, 0.12);
+}
+
+.worldMeta {
+  display: flex;
+  gap: 10px;
+  color: #6f8494;
+  white-space: nowrap;
+}
+
+/* LEFT mission card. */
+.worldMissionCard {
+  position: absolute;
+  top: 46px;
+  left: 12px;
+  z-index: 28;
+  width: min(280px, 38vw);
+  border: 1px solid #24333d;
+  border-radius: 10px;
+  background: rgba(8, 15, 21, 0.88);
+  backdrop-filter: blur(6px);
+  padding: 10px;
+}
+
+.worldMissionCard header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.worldMissionCard header strong {
+  color: #dff2fb;
+  font-size: 14px;
+}
+
+.worldMissionCard header span {
+  color: #7d93a3;
+  font-size: 11.5px;
+}
+
+.missionRows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.missionRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  background: rgba(16, 26, 34, 0.9);
+  border: 1px solid #24333d;
+  border-radius: 8px;
+  padding: 7px 8px;
+  cursor: pointer;
+  color: inherit;
+}
+
+.missionRow:hover {
+  border-color: #3d5769;
+}
+
+.missionRow.tone-warn {
+  border-left: 3px solid #ffb454;
+}
+
+.missionRow.tone-bad {
+  border-left: 3px solid #ff7a8a;
+}
+
+.missionRow.tone-good {
+  border-left: 3px solid #5ee6a8;
+}
+
+.missionCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.missionCopy strong {
+  font-size: 12.5px;
+  color: #e6f2f8;
+}
+
+.missionCopy small {
+  font-size: 11px;
+  color: #7d93a3;
+}
+
+.missionSearchResults {
+  margin-top: 8px;
+  border-top: 1px solid #24333d;
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.missionSearchCount {
+  font-size: 11px;
+  color: #7d93a3;
+}
+
+.missionSearchResults .textButton small {
+  color: #6f8494;
+}
+
+/* BOTTOM command bar. */
+.worldCommandBar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  background: linear-gradient(0deg, rgba(6, 12, 18, 0.94), rgba(6, 12, 18, 0.6) 85%, transparent);
+}
+
+.commandSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #2a3944;
+  border-radius: 8px;
+  padding: 5px 8px;
+  background: rgba(10, 18, 25, 0.9);
+  color: #7d93a3;
+  min-width: 180px;
+}
+
+.commandSearch input {
+  background: none;
+  border: none;
+  outline: none;
+  color: #e6f2f8;
+  font-size: 12.5px;
+  width: 100%;
+}
+
+.perspectiveGlyphs {
+  display: flex;
+  gap: 4px;
+}
+
+.glyphButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  border: 1px solid #2a3944;
+  background: rgba(10, 18, 25, 0.85);
+  color: #9fb6c6;
+  border-radius: 8px;
+  padding: 3px 10px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.glyphButton span {
+  font-size: 14px;
+}
+
+.glyphButton small {
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+}
+
+.glyphButton.active {
+  border-color: #6bd7ff;
+  color: #dff2fb;
+  box-shadow: 0 0 12px rgba(107, 215, 255, 0.25);
+}
+
+.trayButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #2a3944;
+  background: rgba(10, 18, 25, 0.85);
+  color: #9fb6c6;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.trayButton.active {
+  border-color: #6bd7ff;
+  color: #dff2fb;
+}
+
+.commandHint {
+  margin-left: auto;
+  font-size: 11px;
+  color: #5b6f7d;
+  white-space: nowrap;
+}
+
+/* Decision-packet slide-up tray. */
+.packetTray {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 46px;
+  z-index: 34;
+  max-width: 640px;
+  margin: 0 auto;
+  border: 1px solid #2a3944;
+  border-radius: 10px;
+  background: rgba(8, 15, 21, 0.95);
+  backdrop-filter: blur(8px);
+  padding: 10px;
+}
+
+.packetTray header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  color: #dff2fb;
+}
+
+.packetTray header span {
+  color: #7d93a3;
+  font-size: 12px;
+}
+
+.packetTray header .readerClose {
+  margin-left: auto;
+}
+
+.packetRows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow: auto;
+  font-size: 12.5px;
+}
+
+.packetRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.packetRow small {
+  color: #6f8494;
+}
+
+.packetRow .textButton:last-child {
+  margin-left: auto;
+}
+
+.packetActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* RIGHT: the in-world reader dock. */
+.pageReader {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  bottom: 46px;
+  z-index: 32;
+  width: min(38%, 460px);
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #2a3944;
+  background: rgba(7, 13, 19, 0.94);
+  backdrop-filter: blur(10px);
+  outline: none;
+}
+
+.fallbackMode .pageReader {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  max-width: none;
+  border-left: none;
+  border-top: 1px solid #2a3944;
+}
+
+.readerTrail {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px 0;
+  flex-wrap: wrap;
+}
+
+.trailChip {
+  border: 1px solid #2a3944;
+  background: rgba(15, 24, 32, 0.9);
+  color: #9fb6c6;
+  border-radius: 999px;
+  font-size: 10.5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trailChip.active {
+  border-color: #6bd7ff;
+  color: #dff2fb;
+}
+
+.readerHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #22303a;
+}
+
+.readerHead h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: #eaf6fc;
+}
+
+.readerChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.readerChips .pill {
+  font-size: 10px;
+}
+
+.readerClose {
+  border: 1px solid #2a3944;
+  background: rgba(15, 24, 32, 0.9);
+  color: #9fb6c6;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.readerScroll {
+  overflow-y: auto;
+  padding: 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.readerBody {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #c8d8e2;
+}
+
+.readerBody h1,
+.readerBody h3,
+.readerBody h4 {
+  color: #eaf6fc;
+}
+
+.readerBody code {
+  background: rgba(30, 45, 56, 0.7);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 12px;
+}
+
+.readerBody pre {
+  background: rgba(12, 20, 27, 0.9);
+  border: 1px solid #22303a;
+  border-radius: 8px;
+  padding: 8px;
+  overflow-x: auto;
+}
+
+.readerBody table {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.readerBody th,
+.readerBody td {
+  border: 1px solid #24333d;
+  padding: 3px 7px;
+}
+
+.readerSection {
+  border: 1px solid #1e2b34;
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin: 6px 0;
+}
+
+.readerSection summary {
+  cursor: pointer;
+  color: #a9dcf2;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.readerWikiLink {
+  color: #7fd0e8;
+  text-decoration: underline dotted;
+  cursor: pointer;
+}
+
+.readerMissingLink {
+  color: #8a97a3;
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+.readerExternalLink {
+  color: #9db9ff;
+}
+
+.readerDomain {
+  color: #62788a;
+  font-size: 10.5px;
+}
+
+.readerNotice {
+  color: #8ba0af;
+  font-size: 12px;
+  border-left: 2px solid #3d5769;
+  padding-left: 8px;
+}
+
+.readerFallback .pill {
+  margin: 6px 0;
+}
+
+.readerRelations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #22303a;
+  padding-top: 10px;
+}
+
+.readerRelationGroup header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.readerRelationGroup h3 {
+  margin: 0;
+  font-size: 12.5px;
+  color: #a9dcf2;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.readerCount {
+  font-size: 11px;
+  color: #6f8494;
+}
+
+.readerRelationGroup .textButton small {
+  color: #6f8494;
+}
+
+.readerGapMarker {
+  color: #ffb454;
+  font-size: 12px;
+}
+
+.readerEmpty {
+  color: #5b6f7d;
+  font-size: 12px;
+}
+
+.readerExpand {
+  font-size: 11.5px;
+}
+
+.readerWalk {
+  border: 1px dashed #2f4250;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.readerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.readerProvenance {
+  border-top: 1px solid #22303a;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: #62788a;
+}
+
+.readerProvenance code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Cluster stars, beacons, target lock. */
+.clusterStarLabel button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: rgba(10, 20, 28, 0.85);
+  border: 1px solid #35566b;
+  border-radius: 8px;
+  color: #bfe6f7;
+  padding: 3px 8px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.clusterStarLabel strong {
+  font-size: 12px;
+}
+
+.clusterStarLabel .rimDots {
+  display: flex;
+  gap: 2px;
+}
+
+.clusterStarLabel .rimDots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.horizonBeacon button {
+  background: rgba(8, 15, 21, 0.85);
+  border: 1px solid #2a3944;
+  border-radius: 999px;
+  color: #9fb6c6;
+  padding: 3px 10px;
+  cursor: pointer;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.25;
+}
+
+.horizonBeacon strong {
+  font-size: 11.5px;
+}
+
+.horizonBeacon small {
+  font-size: 10px;
+  color: #6f8494;
+}
+
+.radarRimPill button.focused {
+  box-shadow: 0 0 0 2px rgba(107, 215, 255, 0.6);
+}
+
+.targetLock {
+  pointer-events: none;
+}
+
+.lockReticle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(223, 248, 255, 0.75);
+  border-radius: 50%;
+  box-shadow: 0 0 18px rgba(107, 215, 255, 0.35);
+  animation: reticleIn 150ms ease-out;
+}
+
+@keyframes reticleIn {
+  from {
+    width: 120px;
+    height: 120px;
+    opacity: 0;
+  }
+  to {
+    width: 56px;
+    height: 56px;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lockReticle {
+    animation: none;
+  }
+}
+
+.lockRing {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+
+.lockAction {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border: 1px solid #35566b;
+  background: rgba(10, 20, 28, 0.92);
+  color: #dff2fb;
+  border-radius: 999px;
+  font-size: 10.5px;
+  padding: 3px 9px;
+  cursor: pointer;
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+.lockAction:hover {
+  border-color: #6bd7ff;
+}
+
+.lockN {
+  top: -52px;
+  left: 0;
+}
+
+.lockE {
+  top: 0;
+  left: 64px;
+}
+
+.lockS {
+  top: 52px;
+  left: 0;
+}
+
+.lockW {
+  top: 0;
+  left: -64px;
+}
+
+/* Minimap: overview disc bottom-right; M expands fullscreen. */
+.worldMinimap {
+  position: absolute;
+  right: 10px;
+  bottom: 52px;
+  z-index: 29;
+  width: 128px;
+  height: 128px;
+  border: 1px solid #24333d;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(6, 12, 18, 0.85);
+  opacity: 0.85;
+}
+
+.worldMinimap:hover {
+  opacity: 1;
+}
+
+.worldMinimap .fallbackPlan {
+  width: 100%;
+  height: 100%;
+}
+
+.worldMinimap .planContextLabel {
+  font-size: 22px;
+}
+
+.worldMinimap.expanded {
+  inset: 44px 10% 46px;
+  width: auto;
+  height: auto;
+  border-radius: 12px;
+  z-index: 40;
+  opacity: 1;
+}
+
+.worldMinimap.expanded .planContextLabel {
+  font-size: 12px;
+}
+
+.minimapToggle {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #2a3944;
+  background: rgba(10, 18, 25, 0.9);
+  color: #9fb6c6;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Fallback nested navigation (same URLs, zero motion). */
+.fallbackGroups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.fallbackGroupLink {
+  border: 1px solid #2a3944;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #9fb6c6;
+  text-decoration: none;
+}
+
+.fallbackGroupLink:hover {
+  border-color: #6bd7ff;
+  color: #dff2fb;
+}
+
+.fallbackGroupLink.starLink {
+  border-style: dashed;
+}
+
+/* Command output as an overlay dock inside the world shell. */
+.worldOutputDock {
+  position: fixed;
+  right: 16px;
+  bottom: 64px;
+  z-index: 60;
+  width: min(560px, 90vw);
+  max-height: 60vh;
+  overflow: auto;
+  border-radius: 10px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+}
+
+.worldOutputDock .outputPanel {
+  margin: 0;
+}
+
+.outputDockClose {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 2;
+}
+
+@media (max-width: 900px) {
+  .worldMissionCard {
+    display: none;
+  }
+  .pageReader {
+    width: min(92vw, 460px);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   World-shell integration fixes (navigation audit). */
+
+/* Trust-filter strip: docked ABOVE the command bar in the world shell, and
+   clear of the minimap disc — it was fully occluded before. */
+.worldWorkspace .radarStatusStrip {
+  bottom: 46px;
+  right: 150px;
+  left: 0;
+  z-index: 27;
+  background: linear-gradient(0deg, rgba(8, 13, 17, 0.85), rgba(8, 13, 17, 0.55));
+  border-top: none;
+}
+
+.worldWorkspace .radarKeyPopover {
+  bottom: 84px;
+}
+
+/* Tooltip must float above every HUD panel. */
+.worldWorkspace .radarTooltip {
+  z-index: 46;
+}
+
+/* Legacy narrow-screen radar rules must not collapse the world canvas. */
+@media (max-width: 900px) {
+  .worldWorkspace .radarShell:not(.fallbackMode) .sceneCanvasFrame {
+    position: absolute;
+    inset: 44px 0 46px;
+    height: auto;
+    order: 0;
+  }
+  .worldWorkspace .radarShell:not(.fallbackMode) .radarStatusStrip {
+    position: absolute;
+    bottom: 46px;
+    right: 0;
+    height: 32px;
+    padding: 0 12px;
+  }
+  .worldWorkspace .sceneShell {
+    height: calc(100vh - 96px);
+  }
+}
+
+/* 2D fallback: HUD pieces stack in flow instead of covering the nested
+   navigation lists (the absolute command bar stole the last row of links). */
+.sceneShell.fallbackMode .worldTopStrip,
+.sceneShell.fallbackMode .worldCommandBar {
+  position: static;
+  background: rgba(8, 13, 17, 0.75);
+}
+
+.sceneShell.fallbackMode .worldMissionCard {
+  position: static;
+  width: auto;
+  margin: 8px;
+}
+
+.sceneShell.fallbackMode .packetTray {
+  position: static;
+  margin: 8px;
+}
+
+.sceneShell.fallbackMode .worldMinimap {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   UX batch 2: comfortable reading, diagrams, raw-data layer, learning system,
+   missions & honest rewards. */
+
+/* Comfortable reading modal: the dock expands to a centered column (key F). */
+.pageReader.expanded {
+  top: 4vh;
+  bottom: 4vh;
+  right: 50%;
+  transform: translateX(50%);
+  width: min(780px, 94vw);
+  min-width: 0;
+  border: 1px solid #2f4250;
+  border-radius: 12px;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65);
+  z-index: 44;
+}
+
+.pageReader.expanded .readerBody {
+  font-size: 15px;
+  line-height: 1.7;
+  max-width: 68ch;
+}
+
+.pageReader.expanded .readerScroll {
+  padding: 16px 28px 24px;
+}
+
+.readerHeadButtons {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+/* Mermaid diagrams inside the reader. */
+.readerDiagram {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid #22303a;
+  border-radius: 8px;
+  background: rgba(10, 17, 23, 0.85);
+  overflow-x: auto;
+}
+
+.readerDiagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Raw-data layer: distinct, scannable, never repurposing trust colors. */
+.rawPill {
+  border: 1px dashed #57d9a0 !important;
+  color: #7fe6bb;
+}
+
+.rawTag {
+  color: #57d9a0;
+  font-style: normal;
+  border-bottom: 1px dashed #2f5f4b;
+}
+
+.stripChip.rawChip i {
+  border-radius: 1px !important;
+  transform: rotate(45deg);
+  width: 7px;
+  height: 7px;
+}
+
+/* Help tips: the "?" learning layer. */
+.helpTip {
+  position: relative;
+  display: inline-flex;
+  margin-left: 4px;
+}
+
+.helpTipButton {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid #3d5769;
+  background: rgba(20, 32, 42, 0.9);
+  color: #8fd0e8;
+  font-size: 10px;
+  line-height: 1;
+  cursor: help;
+  flex: none;
+}
+
+.helpTipButton:hover,
+.helpTipButton[aria-expanded="true"] {
+  border-color: #6bd7ff;
+  color: #dff2fb;
+}
+
+.helpTipPopover {
+  position: absolute;
+  z-index: 70;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(320px, 80vw);
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #3d5560;
+  border-radius: 8px;
+  background: rgba(8, 13, 17, 0.97);
+  color: #c8d8e2;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
+.helpTipPopover strong {
+  color: #dff2fb;
+}
+
+/* Coach marks: first-run tour. */
+.coachOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(3, 7, 10, 0.55);
+}
+
+.coachSpotlight {
+  position: fixed;
+  border: 2px solid #6bd7ff;
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(3, 7, 10, 0.55), 0 0 24px rgba(107, 215, 255, 0.5);
+  pointer-events: none;
+}
+
+.coachCard {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(380px, 92vw);
+  padding: 16px 18px;
+  border: 1px solid #35566b;
+  border-radius: 12px;
+  background: rgba(8, 14, 20, 0.98);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+
+.coachCard.anchored {
+  transform: none;
+}
+
+.coachCard h2 {
+  margin: 4px 0 6px;
+  font-size: 16px;
+  color: #eaf6fc;
+}
+
+.coachCard p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #b9c9d4;
+}
+
+.coachProgress {
+  font-size: 11px;
+  color: #6f8494;
+}
+
+.coachButtons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Mission rows now host a help tip beside the main button. */
+.missionRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 6px;
+}
+
+.missionRowMain {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  text-align: left;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  flex: 1;
+}
+
+/* Missions & progress panel. */
+.missionsPanel {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 46px;
+  z-index: 36;
+  max-width: 720px;
+  margin: 0 auto;
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  border: 1px solid #2a3944;
+  border-radius: 12px;
+  background: rgba(8, 15, 21, 0.96);
+  backdrop-filter: blur(8px);
+  padding: 12px 14px;
+}
+
+.missionsPanel header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #dff2fb;
+}
+
+.missionsPanel header .readerClose {
+  margin-left: auto;
+}
+
+.missionsIntro {
+  margin: 6px 0 10px;
+  font-size: 12px;
+  color: #8ba0af;
+}
+
+.missionsProgress {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.missionStat {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: #9fb6c6;
+}
+
+.missionBar {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(34, 48, 58, 0.9);
+  overflow: hidden;
+}
+
+.missionBar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 300ms ease;
+}
+
+.missionStat small {
+  color: #6f8494;
+}
+
+.missionList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.missionItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #24333d;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+}
+
+.missionItem div {
+  display: grid;
+  gap: 1px;
+  flex: 1;
+}
+
+.missionItem strong {
+  color: #e6f2f8;
+  font-weight: 600;
+}
+
+.missionItem small {
+  color: #7d93a3;
+}
+
+.missionItem.kind-refresh {
+  border-left: 3px solid #ffb454;
+}
+
+.missionItem.kind-verify {
+  border-left: 3px solid #9aa3b2;
+}
+
+.missionItem.kind-evidence {
+  border-left: 3px solid #57d9a0;
+}
+
+.missionItem.kind-approve {
+  border-left: 3px solid #c57cff;
+}
+
+.missionsEmpty {
+  color: #7fe6bb;
+  font-size: 13px;
+}
+
+.missionsKarma {
+  border-top: 1px solid #22303a;
+  padding-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.karmaHead {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: #9fb6c6;
+  font-size: 12px;
+}
+
+.karmaHead strong {
+  color: #ffd27a;
+  font-size: 15px;
+}
+
+.karmaDimensions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.karmaDimension {
+  font-size: 11px;
+  color: #9fb6c6;
+  border: 1px solid #2a3944;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.karmaBadges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  color: #9fb6c6;
+}
+
+.karmaVitality {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: #9fb6c6;
+}
+
+.vitalityRow {
+  display: grid;
+  grid-template-columns: 110px 1fr 30px;
+  align-items: center;
+  gap: 8px;
+}
+
+.missionsKarmaOff {
+  border-top: 1px solid #22303a;
+  padding-top: 8px;
+  color: #6f8494;
+  font-size: 12px;
+}
+
+.tourButton span[aria-hidden] {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.sceneShell.fallbackMode .missionsPanel {
+  position: static;
+  margin: 8px;
+}
+
+.walkHop,
+.readerWalkHop {
+  color: #8fd0e8;
+  font-size: 12px;
+}

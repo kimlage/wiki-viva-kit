@@ -1,0 +1,42 @@
+{
+  "backlinks": [],
+  "body": "# Alex Operator\n\nSynthetic owner persona used by the demo cockpit.\n\n## Situação\n\n- Área: system\n- Tipo: person\n- Frescor: fresh\n- Atualizado: 2026-07-01\n\n## Conexões\n\n- [Sample Memory](memories/index.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "system",
+    "page_type": "person",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-07-01",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "system",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "sample-person-owner",
+    "page_type": "person",
+    "path": "memories/people/alex-operator.md",
+    "summary": "Synthetic owner persona used by the demo cockpit.",
+    "summary_truncated": false,
+    "title": "Alex Operator",
+    "updated_at": "2026-07-01"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "href": "memories/index.md",
+      "kind": "page",
+      "page_id": "sample-root",
+      "page_type": "root_index",
+      "path": "memories/index.md",
+      "text": "Sample Memory",
+      "title": "Sample Memory"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

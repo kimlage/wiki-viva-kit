@@ -1,0 +1,89 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "fresh",
+      "page_id": "sample-source-market-report",
+      "page_type": "source",
+      "path": "memories/sources/market-cost-report-2026.md",
+      "relation": "ingestion_chain",
+      "title": "Market Cost Report 2026"
+    }
+  ],
+  "body": "# Market Report Ingestion\n\nNormalized deep-read of the market cost report, consolidated into finance.\n\n## Situação\n\n- Área: system\n- Tipo: ingestion_event\n- Frescor: fresh\n- Atualizado: 2026-06-29\n\n## Conexões\n\n- [Sample Memory](memories/index.md) — página relacionada\n- [Market Cost Report 2026](memories/sources/market-cost-report-2026.md) — fonte de evidência\n- [Adopt Usage-Based Pricing](memories/decisions/usage-based-pricing.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "system",
+    "page_type": "ingestion_event",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-06-29",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "system",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "sample-event-market-report",
+    "page_type": "ingestion_event",
+    "path": "memories/system/ingestion/events/2026-06-29-market-report.md",
+    "summary": "Normalized deep-read of the market cost report, consolidated into finance.",
+    "summary_truncated": false,
+    "title": "Market Report Ingestion",
+    "updated_at": "2026-06-29"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "href": "memories/index.md",
+      "kind": "page",
+      "page_id": "sample-root",
+      "page_type": "root_index",
+      "path": "memories/index.md",
+      "text": "Sample Memory",
+      "title": "Sample Memory"
+    },
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "fresh",
+      "href": "memories/sources/market-cost-report-2026.md",
+      "kind": "page",
+      "page_id": "sample-source-market-report",
+      "page_type": "source",
+      "path": "memories/sources/market-cost-report-2026.md",
+      "text": "Market Cost Report 2026",
+      "title": "Market Cost Report 2026"
+    },
+    {
+      "approved_state": "proposal",
+      "context": "finance",
+      "freshness_state": "fresh",
+      "href": "memories/decisions/usage-based-pricing.md",
+      "kind": "page",
+      "page_id": "sample-decision-pricing",
+      "page_type": "decision",
+      "path": "memories/decisions/usage-based-pricing.md",
+      "text": "Adopt Usage-Based Pricing",
+      "title": "Adopt Usage-Based Pricing"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "fresh",
+      "page_id": "sample-source-market-report",
+      "page_type": "source",
+      "path": "memories/sources/market-cost-report-2026.md",
+      "ref": "sample-source-market-report",
+      "resolved": true,
+      "title": "Market Cost Report 2026"
+    }
+  ]
+}

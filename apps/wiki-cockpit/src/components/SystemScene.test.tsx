@@ -16,6 +16,19 @@ const nodes: GraphNode[] = [
     approved_state: "approved",
     risk_flags: [],
     metrics: { inbound_links: 0, outbound_links: 1, source_ref_count: 0 }
+  },
+  {
+    id: "alpha",
+    path: "memories/example/alpha.md",
+    title: "Alpha",
+    page_type: "context_note",
+    context: "example",
+    freshness_state: "stale",
+    approved_state: "approved",
+    risk_flags: [],
+    updated_at: "2026-01-01",
+    stale_after_days: "30",
+    metrics: { inbound_links: 1, outbound_links: 0, source_ref_count: 1 }
   }
 ];
 
@@ -35,15 +48,24 @@ const git: GitState = {
 };
 
 describe("SystemScene fallback", () => {
-  it("uses the 2D fallback when WebGL is unavailable", () => {
+  it("uses the 2D fallback with the same topology and URLs when WebGL is unavailable", () => {
     expect(canUseWebGL()).toBe(false);
 
-    render(<SystemScene nodes={nodes} git={git} highlightedPageIds={["root"]} intent={{ label: "Inspect evidence", detail: "Use the map to verify selected content.", count: 1 }} />);
+    render(
+      <SystemScene
+        nodes={nodes}
+        git={git}
+        route={{ perspective: "radar", reader: false, filter: "" }}
+        highlightedPageIds={["alpha"]}
+        makeHref={(patch) => `/w/radar${patch.context ? `/${patch.context}` : ""}`}
+      />
+    );
 
     expect(screen.getByLabelText("Content map")).toBeTruthy();
     expect(screen.getByText("Draft change")).toBeTruthy();
-    expect(screen.getByText("Inspect evidence")).toBeTruthy();
-    expect(screen.getByText("1 highlighted")).toBeTruthy();
-    expect(screen.getByText("Root")).toBeTruthy();
+    // Groups render as links sharing the world URL grammar.
+    const groupLink = screen.getByRole("link", { name: /example · 1/ });
+    expect(groupLink.getAttribute("href")).toBe("/w/radar/example");
+    expect(screen.getByRole("link", { name: "Alpha" })).toBeTruthy();
   });
 });

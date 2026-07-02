@@ -1,0 +1,53 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "page_id": "sample-daily-operation",
+      "page_type": "operational_rule",
+      "path": "memories/system/wiki/daily-operation.md",
+      "relation": "markdown_link",
+      "title": "Daily Operation Guide"
+    }
+  ],
+  "body": "# Source Registry\n\nGenerated catalog of every ingested source and its refresh window.\n\n## Situação\n\n- Área: system\n- Tipo: source_registry\n- Frescor: fresh\n- Atualizado: 2026-07-01\n\n## Conexões\n\n- [Sample Memory](memories/index.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "system",
+    "page_type": "source_registry",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-07-01",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "system",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "sample-source-registry",
+    "page_type": "source_registry",
+    "path": "memories/system/source-registry.md",
+    "summary": "Generated catalog of every ingested source and its refresh window.",
+    "summary_truncated": false,
+    "title": "Source Registry",
+    "updated_at": "2026-07-01"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "href": "memories/index.md",
+      "kind": "page",
+      "page_id": "sample-root",
+      "page_type": "root_index",
+      "path": "memories/index.md",
+      "text": "Sample Memory",
+      "title": "Sample Memory"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

@@ -1,0 +1,561 @@
+// UI strings registry. The base system ships in English; the whole cockpit
+// flips to Portuguese when the wiki's configured language starts with "pt"
+// (wiki.config.yaml -> manifest.repo.language) — content language stays free.
+// Implementations can override individual strings via wiki-cockpit.config.json
+// (`strings: { key: "..." }`), same pattern as the presentation registry.
+
+export type UiLanguage = "en" | "pt";
+
+type Dict = Record<string, string>;
+
+const EN: Dict = {
+  // Nav
+  "nav.home": "Home",
+  "nav.approve": "Approve",
+  "nav.add": "Add",
+  "nav.health": "Health",
+  "nav.content": "Content",
+  "nav.demo": "Demo",
+  "nav.exitDemo": "Exit demo",
+
+  // World HUD
+  "world.aria": "3D knowledge world",
+  "world.galaxy": "Galaxy",
+  "world.pages": "{n} pages",
+  "world.updated": "updated {when}",
+  "world.demoMode": "demo",
+  "world.searchPlaceholder": "search ( / )",
+  "world.searchAria": "Search content",
+  "world.perspectives": "Perspectives (keys 1–4)",
+  "world.packet": "Packet {n}",
+  "world.missions": "Missions",
+  "world.hintKeys": "M minimap · Esc back",
+  "world.results": "{n} result(s)",
+  "world.resultsCapped": "{n} result(s) · showing 8",
+  "world.partialSummary": "partial summary",
+  "world.raw": "raw data",
+  "world.missingInUniverse": "This item does not exist in this data universe.",
+  "world.breadcrumbsAria": "Breadcrumbs",
+  "world.missionAria": "Current mission",
+  "world.commandBarAria": "Command bar",
+  "world.trailAria": "Navigation trail",
+
+  // Perspectives
+  "perspective.radar": "Radar",
+  "perspective.radar.hint": "verification: what needs attention now",
+  "perspective.atlas": "Atlas",
+  "perspective.atlas.hint": "hierarchy: what lives under each area",
+  "perspective.districts": "Districts",
+  "perspective.districts.hint": "identification: the world sorted by kind",
+  "perspective.trails": "Trails",
+  "perspective.trails.hint": "exploration: the page's connections and evidence",
+
+  // Mission card rows (plain language + guidance)
+  "mission.approve.label": "Approve a change",
+  "mission.approve.detail": "{n} edited file(s) are waiting for your yes/no.",
+  "mission.approve.help":
+    "Someone (you or an agent) edited wiki content. Nothing becomes 'official' until a human reviews it. Click to open the approval inbox: read what changed, then approve, ask for fixes, or reject. Nothing is published without you.",
+  "mission.checks.label": "Run the checks",
+  "mission.checks.detail": "Automatic validation has not confirmed this wiki state yet.",
+  "mission.checks.help":
+    "The checks are automatic honesty tests: broken links, missing sources, privacy leaks, stale operations. Click to run them locally — you get a pass/fail report. Nothing is changed by running them; they only tell you if the wiki can be trusted right now.",
+  "mission.stale.label": "Update old content",
+  "mission.stale.detail": "{n} page(s) passed their freshness window.",
+  "mission.stale.help":
+    "Each page declares how long it stays trustworthy (e.g. 30 days). These pages passed that window: the info may still be right, but nobody verified it recently. Click to highlight them on the map — open one, re-check the facts, update it (or its date) and it turns healthy again.",
+  "mission.clear.label": "All clear — explore the wiki",
+  "mission.clear.detail": "No blocker visible. Navigate the world or add a source.",
+
+  // Scene
+  "scene.aria": "Content relationship map",
+  "scene.selectionReleased": "selection released",
+  "scene.levelUp": "going up one level",
+  "scene.opening": "opening {label}: {n} pages",
+  "scene.groupFocus": "{label}: {n} pages, {shown} visible",
+  "scene.showingMore": "showing {n} more pages from {label}",
+  "scene.openingHidden": "opening {n} hidden pages from {label}",
+  "scene.lateralJump": "lateral jump to {label}",
+  "scene.above": "up",
+  "scene.below": "down",
+  "scene.hiddenTotal": "{hidden} hidden · {total} total",
+  "scene.hiddenTitle": "pages aggregated into cluster-stars — one drill away",
+  "scene.openHiddenTitle": "open {n} hidden pages",
+  "scene.showMore": "show",
+  "scene.hidden": "hidden",
+  "scene.minimap": "Minimap",
+  "scene.minimapExpand": "Expand minimap (M)",
+  "scene.minimapClose": "Close minimap (M)",
+  "scene.goTo": "go to {label}",
+  "scene.lock.read": "Read",
+  "scene.lock.packet": "Packet",
+  "scene.lock.trails": "Connections",
+  "scene.lock.refresh": "Refresh",
+  "scene.lock.aria": "Actions for {title}",
+  "scene.lock.readTitle": "Read (Q)",
+  "scene.lock.packetTitle": "Add to packet (W)",
+  "scene.lock.trailsTitle": "Connections (E)",
+  "scene.lock.refreshTitle": "Refresh (R)",
+  "trust.ok": "ok",
+  "trust.needsRefresh": "needs refresh",
+  "trust.notChecked": "not checked",
+  "decision.trust": "Ready to trust",
+  "decision.refresh": "Refresh before trusting",
+  "decision.approval": "Needs approval",
+  "decision.risk": "Review risk",
+  "scene.trust.fresh": "up to date",
+  "scene.trust.stale": "needs refresh",
+  "scene.trust.proposal": "draft change",
+  "scene.trust.unknown": "not checked",
+  "scene.risk": "risk",
+  "scene.evidence": "evidence",
+  "scene.key": "Key",
+  "scene.keyPositionLabel": "Position",
+  "scene.keyShapeLabel": "Shape",
+  "scene.keyShape": "◆ evidence source · ⬡ area hub · ● content",
+  "scene.keyLinesLabel": "Lines",
+  "scene.keyUseLabel": "Use it",
+  "scene.unknownBand": "no freshness data",
+  "scene.deadlineCaption": "freshness deadline · older content drifts outward",
+  "scene.keyPosition":
+    "Radar: distance from center = time since verification. Atlas: rings = hierarchy. Districts: shelves = kind. Trails: sectors = relation.",
+  "scene.keyUse": "Click = lock + read · Enter = drill · Esc = back · 1–4 = perspectives · Tab = groups · M = minimap.",
+
+  // Reader
+  "reader.aria": "Reader: {title}",
+  "reader.notFound": "Page not found",
+  "reader.notFoundBody": "The selected item does not exist in this data universe.",
+  "reader.close": "Close reader (Esc)",
+  "reader.expand": "Comfortable reading (F)",
+  "reader.collapse": "Back to dock (F)",
+  "reader.loading": "loading content…",
+  "reader.staticNotice": "full text available with the local operator",
+  "reader.partial": "partial summary",
+  "reader.noSummary": "No summary available.",
+  "reader.updated": "updated {when}",
+  "reader.evidence": "evidence {n}",
+  "reader.walk": "evidence walk",
+  "reader.walkIdle": "({n} steps, key n)",
+  "reader.addPacket": "Add to packet",
+  "reader.removePacket": "Remove from packet",
+  "reader.connections": "Connections",
+  "reader.inspectChanges": "Inspect changes",
+  "reader.prepareApproval": "Prepare approval",
+  "reader.viewSource": "view source file",
+  "reader.internalLink": "internal link",
+  "reader.above": "above",
+  "reader.below": "below",
+  "reader.source": "source",
+  "reader.usesAsSource": "uses this as a source",
+  "reader.citesPage": "cites this page",
+  "reader.noEvidence": "no resolved evidence",
+  "reader.gapTitle": "manifest missing — no fabricated edge",
+  "reader.none": "no items",
+  "reader.showLess": "show less",
+  "reader.showAll": "show all {n}",
+  "reader.missingLink": "page not found in the wiki",
+  "reader.ingestionEvent": "ingestion event: {label}",
+  "reader.diagramError": "diagram could not be rendered — showing the source",
+  "relation.hierarquia": "Hierarchy",
+  "relation.evidencia": "Evidence",
+  "relation.links": "Links",
+  "relation.citado-por": "Cited by",
+
+  // Group labels
+  "group.attention": "attention",
+  "group.orphan": "no parent",
+
+  // Missions panel
+  "missions.title": "Missions & progress",
+  "missions.aria": "Missions and progress",
+  "missions.intro": "Real work, real progress: every mission comes from the actual wiki state and clears itself when the wiki improves.",
+  "missions.freshness": "Freshness",
+  "missions.freshnessDetail": "{fresh} of {total} pages inside their trust window",
+  "missions.evidence": "Evidence",
+  "missions.evidenceDetail": "{n} page(s) citing sources",
+  "missions.recentWins": "Recent wins",
+  "missions.recentWinsDetail": "{n} update(s) in the last 7 days",
+  "missions.refresh.title": "Refresh: {title}",
+  "missions.refresh.why": "{days}d past its freshness window",
+  "missions.verify.title": "Verify: {title}",
+  "missions.verify.why": "no freshness data — set updated_at + stale_after_days",
+  "missions.evidence.title": "Add evidence: {title}",
+  "missions.evidence.why": "content page with no cited source",
+  "missions.approve.title": "Review {n} changed file(s)",
+  "missions.approve.why": "changes wait at the human gate",
+  "missions.open": "open",
+  "missions.empty": "No open missions — the wiki is healthy. 🎉",
+  "missions.karmaLevel": "Journey level",
+  "missions.karmaTotal": "{n} karma points (soft decay applies)",
+  "missions.badges": "Badges",
+  "missions.noBadges": "No badges yet — missions above are the way.",
+  "missions.vitality": "Context vitality",
+  "missions.karmaOff": "Karma is disabled in this repo (karma.enabled: false).",
+  "missions.karmaHelp":
+    "Karma is the kit's honest gamification: append-only events across 8 dimensions (clarity, reliability, care, stewardship, connection, learning, action, inspiration) with anti-gaming rules and NO person-vs-person ranking. Record events with scripts/wiki_score.py after real work.",
+
+  // Tour
+  "tour.skip": "Skip",
+  "tour.next": "Next",
+  "tour.back": "Back",
+  "tour.done": "Finish",
+  "tour.reopen": "Guide (?)",
+  "tour.progress": "{step} of {total}",
+  "tour.welcome.title": "Welcome to the knowledge world",
+  "tour.welcome.body":
+    "Your wiki is this 3D map. Every dot is a page: color = trust (green ok, amber needs refresh, purple draft), shape = kind, lines = real relations. Nothing here is decorative — if it glows, it needs you.",
+  "tour.perspectives.title": "Four perspectives, keys 1–4",
+  "tour.perspectives.body":
+    "The same pages, four arrangements: Radar (what needs attention), Atlas (what lives where), Districts (everything by kind), Trails (one page's connections). Switching morphs the world — nothing is lost.",
+  "tour.drill.title": "Drill by clicking, retreat with Esc",
+  "tour.drill.body":
+    "Click an area pill to fly in, click a node to lock it and read. Esc always goes exactly one step back. The URL follows you — back button, refresh and sharing just work.",
+  "tour.mission.title": "The mission card",
+  "tour.mission.body":
+    "Your do-now list, derived from real state. Each row explains itself with the ? button — what it means, what to look at, what happens when you click.",
+  "tour.search.title": "Search with /",
+  "tour.search.body": "Press / and type. Results auto-drill: clicking one flies the camera to the page and opens the reader.",
+  "tour.packet.title": "The decision packet",
+  "tour.packet.body":
+    "Collect pages you want to review together (W key or the lock ring). The packet lives in the URL — share it and someone else sees the same selection.",
+  "tour.missions.title": "Missions & rewards",
+  "tour.missions.body":
+    "The Missions tray lists real maintenance work — refresh stale pages, add evidence, approve changes — and tracks honest progress (freshness coverage, karma level, badges). No fake XP: numbers only move when the wiki actually improves.",
+
+  // Help / glossary
+  "help.whatIs": "What is this?",
+  "help.close": "Close help",
+
+  // Demo
+  "demo.banner": "Interface demo with synthetic sample data. Run the cockpit against a real checkout to operate your own wiki here.",
+  "demo.actionsOff": "Demo: local actions are disabled in this synthetic universe.",
+  "demo.gitOff": "Demo: git workflows are disabled in this synthetic universe.",
+  "demo.noteTitle": "Demo note",
+
+  // Toasts
+  "toast.packetAdded": "Added to the decision packet.",
+  "toast.packetRemoved": "Removed from the packet.",
+  "toast.viewResult": "View result",
+  "toast.running": "Running {title}… checks can take a minute.",
+  "toast.completed": "{title}: completed",
+  "toast.needsAttention": "{title}: needs attention",
+
+  // Misc
+  "misc.opening": "Opening in the world…",
+  "misc.noDate": "no date",
+  "misc.clear": "Clear",
+  "misc.remove": "Remove",
+  "misc.packetEmpty": "No pages in the packet. Lock a node and press W (or use the ring) to add.",
+  "misc.filter": "filter",
+  "misc.showOnly": "Show only {label}"
+};
+
+const PT: Dict = {
+  "nav.home": "Início",
+  "nav.approve": "Aprovar",
+  "nav.add": "Adicionar",
+  "nav.health": "Saúde",
+  "nav.content": "Conteúdo",
+  "nav.demo": "Demo",
+  "nav.exitDemo": "Sair do demo",
+
+  "world.aria": "Mundo de conhecimento 3D",
+  "world.galaxy": "Galáxia",
+  "world.pages": "{n} páginas",
+  "world.updated": "atualizado {when}",
+  "world.demoMode": "demo",
+  "world.searchPlaceholder": "buscar ( / )",
+  "world.searchAria": "Buscar conteúdo",
+  "world.perspectives": "Perspectivas (teclas 1–4)",
+  "world.packet": "Pacote {n}",
+  "world.missions": "Missões",
+  "world.hintKeys": "M minimapa · Esc voltar",
+  "world.results": "{n} resultado(s)",
+  "world.resultsCapped": "{n} resultado(s) · mostrando 8",
+  "world.partialSummary": "resumo parcial",
+  "world.raw": "dado bruto",
+  "world.missingInUniverse": "Este item não existe neste universo de dados.",
+  "world.breadcrumbsAria": "Trilha de navegação",
+  "world.missionAria": "Missão atual",
+  "world.commandBarAria": "Barra de comando",
+  "world.trailAria": "Trilha de leitura",
+
+  "perspective.radar": "Radar",
+  "perspective.radar.hint": "verificação: o que precisa de atenção agora",
+  "perspective.atlas": "Atlas",
+  "perspective.atlas.hint": "hierarquia: o que vive em cada área",
+  "perspective.districts": "Distritos",
+  "perspective.districts.hint": "identificação: o mundo ordenado por tipo",
+  "perspective.trails": "Trilhas",
+  "perspective.trails.hint": "exploração: conexões e evidência da página",
+
+  "mission.approve.label": "Aprovar uma mudança",
+  "mission.approve.detail": "{n} arquivo(s) editado(s) esperando seu sim/não.",
+  "mission.approve.help":
+    "Alguém (você ou um agente) editou conteúdo da wiki. Nada vira 'oficial' até um humano revisar. Clique para abrir a caixa de aprovação: leia o que mudou e aprove, peça ajustes ou rejeite. Nada é publicado sem você.",
+  "mission.checks.label": "Rodar as verificações",
+  "mission.checks.detail": "A validação automática ainda não confirmou este estado da wiki.",
+  "mission.checks.help":
+    "As verificações são testes automáticos de honestidade: links quebrados, fontes faltando, vazamento de privacidade, operações desatualizadas. Clique para rodá-las localmente — você recebe um relatório passou/falhou. Rodar não muda nada; só diz se dá para confiar na wiki agora.",
+  "mission.stale.label": "Atualizar conteúdo antigo",
+  "mission.stale.detail": "{n} página(s) passaram da janela de frescor.",
+  "mission.stale.help":
+    "Cada página declara por quanto tempo continua confiável (ex.: 30 dias). Estas passaram desse prazo: a informação pode até estar certa, mas ninguém verificou recentemente. Clique para destacá-las no mapa — abra uma, confira os fatos, atualize (ou só a data) e ela volta a ficar saudável.",
+  "mission.clear.label": "Tudo em ordem — explore a wiki",
+  "mission.clear.detail": "Nenhum bloqueio visível. Navegue pelo mundo ou adicione uma fonte.",
+
+  "scene.aria": "Mapa de relações do conteúdo",
+  "scene.selectionReleased": "seleção liberada",
+  "scene.levelUp": "subindo um nível",
+  "scene.opening": "abrindo {label}: {n} páginas",
+  "scene.groupFocus": "{label}: {n} páginas, {shown} visíveis",
+  "scene.showingMore": "mostrando mais {n} páginas de {label}",
+  "scene.openingHidden": "abrindo {n} páginas ocultas de {label}",
+  "scene.lateralJump": "salto lateral para {label}",
+  "scene.above": "acima",
+  "scene.below": "abaixo",
+  "scene.hiddenTotal": "{hidden} ocultas · {total} total",
+  "scene.hiddenTitle": "páginas agregadas em cluster-stars — a um drill de distância",
+  "scene.openHiddenTitle": "abrir {n} páginas ocultas",
+  "scene.showMore": "mostrar",
+  "scene.hidden": "ocultas",
+  "scene.minimap": "Minimapa",
+  "scene.minimapExpand": "Expandir minimapa (M)",
+  "scene.minimapClose": "Fechar minimapa (M)",
+  "scene.goTo": "ir para {label}",
+  "scene.lock.read": "Ler",
+  "scene.lock.packet": "Pacote",
+  "scene.lock.trails": "Conexões",
+  "scene.lock.refresh": "Atualizar",
+  "scene.lock.aria": "Ações para {title}",
+  "scene.lock.readTitle": "Ler (Q)",
+  "scene.lock.packetTitle": "Adicionar ao pacote (W)",
+  "scene.lock.trailsTitle": "Conexões (E)",
+  "scene.lock.refreshTitle": "Atualizar (R)",
+  "trust.ok": "ok",
+  "trust.needsRefresh": "precisa atualizar",
+  "trust.notChecked": "não verificado",
+  "decision.trust": "Pronto para confiar",
+  "decision.refresh": "Atualizar antes de confiar",
+  "decision.approval": "Precisa de aprovação",
+  "decision.risk": "Revisar risco",
+  "scene.trust.fresh": "em dia",
+  "scene.trust.stale": "precisa atualizar",
+  "scene.trust.proposal": "rascunho",
+  "scene.trust.unknown": "não verificado",
+  "scene.risk": "risco",
+  "scene.evidence": "evidência",
+  "scene.key": "Legenda",
+  "scene.keyPositionLabel": "Posição",
+  "scene.keyShapeLabel": "Forma",
+  "scene.keyShape": "◆ fonte de evidência · ⬡ hub de área · ● conteúdo",
+  "scene.keyLinesLabel": "Linhas",
+  "scene.keyUseLabel": "Como usar",
+  "scene.unknownBand": "sem dados de frescor",
+  "scene.deadlineCaption": "prazo de frescor · conteúdo antigo deriva para fora",
+  "scene.keyPosition":
+    "Radar: distância do centro = tempo desde a verificação. Atlas: anéis = hierarquia. Distritos: prateleiras = tipo. Trilhas: setores = relação.",
+  "scene.keyUse": "Clique = travar + ler · Enter = drill · Esc = voltar · 1–4 = perspectivas · Tab = grupos · M = minimapa.",
+
+  "reader.aria": "Leitor: {title}",
+  "reader.notFound": "Página não encontrada",
+  "reader.notFoundBody": "O item selecionado não existe neste universo de dados.",
+  "reader.close": "Fechar leitor (Esc)",
+  "reader.expand": "Leitura confortável (F)",
+  "reader.collapse": "Voltar ao painel (F)",
+  "reader.loading": "carregando conteúdo…",
+  "reader.staticNotice": "texto completo disponível com o operador local",
+  "reader.partial": "resumo parcial",
+  "reader.noSummary": "Sem resumo disponível.",
+  "reader.updated": "atualizado {when}",
+  "reader.evidence": "evidência {n}",
+  "reader.walk": "caminhada de evidência",
+  "reader.walkIdle": "({n} passos, tecla n)",
+  "reader.addPacket": "Adicionar ao pacote",
+  "reader.removePacket": "Remover do pacote",
+  "reader.connections": "Conexões",
+  "reader.inspectChanges": "Inspecionar mudanças",
+  "reader.prepareApproval": "Preparar aprovação",
+  "reader.viewSource": "ver arquivo fonte",
+  "reader.internalLink": "link interno",
+  "reader.above": "acima",
+  "reader.below": "abaixo",
+  "reader.source": "fonte",
+  "reader.usesAsSource": "usa como fonte",
+  "reader.citesPage": "cita esta página",
+  "reader.noEvidence": "sem evidência resolvida",
+  "reader.gapTitle": "manifesto ausente — nenhuma aresta fabricada",
+  "reader.none": "nenhum item",
+  "reader.showLess": "mostrar menos",
+  "reader.showAll": "mostrar todos os {n}",
+  "reader.missingLink": "página não encontrada na wiki",
+  "reader.ingestionEvent": "evento de ingestão: {label}",
+  "reader.diagramError": "não foi possível renderizar o diagrama — mostrando a fonte",
+  "relation.hierarquia": "Hierarquia",
+  "relation.evidencia": "Evidência",
+  "relation.links": "Links",
+  "relation.citado-por": "Citado por",
+
+  "group.attention": "atenção",
+  "group.orphan": "sem pai",
+
+  "missions.title": "Missões & progresso",
+  "missions.aria": "Missões e progresso",
+  "missions.intro": "Trabalho real, progresso real: cada missão vem do estado atual da wiki e se resolve sozinha quando a wiki melhora.",
+  "missions.freshness": "Frescor",
+  "missions.freshnessDetail": "{fresh} de {total} páginas dentro da janela de confiança",
+  "missions.evidence": "Evidência",
+  "missions.evidenceDetail": "{n} página(s) citando fontes",
+  "missions.recentWins": "Vitórias recentes",
+  "missions.recentWinsDetail": "{n} atualização(ões) nos últimos 7 dias",
+  "missions.refresh.title": "Atualizar: {title}",
+  "missions.refresh.why": "{days}d além da janela de frescor",
+  "missions.verify.title": "Verificar: {title}",
+  "missions.verify.why": "sem dados de frescor — defina updated_at + stale_after_days",
+  "missions.evidence.title": "Evidenciar: {title}",
+  "missions.evidence.why": "página de conteúdo sem fonte citada",
+  "missions.approve.title": "Revisar {n} arquivo(s) alterado(s)",
+  "missions.approve.why": "mudanças esperam no portão humano",
+  "missions.open": "abrir",
+  "missions.empty": "Nenhuma missão aberta — a wiki está saudável. 🎉",
+  "missions.karmaLevel": "Nível da jornada",
+  "missions.karmaTotal": "{n} pontos de karma (com decaimento suave)",
+  "missions.badges": "Conquistas",
+  "missions.noBadges": "Nenhuma conquista ainda — as missões acima são o caminho.",
+  "missions.vitality": "Vitalidade por contexto",
+  "missions.karmaOff": "Karma está desabilitado neste repo (karma.enabled: false).",
+  "missions.karmaHelp":
+    "Karma é a gamificação honesta do kit: eventos append-only em 8 dimensões (clareza, confiabilidade, cuidado, stewardship, conexão, aprendizado, ação, inspiração) com regras anti-gaming e SEM ranking pessoa-contra-pessoa. Registre eventos com scripts/wiki_score.py depois do trabalho real.",
+
+  "tour.skip": "Pular",
+  "tour.next": "Próximo",
+  "tour.back": "Voltar",
+  "tour.done": "Concluir",
+  "tour.reopen": "Guia (?)",
+  "tour.progress": "{step} de {total}",
+  "tour.welcome.title": "Bem-vinda ao mundo de conhecimento",
+  "tour.welcome.body":
+    "Sua wiki é este mapa 3D. Cada ponto é uma página: cor = confiança (verde ok, âmbar precisa atualizar, roxo rascunho), forma = tipo, linhas = relações reais. Nada aqui é decorativo — se brilha, precisa de você.",
+  "tour.perspectives.title": "Quatro perspectivas, teclas 1–4",
+  "tour.perspectives.body":
+    "As mesmas páginas, quatro arranjos: Radar (o que precisa de atenção), Atlas (o que vive onde), Distritos (tudo por tipo), Trilhas (as conexões de uma página). Trocar transforma o mundo — nada se perde.",
+  "tour.drill.title": "Mergulhe clicando, volte com Esc",
+  "tour.drill.body":
+    "Clique numa pílula de área para voar até ela, clique num nó para travar e ler. Esc sempre volta exatamente um passo. A URL acompanha — botão voltar, refresh e compartilhar simplesmente funcionam.",
+  "tour.mission.title": "O cartão de missão",
+  "tour.mission.body":
+    "Sua lista do-agora, derivada do estado real. Cada linha se explica com o botão ? — o que significa, o que olhar e o que acontece ao clicar.",
+  "tour.search.title": "Busque com /",
+  "tour.search.body": "Aperte / e digite. Resultados fazem auto-drill: clicar voa a câmera até a página e abre o leitor.",
+  "tour.packet.title": "O pacote de decisão",
+  "tour.packet.body":
+    "Junte páginas que quer revisar juntas (tecla W ou o anel). O pacote vive na URL — compartilhe e outra pessoa vê a mesma seleção.",
+  "tour.missions.title": "Missões & recompensas",
+  "tour.missions.body":
+    "A bandeja de Missões lista trabalho real de manutenção — atualizar páginas velhas, evidenciar, aprovar mudanças — e acompanha progresso honesto (cobertura de frescor, nível de karma, conquistas). Sem XP falso: os números só andam quando a wiki melhora de verdade.",
+
+  "help.whatIs": "O que é isto?",
+  "help.close": "Fechar ajuda",
+
+  "demo.banner": "Demo da interface com dados sintéticos. Rode o cockpit contra um checkout real para operar a sua wiki aqui.",
+  "demo.actionsOff": "Demo: ações locais ficam desabilitadas neste universo sintético.",
+  "demo.gitOff": "Demo: fluxos git ficam desabilitados neste universo sintético.",
+  "demo.noteTitle": "Nota do demo",
+
+  "toast.packetAdded": "Adicionado ao pacote de decisão.",
+  "toast.packetRemoved": "Removido do pacote.",
+  "toast.viewResult": "Ver resultado",
+  "toast.running": "Rodando {title}… verificações podem levar um minuto.",
+  "toast.completed": "{title}: concluído",
+  "toast.needsAttention": "{title}: precisa de atenção",
+
+  "misc.opening": "Abrindo no mundo…",
+  "misc.noDate": "sem data",
+  "misc.clear": "Limpar",
+  "misc.remove": "Remover",
+  "misc.packetEmpty": "Nenhuma página no pacote. Trave um nó e use W (ou o anel) para adicionar.",
+  "misc.filter": "filtro",
+  "misc.showOnly": "Mostrar só {label}"
+};
+
+// Glossary: plain-language explanations for system jargon, shown by HelpTip.
+export const GLOSSARY: Record<UiLanguage, Record<string, { title: string; body: string }>> = {
+  en: {
+    packet: {
+      title: "Decision packet",
+      body: "A basket of pages you want to review together before deciding something. It lives in the URL (?packet=), so sharing the link shares the selection. It never changes the wiki by itself."
+    },
+    freshness: {
+      title: "Freshness",
+      body: "Every page declares how long it stays trustworthy (stale_after_days). Inside the window = green. Past it = amber: re-verify and update the date. No date at all = grey 'no data' band."
+    },
+    evidence: {
+      title: "Evidence",
+      body: "Pages cite their sources (source_refs). A claim without a source is only an opinion — the Evidence sections and the walk (key n) show exactly what a page stands on."
+    },
+    proposal: {
+      title: "Draft / proposal",
+      body: "Changes are made on a separate git branch and only merge after a human approves the review request. Purple floating nodes are drafts waiting at that gate."
+    },
+    raw: {
+      title: "Raw data",
+      body: "Source records: invoices, extracts, transcripts, ingestion events — the untreated inputs the wiki's knowledge is distilled from. Crystals in the map. They are evidence, not conclusions."
+    },
+    vitality: {
+      title: "Context vitality",
+      body: "A 0–100 collective health index per area: fresh pages and recent sources pull it up; pending and orphan pages pull it down. It measures the wiki, never ranks people."
+    }
+  },
+  pt: {
+    packet: {
+      title: "Pacote de decisão",
+      body: "Uma cesta de páginas que você quer revisar juntas antes de decidir algo. Vive na URL (?packet=), então compartilhar o link compartilha a seleção. Ele nunca altera a wiki sozinho."
+    },
+    freshness: {
+      title: "Frescor",
+      body: "Cada página declara por quanto tempo continua confiável (stale_after_days). Dentro da janela = verde. Passou = âmbar: re-verifique e atualize a data. Sem data nenhuma = banda cinza 'sem dados'."
+    },
+    evidence: {
+      title: "Evidência",
+      body: "Páginas citam suas fontes (source_refs). Afirmação sem fonte é só opinião — as seções de Evidência e a caminhada (tecla n) mostram exatamente em que uma página se apoia."
+    },
+    proposal: {
+      title: "Rascunho / proposta",
+      body: "Mudanças acontecem numa branch git separada e só entram depois que um humano aprova o pedido de revisão. Nós roxos flutuando são rascunhos esperando nesse portão."
+    },
+    raw: {
+      title: "Dado bruto",
+      body: "Registros-fonte: faturas, extratos, transcrições, eventos de ingestão — os insumos não tratados de onde o conhecimento da wiki é destilado. Cristais no mapa. São evidência, não conclusão."
+    },
+    vitality: {
+      title: "Vitalidade do contexto",
+      body: "Índice coletivo de saúde 0–100 por área: páginas frescas e fontes recentes puxam para cima; pendências e órfãs puxam para baixo. Mede a wiki, nunca ranqueia pessoas."
+    }
+  }
+};
+
+let language: UiLanguage = "en";
+let overrides: Dict = {};
+
+export function configureLanguage(lang: string | null | undefined, stringOverrides?: Dict | null): void {
+  language = String(lang || "en").toLowerCase().startsWith("pt") ? "pt" : "en";
+  overrides = stringOverrides || {};
+}
+
+export function uiLanguage(): UiLanguage {
+  return language;
+}
+
+export function t(key: string, params?: Record<string, string | number>): string {
+  const table = language === "pt" ? PT : EN;
+  let text = overrides[key] ?? table[key] ?? EN[key] ?? key;
+  if (params) {
+    for (const [name, value] of Object.entries(params)) {
+      text = text.replaceAll(`{${name}}`, String(value));
+    }
+  }
+  return text;
+}
+
+export function glossary(term: string): { title: string; body: string } | null {
+  return GLOSSARY[language][term] ?? GLOSSARY.en[term] ?? null;
+}

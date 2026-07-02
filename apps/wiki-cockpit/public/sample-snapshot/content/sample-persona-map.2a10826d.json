@@ -1,0 +1,53 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "page_id": "sample-product-overview",
+      "page_type": "context_note",
+      "path": "memories/product/overview.md",
+      "relation": "markdown_link",
+      "title": "Product Overview"
+    }
+  ],
+  "body": "# Persona Relationship Map\n\nHow the demo personas relate to product areas and channels.\n\n## Situação\n\n- Área: research\n- Tipo: relationship_map\n- Frescor: fresh\n- Atualizado: 2026-07-01\n\n## Conexões\n\n- [Research Area](memories/research/index.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "research",
+    "page_type": "relationship_map",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-07-01",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "research",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/research/index.md",
+    "page_id": "sample-persona-map",
+    "page_type": "relationship_map",
+    "path": "memories/research/persona-map.md",
+    "summary": "How the demo personas relate to product areas and channels.",
+    "summary_truncated": false,
+    "title": "Persona Relationship Map",
+    "updated_at": "2026-07-01"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "research",
+      "freshness_state": "fresh",
+      "href": "memories/research/index.md",
+      "kind": "page",
+      "page_id": "sample-research-hub",
+      "page_type": "context_hub",
+      "path": "memories/research/index.md",
+      "text": "Research Area",
+      "title": "Research Area"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

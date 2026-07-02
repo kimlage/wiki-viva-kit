@@ -77,13 +77,16 @@ def write_deploy_bundle(
     data_boundary: str = "synthetic_or_public",
     target: str = "static",
     clean: bool = False,
+    content_sidecars: bool = True,
 ) -> dict[str, Path]:
     """Write portable web-cockpit deploy inputs without choosing a host."""
 
     out_dir.mkdir(parents=True, exist_ok=True)
     clean_snapshot_base = _clean_base(snapshot_base)
     snapshot_dir = _snapshot_dir(out_dir, clean_snapshot_base)
-    written_snapshot = write_snapshot(root, snapshot_dir, config, clean=clean, mode=runtime_mode)
+    written_snapshot = write_snapshot(
+        root, snapshot_dir, config, clean=clean, mode=runtime_mode, content_sidecars=content_sidecars
+    )
     runtime_config = {
         "api_base": api_base.strip().rstrip("/"),
         "snapshot_base": clean_snapshot_base,

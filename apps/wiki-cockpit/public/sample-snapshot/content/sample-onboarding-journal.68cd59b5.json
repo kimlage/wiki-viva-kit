@@ -1,0 +1,42 @@
+{
+  "backlinks": [],
+  "body": "# Onboarding Redesign Journal\n\nRunning log of the onboarding redesign experiment.\n\n## Situação\n\n- Área: product\n- Tipo: journal_entry\n- Frescor: fresh\n- Atualizado: 2026-06-27\n\n## Conexões\n\n- [Product Area](memories/product/index.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "product",
+    "page_type": "journal_entry",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-06-27",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "product",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/product/index.md",
+    "page_id": "sample-onboarding-journal",
+    "page_type": "journal_entry",
+    "path": "memories/product/onboarding-journal.md",
+    "summary": "Running log of the onboarding redesign experiment.",
+    "summary_truncated": false,
+    "title": "Onboarding Redesign Journal",
+    "updated_at": "2026-06-27"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "href": "memories/product/index.md",
+      "kind": "page",
+      "page_id": "sample-product-hub",
+      "page_type": "context_hub",
+      "path": "memories/product/index.md",
+      "text": "Product Area",
+      "title": "Product Area"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

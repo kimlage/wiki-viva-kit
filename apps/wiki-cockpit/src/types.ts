@@ -75,6 +75,46 @@ export type PageRecord = {
   source_refs: string[];
   moc_parent: string;
   summary: string;
+  summary_truncated?: boolean;
+  moc_children_count?: number;
+};
+
+export type ResolvedLink =
+  | ({ kind: "page"; text: string; href: string } & PageBrief)
+  | { kind: "external"; text: string; href: string; domain: string }
+  | { kind: "missing"; text: string; href: string; target: string };
+
+export type PageBrief = {
+  page_id: string;
+  path: string;
+  title: string;
+  context: string;
+  page_type: string;
+  freshness_state: FreshnessState;
+  approved_state: string;
+};
+
+export type PageBacklink = PageBrief & { relation: string };
+
+export type ResolvedSourceRef =
+  | ({ ref: string; resolved: true } & PageBrief)
+  | { ref: string; resolved: false };
+
+export type PageContent = {
+  ok: boolean;
+  error?: string;
+  schema_version?: string;
+  page?: PageBrief & {
+    summary: string;
+    summary_truncated: boolean;
+    updated_at: string;
+    moc_parent: string;
+  };
+  frontmatter?: Record<string, unknown>;
+  body?: string;
+  resolved_links?: ResolvedLink[];
+  backlinks?: PageBacklink[];
+  source_refs?: ResolvedSourceRef[];
 };
 
 export type GraphNode = {
@@ -130,6 +170,7 @@ export type SnapshotBundle = {
     schema_version: string;
     generated_at: string;
     mode: string;
+    content_sidecars?: boolean;
     source_commit: string | null;
     repo: {
       repo_id: string;
@@ -220,6 +261,32 @@ export type SnapshotBundle = {
   commands: {
     commands: ActionCommand[];
   };
+  score: ScorePayload;
+};
+
+export type ScoreBadge = { id: string; en: string; pt: string; criterion_en?: string; criterion_pt?: string };
+
+export type ScoreVitality = {
+  context: string;
+  indicadores: Record<string, number>;
+  score_aggregado: number;
+  eventos: number;
+  participantes: string[];
+  participacao_distribuida: number;
+  indice_vitalidade: number;
+};
+
+export type ScorePayload = {
+  schema_version: string;
+  enabled: boolean;
+  event_count: number;
+  total: number;
+  level: string | null;
+  level_labels: Record<string, string>;
+  by_dimension: Record<string, number>;
+  badges: ScoreBadge[];
+  vitality: Record<string, ScoreVitality>;
+  error?: string;
 };
 
 export type CommandResultEntry = {

@@ -3,6 +3,8 @@
 // `wiki-cockpit.config.json` (`page_types`, `contexts`, `trust_colors`) without
 // forking the cockpit, keeping the UI modular per deployment.
 
+import { t, uiLanguage } from "./i18n";
+
 export type NodeShape = "sphere" | "hub" | "crystal" | "diamond" | "comet" | "slab" | "spark";
 
 export type PageTypeStyle = {
@@ -83,6 +85,42 @@ const DEFAULT_PAGE_TYPES: Record<string, PageTypeStyle> = {
   proposal: style("event", "review draft")
 };
 
+// Portuguese labels for the built-in page types. Config `page_types` overrides
+// still win; this only gives pt wikis translated defaults instead of English.
+const PT_PAGE_TYPE_LABELS: Record<string, string> = {
+  root_index: "visão geral inicial",
+  root_entity: "entidade raiz",
+  context_hub: "visão da área",
+  ontology_index: "índice de ontologia",
+  source_catalog: "biblioteca de fontes",
+  relationship_map: "mapa de relações",
+  source: "fonte de evidência",
+  source_config: "regras da fonte",
+  source_registry: "registro de fontes",
+  input_channel: "canal de entrada",
+  input_stage: "página de entrada",
+  decision: "decisão",
+  claim: "afirmação",
+  action: "tarefa",
+  process: "processo",
+  operational_rule: "guia operacional",
+  dashboard: "painel",
+  system_log: "registro do sistema",
+  methodology_plan: "plano de método",
+  ingestion_event: "evento de ingestão",
+  journal_entry: "entrada de diário",
+  meeting: "reunião",
+  person: "pessoa",
+  role: "papel",
+  responsibility: "responsabilidade",
+  holon: "holon",
+  project: "projeto",
+  artifact: "artefato",
+  context_note: "nota de contexto",
+  perspective: "lente de leitura",
+  proposal: "rascunho de revisão"
+};
+
 const DEFAULT_TRUST_COLORS: TrustColors = {
   fresh: "#5ee6a8",
   stale: "#ffb454",
@@ -106,10 +144,11 @@ export function configurePresentation(overrides: PresentationOverrides | null | 
 
 export function pageTypeStyle(pageType: string): PageTypeStyle {
   const base = DEFAULT_PAGE_TYPES[pageType] || style("content", (pageType || "content").replaceAll("_", " "));
+  const localizedLabel = uiLanguage() === "pt" ? PT_PAGE_TYPE_LABELS[pageType] || base.label : base.label;
   const override = pageTypeOverrides[pageType];
-  if (!override) return base;
+  if (!override) return { ...base, label: localizedLabel };
   return {
-    label: override.label || base.label,
+    label: override.label || localizedLabel,
     family: override.family || base.family,
     shape: override.shape || base.shape,
     accent: override.accent || base.accent
@@ -150,4 +189,34 @@ const EDGE_STYLES: Record<string, EdgeStyle> = {
 
 export function edgeStyle(type: string): EdgeStyle {
   return EDGE_STYLES[type] || { label: (type || "link").replaceAll("_", " "), color: "#5a6a76" };
+}
+
+// Labels for world groups (perspective sectors). Every user-facing label
+// flows through the registry + i18n — raw slugs never reach the screen.
+export function worldGroupLabel(kind: string, labelKey: string): string {
+  if (kind === "context") return contextLabel(labelKey);
+  if (kind === "page_type") return pageTypeLabel(labelKey);
+  if (kind === "attention") return labelKey === "atencao" ? t("group.attention") : pageTypeLabel(labelKey);
+  if (kind === "orphan") return t("group.orphan");
+  if (kind === "relation") return t(`relation.${labelKey}`);
+  return labelKey;
+}
+
+export function perspectiveLabel(perspective: string): { label: string; hint: string; glyph: string } {
+  const glyphs: Record<string, string> = { radar: "◎", atlas: "🜨", districts: "⬡", trails: "⇢" };
+  return {
+    label: t(`perspective.${perspective}`),
+    hint: t(`perspective.${perspective}.hint`),
+    glyph: glyphs[perspective] || "◎"
+  };
+}
+
+// Raw-data layer: untreated inputs (source records, intake pages, ingestion
+// events) — evidence, not conclusions. Rendered distinctly so the raw layer is
+// identifiable at a glance in every surface.
+const RAW_TYPES = new Set(["ingestion_event", "input_stage", "input_channel"]);
+
+export function isRawData(pageType: string): boolean {
+  if (RAW_TYPES.has(pageType)) return true;
+  return pageTypeStyle(pageType).family === "source";
 }

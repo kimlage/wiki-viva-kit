@@ -1,4 +1,11 @@
-import type { IngestionPlan, IngestionStepResult, SnapshotBundle, SourceTriageResult, WorkflowRunResult } from "../types";
+import type {
+  IngestionPlan,
+  IngestionStepResult,
+  PageContent,
+  SnapshotBundle,
+  SourceTriageResult,
+  WorkflowRunResult
+} from "../types";
 import type { RuntimeConfig } from "./runtimeConfig";
 import { apiUrl, loadRuntimeConfig } from "./runtimeConfig";
 
@@ -35,15 +42,34 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+const EMPTY_SCORE = {
+  schema_version: "wiki_web_score.v1",
+  enabled: false,
+  event_count: 0,
+  total: 0,
+  level: null,
+  level_labels: {},
+  by_dimension: {},
+  badges: [],
+  vitality: {}
+};
+
 async function loadFromBase(base: string): Promise<SnapshotBundle> {
   const entries = await Promise.all(
     Object.entries(FILES).map(async ([key, file]) => [key, await fetchJson(`${base}/${file}`)])
   );
-  return Object.fromEntries(entries) as SnapshotBundle;
+  const bundle = Object.fromEntries(entries) as SnapshotBundle;
+  // Optional read models keep old snapshots loadable.
+  bundle.score = await fetchJson(`${base}/score.json`).catch(() => EMPTY_SCORE) as SnapshotBundle["score"];
+  return bundle;
 }
 
-export async function loadSnapshotBundle(): Promise<{ bundle: SnapshotBundle; source: string; runtime: RuntimeConfig }> {
-  if (demoModeRequested()) {
+export async function loadSnapshotBundle(
+  options: { demo?: boolean } = {}
+): Promise<{ bundle: SnapshotBundle; source: string; runtime: RuntimeConfig }> {
+  // Demo is an in-memory bundle switch: synthetic ids never resolve against
+  // the real snapshot, and switching universes never reloads the document.
+  if (options.demo ?? demoModeRequested()) {
     // Load the runtime config anyway so presentation overrides still apply to demo data.
     const demoRuntime = await loadRuntimeConfig();
     return {
@@ -66,6 +92,61 @@ export async function loadSnapshotBundle(): Promise<{ bundle: SnapshotBundle; so
     }
   }
   throw lastError instanceof Error ? lastError : new Error("snapshot unavailable");
+}
+
+// Mirrors wiki_core.web.content.sidecar_name (fnv-1a 32-bit) so the static
+// reader can address content/{slug}.{hash}.json without a server.
+export function sidecarName(pageId: string): string {
+  let hash = 0x811c9dc5;
+  const bytes = new TextEncoder().encode(pageId);
+  for (const byte of bytes) {
+    hash ^= byte;
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  const slug =
+    pageId
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "page";
+  return `${slug}.${hash.toString(16).padStart(8, "0")}.json`;
+}
+
+export async function loadPageContent(
+  pageId: string,
+  options: { demo?: boolean; snapshotSource?: string } = {}
+): Promise<PageContent> {
+  const attempts: (() => Promise<PageContent>)[] = [];
+  if (options.demo) {
+    attempts.push(() => fetchJson<PageContent>(`${SAMPLE_BASE}/content/${sidecarName(pageId)}`));
+  } else {
+    attempts.push(async () => {
+      const response = await fetch(await apiUrl(`/pages/${encodeURIComponent(pageId)}/content`), {
+        headers: { accept: "application/json" }
+      });
+      const payload = (await response.json()) as PageContent;
+      if (!response.ok && !payload.error) throw new Error(`content failed: ${response.status}`);
+      return payload;
+    });
+    const base = options.snapshotSource;
+    if (base && !base.endsWith("/api/snapshot")) {
+      attempts.push(() => fetchJson<PageContent>(`${base}/content/${sidecarName(pageId)}`));
+    }
+  }
+  let lastError: unknown = null;
+  for (const attempt of attempts) {
+    try {
+      const payload = await attempt();
+      if (payload && payload.ok) return payload;
+      if (payload && payload.error) lastError = new Error(payload.error);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  return {
+    ok: false,
+    error: lastError instanceof Error ? lastError.message : "conteúdo indisponível neste modo"
+  };
 }
 
 export async function runCockpitAction(

@@ -1,0 +1,87 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "page_id": "sample-root",
+      "page_type": "root_index",
+      "path": "memories/index.md",
+      "relation": "markdown_link",
+      "title": "Sample Memory"
+    },
+    {
+      "approved_state": "approved",
+      "context": "example",
+      "freshness_state": "fresh",
+      "page_id": "sample-source",
+      "page_type": "source",
+      "path": "memories/sources/sample-source.md",
+      "relation": "moc_parent",
+      "title": "Sample Source"
+    }
+  ],
+  "body": "# Example Context\n\nExample context with source pressure and a pending refresh review.\n\n## Situação\n\n- Área: example\n- Tipo: context_hub\n- Frescor: stale\n- Atualizado: 2026-06-20\n\n## Conexões\n\n- [Sample Memory](memories/index.md) — página relacionada\n- [Sample Source](memories/sources/sample-source.md) — fonte de evidência\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "example",
+    "page_type": "context_hub",
+    "stale_after_days": "7",
+    "status": "active",
+    "updated_at": "2026-06-20",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "example",
+    "freshness_state": "stale",
+    "moc_parent": "memories/index.md",
+    "page_id": "sample-example-hub",
+    "page_type": "context_hub",
+    "path": "memories/example/index.md",
+    "summary": "Example context with source pressure and a pending refresh review.",
+    "summary_truncated": false,
+    "title": "Example Context",
+    "updated_at": "2026-06-20"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "href": "memories/index.md",
+      "kind": "page",
+      "page_id": "sample-root",
+      "page_type": "root_index",
+      "path": "memories/index.md",
+      "text": "Sample Memory",
+      "title": "Sample Memory"
+    },
+    {
+      "approved_state": "approved",
+      "context": "example",
+      "freshness_state": "fresh",
+      "href": "memories/sources/sample-source.md",
+      "kind": "page",
+      "page_id": "sample-source",
+      "page_type": "source",
+      "path": "memories/sources/sample-source.md",
+      "text": "Sample Source",
+      "title": "Sample Source"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "example",
+      "freshness_state": "fresh",
+      "page_id": "sample-source",
+      "page_type": "source",
+      "path": "memories/sources/sample-source.md",
+      "ref": "sample-source",
+      "resolved": true,
+      "title": "Sample Source"
+    }
+  ]
+}

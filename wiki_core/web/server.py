@@ -13,6 +13,7 @@ from urllib.parse import unquote, urlparse
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
 from wiki_core.web.commands import run_action
+from wiki_core.web.content import build_page_content
 from wiki_core.web.git_workflows import run_git_workflow
 from wiki_core.web.ingestion_plan import build_ingestion_plan, run_ingestion_step
 from wiki_core.web.snapshot import build_snapshot, write_snapshot
@@ -97,6 +98,19 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 self._send_error("unknown snapshot file", status=HTTPStatus.NOT_FOUND)
                 return
             self._send_json(payload)
+            return
+        if path.startswith("/api/pages/") and path.endswith("/content"):
+            page_id = path[len("/api/pages/") : -len("/content")].strip("/")
+            if not page_id:
+                self._send_error("missing page id", status=HTTPStatus.BAD_REQUEST)
+                return
+            result = build_page_content(
+                self.server.root, self.server.config, page_id, self.server.snapshot_payloads()
+            )
+            self._send_json(
+                result,
+                status=HTTPStatus.OK if result.get("ok") else HTTPStatus.NOT_FOUND,
+            )
             return
         self._send_error("not found", status=HTTPStatus.NOT_FOUND)
 

@@ -1,0 +1,113 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "page_id": "sample-onboarding-journal",
+      "page_type": "journal_entry",
+      "path": "memories/product/onboarding-journal.md",
+      "relation": "moc_parent",
+      "title": "Onboarding Redesign Journal"
+    },
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "page_id": "sample-product-overview",
+      "page_type": "context_note",
+      "path": "memories/product/overview.md",
+      "relation": "moc_parent",
+      "title": "Product Overview"
+    },
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "page_id": "sample-product-roadmap",
+      "page_type": "project",
+      "path": "memories/product/roadmap.md",
+      "relation": "moc_parent",
+      "title": "Product Roadmap"
+    },
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "page_id": "sample-decision-onboarding",
+      "page_type": "decision",
+      "path": "memories/decisions/redesign-onboarding.md",
+      "relation": "moc_parent",
+      "title": "Redesign Onboarding Flow"
+    },
+    {
+      "approved_state": "proposal",
+      "context": "product",
+      "freshness_state": "fresh",
+      "page_id": "sample-action-update-pricing-page",
+      "page_type": "action",
+      "path": "memories/actions/update-pricing-docs.md",
+      "relation": "moc_parent",
+      "title": "Update Pricing Docs"
+    },
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "unknown",
+      "page_id": "sample-product-metrics",
+      "page_type": "dashboard",
+      "path": "memories/product/metrics.md",
+      "relation": "moc_parent",
+      "title": "Usage Dashboard"
+    },
+    {
+      "approved_state": "approved",
+      "context": "product",
+      "freshness_state": "fresh",
+      "page_id": "sample-source-usage-metrics",
+      "page_type": "source",
+      "path": "memories/sources/usage-metrics-2026-06.md",
+      "relation": "moc_parent",
+      "title": "Usage Metrics Export"
+    }
+  ],
+  "body": "# Product Area\n\nProduct knowledge hub: overview, roadmap and live metrics.\n\n## Situação\n\n- Área: product\n- Tipo: context_hub\n- Frescor: fresh\n- Atualizado: 2026-07-01\n\n## Conexões\n\n- [Sample Memory](memories/index.md) — página relacionada\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "product",
+    "page_type": "context_hub",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-07-01",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "product",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "sample-product-hub",
+    "page_type": "context_hub",
+    "path": "memories/product/index.md",
+    "summary": "Product knowledge hub: overview, roadmap and live metrics.",
+    "summary_truncated": false,
+    "title": "Product Area",
+    "updated_at": "2026-07-01"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "href": "memories/index.md",
+      "kind": "page",
+      "page_id": "sample-root",
+      "page_type": "root_index",
+      "path": "memories/index.md",
+      "text": "Sample Memory",
+      "title": "Sample Memory"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

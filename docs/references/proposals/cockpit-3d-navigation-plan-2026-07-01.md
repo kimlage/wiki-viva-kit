@@ -27,7 +27,18 @@ scope: "design plan for making the 3D scene the primary navigation surface: dril
 
 # Plan - 3D-first Navigation, Perspectives and the In-World Reader
 
-Updated on: 2026-07-01.
+Updated on: 2026-07-02.
+
+> Implementation status (2026-07-02): phases 0–5 implemented in the kit —
+> pushState router with the `/w/:perspective/:context?/:group?/:pageId?`
+> grammar, `GET /api/pages/{id}/content` + static content sidecars, the
+> PageReader dock (marked + DOMPurify), the four worker-computed perspectives
+> with per-level caps and honest cluster-stars, camera choreography
+> (WARP/RETREAT/FOCUS/MORPH), full keyboard scheme, minimap, quick-action
+> ring, sealed `/demo` universe and retired `/pages` (alias redirects kept).
+> Verified by unit (vitest), e2e (Playwright, incl. keyboard-only loop),
+> pytest and a 45-agent navigation audit whose 34 confirmed findings were
+> fixed. Timeline and provenance-river perspectives remain deferred.
 
 This plan is the product of a deep critical audit of the cockpit's pages,
 cards and navigation, commissioned after the freshness radar shipped. The

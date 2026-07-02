@@ -1,0 +1,87 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "system",
+      "freshness_state": "fresh",
+      "page_id": "sample-event-market-report",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/2026-06-29-market-report.md",
+      "relation": "ingestion_chain",
+      "title": "Market Report Ingestion"
+    },
+    {
+      "approved_state": "proposal",
+      "context": "system",
+      "freshness_state": "fresh",
+      "page_id": "sample-approval-governance",
+      "page_type": "operational_rule",
+      "path": "memories/system/wiki/pr-governance.md",
+      "relation": "pr_impact",
+      "title": "Approval Governance"
+    }
+  ],
+  "body": "# Adopt Usage-Based Pricing\n\nDraft decision waiting on the human gate; links to the market report.\n\n## Situação\n\n- Área: finance\n- Tipo: decision\n- Frescor: fresh\n- Atualizado: 2026-07-01\n\n## Conexões\n\n- [Finance Area](memories/finance/index.md) — página relacionada\n- [Market Cost Report 2026](memories/sources/market-cost-report-2026.md) — fonte de evidência\n\n## Nota do demo\n\nEste corpo é sintético: o universo demo nunca contém dados reais. \nNuma instalação real, o leitor mostra o markdown completo da sua wiki.\n",
+  "frontmatter": {
+    "context": "finance",
+    "page_type": "decision",
+    "stale_after_days": "30",
+    "status": "active",
+    "updated_at": "2026-07-01",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "proposal",
+    "context": "finance",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/finance/index.md",
+    "page_id": "sample-decision-pricing",
+    "page_type": "decision",
+    "path": "memories/decisions/usage-based-pricing.md",
+    "summary": "Draft decision waiting on the human gate; links to the market report.",
+    "summary_truncated": false,
+    "title": "Adopt Usage-Based Pricing",
+    "updated_at": "2026-07-01"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "stale",
+      "href": "memories/finance/index.md",
+      "kind": "page",
+      "page_id": "sample-finance-hub",
+      "page_type": "context_hub",
+      "path": "memories/finance/index.md",
+      "text": "Finance Area",
+      "title": "Finance Area"
+    },
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "fresh",
+      "href": "memories/sources/market-cost-report-2026.md",
+      "kind": "page",
+      "page_id": "sample-source-market-report",
+      "page_type": "source",
+      "path": "memories/sources/market-cost-report-2026.md",
+      "text": "Market Cost Report 2026",
+      "title": "Market Cost Report 2026"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "finance",
+      "freshness_state": "fresh",
+      "page_id": "sample-source-market-report",
+      "page_type": "source",
+      "path": "memories/sources/market-cost-report-2026.md",
+      "ref": "sample-source-market-report",
+      "resolved": true,
+      "title": "Market Cost Report 2026"
+    }
+  ]
+}

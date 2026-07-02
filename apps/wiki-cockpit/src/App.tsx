@@ -16,31 +16,24 @@ import {
   Sparkles,
   TerminalSquare
 } from "lucide-react";
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { SystemScene } from "./components/SystemScene";
-import { gitGateLabel, pageById, qualityFlagCount, reviewChecklist, topActions } from "./data/model";
+import { WorldView } from "./components/WorldView";
+import { configureLanguage, t } from "./data/i18n";
+import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel } from "./data/presentation";
 import { buildIngestionPlan, loadSnapshotBundle, runCockpitAction, runGitWorkflow, runIngestionStep } from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
-import type { ActionCard, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult, TimelineEvent } from "./types";
+import { buildUrl, installLinkInterceptor, navigate, parseRoute, useRouteUrl, worldFromRoute } from "./router";
+import type { Route } from "./router";
+import { groupKeyForPage } from "./scene/perspectives";
+import type { ActionCard, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
 import "./styles.css";
 
 type LoadState =
   | { status: "loading" }
   | { status: "error"; error: string }
   | { status: "ready"; bundle: SnapshotBundle; source: string; runtime: RuntimeConfig };
-
-function routeView(): { view: "ops" | "review" | "health" | "sources" | "pages" | "demo"; pageId?: string } {
-  const path = window.location.pathname;
-  if (path.startsWith("/demo")) return { view: "demo" };
-  if (path.startsWith("/review")) return { view: "review" };
-  if (path.startsWith("/health")) return { view: "health" };
-  if (path.startsWith("/sources")) return { view: "sources" };
-  if (path === "/pages") return { view: "pages" };
-  if (path.startsWith("/pages/")) return { view: "pages", pageId: decodeURIComponent(path.slice("/pages/".length)) };
-  return { view: "ops" };
-}
 
 function StatusPill({ tone, children }: { tone: "good" | "warn" | "bad" | "info" | "muted"; children: ReactNode }) {
   return <span className={`pill pill-${tone}`}>{children}</span>;
@@ -89,24 +82,19 @@ function sharedCopyLabel(git: SnapshotBundle["git"]): string {
   return git.upstream.name || git.upstream.remote || "not configured";
 }
 
-function Stat({ icon, label, value, tone = "info" }: { icon: ReactNode; label: string; value: string | number; tone?: "good" | "warn" | "bad" | "info" | "muted" }) {
-  return (
-    <div className={`stat stat-${tone}`}>
-      <span className="statIcon">{icon}</span>
-      <span className="statLabel">{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function Nav({ active }: { active: string }) {
+function Nav({ active, demo }: { active: string; demo: boolean }) {
+  // /demo prefixes ALL generated URLs — the demo universe never cross-links
+  // into the real snapshot. Anchors are intercepted by the SPA router.
+  const prefix = demo ? "/demo" : "";
   const items = [
-    { href: "/ops", id: "ops", label: "Home", icon: <Activity size={17} /> },
-    { href: "/review", id: "review", label: "Approve", icon: <GitPullRequest size={17} /> },
-    { href: "/sources", id: "sources", label: "Add", icon: <Inbox size={17} /> },
-    { href: "/health", id: "health", label: "Health", icon: <ShieldCheck size={17} /> },
-    { href: "/pages", id: "pages", label: "Content", icon: <FileText size={17} /> },
-    { href: "/demo", id: "demo", label: "Demo", icon: <Sparkles size={17} /> }
+    { href: `${prefix}/w/radar`, id: "world", label: t("nav.home"), icon: <Activity size={17} /> },
+    { href: `${prefix}/review`, id: "review", label: t("nav.approve"), icon: <GitPullRequest size={17} /> },
+    { href: `${prefix}/sources`, id: "sources", label: t("nav.add"), icon: <Inbox size={17} /> },
+    { href: `${prefix}/health`, id: "health", label: t("nav.health"), icon: <ShieldCheck size={17} /> },
+    { href: `${prefix}/w/atlas`, id: "content", label: t("nav.content"), icon: <FileText size={17} /> },
+    demo
+      ? { href: "/w/radar", id: "demo", label: t("nav.exitDemo"), icon: <Sparkles size={17} /> }
+      : { href: "/demo/w/radar", id: "demo", label: t("nav.demo"), icon: <Sparkles size={17} /> }
   ];
   return (
     <nav className="navRail" aria-label="Cockpit views">
@@ -141,28 +129,6 @@ function actionReason(action: ActionCard): string {
   return labels[action.id] || action.human_reason;
 }
 
-function actionWhenLabel(action: ActionCard): string {
-  const labels: Record<string, string> = {
-    "git-status": "When you need to know whether the local workspace is clean.",
-    "review-local-changes": "Before asking someone to approve the current changes.",
-    "run-honesty-gates": "Before relying on the wiki or moving a request forward.",
-    "pr-summary": "When the approval request needs a human-readable packet.",
-    "graph-check": "When related content may have been missed."
-  };
-  return labels[action.id] || "When this step is the next useful check.";
-}
-
-function actionResultLabel(action: ActionCard): string {
-  const labels: Record<string, string> = {
-    "git-status": "Workspace state",
-    "review-local-changes": "Changed content list",
-    "run-honesty-gates": "Readiness signal",
-    "pr-summary": "Approval summary",
-    "graph-check": "Link and impact signal"
-  };
-  return labels[action.id] || "Local result";
-}
-
 function ActionButton({ action, onRun }: { action: ActionCard; onRun: (action: ActionCard) => void }) {
   const risky = action.risk_level !== "read";
   const title = actionTitle(action);
@@ -171,38 +137,6 @@ function ActionButton({ action, onRun }: { action: ActionCard; onRun: (action: A
       {risky ? <RefreshCw size={16} /> : <Play size={16} />}
       <span>{title}</span>
     </button>
-  );
-}
-
-function ActionStack({ actions, onRun }: { actions: ActionCard[]; onRun: (action: ActionCard) => void }) {
-  return (
-    <section className="panel">
-      <div className="panelHeader">
-        <h2>Next Steps</h2>
-        <StatusPill tone="info">{actions.length} ready</StatusPill>
-      </div>
-      <div className="actionStack">
-        {actions.map((action) => (
-          <article className="actionRow" key={action.id}>
-            <div>
-              <h3>{actionTitle(action)}</h3>
-              <p>{actionReason(action)}</p>
-              <dl className="actionFacts">
-                <dt>Use when</dt>
-                <dd>{actionWhenLabel(action)}</dd>
-                <dt>Gives you</dt>
-                <dd>{actionResultLabel(action)}</dd>
-              </dl>
-              <details className="inlineDetails">
-                <summary>Local run details</summary>
-                <code>{action.commands.map((command) => command.argv.join(" ")).join(" && ")}</code>
-              </details>
-            </div>
-            <ActionButton action={action} onRun={onRun} />
-          </article>
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -278,95 +212,6 @@ function CommandOutput({ result }: { result: CommandRunResult | null }) {
         ))}
       </div>
       {result.results.length === 0 && !result.error && <p className="outputEmpty">No terminal output was returned.</p>}
-    </section>
-  );
-}
-
-function formatEventTime(timestamp: string): string {
-  if (!timestamp) return "undated";
-  return timestamp.replace("T", " ").replace("Z", " UTC").slice(0, 16);
-}
-
-function eventTone(event: TimelineEvent): "good" | "warn" | "bad" | "info" | "muted" {
-  if (event.status === "stale") return "warn";
-  if (event.kind === "snapshot") return "info";
-  if (event.kind === "git_commit") return "muted";
-  if (event.status === "fresh" || event.status === "committed") return "good";
-  return "muted";
-}
-
-function eventKindLabel(kind: string): string {
-  const labels: Record<string, string> = {
-    git_commit: "saved change",
-    snapshot: "snapshot",
-    source_ingested: "new source",
-    source_reviewed: "source review",
-    gate_run: "check run",
-    page_updated: "content update"
-  };
-  return labels[kind] || kind.replaceAll("_", " ");
-}
-
-function timelineDecision(bundle: SnapshotBundle): { label: string; detail: string; tone: "good" | "warn" | "bad" | "info" | "muted" } {
-  const stale = bundle.freshness.summary.stale ?? 0;
-  const recent = bundle.timeline.bands.last_7_days || 0;
-  if (stale > 0) {
-    return { label: "Review before relying", detail: `${stale} content item(s) need refresh. Use activity only as context, not proof.`, tone: "warn" };
-  }
-  if (recent > 0) {
-    return { label: "Recent signal exists", detail: `${recent} activity item(s) in the last 7 days. Check the list before approving.`, tone: "good" };
-  }
-  return { label: "No recent signal", detail: "No recent activity is visible. Refresh or verify important content before relying on it.", tone: "warn" };
-}
-
-function TimelineRadar({ bundle }: { bundle: SnapshotBundle }) {
-  const bands = [
-    { key: "last_7_days", label: "This week" },
-    { key: "last_30_days", label: "This month" },
-    { key: "older", label: "Older" }
-  ];
-  const maxBand = Math.max(1, ...bands.map((band) => bundle.timeline.bands[band.key] || 0));
-  const events = bundle.timeline.events.slice(0, 8);
-  const decision = timelineDecision(bundle);
-  return (
-    <section className="panel timelinePanel">
-      <div className="panelHeader">
-        <h2>Activity Signal</h2>
-        <StatusPill tone={decision.tone}>{decision.label}</StatusPill>
-      </div>
-      <p className="panelLead">{decision.detail}</p>
-      <div className="radarBands" aria-label="Timeline activity bands">
-        {bands.map((band) => {
-          const value = bundle.timeline.bands[band.key] || 0;
-          return (
-            <div className="radarBand" key={band.key}>
-              <span>{band.label}</span>
-              <div><i style={{ width: `${Math.max(8, (value / maxBand) * 100)}%` }} /></div>
-              <strong>{value}</strong>
-            </div>
-          );
-        })}
-      </div>
-      <div className="timelineList">
-        {events.map((event) => (
-          <article className="timelineEvent" key={event.id}>
-            <Clock3 size={16} />
-            <div>
-              <strong>{event.label}</strong>
-              <span>{formatEventTime(event.timestamp)} · {event.context || "system"}</span>
-            </div>
-            <div className="timelineEventActions">
-              <StatusPill tone={eventTone(event)}>{eventKindLabel(event.kind)}</StatusPill>
-              {event.path && (
-                <a className="textButton" href={`/pages/${encodeURIComponent(event.path)}`} title="Open related content">
-                  Open
-                </a>
-              )}
-            </div>
-          </article>
-        ))}
-        {events.length === 0 && <p>No timeline events in this view.</p>}
-      </div>
     </section>
   );
 }
@@ -517,60 +362,6 @@ function evidenceLabel(page: PageRecord): string {
   return `${page.source_refs.length} evidence links`;
 }
 
-function pageNeedsAttention(page: PageRecord): boolean {
-  return page.risk_flags.length > 0 || page.freshness_state === "stale" || page.approved_state !== "approved";
-}
-
-function pageDecisionLabel(page: PageRecord): string {
-  if (page.risk_flags.length > 0) return "Review risk";
-  if (page.freshness_state === "stale") return "Refresh before trusting";
-  if (page.approved_state !== "approved") return "Needs approval";
-  return "Ready to trust";
-}
-
-function pageDecisionDetail(page: PageRecord): string {
-  if (page.risk_flags.length > 0) return `Check ${humanList(page.risk_flags.map(riskHintLabel))} before using this content.`;
-  if (page.freshness_state === "stale") return "The content may still be useful, but it should be refreshed before a decision depends on it.";
-  if (page.approved_state !== "approved") return "This item has not reached the approved wiki state yet.";
-  return "No freshness or risk issue is currently visible in the cockpit.";
-}
-
-function pageEvidenceDetail(page: PageRecord): string {
-  if (page.source_refs.length === 0) return "No source link is listed for this item.";
-  if (page.source_refs.length === 1) return "One source link is available for verification.";
-  return `${page.source_refs.length} source links are available for verification.`;
-}
-
-type ContentViewMode = "attention" | "evidence" | "trusted" | "all";
-
-const CONTENT_VIEW_MODES: { id: ContentViewMode; label: string; description: string }[] = [
-  { id: "attention", label: "Needs attention", description: "Stale, risky or not approved" },
-  { id: "evidence", label: "Has evidence", description: "Items with source links" },
-  { id: "trusted", label: "Ready to trust", description: "Fresh and risk-free" },
-  { id: "all", label: "All content", description: "Every wiki item" }
-];
-
-function pagesForContentMode(pages: PageRecord[], mode: ContentViewMode): PageRecord[] {
-  if (mode === "attention") return pages.filter(pageNeedsAttention);
-  if (mode === "evidence") return pages.filter((page) => page.source_refs.length > 0 || page.page_type === "source");
-  if (mode === "trusted") return pages.filter((page) => page.freshness_state === "fresh" && page.risk_flags.length === 0 && page.approved_state === "approved");
-  return pages;
-}
-
-function contentModeCounts(pages: PageRecord[]): Record<ContentViewMode, number> {
-  return {
-    attention: pagesForContentMode(pages, "attention").length,
-    evidence: pagesForContentMode(pages, "evidence").length,
-    trusted: pagesForContentMode(pages, "trusted").length,
-    all: pages.length
-  };
-}
-
-function updatedLabel(value: string): string {
-  if (!value) return "Not dated";
-  return value.replace("T", " ").replace("Z", "").slice(0, 16);
-}
-
 function DiffFrame({ file }: { file: DiffFile }) {
   return (
     <article className="diffFrame">
@@ -639,678 +430,6 @@ function DiffFilmstrip({ bundle }: { bundle: SnapshotBundle }) {
         </ul>
       </details>
     </section>
-  );
-}
-
-function pageMatches(page: PageRecord, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  return [page.title, page.path, page.context, page.page_type, page.summary, ...page.source_refs]
-    .join(" ")
-    .toLowerCase()
-    .includes(needle);
-}
-
-type MapIntentId = "review" | "evidence" | "stale" | "browse";
-
-const MAP_INTENTS: MapIntentId[] = ["review", "evidence", "stale", "browse"];
-
-function pathsInReview(bundle: SnapshotBundle): Set<string> {
-  return new Set([
-    ...bundle.diff.files.map((file) => file.path),
-    ...bundle.git.worktree.changed_files.map((file) => file.path)
-  ]);
-}
-
-function pagesForMapIntent(bundle: SnapshotBundle, intent: MapIntentId): PageRecord[] {
-  const reviewPaths = pathsInReview(bundle);
-  if (intent === "review") {
-    const changed = bundle.pages.pages.filter((page) => reviewPaths.has(page.path));
-    const risky = bundle.pages.pages.filter((page) => page.risk_flags.length > 0 || page.freshness_state === "stale");
-    return [...new Map([...changed, ...risky].map((page) => [page.id, page])).values()].slice(0, 12);
-  }
-  if (intent === "evidence") {
-    return bundle.pages.pages
-      .filter((page) => page.source_refs.length > 0 || page.page_type === "source")
-      .slice(0, 12);
-  }
-  if (intent === "stale") {
-    return bundle.pages.pages.filter((page) => page.freshness_state === "stale").slice(0, 12);
-  }
-  return bundle.pages.pages.slice(0, 12);
-}
-
-function mapIntentCopy(intent: MapIntentId, bundle: SnapshotBundle): { label: string; detail: string; tone: "good" | "warn" | "bad" | "info" | "muted"; count: number } {
-  const pages = pagesForMapIntent(bundle, intent);
-  if (intent === "review") {
-    return {
-      label: "Approve a change",
-      detail: "Content touched by this review, plus nearby items that could block approval.",
-      tone: pages.length ? "warn" : "good",
-      count: pages.length
-    };
-  }
-  if (intent === "evidence") {
-    return {
-      label: "Check evidence",
-      detail: "Items with source links or source records behind their claims.",
-      tone: pages.length ? "info" : "muted",
-      count: pages.length
-    };
-  }
-  if (intent === "stale") {
-    return {
-      label: "Update old content",
-      detail: "Content that needs a new read before it supports a decision.",
-      tone: pages.length ? "warn" : "good",
-      count: pages.length
-    };
-  }
-  return {
-    label: "Find a page",
-    detail: "All available content, ready to browse.",
-    tone: "info",
-    count: pages.length
-  };
-}
-
-function mapIntentDecision(intent: MapIntentId, count: number): string {
-  if (intent === "review") {
-    return count ? "Inspect these items before approving the request." : "No review content is highlighted.";
-  }
-  if (intent === "evidence") {
-    return count ? "Verify the available sources, then decide whether the claim is trustworthy." : "No evidence-backed item is visible.";
-  }
-  if (intent === "stale") {
-    return count ? "Refresh these items before using them as current knowledge." : "No stale item is visible.";
-  }
-  return count ? "Open a content item and follow its nearby route." : "No content is available in this view.";
-}
-
-function mapIntentAction(intent: MapIntentId): string {
-  if (intent === "review") return "The highlighted items are added to the review packet automatically.";
-  if (intent === "evidence") return "Open one item, check its evidence links, then add it to the packet if it matters.";
-  if (intent === "stale") return "Open one item and decide whether it needs a new source read.";
-  return "Pick any content item to preview it without changing the packet.";
-}
-
-function connectionPages(bundle: SnapshotBundle, selected: PageRecord | undefined, direction: "in" | "out"): PageRecord[] {
-  if (!selected) return [];
-  const ids = new Set(
-    bundle.graph.edges
-      .filter((edge) => (direction === "in" ? edge.target === selected.id : edge.source === selected.id))
-      .map((edge) => (direction === "in" ? edge.source : edge.target))
-  );
-  return bundle.pages.pages.filter((page) => ids.has(page.id) || ids.has(page.path)).slice(0, 8);
-}
-
-function sourceProofs(bundle: SnapshotBundle, selected: PageRecord | undefined): PageRecord[] {
-  if (!selected) return [];
-  const refs = new Set(selected.source_refs);
-  return bundle.pages.pages
-    .filter((page) => refs.has(page.id) || refs.has(page.path) || refs.has(page.title))
-    .slice(0, 6);
-}
-
-function selectedRoute(bundle: SnapshotBundle, selected: PageRecord | undefined): PageRecord[] {
-  if (!selected) return [];
-  const byId = new Map(bundle.pages.pages.map((page) => [page.id, page]));
-  const byPath = new Map(bundle.pages.pages.map((page) => [page.path, page]));
-  const route: PageRecord[] = [selected];
-  let cursor: PageRecord | undefined = selected;
-  const seen = new Set([selected.id]);
-  while (cursor?.moc_parent) {
-    const parentPage: PageRecord | undefined = byPath.get(cursor.moc_parent) || byId.get(cursor.moc_parent);
-    if (!parentPage || seen.has(parentPage.id)) break;
-    route.unshift(parentPage);
-    seen.add(parentPage.id);
-    cursor = parentPage;
-  }
-  return route;
-}
-
-function pagesFromIds(pages: PageRecord[], ids: string[]): PageRecord[] {
-  const byId = new Map<string, PageRecord>();
-  pages.forEach((page) => {
-    byId.set(page.id, page);
-    byId.set(page.path, page);
-  });
-  return ids.flatMap((id) => {
-    const page = byId.get(id);
-    return page ? [page] : [];
-  });
-}
-
-function relatedImpactPages(bundle: SnapshotBundle, pages: PageRecord[]): PageRecord[] {
-  const selected = new Set(pages.flatMap((page) => [page.id, page.path]));
-  const neighbors = new Set<string>();
-  bundle.graph.edges.forEach((edge) => {
-    if (selected.has(edge.source)) neighbors.add(edge.target);
-    if (selected.has(edge.target)) neighbors.add(edge.source);
-  });
-  return bundle.pages.pages
-    .filter((page) => !selected.has(page.id) && !selected.has(page.path) && (neighbors.has(page.id) || neighbors.has(page.path)))
-    .slice(0, 8);
-}
-
-function impactReviewText(bundle: SnapshotBundle, pages: PageRecord[]): string {
-  const contexts = [...new Set(pages.map((page) => page.context).filter(Boolean))];
-  const sourceRefs = [...new Set(pages.flatMap((page) => page.source_refs))];
-  const checks = bundle.gates.gates.map((gate) => `- [ ] ${gateCheckLabel(gate.id)}`);
-  return [
-    "Review Packet",
-    "",
-    `Workspace: ${approvalWorkspaceLabel(bundle.git)}`,
-    `Approval request: ${bundle.git.proposal.draft_pr_url ? "linked" : gateStatusLabel(bundle.git.proposal.human_gate_state)}`,
-    `Selected content: ${pages.length} item(s)`,
-    `Areas touched: ${contexts.length ? humanList(contexts) : "none"}`,
-    `Evidence links: ${sourceRefs.length}`,
-    "",
-    "Content to inspect:",
-    ...pages.map((page) => `- ${page.title}: ${pageMetaLabel(page)}; ${evidenceLabel(page)}`),
-    "",
-    "Checks to run before approval:",
-    ...(checks.length ? checks : ["- [ ] No review checks available in this view."]),
-    "",
-    "Human decision: approve, request changes, or ask for more evidence in the review request.",
-    "",
-    "Source and file references:",
-    ...pages.map((page) => `- ${page.path}`)
-  ].join("\n");
-}
-
-function MapIntentPanel({
-  bundle,
-  activeIntent,
-  onChoose,
-  onSelect
-}: {
-  bundle: SnapshotBundle;
-  activeIntent: MapIntentId;
-  onChoose: (intent: MapIntentId) => void;
-  onSelect: (id: string) => void;
-}) {
-  const activePages = pagesForMapIntent(bundle, activeIntent);
-  const activeCopy = mapIntentCopy(activeIntent, bundle);
-  return (
-    <section className="panel mapIntentPanel">
-      <div className="panelHeader">
-        <h2>Choose A Task</h2>
-        <StatusPill tone={activeCopy.tone}>{activeCopy.count} highlighted</StatusPill>
-      </div>
-      <div className="mapDecisionStrip" aria-label="Current map decision">
-        <div>
-          <span>Current task</span>
-          <strong>{activeCopy.label}</strong>
-          <p>{mapIntentDecision(activeIntent, activePages.length)}</p>
-        </div>
-        <div>
-          <span>How to use it</span>
-          <strong>{activePages.length ? `${activePages.length} item(s)` : "Nothing queued"}</strong>
-          <p>{mapIntentAction(activeIntent)}</p>
-        </div>
-      </div>
-      <div className="intentButtons" aria-label="Map work modes">
-        {MAP_INTENTS.map((intent) => {
-          const copy = mapIntentCopy(intent, bundle);
-          return (
-            <button
-              aria-pressed={activeIntent === intent}
-              className={activeIntent === intent ? "intentButton active" : "intentButton"}
-              onClick={() => onChoose(intent)}
-              key={intent}
-              type="button"
-            >
-              <strong>{copy.label}</strong>
-              <span>{copy.detail}</span>
-              <StatusPill tone={copy.tone}>{copy.count}</StatusPill>
-            </button>
-          );
-        })}
-      </div>
-      <div className="intentPages" aria-label="Highlighted map pages">
-        {activePages.slice(0, 6).map((page) => (
-          <button className="textButton" onClick={() => onSelect(page.id)} title={page.path} key={page.id}>
-            {page.title}
-          </button>
-        ))}
-        {activePages.length === 0 && <p>No content matches this task in the current view.</p>}
-      </div>
-    </section>
-  );
-}
-
-function PageActionDrawer({
-  bundle,
-  selected,
-  isBundled,
-  onSelect,
-  onToggleBundle,
-  onRun
-}: {
-  bundle: SnapshotBundle;
-  selected: PageRecord | undefined;
-  isBundled: boolean;
-  onSelect: (id: string) => void;
-  onToggleBundle: (id: string) => void;
-  onRun: (action: ActionCard) => void;
-}) {
-  const inbound = connectionPages(bundle, selected, "in");
-  const outbound = connectionPages(bundle, selected, "out");
-  const related = [...new Map([...inbound, ...outbound].map((page) => [page.id, page])).values()].slice(0, 8);
-  const proofs = sourceProofs(bundle, selected);
-  const route = selectedRoute(bundle, selected);
-  const graphAction = bundle.actions.actions.find((action) => action.id === "graph-check");
-  const reviewAction = bundle.actions.actions.find((action) => action.id === "review-local-changes");
-  if (!selected) return null;
-  return (
-    <section className="panel pageActionDrawer">
-      <div className="panelHeader">
-        <h2>Content Preview</h2>
-        <StatusPill tone={selected.freshness_state === "fresh" ? "good" : selected.freshness_state === "stale" ? "warn" : "muted"}>
-          {freshnessLabel(selected.freshness_state)}
-        </StatusPill>
-      </div>
-      <div className="drawerLead">
-        <div>
-          <h3>{selected.title}</h3>
-          <p>{selected.summary || "No summary in this view."}</p>
-        </div>
-        <a className="secondaryButton" href={`/pages/${encodeURIComponent(selected.id)}`} title="Open content details">
-          <ExternalLink size={16} />
-          <span>Open content</span>
-        </a>
-      </div>
-      <dl className="kv">
-        <dt>Decision</dt>
-        <dd>{pageDecisionLabel(selected)}</dd>
-        <dt>Evidence</dt>
-        <dd>{evidenceLabel(selected)}</dd>
-        <dt>Impact</dt>
-        <dd>{related.length ? `${related.length} nearby item(s)` : "No nearby content highlighted."}</dd>
-        <dt>Last update</dt>
-        <dd>{updatedLabel(selected.updated_at)}</dd>
-      </dl>
-      <details className="auditDetails">
-        <summary>Source and file details</summary>
-        <code>{selected.path}</code>
-      </details>
-      <div className="routeRail" aria-label="Route from root to selected page">
-        {route.map((page) => (
-          <button key={page.id} onClick={() => onSelect(page.id)} title={page.path}>
-            {page.title}
-          </button>
-        ))}
-      </div>
-      <div className="drawerGrid">
-        <div>
-          <h3>Evidence</h3>
-          <ul className="plainList compactList">
-            {proofs.map((page) => (
-              <li key={page.id}><button className="textButton" onClick={() => onSelect(page.id)}>{page.title}</button></li>
-            ))}
-            {proofs.length === 0 && <li>{selected.source_refs.length ? `${selected.source_refs.length} recorded evidence link(s). Open details for source references.` : "No evidence links listed."}</li>}
-          </ul>
-        </div>
-        <div>
-          <h3>Related Content</h3>
-          <ul className="plainList compactList">
-            {related.map((page) => (
-              <li key={page.id}><button className="textButton" onClick={() => onSelect(page.id)}>{page.title}</button></li>
-            ))}
-            {related.length === 0 && <li>No nearby content in this view.</li>}
-          </ul>
-        </div>
-      </div>
-      <div className="buttonCluster">
-        <button className={isBundled ? "secondaryButton active" : "secondaryButton"} onClick={() => onToggleBundle(selected.id)} title="Toggle impact review bundle">
-          <ListChecks size={16} />
-          <span>{isBundled ? "Remove from packet" : "Add to decision packet"}</span>
-        </button>
-        {graphAction && <button className="secondaryButton" onClick={() => onRun(graphAction)}><Search size={16} /><span>Check related content</span></button>}
-        {reviewAction && <button className="secondaryButton" onClick={() => onRun(reviewAction)}><GitBranch size={16} /><span>Inspect changes</span></button>}
-      </div>
-    </section>
-  );
-}
-
-function ImpactBundlePanel({
-  bundle,
-  pages,
-  onSelect,
-  onRemove,
-  onClear,
-  onRun
-}: {
-  bundle: SnapshotBundle;
-  pages: PageRecord[];
-  onSelect: (id: string) => void;
-  onRemove: (id: string) => void;
-  onClear: () => void;
-  onRun: (action: ActionCard) => void;
-}) {
-  const contexts = [...new Set(pages.map((page) => page.context).filter(Boolean))];
-  const sourceRefs = [...new Set(pages.flatMap((page) => page.source_refs))];
-  const staleCount = pages.filter((page) => page.freshness_state === "stale").length;
-  const related = relatedImpactPages(bundle, pages);
-  const reviewText = impactReviewText(bundle, pages);
-  const actions = bundle.actions.actions.filter((action) => ["graph-check", "review-local-changes", "pr-summary"].includes(action.id));
-  return (
-    <section className="panel impactBundlePanel" aria-label="Review Packet">
-      <div className="panelHeader">
-        <h2>Review Packet</h2>
-        <StatusPill tone={pages.length ? "info" : "muted"}>{pages.length} pages</StatusPill>
-      </div>
-      <div className="bundleMetrics" aria-label="Impact bundle metrics">
-        <Stat icon={<FileText size={18} />} label="Areas" value={contexts.length} tone="info" />
-        <Stat icon={<Clock3 size={18} />} label="Needs refresh" value={staleCount} tone={staleCount ? "warn" : "good"} />
-        <Stat icon={<Search size={18} />} label="Evidence links" value={sourceRefs.length} tone={sourceRefs.length ? "info" : "muted"} />
-        <Stat icon={<GitPullRequest size={18} />} label="Approval" value={gateStatusLabel(bundle.git.proposal.human_gate_state)} tone={bundle.git.proposal.is_proposal_branch ? "warn" : "info"} />
-      </div>
-      <div className="impactGrid">
-        <div>
-          <div className="bundleSectionHeader">
-            <h3>Selected Content</h3>
-            <button className="textButton" onClick={onClear} disabled={!pages.length}>Clear</button>
-          </div>
-          <div className="bundleRows">
-            {pages.map((page) => (
-              <article className="bundleRow" key={page.id}>
-                <button className="textButton bundleTitle" onClick={() => onSelect(page.id)} title={page.path}>{page.title}</button>
-                <span>{pageMetaLabel(page)}</span>
-                <StatusPill tone={pageStatusTone(page)}>{evidenceLabel(page)}</StatusPill>
-                <button className="textButton" onClick={() => onRemove(page.id)}>Remove</button>
-              </article>
-            ))}
-            {pages.length === 0 && <p>No content selected.</p>}
-          </div>
-          {related.length > 0 && (
-            <>
-              <h3>Nearby Content</h3>
-              <ul className="plainList compactList">
-                {related.map((page) => (
-                  <li key={page.id}><button className="textButton" onClick={() => onSelect(page.id)}>{page.title}</button></li>
-                ))}
-              </ul>
-            </>
-          )}
-        </div>
-        <div>
-          <h3>Decision Summary</h3>
-          <ul className="plainList compactList decisionSummaryList">
-            <li>{pages.length ? `${pages.length} content item(s) selected for review.` : "No content selected yet."}</li>
-            <li>{sourceRefs.length ? `${sourceRefs.length} evidence link(s) are available.` : "No evidence links are available in the current selection."}</li>
-            <li>{staleCount ? `${staleCount} selected item(s) need refresh.` : "Selected content is not stale."}</li>
-            <li>{related.length ? `${related.length} nearby item(s) may be affected.` : "No nearby content is highlighted."}</li>
-          </ul>
-          <details className="auditDetails">
-            <summary>Copy review notes</summary>
-            <pre className="bundlePreview">{reviewText}</pre>
-          </details>
-          <div className="buttonCluster">
-            {actions.map((action) => (
-              <button className="secondaryButton" key={action.id} onClick={() => onRun(action)} title={actionReason(action)}>
-                {action.id === "pr-summary" ? <GitPullRequest size={16} /> : <ListChecks size={16} />}
-                <span>{actionTitle(action)}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function KnowledgeExplorer({
-  bundle,
-  selectedPageId,
-  bundledPageIds,
-  search,
-  onSearch,
-  onSelect,
-  onToggleBundle,
-  onRun
-}: {
-  bundle: SnapshotBundle;
-  selectedPageId: string;
-  bundledPageIds: string[];
-  search: string;
-  onSearch: (value: string) => void;
-  onSelect: (id: string) => void;
-  onToggleBundle: (id: string) => void;
-  onRun: (action: ActionCard) => void;
-}) {
-  const results = useMemo(
-    () => bundle.pages.pages.filter((page) => pageMatches(page, search)).slice(0, 12),
-    [bundle.pages.pages, search]
-  );
-  const bundledIds = useMemo(() => new Set(bundledPageIds), [bundledPageIds]);
-  const selected = pageById(bundle.pages.pages, selectedPageId || results[0]?.id);
-  const handleResultClick = (event: MouseEvent<HTMLButtonElement>, page: PageRecord) => {
-    if (event.shiftKey) {
-      onToggleBundle(page.id);
-      return;
-    }
-    onSelect(page.id);
-  };
-  return (
-    <div className="knowledgeGrid">
-      <section className="panel searchPanel">
-        <div className="panelHeader">
-          <h2>Find Content</h2>
-          <StatusPill tone="info">{results.length}</StatusPill>
-        </div>
-        <label className="field">
-          <span>Search content</span>
-          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="title, area, type, evidence" />
-        </label>
-        <div className="searchResults" role="listbox" aria-label="Content search results">
-          {results.map((page) => (
-            <button
-              className={`searchResult${selected?.id === page.id ? " active" : ""}${bundledIds.has(page.id) || bundledIds.has(page.path) ? " bundled" : ""}`}
-              key={page.id}
-              onClick={(event) => handleResultClick(event, page)}
-              title={page.path}
-            >
-              <span>{page.title}</span>
-              <small>{pageMetaLabel(page)} · {evidenceLabel(page)}</small>
-            </button>
-          ))}
-          {results.length === 0 && <p>No content matched the current search.</p>}
-        </div>
-      </section>
-      <PageActionDrawer
-        bundle={bundle}
-        selected={selected}
-        isBundled={Boolean(selected && (bundledIds.has(selected.id) || bundledIds.has(selected.path)))}
-        onSelect={onSelect}
-        onToggleBundle={onToggleBundle}
-        onRun={onRun}
-      />
-    </div>
-  );
-}
-
-type HeroRow = {
-  key: string;
-  label: string;
-  detail: string;
-  tone: "good" | "warn" | "bad" | "info" | "muted";
-  onClick: () => void;
-};
-
-function HeroGlass({ bundle, rows }: { bundle: SnapshotBundle; rows: HeroRow[] }) {
-  // On narrow screens the map gets the fold; the attention card starts folded.
-  const [collapsed, setCollapsed] = useState(
-    () => typeof window !== "undefined" && Boolean(window.matchMedia?.("(max-width: 900px)").matches)
-  );
-  if (collapsed) {
-    return (
-      <button className="heroGlass collapsed" onClick={() => setCollapsed(false)} title="Show what needs attention" type="button">
-        <StatusPill tone={bundle.git.proposal.is_proposal_branch ? "warn" : "good"}>{rows.filter((row) => row.tone !== "good").length || "ok"}</StatusPill>
-        <span>Start here</span>
-      </button>
-    );
-  }
-  return (
-    <div className="heroGlass" role="region" aria-label="Start here">
-      <div className="heroGlassHead">
-        <StatusPill tone={bundle.git.proposal.is_proposal_branch ? "warn" : "good"}>{gitGateLabel(bundle.git)}</StatusPill>
-        <button className="heroGlassCollapse" onClick={() => setCollapsed(true)} title="Collapse" type="button">
-          ‹
-        </button>
-      </div>
-      <h1>What needs attention?</h1>
-      <p className="heroGlassMeta">
-        {bundle.operations.title} · {bundle.manifest.repo.repo_id} · updated {updatedLabel(bundle.manifest.generated_at)}
-      </p>
-      <div className="heroDoNow" aria-label="Start here">
-        {rows.slice(0, 3).map((row, index) => (
-          <button className="heroDoNowRow" key={row.key} onClick={row.onClick} type="button">
-            <span className="stageIndex">{index + 1}</span>
-            <span className="heroDoNowCopy">
-              <strong>{row.label}</strong>
-              <small>{row.detail}</small>
-            </span>
-            <StatusPill tone={row.tone}>{row.tone === "good" ? "clear" : "do now"}</StatusPill>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function OpsView({ bundle, onRun, onNotice }: { bundle: SnapshotBundle; onRun: (action: ActionCard) => void; onNotice?: (text: string) => void }) {
-  const stale = bundle.freshness.summary.stale ?? 0;
-  const changed = bundle.git.worktree.changed_files.length;
-  const [search, setSearch] = useState("");
-  const [selectedPageId, setSelectedPageId] = useState(bundle.pages.pages[0]?.id || "");
-  const [reviewPageIds, setReviewPageIds] = useState<string[]>([]);
-  const [mapIntent, setMapIntent] = useState<MapIntentId>("review");
-  const reviewPages = useMemo(() => pagesFromIds(bundle.pages.pages, reviewPageIds), [bundle.pages.pages, reviewPageIds]);
-  const intentPages = useMemo(() => pagesForMapIntent(bundle, mapIntent), [bundle, mapIntent]);
-  const activeMapIntent = useMemo(() => mapIntentCopy(mapIntent, bundle), [bundle, mapIntent]);
-  const toggleReviewPage = (id: string) => {
-    setReviewPageIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
-  };
-  const clearReviewPages = () => setReviewPageIds([]);
-  const chooseMapIntent = (intent: MapIntentId) => {
-    const pages = pagesForMapIntent(bundle, intent);
-    setMapIntent(intent);
-    setSearch("");
-    if (pages[0]) setSelectedPageId(pages[0].id);
-    if (intent !== "browse") setReviewPageIds(pages.slice(0, 8).map((page) => page.id));
-    const copy = mapIntentCopy(intent, bundle);
-    onNotice?.(`Task set: ${copy.label} — ${pages.length} item(s) highlighted on the map.`);
-  };
-  const highlightedPageIds = useMemo(
-    () => {
-      const searchHits = bundle.pages.pages.filter((page) => pageMatches(page, search)).slice(0, 16).flatMap((page) => [page.id, page.path]);
-      const bundleHits = reviewPages.flatMap((page) => [page.id, page.path]);
-      const intentHits = intentPages.flatMap((page) => [page.id, page.path]);
-      return [...new Set([...searchHits, ...bundleHits, ...intentHits])];
-    },
-    [bundle.pages.pages, intentPages, reviewPages, search]
-  );
-  const gateTone = gateStatusTone(bundle.gates.status);
-  const heroRows: HeroRow[] = [];
-  if (changed > 0) {
-    heroRows.push({
-      key: "review",
-      label: "Approve a change",
-      detail: `${changed} changed item(s) are waiting for a human decision.`,
-      tone: "warn",
-      onClick: () => chooseMapIntent("review")
-    });
-  }
-  const gateAction = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
-  if (gateTone !== "good" && gateAction) {
-    heroRows.push({
-      key: "checks",
-      label: "Run the checks",
-      detail: `Validation is ${gateStatusLabel(bundle.gates.status)}. Run it before relying on the wiki.`,
-      tone: gateTone === "bad" ? "bad" : "warn",
-      onClick: () => onRun(gateAction)
-    });
-  }
-  if (stale > 0) {
-    heroRows.push({
-      key: "stale",
-      label: "Update old content",
-      detail: `${stale} item(s) passed their freshness window.`,
-      tone: "warn",
-      onClick: () => chooseMapIntent("stale")
-    });
-  }
-  if (heroRows.length === 0) {
-    heroRows.push({
-      key: "browse",
-      label: "All clear — explore the wiki",
-      detail: "No blocker is visible. Browse content or add a new source.",
-      tone: "good",
-      onClick: () => chooseMapIntent("browse")
-    });
-  }
-  const intentOptions = MAP_INTENTS.map((intentId) => {
-    const copy = mapIntentCopy(intentId, bundle);
-    return { id: intentId, label: copy.label, count: copy.count };
-  });
-  return (
-    <main className="workspace">
-      <section className="radarHero" aria-label="Operations radar">
-        <SystemScene
-          nodes={bundle.graph.nodes}
-          edges={bundle.graph.edges}
-          git={bundle.git}
-          selectedPageId={selectedPageId}
-          highlightedPageIds={highlightedPageIds}
-          intent={{ label: activeMapIntent.label, detail: activeMapIntent.detail, count: activeMapIntent.count }}
-          intentOptions={intentOptions}
-          snapshotAt={bundle.manifest.generated_at}
-          activityLevel={bundle.timeline.bands.last_7_days || 0}
-          onNodeSelect={setSelectedPageId}
-          onIntentChange={(intentId) => chooseMapIntent(intentId as MapIntentId)}
-          onAddToPacket={toggleReviewPage}
-        >
-          <HeroGlass bundle={bundle} rows={heroRows} />
-        </SystemScene>
-      </section>
-      <MapIntentPanel bundle={bundle} activeIntent={mapIntent} onChoose={chooseMapIntent} onSelect={setSelectedPageId} />
-      <KnowledgeExplorer
-        bundle={bundle}
-        selectedPageId={selectedPageId}
-        bundledPageIds={reviewPageIds}
-        search={search}
-        onSearch={setSearch}
-        onSelect={setSelectedPageId}
-        onToggleBundle={toggleReviewPage}
-        onRun={onRun}
-      />
-      <ImpactBundlePanel
-        bundle={bundle}
-        pages={reviewPages}
-        onSelect={setSelectedPageId}
-        onRemove={toggleReviewPage}
-        onClear={clearReviewPages}
-        onRun={onRun}
-      />
-      <TimelineRadar bundle={bundle} />
-      <div className="twoColumn">
-        <ActionStack actions={topActions(bundle)} onRun={onRun} />
-        <section className="panel">
-          <div className="panelHeader">
-            <h2>Alerts</h2>
-            <StatusPill tone={stale ? "warn" : "good"}>{stale ? "attention" : "clear"}</StatusPill>
-          </div>
-          <ul className="plainList">
-            {bundle.operations.sections.flatMap((section) => section.bullets).slice(0, 8).map((bullet) => (
-              <li key={bullet}>{bullet}</li>
-            ))}
-            {bundle.operations.sections.length === 0 && <li>No operational notes in this view.</li>}
-          </ul>
-        </section>
-      </div>
-    </main>
   );
 }
 
@@ -1991,7 +1110,7 @@ function healthDecision(
   return { label: "Ready to trust", detail: "Checks are passing and the current content health signals are clear.", tone: "good" };
 }
 
-function HealthView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action: ActionCard) => void }) {
+function HealthView({ bundle, demo, onRun }: { bundle: SnapshotBundle; demo: boolean; onRun: (action: ActionCard) => void }) {
   const qualityFlags = qualityFlagCount(bundle);
   const decision = healthDecision(bundle, qualityFlags);
   const fresh = bundle.freshness.summary.fresh ?? 0;
@@ -2045,7 +1164,7 @@ function HealthView({ bundle, onRun }: { bundle: SnapshotBundle; onRun: (action:
         </div>
         <div className="healthAttentionList">
           {attentionPages.map((page) => (
-            <a className="healthAttentionItem" href={`/pages/${encodeURIComponent(page.id)}`} key={page.id}>
+            <a className="healthAttentionItem" href={`${demo ? "/demo" : ""}/pages/${encodeURIComponent(page.id)}`} key={page.id}>
               <div>
                 <strong>{page.title}</strong>
                 <span>{pageMetaLabel(page)} · {evidenceLabel(page)}</span>
@@ -2488,160 +1607,70 @@ function SourcesView({
   );
 }
 
-function PageList({
-  pages,
-  selected,
-  search,
-  mode,
-  modeCounts,
-  onModeChange,
-  onSearch
-}: {
-  pages: PageRecord[];
-  selected: PageRecord | undefined;
-  search: string;
-  mode: ContentViewMode;
-  modeCounts: Record<ContentViewMode, number>;
-  onModeChange: (mode: ContentViewMode) => void;
-  onSearch: (value: string) => void;
-}) {
-  return (
-    <aside className="pageList" aria-label="Content browser">
-      <div className="pageListHeader">
-        <div>
-          <h2>Browse Content</h2>
-          <span>{pages.length} visible item(s)</span>
-        </div>
-        <p className="pageListLead">Choose a verification queue, then open an item for the decision summary.</p>
-        <div className="contentModeBar" role="group" aria-label="Content verification filters">
-          {CONTENT_VIEW_MODES.map((item) => (
-            <button
-              aria-pressed={mode === item.id}
-              className={mode === item.id ? "contentModeButton active" : "contentModeButton"}
-              key={item.id}
-              onClick={() => onModeChange(item.id)}
-              title={item.description}
-              type="button"
-            >
-              <span>{item.label}</span>
-              <small>{modeCounts[item.id]}</small>
-            </button>
-          ))}
-        </div>
-        <label className="field">
-          <span>Find</span>
-          <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="title, area, type, evidence" />
-        </label>
-      </div>
-      {pages.slice(0, 120).map((page) => (
-        <a className={selected?.id === page.id ? "pageLink active" : "pageLink"} href={`/pages/${encodeURIComponent(page.id)}`} key={page.id}>
-          <span>{page.title}</span>
-          <small>{pageMetaLabel(page)} · {evidenceLabel(page)}</small>
-        </a>
-      ))}
-      {pages.length === 0 && <p>No content matched the current search.</p>}
-    </aside>
-  );
-}
-
-function PagesView({ bundle, pageId }: { bundle: SnapshotBundle; pageId?: string }) {
-  const [search, setSearch] = useState("");
-  const [mode, setMode] = useState<ContentViewMode>("attention");
-  const modeCounts = useMemo(() => contentModeCounts(bundle.pages.pages), [bundle.pages.pages]);
-  const modePages = useMemo(() => pagesForContentMode(bundle.pages.pages, mode), [bundle.pages.pages, mode]);
-  const results = useMemo(
-    () => modePages.filter((page) => pageMatches(page, search)),
-    [modePages, search]
-  );
-  const selected = pageId ? pageById(bundle.pages.pages, pageId) : pageById(results.length ? results : modePages, pageId);
-  return (
-    <main className="workspace pagesWorkspace">
-      <PageList
-        mode={mode}
-        modeCounts={modeCounts}
-        onModeChange={setMode}
-        onSearch={setSearch}
-        pages={results}
-        search={search}
-        selected={selected}
-      />
-      <section className="panel pageDetail">
-        {selected && (
-          <>
-            <div className="panelHeader">
-              <h1>{selected.title}</h1>
-              <StatusPill tone={selected.freshness_state === "fresh" ? "good" : selected.freshness_state === "stale" ? "warn" : "muted"}>
-                {freshnessLabel(selected.freshness_state)}
-              </StatusPill>
-            </div>
-            <div className="pageVerificationIntro">
-              <h2>Verification Summary</h2>
-              <p>{selected.summary || "No short summary is available in this view."}</p>
-            </div>
-            <div className="contentDecisionGrid" aria-label="Content verification summary">
-              <article className="contentDecisionCard">
-                <span>Decision</span>
-                <strong>{pageDecisionLabel(selected)}</strong>
-                <p>{pageDecisionDetail(selected)}</p>
-              </article>
-              <article className="contentDecisionCard">
-                <span>Evidence</span>
-                <strong>{evidenceLabel(selected)}</strong>
-                <p>{pageEvidenceDetail(selected)}</p>
-              </article>
-              <article className="contentDecisionCard">
-                <span>Area</span>
-                <strong>{selected.context || "No area"}</strong>
-                <p>{contentKindLabel(selected.page_type)}</p>
-              </article>
-              <article className="contentDecisionCard">
-                <span>Last update</span>
-                <strong>{updatedLabel(selected.updated_at)}</strong>
-                <p>{freshnessLabel(selected.freshness_state)}</p>
-              </article>
-            </div>
-            <details className="auditDetails">
-              <summary>Source and file details</summary>
-              <dl className="kv">
-                <dt>Content address</dt>
-                <dd>{selected.path}</dd>
-                <dt>Approval state</dt>
-                <dd>{selected.approved_state || "not listed"}</dd>
-                <dt>Risk flags</dt>
-                <dd>{selected.risk_flags.length ? humanList(selected.risk_flags.map(riskHintLabel)) : "none listed"}</dd>
-                <dt>Source references</dt>
-                <dd>{selected.source_refs.length ? selected.source_refs.join(", ") : "none listed"}</dd>
-              </dl>
-              <a className="externalLink" href={`/${selected.path}`} title="Open Markdown file">
-                <ExternalLink size={16} />
-                <span>Open Markdown file</span>
-              </a>
-            </details>
-          </>
-        )}
-      </section>
-    </main>
-  );
-}
-
 export function App() {
-  const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
-  const [route, setRoute] = useState(routeView());
+  const url = useRouteUrl();
+  const route = useMemo<Route>(() => {
+    const [pathname, search = ""] = url.split("?");
+    return parseRoute(pathname, search ? `?${search}` : "");
+  }, [url]);
+  const [realState, setRealState] = useState<LoadState>({ status: "loading" });
+  const [demoState, setDemoState] = useState<LoadState>({ status: "loading" });
   const [commandResult, setCommandResult] = useState<CommandRunResult | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; tone: "good" | "warn" | "info"; showResult: boolean } | null>(null);
 
+  // One snapshot bundle per universe, loaded once per session — it survives
+  // all navigation. Demo is an in-memory switch, never a document reload.
   useEffect(() => {
-    loadSnapshotBundle()
-      .then(({ bundle, source, runtime }) => setLoadState({ status: "ready", bundle, source, runtime }))
-      .catch((error: Error) => setLoadState({ status: "error", error: error.message }));
+    loadSnapshotBundle({ demo: false })
+      .then(({ bundle, source, runtime }) => setRealState({ status: "ready", bundle, source, runtime }))
+      .catch((error: Error) => setRealState({ status: "error", error: error.message }));
   }, []);
+  useEffect(() => {
+    if (!route.demo || demoState.status === "ready") return;
+    loadSnapshotBundle({ demo: true })
+      .then(({ bundle, source, runtime }) => setDemoState({ status: "ready", bundle, source, runtime }))
+      .catch((error: Error) => setDemoState({ status: "error", error: error.message }));
+  }, [demoState.status, route.demo]);
 
+  // The SPA router owns every internal anchor click.
+  useEffect(() => installLinkInterceptor(), []);
+
+  const loadState = route.demo ? demoState : realState;
+
+  // The base system is English; the whole UI flips when the wiki's configured
+  // language starts with "pt" (runtime config wins over the manifest).
+  configureLanguage(
+    loadState.status === "ready" ? loadState.runtime.language || loadState.bundle.manifest.repo.language : "en",
+    loadState.status === "ready" ? loadState.runtime.strings : undefined
+  );
+
+  // Legacy alias: /pages/:id lands on the same page in the new world
+  // (/w/atlas/:context/:group/:id?reader=1). /pages lists become the atlas.
   useEffect(() => {
-    const onPop = () => setRoute(routeView());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
+    if (route.kind !== "pageAlias" || loadState.status !== "ready") return;
+    const world = worldFromRoute(route);
+    if (!route.pageId) {
+      navigate(buildUrl({ ...world, perspective: "atlas" }), { replace: true });
+      return;
+    }
+    const page = loadState.bundle.pages.pages.find((item) => item.id === route.pageId || item.path === route.pageId);
+    if (!page) {
+      navigate(buildUrl({ ...world, perspective: "atlas" }), { replace: true });
+      return;
+    }
+    navigate(
+      buildUrl({
+        ...world,
+        perspective: "atlas",
+        context: page.context || "system",
+        group: groupKeyForPage("atlas", page),
+        pageId: page.id,
+        query: { ...world.query, reader: true }
+      }),
+      { replace: true }
+    );
+  }, [loadState, route]);
 
   // Transient notices auto-dismiss; the busy toast stays until the run ends.
   useEffect(() => {
@@ -2650,22 +1679,26 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  const announceResult = (title: string, ok: boolean) => {
+    setNotice({ text: ok ? t("toast.completed", { title }) : t("toast.needsAttention", { title }), tone: ok ? "good" : "warn", showResult: true });
+  };
   const scrollToResult = () => {
     document.getElementById("actionResult")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const announceResult = (title: string, ok: boolean) => {
-    setNotice({ text: ok ? `${title}: completed` : `${title}: needs attention`, tone: ok ? "good" : "warn", showResult: true });
-  };
+  const active =
+    route.kind === "world" || route.kind === "pageAlias"
+      ? route.kind === "world" && route.perspective === "atlas"
+        ? "content"
+        : "world"
+      : route.kind;
 
-  // Scroll after React commits the result panel to the DOM.
-  useEffect(() => {
-    if (commandResult) scrollToResult();
-  }, [commandResult]);
-
-  const active = route.view === "pages" ? "pages" : route.view;
   const runAction = async (action: ActionCard) => {
     if (busyAction) return;
+    if (route.demo) {
+      setNotice({ text: t("demo.actionsOff"), tone: "info", showResult: false });
+      return;
+    }
     const title = actionTitle(action);
     setBusyAction(title);
     setNotice(null);
@@ -2688,6 +1721,10 @@ export function App() {
   };
   const runWorkflow = async (operation: string, payload: Record<string, unknown> = {}, dryRun = true) => {
     if (busyAction) return;
+    if (route.demo) {
+      setNotice({ text: t("demo.gitOff"), tone: "info", showResult: false });
+      return;
+    }
     const title = operation.replaceAll("_", " ");
     setBusyAction(title);
     setNotice(null);
@@ -2712,28 +1749,48 @@ export function App() {
   };
   const notify = (text: string) => setNotice({ text, tone: "info", showResult: false });
 
-  const content = useMemo(() => {
-    if (loadState.status === "loading") return <main className="workspace"><section className="panel"><h1>Loading cockpit</h1></section></main>;
-    if (loadState.status === "error") return <main className="workspace"><section className="panel"><h1>Snapshot unavailable</h1><p>{loadState.error}</p></section></main>;
-    const { bundle } = loadState;
-    if (route.view === "review") return <ReviewView bundle={bundle} onRun={runAction} onWorkflow={runWorkflow} />;
-    if (route.view === "sources") return <SourcesView bundle={bundle} onCommand={setCommandResult} />;
-    if (route.view === "health") return <HealthView bundle={bundle} onRun={runAction} />;
-    if (route.view === "pages") return <PagesView bundle={bundle} pageId={route.pageId} />;
-    if (route.view === "demo") return <OpsView bundle={bundle} onRun={runAction} onNotice={notify} />;
-    return <OpsView bundle={bundle} onRun={runAction} onNotice={notify} />;
-  }, [loadState, route]);
+  const worldRoute = route.kind === "world" ? route : null;
+  const isWorld = Boolean(worldRoute);
+
+  const content = (() => {
+    if (loadState.status === "loading") {
+      return <main className="workspace"><section className="panel"><h1>Loading cockpit</h1></section></main>;
+    }
+    if (loadState.status === "error") {
+      return <main className="workspace"><section className="panel"><h1>Snapshot unavailable</h1><p>{loadState.error}</p></section></main>;
+    }
+    const { bundle, runtime } = loadState;
+    if (route.kind === "review") return <ReviewView bundle={bundle} onRun={runAction} onWorkflow={runWorkflow} />;
+    if (route.kind === "sources") return <SourcesView bundle={bundle} onCommand={setCommandResult} />;
+    if (route.kind === "health") return <HealthView bundle={bundle} demo={route.demo} onRun={runAction} />;
+    if (route.kind === "pageAlias") {
+      return <main className="workspace"><section className="panel"><h1>{t("misc.opening")}</h1></section></main>;
+    }
+    if (worldRoute) {
+      return (
+        <WorldView
+          key={worldRoute.demo ? "demo" : "real"}
+          bundle={bundle}
+          runtime={runtime}
+          route={worldRoute}
+          onRun={runAction}
+          onNotice={notify}
+        />
+      );
+    }
+    return null;
+  })();
 
   return (
-    <div className="appShell">
-      <Nav active={active} />
+    <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
+      <Nav active={active} demo={route.demo} />
       <div className="mainColumn">
         <header className="topBar">
           <div>
             <strong>Wiki Viva Cockpit</strong>
             {loadState.status === "ready" && (
               <span>
-                {loadState.runtime.repoLabel || loadState.bundle.manifest.repo.repo_id} · {modeLabel(loadState.runtime.mode || loadState.bundle.manifest.mode)}
+                {loadState.runtime.repoLabel || loadState.bundle.manifest.repo.repo_id} · {modeLabel(route.demo ? "static_demo" : loadState.runtime.mode || loadState.bundle.manifest.mode)}
               </span>
             )}
           </div>
@@ -2743,22 +1800,27 @@ export function App() {
             </StatusPill>
           )}
         </header>
-        {loadState.status === "ready" && (loadState.runtime.mode === "static_demo" || loadState.bundle.manifest.mode === "static_demo") && (
+        {route.demo && (
           <div className="demoBanner" role="note">
             <Sparkles size={15} />
-            <span>
-              Interface demo with synthetic sample data. Run the cockpit against a real checkout to operate your own wiki here.
-            </span>
+            <span>{t("demo.banner")}</span>
           </div>
         )}
         {content}
-        <CommandOutput result={commandResult} />
+        {commandResult && (
+          <div className={isWorld ? "worldOutputDock" : undefined}>
+            {isWorld && (
+              <button className="readerClose outputDockClose" onClick={() => setCommandResult(null)} title="Fechar resultado" type="button">
+                ×
+              </button>
+            )}
+            <CommandOutput result={commandResult} />
+          </div>
+        )}
         {busyAction && (
           <div className="actionToast running" role="status">
             <span className="toastSpinner" aria-hidden />
-            <span>
-              Running <strong>{busyAction}</strong>… checks can take a minute.
-            </span>
+            <span>{t("toast.running", { title: busyAction })}</span>
           </div>
         )}
         {!busyAction && notice && (
@@ -2766,7 +1828,7 @@ export function App() {
             <span>{notice.text}</span>
             {notice.showResult && (
               <button onClick={scrollToResult} type="button">
-                View result
+                {t("toast.viewResult")}
               </button>
             )}
             <button className="toastClose" onClick={() => setNotice(null)} title="Dismiss" type="button">

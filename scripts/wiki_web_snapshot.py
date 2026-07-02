@@ -23,6 +23,11 @@ def main() -> int:
     parser.add_argument("--out", default="", help="Output directory for snapshot JSON files.")
     parser.add_argument("--clean", action="store_true", help="Remove existing *.json files first.")
     parser.add_argument("--mode", default="static", choices=["static", "local_operator", "github_connected"])
+    parser.add_argument(
+        "--content-sidecars",
+        action="store_true",
+        help="Also write content/{page}.json sidecars so the static reader can show full pages.",
+    )
     args = parser.parse_args()
 
     config = load_config(ROOT)
@@ -31,7 +36,9 @@ def main() -> int:
         out_dir = raw_out if raw_out.is_absolute() else ROOT / raw_out
     else:
         out_dir = WikiPaths(ROOT, config).derived_root / "web-snapshot"
-    written = write_snapshot(ROOT, out_dir, config, clean=args.clean, mode=args.mode)
+    written = write_snapshot(
+        ROOT, out_dir, config, clean=args.clean, mode=args.mode, content_sidecars=args.content_sidecars
+    )
     for name in sorted(written):
         print(f"{name}: {written[name].relative_to(ROOT).as_posix()}")
     return 0

@@ -20,6 +20,11 @@ from wiki_core.web.timeline import build_timeline_payload
 
 H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
 H2_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
+WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]")
+MD_LINK_RE = re.compile(r"\[([^\]]*)\]\([^)]*\)")
+MD_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
+EMPHASIS_RE = re.compile(r"(\*{1,3}|_{2,3}|`{1,3})([^*_`]+?)\1")
+SUMMARY_LIMIT = 260
 
 
 def _utc_now() -> str:
@@ -61,7 +66,23 @@ def _title(values: dict[str, Any], body: str, fallback: str) -> str:
     return str(values.get("page_id") or fallback)
 
 
-def _summary(body: str) -> str:
+def _strip_inline_markdown(text: str) -> str:
+    """Resolve links to their text and drop inline markers so summaries read
+    as prose instead of leaking raw markdown syntax."""
+    text = MD_IMAGE_RE.sub(lambda match: match.group(1).strip(), text)
+    text = WIKILINK_RE.sub(lambda match: (match.group(2) or match.group(1)).strip(), text)
+    text = MD_LINK_RE.sub(lambda match: match.group(1).strip(), text)
+    previous = None
+    while previous != text:
+        previous = text
+        text = EMPHASIS_RE.sub(r"\2", text)
+    text = text.replace("**", "").replace("`", "")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _summary(body: str) -> tuple[str, bool]:
+    """Sanitized plain-text summary plus a truncation flag. Cuts happen at a
+    sentence or word boundary near SUMMARY_LIMIT — never mid-word."""
     lines: list[str] = []
     in_code = False
     for raw in body.splitlines():
@@ -74,10 +95,18 @@ def _summary(body: str) -> str:
         if line.startswith("- "):
             line = line[2:].strip()
         lines.append(line)
-        if len(" ".join(lines)) > 240:
+        if len(" ".join(lines)) > SUMMARY_LIMIT + 80:
             break
-    text = " ".join(lines)
-    return text[:260].rstrip()
+    text = _strip_inline_markdown(" ".join(lines))
+    if len(text) <= SUMMARY_LIMIT:
+        return text, False
+    window = text[:SUMMARY_LIMIT]
+    sentence_end = max(window.rfind(". "), window.rfind("! "), window.rfind("? "))
+    if sentence_end >= SUMMARY_LIMIT // 2:
+        return window[: sentence_end + 1].strip(), True
+    word_end = window.rfind(" ")
+    cut = window[:word_end] if word_end > 0 else window
+    return cut.rstrip(" ,;:.") + "…", True
 
 
 def _stale_exempt(values: dict[str, Any]) -> bool:
@@ -120,6 +149,7 @@ def _page_record(root: Path, path: Path, config: WikiConfig, *, today: dt.date |
     rel = path.relative_to(root).as_posix()
     values, body = parse_frontmatter(path)
     source_refs = list_values(values.get("source_refs"))
+    summary, summary_truncated = _summary(body)
     return {
         "id": _page_id(values, rel),
         "path": rel,
@@ -135,7 +165,8 @@ def _page_record(root: Path, path: Path, config: WikiConfig, *, today: dt.date |
         "risk_flags": [],
         "source_refs": source_refs,
         "moc_parent": str(values.get("moc_parent") or ""),
-        "summary": _summary(body),
+        "summary": summary,
+        "summary_truncated": summary_truncated,
     }
 
 
@@ -143,6 +174,13 @@ def _pages_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
     today = _today()
     pages = [_page_record(root, path, config, today=today) for path in _markdown_pages(root, config)]
     pages.sort(key=lambda item: (str(item["context"]), str(item["title"]), str(item["path"])))
+    children: dict[str, int] = {}
+    for page in pages:
+        parent = str(page.get("moc_parent") or "")
+        if parent:
+            children[parent] = children.get(parent, 0) + 1
+    for page in pages:
+        page["moc_children_count"] = children.get(str(page["path"]), 0) + children.get(str(page["id"]), 0)
     return {
         "schema_version": "wiki_web_pages.v1",
         "repo_id": config.repo_id,
@@ -311,6 +349,87 @@ def _commands_payload(actions_payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _score_payload(root: Path, config: WikiConfig, pages_payload: dict[str, Any]) -> dict[str, Any]:
+    """Karma/vitality read model for the cockpit missions panel.
+
+    Gamification stays honest: everything here is computed from the append-only
+    score ledger and real page state — never fabricated. Disabled repos get an
+    explicit ``enabled: false`` payload."""
+    payload: dict[str, Any] = {
+        "schema_version": "wiki_web_score.v1",
+        "enabled": bool(config.karma_enabled),
+        "event_count": 0,
+        "total": 0.0,
+        "level": None,
+        "level_labels": {},
+        "by_dimension": {},
+        "badges": [],
+        "vitality": {},
+    }
+    if not config.karma_enabled:
+        return payload
+    try:
+        from wiki_core.paths import WikiPaths
+        from wiki_core.score import (
+            badge_display,
+            compute_karma,
+            context_vitality,
+            earned_badges,
+            level_display,
+            level_for,
+            load_events,
+            resolve_events_path,
+        )
+
+        events_path = resolve_events_path(WikiPaths(root, config).derived_root)
+        events = load_events(events_path)
+        karma = compute_karma(events)
+        level_id = level_for(float(karma["total"]))
+        payload.update(
+            {
+                "event_count": len(events),
+                "total": karma["total"],
+                "by_dimension": karma["by_dimension"],
+                "level": level_id,
+                "level_labels": {
+                    "en": level_display(level_id, "en"),
+                    "pt": level_display(level_id, "pt"),
+                },
+                "badges": [
+                    {
+                        "id": badge_id,
+                        "en": str(badge_display(badge_id, "en").get("name", badge_id)),
+                        "pt": str(badge_display(badge_id, "pt").get("name", badge_id)),
+                        "criterion_en": str(badge_display(badge_id, "en").get("criterion", "")),
+                        "criterion_pt": str(badge_display(badge_id, "pt").get("criterion", "")),
+                    }
+                    for badge_id in earned_badges(events)
+                ],
+            }
+        )
+        pages = pages_payload.get("pages", [])
+        contexts = sorted({str(page.get("context") or config.default_context) for page in pages})
+        vitality: dict[str, Any] = {}
+        for context in contexts:
+            members = [page for page in pages if str(page.get("context") or config.default_context) == context]
+            meta = {
+                "paginas_total": len(members),
+                "paginas_atualizadas": sum(1 for page in members if page.get("freshness_state") == "fresh"),
+                "pendencias": sum(1 for page in members if page.get("freshness_state") != "fresh"),
+                "paginas_orfas": sum(1 for page in members if not page.get("moc_parent")),
+                "fontes_recentes": sum(
+                    1
+                    for page in members
+                    if str(page.get("page_type") or "").startswith("source") and page.get("freshness_state") == "fresh"
+                ),
+            }
+            vitality[context] = context_vitality(events, context, meta)
+        payload["vitality"] = vitality
+    except Exception as exc:  # pragma: no cover - defensive snapshot surface
+        payload["error"] = str(exc)
+    return payload
+
+
 def _safe_quality(root: Path, config: WikiConfig) -> dict[str, Any]:
     try:
         report = build_quality_report(root, config)
@@ -332,12 +451,14 @@ def build_snapshot(
     *,
     mode: str = "static",
     generated_at: str | None = None,
+    content_sidecars: bool = False,
 ) -> dict[str, dict[str, Any]]:
     config = config or load_config(root)
     generated_at = generated_at or _utc_now()
     git_payload = build_git_state(root, config)
     manifest = {
         "schema_version": WEB_SNAPSHOT_SCHEMA_VERSION,
+        "content_sidecars": content_sidecars,
         "repo": {
             "repo_id": config.repo_id,
             "language": config.language,
@@ -380,6 +501,7 @@ def build_snapshot(
         "ingestion.json": _safe_ingestion(root, config),
         "quality.json": _safe_quality(root, config),
         "commands.json": _commands_payload(actions),
+        "score.json": _score_payload(root, config, pages),
     }
     return payloads
 
@@ -391,15 +513,26 @@ def write_snapshot(
     *,
     clean: bool = False,
     mode: str = "static",
+    content_sidecars: bool = False,
 ) -> dict[str, Path]:
-    payloads = build_snapshot(root, config, mode=mode)
+    config = config or load_config(root)
+    payloads = build_snapshot(root, config, mode=mode, content_sidecars=content_sidecars)
     if clean and out_dir.exists():
         for path in out_dir.glob("*.json"):
             path.unlink()
+        content_dir = out_dir / "content"
+        if content_dir.exists():
+            for path in content_dir.glob("*.json"):
+                path.unlink()
     out_dir.mkdir(parents=True, exist_ok=True)
     written: dict[str, Path] = {}
     for name, payload in payloads.items():
         target = out_dir / name
         target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         written[name] = target
+    if content_sidecars:
+        from wiki_core.web.content import write_content_sidecars
+
+        for page_id, path in write_content_sidecars(root, config, payloads, out_dir).items():
+            written[f"content/{path.name}"] = path
     return written
