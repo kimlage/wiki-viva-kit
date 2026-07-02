@@ -237,3 +237,64 @@ def test_cancel_interrupts_a_running_job(tmp_path, monkeypatch) -> None:
             break
         time.sleep(0.1)
     assert runner.get(job_id)["status"] == "cancelled"
+
+
+def test_continue_current_branch_commits_only_codex_delta(tmp_path) -> None:
+    """The operator's normal state: ALREADY on a proposal branch with in-progress
+    edits. A fresh job must work in place and commit ONLY Codex's delta — the
+    owner's dirty files are never swept into the job commit nor reset."""
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    subprocess.run(["git", "switch", "-c", "wiki/in-progress"], cwd=tmp_path, check=True, capture_output=True)
+    # Owner's in-progress edits: one tracked file modified + one untracked file.
+    (tmp_path / "AGENTS.md").write_text("# Agents\n\nowner wip\n", encoding="utf-8")
+    _write(tmp_path / "notes.md", "owner scratch\n")
+
+    runner = _runner(tmp_path, config)
+    result = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True)
+    assert result["ok"] is True
+    runner.run_job(result["job_id"])
+    record = runner.get(result["job_id"])
+    assert record["status"] == "delivered", record["reason"]
+    assert record["branch"] == "wiki/in-progress"
+    assert record["branch_mode"] == "continue_current"
+    # The commit contains ONLY the file Codex edited.
+    committed = subprocess.run(
+        ["git", "show", "--name-only", "--format=", "HEAD"], cwd=tmp_path, capture_output=True, text=True
+    ).stdout.split()
+    assert committed == ["memories/index.md"]
+    # The owner's edits survive, uncommitted, exactly as they were.
+    status = subprocess.run(["git", "status", "--short"], cwd=tmp_path, capture_output=True, text=True).stdout
+    assert " AGENTS.md" in status and "notes.md" in status
+    assert "owner wip" in (tmp_path / "AGENTS.md").read_text()
+    branch = subprocess.run(["git", "branch", "--show-current"], cwd=tmp_path, capture_output=True, text=True).stdout.strip()
+    assert branch == "wiki/in-progress"
+
+
+def test_continue_current_overlap_only_fails_without_destroying_edits(tmp_path, monkeypatch) -> None:
+    """If Codex only touches files the owner already had dirty, the edits are
+    inseparable: the job fails honestly and NOTHING is reset — both the owner's
+    and Codex's lines stay in the worktree for review."""
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    subprocess.run(["git", "switch", "-c", "wiki/in-progress"], cwd=tmp_path, check=True, capture_output=True)
+    target = tmp_path / "memories/index.md"
+    target.write_text(target.read_text() + "\nowner edit\n", encoding="utf-8")
+
+    runner = _runner(tmp_path, config)
+    # The owner's edit moved the brief's target — force past the staleness guard
+    # (that guard is exactly for this; the overlap protection is what we test).
+    result = runner.submit(brief_id=brief["brief_id"], brief_sha=brief["brief_sha"], dry_run=True, force=True)
+    assert result["ok"] is True
+    runner.run_job(result["job_id"])
+    record = runner.get(result["job_id"])
+    assert record["status"] == "failed"
+    assert "uncommitted edits" in record["reason"]
+    assert "memories/index.md" in record["reason"]
+    # No reset --hard: both edits are still in the file, still uncommitted.
+    text = target.read_text()
+    assert "owner edit" in text and "codex shim edit" in text
+    branch = subprocess.run(["git", "branch", "--show-current"], cwd=tmp_path, capture_output=True, text=True).stdout.strip()
+    assert branch == "wiki/in-progress"
+    log = subprocess.run(["git", "log", "--oneline", "-1"], cwd=tmp_path, capture_output=True, text=True).stdout
+    assert "codex:" not in log

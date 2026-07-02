@@ -407,6 +407,7 @@ export type CodexJobRecord = {
   theme?: string;
   steps: CodexJobStep[];
   branch: string | null;
+  branch_mode?: "fresh" | "resume" | "continue_current" | string | null;
   draft_pr_url: string | null;
   log_path?: string;
   human_gate_state?: string | null;

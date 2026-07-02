@@ -348,6 +348,10 @@ const EN: Dict = {
   "brief.exit.discard": "Discard",
   "brief.exit.discarded": "Brief discarded.",
   "brief.compose.failed": "Could not compose the brief: {error}",
+  "brief.exec.continueCurrent":
+    "Runs on the current proposal branch {branch}. The job commits ONLY what Codex changes — your {n} uncommitted file(s) stay untouched.",
+  "brief.exec.dirtyDefault":
+    "The worktree on {branch} has {n} uncommitted change(s). Creating a proposal branch needs a clean tree — commit or stash first, or the job will fail.",
   "brief.demoOff": "Briefs need the local operator — not available in the demo.",
   "codex.job.started": "Codex job started ({status}). It will land as a draft PR.",
   "codex.job.failed": "Could not start Codex: {error}",
@@ -757,6 +761,10 @@ const PT: Dict = {
   "brief.exit.discard": "Descartar",
   "brief.exit.discarded": "Brief descartado.",
   "brief.compose.failed": "Não foi possível compor o brief: {error}",
+  "brief.exec.continueCurrent":
+    "Roda no branch de proposta atual {branch}. O job commita SÓ o que o Codex mudar — seus {n} arquivo(s) não commitados ficam intocados.",
+  "brief.exec.dirtyDefault":
+    "A árvore em {branch} tem {n} mudança(s) não commitada(s). Criar branch de proposta exige árvore limpa — commite ou guarde antes, ou o job vai falhar.",
   "brief.demoOff": "Briefs precisam do operador local — indisponível no demo.",
   "codex.job.started": "Job do Codex iniciado ({status}). Vai chegar como draft PR.",
   "codex.job.failed": "Não foi possível iniciar o Codex: {error}",

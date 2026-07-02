@@ -33,6 +33,10 @@ export function gateFixSpec(gate: { id: string; argv: string[] }, failureOutput?
     failureOutput
       ? `Failure output from the last run (secret-redacted):\n${failureOutput}`
       : `Run the command first to capture the current failure output.`,
+    // Many checks prescribe their own remediation (e.g. a --write recompile).
+    // Follow the prescription instead of hand-editing generated content.
+    "If the failure output prescribes an exact remediation command (like a `--write` recompile), run that command rather than editing generated files by hand.",
+    `Then re-run \`${command}\` and confirm it exits 0 before finishing.`,
     "Fix the underlying cause — never weaken or skip the check itself."
   ];
   return {

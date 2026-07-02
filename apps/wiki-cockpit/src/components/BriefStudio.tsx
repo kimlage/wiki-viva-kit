@@ -8,12 +8,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, Play, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { codexUnavailableReason, t } from "../data/i18n";
-import type { BriefRecord, CodexCapability } from "../types";
+import type { BriefRecord, CodexCapability, GitState } from "../types";
 
 export function BriefStudio({
   brief,
   capability,
   busy,
+  git,
   onSaveText,
   onDiscard,
   onExecute,
@@ -24,6 +25,7 @@ export function BriefStudio({
   brief: BriefRecord;
   capability: CodexCapability;
   busy: boolean;
+  git?: GitState;
   onSaveText: (briefId: string, text: string) => void;
   onDiscard: (briefId: string) => void;
   onExecute?: (brief: BriefRecord, text: string) => void;
@@ -91,6 +93,22 @@ export function BriefStudio({
         />
 
         <p className="briefStudioPinned">{t("brief.studio.pinnedNote")}</p>
+
+        {/* Pre-flight: WHERE the job will run, before Execute is pressed — the
+            late "worktree must be clean" dead end becomes an upfront fact. */}
+        {git && git.proposal.is_proposal_branch && (
+          <p className="briefStudioGitNote">
+            {t("brief.exec.continueCurrent", {
+              branch: git.current_branch,
+              n: git.worktree.changed_files.length
+            })}
+          </p>
+        )}
+        {git && !git.proposal.is_proposal_branch && !git.worktree.clean && (
+          <p className="briefStudioGitNote briefStudioGitWarn">
+            {t("brief.exec.dirtyDefault", { branch: git.current_branch, n: git.worktree.changed_files.length })}
+          </p>
+        )}
 
         <div className="briefStudioActions">
           <button className="secondaryButton" onClick={copy} type="button">

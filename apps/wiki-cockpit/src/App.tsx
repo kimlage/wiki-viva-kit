@@ -2034,6 +2034,7 @@ export function App() {
             brief={activeBrief}
             capability={codexCapability}
             busy={briefBusy}
+            git={loadState.status === "ready" ? loadState.bundle.git : undefined}
             onSaveText={saveBrief}
             onDiscard={removeBrief}
             onExecute={codexCapability.usable ? executeBrief : undefined}

@@ -3904,6 +3904,23 @@ pre {
   background: rgba(3, 7, 10, 0.62);
 }
 
+/* Brief studio pre-flight: WHERE the job will run, before Execute. */
+.briefStudioGitNote {
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 7px;
+  border: 1px solid #24424f;
+  background: rgba(30, 58, 70, 0.35);
+  color: #9fd0e0;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.briefStudioGitWarn {
+  border-color: #6e5126;
+  background: rgba(110, 81, 38, 0.22);
+  color: #e8c268;
+}
+
 /* Expandable monospace output (shared: command output, gate output, diffs). */
 .expandablePre {
   position: relative;
