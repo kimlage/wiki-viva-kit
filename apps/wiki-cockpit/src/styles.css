@@ -4568,3 +4568,10 @@ pre {
 .workReturn .secondaryButton {
   align-self: flex-start;
 }
+
+/* Keyboard-highlighted search result */
+.missionSearchResults .textButton.searchHitActive {
+  background: rgba(61, 108, 134, 0.28);
+  border-radius: 6px;
+  outline: 1px solid #3d6c86;
+}

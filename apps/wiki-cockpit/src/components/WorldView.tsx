@@ -7,10 +7,12 @@
 
 import { Activity, GitPullRequest, ListChecks, Play, Search, Trophy } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { t } from "../data/i18n";
 import { contextLabel, isRawData, perspectiveLabel, worldGroupLabel } from "../data/presentation";
 import { groupKeyForPage } from "../scene/perspectives";
 import type { PerspectiveId } from "../scene/perspectives";
+import { rankPages } from "../scene/search";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
 import type { RuntimeConfig } from "../data/runtimeConfig";
@@ -29,14 +31,7 @@ function findPage(pages: PageRecord[], key: string | undefined): PageRecord | un
   return pages.find((page) => page.id === key || page.path === key);
 }
 
-function pageMatches(page: PageRecord, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return false;
-  return [page.title, page.path, page.context, page.page_type, page.summary, ...page.source_refs]
-    .join(" ")
-    .toLowerCase()
-    .includes(needle);
-}
+const SEARCH_VISIBLE = 10;
 
 function gateTone(status: string): "good" | "warn" | "bad" {
   const value = status.toLowerCase();
@@ -98,6 +93,7 @@ export function WorldView({
   const routeRef = useRef(route);
   routeRef.current = route;
   const [searchDraft, setSearchDraft] = useState(route.query.q);
+  const [activeHit, setActiveHit] = useState(0);
   const [trayOpen, setTrayOpen] = useState(false);
   const [missionsOpen, setMissionsOpen] = useState(false);
   const [workOpen, setWorkOpen] = useState(false);
@@ -232,9 +228,34 @@ export function WorldView({
   }, [searchDraft]);
 
   const searchHits = useMemo(
-    () => (route.query.q ? pages.filter((page) => pageMatches(page, route.query.q)) : []),
+    () => (route.query.q ? rankPages(pages, route.query.q) : []),
     [pages, route.query.q]
   );
+  // Keyboard result navigation resets whenever the query changes.
+  useEffect(() => setActiveHit(0), [route.query.q]);
+  const visibleHits = searchHits.slice(0, SEARCH_VISIBLE);
+  const openHit = (page?: PageRecord) => {
+    if (page) navigateWorld({ pageId: page.id, reader: true });
+  };
+  const onSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (!visibleHits.length) {
+      if (event.key === "Escape") setSearchDraft("");
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveHit((index) => Math.min(index + 1, visibleHits.length - 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveHit((index) => Math.max(index - 1, 0));
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      openHit(visibleHits[activeHit] ?? visibleHits[0]);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      setSearchDraft("");
+    }
+  };
   const packetPages = useMemo(
     () => route.query.packet.map((id) => findPage(pages, id)).filter((page): page is PageRecord => Boolean(page)),
     [pages, route.query.packet]
@@ -404,13 +425,16 @@ export function WorldView({
           {route.query.q && (
             <div className="missionSearchResults" aria-label={t("world.results", { n: searchHits.length })}>
               <span className="missionSearchCount">
-                {searchHits.length > 8 ? t("world.resultsCapped", { n: searchHits.length }) : t("world.results", { n: searchHits.length })}
+                {searchHits.length > SEARCH_VISIBLE
+                  ? t("world.resultsCapped", { n: searchHits.length, shown: SEARCH_VISIBLE })
+                  : t("world.results", { n: searchHits.length })}
               </span>
-              {searchHits.slice(0, 8).map((page) => (
+              {visibleHits.map((page, index) => (
                 <button
-                  className="textButton"
+                  className={index === activeHit ? "textButton searchHitActive" : "textButton"}
                   key={page.id}
-                  onClick={() => navigateWorld({ pageId: page.id, reader: true })}
+                  onMouseEnter={() => setActiveHit(index)}
+                  onClick={() => openHit(page)}
                   title={page.path}
                   type="button"
                 >
@@ -423,6 +447,7 @@ export function WorldView({
                   </small>
                 </button>
               ))}
+              {searchHits.length === 0 && <span className="missionSearchCount">{t("world.noResults")}</span>}
             </div>
           )}
         </div>
@@ -456,6 +481,7 @@ export function WorldView({
               ref={searchRef}
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}
+              onKeyDown={onSearchKeyDown}
               placeholder={t("world.searchPlaceholder")}
               aria-label={t("world.searchAria")}
             />
