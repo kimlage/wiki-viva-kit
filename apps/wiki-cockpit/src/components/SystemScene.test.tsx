@@ -66,6 +66,8 @@ describe("SystemScene fallback", () => {
     // Groups render as links sharing the world URL grammar.
     const groupLink = screen.getByRole("link", { name: /example · 1/ });
     expect(groupLink.getAttribute("href")).toBe("/w/radar/example");
-    expect(screen.getByRole("link", { name: "Alpha" })).toBeTruthy();
+    // Alpha is stale in the fixture: its accessible name now carries the state
+    // chip too (fallback never encodes state in color alone).
+    expect(screen.getByRole("link", { name: /Alpha needs refresh/ })).toBeTruthy();
   });
 });

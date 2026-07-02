@@ -6,12 +6,14 @@
 // GitHub decides. Diffs are text and stay in this 2D dock; the world behind is
 // dimmed to the changed set. Everything is t()'d EN+PT.
 
-import { useState } from "react";
-import { ExternalLink, FileText, GitPullRequest, Package, RefreshCw, ShieldAlert, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ExternalLink, FileText, GitPullRequest, Package, ShieldAlert, X } from "lucide-react";
 import { t } from "../data/i18n";
 import { deriveApproval } from "../data/approval";
-import { loadFileDiff, runGate } from "../data/snapshot";
-import type { DiffFile, SnapshotBundle } from "../types";
+import { contextLabel } from "../data/presentation";
+import { loadFileDiff } from "../data/snapshot";
+import { GateChecks } from "./GateChecks";
+import type { BriefSpec, DiffFile, PageRecord, SnapshotBundle } from "../types";
 
 const TONE: Record<string, "good" | "warn" | "bad" | "info" | "muted"> = {
   clean: "good",
@@ -26,7 +28,7 @@ const GATE_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
   not_run: "muted"
 };
 
-function FileRow({ file }: { file: DiffFile }) {
+function FileRow({ file, page }: { file: DiffFile; page?: PageRecord }) {
   const [open, setOpen] = useState(false);
   const [lines, setLines] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -45,12 +47,22 @@ function FileRow({ file }: { file: DiffFile }) {
   };
   return (
     <div className="gateFile">
+      {page && (
+        <div className="gateFilePage">
+          <strong>{page.title}</strong>
+          <small>
+            {contextLabel(page.context || "system")} · {t(`scene.trust.${page.freshness_state}`)}
+            {page.approved_state === "proposal" ? ` · ${t("scene.trust.proposal")}` : ""}
+          </small>
+        </div>
+      )}
       <div className="gateFileHead">
         <FileText size={13} aria-hidden />
         <code>{file.path}</code>
         <small>
           +{file.additions} −{file.deletions}
         </small>
+        {file.risk_hints.length > 0 && <small className="gateFileHints">{file.risk_hints.join(" · ")}</small>}
         <button className="textButton" onClick={toggle} type="button">
           {open ? t("gate.hideDiff") : t("gate.viewDiff")}
         </button>
@@ -64,6 +76,7 @@ export function GateDock({
   bundle,
   busy,
   onWorkflow,
+  onComposeBrief,
   onNotice,
   onRefetch,
   onClose
@@ -71,25 +84,21 @@ export function GateDock({
   bundle: SnapshotBundle;
   busy: boolean;
   onWorkflow: (operation: string, payload?: Record<string, unknown>, dryRun?: boolean) => void;
+  onComposeBrief?: (spec: BriefSpec) => void;
   onNotice: (text: string) => void;
   onRefetch: () => void;
   onClose: () => void;
 }) {
   const view = deriveApproval(bundle);
-  const [runningGates, setRunningGates] = useState(false);
-
-  const runAllGates = async () => {
-    setRunningGates(true);
-    try {
-      for (const gate of bundle.gates?.gates ?? []) {
-        await runGate(gate.id);
-      }
-      onNotice(t("gate.gates.label"));
-      onRefetch();
-    } finally {
-      setRunningGates(false);
-    }
-  };
+  // Diff paths are repo-relative like PageRecord.path — the lookup lets content
+  // rows show the page a human recognizes (title/area/state), not just a path.
+  const pagesByPath = useMemo(() => {
+    const map = new Map<string, PageRecord>();
+    for (const page of bundle.pages?.pages ?? []) map.set(page.path, page);
+    return map;
+  }, [bundle.pages?.pages]);
+  const summary = bundle.diff?.summary;
+  const branch = bundle.diff?.compare?.current_branch || bundle.git?.current_branch || "";
 
   return (
     <>
@@ -104,6 +113,25 @@ export function GateDock({
         </header>
         <p className="dockIntro">{t("gate.intro")}</p>
 
+        {summary && view.fileCount > 0 && (
+          <div className="gateSummary" aria-label={t("gate.summary.aria")}>
+            <span className="stripChip static">
+              {t("gate.summary.files", { n: view.fileCount })}
+            </span>
+            <span className="stripChip static gateSummaryDelta">
+              +{summary.insertions} −{summary.deletions}
+            </span>
+            {branch && (
+              <span className="stripChip static">
+                <code>{branch}</code>
+              </span>
+            )}
+            {summary.privacy_review_required && (
+              <span className="pill pill-warn">{t("gate.summary.privacy")}</span>
+            )}
+          </div>
+        )}
+
         {view.privacyFiles.length > 0 && (
           <div className="gateSection gatePrivacy">
             <h4>
@@ -111,7 +139,7 @@ export function GateDock({
             </h4>
             <p className="dockIntro">{t("gate.privacy.hint")}</p>
             {view.privacyFiles.map((file) => (
-              <FileRow key={file.path} file={file} />
+              <FileRow key={file.path} file={file} page={pagesByPath.get(file.path)} />
             ))}
           </div>
         )}
@@ -120,7 +148,7 @@ export function GateDock({
           <h4>{t("gate.content", { n: view.contentFiles.length })}</h4>
           {view.contentFiles.length === 0 && <p className="dockIntro">{t("gate.noContent")}</p>}
           {view.contentFiles.map((file) => (
-            <FileRow key={file.path} file={file} />
+            <FileRow key={file.path} file={file} page={pagesByPath.get(file.path)} />
           ))}
         </div>
 
@@ -140,10 +168,13 @@ export function GateDock({
           <h4>
             {t("gate.gates.label")} <span className={`pill pill-${GATE_TONE[view.gateStatus] ?? "muted"}`}>{t(`gate.gate.${view.gateStatus}`)}</span>
           </h4>
-          <button className="secondaryButton" onClick={runAllGates} disabled={runningGates || busy} type="button">
-            <RefreshCw size={14} />
-            <span>{runningGates ? t("gate.running") : t("gate.runGates")}</span>
-          </button>
+          <GateChecks
+            gates={bundle.gates?.gates ?? []}
+            busy={busy}
+            onComposeBrief={onComposeBrief}
+            onNotice={onNotice}
+            onRefetch={onRefetch}
+          />
         </div>
 
         <div className="dockActions gateRequest">

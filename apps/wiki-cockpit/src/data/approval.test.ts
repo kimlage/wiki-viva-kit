@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveApproval } from "./approval";
+import { deriveApproval, gateFixSpec, trimGateOutput } from "./approval";
 import type { DiffFile, SnapshotBundle } from "../types";
 
 const file = (path: string, category: string, over: Partial<DiffFile> = {}): DiffFile => ({
@@ -58,5 +58,38 @@ describe("deriveApproval", () => {
       bundle([file("memories/publico/a.md", "memory", { risk_hints: ["public_boundary"] }), file("memories/b.md", "memory")])
     );
     expect(view.privacyFiles.map((f) => f.path)).toEqual(["memories/publico/a.md"]);
+  });
+});
+
+describe("gateFixSpec", () => {
+  it("composes a verify brief that carries the failure evidence", () => {
+    const spec = gateFixSpec({ id: "wiki_audit", argv: ["python3", "scripts/wiki_audit.py", "--check"] }, "E: broken link");
+    expect(spec.mission_kind).toBe("verify");
+    expect(spec.theme).toBe("fix-wiki-audit");
+    expect(spec.grounding.state_report).toEqual({ scope: "audit" });
+    expect(spec.intent).toContain("python3 scripts/wiki_audit.py --check");
+    expect(spec.intent).toContain("E: broken link");
+    // The contract line: never game the check.
+    expect(spec.intent).toContain("never weaken or skip the check");
+  });
+
+  it("asks Codex to reproduce first when no output was captured", () => {
+    const spec = gateFixSpec({ id: "pytest", argv: ["python3", "-m", "pytest", "tests/"] });
+    expect(spec.intent).toContain("Run the command first");
+  });
+});
+
+describe("trimGateOutput", () => {
+  it("keeps the tail — verdicts print last", () => {
+    const long = Array.from({ length: 500 }, (_, i) => `line ${i}`).join("\n");
+    const trimmed = trimGateOutput(long, "", 200);
+    expect(trimmed.startsWith("…")).toBe(true);
+    expect(trimmed).toContain("line 499");
+    expect(trimmed.length).toBeLessThanOrEqual(202);
+  });
+
+  it("merges stdout and stderr with a divider", () => {
+    expect(trimGateOutput("out", "err")).toBe("out\n--- stderr ---\nerr");
+    expect(trimGateOutput("out", "")).toBe("out");
   });
 });

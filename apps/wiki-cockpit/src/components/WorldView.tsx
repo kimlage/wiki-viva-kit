@@ -16,12 +16,11 @@ import { rankPages } from "../scene/search";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
 import type { RuntimeConfig } from "../data/runtimeConfig";
-import type { ActionCard, BriefSpec, CodexCapability, PageRecord, SnapshotBundle } from "../types";
+import type { ActionCard, BriefSpec, PageRecord, SnapshotBundle } from "../types";
 import { CoachMarks, tourSeen } from "./CoachMarks";
 import { HelpTip } from "./HelpTip";
 import { MissionsPanel } from "./MissionsPanel";
 import { PageReader } from "./PageReader";
-import { WorkTray } from "./WorkTray";
 import type { RelationGroupKey } from "./PageReader";
 import { SystemScene } from "./SystemScene";
 import type { ScenePatch } from "./SystemScene";
@@ -72,11 +71,7 @@ export function WorldView({
   route,
   onRun,
   onNotice,
-  onComposeBrief,
-  onResumeBrief,
-  onReturnJob,
-  onDiagnoseCodex,
-  codexCapability
+  onComposeBrief
 }: {
   bundle: SnapshotBundle;
   runtime: RuntimeConfig;
@@ -84,10 +79,6 @@ export function WorldView({
   onRun: (action: ActionCard) => void;
   onNotice?: (text: string) => void;
   onComposeBrief?: (spec: BriefSpec) => void;
-  onResumeBrief?: (briefId: string) => void;
-  onReturnJob?: (jobId: string, feedback: string) => void;
-  onDiagnoseCodex?: () => void;
-  codexCapability?: CodexCapability;
 }) {
   const pages = bundle.pages.pages;
   // Always navigate from the CURRENT route: async callbacks (debounce timers,
@@ -98,7 +89,6 @@ export function WorldView({
   const [activeHit, setActiveHit] = useState(0);
   const [trayOpen, setTrayOpen] = useState(false);
   const [missionsOpen, setMissionsOpen] = useState(false);
-  const [workOpen, setWorkOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -523,7 +513,6 @@ export function WorldView({
             onClick={() => {
               setTrayOpen((value) => !value);
               setMissionsOpen(false);
-              setWorkOpen(false);
             }}
             type="button"
             aria-expanded={trayOpen}
@@ -537,7 +526,6 @@ export function WorldView({
             onClick={() => {
               setMissionsOpen((value) => !value);
               setTrayOpen(false);
-              setWorkOpen(false);
             }}
             type="button"
             aria-expanded={missionsOpen}
@@ -547,14 +535,17 @@ export function WorldView({
           </button>
           {onComposeBrief && (
             <button
-              className={workOpen ? "trayButton workButton active" : "trayButton workButton"}
+              className={route.query.dock === "work" ? "trayButton workButton active" : "trayButton workButton"}
               onClick={() => {
-                setWorkOpen((value) => !value);
+                // The Work surface is a DOCK (deep-linkable URL state), not a
+                // local tray: monitoring delegated jobs must survive reloads
+                // and be shareable. patchWorld closes any open tray for us.
                 setTrayOpen(false);
                 setMissionsOpen(false);
+                navigateWorld({ dock: route.query.dock === "work" ? null : "work" });
               }}
               type="button"
-              aria-expanded={workOpen}
+              aria-expanded={route.query.dock === "work"}
             >
               <Activity size={14} />
               <span>{t("work.title")}</span>
@@ -639,34 +630,6 @@ export function WorldView({
                 : undefined
             }
             onClose={() => setMissionsOpen(false)}
-          />
-        )}
-        {workOpen && onComposeBrief && (
-          <WorkTray
-            capability={codexCapability ?? { enabled: true, installed: false, runnable: false, authed: false, auth_mode: null, version: null, usable: false, reason: "" }}
-            demo={route.demo}
-            onResumeBrief={(id) => {
-              setWorkOpen(false);
-              onResumeBrief?.(id);
-            }}
-            onReturn={
-              onReturnJob
-                ? (jobId, feedback) => {
-                    setWorkOpen(false);
-                    onReturnJob(jobId, feedback);
-                  }
-                : undefined
-            }
-            onDiagnose={
-              onDiagnoseCodex
-                ? () => {
-                    setWorkOpen(false);
-                    onDiagnoseCodex();
-                  }
-                : undefined
-            }
-            onNotice={(text) => onNotice?.(text)}
-            onClose={() => setWorkOpen(false)}
           />
         )}
       </SystemScene>

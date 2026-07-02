@@ -130,16 +130,49 @@ const DEFAULT_TRUST_COLORS: TrustColors = {
   risk: "#ff7a8a"
 };
 
-const CONTEXT_ACCENTS = ["#6bd7ff", "#ffb454", "#c57cff", "#5ee6a8", "#ff9c54", "#8fa3ff", "#ffb3c1", "#7fd0e8"];
+// Context identity palette: 12 slots = 6 hue anchors × 2 lightness tiers,
+// sampled on the blue↔yellow axis dichromats retain (OKLCH hues 255/210/165/
+// 110/45/335, tiers L≈0.70 C≈0.115 and L≈0.82 C≈0.09), interleaved so early
+// assignments maximize hue separation. Deliberately AVOIDS the reserved state
+// accents: amber #ffb454 (needs refresh), purple #c57cff (draft/approval),
+// search cyan #79e6ff, risk red #ff7a8a — a context must never impersonate a
+// state. Guarded by the CVD-simulation test in presentation.test.ts.
+const CONTEXT_ACCENTS = [
+  "#6ca1e5", // blue A
+  "#d98660", // salmon A
+  "#4cb58c", // teal A
+  "#ca82bb", // pink A
+  "#b6b857", // lime A (L 0.76 — lifted for deutan separation from salmon A)
+  "#22b1c6", // cyan A
+  "#9dc7fe", // blue B (lighter tier)
+  "#f6b294", // salmon B
+  "#8ad7b6", // teal B
+  "#e9aedb", // pink B
+  "#c7ca85", // lime B
+  "#79d4e4" // cyan B
+];
 
 let pageTypeOverrides: Record<string, Partial<PageTypeStyle>> = {};
 let contextOverrides: Record<string, Partial<ContextStyle>> = {};
 let trustColors: TrustColors = { ...DEFAULT_TRUST_COLORS };
+// Deterministic slot registry: sorted context names → palette slots, refreshed
+// per snapshot. Hash assignment only remains as a fallback for contexts that
+// were never registered (it collides once contexts outnumber slots).
+let contextSlots: Map<string, number> = new Map();
 
 export function configurePresentation(overrides: PresentationOverrides | null | undefined): void {
   pageTypeOverrides = overrides?.page_types || {};
   contextOverrides = overrides?.contexts || {};
   trustColors = { ...DEFAULT_TRUST_COLORS, ...(overrides?.trust_colors || {}) };
+}
+
+// Called once per snapshot load with EVERY context in the wiki: sorted names
+// get distinct palette slots (up to 12), so 8 contexts never collide the way
+// hash assignment can. Sorted order keeps the mapping stable across sessions
+// for a given wiki; per-context `contexts.<name>.accent` overrides still win.
+export function registerContextPalette(contexts: string[]): void {
+  const sorted = [...new Set(contexts.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  contextSlots = new Map(sorted.map((name, index) => [name, index % CONTEXT_ACCENTS.length]));
 }
 
 export function pageTypeStyle(pageType: string): PageTypeStyle {
@@ -162,10 +195,11 @@ export function pageTypeLabel(pageType: string): string {
 export function contextStyle(context: string): ContextStyle {
   const name = context || "system";
   const override = contextOverrides[name];
+  const slot = contextSlots.get(name);
   const hash = [...name].reduce((total, char) => (total * 31 + char.charCodeAt(0)) % 997, 7);
   return {
     label: override?.label || name,
-    accent: override?.accent || CONTEXT_ACCENTS[hash % CONTEXT_ACCENTS.length]
+    accent: override?.accent || CONTEXT_ACCENTS[slot ?? hash % CONTEXT_ACCENTS.length]
   };
 }
 
@@ -175,6 +209,75 @@ export function contextLabel(context: string): string {
 
 export function trustColor(state: keyof TrustColors): string {
   return trustColors[state];
+}
+
+// ---------------------------------------------------------------------------
+// Aging: hue = WHO a node is (context); tone = HOW it is (state). The state
+// tones are normalized to fixed OKLCH lightness bands so "darker = staler"
+// holds ACROSS contexts (a fresh purple must never be as dark as a stale
+// cyan) — the one channel color-blind users can always trust. Ordering:
+// proposal-bleach (≈0.82) > fresh-calm (≈0.58) > stale-aged (≈0.46) >
+// unknown-veil (≈0.35). Stale BRIGHTNESS comes from the amber emissive/glow
+// annotation, not the body. Invariants pinned in presentation.test.ts.
+
+type Oklch = { l: number; c: number; h: number };
+
+function srgbChannelToLinear(value: number): number {
+  return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+function linearChannelToSrgb(value: number): number {
+  const clamped = Math.max(0, Math.min(1, value));
+  return clamped <= 0.0031308 ? clamped * 12.92 : 1.055 * clamped ** (1 / 2.4) - 0.055;
+}
+
+export function hexToOklch(hex: string): Oklch {
+  const int = parseInt(hex.slice(1), 16);
+  const r = srgbChannelToLinear(((int >> 16) & 255) / 255);
+  const g = srgbChannelToLinear(((int >> 8) & 255) / 255);
+  const b = srgbChannelToLinear((int & 255) / 255);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
+  const a = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  const bb = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  const c = Math.hypot(a, bb);
+  const h = ((Math.atan2(bb, a) * 180) / Math.PI + 360) % 360;
+  return { l: L, c, h };
+}
+
+export function oklchToHex({ l, c, h }: Oklch): string {
+  const rad = (h * Math.PI) / 180;
+  const a = c * Math.cos(rad);
+  const bb = c * Math.sin(rad);
+  const l_ = (l + 0.3963377774 * a + 0.2158037573 * bb) ** 3;
+  const m_ = (l - 0.1055613458 * a - 0.0638541728 * bb) ** 3;
+  const s_ = (l - 0.0894841775 * a - 1.291485548 * bb) ** 3;
+  const r = 4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_;
+  const g = -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_;
+  const b = -0.0041960863 * l_ - 0.7034186147 * m_ + 1.707614701 * s_;
+  const toByte = (channel: number) => Math.round(linearChannelToSrgb(channel) * 255);
+  return `#${[r, g, b].map((ch) => toByte(ch).toString(16).padStart(2, "0")).join("")}`;
+}
+
+// Fixed lightness bands per state (see the invariant comment above).
+const STATE_BANDS: Record<TrustKeyName, { l: number; maxC: number; minC: number }> = {
+  fresh: { l: 0.58, maxC: 0.085, minC: 0 },
+  stale: { l: 0.46, maxC: 0.075, minC: 0 },
+  unknown: { l: 0.35, maxC: 0.03, minC: 0 },
+  proposal: { l: 0.82, maxC: 0.09, minC: 0.045 }
+};
+
+export type TrustKeyName = "fresh" | "stale" | "unknown" | "proposal";
+
+export function agedColor(accentHex: string, state: TrustKeyName): string {
+  const { c, h } = hexToOklch(accentHex);
+  const band = STATE_BANDS[state];
+  // Stale drifts slightly warm (aged/umber character) without entering the
+  // reserved amber zone; the band clamp does the heavy lifting.
+  const hue = state === "stale" ? h + (h > 90 && h < 270 ? -12 : 12) : h;
+  const chroma = Math.max(band.minC, Math.min(state === "unknown" ? c * 0.25 : c, band.maxC));
+  return oklchToHex({ l: band.l, c: chroma, h: ((hue % 360) + 360) % 360 });
 }
 
 export type EdgeStyle = { label: string; color: string };

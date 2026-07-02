@@ -18,7 +18,7 @@ vi.mock("../data/snapshot", () => ({
   discardBrief
 }));
 
-import { WorkTray } from "./WorkTray";
+import { WorkDock, formatElapsed } from "./WorkDock";
 
 const cap: CodexCapability = {
   enabled: true,
@@ -58,15 +58,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("WorkTray", () => {
+describe("WorkDock", () => {
   it("shows the honest demo state without hitting the operator", () => {
-    render(<WorkTray capability={cap} demo onResumeBrief={noop} onNotice={noop} onClose={noop} />);
+    render(<WorkDock capability={cap} demo onResumeBrief={noop} onNotice={noop} onClose={noop} />);
     expect(screen.getByText(/demo/i)).toBeTruthy();
   });
 
   it("renders a job row with its status, steps and draft-PR link", async () => {
     data.jobs = [job()];
-    render(<WorkTray capability={cap} demo={false} onResumeBrief={noop} onNotice={noop} onClose={noop} />);
+    render(<WorkDock capability={cap} demo={false} onResumeBrief={noop} onNotice={noop} onClose={noop} />);
     await waitFor(() => expect(screen.getByText("fix-root")).toBeTruthy());
     expect(screen.getByText("delivered")).toBeTruthy();
     expect(screen.getByText("Run Codex")).toBeTruthy();
@@ -76,7 +76,7 @@ describe("WorkTray", () => {
 
   it("offers Cancel only on active jobs and calls the API", async () => {
     data.jobs = [job({ job_id: "j2", status: "running", draft_pr_url: null })];
-    render(<WorkTray capability={cap} demo={false} onResumeBrief={noop} onNotice={noop} onClose={noop} />);
+    render(<WorkDock capability={cap} demo={false} onResumeBrief={noop} onNotice={noop} onClose={noop} />);
     await waitFor(() => expect(screen.getByText("running")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: /Cancel/ }));
     expect(cancelCodexJob).toHaveBeenCalledWith("j2");
@@ -98,7 +98,7 @@ describe("WorkTray", () => {
       }
     ];
     const onResumeBrief = vi.fn();
-    render(<WorkTray capability={cap} demo={false} onResumeBrief={onResumeBrief} onNotice={noop} onClose={noop} />);
+    render(<WorkDock capability={cap} demo={false} onResumeBrief={onResumeBrief} onNotice={noop} onClose={noop} />);
     await waitFor(() => expect(screen.getByText("top-problems")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: /^Open$/ }));
     expect(onResumeBrief).toHaveBeenCalledWith("b9");
@@ -106,8 +106,26 @@ describe("WorkTray", () => {
 
   it("surfaces an honest unavailable pill when Codex cannot run", async () => {
     render(
-      <WorkTray capability={{ ...cap, usable: false }} demo={false} onResumeBrief={noop} onNotice={noop} onClose={noop} />
+      <WorkDock capability={{ ...cap, usable: false }} demo={false} onResumeBrief={noop} onNotice={noop} onClose={noop} />
     );
     await waitFor(() => expect(screen.getByText(/no jobs can run/i)).toBeTruthy());
+  });
+
+  it("shows honest wall-clock times per job state", async () => {
+    data.jobs = [job({ started_at: "2026-07-02T10:00:00Z", finished_at: "2026-07-02T10:03:30Z" })];
+    render(<WorkDock capability={cap} demo={false} onResumeBrief={noop} onNotice={noop} onClose={noop} />);
+    await waitFor(() => expect(screen.getByText(/finished in 3min 30s/)).toBeTruthy());
+  });
+
+  it("formats elapsed durations without lying on bad input", () => {
+    expect(formatElapsed("2026-07-02T10:00:00Z", "2026-07-02T10:00:45Z")).toBe("45s");
+    expect(formatElapsed("2026-07-02T10:00:00Z", "2026-07-02T11:02:00Z")).toBe("1h 2min");
+    expect(formatElapsed(undefined, "2026-07-02T10:00:00Z")).toBe("");
+    expect(formatElapsed("2026-07-02T10:00:00Z", "2026-07-02T09:00:00Z")).toBe("");
+  });
+
+  it("renders as a dialog dock (deep-linkable surface, not a local tray)", async () => {
+    render(<WorkDock capability={cap} demo={false} onResumeBrief={noop} onNotice={noop} onClose={noop} />);
+    await waitFor(() => expect(screen.getByRole("dialog", { name: /briefs and jobs/i })).toBeTruthy());
   });
 });

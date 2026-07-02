@@ -24,9 +24,10 @@ import { CodexDock } from "./components/CodexDock";
 import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
+import { WorkDock } from "./components/WorkDock";
 import { configureLanguage, t } from "./data/i18n";
 import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
-import { contextLabel, pageTypeLabel } from "./data/presentation";
+import { contextLabel, pageTypeLabel, registerContextPalette } from "./data/presentation";
 import {
   buildIngestionPlan,
   composeBrief,
@@ -1706,6 +1707,14 @@ export function App() {
     loadState.status === "ready" ? loadState.runtime.strings : undefined
   );
 
+  // Hue = area: register every context of THIS wiki so sorted names get
+  // distinct palette slots (deterministic, no hash collisions up to 12 areas).
+  // Inline during render — like configureLanguage above — so the very first
+  // scene paint already uses the registered slots (idempotent, module state).
+  if (loadState.status === "ready") {
+    registerContextPalette(loadState.bundle.graph.nodes.map((node) => node.context || "system"));
+  }
+
   // The legacy 2D pages dissolve into world docks. /review → the Gate, /health →
   // the Gates dock (health is the weather); bookmarks never break. (/sources
   // follows in Phase 4.)
@@ -1936,6 +1945,9 @@ export function App() {
       }
       setNotice({ text: t("codex.job.started", { status: job.status }), tone: "good", showResult: false });
       setActiveBrief(null);
+      // Land the operator on the monitoring surface: delegated work should be
+      // WATCHED, not fired and forgotten.
+      navigate(buildUrl(patchWorld(worldFromRoute(route), { dock: "work" })));
     } catch (error) {
       setNotice({
         text: t("codex.job.failed", { error: error instanceof Error ? error.message : "failed" }),
@@ -1974,10 +1986,6 @@ export function App() {
           onRun={runAction}
           onNotice={notify}
           onComposeBrief={runBrief}
-          onResumeBrief={resumeBrief}
-          onReturnJob={returnJob}
-          onDiagnoseCodex={openCodexDock}
-          codexCapability={codexCapability}
         />
       );
     }
@@ -1988,6 +1996,7 @@ export function App() {
   const gateDockOpen = route.kind === "world" && route.query.dock === "approve";
   const gatesDockOpen = route.kind === "world" && route.query.dock === "gates";
   const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
+  const workDockOpen = route.kind === "world" && route.query.dock === "work";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -2041,6 +2050,7 @@ export function App() {
             bundle={loadState.bundle}
             busy={Boolean(busyAction)}
             onWorkflow={runWorkflow}
+            onComposeBrief={runBrief}
             onNotice={notify}
             onRefetch={refetchReal}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
@@ -2049,6 +2059,7 @@ export function App() {
         {gatesDockOpen && worldRoute && loadState.status === "ready" && (
           <GatesDock
             bundle={loadState.bundle}
+            onComposeBrief={runBrief}
             onNotice={notify}
             onRefetch={refetchReal}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
@@ -2059,6 +2070,17 @@ export function App() {
             bundle={loadState.bundle}
             initialSrc={worldRoute.query.src}
             onComposeBrief={runBrief}
+            onNotice={notify}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+          />
+        )}
+        {workDockOpen && worldRoute && (
+          <WorkDock
+            capability={codexCapability}
+            demo={route.demo}
+            onResumeBrief={resumeBrief}
+            onReturn={returnJob}
+            onDiagnose={openCodexDock}
             onNotice={notify}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />

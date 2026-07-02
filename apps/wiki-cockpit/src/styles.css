@@ -4411,33 +4411,25 @@ pre {
 .trayButton.workButton.active {
   border-color: #3d6c86;
 }
-.workTray {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 46px;
-  z-index: 36;
-  max-width: 720px;
-  margin: 0 auto;
-  max-height: min(70vh, 560px);
-  overflow-y: auto;
-  border: 1px solid #2a3944;
-  border-radius: 12px;
-  background: rgba(8, 15, 21, 0.96);
-  backdrop-filter: blur(8px);
-  padding: 12px 14px;
+/* WorkDock (?dock=work): the jobs/agents monitoring surface. Shares the
+   worldDock chrome; only the work-specific bits live here. */
+.workDockPanel .dockHeader {
+  flex-wrap: wrap;
 }
-.workTray > header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.workTray > header strong {
-  font-size: 14px;
-}
-.workTray > header .readerClose {
+.workDockPanel .dockHeader .textButton {
   margin-left: auto;
+}
+.workDockPanel .dockHeader .readerClose {
+  margin-left: 0;
+}
+.workJobClock {
+  color: #7f95a3;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.workLogMore {
+  align-self: flex-start;
+  font-size: 11px;
 }
 .workBody {
   display: flex;
@@ -4748,6 +4740,73 @@ pre {
   border: 1px solid #1c2a33;
   border-radius: 7px;
   margin-bottom: 6px;
+}
+/* Change summary chips under the Gate dock header. */
+.gateSummary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.gateSummaryDelta {
+  font-variant-numeric: tabular-nums;
+}
+/* The human identity of a changed content page (title · area · state). */
+.gateFilePage {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 9px 0;
+}
+.gateFilePage strong {
+  font-size: 13px;
+}
+.gateFilePage small {
+  color: #8aa0ad;
+  font-size: 11px;
+}
+.gateFileHints {
+  color: #c9a86a;
+}
+/* Per-check rows (shared GateChecks). */
+.gateRowMeta {
+  display: block;
+  color: #7f95a3;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gateRowMeta code {
+  font-size: 11px;
+}
+.gateRowActions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.gateFixButton {
+  color: #c57cff;
+}
+.gateRowHint {
+  color: #8aa0ad;
+  font-size: 11px;
+}
+.gateOutput {
+  border-top: none;
+  border: 1px solid #1c2a33;
+  border-radius: 6px;
+}
+.gateChecksActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+/* State never rides on color alone in the 2D fallback (WCAG 1.4.1). */
+.fallbackNodeState {
+  display: block;
+  color: #8aa0ad;
+  font-size: 10px;
 }
 .gateFileHead {
   display: flex;

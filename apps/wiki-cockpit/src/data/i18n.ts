@@ -111,6 +111,9 @@ const EN: Dict = {
   "scene.evidence": "evidence",
   "scene.unsourced": "no source",
   "scene.key": "Key",
+  "scene.keyColorLabel": "Color",
+  "scene.keyColor":
+    "Hue = area (each area keeps one color). State shows as aging: vivid = up to date · darker + amber embers = needs refresh · washed gray = not checked · bleached + floating = draft.",
   "scene.keyPositionLabel": "Position",
   "scene.keyShapeLabel": "Shape",
   "scene.keyShape": "◆ evidence source · ⬡ area hub · ● content",
@@ -204,7 +207,7 @@ const EN: Dict = {
   "tour.progress": "{step} of {total}",
   "tour.welcome.title": "Welcome to the knowledge world",
   "tour.welcome.body":
-    "Your wiki is this 3D map. Every dot is a page: color = trust (green ok, amber needs refresh, purple draft), shape = kind, lines = real relations. Nothing here is decorative — if it glows, it needs you.",
+    "Your wiki is this 3D map. Every dot is a page: hue = its area (finance stays one color everywhere), shape = kind, lines = real relations. State shows as aging — vivid is current, embered amber needs refresh, washed gray was never checked, bleached-floating is a draft. Nothing here is decorative — if it glows, it needs you.",
   "tour.perspectives.title": "Four perspectives, keys 1–4",
   "tour.perspectives.body":
     "The same pages, four arrangements: Radar (what needs attention), Atlas (what lives where), Districts (everything by kind), Trails (one page's connections). Switching morphs the world — nothing is lost.",
@@ -292,6 +295,20 @@ const EN: Dict = {
   "gate.pr.contract": "The cockpit prepares. GitHub decides.",
   "gate.pr.prepare": "Prepare draft PR",
   "gate.pr.none": "No open request yet.",
+  "gate.run": "Run",
+  "gate.runFailed": "{gate}: could not run ({error})",
+  "gate.fix": "Fix with Codex",
+  "gate.output.show": "Show output",
+  "gate.output.hide": "Hide output",
+  "gate.output.pending": "Run this check to capture the failure output.",
+  "gate.summary.aria": "Change summary",
+  "gate.summary.files": "{n} file(s)",
+  "gate.summary.privacy": "privacy review",
+  "gate.name.wiki_audit": "Honesty audit",
+  "gate.name.methodology_coverage": "Method coverage",
+  "gate.name.operation_compile": "Operational compile",
+  "gate.name.input_stage": "Input stage",
+  "gate.name.pytest": "Tests",
 
   // The Intake (?dock=intake) — add knowledge, world-first
   "intake.title": "Add knowledge",
@@ -350,6 +367,12 @@ const EN: Dict = {
   "work.job.return": "Return with feedback",
   "work.job.returnPlaceholder": "What should Codex fix on this branch?",
   "work.job.returnSend": "Send back",
+  "work.job.elapsed": "{t} elapsed",
+  "work.job.finishedIn": "finished in {t}",
+  "work.job.queued": "waiting in queue",
+  "work.job.logTail": "Showing the last {n} lines — show everything",
+  "work.job.cancelFailed": "Could not cancel: {error}",
+  "work.jobs.empty": "No jobs yet. Execute a brief to delegate work to Codex.",
   "work.refresh": "Refresh",
   "missions.brief.generate": "Generate brief",
   "missions.brief.top": "Brief the top problems",
@@ -497,6 +520,9 @@ const PT: Dict = {
   "scene.evidence": "evidência",
   "scene.unsourced": "sem fonte",
   "scene.key": "Legenda",
+  "scene.keyColorLabel": "Cor",
+  "scene.keyColor":
+    "Matiz = área (cada área mantém uma cor). O estado aparece como envelhecimento: vívido = em dia · mais escuro + brasas âmbar = precisa atualizar · cinza lavado = não verificado · clareado + flutuando = rascunho.",
   "scene.keyPositionLabel": "Posição",
   "scene.keyShapeLabel": "Forma",
   "scene.keyShape": "◆ fonte de evidência · ⬡ hub de área · ● conteúdo",
@@ -586,7 +612,7 @@ const PT: Dict = {
   "tour.progress": "{step} de {total}",
   "tour.welcome.title": "Bem-vinda ao mundo de conhecimento",
   "tour.welcome.body":
-    "Sua wiki é este mapa 3D. Cada ponto é uma página: cor = confiança (verde ok, âmbar precisa atualizar, roxo rascunho), forma = tipo, linhas = relações reais. Nada aqui é decorativo — se brilha, precisa de você.",
+    "Sua wiki é este mapa 3D. Cada ponto é uma página: matiz = a área dela (financeiro mantém uma cor em todo lugar), forma = tipo, linhas = relações reais. O estado aparece como envelhecimento — vívido está em dia, âmbar em brasas precisa atualizar, cinza lavado nunca foi verificado, clareado flutuando é rascunho. Nada aqui é decorativo — se brilha, precisa de você.",
   "tour.perspectives.title": "Quatro perspectivas, teclas 1–4",
   "tour.perspectives.body":
     "As mesmas páginas, quatro arranjos: Radar (o que precisa de atenção), Atlas (o que vive onde), Distritos (tudo por tipo), Trilhas (as conexões de uma página). Trocar transforma o mundo — nada se perde.",
@@ -669,6 +695,20 @@ const PT: Dict = {
   "gate.pr.contract": "O cockpit prepara. O GitHub decide.",
   "gate.pr.prepare": "Preparar rascunho de PR",
   "gate.pr.none": "Nenhum pedido aberto ainda.",
+  "gate.run": "Rodar",
+  "gate.runFailed": "{gate}: não foi possível rodar ({error})",
+  "gate.fix": "Corrigir com Codex",
+  "gate.output.show": "Ver saída",
+  "gate.output.hide": "Ocultar saída",
+  "gate.output.pending": "Rode esta verificação para capturar a saída da falha.",
+  "gate.summary.aria": "Resumo das mudanças",
+  "gate.summary.files": "{n} arquivo(s)",
+  "gate.summary.privacy": "revisão de privacidade",
+  "gate.name.wiki_audit": "Auditoria (honestidade)",
+  "gate.name.methodology_coverage": "Cobertura de método",
+  "gate.name.operation_compile": "Compilação operacional",
+  "gate.name.input_stage": "Estágio de entrada",
+  "gate.name.pytest": "Testes",
 
   "intake.title": "Adicionar conhecimento",
   "intake.intro": "Aponte para um arquivo (um caminho, mesmo em ~/Downloads) — ele é copiado para a área bruta, escaneado por segredos, pronto para ingerir.",
@@ -724,6 +764,12 @@ const PT: Dict = {
   "work.job.return": "Devolver com ajustes",
   "work.job.returnPlaceholder": "O que o Codex deve corrigir nesta branch?",
   "work.job.returnSend": "Devolver",
+  "work.job.elapsed": "{t} decorrido",
+  "work.job.finishedIn": "terminou em {t}",
+  "work.job.queued": "aguardando na fila",
+  "work.job.logTail": "Mostrando as últimas {n} linhas — ver tudo",
+  "work.job.cancelFailed": "Não foi possível cancelar: {error}",
+  "work.jobs.empty": "Nenhum job ainda. Execute um brief para delegar trabalho ao Codex.",
   "work.refresh": "Atualizar",
   "missions.brief.generate": "Gerar brief",
   "missions.brief.top": "Brief dos principais problemas",
@@ -779,7 +825,7 @@ export const GLOSSARY: Record<UiLanguage, Record<string, { title: string; body: 
     },
     freshness: {
       title: "Freshness",
-      body: "Every page declares how long it stays trustworthy (stale_after_days). Inside the window = green. Past it = amber: re-verify and update the date. No date at all = grey 'no data' band."
+      body: "Every page declares how long it stays trustworthy (stale_after_days). Inside the window the node stays vivid. Past it the node ages — darker body, amber embers rising: re-verify and update the date. No date at all = the washed-gray 'no data' band."
     },
     evidence: {
       title: "Evidence",
@@ -805,7 +851,7 @@ export const GLOSSARY: Record<UiLanguage, Record<string, { title: string; body: 
     },
     freshness: {
       title: "Frescor",
-      body: "Cada página declara por quanto tempo continua confiável (stale_after_days). Dentro da janela = verde. Passou = âmbar: re-verifique e atualize a data. Sem data nenhuma = banda cinza 'sem dados'."
+      body: "Cada página declara por quanto tempo continua confiável (stale_after_days). Dentro da janela o nó fica vívido. Passou, o nó envelhece — corpo mais escuro, brasas âmbar subindo: re-verifique e atualize a data. Sem data nenhuma = a banda cinza-lavada 'sem dados'."
     },
     evidence: {
       title: "Evidência",

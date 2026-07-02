@@ -117,6 +117,9 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             rest = path[len("/api/codex/jobs/") :].strip("/")
             if rest.endswith("/log"):
                 job_id = rest[: -len("/log")].strip("/")
+                if self.server.jobs.get(job_id) is None:
+                    self._send_error("unknown job", status=HTTPStatus.NOT_FOUND)
+                    return
                 self._send_json({"ok": True, "job_id": job_id, "log": self.server.jobs.read_log(job_id)})
                 return
             record = self.server.jobs.get(rest)

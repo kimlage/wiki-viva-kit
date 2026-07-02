@@ -172,6 +172,13 @@ class JobRunner:
         record["status"] = status
         if reason:
             record["reason"] = reason
+        # Wall-clock milestones so the monitoring surface can show honest
+        # elapsed/turnaround times (updated_at moves on every write, so it
+        # cannot serve as either).
+        if status == "running" and not record.get("started_at"):
+            record["started_at"] = _now_iso()
+        if status in {"delivered", "failed", "cancelled"} and not record.get("finished_at"):
+            record["finished_at"] = _now_iso()
         return self._write(record)
 
     def _set_step(self, record: dict[str, Any], step_id: str, status: str) -> dict[str, Any]:
@@ -229,6 +236,8 @@ class JobRunner:
             "resume_branch": resume_branch,
             "created_at": _now_iso(),
             "updated_at": _now_iso(),
+            "started_at": None,
+            "finished_at": None,
             "status": "queued",
             "reason": "",
             "dry_run": bool(dry_run),

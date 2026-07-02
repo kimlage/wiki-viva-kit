@@ -122,6 +122,14 @@ describe("router grammar", () => {
     expect(patchWorld(withDock, { tray: "missions" }).query).toMatchObject({ tray: "missions", dock: "" });
   });
 
+  it("dock=work round-trips: the jobs monitor is deep-linkable URL state", () => {
+    const route = parseRoute("/w/radar", "?dock=work");
+    expect(route.kind).toBe("world");
+    expect((route as WorldRoute).query.dock).toBe("work");
+    const url = buildUrl(patchWorld(world(), { dock: "work" }));
+    expect(url).toContain("dock=work");
+  });
+
   it("patchWorld: diff needs a locked page; station needs the approve dock", () => {
     const base = world({ context: "a", pageId: "p", query: { dock: "approve", station: 4, diff: true, reader: true } });
     // Releasing the page clears diff.

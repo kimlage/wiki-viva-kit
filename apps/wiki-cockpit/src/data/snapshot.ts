@@ -3,6 +3,7 @@ import type {
   BriefSpec,
   CodexCapability,
   CodexJobRecord,
+  GateRunResult,
   IngestionPlan,
   IngestionStepResult,
   OperatorHealth,
@@ -371,13 +372,15 @@ export async function intakeCopy(
 }
 
 // Run one honesty gate; the server persists a receipt so the gate turns green.
-export async function runGate(gateId: string): Promise<{ ok: boolean; gate_id?: string; returncode?: number | null; error?: string }> {
+export async function runGate(gateId: string): Promise<GateRunResult> {
   const response = await fetch(await apiUrl("/gates/run"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ gate_id: gateId })
   });
-  return (await response.json()) as { ok: boolean; gate_id?: string };
+  // The response carries redacted stdout/stderr — keep them: they are the only
+  // failure detail that exists (receipts persist status alone).
+  return (await response.json()) as GateRunResult;
 }
 
 export async function runCockpitAction(
