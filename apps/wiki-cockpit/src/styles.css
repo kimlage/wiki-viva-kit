@@ -841,6 +841,15 @@ button.stripChip:hover {
   border-radius: 50%;
 }
 
+/* Empty facet lens: dimmed, italic, non-interactive — an honest absence. */
+.radarRimPill button.emptyFacet {
+  background: rgba(8, 13, 17, 0.55);
+  color: #6f7f8c;
+  font-style: italic;
+  cursor: default;
+  border-style: dashed;
+}
+
 .fallbackPlan {
   width: min(420px, 100%);
   margin: 0 auto;
@@ -2975,6 +2984,68 @@ pre {
   gap: 10px;
   color: #6f8494;
   white-space: nowrap;
+}
+
+/* FOCUS legend: the four lenses, top-center, below the strip. */
+.focusLegend {
+  position: absolute;
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 28;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(127, 208, 232, 0.25);
+  border-radius: 12px;
+  background: rgba(6, 12, 18, 0.88);
+  backdrop-filter: blur(6px);
+  max-width: min(720px, calc(100% - 320px));
+  flex-wrap: wrap;
+}
+
+.focusLegendTitle {
+  align-self: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7fd0e8;
+  padding-right: 4px;
+}
+
+.focusLens {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 2px 10px;
+  border-left: 1px solid rgba(127, 208, 232, 0.14);
+}
+
+.focusLens strong {
+  font-size: 12px;
+  color: #e6f2f8;
+}
+
+.focusLens small {
+  font-size: 11px;
+  color: #93a4b1;
+}
+
+.focusLens.empty strong {
+  color: #6f7f8c;
+}
+
+.focusFillButton {
+  font-size: 10px;
+  color: #7fd0e8;
+  font-style: italic;
+  padding: 0;
+}
+
+.focusLensEmpty {
+  font-style: italic;
+  color: #6f7f8c;
 }
 
 /* LEFT mission card. */

@@ -11,6 +11,7 @@
 
 import type { GraphEdge, GraphNode } from "../types";
 import { pageTypeStyle } from "../data/presentation";
+import { SCENE_FACETS, sceneFacetOf, type SceneFacet } from "./facets";
 import type { GalaxyLayout, LayoutNode, LayoutWedge } from "./layout";
 import {
   DEADLINE_F,
@@ -25,11 +26,13 @@ import {
   staleBudgetDays
 } from "./layout";
 
-export type PerspectiveId = "radar" | "atlas" | "districts" | "trails";
+export type PerspectiveId = "radar" | "atlas" | "districts" | "trails" | "focus";
 
+// The 1–4 keys cycle these four; `focus` is page-triggered (a locked page at
+// the center through the four lenses), never a bare-key perspective.
 export const PERSPECTIVE_ORDER: PerspectiveId[] = ["radar", "atlas", "districts", "trails"];
 
-export type GroupKind = "context" | "attention" | "page_type" | "hub" | "orphan" | "relation";
+export type GroupKind = "context" | "attention" | "page_type" | "hub" | "orphan" | "relation" | "facet";
 
 export type WorldGroup = {
   key: string;
@@ -1199,7 +1202,122 @@ export function computeWorldLayout(request: WorldRequest): WorldLayout {
   if (request.perspective === "atlas") return atlasLayout(request);
   if (request.perspective === "districts") return districtsLayout(request);
   if (request.perspective === "trails") return trailsLayout(request);
+  if (request.perspective === "focus") return focusLayout(request);
   return radarLayout(request);
+}
+
+// Focus — the page-centered multi-perspective view. Structurally trails, but
+// its four sectors are the FACETS (Intention/Perception/Practice/Relations),
+// bucketed from the neighbor's page_type + edge, and an empty facet renders as a
+// visible "no lens registered" wedge (honest absence). Structural neighbors
+// (moc_parent hierarchy) collapse into a hidden cluster so the lenses stay pure.
+function focusLayout(request: WorldRequest): WorldLayout {
+  const snapshotMs = snapshotClock(request.nodes, request.snapshotAt);
+  const byId = new Map<string, GraphNode>();
+  request.nodes.forEach((node) => {
+    byId.set(node.id, node);
+    byId.set(node.path, node);
+  });
+  const centerId = request.pageId && byId.has(request.pageId) ? byId.get(request.pageId)!.id : rootNodeId(request.nodes);
+  const center = centerId ? byId.get(centerId) ?? null : null;
+  const guides: WorldGuide[] = [];
+  const r1 = 2.6;
+  const r2 = 4.4;
+  const rOuter = r2 + 0.6;
+  guides.push({ kind: "circle", radius: r1, color: GUIDE_COLOR, opacity: 0.3 });
+  guides.push({ kind: "circle", radius: r2, color: GUIDE_COLOR, opacity: 0.2 });
+
+  const emptyTotals = { total: request.nodes.length, shown: 0, hidden: request.nodes.length };
+  if (!center) {
+    return {
+      perspective: "focus", level: request.pageId ? 3 : 0, context: request.context, group: undefined,
+      radial: "ego", nodes: [], wedges: [], wedgeKind: "group", guides, groups: [], clusterStars: [],
+      beacons: [], rInner: r1, rOuter, deadlineF: DEADLINE_F, unknownR: null, totals: emptyTotals,
+      truncated: request.nodes.length
+    };
+  }
+
+  // 1-hop neighbors bucketed by FACET; structural (null facet) set aside.
+  const facetMembers = new Map<SceneFacet, GraphNode[]>(SCENE_FACETS.map((facet) => [facet, []]));
+  const structural: GraphNode[] = [];
+  const seen = new Set<string>([center.id]);
+  request.edges.forEach((edge) => {
+    const sourceNode = byId.get(edge.source);
+    const targetNode = byId.get(edge.target);
+    if (!sourceNode || !targetNode) return;
+    let neighbor: GraphNode | null = null;
+    if (sourceNode.id === center.id) neighbor = targetNode;
+    else if (targetNode.id === center.id) neighbor = sourceNode;
+    if (!neighbor || seen.has(neighbor.id)) return;
+    seen.add(neighbor.id);
+    const facet = sceneFacetOf(neighbor.page_type, edge.type);
+    if (facet) facetMembers.get(facet)!.push(neighbor);
+    else structural.push(neighbor);
+  });
+
+  const sectorSpan = (Math.PI * 2) / SCENE_FACETS.length;
+  const nodes: LayoutNode[] = [makeNode(center, snapshotMs, [0, 0, 0], 0.42, { isHub: true, isRoot: true, ring: 0 })];
+  const clusterStars: ClusterStar[] = [];
+  const groups: WorldGroup[] = [];
+  const oneHopTotal = [...facetMembers.values()].reduce((sum, list) => sum + list.length, 0);
+  const budget1 = Math.min(oneHopTotal, Math.max(request.maxNodes - 1, 8));
+  const split = splitBudget(
+    SCENE_FACETS.map((facet) => ({ key: facet, size: facetMembers.get(facet)!.length })).filter((entry) => entry.size > 0),
+    budget1
+  );
+
+  SCENE_FACETS.forEach((facet, sectorIndex) => {
+    const start = 0.35 + sectorIndex * sectorSpan;
+    const members = [...(facetMembers.get(facet) ?? [])].sort(
+      (a, b) => contextOf(a).localeCompare(contextOf(b)) || a.title.localeCompare(b.title) || a.id.localeCompare(b.id)
+    );
+    guides.push({ kind: "ray", angle: start, r0: r1 - 0.6, r1: r2 + 0.4, color: GUIDE_COLOR, opacity: 0.35 });
+    const visible = members.slice(0, split.get(facet) ?? members.length);
+    const hidden = members.slice(visible.length);
+    const usable = sectorSpan - 0.16;
+    visible.forEach((node, indexInSector) => {
+      const tt = (indexInSector + 0.5) / visible.length;
+      const angle = start + 0.08 + tt * usable;
+      const y = node.approved_state === "proposal" ? 0.5 : 0;
+      nodes.push(makeNode(node, snapshotMs, [Math.cos(angle) * r1, y, Math.sin(angle) * r1], nodeScale(node), { ring: 1 }));
+    });
+    const centerAngle = start + sectorSpan / 2;
+    if (hidden.length > 0) {
+      clusterStars.push(
+        starFor(`facet-star-${facet}`, "facet", facet, hidden, [Math.cos(centerAngle) * (r2 + 0.3), 0, Math.sin(centerAngle) * (r2 + 0.3)], null)
+      );
+    }
+    // Every facet emits a group — an EMPTY one renders as an honest "no lens"
+    // wedge the UI can offer to fill.
+    groups.push({
+      key: facet,
+      kind: "facet",
+      labelKey: facet,
+      count: members.length,
+      shown: visible.length,
+      anchor: [Math.cos(centerAngle) * (rOuter + 0.4), 0.05, Math.sin(centerAngle) * (rOuter + 0.4)],
+      drill: null,
+      memberIds: visible.map((node) => node.id)
+    });
+  });
+
+  // Structural neighbors (hierarchy/links) collapse into one hidden cluster so
+  // the four lenses show only what belongs in a lens.
+  if (structural.length > 0) {
+    clusterStars.push(
+      starFor("focus-structural", "relation", "links", structural, [Math.cos(-0.3) * (r2 + 0.3), 0, Math.sin(-0.3) * (r2 + 0.3)], null)
+    );
+  }
+
+  const reachableTotal = 1 + oneHopTotal + structural.length;
+  const shown = nodes.length;
+  return {
+    perspective: "focus", level: 3, context: request.context, group: undefined, radial: "ego",
+    nodes, wedges: [], wedgeKind: "group", guides, groups, clusterStars, beacons: [],
+    rInner: r1, rOuter, deadlineF: DEADLINE_F, unknownR: null,
+    totals: { total: reachableTotal, shown, hidden: Math.max(reachableTotal - shown, 0) },
+    truncated: Math.max(reachableTotal - shown, 0)
+  };
 }
 
 export function worldLevel(route: { context?: string; group?: string; pageId?: string }): number {

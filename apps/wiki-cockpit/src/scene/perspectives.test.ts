@@ -59,8 +59,11 @@ function request(over: Partial<WorldRequest> = {}): WorldRequest {
 
 describe("perspective engine", () => {
   it("is deterministic: same snapshot input, same positions, every perspective", () => {
-    (["radar", "atlas", "districts", "trails"] as const).forEach((perspective) => {
-      const base = request({ perspective, pageId: perspective === "trails" ? "financeiro-p1" : undefined });
+    (["radar", "atlas", "districts", "trails", "focus"] as const).forEach((perspective) => {
+      const base = request({
+        perspective,
+        pageId: perspective === "trails" || perspective === "focus" ? "financeiro-p1" : undefined
+      });
       const first = computeWorldLayout(base);
       const reversed = computeWorldLayout({ ...base, nodes: [...base.nodes].reverse(), edges: [...base.edges].reverse() });
       expect(JSON.stringify(first)).toEqual(JSON.stringify(reversed));
@@ -154,6 +157,23 @@ describe("perspective engine", () => {
     // financeiro-p5 has a moc_parent (hub) → hierarchy sector counts it.
     const hierarchy = layout.groups.find((group) => group.key === "hierarquia");
     expect(hierarchy!.count).toBeGreaterThan(0);
+  });
+
+  it("focus centers the page and buckets neighbors into the four facet lenses", () => {
+    const layout = computeWorldLayout(request({ perspective: "focus", context: "financeiro", pageId: "financeiro-p5", maxNodes: 80 }));
+    const center = layout.nodes.find((item) => item.isRoot);
+    expect(center?.id).toBe("financeiro-p5");
+    expect(center?.position).toEqual([0, 0, 0]);
+    // Exactly the four lenses, in canonical order, always present (even empty).
+    expect(layout.groups.map((group) => group.key)).toEqual(["intencao", "percepcao", "pratica", "relacoes"]);
+    expect(layout.groups.every((group) => group.kind === "facet")).toBe(true);
+    // financeiro-p4 is source_ref evidence of p5 → the Practice lens counts it.
+    const pratica = layout.groups.find((group) => group.key === "pratica");
+    expect(pratica!.count).toBeGreaterThan(0);
+    // Lenses with no neighbor stay present with a true zero — honest absence.
+    expect(layout.groups.some((group) => group.count === 0)).toBe(true);
+    // The honest-counting invariant holds for focus too.
+    expect(layout.totals.shown + layout.totals.hidden).toBe(layout.totals.total);
   });
 
   it("keeps every page reachable in ≤4 interactions: galaxy → context → group → page", () => {

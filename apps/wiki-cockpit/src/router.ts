@@ -6,7 +6,9 @@
 
 import { useSyncExternalStore } from "react";
 
-export const PERSPECTIVES = ["radar", "atlas", "districts", "trails"] as const;
+// `focus` is a valid URL perspective (page-centered lenses) but is NOT in the
+// 1–4 keyboard cycle — it is only reachable with a page locked.
+export const PERSPECTIVES = ["radar", "atlas", "districts", "trails", "focus"] as const;
 export type PerspectiveId = (typeof PERSPECTIVES)[number];
 
 export type WorldQuery = {
@@ -114,7 +116,7 @@ export function parseRoute(pathname: string, search = ""): Route {
     // Positional grammar: context › group › page. Trails is ego-centric and
     // ignores the group slot, so its second segment is already the page.
     let [context, group, pageId] = rest;
-    if (perspective === "trails" && rest.length === 2) {
+    if ((perspective === "trails" || perspective === "focus") && rest.length === 2) {
       pageId = rest[1];
       group = "";
     }
