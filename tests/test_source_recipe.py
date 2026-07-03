@@ -92,3 +92,38 @@ def test_recipe_must_not_carry_credentials() -> None:
     )
     errors = " | ".join(validate_recipe(recipe))
     assert "must not contain credentials" in errors
+
+
+def test_recipe_rejects_a_credential_in_a_VALUE_not_just_a_key() -> None:
+    # A secret hidden under an innocent key name must still be caught. The
+    # token-shaped strings are ASSEMBLED from fragments so this test file carries
+    # no literal secret (repo push-protection scanners flag literals).
+    slack_like = "-".join(["xox" + "b", "2233445566", "AbCdEfGhIjKlMnOp"])
+    bearer_like = "sk-" + "a" * 24
+    recipe = parse_recipe(
+        {
+            "platform": "slack",
+            "locator": slack_like,  # a token where a locator should be
+            "pipelines": [{"kind": "content", "cadence_days": 7}],
+            "streams": [{"id": "s1", "how_to_export": f"Authorization: Bearer {bearer_like}"}],
+        }
+    )
+    errors = " | ".join(validate_recipe(recipe))
+    assert "credential-looking value" in errors
+    # The secret itself is never echoed back.
+    assert "xox" not in errors and "sk-" not in errors
+
+
+def test_non_numeric_cadence_days_does_not_crash() -> None:
+    # A hand-authored "weekly" cadence coerces to 0 (then validation flags it),
+    # never raising ValueError from int().
+    recipe = parse_recipe(
+        {
+            "platform": "slack",
+            "locator": "T1",
+            "pipelines": [{"kind": "content", "cadence_days": "weekly"}],
+            "streams": [],
+        }
+    )
+    assert recipe.pipelines[0].cadence_days == 0
+    assert any("positive cadence_days" in e for e in validate_recipe(recipe))

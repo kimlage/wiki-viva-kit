@@ -2085,23 +2085,34 @@ function SceneFallback({
         {census.hidden > 0 && <span>{t("scene.hiddenTotal", { hidden: census.hidden, total: census.total })}</span>}
       </div>
       <nav className="fallbackGroups" aria-label="Grupos deste nível">
-        {layout.groups.map((group) => (
-          <a
-            key={group.key}
-            className="fallbackGroupLink"
-            href={
-              group.drill
-                ? makeHref({ context: group.drill.context ?? null, group: group.drill.group ?? null, pageId: null, reader: false })
-                : makeHref({})
-            }
-            onClick={(event) => {
-              event.preventDefault();
-              onGroupSelect(group);
-            }}
-          >
-            {worldGroupLabel(group.kind, group.labelKey)} · {group.shown < group.count ? `${group.shown}/${group.count}` : group.count}
-          </a>
-        ))}
+        {layout.groups.map((group) => {
+          // An empty facet lens is an honest absence, not a clickable group —
+          // mirror the 3D rim pill ("no <facet> lens registered", non-interactive).
+          if (group.kind === "facet" && group.count === 0) {
+            return (
+              <span key={group.key} className="fallbackGroupLink emptyFacet">
+                {t("focus.emptyFacet", { facet: worldGroupLabel(group.kind, group.labelKey) })}
+              </span>
+            );
+          }
+          return (
+            <a
+              key={group.key}
+              className="fallbackGroupLink"
+              href={
+                group.drill
+                  ? makeHref({ context: group.drill.context ?? null, group: group.drill.group ?? null, pageId: null, reader: false })
+                  : makeHref({})
+              }
+              onClick={(event) => {
+                event.preventDefault();
+                onGroupSelect(group);
+              }}
+            >
+              {worldGroupLabel(group.kind, group.labelKey)} · {group.shown < group.count ? `${group.shown}/${group.count}` : group.count}
+            </a>
+          );
+        })}
         {layout.clusterStars.map((star) =>
           star.drill ? (
             <a

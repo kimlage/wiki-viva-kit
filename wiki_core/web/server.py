@@ -214,7 +214,11 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
             from wiki_core.web.sources import compose_source_brief_spec
 
             source_id = parsed.path[len("/api/sources/") : -len("/brief")].strip("/")
-            result = compose_source_brief_spec(self.server.root, self.server.config, source_id)
+            try:
+                result = compose_source_brief_spec(self.server.root, self.server.config, source_id)
+            except Exception as exc:  # a malformed hand-authored recipe must not 500 with a trace
+                self._send_json({"ok": False, "error": f"could not compose brief: {exc}"}, status=HTTPStatus.OK)
+                return
             self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.NOT_FOUND)
             return
         if parsed.path not in {

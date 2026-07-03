@@ -1207,7 +1207,7 @@ export function computeWorldLayout(request: WorldRequest): WorldLayout {
 }
 
 // Focus — the page-centered multi-perspective view. Structurally trails, but
-// its four sectors are the FACETS (Intention/Perception/Practice/Relations),
+// its four sectors are the FACETS (Intention/Practice/Relations/Systems),
 // bucketed from the neighbor's page_type + edge, and an empty facet renders as a
 // visible "no lens registered" wedge (honest absence). Structural neighbors
 // (moc_parent hierarchy) collapse into a hidden cluster so the lenses stay pure.
@@ -1218,7 +1218,14 @@ function focusLayout(request: WorldRequest): WorldLayout {
     byId.set(node.id, node);
     byId.set(node.path, node);
   });
-  const centerId = request.pageId && byId.has(request.pageId) ? byId.get(request.pageId)!.id : rootNodeId(request.nodes);
+  // Focus is page-anchored: a pageId that is NOT in this graph yields the
+  // empty/center-less layout, never a silent re-center on the wiki root (which
+  // would contradict the HTML legend still keyed to the requested page).
+  const centerId = request.pageId
+    ? byId.has(request.pageId)
+      ? byId.get(request.pageId)!.id
+      : null
+    : rootNodeId(request.nodes);
   const center = centerId ? byId.get(centerId) ?? null : null;
   const guides: WorldGuide[] = [];
   const r1 = 2.6;

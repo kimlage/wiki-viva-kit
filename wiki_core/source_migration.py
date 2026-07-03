@@ -101,12 +101,26 @@ def infer_locator(rel: str, values: dict[str, Any], platform: str) -> tuple[str,
     return f"TODO-{platform}-locator", True
 
 
+def _contained(root: Path, rel: str) -> Path | None:
+    """Resolve a repo-relative path and refuse anything that escapes the repo
+    root (``../`` or absolute) — a config_ref must never read arbitrary files."""
+    candidate = Path(rel)
+    if candidate.is_absolute():
+        return None
+    resolved = (root / candidate).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError:
+        return None
+    return resolved
+
+
 def _config_page_values(root: Path, values: dict[str, Any]) -> dict[str, Any]:
     config_ref = str(values.get("config_ref") or "").strip()
     if not config_ref:
         return {}
-    path = root / config_ref
-    if not path.is_file():
+    path = _contained(root, config_ref)
+    if path is None or not path.is_file():
         return {}
     return parse_frontmatter(path)[0]
 
@@ -176,8 +190,13 @@ def _plan_source_page(
         else:
             notes.append("owner could not be inferred — set it manually")
 
-    if not isinstance(values.get("sync"), dict):
+    # Only add `sync` when the key is genuinely ABSENT. A present-but-scalar/list
+    # sync is left alone (adding would duplicate the YAML key and clobber it) and
+    # noted for the reviewer instead.
+    if "sync" not in values:
         additions["sync"] = {"last_run_at": "", "last_status": "never", "last_event_ref": ""}
+    elif not isinstance(values.get("sync"), dict):
+        notes.append("`sync` exists but is not a mapping — fix it by hand")
 
     return SourceMigrationChange(
         rel=rel, page_type="source", add_frontmatter=additions, notes=tuple(notes)
@@ -261,15 +280,25 @@ def plan_source_migration(
 def insert_frontmatter_keys(text: str, additions: dict[str, Any]) -> str:
     """Append keys to the frontmatter block, just before its closing ``---``,
     preserving the existing field order and body verbatim. Creates a frontmatter
-    block if the page has none."""
+    block if the page has none. Keys ALREADY present are dropped, never appended,
+    so we can't produce a duplicate YAML key that silently clobbers a value."""
     if not additions:
         return text
-    dumped = yaml.safe_dump(additions, sort_keys=False, allow_unicode=True).rstrip("\n")
     match = FRONTMATTER_RE.match(text)
     if not match:
+        dumped = yaml.safe_dump(additions, sort_keys=False, allow_unicode=True).rstrip("\n")
         return f"---\n{dumped}\n---\n\n{text}"
-    inner = match.group(1).rstrip("\n")
-    return f"---\n{inner}\n{dumped}\n---\n" + text[match.end() :]
+    inner = match.group(1)
+    try:
+        existing = yaml.safe_load(inner)
+    except yaml.YAMLError:
+        existing = None
+    present = set(existing) if isinstance(existing, dict) else set()
+    fresh = {k: v for k, v in additions.items() if k not in present}
+    if not fresh:
+        return text
+    dumped = yaml.safe_dump(fresh, sort_keys=False, allow_unicode=True).rstrip("\n")
+    return f"---\n{inner.rstrip(chr(10))}\n{dumped}\n---\n" + text[match.end() :]
 
 
 def apply_change(root: Path, change: SourceMigrationChange) -> None:

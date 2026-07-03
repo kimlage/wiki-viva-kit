@@ -162,6 +162,28 @@ def test_stream_cursor_written_only_after_durable_writes(tmp_path: Path) -> None
     assert cursor["last_unit"]  # a real chunk id
 
 
+def test_stream_cursor_updated_at_is_a_real_date_without_an_explicit_ts(tmp_path: Path) -> None:
+    """F8 freshness: the standard CLI passes no ts. The cursor's updated_at must
+    still be a parseable ISO date (from the manifest's captured_at), never empty —
+    otherwise a just-synced stream reads as 'never'."""
+    import datetime as dt
+
+    from wiki_core.paths import WikiPaths
+    from wiki_core.source_state import read_state, stream_cursor
+
+    config = WikiConfig(repo_id="acme-wiki", owner_label="Alex Doe")
+    src = tmp_path / "source.md"
+    _write(src, "# Source\n\n" + LOREM + "\n")
+    paths = WikiPaths(tmp_path, config)
+
+    result = run(str(src), "system", tmp_path, config, stream_id="#financeiro")  # ts=None
+    assert result.stream_cursor_written is True
+    cursor = stream_cursor(read_state(paths.source_state, result.source_id), "#financeiro")
+    # A real ISO date that the freshness read can parse (never "").
+    assert cursor["updated_at"]
+    dt.date.fromisoformat(cursor["updated_at"])  # raises if not a date
+
+
 def test_no_stream_id_leaves_cursor_state_untouched(tmp_path: Path) -> None:
     from wiki_core.paths import WikiPaths
 

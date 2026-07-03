@@ -285,13 +285,18 @@ def run(
         from wiki_core.source_state import write_stream_cursor
 
         last_unit = chunk_dicts[-1]["chunk_id"] if chunk_dicts else ""
+        # The freshness read parses `updated_at` as an ISO date, so it must
+        # ALWAYS be a real date — never empty and never a content sha. The
+        # standard CLI passes no ts, so fall back to the manifest's captured_at
+        # (when this source was actually read), never to an opaque id.
+        stamp = str(ts or manifest.get("captured_at") or "")
         write_stream_cursor(
             paths.source_state,
             source_id,
             stream_id,
-            cursor=ts or str(manifest.get("content_sha") or manifest.get("source_id") or ""),
+            cursor=stamp or str(manifest.get("source_id") or ""),
             last_unit=str(last_unit),
-            updated_at=(ts or "")[:10],
+            updated_at=stamp[:10],
         )
         stream_cursor_written = True
 

@@ -128,3 +128,38 @@ def test_malformed_recipe_surfaces_errors_not_crash(tmp_path: Path) -> None:
     source = payload["sources"][0]
     assert source["recipe_ok"] is False
     assert any("platform" in e for e in source["recipe_errors"])
+
+
+def test_config_ref_escaping_the_repo_reads_no_recipe(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    # A secret file outside the repo, and a source whose config_ref escapes to it.
+    _write(tmp_path.parent / "outside-recipe.md", "```yaml\nrecipe:\n  platform: slack\n  locator: LEAKED\n```\n")
+    _write(
+        tmp_path / "memories/sources/slack-fin.md",
+        "---\npage_id: source-slack-fin\npage_type: source\ncontext: system\n"
+        "config_ref: ../outside-recipe.md\n---\n\n# src\n",
+    )
+    payload = build_sources_payload(tmp_path, config, today=TODAY)
+    source = payload["sources"][0]
+    # The out-of-repo recipe was NOT read — no locator leaked in.
+    assert source["locator"] != "LEAKED"
+    assert source["recipe_ok"] is False
+
+
+def test_freshness_uses_iso_updated_at_not_the_opaque_cursor(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    paths = WikiPaths(tmp_path, config)
+    # A cursor written by the standard CLI path: a non-date token, but a REAL ISO
+    # updated_at. Freshness must come from updated_at (2 days ago = fresh), never
+    # from the opaque token (which would fail to parse and read as "never").
+    write_stream_cursor(
+        paths.source_state,
+        "source-slack-fin",
+        "#financeiro",
+        cursor="source-slack-fin-a1b2c3d4",  # opaque id, not a date
+        updated_at="2026-07-01",
+    )
+    payload = build_sources_payload(tmp_path, config, today=TODAY)
+    streams = {s["id"]: s for s in payload["sources"][0]["streams"]}
+    assert streams["#financeiro"]["cursor_age_days"] == 2
+    assert streams["#financeiro"]["breached"] is False

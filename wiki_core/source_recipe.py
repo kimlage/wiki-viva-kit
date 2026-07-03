@@ -112,11 +112,20 @@ def _as_bool(value: Any, default: bool = False) -> bool:
     return str(value).strip().lower() in {"true", "yes", "on", "1"}
 
 
+def _coerce_int(value: Any) -> int:
+    """A hand-authored cadence_days may be non-numeric ("weekly"); coerce to 0
+    so parsing never crashes. validate_recipe then flags the non-positive value."""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return 0
+
+
 def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
     """Parse a recipe mapping into the typed contract (lenient; validation is
     a separate pass so the cockpit can still SHOW a malformed recipe)."""
     pipelines = tuple(
-        Pipeline(kind=str(p.get("kind") or ""), cadence_days=int(p.get("cadence_days") or 0))
+        Pipeline(kind=str(p.get("kind") or ""), cadence_days=_coerce_int(p.get("cadence_days")))
         for p in (mapping.get("pipelines") or [])
         if isinstance(p, dict)
     )
@@ -173,12 +182,32 @@ def validate_recipe(recipe: SourceRecipe) -> list[str]:
             errors.append(f"stream `{stream.id}`: unknown privacy `{stream.privacy}`")
         if not stream.selected and not stream.skip_reason:
             errors.append(f"stream `{stream.id}` is unselected without a skip_reason")
-    # Secret smell: a recipe must never carry tokens/passwords/keys.
-    _SECRET_KEYS = re.compile(r"(token|secret|password|passwd|api[_-]?key|bearer|credential)", re.I)
+    # Secret smell: a recipe must never carry tokens/passwords/keys — neither as
+    # a KEY name nor as a VALUE. Structural metadata only.
     for key in _flatten_keys(recipe.raw):
         if _SECRET_KEYS.search(key):
             errors.append(f"recipe must not contain credentials (found key `{key}`)")
+    for value in _flatten_values(recipe.raw):
+        if _SECRET_VALUE.search(value):
+            errors.append("recipe must not contain a credential-looking value (redacted)")
+            break  # one report is enough; never echo the secret
     return errors
+
+
+# Key names that smell of secrets.
+_SECRET_KEYS = re.compile(r"(token|secret|password|passwd|api[_-]?key|bearer|credential)", re.I)
+# High-signal secret VALUE shapes: provider tokens + auth headers + long blobs.
+_SECRET_VALUE = re.compile(
+    r"(xox[baprs]-[A-Za-z0-9-]{8,}"  # Slack
+    r"|gh[pousr]_[A-Za-z0-9]{20,}"  # GitHub
+    r"|AKIA[0-9A-Z]{16}"  # AWS access key id
+    r"|AIza[0-9A-Za-z_\-]{30,}"  # Google API key
+    r"|sk-[A-Za-z0-9]{20,}"  # OpenAI-style
+    r"|eyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}"  # JWT
+    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----"  # PEM
+    r"|(?:bearer|authorization)\s*[:=]\s*\S{8,})",  # inline auth header
+    re.I,
+)
 
 
 def _flatten_keys(value: Any, prefix: str = "") -> list[str]:
@@ -191,3 +220,16 @@ def _flatten_keys(value: Any, prefix: str = "") -> list[str]:
         for item in value:
             keys.extend(_flatten_keys(item, prefix))
     return keys
+
+
+def _flatten_values(value: Any) -> list[str]:
+    values: list[str] = []
+    if isinstance(value, dict):
+        for v in value.values():
+            values.extend(_flatten_values(v))
+    elif isinstance(value, list):
+        for item in value:
+            values.extend(_flatten_values(item))
+    elif isinstance(value, str):
+        values.append(value)
+    return values

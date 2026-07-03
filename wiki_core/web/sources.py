@@ -40,13 +40,38 @@ def _iso_days_ago(value: str, today: dt.date) -> int | None:
     return (today - when).days
 
 
+def _int_or_zero(value: Any) -> int:
+    """Coerce a cadence_days-like value to a non-negative int; 0 on garbage.
+    A hand-authored recipe can carry a non-numeric cadence — it must never crash
+    the read model or the /brief endpoint."""
+    try:
+        return max(int(str(value).strip()), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
 def _cadence_for(pipelines: list[dict[str, Any]]) -> int:
     """The cadence that governs stream freshness — the content pipeline's, else
     the shortest declared cadence, else 0 (never breaches)."""
     content = [p for p in pipelines if p.get("kind") == "content"]
     pool = content or pipelines
-    days = [int(p.get("cadence_days") or 0) for p in pool if int(p.get("cadence_days") or 0) > 0]
+    days = [d for p in pool if (d := _int_or_zero(p.get("cadence_days"))) > 0]
     return min(days) if days else 0
+
+
+def _contained(root: Path, rel: str) -> Path | None:
+    """Resolve a repo-relative reference and REFUSE anything that escapes the
+    repo root (``../`` or an absolute path). Prevents a hand-authored
+    ``config_ref`` from reading an arbitrary file off disk into the read model."""
+    candidate = Path(rel)
+    if candidate.is_absolute():
+        return None
+    resolved = (root / candidate).resolve()
+    try:
+        resolved.relative_to(root.resolve())
+    except ValueError:
+        return None
+    return resolved
 
 
 def _source_record(
@@ -67,7 +92,7 @@ def _source_record(
     recipe_json: dict[str, Any] = {}
     recipe_errors: list[str] = []
     config_ref = str(values.get("config_ref") or "").strip()
-    config_path = (root / config_ref) if config_ref else None
+    config_path = _contained(root, config_ref) if config_ref else None
     if config_path is not None and config_path.is_file():
         mapping = extract_recipe_mapping(config_path.read_text(encoding="utf-8"))
         if mapping is not None:
@@ -86,7 +111,9 @@ def _source_record(
             streams_out.append({**stream, "cursor_age_days": None, "cadence_days": cadence, "breached": False})
             continue
         cursor = stream_cursor(state, str(stream.get("id") or ""))
-        age = _iso_days_ago(str(cursor.get("updated_at") or cursor.get("cursor") or ""), today)
+        # Freshness comes from `updated_at` (a real ISO date). The `cursor` token
+        # is an opaque sha/id, NOT a date — never parse it as one.
+        age = _iso_days_ago(str(cursor.get("updated_at") or ""), today)
         breached = bool(cadence and (age is None or age > cadence))
         if breached:
             pending += 1

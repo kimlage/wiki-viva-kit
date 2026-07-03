@@ -109,6 +109,46 @@ def test_apply_is_idempotent(tmp_path: Path) -> None:
     assert validate_recipe(recipe) == []
 
 
+def test_scalar_sync_is_not_re_added_as_a_duplicate_key(tmp_path: Path) -> None:
+    # A `sync` that exists but is a scalar (not a mapping) must be left alone —
+    # re-adding a `sync:` mapping would produce a duplicate YAML key.
+    (tmp_path / "memories/sources").mkdir(parents=True)
+    (tmp_path / "memories/sources/x.md").write_text(
+        "---\npage_id: sources-x\npage_type: source\nplatform: slack\n"
+        "source_locator: C1\nowner: me\nsync: pending\n---\n\n# X\n",
+        encoding="utf-8",
+    )
+    changes = plan_source_migration(tmp_path, _config(), today=dt.date(2026, 7, 3))
+    # Nothing to add: every contract field is present (sync is present-but-scalar).
+    assert [c for c in changes if c.add_frontmatter] == []
+
+
+def test_insert_frontmatter_keys_drops_keys_already_present(tmp_path: Path) -> None:
+    text = "---\npage_id: a\nplatform: slack\n---\n\n# Body\n"
+    # platform already present → never appended (no duplicate); owner is added.
+    out = insert_frontmatter_keys(text, {"platform": "repo", "owner": "me"})
+    assert out.count("platform:") == 1
+    assert "owner: me" in out
+    assert parse_frontmatter_flat(out)["platform"] == "slack"  # original value kept
+
+
+def test_config_ref_traversal_is_refused(tmp_path: Path) -> None:
+    # A source whose config_ref escapes the repo must not read the outside file.
+    (tmp_path / "memories/sources").mkdir(parents=True)
+    (tmp_path / "secret.md").write_text("owner: leaked\n", encoding="utf-8")
+    (tmp_path / "memories/sources/x.md").write_text(
+        "---\npage_id: sources-x\npage_type: source\nsource_type: reference\n"
+        "config_ref: ../../secret.md\n---\n\n# X\n",
+        encoding="utf-8",
+    )
+    change = next(
+        c for c in plan_source_migration(tmp_path, _config(), today=dt.date(2026, 7, 3))
+        if c.rel.endswith("x.md")
+    )
+    # owner could not be inferred from the (refused) outside file → noted, not leaked.
+    assert change.add_frontmatter.get("owner") != "leaked"
+
+
 def test_plan_never_overwrites_existing_values(tmp_path: Path) -> None:
     (tmp_path / "memories/sources").mkdir(parents=True)
     (tmp_path / "memories/sources/x.md").write_text(

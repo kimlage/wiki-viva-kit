@@ -3853,6 +3853,15 @@ pre {
   border-style: dashed;
 }
 
+/* Empty facet lens in the 2D fallback — honest absence, non-interactive. */
+.fallbackGroupLink.emptyFacet {
+  border-style: dashed;
+  border-color: #33414d;
+  color: #6f7f8c;
+  font-style: italic;
+  cursor: default;
+}
+
 /* Command output as an overlay dock inside the world shell. */
 .worldOutputDock {
   position: fixed;
