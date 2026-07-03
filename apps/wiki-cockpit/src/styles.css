@@ -1185,23 +1185,114 @@ button.stripChip:hover {
   overflow-wrap: anywhere;
 }
 
+/* ── Button system ─────────────────────────────────────────────────────────
+   One professional hierarchy across the whole app: primary (filled accent) /
+   secondary (outline) / ghost (text) × --sm × --run (delegated-agent cyan, NEVER
+   the reserved approval purple) / --danger. Legacy classes migrate onto this. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 12.5px;
+  line-height: 1.1;
+  padding: 8px 13px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.btn--sm {
+  padding: 5px 9px;
+  font-size: 11.5px;
+  border-radius: 7px;
+}
+.btn--primary {
+  background: #6bd7ff;
+  color: #041016;
+  border-color: #6bd7ff;
+  font-weight: 700;
+}
+.btn--primary:not(:disabled):hover {
+  background: #8fe2ff;
+  border-color: #8fe2ff;
+}
+.btn--secondary {
+  background: rgba(107, 215, 255, 0.08);
+  color: #cfe8f4;
+  border-color: rgba(107, 215, 255, 0.32);
+}
+.btn--secondary:not(:disabled):hover {
+  border-color: #6bd7ff;
+  background: rgba(107, 215, 255, 0.15);
+}
+.btn--ghost {
+  background: transparent;
+  color: #9fb6c6;
+}
+.btn--ghost:not(:disabled):hover {
+  color: #dff2fb;
+  background: rgba(255, 255, 255, 0.05);
+}
+.btn--run {
+  color: #7fd0e8;
+  border-color: rgba(127, 208, 232, 0.4);
+  background: rgba(127, 208, 232, 0.1);
+}
+.btn--run:not(:disabled):hover {
+  border-color: #7fd0e8;
+  background: rgba(127, 208, 232, 0.18);
+}
+.btn--danger {
+  color: #ff9aa8;
+  border-color: rgba(255, 122, 138, 0.45);
+  background: rgba(255, 122, 138, 0.1);
+}
+.btn--danger:not(:disabled):hover {
+  border-color: #ff7a8a;
+  background: rgba(255, 122, 138, 0.18);
+}
+
+/* .actionButton — the world/health action pill. Migrated OFF the lime "candy
+   pill" onto the professional secondary look (risky = amber outline). */
 .actionButton {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 8px 12px;
-  color: #071012;
-  background: #83efc0;
-  border: 0;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 12px;
+  color: #cfe8f4;
+  background: rgba(107, 215, 255, 0.08);
+  border: 1px solid rgba(107, 215, 255, 0.3);
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 800;
-  max-width: 220px;
+  font-weight: 600;
+  font-size: 12.5px;
+  max-width: 240px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.actionButton:hover {
+  border-color: #6bd7ff;
+  background: rgba(107, 215, 255, 0.15);
 }
 
 .actionButton.risky {
-  background: #ffcf7a;
+  color: #ffcf9a;
+  border-color: rgba(255, 180, 84, 0.45);
+  background: rgba(255, 180, 84, 0.1);
+}
+
+.actionButton.risky:hover {
+  border-color: #ffb454;
+  background: rgba(255, 180, 84, 0.18);
 }
 
 .actionButton span {
@@ -3208,11 +3299,12 @@ pre {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
   text-align: left;
   background: rgba(16, 26, 34, 0.9);
   border: 1px solid #24333d;
   border-radius: 8px;
-  padding: 7px 8px;
+  padding: 8px 9px;
   cursor: pointer;
   color: inherit;
 }
@@ -3268,21 +3360,27 @@ pre {
 .missionRowAction {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-shrink: 0;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 11.5px;
+  font-weight: 600;
   color: #7fd0e8;
   background: rgba(127, 208, 232, 0.1);
-  border: 1px solid rgba(127, 208, 232, 0.3);
-  border-radius: 6px;
-  padding: 4px 8px;
+  border: 1px solid rgba(127, 208, 232, 0.35);
+  border-radius: 7px;
+  padding: 6px 10px;
   cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .missionRowAction:hover {
   background: rgba(127, 208, 232, 0.18);
   border-color: #7fd0e8;
+}
+
+.missionRowAction svg {
+  flex-shrink: 0;
 }
 
 .topBarPillLink {
@@ -4428,27 +4526,6 @@ pre {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-}
-
-/* Mission rows now host a help tip beside the main button. */
-.missionRow {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding-right: 6px;
-}
-
-.missionRowMain {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  text-align: left;
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  padding: 0;
-  flex: 1;
 }
 
 /* Missions & progress panel. */
