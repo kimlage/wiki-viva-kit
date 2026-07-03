@@ -3077,6 +3077,67 @@ pre {
   white-space: nowrap;
 }
 
+/* CONDITION strip: the honest ambient readout in the top strip. */
+.conditionStrip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.conditionWeather {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid;
+}
+.weather-clear .conditionWeather {
+  color: #5ee6a8;
+  border-color: rgba(94, 230, 168, 0.4);
+  background: rgba(94, 230, 168, 0.08);
+}
+.weather-aging .conditionWeather {
+  color: #ffb454;
+  border-color: rgba(255, 180, 84, 0.4);
+  background: rgba(255, 180, 84, 0.08);
+}
+.weather-unverified .conditionWeather {
+  color: #9aa7ff;
+  border-color: rgba(154, 167, 255, 0.4);
+  background: rgba(154, 167, 255, 0.08);
+}
+.weather-blocked .conditionWeather {
+  color: #ff7a8a;
+  border-color: rgba(255, 122, 138, 0.5);
+  background: rgba(255, 122, 138, 0.1);
+}
+.conditionSeg {
+  font: inherit;
+  font-size: 11px;
+  color: #9fb6c6;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid #2a3944;
+  border-radius: 999px;
+  padding: 2px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.conditionSeg:hover {
+  border-color: #6bd7ff;
+  color: #dff2fb;
+}
+.conditionSeg.warn {
+  color: #ffcf9a;
+  border-color: rgba(255, 180, 84, 0.4);
+}
+.conditionSeg.bad {
+  color: #ff9aa8;
+  border-color: rgba(255, 122, 138, 0.45);
+}
+
 /* FOCUS legend: the four lenses, top-center, below the strip. */
 .focusLegend {
   position: absolute;

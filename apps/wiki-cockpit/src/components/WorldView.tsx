@@ -14,6 +14,7 @@ import { groupKeyForPage } from "../scene/perspectives";
 import type { PerspectiveId } from "../scene/perspectives";
 import { SCENE_FACETS, homeQuadrant, sceneFacetOf } from "../scene/facets";
 import type { SceneFacet } from "../scene/facets";
+import { computeCondition } from "../scene/condition";
 import { rankPages } from "../scene/search";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
@@ -468,6 +469,10 @@ export function WorldView({
     return { quadrants: SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0 })), core };
   }, [route.perspective, bundle.graph]);
 
+  // The world's condition — the honest ambient readout (weather is set from it in
+  // the scene). Every segment is a real count that flies to the act point.
+  const condition = useMemo(() => computeCondition(bundle), [bundle]);
+
   // Breadcrumbs: URL-derived, every segment clickable, registry labels.
   const crumbs: { label: string; patch: WorldPatch }[] = [
     { label: t("world.galaxy"), patch: { context: null, group: null, pageId: null, reader: false } }
@@ -526,6 +531,34 @@ export function WorldView({
               </span>
             ))}
           </nav>
+          {/* Condition strip: the honest ambient readout — every segment a real
+              count that flies to its act point. Numbers-beside-art: the scene
+              weather is only allowed because these exact counts are printed. */}
+          <div className={`conditionStrip weather-${condition.weather}`} role="group" aria-label={t("condition.aria")}>
+            <span className="conditionWeather" title={t(`condition.weather.${condition.weather}`)}>
+              {t(`condition.weather.${condition.weather}`)}
+            </span>
+            {condition.staleCount > 0 && (
+              <button className="conditionSeg warn" onClick={() => navigateWorld({ perspective: "radar", filter: "stale" })} type="button">
+                {t("condition.stale", { n: condition.staleCount })}
+              </button>
+            )}
+            {condition.gatesFailing.length > 0 && (
+              <button className="conditionSeg bad" onClick={() => navigateWorld({ dock: "gates" })} type="button">
+                {t("condition.gates", { n: condition.gatesFailing.length })}
+              </button>
+            )}
+            {condition.pendingApproval > 0 && (
+              <button className="conditionSeg warn" onClick={() => navigateWorld({ dock: "approve" })} type="button">
+                {t("condition.approve", { n: condition.pendingApproval })}
+              </button>
+            )}
+            {condition.pendingSourceIntake > 0 && (
+              <button className="conditionSeg" onClick={() => navigateWorld({ dock: "source" })} type="button">
+                {t("condition.sources", { n: condition.pendingSourceIntake })}
+              </button>
+            )}
+          </div>
           <div className="worldMeta">
             <span>{t("world.pages", { n: pages.length })}</span>
             <span>{t("world.updated", { when: updatedLabel(bundle.manifest.generated_at) })}</span>
