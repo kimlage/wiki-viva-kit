@@ -4895,6 +4895,113 @@ pre {
   border-radius: 7px;
   margin-bottom: 6px;
 }
+/* New typed page (Intake dock). */
+.intakeNewTyped {
+  border-top: 1px solid #22303a;
+  padding-top: 10px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.intakeNewTyped h4 {
+  margin: 0;
+  font-size: 12.5px;
+  color: #cfe0ea;
+}
+
+/* Template inspector (reader type chip → mold + conformity). */
+.readerTypeChip {
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.readerTypeChip.active {
+  border-color: #6bd7ff;
+}
+.templateInspector {
+  margin-top: 8px;
+  border: 1px solid #2a3944;
+  border-radius: 8px;
+  background: rgba(9, 16, 22, 0.9);
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.templateInspector header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.templateInspector header strong {
+  font-size: 12.5px;
+}
+.templateInspector header .readerClose {
+  margin-left: auto;
+}
+.templateMold {
+  margin: 0;
+  font-size: 11.5px;
+  color: #8aa0ad;
+}
+.templateLabel {
+  display: block;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #7f95a3;
+  margin-bottom: 3px;
+}
+.templatePinned ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.templatePinned li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+}
+.templatePinned .pinnedOk {
+  color: #8ad7b6;
+}
+.templatePinned .pinnedMissing {
+  color: #ffb454;
+}
+.pinnedDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffb454;
+  display: inline-block;
+}
+.templateFacets ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.templateFacets li {
+  font-size: 11.5px;
+}
+.templateFacets li strong {
+  color: #cfe0ea;
+  margin-right: 6px;
+}
+.templateFacets li small {
+  color: #8aa0ad;
+}
+.templateFixButton {
+  align-self: flex-start;
+  color: #c57cff;
+}
+
 /* Source entity dock (?dock=source). */
 .sourceIdentity {
   display: flex;
