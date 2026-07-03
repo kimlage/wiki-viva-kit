@@ -1560,6 +1560,7 @@ function SceneContent({
   filter,
   motion,
   activityLevel,
+  weather,
   onSelect,
   onHover,
   onGroupSelect,
@@ -1584,6 +1585,7 @@ function SceneContent({
   filter: SceneFilter | null;
   motion: boolean;
   activityLevel: number;
+  weather?: string;
   onSelect: (node: LayoutNode) => void;
   onHover: (node: LayoutNode | null, event?: ThreeEvent<PointerEvent>) => void;
   onGroupSelect: (group: WorldGroup) => void;
@@ -1689,10 +1691,14 @@ function SceneContent({
     return index.get(selectedId) ?? null;
   }, [layout, selectedId]);
 
+  // Weather atmosphere — a SUBTLE tint of the base void, driven by the same
+  // honest computeCondition() signal the Condition strip prints in exact counts
+  // (so it implies no data the strip doesn't already name). Clear = neutral.
+  const sky = WEATHER_SKY[weather ?? "clear"] ?? WEATHER_SKY.clear;
   return (
     <>
-      <color attach="background" args={["#05090e"]} />
-      <fogExp2 attach="fog" args={["#05090e", 0.032]} />
+      <color attach="background" args={[sky]} />
+      <fogExp2 attach="fog" args={[sky, 0.032]} />
       <hemisphereLight args={["#1a3040", "#05080c", 0.5]} />
       <directionalLight position={[4, 6, 3]} intensity={1.2} color="#cfeaff" />
       <StarField quality={profile.quality} />
@@ -2175,6 +2181,16 @@ function SceneFallback({
 const NO_EDGES: GraphEdge[] = [];
 const NO_IDS: string[] = [];
 
+// Weather → the void's sky/fog color. Kept very dark and near-neutral so it
+// reads as atmosphere, never as a colored data layer. blocked=ember, aging=amber,
+// unverified=cool violet, clear=the base void.
+const WEATHER_SKY: Record<string, string> = {
+  clear: "#05090e",
+  aging: "#0b0a07",
+  unverified: "#08080e",
+  blocked: "#0d0708"
+};
+
 export function SystemScene({
   nodes,
   edges = NO_EDGES,
@@ -2187,6 +2203,7 @@ export function SystemScene({
   walk = null,
   snapshotAt,
   activityLevel = 0,
+  weather = "clear",
   onNavigate,
   onRetreat,
   onFocusSearch,
@@ -2206,6 +2223,7 @@ export function SystemScene({
   walk?: { ids: string[]; step: number } | null;
   snapshotAt?: string;
   activityLevel?: number;
+  weather?: string;
   onNavigate?: (patch: ScenePatch) => void;
   onRetreat?: () => void;
   onFocusSearch?: () => void;
@@ -2582,6 +2600,7 @@ export function SystemScene({
                 filter={filter}
                 motion={motion}
                 activityLevel={activityLevel}
+                weather={weather}
                 onSelect={selectNode}
                 onHover={handleHover}
                 onGroupSelect={handleGroupSelect}

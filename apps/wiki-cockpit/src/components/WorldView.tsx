@@ -520,6 +520,7 @@ export function WorldView({
         walk={walk}
         snapshotAt={bundle.manifest.generated_at}
         activityLevel={bundle.timeline.bands.last_7_days || 0}
+        weather={condition.weather}
         onNavigate={(patch) => navigateWorld(patch as WorldPatch)}
         onRetreat={() => navigate(retreat(route))}
         onFocusSearch={() => searchRef.current?.focus()}
