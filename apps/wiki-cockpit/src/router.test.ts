@@ -66,8 +66,8 @@ describe("router grammar", () => {
     expect(route.kind === "world" && route.group).toBeFalsy();
   });
 
-  it("aliases /ops to the radar world and keeps /pages/:id as a redirectable alias", () => {
-    expect(parseRoute("/ops")).toMatchObject({ kind: "world", perspective: "radar" });
+  it("aliases /ops to the default (quadrants) world and keeps /pages/:id as a redirectable alias", () => {
+    expect(parseRoute("/ops")).toMatchObject({ kind: "world", perspective: "quadrants" });
     expect(parseRoute("/pages/some%2Fpage.md")).toMatchObject({ kind: "pageAlias", pageId: "some/page.md" });
     expect(parseRoute("/pages")).toMatchObject({ kind: "pageAlias" });
     expect(parseRoute("/review")).toMatchObject({ kind: "review", demo: false });

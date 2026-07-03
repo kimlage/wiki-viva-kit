@@ -7,9 +7,12 @@
 import { useSyncExternalStore } from "react";
 
 // `focus` is a valid URL perspective (page-centered lenses) reachable only with
-// a page locked; `quadrants` is the AQAL home map (key 5). Radar stays default.
+// a page locked; `quadrants` is the AQAL home map (key 5). Quadrants is the
+// DEFAULT landing view (Kim: it should set the tone for the whole wiki); radar
+// and the rest stay one keystroke away.
 export const PERSPECTIVES = ["radar", "atlas", "districts", "trails", "focus", "quadrants"] as const;
 export type PerspectiveId = (typeof PERSPECTIVES)[number];
+export const DEFAULT_PERSPECTIVE: PerspectiveId = "quadrants";
 
 export type WorldQuery = {
   q: string;
@@ -110,12 +113,12 @@ export function parseRoute(pathname: string, search = ""): Route {
 
   const query = parseQuery(search);
   if (path === "/" || path === "/ops" || path === "/w") {
-    return { kind: "world", demo, perspective: "radar", query };
+    return { kind: "world", demo, perspective: DEFAULT_PERSPECTIVE, query };
   }
   if (path.startsWith("/w/")) {
     const segments = path.slice("/w/".length).split("/").filter(Boolean).map(decodeURIComponent);
     const [head, ...rest] = segments;
-    const perspective = head && isPerspective(head) ? head : "radar";
+    const perspective = head && isPerspective(head) ? head : DEFAULT_PERSPECTIVE;
     // Positional grammar: context › group › page. Trails is ego-centric and
     // ignores the group slot, so its second segment is already the page.
     let [context, group, pageId] = rest;
@@ -133,7 +136,7 @@ export function parseRoute(pathname: string, search = ""): Route {
       query
     };
   }
-  return { kind: "world", demo, perspective: "radar", query };
+  return { kind: "world", demo, perspective: DEFAULT_PERSPECTIVE, query };
 }
 
 export function buildUrl(route: Route): string {
@@ -248,7 +251,7 @@ export function worldFromRoute(route: Route): WorldRoute {
   return {
     kind: "world",
     demo: route.demo,
-    perspective: "radar",
+    perspective: DEFAULT_PERSPECTIVE,
     query: { ...query, packet: [...query.packet], ack: [...query.ack] }
   };
 }
@@ -272,7 +275,7 @@ export function navigate(target: Route | string, options: { replace?: boolean } 
 }
 
 export function currentRoute(): Route {
-  if (typeof window === "undefined") return { kind: "world", demo: false, perspective: "radar", query: EMPTY_QUERY };
+  if (typeof window === "undefined") return { kind: "world", demo: false, perspective: DEFAULT_PERSPECTIVE, query: EMPTY_QUERY };
   return parseRoute(window.location.pathname, window.location.search);
 }
 

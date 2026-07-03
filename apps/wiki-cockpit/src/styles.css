@@ -4604,17 +4604,95 @@ pre {
 
 /* Mermaid diagrams inside the reader. */
 .readerDiagram {
+  position: relative;
   margin: 10px 0;
   padding: 10px;
   border: 1px solid #22303a;
   border-radius: 8px;
   background: rgba(10, 17, 23, 0.85);
   overflow-x: auto;
+  cursor: zoom-in;
+}
+
+.readerDiagram:hover {
+  border-color: #31414a;
 }
 
 .readerDiagram svg {
   max-width: 100%;
   height: auto;
+}
+
+/* "Click to expand" hint chip, bottom-right of the inline diagram. */
+.readerDiagramHint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(6, 12, 18, 0.9);
+  border: 1px solid #2a3944;
+  color: #9fb6c6;
+  font-size: 10.5px;
+  pointer-events: none;
+}
+
+/* Full-screen diagram lightbox: natural size, pan by scroll/drag, zoom by +/−. */
+.diagramLightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  background: rgba(4, 8, 12, 0.94);
+  display: flex;
+  flex-direction: column;
+}
+
+.diagramLightboxBar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px;
+  justify-content: flex-end;
+  border-bottom: 1px solid #22303a;
+}
+
+.diagramLightboxBar button {
+  min-width: 34px;
+  height: 30px;
+  border: 1px solid #2a3944;
+  border-radius: 8px;
+  background: rgba(16, 26, 34, 0.9);
+  color: #cfe0ea;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.diagramLightboxBar button:hover {
+  border-color: #6bd7ff;
+  color: #eaf6fb;
+}
+
+.diagramLightboxClose {
+  margin-left: 8px;
+}
+
+.diagramStage {
+  flex: 1 1 auto;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  cursor: grab;
+}
+
+.diagramStage > * {
+  transform-origin: center center;
+  transition: transform 0.08s ease-out;
+}
+
+.diagramStage svg {
+  max-width: none;
+  height: auto;
+  min-width: 900px;
 }
 
 /* Raw-data layer: distinct, scannable, never repurposing trust colors. */

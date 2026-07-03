@@ -37,6 +37,69 @@ function freshnessLabel(state: string): string {
   return t("trust.notChecked");
 }
 
+// A rendered mermaid diagram, shrunk to fit the reader column, is unreadable for
+// anything wide. Make each one open a full-screen lightbox on click, where it
+// renders at natural size, pans (scroll/drag) and zooms (+/−/wheel). Pure DOM +
+// CSS classes so it works inside the imperatively-built reader content.
+function makeDiagramZoomable(figure: HTMLElement): void {
+  figure.setAttribute("role", "button");
+  figure.setAttribute("tabindex", "0");
+  figure.title = t("reader.diagramExpand");
+  const hint = document.createElement("span");
+  hint.className = "readerDiagramHint";
+  hint.textContent = t("reader.diagramExpand");
+  figure.appendChild(hint);
+
+  const open = () => {
+    const overlay = document.createElement("div");
+    overlay.className = "diagramLightbox";
+    const stage = document.createElement("div");
+    stage.className = "diagramStage";
+    const svg = figure.querySelector("svg");
+    if (svg) stage.appendChild(svg.cloneNode(true));
+    let scale = 1;
+    const applyScale = () => {
+      const inner = stage.firstElementChild as HTMLElement | null;
+      if (inner) inner.style.transform = `scale(${scale})`;
+    };
+    const bar = document.createElement("div");
+    bar.className = "diagramLightboxBar";
+    const mkBtn = (label: string, on: () => void) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label;
+      b.addEventListener("click", (e) => { e.stopPropagation(); on(); });
+      return b;
+    };
+    const close = () => { overlay.remove(); document.removeEventListener("keydown", onKey); };
+    bar.appendChild(mkBtn("−", () => { scale = Math.max(0.4, scale - 0.25); applyScale(); }));
+    bar.appendChild(mkBtn("+", () => { scale = Math.min(6, scale + 0.25); applyScale(); }));
+    bar.appendChild(mkBtn("⤢", () => { scale = 1; applyScale(); })).title = t("reader.diagramReset");
+    const closeBtn = mkBtn("✕", close);
+    closeBtn.className = "diagramLightboxClose";
+    bar.appendChild(closeBtn);
+    stage.addEventListener("wheel", (e) => {
+      if (!e.ctrlKey && !e.metaKey) return; // only zoom on ctrl/⌘+wheel; plain wheel pans
+      e.preventDefault();
+      scale = Math.min(6, Math.max(0.4, scale + (e.deltaY < 0 ? 0.15 : -0.15)));
+      applyScale();
+    }, { passive: false });
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+      else if (e.key === "+" || e.key === "=") { scale = Math.min(6, scale + 0.25); applyScale(); }
+      else if (e.key === "-") { scale = Math.max(0.4, scale - 0.25); applyScale(); }
+    };
+    document.addEventListener("keydown", onKey);
+    overlay.append(bar, stage);
+    document.body.appendChild(overlay);
+  };
+  figure.addEventListener("click", open);
+  figure.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
+  });
+}
+
 // Fenced ```mermaid blocks render as real diagrams (lazy-loaded, strict
 // security level). Failures fall back to the source with an honest notice.
 async function renderMermaidBlocks(container: HTMLElement): Promise<void> {
@@ -56,6 +119,7 @@ async function renderMermaidBlocks(container: HTMLElement): Promise<void> {
         const wrapper = document.createElement("figure");
         wrapper.className = "readerDiagram";
         wrapper.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
+        makeDiagramZoomable(wrapper);
         pre.replaceWith(wrapper);
       } catch {
         const note = document.createElement("p");

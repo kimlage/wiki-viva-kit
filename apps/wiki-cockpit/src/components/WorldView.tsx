@@ -890,7 +890,7 @@ export function WorldView({
           )}
           <a
             className={route.demo ? "trayButton demoButton active" : "trayButton demoButton"}
-            href={route.demo ? "/w/radar" : "/demo/w/radar"}
+            href={route.demo ? "/" : "/demo"}
             title={route.demo ? t("nav.exitDemo") : t("nav.demo")}
           >
             <Sparkles size={14} />
