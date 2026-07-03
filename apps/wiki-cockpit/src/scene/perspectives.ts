@@ -11,7 +11,7 @@
 
 import type { GraphEdge, GraphNode } from "../types";
 import { pageTypeStyle } from "../data/presentation";
-import { SCENE_FACETS, sceneFacetOf, type SceneFacet } from "./facets";
+import { QUADRANT_CENTER_ANGLE, SCENE_FACETS, homeQuadrant, sceneFacetOf, type SceneFacet } from "./facets";
 import type { GalaxyLayout, LayoutNode, LayoutWedge } from "./layout";
 import {
   DEADLINE_F,
@@ -26,13 +26,14 @@ import {
   staleBudgetDays
 } from "./layout";
 
-export type PerspectiveId = "radar" | "atlas" | "districts" | "trails" | "focus";
+export type PerspectiveId = "radar" | "atlas" | "districts" | "trails" | "focus" | "quadrants";
 
-// The 1–4 keys cycle these four; `focus` is page-triggered (a locked page at
-// the center through the four lenses), never a bare-key perspective.
-export const PERSPECTIVE_ORDER: PerspectiveId[] = ["radar", "atlas", "districts", "trails"];
+// The 1–5 keys cycle these five (radar stays 1 and the default); `focus` is
+// page-triggered (a locked page through the four lenses), never a bare-key
+// perspective. `quadrants` (key 5) is the AQAL home map — where everything lives.
+export const PERSPECTIVE_ORDER: PerspectiveId[] = ["radar", "atlas", "districts", "trails", "quadrants"];
 
-export type GroupKind = "context" | "attention" | "page_type" | "hub" | "orphan" | "relation" | "facet";
+export type GroupKind = "context" | "attention" | "page_type" | "hub" | "orphan" | "relation" | "facet" | "quadrant" | "core";
 
 export type WorldGroup = {
   key: string;
@@ -74,6 +75,9 @@ export type WorldRequest = {
   context?: string;
   group?: string;
   pageId?: string;
+  // The active quadrant (Quadrants perspective) — sets the camera fly-to target;
+  // it does NOT scope the home map (all four regions stay shown).
+  quadrant?: SceneFacet;
   nodes: GraphNode[];
   edges: GraphEdge[];
   maxNodes: number;
@@ -101,6 +105,9 @@ export type WorldLayout = {
   unknownR: number | null;
   totals: { total: number; shown: number; hidden: number };
   truncated: number;
+  // Optional camera fly-to target (region centroid) for perspectives that carry
+  // a sub-focus, e.g. the active quadrant.
+  cameraTarget?: [number, number, number];
 };
 
 const GUIDE_COLOR = "#22303a";
@@ -863,6 +870,43 @@ function familyOf(node: GraphNode): string {
   return FAMILY_ORDER.includes(family) ? family : "content";
 }
 
+// Shared shelf sub-layout: place `members` into concentric family shelves fanned
+// across the angular span [spanStart, spanEnd]. radius = family-shelf depth (the
+// honest "shelf" idiom); freshness stays on TONE. Used by BOTH districtsLayout
+// (per context sector) and quadrantsLayout (per fixed quadrant region), so the
+// encoding is identical in both.
+function familyShelfNodes(
+  members: GraphNode[],
+  spanStart: number,
+  spanEnd: number,
+  rInner: number,
+  step: number,
+  snapshotMs: number
+): LayoutNode[] {
+  const usable = Math.max(spanEnd - spanStart - 0.08, 0.05);
+  const byFamily = new Map<string, GraphNode[]>();
+  members.forEach((node) => {
+    const family = familyOf(node);
+    const list = byFamily.get(family) ?? [];
+    list.push(node);
+    byFamily.set(family, list);
+  });
+  const out: LayoutNode[] = [];
+  byFamily.forEach((list, family) => {
+    const shelf = rInner + FAMILY_ORDER.indexOf(family) * step;
+    const sorted = [...list].sort(
+      (a, b) => a.page_type.localeCompare(b.page_type) || a.title.localeCompare(b.title) || a.id.localeCompare(b.id)
+    );
+    sorted.forEach((node, indexInShelf) => {
+      const t = (indexInShelf + 0.5) / sorted.length;
+      const angle = spanStart + 0.04 + t * usable;
+      const y = node.approved_state === "proposal" ? 0.5 : 0;
+      out.push(makeNode(node, snapshotMs, [Math.cos(angle) * shelf, y, Math.sin(angle) * shelf], nodeScale(node)));
+    });
+  });
+  return out;
+}
+
 function districtsLayout(request: WorldRequest): WorldLayout {
   if (request.context && request.group) {
     const members = request.nodes.filter(
@@ -917,26 +961,9 @@ function districtsLayout(request: WorldRequest): WorldLayout {
     const members = request.nodes.filter((node) => contextOf(node) === context).sort(attentionFirst);
     const visible = members.slice(0, budget.get(context) ?? members.length);
     const hidden = members.slice(visible.length);
-    const usable = Math.max(span.endAngle - span.startAngle - 0.08, 0.05);
-    const byFamily = new Map<string, GraphNode[]>();
-    visible.forEach((node) => {
-      const family = familyOf(node);
-      const list = byFamily.get(family) ?? [];
-      list.push(node);
-      byFamily.set(family, list);
-    });
-    byFamily.forEach((list, family) => {
-      const shelf = rInner + FAMILY_ORDER.indexOf(family) * step;
-      const sorted = [...list].sort(
-        (a, b) => a.page_type.localeCompare(b.page_type) || a.title.localeCompare(b.title) || a.id.localeCompare(b.id)
-      );
-      sorted.forEach((node, indexInShelf) => {
-        const t = (indexInShelf + 0.5) / sorted.length;
-        const angle = span.startAngle + 0.04 + t * usable;
-        const y = node.approved_state === "proposal" ? 0.5 : 0;
-        nodes.push(makeNode(node, snapshotMs, [Math.cos(angle) * shelf, y, Math.sin(angle) * shelf], nodeScale(node)));
-      });
-    });
+    familyShelfNodes(visible, span.startAngle, span.endAngle, rInner, step, snapshotMs).forEach((node) =>
+      nodes.push(node)
+    );
     if (hidden.length > 0) {
       clusterStars.push(
         starFor(
@@ -1203,7 +1230,136 @@ export function computeWorldLayout(request: WorldRequest): WorldLayout {
   if (request.perspective === "districts") return districtsLayout(request);
   if (request.perspective === "trails") return trailsLayout(request);
   if (request.perspective === "focus") return focusLayout(request);
+  if (request.perspective === "quadrants") return quadrantsLayout(request);
   return radarLayout(request);
+}
+
+// Quadrants — the AQAL home map: WHERE EVERYTHING LIVES. The plane is carved into
+// four FIXED 90° regions by each page's home quadrant (its own page_type, not a
+// neighbor edge), plus a central q0-core disc for structural pages that honestly
+// have no quadrant. radial="shelf": radius is family-shelf depth (freshness stays
+// on tone), never a freshness deadline — the four fixed sectors must not double-
+// encode. The frame is constant: four quadrant groups + rays always emit (an
+// empty quadrant shows a dimmed rim, count 0); the core group emits only when
+// populated (the core is not a fifth quadrant).
+function quadrantsLayout(request: WorldRequest): WorldLayout {
+  const snapshotMs = snapshotClock(request.nodes, request.snapshotAt);
+  const total = request.nodes.length;
+  const rInner = 1.7;
+  const step = 0.52;
+  const rOuter = rInner + FAMILY_ORDER.length * step;
+  const coreR = 1.15; // the q0-core disc lives inside rInner
+
+  // Partition by home quadrant (structural/unknown → core).
+  const regionMembers = new Map<SceneFacet, GraphNode[]>(SCENE_FACETS.map((facet) => [facet, []]));
+  const coreMembers: GraphNode[] = [];
+  request.nodes.forEach((node) => {
+    const home = homeQuadrant(node.page_type);
+    if (home) regionMembers.get(home)!.push(node);
+    else coreMembers.push(node);
+  });
+
+  // Render budget split proportionally over the five true region sizes.
+  const budget = splitBudget(
+    [
+      ...SCENE_FACETS.map((facet) => ({ key: facet, size: regionMembers.get(facet)!.length })),
+      { key: "__core__", size: coreMembers.length }
+    ].filter((entry) => entry.size > 0),
+    request.maxNodes
+  );
+
+  // Four fixed rays at the region BOUNDARIES (the axes between quadrants).
+  const guides: WorldGuide[] = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((angle) => ({
+    kind: "ray" as const,
+    angle,
+    r0: coreR,
+    r1: rOuter + 0.3,
+    color: GUIDE_COLOR,
+    opacity: 0.3
+  }));
+  FAMILY_ORDER.forEach((_family, index) => {
+    guides.push({ kind: "circle", radius: rInner + index * step, color: GUIDE_COLOR, opacity: index % 2 === 0 ? 0.16 : 0.09 });
+  });
+
+  const nodes: LayoutNode[] = [];
+  const clusterStars: ClusterStar[] = [];
+  const groups: WorldGroup[] = [];
+
+  SCENE_FACETS.forEach((facet) => {
+    const center = QUADRANT_CENTER_ANGLE[facet];
+    const spanStart = center - Math.PI / 4 + 0.06;
+    const spanEnd = center + Math.PI / 4 - 0.06;
+    const members = [...regionMembers.get(facet)!].sort(attentionFirst);
+    const visible = members.slice(0, budget.get(facet) ?? members.length);
+    const hidden = members.slice(visible.length);
+    familyShelfNodes(visible, spanStart, spanEnd, rInner, step, snapshotMs).forEach((node) => nodes.push(node));
+    const rim: [number, number, number] = [Math.cos(center) * (rOuter + 0.55), 0.05, Math.sin(center) * (rOuter + 0.55)];
+    if (hidden.length > 0) {
+      clusterStars.push(starFor(`qstar-${facet}`, "quadrant", facet, hidden, [Math.cos(center) * (rOuter - 0.2), 0, Math.sin(center) * (rOuter - 0.2)], { group: facet }));
+    }
+    // ALWAYS emit the four quadrant groups (even count 0 → honest dimmed rim).
+    groups.push({
+      key: facet,
+      kind: "quadrant",
+      labelKey: facet,
+      count: members.length,
+      shown: visible.length,
+      anchor: rim,
+      drill: null,
+      memberIds: visible.map((node) => node.id).sort()
+    });
+  });
+
+  // q0-core: structural pages on a small central disc — honest "no quadrant".
+  const coreVisible = coreMembers.slice(0, budget.get("__core__") ?? coreMembers.length);
+  const coreHidden = coreMembers.slice(coreVisible.length);
+  const coreOrdered = [...coreVisible].sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
+  coreOrdered.forEach((node, index) => {
+    const angle = (index / Math.max(coreOrdered.length, 1)) * Math.PI * 2;
+    const ring = coreR * (0.35 + 0.6 * ((index % 3) / 2));
+    nodes.push(makeNode(node, snapshotMs, [Math.cos(angle) * ring, 0, Math.sin(angle) * ring], nodeScale(node) * 0.9));
+  });
+  if (coreHidden.length > 0) {
+    clusterStars.push(starFor("qstar-core", "core", "core", coreHidden, [0, 0, 0], null));
+  }
+  // The core group emits ONLY when populated — it is not a persistent quadrant.
+  if (coreMembers.length > 0) {
+    groups.push({
+      key: "__core__",
+      kind: "core",
+      labelKey: "core",
+      count: coreMembers.length,
+      shown: coreVisible.length,
+      anchor: [0, 0.05, 0],
+      drill: null,
+      memberIds: coreVisible.map((node) => node.id).sort()
+    });
+  }
+
+  const shown = nodes.length;
+  const cameraTarget: [number, number, number] | undefined = request.quadrant
+    ? [Math.cos(QUADRANT_CENTER_ANGLE[request.quadrant]) * (rInner + rOuter) * 0.5, 0, Math.sin(QUADRANT_CENTER_ANGLE[request.quadrant]) * (rInner + rOuter) * 0.5]
+    : undefined;
+
+  return {
+    perspective: "quadrants",
+    level: 0,
+    radial: "shelf",
+    nodes,
+    wedges: [],
+    wedgeKind: "group",
+    guides,
+    groups,
+    clusterStars,
+    beacons: [],
+    rInner,
+    rOuter,
+    deadlineF: DEADLINE_F,
+    unknownR: null,
+    totals: { total, shown, hidden: total - shown },
+    truncated: total - shown,
+    cameraTarget
+  };
 }
 
 // Focus — the page-centered multi-perspective view. Structurally trails, but

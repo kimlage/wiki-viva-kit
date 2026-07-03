@@ -302,12 +302,13 @@ export function worldGroupLabel(kind: string, labelKey: string): string {
   if (kind === "attention") return labelKey === "atencao" ? t("group.attention") : pageTypeLabel(labelKey);
   if (kind === "orphan") return t("group.orphan");
   if (kind === "relation") return t(`relation.${labelKey}`);
-  if (kind === "facet") return t(`facet.${labelKey}`);
+  if (kind === "facet" || kind === "quadrant") return t(`facet.${labelKey}`);
+  if (kind === "core") return t("quadrant.core");
   return labelKey;
 }
 
 export function perspectiveLabel(perspective: string): { label: string; hint: string; glyph: string } {
-  const glyphs: Record<string, string> = { radar: "◎", atlas: "🜨", districts: "⬡", trails: "⇢", focus: "✦" };
+  const glyphs: Record<string, string> = { radar: "◎", atlas: "🜨", districts: "⬡", trails: "⇢", focus: "✦", quadrants: "田" };
   return {
     label: t(`perspective.${perspective}`),
     hint: t(`perspective.${perspective}.hint`),

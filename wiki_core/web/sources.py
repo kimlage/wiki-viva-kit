@@ -106,20 +106,32 @@ def _source_record(
 
     streams_out: list[dict[str, Any]] = []
     pending = 0
+    newest_age: int | None = None
     for stream in recipe_json.get("streams") or []:
+        # A per-stream cadence_days > 0 overrides the pipeline cadence.
+        stream_cadence = _int_or_zero(stream.get("cadence_days")) or cadence
         if not stream.get("selected", True):
-            streams_out.append({**stream, "cursor_age_days": None, "cadence_days": cadence, "breached": False})
+            streams_out.append({**stream, "cursor_age_days": None, "cadence_days": stream_cadence, "breached": False})
             continue
         cursor = stream_cursor(state, str(stream.get("id") or ""))
         # Freshness comes from `updated_at` (a real ISO date). The `cursor` token
         # is an opaque sha/id, NOT a date — never parse it as one.
         age = _iso_days_ago(str(cursor.get("updated_at") or ""), today)
-        breached = bool(cadence and (age is None or age > cadence))
+        breached = bool(stream_cadence and (age is None or age > stream_cadence))
         if breached:
             pending += 1
+        if age is not None and (newest_age is None or age < newest_age):
+            newest_age = age
         streams_out.append(
-            {**stream, "cursor_age_days": age, "cadence_days": cadence, "breached": breached}
+            {**stream, "cursor_age_days": age, "cadence_days": stream_cadence, "breached": breached}
         )
+
+    # next_due_days: from the schedule cadence (if recurring) vs the freshest
+    # cursor; None when no schedule or nothing has synced yet.
+    schedule = recipe_json.get("schedule") or None
+    next_due_days: int | None = None
+    if isinstance(schedule, dict) and _int_or_zero(schedule.get("cadence_days")) > 0 and newest_age is not None:
+        next_due_days = _int_or_zero(schedule.get("cadence_days")) - newest_age
 
     selected_total = sum(1 for s in streams_out if s.get("selected", True))
     fresh = sum(1 for s in streams_out if s.get("selected", True) and not s.get("breached"))
@@ -152,6 +164,11 @@ def _source_record(
         "pipelines": pipelines,
         "streams": streams_out,
         "pending_streams": pending,
+        # Rich config (v2): the auth POINTER (never a value), the sync schedule,
+        # and days until the next scheduled sync (negative = overdue).
+        "auth": recipe_json.get("auth") or None,
+        "schedule": recipe_json.get("schedule") or None,
+        "next_due_days": next_due_days,
     }
 
 
@@ -203,12 +220,33 @@ def compose_source_brief_spec(
     stale = [s for s in source["streams"] if s.get("selected", True) and s.get("breached")]
     targets = sorted({t for s in stale for t in (s.get("target_pages") or [])})
     channels = ", ".join(s["id"] for s in stale) or "all selected streams"
+    # Per-stream filter detail so the agent ingests exactly the declared slice.
+    filter_lines = [
+        f"  - {s['id']}: " + (", ".join(f"{k}={v}" for k, v in (s.get("filters") or {}).items()) or "no filters")
+        + (f" → {', '.join(s['target_pages'])}" if s.get("target_pages") else "")
+        for s in stale
+    ]
+    auth = source.get("auth") or None
+    auth_line = ""
+    if isinstance(auth, dict) and auth.get("method") and auth.get("method") != "none":
+        scopes = ", ".join(auth.get("scopes") or [])
+        auth_line = (
+            f"Auth: read the credential from {auth['method']} `{auth.get('ref', '')}`"
+            + (f" (scopes: {scopes})" if scopes else "")
+            + ". If it is absent, STOP and report — do NOT proceed unauthenticated."
+        )
     intent_lines = [
         f"Ingest the source `{source_id}` ({source['platform']} · {source['locator']}).",
         f"Streams to refresh (past cadence): {channels}.",
+        filter_lines and "Per-stream slice:\n" + "\n".join(filter_lines) or "",
+        auth_line,
         source["how_to_export"] and f"How to export:\n{source['how_to_export']}" or "",
+        # The single honesty line: the sandbox cannot reach the network.
+        "NETWORK IS OFF in the sandbox — do NOT attempt a live fetch. Ingest the "
+        "already-exported RAW at the export location above; if it is missing, STOP "
+        "and report what to export.",
         "Run the deterministic ingestion pipeline; each stream's cursor is written "
-        "only after its event commits. Do not weaken privacy on any stream.",
+        "only after its event commits (F8). Do not weaken privacy on any stream.",
     ]
     spec = {
         "mission_kind": "ingest",

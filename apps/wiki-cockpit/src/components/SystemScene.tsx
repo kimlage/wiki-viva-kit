@@ -83,6 +83,7 @@ export type SceneRoute = {
   pageId?: string;
   reader: boolean;
   filter: string;
+  quadrant?: string;
 };
 
 export type ScenePatch = {
@@ -92,6 +93,7 @@ export type ScenePatch = {
   pageId?: string | null;
   reader?: boolean;
   filter?: string | null;
+  quadrant?: string | null;
 };
 
 export type RelationIsolation = "hierarquia" | "evidencia" | "links" | "citado-por";
@@ -1277,9 +1279,17 @@ function CameraDirector({
   }, [layout.rOuter, size.height, size.width]);
 
   useEffect(() => {
-    const desiredTarget = lockedNode ? new THREE.Vector3(...lockedNode.position) : new THREE.Vector3(0, 0, 0);
-    const desiredDistance = lockedNode ? Math.max(fitDistance * 0.36, 2.6) : fitDistance;
-    const key = `${layout.perspective}:${layout.level}:${lockedNode?.id ?? ""}:${fitDistance.toFixed(2)}`;
+    // Priority: a locked page > an active quadrant region (fly-to) > the origin.
+    const regionTarget = !lockedNode && layout.cameraTarget ? new THREE.Vector3(...layout.cameraTarget) : null;
+    const desiredTarget = lockedNode
+      ? new THREE.Vector3(...lockedNode.position)
+      : regionTarget ?? new THREE.Vector3(0, 0, 0);
+    const desiredDistance = lockedNode
+      ? Math.max(fitDistance * 0.36, 2.6)
+      : regionTarget
+        ? Math.max(fitDistance * 0.62, 3.2)
+        : fitDistance;
+    const key = `${layout.perspective}:${layout.level}:${lockedNode?.id ?? ""}:${(layout.cameraTarget ?? []).map((n) => n.toFixed(1)).join(",")}:${fitDistance.toFixed(2)}`;
     if (key === lastKey.current) return;
     const firstFrame = lastKey.current === "";
     lastKey.current = key;
@@ -2219,12 +2229,13 @@ export function SystemScene({
       context: route.context,
       group: route.group,
       pageId: route.pageId,
+      quadrant: (route.quadrant || undefined) as WorldRequest["quadrant"],
       nodes,
       edges,
       maxNodes: Math.min(profile.maxNodes + revealBoost, 480),
       snapshotAt
     }),
-    [edges, nodes, profile.maxNodes, revealBoost, route.context, route.group, route.pageId, route.perspective, snapshotAt]
+    [edges, nodes, profile.maxNodes, revealBoost, route.context, route.group, route.pageId, route.perspective, route.quadrant, snapshotAt]
   );
   const layout = useWorldLayout(request);
   const [hover, setHover] = useState<{ node: LayoutNode; x: number; y: number } | null>(null);
@@ -2379,7 +2390,7 @@ export function SystemScene({
       // Browser/system shortcuts stay untouched (Cmd/Ctrl+R, Cmd+1..9, Cmd+W).
       if (event.metaKey || event.ctrlKey) return;
       if (event.altKey && !(event.key === "ArrowLeft")) return;
-      const perspectiveKeys: Record<string, PerspectiveId> = { "1": "radar", "2": "atlas", "3": "districts", "4": "trails" };
+      const perspectiveKeys: Record<string, PerspectiveId> = { "1": "radar", "2": "atlas", "3": "districts", "4": "trails", "5": "quadrants" };
       if (perspectiveKeys[event.key]) {
         navigate({ perspective: perspectiveKeys[event.key] });
         return;

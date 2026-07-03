@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SCENE_FACETS, sceneFacetOf } from "./facets";
+import { QUADRANT_CENTER_ANGLE, SCENE_FACETS, homeQuadrant, sceneFacetOf } from "./facets";
 
 describe("scene facets (frontend mirror of wiki_core/facets.py)", () => {
   it("exposes exactly the four lenses in quadrant order q1..q4", () => {
@@ -35,5 +35,31 @@ describe("scene facets (frontend mirror of wiki_core/facets.py)", () => {
 
   it("page_type wins over a conflicting edge", () => {
     expect(sceneFacetOf("decision", "markdown_link")).toBe("intencao");
+  });
+});
+
+describe("homeQuadrant — a page's OWN quadrant (Quadrants perspective)", () => {
+  it("keys on page_type only, never an edge; structural/unknown = null (q0-core)", () => {
+    // Mirrors wiki_core/facets.py test_home_quadrant_* exactly (front/back parity).
+    expect(homeQuadrant("decision")).toBe("intencao");
+    expect(homeQuadrant("action")).toBe("pratica");
+    expect(homeQuadrant("person")).toBe("relacoes");
+    expect(homeQuadrant("source")).toBe("sistemas");
+    expect(homeQuadrant("context_hub")).toBeNull();
+    expect(homeQuadrant("root_index")).toBeNull();
+    expect(homeQuadrant("totally_unknown_type")).toBeNull();
+    expect(homeQuadrant(undefined)).toBeNull();
+  });
+
+  it("a registry override wins (a wiki can editorially place a type)", () => {
+    expect(homeQuadrant("context_note", { context_note: "relacoes" })).toBe("relacoes");
+  });
+
+  it("exposes four fixed 90°-apart sector bearings, one per facet", () => {
+    const angles = SCENE_FACETS.map((f) => QUADRANT_CENTER_ANGLE[f]);
+    expect(angles).toHaveLength(4);
+    // Every facet has a bearing and they are distinct.
+    expect(new Set(angles).size).toBe(4);
+    SCENE_FACETS.forEach((f) => expect(typeof QUADRANT_CENTER_ANGLE[f]).toBe("number"));
   });
 });

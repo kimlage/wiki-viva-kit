@@ -1,176 +1,197 @@
 {
-  "schema_version": "wiki_web_source_entities.v1",
-  "sources": [
+ "schema_version": "wiki_web_source_entities.v1",
+ "sources": [
+  {
+   "config_ref": "memories/sources/config/team-slack.md",
+   "context": "example",
+   "how_to_export": "Slack > channel > Export. Save under data/raw/example/slack/.",
+   "locator": "T0DEMO/product",
+   "owner": "sample-alex-operator",
+   "path": "memories/sources/team-slack.md",
+   "pending_streams": 2,
+   "pipelines": [
     {
-      "config_ref": "memories/sources/config/team-slack.md",
-      "context": "example",
-      "how_to_export": "Slack > channel > Export. Save under data/raw/example/slack/.",
-      "locator": "T0DEMO/product",
-      "owner": "sample-alex-operator",
-      "path": "memories/sources/team-slack.md",
-      "pending_streams": 2,
-      "pipelines": [
-        {
-          "cadence_days": 30,
-          "kind": "metadata"
-        },
-        {
-          "cadence_days": 7,
-          "kind": "content"
-        }
-      ],
-      "platform": "slack",
-      "recipe_errors": [],
-      "recipe_ok": true,
-      "source_id": "sample-source",
-      "stewards": [
-        {
-          "kind": "technical",
-          "ref": "sample-alex-operator",
-          "via": "declared"
-        }
-      ],
-      "streams": [
-        {
-          "breached": false,
-          "cadence_days": 7,
-          "cursor_age_days": 2,
-          "id": "#product",
-          "label": "Product",
-          "privacy": "team_shared",
-          "selected": true,
-          "skip_reason": "",
-          "target_pages": [
-            "memories/product/overview.md"
-          ]
-        },
-        {
-          "breached": true,
-          "cadence_days": 7,
-          "cursor_age_days": 19,
-          "id": "#roadmap",
-          "label": "Roadmap",
-          "privacy": "team_shared",
-          "selected": true,
-          "skip_reason": "",
-          "target_pages": [
-            "memories/product/roadmap.md"
-          ]
-        },
-        {
-          "breached": false,
-          "cadence_days": 7,
-          "cursor_age_days": null,
-          "id": "#random",
-          "label": "Random",
-          "privacy": "team_shared",
-          "selected": false,
-          "skip_reason": "off-topic, not ingested",
-          "target_pages": []
-        }
-      ],
-      "sync": {
-        "last_event_ref": "",
-        "last_run_at": "2026-06-28T09:00:00Z",
-        "last_status": "partial",
-        "streams_fresh": 1,
-        "streams_total": 3
-      },
-      "title": "Team Slack",
-      "updated_at": "2026-06-28"
+     "cadence_days": 30,
+     "kind": "metadata"
     },
     {
-      "config_ref": "",
-      "context": "finance",
-      "how_to_export": "Download the quarterly PDF into data/raw/finance/.",
-      "locator": "drive://reports/market-2026.pdf",
-      "owner": "sample-alex-operator",
-      "path": "memories/sources/market-report.md",
-      "pending_streams": 0,
-      "pipelines": [
-        {
-          "cadence_days": 90,
-          "kind": "content"
-        }
-      ],
-      "platform": "file",
-      "recipe_errors": [],
-      "recipe_ok": true,
-      "source_id": "sample-source-market-report",
-      "stewards": [],
-      "streams": [
-        {
-          "breached": false,
-          "cadence_days": 90,
-          "cursor_age_days": 13,
-          "id": "main",
-          "label": "Report",
-          "privacy": "private_self",
-          "selected": true,
-          "skip_reason": "",
-          "target_pages": [
-            "memories/finance/metrics.md"
-          ]
-        }
-      ],
-      "sync": {
-        "last_event_ref": "",
-        "last_run_at": "2026-06-20T00:00:00Z",
-        "last_status": "ok",
-        "streams_fresh": 1,
-        "streams_total": 1
-      },
-      "title": "Market report (PDF)",
-      "updated_at": "2026-06-20"
-    },
-    {
-      "config_ref": "",
-      "context": "research",
-      "how_to_export": "Paste each interview transcript into data/raw/research/.",
-      "locator": "notion://research/interviews",
-      "owner": "sample-alex-operator",
-      "path": "memories/sources/interviews.md",
-      "pending_streams": 1,
-      "pipelines": [
-        {
-          "cadence_days": 14,
-          "kind": "content"
-        }
-      ],
-      "platform": "manual",
-      "recipe_errors": [],
-      "recipe_ok": true,
-      "source_id": "sample-source-interview-notes",
-      "stewards": [],
-      "streams": [
-        {
-          "breached": true,
-          "cadence_days": 14,
-          "cursor_age_days": null,
-          "id": "transcripts",
-          "label": "Transcripts",
-          "privacy": "private_self",
-          "selected": true,
-          "skip_reason": "",
-          "target_pages": [
-            "memories/claims/onboarding-drop.md"
-          ]
-        }
-      ],
-      "sync": {
-        "last_event_ref": "",
-        "last_run_at": "",
-        "last_status": "never",
-        "streams_fresh": 0,
-        "streams_total": 1
-      },
-      "title": "User interviews",
-      "updated_at": "2026-06-15"
+     "cadence_days": 7,
+     "kind": "content"
     }
-  ],
-  "summary": {
-    "pending": 2,
-    "total": 3,
-    "with_recipe": 3
+   ],
+   "platform": "slack",
+   "recipe_errors": [],
+   "recipe_ok": true,
+   "source_id": "sample-source",
+   "stewards": [
+    {
+     "kind": "technical",
+     "ref": "sample-alex-operator",
+     "via": "declared"
+    }
+   ],
+   "streams": [
+    {
+     "breached": false,
+     "cadence_days": 7,
+     "cursor_age_days": 2,
+     "id": "#product",
+     "label": "Product",
+     "privacy": "team_shared",
+     "selected": true,
+     "skip_reason": "",
+     "target_pages": [
+      "memories/product/overview.md"
+     ]
+    },
+    {
+     "breached": true,
+     "cadence_days": 7,
+     "cursor_age_days": 19,
+     "id": "#roadmap",
+     "label": "Roadmap",
+     "privacy": "team_shared",
+     "selected": true,
+     "skip_reason": "",
+     "target_pages": [
+      "memories/product/roadmap.md"
+     ]
+    },
+    {
+     "breached": false,
+     "cadence_days": 7,
+     "cursor_age_days": null,
+     "id": "#random",
+     "label": "Random",
+     "privacy": "team_shared",
+     "selected": false,
+     "skip_reason": "off-topic, not ingested",
+     "target_pages": []
+    }
+   ],
+   "sync": {
+    "last_event_ref": "",
+    "last_run_at": "2026-06-28T09:00:00Z",
+    "last_status": "partial",
+    "streams_fresh": 1,
+    "streams_total": 3
+   },
+   "title": "Team Slack",
+   "updated_at": "2026-06-28",
+   "auth": {
+    "method": "mcp",
+    "ref": "slack-team-mcp",
+    "scopes": [
+     "channels:history",
+     "users:read"
+    ],
+    "note": "read-only"
+   },
+   "schedule": {
+    "mode": "recurring",
+    "cadence_days": 7,
+    "cron_hint": ""
+   },
+   "next_due_days": -2
+  },
+  {
+   "config_ref": "",
+   "context": "finance",
+   "how_to_export": "Download the quarterly PDF into data/raw/finance/.",
+   "locator": "drive://reports/market-2026.pdf",
+   "owner": "sample-alex-operator",
+   "path": "memories/sources/market-report.md",
+   "pending_streams": 0,
+   "pipelines": [
+    {
+     "cadence_days": 90,
+     "kind": "content"
+    }
+   ],
+   "platform": "file",
+   "recipe_errors": [],
+   "recipe_ok": true,
+   "source_id": "sample-source-market-report",
+   "stewards": [],
+   "streams": [
+    {
+     "breached": false,
+     "cadence_days": 90,
+     "cursor_age_days": 13,
+     "id": "main",
+     "label": "Report",
+     "privacy": "private_self",
+     "selected": true,
+     "skip_reason": "",
+     "target_pages": [
+      "memories/finance/metrics.md"
+     ]
+    }
+   ],
+   "sync": {
+    "last_event_ref": "",
+    "last_run_at": "2026-06-20T00:00:00Z",
+    "last_status": "ok",
+    "streams_fresh": 1,
+    "streams_total": 1
+   },
+   "title": "Market report (PDF)",
+   "updated_at": "2026-06-20",
+   "auth": null,
+   "schedule": null,
+   "next_due_days": null
+  },
+  {
+   "config_ref": "",
+   "context": "research",
+   "how_to_export": "Paste each interview transcript into data/raw/research/.",
+   "locator": "notion://research/interviews",
+   "owner": "sample-alex-operator",
+   "path": "memories/sources/interviews.md",
+   "pending_streams": 1,
+   "pipelines": [
+    {
+     "cadence_days": 14,
+     "kind": "content"
+    }
+   ],
+   "platform": "manual",
+   "recipe_errors": [],
+   "recipe_ok": true,
+   "source_id": "sample-source-interview-notes",
+   "stewards": [],
+   "streams": [
+    {
+     "breached": true,
+     "cadence_days": 14,
+     "cursor_age_days": null,
+     "id": "transcripts",
+     "label": "Transcripts",
+     "privacy": "private_self",
+     "selected": true,
+     "skip_reason": "",
+     "target_pages": [
+      "memories/claims/onboarding-drop.md"
+     ]
+    }
+   ],
+   "sync": {
+    "last_event_ref": "",
+    "last_run_at": "",
+    "last_status": "never",
+    "streams_fresh": 0,
+    "streams_total": 1
+   },
+   "title": "User interviews",
+   "updated_at": "2026-06-15",
+   "auth": null,
+   "schedule": null,
+   "next_due_days": null
   }
+ ],
+ "summary": {
+  "pending": 2,
+  "total": 3,
+  "with_recipe": 3
+ }
 }

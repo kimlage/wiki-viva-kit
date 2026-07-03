@@ -6,6 +6,7 @@ from wiki_core.facets import (
     facet_contract,
     facet_labels,
     facet_of,
+    home_quadrant,
 )
 from wiki_core.quadrants import DEFAULT_QUADRANT_MAP
 
@@ -36,6 +37,27 @@ def test_facet_of_by_page_type() -> None:
     # Structural types are not a lens.
     assert facet_of("root_entity") is None
     assert facet_of("context_hub") is None
+
+
+def test_home_quadrant_is_page_type_only_and_honest_about_null() -> None:
+    # A page's own quadrant comes from its page_type, NOT an edge (that is the
+    # difference from facet_of).
+    assert home_quadrant("decision") == "intencao"
+    assert home_quadrant("action") == "pratica"
+    assert home_quadrant("person") == "relacoes"
+    assert home_quadrant("source") == "sistemas"
+    # Structural + unknown types have NO quadrant (q0-core), never forced.
+    assert home_quadrant("context_hub") is None
+    assert home_quadrant("root_index") is None
+    assert home_quadrant("totally_unknown_type") is None
+    assert home_quadrant(None) is None
+
+
+def test_home_quadrant_registry_override_wins_and_is_validated() -> None:
+    # A wiki may editorially place a structural type into a real quadrant (O4).
+    assert home_quadrant("context_note", overrides={"context_note": "relacoes"}) == "relacoes"
+    # An override to a non-facet is ignored (falls through to None here).
+    assert home_quadrant("context_note", overrides={"context_note": "nonsense"}) is None
 
 
 def test_facet_of_falls_back_to_edge_type() -> None:

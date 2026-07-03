@@ -114,6 +114,49 @@ def test_recipe_rejects_a_credential_in_a_VALUE_not_just_a_key() -> None:
     assert "xox" not in errors and "sk-" not in errors
 
 
+def test_recipe_v2_auth_pointer_and_schedule_are_additive_and_pointer_only() -> None:
+    recipe = parse_recipe(
+        {
+            "platform": "slack",
+            "locator": "T1",
+            "pipelines": [{"kind": "content", "cadence_days": 7}],
+            "streams": [{"id": "eng", "cadence_days": 3}],
+            "auth": {"method": "mcp", "ref": "slack-mcp", "scopes": ["channels:history"], "note": "read-only"},
+            "schedule": {"mode": "recurring", "cadence_days": 14},
+        }
+    )
+    assert recipe.auth is not None and recipe.auth.method == "mcp" and recipe.auth.ref == "slack-mcp"
+    assert recipe.schedule is not None and recipe.schedule.mode == "recurring"
+    assert recipe.streams[0].cadence_days == 3  # per-stream override
+    assert validate_recipe(recipe) == []
+    # to_json carries the pointer (never a secret value).
+    j = recipe.to_json()
+    assert j["auth"]["ref"] == "slack-mcp" and j["schedule"]["cadence_days"] == 14
+
+
+def test_recipe_v2_rejects_bad_auth_method_and_env_ref_shape() -> None:
+    bad = parse_recipe(
+        {
+            "platform": "slack",
+            "locator": "T1",
+            "pipelines": [{"kind": "content", "cadence_days": 7}],
+            "streams": [],
+            "auth": {"method": "telepathy", "ref": "x"},
+        }
+    )
+    assert any("auth.method" in e for e in validate_recipe(bad))
+    env_bad = parse_recipe(
+        {
+            "platform": "web",
+            "locator": "https://x",
+            "pipelines": [{"kind": "content", "cadence_days": 7}],
+            "streams": [],
+            "auth": {"method": "env", "ref": "lower-case-not-env"},
+        }
+    )
+    assert any("env var name" in e for e in validate_recipe(env_bad))
+
+
 def test_non_numeric_cadence_days_does_not_crash() -> None:
     # A hand-authored "weekly" cadence coerces to 0 (then validation flags it),
     # never raising ValueError from int().

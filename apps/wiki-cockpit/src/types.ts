@@ -318,6 +318,11 @@ export type SourceEntity = {
   pipelines: { kind: string; cadence_days: number }[];
   streams: SourceStream[];
   pending_streams: number;
+  // Rich config (recipe v2): the auth POINTER (never a value), the schedule, and
+  // days until the next scheduled sync (negative = overdue).
+  auth?: { method: string; ref: string; scopes: string[]; note: string } | null;
+  schedule?: { mode: string; cadence_days: number; cron_hint: string } | null;
+  next_due_days?: number | null;
 };
 
 export type SourceEntitiesPayload = {

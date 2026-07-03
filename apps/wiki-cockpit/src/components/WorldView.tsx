@@ -12,8 +12,9 @@ import { t } from "../data/i18n";
 import { contextLabel, isRawData, perspectiveLabel, worldGroupLabel } from "../data/presentation";
 import { groupKeyForPage } from "../scene/perspectives";
 import type { PerspectiveId } from "../scene/perspectives";
-import { SCENE_FACETS, sceneFacetOf } from "../scene/facets";
+import { SCENE_FACETS, homeQuadrant, sceneFacetOf } from "../scene/facets";
 import type { SceneFacet } from "../scene/facets";
+import { computeCondition } from "../scene/condition";
 import { rankPages } from "../scene/search";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
@@ -453,6 +454,25 @@ export function WorldView({
     return SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0 }));
   }, [route.perspective, selectedPage, bundle.graph]);
 
+  // Quadrant compass: live per-quadrant home counts (+ the honest core) for the
+  // Quadrants perspective — the 2×2 grid you fly by. Computed from the same
+  // homeQuadrant the layout uses, so it never overstates.
+  const quadrantCounts = useMemo(() => {
+    if (route.perspective !== "quadrants") return null;
+    const counts = new Map<SceneFacet, number>(SCENE_FACETS.map((facet) => [facet, 0]));
+    let core = 0;
+    bundle.graph.nodes.forEach((node) => {
+      const home = homeQuadrant(node.page_type);
+      if (home) counts.set(home, (counts.get(home) ?? 0) + 1);
+      else core += 1;
+    });
+    return { quadrants: SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0 })), core };
+  }, [route.perspective, bundle.graph]);
+
+  // The world's condition — the honest ambient readout (weather is set from it in
+  // the scene). Every segment is a real count that flies to the act point.
+  const condition = useMemo(() => computeCondition(bundle), [bundle]);
+
   // Breadcrumbs: URL-derived, every segment clickable, registry labels.
   const crumbs: { label: string; patch: WorldPatch }[] = [
     { label: t("world.galaxy"), patch: { context: null, group: null, pageId: null, reader: false } }
@@ -470,7 +490,8 @@ export function WorldView({
     group: route.group,
     pageId: route.pageId,
     reader: route.query.reader,
-    filter: route.query.filter
+    filter: route.query.filter,
+    quadrant: route.query.quadrant
   };
 
   return (
@@ -510,6 +531,34 @@ export function WorldView({
               </span>
             ))}
           </nav>
+          {/* Condition strip: the honest ambient readout — every segment a real
+              count that flies to its act point. Numbers-beside-art: the scene
+              weather is only allowed because these exact counts are printed. */}
+          <div className={`conditionStrip weather-${condition.weather}`} role="group" aria-label={t("condition.aria")}>
+            <span className="conditionWeather" title={t(`condition.weather.${condition.weather}`)}>
+              {t(`condition.weather.${condition.weather}`)}
+            </span>
+            {condition.staleCount > 0 && (
+              <button className="conditionSeg warn" onClick={() => navigateWorld({ perspective: "radar", filter: "stale" })} type="button">
+                {t("condition.stale", { n: condition.staleCount })}
+              </button>
+            )}
+            {condition.gatesFailing.length > 0 && (
+              <button className="conditionSeg bad" onClick={() => navigateWorld({ dock: "gates" })} type="button">
+                {t("condition.gates", { n: condition.gatesFailing.length })}
+              </button>
+            )}
+            {condition.pendingApproval > 0 && (
+              <button className="conditionSeg warn" onClick={() => navigateWorld({ dock: "approve" })} type="button">
+                {t("condition.approve", { n: condition.pendingApproval })}
+              </button>
+            )}
+            {condition.pendingSourceIntake > 0 && (
+              <button className="conditionSeg" onClick={() => navigateWorld({ dock: "source" })} type="button">
+                {t("condition.sources", { n: condition.pendingSourceIntake })}
+              </button>
+            )}
+          </div>
           <div className="worldMeta">
             <span>{t("world.pages", { n: pages.length })}</span>
             <span>{t("world.updated", { when: updatedLabel(bundle.manifest.generated_at) })}</span>
@@ -547,6 +596,33 @@ export function WorldView({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* QUADRANT compass: the 2×2 AQAL grid you fly by. Each cell flies the
+            camera to that quadrant region (?quadrant=<facet>); the active one is
+            highlighted. Counts are honest home-quadrant totals + the core. */}
+        {quadrantCounts && (
+          <div className="quadrantCompass" role="group" aria-label={t("world.quadrantCompassAria")}>
+            <div className="quadrantGrid">
+              {quadrantCounts.quadrants.map(({ facet, count }) => (
+                <button
+                  key={facet}
+                  className={route.query.quadrant === facet ? "quadrantCell active" : "quadrantCell"}
+                  onClick={() =>
+                    navigateWorld({ quadrant: route.query.quadrant === facet ? null : facet })
+                  }
+                  title={t(`facet.${facet}`)}
+                  type="button"
+                >
+                  <strong>{t(`facet.${facet}`)}</strong>
+                  <small>{count}</small>
+                </button>
+              ))}
+            </div>
+            {quadrantCounts.core > 0 && (
+              <span className="quadrantCore">{t("quadrant.core")} · {quadrantCounts.core}</span>
+            )}
           </div>
         )}
 
@@ -684,7 +760,7 @@ export function WorldView({
             />
           </label>
           <div className="perspectiveGlyphs" role="group" aria-label={t("world.perspectives")}>
-            {(["radar", "atlas", "districts", "trails"] as PerspectiveId[]).map((perspective, index) => {
+            {(["radar", "atlas", "districts", "trails", "quadrants"] as PerspectiveId[]).map((perspective, index) => {
               const info = perspectiveLabel(perspective);
               return (
                 <button

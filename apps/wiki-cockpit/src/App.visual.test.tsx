@@ -293,7 +293,7 @@ describe("visual route contract", () => {
     await renderRoute("/w/radar");
     expect(await screen.findByLabelText("3D knowledge world")).toBeTruthy();
     expect(screen.getByText("Galaxy")).toBeTruthy();
-    expect(screen.getByRole("group", { name: "Perspectives (keys 1–4)" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Perspectives (keys 1–5)" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Districts/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Trails/ })).toBeTruthy();
     expect(screen.getByLabelText("Search content")).toBeTruthy();
