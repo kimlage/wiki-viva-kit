@@ -13,7 +13,8 @@ const BASE_QUERY: WorldQuery = {
   diff: false,
   station: 0,
   ack: [],
-  tray: ""
+  tray: "",
+  quadrant: ""
 };
 
 const world = (

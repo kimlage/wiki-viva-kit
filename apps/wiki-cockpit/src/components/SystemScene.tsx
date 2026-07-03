@@ -83,6 +83,7 @@ export type SceneRoute = {
   pageId?: string;
   reader: boolean;
   filter: string;
+  quadrant?: string;
 };
 
 export type ScenePatch = {
@@ -92,6 +93,7 @@ export type ScenePatch = {
   pageId?: string | null;
   reader?: boolean;
   filter?: string | null;
+  quadrant?: string | null;
 };
 
 export type RelationIsolation = "hierarquia" | "evidencia" | "links" | "citado-por";
@@ -2219,12 +2221,13 @@ export function SystemScene({
       context: route.context,
       group: route.group,
       pageId: route.pageId,
+      quadrant: (route.quadrant || undefined) as WorldRequest["quadrant"],
       nodes,
       edges,
       maxNodes: Math.min(profile.maxNodes + revealBoost, 480),
       snapshotAt
     }),
-    [edges, nodes, profile.maxNodes, revealBoost, route.context, route.group, route.pageId, route.perspective, snapshotAt]
+    [edges, nodes, profile.maxNodes, revealBoost, route.context, route.group, route.pageId, route.perspective, route.quadrant, snapshotAt]
   );
   const layout = useWorldLayout(request);
   const [hover, setHover] = useState<{ node: LayoutNode; x: number; y: number } | null>(null);
@@ -2379,7 +2382,7 @@ export function SystemScene({
       // Browser/system shortcuts stay untouched (Cmd/Ctrl+R, Cmd+1..9, Cmd+W).
       if (event.metaKey || event.ctrlKey) return;
       if (event.altKey && !(event.key === "ArrowLeft")) return;
-      const perspectiveKeys: Record<string, PerspectiveId> = { "1": "radar", "2": "atlas", "3": "districts", "4": "trails" };
+      const perspectiveKeys: Record<string, PerspectiveId> = { "1": "radar", "2": "atlas", "3": "districts", "4": "trails", "5": "quadrants" };
       if (perspectiveKeys[event.key]) {
         navigate({ perspective: perspectiveKeys[event.key] });
         return;

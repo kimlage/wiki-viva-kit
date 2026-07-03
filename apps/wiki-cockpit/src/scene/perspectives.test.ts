@@ -159,6 +159,37 @@ describe("perspective engine", () => {
     expect(hierarchy!.count).toBeGreaterThan(0);
   });
 
+  it("quadrants: the four regions always emit, core only when populated, honest counts", () => {
+    const layout = computeWorldLayout(request({ perspective: "quadrants", maxNodes: 120 }));
+    expect(layout.perspective).toBe("quadrants");
+    expect(layout.radial).toBe("shelf"); // radius = shelf depth, NOT freshness
+    // Exactly the four quadrant groups, always, in canonical order — even empty.
+    const quadrantGroups = layout.groups.filter((g) => g.kind === "quadrant");
+    expect(quadrantGroups.map((g) => g.key)).toEqual(["intencao", "pratica", "relacoes", "sistemas"]);
+    // decision→intencao and source→sistemas are populated in the fixture.
+    expect(quadrantGroups.find((g) => g.key === "intencao")!.count).toBeGreaterThan(0);
+    expect(quadrantGroups.find((g) => g.key === "sistemas")!.count).toBeGreaterThan(0);
+    // The fixture has structural pages (root_index/context_hub/context_note) → a
+    // core group is emitted (only because it is populated; it is not a 5th quadrant).
+    const core = layout.groups.filter((g) => g.kind === "core");
+    expect(core).toHaveLength(1);
+    expect(core[0].count).toBeGreaterThan(0);
+    // Four boundary rays (the axes between quadrants).
+    expect(layout.guides.filter((g) => g.kind === "ray")).toHaveLength(4);
+    // Honest counting invariant.
+    expect(layout.totals.shown + layout.totals.hidden).toBe(layout.totals.total);
+  });
+
+  it("quadrants is deterministic and never emits a core group when there are no structural pages", () => {
+    const { nodes, edges } = fixture();
+    const onlyTyped = nodes.filter((n) => ["decision", "source", "action", "person"].includes(n.page_type));
+    const layout = computeWorldLayout({ perspective: "quadrants", nodes: onlyTyped, edges, maxNodes: 120, snapshotAt: SNAPSHOT });
+    expect(layout.groups.filter((g) => g.kind === "quadrant")).toHaveLength(4); // still four, always
+    expect(layout.groups.filter((g) => g.kind === "core")).toHaveLength(0); // no structural → no core
+    const reversed = computeWorldLayout({ perspective: "quadrants", nodes: [...onlyTyped].reverse(), edges: [...edges].reverse(), maxNodes: 120, snapshotAt: SNAPSHOT });
+    expect(JSON.stringify(layout)).toEqual(JSON.stringify(reversed));
+  });
+
   it("focus centers the page and buckets neighbors into the four facet lenses", () => {
     const layout = computeWorldLayout(request({ perspective: "focus", context: "financeiro", pageId: "financeiro-p5", maxNodes: 80 }));
     const center = layout.nodes.find((item) => item.isRoot);

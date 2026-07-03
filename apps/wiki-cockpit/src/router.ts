@@ -6,9 +6,9 @@
 
 import { useSyncExternalStore } from "react";
 
-// `focus` is a valid URL perspective (page-centered lenses) but is NOT in the
-// 1–4 keyboard cycle — it is only reachable with a page locked.
-export const PERSPECTIVES = ["radar", "atlas", "districts", "trails", "focus"] as const;
+// `focus` is a valid URL perspective (page-centered lenses) reachable only with
+// a page locked; `quadrants` is the AQAL home map (key 5). Radar stays default.
+export const PERSPECTIVES = ["radar", "atlas", "districts", "trails", "focus", "quadrants"] as const;
 export type PerspectiveId = (typeof PERSPECTIVES)[number];
 
 export type WorldQuery = {
@@ -25,6 +25,7 @@ export type WorldQuery = {
   station: number; // gate station 1..6 (0 = none)
   ack: string[]; // acknowledged blocker ids (scope/risk)
   tray: TrayId; // "" | packet | missions | work (trays are URL state now)
+  quadrant: string; // active AQAL quadrant (meaningful under perspective=quadrants)
 };
 
 export const DOCKS = ["approve", "intake", "gates", "codex", "work", "source"] as const;
@@ -67,7 +68,8 @@ const EMPTY_QUERY: WorldQuery = {
   diff: false,
   station: 0,
   ack: [],
-  tray: ""
+  tray: "",
+  quadrant: ""
 };
 
 function isPerspective(value: string): value is PerspectiveId {
@@ -88,7 +90,8 @@ function parseQuery(search: string): WorldQuery {
     diff: params.get("diff") === "1",
     station: Number.isFinite(stationRaw) && stationRaw > 0 ? stationRaw : 0,
     ack: (params.get("ack") || "").split(",").map((item) => item.trim()).filter(Boolean),
-    tray: asTray(params.get("tray"))
+    tray: asTray(params.get("tray")),
+    quadrant: params.get("quadrant") || ""
   };
 }
 
@@ -156,6 +159,7 @@ export function buildUrl(route: Route): string {
   if (route.query.station > 0) params.set("station", String(route.query.station));
   if (route.query.ack.length > 0) params.set("ack", route.query.ack.join(","));
   if (route.query.tray) params.set("tray", route.query.tray);
+  if (route.query.quadrant) params.set("quadrant", route.query.quadrant);
   const suffix = params.toString();
   return `${prefix}/w/${segments.join("/")}${suffix ? `?${suffix}` : ""}`;
 }
@@ -176,6 +180,7 @@ export type WorldPatch = {
   station?: number | null;
   ack?: string[];
   tray?: TrayId | null;
+  quadrant?: string | null;
 };
 
 export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
@@ -197,7 +202,8 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
       diff: patch.diff ?? route.query.diff,
       station: patch.station === null ? 0 : patch.station ?? route.query.station,
       ack: patch.ack ?? route.query.ack,
-      tray: patch.tray === null ? "" : patch.tray ?? route.query.tray
+      tray: patch.tray === null ? "" : patch.tray ?? route.query.tray,
+      quadrant: patch.quadrant === null ? "" : patch.quadrant ?? route.query.quadrant
     }
   };
   // Grammar is positional: a group needs a context, and a locked page needs
@@ -222,6 +228,8 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
   if (patch.tray && next.query.tray) next.query.dock = "";
   // The gate station only means something inside the approve dock.
   if (next.query.dock !== "approve") next.query.station = 0;
+  // The active quadrant only means something in the quadrants perspective.
+  if (next.perspective !== "quadrants") next.query.quadrant = "";
   return next;
 }
 

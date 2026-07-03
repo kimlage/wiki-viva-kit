@@ -470,7 +470,8 @@ export function WorldView({
     group: route.group,
     pageId: route.pageId,
     reader: route.query.reader,
-    filter: route.query.filter
+    filter: route.query.filter,
+    quadrant: route.query.quadrant
   };
 
   return (
@@ -684,7 +685,7 @@ export function WorldView({
             />
           </label>
           <div className="perspectiveGlyphs" role="group" aria-label={t("world.perspectives")}>
-            {(["radar", "atlas", "districts", "trails"] as PerspectiveId[]).map((perspective, index) => {
+            {(["radar", "atlas", "districts", "trails", "quadrants"] as PerspectiveId[]).map((perspective, index) => {
               const info = perspectiveLabel(perspective);
               return (
                 <button
