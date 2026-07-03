@@ -13,6 +13,7 @@ const EN: Dict = {
   "nav.home": "Home",
   "nav.approve": "Approve",
   "nav.add": "Add",
+  "nav.sources": "Sources",
   "nav.health": "Health",
   "nav.content": "Content",
   "nav.demo": "Demo",
@@ -77,6 +78,8 @@ const EN: Dict = {
   "mission.stale.detail": "{n} page(s) passed their freshness window.",
   "mission.stale.help":
     "Each page declares how long it stays trustworthy (e.g. 30 days). These pages passed that window: the info may still be right, but nobody verified it recently. Click to highlight them on the map — open one, re-check the facts, update it (or its date) and it turns healthy again.",
+  "mission.stale.fix": "Refresh with Codex",
+  "mission.stale.fixTitle": "Draft a Codex brief listing the stale pages to re-read from their sources and update",
   "mission.clear.label": "All clear — explore the wiki",
   "mission.clear.detail": "No blocker visible. Navigate the world or add a source.",
 
@@ -245,7 +248,8 @@ const EN: Dict = {
 
   // Top-bar approval pill — shown ONLY when a real approval request is open.
   "git.pendingApproval": "Approval pending",
-  "git.pendingApprovalTitle": "A change is open for approval — review it in Approve",
+  "git.pendingApprovalN": "{n} to approve",
+  "git.pendingApprovalTitle": "You have local changes to review — open Approve",
 
   // Demo
   "demo.banner": "Interface demo with synthetic sample data. Run the cockpit against a real checkout to operate your own wiki here.",
@@ -365,6 +369,12 @@ const EN: Dict = {
   // Source entity dock (?dock=source)
   "source.title": "Source",
   "source.notFound": "Source `{id}` is not in this snapshot.",
+  "source.list.title": "Sources ({n})",
+  "source.list.intro": "Every data source as an entity. Open one to see its channels, sync health and the ingestion manual.",
+  "source.list.pending": "{n} channel(s) past their cadence.",
+  "source.list.pendingN": "{n} pending",
+  "source.list.empty": "No sources registered yet. Add one from Add, or run the assisted migration.",
+  "source.list.back": "← All sources",
   "source.platform.unknown": "unknown platform",
   "source.owner": "owner: {owner}",
   "source.owner.none": "no owner set",
@@ -506,6 +516,7 @@ const PT: Dict = {
   "nav.home": "Início",
   "nav.approve": "Aprovar",
   "nav.add": "Adicionar",
+  "nav.sources": "Fontes",
   "nav.health": "Saúde",
   "nav.content": "Conteúdo",
   "nav.demo": "Demo",
@@ -567,6 +578,8 @@ const PT: Dict = {
   "mission.stale.detail": "{n} página(s) passaram da janela de frescor.",
   "mission.stale.help":
     "Cada página declara por quanto tempo continua confiável (ex.: 30 dias). Estas passaram desse prazo: a informação pode até estar certa, mas ninguém verificou recentemente. Clique para destacá-las no mapa — abra uma, confira os fatos, atualize (ou só a data) e ela volta a ficar saudável.",
+  "mission.stale.fix": "Atualizar com Codex",
+  "mission.stale.fixTitle": "Monta um brief do Codex listando as páginas vencidas para reler das fontes e atualizar",
   "mission.clear.label": "Tudo em ordem — explore a wiki",
   "mission.clear.detail": "Nenhum bloqueio visível. Navegue pelo mundo ou adicione uma fonte.",
 
@@ -728,7 +741,8 @@ const PT: Dict = {
   "help.close": "Fechar ajuda",
 
   "git.pendingApproval": "Aprovação pendente",
-  "git.pendingApprovalTitle": "Há uma mudança aberta para aprovação — revise em Aprovar",
+  "git.pendingApprovalN": "{n} para aprovar",
+  "git.pendingApprovalTitle": "Você tem alterações locais para revisar — abra Aprovar",
 
   "demo.banner": "Demo da interface com dados sintéticos. Rode o cockpit contra um checkout real para operar a sua wiki aqui.",
   "demo.actionsOff": "Demo: ações locais ficam desabilitadas neste universo sintético.",
@@ -841,6 +855,12 @@ const PT: Dict = {
 
   "source.title": "Fonte",
   "source.notFound": "A fonte `{id}` não está neste snapshot.",
+  "source.list.title": "Fontes ({n})",
+  "source.list.intro": "Cada fonte de dados como entidade. Abra uma para ver seus canais, saúde de sync e o manual de ingestão.",
+  "source.list.pending": "{n} canal(is) passaram da cadência.",
+  "source.list.pendingN": "{n} pendente(s)",
+  "source.list.empty": "Nenhuma fonte registrada ainda. Adicione uma em Adicionar, ou rode a migração assistida.",
+  "source.list.back": "← Todas as fontes",
   "source.platform.unknown": "plataforma desconhecida",
   "source.owner": "dono: {owner}",
   "source.owner.none": "sem dono definido",

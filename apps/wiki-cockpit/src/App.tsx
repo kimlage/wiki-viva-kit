@@ -2,6 +2,7 @@ import {
   Activity,
   CheckCircle2,
   CircleAlert,
+  Database,
   Clock3,
   ExternalLink,
   FileText,
@@ -111,7 +112,7 @@ function Nav({
 }: {
   active: string;
   demo: boolean;
-  dockHref: (dock: "approve" | "intake" | "gates") => string;
+  dockHref: (dock: "approve" | "intake" | "gates" | "source") => string;
 }) {
   // /demo prefixes ALL generated URLs — the demo universe never cross-links
   // into the real snapshot. Anchors are intercepted by the SPA router. The
@@ -122,6 +123,7 @@ function Nav({
     { href: `${prefix}/w/radar`, id: "world", label: t("nav.home"), icon: <Activity size={17} /> },
     { href: dockHref("approve"), id: "review", label: t("nav.approve"), icon: <GitPullRequest size={17} /> },
     { href: dockHref("intake"), id: "sources", label: t("nav.add"), icon: <Inbox size={17} /> },
+    { href: dockHref("source"), id: "fontes", label: t("nav.sources"), icon: <Database size={17} /> },
     { href: dockHref("gates"), id: "health", label: t("nav.health"), icon: <ShieldCheck size={17} /> },
     { href: `${prefix}/w/atlas`, id: "content", label: t("nav.content"), icon: <FileText size={17} /> },
     demo
@@ -1777,7 +1779,7 @@ export function App() {
 
   // When a world dock is open, the left rail highlights the item that opened it
   // (approve→review, gates→health, intake→sources) instead of always "world".
-  const dockNavId: Record<string, string> = { approve: "review", gates: "health", intake: "sources" };
+  const dockNavId: Record<string, string> = { approve: "review", gates: "health", intake: "sources", source: "fontes" };
   const active =
     route.kind === "world" || route.kind === "pageAlias"
       ? route.kind === "world" && route.query.dock && dockNavId[route.query.dock]
@@ -1790,7 +1792,7 @@ export function App() {
   // Nav points straight at the dock on the CURRENT world (no redirect hop),
   // preserving the operator's perspective/context.
   const navWorld = worldFromRoute(route);
-  const dockHref = (dock: "approve" | "intake" | "gates") => buildUrl(patchWorld(navWorld, { dock }));
+  const dockHref = (dock: "approve" | "intake" | "gates" | "source") => buildUrl(patchWorld(navWorld, { dock }));
 
   const runAction = async (action: ActionCard) => {
     if (busyAction) return;
@@ -2018,16 +2020,21 @@ export function App() {
               </span>
             )}
           </div>
-          {/* Show the top-bar pill ONLY when a real approval request is open (a
-              draft PR on a proposal branch), never in the demo or on clean/main —
-              an always-on git label was noise. The full gate state lives in Approve. */}
+          {/* Show the top-bar pill ONLY when there are real LOCAL changes to
+              approve (uncommitted working-tree edits) — the same signal as the
+              Approve mission. Being on a long-lived proposal branch (the private
+              cockpit worktree always is) is NOT "pending approval"; an always-on
+              git label was noise. Nothing to approve → no pill. */}
           {loadState.status === "ready" &&
             !route.demo &&
-            loadState.bundle.git.proposal.is_proposal_branch &&
-            Boolean(loadState.bundle.git.proposal.draft_pr_url) && (
-              <StatusPill tone="warn">
-                <span title={t("git.pendingApprovalTitle")}>{t("git.pendingApproval")}</span>
-              </StatusPill>
+            loadState.bundle.git.worktree.changed_files.length > 0 && (
+              <a href={dockHref("approve")} className="topBarPillLink">
+                <StatusPill tone="warn">
+                  <span title={t("git.pendingApprovalTitle")}>
+                    {t("git.pendingApprovalN", { n: loadState.bundle.git.worktree.changed_files.length })}
+                  </span>
+                </StatusPill>
+              </a>
             )}
         </header>
         {route.demo && (
@@ -2108,6 +2115,7 @@ export function App() {
             onComposeBrief={runBrief}
             onNotice={notify}
             onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
+            onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}
