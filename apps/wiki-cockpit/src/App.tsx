@@ -2013,7 +2013,10 @@ export function App() {
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
-      <Nav active={active} demo={route.demo} dockHref={dockHref} />
+      {/* The menu is dead in the world (Kim: "matar o menu"): every destination
+          lives in the bottom command bar now. The rail survives ONLY for the 2D
+          fallback / degraded mode, which has no in-world command bar. */}
+      {!isWorld && <Nav active={active} demo={route.demo} dockHref={dockHref} />}
       <div className="mainColumn">
         <header className="topBar">
           <div>

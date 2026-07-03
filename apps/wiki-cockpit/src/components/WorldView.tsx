@@ -5,7 +5,19 @@
 // tray, minimap hint). The old below-the-fold panel stack is gone: every ops
 // action is reachable inside the viewport.
 
-import { Activity, GitPullRequest, ListChecks, Play, Search, Sparkles, Trophy } from "lucide-react";
+import {
+  Activity,
+  Database,
+  GitPullRequest,
+  Inbox,
+  ListChecks,
+  Play,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Sprout,
+  Trophy
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { t } from "../data/i18n";
@@ -767,6 +779,34 @@ export function WorldView({
               aria-label={t("world.searchAria")}
             />
           </label>
+          {/* Destinations — the old left rail, dissolved into the world. Each
+              opens its dock in place (deep-linkable ?dock=…). Content = the
+              Atlas perspective; Home = Radar (both live in the glyphs). */}
+          <div className="commandDocks" role="group" aria-label={t("world.destinationsAria")}>
+            {([
+              { dock: "approve", label: t("nav.approve"), icon: <GitPullRequest size={15} /> },
+              { dock: "intake", label: t("nav.add"), icon: <Inbox size={15} /> },
+              { dock: "create", label: t("nav.create"), icon: <Sprout size={15} /> },
+              { dock: "source", label: t("nav.sources"), icon: <Database size={15} /> },
+              { dock: "gates", label: t("nav.health"), icon: <ShieldCheck size={15} /> }
+            ] as const).map((item) => (
+              <button
+                key={item.dock}
+                className={route.query.dock === item.dock ? "dockButton active" : "dockButton"}
+                onClick={() => {
+                  setTrayOpen(false);
+                  setMissionsOpen(false);
+                  navigateWorld({ dock: route.query.dock === item.dock ? null : item.dock });
+                }}
+                title={item.label}
+                aria-pressed={route.query.dock === item.dock}
+                type="button"
+              >
+                {item.icon}
+                <small>{item.label}</small>
+              </button>
+            ))}
+          </div>
           <div className="perspectiveGlyphs" role="group" aria-label={t("world.perspectives")}>
             {(["radar", "atlas", "districts", "trails", "quadrants"] as PerspectiveId[]).map((perspective, index) => {
               const info = perspectiveLabel(perspective);
@@ -848,6 +888,14 @@ export function WorldView({
               <span>{t("work.title")}</span>
             </button>
           )}
+          <a
+            className={route.demo ? "trayButton demoButton active" : "trayButton demoButton"}
+            href={route.demo ? "/w/radar" : "/demo/w/radar"}
+            title={route.demo ? t("nav.exitDemo") : t("nav.demo")}
+          >
+            <Sparkles size={14} />
+            <span>{route.demo ? t("nav.exitDemo") : t("nav.demo")}</span>
+          </a>
           <button className="trayButton tourButton" onClick={() => setTourOpen(true)} type="button">
             <span aria-hidden>?</span>
             <span className="visuallyHidden">{t("tour.reopen")}</span>

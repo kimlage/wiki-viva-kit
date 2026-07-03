@@ -2963,6 +2963,12 @@ pre {
    World shell: the 3D scene as the primary navigation surface. HUD elements
    are fixed to the sceneShell edges; the below-the-fold panel stack is gone. */
 
+/* The menu is dead in the world: the bottom command bar carries every
+   destination now, so the shell is a single full-bleed column. */
+.worldShellMode {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .worldShellMode .mainColumn {
   min-height: 100vh;
 }
@@ -3688,6 +3694,50 @@ pre {
   color: #e6f2f8;
   font-size: 12.5px;
   width: 100%;
+}
+
+/* Destinations group — the dissolved left rail. Same compact glyph shape as the
+   perspective switcher, with a hairline divider between the two groups. */
+.commandDocks {
+  display: flex;
+  gap: 4px;
+  padding-right: 10px;
+  margin-right: 2px;
+  border-right: 1px solid #22303a;
+}
+
+.dockButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  border: 1px solid #2a3944;
+  background: rgba(10, 18, 25, 0.85);
+  color: #9fb6c6;
+  border-radius: 8px;
+  padding: 3px 9px;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.dockButton small {
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+}
+
+.dockButton:hover {
+  color: #dff2fb;
+  border-color: #31414a;
+}
+
+.dockButton.active {
+  border-color: #6bd7ff;
+  color: #dff2fb;
+  box-shadow: 0 0 12px rgba(107, 215, 255, 0.22);
+}
+
+.demoButton {
+  text-decoration: none;
 }
 
 .perspectiveGlyphs {

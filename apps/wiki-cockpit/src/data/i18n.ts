@@ -54,6 +54,7 @@ const EN: Dict = {
   "world.missionClear": "all clear",
   "world.missionCollapse": "Collapse — the map stays visible; click the chip to reopen",
   "world.commandBarAria": "Command bar",
+  "world.destinationsAria": "Destinations",
   "world.trailAria": "Navigation trail",
 
   // Perspectives
@@ -585,6 +586,7 @@ const PT: Dict = {
   "world.missionClear": "em dia",
   "world.missionCollapse": "Recolher — o mapa fica visível; clique no chip para reabrir",
   "world.commandBarAria": "Barra de comando",
+  "world.destinationsAria": "Destinos",
   "world.trailAria": "Trilha de leitura",
 
   "perspective.radar": "Radar",
