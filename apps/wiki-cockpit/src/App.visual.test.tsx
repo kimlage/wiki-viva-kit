@@ -197,7 +197,9 @@ const bundle: SnapshotBundle = {
     by_dimension: { confiabilidade: 6.5, stewardship: 6 },
     badges: [{ id: "first_source", en: "First source", pt: "Primeira fonte" }],
     vitality: {}
-  }
+  },
+  sourceEntities: { schema_version: "wiki_web_source_entities.v1", sources: [] },
+  templates: { schema_version: "wiki_templates.v1", facets_order: ["intencao", "percepcao", "pratica", "relacoes"], types: {} }
 };
 
 vi.mock("./components/SystemScene", () => ({

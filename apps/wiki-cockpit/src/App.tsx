@@ -25,6 +25,7 @@ import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
 import { WorkDock } from "./components/WorkDock";
+import { SourceDock } from "./components/SourceDock";
 import { ExpandablePre } from "./components/ExpandablePre";
 import { configureLanguage, t } from "./data/i18n";
 import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
@@ -2002,6 +2003,7 @@ export function App() {
   const gatesDockOpen = route.kind === "world" && route.query.dock === "gates";
   const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
   const workDockOpen = route.kind === "world" && route.query.dock === "work";
+  const sourceDockOpen = route.kind === "world" && route.query.dock === "source";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -2090,6 +2092,16 @@ export function App() {
             onReturn={returnJob}
             onDiagnose={openCodexDock}
             onNotice={notify}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+          />
+        )}
+        {sourceDockOpen && worldRoute && loadState.status === "ready" && (
+          <SourceDock
+            bundle={loadState.bundle}
+            sourceId={worldRoute.query.src}
+            onComposeBrief={runBrief}
+            onNotice={notify}
+            onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}

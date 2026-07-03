@@ -25,7 +25,7 @@ export type WorldQuery = {
   tray: TrayId; // "" | packet | missions | work (trays are URL state now)
 };
 
-export const DOCKS = ["approve", "intake", "gates", "codex", "work"] as const;
+export const DOCKS = ["approve", "intake", "gates", "codex", "work", "source"] as const;
 export type DockId = "" | (typeof DOCKS)[number];
 export const TRAYS = ["packet", "missions", "work"] as const;
 export type TrayId = "" | (typeof TRAYS)[number];

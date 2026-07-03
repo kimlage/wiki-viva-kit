@@ -276,6 +276,74 @@ export type SnapshotBundle = {
     commands: ActionCommand[];
   };
   score: ScorePayload;
+  sourceEntities: SourceEntitiesPayload;
+  templates: TemplatesPayload;
+};
+
+// --- Source entities (Pillar A) ---
+export type SourceStream = {
+  id: string;
+  label: string;
+  selected: boolean;
+  privacy: string;
+  target_pages: string[];
+  skip_reason: string;
+  cursor_age_days: number | null;
+  cadence_days: number;
+  breached: boolean;
+  filters?: Record<string, unknown>;
+};
+
+export type SourceEntity = {
+  source_id: string;
+  path: string;
+  title: string;
+  context: string;
+  platform: string;
+  locator: string;
+  owner: string;
+  stewards: { ref?: string; kind?: string; via?: string }[];
+  config_ref: string;
+  updated_at: string;
+  sync: {
+    last_run_at: string;
+    last_status: string;
+    last_event_ref: string;
+    streams_fresh: number;
+    streams_total: number;
+  };
+  recipe_ok: boolean;
+  recipe_errors: string[];
+  how_to_export: string;
+  pipelines: { kind: string; cadence_days: number }[];
+  streams: SourceStream[];
+  pending_streams: number;
+};
+
+export type SourceEntitiesPayload = {
+  schema_version: string;
+  sources: SourceEntity[];
+  summary?: { total: number; with_recipe: number; pending: number };
+  error?: string;
+};
+
+// --- Declarative template registry (Pillar B) ---
+export type TemplateSpec = {
+  page_type: string;
+  extends: string | null;
+  body_template: string;
+  pinned_fields: string[];
+  facets: Record<string, string[]>;
+  view: { center?: string; panels?: { kind: string; from?: string; label?: string; columns?: string[] }[]; badges?: string[] };
+  controls: { kind: string; id?: string; rel?: string }[];
+  scene: { shape?: string; emphasis?: string };
+};
+
+export type TemplatesPayload = {
+  schema_version: string;
+  facets_order: string[];
+  types: Record<string, TemplateSpec>;
+  error?: string;
 };
 
 export type ScoreBadge = { id: string; en: string; pt: string; criterion_en?: string; criterion_pt?: string };
