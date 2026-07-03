@@ -128,6 +128,12 @@ class WikiPaths:
         return self.derived_root / "coverage"
 
     @property
+    def source_state(self) -> Path:
+        """Per-source incremental cursor state (Singer STATE analogue). Mutable,
+        derived, gitignored — NEVER in the versioned source config."""
+        return self.derived_root / "source-state"
+
+    @property
     def input_stage(self) -> Path:
         return self.derived_root / "input-stage"
 
