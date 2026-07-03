@@ -314,6 +314,41 @@
    "target": "sample-action-update-pricing-page",
    "type": "pr_impact",
    "weight": 1
+  },
+  {
+   "source": "sample-deal-enterprise",
+   "target": "sample-product-hub",
+   "type": "moc_parent",
+   "status": "valid",
+   "weight": 1
+  },
+  {
+   "source": "sample-deal-enterprise",
+   "target": "sample-decision-pricing",
+   "type": "markdown_link",
+   "status": "valid",
+   "weight": 1
+  },
+  {
+   "source": "sample-deal-enterprise",
+   "target": "sample-claim-onboarding",
+   "type": "markdown_link",
+   "status": "valid",
+   "weight": 1
+  },
+  {
+   "source": "sample-deal-enterprise",
+   "target": "sample-action-update-pricing-page",
+   "type": "markdown_link",
+   "status": "valid",
+   "weight": 1
+  },
+  {
+   "source": "sample-deal-enterprise",
+   "target": "sample-person-owner",
+   "type": "markdown_link",
+   "status": "valid",
+   "weight": 1
   }
  ],
  "nodes": [
@@ -857,6 +892,25 @@
    "status": "active",
    "title": "Market Cost Report 2026",
    "updated_at": "2026-06-29",
+   "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-deal-enterprise",
+   "metrics": {
+    "inbound_links": 0,
+    "outbound_links": 4,
+    "source_ref_count": 1
+   },
+   "page_type": "deal",
+   "path": "memories/product/deals/enterprise-rollout.md",
+   "risk_flags": [],
+   "stale_after_days": "30",
+   "status": "active",
+   "title": "Enterprise Rollout — Acme",
+   "updated_at": "2026-07-01",
    "visibility": "private_self"
   }
  ],
