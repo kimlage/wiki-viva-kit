@@ -33,6 +33,7 @@ export function SourceDock({
   onComposeBrief,
   onNotice,
   onOpenPage,
+  onOpenSource,
   onClose
 }: {
   bundle: SnapshotBundle;
@@ -40,12 +41,64 @@ export function SourceDock({
   onComposeBrief?: (spec: BriefSpec) => void;
   onNotice: (text: string) => void;
   onOpenPage?: (pathOrId: string) => void;
+  onOpenSource?: (id: string) => void;
   onClose: () => void;
 }) {
+  const sources = bundle.sourceEntities?.sources ?? [];
   const source: SourceEntity | undefined = useMemo(
-    () => (bundle.sourceEntities?.sources ?? []).find((s) => s.source_id === sourceId),
-    [bundle.sourceEntities, sourceId]
+    () => (sourceId ? sources.find((s) => s.source_id === sourceId) : undefined),
+    [sources, sourceId]
   );
+
+  // LIST MODE — no specific source selected: every source, sorted by attention
+  // (pending streams first), each a button that drills into its detail.
+  if (!sourceId) {
+    const ordered = [...sources].sort(
+      (a, b) => b.pending_streams - a.pending_streams || a.title.localeCompare(b.title)
+    );
+    const pendingTotal = sources.reduce((sum, s) => sum + s.pending_streams, 0);
+    return (
+      <>
+        <div className="dockBackdrop" onClick={onClose} aria-hidden />
+        <aside className="sourceDock worldDock" role="dialog" aria-label={t("source.list.title")}>
+          <header className="dockHeader">
+            <Database size={15} aria-hidden />
+            <strong>{t("source.list.title", { n: sources.length })}</strong>
+            <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+              <X size={16} />
+            </button>
+          </header>
+          <p className="dockIntro">
+            {t("source.list.intro")}
+            {pendingTotal > 0 ? ` ${t("source.list.pending", { n: pendingTotal })}` : ""}
+          </p>
+          {ordered.length === 0 && <p className="dockIntro">{t("source.list.empty")}</p>}
+          <ul className="sourceList">
+            {ordered.map((s) => {
+              const tone = SYNC_TONE[s.sync.last_status] ?? "muted";
+              return (
+                <li key={s.source_id}>
+                  <button className="sourceListItem" onClick={() => onOpenSource?.(s.source_id)} type="button">
+                    <span className="sourceListName">
+                      <strong>{s.title}</strong>
+                      <small>
+                        <span className="sourceBadge sourceBadgeSm">{s.platform || t("source.platform.unknown")}</span>
+                        {s.locator ? ` · ${s.locator}` : ""}
+                      </small>
+                    </span>
+                    <span className="sourceListState">
+                      {s.pending_streams > 0 && <span className="pill pill-warn">{t("source.list.pendingN", { n: s.pending_streams })}</span>}
+                      <span className={`pill pill-${tone}`}>{t(`source.sync.${s.sync.last_status}`)}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </aside>
+      </>
+    );
+  }
 
   if (!source) {
     return (
@@ -59,6 +112,11 @@ export function SourceDock({
             </button>
           </header>
           <p className="dockIntro">{t("source.notFound", { id: sourceId })}</p>
+          {onOpenSource && (
+            <button className="secondaryButton" onClick={() => onOpenSource("")} type="button">
+              <span>{t("source.list.back")}</span>
+            </button>
+          )}
         </aside>
       </>
     );

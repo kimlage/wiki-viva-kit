@@ -5,7 +5,7 @@
 // tray, minimap hint). The old below-the-fold panel stack is gone: every ops
 // action is reachable inside the viewport.
 
-import { Activity, GitPullRequest, ListChecks, Play, Search, Trophy } from "lucide-react";
+import { Activity, GitPullRequest, ListChecks, Play, Search, Sparkles, Trophy } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { t } from "../data/i18n";
@@ -86,7 +86,29 @@ type MissionRow = {
   help?: string;
   tone: "good" | "warn" | "bad";
   onClick: () => void;
+  // Optional secondary action (e.g. "resolve with Codex") rendered as a button
+  // beside the row's main click target.
+  action?: { label: string; title?: string; onClick: () => void };
 };
+
+// Brief to refresh stale content: the stale pages become the grounding, so the
+// agent re-reads their sources and proposes an update — never invents freshness.
+function staleRefreshSpec(pages: PageRecord[]): BriefSpec {
+  const targets = pages.slice(0, 40);
+  const list = targets.map((page) => `- ${page.title} (${page.path})`).join("\n");
+  const more = pages.length > targets.length ? `\n…and ${pages.length - targets.length} more.` : "";
+  return {
+    mission_kind: "verify",
+    theme: "refresh-stale",
+    grounding: { page_ids: targets.map((page) => page.id), attach_context_package: true },
+    intent:
+      `${pages.length} page(s) are past their freshness window and need review.\n\n` +
+      `For each, re-read its source(s) and evidence, then update the page ONLY where the ` +
+      `underlying source actually changed (bump updated_at, refresh the facts/links). If a ` +
+      `source itself is stale, note it. Never fabricate freshness — if nothing changed, say so ` +
+      `and just re-confirm.\n\nPages:\n${list}${more}`
+  };
+}
 
 // The mission card is collapsible — a map you can actually SEE beats a panel
 // you did not ask for. The preference is remembered per browser (UI state,
@@ -373,13 +395,22 @@ export function WorldView({
     });
   }
   if (stale > 0) {
+    const stalePages = pages.filter((page) => page.freshness_state === "stale");
     missionRows.push({
       key: "stale",
       label: t("mission.stale.label"),
       detail: t("mission.stale.detail", { n: stale }),
       help: t("mission.stale.help"),
       tone: "warn",
-      onClick: () => navigateWorld({ perspective: "radar", filter: "stale" })
+      onClick: () => navigateWorld({ perspective: "radar", filter: "stale" }),
+      action:
+        onComposeBrief && stalePages.length > 0
+          ? {
+              label: t("mission.stale.fix"),
+              title: t("mission.stale.fixTitle"),
+              onClick: () => onComposeBrief(staleRefreshSpec(stalePages))
+            }
+          : undefined
     });
   }
   if (missionRows.length === 0) {
@@ -603,6 +634,12 @@ export function WorldView({
                         <small>{row.detail}</small>
                       </span>
                     </button>
+                    {row.action && (
+                      <button className="missionRowAction" onClick={row.action.onClick} title={row.action.title} type="button">
+                        <Sparkles size={13} />
+                        <span>{row.action.label}</span>
+                      </button>
+                    )}
                     {row.help && <HelpTip title={row.label} body={row.help} />}
                   </div>
                 ))}
