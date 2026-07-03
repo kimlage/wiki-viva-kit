@@ -43,13 +43,18 @@ called out in §6.
 
 ---
 
-## 1. Pillar A — The Quadrant Frame
+## 1. Pillar A — The Quadrant perspective
 
-**The world is always four regions.** A new fifth deterministic perspective,
-`quadrants`, becomes the **default landing view**: the ground plane is carved
-into four **fixed 90° AQAL regions** with diegetic ray separators and always-four
-rim labels, plus an explicit central **q0-core disc** for structural pages that
-honestly have no quadrant.
+**Quadrants are a first-class perspective, not the fixed frame** (owner decision
+2026-07-03: keep them as *one of the perspective options*, alongside Radar/
+Atlas/Districts/Trails — **Radar stays the default landing view**). Switching to
+the `quadrants` perspective (key **5** / a command-bar glyph) carves the ground
+plane into four **fixed 90° AQAL regions** with diegetic ray separators and
+always-four rim labels, plus an explicit central **q0-core disc** for structural
+pages that honestly have no quadrant. This makes the quadrants **discoverable and
+navigable** (fixing the original "não vejo os quadrantes" complaint — today Focus
+only opens with a page locked + `F`) without displacing the muscle-memory of the
+default view.
 
 ### Why it stays honest
 
@@ -85,11 +90,12 @@ honestly have no quadrant.
 - New: `"quadrant"` in the `GroupKind` union; `quadrant?: SceneFacet` on
   `WorldRequest`/`WorldLayout`/`WorldRoute`; `cameraTarget?` on `WorldLayout`
   (region centroid for fly-to).
-- Dispatch: `computeWorldLayout` routes `perspective==="quadrants"`; add it as
-  the **first** entry of `PERSPECTIVE_ORDER` (bare key 1; radar/atlas/districts/
-  trails shift to 2–5; focus stays page-only). **Bare 1–N stays
-  perspective-switch** (rejected: rebinding keys to quadrant-fly-to breaks muscle
-  memory); `Q/W/E/R` (free at L0) fly to the four quadrants.
+- Dispatch: `computeWorldLayout` routes `perspective==="quadrants"`; **append it
+  as the fifth entry of `PERSPECTIVE_ORDER`** (bare key 5; radar stays 1 and the
+  default; atlas/districts/trails stay 2–4; focus stays page-only). **Bare 1–N
+  stays perspective-switch** (rejected: rebinding keys to quadrant-fly-to breaks
+  muscle memory); inside the quadrants perspective, `Q/W/E/R` (free at L0) fly to
+  the four quadrants.
 - **Lenses fold in, selectively.** `radarLayout` and `districtsLayout` scope to
   `request.quadrant` (filter to home-quadrant nodes) so "Radar within Sistemas"
   works. `atlasLayout`/`trailsLayout` **ignore** the quadrant filter — a page's
@@ -102,11 +108,11 @@ honestly have no quadrant.
   click-to-fly) in `WorldView`; a `quadrants` glyph in the command bar; the
   minimap's drill target carries `{quadrant}` (today it only drills on
   `group.drill.context`).
-- URL: a dedicated quadrant selector under `perspective==="quadrants"` (see
-  Open Question O1 on `?quadrant=<facet>` vs `/w/quadrants/@<facet>`);
+- URL: a **`?quadrant=<facet>` query param** (O1, decided) carried in
+  `WorldQuery`, meaningful only under `perspective==="quadrants"`;
   `patchWorld`/`retreat` learn that quadrants may carry a quadrant without a
-  context (retreat pops quadrant → galaxy). `/`, `/ops`, `/w` default to
-  `quadrants`; `/w/radar` etc. stay valid.
+  context (retreat pops quadrant → galaxy). Defaults are unchanged — `/`, `/ops`,
+  `/w` stay `radar`.
 
 ### Phasing (A)
 
@@ -117,11 +123,11 @@ honestly have no quadrant.
   add to `PERSPECTIVE_ORDER` + dispatch. `perspectives.test.ts` pins: always
   four quadrant groups, core group only when populated, fixed 90° regardless of
   population, counts over ALL home nodes, exact hidden counts, determinism.
-- **A2** — routing + default landing: `quadrant` on route/request/layout, URL
-  parse, `patchWorld`/`retreat`, default perspective, Nav "home" → `/w/quadrants`
-  (kept valid alongside `/w/radar`).
+- **A2** — routing: `quadrant` on route/request/layout, `?quadrant=<facet>`
+  parse, `patchWorld`/`retreat`. **Radar stays the default** (no landing change);
+  `quadrants` is reachable via key 5 / the glyph.
 - **A3** — scene: `cameraTarget` fly-to + top-down preset; render the frame;
-  wire minimap + compass + command-bar glyph + `Q/W/E/R`.
+  wire minimap + compass + command-bar glyph (5th) + `Q/W/E/R`.
 - **A4** — scope radar+districts to the active quadrant; leave atlas+trails
   unfiltered (documented + tested).
 - **A5** — cross-quadrant hover/lock arcs; i18n EN+PT; tour copy ("quadrants =
@@ -415,29 +421,31 @@ browser-verified, PR-gated. Estimated in cockpit-days, not calendar promises.
 
 ---
 
-## 8. Open questions for the owner
+## 8. Owner decisions (resolved 2026-07-03)
 
-- **O1 — Quadrant URL shape:** `?quadrant=<facet>` (query, consistent with the
-  other `WorldQuery` params) vs `/w/quadrants/@<facet>` (positional sentinel)?
-  Recommend the query param.
-- **O2 — q0-core geometry:** the structural "Estrutura/Core" disc at the origin —
-  a flat disc on the plane inside a small radius, or lifted slightly to avoid
-  the axis-cross HUD + any central root node?
-- **O3 — Source sync model (the real one):** confirm "Sincronizar com Codex" =
-  compose ingest plan + integrate operator-exported RAW + advance cursors
-  (network stays operator-side), **not** a live sandbox fetch. Where does the
-  "already-exported RAW" physically live so the brief can point at it
-  deterministically (the Drive raw-cache path / export convention)?
-- **O4 — Structural types' editorial home:** `context_note`/`context_hub`
-  arguably belong in Relações or Intenção. Ship the pure `null → core` default
-  and let a wiki override via the registry, or seed a few editorial defaults?
-- **O5 — Weather + quadrant tints:** can four quadrant tints stay both
-  CVD-distinct from amber/purple/cyan/risk-red AND visible at `C<=0.02` on the
-  near-black void? If not, lean on position + labels and drop the tint.
-- **O6 — Ambition of the frame's node movement:** ship the frame as a *view*
-  (nodes placed into regions by `quadrantsLayout`) now, and defer the
-  angular-bias that relocates nodes toward their bearing *inside other
-  perspectives* to a later separate PR (recommended), or pull it forward?
+- **Quadrants placement:** NOT a fixed/default view — a **first-class
+  perspective option** (key 5) alongside Radar/Atlas/Districts/Trails. Radar
+  stays the default. (Updates Pillar A above.)
+- **O1 — Quadrant URL:** **`?quadrant=<facet>` query param** (consistent with the
+  other `WorldQuery` params).
+- **O2 — q0-core geometry:** implementer's call — plan to lift the core disc
+  slightly off the plane to clear the axis-cross HUD + any central root node,
+  tuning against real render.
+- **O3 — Source sync model: CONFIRMED.** "Sincronizar com Codex" = compose the
+  ingest plan + integrate the operator-exported RAW + advance cursors
+  (network stays operator-side), never a live sandbox fetch. (Confirm the
+  exported-RAW location convention — the Drive raw-cache path — during C3.)
+- **O4 — Structural types' editorial home:** ship the pure `null → core` default
+  AND **let the wiki override** it via the template registry (a per-type
+  `home_quadrant:` override), so a wiki can editorially place e.g. `context_note`
+  in Relações.
+- **O5 — Quadrant tints:** **test it during implementation** (E4) — verify four
+  tints stay both CVD-distinct from amber/purple/cyan/risk-red AND visible at
+  `C<=0.02` on the near-black void; if not, lean on position + labels and drop
+  the tint.
+- **O6 — Node movement:** ship the frame as a **view** (nodes placed into regions
+  by `quadrantsLayout`) now; **defer** the angular-bias that relocates nodes
+  toward their bearing inside other perspectives to a later separate PR.
 
 ---
 
