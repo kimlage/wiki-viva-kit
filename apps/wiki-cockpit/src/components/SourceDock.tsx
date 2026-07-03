@@ -6,7 +6,7 @@
 // human recipe stay clearly separated. Everything t()'d EN+PT.
 
 import { useMemo } from "react";
-import { Database, ExternalLink, Sparkles, X } from "lucide-react";
+import { Database, ExternalLink, Lock, RefreshCw, X } from "lucide-react";
 import { t } from "../data/i18n";
 import { contextLabel } from "../data/presentation";
 import { ExpandablePre } from "./ExpandablePre";
@@ -170,7 +170,25 @@ export function SourceDock({
           {source.sync.last_run_at && (
             <small>{t("source.health.lastRun", { when: source.sync.last_run_at.replace("T", " ").slice(0, 16) })}</small>
           )}
+          {source.schedule && source.schedule.mode !== "on_demand" && (
+            <small>
+              {t("source.schedule.mode." + source.schedule.mode)}
+              {typeof source.next_due_days === "number"
+                ? ` · ${source.next_due_days < 0 ? t("source.schedule.overdue", { n: -source.next_due_days }) : t("source.schedule.due", { n: source.next_due_days })}`
+                : ""}
+            </small>
+          )}
         </div>
+
+        {/* Auth is a POINTER, never a value — where the operator's credential lives. */}
+        {source.auth && source.auth.method !== "none" && (
+          <div className="sourceAuth" title={t("source.auth.tip")}>
+            <Lock size={12} aria-hidden />
+            <span>{t("source.auth.label", { method: source.auth.method })}</span>
+            <code className="sourceAuthRef">{source.auth.ref}</code>
+            {source.auth.scopes.length > 0 && <small>{source.auth.scopes.join(", ")}</small>}
+          </div>
+        )}
 
         {!source.recipe_ok && source.recipe_errors.length > 0 && (
           <div className="sourceRecipeError">
@@ -232,14 +250,14 @@ export function SourceDock({
         <div className="dockActions">
           {onComposeBrief && (
             <button
-              className="primaryButton"
+              className="btn btn--run"
               onClick={composeBrief}
               disabled={source.pending_streams === 0}
-              title={source.pending_streams === 0 ? t("source.brief.upToDate") : ""}
+              title={source.pending_streams === 0 ? t("source.brief.upToDate") : t("source.sync.tip")}
               type="button"
             >
-              <Sparkles size={14} />
-              <span>{t("source.brief.compose", { n: source.pending_streams })}</span>
+              <RefreshCw size={14} />
+              <span>{t("source.sync.action", { n: source.pending_streams })}</span>
             </button>
           )}
           {source.config_ref && onOpenPage && (

@@ -5359,6 +5359,30 @@ pre {
   color: #7f95a3;
   font-size: 11px;
 }
+.sourceAuth {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 2px;
+  font-size: 11.5px;
+  color: #9fb6c6;
+}
+.sourceAuth svg {
+  color: #7fd0e8;
+  flex-shrink: 0;
+}
+.sourceAuthRef {
+  font-size: 11px;
+  color: #cfe0ea;
+  background: rgba(127, 208, 232, 0.08);
+  border: 1px solid rgba(127, 208, 232, 0.22);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+.sourceAuth small {
+  color: #6f8494;
+  font-size: 10.5px;
+}
 .sourceSection h4 {
   margin: 4px 0 6px;
   font-size: 12px;
