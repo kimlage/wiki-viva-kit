@@ -1,36 +1,41 @@
 // Facets in the scene — the frontend mirror of wiki_core/facets.py. The Focus
-// perspective buckets a page's neighbors into the four lenses. Pure, so the
-// layout worker can use it. Labels live in i18n (facet.*); this is only the
-// bucketing.
+// perspective buckets a page's neighbors into the four lenses, ONE PER QUADRANT
+// (faithful AQAL 1:1): intencao=q1, pratica=q2, relacoes=q3, sistemas=q4. Pure,
+// so the layout worker can use it. Labels live in i18n (facet.*).
 
-export const SCENE_FACETS = ["intencao", "percepcao", "pratica", "relacoes"] as const;
+export const SCENE_FACETS = ["intencao", "pratica", "relacoes", "sistemas"] as const;
 export type SceneFacet = (typeof SCENE_FACETS)[number];
 
 const PAGE_TYPE_FACET: Record<string, SceneFacet | null> = {
+  // Intention (q1, interior-individual) — intent AND perception.
   decision: "intencao",
   operational_rule: "intencao",
   responsibility: "intencao",
   project: "intencao",
   initiative: "intencao",
-  insight: "percepcao",
-  journal_entry: "percepcao",
-  claim: "percepcao",
-  perspective: "percepcao",
+  insight: "intencao",
+  journal_entry: "intencao",
+  claim: "intencao",
+  perspective: "intencao",
+  // Practice (q2, exterior-individual) — own output/artifacts.
   action: "pratica",
-  process: "pratica",
   artifact: "pratica",
   evidence: "pratica",
-  source: "pratica",
-  source_config: "pratica",
-  ingestion_event: "pratica",
-  input_channel: "pratica",
-  input_stage: "pratica",
-  dashboard: "pratica",
+  // Relations (q3, interior-collective) — people/roles/culture.
   person: "relacoes",
-  meeting: "relacoes",
   role: "relacoes",
+  meeting: "relacoes",
   holon: "relacoes",
   relationship_map: "relacoes",
+  // Systems (q4, exterior-collective) — process/channel/tooling infrastructure.
+  process: "sistemas",
+  source: "sistemas",
+  source_config: "sistemas",
+  ingestion_event: "sistemas",
+  input_channel: "sistemas",
+  input_stage: "sistemas",
+  dashboard: "sistemas",
+  // Structural — not a lens.
   root_entity: null,
   root_index: null,
   context_hub: null,
@@ -43,11 +48,11 @@ const PAGE_TYPE_FACET: Record<string, SceneFacet | null> = {
 const EDGE_FACET: Record<string, SceneFacet | null> = {
   moc_parent: null,
   markdown_link: null,
-  source_ref: "pratica",
-  pr_impact: "pratica",
-  ingestion_chain: "pratica",
+  source_ref: "sistemas",
+  pr_impact: "sistemas",
+  ingestion_chain: "sistemas",
   decision: "intencao",
-  claim: "percepcao",
+  claim: "intencao",
   action: "pratica"
 };
 

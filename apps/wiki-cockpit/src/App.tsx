@@ -28,7 +28,7 @@ import { WorkDock } from "./components/WorkDock";
 import { SourceDock } from "./components/SourceDock";
 import { ExpandablePre } from "./components/ExpandablePre";
 import { configureLanguage, t } from "./data/i18n";
-import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
+import { qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel, registerContextPalette } from "./data/presentation";
 import {
   buildIngestionPlan,
@@ -2018,11 +2018,17 @@ export function App() {
               </span>
             )}
           </div>
-          {loadState.status === "ready" && (
-            <StatusPill tone={loadState.bundle.git.proposal.is_proposal_branch ? "warn" : "good"}>
-              {gitGateLabel(loadState.bundle.git)}
-            </StatusPill>
-          )}
+          {/* Show the top-bar pill ONLY when a real approval request is open (a
+              draft PR on a proposal branch), never in the demo or on clean/main —
+              an always-on git label was noise. The full gate state lives in Approve. */}
+          {loadState.status === "ready" &&
+            !route.demo &&
+            loadState.bundle.git.proposal.is_proposal_branch &&
+            Boolean(loadState.bundle.git.proposal.draft_pr_url) && (
+              <StatusPill tone="warn">
+                <span title={t("git.pendingApprovalTitle")}>{t("git.pendingApproval")}</span>
+              </StatusPill>
+            )}
         </header>
         {route.demo && (
           <div className="demoBanner" role="note">

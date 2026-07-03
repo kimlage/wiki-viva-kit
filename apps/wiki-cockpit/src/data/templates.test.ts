@@ -14,7 +14,7 @@ const spec: TemplateSpec = {
 };
 
 const bundle = {
-  templates: { schema_version: "wiki_templates.v1", facets_order: ["intencao", "percepcao", "pratica", "relacoes"], types: { meeting: spec } }
+  templates: { schema_version: "wiki_templates.v1", facets_order: ["intencao", "pratica", "relacoes", "sistemas"], types: { meeting: spec } }
 } as unknown as SnapshotBundle;
 
 const content = (fm: Record<string, unknown>): PageContent => ({ frontmatter: fm } as unknown as PageContent);
@@ -42,7 +42,7 @@ describe("templates read model", () => {
   });
 
   it("exposes the facet order with a safe default", () => {
-    expect(facetsOrder(bundle)).toEqual(["intencao", "percepcao", "pratica", "relacoes"]);
+    expect(facetsOrder(bundle)).toEqual(["intencao", "pratica", "relacoes", "sistemas"]);
     expect(facetsOrder({} as SnapshotBundle)[0]).toBe("intencao");
   });
 });

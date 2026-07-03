@@ -9,9 +9,10 @@
 # center: document|timeline|dashboard|entity, scene shapes). New primitives need
 # code; the loader validates the vocabulary (WARN gate).
 #
-# `facets:` maps each Focus-view lens to the frontmatter fields that fill it —
-# intencao (why), percepcao (how lived), pratica (what is done/with what),
-# relacoes (who together). Absent keys degrade to today's reader.
+# `facets:` maps each Focus-view lens to the frontmatter fields that fill it,
+# one lens per AQAL quadrant — intencao (q1: why it exists + how perceived),
+# pratica (q2: what is done/produced), relacoes (q3: who together), sistemas
+# (q4: the systems/channels/pipelines). Absent keys degrade to today's reader.
 
 schema_version: wiki_templates.v1
 
@@ -21,10 +22,10 @@ bases:
   relation_base:
     pinned_fields: [updated_at, source_refs]
     facets:
-      intencao: [decisions, responsibilities]
-      percepcao: [claims, insights]
-      pratica: [actions, evidence_refs, process_refs, source_refs]
+      intencao: [decisions, responsibilities, claims, insights]
+      pratica: [actions, evidence_refs]
       relacoes: [roles, related_holons, people]
+      sistemas: [source_refs, process_refs]
     view:
       center: document
       badges: [freshness, evidence]
@@ -114,10 +115,10 @@ types:
     body_template: docs/references/templates/wiki/source.md
     pinned_fields: [platform, owner, updated_at]
     facets:
-      intencao: [decisions]
-      percepcao: [claims]
-      pratica: [target_pages, evidence_refs, source_refs]
+      intencao: [decisions, claims]
+      pratica: [evidence_refs]
       relacoes: [owner, stewards]
+      sistemas: [target_pages, source_refs]
     view:
       center: entity
       badges: [sync, freshness, privacy]
@@ -151,7 +152,8 @@ types:
     pinned_fields: [updated_at, roles]
     facets:
       relacoes: [roles, related_holons, meetings]
-      pratica: [responsibilities, actions]
+      intencao: [responsibilities]
+      pratica: [actions]
     view:
       center: entity
       badges: [freshness]

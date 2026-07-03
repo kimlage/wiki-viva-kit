@@ -22,7 +22,7 @@ export function templateSpec(bundle: SnapshotBundle, pageType: string): Template
 }
 
 export function facetsOrder(bundle: SnapshotBundle): string[] {
-  return bundle.templates?.facets_order ?? ["intencao", "percepcao", "pratica", "relacoes"];
+  return bundle.templates?.facets_order ?? ["intencao", "pratica", "relacoes", "sistemas"];
 }
 
 export type PinnedFieldStatus = { field: string; present: boolean };

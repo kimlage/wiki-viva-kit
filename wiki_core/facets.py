@@ -2,20 +2,24 @@
 contract (:mod:`wiki_core.quadrants`) for the page-centered "Focus" view.
 
 The cockpit shows one page at the center surrounded by FOUR named lenses, in
-plain language, with NO jargon at the surface:
+plain language, with NO jargon at the surface — one lens per quadrant, so the
+four quadrants are each honestly present:
 
-    intencao  — why it exists: identity, intent, priorities, decisions
-    percepcao — how it is lived/perceived: experience, insight, felt states
-    pratica   — what is done and with what: behavior, artifacts, actions,
-                tools, processes, evidence, metrics
-    relacoes  — who and how together: people, roles, meetings, culture
+    intencao  (q1, interior-individual)  — why it exists AND how it is
+                perceived: identity, intent, priorities, decisions, insights,
+                felt states. (Intent and perception are both interior — they
+                share this lens.)
+    pratica   (q2, exterior-individual)  — what the entity does and produces:
+                actions, artifacts, evidence, observable output.
+    relacoes  (q3, interior-collective)  — who and how together: people, roles,
+                meetings, culture, shared meaning.
+    sistemas  (q4, exterior-collective)  — the systems that coordinate it:
+                sources, channels, pipelines, dashboards, processes, governance.
 
-These map onto the four quadrants honestly: the interior-individual quadrant
-(q1) is rich enough to carry two lenses (intention AND experience/perception);
-the interior-collective quadrant (q3) is Relações; and the two EXTERIOR
-quadrants (q2 individual behavior, q4 collective systems) are both "doing" and
-merge into Prática. This module is the single source of that mapping. It is
-pure and deterministic; the quadrant IDs (q1..q4) stay internal.
+This is a FAITHFUL 1:1 mapping onto the four quadrants (unlike the earlier draft
+that split q1 into two lenses and merged the two exterior quadrants — which hid
+q4/systems). It is the single source of the mapping: pure and deterministic; the
+quadrant IDs (q1..q4) stay internal.
 """
 
 from __future__ import annotations
@@ -24,75 +28,74 @@ from wiki_core.quadrants import is_portuguese
 
 FACET_SCHEMA_VERSION = "wiki_facets.v1"
 
-# Canonical facet order (drives the sector order in the Focus view).
-FACETS: tuple[str, ...] = ("intencao", "percepcao", "pratica", "relacoes")
+# Canonical facet order = quadrant order q1..q4 (drives the Focus sector order).
+FACETS: tuple[str, ...] = ("intencao", "pratica", "relacoes", "sistemas")
 
-# Facet -> the quadrant ID(s) it presents. Prática aggregates the two exterior
-# quadrants; Intenção and Percepção are two reads of the interior-individual.
+# Facet -> the quadrant it presents. One lens per quadrant, 1:1.
 FACET_QUADRANTS: dict[str, tuple[str, ...]] = {
     "intencao": ("q1",),
-    "percepcao": ("q1",),
-    "pratica": ("q2", "q4"),
+    "pratica": ("q2",),
     "relacoes": ("q3",),
+    "sistemas": ("q4",),
 }
 
 _FACET_LABELS_EN = {
     "intencao": "Intention",
-    "percepcao": "Perception",
     "pratica": "Practice",
     "relacoes": "Relations",
+    "sistemas": "Systems",
 }
 _FACET_LABELS_PT = {
     "intencao": "Intenção",
-    "percepcao": "Percepção",
     "pratica": "Prática",
     "relacoes": "Relações",
+    "sistemas": "Sistemas",
 }
 _FACET_HINTS_EN = {
-    "intencao": "Why it exists: identity, intent, priorities, decisions.",
-    "percepcao": "How it is lived and perceived: experience, insight, felt states.",
-    "pratica": "What is done and with what: actions, artifacts, tools, processes, evidence.",
+    "intencao": "Why it exists and how it is perceived: identity, intent, priorities, decisions, insights.",
+    "pratica": "What is done and produced: actions, artifacts, evidence.",
     "relacoes": "Who and how together: people, roles, meetings, culture.",
+    "sistemas": "The systems that coordinate it: sources, channels, pipelines, dashboards, governance.",
 }
 _FACET_HINTS_PT = {
-    "intencao": "Por que existe: identidade, intenção, prioridades, decisões.",
-    "percepcao": "Como é vivido e percebido: experiência, insight, estados sentidos.",
-    "pratica": "O que se faz e com quê: ações, artefatos, ferramentas, processos, evidências.",
+    "intencao": "Por que existe e como é percebido: identidade, intenção, prioridades, decisões, percepções.",
+    "pratica": "O que se faz e se produz: ações, artefatos, evidências.",
     "relacoes": "Quem e como juntos: pessoas, papéis, reuniões, cultura.",
+    "sistemas": "Os sistemas que o coordenam: fontes, canais, pipelines, dashboards, governança.",
 }
 
 # Default lens a NEIGHBOR page falls under when read from the center, keyed by
 # the neighbor's page_type. Per-type registry overrides win over this table.
 # Structural/index types map to None (they are navigation, not a lens).
 DEFAULT_PAGE_TYPE_FACET: dict[str, str | None] = {
-    # Intention (interior-individual, the "intent" read)
+    # Intention (q1, interior-individual): intent AND perception both live here.
     "decision": "intencao",
-    "operational_rule": "intencao",
+    "operational_rule": "intencao",  # a rule you set for yourself = declared intent/constraint
     "responsibility": "intencao",
-    "role": "relacoes",  # a role is a relationship/expectation (q3)
     "project": "intencao",
     "initiative": "intencao",
-    # Perception (interior-individual, the "experience" read)
-    "insight": "percepcao",
-    "journal_entry": "percepcao",
-    "claim": "percepcao",
-    "perspective": "percepcao",
-    # Practice (exterior: behavior + systems)
+    "insight": "intencao",
+    "journal_entry": "intencao",
+    "claim": "intencao",
+    "perspective": "intencao",
+    # Practice (q2, exterior-individual): the entity's own output/artifacts.
     "action": "pratica",
-    "process": "pratica",
     "artifact": "pratica",
     "evidence": "pratica",
-    "source": "pratica",
-    "source_config": "pratica",
-    "ingestion_event": "pratica",
-    "input_channel": "pratica",
-    "input_stage": "pratica",
-    "dashboard": "pratica",
-    # Relations (interior-collective: culture/roles/people)
+    # Relations (q3, interior-collective): culture/roles/people.
     "person": "relacoes",
+    "role": "relacoes",  # a role is a relationship/expectation
     "meeting": "relacoes",
     "holon": "relacoes",
     "relationship_map": "relacoes",
+    # Systems (q4, exterior-collective): the process/channel/tooling infrastructure.
+    "process": "sistemas",
+    "source": "sistemas",
+    "source_config": "sistemas",
+    "ingestion_event": "sistemas",
+    "input_channel": "sistemas",
+    "input_stage": "sistemas",
+    "dashboard": "sistemas",
     # Structural — not a lens
     "root_entity": None,
     "root_index": None,
@@ -108,11 +111,11 @@ DEFAULT_PAGE_TYPE_FACET: dict[str, str | None] = {
 DEFAULT_EDGE_FACET: dict[str, str | None] = {
     "moc_parent": None,
     "markdown_link": None,
-    "source_ref": "pratica",
-    "pr_impact": "pratica",
-    "ingestion_chain": "pratica",
+    "source_ref": "sistemas",  # points at a source (q4 system)
+    "pr_impact": "sistemas",  # governance/pipeline (q4)
+    "ingestion_chain": "sistemas",  # a pipeline (q4)
     "decision": "intencao",
-    "claim": "percepcao",
+    "claim": "intencao",  # a claim is interior perception (q1)
     "action": "pratica",
 }
 

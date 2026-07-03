@@ -199,7 +199,7 @@ const bundle: SnapshotBundle = {
     vitality: {}
   },
   sourceEntities: { schema_version: "wiki_web_source_entities.v1", sources: [] },
-  templates: { schema_version: "wiki_templates.v1", facets_order: ["intencao", "percepcao", "pratica", "relacoes"], types: {} }
+  templates: { schema_version: "wiki_templates.v1", facets_order: ["intencao", "pratica", "relacoes", "sistemas"], types: {} }
 };
 
 vi.mock("./components/SystemScene", () => ({

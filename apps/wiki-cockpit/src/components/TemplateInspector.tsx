@@ -11,9 +11,9 @@ import type { BriefSpec, PageRecord, TemplateSpec } from "../types";
 
 const FACET_LABEL_KEY: Record<string, string> = {
   intencao: "facet.intencao",
-  percepcao: "facet.percepcao",
   pratica: "facet.pratica",
-  relacoes: "facet.relacoes"
+  relacoes: "facet.relacoes",
+  sistemas: "facet.sistemas"
 };
 
 export function TemplateInspector({

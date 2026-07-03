@@ -243,6 +243,10 @@ const EN: Dict = {
   "help.whatIs": "What is this?",
   "help.close": "Close help",
 
+  // Top-bar approval pill — shown ONLY when a real approval request is open.
+  "git.pendingApproval": "Approval pending",
+  "git.pendingApprovalTitle": "A change is open for approval — review it in Approve",
+
   // Demo
   "demo.banner": "Interface demo with synthetic sample data. Run the cockpit against a real checkout to operate your own wiki here.",
   "demo.actionsOff": "Demo: local actions are disabled in this synthetic universe.",
@@ -346,9 +350,9 @@ const EN: Dict = {
 
   // Facets (the four lenses) + template inspector (Pillars B & C)
   "facet.intencao": "Intention",
-  "facet.percepcao": "Perception",
   "facet.pratica": "Practice",
   "facet.relacoes": "Relations",
+  "facet.sistemas": "Systems",
   "template.inspector.title": "Template",
   "template.inspector.open": "Show this page's template",
   "template.conform": "in mold",
@@ -723,6 +727,9 @@ const PT: Dict = {
   "help.whatIs": "O que é isto?",
   "help.close": "Fechar ajuda",
 
+  "git.pendingApproval": "Aprovação pendente",
+  "git.pendingApprovalTitle": "Há uma mudança aberta para aprovação — revise em Aprovar",
+
   "demo.banner": "Demo da interface com dados sintéticos. Rode o cockpit contra um checkout real para operar a sua wiki aqui.",
   "demo.actionsOff": "Demo: ações locais ficam desabilitadas neste universo sintético.",
   "demo.gitOff": "Demo: fluxos git ficam desabilitados neste universo sintético.",
@@ -820,9 +827,9 @@ const PT: Dict = {
   "intake.newTyped.create": "Rascunhar com Codex",
 
   "facet.intencao": "Intenção",
-  "facet.percepcao": "Percepção",
   "facet.pratica": "Prática",
   "facet.relacoes": "Relações",
+  "facet.sistemas": "Sistemas",
   "template.inspector.title": "Template",
   "template.inspector.open": "Mostrar o template desta página",
   "template.conform": "no molde",

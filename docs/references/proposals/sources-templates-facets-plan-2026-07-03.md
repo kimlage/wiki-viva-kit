@@ -294,14 +294,19 @@ not in reader / URL `?focus=1`) MORPHs the world: the page moves to the
 center; its neighborhood rearranges into **four explicit facet sectors**,
 labeled in natural language (no jargon):
 
-- **Intenção** — why it exists: decisions, missions, declared priorities
-  (interior-individual lens).
-- **Percepção** — how it is lived/perceived: insights, journals, felt
-  states, perceptions (interior lens, experiential).
-- **Prática** — what is done and with what: actions, processes, tools,
-  artifacts, evidence, metrics (exterior-individual lens).
-- **Relações** — who and how together: people, roles, meetings, agreements,
-  culture (collective lens).
+One lens per AQAL quadrant (faithful 1:1 — decided 2026-07-03 with the owner,
+correcting an earlier draft that split q1 into two lenses and merged the two
+exterior quadrants, hiding q4/systems):
+
+- **Intenção** (q1, interior-individual) — why it exists AND how it is
+  perceived: decisions, priorities, responsibilities, insights, journals,
+  claims. (Intent and perception are both interior — they share this lens.)
+- **Prática** (q2, exterior-individual) — what the entity does and produces:
+  actions, artifacts, evidence.
+- **Relações** (q3, interior-collective) — who and how together: people, roles,
+  meetings, culture.
+- **Sistemas** (q4, exterior-collective) — the systems that coordinate it:
+  sources, channels, pipelines, dashboards, processes, governance.
 
 plus a **Profundidade** axis: radial rings encode holon depth (MOC
 distance root→page); deeper = further out. (Development *stages* as an

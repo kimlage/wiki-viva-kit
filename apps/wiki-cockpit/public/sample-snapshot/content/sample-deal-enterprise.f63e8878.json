@@ -65,6 +65,16 @@
    "freshness_state": "fresh",
    "approved_state": "approved",
    "relation": "markdown_link"
+  },
+  {
+   "page_id": "sample-source-market-report",
+   "title": "Market Cost Report 2026",
+   "path": "memories/sources/market-cost-report.md",
+   "page_type": "source",
+   "context": "product",
+   "freshness_state": "fresh",
+   "approved_state": "approved",
+   "relation": "source_ref"
   }
  ],
  "backlinks": []

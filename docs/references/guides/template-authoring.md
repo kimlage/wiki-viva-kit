@@ -34,7 +34,7 @@ instead of rendering nothing.
 | `view.badges[]` | `freshness` · `evidence` · `approval` · `privacy` · `sync` |
 | `controls[].kind` | `brief` · `nav` · `filter` · `run` · `focus` |
 | `scene.shape` | `sphere` · `crystal` · `hub` · `slab` · `spark` · `comet` · `diamond` |
-| `facets` keys | `intencao` · `percepcao` · `pratica` · `relacoes` |
+| `facets` keys | `intencao` · `pratica` · `relacoes` · `sistemas` |
 
 `scene.emphasis` is a free label the scene reads as a hint (e.g. `intention`,
 `none`); unknown emphasis degrades to `none`.
@@ -53,9 +53,10 @@ types:
     body_template: docs/references/templates/deal.md
     pinned_fields: [updated_at, stage, amount, owner]
     facets:
-      intencao: [decisions]               # why the deal exists
-      pratica:  [actions, evidence_refs]  # what is being done
-      relacoes: [people, roles]           # who is involved
+      intencao: [decisions]               # why the deal exists (q1)
+      pratica:  [actions, evidence_refs]  # what is being done (q2)
+      relacoes: [people, roles]           # who is involved (q3)
+      sistemas: [source_refs]             # the systems behind it (q4)
     view:
       center: dashboard
       badges: [freshness, approval]
@@ -87,13 +88,17 @@ still needs to fill.
 ### `facets` — the Focus view
 
 Each lens maps to the frontmatter fields that fill it. When a page is centered in
-**Focus** (key `F`), its neighbors are bucketed into these four lenses:
+**Focus** (key `F`), its neighbors are bucketed into these four lenses — one
+per AQAL quadrant (q1..q4), so all four quadrants are honestly present:
 
-- **intencao** — why it exists: decisions, priorities, responsibilities.
-- **percepcao** — how it is lived/perceived: insights, journals, claims.
-- **pratica** — what is done and with what: actions, processes, artifacts,
-  evidence, sources.
-- **relacoes** — who and how together: people, roles, meetings.
+- **intencao** (q1, interior-individual) — why it exists AND how it is
+  perceived: decisions, priorities, responsibilities, insights, claims.
+- **pratica** (q2, exterior-individual) — what is done and produced: actions,
+  artifacts, evidence.
+- **relacoes** (q3, interior-collective) — who and how together: people, roles,
+  meetings, culture.
+- **sistemas** (q4, exterior-collective) — the systems that coordinate it:
+  sources, channels, pipelines, dashboards, processes, governance.
 
 A lens with no neighbor renders as an **honest empty wedge** ("no *X* lens
 registered") with an offer to fill it — never a fabricated link. The bucketing of

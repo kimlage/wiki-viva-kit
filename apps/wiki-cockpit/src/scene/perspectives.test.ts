@@ -164,12 +164,12 @@ describe("perspective engine", () => {
     const center = layout.nodes.find((item) => item.isRoot);
     expect(center?.id).toBe("financeiro-p5");
     expect(center?.position).toEqual([0, 0, 0]);
-    // Exactly the four lenses, in canonical order, always present (even empty).
-    expect(layout.groups.map((group) => group.key)).toEqual(["intencao", "percepcao", "pratica", "relacoes"]);
+    // Exactly the four lenses, in quadrant order q1..q4, always present (even empty).
+    expect(layout.groups.map((group) => group.key)).toEqual(["intencao", "pratica", "relacoes", "sistemas"]);
     expect(layout.groups.every((group) => group.kind === "facet")).toBe(true);
-    // financeiro-p4 is source_ref evidence of p5 → the Practice lens counts it.
-    const pratica = layout.groups.find((group) => group.key === "pratica");
-    expect(pratica!.count).toBeGreaterThan(0);
+    // financeiro-p4 is source_ref evidence of p5 → the Systems (q4) lens counts it.
+    const sistemas = layout.groups.find((group) => group.key === "sistemas");
+    expect(sistemas!.count).toBeGreaterThan(0);
     // Lenses with no neighbor stay present with a true zero — honest absence.
     expect(layout.groups.some((group) => group.count === 0)).toBe(true);
     // The honest-counting invariant holds for focus too.
