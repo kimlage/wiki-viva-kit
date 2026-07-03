@@ -647,6 +647,20 @@ export function WorldView({
           </div>
         )}
 
+        {/* Quadrant SCOPE chip (radar/districts only): the AQAL map's selection
+            carries into the spatial views and mutes everything outside it; this
+            chip makes that state visible and one click to clear. */}
+        {!quadrantCounts && route.query.quadrant && (route.perspective === "radar" || route.perspective === "districts") && (
+          <button
+            className="quadrantScopeChip"
+            onClick={() => navigateWorld({ quadrant: null })}
+            title={t("world.quadrantScopeClear")}
+            type="button"
+          >
+            {t("world.quadrantScope", { facet: t(`facet.${route.query.quadrant}`) })} <span aria-hidden>✕</span>
+          </button>
+        )}
+
         {/* LEFT mission surface. Collapsed by choice it is a single honest
             chip (worst tone + pending count) — the world stays visible;
             expanded it is the do-now card. Search results always render:

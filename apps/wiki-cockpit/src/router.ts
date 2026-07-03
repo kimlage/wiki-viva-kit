@@ -13,6 +13,10 @@ import { useSyncExternalStore } from "react";
 export const PERSPECTIVES = ["radar", "atlas", "districts", "trails", "focus", "quadrants"] as const;
 export type PerspectiveId = (typeof PERSPECTIVES)[number];
 export const DEFAULT_PERSPECTIVE: PerspectiveId = "quadrants";
+// Perspectives that a selected AQAL quadrant can scope: the map itself plus the
+// two spatial views (radar/districts emphasize the quadrant's pages). atlas,
+// trails and focus ignore it.
+const QUADRANT_AWARE = new Set<PerspectiveId>(["quadrants", "radar", "districts"]);
 
 export type WorldQuery = {
   q: string;
@@ -231,8 +235,10 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
   if (patch.tray && next.query.tray) next.query.dock = "";
   // The gate station only means something inside the approve dock.
   if (next.query.dock !== "approve") next.query.station = 0;
-  // The active quadrant only means something in the quadrants perspective.
-  if (next.perspective !== "quadrants") next.query.quadrant = "";
+  // The active quadrant scopes the quadrant-aware perspectives (the AQAL map and
+  // the two spatial views that can honor it); it is meaningless in atlas / trails
+  // / focus, so it clears there.
+  if (!QUADRANT_AWARE.has(next.perspective)) next.query.quadrant = "";
   return next;
 }
 

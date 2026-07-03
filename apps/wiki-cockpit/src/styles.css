@@ -3269,6 +3269,32 @@ pre {
   padding-right: 4px;
 }
 
+/* Quadrant SCOPE chip — shows in radar/districts when the AQAL selection is
+   carried in, one click to clear. Top-right, same rail as the compass. */
+.quadrantScopeChip {
+  position: absolute;
+  top: 44px;
+  right: 12px;
+  z-index: 28;
+  padding: 5px 11px;
+  border: 1px solid #7fd0e8;
+  border-radius: 999px;
+  background: rgba(127, 208, 232, 0.14);
+  color: #dff2fb;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.quadrantScopeChip:hover {
+  background: rgba(127, 208, 232, 0.24);
+}
+
+.quadrantScopeChip span {
+  margin-left: 6px;
+  color: #93a4b1;
+}
+
 /* "Seed here" — the compass's in-world entry to the Create dock, carrying the
    active quadrant. */
 .quadrantSeed {

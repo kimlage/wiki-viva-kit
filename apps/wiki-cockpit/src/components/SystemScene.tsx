@@ -15,6 +15,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { GraphEdge, GraphNode, GitState } from "../types";
 import { t } from "../data/i18n";
 import { agedColor, contextStyle, edgeStyle, isRawData, pageTypeLabel, pageTypeStyle, trustColor, worldGroupLabel } from "../data/presentation";
+import { homeQuadrant } from "../scene/facets";
 import { glowTexture, ringTexture } from "../scene/glow";
 import { scenePerformanceProfile } from "../scene/layout";
 import type { LayoutNode, ScenePerformanceProfile } from "../scene/layout";
@@ -1561,6 +1562,7 @@ function SceneContent({
   motion,
   activityLevel,
   weather,
+  activeQuadrant,
   onSelect,
   onHover,
   onGroupSelect,
@@ -1586,6 +1588,7 @@ function SceneContent({
   motion: boolean;
   activityLevel: number;
   weather?: string;
+  activeQuadrant?: string;
   onSelect: (node: LayoutNode) => void;
   onHover: (node: LayoutNode | null, event?: ThreeEvent<PointerEvent>) => void;
   onGroupSelect: (group: WorldGroup) => void;
@@ -1658,15 +1661,25 @@ function SceneContent({
 
   const dimTest = useCallback(
     (node: LayoutNode) => {
-      if (filter === "raw") return !isRawData(node.page_type) && !node.isRoot;
-      if (filter === "unsourced") return !isEvidenceGap(node.page_type, node.source_ref_count) && !node.isRoot;
-      if (filter) return nodeTrustKey(node) !== filter && !node.isRoot;
+      // A4 — a selected AQAL quadrant scopes the SPATIAL views (radar/districts)
+      // by dimming everything outside it (the quadrants map already separates
+      // them spatially, so it is exempt). Honest: nothing is hidden, just muted.
+      // The root/hubs stay lit as anchors.
+      const outsideQuadrant =
+        Boolean(activeQuadrant) &&
+        layout.perspective !== "quadrants" &&
+        !node.isRoot &&
+        !node.isHub &&
+        homeQuadrant(node.page_type) !== activeQuadrant;
+      if (filter === "raw") return outsideQuadrant || (!isRawData(node.page_type) && !node.isRoot);
+      if (filter === "unsourced") return outsideQuadrant || (!isEvidenceGap(node.page_type, node.source_ref_count) && !node.isRoot);
+      if (filter) return outsideQuadrant || (nodeTrustKey(node) !== filter && !node.isRoot);
       if (highlightedIds.size > 0) {
-        return !highlightedIds.has(node.id) && !highlightedIds.has(node.path) && !node.isRoot && !node.isHub;
+        return outsideQuadrant || (!highlightedIds.has(node.id) && !highlightedIds.has(node.path) && !node.isRoot && !node.isHub);
       }
-      return false;
+      return outsideQuadrant;
     },
-    [filter, highlightedIds]
+    [filter, highlightedIds, activeQuadrant, layout.perspective]
   );
 
   const registerMaterial = useCallback((trust: TrustKey | "root", dimmed: boolean, material: THREE.MeshStandardMaterial | null) => {
@@ -2601,6 +2614,7 @@ export function SystemScene({
                 motion={motion}
                 activityLevel={activityLevel}
                 weather={weather}
+                activeQuadrant={route.quadrant || ""}
                 onSelect={selectNode}
                 onHover={handleHover}
                 onGroupSelect={handleGroupSelect}
