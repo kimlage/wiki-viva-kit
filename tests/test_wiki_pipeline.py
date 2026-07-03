@@ -136,3 +136,38 @@ def test_pipeline_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert result.chunks_path is None
     assert result.score_event_id is None
     assert not (tmp_path / "data/derived/wiki/chunks").exists()
+
+
+def test_stream_cursor_written_only_after_durable_writes(tmp_path: Path) -> None:
+    """F8: with a --stream id, the cursor lands ONLY after every durable write,
+    and a dry-run writes NO cursor (nothing durable happened)."""
+    from wiki_core.paths import WikiPaths
+    from wiki_core.source_state import read_state, stream_cursor
+
+    config = WikiConfig(repo_id="acme-wiki", owner_label="Alex Doe")
+    src = tmp_path / "source.md"
+    _write(src, "# Source\n\n" + LOREM + "\n")
+    paths = WikiPaths(tmp_path, config)
+
+    # Dry run: nothing durable => no cursor.
+    dry = run(str(src), "system", tmp_path, config, write=False, stream_id="#financeiro", ts="2026-07-03T00:00:00Z")
+    assert dry.stream_cursor_written is False
+    assert read_state(paths.source_state, dry.source_id)["streams"] == {}
+
+    # Real run: cursor written after the event, keyed by the stream id.
+    result = run(str(src), "system", tmp_path, config, stream_id="#financeiro", ts="2026-07-03T00:00:00Z")
+    assert result.stream_cursor_written is True
+    cursor = stream_cursor(read_state(paths.source_state, result.source_id), "#financeiro")
+    assert cursor["updated_at"] == "2026-07-03"
+    assert cursor["last_unit"]  # a real chunk id
+
+
+def test_no_stream_id_leaves_cursor_state_untouched(tmp_path: Path) -> None:
+    from wiki_core.paths import WikiPaths
+
+    config = WikiConfig(repo_id="acme-wiki", owner_label="Alex Doe")
+    src = tmp_path / "source.md"
+    _write(src, "# Source\n\n" + LOREM + "\n")
+    result = run(str(src), "system", tmp_path, config)
+    assert result.stream_cursor_written is False
+    assert not (WikiPaths(tmp_path, config).source_state).exists()

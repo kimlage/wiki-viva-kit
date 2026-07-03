@@ -35,6 +35,7 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="compute without writing artifacts")
     parser.add_argument("--no-score", action="store_true", help="do not record a score-event")
     parser.add_argument("--actor")
+    parser.add_argument("--stream", help="source recipe stream id (advances its cursor post-commit)")
     args = parser.parse_args()
 
     config = load_config(ROOT)
@@ -46,6 +47,7 @@ def main() -> int:
         write=not args.dry_run,
         record_score=not args.no_score,
         actor=args.actor,
+        stream_id=args.stream,
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
     if result.secret_findings:

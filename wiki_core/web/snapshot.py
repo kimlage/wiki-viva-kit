@@ -292,6 +292,34 @@ def _sources_payload(pages_payload: dict[str, Any]) -> dict[str, Any]:
     return {"schema_version": "wiki_web_sources.v1", "sources": sources}
 
 
+def _safe_source_entities(root: Path, config: WikiConfig) -> dict[str, Any]:
+    """Rich per-source read model (identity + recipe streams + sync + cursor
+    freshness). Wrapped like _safe_ingestion so a malformed recipe never breaks
+    the whole snapshot — the dock shows the error instead."""
+    try:
+        from wiki_core.web.sources import build_sources_payload
+
+        return build_sources_payload(root, config)
+    except Exception as exc:  # noqa: BLE001
+        return {"schema_version": "wiki_web_source_entities.v1", "sources": [], "error": str(exc)}
+
+
+def _safe_templates(root: Path, config: WikiConfig, pages_payload: dict[str, Any]) -> dict[str, Any]:
+    """The declarative template registry, resolved per page type present in the
+    wiki, so the cockpit can drive view/interaction from data."""
+    try:
+        from wiki_core.templates_registry import load_template_registry
+
+        registry = load_template_registry(root, config)
+        types = sorted(
+            {str(p.get("page_type") or "") for p in pages_payload["pages"] if p.get("page_type")}
+            | set(registry.raw_types)
+        )
+        return registry.to_json([t for t in types if t])
+    except Exception as exc:  # noqa: BLE001
+        return {"schema_version": "wiki_templates.v1", "types": {}, "facets_order": [], "error": str(exc)}
+
+
 def _decisions_payload(pages_payload: dict[str, Any]) -> dict[str, Any]:
     decisions = [page for page in pages_payload["pages"] if page.get("page_type") == "decision"]
     return {"schema_version": "wiki_web_decisions.v1", "decisions": decisions}
@@ -481,6 +509,8 @@ def build_snapshot(
         "graph.json": _graph_payload(root, config, pages),
         "pages.json": pages,
         "sources.json": _sources_payload(pages),
+        "source_entities.json": _safe_source_entities(root, config),
+        "templates.json": _safe_templates(root, config, pages),
         "actions.json": actions,
         "decisions.json": _decisions_payload(pages),
         "freshness.json": _freshness_payload(pages, config),

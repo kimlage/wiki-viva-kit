@@ -135,6 +135,11 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 return
             self._send_json({"ok": True, **record})
             return
+        if path == "/api/sources":
+            # Friendlier alias for the rich source read model (also served raw
+            # at /api/snapshot/source_entities.json).
+            self._send_json(self.server.snapshot_payloads().get("source_entities.json") or {"sources": []})
+            return
         if path == "/api/snapshot":
             self._send_json(self.server.snapshot_payloads())
             return
@@ -201,6 +206,16 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
                 str(payload.get("context") or ""),
             )
             self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+        if parsed.path.startswith("/api/sources/") and parsed.path.endswith("/brief"):
+            # Anchored BEFORE the allowlist so it does not fall through to the
+            # /api/sources/triage handler. Composes an ingestion brief spec from
+            # the source's recipe + stale streams (no side effects).
+            from wiki_core.web.sources import compose_source_brief_spec
+
+            source_id = parsed.path[len("/api/sources/") : -len("/brief")].strip("/")
+            result = compose_source_brief_spec(self.server.root, self.server.config, source_id)
+            self._send_json(result, status=HTTPStatus.OK if result.get("ok") else HTTPStatus.NOT_FOUND)
             return
         if parsed.path not in {
             "/api/actions/run",

@@ -12,13 +12,14 @@ WEB_DIFF_SCHEMA_VERSION = "wiki_web_diff.v1"
 # cockpit can detect a stale operator (old process, newer code on disk) and show
 # an honest "operador desatualizado — reinicie" state instead of a raw 404. Add
 # a capability string here the moment its endpoint ships.
-WEB_SERVER_VERSION = "wiki_web_server.v2"
+WEB_SERVER_VERSION = "wiki_web_server.v3"
 SCHEMA_CAPABILITIES = (
     "codex",  # /api/codex/capability + /api/codex/jobs
     "briefs",  # /api/briefs
     "gates",  # /api/gates/run (persisted receipts)
     "diff",  # /api/diff/file (per-file full diff)
     "intake",  # /api/intake/copy (add an external file into data/raw)
+    "sources",  # /api/sources (entities) + /api/sources/{id}/brief
 )
 
 SNAPSHOT_FILES = (
@@ -27,6 +28,8 @@ SNAPSHOT_FILES = (
     "graph.json",
     "pages.json",
     "sources.json",
+    "source_entities.json",
+    "templates.json",
     "actions.json",
     "decisions.json",
     "freshness.json",
