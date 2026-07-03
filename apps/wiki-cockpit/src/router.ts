@@ -19,8 +19,8 @@ export type WorldQuery = {
   // Test-harness flag: forces the 2D fallback; must survive every redirect.
   visual: boolean;
   // One-world task surfaces (the three 2D pages, dissolved into the world).
-  dock: DockId; // "" | approve | intake | gates | codex | work
-  src: string; // intake source path/url (meaningful with dock=intake)
+  dock: DockId; // "" | approve | intake | gates | codex | work | source | create
+  src: string; // intake source path/url (meaningful with dock=intake); page_type seed (dock=create)
   diff: boolean; // PageReader opens on the Diff tab (needs a locked page)
   station: number; // gate station 1..6 (0 = none)
   ack: string[]; // acknowledged blocker ids (scope/risk)
@@ -28,7 +28,7 @@ export type WorldQuery = {
   quadrant: string; // active AQAL quadrant (meaningful under perspective=quadrants)
 };
 
-export const DOCKS = ["approve", "intake", "gates", "codex", "work", "source"] as const;
+export const DOCKS = ["approve", "intake", "gates", "codex", "work", "source", "create"] as const;
 export type DockId = "" | (typeof DOCKS)[number];
 export const TRAYS = ["packet", "missions", "work"] as const;
 export type TrayId = "" | (typeof TRAYS)[number];

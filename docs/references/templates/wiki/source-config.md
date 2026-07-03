@@ -50,10 +50,52 @@ quadrants: []
 
 Governs the source: link to the source page.
 
+## Recipe (machine-readable)
+
+The cockpit's source read model parses THIS fenced block (`wiki_core/source_recipe.py`
+→ `wiki_core/web/sources.py`). It is the executable ingestion manual, as data: the
+platform + locator, the typed pipelines and their cadences, the selected streams with
+their filters/targets, an **auth pointer** (never a secret), and the sync schedule.
+"Sincronizar com Codex" composes an ingest brief from it. Fill the empty fields; the
+read model reports what is still invalid until you do.
+
+```yaml
+recipe:
+  schema_version: wiki_source_recipe.v1
+  platform: ""            # slack | gmail | whatsapp | web | repo | manual …
+  locator: ""             # the stable address on that platform (must match the source page)
+  pipelines:
+    - { kind: metadata, cadence_days: 30 }
+    - { kind: content, cadence_days: 7 }
+  streams:
+    - id: ""              # the concrete channel/label/tab id inside the source
+      label: ""
+      selected: true
+      privacy: private_sensitive_allowed
+      cadence_days: 0     # 0 = inherit the content pipeline's cadence; >0 overrides it
+      filters: {}         # e.g. { after: 2026-01-01, label: finance }
+      target_pages: []    # the memory pages this stream keeps fresh
+  auth:
+    method: none          # none | env | mcp | keychain | oauth_ref
+    ref: ""               # env VAR name / mcp server id / keychain item — a POINTER, never a secret
+    scopes: []
+    note: ""
+  schedule:
+    mode: on_demand       # on_demand | recurring
+    cadence_days: 0       # >0 when mode is recurring (days between scheduled syncs)
+  how_to_export: |
+    Describe exactly how a human exports the already-authorized RAW for this source
+    (the sandbox has NO network). Point at the export location the agent should read.
+  ingest:
+    argv: ["python3", "scripts/wiki_ingest.py", "--source", "{path}"]
+```
+
 ## Ingestion rules
 
 - How to fetch/extract (format, frequency, scope); what to NEVER copy (access
   secrets, a full dump without judgment).
+- The machine truth lives in the `recipe:` block above; this section is the human
+  narrative that explains it.
 
 ## Perspectives
 

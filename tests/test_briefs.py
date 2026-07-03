@@ -181,6 +181,69 @@ def test_compose_target_paths_collected(tmp_path: Path) -> None:
     assert "memories/finance/note.md" in result["target_paths"]
 
 
+def test_compose_create_mission_renders_scaffold_and_mold(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    snapshot = _snapshot(tmp_path, config)
+    result = compose_brief(
+        tmp_path,
+        config,
+        snapshot,
+        spec={
+            "mission_kind": "create",
+            "theme": "new decision",
+            "grounding": {
+                "create": {
+                    "page_type": "decision",
+                    "title": "Authorize the Q3 budget",
+                    "context": "finance",
+                    "home_facet": "intencao",
+                    "pinned": [
+                        {"key": "owner", "label": "Owner", "value": "kim", "required": True},
+                        {"key": "source_refs", "label": "Source refs"},
+                    ],
+                }
+            },
+            "intent": "record the budget decision",
+        },
+    )
+    text = result["text"]
+    # §3 becomes the create section (not Targets).
+    assert "## 3 · Create — seed one typed page" in text
+    assert "## 3 · Targets" not in text
+    # The exact scaffold command, with the quoted title argument.
+    assert "python3 scripts/wiki_new.py --type decision" in text
+    assert "'Authorize the Q3 budget'" in text
+    assert "--context finance" in text
+    # The mold lists the pinned fields; a proposed value + required marker show.
+    assert "`owner` (Owner) **(required)** — proposed: `kim`" in text
+    assert "`source_refs` (Source refs)" in text
+    # A create mission attaches no existing target page.
+    assert result["target_paths"] == []
+
+
+def test_normalize_create_grounding_sanitizes_page_type_and_drops_blank_fields() -> None:
+    norm = normalize_spec(
+        {
+            "mission_kind": "create",
+            "grounding": {
+                "create": {
+                    "page_type": "Journal Entry!",
+                    "title": "  A day  ",
+                    "pinned": [{"key": "", "label": "blank"}, {"key": "mood", "value": "calm"}, "junk"],
+                }
+            },
+        }
+    )
+    create = norm["grounding"]["create"]
+    assert create["page_type"] == "journal_entry"
+    assert create["title"] == "A day"
+    # The keyless and non-dict pinned entries are dropped; the valid one survives.
+    assert [f["key"] for f in create["pinned"]] == ["mood"]
+    # A create with no page_type collapses to None (not a create mission).
+    empty = normalize_spec({"mission_kind": "create", "grounding": {"create": {"title": "x"}}})
+    assert empty["grounding"]["create"] is None
+
+
 def test_store_roundtrip_and_edit(tmp_path: Path) -> None:
     config = _repo(tmp_path)
     snapshot = _snapshot(tmp_path, config)

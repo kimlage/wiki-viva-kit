@@ -15,6 +15,7 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  Sprout,
   TerminalSquare
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -22,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import { WorldView } from "./components/WorldView";
 import { BriefStudio } from "./components/BriefStudio";
 import { CodexDock } from "./components/CodexDock";
+import { CreateDock } from "./components/CreateDock";
 import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
@@ -112,7 +114,7 @@ function Nav({
 }: {
   active: string;
   demo: boolean;
-  dockHref: (dock: "approve" | "intake" | "gates" | "source") => string;
+  dockHref: (dock: "approve" | "intake" | "gates" | "source" | "create") => string;
 }) {
   // /demo prefixes ALL generated URLs — the demo universe never cross-links
   // into the real snapshot. Anchors are intercepted by the SPA router. The
@@ -123,6 +125,7 @@ function Nav({
     { href: `${prefix}/w/radar`, id: "world", label: t("nav.home"), icon: <Activity size={17} /> },
     { href: dockHref("approve"), id: "review", label: t("nav.approve"), icon: <GitPullRequest size={17} /> },
     { href: dockHref("intake"), id: "sources", label: t("nav.add"), icon: <Inbox size={17} /> },
+    { href: dockHref("create"), id: "create", label: t("nav.create"), icon: <Sprout size={17} /> },
     { href: dockHref("source"), id: "fontes", label: t("nav.sources"), icon: <Database size={17} /> },
     { href: dockHref("gates"), id: "health", label: t("nav.health"), icon: <ShieldCheck size={17} /> },
     { href: `${prefix}/w/atlas`, id: "content", label: t("nav.content"), icon: <FileText size={17} /> },
@@ -1779,7 +1782,7 @@ export function App() {
 
   // When a world dock is open, the left rail highlights the item that opened it
   // (approve→review, gates→health, intake→sources) instead of always "world".
-  const dockNavId: Record<string, string> = { approve: "review", gates: "health", intake: "sources", source: "fontes" };
+  const dockNavId: Record<string, string> = { approve: "review", gates: "health", intake: "sources", source: "fontes", create: "create" };
   const active =
     route.kind === "world" || route.kind === "pageAlias"
       ? route.kind === "world" && route.query.dock && dockNavId[route.query.dock]
@@ -1792,7 +1795,7 @@ export function App() {
   // Nav points straight at the dock on the CURRENT world (no redirect hop),
   // preserving the operator's perspective/context.
   const navWorld = worldFromRoute(route);
-  const dockHref = (dock: "approve" | "intake" | "gates" | "source") => buildUrl(patchWorld(navWorld, { dock }));
+  const dockHref = (dock: "approve" | "intake" | "gates" | "source" | "create") => buildUrl(patchWorld(navWorld, { dock }));
 
   const runAction = async (action: ActionCard) => {
     if (busyAction) return;
@@ -2006,6 +2009,7 @@ export function App() {
   const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
   const workDockOpen = route.kind === "world" && route.query.dock === "work";
   const sourceDockOpen = route.kind === "world" && route.query.dock === "source";
+  const createDockOpen = route.kind === "world" && route.query.dock === "create";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -2093,6 +2097,7 @@ export function App() {
             bundle={loadState.bundle}
             initialSrc={worldRoute.query.src}
             onComposeBrief={runBrief}
+            onOpenCreate={() => navigate(buildUrl(patchWorld(worldRoute, { dock: "create", src: null })))}
             onNotice={notify}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
@@ -2116,6 +2121,15 @@ export function App() {
             onNotice={notify}
             onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
             onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+          />
+        )}
+        {createDockOpen && worldRoute && loadState.status === "ready" && (
+          <CreateDock
+            bundle={loadState.bundle}
+            initialType={worldRoute.query.src}
+            initialQuadrant={worldRoute.query.quadrant}
+            onComposeBrief={runBrief}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}

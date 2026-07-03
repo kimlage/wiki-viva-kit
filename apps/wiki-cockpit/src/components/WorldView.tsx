@@ -623,6 +623,14 @@ export function WorldView({
             {quadrantCounts.core > 0 && (
               <span className="quadrantCore">{t("quadrant.core")} · {quadrantCounts.core}</span>
             )}
+            <button
+              className="quadrantSeed"
+              onClick={() => navigateWorld({ dock: "create", quadrant: route.query.quadrant || null })}
+              title={t("create.title")}
+              type="button"
+            >
+              ＋ {t("create.seedHere")}
+            </button>
           </div>
         )}
 

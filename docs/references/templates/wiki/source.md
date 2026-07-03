@@ -19,8 +19,20 @@ sources_policy: metadados_sem_dump
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 owner: {{owner_id}}
-# Ingestion state and last ingestion -- read by the source registry
-# (wiki_source_registry.py). source_type feeds the registry's Type column.
+# --- Source identity read by the cockpit's source read model (wiki_core/web/sources.py) ---
+platform: ""            # slack | gmail | whatsapp | web | repo | manual … (feeds the recipe too)
+source_locator: ""      # the stable address on that platform (workspace/channel, label, url, repo)
+config_ref: ""          # the source_config page that carries this source's `recipe:` block
+# Machine SYNC telemetry -- the read model reads last_status/last_run_at here; per-stream
+# freshness comes from the cursor state, NOT this block. Leave "never" until a real sync
+# writes a receipt (the recipe's streams + schedule live in config_ref, never here).
+sync:
+  last_run_at: ""       # ISO datetime of the last sync attempt (empty until the first run)
+  last_status: never    # never | ok | partial | failed | running | queued
+  last_event_ref: ""    # link to the ingestion_event that recorded the last run
+stewards: []            # [{id: person-..., role: owner|curator}] -- who owns/curates this source
+# Legacy ingestion hints, still read by wiki_source_registry.py / the audit gate.
+# source_type feeds the registry's Type column; the recipe's schedule supersedes refresh_policy.
 source_type: reference
 ingestion_state: unread   # unread | partial | ingested | stale
 last_ingested_at: ""
@@ -28,7 +40,6 @@ refresh_policy: event_driven   # recurring | event_driven | on_demand | archival
 refresh_cadence_days: 45       # used with last_ingested_at/updated_at to suggest next refresh
 # next_refresh_at: YYYY-MM-DD  # optional explicit override when a known event drives the next read
 # refresh_trigger: "what should cause the next read"
-# config_ref: <ingestion-rules page for this source>   # optional, single purpose
 related_holons: []
 roles: []
 responsibilities: []
@@ -86,10 +97,11 @@ ingestion becomes a row linking the normalized event. The source registry
 ([system/source-registry.md](../../../../memories/system/source-registry.md))
 indexes these pages with state and date.
 
-`refresh_policy` says whether the source should be revisited on a fixed cadence,
-because of an event, or only on demand. The source registry calculates the next
-refresh from `last_ingested_at` (or `updated_at`) + `refresh_cadence_days`,
-unless `next_refresh_at` is declared explicitly.
+Freshness now comes from the **recipe** in `config_ref`, not from this page: each
+stream declares its own `cadence_days`, and the cockpit compares it to the stream's
+cursor. The `sync:` block above only records the last *run* (status + timestamp);
+"Sincronizar com Codex" advances the cursors and writes the receipt it points to.
+(`refresh_policy`/`refresh_cadence_days` remain for the legacy registry only.)
 
 | Date | Event | State |
 | --- | --- | --- |

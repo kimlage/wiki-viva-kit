@@ -35,7 +35,7 @@ from wiki_core.web.content import build_page_content
 
 BRIEF_SCHEMA_VERSION = "wiki_web_brief.v1"
 
-_MISSION_KINDS = {"refresh", "verify", "evidence", "ingest", "state", None}
+_MISSION_KINDS = {"refresh", "verify", "evidence", "ingest", "state", "create", None}
 _MATERIALIZE = {"refs", "full"}
 _THEME_RE = re.compile(r"[^a-z0-9]+")
 _BODY_EXCERPT_CHARS = 1600
@@ -107,6 +107,36 @@ def normalize_spec(spec: dict[str, Any]) -> dict[str, Any]:
                 "branch": str(resume["branch"]),
                 "parent_job_id": (str(resume["parent_job_id"]) if resume.get("parent_job_id") else None),
             }
+    # Create grounding: seed a NEW typed page. The page_type drives everything
+    # (the template + its pinned fields); the pinned fields are the mold the
+    # agent must fill. Pointer/text only — never a secret.
+    create = grounding.get("create") or None
+    if create is not None:
+        if not isinstance(create, dict) or not str(create.get("page_type") or "").strip():
+            create = None
+        else:
+            raw_pinned = create.get("pinned") if isinstance(create.get("pinned"), list) else []
+            pinned = []
+            for field in raw_pinned:
+                if not isinstance(field, dict):
+                    continue
+                key = str(field.get("key") or "").strip()
+                if not key:
+                    continue
+                pinned.append({
+                    "key": key,
+                    "label": str(field.get("label") or key),
+                    "value": str(field.get("value") or "").strip(),
+                    "required": bool(field.get("required")),
+                })
+            home_facet = str(create.get("home_facet") or "").strip() or None
+            create = {
+                "page_type": _THEME_RE.sub("_", str(create["page_type"]).lower()).strip("_"),
+                "title": str(create.get("title") or "").strip(),
+                "context": (str(create.get("context")).strip() if create.get("context") else None),
+                "home_facet": home_facet,
+                "pinned": pinned,
+            }
     materialize = spec.get("materialize")
     if materialize not in _MATERIALIZE:
         materialize = "refs"
@@ -121,6 +151,7 @@ def normalize_spec(spec: dict[str, Any]) -> dict[str, Any]:
             "attach_context_package": bool(grounding.get("attach_context_package")),
             "state_report": state_report,
             "resume": resume,
+            "create": create,
         },
         "intent": str(spec.get("intent") or "").strip(),
         "theme": sanitize_theme(spec.get("theme") or "", fallback=fallback_theme),
@@ -354,6 +385,49 @@ def _section_targets(
     return "\n".join(lines), target_paths
 
 
+def _shell_quote(value: str) -> str:
+    """Single-quote a value for a POSIX shell argument (empty → '')."""
+    return "'" + str(value).replace("'", "'\\''") + "'"
+
+
+def _section_create(create: dict[str, Any], config: WikiConfig) -> str:
+    """Render a create mission: the exact scaffold command + the template's
+    pinned fields as a mold to fill. The page_type drives everything."""
+    page_type = create["page_type"]
+    title = create.get("title") or ""
+    context = create.get("context") or config.default_context
+    lines = ["## 3 · Create — seed one typed page", ""]
+    lines.append(
+        f"Scaffold a **`{page_type}`** page"
+        + (f' titled "{title}"' if title else "")
+        + f" in context `{context}`"
+        + (f" (home lens: {create['home_facet']})" if create.get("home_facet") else "")
+        + ". Never hand-write the frontmatter — scaffold it, then fill the body."
+    )
+    argv = ["python3", "scripts/wiki_new.py", "--type", page_type]
+    if title:
+        argv += ["--title", title]
+    if context:
+        argv += ["--context", context]
+    cmd = " ".join(_shell_quote(a) if " " in a else a for a in argv)
+    lines.append("")
+    lines.append(_fence(cmd, "bash"))
+    pinned = create.get("pinned") or []
+    if pinned:
+        lines.append("")
+        lines.append("Then fill the pinned fields the template declares (the mold):")
+        for field in pinned:
+            mark = " **(required)**" if field.get("required") else ""
+            given = f" — proposed: `{field['value']}`" if field.get("value") else ""
+            lines.append(f"- `{field['key']}` ({field['label']}){mark}{given}")
+    lines.append("")
+    lines.append(
+        "_Leave any field you cannot ground honestly empty rather than inventing a value; "
+        "the deterministic gates will flag what is still missing._"
+    )
+    return "\n".join(lines)
+
+
 def _section_intent(intent: str, resume: dict[str, Any] | None) -> str:
     lines = ["## 4 · Operator intent — in your own words", ""]
     if resume:
@@ -418,9 +492,16 @@ def compose_brief(
     section2, targeted_pages = _section_state(
         snapshot, ref, page_ids=grounding["page_ids"], state_report=grounding["state_report"], index=index
     )
-    section3, target_paths = _section_targets(
-        root, config, snapshot, pages=targeted_pages, source=grounding["source"], materialize=norm["materialize"]
-    )
+    create = grounding.get("create")
+    if create is not None:
+        # A create mission has no existing target page — the "target" is the
+        # page it will scaffold, so the create section replaces §3.
+        section3 = _section_create(create, config)
+        target_paths = []
+    else:
+        section3, target_paths = _section_targets(
+            root, config, snapshot, pages=targeted_pages, source=grounding["source"], materialize=norm["materialize"]
+        )
 
     text = "\n\n".join(
         [

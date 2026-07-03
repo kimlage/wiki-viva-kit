@@ -452,6 +452,14 @@ export type BriefSpec = {
     attach_context_package?: boolean;
     state_report?: { scope: "missions" | "quality" | "audit"; context?: string | null; limit?: number } | null;
     resume?: { branch: string; parent_job_id?: string | null } | null;
+    // Seed a NEW typed page — the page_type drives the template + its mold.
+    create?: {
+      page_type: string;
+      title?: string;
+      context?: string | null;
+      home_facet?: string | null;
+      pinned?: { key: string; label?: string; value?: string; required?: boolean }[];
+    } | null;
   };
   intent?: string;
   theme?: string;
