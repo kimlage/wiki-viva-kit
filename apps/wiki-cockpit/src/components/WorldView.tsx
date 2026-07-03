@@ -12,7 +12,7 @@ import { t } from "../data/i18n";
 import { contextLabel, isRawData, perspectiveLabel, worldGroupLabel } from "../data/presentation";
 import { groupKeyForPage } from "../scene/perspectives";
 import type { PerspectiveId } from "../scene/perspectives";
-import { SCENE_FACETS, sceneFacetOf } from "../scene/facets";
+import { SCENE_FACETS, homeQuadrant, sceneFacetOf } from "../scene/facets";
 import type { SceneFacet } from "../scene/facets";
 import { rankPages } from "../scene/search";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
@@ -453,6 +453,21 @@ export function WorldView({
     return SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0 }));
   }, [route.perspective, selectedPage, bundle.graph]);
 
+  // Quadrant compass: live per-quadrant home counts (+ the honest core) for the
+  // Quadrants perspective — the 2×2 grid you fly by. Computed from the same
+  // homeQuadrant the layout uses, so it never overstates.
+  const quadrantCounts = useMemo(() => {
+    if (route.perspective !== "quadrants") return null;
+    const counts = new Map<SceneFacet, number>(SCENE_FACETS.map((facet) => [facet, 0]));
+    let core = 0;
+    bundle.graph.nodes.forEach((node) => {
+      const home = homeQuadrant(node.page_type);
+      if (home) counts.set(home, (counts.get(home) ?? 0) + 1);
+      else core += 1;
+    });
+    return { quadrants: SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0 })), core };
+  }, [route.perspective, bundle.graph]);
+
   // Breadcrumbs: URL-derived, every segment clickable, registry labels.
   const crumbs: { label: string; patch: WorldPatch }[] = [
     { label: t("world.galaxy"), patch: { context: null, group: null, pageId: null, reader: false } }
@@ -548,6 +563,33 @@ export function WorldView({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* QUADRANT compass: the 2×2 AQAL grid you fly by. Each cell flies the
+            camera to that quadrant region (?quadrant=<facet>); the active one is
+            highlighted. Counts are honest home-quadrant totals + the core. */}
+        {quadrantCounts && (
+          <div className="quadrantCompass" role="group" aria-label={t("world.quadrantCompassAria")}>
+            <div className="quadrantGrid">
+              {quadrantCounts.quadrants.map(({ facet, count }) => (
+                <button
+                  key={facet}
+                  className={route.query.quadrant === facet ? "quadrantCell active" : "quadrantCell"}
+                  onClick={() =>
+                    navigateWorld({ quadrant: route.query.quadrant === facet ? null : facet })
+                  }
+                  title={t(`facet.${facet}`)}
+                  type="button"
+                >
+                  <strong>{t(`facet.${facet}`)}</strong>
+                  <small>{count}</small>
+                </button>
+              ))}
+            </div>
+            {quadrantCounts.core > 0 && (
+              <span className="quadrantCore">{t("quadrant.core")} · {quadrantCounts.core}</span>
+            )}
           </div>
         )}
 

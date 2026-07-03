@@ -1279,9 +1279,17 @@ function CameraDirector({
   }, [layout.rOuter, size.height, size.width]);
 
   useEffect(() => {
-    const desiredTarget = lockedNode ? new THREE.Vector3(...lockedNode.position) : new THREE.Vector3(0, 0, 0);
-    const desiredDistance = lockedNode ? Math.max(fitDistance * 0.36, 2.6) : fitDistance;
-    const key = `${layout.perspective}:${layout.level}:${lockedNode?.id ?? ""}:${fitDistance.toFixed(2)}`;
+    // Priority: a locked page > an active quadrant region (fly-to) > the origin.
+    const regionTarget = !lockedNode && layout.cameraTarget ? new THREE.Vector3(...layout.cameraTarget) : null;
+    const desiredTarget = lockedNode
+      ? new THREE.Vector3(...lockedNode.position)
+      : regionTarget ?? new THREE.Vector3(0, 0, 0);
+    const desiredDistance = lockedNode
+      ? Math.max(fitDistance * 0.36, 2.6)
+      : regionTarget
+        ? Math.max(fitDistance * 0.62, 3.2)
+        : fitDistance;
+    const key = `${layout.perspective}:${layout.level}:${lockedNode?.id ?? ""}:${(layout.cameraTarget ?? []).map((n) => n.toFixed(1)).join(",")}:${fitDistance.toFixed(2)}`;
     if (key === lastKey.current) return;
     const firstFrame = lastKey.current === "";
     lastKey.current = key;
