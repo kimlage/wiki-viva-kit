@@ -63,3 +63,29 @@ export function sceneFacetOf(pageType: string | undefined, edgeType: string | un
   if (edgeType && edgeType in EDGE_FACET) return EDGE_FACET[edgeType];
   return null;
 }
+
+// The quadrant a page LIVES IN, keyed by its OWN page_type (not a neighbor edge
+// — that is the difference from sceneFacetOf). This drives the Quadrants
+// perspective's spatial home. `overrides` (a wiki's per-type `home_quadrant:`
+// from the template registry) wins; structural/unknown types are null — they
+// honestly have no AQAL quadrant and render in the central q0-core, never forced
+// into a real quadrant.
+export function homeQuadrant(
+  pageType: string | undefined,
+  overrides?: Record<string, SceneFacet | null>
+): SceneFacet | null {
+  if (pageType && overrides && pageType in overrides) return overrides[pageType];
+  if (pageType && pageType in PAGE_TYPE_FACET) return PAGE_TYPE_FACET[pageType];
+  return null;
+}
+
+// Fixed sector-center bearing per quadrant (radians, one deterministic source
+// for the layout, compass and minimap). Evenly spaced from NE, CCW. Visual
+// bearing is tunable in the scene; the CONTRACT is that these four are constant
+// and 90° apart.
+export const QUADRANT_CENTER_ANGLE: Record<SceneFacet, number> = {
+  intencao: Math.PI / 4,
+  pratica: (3 * Math.PI) / 4,
+  relacoes: (5 * Math.PI) / 4,
+  sistemas: (7 * Math.PI) / 4
+};

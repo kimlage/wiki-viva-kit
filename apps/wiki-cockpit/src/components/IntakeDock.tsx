@@ -144,7 +144,7 @@ export function IntakeDock({
                   grounding: { attach_context_package: true },
                   intent:
                     `Create a new \`${newType}\` page titled "${newTitle.trim()}".\n\n` +
-                    `Run: python3 scripts/wiki_new.py --page-type ${newType} --title "${newTitle.trim()}" --context ${context}\n` +
+                    `Run: python3 scripts/wiki_new.py --type ${newType} --title "${newTitle.trim()}" --context ${context}\n` +
                     `Then fill the pinned fields (${(spec?.pinned_fields ?? []).join(", ") || "per the template"}) ` +
                     `from real content — never invent values. The mold lives at ${spec?.body_template || "(see wiki.page-types.yaml)"}.`
                 });

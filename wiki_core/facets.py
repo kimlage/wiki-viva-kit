@@ -140,6 +140,24 @@ def facet_of(
     return None
 
 
+def home_quadrant(
+    page_type: str | None,
+    overrides: dict[str, str] | None = None,
+) -> str | None:
+    """The quadrant a page LIVES IN, keyed by its OWN page_type (not a neighbor
+    edge — that is the difference from :func:`facet_of`). Drives the Quadrants
+    perspective's spatial home.
+
+    Precedence: per-type registry override → page_type default → None. Structural
+    and unknown types are None: they honestly have no AQAL quadrant and belong in
+    the central q0-core, never forced into a real quadrant.
+    """
+    if overrides and page_type and page_type in overrides:
+        candidate = overrides[page_type]
+        return candidate if candidate in FACET_QUADRANTS else None
+    return DEFAULT_PAGE_TYPE_FACET.get(page_type)
+
+
 def facet_labels(language: str = "en") -> dict[str, str]:
     return dict(_FACET_LABELS_PT if is_portuguese(language) else _FACET_LABELS_EN)
 
