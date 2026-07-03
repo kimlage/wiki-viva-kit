@@ -1,0 +1,221 @@
+# Declarative template registry (wiki_templates.v1)
+#
+# The page TYPE drives VIEW + INTERACTION. `wiki.page-types.yaml` stays the
+# validation contract; this file adds the presentation contract the cockpit
+# interprets. A custom wiki overrides/extends any of this in
+# `wiki.templates.local.yaml` (merged on top) — composing the FIXED primitive
+# vocabulary (panels: list|table|timeline|badges|text|diff, controls:
+# brief|nav|filter|run|focus, badges: freshness|evidence|approval|privacy|sync,
+# center: document|timeline|dashboard|entity, scene shapes). New primitives need
+# code; the loader validates the vocabulary (WARN gate).
+#
+# `facets:` maps each Focus-view lens to the frontmatter fields that fill it,
+# one lens per AQAL quadrant — intencao (q1: why it exists + how perceived),
+# pratica (q2: what is done/produced), relacoes (q3: who together), sistemas
+# (q4: the systems/channels/pipelines). Absent keys degrade to today's reader.
+
+schema_version: wiki_templates.v1
+
+bases:
+  # Every content page that carries typed relations. The facet mapping here is
+  # the sensible default; specific types override the lenses they emphasize.
+  relation_base:
+    pinned_fields: [updated_at, source_refs]
+    facets:
+      intencao: [decisions, responsibilities, claims, insights]
+      pratica: [actions, evidence_refs]
+      relacoes: [roles, related_holons, people]
+      sistemas: [source_refs, process_refs]
+    view:
+      center: document
+      badges: [freshness, evidence]
+      panels:
+        - { kind: badges }
+    controls:
+      - { kind: focus }
+      - { kind: nav, rel: moc_parent }
+    scene: { shape: sphere, emphasis: none }
+
+types:
+  # --- Intention-leaning ------------------------------------------------------
+  decision:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/decision.md
+    pinned_fields: [updated_at, status, claims]
+    view:
+      center: document
+      badges: [freshness, evidence]
+      panels:
+        - { kind: list, from: claims, label: reader.claims }
+        - { kind: list, from: actions, label: reader.actions }
+    scene: { shape: diamond, emphasis: intention }
+  operational_rule:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/gate.md
+    scene: { shape: diamond, emphasis: intention }
+  responsibility:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/responsibility.md
+  project:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/project.md
+    pinned_fields: [updated_at, status]
+    view: { center: dashboard, badges: [freshness] }
+  initiative:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/initiative.md
+    view: { center: dashboard, badges: [freshness] }
+
+  # --- Perception-leaning -----------------------------------------------------
+  claim:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/claim.md
+    pinned_fields: [updated_at, source_refs, perspectives_required]
+    view:
+      center: document
+      badges: [freshness, evidence]
+      panels:
+        - { kind: list, from: evidence_refs, label: reader.evidence }
+    scene: { shape: sphere, emphasis: perception }
+  insight:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/insight.md
+    scene: { shape: spark, emphasis: perception }
+  journal_entry:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/journal.md
+    view: { center: timeline, badges: [freshness] }
+  perspective:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/perspective.md
+
+  # --- Practice-leaning -------------------------------------------------------
+  action:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/action.md
+    pinned_fields: [updated_at, status]
+    scene: { shape: comet, emphasis: practice }
+  process:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/process.md
+    scene: { shape: slab, emphasis: practice }
+  artifact:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/artifact.md
+    scene: { shape: crystal, emphasis: practice }
+  dashboard:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/operation.md
+    view: { center: dashboard, badges: [freshness] }
+    scene: { shape: slab, emphasis: practice }
+
+  # --- Source family (Pillar A: the source entity) ---------------------------
+  source:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/source.md
+    pinned_fields: [platform, owner, updated_at]
+    facets:
+      intencao: [decisions, claims]
+      pratica: [evidence_refs]
+      relacoes: [owner, stewards]
+      sistemas: [target_pages, source_refs]
+    view:
+      center: entity
+      badges: [sync, freshness, privacy]
+      panels:
+        - { kind: table, from: streams, columns: [id, selected, cursor_age] }
+    controls:
+      - { kind: brief, id: source-ingest }
+      - { kind: nav, rel: config_ref }
+      - { kind: focus }
+    scene: { shape: crystal, emphasis: sync }
+  source_config:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/source-config.md
+    pinned_fields: [platform, owner]
+    view: { center: entity, badges: [privacy] }
+    scene: { shape: crystal, emphasis: practice }
+  input_channel:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/input-channel.md
+    scene: { shape: crystal, emphasis: practice }
+  ingestion_event:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/ingestion-event.md
+    view: { center: timeline, badges: [freshness] }
+    scene: { shape: spark, emphasis: practice }
+
+  # --- Relations-leaning ------------------------------------------------------
+  person:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/person.md
+    pinned_fields: [updated_at, roles]
+    facets:
+      relacoes: [roles, related_holons, meetings]
+      intencao: [responsibilities]
+      pratica: [actions]
+    view:
+      center: entity
+      badges: [freshness]
+      panels:
+        - { kind: list, from: roles, label: reader.roles }
+    scene: { shape: sphere, emphasis: relations }
+  role:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/role.md
+    scene: { shape: sphere, emphasis: relations }
+  meeting:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/meeting.md
+    pinned_fields: [updated_at, participants, decisions]
+    facets:
+      intencao: [decisions]
+      pratica: [actions, evidence_refs]
+      relacoes: [participants, roles]
+    view:
+      center: timeline
+      badges: [freshness]
+      panels:
+        - { kind: list, from: decisions, label: reader.decisions }
+        - { kind: table, from: participants, columns: [title, role] }
+    controls:
+      - { kind: brief, id: meeting-followup }
+      - { kind: focus }
+    scene: { shape: slab, emphasis: relations }
+  holon:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/holon.md
+    view: { center: dashboard, badges: [freshness] }
+    scene: { shape: hub, emphasis: relations }
+  relationship_map:
+    extends: relation_base
+    body_template: docs/references/templates/wiki/relationship-map.md
+    view: { center: dashboard, badges: [freshness] }
+    scene: { shape: hub, emphasis: relations }
+
+  # --- Structural / index (navigation, not a lens) ---------------------------
+  root_entity:
+    body_template: docs/references/templates/wiki/root-entity.md
+    pinned_fields: [updated_at]
+    view: { center: dashboard, badges: [freshness] }
+    controls: [{ kind: focus }]
+    scene: { shape: hub, emphasis: none }
+  context_note:
+    pinned_fields: [updated_at]
+    view: { center: document, badges: [freshness] }
+    scene: { shape: sphere, emphasis: none }
+  ontology_index:
+    view: { center: dashboard, badges: [] }
+    scene: { shape: hub, emphasis: none }
+  source_registry:
+    view: { center: dashboard, badges: [] }
+    scene: { shape: hub, emphasis: none }
+  source_catalog:
+    view: { center: dashboard, badges: [] }
+    scene: { shape: hub, emphasis: none }
+  input_stage:
+    view: { center: dashboard, badges: [] }
+    scene: { shape: hub, emphasis: none }
+  system_log:
+    view: { center: timeline, badges: [] }
+    scene: { shape: slab, emphasis: none }

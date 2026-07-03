@@ -68,6 +68,12 @@ async function loadFromBase(base: string): Promise<SnapshotBundle> {
   const bundle = Object.fromEntries(entries) as SnapshotBundle;
   // Optional read models keep old snapshots loadable.
   bundle.score = await fetchJson(`${base}/score.json`).catch(() => EMPTY_SCORE) as SnapshotBundle["score"];
+  bundle.sourceEntities = await fetchJson(`${base}/source_entities.json`).catch(
+    () => ({ schema_version: "wiki_web_source_entities.v1", sources: [] })
+  ) as SnapshotBundle["sourceEntities"];
+  bundle.templates = await fetchJson(`${base}/templates.json`).catch(
+    () => ({ schema_version: "wiki_templates.v1", facets_order: [], types: {} })
+  ) as SnapshotBundle["templates"];
   return bundle;
 }
 
@@ -419,6 +425,17 @@ export async function runGitWorkflow(
     throw new Error(result.error || `workflow failed: ${response.status}`);
   }
   return result;
+}
+
+export async function composeSourceBrief(
+  sourceId: string
+): Promise<{ ok: boolean; spec?: import("../types").BriefSpec; pending?: number; error?: string }> {
+  const response = await fetch(await apiUrl(`/sources/${encodeURIComponent(sourceId)}/brief`), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({})
+  });
+  return (await response.json()) as { ok: boolean; spec?: import("../types").BriefSpec; pending?: number; error?: string };
 }
 
 export async function triageSource(source: string, context?: string): Promise<SourceTriageResult> {

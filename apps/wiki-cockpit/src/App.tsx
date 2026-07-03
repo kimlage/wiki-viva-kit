@@ -25,9 +25,10 @@ import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
 import { WorkDock } from "./components/WorkDock";
+import { SourceDock } from "./components/SourceDock";
 import { ExpandablePre } from "./components/ExpandablePre";
 import { configureLanguage, t } from "./data/i18n";
-import { gitGateLabel, qualityFlagCount, reviewChecklist } from "./data/model";
+import { qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel, registerContextPalette } from "./data/presentation";
 import {
   buildIngestionPlan,
@@ -2002,6 +2003,7 @@ export function App() {
   const gatesDockOpen = route.kind === "world" && route.query.dock === "gates";
   const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
   const workDockOpen = route.kind === "world" && route.query.dock === "work";
+  const sourceDockOpen = route.kind === "world" && route.query.dock === "source";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -2016,11 +2018,17 @@ export function App() {
               </span>
             )}
           </div>
-          {loadState.status === "ready" && (
-            <StatusPill tone={loadState.bundle.git.proposal.is_proposal_branch ? "warn" : "good"}>
-              {gitGateLabel(loadState.bundle.git)}
-            </StatusPill>
-          )}
+          {/* Show the top-bar pill ONLY when a real approval request is open (a
+              draft PR on a proposal branch), never in the demo or on clean/main —
+              an always-on git label was noise. The full gate state lives in Approve. */}
+          {loadState.status === "ready" &&
+            !route.demo &&
+            loadState.bundle.git.proposal.is_proposal_branch &&
+            Boolean(loadState.bundle.git.proposal.draft_pr_url) && (
+              <StatusPill tone="warn">
+                <span title={t("git.pendingApprovalTitle")}>{t("git.pendingApproval")}</span>
+              </StatusPill>
+            )}
         </header>
         {route.demo && (
           <div className="demoBanner" role="note">
@@ -2090,6 +2098,16 @@ export function App() {
             onReturn={returnJob}
             onDiagnose={openCodexDock}
             onNotice={notify}
+            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+          />
+        )}
+        {sourceDockOpen && worldRoute && loadState.status === "ready" && (
+          <SourceDock
+            bundle={loadState.bundle}
+            sourceId={worldRoute.query.src}
+            onComposeBrief={runBrief}
+            onNotice={notify}
+            onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}

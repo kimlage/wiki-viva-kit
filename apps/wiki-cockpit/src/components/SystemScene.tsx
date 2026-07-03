@@ -1176,20 +1176,26 @@ function GroupRimPills({
     <group>
       {groups.map((group) => {
         const accent = group.kind === "context" ? contextStyle(group.labelKey).accent : "#4f8fb5";
-        const label = worldGroupLabel(group.kind, group.labelKey);
+        // An empty facet lens is an honest absence — a dimmed, non-interactive
+        // "no X lens registered" wedge rather than a clickable pill over nothing.
+        const emptyFacet = group.kind === "facet" && group.count === 0;
+        const label = emptyFacet
+          ? t("focus.emptyFacet", { facet: worldGroupLabel(group.kind, group.labelKey) })
+          : worldGroupLabel(group.kind, group.labelKey);
         return (
           <Html key={`rim-${group.key}`} position={group.anchor} center distanceFactor={5.2} wrapperClass="sceneHtmlLabel" className="radarRimPill" zIndexRange={[40, 0]}>
             <button
-              style={{ borderColor: accent, pointerEvents: "auto" }}
-              className={focusedGroupKey === group.key ? "focused" : undefined}
+              style={{ borderColor: emptyFacet ? "#3a4652" : accent, pointerEvents: emptyFacet ? "none" : "auto" }}
+              className={emptyFacet ? "emptyFacet" : focusedGroupKey === group.key ? "focused" : undefined}
               onClick={(event) => {
                 event.stopPropagation();
-                onGroupSelect(group);
+                if (!emptyFacet) onGroupSelect(group);
               }}
+              disabled={emptyFacet}
               type="button"
             >
               <strong>{label}</strong>
-              <small>{group.shown < group.count ? `${group.shown}/${group.count}` : group.count}</small>
+              {!emptyFacet && <small>{group.shown < group.count ? `${group.shown}/${group.count}` : group.count}</small>}
             </button>
           </Html>
         );
@@ -2079,23 +2085,34 @@ function SceneFallback({
         {census.hidden > 0 && <span>{t("scene.hiddenTotal", { hidden: census.hidden, total: census.total })}</span>}
       </div>
       <nav className="fallbackGroups" aria-label="Grupos deste nível">
-        {layout.groups.map((group) => (
-          <a
-            key={group.key}
-            className="fallbackGroupLink"
-            href={
-              group.drill
-                ? makeHref({ context: group.drill.context ?? null, group: group.drill.group ?? null, pageId: null, reader: false })
-                : makeHref({})
-            }
-            onClick={(event) => {
-              event.preventDefault();
-              onGroupSelect(group);
-            }}
-          >
-            {worldGroupLabel(group.kind, group.labelKey)} · {group.shown < group.count ? `${group.shown}/${group.count}` : group.count}
-          </a>
-        ))}
+        {layout.groups.map((group) => {
+          // An empty facet lens is an honest absence, not a clickable group —
+          // mirror the 3D rim pill ("no <facet> lens registered", non-interactive).
+          if (group.kind === "facet" && group.count === 0) {
+            return (
+              <span key={group.key} className="fallbackGroupLink emptyFacet">
+                {t("focus.emptyFacet", { facet: worldGroupLabel(group.kind, group.labelKey) })}
+              </span>
+            );
+          }
+          return (
+            <a
+              key={group.key}
+              className="fallbackGroupLink"
+              href={
+                group.drill
+                  ? makeHref({ context: group.drill.context ?? null, group: group.drill.group ?? null, pageId: null, reader: false })
+                  : makeHref({})
+              }
+              onClick={(event) => {
+                event.preventDefault();
+                onGroupSelect(group);
+              }}
+            >
+              {worldGroupLabel(group.kind, group.labelKey)} · {group.shown < group.count ? `${group.shown}/${group.count}` : group.count}
+            </a>
+          );
+        })}
         {layout.clusterStars.map((star) =>
           star.drill ? (
             <a
@@ -2462,6 +2479,7 @@ export function SystemScene({
         if (event.key === "q" || event.key === "Q") navigate({ reader: true });
         if (event.key === "w" || event.key === "W") onTogglePacket?.(route.pageId);
         if (event.key === "e" || event.key === "E") navigate({ perspective: "trails" });
+        if (event.key === "f" || event.key === "F") navigate({ perspective: "focus" });
         if (event.key === "r" || event.key === "R") onRunRefresh?.();
       }
     };

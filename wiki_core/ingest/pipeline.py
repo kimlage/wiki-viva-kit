@@ -61,6 +61,8 @@ class IngestResult:
     gate_state: str
     llm_context_status: str
     warnings: list[str]
+    stream_id: str | None = None
+    stream_cursor_written: bool = False
 
     def to_dict(self) -> dict[str, object]:
         return {"schema_version": SCHEMA_VERSION, **asdict(self)}
@@ -83,6 +85,7 @@ def run(
     record_score: bool = True,
     actor: str | None = None,
     ts: str | None = None,
+    stream_id: str | None = None,
 ) -> IngestResult:
     """Run the deterministic pipeline for ``source`` and return an IngestResult.
 
@@ -273,6 +276,30 @@ def run(
     else:
         llm_context_status = "recorded"
 
+    # F8 — the stream cursor is written ONLY here, after every durable write
+    # (manifest, text, chunks, index, event) has landed. A crash before this
+    # point re-reads next time; the manifest sha dedup makes that safe. Never on
+    # a dry-run or a blocked ingest.
+    stream_cursor_written = False
+    if persist and not blocked and stream_id and chunk_count > 0:
+        from wiki_core.source_state import write_stream_cursor
+
+        last_unit = chunk_dicts[-1]["chunk_id"] if chunk_dicts else ""
+        # The freshness read parses `updated_at` as an ISO date, so it must
+        # ALWAYS be a real date — never empty and never a content sha. The
+        # standard CLI passes no ts, so fall back to the manifest's captured_at
+        # (when this source was actually read), never to an opaque id.
+        stamp = str(ts or manifest.get("captured_at") or "")
+        write_stream_cursor(
+            paths.source_state,
+            source_id,
+            stream_id,
+            cursor=stamp or str(manifest.get("source_id") or ""),
+            last_unit=str(last_unit),
+            updated_at=stamp[:10],
+        )
+        stream_cursor_written = True
+
     return IngestResult(
         source_id=source_id,
         context=context,
@@ -292,4 +319,6 @@ def run(
         gate_state="blocked" if blocked else "created",
         llm_context_status=llm_context_status,
         warnings=warnings,
+        stream_id=stream_id,
+        stream_cursor_written=stream_cursor_written,
     )

@@ -30,6 +30,11 @@ export function IntakeDock({
   const [context, setContext] = useState(contexts[0] ?? "system");
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<{ path: string; context: string } | null>(null);
+  // "New typed page": pick a type from the registry, name it, and the type's
+  // mold + facets flow into the brief the agent runs (create, PR-gated).
+  const templateTypes = Object.keys(bundle.templates?.types ?? {}).sort();
+  const [newType, setNewType] = useState(templateTypes.includes("decision") ? "decision" : templateTypes[0] ?? "");
+  const [newTitle, setNewTitle] = useState("");
 
   const add = async () => {
     if (!src.trim() || busy) return;
@@ -107,6 +112,48 @@ export function IntakeDock({
                 <span>{t("intake.brief")}</span>
               </button>
             )}
+          </div>
+        )}
+
+        {onComposeBrief && templateTypes.length > 0 && (
+          <div className="intakeNewTyped">
+            <h4>{t("intake.newTyped.title")}</h4>
+            <p className="dockIntro">{t("intake.newTyped.hint")}</p>
+            <label className="intakeField">
+              <span>{t("intake.newTyped.type")}</span>
+              <select value={newType} onChange={(event) => setNewType(event.target.value)}>
+                {templateTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="intakeField">
+              <span>{t("intake.newTyped.name")}</span>
+              <input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder={t("intake.newTyped.placeholder")} />
+            </label>
+            <button
+              className="secondaryButton"
+              disabled={!newTitle.trim()}
+              onClick={() => {
+                const spec = bundle.templates?.types?.[newType];
+                onComposeBrief({
+                  mission_kind: "verify",
+                  theme: `new-${newType}`,
+                  grounding: { attach_context_package: true },
+                  intent:
+                    `Create a new \`${newType}\` page titled "${newTitle.trim()}".\n\n` +
+                    `Run: python3 scripts/wiki_new.py --page-type ${newType} --title "${newTitle.trim()}" --context ${context}\n` +
+                    `Then fill the pinned fields (${(spec?.pinned_fields ?? []).join(", ") || "per the template"}) ` +
+                    `from real content — never invent values. The mold lives at ${spec?.body_template || "(see wiki.page-types.yaml)"}.`
+                });
+              }}
+              type="button"
+            >
+              <Sparkles size={14} />
+              <span>{t("intake.newTyped.create")}</span>
+            </button>
           </div>
         )}
 

@@ -940,6 +940,8 @@ EXPECTED_CHECK_ORDER = [
     "llm_cache_metadata",
     "source_config_perspectives",
     "perspective_coverage",
+    "templates_registry",
+    "source_recipes",
     "impact_closure",
     "log_changed",
 ]

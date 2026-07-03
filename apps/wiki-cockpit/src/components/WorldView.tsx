@@ -12,6 +12,8 @@ import { t } from "../data/i18n";
 import { contextLabel, isRawData, perspectiveLabel, worldGroupLabel } from "../data/presentation";
 import { groupKeyForPage } from "../scene/perspectives";
 import type { PerspectiveId } from "../scene/perspectives";
+import { SCENE_FACETS, sceneFacetOf } from "../scene/facets";
+import type { SceneFacet } from "../scene/facets";
 import { rankPages } from "../scene/search";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
@@ -24,6 +26,27 @@ import { PageReader } from "./PageReader";
 import type { RelationGroupKey } from "./PageReader";
 import { SystemScene } from "./SystemScene";
 import type { ScenePatch } from "./SystemScene";
+
+// Ego-centric perspectives lock one page at the center and have no group slot
+// in the positional URL: Trails (relations) and Focus (facet lenses).
+function isEgoPerspective(perspective: string): boolean {
+  return perspective === "trails" || perspective === "focus";
+}
+
+// Brief to fill an empty lens: ask the agent to add a real relation of that
+// kind IF one exists in the corpus — never to invent one (the honesty rule).
+function focusFillSpec(page: PageRecord, facet: SceneFacet, facetLabel: string): BriefSpec {
+  return {
+    mission_kind: "verify",
+    theme: `facet-${facet}`,
+    grounding: { page_ids: [page.id], attach_context_package: true },
+    intent:
+      `The page "${page.title}" (${page.path}) has no "${facetLabel}" lens — no neighbor of that kind.\n` +
+      `Read the page and its context package. If a real ${facetLabel.toLowerCase()} relation exists ` +
+      `(a decision, perception/insight, practice/action, or person/meeting as appropriate) that is not yet ` +
+      `linked, add the link in the page body. If none exists, report that honestly and add nothing — never invent a relation.`
+  };
+}
 
 function findPage(pages: PageRecord[], key: string | undefined): PageRecord | undefined {
   if (!key) return undefined;
@@ -139,7 +162,7 @@ export function WorldView({
       ...patch,
       pageId: page.id,
       context: page.context || "system",
-      group: perspective === "trails" ? null : groupKeyForPage(perspective, page) ?? null
+      group: isEgoPerspective(perspective) ? null : groupKeyForPage(perspective, page) ?? null
     };
   };
   const navigateWorld = (patch: WorldPatch, options: { replace?: boolean } = {}) =>
@@ -176,8 +199,8 @@ export function WorldView({
     const page = findPage(pages, route.pageId);
     if (!page) return;
     const context = page.context || "system";
-    const group = route.perspective === "trails" ? undefined : groupKeyForPage(route.perspective, page);
-    if (route.context !== context || (route.perspective !== "trails" && route.group !== group)) {
+    const group = isEgoPerspective(route.perspective) ? undefined : groupKeyForPage(route.perspective, page);
+    if (route.context !== context || (!isEgoPerspective(route.perspective) && route.group !== group)) {
       navigate(patchWorld(route, { context, group: group ?? null }), { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -373,12 +396,38 @@ export function WorldView({
   const readerOpen = Boolean(route.pageId && route.query.reader && selectedPage);
   const trailPages = trailIds.map((id) => findPage(pages, id)).filter((page): page is PageRecord => Boolean(page));
 
+  // Focus legend: the four lenses with live 1-hop counts, computed from the
+  // same facet bucketing the scene uses. An empty lens is shown as an honest
+  // absence with an offer to fill it — never hidden.
+  const focusFacets = useMemo(() => {
+    if (route.perspective !== "focus" || !selectedPage) return null;
+    const counts = new Map<SceneFacet, number>(SCENE_FACETS.map((facet) => [facet, 0]));
+    const byKey = new Map<string, (typeof bundle.graph.nodes)[number]>();
+    bundle.graph.nodes.forEach((node) => {
+      byKey.set(node.id, node);
+      byKey.set(node.path, node);
+    });
+    const centerId = selectedPage.id;
+    const seen = new Set<string>([centerId]);
+    bundle.graph.edges.forEach((edge) => {
+      const src = byKey.get(edge.source);
+      const tgt = byKey.get(edge.target);
+      if (!src || !tgt) return;
+      const neighbor = src.id === centerId ? tgt : tgt.id === centerId ? src : null;
+      if (!neighbor || seen.has(neighbor.id)) return;
+      seen.add(neighbor.id);
+      const facet = sceneFacetOf(neighbor.page_type, edge.type);
+      if (facet) counts.set(facet, (counts.get(facet) ?? 0) + 1);
+    });
+    return SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0 }));
+  }, [route.perspective, selectedPage, bundle.graph]);
+
   // Breadcrumbs: URL-derived, every segment clickable, registry labels.
   const crumbs: { label: string; patch: WorldPatch }[] = [
     { label: t("world.galaxy"), patch: { context: null, group: null, pageId: null, reader: false } }
   ];
   if (route.context) crumbs.push({ label: contextLabel(route.context), patch: { group: null, pageId: null, reader: false } });
-  if (route.group && route.perspective !== "trails") {
+  if (route.group && !isEgoPerspective(route.perspective)) {
     const groupKind = route.perspective === "districts" ? "page_type" : route.perspective === "atlas" ? "hub" : "attention";
     crumbs.push({ label: worldGroupLabel(groupKind, route.group), patch: { pageId: null, reader: false } });
   }
@@ -436,6 +485,39 @@ export function WorldView({
             <span>{route.demo ? t("world.demoMode") : runtime.mode || bundle.manifest.mode}</span>
           </div>
         </div>
+
+        {/* FOCUS legend: the four lenses with live counts. An empty lens is an
+            honest absence — labelled "no X lens registered" with an offer to
+            fill it (agent adds a real relation only if one exists). */}
+        {focusFacets && selectedPage && (
+          <div className="focusLegend" role="region" aria-label={t("focus.legend")}>
+            <span className="focusLegendTitle">{t("focus.legend")}</span>
+            {focusFacets.map(({ facet, count }) => {
+              const label = t(`facet.${facet}`);
+              return (
+                <div key={facet} className={count === 0 ? "focusLens empty" : "focusLens"}>
+                  <strong>{label}</strong>
+                  {count === 0 ? (
+                    onComposeBrief ? (
+                      <button
+                        className="textButton focusFillButton"
+                        onClick={() => onComposeBrief(focusFillSpec(selectedPage, facet, label))}
+                        title={t("focus.emptyFacetFill", { facet: label })}
+                        type="button"
+                      >
+                        {t("focus.emptyFacet", { facet: label })}
+                      </button>
+                    ) : (
+                      <small className="focusLensEmpty">{t("focus.emptyFacet", { facet: label })}</small>
+                    )
+                  ) : (
+                    <small>{count}</small>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* LEFT mission surface. Collapsed by choice it is a single honest
             chip (worst tone + pending count) — the world stays visible;
@@ -581,6 +663,26 @@ export function WorldView({
                 </button>
               );
             })}
+            {/* Focus is page-triggered — enabled only with a page locked, so it
+                never claims to show lenses over nothing. */}
+            {(() => {
+              const info = perspectiveLabel("focus");
+              const enabled = Boolean(route.pageId);
+              return (
+                <button
+                  key="focus"
+                  className={route.perspective === "focus" ? "glyphButton active" : "glyphButton"}
+                  onClick={() => enabled && navigateWorld({ perspective: "focus" })}
+                  disabled={!enabled}
+                  title={enabled ? `${info.label} (F) — ${info.hint}` : t("perspective.focus.needsPage")}
+                  aria-pressed={route.perspective === "focus"}
+                  type="button"
+                >
+                  <span aria-hidden>{info.glyph}</span>
+                  <small>{info.label}</small>
+                </button>
+              );
+            })()}
           </div>
           <button
             className={trayOpen ? "trayButton active" : "trayButton"}

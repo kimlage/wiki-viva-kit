@@ -1,0 +1,1427 @@
+{
+ "schema_version": "wiki_templates.v1",
+ "facets_order": [
+  "intencao",
+  "pratica",
+  "relacoes",
+  "sistemas"
+ ],
+ "types": {
+  "decision": {
+   "page_type": "decision",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/decision.md",
+   "pinned_fields": [
+    "updated_at",
+    "status",
+    "claims"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "list",
+      "from": "claims",
+      "label": "reader.claims"
+     },
+     {
+      "kind": "list",
+      "from": "actions",
+      "label": "reader.actions"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "diamond",
+    "emphasis": "intention"
+   }
+  },
+  "operational_rule": {
+   "page_type": "operational_rule",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/gate.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "diamond",
+    "emphasis": "intention"
+   }
+  },
+  "responsibility": {
+   "page_type": "responsibility",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/responsibility.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "sphere",
+    "emphasis": "none"
+   }
+  },
+  "project": {
+   "page_type": "project",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/project.md",
+   "pinned_fields": [
+    "updated_at",
+    "status"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "dashboard",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "sphere",
+    "emphasis": "none"
+   }
+  },
+  "initiative": {
+   "page_type": "initiative",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/initiative.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "dashboard",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "sphere",
+    "emphasis": "none"
+   }
+  },
+  "claim": {
+   "page_type": "claim",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/claim.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs",
+    "perspectives_required"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "list",
+      "from": "evidence_refs",
+      "label": "reader.evidence"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "sphere",
+    "emphasis": "perception"
+   }
+  },
+  "insight": {
+   "page_type": "insight",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/insight.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "spark",
+    "emphasis": "perception"
+   }
+  },
+  "journal_entry": {
+   "page_type": "journal_entry",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/journal.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "timeline",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "sphere",
+    "emphasis": "none"
+   }
+  },
+  "perspective": {
+   "page_type": "perspective",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/perspective.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "sphere",
+    "emphasis": "none"
+   }
+  },
+  "action": {
+   "page_type": "action",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/action.md",
+   "pinned_fields": [
+    "updated_at",
+    "status"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "comet",
+    "emphasis": "practice"
+   }
+  },
+  "process": {
+   "page_type": "process",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/process.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "slab",
+    "emphasis": "practice"
+   }
+  },
+  "artifact": {
+   "page_type": "artifact",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/artifact.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "crystal",
+    "emphasis": "practice"
+   }
+  },
+  "dashboard": {
+   "page_type": "dashboard",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/operation.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "dashboard",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "slab",
+    "emphasis": "practice"
+   }
+  },
+  "source": {
+   "page_type": "source",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/source.md",
+   "pinned_fields": [
+    "platform",
+    "owner",
+    "updated_at"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "claims"
+    ],
+    "pratica": [
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "owner",
+     "stewards"
+    ],
+    "sistemas": [
+     "target_pages",
+     "source_refs"
+    ]
+   },
+   "view": {
+    "center": "entity",
+    "panels": [
+     {
+      "kind": "table",
+      "from": "streams",
+      "columns": [
+       "id",
+       "selected",
+       "cursor_age"
+      ]
+     }
+    ],
+    "badges": [
+     "sync",
+     "freshness",
+     "privacy"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "brief",
+     "id": "source-ingest"
+    },
+    {
+     "kind": "nav",
+     "rel": "config_ref"
+    },
+    {
+     "kind": "focus"
+    }
+   ],
+   "scene": {
+    "shape": "crystal",
+    "emphasis": "sync"
+   }
+  },
+  "source_config": {
+   "page_type": "source_config",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/source-config.md",
+   "pinned_fields": [
+    "platform",
+    "owner"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "entity",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "privacy"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "crystal",
+    "emphasis": "practice"
+   }
+  },
+  "input_channel": {
+   "page_type": "input_channel",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/input-channel.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "crystal",
+    "emphasis": "practice"
+   }
+  },
+  "ingestion_event": {
+   "page_type": "ingestion_event",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/ingestion-event.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "timeline",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "spark",
+    "emphasis": "practice"
+   }
+  },
+  "person": {
+   "page_type": "person",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/person.md",
+   "pinned_fields": [
+    "updated_at",
+    "roles"
+   ],
+   "facets": {
+    "intencao": [
+     "responsibilities"
+    ],
+    "pratica": [
+     "actions"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "meetings"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "entity",
+    "panels": [
+     {
+      "kind": "list",
+      "from": "roles",
+      "label": "reader.roles"
+     }
+    ],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "sphere",
+    "emphasis": "relations"
+   }
+  },
+  "role": {
+   "page_type": "role",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/role.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "document",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness",
+     "evidence"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "sphere",
+    "emphasis": "relations"
+   }
+  },
+  "meeting": {
+   "page_type": "meeting",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/meeting.md",
+   "pinned_fields": [
+    "updated_at",
+    "participants",
+    "decisions"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "participants",
+     "roles"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "timeline",
+    "panels": [
+     {
+      "kind": "list",
+      "from": "decisions",
+      "label": "reader.decisions"
+     },
+     {
+      "kind": "table",
+      "from": "participants",
+      "columns": [
+       "title",
+       "role"
+      ]
+     }
+    ],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "brief",
+     "id": "meeting-followup"
+    },
+    {
+     "kind": "focus"
+    }
+   ],
+   "scene": {
+    "shape": "slab",
+    "emphasis": "relations"
+   }
+  },
+  "holon": {
+   "page_type": "holon",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/holon.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "dashboard",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "hub",
+    "emphasis": "relations"
+   }
+  },
+  "relationship_map": {
+   "page_type": "relationship_map",
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/wiki/relationship-map.md",
+   "pinned_fields": [
+    "updated_at",
+    "source_refs"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "roles",
+     "related_holons",
+     "people"
+    ],
+    "sistemas": [
+     "source_refs",
+     "process_refs"
+    ]
+   },
+   "view": {
+    "center": "dashboard",
+    "panels": [
+     {
+      "kind": "badges"
+     }
+    ],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "hub",
+    "emphasis": "relations"
+   }
+  },
+  "root_entity": {
+   "page_type": "root_entity",
+   "extends": null,
+   "body_template": "docs/references/templates/wiki/root-entity.md",
+   "pinned_fields": [
+    "updated_at"
+   ],
+   "facets": {},
+   "view": {
+    "center": "dashboard",
+    "panels": [],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    }
+   ],
+   "scene": {
+    "shape": "hub",
+    "emphasis": "none"
+   }
+  },
+  "context_note": {
+   "page_type": "context_note",
+   "extends": null,
+   "body_template": "",
+   "pinned_fields": [
+    "updated_at"
+   ],
+   "facets": {},
+   "view": {
+    "center": "document",
+    "panels": [],
+    "badges": [
+     "freshness"
+    ]
+   },
+   "controls": [],
+   "scene": {
+    "shape": "sphere",
+    "emphasis": "none"
+   }
+  },
+  "ontology_index": {
+   "page_type": "ontology_index",
+   "extends": null,
+   "body_template": "",
+   "pinned_fields": [],
+   "facets": {},
+   "view": {
+    "center": "dashboard",
+    "panels": [],
+    "badges": []
+   },
+   "controls": [],
+   "scene": {
+    "shape": "hub",
+    "emphasis": "none"
+   }
+  },
+  "source_registry": {
+   "page_type": "source_registry",
+   "extends": null,
+   "body_template": "",
+   "pinned_fields": [],
+   "facets": {},
+   "view": {
+    "center": "dashboard",
+    "panels": [],
+    "badges": []
+   },
+   "controls": [],
+   "scene": {
+    "shape": "hub",
+    "emphasis": "none"
+   }
+  },
+  "source_catalog": {
+   "page_type": "source_catalog",
+   "extends": null,
+   "body_template": "",
+   "pinned_fields": [],
+   "facets": {},
+   "view": {
+    "center": "dashboard",
+    "panels": [],
+    "badges": []
+   },
+   "controls": [],
+   "scene": {
+    "shape": "hub",
+    "emphasis": "none"
+   }
+  },
+  "input_stage": {
+   "page_type": "input_stage",
+   "extends": null,
+   "body_template": "",
+   "pinned_fields": [],
+   "facets": {},
+   "view": {
+    "center": "dashboard",
+    "panels": [],
+    "badges": []
+   },
+   "controls": [],
+   "scene": {
+    "shape": "hub",
+    "emphasis": "none"
+   }
+  },
+  "system_log": {
+   "page_type": "system_log",
+   "extends": null,
+   "body_template": "",
+   "pinned_fields": [],
+   "facets": {},
+   "view": {
+    "center": "timeline",
+    "panels": [],
+    "badges": []
+   },
+   "controls": [],
+   "scene": {
+    "shape": "slab",
+    "emphasis": "none"
+   }
+  },
+  "deal": {
+   "extends": "relation_base",
+   "body_template": "docs/references/templates/deal.md",
+   "pinned_fields": [
+    "updated_at",
+    "stage",
+    "amount",
+    "owner"
+   ],
+   "facets": {
+    "intencao": [
+     "decisions",
+     "responsibilities",
+     "claims",
+     "insights"
+    ],
+    "pratica": [
+     "actions",
+     "evidence_refs"
+    ],
+    "relacoes": [
+     "people",
+     "roles"
+    ],
+    "sistemas": [
+     "source_refs"
+    ]
+   },
+   "view": {
+    "center": "dashboard",
+    "badges": [
+     "freshness",
+     "approval"
+    ],
+    "panels": [
+     {
+      "kind": "table",
+      "from": "actions",
+      "label": "reader.actions"
+     },
+     {
+      "kind": "list",
+      "from": "people",
+      "label": "reader.people"
+     }
+    ]
+   },
+   "controls": [
+    {
+     "kind": "focus"
+    },
+    {
+     "kind": "nav",
+     "rel": "moc_parent"
+    }
+   ],
+   "scene": {
+    "shape": "crystal",
+    "emphasis": "intention"
+   }
+  }
+ }
+}

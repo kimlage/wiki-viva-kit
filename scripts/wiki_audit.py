@@ -1770,6 +1770,50 @@ def audit_impact_closure(errors: list[str], config: WikiConfig) -> None:
                 errors.append(f"{rel}: impact_closure.blocked `{page}` missing reason")
 
 
+def audit_templates_registry(warnings: list[str], config: WikiConfig) -> None:
+    """WARN if wiki.templates.yaml composes a primitive outside the fixed
+    vocabulary, an unknown facet, or a dangling `extends`. Template authoring
+    is not data corruption — a typo here should nudge, never block the gate."""
+    try:
+        from wiki_core.templates_registry import (
+            load_template_registry,
+            validate_template_registry,
+        )
+    except Exception:  # noqa: BLE001 - module optional in older repos
+        return
+    registry = load_template_registry(ROOT, config)
+    if registry.path is None:
+        return  # a wiki without a templates registry keeps the old reader
+    for problem in validate_template_registry(registry):
+        warnings.append(f"wiki.templates.yaml: {problem}")
+
+
+def audit_source_recipes(warnings: list[str], config: WikiConfig) -> None:
+    """WARN on a malformed source recipe (structure, unknown platform/pipeline,
+    unselected stream without a reason) and — critically — on any credential in
+    a recipe. Sources without a recipe yet are silent (migration is assisted)."""
+    try:
+        from wiki_core.source_recipe import (
+            extract_recipe_mapping,
+            parse_recipe,
+            validate_recipe,
+        )
+    except Exception:  # noqa: BLE001
+        return
+    for rel in markdown_files():
+        if "/sources/config/" not in rel and not rel.endswith("source-config.md"):
+            continue
+        values, _ = parse_frontmatter(ROOT / rel)
+        if str(values.get("page_type", "")) != "source_config":
+            continue
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        mapping = extract_recipe_mapping(text)
+        if mapping is None:
+            continue
+        for problem in validate_recipe(parse_recipe(mapping)):
+            warnings.append(f"{rel}: recipe: {problem}")
+
+
 class AuditContext:
     """Shared state threaded through every registered check.
 
@@ -1830,6 +1874,8 @@ CHECKS: tuple[tuple[str, "callable"], ...] = (
     ("llm_cache_metadata", lambda ctx: audit_llm_cache_metadata(ctx.errors, ctx.config)),
     ("source_config_perspectives", lambda ctx: audit_source_config_perspectives(ctx.errors, ctx.config)),
     ("perspective_coverage", lambda ctx: audit_perspective_coverage(ctx.errors, ctx.config)),
+    ("templates_registry", lambda ctx: audit_templates_registry(ctx.warnings, ctx.config)),
+    ("source_recipes", lambda ctx: audit_source_recipes(ctx.warnings, ctx.config)),
     ("impact_closure", lambda ctx: audit_impact_closure(ctx.errors, ctx.config)),
     ("log_changed", lambda ctx: audit_log_changed(ctx.errors, ctx.config)),
 )

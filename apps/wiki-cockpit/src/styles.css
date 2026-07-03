@@ -841,6 +841,15 @@ button.stripChip:hover {
   border-radius: 50%;
 }
 
+/* Empty facet lens: dimmed, italic, non-interactive — an honest absence. */
+.radarRimPill button.emptyFacet {
+  background: rgba(8, 13, 17, 0.55);
+  color: #6f7f8c;
+  font-style: italic;
+  cursor: default;
+  border-style: dashed;
+}
+
 .fallbackPlan {
   width: min(420px, 100%);
   margin: 0 auto;
@@ -2977,6 +2986,68 @@ pre {
   white-space: nowrap;
 }
 
+/* FOCUS legend: the four lenses, top-center, below the strip. */
+.focusLegend {
+  position: absolute;
+  top: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 28;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(127, 208, 232, 0.25);
+  border-radius: 12px;
+  background: rgba(6, 12, 18, 0.88);
+  backdrop-filter: blur(6px);
+  max-width: min(720px, calc(100% - 320px));
+  flex-wrap: wrap;
+}
+
+.focusLegendTitle {
+  align-self: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7fd0e8;
+  padding-right: 4px;
+}
+
+.focusLens {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 2px 10px;
+  border-left: 1px solid rgba(127, 208, 232, 0.14);
+}
+
+.focusLens strong {
+  font-size: 12px;
+  color: #e6f2f8;
+}
+
+.focusLens small {
+  font-size: 11px;
+  color: #93a4b1;
+}
+
+.focusLens.empty strong {
+  color: #6f7f8c;
+}
+
+.focusFillButton {
+  font-size: 10px;
+  color: #7fd0e8;
+  font-style: italic;
+  padding: 0;
+}
+
+.focusLensEmpty {
+  font-style: italic;
+  color: #6f7f8c;
+}
+
 /* LEFT mission card. */
 .worldMissionCard {
   position: absolute;
@@ -3780,6 +3851,15 @@ pre {
 
 .fallbackGroupLink.starLink {
   border-style: dashed;
+}
+
+/* Empty facet lens in the 2D fallback — honest absence, non-interactive. */
+.fallbackGroupLink.emptyFacet {
+  border-style: dashed;
+  border-color: #33414d;
+  color: #6f7f8c;
+  font-style: italic;
+  cursor: default;
 }
 
 /* Command output as an overlay dock inside the world shell. */
@@ -4895,6 +4975,202 @@ pre {
   border-radius: 7px;
   margin-bottom: 6px;
 }
+/* New typed page (Intake dock). */
+.intakeNewTyped {
+  border-top: 1px solid #22303a;
+  padding-top: 10px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.intakeNewTyped h4 {
+  margin: 0;
+  font-size: 12.5px;
+  color: #cfe0ea;
+}
+
+/* Template inspector (reader type chip → mold + conformity). */
+.readerTypeChip {
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.readerTypeChip.active {
+  border-color: #6bd7ff;
+}
+.templateInspector {
+  margin-top: 8px;
+  border: 1px solid #2a3944;
+  border-radius: 8px;
+  background: rgba(9, 16, 22, 0.9);
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.templateInspector header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.templateInspector header strong {
+  font-size: 12.5px;
+}
+.templateInspector header .readerClose {
+  margin-left: auto;
+}
+.templateMold {
+  margin: 0;
+  font-size: 11.5px;
+  color: #8aa0ad;
+}
+.templateLabel {
+  display: block;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #7f95a3;
+  margin-bottom: 3px;
+}
+.templatePinned ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.templatePinned li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+}
+.templatePinned .pinnedOk {
+  color: #8ad7b6;
+}
+.templatePinned .pinnedMissing {
+  color: #ffb454;
+}
+.pinnedDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffb454;
+  display: inline-block;
+}
+.templateFacets ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.templateFacets li {
+  font-size: 11.5px;
+}
+.templateFacets li strong {
+  color: #cfe0ea;
+  margin-right: 6px;
+}
+.templateFacets li small {
+  color: #8aa0ad;
+}
+.templateFixButton {
+  align-self: flex-start;
+  color: #c57cff;
+}
+
+/* Source entity dock (?dock=source). */
+.sourceIdentity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sourceIdentity small {
+  color: #8aa0ad;
+  font-size: 11.5px;
+}
+.sourceBadge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(107, 215, 255, 0.14);
+  border: 1px solid #2f5666;
+  color: #cfe9f5;
+  font-size: 11px;
+  text-transform: capitalize;
+}
+.sourceLocator {
+  font-size: 11.5px;
+  color: #cfe0ea;
+}
+.sourceHealth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sourceHealth small {
+  color: #7f95a3;
+  font-size: 11px;
+}
+.sourceSection h4 {
+  margin: 4px 0 6px;
+  font-size: 12px;
+  color: #cfe0ea;
+}
+.sourceRecipeError {
+  border: 1px solid #7a3b41;
+  background: rgba(122, 59, 65, 0.16);
+  border-radius: 7px;
+  padding: 8px 10px;
+}
+.sourceRecipeError strong {
+  color: #f0c2c7;
+  font-size: 12px;
+}
+.sourceStreams {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.sourceStreams th {
+  text-align: left;
+  color: #7f95a3;
+  font-weight: 500;
+  font-size: 11px;
+  padding: 3px 6px;
+  border-bottom: 1px solid #22303a;
+}
+.sourceStreams td {
+  padding: 5px 6px;
+  border-bottom: 1px solid #182530;
+  vertical-align: top;
+}
+.sourceStreams td small {
+  color: #7f95a3;
+}
+.sourceStreams .streamBreached td {
+  background: rgba(255, 180, 84, 0.08);
+}
+.sourceStreams .streamSkipped {
+  opacity: 0.55;
+}
+.streamStale {
+  color: #ffb454;
+}
+.streamFresh {
+  color: #8ad7b6;
+}
+.sourceManual summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #cfe0ea;
+  margin-bottom: 6px;
+}
+
 /* Change summary chips under the Gate dock header. */
 .gateSummary {
   display: flex;

@@ -498,6 +498,25 @@
    "title": "Market Cost Report 2026",
    "updated_at": "2026-06-29",
    "visibility": "private_self"
+  },
+  {
+   "approved_state": "approved",
+   "context": "product",
+   "freshness_state": "fresh",
+   "id": "sample-deal-enterprise",
+   "moc_parent": "memories/product/index.md",
+   "page_type": "deal",
+   "path": "memories/product/deals/enterprise-rollout.md",
+   "risk_flags": [],
+   "source_refs": [
+    "sample-source-market-report"
+   ],
+   "stale_after_days": "30",
+   "status": "active",
+   "summary": "Enterprise rollout deal for Acme — a custom `deal` page type this wiki added in wiki.templates.local.yaml.",
+   "title": "Enterprise Rollout — Acme",
+   "updated_at": "2026-07-01",
+   "visibility": "private_self"
   }
  ],
  "repo_id": "wiki-viva-kit-sample",

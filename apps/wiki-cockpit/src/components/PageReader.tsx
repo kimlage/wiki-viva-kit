@@ -11,6 +11,8 @@ import { ExternalLink, GitBranch, ListChecks, Maximize2, Minimize2, Search, Spar
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../data/i18n";
 import { contextLabel, isRawData, pageTypeLabel, trustColor } from "../data/presentation";
+import { facetsOrder, pinnedFieldStatus, templateSpec } from "../data/templates";
+import { TemplateInspector } from "./TemplateInspector";
 import { loadPageContent } from "../data/snapshot";
 import type { ActionCard, BriefSpec, PageContent, PageRecord, ResolvedLink, SnapshotBundle } from "../types";
 
@@ -345,6 +347,7 @@ export function PageReader({
   const [content, setContent] = useState<PageContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [walkStep, setWalkStep] = useState(-1);
+  const [templateOpen, setTemplateOpen] = useState(false);
   // Comfortable reading: the dock expands into a centered modal (key F).
   const [expanded, setExpanded] = useState(false);
   const dockRef = useRef<HTMLElement>(null);
@@ -493,7 +496,14 @@ export function PageReader({
           <h2>{page.title}</h2>
           <div className="readerChips">
             <span className="pill pill-info">{contextLabel(page.context || "system")}</span>
-            <span className="pill pill-muted">{pageTypeLabel(page.page_type)}</span>
+            <button
+              className={`pill pill-muted readerTypeChip${templateOpen ? " active" : ""}`}
+              onClick={() => setTemplateOpen((open) => !open)}
+              title={t("template.inspector.open")}
+              type="button"
+            >
+              {pageTypeLabel(page.page_type)}
+            </button>
             <span
               className="pill"
               style={{ borderColor: trustColor(page.freshness_state === "fresh" ? "fresh" : page.freshness_state === "stale" ? "stale" : "unknown") }}
@@ -509,6 +519,16 @@ export function PageReader({
             {page.updated_at && <span className="pill pill-muted">{t("reader.updated", { when: page.updated_at.slice(0, 10) })}</span>}
             <span className="pill pill-muted">{t("reader.evidence", { n: page.source_refs.length })}</span>
           </div>
+          {templateOpen && (
+            <TemplateInspector
+              spec={templateSpec(bundle, page.page_type)}
+              page={page}
+              status={pinnedFieldStatus(templateSpec(bundle, page.page_type), content)}
+              facetsOrder={facetsOrder(bundle)}
+              onComposeBrief={onComposeBrief}
+              onClose={() => setTemplateOpen(false)}
+            />
+          )}
         </div>
         <div className="readerHeadButtons">
           <button
