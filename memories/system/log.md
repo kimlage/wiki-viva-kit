@@ -14,6 +14,18 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-03] System | Assisted source/template migration CLI documented
+
+- New CLI [wiki_migrate_templates.py](../../scripts/wiki_migrate_templates.py)
+  documented in the [command reference](wiki/command-reference.md): deterministic,
+  additive-only, dry-run-first migration that brings legacy `source`/
+  `source_config` pages up to the platform/locator/owner + `sync` + recipe
+  contract, and reports pages missing pinned template fields. It never invents
+  data — unknown values become `TODO` placeholders for the PR reviewer.
+- New [template-authoring guide](../../docs/references/guides/template-authoring.md)
+  ("how to create a custom type in YAML") documents the fixed primitive
+  vocabulary, the `facets:` block for the Focus view, and the source recipe.
+
 ## [2026-07-01] System | Cockpit core routes have DOM visual smoke coverage
 
 - The React cockpit test suite now renders `/ops`, `/review`, `/sources`,

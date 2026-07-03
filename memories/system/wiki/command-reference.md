@@ -34,6 +34,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_ingest.py](../../../scripts/wiki_ingest.py) | Orchestrates ingestion end to end | Ingest a source from scratch in a single command |
 | [wiki_new.py](../../../scripts/wiki_new.py) | Creates a typed page from the registry template | Start a page from `wiki.page-types.yaml` instead of a blank file |
 | [wiki_migration_inventory.py](../../../scripts/wiki_migration_inventory.py) | Inventories legacy pages and suggests v6.2 frontmatter | Plan a migration before manually editing existing memory pages |
+| [wiki_migrate_templates.py](../../../scripts/wiki_migrate_templates.py) | Assisted source-entity + template migration (dry-run first) | Bring legacy source pages to the platform/locator/owner + recipe contract, and report pages missing pinned template fields |
 | [wiki_new_ingest.py](../../../scripts/wiki_new_ingest.py) | Creates the ingestion proposal (Markdown) | Open the private proposal that enters the gate |
 | [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) | Generates the deterministic source manifest | Record the identity/hash of an isolated source |
 | [wiki_extract_text.py](../../../scripts/wiki_extract_text.py) | Extracts text and stable chunks | Prepare the chunks before the LLM pass |
@@ -135,6 +136,28 @@ reviewed patch. The migration guide is
 python3 scripts/wiki_migration_inventory.py
 python3 scripts/wiki_migration_inventory.py --show-frontmatter
 python3 scripts/wiki_migration_inventory.py --format json
+```
+
+### [wiki_migrate_templates.py](../../../scripts/wiki_migrate_templates.py) - assisted source + template migration
+
+Brings legacy `source`/`source_config` pages up to the source-entity contract
+and scaffolds the ingestion recipe. **Deterministic, additive-only,
+dry-run-first, PR-gated.** It only *adds* missing keys (never overwrites a value
+you wrote) and **never invents data** — values it cannot infer become explicit
+`TODO` placeholders for you to complete before the change is merged. Source pages
+gain `platform` / `source_locator` / `owner` + a `sync` block (seeded to
+`never`); `source_config` pages with no fenced `recipe:` block gain a scaffolded
+one. See the [template-authoring guide](../../../docs/references/guides/template-authoring.md).
+
+- `--apply`: write the source changes (default is a dry-run plan).
+- `--no-sources`: skip the source migration.
+- `--pinned`: also report (never write) pages whose type is missing pinned
+  template fields — the cockpit's template inspector fills these interactively.
+
+```sh
+python3 scripts/wiki_migrate_templates.py             # dry-run source plan
+python3 scripts/wiki_migrate_templates.py --pinned    # + template pinned-field gaps
+python3 scripts/wiki_migrate_templates.py --apply     # write, then review the PR
 ```
 
 ### [wiki_extract_source_manifest.py](../../../scripts/wiki_extract_source_manifest.py) - source manifest
