@@ -503,23 +503,26 @@ export function WorldView({
     if (route.perspective !== "quadrants") return null;
     const assignments = activeQuadrantAnchor?.derived?.quadrant_assignments;
     if (assignments) {
+      const countWithoutCenter = (ids: string[] | undefined) =>
+        (ids ?? []).filter((id) => id !== activeQuadrantAnchorId).length;
       return {
         quadrants: SCENE_FACETS.map((facet) => ({
           facet,
-          count: (assignments[facet === "intencao" ? "q1" : facet === "pratica" ? "q2" : facet === "relacoes" ? "q3" : "q4"] ?? []).length
+          count: countWithoutCenter(assignments[facet === "intencao" ? "q1" : facet === "pratica" ? "q2" : facet === "relacoes" ? "q3" : "q4"])
         })),
-        core: assignments.q0_core?.length ?? 0
+        core: countWithoutCenter(assignments.q0_core)
       };
     }
     const counts = new Map<SceneFacet, number>(SCENE_FACETS.map((facet) => [facet, 0]));
     let core = 0;
     bundle.graph.nodes.forEach((node) => {
+      if (node.id === activeQuadrantAnchorId) return;
       const home = nodeQuadrant(node.id, node.page_type, quadrantHomes);
       if (home) counts.set(home, (counts.get(home) ?? 0) + 1);
       else core += 1;
     });
     return { quadrants: SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0 })), core };
-  }, [route.perspective, activeQuadrantAnchor, bundle.graph, quadrantHomes]);
+  }, [route.perspective, activeQuadrantAnchor, activeQuadrantAnchorId, bundle.graph, quadrantHomes]);
 
   // The world's condition — the honest ambient readout (weather is set from it in
   // the scene). Every segment is a real count that flies to the act point.
@@ -811,6 +814,7 @@ export function WorldView({
     context: route.context,
     group: route.group,
     pageId: route.pageId,
+    centerId: activeQuadrantAnchorId ?? undefined,
     reader: route.query.reader,
     filter: route.query.filter,
     quadrant: route.query.quadrant

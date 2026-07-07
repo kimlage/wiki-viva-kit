@@ -67,6 +67,7 @@ export type SceneRoute = {
   context?: string;
   group?: string;
   pageId?: string;
+  centerId?: string;
   reader: boolean;
   filter: string;
   quadrant?: string;
@@ -619,6 +620,7 @@ export function SystemScene({
       context: route.context,
       group: route.group,
       pageId: route.pageId,
+      centerId: route.centerId,
       quadrant: (route.quadrant || undefined) as WorldRequest["quadrant"],
       quadrantHomes,
       nodes,
@@ -626,7 +628,20 @@ export function SystemScene({
       maxNodes: Math.min(profile.maxNodes + revealBoost, 480),
       snapshotAt
     }),
-    [edges, nodes, profile.maxNodes, quadrantHomes, revealBoost, route.context, route.group, route.pageId, route.perspective, route.quadrant, snapshotAt]
+    [
+      edges,
+      nodes,
+      profile.maxNodes,
+      quadrantHomes,
+      revealBoost,
+      route.centerId,
+      route.context,
+      route.group,
+      route.pageId,
+      route.perspective,
+      route.quadrant,
+      snapshotAt
+    ]
   );
   const layout = useWorldLayout(request);
   const [hover, setHover] = useState<{ node: LayoutNode; x: number; y: number } | null>(null);

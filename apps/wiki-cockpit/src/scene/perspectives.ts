@@ -70,6 +70,9 @@ export type WorldRequest = {
   context?: string;
   group?: string;
   pageId?: string;
+  // Active recursive quadrant/template anchor. In the quadrant map this is the
+  // world center, so it must never be rendered again inside a quadrant.
+  centerId?: string;
   // The active quadrant (Quadrants perspective) — sets the camera fly-to target;
   // it does NOT scope the home map (all four regions stay shown).
   quadrant?: SceneFacet;
@@ -1242,7 +1245,10 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
   // entity, not on a crowd of structural pages. Everything else partitions by
   // home quadrant: the compiler's derived assignment first, the static
   // page-type map as fallback (unknown → core).
-  const rootId = rootNodeId(request.nodes);
+  const centerCandidate = request.centerId && request.nodes.some((node) => node.id === request.centerId)
+    ? request.centerId
+    : null;
+  const rootId = centerCandidate ?? rootNodeId(request.nodes);
   const rootNode = request.nodes.find((node) => node.id === rootId) ?? null;
   const regionMembers = new Map<SceneFacet, GraphNode[]>(SCENE_FACETS.map((facet) => [facet, []]));
   // Unquadranted pages split in two REAL kinds: AREAS (root entities without a

@@ -239,6 +239,37 @@ describe("perspective engine", () => {
     expect(nodeQuadrant("company-intent", "claim", companyHomes)).toBe("intencao");
   });
 
+  it("quadrants: the active center is not duplicated inside its own quadrant", () => {
+    const nodes = [
+      node("root", "system", { page_type: "root_entity", path: "memories/index.md" }),
+      node("company", "empresas", { page_type: "root_entity", path: "memories/companies/company.md" }),
+      node("company-intent", "empresas", { page_type: "claim", path: "memories/companies/company/intent.md" })
+    ];
+    const layout = computeWorldLayout(
+      request({
+        perspective: "quadrants",
+        nodes,
+        edges: [
+          { source: "company", target: "root", type: "moc_parent", status: "valid", weight: 2 },
+          { source: "company-intent", target: "company", type: "moc_parent", status: "valid", weight: 2 }
+        ],
+        centerId: "company",
+        quadrantHomes: {
+          // Defensive regression: even if a stale/parent-derived payload maps
+          // the active center to a quadrant, the map renders it only once.
+          company: "sistemas",
+          "company-intent": "intencao"
+        }
+      })
+    );
+
+    const center = layout.nodes.filter((item) => item.id === "company");
+    expect(center).toHaveLength(1);
+    expect(center[0]).toMatchObject({ isRoot: true, position: [0, 0, 0] });
+    expect(layout.groups.find((group) => group.key === "sistemas")?.count).toBe(0);
+    expect(layout.groups.find((group) => group.key === "intencao")?.count).toBe(1);
+  });
+
   it("quadrants is deterministic and never emits a core group when there are no structural pages", () => {
     const { nodes, edges } = fixture();
     const onlyTyped = nodes.filter((n) => ["decision", "source", "action", "person"].includes(n.page_type));
