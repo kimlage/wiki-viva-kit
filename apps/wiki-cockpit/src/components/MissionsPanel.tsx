@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { Sparkles } from "lucide-react";
 import { t, uiLanguage } from "../data/i18n";
 import { contextLabel, isRawData, pageTypeStyle, trustColor } from "../data/presentation";
+import { composeInstruments } from "../data/surfaces";
 import type { BriefSpec, PageRecord, SnapshotBundle } from "../types";
 import { HelpTip } from "./HelpTip";
 
@@ -42,22 +43,31 @@ function overdueDays(page: PageRecord, generatedAt: string): number {
 
 export function deriveMissions(bundle: SnapshotBundle, demo: boolean): Mission[] {
   const missions: Mission[] = [];
+  // Missions are the gamification PACKAGE, not a platform behavior: without
+  // ui_missions on the root stack the world is quiet — data still derives
+  // (BlocksDock shows it) but nothing asks for attention. Providers govern
+  // which transformations run.
+  const instruments = composeInstruments(bundle);
+  if (!instruments.missionsEnabled) return missions;
+  const providers = new Set(instruments.missionProviders);
   const generatedAt = bundle.manifest.generated_at;
   const pages = bundle.pages.pages;
 
-  [...pages]
-    .filter((page) => page.freshness_state === "stale")
-    .sort((a, b) => overdueDays(b, generatedAt) - overdueDays(a, generatedAt) || a.title.localeCompare(b.title))
-    .slice(0, 5)
-    .forEach((page) => {
-      missions.push({
-        key: `refresh-${page.id}`,
-        kind: "refresh",
-        title: t("missions.refresh.title", { title: page.title }),
-        why: t("missions.refresh.why", { days: overdueDays(page, generatedAt) }),
-        pageId: page.id
+  if (providers.has("stale")) {
+    [...pages]
+      .filter((page) => page.freshness_state === "stale")
+      .sort((a, b) => overdueDays(b, generatedAt) - overdueDays(a, generatedAt) || a.title.localeCompare(b.title))
+      .slice(0, 5)
+      .forEach((page) => {
+        missions.push({
+          key: `refresh-${page.id}`,
+          kind: "refresh",
+          title: t("missions.refresh.title", { title: page.title }),
+          why: t("missions.refresh.why", { days: overdueDays(page, generatedAt) }),
+          pageId: page.id
+        });
       });
-    });
+  }
 
   [...pages]
     .filter((page) => page.freshness_state === "unknown" && !isRawData(page.page_type))
@@ -92,8 +102,40 @@ export function deriveMissions(bundle: SnapshotBundle, demo: boolean): Mission[]
       });
     });
 
+  // Block-derived missions: the relations module (cared-for network) and empty
+  // required quadrants. Deduped across anchors — a person can be in the root's
+  // and an area's scope. These use the amber "refresh" kind: a relation past its
+  // cadence genuinely "needs refresh", the same honest signal as a stale page.
+  const anchors = bundle.blockStacks?.anchors ?? {};
+  const seenRel = new Set<string>();
+  const dueRows: { person: string; title: string; overdue: number }[] = [];
+  const upRows: { person: string; title: string; kind: string; days: number }[] = [];
+  const commitRows: { person: string; title: string; ref: string; days: number }[] = [];
+  for (const record of Object.values(anchors)) {
+    const rel = record.derived?.relations;
+    if (!rel) continue;
+    for (const r of rel.due) if (!seenRel.has(`due-${r.person}`)) { seenRel.add(`due-${r.person}`); dueRows.push({ person: r.person, title: r.title, overdue: r.overdue_days }); }
+    for (const r of rel.upcoming_dates) if (!seenRel.has(`up-${r.person}`)) { seenRel.add(`up-${r.person}`); upRows.push({ person: r.person, title: r.title, kind: r.kind, days: r.in_days }); }
+    for (const r of rel.open_commitments) if (!seenRel.has(`c-${r.person}`)) { seenRel.add(`c-${r.person}`); commitRows.push({ person: r.person, title: r.title, ref: r.ref, days: r.days_left }); }
+  }
+  if (providers.has("relation_cadence_overdue")) {
+    dueRows.sort((a, b) => b.overdue - a.overdue).slice(0, 3).forEach((r) => {
+      missions.push({ key: `relation-${r.person}`, kind: "refresh", title: t("missions.relation.title", { title: r.title }), why: t("missions.relation.why", { n: r.overdue }), pageId: r.person });
+    });
+  }
+  if (providers.has("date_upcoming")) {
+    upRows.sort((a, b) => a.days - b.days).slice(0, 2).forEach((r) => {
+      missions.push({ key: `date-${r.person}`, kind: "verify", title: t("missions.date.title", { title: r.title, kind: r.kind }), why: t("missions.date.why", { n: r.days }), pageId: r.person });
+    });
+  }
+  if (providers.has("commitment_open")) {
+    commitRows.sort((a, b) => a.days - b.days).slice(0, 2).forEach((r) => {
+      missions.push({ key: `commit-${r.person}`, kind: "verify", title: t("missions.commitment.title", { title: r.title }), why: t("missions.commitment.why", { n: r.days }), pageId: r.person });
+    });
+  }
+
   const changed = bundle.git.worktree.changed_files.length;
-  if (changed > 0) {
+  if (changed > 0 && providers.has("approvals_pending")) {
     missions.push({
       key: "approve-changes",
       kind: "approve",

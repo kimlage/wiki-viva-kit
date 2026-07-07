@@ -1,0 +1,34 @@
+{
+  "backlinks": [],
+  "body": "\n# Pulse improves activation\n\nQ1 inside the product. From Alex it still passes through Clearpath as Q4; from Clearpath it passes through Pulse as Q2.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath/pulse-product.md",
+    "page_id": "claim-pulse-activation",
+    "page_type": "claim",
+    "stale_after_days": 30,
+    "sub_lens": "percepcao",
+    "subject_ref": "product-clearpath-pulse",
+    "subject_role": "perception",
+    "title": "Pulse improves activation",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath/pulse-product.md",
+    "page_id": "claim-pulse-activation",
+    "page_type": "claim",
+    "path": "memories/empresas/clearpath/pulse/intent.md",
+    "summary": "Q1 inside the product. From Alex it still passes through Clearpath as Q4; from Clearpath it passes through Pulse as Q2.",
+    "summary_truncated": false,
+    "title": "Pulse improves activation",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

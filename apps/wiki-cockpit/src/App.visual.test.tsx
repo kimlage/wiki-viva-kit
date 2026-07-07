@@ -199,11 +199,14 @@ const bundle: SnapshotBundle = {
     vitality: {}
   },
   sourceEntities: { schema_version: "wiki_web_source_entities.v1", sources: [] },
-  templates: { schema_version: "wiki_templates.v1", facets_order: ["intencao", "pratica", "relacoes", "sistemas"], types: {} }
+  templates: { schema_version: "wiki_templates.v1", facets_order: ["intencao", "pratica", "relacoes", "sistemas"], types: {} },
+  blocks: { schema_version: "wiki_web_blocks.v1", blocks: {}, vocabulary: {}, warnings: [] },
+  blockStacks: { schema_version: "wiki_web_block_stacks.v1", anchors: {} }
 };
 
 vi.mock("./components/SystemScene", () => ({
   canUseWebGL: () => false,
+  sceneFallbackPreferred: () => true,
   SystemScene: ({ children }: { children?: import("react").ReactNode }) => (
     <div data-testid="scene-fallback">{children}</div>
   )
@@ -297,7 +300,8 @@ describe("visual route contract", () => {
     expect(screen.getByRole("button", { name: /Districts/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Trails/ })).toBeTruthy();
     expect(screen.getByLabelText("Search content")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Packet 0/ })).toBeTruthy();
+    // The packet collector only exists while it HAS pages — empty is invisible.
+    expect(screen.queryByRole("button", { name: /Packet/ })).toBeNull();
     expect(screen.getByTestId("scene-fallback")).toBeTruthy();
     cleanup();
 

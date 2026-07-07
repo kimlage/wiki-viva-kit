@@ -1,0 +1,33 @@
+{
+  "backlinks": [],
+  "body": "\n# Clearpath alignment meeting\n\nQ3 inside the company: shared meaning and people in the room.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "meeting-clearpath-alignment",
+    "page_type": "meeting",
+    "stale_after_days": 30,
+    "sub_lens": "encontros",
+    "subject_ref": "company-clearpath-labs",
+    "title": "Clearpath alignment meeting",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "meeting-clearpath-alignment",
+    "page_type": "meeting",
+    "path": "memories/empresas/clearpath/meeting-clearpath-alignment.md",
+    "summary": "Q3 inside the company: shared meaning and people in the room.",
+    "summary_truncated": false,
+    "title": "Clearpath alignment meeting",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

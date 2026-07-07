@@ -11,6 +11,7 @@ from typing import Any, Callable
 import yaml
 
 from .config import WikiConfig, freshness_for
+from .freshness import is_stale, parse_updated_date
 from .paths import WikiPaths
 
 H1_RE = re.compile(r"^#\s+(.*\S)\s*$")
@@ -1362,7 +1363,7 @@ def _vitality(hub: PageRecord | None, as_of: dt.date, config: WikiConfig) -> str
         return "unknown"
     if not updated:
         return "unknown"
-    return "stale" if updated + dt.timedelta(days=stale_after) < as_of else "fresh"
+    return "stale" if is_stale(updated, stale_after, as_of) else "fresh"
 
 
 def _context_order(config_contexts: tuple[str, ...], pages: tuple[PageRecord, ...], selected: tuple[str, ...]) -> tuple[str, ...]:
@@ -1560,13 +1561,7 @@ def _date_text(value: Any) -> str:
 
 
 def _parse_date(value: Any) -> dt.date | None:
-    text = _date_text(value)
-    if not text:
-        return None
-    try:
-        return dt.date.fromisoformat(text[:10])
-    except ValueError:
-        return None
+    return parse_updated_date(_date_text(value))
 
 
 def _rel(path: Path, page_dir: Path) -> str:

@@ -76,6 +76,9 @@ def field_type_error(field: str, expected: str, value: Any) -> str | None:
     elif expected == "list":
         if not isinstance(value, list):
             return f"{field} must be a list"
+    elif expected == "object":
+        if not isinstance(value, dict):
+            return f"{field} must be an object"
     elif expected == "bool":
         if str(value).lower() not in {"true", "false", "yes", "no", "on", "off", "1", "0"}:
             return f"{field} must be boolean-like"

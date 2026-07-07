@@ -82,12 +82,22 @@ export function WorkDock({
   const [fullLog, setFullLog] = useState(false);
   const [returnFor, setReturnFor] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
+  // Operator unreachable (fetch itself rejected). The chip below says so once;
+  // the poll keeps running and clears it the moment the operator answers again.
+  const [offline, setOffline] = useState(false);
 
   const load = useCallback(async () => {
     if (demo) return;
-    const [jobList, briefList] = await Promise.all([listCodexJobs(), listBriefs()]);
-    setJobs(jobList);
-    setDrafts(briefList.filter((b) => b.status === "draft"));
+    try {
+      const [jobList, briefList] = await Promise.all([listCodexJobs(), listBriefs()]);
+      setJobs(jobList);
+      setDrafts(briefList.filter((b) => b.status === "draft"));
+      setOffline(false);
+    } catch {
+      // Keep the last known list AND the interval alive — an operator outage
+      // must not kill the monitoring surface, only mark it as possibly stale.
+      setOffline(true);
+    }
   }, [demo]);
 
   // Poll while the dock is open — a monitoring surface must not go quiet the
@@ -105,8 +115,12 @@ export function WorkDock({
     if (!openLog) return undefined;
     let stop = false;
     const pull = async () => {
-      const text = await streamCodexLog(openLog);
-      if (!stop) setLogText(text);
+      try {
+        const text = await streamCodexLog(openLog);
+        if (!stop) setLogText(text);
+      } catch {
+        /* operator unreachable — keep the last tail; load()'s chip reports it */
+      }
     };
     pull();
     const id = window.setInterval(pull, 2000);
@@ -148,6 +162,11 @@ export function WorkDock({
       <aside className="workDockPanel worldDock" role="dialog" aria-label={t("work.aria")}>
         <header className="dockHeader">
           <strong>{t("work.title")}</strong>
+          {offline && !demo && (
+            <span className="pill pill-warn" title={t("work.offlineTitle")}>
+              {t("work.offline")}
+            </span>
+          )}
           {!capability.usable && !demo &&
             (onDiagnose ? (
               <button className="pill pill-warn workCodexChip" onClick={onDiagnose} type="button">

@@ -1,0 +1,46 @@
+{
+  "backlinks": [],
+  "body": "\n# Ingest\u00e3o: extrato do banco (maio)\n\nNormalized import of the bank statement. The claim about cloud costs and the reconciliation report were born here.\n\n## Source\n\n- Source: `source-banco-export`\n- Normalized event: this page IS the record of the sync.\n",
+  "frontmatter": {
+    "context": "sistema",
+    "moc_parent": "memories/index.md",
+    "page_id": "event-ingest-banco-2026-05",
+    "page_type": "ingestion_event",
+    "source_refs": [
+      "source-banco-export"
+    ],
+    "stale_after_days": "365",
+    "title": "Ingest\u00e3o: extrato do banco (maio)",
+    "updated_at": "2026-05-04",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "event-ingest-banco-2026-05",
+    "page_type": "ingestion_event",
+    "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+    "summary": "Normalized import of the bank statement. The claim about cloud costs and the reconciliation report were born here. Source: source-banco-export Normalized event: this page IS the record of the sync.",
+    "summary_truncated": false,
+    "title": "Ingest\u00e3o: extrato do banco (maio)",
+    "updated_at": "2026-05-04"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "stale",
+      "page_id": "source-banco-export",
+      "page_type": "source",
+      "path": "memories/sources/source-banco-export.md",
+      "ref": "source-banco-export",
+      "resolved": true,
+      "title": "Extrato do Banco"
+    }
+  ]
+}

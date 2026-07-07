@@ -43,8 +43,9 @@ function cleanBase(value: string | undefined): string {
 }
 
 function normalize(raw: RawRuntimeConfig): RuntimeConfig {
+  const hasApiBase = Object.prototype.hasOwnProperty.call(raw, "api_base");
   return {
-    apiBase: cleanBase(raw.api_base) || DEFAULT_CONFIG.apiBase,
+    apiBase: hasApiBase ? cleanBase(raw.api_base) : DEFAULT_CONFIG.apiBase,
     snapshotBase: cleanBase(raw.snapshot_base),
     repoLabel: String(raw.repo_label || "").trim(),
     mode: String(raw.mode || DEFAULT_CONFIG.mode).trim() || DEFAULT_CONFIG.mode,

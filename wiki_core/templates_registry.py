@@ -46,6 +46,18 @@ class TemplateSpec:
     view: dict[str, Any]  # {center, panels: [...], badges: [...]}
     controls: tuple[dict[str, Any], ...]
     scene: dict[str, Any]  # {shape, emphasis}
+    # --- v2: the type as a COMPLETE module contract (blocks/identity/subpages) ---
+    # Optional, back-compatible: a v1 registry resolves these to empty defaults.
+    can_anchor_blocks: bool = False
+    blocks: tuple[dict[str, Any], ...] = ()  # default blocks the type applies
+    identity: dict[str, Any] = field(default_factory=dict)  # landmark/motif/ambient/horizon_label
+    subpages: tuple[dict[str, Any], ...] = ()  # {rel, page_type, slug?, required|generated}
+    skills: dict[str, Any] = field(default_factory=dict)  # {human: [...], agent: [...]}
+    home_quadrant: str | None = None  # per-type quadrant home override
+    # Can a HUMAN create this type from the generic palette? Generated/system
+    # types (ingestion events, registries, logs) and rite-owned types (the
+    # root) say no — offering the uncreatable is lying to the user.
+    creatable: bool = True
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -57,6 +69,13 @@ class TemplateSpec:
             "view": self.view,
             "controls": [dict(c) for c in self.controls],
             "scene": self.scene,
+            "can_anchor_blocks": self.can_anchor_blocks,
+            "blocks": [dict(b) for b in self.blocks],
+            "identity": dict(self.identity),
+            "subpages": [dict(s) for s in self.subpages],
+            "skills": dict(self.skills),
+            "home_quadrant": self.home_quadrant,
+            "creatable": self.creatable,
         }
 
 
@@ -66,6 +85,15 @@ class TemplateRegistry:
     schema_version: str
     raw_types: dict[str, dict[str, Any]]
     bases: dict[str, dict[str, Any]]
+    # v2 block registry (the `blocks:` section), merged with local overrides. A
+    # v1 file simply has none. Kept RAW here; wiki_core.template_blocks owns the
+    # block vocabulary, validation and stack resolution.
+    raw_blocks: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # v2 packages: NAMED groups of blocks (attachment sugar — blocks stay the
+    # primitive). Attaching `packages: [gamification]` on an anchor expands to
+    # the package's blocks, in order, at that ring.
+    raw_packages: dict[str, dict[str, Any]] = field(default_factory=dict)
+    vocabulary: dict[str, Any] = field(default_factory=dict)
 
     def resolve(self, page_type: str) -> TemplateSpec:
         return resolve_template_spec(self, page_type)
@@ -107,14 +135,19 @@ def load_template_registry(
     local_file = root / local_path
     if local_file.exists():
         local = yaml.safe_load(local_file.read_text(encoding="utf-8")) or {}
-        for section in ("bases", "types"):
+        for section in ("bases", "types", "blocks", "packages"):
             merged = {**(data.get(section) or {}), **(local.get(section) or {})}
             data[section] = merged
+        if isinstance(local.get("vocabulary"), dict):
+            data["vocabulary"] = {**(data.get("vocabulary") or {}), **local["vocabulary"]}
     return TemplateRegistry(
         path=registry_path if registry_path.exists() else None,
         schema_version=str(data.get("schema_version") or TEMPLATES_SCHEMA_VERSION),
         raw_types={str(k): dict(v) for k, v in (data.get("types") or {}).items() if isinstance(v, dict)},
         bases={str(k): dict(v) for k, v in (data.get("bases") or {}).items() if isinstance(v, dict)},
+        raw_blocks={str(k): dict(v) for k, v in (data.get("blocks") or {}).items() if isinstance(v, dict)},
+        raw_packages={str(k): dict(v) for k, v in (data.get("packages") or {}).items() if isinstance(v, dict)},
+        vocabulary=dict(data.get("vocabulary") or {}),
     )
 
 
@@ -126,6 +159,13 @@ _DEFAULT_SPEC: dict[str, Any] = {
     "view": {"center": "document", "panels": [], "badges": ["freshness"]},
     "controls": [],
     "scene": {"shape": "sphere", "emphasis": "none"},
+    "can_anchor_blocks": False,
+    "blocks": [],
+    "identity": {},
+    "subpages": [],
+    "skills": {},
+    "home_quadrant": None,
+    "creatable": True,
 }
 
 
@@ -150,6 +190,7 @@ def resolve_template_spec(registry: TemplateRegistry, page_type: str) -> Templat
         for k, v in (merged.get("facets") or {}).items()
         if k in FACETS
     }
+    home_q = merged.get("home_quadrant")
     return TemplateSpec(
         page_type=page_type,
         extends=raw.get("extends"),
@@ -159,6 +200,13 @@ def resolve_template_spec(registry: TemplateRegistry, page_type: str) -> Templat
         view=dict(merged.get("view") or {}),
         controls=tuple(dict(c) for c in (merged.get("controls") or []) if isinstance(c, dict)),
         scene=dict(merged.get("scene") or {}),
+        can_anchor_blocks=bool(merged.get("can_anchor_blocks") or False),
+        blocks=tuple(dict(b) for b in (merged.get("blocks") or []) if isinstance(b, dict)),
+        identity=dict(merged.get("identity") or {}),
+        subpages=tuple(dict(s) for s in (merged.get("subpages") or []) if isinstance(s, dict)),
+        skills=dict(merged.get("skills") or {}),
+        home_quadrant=str(home_q) if home_q else None,
+        creatable=bool(merged.get("creatable", True)),
     )
 
 

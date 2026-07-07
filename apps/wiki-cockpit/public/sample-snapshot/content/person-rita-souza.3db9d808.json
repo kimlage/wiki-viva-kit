@@ -1,0 +1,35 @@
+{
+  "backlinks": [],
+  "body": "\n# Rita Souza\n\nAccountant. Handles the yearly reconciliation.\n",
+  "frontmatter": {
+    "context": "financeiro",
+    "moc_parent": "memories/financeiro/index.md",
+    "page_id": "person-rita-souza",
+    "page_type": "person",
+    "relationship": {
+      "contact_cadence_days": 60,
+      "kind": "vendor"
+    },
+    "stale_after_days": 45,
+    "title": "Rita Souza",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "financeiro",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/financeiro/index.md",
+    "page_id": "person-rita-souza",
+    "page_type": "person",
+    "path": "memories/people/person-rita-souza.md",
+    "summary": "Accountant. Handles the yearly reconciliation.",
+    "summary_truncated": false,
+    "title": "Rita Souza",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

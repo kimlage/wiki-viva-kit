@@ -45,17 +45,21 @@ def _resolve_source(root: Path, source_path: str) -> Path | None:
     return resolved
 
 
-def _has_secret(path: Path) -> bool:
+def _secret_scan_block(path: Path) -> str | None:
+    """The refusal reason when the file must not be copied, else None.
+
+    Fails CLOSED: a source that cannot be read/scanned is treated as
+    potentially secret-bearing rather than waved through unscanned.
+    """
     try:
         with path.open("rb") as handle:
             chunk = handle.read(_MAX_SCAN_BYTES)
-    except OSError:
-        return False
-    try:
-        text = chunk.decode("utf-8", errors="ignore")
-    except Exception:  # noqa: BLE001
-        return False
-    return bool(SECRET_VALUE_RE.search(text))
+    except OSError as exc:
+        return f"could not secret-scan the source, treating it as potentially secret-bearing ({exc})"
+    text = chunk.decode("utf-8", errors="ignore")
+    if SECRET_VALUE_RE.search(text):
+        return "the file appears to contain a secret"
+    return None
 
 
 def intake_copy(root: Path, config: WikiConfig, source_path: str, context: str) -> dict[str, Any]:
@@ -67,8 +71,9 @@ def intake_copy(root: Path, config: WikiConfig, source_path: str, context: str) 
     source = _resolve_source(root, source_path)
     if source is None:
         return {"ok": False, "error": "source file not found or unreadable", "source": source_path}
-    if _has_secret(source):
-        return {"ok": False, "error": "refused: the file appears to contain a secret", "reason": "secret_block"}
+    scan_block = _secret_scan_block(source)
+    if scan_block is not None:
+        return {"ok": False, "error": f"refused: {scan_block}", "reason": "secret_block"}
 
     raw_root = str(config.paths.get("raw_root") or "data/raw").rstrip("/")
     dest_dir = (root / raw_root / ctx).resolve()

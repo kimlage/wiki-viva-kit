@@ -325,3 +325,29 @@ export function isRawData(pageType: string): boolean {
   if (RAW_TYPES.has(pageType)) return true;
   return pageTypeStyle(pageType).family === "source";
 }
+
+// META layer: pages that DEFINE the system — molds, not content. Blueprints in
+// the scene (wireframe), a mold banner in the reader, a meta chip in lists.
+// You never confuse the blueprint with the building. Same precedent as the raw
+// layer: a rendering LAYER, not a new color (CVD-safe by construction).
+const META_TYPES = new Set(["template_block", "skill", "perspective"]);
+
+export function isMetaPage(pageType: string): boolean {
+  return META_TYPES.has(pageType);
+}
+
+// The landmark GLYPH per identity landmark — the 2D face of the anchor's
+// architecture (reader banner, block dock chips, breadcrumbs).
+const LANDMARK_GLYPHS: Record<string, string> = {
+  observatory: "✦",
+  beacon: "▲",
+  crystal_spire: "◆",
+  plaza: "▦",
+  forge: "⚒",
+  shelf: "≣",
+  engine: "⚙"
+};
+
+export function landmarkGlyph(landmark: string): string {
+  return LANDMARK_GLYPHS[landmark] || "◈";
+}

@@ -11,8 +11,12 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-07-07
 stale_after_days: 180
+parent_projection:
+  quadrant: q2
+  sub_lens: evidencias
+  reason: "Methodology source is an observable evidence artifact of the kit."
 source_type: reference
 ingestion_state: ingested
 last_ingested_at: 2026-06-25
@@ -42,7 +46,7 @@ evidence_refs:
 
 # Living wiki methodology (source)
 
-Updated on: 2026-06-25.
+Updated on: 2026-07-07.
 
 This page is the methodological source of the kit: it describes, at a high level, the model of
 the living operational wiki that the code implements. Implementation coverage is

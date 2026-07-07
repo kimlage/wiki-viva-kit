@@ -197,9 +197,9 @@ def test_compile_input_stage_inherits_root_channel_and_source_config(tmp_path: P
 
     assert catalog["schema_version"] == "wiki_input_stage.v1"
     assert catalog["quadrant_semantics"]["q1"]["semantic_key"] == "interior_individual"
-    assert catalog["quadrant_semantics"]["q2"]["aqal_position"] == "It / exterior individual"
+    assert catalog["quadrant_semantics"]["q2"]["aqal_position"] == "It / exterior individual / upper-right"
     assert catalog["quadrant_semantics"]["q3"]["semantic_key"] == "interior_collective"
-    assert catalog["quadrant_semantics"]["q4"]["aqal_position"] == "Its / exterior collective"
+    assert catalog["quadrant_semantics"]["q4"]["aqal_position"] == "Its / exterior collective / lower-right"
     assert "do not invent consciousness" in catalog["quadrant_semantics"]["q1"]["operational_test"]
     assert "not enough" in catalog["quadrant_semantics"]["q2"]["operational_test"]
     assert "plain people roster" in catalog["quadrant_semantics"]["q3"]["operational_test"]
@@ -391,7 +391,7 @@ def test_render_input_stage_markdown_is_stable_and_links(tmp_path: Path) -> None
     assert "[Team docs](../input-channels/team-docs.md)" in md
     assert "[Team handbook](../sources/team-handbook.md)" in md
     assert "## Quadrant semantics" in md
-    assert "`q2` | `exterior_individual` | It / exterior individual" in md
+    assert "`q2` | `exterior_individual` | It / exterior individual / upper-right" in md
     assert "Boundary rule: Apply the quadrant to the root holon" in md
     assert "as externally administered structure they belong to q4" in md
     assert "perspective-identity-intent" in md

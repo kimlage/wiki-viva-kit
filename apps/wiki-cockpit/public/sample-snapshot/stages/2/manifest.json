@@ -1,0 +1,38 @@
+{
+  "content_sidecars": true,
+  "files": [
+    "manifest.json",
+    "operations.json",
+    "graph.json",
+    "pages.json",
+    "sources.json",
+    "source_entities.json",
+    "templates.json",
+    "actions.json",
+    "decisions.json",
+    "freshness.json",
+    "gates.json",
+    "git.json",
+    "timeline.json",
+    "diff.json",
+    "ingestion.json",
+    "quality.json",
+    "commands.json",
+    "score.json",
+    "blocks.json",
+    "block_stacks.json"
+  ],
+  "generated_at": "2026-07-07T22:55:36Z",
+  "mode": "static",
+  "repo": {
+    "branch_prefix": "wiki/",
+    "default_branch": "main",
+    "default_context": "pessoal",
+    "karma_enabled": true,
+    "language": "en",
+    "memory_root": "memories",
+    "repo_id": "wiki-viva-demo"
+  },
+  "schema_version": "wiki_web_snapshot.v1",
+  "source_commit": null
+}

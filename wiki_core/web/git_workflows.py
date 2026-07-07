@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -115,6 +116,18 @@ def _error(operation: str, message: str, *, dry_run: bool = False, data: dict[st
     }
 
 
+# ONE checkout, one writer: every mutating git operation (HTTP workflows AND
+# the Codex job runner) serializes on this lock. The runner holds it for a
+# whole job, so a concurrent HTTP workflow gets an honest "checkout busy"
+# instead of switching branches under a running job (which would commit the
+# job's delta onto the wrong branch). RLock: the runner calls run_git_workflow
+# from the thread that already holds it.
+CHECKOUT_LOCK = threading.RLock()
+
+# Operations that never touch the worktree/branches — safe without the lock.
+_READ_ONLY_OPERATIONS = frozenset({"list_proposals"})
+
+
 def run_git_workflow(
     root: Path,
     config: WikiConfig,
@@ -124,6 +137,27 @@ def run_git_workflow(
     dry_run: bool = True,
 ) -> dict[str, Any]:
     payload = payload or {}
+    if operation not in _READ_ONLY_OPERATIONS and not dry_run:
+        if not CHECKOUT_LOCK.acquire(timeout=5):
+            return _error(
+                operation,
+                "checkout busy: a Codex job is running — wait for it to finish (or cancel it) and retry",
+            )
+        try:
+            return _run_git_workflow_locked(root, config, operation, payload, dry_run=dry_run)
+        finally:
+            CHECKOUT_LOCK.release()
+    return _run_git_workflow_locked(root, config, operation, payload, dry_run=dry_run)
+
+
+def _run_git_workflow_locked(
+    root: Path,
+    config: WikiConfig,
+    operation: str,
+    payload: dict[str, Any],
+    *,
+    dry_run: bool,
+) -> dict[str, Any]:
     prefix = _branch_prefix(config)
     state = build_git_state(root, config)
     current_branch = str(state.get("current_branch") or "")

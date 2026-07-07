@@ -5,13 +5,13 @@
       "git",
       "diff",
       "--stat",
-      "abc123def456..HEAD"
+      "bd6102841d35ecced934dbe67b875a130ed11444..HEAD"
     ],
     [
       "git",
       "diff",
       "--name-status",
-      "abc123def456..HEAD"
+      "bd6102841d35ecced934dbe67b875a130ed11444..HEAD"
     ],
     [
       "git",
@@ -22,90 +22,37 @@
       "git",
       "diff",
       "--name-status"
+    ],
+    [
+      "git",
+      "diff",
+      "--cached",
+      "--stat"
+    ],
+    [
+      "git",
+      "diff",
+      "--cached",
+      "--name-status"
     ]
   ],
   "compare": {
-    "base_ref": "main",
-    "current_branch": "wiki/sample-cockpit",
+    "base_ref": "origin/main",
+    "current_branch": "wiki/template-blocks-impl",
     "default_branch": "main",
-    "head_commit": "def456abc123",
-    "merge_base": "abc123def456"
+    "head_commit": "84bdabf5effd",
+    "merge_base": "bd6102841d35"
   },
-  "files": [
-    {
-      "additions": 9,
-      "category": "memory",
-      "change_sources": [
-        "branch",
-        "working_tree"
-      ],
-      "deletions": 3,
-      "known_generated": false,
-      "path": "memories/system/wiki/pr-governance.md",
-      "preview": [
-        "@@ -14 +14 @@",
-        "+Canonical memory changes wait at the human gate before merge.",
-        "+The cockpit prepares the packet; a person decides yes/no."
-      ],
-      "risk_hints": [
-        "memory_review"
-      ],
-      "staged": false,
-      "status": "M",
-      "unstaged": true
-    },
-    {
-      "additions": 12,
-      "category": "docs",
-      "change_sources": [
-        "branch",
-        "working_tree"
-      ],
-      "deletions": 2,
-      "known_generated": false,
-      "path": "docs/references/proposals/threejs-operational-dashboard-plan-2026-07-01.md",
-      "preview": [
-        "@@ -188 +188 @@",
-        "+The cockpit should operate review state as a human workflow.",
-        "+Approval requests remain the human gate for canonical memory."
-      ],
-      "risk_hints": [
-        "method_contract"
-      ],
-      "staged": false,
-      "status": "M",
-      "unstaged": true
-    },
-    {
-      "additions": 8,
-      "category": "web_cockpit",
-      "change_sources": [
-        "branch"
-      ],
-      "deletions": 0,
-      "known_generated": false,
-      "path": "apps/wiki-cockpit/src/App.tsx",
-      "preview": [
-        "@@ -259 +259 @@",
-        "+<DiffFilmstrip bundle={bundle} />"
-      ],
-      "risk_hints": [],
-      "staged": false,
-      "status": "M",
-      "unstaged": false
-    }
-  ],
-  "repo_id": "wiki-viva-kit-sample",
+  "files": [],
+  "repo_id": "wiki-viva-demo",
   "schema_version": "wiki_web_diff.v1",
   "summary": {
-    "branch_file_count": 3,
-    "deletions": 5,
-    "file_count": 3,
-    "insertions": 29,
-    "privacy_review_required": true,
-    "status_counts": {
-      "M": 3
-    },
-    "working_tree_file_count": 2
+    "branch_file_count": 0,
+    "deletions": 0,
+    "file_count": 0,
+    "insertions": 0,
+    "privacy_review_required": false,
+    "status_counts": {},
+    "working_tree_file_count": 0
   }
 }

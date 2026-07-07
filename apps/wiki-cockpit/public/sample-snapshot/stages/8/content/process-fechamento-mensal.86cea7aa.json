@@ -1,0 +1,33 @@
+{
+  "backlinks": [],
+  "body": "\n# Fechamento mensal\n\nContent that lands in its quadrant interior.\n",
+  "frontmatter": {
+    "cadence": "monthly",
+    "context": "financeiro",
+    "moc_parent": "memories/financeiro/index.md",
+    "page_id": "process-fechamento-mensal",
+    "page_type": "process",
+    "stale_after_days": 30,
+    "sub_lens": "processos",
+    "title": "Fechamento mensal",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "financeiro",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/financeiro/index.md",
+    "page_id": "process-fechamento-mensal",
+    "page_type": "process",
+    "path": "memories/processes/process-fechamento-mensal.md",
+    "summary": "Content that lands in its quadrant interior.",
+    "summary_truncated": false,
+    "title": "Fechamento mensal",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

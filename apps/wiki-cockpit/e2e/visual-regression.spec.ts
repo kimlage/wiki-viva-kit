@@ -6,9 +6,9 @@ const routes = [
   { name: "world-radar-demo", path: "/demo/w/radar?visual=1", probe: "Galaxy" },
   { name: "world-atlas-demo", path: "/demo/w/atlas?visual=1", probe: "Galaxy" },
   { name: "world-districts-demo", path: "/demo/w/districts?visual=1", probe: "Galaxy" },
-  { name: "review-demo", path: "/demo/review?visual=1", probe: "Approval Inbox" },
+  { name: "review-demo", path: "/demo/review?visual=1", probe: "Approve changes" },
   { name: "sources-demo", path: "/demo/sources?visual=1", probe: "Add Knowledge" },
-  { name: "health-demo", path: "/demo/health?visual=1", probe: "Wiki Health" }
+  { name: "health-demo", path: "/demo/health?visual=1", probe: "Checks" }
 ] as const;
 
 for (const route of routes) {
@@ -26,18 +26,18 @@ for (const route of routes) {
 }
 
 test("legacy /pages/:id bookmark lands in the world with the reader open", async ({ page }) => {
-  await page.goto("/demo/pages/sample-root?visual=1");
-  await page.waitForURL(/\/demo\/w\/atlas\//);
+  await page.goto("/demo/pages/root-alex-rivera?visual=1");
+  await page.waitForURL(/\/demo\/w\/atlas(?:\/|\?|$)/);
   await expect(page.getByLabel(/Reader:/)).toBeVisible();
   await expect(page).toHaveScreenshot("world-reader-demo.png", { animations: "disabled", fullPage: false });
 });
 
 test("keyboard loop: drill \u2192 lock \u2192 read \u2192 retreat over the same URLs", async ({ page }) => {
-  await page.goto("/demo/w/radar?visual=1");
+  await page.goto("/demo/w/atlas?visual=1");
   await expect(page.getByText("Galaxy")).toBeVisible();
   // Drill into a context via the fallback group links (same URL grammar).
   await page.locator(".fallbackGroupLink").first().click();
-  await page.waitForURL(/\/demo\/w\/radar\/[^/?]+/);
+  await page.waitForURL(/\/demo\/w\/atlas\/[^/?]+/);
   // Lock a page (opens the reader and pins ?reader=1 in the URL).
   await page.locator(".fallbackNode").first().click();
   await page.waitForURL(/reader=1/);
@@ -49,5 +49,5 @@ test("keyboard loop: drill \u2192 lock \u2192 read \u2192 retreat over the same 
   for (let step = 0; step < 3; step += 1) {
     await page.keyboard.press("Escape");
   }
-  await expect(page).toHaveURL(/\/demo\/w\/radar(\?|$)/);
+  await expect(page).toHaveURL(/\/demo\/w\/atlas(\?|$)/);
 });

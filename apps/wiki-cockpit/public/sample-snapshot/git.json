@@ -1,33 +1,24 @@
 {
   "available": true,
   "branch_prefix": "wiki/",
-  "current_branch": "wiki/sample-cockpit",
+  "current_branch": "main",
   "default_branch": "main",
   "proposal": {
     "draft_pr_url": null,
-    "human_gate_state": "not_opened",
-    "is_proposal_branch": true,
-    "theme": "sample-cockpit"
+    "human_gate_state": "clean",
+    "is_proposal_branch": false,
+    "theme": ""
   },
   "schema_version": "wiki_web_git.v1",
   "upstream": {
-    "ahead": 1,
+    "ahead": 0,
     "behind": 0,
-    "last_fetch_at": "2026-07-01T00:00:00Z",
-    "name": "origin/wiki/sample-cockpit",
+    "last_fetch_at": null,
+    "name": "",
     "remote": "origin"
   },
   "worktree": {
-    "changed_files": [
-      {
-        "known_generated": false,
-        "path": "docs/references/proposals/threejs-operational-dashboard-plan-2026-07-01.md",
-        "staged": false,
-        "status": "M",
-        "suggested_stage": true,
-        "unstaged": true
-      }
-    ],
-    "clean": false
+    "changed_files": [],
+    "clean": true
   }
 }

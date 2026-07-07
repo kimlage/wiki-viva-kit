@@ -1,0 +1,34 @@
+{
+  "backlinks": [],
+  "body": "\n# Exemplo de biblioteca classificada\n\nA synthetic filled example showing how a reference item lands in the template.\n",
+  "frontmatter": {
+    "context": "sistema",
+    "moc_parent": "memories/sistema/blocks/block-library-lens.md",
+    "page_id": "artifact-template-library-example",
+    "page_type": "artifact",
+    "source_refs": [],
+    "stale_after_days": 45,
+    "subject_ref": "block-library-lens",
+    "subject_role": "artifact_output",
+    "title": "Exemplo de biblioteca classificada",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/sistema/blocks/block-library-lens.md",
+    "page_id": "artifact-template-library-example",
+    "page_type": "artifact",
+    "path": "memories/artifacts/template-library-example.md",
+    "summary": "A synthetic filled example showing how a reference item lands in the template.",
+    "summary_truncated": false,
+    "title": "Exemplo de biblioteca classificada",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

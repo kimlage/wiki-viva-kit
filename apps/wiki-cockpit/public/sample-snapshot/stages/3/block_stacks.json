@@ -1,0 +1,436 @@
+{
+  "anchor_tree": {
+    "nodes": {
+      "hub-financeiro": {
+        "children": [],
+        "id": "hub-financeiro",
+        "page_type": "context_hub",
+        "parent": "root-alex-rivera",
+        "path": "memories/financeiro/index.md",
+        "title": "Financeiro"
+      },
+      "root-alex-rivera": {
+        "children": [
+          "hub-financeiro"
+        ],
+        "id": "root-alex-rivera",
+        "page_type": "root_entity",
+        "parent": "",
+        "path": "memories/index.md",
+        "title": "Alex Rivera"
+      }
+    },
+    "roots": [
+      "root-alex-rivera"
+    ]
+  },
+  "anchors": {
+    "hub-financeiro": {
+      "derived": {
+        "empty_quadrants": [
+          "q3",
+          "q4"
+        ],
+        "missions": [
+          {
+            "anchor": "hub-financeiro",
+            "provider": "quadrant_absence",
+            "quadrant": "q3"
+          },
+          {
+            "anchor": "hub-financeiro",
+            "provider": "quadrant_absence",
+            "quadrant": "q4"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [
+            "claim-custos-sobem"
+          ],
+          "q2": [
+            "artifact-relatorio-recon"
+          ],
+          "q3": [],
+          "q4": []
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {
+          "artifact-relatorio-recon": [
+            {
+              "basis": "page_semantics",
+              "center": "hub-financeiro",
+              "facet": "pratica",
+              "local_facet_under_subject": "pratica",
+              "local_quadrant_under_subject": "q2",
+              "local_sub_lens_under_subject": "producao",
+              "page": "artifact-relatorio-recon",
+              "quadrant": "q2",
+              "reason": "",
+              "sub_lens": "producao",
+              "subject_center": "hub-financeiro",
+              "through_center": ""
+            }
+          ],
+          "claim-custos-sobem": [
+            {
+              "basis": "page_semantics",
+              "center": "hub-financeiro",
+              "facet": "intencao",
+              "local_facet_under_subject": "intencao",
+              "local_quadrant_under_subject": "q1",
+              "local_sub_lens_under_subject": "percepcao",
+              "page": "claim-custos-sobem",
+              "quadrant": "q1",
+              "reason": "",
+              "sub_lens": "percepcao",
+              "subject_center": "hub-financeiro",
+              "through_center": ""
+            }
+          ]
+        },
+        "quadrant_sub_lens": {
+          "q1": {
+            "percepcao": [
+              "claim-custos-sobem"
+            ]
+          },
+          "q2": {
+            "producao": [
+              "artifact-relatorio-recon"
+            ]
+          },
+          "q3": {},
+          "q4": {}
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "none",
+        "context": "financeiro",
+        "horizon_label": "context",
+        "horizon_text": "financeiro",
+        "landmark": "beacon",
+        "motif": "ledger"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_family",
+          "catalog": [
+            "artifact",
+            "claim",
+            "decision",
+            "tool"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": false,
+        "intake": {
+          "forms": [
+            "copy_file",
+            "paste_text"
+          ]
+        },
+        "missions": {
+          "active": true,
+          "providers": [
+            "stale",
+            "template_conformity",
+            "quadrant_absence"
+          ],
+          "quiet": false,
+          "weather_contrib": true
+        },
+        "score": {
+          "loops": [
+            "context_vitality"
+          ],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "quadrants",
+            "atlas",
+            "focus"
+          ],
+          "default": "quadrants"
+        }
+      },
+      "stack": [
+        {
+          "config": {},
+          "id": "wiki.block.privacy_boundary.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.git_human_gate.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "arrangement": "by_family",
+            "catalog": [
+              "artifact",
+              "claim",
+              "decision",
+              "tool"
+            ],
+            "obligations_first": true
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "providers": [
+              "stale",
+              "template_conformity"
+            ]
+          },
+          "id": "wiki.block.ui_missions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "forms": [
+              "copy_file",
+              "paste_text"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:context_hub",
+          "scope": "self"
+        },
+        {
+          "config": {
+            "loops": [
+              "context_vitality"
+            ]
+          },
+          "id": "wiki.block.gamification.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:context_hub",
+          "scope": "descendants"
+        }
+      ]
+    },
+    "root-alex-rivera": {
+      "derived": {
+        "empty_quadrants": [
+          "q1",
+          "q2",
+          "q3"
+        ],
+        "missions": [
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q1"
+          },
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q2"
+          },
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q3"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [],
+          "q2": [],
+          "q3": [],
+          "q4": [
+            "hub-financeiro"
+          ]
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {
+          "hub-financeiro": [
+            {
+              "basis": "page_semantics",
+              "center": "root-alex-rivera",
+              "facet": "sistemas",
+              "local_facet_under_subject": "sistemas",
+              "local_quadrant_under_subject": "q4",
+              "local_sub_lens_under_subject": "governanca",
+              "page": "hub-financeiro",
+              "quadrant": "q4",
+              "reason": "",
+              "sub_lens": "governanca",
+              "subject_center": "root-alex-rivera",
+              "through_center": ""
+            }
+          ]
+        },
+        "quadrant_sub_lens": {
+          "q1": {},
+          "q2": {},
+          "q3": {},
+          "q4": {
+            "governanca": [
+              "hub-financeiro"
+            ]
+          }
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "motes",
+        "context": "pessoal",
+        "horizon_label": "title",
+        "horizon_text": "Alex Rivera",
+        "landmark": "observatory",
+        "motif": "rings"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_quadrant",
+          "catalog": [
+            "context_note",
+            "source",
+            "person",
+            "project",
+            "holon",
+            "decision",
+            "tool"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": false,
+        "intake": {
+          "forms": [
+            "copy_file",
+            "paste_text"
+          ]
+        },
+        "missions": {
+          "active": false,
+          "providers": [],
+          "quiet": false,
+          "weather_contrib": false
+        },
+        "score": {
+          "loops": [],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "quadrants",
+            "atlas",
+            "focus"
+          ],
+          "default": "quadrants"
+        }
+      },
+      "stack": [
+        {
+          "config": {},
+          "id": "wiki.block.privacy_boundary.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.git_human_gate.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "catalog": [
+              "context_note",
+              "source",
+              "person",
+              "project",
+              "holon",
+              "decision",
+              "tool"
+            ],
+            "obligations_first": true
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "forms": [
+              "copy_file",
+              "paste_text"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "self"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        }
+      ]
+    }
+  },
+  "schema_version": "wiki_web_block_stacks.v1"
+}

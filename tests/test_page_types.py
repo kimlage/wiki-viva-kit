@@ -68,13 +68,17 @@ def test_relation_page_types_require_hierarchy_parent() -> None:
         "project",
         "responsibility",
         "role",
-        "root_entity",
         "source",
         "source_config",
     ):
         shape = registry.page_types[page_type]
         assert "moc_parent" in shape.get("required_frontmatter", [])
         assert shape.get("field_types", {}).get("moc_parent") == "string"
+    # The ROOT is the top of the world: everything descends from it (anchor
+    # scopes), it descends from nothing — moc_parent is optional there.
+    root_shape = registry.page_types["root_entity"]
+    assert "moc_parent" not in root_shape.get("required_frontmatter", [])
+    assert root_shape.get("field_types", {}).get("moc_parent") == "string"
 
 
 def test_template_coverage_requires_reason_for_none(tmp_path: Path) -> None:

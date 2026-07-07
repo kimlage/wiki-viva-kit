@@ -19,7 +19,6 @@ sources_policy: root_entity_contract
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 root_entity_type: team
-moc_parent: memories/index.md
 primary_contexts:
   - {{context}}
 input_stage_ref: memories/system/input-stage.md
@@ -68,13 +67,14 @@ Use Wilber/AQAL semantics, not arbitrary buckets:
 | Q3 - Interior collective | `We` / interior collective | Interior view of the collective: shared meaning, culture, roles as lived expectations, relationships, rituals and norms. People are linked here as participants in a social field, not as a plain roster. |
 | Q4 - Exterior collective | `Its` / exterior collective | Exterior view of the collective: systems, channels, tools, platforms, workflows, rules, institutions, governance and process infrastructure that coordinate work. |
 
-Boundary rule: apply the quadrant to the root holon and the source's role in
-context. A repository, document or dashboard is Q2 only when it is an owned
-artifact/output/evidence of the root entity. A tool or platform such as Slack,
-Jira, Drive, calendar, CI, CRM or a workflow engine is Q4 when it coordinates
-people, process, governance or infrastructure. People, roles and relationships
-are Q3 only when read as shared meaning, mutual expectation or culture; as
-externally administered structure they belong to Q4.
+Boundary rule: apply the quadrant relative to this page as the center. A nested
+company can be Q4 for a person/root while its own intentions are Q1 when the
+company page is selected as the center. A repository, document or dashboard is
+Q2 only when it is an owned artifact/output/evidence of the current center. A
+tool or platform such as Slack, Jira, Drive, calendar, CI, CRM or a workflow
+engine is Q4 when it coordinates people, process, governance or infrastructure.
+People, roles and relationships are Q3 only when read as shared meaning, mutual
+expectation or culture; as externally administered structure they belong to Q4.
 
 | Quadrant | What belongs here | Canonical pages | Input channels |
 | --- | --- | --- | --- |

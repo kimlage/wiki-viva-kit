@@ -1,0 +1,10 @@
+{
+  "by_context": {},
+  "schema_version": "wiki_web_freshness.v1",
+  "stale_pages": [],
+  "summary": {
+    "fresh": 0,
+    "stale": 0,
+    "unknown": 0
+  }
+}

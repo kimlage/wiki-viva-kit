@@ -1,0 +1,54 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-pulse-activation",
+      "page_type": "claim",
+      "path": "memories/empresas/clearpath/pulse/intent.md",
+      "relation": "moc_parent",
+      "title": "Pulse improves activation"
+    }
+  ],
+  "body": "\n# Pulse Product\n\nA product root inside Clearpath. For the company it is Q2/output; when selected, its own strategy and evidence are sorted around the product.\n",
+  "frontmatter": {
+    "blocks": [
+      {
+        "id": "wiki.block.quadrants.v1",
+        "scope": "descendants"
+      }
+    ],
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "product-clearpath-pulse",
+    "page_type": "root_entity",
+    "parent_projection": {
+      "quadrant": "q2",
+      "reason": "For the company, a product is observable output; inside itself it is the center.",
+      "sub_lens": "producao"
+    },
+    "root_entity_type": "product",
+    "stale_after_days": 30,
+    "title": "Pulse Product",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "product-clearpath-pulse",
+    "page_type": "root_entity",
+    "path": "memories/empresas/clearpath/pulse-product.md",
+    "summary": "A product root inside Clearpath. For the company it is Q2/output; when selected, its own strategy and evidence are sorted around the product.",
+    "summary_truncated": false,
+    "title": "Pulse Product",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

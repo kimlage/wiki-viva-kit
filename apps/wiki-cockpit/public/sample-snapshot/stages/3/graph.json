@@ -1,0 +1,106 @@
+{
+  "edges": [
+    {
+      "source": "artifact-relatorio-recon",
+      "status": "valid",
+      "target": "hub-financeiro",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "claim-custos-sobem",
+      "status": "valid",
+      "target": "hub-financeiro",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "hub-financeiro",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 2
+    }
+  ],
+  "nodes": [
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "fresh",
+      "id": "artifact-relatorio-recon",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-relatorio-recon.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Relat\u00f3rio de reconcilia\u00e7\u00e3o",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "fresh",
+      "id": "claim-custos-sobem",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "claim",
+      "path": "memories/claims/claim-custos-sobem.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Custos de nuvem subiram 18%",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "fresh",
+      "id": "hub-financeiro",
+      "metrics": {
+        "inbound_links": 2,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "page_type": "context_hub",
+      "path": "memories/financeiro/index.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Financeiro",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "root-alex-rivera",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 0,
+        "source_ref_count": 0
+      },
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Alex Rivera",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    }
+  ],
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_web_graph.v1",
+  "wanted_pages": {}
+}

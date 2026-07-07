@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gitGateLabel, qualityFlagCount, reviewChecklist, topActions } from "./model";
+import { qualityFlagCount, reviewChecklist } from "./model";
 import type { SnapshotBundle } from "../types";
 
 const bundle = {
@@ -46,18 +46,6 @@ const bundle = {
 } as unknown as SnapshotBundle;
 
 describe("cockpit model", () => {
-  it("labels proposal branches as local proposal gate state", () => {
-    expect(gitGateLabel(bundle.git)).toBe("Draft change");
-  });
-
-  it("prioritizes checks and review-request actions", () => {
-    expect(topActions(bundle).map((action) => action.id)).toEqual([
-      "run-honesty-gates",
-      "pr-summary",
-      "review-local-changes"
-    ]);
-  });
-
   it("builds review checklist and counts quality flags", () => {
     expect(reviewChecklist(bundle).map((item) => item.label)).toEqual([
       "Work is isolated for review",

@@ -74,11 +74,41 @@ def _contained(root: Path, rel: str) -> Path | None:
     return resolved
 
 
+def _ingestion_events_index(paths: WikiPaths) -> dict[str, dict[str, str]]:
+    """The wiki's OWN record of syncs: the newest ingestion event per source.
+
+    A source page's `sync:` block is the machine-updated telemetry — but a wiki
+    whose content was born by ingestion has EVENTS referencing each source
+    (`source_refs:`), and "never synced" next to those events would be a lie.
+    This index lets the read model fall back to the newest event when the sync
+    block is absent or still says `never`."""
+    index: dict[str, dict[str, str]] = {}
+    memory_root = paths.memory_root
+    if not memory_root.exists():
+        return index
+    for path in memory_root.rglob("*.md"):
+        try:
+            values, _ = parse_frontmatter(path)
+        except Exception:  # noqa: BLE001 — one broken page must not kill the read model
+            continue
+        if str(values.get("page_type") or "") != "ingestion_event":
+            continue
+        when = str(values.get("updated_at") or "")
+        refs = values.get("source_refs") if isinstance(values.get("source_refs"), list) else []
+        for ref in refs:
+            source_id = str(ref)
+            current = index.get(source_id)
+            if current is None or when > current["date"]:
+                index[source_id] = {"date": when, "event": paths.rel(path)}
+    return index
+
+
 def _source_record(
     root: Path,
     paths: WikiPaths,
     page_path: Path,
     today: dt.date,
+    events_index: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any] | None:
     values, _ = parse_frontmatter(page_path)
     if str(values.get("page_type") or "") != "source":
@@ -139,6 +169,18 @@ def _source_record(
     last_status = str(sync.get("last_status") or "never")
     if last_status not in _SYNC_STATES:
         last_status = "never"
+    last_run_at = str(sync.get("last_run_at") or "")
+    last_event_ref = str(sync.get("last_event_ref") or "")
+    sync_derived = False
+    if last_status == "never" and events_index:
+        # The wiki itself remembers this source being ingested — the newest
+        # ingestion event outranks a missing/never sync block.
+        derived = events_index.get(source_id)
+        if derived and derived["date"]:
+            last_status = "ok"
+            last_run_at = last_run_at or derived["date"]
+            last_event_ref = last_event_ref or derived["event"]
+            sync_derived = True
 
     return {
         "source_id": source_id,
@@ -152,9 +194,12 @@ def _source_record(
         "config_ref": config_ref,
         "updated_at": str(values.get("updated_at") or ""),
         "sync": {
-            "last_run_at": str(sync.get("last_run_at") or ""),
+            "last_run_at": last_run_at,
             "last_status": last_status,
-            "last_event_ref": str(sync.get("last_event_ref") or ""),
+            "last_event_ref": last_event_ref,
+            # True when the status was derived from the newest ingestion event
+            # (no machine sync block yet) — the UI can say so honestly.
+            "derived_from_event": sync_derived,
             "streams_fresh": fresh,
             "streams_total": selected_total,
         },
@@ -183,12 +228,13 @@ def build_sources_payload(
     today = today or dt.date.today()
     paths = WikiPaths(root, config)
     sources_dir = paths.sources_dir
+    events_index = _ingestion_events_index(paths)
     records: list[dict[str, Any]] = []
     if sources_dir.exists():
         for path in sorted(sources_dir.rglob("*.md")):
             if "/config/" in paths.rel(path):
                 continue
-            record = _source_record(root, paths, path, today)
+            record = _source_record(root, paths, path, today, events_index)
             if record is not None:
                 records.append(record)
     records.sort(key=lambda r: (-r["pending_streams"], r["source_id"]))

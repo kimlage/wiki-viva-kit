@@ -5,40 +5,37 @@
 // tray, minimap hint). The old below-the-fold panel stack is gone: every ops
 // action is reachable inside the viewport.
 
-import {
-  Activity,
-  Database,
-  GitPullRequest,
-  Inbox,
-  ListChecks,
-  Play,
-  Search,
-  ShieldCheck,
-  Sparkles,
-  Sprout,
-  Trophy
-} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { t } from "../data/i18n";
-import { contextLabel, isRawData, perspectiveLabel, worldGroupLabel } from "../data/presentation";
+import { contextLabel, worldGroupLabel } from "../data/presentation";
 import { groupKeyForPage } from "../scene/perspectives";
-import type { PerspectiveId } from "../scene/perspectives";
-import { SCENE_FACETS, homeQuadrant, sceneFacetOf } from "../scene/facets";
-import type { SceneFacet } from "../scene/facets";
+import { SCENE_FACETS, nodeQuadrant, quadrantHomesFromAssignments, sceneFacetOf } from "../scene/facets";
+import type { QuadrantHomes, SceneFacet } from "../scene/facets";
 import { computeCondition } from "../scene/condition";
 import { rankPages } from "../scene/search";
 import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
+import { anchorRecord, focusAnchorId } from "../data/blocks";
+import { composeInstruments, rootAnchor } from "../data/surfaces";
 import type { RuntimeConfig } from "../data/runtimeConfig";
 import type { ActionCard, BriefSpec, PageRecord, SnapshotBundle } from "../types";
 import { CoachMarks, tourSeen } from "./CoachMarks";
-import { HelpTip } from "./HelpTip";
-import { MissionsPanel } from "./MissionsPanel";
+import { CreateDock } from "./CreateDock";
+import { deriveMissions, missionBriefSpec, MissionsPanel } from "./MissionsPanel";
 import { PageReader } from "./PageReader";
 import type { RelationGroupKey } from "./PageReader";
-import { SystemScene } from "./SystemScene";
-import type { ScenePatch } from "./SystemScene";
+import { sceneFallbackPreferred, SystemScene } from "./SystemScene";
+import type { SceneGuide, ScenePatch, SceneSeed } from "./SystemScene";
+import { CommandBar } from "./world/CommandBar";
+import { FoundingFallback } from "./world/FoundingFallback";
+import { GuideFallback } from "./world/GuideFallback";
+import { MissionCard, SEARCH_VISIBLE } from "./world/MissionCard";
+import type { MissionRow } from "./world/MissionCard";
+import { PacketTray } from "./world/PacketTray";
+import type { FoundingSpec } from "../scene/spatial";
+import { demoWorldUrl, genesisAction, genesisQuadrantMatches, genesisUrl } from "../data/genesis";
+import { genesisGuide } from "../data/genesisGuide";
 
 // Ego-centric perspectives lock one page at the center and have no group slot
 // in the positional URL: Trails (relations) and Focus (facet lenses).
@@ -66,8 +63,6 @@ function findPage(pages: PageRecord[], key: string | undefined): PageRecord | un
   return pages.find((page) => page.id === key || page.path === key);
 }
 
-const SEARCH_VISIBLE = 10;
-
 function gateTone(status: string): "good" | "warn" | "bad" {
   const value = status.toLowerCase();
   if (["pass", "passed", "success", "ok"].includes(value)) return "good";
@@ -75,34 +70,10 @@ function gateTone(status: string): "good" | "warn" | "bad" {
   return "warn";
 }
 
-const ACTION_TITLES: Record<string, string> = {
-  "git-status": "Check work state",
-  "review-local-changes": "Inspect changed content",
-  "run-honesty-gates": "Verify approval readiness",
-  "pr-summary": "Prepare approval summary",
-  "graph-check": "Check related content"
-};
-
-function actionTitle(action: ActionCard): string {
-  return ACTION_TITLES[action.id] || action.title;
-}
-
 function updatedLabel(value: string): string {
   if (!value) return t("misc.noDate");
   return value.replace("T", " ").replace("Z", "").slice(0, 16);
 }
-
-type MissionRow = {
-  key: string;
-  label: string;
-  detail: string;
-  help?: string;
-  tone: "good" | "warn" | "bad";
-  onClick: () => void;
-  // Optional secondary action (e.g. "resolve with Codex") rendered as a button
-  // beside the row's main click target.
-  action?: { label: string; title?: string; onClick: () => void };
-};
 
 // Brief to refresh stale content: the stale pages become the grounding, so the
 // agent re-reads their sources and proposes an update — never invents freshness.
@@ -124,14 +95,15 @@ function staleRefreshSpec(pages: PageRecord[]): BriefSpec {
 }
 
 // The mission card is collapsible — a map you can actually SEE beats a panel
-// you did not ask for. The preference is remembered per browser (UI state,
+// you did not ask for. The interface STARTS clean: collapsed (one honest chip)
+// until the owner opens it; the choice is remembered per browser (UI state,
 // not world state: it stays out of the URL on purpose).
 const MISSION_CARD_KEY = "wiki-cockpit.missionCard";
 function missionCardPref(): boolean {
   try {
-    return window.localStorage.getItem(MISSION_CARD_KEY) !== "closed";
+    return window.localStorage.getItem(MISSION_CARD_KEY) === "open";
   } catch {
-    return true;
+    return false;
   }
 }
 function persistMissionCard(open: boolean): void {
@@ -146,6 +118,7 @@ export function WorldView({
   bundle,
   runtime,
   route,
+  bornPageIds,
   onRun,
   onNotice,
   onComposeBrief
@@ -153,6 +126,9 @@ export function WorldView({
   bundle: SnapshotBundle;
   runtime: RuntimeConfig;
   route: WorldRoute;
+  // Pages that did not exist in the previous bundle — the scene greets them
+  // with a birth burst (genesis stage advances; later, real post-merge loads).
+  bornPageIds?: string[];
   onRun: (action: ActionCard) => void;
   onNotice?: (text: string) => void;
   onComposeBrief?: (spec: BriefSpec) => void;
@@ -171,6 +147,7 @@ export function WorldView({
     () =>
       typeof window !== "undefined" &&
       new URLSearchParams(window.location.search).get("visual") !== "1" &&
+      !route.query.genesis && // the genesis IS the tour
       !tourSeen()
   );
   const [isolateRelation, setIsolateRelation] = useState<RelationGroupKey | null>(null);
@@ -365,6 +342,29 @@ export function WorldView({
     onNotice?.(isMember ? t("toast.packetRemoved") : t("toast.packetAdded"));
   };
 
+  // Command-bar handlers (the bar itself is a dumb component in world/).
+  const closeTrays = () => {
+    setTrayOpen(false);
+    setMissionsOpen(false);
+  };
+  const toggleTray = () => {
+    const opening = !trayOpen;
+    setTrayOpen(opening);
+    setMissionsOpen(false);
+    // One work surface at a time: opening the tray closes dock/reader.
+    if (opening && (routeRef.current.query.dock || routeRef.current.query.reader)) {
+      navigateWorld({ dock: null, reader: false });
+    }
+  };
+  const toggleMissions = () => {
+    const opening = !missionsOpen;
+    setMissionsOpen(opening);
+    setTrayOpen(false);
+    if (opening && (routeRef.current.query.dock || routeRef.current.query.reader)) {
+      navigateWorld({ dock: null, reader: false });
+    }
+  };
+
   const refreshAction =
     bundle.actions.actions.find((action) => action.id === "refresh-cockpit-check") ||
     bundle.actions.actions.find((action) => action.id === "graph-check");
@@ -466,24 +466,334 @@ export function WorldView({
     return SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0 }));
   }, [route.perspective, selectedPage, bundle.graph]);
 
+  const activeQuadrantAnchorId = useMemo(
+    () => focusAnchorId(bundle, route.query.center || route.pageId || undefined) ?? rootAnchor(bundle)?.id ?? null,
+    [bundle, route.pageId, route.query.center]
+  );
+  const activeQuadrantAnchor = useMemo(
+    () => anchorRecord(bundle, activeQuadrantAnchorId ?? undefined),
+    [bundle, activeQuadrantAnchorId]
+  );
+
+  // The AUTHORITATIVE per-page quadrant classification: the compiler's derived
+  // quadrant_assignments on the ACTIVE anchor, inverted into a pageId → facet
+  // map. Selecting a template/root page recenters the quadrants; the scene,
+  // compass and quadrant scoping read THIS. The static page-type map is only
+  // the fallback for pages outside the active anchor's compiled scope.
+  const quadrantHomes = useMemo<QuadrantHomes | undefined>(() => {
+    return quadrantHomesFromAssignments(activeQuadrantAnchor?.derived?.quadrant_assignments);
+  }, [activeQuadrantAnchor]);
+
+  const quadrantSceneGraph = useMemo(() => {
+    const assignments = activeQuadrantAnchor?.derived?.quadrant_assignments;
+    if (route.perspective !== "quadrants" || !assignments || !activeQuadrantAnchorId) {
+      return bundle.graph;
+    }
+    const visibleIds = new Set<string>([activeQuadrantAnchorId]);
+    Object.values(assignments).forEach((ids) => ids.forEach((id) => visibleIds.add(id)));
+    const nodes = bundle.graph.nodes.filter((node) => visibleIds.has(node.id));
+    const edges = bundle.graph.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+    return { nodes, edges };
+  }, [activeQuadrantAnchor, activeQuadrantAnchorId, bundle.graph, route.perspective]);
+
   // Quadrant compass: live per-quadrant home counts (+ the honest core) for the
   // Quadrants perspective — the 2×2 grid you fly by. Computed from the same
-  // homeQuadrant the layout uses, so it never overstates.
+  // classification the layout uses, so it never overstates.
   const quadrantCounts = useMemo(() => {
     if (route.perspective !== "quadrants") return null;
+    const assignments = activeQuadrantAnchor?.derived?.quadrant_assignments;
+    if (assignments) {
+      return {
+        quadrants: SCENE_FACETS.map((facet) => ({
+          facet,
+          count: (assignments[facet === "intencao" ? "q1" : facet === "pratica" ? "q2" : facet === "relacoes" ? "q3" : "q4"] ?? []).length
+        })),
+        core: assignments.q0_core?.length ?? 0
+      };
+    }
     const counts = new Map<SceneFacet, number>(SCENE_FACETS.map((facet) => [facet, 0]));
     let core = 0;
     bundle.graph.nodes.forEach((node) => {
-      const home = homeQuadrant(node.page_type);
+      const home = nodeQuadrant(node.id, node.page_type, quadrantHomes);
       if (home) counts.set(home, (counts.get(home) ?? 0) + 1);
       else core += 1;
     });
     return { quadrants: SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0 })), core };
-  }, [route.perspective, bundle.graph]);
+  }, [route.perspective, activeQuadrantAnchor, bundle.graph, quadrantHomes]);
 
   // The world's condition — the honest ambient readout (weather is set from it in
   // the scene). Every segment is a real count that flies to the act point.
   const condition = useMemo(() => computeCondition(bundle), [bundle]);
+
+  // Scene wake-up: on some fresh mounts the r3f canvas races the shell's CSS
+  // layout, measures 0×0 and then never commits its children (black world,
+  // HUD alive) — a window resize is the proven unsticker. Nudge it twice after
+  // mount; a real resize event is idempotent and costs one relayout.
+  useEffect(() => {
+    const first = window.setTimeout(() => window.dispatchEvent(new Event("resize")), 80);
+    const second = window.setTimeout(() => window.dispatchEvent(new Event("resize")), 520);
+    return () => {
+      window.clearTimeout(first);
+      window.clearTimeout(second);
+    };
+  }, []);
+
+  // The instruments this world ACTUALLY has — composed from the root stack.
+  // Templates add interface: no gamification package → no missions, no weather;
+  // no quadrants block → no quadrant map; empty world → no instruments at all.
+  const instruments = useMemo(() => composeInstruments(bundle), [bundle]);
+
+  // Spatial-first routing: the founding rite and the seed flow live IN the
+  // canvas; the 2D twins (DOM cards, the bottom sheet) are the declared
+  // fallback for reduced-motion / no-WebGL / visual-test mode. LIVE state —
+  // it must track the same media signal SystemScene's internal fallback does,
+  // or the two branches disagree and no surface renders at all.
+  const [fallbackActive, setFallbackActive] = useState(sceneFallbackPreferred);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return undefined;
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setFallbackActive(sceneFallbackPreferred());
+    media.addEventListener?.("change", update);
+    window.addEventListener("popstate", update);
+    return () => {
+      media.removeEventListener?.("change", update);
+      window.removeEventListener("popstate", update);
+    };
+  }, []);
+
+  // R3 — universal exit, highest priority: Esc closes the topmost work
+  // surface (tray/panel first, then any open dock) before the scene's own Esc
+  // ladder (reader → plate → level up) gets to run. Capture phase +
+  // stopImmediatePropagation preempts the scene's window listener — without
+  // it the scene handler acts on a pre-close route and replays the old URL.
+  // No typing-target guard on purpose: Esc closes the top surface, always.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      // The Brief Studio is a text-editing modal with its own close affordance
+      // — Esc must not mutate the layers UNDER it.
+      if (document.querySelector(".briefStudio")) return;
+      if (trayOpen || missionsOpen) {
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        setTrayOpen(false);
+        setMissionsOpen(false);
+        return;
+      }
+      const current = routeRef.current;
+      if (current.query.dock) {
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        navigate(
+          patchWorld(current, {
+            dock: null,
+            src: null,
+            quadrant: current.query.dock === "create" ? null : undefined
+          })
+        );
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [trayOpen, missionsOpen]);
+
+  // R8 — the trays are work surfaces too: opening a dock or the reader closes
+  // them, whatever path opened it (condition strip, quest plate, guide CTA).
+  useEffect(() => {
+    if (route.query.dock || route.query.reader) {
+      setTrayOpen(false);
+      setMissionsOpen(false);
+    }
+  }, [route.query.dock, route.query.reader]);
+
+  // An EMPTY world has exactly one interface: the founding rite. A dock in the
+  // URL there (deep link, stale history) would open a surface over nothing.
+  useEffect(() => {
+    if (instruments.worldEmpty && route.query.dock) {
+      navigate(patchWorld(route, { dock: null, src: null }), { replace: true });
+    }
+  }, [instruments.worldEmpty, route]);
+
+  // The genesis IS the tour — mark the coach marks as seen for later sessions.
+  useEffect(() => {
+    if (!route.query.genesis) return;
+    try {
+      window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+    } catch {
+      /* private mode */
+    }
+  }, [route.query.genesis]);
+
+  // R1 — founding: the rite's single outcome is a create brief for the root.
+  // In the genesis it advances the stage (the staged snapshot IS the result);
+  // in a real empty wiki the same brief becomes the setup PR.
+  const foundWorld = (rootType: string, name: string) => {
+    onComposeBrief?.({
+      mission_kind: "create",
+      theme: "found-root",
+      grounding: {
+        attach_context_package: true,
+        create: {
+          page_type: "root_entity",
+          title: name,
+          context: "system",
+          home_facet: null,
+          pinned: [{ key: "root_entity_type", label: "Root entity type", value: rootType, required: true }]
+        }
+      },
+      intent:
+        `Found this wiki's root entity: a ${rootType} named "${name}". Scaffold the root page from its ` +
+        `template (memories/root/), set root_entity_type=${rootType}, wire the generated subpages, and open ` +
+        `the setup draft PR. Never touch main directly.`
+    });
+  };
+  const founding: FoundingSpec | null =
+    instruments.worldEmpty && onComposeBrief ? { demo: route.demo, onFound: foundWorld } : null;
+
+  // R4 — the create flow, spatial by default. `?dock=create` is still the one
+  // URL for creating; what changes is the SURFACE that answers it.
+  const contexts = useMemo(() => Object.keys(bundle.freshness?.by_context ?? {}).sort(), [bundle]);
+  const seedActive = route.query.dock === "create" && !instruments.worldEmpty && Boolean(onComposeBrief);
+  const seed: SceneSeed | null =
+    seedActive && !fallbackActive
+      ? {
+          types: bundle.templates?.types ?? {},
+          catalog: instruments.createCatalog,
+          contexts,
+          genesis: route.query.genesis,
+          initialType: route.query.src || undefined,
+          onSeed: (spec) => onComposeBrief?.(spec),
+          onCancel: () => navigateWorld({ dock: null, src: null, quadrant: null }),
+          onPreviewQuadrant: (facet) => navigateWorld({ quadrant: facet }, { replace: true })
+        }
+      : null;
+
+  // R5 — the tutorial guide, anchored to each stage's subject. Present before,
+  // during and after the action; Back/Skip live on the beacon itself. Demo
+  // only — a stray ?genesis=1 on a real wiki must not summon the simulation.
+  const goStage = (stage: number) => navigate(genesisUrl(stage, { visual: route.query.visual }));
+  const skipHref = demoWorldUrl({ visual: route.query.visual });
+  const guideData = route.demo && route.query.genesis ? genesisGuide(route.query.stage) : null;
+  const handleQuadrantSelect = (facet: SceneFacet) => {
+    const active = route.query.quadrant === facet;
+    navigateWorld({
+      perspective: "quadrants",
+      quadrant: active ? null : facet,
+      pageId: null,
+      reader: false,
+      dock: null,
+      src: null
+    });
+    if (!active && route.demo && route.query.genesis && genesisQuadrantMatches(route.query.stage, facet)) {
+      window.setTimeout(() => goStage(route.query.stage + 1), 850);
+    }
+  };
+  const guide: SceneGuide | null = guideData
+    ? {
+        progress: guideData.progress,
+        title: guideData.title,
+        body: guideData.body,
+        cta: guideData.ctaLabel
+          ? {
+              label: guideData.ctaLabel,
+              onClick: () => {
+                const action = genesisAction(guideData.stage);
+                if (action.kind === "quadrant") {
+                  handleQuadrantSelect(action.facet);
+                  return;
+                }
+                if (guideData.dock) {
+                  navigateWorld({ dock: guideData.dock.dock, src: guideData.dock.src ?? null, pageId: null, reader: false });
+                } else {
+                  goStage(guideData.stage + 1);
+                }
+              }
+            }
+          : null,
+        during: guideData.during,
+        // Only THE stage's own surface counts as "acting": an unrelated dock
+        // must neither show the during-instruction nor hide the CTA.
+        actionOpen: guideData.dock ? route.query.dock === guideData.dock.dock : false,
+        onBack: guideData.stage > 0 ? () => goStage(guideData.stage - 1) : null,
+        skipHref,
+        final: guideData.final ? { exploreHref: skipHref, onRestart: () => goStage(0) } : null,
+        anchorId: guideData.anchorId
+      }
+    : null;
+  // The Missions button carries its own mission: the live count of open ones.
+  const missions = useMemo(
+    () => (instruments.missionsEnabled ? deriveMissions(bundle, route.demo) : []),
+    [bundle, instruments.missionsEnabled, route.demo]
+  );
+  const openMissionCount = missions.length;
+  // Quest markers: missions PLACED IN THE WORLD, game-style — a marker floats
+  // over each page that asks for attention; hovering says why, clicking opens
+  // it. Capped so the sky never becomes noise.
+  // "Later": a marker the owner waved away stays away for this session — the
+  // mission itself stays honest in the panel.
+  const [dismissedQuests, setDismissedQuests] = useState<Set<string>>(new Set());
+  const missionMarkers = useMemo(() => {
+    // ONE marker per page (a page can carry several missions — the reader and
+    // missions panel tell the full story). RELATION missions outrank plain
+    // staleness on the same page: "Reconnect with Marina" is the human beat,
+    // not "refresh the file". Capped against noise.
+    const byPage = new Map<string, { pageId: string; kind: string; title: string; why: string; care: boolean }>();
+    for (const mission of missions) {
+      if (!mission.pageId || dismissedQuests.has(mission.pageId)) continue;
+      const care = mission.key.startsWith("relation-") || mission.key.startsWith("date-") || mission.key.startsWith("commit-");
+      const existing = byPage.get(mission.pageId);
+      if (existing && (existing.care || !care)) continue;
+      byPage.set(mission.pageId, { pageId: mission.pageId, kind: mission.kind, title: mission.title, why: mission.why, care });
+    }
+    return [...byPage.values()].slice(0, 8).map(({ care: _care, ...marker }) => marker);
+  }, [missions, dismissedQuests]);
+
+  // Witness a birth: glide the camera to the first newborn for a beat, then
+  // release control (the burst plays where the eye already is).
+  const [flyToPageId, setFlyToPageId] = useState("");
+  useEffect(() => {
+    if (!bornPageIds || bornPageIds.length === 0) return undefined;
+    setFlyToPageId(bornPageIds[0]);
+    const timer = window.setTimeout(() => setFlyToPageId(""), 2600);
+    return () => window.clearTimeout(timer);
+  }, [bornPageIds]);
+
+  // The anchor "city tooltip": architecture + population + care debt on hover.
+  const anchorInfo = useMemo(() => {
+    const info: Record<string, { landmark: string; lensedPages: number; relationsDue: number; missions: number }> = {};
+    const missionsByPage = new Map<string, number>();
+    for (const mission of missions) {
+      if (mission.pageId) missionsByPage.set(mission.pageId, (missionsByPage.get(mission.pageId) ?? 0) + 1);
+    }
+    for (const [id, record] of Object.entries(bundle.blockStacks?.anchors ?? {})) {
+      const assignments = record.derived?.quadrant_assignments;
+      const lensedPages = assignments
+        ? Object.values(assignments).reduce((total, ids) => total + ids.length, 0)
+        : 0;
+      info[id] = {
+        landmark: record.identity?.landmark ?? "",
+        lensedPages,
+        relationsDue: record.derived?.relations?.due.length ?? 0,
+        missions: missionsByPage.get(id) ?? 0
+      };
+    }
+    return info;
+  }, [bundle, missions]);
+
+  // The home view is a TEMPLATE decision (interface.views.default), not a
+  // platform constant: a bare entry URL normalizes to the stack's default, and
+  // a deep link to a perspective this world doesn't offer falls back too.
+  useEffect(() => {
+    // Applies to the EMPTY world too: before any lens exists there is no
+    // quadrant map — the frame materializes only when the block attaches.
+    if (!instruments.perspectives.includes(route.perspective) && route.perspective !== "focus") {
+      navigate(buildUrl(patchWorld(route, { perspective: instruments.defaultPerspective })), { replace: true });
+      return;
+    }
+    if (!route.perspectiveExplicit && route.perspective !== instruments.defaultPerspective) {
+      navigate(buildUrl(patchWorld(route, { perspective: instruments.defaultPerspective })), { replace: true });
+    }
+  }, [instruments, route]);
 
   // Breadcrumbs: URL-derived, every segment clickable, registry labels.
   const crumbs: { label: string; patch: WorldPatch }[] = [
@@ -509,8 +819,8 @@ export function WorldView({
   return (
     <main className="worldWorkspace" aria-label={t("world.aria")}>
       <SystemScene
-        nodes={bundle.graph.nodes}
-        edges={bundle.graph.edges}
+        nodes={quadrantSceneGraph.nodes}
+        edges={quadrantSceneGraph.edges}
         git={bundle.git}
         route={sceneRoute}
         packetIds={route.query.packet}
@@ -520,15 +830,36 @@ export function WorldView({
         walk={walk}
         snapshotAt={bundle.manifest.generated_at}
         activityLevel={bundle.timeline.bands.last_7_days || 0}
-        weather={condition.weather}
+        weather={instruments.conditionEnabled ? condition.weather : "clear"}
+        bornPageIds={bornPageIds}
+        missionMarkers={missionMarkers}
+        flyToPageId={flyToPageId}
+        anchorInfo={anchorInfo}
+        quadrantHomes={quadrantHomes}
+        founding={fallbackActive ? null : founding}
+        seed={fallbackActive ? null : seed}
+        guide={fallbackActive ? null : guide}
+        onMarkerResolve={
+          onComposeBrief
+            ? (pageId) => {
+                const mission = missions.find((entry) => entry.pageId === pageId);
+                const spec = mission ? missionBriefSpec(mission) : null;
+                if (spec) onComposeBrief(spec);
+              }
+            : undefined
+        }
+        onMarkerDismiss={(pageId) => setDismissedQuests((prev) => new Set([...prev, pageId]))}
         onNavigate={(patch) => navigateWorld(patch as WorldPatch)}
-        onRetreat={() => navigate(retreat(route))}
+        onRetreat={() => navigate(retreat(routeRef.current))}
         onFocusSearch={() => searchRef.current?.focus()}
         onTogglePacket={togglePacket}
         onRunRefresh={() => refreshAction && onRun(refreshAction)}
         makeHref={makeHref}
       >
-        {/* TOP strip: breadcrumb trail + snapshot age + mode + true total. */}
+        {/* TOP strip: breadcrumb trail + snapshot age + mode + true total.
+            The EMPTY world shows nothing — "0 pages · demo" over the founding
+            void is noise, and the founding rite is the only interface. */}
+        {!instruments.worldEmpty && (
         <div className="worldTopStrip" aria-label={t("world.breadcrumbsAria")}>
           <nav className="worldBreadcrumbs" aria-label={t("world.breadcrumbsAria")}>
             {crumbs.map((crumb, index) => (
@@ -546,13 +877,16 @@ export function WorldView({
           </nav>
           {/* Condition strip: the honest ambient readout — every segment a real
               count that flies to its act point. Numbers-beside-art: the scene
-              weather is only allowed because these exact counts are printed. */}
+              weather is only allowed because these exact counts are printed.
+              It EXISTS only with the gamification package attached (the world
+              only asks for attention when a template asks it to). */}
+          {instruments.conditionEnabled && (
           <div className={`conditionStrip weather-${condition.weather}`} role="group" aria-label={t("condition.aria")}>
             <span className="conditionWeather" title={t(`condition.weather.${condition.weather}`)}>
               {t(`condition.weather.${condition.weather}`)}
             </span>
             {condition.staleCount > 0 && (
-              <button className="conditionSeg warn" onClick={() => navigateWorld({ perspective: "radar", filter: "stale" })} type="button">
+              <button className="conditionSeg warn" onClick={() => navigateWorld({ filter: "stale" })} type="button">
                 {t("condition.stale", { n: condition.staleCount })}
               </button>
             )}
@@ -572,12 +906,14 @@ export function WorldView({
               </button>
             )}
           </div>
+          )}
           <div className="worldMeta">
             <span>{t("world.pages", { n: pages.length })}</span>
             <span>{t("world.updated", { when: updatedLabel(bundle.manifest.generated_at) })}</span>
             <span>{route.demo ? t("world.demoMode") : runtime.mode || bundle.manifest.mode}</span>
           </div>
         </div>
+        )}
 
         {/* FOCUS legend: the four lenses with live counts. An empty lens is an
             honest absence — labelled "no X lens registered" with an offer to
@@ -622,9 +958,7 @@ export function WorldView({
                 <button
                   key={facet}
                   className={route.query.quadrant === facet ? "quadrantCell active" : "quadrantCell"}
-                  onClick={() =>
-                    navigateWorld({ quadrant: route.query.quadrant === facet ? null : facet })
-                  }
+                  onClick={() => handleQuadrantSelect(facet)}
                   title={t(`facet.${facet}`)}
                   type="button"
                 >
@@ -650,7 +984,9 @@ export function WorldView({
         {/* Quadrant SCOPE chip (radar/districts only): the AQAL map's selection
             carries into the spatial views and mutes everything outside it; this
             chip makes that state visible and one click to clear. */}
-        {!quadrantCounts && route.query.quadrant && (route.perspective === "radar" || route.perspective === "districts") && (
+        {!quadrantCounts &&
+          SCENE_FACETS.includes(route.query.quadrant as SceneFacet) &&
+          (route.perspective === "radar" || route.perspective === "districts") && (
           <button
             className="quadrantScopeChip"
             onClick={() => navigateWorld({ quadrant: null })}
@@ -665,100 +1001,24 @@ export function WorldView({
             chip (worst tone + pending count) — the world stays visible;
             expanded it is the do-now card. Search results always render:
             the keyboard search flow must never depend on the card state. */}
-        {(() => {
-          const actionable = missionRows.filter((row) => row.key !== "browse");
-          const worstTone = actionable.some((row) => row.tone === "bad")
-            ? "bad"
-            : actionable.some((row) => row.tone === "warn")
-              ? "warn"
-              : "good";
-          const toggleCard = () => {
+        <MissionCard
+          rows={missionRows}
+          perspective={route.perspective}
+          missionsEnabled={instruments.missionsEnabled}
+          open={missionCardOpen}
+          onToggle={() => {
             setMissionCardOpen((open) => {
               persistMissionCard(!open);
               return !open;
             });
-          };
-          const searchBlock = route.query.q ? (
-            <div className="missionSearchResults" aria-label={t("world.results", { n: searchHits.length })}>
-              <span className="missionSearchCount">
-                {searchHits.length > SEARCH_VISIBLE
-                  ? t("world.resultsCapped", { n: searchHits.length, shown: SEARCH_VISIBLE })
-                  : t("world.results", { n: searchHits.length })}
-              </span>
-              {visibleHits.map((page, index) => (
-                <button
-                  className={index === activeHit ? "textButton searchHitActive" : "textButton"}
-                  key={page.id}
-                  onMouseEnter={() => setActiveHit(index)}
-                  onClick={() => openHit(page)}
-                  title={page.path}
-                  type="button"
-                >
-                  {page.title}
-                  <small>
-                    {" "}
-                    · {contextLabel(page.context || "system")}
-                    {isRawData(page.page_type) ? <em className="rawTag"> {t("world.raw")}</em> : null}
-                    {page.summary_truncated ? ` · ${t("world.partialSummary")}` : ""}
-                  </small>
-                </button>
-              ))}
-              {searchHits.length === 0 && <span className="missionSearchCount">{t("world.noResults")}</span>}
-            </div>
-          ) : null;
-          if (!missionCardOpen) {
-            return (
-              <div className="worldMissionSlim" role="region" aria-label={t("world.missionAria")}>
-                <button
-                  className={`worldMissionChip tone-${worstTone}`}
-                  onClick={toggleCard}
-                  aria-expanded={false}
-                  title={perspectiveLabel(route.perspective).hint}
-                  type="button"
-                >
-                  <i aria-hidden />
-                  <strong>{perspectiveLabel(route.perspective).label}</strong>
-                  <span>
-                    {actionable.length > 0 ? t("world.missionCount", { n: actionable.length }) : t("world.missionClear")}
-                  </span>
-                </button>
-                {searchBlock && <div className="worldMissionCard searchOnly">{searchBlock}</div>}
-              </div>
-            );
-          }
-          return (
-            <div className="worldMissionCard" role="region" aria-label={t("world.missionAria")}>
-              <header>
-                <strong>{perspectiveLabel(route.perspective).label}</strong>
-                <span>{perspectiveLabel(route.perspective).hint}</span>
-                <button className="readerClose missionCollapse" onClick={toggleCard} title={t("world.missionCollapse")} type="button">
-                  –
-                </button>
-              </header>
-              <div className="missionRows">
-                {missionRows.slice(0, 3).map((row, index) => (
-                  <div className={`missionRow tone-${row.tone}`} key={row.key}>
-                    <button className="missionRowMain" onClick={row.onClick} type="button">
-                      <span className="stageIndex">{index + 1}</span>
-                      <span className="missionCopy">
-                        <strong>{row.label}</strong>
-                        <small>{row.detail}</small>
-                      </span>
-                    </button>
-                    {row.action && (
-                      <button className="missionRowAction" onClick={row.action.onClick} title={row.action.title} type="button">
-                        <Sparkles size={13} />
-                        <span>{row.action.label}</span>
-                      </button>
-                    )}
-                    {row.help && <HelpTip title={row.label} body={row.help} />}
-                  </div>
-                ))}
-              </div>
-              {searchBlock}
-            </div>
-          );
-        })()}
+          }}
+          query={route.query.q}
+          searchHits={searchHits}
+          visibleHits={visibleHits}
+          activeHit={activeHit}
+          onActiveHit={setActiveHit}
+          onOpenHit={openHit}
+        />
 
         {/* RIGHT: the in-world reader dock. */}
         {readerOpen && selectedPage && (
@@ -770,6 +1030,7 @@ export function WorldView({
             devMode={(runtime.mode || bundle.manifest.mode) === "local_operator" && !route.demo}
             trail={trailPages}
             packetIds={route.query.packet}
+            activeCenterId={activeQuadrantAnchorId}
             onNavigatePage={(id) => navigateWorld({ pageId: id, reader: true })}
             onClose={() => navigateWorld({ reader: false })}
             onTogglePacket={togglePacket}
@@ -781,197 +1042,45 @@ export function WorldView({
           />
         )}
 
-        {/* BOTTOM command bar: search, perspective glyphs, packet tray. */}
-        <div className="worldCommandBar" role="toolbar" aria-label={t("world.commandBarAria")}>
-          <label className="commandSearch">
-            <Search size={14} aria-hidden />
-            <input
-              ref={searchRef}
-              value={searchDraft}
-              onChange={(event) => setSearchDraft(event.target.value)}
-              onKeyDown={onSearchKeyDown}
-              placeholder={t("world.searchPlaceholder")}
-              aria-label={t("world.searchAria")}
-            />
-          </label>
-          {/* Destinations — the old left rail, dissolved into the world. Each
-              opens its dock in place (deep-linkable ?dock=…). Content = the
-              Atlas perspective; Home = Radar (both live in the glyphs). */}
-          <div className="commandDocks" role="group" aria-label={t("world.destinationsAria")}>
-            {([
-              { dock: "approve", label: t("nav.approve"), icon: <GitPullRequest size={15} /> },
-              { dock: "intake", label: t("nav.add"), icon: <Inbox size={15} /> },
-              { dock: "create", label: t("nav.create"), icon: <Sprout size={15} /> },
-              { dock: "source", label: t("nav.sources"), icon: <Database size={15} /> },
-              { dock: "gates", label: t("nav.health"), icon: <ShieldCheck size={15} /> }
-            ] as const).map((item) => (
-              <button
-                key={item.dock}
-                className={route.query.dock === item.dock ? "dockButton active" : "dockButton"}
-                onClick={() => {
-                  setTrayOpen(false);
-                  setMissionsOpen(false);
-                  navigateWorld({ dock: route.query.dock === item.dock ? null : item.dock });
-                }}
-                title={item.label}
-                aria-pressed={route.query.dock === item.dock}
-                type="button"
-              >
-                {item.icon}
-                <small>{item.label}</small>
-              </button>
-            ))}
-          </div>
-          <div className="perspectiveGlyphs" role="group" aria-label={t("world.perspectives")}>
-            {(["radar", "atlas", "districts", "trails", "quadrants"] as PerspectiveId[]).map((perspective, index) => {
-              const info = perspectiveLabel(perspective);
-              return (
-                <button
-                  key={perspective}
-                  className={route.perspective === perspective ? "glyphButton active" : "glyphButton"}
-                  onClick={() => navigateWorld({ perspective })}
-                  title={`${info.label} (${index + 1}) — ${info.hint}`}
-                  aria-pressed={route.perspective === perspective}
-                  type="button"
-                >
-                  <span aria-hidden>{info.glyph}</span>
-                  <small>{info.label}</small>
-                </button>
-              );
-            })}
-            {/* Focus is page-triggered — enabled only with a page locked, so it
-                never claims to show lenses over nothing. */}
-            {(() => {
-              const info = perspectiveLabel("focus");
-              const enabled = Boolean(route.pageId);
-              return (
-                <button
-                  key="focus"
-                  className={route.perspective === "focus" ? "glyphButton active" : "glyphButton"}
-                  onClick={() => enabled && navigateWorld({ perspective: "focus" })}
-                  disabled={!enabled}
-                  title={enabled ? `${info.label} (F) — ${info.hint}` : t("perspective.focus.needsPage")}
-                  aria-pressed={route.perspective === "focus"}
-                  type="button"
-                >
-                  <span aria-hidden>{info.glyph}</span>
-                  <small>{info.label}</small>
-                </button>
-              );
-            })()}
-          </div>
-          <button
-            className={trayOpen ? "trayButton active" : "trayButton"}
-            onClick={() => {
-              setTrayOpen((value) => !value);
-              setMissionsOpen(false);
-            }}
-            type="button"
-            aria-expanded={trayOpen}
-          >
-            <ListChecks size={14} />
-            <span>{t("world.packet", { n: route.query.packet.length })}</span>
-          </button>
-          <HelpTip term="packet" />
-          <button
-            className={missionsOpen ? "trayButton missionsButton active" : "trayButton missionsButton"}
-            onClick={() => {
-              setMissionsOpen((value) => !value);
-              setTrayOpen(false);
-            }}
-            type="button"
-            aria-expanded={missionsOpen}
-          >
-            <Trophy size={14} />
-            <span>{t("world.missions")}</span>
-          </button>
-          {onComposeBrief && (
-            <button
-              className={route.query.dock === "work" ? "trayButton workButton active" : "trayButton workButton"}
-              onClick={() => {
-                // The Work surface is a DOCK (deep-linkable URL state), not a
-                // local tray: monitoring delegated jobs must survive reloads
-                // and be shareable. patchWorld closes any open tray for us.
-                setTrayOpen(false);
-                setMissionsOpen(false);
-                navigateWorld({ dock: route.query.dock === "work" ? null : "work" });
-              }}
-              type="button"
-              aria-expanded={route.query.dock === "work"}
-            >
-              <Activity size={14} />
-              <span>{t("work.title")}</span>
-            </button>
-          )}
-          <a
-            className={route.demo ? "trayButton demoButton active" : "trayButton demoButton"}
-            href={route.demo ? "/" : "/demo"}
-            title={route.demo ? t("nav.exitDemo") : t("nav.demo")}
-          >
-            <Sparkles size={14} />
-            <span>{route.demo ? t("nav.exitDemo") : t("nav.demo")}</span>
-          </a>
-          <button className="trayButton tourButton" onClick={() => setTourOpen(true)} type="button">
-            <span aria-hidden>?</span>
-            <span className="visuallyHidden">{t("tour.reopen")}</span>
-          </button>
-          <span className="commandHint" aria-hidden>
-            {t("world.hintKeys")}
-          </span>
-        </div>
+        {/* BOTTOM command bar: search, perspective glyphs, packet tray. In an
+            EMPTY world there are no instruments yet — the bar itself only
+            exists once the root brings the first ones (genesis stage 0 shows
+            nothing but the founding prompt). */}
+        {!instruments.worldEmpty && (
+          <CommandBar
+            route={route}
+            instruments={instruments}
+            condition={condition}
+            changedCount={changed}
+            openMissionCount={openMissionCount}
+            trayOpen={trayOpen}
+            missionsOpen={missionsOpen}
+            canComposeBrief={Boolean(onComposeBrief)}
+            searchRef={searchRef}
+            searchDraft={searchDraft}
+            onSearchDraft={setSearchDraft}
+            onSearchKeyDown={onSearchKeyDown}
+            onNavigateWorld={navigateWorld}
+            onCloseTrays={closeTrays}
+            onToggleTray={toggleTray}
+            onToggleMissions={toggleMissions}
+            onOpenTour={() => setTourOpen(true)}
+          />
+        )}
 
         {/* Decision-packet slide-up tray (replaces ImpactBundlePanel). */}
         {trayOpen && (
-          <div className="packetTray" role="region" aria-label={t("world.packet", { n: packetPages.length })}>
-            <header>
-              <strong>{t("world.packet", { n: packetPages.length })}</strong>
-              <HelpTip term="packet" />
-              <button className="textButton" onClick={() => navigateWorld({ packet: [] }, { replace: true })} disabled={packetPages.length === 0} type="button">
-                {t("misc.clear")}
-              </button>
-              <button className="readerClose" onClick={() => setTrayOpen(false)} title="Fechar" type="button">
-                ×
-              </button>
-            </header>
-            <div className="packetRows">
-              {packetPages.map((page) => (
-                <div className="packetRow" key={page.id}>
-                  <button className="textButton" onClick={() => navigateWorld({ pageId: page.id, reader: true })} title={page.path} type="button">
-                    {page.title}
-                  </button>
-                  <small>
-                    {contextLabel(page.context || "system")}
-                    {isRawData(page.page_type) ? ` · ${t("world.raw")}` : ""}
-                    {page.summary_truncated ? ` · ${t("world.partialSummary")}` : ""}
-                  </small>
-                  <button className="textButton" onClick={() => togglePacket(page.id)} type="button">
-                    {t("misc.remove")}
-                  </button>
-                </div>
-              ))}
-              {packetPages.length === 0 && <p>{t("misc.packetEmpty")}</p>}
-            </div>
-            <div className="packetActions">
-              {reviewAction && (
-                <button className="secondaryButton" onClick={() => onRun(reviewAction)} type="button">
-                  <Play size={14} />
-                  <span>{actionTitle(reviewAction)}</span>
-                </button>
-              )}
-              {gateAction && (
-                <button className="secondaryButton" onClick={() => onRun(gateAction)} type="button">
-                  <Play size={14} />
-                  <span>{actionTitle(gateAction)}</span>
-                </button>
-              )}
-              {prAction && (
-                <button className="secondaryButton" onClick={() => onRun(prAction)} type="button">
-                  <GitPullRequest size={14} />
-                  <span>{actionTitle(prAction)}</span>
-                </button>
-              )}
-            </div>
-          </div>
+          <PacketTray
+            packetPages={packetPages}
+            reviewAction={reviewAction}
+            gateAction={gateAction}
+            prAction={prAction}
+            onRun={onRun}
+            onOpenPage={(id) => navigateWorld({ pageId: id, reader: true })}
+            onTogglePacket={togglePacket}
+            onClearPacket={() => navigateWorld({ packet: [] }, { replace: true })}
+            onClose={() => setTrayOpen(false)}
+          />
         )}
         {missionsOpen && (
           <MissionsPanel
@@ -993,6 +1102,25 @@ export function WorldView({
           />
         )}
       </SystemScene>
+
+      {/* The declared 2D fallback of the create flow: the bottom sheet, only
+          when the canvas cannot host the spatial seeder. */}
+      {seedActive && fallbackActive && (
+        <CreateDock
+          bundle={bundle}
+          initialType={route.query.src}
+          initialQuadrant={route.query.quadrant}
+          genesis={route.query.genesis}
+          onComposeBrief={(spec) => onComposeBrief?.(spec)}
+          onHighlightQuadrant={(facet) => navigateWorld({ quadrant: facet }, { replace: true })}
+          onClose={() => navigateWorld({ dock: null, src: null, quadrant: null })}
+        />
+      )}
+      {/* 2D twins of the founding rite and the guide beacon (fallback mode). */}
+      {fallbackActive && founding && (
+        <FoundingFallback demo={route.demo} skipHref={route.demo ? skipHref : undefined} onFound={foundWorld} />
+      )}
+      {fallbackActive && guide && !founding && <GuideFallback guide={guide} />}
       <CoachMarks open={tourOpen} onClose={() => setTourOpen(false)} />
     </main>
   );

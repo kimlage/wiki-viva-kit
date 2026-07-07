@@ -164,9 +164,16 @@ def build_context_request(
     quadrant_boundary_rule: str | None = None,
     target_pages: list[str] | None = None,
     input_stage_status: str | None = None,
+    block_context_package: dict[str, object] | None = None,
 ) -> dict[str, object]:
     """Assemble the packet that the repo agent executes. Includes the chunk text,
-    the versioned prompt, the output schema and the per-chunk cache status."""
+    the versioned prompt, the output schema and the per-chunk cache status.
+
+    ``block_context_package`` (v2, read-only) carries the resolved block stack of
+    the ingestion center — the combined lenses (quadrants + any perspective
+    bundle), each with its local label, canonical operational test and referenced
+    perspective page, plus the write policy and target obligations. The agent is
+    asked to honor it; nothing is written outside the PR gate."""
     quadrants = quadrants or DEFAULT_QUADRANTS
     perspectives_required = perspectives_required or []
     perspectives_optional = perspectives_optional or []
@@ -216,6 +223,7 @@ def build_context_request(
         "target_pages": target_pages,
         "perspectives_required": perspectives_required,
         "perspectives_optional": perspectives_optional,
+        "block_context_package": block_context_package or {},
         "result_required_keys": result_required_keys,
         "prompt": prompt_text,
         "chunks": rows,

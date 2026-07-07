@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { GraphEdge, GraphNode } from "../types";
 import { computeWorldLayout, groupKeyForPage, worldLevel } from "./perspectives";
 import type { WorldRequest } from "./perspectives";
+import { homeQuadrant, nodeQuadrant, quadrantHomesFromAssignments, QUADRANT_CENTER_ANGLE } from "./facets";
 
 const SNAPSHOT = "2026-07-01T00:00:00Z";
 
@@ -180,6 +181,64 @@ describe("perspective engine", () => {
     expect(layout.totals.shown + layout.totals.hidden).toBe(layout.totals.total);
   });
 
+  it("quadrants: every node sits in ITS facet's sector, the root alone holds the center, structure wraps outside", () => {
+    // The regression this pins: a hand-written floor-square table once put
+    // Culture/relations' square over Identity/intent nodes, and a structural swarm at the
+    // origin buried the root. Sector membership is now a geometric CONTRACT.
+    const layout = computeWorldLayout(request({ perspective: "quadrants", maxNodes: 200 }));
+    const root = layout.nodes.find((item) => item.isRoot);
+    expect(root?.position).toEqual([0, 0, 0]);
+    for (const item of layout.nodes) {
+      if (item.isRoot) continue;
+      const radius = Math.hypot(item.position[0], item.position[2]);
+      const home = homeQuadrant(item.page_type);
+      if (!home) {
+        // Structural pages live OUTSIDE the quadrants, never at the center.
+        expect(radius).toBeGreaterThan(layout.rOuter);
+        continue;
+      }
+      const angle = QUADRANT_CENTER_ANGLE[home];
+      expect(Math.sign(item.position[0])).toBe(Math.sign(Math.cos(angle)));
+      expect(Math.sign(item.position[2])).toBe(Math.sign(Math.sin(angle)));
+      expect(radius).toBeLessThanOrEqual(layout.rOuter + 0.01);
+    }
+  });
+
+  it("quadrants: group anchors use canonical Wilber screen positions", () => {
+    const layout = computeWorldLayout(request({ perspective: "quadrants", maxNodes: 200 }));
+    const anchors = new Map(layout.groups.filter((group) => group.kind === "quadrant").map((group) => [group.key, group.anchor]));
+
+    expect(anchors.get("intencao")![0]).toBeLessThan(0);
+    expect(anchors.get("intencao")![2]).toBeLessThan(0);
+    expect(anchors.get("pratica")![0]).toBeGreaterThan(0);
+    expect(anchors.get("pratica")![2]).toBeLessThan(0);
+    expect(anchors.get("relacoes")![0]).toBeLessThan(0);
+    expect(anchors.get("relacoes")![2]).toBeGreaterThan(0);
+    expect(anchors.get("sistemas")![0]).toBeGreaterThan(0);
+    expect(anchors.get("sistemas")![2]).toBeGreaterThan(0);
+  });
+
+  it("quadrants: compiled homes are anchor-relative, not global page homes", () => {
+    const rootHomes = quadrantHomesFromAssignments({
+      q1: [],
+      q2: [],
+      q3: [],
+      q4: ["company-intent"],
+      q0_core: []
+    });
+    const companyHomes = quadrantHomesFromAssignments({
+      q1: ["company-intent"],
+      q2: [],
+      q3: [],
+      q4: [],
+      q0_core: []
+    });
+    expect(rootHomes?.["company-intent"]).toBe("sistemas");
+    expect(companyHomes?.["company-intent"]).toBe("intencao");
+    expect(nodeQuadrant("company-intent", "claim", rootHomes)).toBe("sistemas");
+    expect(nodeQuadrant("company-intent", "claim", companyHomes)).toBe("intencao");
+  });
+
   it("quadrants is deterministic and never emits a core group when there are no structural pages", () => {
     const { nodes, edges } = fixture();
     const onlyTyped = nodes.filter((n) => ["decision", "source", "action", "person"].includes(n.page_type));
@@ -198,7 +257,7 @@ describe("perspective engine", () => {
     // Exactly the four lenses, in quadrant order q1..q4, always present (even empty).
     expect(layout.groups.map((group) => group.key)).toEqual(["intencao", "pratica", "relacoes", "sistemas"]);
     expect(layout.groups.every((group) => group.kind === "facet")).toBe(true);
-    // financeiro-p4 is source_ref evidence of p5 → the Systems (q4) lens counts it.
+    // financeiro-p4 is source_ref evidence of p5 -> the Systems/governance (q4) lens counts it.
     const sistemas = layout.groups.find((group) => group.key === "sistemas");
     expect(sistemas!.count).toBeGreaterThan(0);
     // Lenses with no neighbor stay present with a true zero — honest absence.

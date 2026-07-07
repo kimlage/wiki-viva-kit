@@ -1,7 +1,7 @@
-// PageReader: the single reading surface of the cockpit. It docks inside the
-// 3D shell (target-lock), doubles as the 2D/static fallback, and replaces the
-// three divergent detail surfaces (SelectedCard detail, PageActionDrawer and
-// the /pages detail form). Markdown renders fully — marked + DOMPurify — and
+// PageReader: the DEEP reading surface of the cockpit — the second level of
+// the two-level read (the anchored WorldPlate summary comes first; opening the
+// page docks this reader inside the 3D shell). It doubles as the 2D/static
+// fallback. Markdown renders fully — marked + DOMPurify — and
 // wiki-links navigate the world instead of leaving the app.
 
 import DOMPurify from "dompurify";
@@ -10,11 +10,11 @@ import type { Token } from "marked";
 import { ExternalLink, GitBranch, ListChecks, Maximize2, Minimize2, Search, Sparkles, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../data/i18n";
-import { contextLabel, isRawData, pageTypeLabel, trustColor } from "../data/presentation";
+import { contextLabel, contextStyle, isMetaPage, isRawData, landmarkGlyph, pageTypeLabel, trustColor } from "../data/presentation";
 import { facetsOrder, pinnedFieldStatus, templateSpec } from "../data/templates";
 import { TemplateInspector } from "./TemplateInspector";
 import { loadPageContent } from "../data/snapshot";
-import type { ActionCard, BriefSpec, PageContent, PageRecord, ResolvedLink, SnapshotBundle } from "../types";
+import type { ActionCard, BriefSpec, PageContent, PageRecord, QuadrantProjection, ResolvedLink, SnapshotBundle } from "../types";
 
 export type RelationGroupKey = "hierarquia" | "evidencia" | "links" | "citado-por";
 
@@ -71,7 +71,7 @@ function makeDiagramZoomable(figure: HTMLElement): void {
       b.addEventListener("click", (e) => { e.stopPropagation(); on(); });
       return b;
     };
-    const close = () => { overlay.remove(); document.removeEventListener("keydown", onKey); };
+    const close = () => { overlay.remove(); document.removeEventListener("keydown", onKey, true); };
     bar.appendChild(mkBtn("−", () => { scale = Math.max(0.4, scale - 0.25); applyScale(); }));
     bar.appendChild(mkBtn("+", () => { scale = Math.min(6, scale + 0.25); applyScale(); }));
     bar.appendChild(mkBtn("⤢", () => { scale = 1; applyScale(); })).title = t("reader.diagramReset");
@@ -86,11 +86,18 @@ function makeDiagramZoomable(figure: HTMLElement): void {
     }, { passive: false });
     overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") {
+        // The lightbox is the TOP layer: Esc closes it and only it — the
+        // reader's own Esc handler (and the world ladder) must not also fire.
+        e.stopImmediatePropagation();
+        e.stopPropagation();
+        close();
+      }
       else if (e.key === "+" || e.key === "=") { scale = Math.min(6, scale + 0.25); applyScale(); }
       else if (e.key === "-") { scale = Math.max(0.4, scale - 0.25); applyScale(); }
     };
-    document.addEventListener("keydown", onKey);
+    // Capture phase: runs before the reader dock's bubbling Esc handler.
+    document.addEventListener("keydown", onKey, true);
     overlay.append(bar, stage);
     document.body.appendChild(overlay);
   };
@@ -142,6 +149,16 @@ function decisionLabel(page: PageRecord): string {
 
 function pageByKey(bundle: SnapshotBundle, key: string): PageRecord | undefined {
   return bundle.pages.pages.find((page) => page.id === key || page.path === key);
+}
+
+function projectionForPage(bundle: SnapshotBundle, centerId: string | null | undefined, pageId: string): QuadrantProjection | null {
+  if (!centerId) return null;
+  const entries = bundle.blockStacks?.anchors?.[centerId]?.derived?.quadrant_projections?.[pageId] ?? [];
+  return entries[0] ?? null;
+}
+
+function pageTitle(bundle: SnapshotBundle, key: string): string {
+  return pageByKey(bundle, key)?.title ?? bundle.blockStacks?.anchor_tree?.nodes?.[key]?.title ?? key;
 }
 
 function relationGroups(bundle: SnapshotBundle, page: PageRecord, content: PageContent | null): Record<RelationGroupKey, RelationEntry[]> {
@@ -382,6 +399,7 @@ export function PageReader({
   devMode,
   trail,
   packetIds,
+  activeCenterId,
   onNavigatePage,
   onClose,
   onTogglePacket,
@@ -398,6 +416,7 @@ export function PageReader({
   devMode?: boolean;
   trail: PageRecord[];
   packetIds: string[];
+  activeCenterId?: string | null;
   onNavigatePage: (id: string) => void;
   onClose: () => void;
   onTogglePacket: (id: string) => void;
@@ -472,6 +491,10 @@ export function PageReader({
   }, [pageId]);
 
   const groups = useMemo(() => (page ? relationGroups(bundle, page, content) : null), [bundle, content, page]);
+  const projection = useMemo(
+    () => (page ? projectionForPage(bundle, activeCenterId, page.id) : null),
+    [activeCenterId, bundle, page]
+  );
   const sections = useMemo(
     () => (content?.ok && content.body ? markdownSections(content.body) : []),
     [content]
@@ -555,6 +578,31 @@ export function PageReader({
           ))}
         </nav>
       )}
+      {/* Identity band: the page's FAMILY face — accent + (for anchors) the
+          landmark glyph and horizon text; (for molds) the blueprint banner.
+          The same grammar as the scene, readable in 2D. */}
+      {(() => {
+        const anchorIdentity = bundle.blockStacks?.anchors?.[page.id]?.identity;
+        if (isMetaPage(page.page_type)) {
+          return (
+            <div className="readerIdentityBand meta">
+              <span className="identityGlyph" aria-hidden>▤</span>
+              <strong>{t("reader.mold")}</strong>
+              <span>{pageTypeLabel(page.page_type)}</span>
+            </div>
+          );
+        }
+        if (anchorIdentity?.landmark) {
+          return (
+            <div className="readerIdentityBand anchor" style={{ borderColor: contextStyle(page.context || "system").accent }}>
+              <span className="identityGlyph" aria-hidden>{landmarkGlyph(anchorIdentity.landmark)}</span>
+              <strong>{anchorIdentity.horizon_text || page.title}</strong>
+              <span>{anchorIdentity.landmark}</span>
+            </div>
+          );
+        }
+        return null;
+      })()}
       <div className="readerHead">
         <div>
           <h2>{page.title}</h2>
@@ -625,6 +673,40 @@ export function PageReader({
             {page.summary_truncated && <span className="pill pill-warn">{t("reader.partial")}</span>}
             <p className="readerNotice">{t("reader.staticNotice")}</p>
           </div>
+        )}
+
+        {projection && (
+          <section className="templatePanel projectionPanel" aria-label={t("reader.projectionTitle")}>
+            <h4>{t("reader.projectionTitle")}</h4>
+            <div className="projectionGrid">
+              <div><span>{t("reader.projectionCenter")}</span><strong>{pageTitle(bundle, projection.center)}</strong></div>
+              <div><span>{t("reader.projectionHere")}</span><strong>{projection.quadrant}{projection.sub_lens ? ` · ${projection.sub_lens}` : ""}</strong></div>
+              {projection.subject_center && (
+                <div><span>{t("reader.projectionSubject")}</span><strong>{pageTitle(bundle, projection.subject_center)}</strong></div>
+              )}
+              {projection.local_quadrant_under_subject && (
+                <div>
+                  <span>{t("reader.projectionInside")}</span>
+                  <strong>{projection.local_quadrant_under_subject}{projection.local_sub_lens_under_subject ? ` · ${projection.local_sub_lens_under_subject}` : ""}</strong>
+                </div>
+              )}
+            </div>
+            <p className="readerNotice">
+              {t("reader.projectionWhy", { basis: projection.basis, reason: projection.reason || projection.through_center || projection.subject_center || "—" })}
+            </p>
+          </section>
+        )}
+
+        {/* Template panels: the type's declared view.panels, FINALLY rendered —
+            each family reads differently (a person is a relation card, a source
+            is its streams, a tool is access/cost). Data comes straight from the
+            page's frontmatter; empty panels stay silent. */}
+        {!loading && content?.ok && (
+          <TemplatePanels
+            page={page}
+            spec={templateSpec(bundle, page.page_type)}
+            frontmatter={(content.frontmatter ?? {}) as Record<string, unknown>}
+          />
         )}
 
         {groups && (
@@ -711,4 +793,120 @@ export function PageReader({
       </aside>
     </>
   );
+}
+
+// --- Template panels: the type's view.panels, rendered from frontmatter -----
+
+type PanelSpecLite = { kind: string; from?: string; label?: string; columns?: string[] };
+
+function TemplatePanels({
+  page,
+  spec,
+  frontmatter
+}: {
+  page: PageRecord;
+  spec: ReturnType<typeof templateSpec>;
+  frontmatter: Record<string, unknown>;
+}) {
+  const panels = (spec.view.panels ?? []) as PanelSpecLite[];
+  const blocks: JSX.Element[] = [];
+
+  // The person card: the relation as a fact (bond, cadence, city, dates,
+  // commitments) — the Q3 rede sub-lens, readable on the page itself.
+  const relationship = frontmatter.relationship as Record<string, unknown> | undefined;
+  if (page.page_type === "person" && relationship && typeof relationship === "object") {
+    const dates = Array.isArray(frontmatter.dates) ? (frontmatter.dates as Record<string, unknown>[]) : [];
+    const commitments = Array.isArray(frontmatter.commitments) ? (frontmatter.commitments as Record<string, unknown>[]) : [];
+    blocks.push(
+      <div className="templatePanel personCard" key="person-card">
+        <h4>{t("reader.relationCard")}</h4>
+        <div className="personCardGrid">
+          {relationship.kind ? <div><span>{t("reader.relation.kind")}</span><strong>{String(relationship.kind)}</strong></div> : null}
+          {relationship.contact_cadence_days ? (
+            <div><span>{t("reader.relation.cadence")}</span><strong>{t("reader.relation.everyNDays", { n: String(relationship.contact_cadence_days) })}</strong></div>
+          ) : null}
+          {relationship.city ? <div><span>{t("reader.relation.city")}</span><strong>{String(relationship.city)}</strong></div> : null}
+          {relationship.since ? <div><span>{t("reader.relation.since")}</span><strong>{String(relationship.since)}</strong></div> : null}
+        </div>
+        {dates.length > 0 && (
+          <p className="personCardRow">
+            {dates.map((d, i) => (
+              <span className="pill pill-muted" key={i}>{String(d.kind ?? "date")} · {String(d.date ?? "")}</span>
+            ))}
+          </p>
+        )}
+        {commitments.length > 0 && (
+          <p className="personCardRow">
+            {commitments.map((c, i) => (
+              <span className="pill pill-warn" key={i}>{String(c.ref ?? "")} · {String(c.due ?? "")}</span>
+            ))}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  for (const panel of panels) {
+    const raw = panel.from ? frontmatter[panel.from] : undefined;
+    if (!raw) continue;
+    const label = panel.label ? t(panel.label) : panel.from ?? panel.kind;
+    if (panel.kind === "list" && Array.isArray(raw) && raw.length > 0) {
+      blocks.push(
+        <div className="templatePanel" key={`list-${panel.from}`}>
+          <h4>{label}</h4>
+          <ul>
+            {raw.slice(0, 12).map((item, i) => (
+              <li key={i}>{typeof item === "string" ? item : JSON.stringify(item)}</li>
+            ))}
+          </ul>
+        </div>
+      );
+    } else if (panel.kind === "table" && Array.isArray(raw) && raw.length > 0) {
+      const columns = panel.columns ?? Object.keys((raw[0] as Record<string, unknown>) ?? {}).slice(0, 4);
+      blocks.push(
+        <div className="templatePanel" key={`table-${panel.from}`}>
+          <h4>{label}</h4>
+          <table className="templatePanelTable">
+            <thead>
+              <tr>{columns.map((col) => <th key={col}>{col}</th>)}</tr>
+            </thead>
+            <tbody>
+              {raw.slice(0, 10).map((row, i) => (
+                <tr key={i}>
+                  {columns.map((col) => (
+                    <td key={col}>{String((row as Record<string, unknown>)?.[col] ?? (typeof row === "string" && col === columns[0] ? row : ""))}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+  }
+
+  // Tools read as access/cost — the ferramentas sub-lens of q4.
+  if (page.page_type === "tool") {
+    const rows = [
+      ["platform", frontmatter.platform],
+      ["access_pointer", frontmatter.access_pointer],
+      ["cost", frontmatter.cost],
+      ["status", frontmatter.status]
+    ].filter(([, value]) => value);
+    if (rows.length > 0) {
+      blocks.push(
+        <div className="templatePanel" key="tool-card">
+          <h4>{t("reader.toolCard")}</h4>
+          <div className="personCardGrid">
+            {rows.map(([key, value]) => (
+              <div key={String(key)}><span>{String(key)}</span><strong>{String(value)}</strong></div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+  }
+
+  if (blocks.length === 0) return null;
+  return <div className="templatePanels">{blocks}</div>;
 }

@@ -161,12 +161,14 @@ export function freshnessFraction(node: GraphNode, ageDays: number | null): numb
 }
 
 // The radar core: an explicit root page when typed, else the top-level index.
+// The root ENTITY outranks a root index — under the template-blocks model the
+// entity is the top of the world and the index descends from it.
 export function rootNodeId(nodes: GraphNode[]): string | null {
   const byType = (type: string) =>
     nodes
       .filter((node) => node.page_type === type)
       .sort((a, b) => a.path.length - b.path.length || a.id.localeCompare(b.id))[0];
-  const typed = byType("root_index") ?? byType("root_entity");
+  const typed = byType("root_entity") ?? byType("root_index");
   if (typed) return typed.id;
   const indexPage = nodes
     .filter((node) => /^[^/]+\/index\.md$/.test(node.path))

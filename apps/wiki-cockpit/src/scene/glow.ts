@@ -5,7 +5,6 @@ import * as THREE from "three";
 // flat regardless of how many glowing elements exist.
 
 let glowTextureCache: THREE.CanvasTexture | null = null;
-let dotTextureCache: THREE.CanvasTexture | null = null;
 
 function radialTexture(size: number, stops: [number, string][]): THREE.CanvasTexture | null {
   if (typeof document === "undefined") return null;
@@ -33,18 +32,6 @@ export function glowTexture(): THREE.CanvasTexture | null {
     ]);
   }
   return glowTextureCache;
-}
-
-export function dotTexture(): THREE.CanvasTexture | null {
-  if (!dotTextureCache) {
-    dotTextureCache = radialTexture(64, [
-      [0, "rgba(255,255,255,1)"],
-      [0.5, "rgba(255,255,255,0.85)"],
-      [0.85, "rgba(255,255,255,0.12)"],
-      [1, "rgba(255,255,255,0)"]
-    ]);
-  }
-  return dotTextureCache;
 }
 
 const ringTextureCache = new Map<number, THREE.CanvasTexture | null>();

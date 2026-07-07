@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, Play, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { codexUnavailableReason, t } from "../data/i18n";
+import { copyText } from "../lib/clipboard";
 import type { BriefRecord, CodexCapability, GitState } from "../types";
 
 export function BriefStudio({
@@ -49,19 +50,8 @@ export function BriefStudio({
     : capability.reason || codexUnavailableReason(capability);
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      onNotice(t("brief.exit.copied"));
-    } catch {
-      // Fallback for environments without the async clipboard API.
-      const area = document.createElement("textarea");
-      area.value = text;
-      document.body.appendChild(area);
-      area.select();
-      document.execCommand("copy");
-      document.body.removeChild(area);
-      onNotice(t("brief.exit.copied"));
-    }
+    await copyText(text);
+    onNotice(t("brief.exit.copied"));
   };
 
   return (

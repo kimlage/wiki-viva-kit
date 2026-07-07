@@ -696,9 +696,9 @@ def test_operational_model_renders_role_responsibility_action_tree(tmp_path: Pat
     _write(mem / "fin" / "index.md", _hub("fin"))
     _write(mem / "papeis" / "steward.md", _role("role-steward", "fin", ["resp-validate"]))
     _write(
-        mem / "atribuicoes" / "kim-steward.md",
+        mem / "atribuicoes" / "example-steward.md",
         "---\npage_id: assignment-role-steward\npage_type: assignment\n"
-        'title: "Assignment - Kim steward"\ncontext: fin\nvisibility: private_self\n'
+        'title: "Assignment - example steward"\ncontext: fin\nvisibility: private_self\n'
         "updated_at: 2026-06-12\nstale_after_days: 30\nsources_policy: x\ngate: github_pr\n"
         "sensitive_data_policy: private_sensitive_allowed\nroles:\n  - role-steward\n---\n\n# Assignment\n",
     )

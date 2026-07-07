@@ -1,0 +1,34 @@
+{
+  "backlinks": [],
+  "body": "\n# Clearpath sees onboarding friction\n\nQ1 inside the company: how Clearpath perceives the market.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "claim-clearpath-market-signal",
+    "page_type": "claim",
+    "stale_after_days": 30,
+    "sub_lens": "percepcao",
+    "subject_ref": "company-clearpath-labs",
+    "subject_role": "perception",
+    "title": "Clearpath sees onboarding friction",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "claim-clearpath-market-signal",
+    "page_type": "claim",
+    "path": "memories/empresas/clearpath/claim-clearpath-market-signal.md",
+    "summary": "Q1 inside the company: how Clearpath perceives the market.",
+    "summary_truncated": false,
+    "title": "Clearpath sees onboarding friction",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

@@ -1,0 +1,185 @@
+{
+  "anchor_tree": {
+    "nodes": {
+      "root-alex-rivera": {
+        "children": [],
+        "id": "root-alex-rivera",
+        "page_type": "root_entity",
+        "parent": "",
+        "path": "memories/index.md",
+        "title": "Alex Rivera"
+      }
+    },
+    "roots": [
+      "root-alex-rivera"
+    ]
+  },
+  "anchors": {
+    "root-alex-rivera": {
+      "derived": {
+        "empty_quadrants": [
+          "q1",
+          "q2",
+          "q3",
+          "q4"
+        ],
+        "missions": [
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q1"
+          },
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q2"
+          },
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q3"
+          },
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q4"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [],
+          "q2": [],
+          "q3": [],
+          "q4": []
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {},
+        "quadrant_sub_lens": {
+          "q1": {},
+          "q2": {},
+          "q3": {},
+          "q4": {}
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "motes",
+        "context": "pessoal",
+        "horizon_label": "title",
+        "horizon_text": "Alex Rivera",
+        "landmark": "observatory",
+        "motif": "rings"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_quadrant",
+          "catalog": [
+            "context_note",
+            "source",
+            "person",
+            "project",
+            "holon",
+            "decision",
+            "tool"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": false,
+        "intake": {
+          "forms": [
+            "copy_file",
+            "paste_text"
+          ]
+        },
+        "missions": {
+          "active": false,
+          "providers": [],
+          "quiet": false,
+          "weather_contrib": false
+        },
+        "score": {
+          "loops": [],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "quadrants",
+            "atlas",
+            "focus"
+          ],
+          "default": "quadrants"
+        }
+      },
+      "stack": [
+        {
+          "config": {},
+          "id": "wiki.block.privacy_boundary.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.git_human_gate.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "catalog": [
+              "context_note",
+              "source",
+              "person",
+              "project",
+              "holon",
+              "decision",
+              "tool"
+            ],
+            "obligations_first": true
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "forms": [
+              "copy_file",
+              "paste_text"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "self"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        }
+      ]
+    }
+  },
+  "schema_version": "wiki_web_block_stacks.v1"
+}

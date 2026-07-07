@@ -33,10 +33,10 @@ project.
 
 | Key | AQAL position | Extract |
 | --- | --- | --- |
-| `interior_individual` | `I`, interior individual | First-person subjective meaning: what a specific person or root entity intends, values, fears, perceives or interprets. |
-| `exterior_individual` | `It`, exterior individual | Observable behavior, direct output, owned artifact, evidence or metric of a specific person/root entity. |
-| `interior_collective` | `We`, interior collective | Shared meaning, culture, relationship, norm, agreement, conflict, role expectation or team narrative. |
-| `exterior_collective` | `Its`, exterior collective | Systems, tools/platforms, channels, processes, rules, structures, institutions, workflows and infrastructure. |
+| `interior_individual` | `I`, interior individual, upper-left | First-person subjective meaning: what a specific person or root entity intends, values, fears, perceives or interprets. |
+| `exterior_individual` | `It`, exterior individual, upper-right | Observable behavior, direct output, owned artifact, evidence or metric of a specific person/root entity. |
+| `interior_collective` | `We`, interior collective, lower-left | Shared meaning, culture, relationship, norm, agreement, conflict, role expectation or team narrative. |
+| `exterior_collective` | `Its`, exterior collective, lower-right | Systems, tools/platforms, channels, processes, rules, structures, institutions, workflows and infrastructure. |
 
 Boundary rule: classify the fact being extracted, not merely the source type. A
 repository, document, dashboard or ticket can be `exterior_individual` when it

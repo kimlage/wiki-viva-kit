@@ -1,0 +1,113 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "fresh",
+      "page_id": "hub-financeiro",
+      "page_type": "context_hub",
+      "path": "memories/financeiro/index.md",
+      "relation": "moc_parent",
+      "title": "Financeiro"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "event-ingest-banco-2026-05",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "relation": "moc_parent",
+      "title": "Ingest\u00e3o: extrato do banco (maio)"
+    },
+    {
+      "approved_state": "approved",
+      "context": "estudio",
+      "freshness_state": "stale",
+      "page_id": "person-marina-costa",
+      "page_type": "person",
+      "path": "memories/people/person-marina-costa.md",
+      "relation": "moc_parent",
+      "title": "Marina Costa"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "hub-sistema",
+      "page_type": "context_hub",
+      "path": "memories/sistema/index.md",
+      "relation": "moc_parent",
+      "title": "Sistema"
+    },
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "stale",
+      "page_id": "source-banco-export",
+      "page_type": "source",
+      "path": "memories/sources/source-banco-export.md",
+      "relation": "source_ref",
+      "title": "Extrato do Banco"
+    }
+  ],
+  "body": "\n# Alex Rivera\n\nIndependent consultant. This root attaches the quadrants, the relations module\nand the privacy boundary to everything below \u2014 so every area and every ingested\nsource is read through the same combined lenses.\n\n## Identity and Scope\n\nDesign and AI-safety consulting for small teams. Values: clarity, evidence,\nkeeping a calm calendar.\n\n## Integral Quadrant Map\n\n- Q1 perception & intent \u00b7 Q2 behavior & practice \u00b7 Q3 relations & culture \u00b7 Q4 systems & tools.\n",
+  "frontmatter": {
+    "blocks": [
+      {
+        "id": "wiki.block.quadrants.v1",
+        "scope": "descendants"
+      },
+      {
+        "id": "wiki.block.relations.v1",
+        "scope": "descendants"
+      }
+    ],
+    "context": "pessoal",
+    "identity": {
+      "ambient": "motes",
+      "horizon_label": "title",
+      "landmark": "observatory",
+      "motif": "rings"
+    },
+    "packages": [
+      "gamification"
+    ],
+    "page_id": "root-alex-rivera",
+    "page_type": "root_entity",
+    "perspective_bundle_optional": [
+      "perspective-financial"
+    ],
+    "perspective_bundle_required": [
+      "perspective-privacy-publication"
+    ],
+    "primary_contexts": [
+      "pessoal",
+      "financeiro",
+      "clientes",
+      "estudio"
+    ],
+    "root_entity_type": "person",
+    "stale_after_days": 30,
+    "title": "Alex Rivera",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "pessoal",
+    "freshness_state": "fresh",
+    "moc_parent": "",
+    "page_id": "root-alex-rivera",
+    "page_type": "root_entity",
+    "path": "memories/index.md",
+    "summary": "Independent consultant. This root attaches the quadrants, the relations module and the privacy boundary to everything below \u2014 so every area and every ingested source is read through the same combined lenses. Design and AI-safety consulting for small teams.",
+    "summary_truncated": true,
+    "title": "Alex Rivera",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

@@ -28,9 +28,9 @@ QUADRANTS: tuple[QuadrantDefinition, ...] = (
     QuadrantDefinition(
         quadrant_id="q1",
         semantic_key="interior_individual",
-        label_en="Q1 - Interior individual",
-        label_pt="Q1 - Interior individual",
-        aqal_position="I / interior individual",
+        label_en="Q1 - Identity and intent",
+        label_pt="Q1 - Identidade e intencao",
+        aqal_position="I / interior individual / upper-left",
         perspective_id="perspective-identity-intent",
         operational_test_en=(
             "Interior view of the root holon: lived or declared identity, intent, "
@@ -48,9 +48,9 @@ QUADRANTS: tuple[QuadrantDefinition, ...] = (
     QuadrantDefinition(
         quadrant_id="q2",
         semantic_key="exterior_individual",
-        label_en="Q2 - Exterior individual",
-        label_pt="Q2 - Exterior individual",
-        aqal_position="It / exterior individual",
+        label_en="Q2 - Outputs and evidence",
+        label_pt="Q2 - Saidas e evidencias",
+        aqal_position="It / exterior individual / upper-right",
         perspective_id="perspective-artifacts-evidence",
         operational_test_en=(
             "Exterior view of the root holon as one entity: observable behavior, "
@@ -68,9 +68,9 @@ QUADRANTS: tuple[QuadrantDefinition, ...] = (
     QuadrantDefinition(
         quadrant_id="q3",
         semantic_key="interior_collective",
-        label_en="Q3 - Interior collective",
-        label_pt="Q3 - Interior coletivo",
-        aqal_position="We / interior collective",
+        label_en="Q3 - Culture and relations",
+        label_pt="Q3 - Cultura e relacoes",
+        aqal_position="We / interior collective / lower-left",
         perspective_id="perspective-roles-relationships",
         operational_test_en=(
             "Interior view of the collective: shared meaning, culture, roles as "
@@ -88,9 +88,9 @@ QUADRANTS: tuple[QuadrantDefinition, ...] = (
     QuadrantDefinition(
         quadrant_id="q4",
         semantic_key="exterior_collective",
-        label_en="Q4 - Exterior collective",
-        label_pt="Q4 - Exterior coletivo",
-        aqal_position="Its / exterior collective",
+        label_en="Q4 - Systems and governance",
+        label_pt="Q4 - Sistemas e governanca",
+        aqal_position="Its / exterior collective / lower-right",
         perspective_id="perspective-systems-processes",
         operational_test_en=(
             "Exterior view of the collective: systems, channels, tools, platforms, "

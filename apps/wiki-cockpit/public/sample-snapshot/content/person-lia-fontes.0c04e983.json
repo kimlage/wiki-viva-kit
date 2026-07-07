@@ -1,0 +1,41 @@
+{
+  "backlinks": [],
+  "body": "\n# Lia Fontes\n\nOld friend. Birthday coming up \u2014 the world raises an upcoming-date mission.\n",
+  "frontmatter": {
+    "context": "pessoal",
+    "dates": [
+      {
+        "date": "2026-07-11",
+        "kind": "birthday"
+      }
+    ],
+    "moc_parent": "memories/index.md",
+    "page_id": "person-lia-fontes",
+    "page_type": "person",
+    "relationship": {
+      "contact_cadence_days": 45,
+      "kind": "friend"
+    },
+    "stale_after_days": 45,
+    "title": "Lia Fontes",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "pessoal",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "person-lia-fontes",
+    "page_type": "person",
+    "path": "memories/people/person-lia-fontes.md",
+    "summary": "Old friend. Birthday coming up \u2014 the world raises an upcoming-date mission.",
+    "summary_truncated": false,
+    "title": "Lia Fontes",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

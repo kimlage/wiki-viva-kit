@@ -9,6 +9,7 @@ import { useState } from "react";
 import { FilePlus, Sparkles, X } from "lucide-react";
 import { t } from "../data/i18n";
 import { contextLabel } from "../data/presentation";
+import { contextsOf } from "../data/creation";
 import { intakeCopy } from "../data/snapshot";
 import type { BriefSpec, SnapshotBundle } from "../types";
 
@@ -27,7 +28,7 @@ export function IntakeDock({
   onNotice: (text: string) => void;
   onClose: () => void;
 }) {
-  const contexts = Object.keys(bundle.freshness?.by_context ?? {}).sort();
+  const contexts = contextsOf(bundle);
   const [src, setSrc] = useState(initialSrc ?? "");
   const [context, setContext] = useState(contexts[0] ?? "system");
   const [busy, setBusy] = useState(false);

@@ -35,6 +35,8 @@ sys.path.insert(0, str(ROOT))
 from wiki_core.closure import build_ingestion_closure_report
 from wiki_core.consolidate import pending_consolidations
 from wiki_core.config import WikiConfig, load_config
+from wiki_core.freshness import age_days
+from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.paths import WikiPaths
 from wiki_core.score import compute_karma, load_events, record_event, resolve_events_path
 
@@ -115,6 +117,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "closure_compression": "| Compressao candidatos -> alvos | {candidates} -> {targets} ({ratio} por alvo) |",
         "closure_report_link": "- Relatorio detalhado: [scripts/wiki_ingestion_closure_report.py]({script}).",
         "closure_empty": "Sem eventos de ingestao registrados ainda.",
+        "closure_unavailable": "(relatorio de closure indisponivel: {error})",
         "h_vitality": "## Vitalidade dos contextos",
         "th_vitality": "| Contexto | Atualizacao | Janela (dias) | Vitalidade | Hub |",
         "empty_vitality": "| Sem hubs de contexto registrados. | - | - | - | - |",
@@ -164,6 +167,7 @@ COCKPIT_STRINGS: dict[str, dict[str, str]] = {
         "closure_compression": "| Candidate -> target compression | {candidates} -> {targets} ({ratio} per target) |",
         "closure_report_link": "- Detailed report: [scripts/wiki_ingestion_closure_report.py]({script}).",
         "closure_empty": "No ingestion events recorded yet.",
+        "closure_unavailable": "(closure report unavailable: {error})",
         "h_vitality": "## Context vitality",
         "th_vitality": "| Context | Updated | Window (days) | Vitality | Hub |",
         "empty_vitality": "| No context hubs recorded. | - | - | - | - |",
@@ -268,25 +272,6 @@ def checked_sections(page: str, language: str) -> dict[str, str]:
         for header, body in page_sections(page).items()
         if header.startswith(prefixes)
     }
-
-
-def parse_frontmatter(text: str) -> dict[str, str]:
-    """Minimal scalar frontmatter parser (block-list values are ignored)."""
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        return {}
-    values: dict[str, str] = {}
-    for raw in lines[1:]:
-        stripped = raw.strip()
-        if stripped == "---":
-            break
-        if not stripped or stripped.startswith("#") or stripped.startswith("- "):
-            continue
-        if ":" not in raw:
-            continue
-        key, value = raw.split(":", 1)
-        values[key.strip()] = value.strip().strip('"')
-    return values
 
 
 def first_h1(text: str) -> str:
@@ -554,16 +539,19 @@ class ContextVitality:
 
 def _vitality_for(updated_at: str, stale_after_days: str, today: dt.date) -> tuple[str, int | None]:
     """Returns a canonical vitality KEY (stale/fresh/undetermined) + window. The
-    translation for display happens in build_page via the language table."""
+    translation for display happens in build_page via the language table.
+
+    Unlike the canonical `freshness_state`, a window <= 0 stays computable here
+    (the hub is judged against its own `updated_at` date) and the unparseable
+    verdict is "undetermined"."""
     try:
-        updated = dt.date.fromisoformat(updated_at)
         stale_after = int(stale_after_days)
     except (ValueError, TypeError):
         return "undetermined", None
-    deadline = updated + dt.timedelta(days=stale_after)
-    if deadline < today:
-        return "stale", stale_after
-    return "fresh", stale_after
+    age = age_days(updated_at, today)
+    if age is None:
+        return "undetermined", None
+    return ("stale" if age > stale_after else "fresh"), stale_after
 
 
 def collect_context_vitality(paths: WikiPaths, today: dt.date) -> list[ContextVitality]:
@@ -597,13 +585,15 @@ def _closure_section_lines(
     Built from `build_ingestion_closure_report`, whose inputs are versioned page
     frontmatter only — so the output is reproducible from committed content and
     safe to keep in the --check stable view. On any read error we degrade to an
-    empty-but-honest placeholder rather than crashing the cockpit.
+    explicit "report unavailable" line rather than crashing the cockpit — and
+    never fake a healthy "no ingestion events" state.
     """
     lines = ["", s["h_closure"], ""]
     try:
         summary = build_ingestion_closure_report(root, config)["summary"]
-    except Exception:
-        summary = None
+    except Exception as exc:  # noqa: BLE001 - degrade, but say WHY
+        lines.append(s["closure_unavailable"].format(error=f"{type(exc).__name__}: {exc}"))
+        return lines
     if not summary or int(summary["events_total"]) == 0:
         lines.append(s["closure_empty"])
         return lines

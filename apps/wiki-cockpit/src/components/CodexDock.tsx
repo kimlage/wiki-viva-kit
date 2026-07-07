@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { Check, Copy, RefreshCw, X } from "lucide-react";
 import { t } from "../data/i18n";
+import { copyText } from "../lib/clipboard";
 import { codexLadder } from "../data/codexLadder";
 import type { CodexRungId, RungState } from "../data/codexLadder";
 import type { CodexCapability } from "../types";
@@ -43,11 +44,8 @@ export function CodexDock({
   const rungs = codexLadder(capability);
 
   const copy = async (text: string, id: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      /* clipboard unavailable — the fix text is visible to copy by hand */
-    }
+    // Result ignored on purpose: the fix text stays visible to copy by hand.
+    await copyText(text);
     setCopied(id);
     window.setTimeout(() => setCopied((current) => (current === id ? null : current)), 1500);
   };

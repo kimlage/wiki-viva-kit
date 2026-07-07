@@ -1,8 +1,9 @@
 ---
 page_id: perspective-artifacts-evidence
 page_type: perspective
-title: "Artifacts and evidence perspective"
+title: "Outputs and evidence perspective"
 aliases:
+  - Artifacts and evidence perspective
   - Artifact lens
   - Evidence lens
 tags:
@@ -44,7 +45,7 @@ related_pages:
   - memories/system/perspectives/index.md
 ---
 
-# Artifacts and evidence perspective
+# Outputs and evidence perspective
 
 ## Concern
 

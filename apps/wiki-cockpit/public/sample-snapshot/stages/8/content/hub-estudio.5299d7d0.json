@@ -1,0 +1,42 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "estudio",
+      "freshness_state": "fresh",
+      "page_id": "library-ai-safety",
+      "page_type": "context_hub",
+      "path": "memories/estudio/biblioteca-ai-safety/index.md",
+      "relation": "moc_parent",
+      "title": "Biblioteca AI Safety"
+    }
+  ],
+  "body": "\n# Est\u00fadio\n\nThe craft: reading, references, insights. Home of the AI-safety library.\n",
+  "frontmatter": {
+    "context": "estudio",
+    "moc_parent": "memories/index.md",
+    "page_id": "hub-estudio",
+    "page_type": "context_hub",
+    "stale_after_days": 30,
+    "title": "Est\u00fadio",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "estudio",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "hub-estudio",
+    "page_type": "context_hub",
+    "path": "memories/estudio/index.md",
+    "summary": "The craft: reading, references, insights. Home of the AI-safety library.",
+    "summary_truncated": false,
+    "title": "Est\u00fadio",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

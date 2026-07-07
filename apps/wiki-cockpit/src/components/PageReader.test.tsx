@@ -150,4 +150,52 @@ describe("PageReader", () => {
     // beta has moc_parent = alpha → shows under Hierarquia as "abaixo".
     expect(screen.getByRole("button", { name: /beta/ })).toBeTruthy();
   });
+
+  it("shows quadrant projection details for the active center", async () => {
+    contentByCase.current = { ok: false, error: "static" };
+    const projectionBundle = {
+      ...bundle,
+      blockStacks: {
+        schema_version: "wiki_web_block_stacks.v1",
+        anchor_tree: { roots: ["root"], nodes: { root: { id: "root", path: "memories/index.md", title: "Root", page_type: "root_entity", parent: "", children: [] } } },
+        anchors: {
+          root: {
+            stack: [],
+            interface: {},
+            identity: {},
+            derived: {
+              missions: [],
+              warnings: [],
+              quadrant_projections: {
+                alpha: [
+                  {
+                    center: "root",
+                    page: "alpha",
+                    quadrant: "q4",
+                    facet: "sistemas",
+                    sub_lens: "governanca",
+                    basis: "nested_center_projection",
+                    subject_center: "company",
+                    through_center: "company",
+                    local_quadrant_under_subject: "q1",
+                    local_facet_under_subject: "intencao",
+                    local_sub_lens_under_subject: "percepcao",
+                    reason: "company system"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    } as unknown as SnapshotBundle;
+
+    render(<PageReader {...baseProps} bundle={projectionBundle} pageId="alpha" activeCenterId="root" />);
+
+    expect(await screen.findByText("Quadrant projection")).toBeTruthy();
+    expect(screen.getByText("Root")).toBeTruthy();
+    expect(screen.getByText("q4 · governanca")).toBeTruthy();
+    expect(screen.getByText("q1 · percepcao")).toBeTruthy();
+    expect(screen.getByText(/nested_center_projection/)).toBeTruthy();
+  });
 });

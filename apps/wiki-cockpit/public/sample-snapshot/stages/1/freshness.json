@@ -1,0 +1,16 @@
+{
+  "by_context": {
+    "pessoal": {
+      "fresh": 1,
+      "stale": 0,
+      "unknown": 0
+    }
+  },
+  "schema_version": "wiki_web_freshness.v1",
+  "stale_pages": [],
+  "summary": {
+    "fresh": 1,
+    "stale": 0,
+    "unknown": 0
+  }
+}

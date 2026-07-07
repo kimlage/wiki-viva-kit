@@ -74,32 +74,61 @@ async function loadFromBase(base: string): Promise<SnapshotBundle> {
   bundle.templates = await fetchJson(`${base}/templates.json`).catch(
     () => ({ schema_version: "wiki_templates.v1", facets_order: [], types: {} })
   ) as SnapshotBundle["templates"];
+  // v2 blocks — optional, so pre-v2 snapshots keep loading.
+  bundle.blocks = await fetchJson(`${base}/blocks.json`).catch(
+    () => ({ schema_version: "wiki_web_blocks.v1", blocks: {}, vocabulary: {}, warnings: [] })
+  ) as SnapshotBundle["blocks"];
+  bundle.blockStacks = await fetchJson(`${base}/block_stacks.json`).catch(
+    () => ({ schema_version: "wiki_web_block_stacks.v1", anchors: {} })
+  ) as SnapshotBundle["blockStacks"];
   return bundle;
 }
 
 export async function loadSnapshotBundle(
-  options: { demo?: boolean } = {}
+  options: { demo?: boolean; stage?: number | null } = {}
 ): Promise<{ bundle: SnapshotBundle; source: string; runtime: RuntimeConfig }> {
   // Demo is an in-memory bundle switch: synthetic ids never resolve against
   // the real snapshot, and switching universes never reloads the document.
   if (options.demo ?? demoModeRequested()) {
     // Load the runtime config anyway so presentation overrides still apply to demo data.
     const demoRuntime = await loadRuntimeConfig();
+    // Genesis: each tutorial stage is a REAL pre-built snapshot (stages/<k>/) —
+    // the world materializes because the data changes, never by UI simulation.
+    const base = options.stage != null ? `${SAMPLE_BASE}/stages/${options.stage}` : SAMPLE_BASE;
     return {
-      bundle: await loadFromBase(SAMPLE_BASE),
-      source: SAMPLE_BASE,
-      runtime: { ...demoRuntime, apiBase: "", snapshotBase: SAMPLE_BASE, repoLabel: "wiki-viva-kit demo", mode: "static_demo" }
+      bundle: await loadFromBase(base),
+      source: base,
+      runtime: { ...demoRuntime, apiBase: "", snapshotBase: base, repoLabel: "wiki-viva-kit demo", mode: "static_demo" }
     };
   }
   const configured = import.meta.env.VITE_WIKI_SNAPSHOT_BASE as string | undefined;
   const runtime = await loadRuntimeConfig();
   const runtimeBase = runtime.snapshotBase || "";
   const apiBase = `${runtime.apiBase}/snapshot`;
-  const bases = [configured, runtimeBase, apiBase, SAMPLE_BASE].filter((base): base is string => Boolean(base));
+  const candidates = [
+    { base: configured, sampleFallback: false },
+    { base: runtimeBase, sampleFallback: false },
+    { base: apiBase, sampleFallback: false },
+    { base: SAMPLE_BASE, sampleFallback: true }
+  ].filter((candidate): candidate is { base: string; sampleFallback: boolean } => Boolean(candidate.base));
   let lastError: unknown = null;
-  for (const base of bases) {
+  const seen = new Set<string>();
+  for (const { base, sampleFallback } of candidates) {
+    if (seen.has(`${base}:${sampleFallback ? "fallback" : "configured"}`)) continue;
+    seen.add(`${base}:${sampleFallback ? "fallback" : "configured"}`);
     try {
-      return { bundle: await loadFromBase(base), source: base, runtime };
+      const bundle = await loadFromBase(base);
+      if (sampleFallback) {
+        // Every REAL base failed and the bundled demo sample loaded instead.
+        // Never impersonate the user's wiki: mark the runtime so the shell can
+        // label the world as sample data (repo label + demo-style mode).
+        return {
+          bundle,
+          source: base,
+          runtime: { ...runtime, repoLabel: "sample data (operator unreachable)", mode: "sample_fallback" }
+        };
+      }
+      return { bundle, source: base, runtime };
     } catch (error) {
       lastError = error;
     }
@@ -173,13 +202,6 @@ export async function loadHealth(): Promise<OperatorHealth | null> {
   } catch {
     return null;
   }
-}
-
-// True when the operator serves a capability its own code should — i.e. NOT a
-// stale process. Used to render "operador desatualizado — reinicie" instead of
-// a raw 404 for every one-world endpoint.
-export function operatorSupports(health: OperatorHealth | null, capability: string): boolean {
-  return Boolean(health?.ok && (health.schema_capabilities || []).includes(capability));
 }
 
 // Live Codex capability, read from /api/health (one fetch — the health payload

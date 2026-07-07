@@ -11,13 +11,24 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-07-07
 stale_after_days: 30
 sources_policy: root_entity_contract
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 root_entity_type: product
-moc_parent: memories/index.md
+# The root is the top of the world: no moc_parent — memories/index.md (the
+# root MOC) and everything below DESCEND from this anchor, so the blocks'
+# descendant scopes cover the whole wiki.
+# v2: the interpretation lenses and the gamification package are explicit
+# choices of this root (the template brings only laws + basic instruments).
+blocks:
+  - id: wiki.block.quadrants.v1
+    scope: descendants
+  - id: wiki.block.relations.v1
+    scope: descendants
+packages:
+  - gamification
 primary_contexts:
   - system
   - example
@@ -49,7 +60,7 @@ related_pages:
 
 # Wiki Viva Kit
 
-Updated on: 2026-06-25.
+Updated on: 2026-07-07.
 
 This is the root entity of the open-source Wiki Viva Kit itself. It is the
 semantic entry page for the product/method, while [memories/index.md](../index.md)
@@ -68,10 +79,10 @@ remains the technical root MOC.
 
 | Quadrant | What belongs here | Canonical pages | Input channels |
 | --- | --- | --- | --- |
-| Q1 - Interior individual | Declared method identity, design intent, tradeoffs, scope and operating stance | This root page, [architecture.md](wiki/architecture.md), [pr-governance.md](wiki/pr-governance.md) | Methodology reference |
-| Q2 - Exterior individual | Observable outputs of the kit as a product: code, templates, tests, releases, docs and generated artifacts | [command-reference.md](wiki/command-reference.md), [source-registry.md](source-registry.md), [docs/README.md](../../docs/README.md) | Methodology reference |
-| Q3 - Interior collective | Shared review culture, lived roles, expectations, agent/human collaboration norms and perspective lenses | [git-approvals.md](git-approvals.md), [perspectives/index.md](perspectives/index.md) | Methodology reference |
-| Q4 - Exterior collective | Coordination systems: deterministic pipelines, source processes, input stage, gates, tools, governance rules and publication boundary | [input-stage.md](input-stage.md), [ingestion-flow.md](wiki/ingestion-flow.md), [gates-and-audit.md](wiki/gates-and-audit.md) | Methodology reference |
+| Q1 - Identity and intent, upper-left | Declared method identity, design intent, tradeoffs, scope and operating stance | This root page, [architecture.md](wiki/architecture.md), [pr-governance.md](wiki/pr-governance.md) | Methodology reference |
+| Q2 - Outputs and evidence, upper-right | Observable outputs of the kit as a product: code, templates, tests, releases, docs and generated artifacts | [command-reference.md](wiki/command-reference.md), [source-registry.md](source-registry.md), [docs/README.md](../../docs/README.md) | Methodology reference |
+| Q3 - Culture and relations, lower-left | Shared review culture, lived roles, expectations, agent/human collaboration norms and perspective lenses | [git-approvals.md](git-approvals.md), [perspectives/index.md](perspectives/index.md) | Methodology reference |
+| Q4 - Systems and governance, lower-right | Coordination systems: deterministic pipelines, source processes, input stage, gates, tools, governance rules and publication boundary | [input-stage.md](input-stage.md), [ingestion-flow.md](wiki/ingestion-flow.md), [gates-and-audit.md](wiki/gates-and-audit.md) | Methodology reference |
 
 Boundary rule: apply the quadrant to the root holon and the fact being
 extracted. Code, templates and docs are Q2 when treated as observable outputs of
@@ -79,6 +90,21 @@ this product. The same repo's CI, gates, source configs, channels and automation
 workflows are Q4 because they coordinate the system. Roles are Q3 when they
 preserve shared expectations or collaboration culture; formal governance rules
 and assignments are Q4.
+
+Source basis: the position and axis names follow Integral Life's
+[Four Quadrants](https://integrallife.com/four-quadrants/) and
+[The Four Quadrants: A Guided Tour](https://integrallife.com/the-four-quadrants-a-guided-tour/);
+the broader AQAL container follows
+[The Five Elements of AQAL](https://integrallife.com/five-elements-aqal/).
+The kit-specific boundary review is documented in the
+[AQAL quadrant alignment check](../../docs/references/reports/aqal-quadrant-alignment-2026-06-25.md).
+
+Q0 is not a fifth content category. It is the active root/center that relates
+the four quadrants. Source pages, source catalogs, source registries, logs,
+ingestion events, dashboards and other generated traces are Q2 when they serve
+as observable evidence of the wiki's work. Operational rules, input channels,
+source configs, processes, gates and governance surfaces are Q4 because they
+coordinate the system.
 
 ```mermaid
 flowchart TD
@@ -134,9 +160,9 @@ flowchart TD
 | Perspective | Quadrant | Required? | Target pages |
 | --- | --- | --- | --- |
 | [Identity and intent](perspectives/identity-intent.md) | Q1 | yes | Root entity, architecture, decisions, claims |
-| [Artifacts and evidence](perspectives/artifacts-evidence.md) | Q2 | yes | Source, artifact, project and release pages |
-| [Roles and relationships](perspectives/roles-relationships.md) | Q3 | yes | Person, role, responsibility and governance pages when they preserve shared meaning, lived expectations or relationship context |
-| [Systems and processes](perspectives/systems-processes.md) | Q4 | yes | Process, source config, operation and gate pages |
+| [Outputs and evidence](perspectives/artifacts-evidence.md) | Q2 | yes | Source, artifact, project and release pages |
+| [Culture and relations](perspectives/roles-relationships.md) | Q3 | yes | Person, role, responsibility and governance pages when they preserve shared meaning, lived expectations or relationship context |
+| [Systems and governance](perspectives/systems-processes.md) | Q4 | yes | Process, source config, operation and gate pages |
 | [Privacy and publication](perspectives/privacy-publication.md) | Boundary | optional | Public boundary, release and publication pages |
 
 ## Source Ingestion Map

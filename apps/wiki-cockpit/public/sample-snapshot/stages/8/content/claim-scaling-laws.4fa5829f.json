@@ -1,0 +1,32 @@
+{
+  "backlinks": [],
+  "body": "\n# Scaling laws seguem valendo em 2026\n\nContent that lands in its quadrant interior.\n",
+  "frontmatter": {
+    "context": "estudio",
+    "moc_parent": "memories/estudio/biblioteca-ai-safety/index.md",
+    "page_id": "claim-scaling-laws",
+    "page_type": "claim",
+    "stale_after_days": 30,
+    "sub_lens": "percepcao",
+    "title": "Scaling laws seguem valendo em 2026",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "estudio",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/estudio/biblioteca-ai-safety/index.md",
+    "page_id": "claim-scaling-laws",
+    "page_type": "claim",
+    "path": "memories/claims/claim-scaling-laws.md",
+    "summary": "Content that lands in its quadrant interior.",
+    "summary_truncated": false,
+    "title": "Scaling laws seguem valendo em 2026",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

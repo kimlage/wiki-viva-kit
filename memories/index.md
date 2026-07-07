@@ -11,8 +11,9 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-07-06
 stale_after_days: 30
+moc_parent: memories/system/wiki-viva-kit.md
 sources_policy: memoria_consolidada
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed

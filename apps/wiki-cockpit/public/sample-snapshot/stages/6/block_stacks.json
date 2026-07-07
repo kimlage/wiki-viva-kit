@@ -1,0 +1,778 @@
+{
+  "anchor_tree": {
+    "nodes": {
+      "hub-financeiro": {
+        "children": [
+          "source-banco-export"
+        ],
+        "id": "hub-financeiro",
+        "page_type": "context_hub",
+        "parent": "root-alex-rivera",
+        "path": "memories/financeiro/index.md",
+        "title": "Financeiro"
+      },
+      "root-alex-rivera": {
+        "children": [
+          "hub-financeiro"
+        ],
+        "id": "root-alex-rivera",
+        "page_type": "root_entity",
+        "parent": "",
+        "path": "memories/index.md",
+        "title": "Alex Rivera"
+      },
+      "source-banco-export": {
+        "children": [],
+        "id": "source-banco-export",
+        "page_type": "source",
+        "parent": "hub-financeiro",
+        "path": "memories/sources/source-banco-export.md",
+        "title": "Extrato do Banco"
+      }
+    },
+    "roots": [
+      "root-alex-rivera"
+    ]
+  },
+  "anchors": {
+    "hub-financeiro": {
+      "derived": {
+        "empty_quadrants": [
+          "q3",
+          "q4"
+        ],
+        "missions": [
+          {
+            "anchor": "hub-financeiro",
+            "provider": "quadrant_absence",
+            "quadrant": "q3"
+          },
+          {
+            "anchor": "hub-financeiro",
+            "provider": "quadrant_absence",
+            "quadrant": "q4"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [
+            "claim-custos-sobem"
+          ],
+          "q2": [
+            "artifact-relatorio-recon",
+            "source-banco-export"
+          ],
+          "q3": [],
+          "q4": []
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {
+          "artifact-relatorio-recon": [
+            {
+              "basis": "page_semantics",
+              "center": "hub-financeiro",
+              "facet": "pratica",
+              "local_facet_under_subject": "pratica",
+              "local_quadrant_under_subject": "q2",
+              "local_sub_lens_under_subject": "producao",
+              "page": "artifact-relatorio-recon",
+              "quadrant": "q2",
+              "reason": "",
+              "sub_lens": "producao",
+              "subject_center": "hub-financeiro",
+              "through_center": ""
+            }
+          ],
+          "claim-custos-sobem": [
+            {
+              "basis": "page_semantics",
+              "center": "hub-financeiro",
+              "facet": "intencao",
+              "local_facet_under_subject": "intencao",
+              "local_quadrant_under_subject": "q1",
+              "local_sub_lens_under_subject": "percepcao",
+              "page": "claim-custos-sobem",
+              "quadrant": "q1",
+              "reason": "",
+              "sub_lens": "percepcao",
+              "subject_center": "hub-financeiro",
+              "through_center": ""
+            }
+          ],
+          "source-banco-export": [
+            {
+              "basis": "nested_center_self_projection",
+              "center": "hub-financeiro",
+              "facet": "pratica",
+              "local_facet_under_subject": "pratica",
+              "local_quadrant_under_subject": "q2",
+              "local_sub_lens_under_subject": "evidencias",
+              "page": "source-banco-export",
+              "quadrant": "q2",
+              "reason": "anchor_type:source",
+              "sub_lens": "evidencias",
+              "subject_center": "source-banco-export",
+              "through_center": "source-banco-export"
+            }
+          ]
+        },
+        "quadrant_sub_lens": {
+          "q1": {
+            "percepcao": [
+              "claim-custos-sobem"
+            ]
+          },
+          "q2": {
+            "evidencias": [
+              "source-banco-export"
+            ],
+            "producao": [
+              "artifact-relatorio-recon"
+            ]
+          },
+          "q3": {},
+          "q4": {}
+        },
+        "relations": {
+          "due": [],
+          "open_commitments": [],
+          "upcoming_dates": []
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "none",
+        "context": "financeiro",
+        "horizon_label": "context",
+        "horizon_text": "financeiro",
+        "landmark": "beacon",
+        "motif": "ledger"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_family",
+          "catalog": [
+            "artifact",
+            "claim",
+            "decision",
+            "tool"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": true,
+        "intake": {
+          "forms": [
+            "copy_file",
+            "paste_text",
+            "meeting_note",
+            "interaction_note"
+          ]
+        },
+        "missions": {
+          "active": true,
+          "providers": [
+            "stale",
+            "template_conformity",
+            "quadrant_absence",
+            "relation_cadence_overdue",
+            "date_upcoming",
+            "commitment_open"
+          ],
+          "quiet": false,
+          "weather_contrib": true
+        },
+        "score": {
+          "loops": [
+            "context_vitality"
+          ],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "quadrants",
+            "atlas",
+            "focus"
+          ],
+          "default": "quadrants"
+        }
+      },
+      "stack": [
+        {
+          "config": {},
+          "id": "wiki.block.privacy_boundary.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.git_human_gate.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "arrangement": "by_family",
+            "catalog": [
+              "artifact",
+              "claim",
+              "decision",
+              "tool"
+            ],
+            "obligations_first": true
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.relations.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "providers": [
+              "stale",
+              "template_conformity"
+            ]
+          },
+          "id": "wiki.block.ui_missions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "loops": [
+              "context_vitality"
+            ]
+          },
+          "id": "wiki.block.gamification.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:context_hub",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "forms": [
+              "copy_file",
+              "paste_text"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:context_hub",
+          "scope": "self"
+        }
+      ]
+    },
+    "root-alex-rivera": {
+      "derived": {
+        "empty_quadrants": [
+          "q1"
+        ],
+        "missions": [
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q1"
+          },
+          {
+            "anchor": "root-alex-rivera",
+            "person": "person-marina-costa",
+            "provider": "relation_cadence_overdue"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [],
+          "q2": [
+            "event-ingest-banco-2026-05"
+          ],
+          "q3": [
+            "person-marina-costa"
+          ],
+          "q4": [
+            "hub-financeiro"
+          ]
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {
+          "event-ingest-banco-2026-05": [
+            {
+              "basis": "page_semantics",
+              "center": "root-alex-rivera",
+              "facet": "pratica",
+              "local_facet_under_subject": "pratica",
+              "local_quadrant_under_subject": "q2",
+              "local_sub_lens_under_subject": "evidencias",
+              "page": "event-ingest-banco-2026-05",
+              "quadrant": "q2",
+              "reason": "",
+              "sub_lens": "evidencias",
+              "subject_center": "root-alex-rivera",
+              "through_center": ""
+            }
+          ],
+          "hub-financeiro": [
+            {
+              "basis": "page_semantics",
+              "center": "root-alex-rivera",
+              "facet": "sistemas",
+              "local_facet_under_subject": "sistemas",
+              "local_quadrant_under_subject": "q4",
+              "local_sub_lens_under_subject": "governanca",
+              "page": "hub-financeiro",
+              "quadrant": "q4",
+              "reason": "",
+              "sub_lens": "governanca",
+              "subject_center": "root-alex-rivera",
+              "through_center": ""
+            }
+          ],
+          "person-marina-costa": [
+            {
+              "basis": "page_semantics",
+              "center": "root-alex-rivera",
+              "facet": "relacoes",
+              "local_facet_under_subject": "relacoes",
+              "local_quadrant_under_subject": "q3",
+              "local_sub_lens_under_subject": "pessoas",
+              "page": "person-marina-costa",
+              "quadrant": "q3",
+              "reason": "",
+              "sub_lens": "pessoas",
+              "subject_center": "root-alex-rivera",
+              "through_center": ""
+            }
+          ]
+        },
+        "quadrant_sub_lens": {
+          "q1": {},
+          "q2": {
+            "evidencias": [
+              "event-ingest-banco-2026-05"
+            ]
+          },
+          "q3": {
+            "pessoas": [
+              "person-marina-costa"
+            ]
+          },
+          "q4": {
+            "governanca": [
+              "hub-financeiro"
+            ]
+          }
+        },
+        "relations": {
+          "due": [
+            {
+              "last_interaction": "2026-05-04",
+              "overdue_days": 34,
+              "person": "person-marina-costa",
+              "relationship_kind": "mentor",
+              "title": "Marina Costa"
+            }
+          ],
+          "open_commitments": [],
+          "upcoming_dates": []
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "motes",
+        "context": "pessoal",
+        "horizon_label": "title",
+        "horizon_text": "Alex Rivera",
+        "landmark": "observatory",
+        "motif": "rings"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_quadrant",
+          "catalog": [
+            "context_note",
+            "source",
+            "person",
+            "project",
+            "holon",
+            "decision",
+            "tool"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": true,
+        "intake": {
+          "forms": [
+            "copy_file",
+            "paste_text",
+            "meeting_note",
+            "interaction_note"
+          ]
+        },
+        "missions": {
+          "active": true,
+          "providers": [
+            "stale",
+            "gates_failing",
+            "approvals_pending",
+            "template_conformity",
+            "source_closure",
+            "quadrant_absence",
+            "relation_cadence_overdue",
+            "date_upcoming",
+            "commitment_open"
+          ],
+          "quiet": false,
+          "weather_contrib": true
+        },
+        "score": {
+          "loops": [],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "quadrants",
+            "atlas",
+            "focus"
+          ],
+          "default": "quadrants"
+        }
+      },
+      "stack": [
+        {
+          "config": {},
+          "id": "wiki.block.privacy_boundary.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.git_human_gate.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "catalog": [
+              "context_note",
+              "source",
+              "person",
+              "project",
+              "holon",
+              "decision",
+              "tool"
+            ],
+            "obligations_first": true
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "forms": [
+              "copy_file",
+              "paste_text"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "self"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.relations.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.ui_missions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.gamification.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "page",
+          "scope": "descendants"
+        }
+      ]
+    },
+    "source-banco-export": {
+      "derived": {
+        "empty_quadrants": [
+          "q1",
+          "q2",
+          "q3",
+          "q4"
+        ],
+        "missions": [
+          {
+            "anchor": "source-banco-export",
+            "provider": "quadrant_absence",
+            "quadrant": "q1"
+          },
+          {
+            "anchor": "source-banco-export",
+            "provider": "quadrant_absence",
+            "quadrant": "q2"
+          },
+          {
+            "anchor": "source-banco-export",
+            "provider": "quadrant_absence",
+            "quadrant": "q3"
+          },
+          {
+            "anchor": "source-banco-export",
+            "provider": "quadrant_absence",
+            "quadrant": "q4"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [],
+          "q2": [],
+          "q3": [],
+          "q4": []
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {},
+        "quadrant_sub_lens": {
+          "q1": {},
+          "q2": {},
+          "q3": {},
+          "q4": {}
+        },
+        "relations": {
+          "due": [],
+          "open_commitments": [],
+          "upcoming_dates": []
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "drift",
+        "context": "financeiro",
+        "horizon_label": "title",
+        "horizon_text": "Extrato do Banco",
+        "landmark": "crystal_spire",
+        "motif": "streams"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_family",
+          "catalog": [],
+          "disabled_reason": "create.sourceContentByIngestion",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": true,
+        "intake": {
+          "forms": [
+            "source_sync",
+            "recipe_export_checklist",
+            "meeting_note",
+            "interaction_note"
+          ]
+        },
+        "missions": {
+          "active": true,
+          "providers": [
+            "source_cursor_overdue",
+            "source_closure",
+            "quadrant_absence",
+            "relation_cadence_overdue",
+            "date_upcoming",
+            "commitment_open"
+          ],
+          "quiet": false,
+          "weather_contrib": true
+        },
+        "score": {
+          "loops": [
+            "context_vitality"
+          ],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "quadrants",
+            "atlas",
+            "focus"
+          ],
+          "default": "quadrants"
+        }
+      },
+      "stack": [
+        {
+          "config": {},
+          "id": "wiki.block.privacy_boundary.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:source",
+          "scope": "self"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.git_human_gate.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "arrangement": "by_family",
+            "catalog": [],
+            "disabled_reason": "create.sourceContentByIngestion",
+            "obligations_first": true
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:source",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.relations.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "providers": [
+              "source_cursor_overdue",
+              "source_closure"
+            ]
+          },
+          "id": "wiki.block.ui_missions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:source",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "loops": [
+              "context_vitality"
+            ]
+          },
+          "id": "wiki.block.gamification.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "anchor:hub-financeiro",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.source_recipe.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:source",
+          "scope": "self"
+        },
+        {
+          "config": {
+            "forms": [
+              "source_sync",
+              "recipe_export_checklist"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:source",
+          "scope": "self"
+        }
+      ]
+    }
+  },
+  "schema_version": "wiki_web_block_stacks.v1"
+}

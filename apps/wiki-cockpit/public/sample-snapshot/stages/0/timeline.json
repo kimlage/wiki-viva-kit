@@ -1,0 +1,35 @@
+{
+  "bands": {
+    "last_30_days": 0,
+    "last_7_days": 1,
+    "older": 0,
+    "undated": 0
+  },
+  "events": [
+    {
+      "commit": "",
+      "context": "system",
+      "id": "snapshot-generated",
+      "kind": "snapshot",
+      "label": "Snapshot generated",
+      "path": "",
+      "status": "blocked",
+      "timestamp": "2026-07-07T22:55:36Z",
+      "weight": 1
+    }
+  ],
+  "generated_at": "2026-07-07T22:55:36Z",
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_web_timeline.v1",
+  "summary": {
+    "by_context": {
+      "system": 1
+    },
+    "by_kind": {
+      "snapshot": 1
+    },
+    "event_count": 1,
+    "first_at": "2026-07-07T22:55:36Z",
+    "last_at": "2026-07-07T22:55:36Z"
+  }
+}

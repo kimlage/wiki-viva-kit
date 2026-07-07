@@ -139,25 +139,25 @@ def test_impact_ack_uses_configured_ledger_path(tmp_path, monkeypatch, audit):
 
 def test_semantic_impact_text_ignores_link_targets_dates_and_reflow(audit):
     old = """---
-page_id: kim
+page_id: example-person
 updated_at: 2026-06-01
 ---
 
 Atualizado em: 2026-06-01
 
-Kim aparece junto a Michelle, Marcelo, [Celso Fujisawa](old/celso.md) e IFC.
+Alex aparece junto a Bea, Caio, [Dana Example](old/dana.md) e Organization A.
 """
     new = """---
-page_id: kim
+page_id: example-person
 updated_at: 2026-06-12
 ---
 
 Atualizado em: 2026-06-12
 
-Kim aparece junto a [Michelle](michelle.md), [Marcelo](marcelo.md),
-[Celso Fujisawa](celso-fujisawa.md) e IFC.
+Alex aparece junto a [Bea](bea.md), [Caio](caio.md),
+[Dana Example](dana-example.md) e Organization A.
 """
-    changed = new.replace("IFC.", "SmartFIB.")
+    changed = new.replace("Organization A.", "Organization B.")
 
     assert audit._semantic_impact_text(old) == audit._semantic_impact_text(new)
     assert audit._semantic_impact_text(old) != audit._semantic_impact_text(changed)
@@ -953,6 +953,44 @@ def test_registry_matches_canonical_order(audit):
     assert [name for name, _ in audit.CHECKS] == EXPECTED_CHECK_ORDER
     # No duplicate names.
     assert len(set(audit.CHECK_NAMES)) == len(audit.CHECK_NAMES)
+
+
+def test_page_type_registry_accepts_nested_object_frontmatter(tmp_path, monkeypatch, audit):
+    (tmp_path / "memories/sources").mkdir(parents=True)
+    (tmp_path / "wiki.page-types.yaml").write_text(
+        "schema_version: wiki_page_types.v1\n"
+        "page_types:\n"
+        "  source:\n"
+        "    template: none\n"
+        "    template_none_reason: test fixture\n"
+        "    allowed_dirs: [memories/sources]\n"
+        "    required_frontmatter: [page_id, page_type, title]\n"
+        "    field_types:\n"
+        "      parent_projection: object\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "memories/sources/source.md").write_text(
+        "---\n"
+        "page_id: source-demo\n"
+        "page_type: source\n"
+        "title: Source\n"
+        "context: system\n"
+        "visibility: private_self\n"
+        "updated_at: 2026-07-07\n"
+        "stale_after_days: 30\n"
+        "parent_projection:\n"
+        "  quadrant: q2\n"
+        "  sub_lens: evidencias\n"
+        "---\n"
+        "# Source\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+
+    errors: list[str] = []
+    audit.audit_page_type_registry(errors, WikiConfig())
+
+    assert errors == []
 
 
 def test_registry_runners_are_callable_and_named_after_audit_fns(audit):

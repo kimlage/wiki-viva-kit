@@ -41,4 +41,6 @@ SNAPSHOT_FILES = (
     "quality.json",
     "commands.json",
     "score.json",
+    "blocks.json",
+    "block_stacks.json",
 )

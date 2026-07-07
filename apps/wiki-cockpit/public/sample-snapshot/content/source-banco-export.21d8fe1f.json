@@ -1,0 +1,34 @@
+{
+  "backlinks": [],
+  "body": "\n# Extrato do Banco\n\nA live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)\n",
+  "frontmatter": {
+    "context": "financeiro",
+    "moc_parent": "memories/financeiro/index.md",
+    "owner": "root-alex-rivera",
+    "page_id": "source-banco-export",
+    "page_type": "source",
+    "platform": "Banco",
+    "source_type": "live",
+    "stale_after_days": 30,
+    "title": "Extrato do Banco",
+    "updated_at": "2026-05-04",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "financeiro",
+    "freshness_state": "stale",
+    "moc_parent": "memories/financeiro/index.md",
+    "page_id": "source-banco-export",
+    "page_type": "source",
+    "path": "memories/sources/source-banco-export.md",
+    "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+    "summary_truncated": false,
+    "title": "Extrato do Banco",
+    "updated_at": "2026-05-04"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

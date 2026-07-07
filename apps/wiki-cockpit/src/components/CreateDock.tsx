@@ -1,15 +1,17 @@
-// CreateDock (?dock=create): "Semear no quadrante" — the type-driven replacement
-// for the old dropdown. The page TYPE is the seed: it is chosen from a palette
-// grouped by the four AQAL quadrants (each type lands in its home quadrant), and
-// the type drives the mold — the pinned fields the template declares, shown as
-// a fillable form grouped by facet. Composing never writes a file: it hands a
-// `create` brief to Codex (scaffold → fill → draft PR), so creation stays gated.
-// Everything t()'d EN+PT.
+// CreateDock (?dock=create): the DECLARED 2D FALLBACK of the create flow — a
+// bottom sheet used only when the canvas cannot host the spatial SeedFlow
+// (reduced motion / no WebGL / visual-test mode; see scene/spatial.tsx for the
+// primary surface). Same curated palette (data/creation.ts), same brief:
+// creating never writes — it hands a create brief to Codex (scaffold → fill →
+// draft PR); in the genesis tutorial the same act rebuilds the world instantly.
 
 import { useMemo, useState } from "react";
-import { Sprout, X } from "lucide-react";
+import { ChevronLeft, Search, Sprout, X } from "lucide-react";
 import { t } from "../data/i18n";
 import { contextLabel, pageTypeLabel } from "../data/presentation";
+import { AUTO_FIELDS, contextsOf, createBriefSpec, curatedPalette, registryHomeOverrides } from "../data/creation";
+import { composeInstruments } from "../data/surfaces";
+import { typeDescription, typeIcon, typeNameExample, typeNamePrompt } from "../data/typeCatalog";
 import { homeQuadrant, SCENE_FACETS, type SceneFacet } from "../scene/facets";
 import type { BriefSpec, SnapshotBundle, TemplateSpec } from "../types";
 
@@ -21,36 +23,68 @@ export function CreateDock({
   bundle,
   initialType,
   initialQuadrant,
+  genesis = false,
   onComposeBrief,
+  onHighlightQuadrant,
   onClose
 }: {
   bundle: SnapshotBundle;
   initialType?: string;
   initialQuadrant?: string;
+  // Tutorial mode: creating rebuilds the world instantly (the honest footnote
+  // changes — no Codex/PR language when nothing of the sort will happen).
+  genesis?: boolean;
   onComposeBrief: (spec: BriefSpec) => void;
+  // Lets the WORLD react to the choice: the selected type's home region is
+  // scoped/lit behind the sheet (quadrant-aware perspectives only).
+  onHighlightQuadrant?: (facet: string | null) => void;
   onClose: () => void;
 }) {
+  // Narrow screens get a TWO-STEP flow: pick a type → the sheet flips to the
+  // mold with a back button (side-by-side needs ~760px).
+  const [mobileForm, setMobileForm] = useState(false);
   const types = bundle.templates?.types ?? {};
   const overrides = useMemo(() => registryHomeOverrides(types), [types]);
-  const contexts = Object.keys(bundle.freshness?.by_context ?? {}).sort();
+  const contexts = contextsOf(bundle);
+  // The palette follows the STACK: quadrant grouping is an arrangement the
+  // quadrants block CONTRIBUTES; the scope's catalog floats its types first.
+  const instruments = useMemo(() => composeInstruments(bundle), [bundle]);
+  const byQuadrant = instruments.createArrangement === "by_quadrant";
+  const catalog = instruments.createCatalog;
 
-  // Group the type palette by home quadrant (per-type registry override wins).
+  const [filter, setFilter] = useState("");
+  // R2 — the curated palette: only CREATABLE types exist here (generated/
+  // system/rite-owned types never appear), the scope's catalog is the small
+  // first level, everything else waits behind "more types…".
+  const palette = useMemo(() => curatedPalette(types, catalog), [types, catalog]);
+  const [expanded, setExpanded] = useState(palette.primary.length === 0);
+  const orderedTypes = useMemo(() => {
+    const names = expanded ? [...palette.primary, ...palette.rest] : palette.primary;
+    const needle = filter.trim().toLowerCase();
+    if (!needle) return names;
+    return names.filter(
+      (pt) =>
+        pageTypeLabel(pt).toLowerCase().includes(needle) ||
+        typeDescription(pt).toLowerCase().includes(needle) ||
+        pt.includes(needle)
+    );
+  }, [palette, expanded, filter]);
+
   const buckets = useMemo(() => {
     const out: Record<Bucket, string[]> = { intencao: [], pratica: [], relacoes: [], sistemas: [], core: [] };
-    for (const pt of Object.keys(types).sort()) {
-      const home = homeQuadrant(pt, overrides) ?? "core";
+    for (const pt of orderedTypes) {
+      const home = byQuadrant ? homeQuadrant(pt, overrides) ?? "core" : "core";
       out[home].push(pt);
     }
     return out;
-  }, [types, overrides]);
+  }, [orderedTypes, overrides, byQuadrant]);
 
-  // Default the selected type: the seed passed in the URL, else the first type
-  // whose home is the active quadrant, else the first type overall.
   const firstIn = (b: Bucket) => buckets[b][0];
+  const creatableInitial = initialType && types[initialType] && [...palette.primary, ...palette.rest].includes(initialType);
   const defaultType =
-    (initialType && types[initialType] ? initialType : "") ||
+    (creatableInitial ? initialType : "") ||
     (initialQuadrant && SCENE_FACETS.includes(initialQuadrant as SceneFacet) ? firstIn(initialQuadrant as SceneFacet) : "") ||
-    Object.keys(types).sort()[0] ||
+    orderedTypes[0] ||
     "";
 
   const [type, setType] = useState(defaultType);
@@ -60,160 +94,180 @@ export function CreateDock({
 
   const spec: TemplateSpec | undefined = types[type];
   const home = spec ? homeQuadrant(type, overrides) : null;
-
-  // Pinned fields, grouped by the facet they belong to (from spec.facets).
   const moldGroups = useMemo(() => groupPinnedByFacet(spec), [spec]);
-
   const setField = (key: string, value: string) => setValues((v) => ({ ...v, [key]: value }));
+
+  const pick = (pt: string) => {
+    setType(pt);
+    setValues({});
+    setMobileForm(true);
+    onHighlightQuadrant?.(homeQuadrant(pt, overrides) ?? null);
+  };
 
   const seed = () => {
     if (!spec || !title.trim()) return;
-    const pinned = (spec.pinned_fields ?? []).map((key) => ({
-      key,
-      label: fieldLabel(key),
-      value: (values[key] ?? "").trim(),
-      required: false
-    }));
-    onComposeBrief({
-      mission_kind: "create",
-      theme: `new-${type}`,
-      grounding: {
-        attach_context_package: true,
-        create: {
-          page_type: type,
-          title: title.trim(),
-          context,
-          home_facet: home,
-          pinned
-        }
-      }
-    });
+    // Only human-groundable fields travel in the brief — the system fills the
+    // automatic ones (updated_at, freshness window) at scaffold time.
+    const pinned = (spec.pinned_fields ?? [])
+      .filter((key) => !AUTO_FIELDS.has(key))
+      .map((key) => ({
+        key,
+        label: fieldLabel(key),
+        value: (values[key] ?? "").trim(),
+        required: false
+      }));
+    onComposeBrief(createBriefSpec({ pageType: type, title: title.trim(), context, home, pinned }));
   };
 
+  const renderRow = (pt: string) => (
+    <button
+      key={pt}
+      className={pt === type ? "createTypeRow active" : "createTypeRow"}
+      onClick={() => pick(pt)}
+      title={typeDescription(pt)}
+      type="button"
+    >
+      <span className="createTypeIcon" aria-hidden>{typeIcon(pt)}</span>
+      <span className="createTypeText">
+        <strong>{pageTypeLabel(pt)}</strong>
+        <small>{typeDescription(pt)}</small>
+      </span>
+    </button>
+  );
+
   return (
-    <>
-      <div className="dockBackdrop" onClick={onClose} aria-hidden />
-      <aside className="createDock worldDock" role="dialog" aria-label={t("create.title")}>
-        <header className="dockHeader">
-          <strong>{t("create.title")}</strong>
-          <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
-            <X size={16} />
-          </button>
-        </header>
-        <p className="dockIntro">{t("create.intro")}</p>
+    <section className="createSheet" role="dialog" aria-label={t("create.title")}>
+      <header className="createSheetHeader">
+        <Sprout size={15} aria-hidden />
+        <strong>{t("create.title")}</strong>
+        <span className="createSheetIntro">{t("create.intro")}</span>
+        <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <X size={16} />
+        </button>
+      </header>
 
-        {Object.keys(types).length === 0 ? (
-          <p className="dockIntro createEmpty">{t("create.noTypes")}</p>
-        ) : (
-          <>
-            {/* Type palette, grouped by home quadrant. */}
-            <div className="createPalette">
-              {BUCKET_ORDER.map((bucket) =>
-                buckets[bucket].length === 0 ? null : (
-                  <div className={`createBucket createBucket--${bucket}`} key={bucket}>
-                    <h4>{bucket === "core" ? t("quadrant.core") : t(`facet.${bucket}`)}</h4>
-                    <div className="createChips">
-                      {buckets[bucket].map((pt) => (
-                        <button
-                          key={pt}
-                          className={pt === type ? "createChip active" : "createChip"}
-                          onClick={() => {
-                            setType(pt);
-                            setValues({});
-                          }}
-                          type="button"
-                          title={pt}
-                        >
-                          {pageTypeLabel(pt)}
-                        </button>
-                      ))}
+      {Object.keys(types).length === 0 ? (
+        <p className="dockIntro createEmpty">{t("create.noTypes")}</p>
+      ) : (
+        <div className={mobileForm ? "createSheetBody showForm" : "createSheetBody"}>
+          {/* LEFT: what can be born HERE — the scope's small catalog first
+              (icons + plain-language purpose); the long tail only behind an
+              explicit "more types…". The filter appears with the long list. */}
+          <div className="createTypeList">
+            {expanded && (
+              <label className="createTypeFilter">
+                <Search size={13} aria-hidden />
+                <input
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder={t("create.searchTypes")}
+                  aria-label={t("create.searchTypes")}
+                />
+              </label>
+            )}
+            {expanded && byQuadrant
+              ? BUCKET_ORDER.map((bucket) =>
+                  buckets[bucket].length === 0 ? null : (
+                    <div className="createTypeGroup" key={bucket}>
+                      <h5>{bucket === "core" ? t("quadrant.core") : t(`facet.${bucket}`)}</h5>
+                      {buckets[bucket].map(renderRow)}
                     </div>
-                  </div>
+                  )
                 )
-              )}
-            </div>
+              : orderedTypes.map(renderRow)}
+            {!expanded && palette.rest.length > 0 && (
+              <button className="createMoreTypes" onClick={() => setExpanded(true)} type="button">
+                {t("seed.more", { n: palette.rest.length })}
+              </button>
+            )}
+            {expanded && palette.primary.length > 0 && (
+              <button className="createMoreTypes" onClick={() => { setExpanded(false); setFilter(""); }} type="button">
+                <ChevronLeft size={12} aria-hidden /> {t("seed.less")}
+              </button>
+            )}
+          </div>
 
-            {spec && (
-              <div className={`createMold createMold--${home ?? "core"}`}>
-                <p className="createMoldHome">
-                  {t("create.seedsInto")}{" "}
-                  <strong>{home ? t(`facet.${home}`) : t("quadrant.core")}</strong>
-                </p>
+          {/* RIGHT: the mold of the chosen type. */}
+          {spec && (
+            <div className="createForm">
+              <div className="createFormHead">
+                <button className="createBackToTypes" onClick={() => setMobileForm(false)} type="button">
+                  ‹ {t("create.backToTypes")}
+                </button>
+                <span className="createTypeIcon big" aria-hidden>{typeIcon(type)}</span>
+                <div>
+                  <strong>{pageTypeLabel(type)}</strong>
+                  <small>{typeDescription(type)}</small>
+                </div>
+                {home && (
+                  <span className={`createHomePill home--${home}`}>
+                    {t("create.livesIn")} {t(`facet.${home}`)}
+                  </span>
+                )}
+              </div>
 
+              <div className="createFormFields">
                 <label className="intakeField">
-                  <span>{t("create.name")}</span>
+                  <span>{typeNamePrompt(type)}</span>
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder={t("create.namePlaceholder")}
+                    placeholder={typeNameExample(type)}
                     autoFocus
                   />
                 </label>
-                <label className="intakeField">
-                  <span>{t("intake.context")}</span>
-                  <select value={context} onChange={(e) => setContext(e.target.value)}>
-                    {contexts.map((ctx) => (
-                      <option key={ctx} value={ctx}>
-                        {contextLabel(ctx)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {/* The mold: the template's pinned fields, grouped by facet. */}
-                {moldGroups.length > 0 ? (
-                  moldGroups.map(([facet, fields]) => (
-                    <div className="createMoldGroup" key={facet}>
-                      <h5>{facet === "core" ? t("create.moldFields") : t(`facet.${facet}`)}</h5>
-                      {fields.map((key) => (
-                        <label className="intakeField" key={key}>
-                          <span>{fieldLabel(key)}</span>
-                          <input
-                            value={values[key] ?? ""}
-                            onChange={(e) => setField(key, e.target.value)}
-                            placeholder={t("create.fieldPlaceholder")}
-                            spellCheck={false}
-                          />
-                        </label>
+                {contexts.length > 0 && (
+                  <label className="intakeField">
+                    <span>{t("intake.context")}</span>
+                    <select value={context} onChange={(e) => setContext(e.target.value)}>
+                      {contexts.map((ctx) => (
+                        <option key={ctx} value={ctx}>
+                          {contextLabel(ctx)}
+                        </option>
                       ))}
-                    </div>
-                  ))
-                ) : (
-                  <p className="dockIntro">{t("create.noFields")}</p>
+                    </select>
+                  </label>
                 )}
-
-                <div className="dockActions">
-                  <button className="btn btn--primary" disabled={!title.trim()} onClick={seed} type="button">
-                    <Sprout size={14} />
-                    <span>{t("create.seed")}</span>
-                  </button>
-                </div>
-                <p className="dockIntro createGateNote">{t("create.gateNote")}</p>
+                {moldGroups.map(([facet, fields]) =>
+                  fields.map((key) => (
+                    <label className="intakeField" key={key}>
+                      <span>
+                        {fieldLabel(key)}
+                        {facet !== "core" ? ` · ${t(`facet.${facet}`)}` : ""}
+                      </span>
+                      <input
+                        value={values[key] ?? ""}
+                        onChange={(e) => setField(key, e.target.value)}
+                        placeholder={t("create.fieldPlaceholder")}
+                        spellCheck={false}
+                      />
+                    </label>
+                  ))
+                )}
               </div>
-            )}
-          </>
-        )}
-      </aside>
-    </>
+
+              <div className="createFormFoot">
+                <button className="btn btn--primary" disabled={!title.trim()} onClick={seed} type="button">
+                  <Sprout size={14} />
+                  <span>{t("create.seed")}</span>
+                </button>
+                <small className="createGateNote">{t(genesis ? "create.gateNoteGenesis" : "create.gateNote")}</small>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
-// Pull each type's `home_quadrant:` override out of its template spec (a wiki can
-// pin a custom type into a specific quadrant). Only valid facets are kept.
-function registryHomeOverrides(types: Record<string, TemplateSpec>): Record<string, SceneFacet | null> {
-  const out: Record<string, SceneFacet | null> = {};
-  for (const [pt, spec] of Object.entries(types)) {
-    const raw = (spec as unknown as { home_quadrant?: string }).home_quadrant;
-    if (raw && SCENE_FACETS.includes(raw as SceneFacet)) out[pt] = raw as SceneFacet;
-  }
-  return out;
-}
+
 
 // Group a template's pinned fields by the facet they belong to (spec.facets maps
 // facet → field keys). Fields not claimed by any facet fall under "core".
 function groupPinnedByFacet(spec: TemplateSpec | undefined): [Bucket, string[]][] {
   if (!spec) return [];
-  const pinned = spec.pinned_fields ?? [];
+  const pinned = (spec.pinned_fields ?? []).filter((key) => !AUTO_FIELDS.has(key));
   if (pinned.length === 0) return [];
   const fieldFacet: Record<string, SceneFacet> = {};
   for (const facet of SCENE_FACETS) {

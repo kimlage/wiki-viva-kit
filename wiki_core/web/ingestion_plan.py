@@ -13,15 +13,6 @@ from wiki_core.web.source_triage import triage_source
 
 READ_STEPS = {"proposal_preview", "ingest_dry_run", "llm_request_preview"}
 WRITE_STEPS = {"proposal_write", "llm_request_emit"}
-STEP_ORDER = (
-    "source_triage",
-    "proposal_preview",
-    "ingest_dry_run",
-    "proposal_write",
-    "llm_request_preview",
-    "llm_request_emit",
-    "human_gate",
-)
 
 
 def _redact(text: str) -> str:

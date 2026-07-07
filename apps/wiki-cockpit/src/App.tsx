@@ -19,17 +19,21 @@ import {
   TerminalSquare
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { WorldView } from "./components/WorldView";
+import { BlocksDock } from "./components/BlocksDock";
+// CreateDock and the genesis guide render inside WorldView now — the create
+// flow is spatial-first, the tutorial voice is an in-world beacon.
 import { BriefStudio } from "./components/BriefStudio";
+import { DemoGate } from "./components/DemoGate";
 import { CodexDock } from "./components/CodexDock";
-import { CreateDock } from "./components/CreateDock";
 import { GateDock } from "./components/GateDock";
 import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
 import { WorkDock } from "./components/WorkDock";
 import { SourceDock } from "./components/SourceDock";
 import { ExpandablePre } from "./components/ExpandablePre";
+import { GENESIS_FINAL_STAGE, genesisAttachMatches, genesisCreateMatches, genesisUrl } from "./data/genesis";
 import { configureLanguage, t } from "./data/i18n";
 import { qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel, registerContextPalette } from "./data/presentation";
@@ -70,7 +74,10 @@ function modeLabel(mode: string): string {
     static_demo: "demo data",
     local_operator: "local operator",
     github_connected: "review connected",
-    controlled_operator: "controlled operator"
+    controlled_operator: "controlled operator",
+    // Real mode whose operator/snapshot could not be reached: the bundled
+    // SAMPLE loaded instead — the header must say so, loudly.
+    sample_fallback: "SAMPLE DATA — operator unreachable"
   };
   return labels[mode] || mode.replaceAll("_", " ");
 }
@@ -1074,575 +1081,10 @@ function GitWorkflowPanel({
   );
 }
 
-function ReviewView({
-  bundle,
-  onRun,
-  onWorkflow
-}: {
-  bundle: SnapshotBundle;
-  onRun: (action: ActionCard) => void;
-  onWorkflow: (operation: string, payload?: Record<string, unknown>, dryRun?: boolean) => void;
-}) {
-  return (
-    <main className="workspace">
-      <ApprovalInbox bundle={bundle} onRun={onRun} />
-      <details className="reviewUtilityDetails">
-        <summary>Advanced: request editor and exact evidence</summary>
-        <PrHandoffPanel bundle={bundle} onWorkflow={onWorkflow} />
-        <DiffFilmstrip bundle={bundle} />
-        <SyncMainPanel bundle={bundle} onWorkflow={onWorkflow} />
-        <GitWorkflowPanel bundle={bundle} onWorkflow={onWorkflow} />
-        <section className="panel">
-          <div className="panelHeader">
-            <h2>Changed Content Details</h2>
-            <StatusPill tone={bundle.git.worktree.changed_files.length ? "warn" : "good"}>
-              {bundle.git.worktree.changed_files.length}
-            </StatusPill>
-          </div>
-          <div className="fileTable" role="table">
-            {bundle.git.worktree.changed_files.map((file) => (
-              <div className="fileRow" role="row" key={file.path}>
-                <code>{file.status}</code>
-                <span>{file.path}</span>
-                <StatusPill tone={file.known_generated ? "info" : "muted"}>{file.known_generated ? "generated" : "manual"}</StatusPill>
-              </div>
-            ))}
-            {bundle.git.worktree.changed_files.length === 0 && <p>No local changes in this view.</p>}
-          </div>
-        </section>
-        <section className="panel">
-          <div className="panelHeader">
-            <h2>Automated Checks</h2>
-            <StatusPill tone={gateStatusTone(bundle.gates.status)}>{gateStatusLabel(bundle.gates.status)}</StatusPill>
-          </div>
-          <ul className="plainList commandList">
-            {bundle.gates.gates.map((gate) => (
-              <li key={gate.id}>
-                <code>{gate.argv.join(" ")}</code>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </details>
-    </main>
-  );
-}
-
-function healthDecision(
-  bundle: SnapshotBundle,
-  qualityFlags: number
-): { label: string; detail: string; tone: "good" | "warn" | "bad" | "info" | "muted" } {
-  const stale = bundle.freshness.summary.stale ?? 0;
-  const unknown = bundle.freshness.summary.unknown ?? 0;
-  const gateTone = gateStatusTone(bundle.gates.status);
-  if (gateTone === "bad") {
-    return { label: "Do not rely yet", detail: "A required check is failing. Fix that before trusting or approving this wiki state.", tone: "bad" };
-  }
-  if (gateTone === "warn") {
-    return { label: "Check before relying", detail: "The content can be browsed, but validation has not proved this state yet.", tone: "warn" };
-  }
-  if (qualityFlags || stale || unknown) {
-    return { label: "Usable with review", detail: "The wiki is usable, but some content needs attention before high-confidence decisions.", tone: "warn" };
-  }
-  return { label: "Ready to trust", detail: "Checks are passing and the current content health signals are clear.", tone: "good" };
-}
-
-function HealthView({ bundle, demo, onRun }: { bundle: SnapshotBundle; demo: boolean; onRun: (action: ActionCard) => void }) {
-  const qualityFlags = qualityFlagCount(bundle);
-  const decision = healthDecision(bundle, qualityFlags);
-  const fresh = bundle.freshness.summary.fresh ?? 0;
-  const stale = bundle.freshness.summary.stale ?? 0;
-  const unknown = bundle.freshness.summary.unknown ?? 0;
-  const gateAction = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
-  const stalePages = bundle.pages.pages.filter((page) => page.freshness_state === "stale").slice(0, 8);
-  const riskPages = bundle.pages.pages.filter((page) => page.risk_flags.length > 0).slice(0, 8);
-  const attentionPages = [...new Map([...riskPages, ...stalePages].map((page) => [page.id, page])).values()].slice(0, 10);
-  return (
-    <main className="workspace">
-      <section className="panel healthHero">
-        <div className="panelHeader">
-          <h1>Wiki Health</h1>
-          <StatusPill tone={decision.tone}>{decision.label}</StatusPill>
-        </div>
-        <p className="panelLead">{decision.detail}</p>
-        <div className="healthDecisionGrid" aria-label="Wiki health decision summary">
-          <article className="healthDecisionCard">
-            <ShieldCheck size={18} />
-            <span>Validation</span>
-            <strong>{gateStatusLabel(bundle.gates.status)}</strong>
-            <p>{bundle.gates.gates.length} local check(s) are available for approval confidence.</p>
-            {gateAction && <ActionButton action={gateAction} onRun={onRun} />}
-          </article>
-          <article className="healthDecisionCard">
-            <Clock3 size={18} />
-            <span>Freshness</span>
-            <strong>{stale ? `${stale} need refresh` : "Current"}</strong>
-            <p>{fresh} ready, {unknown} not checked.</p>
-          </article>
-          <article className="healthDecisionCard">
-            <CircleAlert size={18} />
-            <span>Review warnings</span>
-            <strong>{qualityFlags}</strong>
-            <p>{qualityFlags ? "Inspect warnings before relying on affected content." : "No current warning is exposed in this view."}</p>
-          </article>
-          <article className="healthDecisionCard">
-            <Search size={18} />
-            <span>Evidence</span>
-            <strong>{bundle.sources.sources.length}</strong>
-            <p>Evidence source(s) are available to verify content claims.</p>
-          </article>
-        </div>
-      </section>
-
-      <section className="panel">
-        <div className="panelHeader">
-          <h2>Needs Attention</h2>
-          <StatusPill tone={attentionPages.length ? "warn" : "good"}>{attentionPages.length ? `${attentionPages.length} item(s)` : "clear"}</StatusPill>
-        </div>
-        <div className="healthAttentionList">
-          {attentionPages.map((page) => (
-            <a className="healthAttentionItem" href={`${demo ? "/demo" : ""}/pages/${encodeURIComponent(page.id)}`} key={page.id}>
-              <div>
-                <strong>{page.title}</strong>
-                <span>{pageMetaLabel(page)} · {evidenceLabel(page)}</span>
-              </div>
-              <StatusPill tone={pageStatusTone(page)}>
-                {page.risk_flags.length ? "review risk" : freshnessLabel(page.freshness_state)}
-              </StatusPill>
-            </a>
-          ))}
-          {attentionPages.length === 0 && <p>No content item needs attention in this view.</p>}
-        </div>
-      </section>
-
-      <details className="reviewUtilityDetails">
-        <summary>Area rollup and exact checks</summary>
-        <section className="panel">
-          <div className="panelHeader">
-            <h2>Area Readiness</h2>
-            <StatusPill tone="info">{Object.keys(bundle.freshness.by_context).length} areas</StatusPill>
-          </div>
-          <div className="contextGrid">
-            {Object.entries(bundle.freshness.by_context).map(([context, stats]) => (
-              <article className="contextTile" key={context}>
-                <h2>{context}</h2>
-                <span>ready {stats.fresh ?? 0}</span>
-                <span>needs refresh {stats.stale ?? 0}</span>
-                <span>not checked {stats.unknown ?? 0}</span>
-              </article>
-            ))}
-          </div>
-        </section>
-        <section className="panel">
-          <div className="panelHeader">
-            <h2>Check Details</h2>
-            <StatusPill tone={gateStatusTone(bundle.gates.status)}>{gateStatusLabel(bundle.gates.status)}</StatusPill>
-          </div>
-          <ul className="plainList commandList">
-            {bundle.gates.gates.map((gate) => (
-              <li key={gate.id}>
-                <strong>{gateCheckLabel(gate.id)}</strong>
-                <details className="auditDetails">
-                  <summary>Local check details</summary>
-                  <code>{gate.argv.join(" ")}</code>
-                </details>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </details>
-    </main>
-  );
-}
-
-function sourceResultTone(result: SourceTriageResult | null): "good" | "warn" | "bad" | "muted" {
-  if (!result) return "muted";
-  if (result.secret_block || result.error) return "bad";
-  if ((result.risk_flags || []).length > 0) return "warn";
-  return "good";
-}
-
-function sourceReadyLabel(result: SourceTriageResult): string {
-  if (result.secret_block) return "Blocked by secret";
-  if (result.error) return "Needs attention";
-  if (result.ok) return "Ready to review";
-  return "Needs review";
-}
-
-function sourceReadyDetail(result: SourceTriageResult): string {
-  if (result.error) return result.error;
-  if (result.secret_block) return "Remove access secrets before this source can enter the wiki flow.";
-  if ((result.risk_flags || []).length > 0) return "Safe to continue only after the flagged items are reviewed.";
-  return "No blocking issue was found in the local triage.";
-}
-
-function sourceTypeLabel(value?: string): string {
-  const labels: Record<string, string> = {
-    file: "Local file",
-    url: "Web link",
-    markdown: "Markdown note",
-    pdf: "PDF document",
-    text: "Text document",
-    unknown: "Unknown source"
-  };
-  return labels[value || "unknown"] || (value || "unknown").replaceAll("_", " ");
-}
-
-function sourceFoundLabel(value?: boolean | null): string {
-  if (value === true) return "Found";
-  if (value === false) return "Not found";
-  return "Not checked";
-}
-
-function sourceRiskLabel(value: string): string {
-  const labels: Record<string, string> = {
-    secret: "Access secret",
-    secret_block: "Access secret",
-    pii: "Personal data",
-    public_boundary: "Public boundary",
-    missing_context: "Missing area",
-    unresolved_target: "Unclear destination"
-  };
-  return labels[value] || value.replaceAll("_", " ");
-}
-
-function sourceRiskSummary(result: SourceTriageResult): string {
-  if (result.secret_block) return "Blocked";
-  if ((result.risk_flags || []).length > 0) return `${result.risk_flags?.length || 0} flag(s)`;
-  return "No flags";
-}
-
-function sourceFindingLabel(finding: SourceFinding): string {
-  return `${sourceRiskLabel(finding.category)} · ${finding.kind.replaceAll("_", " ")}`;
-}
-
-function stageTone(stage: IngestionStage): "good" | "warn" | "bad" | "info" | "muted" {
-  if (stage.status === "complete") return "good";
-  if (stage.status === "ready") return "info";
-  if (stage.status === "warning" || stage.status === "waiting") return "warn";
-  if (stage.status === "blocked") return "bad";
-  return "muted";
-}
-
-function stageStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    complete: "done",
-    ready: "ready",
-    waiting: "waiting",
-    blocked: "blocked",
-    warning: "needs review"
-  };
-  return labels[status] || status.replaceAll("_", " ");
-}
-
-function runnableStage(stage: IngestionStage): boolean {
-  return Boolean(stage.command) && stage.status !== "blocked";
-}
-
-function stageButtonLabel(stage: IngestionStage, executeWrites: boolean, busyStep: string): string {
-  if (busyStep === stage.id) return "Running";
-  if (stage.writes) return executeWrites ? "Apply" : "Preview";
-  return "Review";
-}
-
-function IngestionPipeline({
-  plan,
-  executeWrites,
-  busyStep,
-  onRun
-}: {
-  plan: IngestionPlan | null;
-  executeWrites: boolean;
-  busyStep: string;
-  onRun: (stage: IngestionStage) => void;
-}) {
-  if (!plan) return null;
-  return (
-    <section className="pipelinePanel">
-      <div className="panelHeader">
-        <h3>Add Checklist</h3>
-        <StatusPill tone={plan.ok ? "good" : "bad"}>{plan.ok ? "ready to start" : "blocked"}</StatusPill>
-      </div>
-      <p className="panelLead">Preview each step locally first. Turn on review writes only when this source should be added to the review workspace.</p>
-      <div className="pipelineRail" aria-label="Add knowledge flow">
-        {plan.stages.map((stage, index) => (
-          <article className={`pipelineStage stage-${stage.status}`} key={stage.id}>
-            <div className="stageIndex">{index + 1}</div>
-            <div>
-              <div className="stageTitle">
-                <strong>{stage.label}</strong>
-                <StatusPill tone={stageTone(stage)}>{stageStatusLabel(stage.status)}</StatusPill>
-              </div>
-              <p>{stage.detail}</p>
-              {stage.command && (
-                <details className="auditDetails stageCommand">
-                  <summary>Local run details</summary>
-                  <code>{stage.command.join(" ")}</code>
-                </details>
-              )}
-            </div>
-            {runnableStage(stage) && (
-              <button className={stage.writes ? "secondaryButton risky" : "secondaryButton"} onClick={() => onRun(stage)} title={stage.detail}>
-                <Play size={16} />
-                <span>{stageButtonLabel(stage, executeWrites, busyStep)}</span>
-              </button>
-            )}
-          </article>
-        ))}
-      </div>
-      {plan.next_blocked_stage && (
-        <p className="pipelineNote">
-          Next required step: <strong>{plan.next_blocked_stage.label}</strong> · {plan.next_blocked_stage.detail}
-        </p>
-      )}
-    </section>
-  );
-}
-
-function SourcesView({
-  bundle,
-  onCommand
-}: {
-  bundle: SnapshotBundle;
-  onCommand: (result: CommandRunResult) => void;
-}) {
-  const contexts = useMemo(
-    () => {
-      const values = [...new Set([...Object.keys(bundle.freshness.by_context), ...bundle.pages.pages.map((page) => page.context)])].filter(Boolean);
-      return values.length ? values : [bundle.manifest.repo.default_context || "system"];
-    },
-    [bundle]
-  );
-  const firstSource = bundle.sources.sources[0];
-  const defaultContext = firstSource?.context || bundle.manifest.repo.default_context || contexts[0] || "system";
-  const [source, setSource] = useState(firstSource?.path || "");
-  const [context, setContext] = useState(defaultContext);
-  const [result, setResult] = useState<SourceTriageResult | null>(null);
-  const [plan, setPlan] = useState<IngestionPlan | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [busyStep, setBusyStep] = useState("");
-  const [executeWrites, setExecuteWrites] = useState(false);
-  const resultRiskFlags = result?.risk_flags || [];
-  const resultFindings = result?.findings || [];
-  const targetPages = result?.targets?.target_pages || [];
-  const targetEntities = result?.targets?.target_entities || [];
-
-  const runTriage = async () => {
-    setBusy(true);
-    try {
-      const nextPlan = await buildIngestionPlan(source, context);
-      setPlan(nextPlan);
-      setResult(nextPlan.triage);
-    } catch (error) {
-      setPlan(null);
-      setResult({ ok: false, error: error instanceof Error ? error.message : "source triage failed" });
-    } finally {
-      setBusy(false);
-    }
-  };
-  const runStage = async (stage: IngestionStage) => {
-    setBusyStep(stage.id);
-    try {
-      const stepResult = await runIngestionStep(source, context, stage.id, stage.writes ? !executeWrites : false);
-      setPlan(stepResult.plan);
-      setResult(stepResult.plan.triage);
-      onCommand(stepResult);
-    } catch (error) {
-      onCommand({
-        ok: false,
-        step_id: stage.id,
-        dry_run: stage.writes ? !executeWrites : false,
-        summary: stage.label,
-        error: error instanceof Error ? error.message : "ingestion step failed",
-        results: [],
-        plan: plan || {
-          ok: false,
-          source,
-          context,
-          triage: result || { ok: false, error: "ingestion step failed" },
-          stages: []
-        }
-      });
-    } finally {
-      setBusyStep("");
-    }
-  };
-
-  return (
-    <main className="workspace sourcesWorkspace">
-      <section className="panel sourceInbox">
-        <div className="panelHeader">
-          <h1>Add Knowledge</h1>
-          <StatusPill tone="info">{bundle.sources.sources.length}</StatusPill>
-        </div>
-        <div className="sourceList">
-          {bundle.sources.sources.map((item) => (
-            <button
-              className={source === item.path ? "sourceCard active" : "sourceCard"}
-              key={item.id}
-              onClick={() => {
-                setSource(item.path);
-                setContext(item.context || context);
-                setPlan(null);
-                setResult(null);
-              }}
-              title={item.path}
-            >
-              <span>{item.title}</span>
-              <small>{pageMetaLabel(item)} · {evidenceLabel(item)}</small>
-            </button>
-          ))}
-          {bundle.sources.sources.length === 0 && <p>No evidence sources in this view.</p>}
-        </div>
-      </section>
-      <section className="panel">
-        <div className="panelHeader">
-          <h2>Review New Source</h2>
-          <StatusPill tone={sourceResultTone(result)}>{result ? (result.ok ? "ready" : "blocked") : "idle"}</StatusPill>
-        </div>
-        <div className="workflowGrid">
-          <label className="field wide">
-            <span>File or URL to add</span>
-            <input value={source} onChange={(event) => setSource(event.target.value)} />
-          </label>
-          <label className="field">
-            <span>Area</span>
-            <select value={context} onChange={(event) => setContext(event.target.value)}>
-              {contexts.map((item) => (
-                <option key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button className="secondaryButton" disabled={!source || busy} onClick={runTriage} title="Run local source triage">
-            <Search size={16} />
-            <span>{busy ? "Checking" : "Check source"}</span>
-          </button>
-          <label className="toggleControl wideToggle">
-            <input type="checkbox" checked={executeWrites} onChange={(event) => setExecuteWrites(event.target.checked)} />
-            <span>Allow review writes</span>
-          </label>
-        </div>
-        {result && (
-          <div className="triageResult">
-            <div className="sourceDecisionGrid" aria-label="Source decision summary">
-              <article className="sourceDecisionCard">
-                <span>Decision</span>
-                <strong>{sourceReadyLabel(result)}</strong>
-                <p>{sourceReadyDetail(result)}</p>
-              </article>
-              <article className="sourceDecisionCard">
-                <span>Risk</span>
-                <strong>{sourceRiskSummary(result)}</strong>
-                <p>{resultRiskFlags.length ? "Review the flagged items before approving the source." : "No access-secret or risk flag was found in triage."}</p>
-              </article>
-              <article className="sourceDecisionCard">
-                <span>Destination</span>
-                <strong>{result.context || context}</strong>
-                <p>{targetPages.length ? `${targetPages.length} suggested content item(s)` : "No exact target suggested yet."}</p>
-              </article>
-              <article className="sourceDecisionCard">
-                <span>Evidence</span>
-                <strong>{sourceFoundLabel(result.exists)}</strong>
-                <p>{sourceTypeLabel(result.source_type)}</p>
-              </article>
-            </div>
-            <details className="auditDetails sourceTechnicalDetails">
-              <summary>Source details</summary>
-              <dl className="kv">
-                <dt>Source key</dt>
-                <dd>{result.source_id || "not available"}</dd>
-                <dt>Source</dt>
-                <dd>{result.source || source}</dd>
-                <dt>Content type</dt>
-                <dd>{result.source_type || "unknown"}</dd>
-                <dt>Found</dt>
-                <dd>{String(result.exists)}</dd>
-                <dt>Area</dt>
-                <dd>{result.context || context}</dd>
-              </dl>
-            </details>
-            <div className="tagCloud" aria-label="Source risk flags">
-              {resultRiskFlags.map((flag) => (
-                <StatusPill tone={flag === "secret_block" ? "bad" : "warn"} key={flag}>
-                  {sourceRiskLabel(flag)}
-                </StatusPill>
-              ))}
-              {resultRiskFlags.length === 0 && <StatusPill tone="good">No flags</StatusPill>}
-            </div>
-            {result.targets && (
-              <div className="targetGrid">
-                <article className="sourceTargetCard">
-                  <h3>Suggested Content</h3>
-                  <p>{targetPages.length ? `${targetPages.length} existing page(s) may need to receive or reference this source.` : "No existing page was matched automatically."}</p>
-                  <details className="auditDetails">
-                    <summary>Suggested pages</summary>
-                    <ul className="plainList compactList">
-                      {targetPages.map((page) => (
-                        <li key={page}>{page}</li>
-                      ))}
-                      {targetPages.length === 0 && <li>none</li>}
-                    </ul>
-                  </details>
-                </article>
-                <article className="sourceTargetCard">
-                  <h3>Known Entities</h3>
-                  <p>{targetEntities.length ? `${targetEntities.length} existing entity link(s) were suggested.` : "No known entity was matched automatically."}</p>
-                  <details className="auditDetails">
-                    <summary>Suggested entities</summary>
-                    <ul className="plainList compactList">
-                      {targetEntities.map((entity) => (
-                        <li key={entity}>{entity}</li>
-                      ))}
-                      {targetEntities.length === 0 && <li>none</li>}
-                    </ul>
-                  </details>
-                </article>
-              </div>
-            )}
-            {(result.next_steps || []).length > 0 && (
-              <>
-                <h3>Recommended Next Steps</h3>
-                <ul className="plainList compactList">
-                  {(result.next_steps || []).map((step) => (
-                    <li key={step}>{step}</li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {resultFindings.length > 0 && (
-              <>
-                <h3>Review Findings</h3>
-                <div className="sourceFindingList">
-                  {resultFindings.map((finding) => (
-                    <article className="sourceFinding" key={`${finding.kind}-${finding.line}-${finding.excerpt}`}>
-                      <div>
-                        <strong>{sourceFindingLabel(finding)}</strong>
-                        <p>{finding.excerpt}</p>
-                        <details className="auditDetails">
-                          <summary>Detection details</summary>
-                          <dl className="kv">
-                            <dt>Line</dt>
-                            <dd>{finding.line}</dd>
-                            <dt>Detector</dt>
-                            <dd>{finding.detector}</dd>
-                          </dl>
-                        </details>
-                      </div>
-                      <StatusPill tone={finding.category === "secret" ? "bad" : "warn"}>{finding.severity}</StatusPill>
-                    </article>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-        <IngestionPipeline plan={plan} executeWrites={executeWrites} busyStep={busyStep} onRun={runStage} />
-      </section>
-    </main>
-  );
-}
+// The legacy 2D pages (/review, /sources, /health) are GONE: an effect in
+// App() redirects each to its world dock (approve/intake/gates), so old
+// bookmarks keep working with zero rendering cost. Their components lived
+// here until the 2026-07 cleanup.
 
 export function App() {
   const url = useRouteUrl();
@@ -1674,12 +1116,53 @@ export function App() {
       .then(({ bundle, source, runtime }) => setRealState({ status: "ready", bundle, source, runtime }))
       .catch(() => undefined);
   };
+  // Demo universe, stage-aware: the genesis tutorial loads stages/<k>/ (a real
+  // pre-built snapshot per stage); the full demo loads the base sample. A stage
+  // ref guards against stale fetches when the player advances quickly.
+  // Clamped: stages/<k>/ exists only for 0..FINAL — a stale ?stage=99 link
+  // must load the finale, never brick the demo with a 404.
+  const desiredStage =
+    route.kind === "world" && route.demo && route.query.genesis
+      ? Math.min(route.query.stage, GENESIS_FINAL_STAGE)
+      : null;
+  const stageRef = useRef<{ target: number | null | undefined; loaded: number | null | undefined }>({
+    target: undefined,
+    loaded: undefined
+  });
+  // Entities BORN between two demo bundles (a genesis stage advance): the scene
+  // greets them with a birth burst — creation should feel like an event.
+  const lastDemoPageIdsRef = useRef<Set<string> | null>(null);
+  const [bornPageIds, setBornPageIds] = useState<string[]>([]);
   useEffect(() => {
-    if (!route.demo || demoState.status === "ready") return;
-    loadSnapshotBundle({ demo: true })
-      .then(({ bundle, source, runtime }) => setDemoState({ status: "ready", bundle, source, runtime }))
-      .catch((error: Error) => setDemoState({ status: "error", error: error.message }));
-  }, [demoState.status, route.demo]);
+    if (!route.demo) return;
+    if (demoState.status === "ready" && stageRef.current.loaded === desiredStage) return;
+    if (stageRef.current.target === desiredStage && demoState.status === "loading") return;
+    // A failed load for THIS stage stays failed (the error panel shows) — the
+    // effect must not flip error→loading→error forever. Navigating to another
+    // stage (new target) retries naturally.
+    if (stageRef.current.target === desiredStage && demoState.status === "error") return;
+    stageRef.current.target = desiredStage;
+    setDemoState({ status: "loading" });
+    loadSnapshotBundle({ demo: true, stage: desiredStage })
+      .then(({ bundle, source, runtime }) => {
+        if (stageRef.current.target !== desiredStage) return; // a newer stage won
+        stageRef.current.loaded = desiredStage;
+        const ids = bundle.pages.pages.map((page) => page.id);
+        const previous = lastDemoPageIdsRef.current;
+        // Births are a GENESIS beat (a stage advance): entering the full world
+        // or leaving the tutorial is a scene change, not forty deliveries.
+        setBornPageIds(
+          desiredStage !== null && previous ? ids.filter((id) => !previous.has(id)) : []
+        );
+        lastDemoPageIdsRef.current = new Set(ids);
+        setDemoState({ status: "ready", bundle, source, runtime });
+      })
+      .catch((error: Error) => {
+        if (stageRef.current.target !== desiredStage) return;
+        setDemoState({ status: "error", error: error.message });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoState.status, route.demo, desiredStage]);
 
   // The SPA router owns every internal anchor click.
   useEffect(() => installLinkInterceptor(), []);
@@ -1857,6 +1340,19 @@ export function App() {
   // the local operator (they read repo files) — the demo degrades honestly.
   const runBrief = async (spec: BriefSpec) => {
     if (briefBusy) return;
+    // Genesis: the player acts through the REAL surfaces (CreateDock seeds,
+    // docks compose briefs). The expected action advances the stage — the
+    // staged snapshot IS the simulated result of the brief being approved.
+    // Anything else gets an honest "in a real wiki this becomes a brief → PR".
+    if (route.kind === "world" && route.demo && route.query.genesis) {
+      if (genesisCreateMatches(route.query.stage, spec)) {
+        setNotice({ text: t("genesis.actionDone"), tone: "good", showResult: false });
+        navigate(genesisUrl(route.query.stage + 1, { visual: route.query.visual }));
+      } else {
+        setNotice({ text: t("genesis.simulatedBrief"), tone: "info", showResult: false });
+      }
+      return;
+    }
     if (route.demo) {
       setNotice({ text: t("brief.demoOff"), tone: "info", showResult: false });
       return;
@@ -1973,6 +1469,12 @@ export function App() {
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
 
+  // The demo TITLE SCREEN: /demo asks how you want to enter — found a world
+  // from zero (genesis tutorial) or explore the full one. No bundle needed.
+  if (route.kind === "demoGate") {
+    return <DemoGate />;
+  }
+
   const content = (() => {
     if (loadState.status === "loading") {
       return <main className="workspace"><section className="panel"><h1>Loading cockpit</h1></section></main>;
@@ -1981,23 +1483,25 @@ export function App() {
       return <main className="workspace"><section className="panel"><h1>Snapshot unavailable</h1><p>{loadState.error}</p></section></main>;
     }
     const { bundle, runtime } = loadState;
-    if (route.kind === "review") return <ReviewView bundle={bundle} onRun={runAction} onWorkflow={runWorkflow} />;
-    if (route.kind === "sources") return <SourcesView bundle={bundle} onCommand={setCommandResult} />;
-    if (route.kind === "health") return <HealthView bundle={bundle} demo={route.demo} onRun={runAction} />;
-    if (route.kind === "pageAlias") {
+    // Legacy routes render the one-frame "opening" placeholder while the
+    // redirect effect above moves them to their world dock.
+    if (route.kind === "review" || route.kind === "sources" || route.kind === "health" || route.kind === "pageAlias") {
       return <main className="workspace"><section className="panel"><h1>{t("misc.opening")}</h1></section></main>;
     }
     if (worldRoute) {
       return (
-        <WorldView
-          key={worldRoute.demo ? "demo" : "real"}
-          bundle={bundle}
-          runtime={runtime}
-          route={worldRoute}
-          onRun={runAction}
-          onNotice={notify}
-          onComposeBrief={runBrief}
-        />
+        <>
+          <WorldView
+            key={worldRoute.demo ? (worldRoute.query.genesis ? `genesis-${worldRoute.query.stage}` : "demo") : "real"}
+            bundle={bundle}
+            runtime={runtime}
+            route={worldRoute}
+            bornPageIds={worldRoute.demo ? bornPageIds : []}
+            onRun={runAction}
+            onNotice={notify}
+            onComposeBrief={runBrief}
+          />
+        </>
       );
     }
     return null;
@@ -2009,11 +1513,11 @@ export function App() {
   const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
   const workDockOpen = route.kind === "world" && route.query.dock === "work";
   const sourceDockOpen = route.kind === "world" && route.query.dock === "source";
-  const createDockOpen = route.kind === "world" && route.query.dock === "create";
+  const blocksDockOpen = route.kind === "world" && route.query.dock === "blocks";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
-      {/* The menu is dead in the world (Kim: "matar o menu"): every destination
+      {/* The menu is dead in the world: every destination
           lives in the bottom command bar now. The rail survives ONLY for the 2D
           fallback / degraded mode, which has no in-world command bar. */}
       {!isWorld && <Nav active={active} demo={route.demo} dockHref={dockHref} />}
@@ -2127,12 +1631,37 @@ export function App() {
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}
-        {createDockOpen && worldRoute && loadState.status === "ready" && (
-          <CreateDock
+        {/* dock=create is answered INSIDE WorldView: the spatial seed flow in
+            the canvas, or the bottom sheet as its declared 2D fallback. */}
+        {blocksDockOpen && worldRoute && loadState.status === "ready" && (
+          <BlocksDock
             bundle={loadState.bundle}
-            initialType={worldRoute.query.src}
-            initialQuadrant={worldRoute.query.quadrant}
-            onComposeBrief={runBrief}
+            focusId={worldRoute.query.center || worldRoute.query.src || worldRoute.pageId || null}
+            onSelectAnchor={(anchorId) => navigate(buildUrl(patchWorld(worldRoute, { dock: "blocks", src: anchorId, center: anchorId })))}
+            onOpenPage={(pageId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId, reader: true })))}
+            onAttach={(id, anchorId) => {
+              // The REAL attach action. Genesis: the expected attach advances the
+              // stage (the world re-renders with the block truly in the stack).
+              // Live wiki: it composes a brief — attach is a PR like everything.
+              if (worldRoute.query.genesis) {
+                if (genesisAttachMatches(worldRoute.query.stage, id)) {
+                  notify(t("genesis.actionDone"));
+                  navigate(genesisUrl(worldRoute.query.stage + 1, { visual: worldRoute.query.visual }));
+                } else {
+                  notify(t("genesis.simulatedBrief"));
+                }
+                return;
+              }
+              runBrief({
+                mission_kind: "verify",
+                theme: `attach-${id.replace(/[^a-z0-9_.-]/gi, "")}`,
+                grounding: { page_ids: [anchorId], attach_context_package: true },
+                intent:
+                  `Attach \`${id}\` to the anchor page's frontmatter (a block goes under \`blocks:\`, ` +
+                  `a package under \`packages:\`), keep every existing key intact, regenerate the ` +
+                  `snapshot, and open a draft PR. Never touch main directly.`
+              });
+            }}
             onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
           />
         )}

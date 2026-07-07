@@ -1,0 +1,35 @@
+{
+  "backlinks": [],
+  "body": "\n# App do Banco\n\n## What it is\n\nA tool the practice uses.\n\n## Access and cost\n\n- Access pointer: exported statements only\n- Cost: $0\n",
+  "frontmatter": {
+    "access_pointer": "exported statements only",
+    "context": "financeiro",
+    "cost": "$0",
+    "moc_parent": "memories/index.md",
+    "page_id": "tool-banco-app",
+    "page_type": "tool",
+    "platform": "Banco",
+    "stale_after_days": 30,
+    "status": "active",
+    "title": "App do Banco",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "financeiro",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "tool-banco-app",
+    "page_type": "tool",
+    "path": "memories/tools/tool-banco-app.md",
+    "summary": "A tool the practice uses. Access pointer: exported statements only Cost: $0",
+    "summary_truncated": false,
+    "title": "App do Banco",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

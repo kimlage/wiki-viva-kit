@@ -1,0 +1,33 @@
+{
+  "backlinks": [],
+  "body": "\n# Clearpath onboarding prototype\n\nQ2 inside the company: something observable it produced.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "artifact-clearpath-prototype",
+    "page_type": "artifact",
+    "stale_after_days": 30,
+    "sub_lens": "producao",
+    "subject_ref": "company-clearpath-labs",
+    "title": "Clearpath onboarding prototype",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "artifact-clearpath-prototype",
+    "page_type": "artifact",
+    "path": "memories/empresas/clearpath/artifact-clearpath-prototype.md",
+    "summary": "Q2 inside the company: something observable it produced.",
+    "summary_truncated": false,
+    "title": "Clearpath onboarding prototype",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

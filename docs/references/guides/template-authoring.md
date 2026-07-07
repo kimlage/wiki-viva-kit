@@ -1,13 +1,15 @@
 # Authoring page templates (and source recipes)
 
 The **page type** is the unit of customization in Wiki Viva. A type decides
-three things at once:
+three things at once (four since v2 — see [§5](#5-the-v2-layer-the-type-as-a-complete-module)):
 
 1. **Schema** — which frontmatter fields are pinned (required to be filled),
    validated by `wiki.page-types.yaml`.
 2. **Body skeleton** — the Markdown template a new page starts from.
 3. **View + interaction** — how the cockpit renders the page and what controls
    it offers, declared in `wiki.templates.yaml`.
+4. **Module contract** (v2) — which blocks, identity, subpages and creation
+   rules the type carries. See [modular-blocks.md](modular-blocks.md).
 
 You add a new type by **composing a fixed vocabulary in YAML** — no code. The
 kit ships ~29 types; a wiki adds its own in `wiki.templates.local.yaml`, which is
@@ -39,13 +41,20 @@ instead of rendering nothing.
 `scene.emphasis` is a free label the scene reads as a hint (e.g. `intention`,
 `none`); unknown emphasis degrades to `none`.
 
+> These are the **v1 per-page primitives** (how one page renders). The v2
+> layer adds a second vocabulary — block kinds, scope modes, surfaces, scene
+> layouts, identity landmarks — fixed in `wiki_core/template_blocks.py` and
+> documented in [modular-blocks.md](modular-blocks.md).
+
 ---
 
 ## 2. Anatomy of a type
 
 ```yaml
 # wiki.templates.local.yaml — merged on top of the kit's wiki.templates.yaml
-schema_version: wiki_templates.v1
+# (the kit registry itself is schema_version: wiki_templates.v2; a local file
+# that composes only the v1 keys below still works — v2 keys are additive)
+schema_version: wiki_templates.v2
 
 types:
   deal:                                   # the page_type (also add it to
@@ -91,14 +100,14 @@ Each lens maps to the frontmatter fields that fill it. When a page is centered i
 **Focus** (key `F`), its neighbors are bucketed into these four lenses — one
 per AQAL quadrant (q1..q4), so all four quadrants are honestly present:
 
-- **intencao** (q1, interior-individual) — why it exists AND how it is
-  perceived: decisions, priorities, responsibilities, insights, claims.
-- **pratica** (q2, exterior-individual) — what is done and produced: actions,
-  artifacts, evidence.
-- **relacoes** (q3, interior-collective) — who and how together: people, roles,
-  meetings, culture.
-- **sistemas** (q4, exterior-collective) — the systems that coordinate it:
-  sources, channels, pipelines, dashboards, processes, governance.
+- **intencao** (q1, interior-individual) — identity and intent: why it exists,
+  what it means, what it prioritizes and how it is perceived.
+- **pratica** (q2, exterior-individual) — outputs and evidence: observable
+  behavior, actions, artifacts, direct outputs and metrics.
+- **relacoes** (q3, interior-collective) — culture and relations: shared
+  meaning, lived roles, rituals, norms and relationship context.
+- **sistemas** (q4, exterior-collective) — systems and governance: channels,
+  tools, pipelines, workflows, rules and process infrastructure.
 
 A lens with no neighbor renders as an **honest empty wedge** ("no *X* lens
 registered") with an offer to fill it — never a fabricated link. The bucketing of
@@ -158,6 +167,34 @@ health, per-stream freshness vs cadence, and an "ingest N channels" brief.
 - **Verify** in the cockpit: open a page of the new type, click the type chip to
   see the template inspector (mold + facet field-map), and press `F` to center it
   through the four lenses.
+
+---
+
+## 5. The v2 layer: the type as a complete module
+
+Since `wiki_templates.v2`, a type is not just a view spec — it is the complete
+contract of an information module. All v2 keys are **additive and optional**
+(a v1 registry resolves them to safe defaults); they are read by the compiler
+in `wiki_core/template_blocks.py` and resolved into `TemplateSpec`
+(`wiki_core/templates_registry.py`):
+
+| Key | Meaning |
+| --- | --- |
+| `blocks:` | the blocks every instance of the type applies (interpretation lenses, interface surfaces, gates) — e.g. `source` brings its recipe gate, privacy boundary, intake and sync missions |
+| `packages:` | *(frontmatter only, on anchor pages)* named groups of blocks — `gamification`, `quadrant_lenses` |
+| `can_anchor_blocks:` | whether pages of this type may attach `blocks:`/`packages:` in frontmatter (kit: `root_entity`, `context_hub`, `holon`, `project`, `source`, `template_block`) |
+| `creatable:` | whether a human can seed this type from a create surface; `false` marks generated/system/rite-owned types — the palette never offers what cannot be born |
+| `home_quadrant:` | the local AQAL quadrant pages of this type use when read inside their active center (facet name or `q1..q4`); use the Wilber/AQAL placement Q1 upper-left, Q2 upper-right, Q3 lower-left, Q4 lower-right; page frontmatter `subject_role`, `home_quadrant` and `observed_quadrants` still win |
+| `parent_projection:` | *(frontmatter only, on nested anchor pages)* how the parent center should see this whole sub-world, e.g. a company root projects to `q4/sistemas` under a person root |
+| `projection_overrides:` | *(frontmatter only)* exceptional per-center projection overrides when the normal nested-center rule is not precise enough |
+| `identity:` | the anchor's look in the scene — `landmark`/`motif`/`ambient`/`horizon_label`; a page-level `identity:` overrides the type's |
+| `subpages:` | structure born with the page — `{rel, page_type, slug?, required\|generated}`; missing required subpages become conformity missions and create-surface obligations |
+| `skills:` | `{human: […], agent: […]}` capability references |
+
+How the stack of blocks resolves per page, how the interface materializes from
+it, and the honesty rules around creation are covered in
+[modular-blocks.md](modular-blocks.md); the exact file checklists for
+extensions that DO need code are in [extending-the-kit.md](extending-the-kit.md).
 
 Everything lands **kit-first**, through the PR gate, then cascades (code only) to
 a private wiki for its owner's approval.

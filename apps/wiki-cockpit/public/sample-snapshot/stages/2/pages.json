@@ -1,0 +1,25 @@
+{
+  "pages": [
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "root-alex-rivera",
+      "moc_children_count": 0,
+      "moc_parent": "",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "",
+      "summary": "Independent consultant. This root attaches the quadrants, the relations module and the privacy boundary to everything below \u2014 so every area and every ingested source is read through the same combined lenses. Design and AI-safety consulting for small teams.",
+      "summary_truncated": true,
+      "title": "Alex Rivera",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    }
+  ],
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_web_pages.v1"
+}

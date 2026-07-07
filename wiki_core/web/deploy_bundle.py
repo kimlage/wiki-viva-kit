@@ -79,7 +79,16 @@ def write_deploy_bundle(
     clean: bool = False,
     content_sidecars: bool = True,
 ) -> dict[str, Path]:
-    """Write portable web-cockpit deploy inputs without choosing a host."""
+    """Write portable web-cockpit deploy inputs without choosing a host.
+
+    The ``data_boundary`` is ENFORCED, not just declared: with the default
+    ``synthetic_or_public`` boundary the bundle REFUSES to publish a snapshot
+    that contains private pages (frontmatter ``visibility: private_*``) — a
+    published bundle exports page bodies verbatim, so this gate is what stands
+    between an operator's private memory and a public host. Pass
+    ``data_boundary="private_ok"`` only for a deploy target you trust with
+    private data (and say so in the deployment proof review).
+    """
 
     out_dir.mkdir(parents=True, exist_ok=True)
     clean_snapshot_base = _clean_base(snapshot_base)
@@ -87,6 +96,28 @@ def write_deploy_bundle(
     written_snapshot = write_snapshot(
         root, snapshot_dir, config, clean=clean, mode=runtime_mode, content_sidecars=content_sidecars
     )
+    if data_boundary != "private_ok":
+        pages_path = snapshot_dir / "pages.json"
+        try:
+            pages = json.loads(pages_path.read_text(encoding="utf-8")).get("pages", [])
+        except (OSError, json.JSONDecodeError):
+            pages = []
+        private = [
+            str(page.get("path") or page.get("id") or "?")
+            for page in pages
+            if str(page.get("visibility") or "").startswith("private")
+        ]
+        if private:
+            import shutil
+
+            shutil.rmtree(snapshot_dir, ignore_errors=True)
+            sample = ", ".join(private[:5])
+            raise ValueError(
+                f"deploy bundle refused: {len(private)} private page(s) in the snapshot "
+                f"(e.g. {sample}) under data_boundary={data_boundary!r}. A published bundle "
+                "exports page bodies verbatim. Either publish from a wiki with no private "
+                "pages, or explicitly pass data_boundary='private_ok' for a trusted target."
+            )
     runtime_config = {
         "api_base": api_base.strip().rstrip("/"),
         "snapshot_base": clean_snapshot_base,

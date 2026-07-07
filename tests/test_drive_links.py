@@ -282,7 +282,7 @@ def test_month_pages_upsert_idempotent(tmp_path, monkeypatch):
     table = bmp.month_table([
         {"Data": "01/05/2026", "Descricao": "X", "Valor": -10, "Conta Corrente": True,
          "Tipo": "Saída", "Categoria_final": "C", "Subcategoria_final": "S",
-         "Meta_AUVP": "", "Tag_AUVP": "", "OrigemArquivo": "extrato.txt"}
+         "Meta_Source": "", "Tag_Source": "", "OrigemArquivo": "extrato.txt"}
     ])
     page = "---\nfm: x\n---\n\n# Mes\n\nProsa curada.\n"
     once = bmp.upsert_section(page, table)

@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-07-01
+updated_at: 2026-07-07
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,60 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-07-07] System | Quadrant terminology clarified
+
+- Public quadrant labels now use the stronger operational vocabulary approved
+  for the open-source kit: Q1 `Identity & intent`, Q2 `Outputs & evidence`, Q3
+  `Culture & relations` and Q4 `Systems & governance`.
+- Internal facet IDs remain stable (`intencao`, `pratica`, `relacoes`,
+  `sistemas`) so existing frontmatter and projection data do not require a data
+  migration.
+- [Wiki Viva v6.9.2](../../docs/references/releases/wiki-viva-v6.9.2.md)
+  versions this as a terminology/documentation patch before downstream private
+  migration.
+
+## [2026-07-07] System | Quadrant classification contract tightened
+
+- `q0_core` is now treated as the active root/center only, not as a bucket for
+  structural pages that lacked classification.
+- The cockpit now uses canonical Wilber/AQAL quadrant placement visually:
+  Q1 upper-left, Q2 upper-right, Q3 lower-left and Q4 lower-right. The quadrant
+  compass and in-scene quadrant pills clear the reader selection before flying
+  the camera to the chosen region.
+- Sources, source catalogs, source registries, logs, ingestion events and
+  dashboards are classified as Q2 when they are observable evidence/traces of
+  the wiki's work.
+- Operational rules, context hubs, input channels, source configs, processes,
+  gates and governance surfaces are classified as Q4 because they coordinate the
+  system.
+- The genesis tutorial now includes the real source/evidence and quadrant-flight
+  flow, and the open-source docs cite the Integral/AQAL sources behind the
+  methodology.
+- [Wiki Viva v6.9.1](../../docs/references/releases/wiki-viva-v6.9.1.md)
+  versions the open-source correction before any private downstream migration:
+  scene/minimap quadrant order, quadrant camera flight and a richer recursive
+  company-root demo around Clearpath Labs.
+- The quadrant projection compiler now honors explicit `quadrant:` frontmatter
+  before falling back to `home_quadrant` and page-type defaults, so canonical
+  perspective pages such as Q2 artifacts/evidence, Q3 roles/relationships and
+  Q4 systems/processes no longer collapse to the generic `perspective` default.
+
+## [2026-07-06] System | Modular template blocks (v2) + demo generator
+
+- New CLI [wiki_build_demo.py](../../scripts/wiki_build_demo.py) documented in the
+  [command reference](wiki/command-reference.md): builds the reproducible cockpit
+  demo (a fixture-wiki under the demo-wiki fixtures directory) with the SAME
+  `build_snapshot` any wiki uses — replacing the hand-curated sample JSON. It
+  exercises the v2 block contract: quadrants with sub-lens interiors, the
+  relations module, tools, combined lenses on the root.
+- The templates registry gains schema `wiki_templates.v2` (a `blocks:` section
+  and per-type `blocks`/`identity`/`subpages`/`can_anchor_blocks`), resolved by
+  [wiki_core/template_blocks.py](../../wiki_core/template_blocks.py) into two new
+  snapshot payloads (`blocks.json`, `block_stacks.json`). New page types
+  `template_block`, `skill`, `tool`. Block validation runs WARN-first in
+  [wiki_audit.py](../../scripts/wiki_audit.py). No canonical memory content
+  changed by this entry beyond this log and the command reference.
 
 ## [2026-07-03] System | Assisted source/template migration CLI documented
 

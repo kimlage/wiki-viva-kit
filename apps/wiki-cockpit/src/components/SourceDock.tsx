@@ -168,7 +168,10 @@ export function SourceDock({
             <span className="pill pill-warn">{t("source.health.pending", { n: source.pending_streams })}</span>
           )}
           {source.sync.last_run_at && (
-            <small>{t("source.health.lastRun", { when: source.sync.last_run_at.replace("T", " ").slice(0, 16) })}</small>
+            <small>
+              {t("source.health.lastRun", { when: source.sync.last_run_at.replace("T", " ").slice(0, 16) })}
+              {source.sync.derived_from_event ? ` · ${t("source.health.derived")}` : ""}
+            </small>
           )}
           {source.schedule && source.schedule.mode !== "on_demand" && (
             <small>

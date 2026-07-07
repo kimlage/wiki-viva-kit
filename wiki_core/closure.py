@@ -5,13 +5,14 @@ from pathlib import Path
 from typing import Any
 
 from wiki_core.config import WikiConfig
+from wiki_core.events import event_pages as _event_pages
+from wiki_core.events import is_ingestion_event_page as _is_ingestion_event_page
 from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.paths import WikiPaths
 
 INGESTION_CLOSURE_REPORT_SCHEMA_VERSION = "wiki_ingestion_closure_report.v2"
 
-EVENT_INDEX_FILENAMES = {"readme.md", "index.md"}
 FRONTMATTER_RE = re.compile(r"\A---\n.*?\n---\n?", re.DOTALL)
 
 CANDIDATE_HEADINGS = {
@@ -25,24 +26,10 @@ def _body(path: Path) -> str:
     return FRONTMATTER_RE.sub("", path.read_text(encoding="utf-8", errors="replace"), count=1)
 
 
-def _event_pages(paths: WikiPaths) -> list[Path]:
-    if not paths.ingest_events_dir.exists():
-        return []
-    return sorted(paths.ingest_events_dir.rglob("*.md"))
-
-
 def _source_pages(paths: WikiPaths) -> list[Path]:
     if not paths.sources_dir.exists():
         return []
     return sorted(paths.sources_dir.rglob("*.md"))
-
-
-def _is_ingestion_event_page(path: Path, values: dict[str, Any]) -> bool:
-    if path.name.lower() in EVENT_INDEX_FILENAMES:
-        return False
-    if values.get("page_type") == "ingestion_event":
-        return True
-    return bool(values.get("event_id") or values.get("source_id"))
 
 
 def _bullet_count_under_headings(text: str, headings: set[str]) -> int:

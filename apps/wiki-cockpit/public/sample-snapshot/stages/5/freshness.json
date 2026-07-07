@@ -1,0 +1,32 @@
+{
+  "by_context": {
+    "estudio": {
+      "fresh": 0,
+      "stale": 1,
+      "unknown": 0
+    },
+    "financeiro": {
+      "fresh": 3,
+      "stale": 0,
+      "unknown": 0
+    },
+    "pessoal": {
+      "fresh": 1,
+      "stale": 0,
+      "unknown": 0
+    }
+  },
+  "schema_version": "wiki_web_freshness.v1",
+  "stale_pages": [
+    {
+      "context": "estudio",
+      "path": "memories/people/person-marina-costa.md",
+      "title": "Marina Costa"
+    }
+  ],
+  "summary": {
+    "fresh": 4,
+    "stale": 1,
+    "unknown": 0
+  }
+}

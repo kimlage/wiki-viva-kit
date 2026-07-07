@@ -1,0 +1,135 @@
+{
+  "anchor_tree": {
+    "nodes": {
+      "root-alex-rivera": {
+        "children": [],
+        "id": "root-alex-rivera",
+        "page_type": "root_entity",
+        "parent": "",
+        "path": "memories/index.md",
+        "title": "Alex Rivera"
+      }
+    },
+    "roots": [
+      "root-alex-rivera"
+    ]
+  },
+  "anchors": {
+    "root-alex-rivera": {
+      "derived": {
+        "missions": [],
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "motes",
+        "context": "pessoal",
+        "horizon_label": "title",
+        "horizon_text": "Alex Rivera",
+        "landmark": "observatory",
+        "motif": "rings"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_family",
+          "catalog": [
+            "context_note",
+            "source",
+            "person",
+            "project",
+            "holon",
+            "decision",
+            "tool"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": false,
+        "has_relations": false,
+        "intake": {
+          "forms": [
+            "copy_file",
+            "paste_text"
+          ]
+        },
+        "missions": {
+          "active": false,
+          "providers": [],
+          "quiet": false,
+          "weather_contrib": false
+        },
+        "score": {
+          "loops": [],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "radar",
+            "atlas",
+            "focus"
+          ],
+          "default": "radar"
+        }
+      },
+      "stack": [
+        {
+          "config": {},
+          "id": "wiki.block.privacy_boundary.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.git_human_gate.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {},
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "catalog": [
+              "context_note",
+              "source",
+              "person",
+              "project",
+              "holon",
+              "decision",
+              "tool"
+            ],
+            "obligations_first": true
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "descendants"
+        },
+        {
+          "config": {
+            "forms": [
+              "copy_file",
+              "paste_text"
+            ]
+          },
+          "id": "wiki.block.ui_intake.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:root_entity",
+          "scope": "self"
+        }
+      ]
+    }
+  },
+  "schema_version": "wiki_web_block_stacks.v1"
+}

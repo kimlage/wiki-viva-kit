@@ -78,3 +78,45 @@ def test_to_json_is_serializable_per_type() -> None:
     assert payload["facets_order"][0] == "intencao"
     assert set(payload["types"]) == {"meeting", "source"}
     assert payload["types"]["source"]["view"]["center"] == "entity"
+
+
+def test_creatable_flag_resolves_and_serializes() -> None:
+    registry = load_template_registry(KIT_ROOT)
+    # Content types default to creatable; system/generated/rite-owned say no.
+    assert registry.resolve("person").creatable is True
+    assert registry.resolve("context_note").creatable is True
+    for uncreatable in (
+        "root_entity",
+        "ingestion_event",
+        "relationship_map",
+        "source_config",
+        "ontology_index",
+        "source_registry",
+        "source_catalog",
+        "input_stage",
+        "system_log",
+        "initiative",
+        "insight",
+    ):
+        assert registry.resolve(uncreatable).creatable is False, uncreatable
+    assert registry.to_json(["person"])["types"]["person"]["creatable"] is True
+
+
+def test_creatable_types_are_actually_instantiable() -> None:
+    """The palette honesty gate: every type the registry declares creatable
+    must be creatable FOR REAL — present in the page-type validation registry
+    with an instantiable template (never `template: none`)."""
+    import yaml as _yaml
+
+    registry = load_template_registry(KIT_ROOT)
+    page_types = _yaml.safe_load((KIT_ROOT / "wiki.page-types.yaml").read_text(encoding="utf-8"))
+    contract = page_types.get("page_types") or page_types
+    for page_type in registry.raw_types:
+        spec = registry.resolve(page_type)
+        if not spec.creatable:
+            continue
+        entry = contract.get(page_type)
+        assert entry is not None, f"{page_type}: creatable but has no page-type contract"
+        template = str(entry.get("template") or "none")
+        assert template != "none", f"{page_type}: creatable but template is none"
+        assert (KIT_ROOT / template).exists(), f"{page_type}: template file missing ({template})"

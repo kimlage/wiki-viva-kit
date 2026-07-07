@@ -8,17 +8,15 @@
 import { useState } from "react";
 import { Copy, Maximize2, X } from "lucide-react";
 import { t } from "../data/i18n";
+import { copyText } from "../lib/clipboard";
 
 export function OutputModal({ title, text, onClose }: { title: string; text: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* clipboard blocked — the text is selectable in the <pre> anyway */
-    }
+    // Copy failed and fallback failed too — the text is selectable in the <pre> anyway.
+    if (!(await copyText(text))) return;
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
   };
   return (
     <>

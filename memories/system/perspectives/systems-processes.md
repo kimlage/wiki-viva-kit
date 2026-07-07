@@ -1,8 +1,9 @@
 ---
 page_id: perspective-systems-processes
 page_type: perspective
-title: "Systems and processes perspective"
+title: "Systems and governance perspective"
 aliases:
+  - Systems and processes perspective
   - Systems lens
   - Process lens
 tags:
@@ -45,7 +46,7 @@ related_pages:
   - memories/system/perspectives/index.md
 ---
 
-# Systems and processes perspective
+# Systems and governance perspective
 
 ## Concern
 

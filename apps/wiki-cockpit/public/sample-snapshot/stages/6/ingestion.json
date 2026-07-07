@@ -1,0 +1,42 @@
+{
+  "events": [
+    {
+      "candidate_counts": {
+        "actions": 0,
+        "claims": 0,
+        "decisions": 0
+      },
+      "candidate_total": 0,
+      "candidate_units_per_target": 0.0,
+      "closed": false,
+      "consolidated_into": [],
+      "consolidated_targets_count": 0,
+      "event_id": "event-ingest-banco-2026-05",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "source_refs": []
+    }
+  ],
+  "ingested_sources": [],
+  "quality_flags": {
+    "events_without_consolidated_into": [
+      "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+    ],
+    "ingested_sources_without_closed_event": []
+  },
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_ingestion_closure_report.v2",
+  "summary": {
+    "candidate_actions": 0,
+    "candidate_claims": 0,
+    "candidate_decisions": 0,
+    "candidate_total": 0,
+    "candidate_units_per_target": 0.0,
+    "consolidated_targets": 0,
+    "events_closed": 0,
+    "events_total": 1,
+    "events_without_consolidated_into": 1,
+    "ingested_sources": 0,
+    "ingested_sources_without_closed_event": 0
+  }
+}

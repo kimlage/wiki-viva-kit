@@ -1,0 +1,65 @@
+{
+  "backlinks": [],
+  "body": "\n# Lente de quadrantes para bibliotecas\n\n## Purpose\n\nSpecializes the kit quadrants block for reference libraries \u2014 navigate without forcing ingestion.\n\n## Contract\n\n- Inherits the canonical AQAL lenses; only relabels and softens to optional.\n",
+  "frontmatter": {
+    "block": {
+      "anchors": [
+        "context_hub"
+      ],
+      "block_id": "wiki.block.quadrants_lens_library.v1",
+      "config": {
+        "mode": "optional_lens"
+      },
+      "extends": "wiki.block.quadrants.v1",
+      "family": "quadrants",
+      "kind": "interpretation",
+      "scope": {
+        "default_mode": "descendants"
+      }
+    },
+    "blocks": [
+      {
+        "config": {
+          "labels": {
+            "q1": "Prop\u00f3sito do template",
+            "q2": "Exemplos e artefatos",
+            "q3": "Revis\u00e3o compartilhada",
+            "q4": "Campos e governan\u00e7a"
+          }
+        },
+        "id": "wiki.block.quadrants.v1",
+        "scope": "descendants"
+      }
+    ],
+    "context": "sistema",
+    "moc_parent": "memories/sistema/index.md",
+    "page_id": "block-library-lens",
+    "page_type": "template_block",
+    "parent_projection": {
+      "quadrant": "q4",
+      "reason": "Reusable interpretation blueprint inside the system layer.",
+      "sub_lens": "governanca"
+    },
+    "stale_after_days": 30,
+    "title": "Lente de quadrantes para bibliotecas",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/sistema/index.md",
+    "page_id": "block-library-lens",
+    "page_type": "template_block",
+    "path": "memories/sistema/blocks/block-library-lens.md",
+    "summary": "Specializes the kit quadrants block for reference libraries \u2014 navigate without forcing ingestion. Inherits the canonical AQAL lenses; only relabels and softens to optional.",
+    "summary_truncated": false,
+    "title": "Lente de quadrantes para bibliotecas",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

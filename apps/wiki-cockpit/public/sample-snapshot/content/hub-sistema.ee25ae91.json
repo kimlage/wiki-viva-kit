@@ -1,0 +1,162 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "perspective-artifacts-evidence",
+      "page_type": "perspective",
+      "path": "memories/sistema/perspectivas/perspective-artifacts-evidence.md",
+      "relation": "moc_parent",
+      "title": "Artefatos e evid\u00eancia"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "skill-agent-classify-quadrants",
+      "page_type": "skill",
+      "path": "memories/sistema/skills/skill-agent-classify-quadrants.md",
+      "relation": "moc_parent",
+      "title": "Classify content by quadrants"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "skill-agent-deep-read",
+      "page_type": "skill",
+      "path": "memories/sistema/skills/skill-agent-deep-read.md",
+      "relation": "moc_parent",
+      "title": "Deep read a source"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "perspective-financial",
+      "page_type": "perspective",
+      "path": "memories/sistema/perspectivas/perspective-financial.md",
+      "relation": "moc_parent",
+      "title": "Financeiro"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "perspective-identity-intent",
+      "page_type": "perspective",
+      "path": "memories/sistema/perspectivas/perspective-identity-intent.md",
+      "relation": "moc_parent",
+      "title": "Identidade e inten\u00e7\u00e3o"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "block-library-lens",
+      "page_type": "template_block",
+      "path": "memories/sistema/blocks/block-library-lens.md",
+      "relation": "moc_parent",
+      "title": "Lente de quadrantes para bibliotecas"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "rule-nada-publica-sem-review",
+      "page_type": "operational_rule",
+      "path": "memories/rules/rule-nada-publica-sem-review.md",
+      "relation": "moc_parent",
+      "title": "Nada publica sem review humano"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "perspective-roles-relationships",
+      "page_type": "perspective",
+      "path": "memories/sistema/perspectivas/perspective-roles-relationships.md",
+      "relation": "moc_parent",
+      "title": "Pap\u00e9is e rela\u00e7\u00f5es"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "perspective-privacy-publication",
+      "page_type": "perspective",
+      "path": "memories/sistema/perspectivas/perspective-privacy-publication.md",
+      "relation": "moc_parent",
+      "title": "Privacidade e publica\u00e7\u00e3o"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "skill-human-review-privacy",
+      "page_type": "skill",
+      "path": "memories/sistema/skills/skill-human-review-privacy.md",
+      "relation": "moc_parent",
+      "title": "Review privacy before publishing"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "perspective-systems-processes",
+      "page_type": "perspective",
+      "path": "memories/sistema/perspectivas/perspective-systems-processes.md",
+      "relation": "moc_parent",
+      "title": "Sistemas e processos"
+    }
+  ],
+  "body": "\n# Sistema\n\nThe engine room: blocks, skills, perspectives, gates. The system sees itself with its own instruments.\n",
+  "frontmatter": {
+    "blocks": [
+      {
+        "config": {
+          "catalog": [
+            "template_block",
+            "skill",
+            "operational_rule",
+            "perspective",
+            "tool"
+          ]
+        },
+        "id": "wiki.block.ui_create.v1"
+      }
+    ],
+    "context": "sistema",
+    "identity": {
+      "ambient": "none",
+      "horizon_label": "context",
+      "landmark": "engine",
+      "motif": "grid"
+    },
+    "moc_parent": "memories/index.md",
+    "page_id": "hub-sistema",
+    "page_type": "context_hub",
+    "stale_after_days": 30,
+    "title": "Sistema",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "hub-sistema",
+    "page_type": "context_hub",
+    "path": "memories/sistema/index.md",
+    "summary": "The engine room: blocks, skills, perspectives, gates. The system sees itself with its own instruments.",
+    "summary_truncated": false,
+    "title": "Sistema",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

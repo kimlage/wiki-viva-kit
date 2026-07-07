@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from wiki_core.config import DEFAULT_CONTEXT_DEEP_READ_PROMPT_VERSION, WikiConfig
+from wiki_core.events import EVENT_INDEX_FILENAMES
+from wiki_core.events import event_pages as _event_pages
+from wiki_core.events import is_ingestion_event_page as _is_ingestion_event_page
 from wiki_core.frontmatter import list_values as _list_values
 from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
 from wiki_core.graph import build_page_graph
@@ -23,7 +26,6 @@ FRONTMATTER_RE = re.compile(r"\A---\n.*?\n---\n?", re.DOTALL)
 CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 
 NAV_EXEMPT_TYPES = DEFAULT_ORPHAN_EXEMPT_TYPES | {"ingestion_event"}
-EVENT_INDEX_FILENAMES = {"readme.md", "index.md"}
 QUALITY_EXEMPT_ALL = "all"
 RELATION_PAGE_TYPES = frozenset(
     {
@@ -134,24 +136,6 @@ def _chunk_payloads(paths: WikiPaths) -> list[dict[str, Any]]:
         if isinstance(chunks, list):
             payloads.append({"path": path, "source_id": data.get("source_id"), "chunks": chunks})
     return payloads
-
-
-def _event_pages(paths: WikiPaths) -> list[Path]:
-    if not paths.ingest_events_dir.exists():
-        return []
-    return sorted(paths.ingest_events_dir.rglob("*.md"))
-
-
-def _is_ingestion_event_page(path: Path, values: dict[str, Any]) -> bool:
-    if path.name.lower() in EVENT_INDEX_FILENAMES:
-        return False
-    if values.get("page_type") == "ingestion_event":
-        return True
-    # Legacy migrations sometimes wrote normalized event files in the canonical
-    # events directory while keeping a broader source/catalog page type. The
-    # directory is authoritative for quality metrics once the page carries event
-    # or source identity.
-    return bool(values.get("event_id") or values.get("source_id"))
 
 
 def _is_event_rel(paths: WikiPaths, rel: str) -> bool:

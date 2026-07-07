@@ -1,0 +1,47 @@
+{
+  "backlinks": [],
+  "body": "\n# Enviar proposta para Caio\n\nProposal promised to [Caio Prado](../people/person-caio-prado.md).\n",
+  "frontmatter": {
+    "context": "clientes",
+    "home_quadrant": "intencao",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "action-enviar-proposta",
+    "page_type": "action",
+    "stale_after_days": 30,
+    "status": "open",
+    "sub_lens": "intencao",
+    "title": "Enviar proposta para Caio",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "action-enviar-proposta",
+    "page_type": "action",
+    "path": "memories/actions/action-enviar-proposta.md",
+    "summary": "Proposal promised to Caio Prado.",
+    "summary_truncated": false,
+    "title": "Enviar proposta para Caio",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "href": "../people/person-caio-prado.md",
+      "kind": "page",
+      "page_id": "person-caio-prado",
+      "page_type": "person",
+      "path": "memories/people/person-caio-prado.md",
+      "text": "Caio Prado",
+      "title": "Caio Prado"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

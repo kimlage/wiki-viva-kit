@@ -1,0 +1,48 @@
+{
+  "bands": {
+    "last_30_days": 0,
+    "last_7_days": 2,
+    "older": 0,
+    "undated": 0
+  },
+  "events": [
+    {
+      "commit": "",
+      "context": "system",
+      "id": "snapshot-generated",
+      "kind": "snapshot",
+      "label": "Snapshot generated",
+      "path": "",
+      "status": "blocked",
+      "timestamp": "2026-07-07T22:55:36Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "pessoal",
+      "id": "page-root-alex-rivera",
+      "kind": "page_updated",
+      "label": "Alex Rivera",
+      "path": "memories/index.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    }
+  ],
+  "generated_at": "2026-07-07T22:55:36Z",
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_web_timeline.v1",
+  "summary": {
+    "by_context": {
+      "pessoal": 1,
+      "system": 1
+    },
+    "by_kind": {
+      "page_updated": 1,
+      "snapshot": 1
+    },
+    "event_count": 2,
+    "first_at": "2026-07-03T00:00:00Z",
+    "last_at": "2026-07-07T22:55:36Z"
+  }
+}

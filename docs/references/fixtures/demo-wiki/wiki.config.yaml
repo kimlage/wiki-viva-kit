@@ -1,0 +1,7 @@
+repo_id: wiki-viva-demo
+language: en
+default_context: pessoal
+contexts: [pessoal, financeiro, clientes, estudio, sistema]
+root_entity:
+  page: memories/index.md
+  entity_type: person

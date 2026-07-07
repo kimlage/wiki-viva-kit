@@ -14,7 +14,10 @@ const BASE_QUERY: WorldQuery = {
   station: 0,
   ack: [],
   tray: "",
-  quadrant: ""
+  quadrant: "",
+  center: "",
+  genesis: false,
+  stage: 0
 };
 
 const world = (
@@ -121,6 +124,25 @@ describe("router grammar", () => {
     expect(patchWorld(withTray, { dock: "approve" }).query).toMatchObject({ dock: "approve", tray: "" });
     const withDock = world({ query: { dock: "approve" } });
     expect(patchWorld(withDock, { tray: "missions" }).query).toMatchObject({ tray: "missions", dock: "" });
+  });
+
+  it("keeps an explicit recursive quadrant center while the reader changes pages", () => {
+    const base = world({
+      context: "system",
+      group: "claims",
+      pageId: "company-claim",
+      query: { reader: true, center: "root-alex-rivera" }
+    });
+
+    const url = buildUrl(base);
+    expect(url).toContain("center=root-alex-rivera");
+
+    const opened = patchWorld(base, { pageId: "template-support-page", reader: true });
+    expect(opened.query.center).toBe("root-alex-rivera");
+    expect(buildUrl(opened)).toContain("center=root-alex-rivera");
+
+    expect(patchWorld(opened, { center: "company-clearpath-labs" }).query.center).toBe("company-clearpath-labs");
+    expect(patchWorld(opened, { center: null }).query.center).toBe("");
   });
 
   it("dock=work round-trips: the jobs monitor is deep-linkable URL state", () => {

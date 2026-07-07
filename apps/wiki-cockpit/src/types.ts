@@ -278,6 +278,129 @@ export type SnapshotBundle = {
   score: ScorePayload;
   sourceEntities: SourceEntitiesPayload;
   templates: TemplatesPayload;
+  blocks: BlocksPayload;
+  blockStacks: BlockStacksPayload;
+};
+
+// --- Modular template blocks (v2) ---
+export type BlockDefinition = {
+  kind: string;
+  family?: string;
+  title?: string;
+  summary?: string;
+  origin?: string;
+  surface?: string;
+  contract_ref?: string;
+  perspectives?: Record<string, string>;
+  anchors?: string[];
+  scope?: { default_mode?: string; allowed_modes?: string[] };
+  config_schema?: Record<string, unknown>;
+  contributes?: Record<string, unknown>;
+  scene_profile?: { layout?: string | null; overlays?: string[]; fallback?: string };
+  gates?: { warnings?: string[]; errors?: string[] };
+  skills?: { human?: string[]; agent?: string[] };
+};
+
+export type BlockPackage = {
+  title: string;
+  summary: string;
+  blocks: string[];
+};
+
+export type BlocksPayload = {
+  schema_version: string;
+  vocabulary?: Record<string, unknown>;
+  blocks: Record<string, BlockDefinition>;
+  packages?: Record<string, BlockPackage>;
+  warnings?: string[];
+  error?: string;
+};
+
+export type ResolvedBlock = {
+  id: string;
+  origin: string;
+  scope: string;
+  kind: string;
+  config: Record<string, unknown>;
+  known: boolean;
+};
+
+export type BlockInterface = {
+  views: { available: string[]; default: string };
+  missions: { active?: boolean; providers: string[]; weather_contrib: boolean; quiet: boolean };
+  create: {
+    catalog: string[];
+    arrangement: string;
+    obligations_first: boolean;
+    obligations: { rel: string; page_type: string; slug: string }[];
+    disabled_reason: string;
+  };
+  intake: { forms: string[] };
+  score: { loops: string[]; no_leaderboard: boolean };
+  has_quadrants: boolean;
+  has_relations: boolean;
+};
+
+export type BlockIdentity = {
+  landmark: string;
+  motif: string;
+  ambient: string;
+  horizon_label: string;
+  horizon_text: string;
+  context: string;
+};
+
+export type RelationDue = { person: string; title: string; relationship_kind: string; last_interaction: string; overdue_days: number };
+export type RelationUpcoming = { person: string; title: string; kind: string; in_days: number };
+export type RelationCommitment = { person: string; title: string; ref: string; days_left: number };
+
+export type QuadrantProjection = {
+  center: string;
+  page: string;
+  quadrant: string;
+  facet: string;
+  sub_lens: string;
+  basis: string;
+  subject_center: string;
+  through_center: string;
+  local_quadrant_under_subject: string;
+  local_facet_under_subject: string;
+  local_sub_lens_under_subject: string;
+  reason: string;
+};
+
+export type BlockDerived = {
+  missions: { provider: string; [key: string]: unknown }[];
+  warnings: string[];
+  quadrant_assignments?: Record<string, string[]>;
+  quadrant_projections?: Record<string, QuadrantProjection[]>;
+  quadrant_sub_lens?: Record<string, Record<string, string[]>>;
+  empty_quadrants?: string[];
+  relations?: { due: RelationDue[]; upcoming_dates: RelationUpcoming[]; open_commitments: RelationCommitment[] };
+  missing_subpages?: { rel: string; page_type: string; slug: string }[];
+};
+
+export type AnchorRecord = {
+  stack: ResolvedBlock[];
+  interface: BlockInterface;
+  identity: BlockIdentity;
+  derived: BlockDerived;
+};
+
+export type AnchorTreeNode = {
+  id: string;
+  path: string;
+  title: string;
+  page_type: string;
+  parent: string;
+  children: string[];
+};
+
+export type BlockStacksPayload = {
+  schema_version: string;
+  anchor_tree?: { roots: string[]; nodes: Record<string, AnchorTreeNode> };
+  anchors: Record<string, AnchorRecord>;
+  error?: string;
 };
 
 // --- Source entities (Pillar A) ---
@@ -309,6 +432,7 @@ export type SourceEntity = {
     last_run_at: string;
     last_status: string;
     last_event_ref: string;
+    derived_from_event?: boolean;
     streams_fresh: number;
     streams_total: number;
   };
@@ -342,6 +466,9 @@ export type TemplateSpec = {
   view: { center?: string; panels?: { kind: string; from?: string; label?: string; columns?: string[] }[]; badges?: string[] };
   controls: { kind: string; id?: string; rel?: string }[];
   scene: { shape?: string; emphasis?: string };
+  // Palette honesty (v2): false for generated/system/rite-owned types — the
+  // create surfaces must never offer them. Absent (old snapshots) = true.
+  creatable?: boolean;
 };
 
 export type TemplatesPayload = {

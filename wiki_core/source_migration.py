@@ -31,8 +31,6 @@ from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import FRONTMATTER_RE, parse_frontmatter
 from wiki_core.source_recipe import PLATFORMS, extract_recipe_mapping
 
-SOURCE_MIGRATION_SCHEMA_VERSION = "wiki_source_migration.v1"
-
 # source_type (or a co-located hint) -> platform. Anything unmapped falls back
 # to "manual" (a valid platform meaning human-curated / no automated pull), with
 # a note so the reviewer confirms it.

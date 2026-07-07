@@ -1,0 +1,104 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "estudio",
+      "freshness_state": "fresh",
+      "page_id": "artifact-benchmark-safety",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-benchmark-safety.md",
+      "relation": "moc_parent",
+      "title": "Benchmark de safety evals"
+    },
+    {
+      "approved_state": "approved",
+      "context": "estudio",
+      "freshness_state": "fresh",
+      "page_id": "claim-scaling-laws",
+      "page_type": "claim",
+      "path": "memories/claims/claim-scaling-laws.md",
+      "relation": "moc_parent",
+      "title": "Scaling laws seguem valendo em 2026"
+    }
+  ],
+  "body": "\n# Biblioteca AI Safety\n\nA place with no pressure: missions are quiet, it does not push the weather. Same engine, opposite rules \u2014 the proof that gamification is modular.\n",
+  "frontmatter": {
+    "blocks": [
+      {
+        "config": {
+          "labels": {
+            "q1": "Ideias e pressupostos",
+            "q2": "Benchmarks e evid\u00eancias",
+            "q3": "Autores e escolas",
+            "q4": "Institui\u00e7\u00f5es e standards"
+          },
+          "mode": "optional_lens"
+        },
+        "id": "wiki.block.quadrants.v1",
+        "scope": "descendants"
+      },
+      {
+        "config": {
+          "default": "districts"
+        },
+        "id": "wiki.block.ui_views.v1"
+      },
+      {
+        "config": {
+          "quiet": true,
+          "weather_contrib": false
+        },
+        "id": "wiki.block.ui_missions.v1"
+      },
+      {
+        "config": {
+          "catalog": [
+            "artifact",
+            "claim",
+            "insight"
+          ]
+        },
+        "id": "wiki.block.ui_create.v1"
+      },
+      {
+        "config": {
+          "forms": [
+            "promote_reference"
+          ]
+        },
+        "id": "wiki.block.ui_intake.v1"
+      }
+    ],
+    "context": "estudio",
+    "identity": {
+      "ambient": "motes",
+      "horizon_label": "title",
+      "landmark": "shelf",
+      "motif": "shelves"
+    },
+    "moc_parent": "memories/estudio/index.md",
+    "page_id": "library-ai-safety",
+    "page_type": "context_hub",
+    "stale_after_days": 30,
+    "title": "Biblioteca AI Safety",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "estudio",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/estudio/index.md",
+    "page_id": "library-ai-safety",
+    "page_type": "context_hub",
+    "path": "memories/estudio/biblioteca-ai-safety/index.md",
+    "summary": "A place with no pressure: missions are quiet, it does not push the weather. Same engine, opposite rules \u2014 the proof that gamification is modular.",
+    "summary_truncated": false,
+    "title": "Biblioteca AI Safety",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

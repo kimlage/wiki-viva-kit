@@ -88,10 +88,6 @@ class PageGraph:
     aliases: dict[str, str]
     wanted_pages: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
-    @property
-    def by_page_id(self) -> dict[str, str]:
-        return {node.page_id: rel for rel, node in self.nodes.items() if node.page_id}
-
 
 @dataclass(frozen=True)
 class ImpactResult:

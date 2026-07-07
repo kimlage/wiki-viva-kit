@@ -1,0 +1,32 @@
+{
+  "backlinks": [],
+  "body": "\n# Calend\u00e1rio calmo rende trabalho melhor\n\nContent that lands in its quadrant interior.\n",
+  "frontmatter": {
+    "context": "pessoal",
+    "moc_parent": "memories/index.md",
+    "page_id": "insight-calendario-calmo",
+    "page_type": "insight",
+    "stale_after_days": 30,
+    "sub_lens": "percepcao",
+    "title": "Calend\u00e1rio calmo rende trabalho melhor",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "pessoal",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "insight-calendario-calmo",
+    "page_type": "insight",
+    "path": "memories/insights/insight-calendario-calmo.md",
+    "summary": "Content that lands in its quadrant interior.",
+    "summary_truncated": false,
+    "title": "Calend\u00e1rio calmo rende trabalho melhor",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

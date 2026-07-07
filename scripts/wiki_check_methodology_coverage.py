@@ -30,12 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from wiki_core.config import WikiConfig, load_config
+from wiki_core.frontmatter import parse_frontmatter as canonical_parse_frontmatter
 from wiki_core.paths import WikiPaths
-
-try:  # PyYAML is available in the environment; a simple fallback keeps portability.
-    import yaml
-except ImportError:  # pragma: no cover - defensive path
-    yaml = None  # type: ignore[assignment]
 
 # Minimum number of body bytes (outside the frontmatter) for a .md file not to
 # be considered empty/placeholder.
@@ -134,21 +130,19 @@ def split_frontmatter(text: str) -> tuple[str | None, str]:
 def parse_frontmatter(text: str) -> dict[str, Any]:
     """Minimal frontmatter parse for scalar keys (page_id, page_type...).
 
-    Uses PyYAML when available; otherwise falls back to a simple line-by-line
-    parser for `key: value` pairs.
+    `split_frontmatter` stays local because it also accepts frontmatter wrapped
+    in a ```yaml code block (templates); the extracted block is then handed to
+    the canonical parser (wiki_core.frontmatter). A simple line-by-line fallback
+    survives for template files whose placeholders ({{owner_id}}) are not valid
+    YAML.
     """
     fm, _ = split_frontmatter(text)
     if fm is None:
         return {}
-    if yaml is not None:
-        try:
-            loaded = yaml.safe_load(fm)
-        except yaml.YAMLError:
-            loaded = None
-        if isinstance(loaded, dict):
-            return loaded
-        # YAML failed (e.g. template placeholder {{owner_id}}); fall back to the line-by-line parser.
-    # Simple fallback: only top-level scalar pairs.
+    values, _body = canonical_parse_frontmatter(f"---\n{fm}\n---\n")
+    if values:
+        return values
+    # Fallback: only top-level scalar pairs.
     data: dict[str, Any] = {}
     for raw in fm.splitlines():
         if not raw.strip() or raw.lstrip().startswith("#"):

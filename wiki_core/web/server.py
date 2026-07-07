@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import threading
 import time
 from http import HTTPStatus
@@ -38,10 +39,17 @@ class CockpitServer(ThreadingHTTPServer):
         # One serialized Codex job stream per operator process.
         self.jobs = JobRunner(root, config)
 
+    # Snapshot cache TTL: a live rebuild walks the whole wiki (minutes on a
+    # multi-hundred-page repo), so the cache must outlive a browsing session.
+    # Correctness does not depend on the TTL — every mutating action calls
+    # invalidate_snapshot_cache(), so the UI never reads a stale world after
+    # its own writes. The TTL only bounds staleness from EXTERNAL edits.
+    SNAPSHOT_CACHE_TTL_S = 600
+
     def snapshot_payloads(self) -> dict[str, dict[str, Any]]:
         with self._snapshot_lock:
             now = time.monotonic()
-            if self._snapshot_cache is not None and now - self._snapshot_cache[0] < 8:
+            if self._snapshot_cache is not None and now - self._snapshot_cache[0] < self.SNAPSHOT_CACHE_TTL_S:
                 return self._snapshot_cache[1]
             payloads = build_snapshot(self.root, self.config, mode="local_operator")
             self._snapshot_cache = (now, payloads)
@@ -178,12 +186,25 @@ class CockpitRequestHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+        # CSRF hardening: every state-changing endpoint requires an explicit
+        # JSON content type. A browser form/`no-cors` fetch from a malicious
+        # page can only send simple content types, so requiring JSON forces a
+        # CORS preflight — which this server does not grant to other origins.
+        content_type = (self.headers.get("content-type") or "").split(";")[0].strip().lower()
+        if content_type != "application/json":
+            self._send_error("content-type must be application/json", status=HTTPStatus.UNSUPPORTED_MEDIA_TYPE)
+            return
         length = int(self.headers.get("content-length") or "0")
         try:
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
         except json.JSONDecodeError:
             self._send_error("invalid JSON", status=HTTPStatus.BAD_REQUEST)
             return
+        # Every POST below can mutate the world (gate receipts, git moves,
+        # intake copies, brief/job state) — the next snapshot fetch must always
+        # see reality, whichever endpoint wrote it. Invalidation is cheap; a
+        # stale 10-minute cache after a mutation is not.
+        self.server.invalidate_snapshot_cache()
         if parsed.path == "/api/briefs" or parsed.path.startswith("/api/briefs/"):
             self._handle_briefs_post(parsed.path, payload)
             return
@@ -374,6 +395,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--root", default=str(Path.cwd()))
     args = parser.parse_args(argv)
+    if args.host not in {"127.0.0.1", "localhost", "::1"}:
+        # The operator has NO authentication: it runs git, gates and Codex jobs
+        # on this checkout. Binding beyond loopback hands that power to the LAN.
+        print(
+            f"WARNING: binding to {args.host} exposes an UNAUTHENTICATED operator "
+            "(git/gates/Codex on this repo) to the network. Use 127.0.0.1 unless "
+            "you fully trust every host that can reach this address.",
+            file=sys.stderr,
+        )
     serve(Path(args.root).resolve(), host=args.host, port=args.port)
     return 0
 

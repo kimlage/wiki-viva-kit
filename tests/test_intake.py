@@ -29,6 +29,28 @@ def test_refuses_a_file_with_a_secret(tmp_path: Path) -> None:
     assert not (tmp_path / "data/raw/system/creds.txt").exists()
 
 
+def test_unreadable_source_fails_closed(tmp_path: Path) -> None:
+    """A file the scanner cannot read is refused (it cannot be proven
+    secret-free), never waved through unscanned."""
+    import os
+
+    import pytest
+
+    if os.geteuid() == 0:  # pragma: no cover - root ignores file modes
+        pytest.skip("permission bits are not enforced for root")
+    external = tmp_path / "locked.txt"
+    external.write_text("harmless", encoding="utf-8")
+    external.chmod(0)
+    try:
+        result = intake_copy(tmp_path, _config(), str(external), "system")
+    finally:
+        external.chmod(0o644)
+    assert result["ok"] is False
+    assert result["reason"] == "secret_block"
+    assert "secret" in result["error"]
+    assert not (tmp_path / "data/raw/system/locked.txt").exists()
+
+
 def test_unknown_context_rejected(tmp_path: Path) -> None:
     external = tmp_path / "a.txt"
     external.write_text("hello", encoding="utf-8")

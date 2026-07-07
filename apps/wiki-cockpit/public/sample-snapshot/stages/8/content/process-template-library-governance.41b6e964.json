@@ -1,0 +1,34 @@
+{
+  "backlinks": [],
+  "body": "\n# Governan\u00e7a da lente de biblioteca\n\nThe fields and publication rules that keep this template reusable.\n",
+  "frontmatter": {
+    "context": "sistema",
+    "moc_parent": "memories/sistema/blocks/block-library-lens.md",
+    "page_id": "process-template-library-governance",
+    "page_type": "process",
+    "source_refs": [],
+    "stale_after_days": 45,
+    "subject_ref": "block-library-lens",
+    "subject_role": "system_process",
+    "title": "Governan\u00e7a da lente de biblioteca",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/sistema/blocks/block-library-lens.md",
+    "page_id": "process-template-library-governance",
+    "page_type": "process",
+    "path": "memories/processes/template-library-governance.md",
+    "summary": "The fields and publication rules that keep this template reusable.",
+    "summary_truncated": false,
+    "title": "Governan\u00e7a da lente de biblioteca",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

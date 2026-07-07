@@ -143,6 +143,11 @@ ship the skeletons, so a generated page starts with the scaffold.
   carries the current synthesis and points down to relation/evidence/execution
   pages. Do not spread a general concept across many sibling pages when one hub
   plus typed children is enough.
+- **Quadrants are anchor-relative projections.** Classify a page from the
+  selected center, not globally from the wiki root. A nested root/template page
+  becomes the center for its descendants; use `parent_projection:` on nested
+  centers and `subject_ref`/`subject_role` or `projection_overrides:` on pages
+  when local semantics and parent-facing semantics differ.
 - **Write about the subject, not the process.** The deep-read produces specific
   content (quadrants, entities, relationships, context-fit), never filler or
   meta-narration. A not-yet-read proposal carries a pending marker, not fake text.

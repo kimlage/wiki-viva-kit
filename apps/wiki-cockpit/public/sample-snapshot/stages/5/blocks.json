@@ -1,0 +1,503 @@
+{
+  "blocks": {
+    "wiki.block.gamification.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "holon",
+        "project"
+      ],
+      "config_schema": {
+        "loops": "list",
+        "no_leaderboard": {
+          "const": true
+        }
+      },
+      "family": "gamification",
+      "kind": "interface",
+      "origin": "registry",
+      "scope": {
+        "default_mode": "descendants"
+      },
+      "summary": "Which honesty loops score this scope. No leaderboard, ever.",
+      "surface": "score",
+      "title": "Honest gamification"
+    },
+    "wiki.block.git_human_gate.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "holon",
+        "project"
+      ],
+      "family": "git_human_gate",
+      "gates": {
+        "errors": [
+          "direct_write_to_main"
+        ]
+      },
+      "kind": "gate",
+      "origin": "registry",
+      "scene_profile": {
+        "fallback": "list",
+        "hud": [],
+        "layout": null,
+        "overlays": [
+          "approval_halo"
+        ]
+      },
+      "scope": {
+        "allowed_modes": [
+          "descendants"
+        ],
+        "default_mode": "descendants"
+      },
+      "summary": "All writes below this anchor are proposal-branch + PR only.",
+      "title": "Git human gate"
+    },
+    "wiki.block.perspective_bundle.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "holon",
+        "project",
+        "source"
+      ],
+      "config_schema": {
+        "optional": "list",
+        "required": "list"
+      },
+      "family": "perspective_bundle",
+      "kind": "interpretation",
+      "origin": "registry",
+      "scope": {
+        "default_mode": "descendants"
+      },
+      "summary": "Attach any perspective pages as required/optional lenses for this scope.",
+      "title": "Perspective bundle"
+    },
+    "wiki.block.privacy_boundary.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "holon"
+      ],
+      "family": "privacy_boundary",
+      "gates": {
+        "errors": [
+          "public_leak_of_private_scope"
+        ]
+      },
+      "kind": "gate",
+      "origin": "registry",
+      "scene_profile": {
+        "fallback": "table",
+        "hud": [],
+        "layout": null,
+        "overlays": [
+          "privacy_ring"
+        ]
+      },
+      "scope": {
+        "allowed_modes": [
+          "descendants",
+          "context"
+        ],
+        "default_mode": "descendants"
+      },
+      "summary": "Most-restrictive visibility wins below this anchor; leaks become gate errors.",
+      "title": "Privacy boundary"
+    },
+    "wiki.block.quadrants.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "holon",
+        "project",
+        "source",
+        "template_block"
+      ],
+      "config_schema": {
+        "labels": {
+          "q1": "string",
+          "q2": "string",
+          "q3": "string",
+          "q4": "string"
+        },
+        "mode": "enum:required,optional_lens",
+        "nested_mode": "enum:summarize,project_all,hide_nested",
+        "required_quadrants": "list"
+      },
+      "contract_ref": "wiki_core.quadrants",
+      "contributes": {
+        "create_arrangement": "by_quadrant",
+        "missions_providers": [
+          "quadrant_absence"
+        ],
+        "views_extra_default": "quadrants"
+      },
+      "family": "quadrants",
+      "fields": {
+        "optional_frontmatter": [
+          "home_quadrant",
+          "observed_quadrants",
+          "sub_lens",
+          "parent_projection",
+          "subject_ref",
+          "subject_role",
+          "projection_overrides"
+        ]
+      },
+      "gates": {
+        "errors": [
+          "required_quadrant_absence_without_reason"
+        ],
+        "warnings": [
+          "page_has_no_quadrant_signal"
+        ]
+      },
+      "kind": "interpretation",
+      "origin": "registry",
+      "perspectives": {
+        "q1": "perspective-identity-intent",
+        "q2": "perspective-artifacts-evidence",
+        "q3": "perspective-roles-relationships",
+        "q4": "perspective-systems-processes"
+      },
+      "scene_profile": {
+        "fallback": "quadrant_board_2d",
+        "hud": [
+          {
+            "kind": "badges"
+          }
+        ],
+        "layout": "quadrants",
+        "overlays": []
+      },
+      "scope": {
+        "allowed_modes": [
+          "children",
+          "descendants",
+          "context"
+        ],
+        "default_mode": "descendants"
+      },
+      "skills": {
+        "agent": [
+          "skill-agent-classify-quadrants"
+        ]
+      },
+      "summary": "Four AQAL lenses with full interiors over any anchored scope.",
+      "title": "Quadrants"
+    },
+    "wiki.block.relations.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "holon"
+      ],
+      "contributes": {
+        "intake_forms": [
+          "meeting_note",
+          "interaction_note"
+        ],
+        "missions_providers": [
+          "relation_cadence_overdue",
+          "date_upcoming",
+          "commitment_open"
+        ]
+      },
+      "family": "relations",
+      "gates": {
+        "warnings": [
+          "person_without_relationship_block"
+        ]
+      },
+      "kind": "interpretation",
+      "origin": "registry",
+      "perspectives": {
+        "q3": "perspective-roles-relationships"
+      },
+      "scene_profile": {
+        "fallback": "table",
+        "hud": [
+          {
+            "kind": "table"
+          }
+        ],
+        "layout": null,
+        "overlays": []
+      },
+      "scope": {
+        "default_mode": "descendants"
+      },
+      "summary": "People below this anchor read as a cared-for network: bond, cadence, dates, open loops.",
+      "title": "Relations"
+    },
+    "wiki.block.source_recipe.v1": {
+      "anchors": [
+        "source"
+      ],
+      "family": "source_recipe",
+      "gates": {
+        "errors": [
+          "recipe_invalid",
+          "secret_in_recipe"
+        ]
+      },
+      "kind": "gate",
+      "origin": "registry",
+      "scene_profile": {
+        "fallback": "table",
+        "hud": [],
+        "layout": null,
+        "overlays": [
+          "stream_particles"
+        ]
+      },
+      "scope": {
+        "default_mode": "self"
+      },
+      "summary": "The source's recipe must be valid and secret-free before it can sync.",
+      "title": "Source recipe"
+    },
+    "wiki.block.ui_create.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "holon",
+        "project",
+        "source"
+      ],
+      "config_schema": {
+        "arrangement": "enum:by_quadrant,by_family,by_frequency",
+        "catalog": "list",
+        "disabled_reason": "string",
+        "obligations_first": "bool"
+      },
+      "family": "ui_create",
+      "kind": "interface",
+      "origin": "registry",
+      "scope": {
+        "default_mode": "descendants"
+      },
+      "summary": "What can be seeded below this anchor, and how the palette is arranged.",
+      "surface": "create",
+      "title": "Create"
+    },
+    "wiki.block.ui_intake.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "source"
+      ],
+      "config_schema": {
+        "forms": "list",
+        "route_hint": "string"
+      },
+      "family": "ui_intake",
+      "kind": "interface",
+      "origin": "registry",
+      "scope": {
+        "default_mode": "self"
+      },
+      "summary": "The ingestion forms this scope accepts \u2014 its ways in.",
+      "surface": "intake",
+      "title": "Intake"
+    },
+    "wiki.block.ui_missions.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "holon",
+        "project",
+        "source"
+      ],
+      "config_schema": {
+        "providers": "list",
+        "quiet": "bool",
+        "weather_contrib": "bool"
+      },
+      "defaults": {
+        "providers": [
+          "stale",
+          "gates_failing",
+          "approvals_pending",
+          "template_conformity",
+          "source_closure"
+        ]
+      },
+      "family": "ui_missions",
+      "kind": "interface",
+      "origin": "registry",
+      "scope": {
+        "default_mode": "descendants"
+      },
+      "summary": "Which mission providers run for this scope, with which rules.",
+      "surface": "missions",
+      "title": "Missions"
+    },
+    "wiki.block.ui_views.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "holon",
+        "project",
+        "source"
+      ],
+      "config_schema": {
+        "available": "list",
+        "default": "enum"
+      },
+      "family": "ui_views",
+      "kind": "interface",
+      "origin": "registry",
+      "scope": {
+        "default_mode": "descendants"
+      },
+      "summary": "Which perspectives this scope offers, and which is home.",
+      "surface": "views",
+      "title": "Views"
+    }
+  },
+  "packages": {
+    "gamification": {
+      "blocks": [
+        "wiki.block.ui_missions.v1",
+        "wiki.block.gamification.v1"
+      ],
+      "summary": "Missions, weather and karma \u2014 data transformed into requests for attention. No leaderboard, ever.",
+      "title": "Honest gamification"
+    },
+    "quadrant_lenses": {
+      "blocks": [
+        "wiki.block.quadrants.v1",
+        "wiki.block.relations.v1"
+      ],
+      "summary": "The four AQAL lenses with full interiors, plus the relations module on Q3.",
+      "title": "Quadrant lenses"
+    }
+  },
+  "schema_version": "wiki_web_blocks.v1",
+  "vocabulary": {
+    "block_kinds": [
+      "gate",
+      "interface",
+      "interpretation",
+      "skill"
+    ],
+    "identity_ambients": [
+      "drift",
+      "motes",
+      "none"
+    ],
+    "identity_landmarks": [
+      "beacon",
+      "crystal_spire",
+      "engine",
+      "forge",
+      "observatory",
+      "plaza",
+      "shelf"
+    ],
+    "identity_motifs": [
+      "grid",
+      "ledger",
+      "none",
+      "orbits",
+      "rings",
+      "shelves",
+      "streams"
+    ],
+    "intake_forms": [
+      "copy_file",
+      "interaction_note",
+      "meeting_note",
+      "paste_text",
+      "promote_reference",
+      "recipe_export_checklist",
+      "source_sync"
+    ],
+    "mission_providers": [
+      "approvals_pending",
+      "commitment_open",
+      "date_upcoming",
+      "gates_failing",
+      "meeting_followup",
+      "quadrant_absence",
+      "relation_cadence_overdue",
+      "source_closure",
+      "source_cursor_overdue",
+      "stale",
+      "template_conformity"
+    ],
+    "nested_modes": [
+      "hide_nested",
+      "project_all",
+      "summarize"
+    ],
+    "scene_layouts": [
+      "atlas",
+      "districts",
+      "focus",
+      "quadrants",
+      "radar",
+      "trails"
+    ],
+    "scene_overlays": [
+      "approval_halo",
+      "privacy_ring",
+      "stream_particles",
+      "weather_signal"
+    ],
+    "scope_modes": [
+      "children",
+      "context",
+      "descendants",
+      "self"
+    ],
+    "score_loops": [
+      "context_vitality",
+      "evidence_integrity",
+      "mission_health",
+      "skill_completion",
+      "source_closure",
+      "template_conformity"
+    ],
+    "sub_lenses": {
+      "q1": [
+        "percepcao",
+        "intencao",
+        "identidade"
+      ],
+      "q2": [
+        "comportamento",
+        "producao",
+        "evidencias",
+        "capacidades"
+      ],
+      "q3": [
+        "pessoas",
+        "rede",
+        "encontros",
+        "cultura"
+      ],
+      "q4": [
+        "ferramentas",
+        "processos",
+        "fontes",
+        "automacoes",
+        "governanca"
+      ]
+    },
+    "surfaces": [
+      "create",
+      "intake",
+      "missions",
+      "panels",
+      "score",
+      "views"
+    ]
+  },
+  "warnings": []
+}

@@ -1,0 +1,34 @@
+{
+  "backlinks": [],
+  "body": "\n# Clearpath enters the midmarket segment\n\nQ1 inside the company: declared strategic intent.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "decision-clearpath-enter-midmarket",
+    "page_type": "decision",
+    "stale_after_days": 30,
+    "sub_lens": "intencao",
+    "subject_ref": "company-clearpath-labs",
+    "subject_role": "intention",
+    "title": "Clearpath enters the midmarket segment",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "decision-clearpath-enter-midmarket",
+    "page_type": "decision",
+    "path": "memories/empresas/clearpath/decision-clearpath-enter-midmarket.md",
+    "summary": "Q1 inside the company: declared strategic intent.",
+    "summary_truncated": false,
+    "title": "Clearpath enters the midmarket segment",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

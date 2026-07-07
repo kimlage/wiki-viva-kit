@@ -1,0 +1,34 @@
+{
+  "backlinks": [],
+  "body": "\n# Review privacy before publishing\n\n## Purpose\n\nReview privacy before publishing.\n\n## Contract\n\n- Writes stay proposal-branch-only; no secrets.\n\n## Playbook\n\n1. Compose a brief; hand it to the approval ladder.\n",
+  "frontmatter": {
+    "context": "sistema",
+    "execution": "checklist",
+    "moc_parent": "memories/sistema/index.md",
+    "page_id": "skill-human-review-privacy",
+    "page_type": "skill",
+    "skill_type": "human",
+    "stale_after_days": 30,
+    "title": "Review privacy before publishing",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self",
+    "writes": "proposal_branch_only"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/sistema/index.md",
+    "page_id": "skill-human-review-privacy",
+    "page_type": "skill",
+    "path": "memories/sistema/skills/skill-human-review-privacy.md",
+    "summary": "Review privacy before publishing. Writes stay proposal-branch-only; no secrets. 1. Compose a brief; hand it to the approval ladder.",
+    "summary_truncated": false,
+    "title": "Review privacy before publishing",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

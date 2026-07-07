@@ -1,0 +1,111 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "fresh",
+      "page_id": "claim-custos-sobem",
+      "page_type": "claim",
+      "path": "memories/claims/claim-custos-sobem.md",
+      "relation": "moc_parent",
+      "title": "Custos de nuvem subiram 18%"
+    },
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "stale",
+      "page_id": "source-banco-export",
+      "page_type": "source",
+      "path": "memories/sources/source-banco-export.md",
+      "relation": "moc_parent",
+      "title": "Extrato do Banco"
+    },
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "fresh",
+      "page_id": "process-fechamento-mensal",
+      "page_type": "process",
+      "path": "memories/processes/process-fechamento-mensal.md",
+      "relation": "moc_parent",
+      "title": "Fechamento mensal"
+    },
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "fresh",
+      "page_id": "artifact-relatorio-recon",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-relatorio-recon.md",
+      "relation": "moc_parent",
+      "title": "Relat\u00f3rio de reconcilia\u00e7\u00e3o"
+    },
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "fresh",
+      "page_id": "person-rita-souza",
+      "page_type": "person",
+      "path": "memories/people/person-rita-souza.md",
+      "relation": "moc_parent",
+      "title": "Rita Souza"
+    }
+  ],
+  "body": "\n# Financeiro\n\nMoney as evidence: budget, reconciliation, the bank source. The void tints with this area's hue; the beacon marks it.\n",
+  "frontmatter": {
+    "blocks": [
+      {
+        "config": {
+          "arrangement": "by_family",
+          "catalog": [
+            "artifact",
+            "claim",
+            "decision",
+            "tool"
+          ]
+        },
+        "id": "wiki.block.ui_create.v1"
+      },
+      {
+        "config": {
+          "providers": [
+            "stale",
+            "template_conformity"
+          ]
+        },
+        "id": "wiki.block.ui_missions.v1"
+      }
+    ],
+    "context": "financeiro",
+    "identity": {
+      "ambient": "none",
+      "horizon_label": "context",
+      "landmark": "beacon",
+      "motif": "ledger"
+    },
+    "moc_parent": "memories/index.md",
+    "page_id": "hub-financeiro",
+    "page_type": "context_hub",
+    "stale_after_days": 30,
+    "title": "Financeiro",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "financeiro",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "hub-financeiro",
+    "page_type": "context_hub",
+    "path": "memories/financeiro/index.md",
+    "summary": "Money as evidence: budget, reconciliation, the bank source. The void tints with this area's hue; the beacon marks it.",
+    "summary_truncated": false,
+    "title": "Financeiro",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

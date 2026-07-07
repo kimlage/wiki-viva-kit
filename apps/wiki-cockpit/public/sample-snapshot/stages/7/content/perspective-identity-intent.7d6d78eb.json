@@ -1,0 +1,31 @@
+{
+  "backlinks": [],
+  "body": "\n# Identidade e inten\u00e7\u00e3o\n\n## Concern\n\nQ1: como \u00e9 percebido e por que existe.\n\n## Extraction Questions\n\n- What does this lens ask of a source?\n\n## Target Pages\n\n- The pages this lens tends to update.\n\n## Correspondence Rules\n\n- Classify the fact, not the file.\n",
+  "frontmatter": {
+    "context": "sistema",
+    "moc_parent": "memories/sistema/index.md",
+    "page_id": "perspective-identity-intent",
+    "page_type": "perspective",
+    "stale_after_days": 30,
+    "title": "Identidade e inten\u00e7\u00e3o",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/sistema/index.md",
+    "page_id": "perspective-identity-intent",
+    "page_type": "perspective",
+    "path": "memories/sistema/perspectivas/perspective-identity-intent.md",
+    "summary": "Q1: como \u00e9 percebido e por que existe. What does this lens ask of a source? The pages this lens tends to update. Classify the fact, not the file.",
+    "summary_truncated": false,
+    "title": "Identidade e inten\u00e7\u00e3o",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

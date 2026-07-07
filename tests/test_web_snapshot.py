@@ -132,7 +132,9 @@ def test_write_deploy_bundle_creates_runtime_config_snapshot_and_proof(tmp_path:
         snapshot_base="/sample-review",
         repo_label="Sample Review",
         runtime_mode="static",
-        data_boundary="synthetic_open",
+        # The fixture wiki carries private pages: the boundary gate must be
+        # explicitly waived for the bundle to build at all (see the refusal test).
+        data_boundary="private_ok",
         target="vercel_static",
         clean=True,
     )
@@ -150,7 +152,7 @@ def test_write_deploy_bundle_creates_runtime_config_snapshot_and_proof(tmp_path:
     }
     proof = (out_dir / "DEPLOYMENT.md").read_text(encoding="utf-8")
     assert "vercel_static" in proof
-    assert "synthetic_open" in proof
+    assert "private_ok" in proof
     assert "Pull Requests" in proof
 
     url_out = tmp_path / "deploy-url"
@@ -159,6 +161,7 @@ def test_write_deploy_bundle_creates_runtime_config_snapshot_and_proof(tmp_path:
         url_out,
         config,
         snapshot_base="https://cdn.example.test/wiki/snapshot",
+        data_boundary="private_ok",  # same fixture, same waiver
         target="vercel_static",
         clean=True,
     )
@@ -339,3 +342,48 @@ def test_freshness_state_honors_stale_exempt() -> None:
     assert _freshness_state(exempt_bool, today=today) == "fresh"
     not_exempt = {**old_record, "stale_exempt": "false"}
     assert _freshness_state(not_exempt, today=today) == "stale"
+
+
+def test_write_deploy_bundle_refuses_private_pages_by_default(tmp_path: Path) -> None:
+    """The data boundary is ENFORCED: a snapshot with `visibility: private_*`
+    pages must never reach a public bundle unless explicitly waived."""
+    import pytest
+
+    config = _sample_repo(tmp_path)
+    out_dir = tmp_path / "deploy"
+    with pytest.raises(ValueError, match="deploy bundle refused"):
+        write_deploy_bundle(
+            tmp_path,
+            out_dir,
+            config,
+            snapshot_base="/sample-review",
+            runtime_mode="static",
+            data_boundary="synthetic_or_public",
+            target="vercel_static",
+        )
+    # The refused snapshot must not linger on disk.
+    assert not (out_dir / "sample-review").exists()
+
+
+def test_pages_payload_skips_unreadable_page(tmp_path: Path) -> None:
+    """One vanished/unreadable page file must not abort the whole snapshot
+    build: the broken page is skipped, every readable page still lands."""
+    import os
+
+    import pytest
+
+    from wiki_core.web.snapshot import _pages_payload
+
+    if os.geteuid() == 0:  # pragma: no cover - root ignores file modes
+        pytest.skip("permission bits are not enforced for root")
+    config = _sample_repo(tmp_path)
+    broken = tmp_path / "memories/example/broken.md"
+    _write(broken, "---\npage_id: broken\n---\n\n# Broken\n")
+    broken.chmod(0)
+    try:
+        payload = _pages_payload(tmp_path, config)
+    finally:
+        broken.chmod(0o644)
+    paths = {page["path"] for page in payload["pages"]}
+    assert "memories/example/broken.md" not in paths
+    assert "memories/index.md" in paths

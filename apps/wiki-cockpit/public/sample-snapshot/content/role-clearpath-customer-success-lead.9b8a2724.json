@@ -1,0 +1,33 @@
+{
+  "backlinks": [],
+  "body": "\n# Customer success lead\n\nQ3 inside the company: a lived role with expectations and relationship context, not just an org-chart slot.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "role-clearpath-customer-success-lead",
+    "page_type": "role",
+    "stale_after_days": 30,
+    "sub_lens": "papeis",
+    "subject_ref": "company-clearpath-labs",
+    "title": "Customer success lead",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "role-clearpath-customer-success-lead",
+    "page_type": "role",
+    "path": "memories/empresas/clearpath/role-customer-success-lead.md",
+    "summary": "Q3 inside the company: a lived role with expectations and relationship context, not just an org-chart slot.",
+    "summary_truncated": false,
+    "title": "Customer success lead",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

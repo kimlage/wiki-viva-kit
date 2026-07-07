@@ -1,0 +1,35 @@
+{
+  "backlinks": [],
+  "body": "\n# Obsidian\n\n## What it is\n\nA tool the practice uses.\n\n## Access and cost\n\n- Access pointer: vault local (no secret)\n- Cost: $0\n",
+  "frontmatter": {
+    "access_pointer": "vault local (no secret)",
+    "context": "pessoal",
+    "cost": "$0",
+    "moc_parent": "memories/index.md",
+    "page_id": "tool-obsidian",
+    "page_type": "tool",
+    "platform": "Obsidian",
+    "stale_after_days": 30,
+    "status": "active",
+    "title": "Obsidian",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "pessoal",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "tool-obsidian",
+    "page_type": "tool",
+    "path": "memories/tools/tool-obsidian.md",
+    "summary": "A tool the practice uses. Access pointer: vault local (no secret) Cost: $0",
+    "summary_truncated": false,
+    "title": "Obsidian",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

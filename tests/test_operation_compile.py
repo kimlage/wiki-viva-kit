@@ -171,7 +171,7 @@ def test_build_page_uses_owner_label_and_repo_id(compile_mod, config, minimal_re
 
 def test_build_page_has_no_personal_literals(compile_mod, config, minimal_repo):
     page = compile_mod.build_page(minimal_repo, config)
-    for forbidden in ("Kim", "Sargam", "Downloads", "../../../../"):
+    for forbidden in ("PrivateName", "PrivateHome", "Downloads", "../../../../"):
         assert forbidden not in page, f"unexpected personal literal: {forbidden!r}"
 
 
@@ -411,7 +411,7 @@ def test_build_page_empty_repo_writes_honest_placeholders(compile_mod, config, t
     assert "Sem hubs de contexto registrados." in page
     # Still portable / parameterized even when empty.
     assert "# Operacao - acme-wiki" in page
-    assert "Kim" not in page and "Sargam" not in page
+    assert "PrivateName" not in page and "PrivateHome" not in page
 
 
 def test_build_page_frontmatter_satisfies_auditor_contract(compile_mod, config, minimal_repo):

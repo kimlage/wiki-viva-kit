@@ -8,6 +8,7 @@ from typing import Any
 
 from wiki_core.closure import build_ingestion_closure_report
 from wiki_core.config import WikiConfig, load_config
+from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.graph import build_page_graph
 from wiki_core.paths import WikiPaths
@@ -109,29 +110,13 @@ def _summary(body: str) -> tuple[str, bool]:
     return cut.rstrip(" ,;:.") + "…", True
 
 
-def _stale_exempt(values: dict[str, Any]) -> bool:
-    return str(values.get("stale_exempt", "")).strip().lower() in {"true", "yes", "on", "1"}
-
-
 def _freshness_state(values: dict[str, Any], *, today: dt.date | None = None) -> str:
-    updated = str(values.get("updated_at") or values.get("date") or "").strip()
-    if not updated:
-        return "unknown"
-    try:
-        updated_date = dt.date.fromisoformat(updated[:10])
-    except ValueError:
-        return "unknown"
-    # Evergreen records (statements, closed events, historical snapshots)
-    # opt out of the freshness window: verified once, they do not decay.
-    if _stale_exempt(values):
-        return "fresh"
-    try:
-        window = int(values.get("stale_after_days") or 0)
-    except (TypeError, ValueError):
-        window = 0
-    if window <= 0:
-        return "unknown"
-    return "stale" if ((today or _today()) - updated_date).days > window else "fresh"
+    return freshness_state(
+        values.get("updated_at") or values.get("date"),
+        values.get("stale_after_days"),
+        today or _today(),
+        stale_exempt=is_stale_exempt(values.get("stale_exempt")),
+    )
 
 
 def _page_id(values: dict[str, Any], rel: str) -> str:
@@ -172,7 +157,15 @@ def _page_record(root: Path, path: Path, config: WikiConfig, *, today: dt.date |
 
 def _pages_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
     today = _today()
-    pages = [_page_record(root, path, config, today=today) for path in _markdown_pages(root, config)]
+    pages: list[dict[str, Any]] = []
+    for path in _markdown_pages(root, config):
+        try:
+            pages.append(_page_record(root, path, config, today=today))
+        except OSError:
+            # A page that vanished or turned unreadable mid-build (editor swap
+            # files, concurrent git checkouts) must not abort the whole
+            # snapshot: skip it and let the next build pick it up.
+            continue
     pages.sort(key=lambda item: (str(item["context"]), str(item["title"]), str(item["path"])))
     children: dict[str, int] = {}
     for page in pages:
@@ -448,6 +441,22 @@ def _score_payload(root: Path, config: WikiConfig, pages_payload: dict[str, Any]
     return payload
 
 
+def _safe_blocks(root: Path, config: WikiConfig) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The v2 block registry (blocks.json) and per-anchor resolved stacks
+    (block_stacks.json). Wrapped like the other rich payloads so a malformed
+    block never breaks the whole snapshot — the dock shows the error instead."""
+    try:
+        from wiki_core.template_blocks import blocks_payloads
+
+        return blocks_payloads(root, config, today=_today())
+    except Exception as exc:  # noqa: BLE001
+        error = str(exc)
+        return (
+            {"schema_version": "wiki_web_blocks.v1", "blocks": {}, "vocabulary": {}, "warnings": [], "error": error},
+            {"schema_version": "wiki_web_block_stacks.v1", "anchors": {}, "error": error},
+        )
+
+
 def _safe_quality(root: Path, config: WikiConfig) -> dict[str, Any]:
     try:
         report = build_quality_report(root, config)
@@ -503,6 +512,7 @@ def build_snapshot(
         generated_at=generated_at,
     )
     diff = build_diff_payload(root, config, git_payload)
+    blocks_payload, block_stacks_payload = _safe_blocks(root, config)
     payloads = {
         "manifest.json": manifest,
         "operations.json": operations,
@@ -522,6 +532,8 @@ def build_snapshot(
         "quality.json": _safe_quality(root, config),
         "commands.json": _commands_payload(actions),
         "score.json": _score_payload(root, config, pages),
+        "blocks.json": blocks_payload,
+        "block_stacks.json": block_stacks_payload,
     }
     return payloads
 

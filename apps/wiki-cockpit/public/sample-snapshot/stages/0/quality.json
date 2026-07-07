@@ -1,0 +1,58 @@
+{
+  "cost_telemetry": {
+    "model_profile": "deep_context",
+    "note": "Telemetry only. The quality report does not enforce a hard budget.",
+    "prompt_version": "v3",
+    "schema_version": "wiki_llm_context_pass.v4",
+    "source_costs": []
+  },
+  "memory_root": "memories",
+  "pages": [],
+  "quality_flags": {
+    "bad_repetition_blocks": [],
+    "contexts_without_role": [
+      "clientes",
+      "estudio",
+      "financeiro",
+      "sistema"
+    ],
+    "events_without_consolidated_into": [],
+    "events_without_impact_closure": [],
+    "low_information_density_pages": [],
+    "orphan_actions": [],
+    "quality_exempt_pages": [],
+    "quality_exemption_missing_reason": [],
+    "relation_pages_without_parent": [],
+    "repeated_blocks": [],
+    "responsibilities_without_action": [],
+    "role_responsibility_edge_mismatch": [],
+    "thin_link_pages": []
+  },
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_quality_report.v1",
+  "summary": {
+    "bad_repetition_blocks": 0,
+    "cache_reuse_rate": 0.0,
+    "cached_calls": 0,
+    "chunk_sources": 0,
+    "chunks_total": 0,
+    "contexts": {},
+    "contexts_without_role": 4,
+    "estimated_context_tokens": 0,
+    "events_without_consolidated_into": 0,
+    "events_without_impact_closure": 0,
+    "ingestion_events": 0,
+    "low_information_density_pages": 0,
+    "orphan_actions": 0,
+    "page_types": {},
+    "pages_total": 0,
+    "pending_calls": 0,
+    "quality_exempt_pages": 0,
+    "quality_exemption_missing_reason": 0,
+    "relation_pages_without_parent": 0,
+    "repeated_blocks": 0,
+    "responsibilities_without_action": 0,
+    "role_responsibility_edge_mismatch": 0,
+    "thin_link_pages": 0
+  }
+}

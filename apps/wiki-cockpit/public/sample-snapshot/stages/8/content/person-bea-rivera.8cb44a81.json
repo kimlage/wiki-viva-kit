@@ -1,0 +1,37 @@
+{
+  "backlinks": [],
+  "body": "\n# Bea Rivera\n\nBusiness partner \u2014 and her own root (root_entity type person), with her own subgraph and quadrants. The relations module reads her as a person all the same.\n",
+  "frontmatter": {
+    "context": "pessoal",
+    "moc_parent": "memories/index.md",
+    "page_id": "person-bea-rivera",
+    "page_type": "root_entity",
+    "relationship": {
+      "contact_cadence_days": 7,
+      "kind": "partner",
+      "since": "2016"
+    },
+    "root_entity_type": "person",
+    "stale_after_days": 45,
+    "title": "Bea Rivera",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "pessoal",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "person-bea-rivera",
+    "page_type": "root_entity",
+    "path": "memories/people/person-bea-rivera.md",
+    "summary": "Business partner \u2014 and her own root (root_entity type person), with her own subgraph and quadrants. The relations module reads her as a person all the same.",
+    "summary_truncated": false,
+    "title": "Bea Rivera",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

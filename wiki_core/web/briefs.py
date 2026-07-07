@@ -38,6 +38,19 @@ BRIEF_SCHEMA_VERSION = "wiki_web_brief.v1"
 _MISSION_KINDS = {"refresh", "verify", "evidence", "ingest", "state", "create", None}
 _MATERIALIZE = {"refs", "full"}
 _THEME_RE = re.compile(r"[^a-z0-9]+")
+
+# Brief/job ids come off the URL and become FILENAMES under data/derived/**.
+# Only this shape ever resolves to a path — anything else (`../`, separators,
+# empty) raises before touching the filesystem. Path-traversal guard.
+_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+
+
+def require_safe_id(value: str) -> str:
+    """The id, iff it is filesystem-safe; raises ValueError otherwise."""
+    candidate = str(value or "")
+    if not _SAFE_ID_RE.match(candidate):
+        raise ValueError(f"unsafe id: {candidate!r}")
+    return candidate
 _BODY_EXCERPT_CHARS = 1600
 _STATE_LIMIT_DEFAULT = 6
 _STATE_LIMIT_MAX = 20
@@ -561,10 +574,10 @@ class BriefStore:
         self.dir = WikiPaths(root, config).derived_root / "work-briefs"
 
     def _record_path(self, brief_id: str) -> Path:
-        return self.dir / f"{brief_id}.json"
+        return self.dir / f"{require_safe_id(brief_id)}.json"
 
     def _text_path(self, brief_id: str) -> Path:
-        return self.dir / f"{brief_id}.md"
+        return self.dir / f"{require_safe_id(brief_id)}.md"
 
     def _new_id(self) -> str:
         # Server runtime (not a workflow) — uuid is fine and avoids collisions.
@@ -596,7 +609,10 @@ class BriefStore:
         return {**record, "text": composed["text"]}
 
     def get(self, brief_id: str) -> dict[str, Any] | None:
-        path = self._record_path(brief_id)
+        try:
+            path = self._record_path(brief_id)
+        except ValueError:
+            return None  # malformed id from the URL — never a filesystem probe
         if not path.is_file():
             return None
         try:

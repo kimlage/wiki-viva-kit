@@ -1,0 +1,42 @@
+{
+  "backlinks": [],
+  "body": "\n# Weekly sync \u2014 Product Ops\n\nSync with [Jo\u00e3o Mendes](../../people/person-joao-mendes.md). Decisions and follow-ups below.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/product-ops/index.md",
+    "page_id": "meeting-weekly-sync",
+    "page_type": "meeting",
+    "participants": [
+      "person-joao-mendes"
+    ],
+    "stale_after_days": 30,
+    "sub_lens": "encontros",
+    "title": "Weekly sync \u2014 Product Ops",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/product-ops/index.md",
+    "page_id": "meeting-weekly-sync",
+    "page_type": "meeting",
+    "path": "memories/meetings/meeting-weekly-sync.md",
+    "summary": "Sync with Jo\u00e3o Mendes. Decisions and follow-ups below.",
+    "summary_truncated": false,
+    "title": "Weekly sync \u2014 Product Ops",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [
+    {
+      "href": "../../people/person-joao-mendes.md",
+      "kind": "missing",
+      "target": "people/person-joao-mendes.md",
+      "text": "Jo\u00e3o Mendes"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

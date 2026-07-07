@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT))
 
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.detectors import scan_file
+from wiki_core.freshness import is_stale, is_stale_exempt
 from wiki_core.frontmatter import parse_frontmatter as canonical_parse_frontmatter
 from wiki_core.frontmatter import parse_frontmatter_flat_with_errors
 from wiki_core.gate import STATES as GATE_STATES
@@ -547,8 +548,7 @@ def audit_frontmatter(errors: list[str], warnings: list[str], config: WikiConfig
         except (KeyError, ValueError):
             errors.append(f"{rel}: invalid updated_at or stale_after_days")
             continue
-        stale_exempt = str(values.get("stale_exempt", "")).strip().lower() in {"true", "yes", "on", "1"}
-        if not stale_exempt and updated_at + dt.timedelta(days=stale_after) < today:
+        if not is_stale_exempt(values.get("stale_exempt")) and is_stale(updated_at, stale_after, today):
             warnings.append(f"{rel}: stale page")
 
         directory = ontology_dir_for(rel, config)
@@ -693,7 +693,7 @@ def audit_stale_coverage(warnings: list[str], config: WikiConfig) -> None:
         values, _ = parse_frontmatter(ROOT / rel)
         if not values:
             continue
-        exempt = str(values.get("stale_exempt", "")).strip().lower() in {"true", "yes", "on", "1"}
+        exempt = is_stale_exempt(values.get("stale_exempt"))
         if "stale_after_days" not in values:
             if not exempt:
                 gaps.append(rel)
@@ -706,7 +706,7 @@ def audit_stale_coverage(warnings: list[str], config: WikiConfig) -> None:
         except (KeyError, ValueError):
             warnings.append(f"{rel}: invalid updated_at or stale_after_days")
             continue
-        if updated_at + dt.timedelta(days=stale_after) < today:
+        if is_stale(updated_at, stale_after, today):
             warnings.append(f"{rel}: stale page")
     if not gaps:
         return
@@ -1266,7 +1266,18 @@ def audit_page_type_registry(errors: list[str], config: WikiConfig) -> None:
         if shape is None:
             errors.append(f"{rel}: page_type `{page_type}` is not declared in wiki.page-types.yaml")
             continue
-        errors.extend(validate_shape(ROOT, rel, values, path.read_text(encoding="utf-8"), shape))
+        shape_values = dict(values)
+        object_fields = [
+            str(field)
+            for field, expected in (shape.get("field_types") or {}).items()
+            if str(expected) == "object"
+        ]
+        if object_fields:
+            structured_values = parse_yaml_frontmatter(path)
+            for field in object_fields:
+                if field in structured_values:
+                    shape_values[field] = structured_values[field]
+        errors.extend(validate_shape(ROOT, rel, shape_values, path.read_text(encoding="utf-8"), shape))
 
     unused = sorted(set(registry.page_types) - used_types)
     for page_type in unused:
@@ -1786,6 +1797,19 @@ def audit_templates_registry(warnings: list[str], config: WikiConfig) -> None:
         return  # a wiki without a templates registry keeps the old reader
     for problem in validate_template_registry(registry):
         warnings.append(f"wiki.templates.yaml: {problem}")
+    # v2 blocks: an unknown surface/provider/landmark, a block on a non-anchor
+    # page, or a reference to an undefined block — all WARN, same philosophy.
+    try:
+        from wiki_core.template_blocks import load_block_world, validate_blocks
+    except Exception:  # noqa: BLE001 - module optional in older repos
+        return
+    try:
+        world = load_block_world(ROOT, config)
+    except Exception as exc:  # noqa: BLE001 - never block the gate on a load error
+        warnings.append(f"wiki.templates.yaml blocks: could not load ({exc})")
+        return
+    for problem in validate_blocks(world):
+        warnings.append(f"blocks: {problem}")
 
 
 def audit_source_recipes(warnings: list[str], config: WikiConfig) -> None:

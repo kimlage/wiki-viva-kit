@@ -1,0 +1,36 @@
+{
+  "backlinks": [],
+  "body": "\n# Clearpath customer interviews\n\nQ2 inside the company: an observable evidence source owned by the company root.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "owner": "company-clearpath-labs",
+    "page_id": "source-clearpath-customer-interviews",
+    "page_type": "source",
+    "platform": "Interview notes",
+    "source_type": "document",
+    "stale_after_days": 30,
+    "sub_lens": "evidencias",
+    "subject_ref": "company-clearpath-labs",
+    "title": "Clearpath customer interviews",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "source-clearpath-customer-interviews",
+    "page_type": "source",
+    "path": "memories/empresas/clearpath/source-customer-interviews.md",
+    "summary": "Q2 inside the company: an observable evidence source owned by the company root.",
+    "summary_truncated": false,
+    "title": "Clearpath customer interviews",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

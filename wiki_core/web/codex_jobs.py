@@ -32,7 +32,7 @@ from typing import Any
 
 from wiki_core.config import WikiConfig
 from wiki_core.paths import WikiPaths
-from wiki_core.web.briefs import BriefStore, hash_targets
+from wiki_core.web.briefs import BriefStore, hash_targets, require_safe_id
 from wiki_core.web.commands import SECRET_VALUE_RE
 from wiki_core.web.git_workflows import run_git_workflow
 
@@ -128,11 +128,13 @@ class JobRunner:
                 self._queue.task_done()
 
     # -- store helpers ------------------------------------------------------ #
+    # Job ids come off the URL and become paths — require_safe_id is the
+    # path-traversal guard (same contract as the brief store).
     def _record_path(self, job_id: str) -> Path:
-        return self.dir / f"{job_id}.json"
+        return self.dir / f"{require_safe_id(job_id)}.json"
 
     def _job_dir(self, job_id: str) -> Path:
-        return self.dir / job_id
+        return self.dir / require_safe_id(job_id)
 
     def _write(self, record: dict[str, Any]) -> dict[str, Any]:
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -143,7 +145,10 @@ class JobRunner:
         return record
 
     def get(self, job_id: str) -> dict[str, Any] | None:
-        path = self._record_path(job_id)
+        try:
+            path = self._record_path(job_id)
+        except ValueError:
+            return None  # malformed id from the URL — never a filesystem probe
         if not path.is_file():
             return None
         try:
@@ -163,11 +168,27 @@ class JobRunner:
         records.sort(key=lambda r: str(r.get("created_at")), reverse=True)
         return records
 
+    # The UI polls the log every ~2s: serve a bounded TAIL, not the whole file
+    # (long Codex runs produce multi-MB JSONL; unbounded reads on every poll
+    # made the poll itself the heaviest thing the operator did).
+    LOG_TAIL_BYTES = 256 * 1024
+
     def read_log(self, job_id: str) -> str:
-        log = self._job_dir(job_id) / "log.jsonl"
+        try:
+            log = self._job_dir(job_id) / "log.jsonl"
+        except ValueError:
+            return ""
         if not log.is_file():
             return ""
-        return log.read_text(encoding="utf-8")
+        size = log.stat().st_size
+        if size <= self.LOG_TAIL_BYTES:
+            return log.read_text(encoding="utf-8")
+        with log.open("rb") as handle:
+            handle.seek(size - self.LOG_TAIL_BYTES)
+            tail = handle.read().decode("utf-8", errors="replace")
+        # Cut at the first newline so the client always parses whole lines.
+        head_cut = tail.find("\n")
+        return tail[head_cut + 1 :] if head_cut != -1 else tail
 
     def _set_status(self, record: dict[str, Any], status: str, *, reason: str = "") -> dict[str, Any]:
         record["status"] = status
@@ -293,6 +314,16 @@ class JobRunner:
             if job_id in self._cancelled:
                 return self._set_status(record, "cancelled", reason="cancelled before start")
             self._running_id = job_id
+        # ONE checkout, one writer: hold the checkout lock for the WHOLE job so
+        # an HTTP git workflow can never switch branches under a running job
+        # (it gets an honest "checkout busy" instead). RLock — the job's own
+        # run_git_workflow calls re-enter from this same thread.
+        from wiki_core.web.git_workflows import CHECKOUT_LOCK
+
+        with CHECKOUT_LOCK:
+            return self._run_job_locked(job_id, record)
+
+    def _run_job_locked(self, job_id: str, record: dict[str, Any]) -> dict[str, Any]:
         job_dir = self._job_dir(job_id)
         job_dir.mkdir(parents=True, exist_ok=True)
         brief = self.briefs.get(record["brief_id"])
@@ -327,6 +358,12 @@ class JobRunner:
         git_state = build_git_state(self.root, self.config)
         current_branch = str(git_state.get("current_branch") or "")
         default_branch = str(git_state.get("default_branch") or "main")
+        # Baseline BEFORE any branch move: every path dirty NOW (and its exact
+        # content) belongs to the owner, not to this job — in EVERY mode. The
+        # commit step and the failure unwind both scope to Codex's delta
+        # against this baseline; baselined paths are never committed by the
+        # job nor reverted by its cleanup.
+        baseline = self._dirty_hashes()
         branch_mode = "fresh"
         if resume_branch:
             branch_mode = "resume"
@@ -346,17 +383,16 @@ class JobRunner:
         record["branch_mode"] = branch_mode
         self._set_step(self._write(record), "branch", "complete")
 
-        # Baseline BEFORE Codex runs: in continue_current mode these paths (and
-        # these exact contents) belong to the owner, not to this job.
-        baseline = self._dirty_hashes() if branch_mode == "continue_current" else {}
-
         def unwind() -> None:
-            # Failure/cancel cleanup. NEVER reset --hard over the owner's
-            # in-progress edits: in continue_current we only unstage and stay on
-            # the branch (Codex's edits stay visible, uncommitted, for review).
+            # Failure/cancel cleanup. NEVER destroy the owner's uncommitted
+            # work: in continue_current we only unstage and stay on the branch;
+            # in fresh/resume we revert ONLY the paths Codex introduced (paths
+            # absent from the pre-job baseline) and leave every baselined path
+            # — the owner's, or mixed owner+Codex — untouched for review.
             if branch_mode == "continue_current":
                 subprocess.run(["git", "reset"], cwd=self.root, capture_output=True, check=False)  # noqa: S603
             else:
+                self._revert_codex_paths(baseline)
                 self._abort_branch(branch, delete=branch_mode == "fresh")
 
         # 2) Run Codex on the branch, streaming redacted JSONL to the log.
@@ -583,11 +619,38 @@ class JobRunner:
                     return token
         return None
 
+    def _revert_codex_paths(self, baseline: dict[str, str]) -> None:
+        """Discard ONLY what Codex introduced: paths dirty now that were NOT in
+        the pre-job baseline. Tracked paths are checked out back to HEAD; files
+        Codex created (untracked) are removed. Every baselined path — the
+        owner's in-progress work, or a mixed owner+Codex edit — is left exactly
+        as it is. This replaces the old blind `git reset --hard`, which
+        silently destroyed the operator's uncommitted edits on job failure."""
+        for path in sorted(self._dirty_hashes()):
+            if path in baseline:
+                continue  # the owner's (or mixed) — never touch
+            in_head = subprocess.run(  # noqa: S603 - fixed argv, no shell
+                ["git", "cat-file", "-e", f"HEAD:{path}"],
+                cwd=self.root, capture_output=True, check=False,
+            ).returncode == 0
+            if in_head:
+                # Restores index AND worktree from HEAD (covers staged edits).
+                subprocess.run(["git", "checkout", "HEAD", "--", path], cwd=self.root, capture_output=True, check=False)  # noqa: S603
+            else:
+                # A file Codex created: unstage it if staged, then remove it.
+                subprocess.run(  # noqa: S603
+                    ["git", "rm", "-f", "--cached", "--ignore-unmatch", "--", path],
+                    cwd=self.root, capture_output=True, check=False,
+                )
+                (self.root / path).unlink(missing_ok=True)
+
     def _abort_branch(self, branch: str | None, *, delete: bool = True) -> None:
-        """Best-effort return to the default branch after a failed/cancelled run so
-        the operator's checkout is not left stranded on a half-built proposal. A
-        RETURN keeps the branch (``delete=False``) — it belongs to the parent
-        proposal — and only discards this run's uncommitted edits."""
+        """Best-effort return to the default branch after a failed/cancelled run
+        so the operator's checkout is not left stranded on a half-built
+        proposal. A RETURN keeps the branch (``delete=False``) — it belongs to
+        the parent proposal. Codex's own edits were already reverted by
+        ``_revert_codex_paths``; if the owner's uncommitted work makes the
+        switch impossible, we STAY on the branch rather than force anything."""
         if not branch:
             return
         default = "main"
@@ -597,10 +660,8 @@ class JobRunner:
             default = str(build_git_state(self.root, self.config).get("default_branch") or "main")
         except Exception:  # noqa: BLE001
             pass
-        # reset --hard clears BOTH staged and unstaged edits back to the branch
-        # tip (there are no commits yet on a fresh proposal; on a resume it keeps
-        # the parent's commits and only drops this run's uncommitted edits).
-        subprocess.run(["git", "reset", "--hard", "HEAD"], cwd=self.root, capture_output=True, check=False)
-        subprocess.run(["git", "switch", default], cwd=self.root, capture_output=True, check=False)
-        if delete:
-            subprocess.run(["git", "branch", "-D", branch], cwd=self.root, capture_output=True, check=False)
+        switched = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            ["git", "switch", default], cwd=self.root, capture_output=True, check=False
+        ).returncode == 0
+        if delete and switched:
+            subprocess.run(["git", "branch", "-D", branch], cwd=self.root, capture_output=True, check=False)  # noqa: S603

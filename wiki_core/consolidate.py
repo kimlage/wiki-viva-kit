@@ -434,13 +434,20 @@ def build_packet(
     """Integration packet: candidate targets and overlaps for the agent."""
     catalog = _page_catalog(root, config)
     db_path = paths.indexes / "wiki.sqlite"
+    packet_warnings: list[str] = []
 
     def fts(query: str, limit: int = 3) -> list[dict[str, object]]:
         if not db_path.exists() or not query.strip():
             return []
         try:
             hits = search(db_path, sanitize_fts_query(query), limit=limit)
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - degrade gracefully, but VISIBLY
+            note = (
+                f"fts lookup failed ({type(exc).__name__}: {exc}); "
+                "related excerpts omitted from this packet"
+            )
+            if note not in packet_warnings:
+                packet_warnings.append(note)
             return []
         return [
             {"source_id": h.get("source_id"), "chunk_id": h.get("chunk_id"),
@@ -536,6 +543,9 @@ def build_packet(
         "entities": entity_matches,
         "uncertainties": aggregated.get("uncertainties") or [],
         "relationships": aggregated.get("relationships") or [],
+        # Degradations that happened while building THIS packet (e.g. a broken
+        # FTS index): empty on the happy path, never silently dropped.
+        "warnings": packet_warnings,
         "instructions": (
             "Integrate: update the candidate target pages (hubs/concepts) with the new "
             "information; create/update load-bearing claim pages (conflict fields when "

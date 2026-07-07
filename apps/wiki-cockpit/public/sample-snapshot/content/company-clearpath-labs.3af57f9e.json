@@ -1,0 +1,152 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "dashboard-clearpath-activation",
+      "page_type": "dashboard",
+      "path": "memories/empresas/clearpath/dashboard-activation.md",
+      "relation": "moc_parent",
+      "title": "Clearpath activation dashboard"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "meeting-clearpath-alignment",
+      "page_type": "meeting",
+      "path": "memories/empresas/clearpath/meeting-clearpath-alignment.md",
+      "relation": "moc_parent",
+      "title": "Clearpath alignment meeting"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "process-clearpath-approval",
+      "page_type": "process",
+      "path": "memories/empresas/clearpath/process-clearpath-approval.md",
+      "relation": "moc_parent",
+      "title": "Clearpath approval process"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-clearpath-customer-interviews",
+      "page_type": "source",
+      "path": "memories/empresas/clearpath/source-customer-interviews.md",
+      "relation": "moc_parent",
+      "title": "Clearpath customer interviews"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "decision-clearpath-enter-midmarket",
+      "page_type": "decision",
+      "path": "memories/empresas/clearpath/decision-clearpath-enter-midmarket.md",
+      "relation": "moc_parent",
+      "title": "Clearpath enters the midmarket segment"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-clearpath-prototype",
+      "page_type": "artifact",
+      "path": "memories/empresas/clearpath/artifact-clearpath-prototype.md",
+      "relation": "moc_parent",
+      "title": "Clearpath onboarding prototype"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "rule-clearpath-release-gate",
+      "page_type": "operational_rule",
+      "path": "memories/empresas/clearpath/rule-release-gate.md",
+      "relation": "moc_parent",
+      "title": "Clearpath release gate"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-clearpath-market-signal",
+      "page_type": "claim",
+      "path": "memories/empresas/clearpath/claim-clearpath-market-signal.md",
+      "relation": "moc_parent",
+      "title": "Clearpath sees onboarding friction"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "role-clearpath-customer-success-lead",
+      "page_type": "role",
+      "path": "memories/empresas/clearpath/role-customer-success-lead.md",
+      "relation": "moc_parent",
+      "title": "Customer success lead"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "product-clearpath-pulse",
+      "page_type": "root_entity",
+      "path": "memories/empresas/clearpath/pulse-product.md",
+      "relation": "moc_parent",
+      "title": "Pulse Product"
+    }
+  ],
+  "body": "\n# Clearpath Labs\n\nA fictional company root below Alex. From Alex's map it is Q4/system; when selected, the company becomes the center and its own intents, outputs, relations and systems split around it.\n",
+  "frontmatter": {
+    "blocks": [
+      {
+        "config": {
+          "labels": {
+            "q1": "Percep\u00e7\u00e3o e inten\u00e7\u00e3o da empresa",
+            "q2": "Entregas observ\u00e1veis",
+            "q3": "Rela\u00e7\u00f5es e cultura",
+            "q4": "Processos e governan\u00e7a"
+          }
+        },
+        "id": "wiki.block.quadrants.v1",
+        "scope": "descendants"
+      }
+    ],
+    "context": "clientes",
+    "moc_parent": "memories/index.md",
+    "page_id": "company-clearpath-labs",
+    "page_type": "root_entity",
+    "parent_projection": {
+      "quadrant": "q4",
+      "reason": "For Alex, a company is an external coordination system; inside itself it is the center.",
+      "sub_lens": "governanca"
+    },
+    "root_entity_type": "company",
+    "stale_after_days": 30,
+    "title": "Clearpath Labs",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "company-clearpath-labs",
+    "page_type": "root_entity",
+    "path": "memories/empresas/clearpath-labs.md",
+    "summary": "A fictional company root below Alex. From Alex's map it is Q4/system; when selected, the company becomes the center and its own intents, outputs, relations and systems split around it.",
+    "summary_truncated": false,
+    "title": "Clearpath Labs",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

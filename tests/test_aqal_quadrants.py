@@ -19,10 +19,10 @@ def test_context_deep_read_prompt_preserves_aqal_boundaries() -> None:
 
     assert "interior/exterior" in prompt
     assert "individual/collective" in prompt
-    assert "`interior_individual` | `I`, interior individual" in prompt
-    assert "`exterior_individual` | `It`, exterior individual" in prompt
-    assert "`interior_collective` | `We`, interior collective" in prompt
-    assert "`exterior_collective` | `Its`, exterior collective" in prompt
+    assert "`interior_individual` | `I`, interior individual, upper-left" in prompt
+    assert "`exterior_individual` | `It`, exterior individual, upper-right" in prompt
+    assert "`interior_collective` | `We`, interior collective, lower-left" in prompt
+    assert "`exterior_collective` | `Its`, exterior collective, lower-right" in prompt
     assert "A plain roster, org chart, RACI or workflow assignment" in normalized_prompt
     assert "administered structure as `exterior_collective`" in normalized_prompt
 
@@ -112,13 +112,17 @@ def test_quadrant_contract_is_authoritative_for_external_consumers() -> None:
         "individual_collective": "individual/collective",
     }
     assert quadrants["q1"]["semantic_key"] == "interior_individual"
-    assert quadrants["q1"]["aqal_position"] == "I / interior individual"
+    assert quadrants["q1"]["label"] == "Q1 - Identity and intent"
+    assert quadrants["q1"]["aqal_position"] == "I / interior individual / upper-left"
     assert quadrants["q2"]["semantic_key"] == "exterior_individual"
-    assert quadrants["q2"]["aqal_position"] == "It / exterior individual"
+    assert quadrants["q2"]["label"] == "Q2 - Outputs and evidence"
+    assert quadrants["q2"]["aqal_position"] == "It / exterior individual / upper-right"
     assert quadrants["q3"]["semantic_key"] == "interior_collective"
-    assert quadrants["q3"]["aqal_position"] == "We / interior collective"
+    assert quadrants["q3"]["label"] == "Q3 - Culture and relations"
+    assert quadrants["q3"]["aqal_position"] == "We / interior collective / lower-left"
     assert quadrants["q4"]["semantic_key"] == "exterior_collective"
-    assert quadrants["q4"]["aqal_position"] == "Its / exterior collective"
+    assert quadrants["q4"]["label"] == "Q4 - Systems and governance"
+    assert quadrants["q4"]["aqal_position"] == "Its / exterior collective / lower-right"
     assert quadrants["q3"]["perspective_id"] == "perspective-roles-relationships"
     assert "plain people roster" in quadrants["q3"]["operational_test"]
     assert "output/evidence of the root entity" in quadrants["q2"]["operational_test"]

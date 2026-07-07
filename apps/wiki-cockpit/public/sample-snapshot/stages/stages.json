@@ -1,0 +1,241 @@
+{
+  "final_stage": 8,
+  "schema_version": "wiki_genesis_stages.v1",
+  "stages": [
+    {
+      "added_pages": [],
+      "dir": "stages/0",
+      "focus": "",
+      "page_count": 0,
+      "root_attachments": {},
+      "stage": 0
+    },
+    {
+      "added_pages": [
+        "root-alex-rivera"
+      ],
+      "dir": "stages/1",
+      "focus": "root-alex-rivera",
+      "page_count": 1,
+      "root_attachments": {},
+      "stage": 1
+    },
+    {
+      "added_pages": [],
+      "dir": "stages/2",
+      "focus": "root-alex-rivera",
+      "page_count": 1,
+      "root_attachments": {
+        "blocks": [
+          {
+            "id": "wiki.block.quadrants.v1",
+            "scope": "descendants"
+          }
+        ]
+      },
+      "stage": 2
+    },
+    {
+      "added_pages": [
+        "artifact-relatorio-recon",
+        "claim-custos-sobem",
+        "hub-financeiro"
+      ],
+      "dir": "stages/3",
+      "focus": "hub-financeiro",
+      "page_count": 4,
+      "root_attachments": {
+        "blocks": [
+          {
+            "id": "wiki.block.quadrants.v1",
+            "scope": "descendants"
+          }
+        ]
+      },
+      "stage": 3
+    },
+    {
+      "added_pages": [
+        "person-marina-costa"
+      ],
+      "dir": "stages/4",
+      "focus": "person-marina-costa",
+      "page_count": 5,
+      "root_attachments": {
+        "blocks": [
+          {
+            "id": "wiki.block.quadrants.v1",
+            "scope": "descendants"
+          },
+          {
+            "id": "wiki.block.relations.v1",
+            "scope": "descendants"
+          }
+        ]
+      },
+      "stage": 4
+    },
+    {
+      "added_pages": [],
+      "dir": "stages/5",
+      "focus": "root-alex-rivera",
+      "page_count": 5,
+      "root_attachments": {
+        "blocks": [
+          {
+            "id": "wiki.block.quadrants.v1",
+            "scope": "descendants"
+          },
+          {
+            "id": "wiki.block.relations.v1",
+            "scope": "descendants"
+          }
+        ],
+        "packages": [
+          "gamification"
+        ]
+      },
+      "stage": 5
+    },
+    {
+      "added_pages": [
+        "event-ingest-banco-2026-05",
+        "source-banco-export"
+      ],
+      "dir": "stages/6",
+      "focus": "source-banco-export",
+      "page_count": 7,
+      "root_attachments": {
+        "blocks": [
+          {
+            "id": "wiki.block.quadrants.v1",
+            "scope": "descendants"
+          },
+          {
+            "id": "wiki.block.relations.v1",
+            "scope": "descendants"
+          }
+        ],
+        "packages": [
+          "gamification"
+        ]
+      },
+      "stage": 6
+    },
+    {
+      "added_pages": [
+        "block-library-lens",
+        "hub-sistema",
+        "perspective-artifacts-evidence",
+        "perspective-financial",
+        "perspective-identity-intent",
+        "perspective-privacy-publication",
+        "perspective-roles-relationships",
+        "perspective-systems-processes",
+        "skill-agent-classify-quadrants",
+        "skill-agent-deep-read",
+        "skill-human-review-privacy"
+      ],
+      "dir": "stages/7",
+      "focus": "hub-sistema",
+      "page_count": 18,
+      "root_attachments": {
+        "blocks": [
+          {
+            "id": "wiki.block.quadrants.v1",
+            "scope": "descendants"
+          },
+          {
+            "id": "wiki.block.relations.v1",
+            "scope": "descendants"
+          }
+        ],
+        "packages": [
+          "gamification"
+        ]
+      },
+      "stage": 7
+    },
+    {
+      "added_pages": [
+        "action-enviar-proposta",
+        "artifact-benchmark-safety",
+        "artifact-clearpath-prototype",
+        "artifact-dashboard-atlas",
+        "artifact-template-library-example",
+        "claim-clearpath-market-signal",
+        "claim-pulse-activation",
+        "claim-scaling-laws",
+        "claim-template-library-purpose",
+        "company-clearpath-labs",
+        "dashboard-clearpath-activation",
+        "decision-clearpath-enter-midmarket",
+        "decision-onboarding",
+        "decision-precos",
+        "event-ingest-agenda-2026-07",
+        "event-ingest-chat-2026-07",
+        "holon-product-ops",
+        "hub-clientes",
+        "hub-estudio",
+        "idx-decisoes",
+        "insight-calendario-calmo",
+        "journal-2026-07-02",
+        "library-ai-safety",
+        "meeting-clearpath-alignment",
+        "meeting-template-library-review",
+        "meeting-weekly-sync",
+        "person-bea-rivera",
+        "person-caio-prado",
+        "person-joao-mendes",
+        "person-lia-fontes",
+        "person-rita-souza",
+        "process-clearpath-approval",
+        "process-fechamento-mensal",
+        "process-template-library-governance",
+        "product-clearpath-pulse",
+        "project-atlas-launch",
+        "role-clearpath-customer-success-lead",
+        "role-consultora",
+        "rule-clearpath-release-gate",
+        "rule-nada-publica-sem-review",
+        "source-agenda",
+        "source-chat-export",
+        "source-clearpath-customer-interviews",
+        "tool-banco-app",
+        "tool-google-drive",
+        "tool-obsidian"
+      ],
+      "dir": "stages/8",
+      "focus": "root-alex-rivera",
+      "page_count": 64,
+      "root_attachments": {
+        "blocks": [
+          {
+            "id": "wiki.block.quadrants.v1",
+            "scope": "descendants"
+          },
+          {
+            "id": "wiki.block.relations.v1",
+            "scope": "descendants"
+          },
+          {
+            "config": {
+              "optional": [
+                "perspective-financial"
+              ],
+              "required": [
+                "perspective-privacy-publication"
+              ]
+            },
+            "id": "wiki.block.perspective_bundle.v1",
+            "scope": "descendants"
+          }
+        ],
+        "packages": [
+          "gamification"
+        ]
+      },
+      "stage": 8
+    }
+  ]
+}

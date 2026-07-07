@@ -7,27 +7,60 @@ bound to the URL and reading happens inside the world.
 ## The navigable world
 
 URL grammar: `/w/:perspective/:context?/:group?/:pageId?` — browser back,
-breadcrumbs and deep links are the same thing. Four deterministic,
+breadcrumbs and deep links are the same thing. Six deterministic,
 worker-computed perspectives re-arrange the same node identities (MORPH keeps
-identity on switch, keys `1–4`):
+identity on switch, keys `1–5` + `F`):
 
-- **Radar** (`/w/radar`, the home view and the alias for `/ops`) —
-  verification: what needs attention now.
-- **Atlas** (`/w/atlas`) — hierarchy navigation over `moc_parent` orbits;
-  replaces the retired `/pages` list (old `/pages/:id` bookmarks redirect into
-  the world with the reader open).
-- **Distritos** (`/w/districts`) — identification: the world shelved by
-  content kind.
-- **Trilhas** (`/w/trails`) — context exploration: the locked page's ego-graph
-  in typed relation sectors (Hierarquia / Evidência / Links / Citado por).
+- **Quadrants** (`/w/quadrants`, key `5`, the default landing view) — the AQAL
+  home map for the active recursive center. Four fixed 90° regions come from
+  that center's compiled `quadrant_assignments`; the center page sits at the
+  crossing of the axes, and structural pages that honestly have no quadrant
+  remain in q0-core. The same page can project differently under different
+  centers, with the reason stored in `quadrant_projections`. `?center=<anchor>`
+  preserves an explicit root/company/project/source/template center separately
+  from the reader page; without it, the selected page's nearest anchor is used
+  for old links. A selected quadrant scopes the quadrant-aware views
+  (quadrants/radar/districts). Bare `/`, `/ops` and `/w` normalize to the
+  STACK's home view — the default view is a template decision (`ui_views`), not
+  a platform constant.
+- **Radar** (`/w/radar`, key `1`) — verification: what needs attention now.
+- **Atlas** (`/w/atlas`, key `2`) — hierarchy navigation over `moc_parent`
+  orbits; replaces the retired `/pages` list (old `/pages/:id` bookmarks
+  redirect into the world with the reader open).
+- **Distritos** (`/w/districts`, key `3`) — identification: the world shelved
+  by content kind.
+- **Trilhas** (`/w/trails`, key `4`) — context exploration: the locked page's
+  ego-graph in typed relation sectors (Hierarquia / Evidência / Links /
+  Citado por).
+- **Focus** (`/w/focus`, key `F`, needs a locked page) — one page through the
+  four AQAL lenses, empty lenses shown as honest absences.
 
 Drill levels: galaxy → context (WARP) → group → page (target-lock + reader).
 Every level caps rendering at ~160 nodes while cluster-stars carry the TRUE
-hidden counts (click = drill or reveal). Esc retreats exactly one level;
-horizon beacons jump laterally between contexts; `M` toggles the minimap; a
+hidden counts (click = drill or reveal). **Esc is the universal exit, one
+layer at a time**: an open tray/panel closes first, then any open dock, then
+the reader, then the page lock, then Esc retreats exactly one level up the
+drill — always the exact reverse of the path that got you there. Horizon
+beacons jump laterally between contexts; `M` toggles the minimap; a
 radial quick-action ring (`Q/W/E/R` — Ler / Pacote / Conexões / Atualizar)
 surrounds the locked node. Keyboard-only traversal covers the full loop (Tab
 groups, arrows siblings, Enter drill/lock) with aria-live announcements.
+
+## The interface materializes from the block stack
+
+Every scope surface exists only when a template block provides it
+(`src/data/surfaces.ts` reads the root's resolved stack from
+`block_stacks.json`): no gamification package → no missions and no weather; no
+quadrants block → no quadrant map; an **empty world has no instruments at all**
+— its only interface is the **founding rite** (3+1 cards in the void, a ghost
+root, one name question). Creating a page is the **spatial seed flow**: the
+scope's curated catalog (`ui_create`, creatable-filtered — generated/system/
+rite-owned types are never offered) as cards over the world, a ghost at the
+type's home quadrant, one anchored question. Clicking a node opens a summary
+**plate at the node**; the full reader is the second, chosen step. The
+**Blocks dock** (`?dock=blocks`) is the X-ray: every resolved block with its
+origin ring, the composed interface, the identity and the derived outputs. See
+[modular-blocks.md](../../docs/references/guides/modular-blocks.md).
 
 Reading is in-world: the PageReader dock renders the full markdown
 (marked + DOMPurify) from `GET /api/pages/{id}/content` or static
@@ -48,9 +81,11 @@ First visit opens a guided tour of the world (reopen anytime with `?` or the
 guide button); every piece of system jargon — approve a change, run the
 checks, packet, freshness, evidence — carries a "?" help tip explaining what
 it means, what to look at and what happens when you act. The **Missions** tray
+exists only when the `gamification` package is attached on the root stack, and
 turns maintenance into visible progress: missions are derived from the real
-wiki state (refresh stale pages, set freshness data, add evidence, review
-changes) and clear themselves when the wiki improves. The rewards layer is the
+wiki state (refresh stale pages, reconnect with people past their contact
+cadence, fill empty required quadrants, review changes) and clear themselves
+when the wiki improves. The rewards layer is the
 kit's karma system (`scripts/wiki_score.py`) — append-only events across 8
 dimensions, badges, journey levels and context vitality, with anti-gaming
 rules and no person-vs-person ranking. The cockpit only displays it
@@ -99,9 +134,11 @@ the stems of drafts waiting at the human gate. Particles are analytic
 functions of time (deterministic, seeded, no physics state), scale down on the
 balanced tier and disable entirely on the compact tier.
 
-HUD: a top breadcrumb strip (URL-derived, registry labels), a left mission
-card with do-now rows, a right reader dock, and a bottom command bar (search
-`/`, perspective glyphs `1–4`, decision-packet tray, minimap hint). The trust
+HUD: a top breadcrumb strip (URL-derived, registry labels) with the condition
+strip (weather + honest counts, only with the gamification package), a left
+mission card with do-now rows, a right reader dock, and a bottom command bar
+(search `/`, dock destinations gated by the block stack, perspective glyphs
+`1–5`, decision-packet tray, minimap hint). The trust
 chips of the status strip filter the map in place via `?filter=`. Under
 `prefers-reduced-motion`, without WebGL or with `?visual=1`, the shell renders
 a deterministic 2D fallback that navigates the exact same topology at the same
@@ -118,20 +155,33 @@ npm run dev
 
 The app falls back to `public/sample-snapshot/` when no local operator API is
 running.
-Open `/demo/w/radar` to force the bundled sample snapshot even when a local
-operator API is available. The demo universe is sealed: every generated URL is
-prefixed with `/demo`, synthetic ids never resolve against the real snapshot,
-and mutating actions are disabled.
+Open `/demo` to force the bundled sample snapshot even when a local operator
+API is available — it is a **title screen** with two doors:
+
+- `/demo/genesis` — **start from zero**: the genesis tutorial. The world
+  starts EMPTY (the founding rite is the only interface) and each step is a
+  real pre-built snapshot under `sample-snapshot/stages/<k>/` — found the
+  root, attach the quadrant lenses, seed an area, a person, the gamification
+  package, a source. The tutorial swaps bundles; it never simulates state
+  client-side, so the interface materializing between stages is the real
+  stack gating.
+- `/demo/world` — the **full world** straight away (stage 8 equals it).
+
+The demo universe is sealed: every generated URL is prefixed with `/demo`,
+synthetic ids never resolve against the real snapshot, and mutating actions
+are disabled.
 
 ### Demo data vs your wiki
 
 `public/sample-snapshot/` is a **synthetic interface example**: a fictional
-product-team wiki (product/research/finance/example/system contexts) with
-evidence chains, stale content, draft decisions and risk flags, built to
-showcase every cockpit affordance. It is not this repository's wiki. The kit's
-own operational wiki lives in `memories/` and is what you see when the cockpit
-runs against a real checkout snapshot. The UI shows a persistent banner while
-demo data is active so the two are never confused.
+consultant's wiki (Alex Rivera — pessoal/financeiro/clientes/estudio/sistema
+contexts) generated by `python3 scripts/wiki_build_demo.py` from a real
+fixture tree (`docs/references/fixtures/demo-wiki/`) compiled by the SAME
+snapshot builder any wiki uses, exercising every template, block, lens, the
+relations module and the quadrant interior. It is not this repository's wiki.
+The kit's own operational wiki lives in `memories/` and is what you see when
+the cockpit runs against a real checkout snapshot. The UI shows a persistent
+banner while demo data is active so the two are never confused.
 
 ## Run against a local checkout
 

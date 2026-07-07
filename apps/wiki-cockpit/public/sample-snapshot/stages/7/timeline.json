@@ -1,0 +1,238 @@
+{
+  "bands": {
+    "last_30_days": 0,
+    "last_7_days": 16,
+    "older": 3,
+    "undated": 0
+  },
+  "events": [
+    {
+      "commit": "",
+      "context": "system",
+      "id": "snapshot-generated",
+      "kind": "snapshot",
+      "label": "Snapshot generated",
+      "path": "",
+      "status": "blocked",
+      "timestamp": "2026-07-07T22:55:36Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-skill-human-review-privacy",
+      "kind": "page_updated",
+      "label": "Review privacy before publishing",
+      "path": "memories/sistema/skills/skill-human-review-privacy.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-skill-agent-deep-read",
+      "kind": "page_updated",
+      "label": "Deep read a source",
+      "path": "memories/sistema/skills/skill-agent-deep-read.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-skill-agent-classify-quadrants",
+      "kind": "page_updated",
+      "label": "Classify content by quadrants",
+      "path": "memories/sistema/skills/skill-agent-classify-quadrants.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "pessoal",
+      "id": "page-root-alex-rivera",
+      "kind": "page_updated",
+      "label": "Alex Rivera",
+      "path": "memories/index.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-perspective-systems-processes",
+      "kind": "page_updated",
+      "label": "Sistemas e processos",
+      "path": "memories/sistema/perspectivas/perspective-systems-processes.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-perspective-roles-relationships",
+      "kind": "page_updated",
+      "label": "Pap\u00e9is e rela\u00e7\u00f5es",
+      "path": "memories/sistema/perspectivas/perspective-roles-relationships.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-perspective-privacy-publication",
+      "kind": "page_updated",
+      "label": "Privacidade e publica\u00e7\u00e3o",
+      "path": "memories/sistema/perspectivas/perspective-privacy-publication.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-perspective-identity-intent",
+      "kind": "page_updated",
+      "label": "Identidade e inten\u00e7\u00e3o",
+      "path": "memories/sistema/perspectivas/perspective-identity-intent.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-perspective-financial",
+      "kind": "page_updated",
+      "label": "Financeiro",
+      "path": "memories/sistema/perspectivas/perspective-financial.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-perspective-artifacts-evidence",
+      "kind": "page_updated",
+      "label": "Artefatos e evid\u00eancia",
+      "path": "memories/sistema/perspectivas/perspective-artifacts-evidence.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-hub-sistema",
+      "kind": "page_updated",
+      "label": "Sistema",
+      "path": "memories/sistema/index.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "financeiro",
+      "id": "page-hub-financeiro",
+      "kind": "page_updated",
+      "label": "Financeiro",
+      "path": "memories/financeiro/index.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "financeiro",
+      "id": "page-claim-custos-sobem",
+      "kind": "page_updated",
+      "label": "Custos de nuvem subiram 18%",
+      "path": "memories/claims/claim-custos-sobem.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-block-library-lens",
+      "kind": "page_updated",
+      "label": "Lente de quadrantes para bibliotecas",
+      "path": "memories/sistema/blocks/block-library-lens.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "financeiro",
+      "id": "page-artifact-relatorio-recon",
+      "kind": "page_updated",
+      "label": "Relat\u00f3rio de reconcilia\u00e7\u00e3o",
+      "path": "memories/artifacts/artifact-relatorio-recon.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "financeiro",
+      "id": "page-source-banco-export",
+      "kind": "page_updated",
+      "label": "Extrato do Banco",
+      "path": "memories/sources/source-banco-export.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "estudio",
+      "id": "page-person-marina-costa",
+      "kind": "page_updated",
+      "label": "Marina Costa",
+      "path": "memories/people/person-marina-costa.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-event-ingest-banco-2026-05",
+      "kind": "page_updated",
+      "label": "Ingest\u00e3o: extrato do banco (maio)",
+      "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "status": "fresh",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 2
+    }
+  ],
+  "generated_at": "2026-07-07T22:55:36Z",
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_web_timeline.v1",
+  "summary": {
+    "by_context": {
+      "estudio": 1,
+      "financeiro": 4,
+      "pessoal": 1,
+      "sistema": 12,
+      "system": 1
+    },
+    "by_kind": {
+      "page_updated": 18,
+      "snapshot": 1
+    },
+    "event_count": 19,
+    "first_at": "2026-05-04T00:00:00Z",
+    "last_at": "2026-07-07T22:55:36Z"
+  }
+}

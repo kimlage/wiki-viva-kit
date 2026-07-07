@@ -1,0 +1,33 @@
+{
+  "backlinks": [],
+  "body": "\n# Reajustar pre\u00e7o de consultoria\n\nContent that lands in its quadrant interior.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "decision-precos",
+    "page_type": "decision",
+    "stale_after_days": 30,
+    "status": "active",
+    "sub_lens": "intencao",
+    "title": "Reajustar pre\u00e7o de consultoria",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "decision-precos",
+    "page_type": "decision",
+    "path": "memories/decisions/decision-precos.md",
+    "summary": "Content that lands in its quadrant interior.",
+    "summary_truncated": false,
+    "title": "Reajustar pre\u00e7o de consultoria",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

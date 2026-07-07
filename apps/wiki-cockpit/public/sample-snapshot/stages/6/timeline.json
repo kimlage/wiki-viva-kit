@@ -1,0 +1,117 @@
+{
+  "bands": {
+    "last_30_days": 0,
+    "last_7_days": 5,
+    "older": 3,
+    "undated": 0
+  },
+  "events": [
+    {
+      "commit": "",
+      "context": "system",
+      "id": "snapshot-generated",
+      "kind": "snapshot",
+      "label": "Snapshot generated",
+      "path": "",
+      "status": "blocked",
+      "timestamp": "2026-07-07T22:55:36Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "pessoal",
+      "id": "page-root-alex-rivera",
+      "kind": "page_updated",
+      "label": "Alex Rivera",
+      "path": "memories/index.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "financeiro",
+      "id": "page-hub-financeiro",
+      "kind": "page_updated",
+      "label": "Financeiro",
+      "path": "memories/financeiro/index.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "financeiro",
+      "id": "page-claim-custos-sobem",
+      "kind": "page_updated",
+      "label": "Custos de nuvem subiram 18%",
+      "path": "memories/claims/claim-custos-sobem.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "financeiro",
+      "id": "page-artifact-relatorio-recon",
+      "kind": "page_updated",
+      "label": "Relat\u00f3rio de reconcilia\u00e7\u00e3o",
+      "path": "memories/artifacts/artifact-relatorio-recon.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "financeiro",
+      "id": "page-source-banco-export",
+      "kind": "page_updated",
+      "label": "Extrato do Banco",
+      "path": "memories/sources/source-banco-export.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "estudio",
+      "id": "page-person-marina-costa",
+      "kind": "page_updated",
+      "label": "Marina Costa",
+      "path": "memories/people/person-marina-costa.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-event-ingest-banco-2026-05",
+      "kind": "page_updated",
+      "label": "Ingest\u00e3o: extrato do banco (maio)",
+      "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "status": "fresh",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 2
+    }
+  ],
+  "generated_at": "2026-07-07T22:55:36Z",
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_web_timeline.v1",
+  "summary": {
+    "by_context": {
+      "estudio": 1,
+      "financeiro": 4,
+      "pessoal": 1,
+      "sistema": 1,
+      "system": 1
+    },
+    "by_kind": {
+      "page_updated": 7,
+      "snapshot": 1
+    },
+    "event_count": 8,
+    "first_at": "2026-05-04T00:00:00Z",
+    "last_at": "2026-07-07T22:55:36Z"
+  }
+}

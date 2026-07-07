@@ -1,0 +1,31 @@
+{
+  "backlinks": [],
+  "body": "\n# \u00cdndice de decis\u00f5es\n\nContent that lands in its quadrant interior.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "idx-decisoes",
+    "page_type": "ontology_index",
+    "stale_after_days": 30,
+    "title": "\u00cdndice de decis\u00f5es",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "idx-decisoes",
+    "page_type": "ontology_index",
+    "path": "memories/indexes/idx-decisoes.md",
+    "summary": "Content that lands in its quadrant interior.",
+    "summary_truncated": false,
+    "title": "\u00cdndice de decis\u00f5es",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

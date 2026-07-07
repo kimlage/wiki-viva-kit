@@ -15,17 +15,32 @@ countable. Nothing is decorative: **if it glows, it needs you.**
 
 The shot above is the bundled demo (synthetic sample data — no account, no
 tokens): `npm --prefix apps/wiki-cockpit install && npm --prefix
-apps/wiki-cockpit run dev`, then open `http://localhost:5173/demo/w/radar`.
+apps/wiki-cockpit run dev`, then open `http://localhost:5173/demo` — a title
+screen offers **start from zero** (the genesis tutorial: found a world in an
+empty void and watch the interface materialize block by block) or the **full
+world**.
 
-## Four perspectives, one world
+## Six perspectives, one world
 
 ![MORPH between perspectives — Radar → Atlas → Districts → Radar (demo)](docs/assets/cockpit-morph-demo.gif)
 
-The same pages, four arrangements — **Radar** (what needs attention now),
-**Atlas** (what lives where), **Districts** (everything by kind), **Trails**
-(one page's connections). Switching (keys `1–4`) MORPHs the world: every node
-keeps its identity and glides to its new place, so nothing is lost between
-views. The URL follows you — back button, refresh and sharing just work.
+The same pages, six arrangements — **Quadrants** (the AQAL home map and the
+default landing view: four fixed regions around the root entity at the center),
+**Radar** (what needs attention now), **Atlas** (what lives where),
+**Districts** (everything by kind), **Trails** (one page's connections),
+**Focus** (one page through the four lenses, key `F` with a page locked).
+Switching (keys `1–5`) MORPHs the world: every node keeps its identity and
+glides to its new place, so nothing is lost between views. The URL follows you
+— back button, refresh and sharing just work.
+
+The interface lives **in** the world, composed from the template block stack
+(see [modular blocks](docs/references/guides/modular-blocks.md)): an empty wiki
+shows only the **founding rite** (choose who the world is, name it, a ghost
+root breathes where it will be born); creating a page is a **spatial seed
+flow** (the scope's curated palette as cards, a ghost at the type's home
+quadrant, one anchored question); clicking a node opens a summary **plate at
+the node** — the full reader is a chosen second step, never the price of a
+click.
 
 The official language of this project is **English**. Generated pages and
 artifacts (cockpit, ingestion proposals) are rendered in the language configured
@@ -65,8 +80,9 @@ in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
 
 ![Approve changes — the gate dock over the 3D world (demo)](docs/assets/cockpit-gate-demo.png)
 
-Approving, adding knowledge, health checks and local Codex jobs are **docks
-inside the world** (`?dock=approve|intake|gates|codex|work`) — deep-linkable
+Approving, adding knowledge, creating pages, inspecting block stacks, source
+sync, health checks and local Codex jobs are **docks inside the world**
+(`?dock=approve|intake|gates|codex|work|source|create|blocks`) — deep-linkable
 URL state, not separate pages. The gate shows changed **content pages first**
 (title · area · state, per-file diffs on demand), repository code collapsed
 into one crate, every honesty check with its real status and output, and a

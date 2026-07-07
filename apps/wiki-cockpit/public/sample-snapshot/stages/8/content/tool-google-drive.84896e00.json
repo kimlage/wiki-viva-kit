@@ -1,0 +1,35 @@
+{
+  "backlinks": [],
+  "body": "\n# Google Drive\n\n## What it is\n\nA tool the practice uses.\n\n## Access and cost\n\n- Access pointer: OAuth via wiki-raw-drive (pointer only)\n- Cost: Workspace\n",
+  "frontmatter": {
+    "access_pointer": "OAuth via wiki-raw-drive (pointer only)",
+    "context": "sistema",
+    "cost": "Workspace",
+    "moc_parent": "memories/index.md",
+    "page_id": "tool-google-drive",
+    "page_type": "tool",
+    "platform": "Google",
+    "stale_after_days": 30,
+    "status": "active",
+    "title": "Google Drive",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "tool-google-drive",
+    "page_type": "tool",
+    "path": "memories/tools/tool-google-drive.md",
+    "summary": "A tool the practice uses. Access pointer: OAuth via wiki-raw-drive (pointer only) Cost: Workspace",
+    "summary_truncated": false,
+    "title": "Google Drive",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

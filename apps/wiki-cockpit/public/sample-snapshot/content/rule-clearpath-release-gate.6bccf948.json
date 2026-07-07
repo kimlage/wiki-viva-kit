@@ -1,0 +1,33 @@
+{
+  "backlinks": [],
+  "body": "\n# Clearpath release gate\n\nQ4 inside the company: an explicit governance rule that coordinates release decisions.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "rule-clearpath-release-gate",
+    "page_type": "operational_rule",
+    "stale_after_days": 30,
+    "sub_lens": "governanca",
+    "subject_ref": "company-clearpath-labs",
+    "title": "Clearpath release gate",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "rule-clearpath-release-gate",
+    "page_type": "operational_rule",
+    "path": "memories/empresas/clearpath/rule-release-gate.md",
+    "summary": "Q4 inside the company: an explicit governance rule that coordinates release decisions.",
+    "summary_truncated": false,
+    "title": "Clearpath release gate",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

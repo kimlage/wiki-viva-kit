@@ -1,0 +1,39 @@
+{
+  "schema_version": "wiki_web_source_entities.v1",
+  "sources": [
+    {
+      "auth": null,
+      "config_ref": "",
+      "context": "financeiro",
+      "how_to_export": "",
+      "locator": "",
+      "next_due_days": null,
+      "owner": "root-alex-rivera",
+      "path": "memories/sources/source-banco-export.md",
+      "pending_streams": 0,
+      "pipelines": [],
+      "platform": "Banco",
+      "recipe_errors": [],
+      "recipe_ok": false,
+      "schedule": null,
+      "source_id": "source-banco-export",
+      "stewards": [],
+      "streams": [],
+      "sync": {
+        "derived_from_event": true,
+        "last_event_ref": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+        "last_run_at": "2026-05-04",
+        "last_status": "ok",
+        "streams_fresh": 0,
+        "streams_total": 0
+      },
+      "title": "Extrato do Banco",
+      "updated_at": "2026-05-04"
+    }
+  ],
+  "summary": {
+    "pending": 0,
+    "total": 1,
+    "with_recipe": 0
+  }
+}

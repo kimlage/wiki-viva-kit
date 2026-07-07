@@ -1,0 +1,49 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-dashboard-atlas",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-dashboard-atlas.md",
+      "relation": "moc_parent",
+      "title": "Dashboard do Atlas"
+    }
+  ],
+  "body": "\n# Atlas Launch\n\nA project looks like movement: trails is its home view, orbits its floor. (The optional decisions index subpage is intentionally absent \u2014 the mold shows it as an obligation.)\n",
+  "frontmatter": {
+    "context": "clientes",
+    "identity": {
+      "ambient": "none",
+      "horizon_label": "title",
+      "landmark": "forge",
+      "motif": "orbits"
+    },
+    "moc_parent": "memories/clientes/product-ops/index.md",
+    "page_id": "project-atlas-launch",
+    "page_type": "project",
+    "stale_after_days": 30,
+    "status": "active",
+    "title": "Atlas Launch",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/product-ops/index.md",
+    "page_id": "project-atlas-launch",
+    "page_type": "project",
+    "path": "memories/clientes/product-ops/atlas-launch/index.md",
+    "summary": "A project looks like movement: trails is its home view, orbits its floor. (The optional decisions index subpage is intentionally absent \u2014 the mold shows it as an obligation.)",
+    "summary_truncated": false,
+    "title": "Atlas Launch",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

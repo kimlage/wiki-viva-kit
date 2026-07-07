@@ -1,8 +1,9 @@
 ---
 page_id: perspective-roles-relationships
 page_type: perspective
-title: "Roles and relationships perspective"
+title: "Culture and relations perspective"
 aliases:
+  - Roles and relationships perspective
   - Roles lens
   - Relationship lens
 tags:
@@ -45,7 +46,7 @@ related_pages:
   - memories/system/perspectives/index.md
 ---
 
-# Roles and relationships perspective
+# Culture and relations perspective
 
 ## Concern
 

@@ -1,0 +1,27 @@
+{
+  "edges": [],
+  "nodes": [
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "root-alex-rivera",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 0,
+        "source_ref_count": 0
+      },
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Alex Rivera",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    }
+  ],
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_web_graph.v1",
+  "wanted_pages": {}
+}

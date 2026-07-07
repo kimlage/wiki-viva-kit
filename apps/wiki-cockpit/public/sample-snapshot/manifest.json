@@ -6,6 +6,8 @@
     "graph.json",
     "pages.json",
     "sources.json",
+    "source_entities.json",
+    "templates.json",
     "actions.json",
     "decisions.json",
     "freshness.json",
@@ -15,19 +17,22 @@
     "diff.json",
     "ingestion.json",
     "quality.json",
-    "commands.json"
+    "commands.json",
+    "score.json",
+    "blocks.json",
+    "block_stacks.json"
   ],
-  "generated_at": "2026-07-01T00:00:00Z",
+  "generated_at": "2026-07-07T22:55:31Z",
   "mode": "static",
   "repo": {
     "branch_prefix": "wiki/",
     "default_branch": "main",
-    "default_context": "system",
+    "default_context": "pessoal",
     "karma_enabled": true,
     "language": "en",
     "memory_root": "memories",
-    "repo_id": "wiki-viva-kit-sample"
+    "repo_id": "wiki-viva-demo"
   },
   "schema_version": "wiki_web_snapshot.v1",
-  "source_commit": null
+  "source_commit": "84bdabf5effd823ca1e8f6a885f2f494fe757287"
 }

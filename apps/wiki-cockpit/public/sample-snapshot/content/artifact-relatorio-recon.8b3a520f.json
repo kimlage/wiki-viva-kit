@@ -1,0 +1,47 @@
+{
+  "backlinks": [],
+  "body": "\n# Relat\u00f3rio de reconcilia\u00e7\u00e3o\n\nContent that lands in its quadrant interior.\n",
+  "frontmatter": {
+    "context": "financeiro",
+    "moc_parent": "memories/financeiro/index.md",
+    "page_id": "artifact-relatorio-recon",
+    "page_type": "artifact",
+    "source_refs": [
+      "source-banco-export"
+    ],
+    "stale_after_days": 30,
+    "sub_lens": "producao",
+    "title": "Relat\u00f3rio de reconcilia\u00e7\u00e3o",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "financeiro",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/financeiro/index.md",
+    "page_id": "artifact-relatorio-recon",
+    "page_type": "artifact",
+    "path": "memories/artifacts/artifact-relatorio-recon.md",
+    "summary": "Content that lands in its quadrant interior.",
+    "summary_truncated": false,
+    "title": "Relat\u00f3rio de reconcilia\u00e7\u00e3o",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "stale",
+      "page_id": "source-banco-export",
+      "page_type": "source",
+      "path": "memories/sources/source-banco-export.md",
+      "ref": "source-banco-export",
+      "resolved": true,
+      "title": "Extrato do Banco"
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "badges": [],
+  "by_dimension": {
+    "acao": 0.0,
+    "aprendizado": 0.0,
+    "clareza": 0.0,
+    "conexao": 0.0,
+    "confiabilidade": 0.0,
+    "cuidado": 0.0,
+    "inspiracao": 0.0,
+    "stewardship": 0.0
+  },
+  "enabled": true,
+  "event_count": 0,
+  "level": "Explorador",
+  "level_labels": {
+    "en": "Explorer",
+    "pt": "Explorador"
+  },
+  "schema_version": "wiki_web_score.v1",
+  "total": 0.0,
+  "vitality": {
+    "estudio": {
+      "context": "estudio",
+      "eventos": 0,
+      "indicadores": {
+        "acoes_com_resultado": 0.0,
+        "aprovacoes_no_sla": 0.0,
+        "fontes_recentes": 0.0,
+        "insights_revisados": 0.0,
+        "paginas_atualizadas": 0.0,
+        "paginas_orfas": 0.0,
+        "pendencias": 1.0,
+        "responsabilidades_sem_dono": 0.0,
+        "riscos_privacidade_resolvidos": 0.0
+      },
+      "indice_vitalidade": 0.0,
+      "participacao_distribuida": 0,
+      "participantes": [],
+      "score_aggregado": 0.0
+    },
+    "financeiro": {
+      "context": "financeiro",
+      "eventos": 0,
+      "indicadores": {
+        "acoes_com_resultado": 0.0,
+        "aprovacoes_no_sla": 0.0,
+        "fontes_recentes": 0.0,
+        "insights_revisados": 0.0,
+        "paginas_atualizadas": 3.0,
+        "paginas_orfas": 0.0,
+        "pendencias": 1.0,
+        "responsabilidades_sem_dono": 0.0,
+        "riscos_privacidade_resolvidos": 0.0
+      },
+      "indice_vitalidade": 12.9,
+      "participacao_distribuida": 0,
+      "participantes": [],
+      "score_aggregado": 0.0
+    },
+    "pessoal": {
+      "context": "pessoal",
+      "eventos": 0,
+      "indicadores": {
+        "acoes_com_resultado": 0.0,
+        "aprovacoes_no_sla": 0.0,
+        "fontes_recentes": 0.0,
+        "insights_revisados": 0.0,
+        "paginas_atualizadas": 1.0,
+        "paginas_orfas": 1.0,
+        "pendencias": 0.0,
+        "responsabilidades_sem_dono": 0.0,
+        "riscos_privacidade_resolvidos": 0.0
+      },
+      "indice_vitalidade": 0.0,
+      "participacao_distribuida": 0,
+      "participantes": [],
+      "score_aggregado": 0.0
+    },
+    "sistema": {
+      "context": "sistema",
+      "eventos": 0,
+      "indicadores": {
+        "acoes_com_resultado": 0.0,
+        "aprovacoes_no_sla": 0.0,
+        "fontes_recentes": 0.0,
+        "insights_revisados": 0.0,
+        "paginas_atualizadas": 1.0,
+        "paginas_orfas": 0.0,
+        "pendencias": 0.0,
+        "responsabilidades_sem_dono": 0.0,
+        "riscos_privacidade_resolvidos": 0.0
+      },
+      "indice_vitalidade": 8.0,
+      "participacao_distribuida": 0,
+      "participantes": [],
+      "score_aggregado": 0.0
+    }
+  }
+}

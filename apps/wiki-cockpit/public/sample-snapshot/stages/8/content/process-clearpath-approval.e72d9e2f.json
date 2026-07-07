@@ -1,0 +1,33 @@
+{
+  "backlinks": [],
+  "body": "\n# Clearpath approval process\n\nQ4 inside the company: repeatable coordination.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "process-clearpath-approval",
+    "page_type": "process",
+    "stale_after_days": 30,
+    "sub_lens": "processos",
+    "subject_ref": "company-clearpath-labs",
+    "title": "Clearpath approval process",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "process-clearpath-approval",
+    "page_type": "process",
+    "path": "memories/empresas/clearpath/process-clearpath-approval.md",
+    "summary": "Q4 inside the company: repeatable coordination.",
+    "summary_truncated": false,
+    "title": "Clearpath approval process",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

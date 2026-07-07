@@ -1,0 +1,24 @@
+{
+  "schema_version": "wiki_web_sources.v1",
+  "sources": [
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "stale",
+      "id": "source-banco-export",
+      "moc_children_count": 0,
+      "moc_parent": "memories/financeiro/index.md",
+      "page_type": "source",
+      "path": "memories/sources/source-banco-export.md",
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "",
+      "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+      "summary_truncated": false,
+      "title": "Extrato do Banco",
+      "updated_at": "2026-05-04",
+      "visibility": "private_self"
+    }
+  ]
+}

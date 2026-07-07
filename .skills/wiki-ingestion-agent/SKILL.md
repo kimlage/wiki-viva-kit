@@ -30,7 +30,11 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    resolve or record every conflict and ambiguity; fill the event's
    `consolidated_into` (each target page references the source in
    `source_refs`); every new action/claim/decision/meeting/person/project/source
-   page declares the hub it belongs under in `moc_parent`; keep
+   page declares the hub it belongs under in `moc_parent`; keep its
+   quadrant placement relative to the page's active center (`subject_ref`,
+   `subject_role`, `parent_projection` for nested roots/templates, and
+   `projection_overrides` for exceptions) instead of flattening everything
+   against the wiki root; run
    [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py) `--check`,
    [scripts/wiki_audit.py](../../scripts/wiki_audit.py) `--check` and
    [scripts/wiki_quality_report.py](../../scripts/wiki_quality_report.py)
