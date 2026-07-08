@@ -33,6 +33,12 @@ perspective pages (e.g. `quadrants.v1` maps q1→`perspective-identity-intent`);
 the lens content lives on those pages, human-authored and PR-gated — the block
 never duplicates it.
 
+`ui_regions` is the interface block for practical region grouping. It turns the
+same interpreted regions into work groups: region cards, attention rails, type
+shelves, hidden histograms and action hints. The visual layer is still a fixed
+vocabulary: templates choose known primitive packs (`region_operations`,
+`evidence_first`, `review_first`, `quiet_structure`), never arbitrary CSS.
+
 The vocabulary is **fixed in code** — a new kind, surface, mission provider,
 intake form, score loop, scene layout/overlay or identity landmark needs code
 in `wiki_core/template_blocks.py`, never just YAML. The `vocabulary:` section
@@ -187,6 +193,21 @@ event that links the person, never a new store), `dates:` within 30 days, and
 A type's `subpages:` with `required: true` that are absent become
 `template_conformity` missions (and feed the create surface's
 `obligations` list).
+
+### Region groups and visual grammar
+
+When a quadrant-capable anchor also has `wiki.block.ui_regions.v1` (or receives
+it through a package), the compiler emits:
+
+- `visual_grammar`: the resolved primitive packs and slots for the anchor.
+- `derived.region_groups`: one deterministic work-group record per quadrant
+  and, when populated, the honest core group.
+
+Each region group carries practical counts (`total`, `shown`, `hidden`,
+`stale`, `raw`, `unsourced`, `open_actions`, `source_backed`), `type_mix`,
+`attention_hints`, `action_hints`, member IDs and the resolved visual primitive
+slots. The cockpit uses this payload in the quadrant compass, rim cards,
+fallback list and Blocks dock. It does not infer actions from styling.
 
 ## 7. How the interface materializes from the stack
 

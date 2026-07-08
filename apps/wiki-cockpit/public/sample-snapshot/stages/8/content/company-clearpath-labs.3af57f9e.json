@@ -99,6 +99,36 @@
       "path": "memories/empresas/clearpath/pulse-product.md",
       "relation": "moc_parent",
       "title": "Pulse Product"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-06",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-06.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 06"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-07",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-07.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 07"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-map-08",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-08.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 08"
     }
   ],
   "body": "\n# Clearpath Labs\n\nA fictional company root below Alex. From Alex's map it is Q4/system; when selected, the company becomes the center and its own intents, outputs, relations and systems split around it.\n",

@@ -6,6 +6,7 @@ import { Html } from "@react-three/drei";
 import { useMemo } from "react";
 import { t } from "../../data/i18n";
 import { contextStyle, trustColor, worldGroupLabel } from "../../data/presentation";
+import { primitiveSlotClass, resolvePrimitiveForSlot } from "../../data/visualPrimitives";
 import type { LayoutNode } from "../layout";
 import type { WorldGroup, WorldLayout } from "../perspectives";
 
@@ -130,6 +131,11 @@ export function GroupRimPills({
     <group>
       {groups.map((group) => {
         const accent = group.kind === "context" ? contextStyle(group.labelKey).accent : "#4f8fb5";
+        const region = group.region;
+        const primitive = resolvePrimitiveForSlot(null, region, "region.card");
+        const topType = region?.type_mix?.[0];
+        const attention = region?.attention_hints?.slice(0, 3) ?? [];
+        const action = region?.action_hints?.[0];
         // An empty facet lens is an honest absence — a dimmed, non-interactive
         // "no X lens registered" wedge rather than a clickable pill over nothing.
         const emptyFacet = group.kind === "facet" && group.count === 0;
@@ -140,16 +146,41 @@ export function GroupRimPills({
           <Html key={`rim-${group.key}`} position={group.anchor} center distanceFactor={5.2} wrapperClass="sceneHtmlLabel" className="radarRimPill" zIndexRange={[40, 0]}>
             <button
               style={{ borderColor: emptyFacet ? "#3a4652" : accent, pointerEvents: emptyFacet ? "none" : "auto" }}
-              className={emptyFacet ? "emptyFacet" : focusedGroupKey === group.key ? "focused" : undefined}
+              className={[
+                emptyFacet ? "emptyFacet" : "",
+                focusedGroupKey === group.key ? "focused" : "",
+                region ? "regionRimCard" : "",
+                primitiveSlotClass(region, "region.card")
+              ].filter(Boolean).join(" ")}
               onClick={(event) => {
                 event.stopPropagation();
                 if (!emptyFacet) onGroupSelect(group);
               }}
               disabled={emptyFacet}
+              title={region ? primitive.purpose : undefined}
               type="button"
             >
-              <strong>{label}</strong>
-              {!emptyFacet && <small>{group.shown < group.count ? `${group.shown}/${group.count}` : group.count}</small>}
+              <span className="rimHeader">
+                <strong>{label}</strong>
+                {!emptyFacet && <small>{group.shown < group.count ? `${group.shown}/${group.count}` : group.count}</small>}
+              </span>
+              {region && (
+                <>
+                  <span className="rimTypeMix">
+                    {topType ? `${topType.family} ${topType.count}` : region.summary.total === 0 ? t("region.empty") : t("region.mixed")}
+                  </span>
+                  {attention.length > 0 ? (
+                    <span className="rimAttentionRail">
+                      {attention.map((hint) => (
+                        <i key={hint.kind} className={`attention-${hint.kind}`}>{t(`region.attention.${hint.kind}`, { n: hint.count })}</i>
+                      ))}
+                    </span>
+                  ) : (
+                    <span className="rimAttentionRail calm">{t("region.healthy")}</span>
+                  )}
+                  {action && <em className="rimAction">{t(action.label_key, { n: action.count })}</em>}
+                </>
+              )}
             </button>
           </Html>
         );

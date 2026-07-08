@@ -22,7 +22,7 @@
     "blocks.json",
     "block_stacks.json"
   ],
-  "generated_at": "2026-07-07T22:55:31Z",
+  "generated_at": "2026-07-08T00:45:45Z",
   "mode": "static",
   "repo": {
     "branch_prefix": "wiki/",
@@ -34,5 +34,5 @@
     "repo_id": "wiki-viva-demo"
   },
   "schema_version": "wiki_web_snapshot.v1",
-  "source_commit": "84bdabf5effd823ca1e8f6a885f2f494fe757287"
+  "source_commit": "71c845fb84fd29bfec46d214f1a8622dbfa24155"
 }

@@ -1,8 +1,8 @@
 {
   "bands": {
     "last_30_days": 0,
-    "last_7_days": 62,
-    "older": 3,
+    "last_7_days": 74,
+    "older": 9,
     "undated": 0
   },
   "events": [
@@ -14,7 +14,7 @@
       "label": "Snapshot generated",
       "path": "",
       "status": "blocked",
-      "timestamp": "2026-07-07T22:55:37Z",
+      "timestamp": "2026-07-08T00:45:52Z",
       "weight": 1
     },
     {
@@ -46,6 +46,28 @@
       "kind": "page_updated",
       "label": "App do Banco",
       "path": "memories/tools/tool-banco-app.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-source-support-tickets",
+      "kind": "page_updated",
+      "label": "Support tickets export",
+      "path": "memories/sources/source-support-tickets.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-source-product-analytics",
+      "kind": "page_updated",
+      "label": "Product analytics export",
+      "path": "memories/sources/source-product-analytics.md",
       "status": "fresh",
       "timestamp": "2026-07-03T00:00:00Z",
       "weight": 2
@@ -482,6 +504,17 @@
     {
       "commit": "",
       "context": "sistema",
+      "id": "page-event-ingest-product-analytics-2026-07",
+      "kind": "page_updated",
+      "label": "Ingest\u00e3o: product analytics",
+      "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
       "id": "page-event-ingest-chat-2026-07",
       "kind": "page_updated",
       "label": "Ingest\u00e3o: export do chat",
@@ -581,6 +614,28 @@
     {
       "commit": "",
       "context": "clientes",
+      "id": "page-claim-region-grouping-needed",
+      "kind": "page_updated",
+      "label": "Dense regions need summaries",
+      "path": "memories/claims/claim-region-grouping-needed.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-claim-region-evidence-ready",
+      "kind": "page_updated",
+      "label": "Evidence shelf clarifies source-backed work",
+      "path": "memories/claims/claim-region-evidence-ready.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
       "id": "page-claim-pulse-activation",
       "kind": "page_updated",
       "label": "Pulse improves activation",
@@ -647,6 +702,61 @@
     {
       "commit": "",
       "context": "clientes",
+      "id": "page-artifact-region-map-07",
+      "kind": "page_updated",
+      "label": "Region map sketch 07",
+      "path": "memories/artifacts/artifact-region-map-07.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-artifact-region-map-06",
+      "kind": "page_updated",
+      "label": "Region map sketch 06",
+      "path": "memories/artifacts/artifact-region-map-06.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-artifact-region-map-04",
+      "kind": "page_updated",
+      "label": "Region map sketch 04",
+      "path": "memories/artifacts/artifact-region-map-04.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-artifact-region-map-02",
+      "kind": "page_updated",
+      "label": "Region map sketch 02",
+      "path": "memories/artifacts/artifact-region-map-02.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-artifact-region-map-01",
+      "kind": "page_updated",
+      "label": "Region map sketch 01",
+      "path": "memories/artifacts/artifact-region-map-01.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
       "id": "page-artifact-dashboard-atlas",
       "kind": "page_updated",
       "label": "Dashboard do Atlas",
@@ -673,6 +783,28 @@
       "kind": "page_updated",
       "label": "Benchmark de safety evals",
       "path": "memories/artifacts/artifact-benchmark-safety.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-action-region-review-evidence",
+      "kind": "page_updated",
+      "label": "Review region evidence",
+      "path": "memories/actions/action-region-review-evidence.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-action-region-clean-unsourced",
+      "kind": "page_updated",
+      "label": "Clean unsourced region claims",
+      "path": "memories/actions/action-region-clean-unsourced.md",
       "status": "fresh",
       "timestamp": "2026-07-03T00:00:00Z",
       "weight": 2
@@ -713,6 +845,17 @@
     {
       "commit": "",
       "context": "sistema",
+      "id": "page-event-ingest-support-tickets-2026-06",
+      "kind": "page_updated",
+      "label": "Ingest\u00e3o: support tickets",
+      "path": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md",
+      "status": "fresh",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "sistema",
       "id": "page-event-ingest-banco-2026-05",
       "kind": "page_updated",
       "label": "Ingest\u00e3o: extrato do banco (maio)",
@@ -720,26 +863,81 @@
       "status": "fresh",
       "timestamp": "2026-05-04T00:00:00Z",
       "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-claim-region-hidden-work",
+      "kind": "page_updated",
+      "label": "Hidden clusters can hide work",
+      "path": "memories/claims/claim-region-hidden-work.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-artifact-region-map-08",
+      "kind": "page_updated",
+      "label": "Region map sketch 08",
+      "path": "memories/artifacts/artifact-region-map-08.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-artifact-region-map-05",
+      "kind": "page_updated",
+      "label": "Region map sketch 05",
+      "path": "memories/artifacts/artifact-region-map-05.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-artifact-region-map-03",
+      "kind": "page_updated",
+      "label": "Region map sketch 03",
+      "path": "memories/artifacts/artifact-region-map-03.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-action-region-sync-support",
+      "kind": "page_updated",
+      "label": "Refresh support ticket source",
+      "path": "memories/actions/action-region-sync-support.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
     }
   ],
-  "generated_at": "2026-07-07T22:55:37Z",
+  "generated_at": "2026-07-08T00:45:52Z",
   "repo_id": "wiki-viva-demo",
   "schema_version": "wiki_web_timeline.v1",
   "summary": {
     "by_context": {
-      "clientes": 26,
+      "clientes": 42,
       "estudio": 5,
       "financeiro": 7,
       "pessoal": 6,
-      "sistema": 20,
+      "sistema": 22,
       "system": 1
     },
     "by_kind": {
-      "page_updated": 64,
+      "page_updated": 82,
       "snapshot": 1
     },
-    "event_count": 65,
+    "event_count": 83,
     "first_at": "2026-05-04T00:00:00Z",
-    "last_at": "2026-07-07T22:55:37Z"
+    "last_at": "2026-07-08T00:45:52Z"
   }
 }

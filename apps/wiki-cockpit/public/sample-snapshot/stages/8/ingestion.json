@@ -47,6 +47,38 @@
       "page_type": "ingestion_event",
       "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
       "source_refs": []
+    },
+    {
+      "candidate_counts": {
+        "actions": 0,
+        "claims": 0,
+        "decisions": 0
+      },
+      "candidate_total": 0,
+      "candidate_units_per_target": 0.0,
+      "closed": false,
+      "consolidated_into": [],
+      "consolidated_targets_count": 0,
+      "event_id": "event-ingest-product-analytics-2026-07",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+      "source_refs": []
+    },
+    {
+      "candidate_counts": {
+        "actions": 0,
+        "claims": 0,
+        "decisions": 0
+      },
+      "candidate_total": 0,
+      "candidate_units_per_target": 0.0,
+      "closed": false,
+      "consolidated_into": [],
+      "consolidated_targets_count": 0,
+      "event_id": "event-ingest-support-tickets-2026-06",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md",
+      "source_refs": []
     }
   ],
   "ingested_sources": [],
@@ -54,7 +86,9 @@
     "events_without_consolidated_into": [
       "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
       "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
-      "memories/system/ingestion/events/event-ingest-chat-2026-07.md"
+      "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
+      "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+      "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md"
     ],
     "ingested_sources_without_closed_event": []
   },
@@ -68,8 +102,8 @@
     "candidate_units_per_target": 0.0,
     "consolidated_targets": 0,
     "events_closed": 0,
-    "events_total": 3,
-    "events_without_consolidated_into": 3,
+    "events_total": 5,
+    "events_without_consolidated_into": 5,
     "ingested_sources": 0,
     "ingested_sources_without_closed_event": 0
   }

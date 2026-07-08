@@ -1,8 +1,8 @@
 {
   "by_context": {
     "clientes": {
-      "fresh": 26,
-      "stale": 0,
+      "fresh": 37,
+      "stale": 5,
       "unknown": 0
     },
     "estudio": {
@@ -21,13 +21,38 @@
       "unknown": 0
     },
     "sistema": {
-      "fresh": 20,
+      "fresh": 22,
       "stale": 0,
       "unknown": 0
     }
   },
   "schema_version": "wiki_web_freshness.v1",
   "stale_pages": [
+    {
+      "context": "clientes",
+      "path": "memories/actions/action-region-sync-support.md",
+      "title": "Refresh support ticket source"
+    },
+    {
+      "context": "clientes",
+      "path": "memories/artifacts/artifact-region-map-03.md",
+      "title": "Region map sketch 03"
+    },
+    {
+      "context": "clientes",
+      "path": "memories/artifacts/artifact-region-map-05.md",
+      "title": "Region map sketch 05"
+    },
+    {
+      "context": "clientes",
+      "path": "memories/artifacts/artifact-region-map-08.md",
+      "title": "Region map sketch 08"
+    },
+    {
+      "context": "clientes",
+      "path": "memories/claims/claim-region-hidden-work.md",
+      "title": "Hidden clusters can hide work"
+    },
     {
       "context": "estudio",
       "path": "memories/people/person-marina-costa.md",
@@ -40,8 +65,8 @@
     }
   ],
   "summary": {
-    "fresh": 62,
-    "stale": 2,
+    "fresh": 75,
+    "stale": 7,
     "unknown": 0
   }
 }

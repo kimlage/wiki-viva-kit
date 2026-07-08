@@ -15,6 +15,27 @@
       "weight": 1
     },
     {
+      "source": "action-region-clean-unsourced",
+      "status": "valid",
+      "target": "hub-clientes",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "action-region-review-evidence",
+      "status": "valid",
+      "target": "hub-clientes",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "action-region-sync-support",
+      "status": "valid",
+      "target": "hub-clientes",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
       "source": "artifact-benchmark-safety",
       "status": "valid",
       "target": "library-ai-safety",
@@ -32,6 +53,62 @@
       "source": "artifact-dashboard-atlas",
       "status": "valid",
       "target": "project-atlas-launch",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "artifact-region-map-01",
+      "status": "valid",
+      "target": "hub-clientes",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "artifact-region-map-02",
+      "status": "valid",
+      "target": "hub-clientes",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "artifact-region-map-03",
+      "status": "valid",
+      "target": "hub-clientes",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "artifact-region-map-04",
+      "status": "valid",
+      "target": "holon-product-ops",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "artifact-region-map-05",
+      "status": "valid",
+      "target": "holon-product-ops",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "artifact-region-map-06",
+      "status": "valid",
+      "target": "company-clearpath-labs",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "artifact-region-map-07",
+      "status": "valid",
+      "target": "company-clearpath-labs",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "artifact-region-map-08",
+      "status": "valid",
+      "target": "company-clearpath-labs",
       "type": "moc_parent",
       "weight": 2
     },
@@ -74,6 +151,27 @@
       "source": "claim-pulse-activation",
       "status": "valid",
       "target": "product-clearpath-pulse",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "claim-region-evidence-ready",
+      "status": "valid",
+      "target": "holon-product-ops",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "claim-region-grouping-needed",
+      "status": "valid",
+      "target": "hub-clientes",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "claim-region-hidden-work",
+      "status": "valid",
+      "target": "hub-clientes",
       "type": "moc_parent",
       "weight": 2
     },
@@ -142,6 +240,20 @@
     },
     {
       "source": "event-ingest-chat-2026-07",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "event-ingest-product-analytics-2026-07",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "event-ingest-support-tickets-2026-06",
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
@@ -449,6 +561,34 @@
       "weight": 2
     },
     {
+      "source": "source-product-analytics",
+      "status": "valid",
+      "target": "hub-clientes",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "source-product-analytics",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "source_ref",
+      "weight": 1
+    },
+    {
+      "source": "source-support-tickets",
+      "status": "valid",
+      "target": "hub-clientes",
+      "type": "moc_parent",
+      "weight": 2
+    },
+    {
+      "source": "source-support-tickets",
+      "status": "valid",
+      "target": "root-alex-rivera",
+      "type": "source_ref",
+      "weight": 1
+    },
+    {
       "source": "tool-banco-app",
       "status": "valid",
       "target": "root-alex-rivera",
@@ -488,6 +628,63 @@
       "status": "open",
       "title": "Enviar proposta para Caio",
       "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "action-region-clean-unsourced",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "page_type": "action",
+      "path": "memories/actions/action-region-clean-unsourced.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "open",
+      "title": "Clean unsourced region claims",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "action-region-review-evidence",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "page_type": "action",
+      "path": "memories/actions/action-region-review-evidence.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "open",
+      "title": "Review region evidence",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "id": "action-region-sync-support",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "page_type": "action",
+      "path": "memories/actions/action-region-sync-support.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "open",
+      "title": "Refresh support ticket source",
+      "updated_at": "2026-05-04",
       "visibility": "private_self"
     },
     {
@@ -545,6 +742,158 @@
       "status": "",
       "title": "Dashboard do Atlas",
       "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "artifact-region-map-01",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-01.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Region map sketch 01",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "artifact-region-map-02",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-02.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Region map sketch 02",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "id": "artifact-region-map-03",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-03.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Region map sketch 03",
+      "updated_at": "2026-05-04",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "artifact-region-map-04",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-04.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Region map sketch 04",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "id": "artifact-region-map-05",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-05.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Region map sketch 05",
+      "updated_at": "2026-05-04",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "artifact-region-map-06",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-06.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Region map sketch 06",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "artifact-region-map-07",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-07.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Region map sketch 07",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "id": "artifact-region-map-08",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-08.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Region map sketch 08",
+      "updated_at": "2026-05-04",
       "visibility": "private_self"
     },
     {
@@ -663,6 +1012,63 @@
     },
     {
       "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "claim-region-evidence-ready",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-evidence-ready.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Evidence shelf clarifies source-backed work",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "claim-region-grouping-needed",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-grouping-needed.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Dense regions need summaries",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "id": "claim-region-hidden-work",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-hidden-work.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Hidden clusters can hide work",
+      "updated_at": "2026-05-04",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
       "context": "estudio",
       "freshness_state": "fresh",
       "id": "claim-scaling-laws",
@@ -705,7 +1111,7 @@
       "freshness_state": "fresh",
       "id": "company-clearpath-labs",
       "metrics": {
-        "inbound_links": 10,
+        "inbound_links": 13,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -853,11 +1259,49 @@
     },
     {
       "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "event-ingest-product-analytics-2026-07",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+      "risk_flags": [],
+      "stale_after_days": "365",
+      "status": "",
+      "title": "Ingest\u00e3o: product analytics",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "event-ingest-support-tickets-2026-06",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 1,
+        "source_ref_count": 1
+      },
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md",
+      "risk_flags": [],
+      "stale_after_days": "365",
+      "status": "",
+      "title": "Ingest\u00e3o: support tickets",
+      "updated_at": "2026-05-04",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "holon-product-ops",
       "metrics": {
-        "inbound_links": 5,
+        "inbound_links": 8,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -876,7 +1320,7 @@
       "freshness_state": "fresh",
       "id": "hub-clientes",
       "metrics": {
-        "inbound_links": 7,
+        "inbound_links": 17,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -1446,7 +1890,7 @@
       "freshness_state": "fresh",
       "id": "root-alex-rivera",
       "metrics": {
-        "inbound_links": 18,
+        "inbound_links": 22,
         "outbound_links": 0,
         "source_ref_count": 0
       },
@@ -1627,6 +2071,44 @@
       "stale_after_days": "30",
       "status": "",
       "title": "Clearpath customer interviews",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-product-analytics",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 2,
+        "source_ref_count": 0
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Product analytics export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-support-tickets",
+      "metrics": {
+        "inbound_links": 0,
+        "outbound_links": 2,
+        "source_ref_count": 0
+      },
+      "page_type": "source",
+      "path": "memories/sources/source-support-tickets.md",
+      "risk_flags": [],
+      "stale_after_days": "30",
+      "status": "",
+      "title": "Support tickets export",
       "updated_at": "2026-07-03",
       "visibility": "private_self"
     },

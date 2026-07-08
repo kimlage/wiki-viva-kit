@@ -103,6 +103,188 @@
           "q3": {},
           "q4": {}
         },
+        "region_groups": {
+          "anchor": "hub-financeiro",
+          "groups": [
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:intencao",
+              "kind": "quadrant",
+              "label_key": "intencao",
+              "member_ids": [
+                "claim-custos-sobem"
+              ],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 1,
+                "source_backed": 1,
+                "stale": 0,
+                "total": 1,
+                "unsourced": 0
+              },
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "decision",
+                  "page_type": "claim"
+                }
+              ],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:pratica",
+              "kind": "quadrant",
+              "label_key": "pratica",
+              "member_ids": [
+                "artifact-relatorio-recon"
+              ],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 1,
+                "source_backed": 1,
+                "stale": 0,
+                "total": 1,
+                "unsourced": 0
+              },
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "content",
+                  "page_type": "artifact"
+                }
+              ],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:relacoes",
+              "kind": "quadrant",
+              "label_key": "relacoes",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:sistemas",
+              "kind": "quadrant",
+              "label_key": "sistemas",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            }
+          ],
+          "schema_version": "wiki.region_groups.v1"
+        },
         "relations": {
           "due": [],
           "open_commitments": [],
@@ -153,6 +335,10 @@
           ],
           "quiet": false,
           "weather_contrib": true
+        },
+        "regions": {
+          "active": true,
+          "visual_pack": "region_operations"
         },
         "score": {
           "loops": [
@@ -265,7 +451,90 @@
           "origin": "template:context_hub",
           "scope": "self"
         }
-      ]
+      ],
+      "visual_grammar": {
+        "allowed_packs": [
+          "evidence_first",
+          "quiet_structure",
+          "region_operations",
+          "review_first"
+        ],
+        "default_pack": "region_operations",
+        "packs": {
+          "evidence_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "action_lane",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "reader.badge": "source_badge",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "quiet_structure": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "center_badge",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "scope_chip",
+              "region.rail": "core_debt_meter",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "region_operations": {
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "review_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "review_halo",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "review_halo",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          }
+        },
+        "primitive_purpose": {
+          "action_lane": "separate work items from context",
+          "attention_rail": "filter attention inside the active region",
+          "bridge_count": "explain cross-region dependencies",
+          "center_badge": "show the active anchor center",
+          "core_debt_meter": "flag classification debt in the core ring",
+          "empty_region_affordance": "explain required absences and valid creation paths",
+          "hidden_histogram": "describe hidden work behind render limits",
+          "legend_key": "explain the resolved visual grammar",
+          "region_card": "summarize region size and purpose",
+          "region_work_card": "show composition, attention and next actions",
+          "review_halo": "show pending proposal or approval review",
+          "risk_notch": "show risk without flooding the region",
+          "scope_chip": "show the active center, region or filter scope",
+          "source_badge": "mark raw, synced and consolidated evidence",
+          "type_shelf": "show why a region is dense by page family"
+        },
+        "schema_version": "wiki.visual_grammar.v1"
+      }
     },
     "root-alex-rivera": {
       "derived": {
@@ -350,11 +619,204 @@
             ]
           }
         },
+        "region_groups": {
+          "anchor": "root-alex-rivera",
+          "groups": [
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:intencao",
+              "kind": "quadrant",
+              "label_key": "intencao",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:pratica",
+              "kind": "quadrant",
+              "label_key": "pratica",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [
+                {
+                  "count": 1,
+                  "kind": "refresh",
+                  "label_key": "region.action.refresh"
+                }
+              ],
+              "attention_hints": [
+                {
+                  "count": 1,
+                  "kind": "stale"
+                }
+              ],
+              "id": "quadrant:relacoes",
+              "kind": "quadrant",
+              "label_key": "relacoes",
+              "member_ids": [
+                "person-marina-costa"
+              ],
+              "purpose": "verify",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 1,
+                "source_backed": 0,
+                "stale": 1,
+                "total": 1,
+                "unsourced": 0
+              },
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "person",
+                  "page_type": "person"
+                }
+              ],
+              "visual": {
+                "emphasis": [
+                  "attention"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:sistemas",
+              "kind": "quadrant",
+              "label_key": "sistemas",
+              "member_ids": [
+                "hub-financeiro"
+              ],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 1,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 1,
+                "unsourced": 0
+              },
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "hub",
+                  "page_type": "context_hub"
+                }
+              ],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "region_operations",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            }
+          ],
+          "schema_version": "wiki.region_groups.v1"
+        },
         "relations": {
           "due": [
             {
               "last_interaction": "2026-05-04",
-              "overdue_days": 34,
+              "overdue_days": 35,
               "person": "person-marina-costa",
               "relationship_kind": "mentor",
               "title": "Marina Costa"
@@ -414,6 +876,10 @@
           ],
           "quiet": false,
           "weather_contrib": true
+        },
+        "regions": {
+          "active": true,
+          "visual_pack": "region_operations"
         },
         "score": {
           "loops": [],
@@ -517,7 +983,90 @@
           "origin": "page",
           "scope": "descendants"
         }
-      ]
+      ],
+      "visual_grammar": {
+        "allowed_packs": [
+          "evidence_first",
+          "quiet_structure",
+          "region_operations",
+          "review_first"
+        ],
+        "default_pack": "region_operations",
+        "packs": {
+          "evidence_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "action_lane",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "reader.badge": "source_badge",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "quiet_structure": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "center_badge",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "scope_chip",
+              "region.rail": "core_debt_meter",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "region_operations": {
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "review_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "review_halo",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "review_halo",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          }
+        },
+        "primitive_purpose": {
+          "action_lane": "separate work items from context",
+          "attention_rail": "filter attention inside the active region",
+          "bridge_count": "explain cross-region dependencies",
+          "center_badge": "show the active anchor center",
+          "core_debt_meter": "flag classification debt in the core ring",
+          "empty_region_affordance": "explain required absences and valid creation paths",
+          "hidden_histogram": "describe hidden work behind render limits",
+          "legend_key": "explain the resolved visual grammar",
+          "region_card": "summarize region size and purpose",
+          "region_work_card": "show composition, attention and next actions",
+          "review_halo": "show pending proposal or approval review",
+          "risk_notch": "show risk without flooding the region",
+          "scope_chip": "show the active center, region or filter scope",
+          "source_badge": "mark raw, synced and consolidated evidence",
+          "type_shelf": "show why a region is dense by page family"
+        },
+        "schema_version": "wiki.visual_grammar.v1"
+      }
     }
   },
   "schema_version": "wiki_web_block_stacks.v1"

@@ -87,11 +87,69 @@
       },
       "title": "Export do Chat",
       "updated_at": "2026-07-03"
+    },
+    {
+      "auth": null,
+      "config_ref": "",
+      "context": "clientes",
+      "how_to_export": "",
+      "locator": "",
+      "next_due_days": null,
+      "owner": "root-alex-rivera",
+      "path": "memories/sources/source-product-analytics.md",
+      "pending_streams": 0,
+      "pipelines": [],
+      "platform": "Analytics",
+      "recipe_errors": [],
+      "recipe_ok": false,
+      "schedule": null,
+      "source_id": "source-product-analytics",
+      "stewards": [],
+      "streams": [],
+      "sync": {
+        "derived_from_event": true,
+        "last_event_ref": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+        "last_run_at": "2026-07-03",
+        "last_status": "ok",
+        "streams_fresh": 0,
+        "streams_total": 0
+      },
+      "title": "Product analytics export",
+      "updated_at": "2026-07-03"
+    },
+    {
+      "auth": null,
+      "config_ref": "",
+      "context": "clientes",
+      "how_to_export": "",
+      "locator": "",
+      "next_due_days": null,
+      "owner": "root-alex-rivera",
+      "path": "memories/sources/source-support-tickets.md",
+      "pending_streams": 0,
+      "pipelines": [],
+      "platform": "Helpdesk",
+      "recipe_errors": [],
+      "recipe_ok": false,
+      "schedule": null,
+      "source_id": "source-support-tickets",
+      "stewards": [],
+      "streams": [],
+      "sync": {
+        "derived_from_event": true,
+        "last_event_ref": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md",
+        "last_run_at": "2026-05-04",
+        "last_status": "ok",
+        "streams_fresh": 0,
+        "streams_total": 0
+      },
+      "title": "Support tickets export",
+      "updated_at": "2026-07-03"
     }
   ],
   "summary": {
     "pending": 0,
-    "total": 3,
+    "total": 5,
     "with_recipe": 0
   }
 }

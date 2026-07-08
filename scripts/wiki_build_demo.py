@@ -642,6 +642,8 @@ keeping a calm calendar.
         ("source-banco-export", "Extrato do Banco", "financeiro", "Banco", "memories/financeiro/index.md"),
         ("source-agenda", "Agenda", "pessoal", "Google Calendar", "memories/index.md"),
         ("source-chat-export", "Export do Chat", "clientes", "WhatsApp", "memories/clientes/index.md"),
+        ("source-product-analytics", "Product analytics export", "clientes", "Analytics", "memories/clientes/index.md"),
+        ("source-support-tickets", "Support tickets export", "clientes", "Helpdesk", "memories/clientes/index.md"),
     ]
     for sid, title, context, platform, moc in sources:
         pages.append(
@@ -674,6 +676,10 @@ keeping a calm calendar.
          "Normalized import of the client chat export — meetings and people references updated."),
         ("event-ingest-agenda-2026-07", "Ingestão: agenda", FRESH, "source-agenda",
          "Normalized import of the calendar — encounters and cadences refreshed."),
+        ("event-ingest-product-analytics-2026-07", "Ingestão: product analytics", FRESH, "source-product-analytics",
+         "Normalized import of product analytics used by the region-grouping stress demo."),
+        ("event-ingest-support-tickets-2026-06", "Ingestão: support tickets", OLD, "source-support-tickets",
+         "Older helpdesk import kept intentionally overdue so the demo has stale evidence work."),
     ]
     for eid, title, when, source_ref, body in ingestion_events:
         pages.append(
@@ -738,6 +744,38 @@ keeping a calm calendar.
             body += "Proposal promised to [Caio Prado](../people/person-caio-prado.md)."
         else:
             body += "Content that lands in its quadrant interior."
+        pages.append(page(f"memories/{_leaf_dir(ptype)}/{lid}.md", front, body))
+
+    # --- Region-grouping stress set ---------------------------------------
+    # Public synthetic density for the visual-region-grouping plan. These
+    # pages make the demo prove dense outputs/evidence, open actions, stale
+    # evidence and unsourced conclusions without copying any private wiki data.
+    region_stress = [
+        ("artifact-region-map-01", "artifact", "Region map sketch 01", "clientes", "memories/clientes/index.md", {"source_refs": ["source-product-analytics"]}, "producao", FRESH),
+        ("artifact-region-map-02", "artifact", "Region map sketch 02", "clientes", "memories/clientes/index.md", {"source_refs": ["source-product-analytics"]}, "producao", FRESH),
+        ("artifact-region-map-03", "artifact", "Region map sketch 03", "clientes", "memories/clientes/index.md", {"source_refs": ["source-support-tickets"]}, "producao", OLD),
+        ("artifact-region-map-04", "artifact", "Region map sketch 04", "clientes", "memories/clientes/product-ops/index.md", {"source_refs": ["source-product-analytics"]}, "producao", FRESH),
+        ("artifact-region-map-05", "artifact", "Region map sketch 05", "clientes", "memories/clientes/product-ops/index.md", {"source_refs": ["source-support-tickets"]}, "producao", OLD),
+        ("artifact-region-map-06", "artifact", "Region map sketch 06", "clientes", "memories/empresas/clearpath-labs.md", {"source_refs": ["source-clearpath-customer-interviews"]}, "producao", FRESH),
+        ("artifact-region-map-07", "artifact", "Region map sketch 07", "clientes", "memories/empresas/clearpath-labs.md", {"source_refs": ["source-product-analytics"]}, "producao", FRESH),
+        ("artifact-region-map-08", "artifact", "Region map sketch 08", "clientes", "memories/empresas/clearpath-labs.md", {"source_refs": ["source-support-tickets"]}, "producao", OLD),
+        ("action-region-review-evidence", "action", "Review region evidence", "clientes", "memories/clientes/index.md", {"status": "open"}, "producao", FRESH),
+        ("action-region-clean-unsourced", "action", "Clean unsourced region claims", "clientes", "memories/clientes/index.md", {"status": "open"}, "producao", FRESH),
+        ("action-region-sync-support", "action", "Refresh support ticket source", "clientes", "memories/clientes/index.md", {"status": "open"}, "producao", OLD),
+        ("claim-region-grouping-needed", "claim", "Dense regions need summaries", "clientes", "memories/clientes/index.md", {}, "percepcao", FRESH),
+        ("claim-region-hidden-work", "claim", "Hidden clusters can hide work", "clientes", "memories/clientes/index.md", {}, "percepcao", OLD),
+        ("claim-region-evidence-ready", "claim", "Evidence shelf clarifies source-backed work", "clientes", "memories/clientes/product-ops/index.md", {"source_refs": ["source-product-analytics"]}, "percepcao", FRESH),
+    ]
+    for lid, ptype, title, context, moc, extra, sublens, updated in region_stress:
+        front = fm(page_id=lid, page_type=ptype, title=title, context=context, updated_at=updated, moc_parent=moc)
+        front.update(extra)
+        front["sub_lens"] = sublens
+        body = (
+            f"# {title}\n\n"
+            "Synthetic stress content for the region-grouping cockpit plan. "
+            "Its only job is to make dense regions, stale evidence, open actions "
+            "and unsourced conclusions visible in the public demo."
+        )
         pages.append(page(f"memories/{_leaf_dir(ptype)}/{lid}.md", front, body))
 
     # --- Perspectives (the lens content blocks reference) ------------------

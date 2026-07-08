@@ -5,6 +5,7 @@
 
 import { t } from "../../data/i18n";
 import { trustColor, worldGroupLabel } from "../../data/presentation";
+import { resolvePrimitiveForSlot } from "../../data/visualPrimitives";
 import type { GitState } from "../../types";
 import type { ClusterStar, WorldGroup, WorldLayout } from "../perspectives";
 import type { ScenePatch } from "../../components/SystemScene";
@@ -171,7 +172,7 @@ export function SceneFallback({
           return (
             <a
               key={group.key}
-              className="fallbackGroupLink"
+              className={group.region ? "fallbackGroupLink fallbackRegionCard" : "fallbackGroupLink"}
               href={
                 group.drill
                   ? makeHref({ context: group.drill.context ?? null, group: group.drill.group ?? null, pageId: null, reader: false })
@@ -181,8 +182,24 @@ export function SceneFallback({
                 event.preventDefault();
                 onGroupSelect(group);
               }}
+              title={group.region ? resolvePrimitiveForSlot(null, group.region, "fallback.card").purpose : undefined}
             >
-              {worldGroupLabel(group.kind, group.labelKey)} · {group.shown < group.count ? `${group.shown}/${group.count}` : group.count}
+              {group.region ? (
+                <>
+                  <strong>{worldGroupLabel(group.kind, group.labelKey)}</strong>
+                  <span>{group.shown < group.count ? `${group.shown}/${group.count}` : group.count}</span>
+                  <small>
+                    {(group.region.type_mix?.[0]?.family ?? t("region.mixed"))} · {group.region.summary.open_actions > 0 ? t("region.actions", { n: group.region.summary.open_actions }) : t("region.healthy")}
+                  </small>
+                  {group.region.attention_hints.length > 0 && (
+                    <em>
+                      {group.region.attention_hints.slice(0, 2).map((hint) => t(`region.attention.${hint.kind}`, { n: hint.count })).join(" · ")}
+                    </em>
+                  )}
+                </>
+              ) : (
+                `${worldGroupLabel(group.kind, group.labelKey)} · ${group.shown < group.count ? `${group.shown}/${group.count}` : group.count}`
+              )}
             </a>
           );
         })}

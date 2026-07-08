@@ -28,6 +28,9 @@ vocabulary:
   identity_landmarks: [observatory, beacon, crystal_spire, plaza, forge, shelf, engine]
   identity_motifs: [rings, grid, ledger, shelves, orbits, streams, none]
   identity_ambients: [none, motes, drift]
+  visual_primitives: [region_card, region_work_card, attention_rail, type_shelf, source_badge, action_lane, risk_notch, review_halo, hidden_histogram, core_debt_meter, empty_region_affordance, bridge_count, center_badge, scope_chip, legend_key]
+  visual_primitive_slots: [region.card, region.rail, region.shelf, region.marker, region.empty, cluster.tooltip, fallback.card, reader.badge, dock.action, legend.entry]
+  visual_primitive_packs: [region_operations, evidence_first, review_first, quiet_structure]
 
 # --- v2 packages -----------------------------------------------------------
 # A PACKAGE is a named group of blocks — attachment sugar for setup flows and
@@ -41,7 +44,7 @@ packages:
   quadrant_lenses:
     title: "Quadrant lenses"
     summary: "The four AQAL lenses with full interiors, plus the relations module on Q3."
-    blocks: [wiki.block.quadrants.v1, wiki.block.relations.v1]
+    blocks: [wiki.block.quadrants.v1, wiki.block.relations.v1, wiki.block.ui_regions.v1]
 
 # --- v2 blocks -------------------------------------------------------------
 # A block contributes interpretation, interface, gate or skill to a scope. It
@@ -177,6 +180,28 @@ blocks:
       arrangement: enum:by_quadrant,by_family,by_frequency
       obligations_first: bool
       disabled_reason: string
+
+  wiki.block.ui_regions.v1:
+    kind: interface
+    surface: panels
+    family: ui_regions
+    title: "Region groups"
+    summary: "Region cards, attention rails and action-aware grouping for dense map regions."
+    scope: { default_mode: descendants }
+    anchors: [root_entity, context_hub, holon, project, source, template_block]
+    config_schema:
+      summaries: bool
+      actions: bool
+      hidden_histograms: bool
+      attention_rail: bool
+      visual_pack: enum:region_operations,evidence_first,review_first,quiet_structure
+      allowed_packs: list
+    defaults:
+      summaries: true
+      actions: true
+      hidden_histograms: true
+      attention_rail: true
+      visual_pack: region_operations
 
   wiki.block.ui_intake.v1:
     kind: interface
@@ -407,6 +432,7 @@ types:
       - { id: wiki.block.quadrants.v1, scope: descendants }
       - { id: wiki.block.relations.v1, scope: descendants }
       - { id: wiki.block.ui_views.v1, config: { default: quadrants } }
+      - { id: wiki.block.ui_regions.v1, config: { visual_pack: region_operations } }
       - { id: wiki.block.ui_missions.v1, config: { providers: [stale, meeting_followup, quadrant_absence] } }
       - { id: wiki.block.ui_create.v1, config: { catalog: [meeting, decision, action, person, role], arrangement: by_quadrant } }
     skills: { agent: [skill-agent-classify-quadrants] }

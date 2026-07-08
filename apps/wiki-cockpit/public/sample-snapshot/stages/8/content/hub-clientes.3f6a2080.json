@@ -14,6 +14,26 @@
       "approved_state": "approved",
       "context": "clientes",
       "freshness_state": "fresh",
+      "page_id": "action-region-clean-unsourced",
+      "page_type": "action",
+      "path": "memories/actions/action-region-clean-unsourced.md",
+      "relation": "moc_parent",
+      "title": "Clean unsourced region claims"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-grouping-needed",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-grouping-needed.md",
+      "relation": "moc_parent",
+      "title": "Dense regions need summaries"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
       "page_id": "action-enviar-proposta",
       "page_type": "action",
       "path": "memories/actions/action-enviar-proposta.md",
@@ -29,6 +49,16 @@
       "path": "memories/sources/source-chat-export.md",
       "relation": "moc_parent",
       "title": "Export do Chat"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "claim-region-hidden-work",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-hidden-work.md",
+      "relation": "moc_parent",
+      "title": "Hidden clusters can hide work"
     },
     {
       "approved_state": "approved",
@@ -54,11 +84,81 @@
       "approved_state": "approved",
       "context": "clientes",
       "freshness_state": "fresh",
+      "page_id": "source-product-analytics",
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "relation": "moc_parent",
+      "title": "Product analytics export"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
       "page_id": "decision-precos",
       "page_type": "decision",
       "path": "memories/decisions/decision-precos.md",
       "relation": "moc_parent",
       "title": "Reajustar pre\u00e7o de consultoria"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "action-region-sync-support",
+      "page_type": "action",
+      "path": "memories/actions/action-region-sync-support.md",
+      "relation": "moc_parent",
+      "title": "Refresh support ticket source"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-01",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-01.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 01"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-02",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-02.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 02"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "page_id": "artifact-region-map-03",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-03.md",
+      "relation": "moc_parent",
+      "title": "Region map sketch 03"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-review-evidence",
+      "page_type": "action",
+      "path": "memories/actions/action-region-review-evidence.md",
+      "relation": "moc_parent",
+      "title": "Review region evidence"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-support-tickets",
+      "page_type": "source",
+      "path": "memories/sources/source-support-tickets.md",
+      "relation": "moc_parent",
+      "title": "Support tickets export"
     },
     {
       "approved_state": "approved",

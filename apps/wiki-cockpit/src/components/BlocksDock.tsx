@@ -10,6 +10,7 @@ import { Boxes, ChevronLeft, X } from "lucide-react";
 import { t } from "../data/i18n";
 import { anchorIds, anchorRecord, blockDef, focusAnchorId, originDetail, originLabel } from "../data/blocks";
 import { blockDescription, blockIcon } from "../data/typeCatalog";
+import { resolvedPrimitiveDiagnostics } from "../data/visualPrimitives";
 import type { BlockDefinition, QuadrantProjection, ResolvedBlock, SnapshotBundle } from "../types";
 
 const KIND_TONE: Record<string, "good" | "warn" | "muted" | "bad"> = {
@@ -130,6 +131,7 @@ function StackView({
   onOpenPage: (pageId: string) => void;
 }) {
   const { stack, interface: ui, identity, derived } = record;
+  const visualDiagnostics = resolvedPrimitiveDiagnostics(record);
   const q = derived.quadrant_assignments ?? {};
   const projectionRows = Object.values(derived.quadrant_projections ?? {})
     .flat()
@@ -159,6 +161,7 @@ function StackView({
           </div>
           <div><span className="blocksLabel">{t("blocks.create")}</span><strong>{ui.create.arrangement}</strong></div>
           <div><span className="blocksLabel">{t("blocks.intake")}</span><strong>{ui.intake.forms.join(", ") || "—"}</strong></div>
+          <div><span className="blocksLabel">{t("blocks.regions")}</span><strong>{ui.regions?.visual_pack ?? "—"}</strong></div>
         </div>
         {ui.create.obligations.length > 0 && (
           <p className="blocksObligations">
@@ -166,6 +169,20 @@ function StackView({
           </p>
         )}
       </section>
+
+      {visualDiagnostics.length > 0 && (
+        <section className="blocksSection">
+          <h4>{t("blocks.visualGrammar")}</h4>
+          <div className="blocksVisualGrammar">
+            {visualDiagnostics.slice(0, 6).map((entry) => (
+              <span key={entry.slot} title={entry.purpose}>
+                <strong>{entry.slot}</strong>
+                <em>{entry.primitive}</em>
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="blocksSection">
         <h4>{t("blocks.identity")}</h4>

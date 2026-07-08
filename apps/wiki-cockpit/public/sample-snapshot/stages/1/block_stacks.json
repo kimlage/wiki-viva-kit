@@ -58,6 +58,10 @@
           "quiet": false,
           "weather_contrib": false
         },
+        "regions": {
+          "active": false,
+          "visual_pack": "region_operations"
+        },
         "score": {
           "loops": [],
           "no_leaderboard": true
@@ -128,7 +132,8 @@
           "origin": "template:root_entity",
           "scope": "self"
         }
-      ]
+      ],
+      "visual_grammar": {}
     }
   },
   "schema_version": "wiki_web_block_stacks.v1"

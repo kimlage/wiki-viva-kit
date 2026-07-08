@@ -337,6 +337,7 @@ export type BlockInterface = {
   };
   intake: { forms: string[] };
   score: { loops: string[]; no_leaderboard: boolean };
+  regions?: { active: boolean; visual_pack: string };
   has_quadrants: boolean;
   has_relations: boolean;
 };
@@ -376,14 +377,62 @@ export type BlockDerived = {
   quadrant_projections?: Record<string, QuadrantProjection[]>;
   quadrant_sub_lens?: Record<string, Record<string, string[]>>;
   empty_quadrants?: string[];
+  region_groups?: RegionGroupsPayload;
   relations?: { due: RelationDue[]; upcoming_dates: RelationUpcoming[]; open_commitments: RelationCommitment[] };
   missing_subpages?: { rel: string; page_type: string; slug: string }[];
+};
+
+export type VisualGrammar = {
+  schema_version: string;
+  default_pack: string;
+  allowed_packs?: string[];
+  packs: Record<string, { extends?: string; slots: Record<string, string> }>;
+  primitive_purpose?: Record<string, string>;
+};
+
+export type RegionGroupSummary = {
+  total: number;
+  shown: number;
+  hidden: number;
+  stale: number;
+  proposal: number;
+  risk: number;
+  raw: number;
+  unsourced: number;
+  open_actions: number;
+  source_backed: number;
+};
+
+export type RegionGroupPayload = {
+  id: string;
+  kind: string;
+  label_key: string;
+  purpose: string;
+  visual_role: string;
+  member_ids: string[];
+  summary: RegionGroupSummary;
+  type_mix: { page_type: string; family: string; count: number }[];
+  attention_hints: { kind: string; count: number }[];
+  action_hints: { kind: string; label_key: string; count: number; target?: Record<string, unknown> }[];
+  visual: {
+    grammar_id: string;
+    pack_id: string;
+    slots: Record<string, string>;
+    emphasis: string[];
+  };
+};
+
+export type RegionGroupsPayload = {
+  schema_version: string;
+  anchor: string;
+  groups: RegionGroupPayload[];
 };
 
 export type AnchorRecord = {
   stack: ResolvedBlock[];
   interface: BlockInterface;
   identity: BlockIdentity;
+  visual_grammar?: VisualGrammar;
   derived: BlockDerived;
 };
 

@@ -15,9 +15,10 @@ import { Canvas, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import type { GitState, GraphEdge, GraphNode } from "../types";
+import type { AnchorRecord, GitState, GraphEdge, GraphNode } from "../types";
 import { t } from "../data/i18n";
 import { contextStyle, edgeStyle, isRawData, trustColor, worldGroupLabel } from "../data/presentation";
+import { regionPayloadByKey } from "../data/visualPrimitives";
 import { nodeQuadrant, SCENE_FACETS } from "../scene/facets";
 import type { QuadrantHomes, SceneFacet } from "../scene/facets";
 import { scenePerformanceProfile } from "../scene/layout";
@@ -557,6 +558,7 @@ export function SystemScene({
   missionMarkers,
   flyToPageId,
   anchorInfo,
+  activeAnchorRecord,
   quadrantHomes,
   founding = null,
   seed = null,
@@ -587,6 +589,7 @@ export function SystemScene({
   missionMarkers?: MissionMarker[];
   flyToPageId?: string;
   anchorInfo?: Record<string, AnchorHoverInfo>;
+  activeAnchorRecord?: AnchorRecord | null;
   // Per-page quadrant classification from the interpretation layer — the
   // scene never re-derives what the compiler already decided.
   quadrantHomes?: QuadrantHomes;
@@ -643,7 +646,25 @@ export function SystemScene({
       snapshotAt
     ]
   );
-  const layout = useWorldLayout(request);
+  const rawLayout = useWorldLayout(request);
+  const layout = useMemo<WorldLayout>(() => {
+    const regions = regionPayloadByKey(activeAnchorRecord);
+    if (regions.size === 0) return rawLayout;
+    return {
+      ...rawLayout,
+      groups: rawLayout.groups.map((group) => {
+        const region = regions.get(group.labelKey) ?? regions.get(group.key);
+        if (!region) return group;
+        return {
+          ...group,
+          count: region.summary.total,
+          shown: Math.min(group.shown, region.summary.total),
+          memberIds: region.member_ids,
+          region
+        };
+      })
+    };
+  }, [activeAnchorRecord, rawLayout]);
   const [hover, setHover] = useState<{ node: LayoutNode; x: number; y: number } | null>(null);
   const [focusedGroupIndex, setFocusedGroupIndex] = useState<number>(-1);
   const [focusedNodeIndex, setFocusedNodeIndex] = useState<number>(-1);

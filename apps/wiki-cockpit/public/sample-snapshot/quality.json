@@ -23,6 +23,45 @@
     },
     {
       "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "action",
+      "path": "memories/actions/action-region-clean-unsourced.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 41,
+      "information_density_per_1000_words": 31.25,
+      "link_density_per_1000_words": 31.25,
+      "outbound_links": 1,
+      "page_type": "action",
+      "path": "memories/actions/action-region-review-evidence.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 32
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "action",
+      "path": "memories/actions/action-region-sync-support.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
+    },
+    {
+      "body_links": 0,
       "context": "estudio",
       "estimated_tokens": 14,
       "information_density_per_1000_words": 90.91,
@@ -46,6 +85,110 @@
       "quality_exempt": [],
       "useful_lines": 1,
       "words": 10
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-01.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-02.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-03.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-04.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-05.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-06.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-07.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-08.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
     },
     {
       "body_links": 0,
@@ -85,6 +228,45 @@
       "quality_exempt": [],
       "useful_lines": 1,
       "words": 12
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 45,
+      "information_density_per_1000_words": 28.57,
+      "link_density_per_1000_words": 28.57,
+      "outbound_links": 1,
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-evidence-ready.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 35
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 42,
+      "information_density_per_1000_words": 30.3,
+      "link_density_per_1000_words": 30.3,
+      "outbound_links": 1,
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-grouping-needed.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 33
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 44,
+      "information_density_per_1000_words": 29.41,
+      "link_density_per_1000_words": 29.41,
+      "outbound_links": 1,
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-hidden-work.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 34
     },
     {
       "body_links": 0,
@@ -764,6 +946,32 @@
     },
     {
       "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 31,
+      "information_density_per_1000_words": 41.67,
+      "link_density_per_1000_words": 83.33,
+      "outbound_links": 2,
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 24
+    },
+    {
+      "body_links": 0,
+      "context": "clientes",
+      "estimated_tokens": 31,
+      "information_density_per_1000_words": 41.67,
+      "link_density_per_1000_words": 83.33,
+      "outbound_links": 2,
+      "page_type": "source",
+      "path": "memories/sources/source-support-tickets.md",
+      "quality_exempt": [],
+      "useful_lines": 1,
+      "words": 24
+    },
+    {
+      "body_links": 0,
       "context": "sistema",
       "estimated_tokens": 32,
       "information_density_per_1000_words": 120.0,
@@ -797,6 +1005,32 @@
       "outbound_links": 1,
       "page_type": "ingestion_event",
       "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
+      "quality_exempt": [],
+      "useful_lines": 3,
+      "words": 31
+    },
+    {
+      "body_links": 0,
+      "context": "sistema",
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 100.0,
+      "link_density_per_1000_words": 33.33,
+      "outbound_links": 1,
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+      "quality_exempt": [],
+      "useful_lines": 3,
+      "words": 30
+    },
+    {
+      "body_links": 0,
+      "context": "sistema",
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 96.77,
+      "link_density_per_1000_words": 32.26,
+      "outbound_links": 1,
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md",
       "quality_exempt": [],
       "useful_lines": 3,
       "words": 31
@@ -842,7 +1076,69 @@
     }
   ],
   "quality_flags": {
-    "bad_repetition_blocks": [],
+    "bad_repetition_blocks": [
+      {
+        "contexts": [
+          "clientes"
+        ],
+        "page_types": [
+          "source"
+        ],
+        "pages": [
+          "memories/sources/source-chat-export.md",
+          "memories/sources/source-product-analytics.md",
+          "memories/sources/source-support-tickets.md"
+        ],
+        "text_preview": "a live source. its content is born by ingestion \u2014 manual creation under it is off. (the bank export is intentionally overdue.)"
+      },
+      {
+        "contexts": [
+          "clientes"
+        ],
+        "page_types": [
+          "action"
+        ],
+        "pages": [
+          "memories/actions/action-region-clean-unsourced.md",
+          "memories/actions/action-region-review-evidence.md",
+          "memories/actions/action-region-sync-support.md"
+        ],
+        "text_preview": "synthetic stress content for the region-grouping cockpit plan. its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public d"
+      },
+      {
+        "contexts": [
+          "clientes"
+        ],
+        "page_types": [
+          "artifact"
+        ],
+        "pages": [
+          "memories/artifacts/artifact-region-map-01.md",
+          "memories/artifacts/artifact-region-map-02.md",
+          "memories/artifacts/artifact-region-map-03.md",
+          "memories/artifacts/artifact-region-map-04.md",
+          "memories/artifacts/artifact-region-map-05.md",
+          "memories/artifacts/artifact-region-map-06.md",
+          "memories/artifacts/artifact-region-map-07.md",
+          "memories/artifacts/artifact-region-map-08.md"
+        ],
+        "text_preview": "synthetic stress content for the region-grouping cockpit plan. its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public d"
+      },
+      {
+        "contexts": [
+          "clientes"
+        ],
+        "page_types": [
+          "claim"
+        ],
+        "pages": [
+          "memories/claims/claim-region-evidence-ready.md",
+          "memories/claims/claim-region-grouping-needed.md",
+          "memories/claims/claim-region-hidden-work.md"
+        ],
+        "text_preview": "synthetic stress content for the region-grouping cockpit plan. its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public d"
+      }
+    ],
     "contexts_without_role": [
       "estudio",
       "financeiro",
@@ -851,16 +1147,32 @@
     "events_without_consolidated_into": [
       "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
       "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
-      "memories/system/ingestion/events/event-ingest-chat-2026-07.md"
+      "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
+      "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+      "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md"
     ],
     "events_without_impact_closure": [],
     "low_information_density_pages": [
       "memories/actions/action-enviar-proposta.md",
+      "memories/actions/action-region-clean-unsourced.md",
+      "memories/actions/action-region-review-evidence.md",
+      "memories/actions/action-region-sync-support.md",
       "memories/artifacts/artifact-benchmark-safety.md",
       "memories/artifacts/artifact-dashboard-atlas.md",
+      "memories/artifacts/artifact-region-map-01.md",
+      "memories/artifacts/artifact-region-map-02.md",
+      "memories/artifacts/artifact-region-map-03.md",
+      "memories/artifacts/artifact-region-map-04.md",
+      "memories/artifacts/artifact-region-map-05.md",
+      "memories/artifacts/artifact-region-map-06.md",
+      "memories/artifacts/artifact-region-map-07.md",
+      "memories/artifacts/artifact-region-map-08.md",
       "memories/artifacts/artifact-relatorio-recon.md",
       "memories/artifacts/template-library-example.md",
       "memories/claims/claim-custos-sobem.md",
+      "memories/claims/claim-region-evidence-ready.md",
+      "memories/claims/claim-region-grouping-needed.md",
+      "memories/claims/claim-region-hidden-work.md",
       "memories/claims/claim-scaling-laws.md",
       "memories/claims/template-library-purpose.md",
       "memories/clientes/product-ops/atlas-launch/index.md",
@@ -893,10 +1205,15 @@
       "memories/sistema/blocks/block-library-lens.md",
       "memories/sources/source-agenda.md",
       "memories/sources/source-banco-export.md",
-      "memories/sources/source-chat-export.md"
+      "memories/sources/source-chat-export.md",
+      "memories/sources/source-product-analytics.md",
+      "memories/sources/source-support-tickets.md"
     ],
     "orphan_actions": [
-      "memories/actions/action-enviar-proposta.md"
+      "memories/actions/action-enviar-proposta.md",
+      "memories/actions/action-region-clean-unsourced.md",
+      "memories/actions/action-region-review-evidence.md",
+      "memories/actions/action-region-sync-support.md"
     ],
     "quality_exempt_pages": [],
     "quality_exemption_missing_reason": [],
@@ -914,9 +1231,38 @@
         "pages": [
           "memories/sources/source-agenda.md",
           "memories/sources/source-banco-export.md",
-          "memories/sources/source-chat-export.md"
+          "memories/sources/source-chat-export.md",
+          "memories/sources/source-product-analytics.md",
+          "memories/sources/source-support-tickets.md"
         ],
         "text_preview": "a live source. its content is born by ingestion \u2014 manual creation under it is off. (the bank export is intentionally overdue.)"
+      },
+      {
+        "contexts": [
+          "clientes"
+        ],
+        "page_types": [
+          "action",
+          "artifact",
+          "claim"
+        ],
+        "pages": [
+          "memories/actions/action-region-clean-unsourced.md",
+          "memories/actions/action-region-review-evidence.md",
+          "memories/actions/action-region-sync-support.md",
+          "memories/artifacts/artifact-region-map-01.md",
+          "memories/artifacts/artifact-region-map-02.md",
+          "memories/artifacts/artifact-region-map-03.md",
+          "memories/artifacts/artifact-region-map-04.md",
+          "memories/artifacts/artifact-region-map-05.md",
+          "memories/artifacts/artifact-region-map-06.md",
+          "memories/artifacts/artifact-region-map-07.md",
+          "memories/artifacts/artifact-region-map-08.md",
+          "memories/claims/claim-region-evidence-ready.md",
+          "memories/claims/claim-region-grouping-needed.md",
+          "memories/claims/claim-region-hidden-work.md"
+        ],
+        "text_preview": "synthetic stress content for the region-grouping cockpit plan. its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public d"
       }
     ],
     "responsibilities_without_action": [],
@@ -928,34 +1274,34 @@
   "repo_id": "wiki-viva-demo",
   "schema_version": "wiki_quality_report.v1",
   "summary": {
-    "bad_repetition_blocks": 0,
+    "bad_repetition_blocks": 4,
     "cache_reuse_rate": 0.0,
     "cached_calls": 0,
     "chunk_sources": 0,
     "chunks_total": 0,
     "contexts": {
-      "clientes": 26,
+      "clientes": 42,
       "estudio": 5,
       "financeiro": 7,
       "pessoal": 6,
-      "sistema": 20
+      "sistema": 22
     },
     "contexts_without_role": 3,
     "estimated_context_tokens": 0,
-    "events_without_consolidated_into": 3,
+    "events_without_consolidated_into": 5,
     "events_without_impact_closure": 0,
-    "ingestion_events": 3,
-    "low_information_density_pages": 39,
-    "orphan_actions": 1,
+    "ingestion_events": 5,
+    "low_information_density_pages": 55,
+    "orphan_actions": 4,
     "page_types": {
-      "action": 1,
-      "artifact": 5,
-      "claim": 5,
+      "action": 4,
+      "artifact": 13,
+      "claim": 8,
       "context_hub": 5,
       "dashboard": 1,
       "decision": 3,
       "holon": 1,
-      "ingestion_event": 3,
+      "ingestion_event": 5,
       "insight": 1,
       "journal_entry": 1,
       "meeting": 3,
@@ -968,16 +1314,16 @@
       "role": 2,
       "root_entity": 4,
       "skill": 3,
-      "source": 4,
+      "source": 6,
       "template_block": 1,
       "tool": 3
     },
-    "pages_total": 64,
+    "pages_total": 82,
     "pending_calls": 0,
     "quality_exempt_pages": 0,
     "quality_exemption_missing_reason": 0,
     "relation_pages_without_parent": 0,
-    "repeated_blocks": 1,
+    "repeated_blocks": 2,
     "responsibilities_without_action": 0,
     "role_responsibility_edge_mismatch": 0,
     "thin_link_pages": 1

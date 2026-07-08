@@ -53,6 +53,14 @@ Composing existing vocabulary is YAML-only; new vocabulary is code.
   [apps/wiki-cockpit/src/data/surfaces.ts](../../../apps/wiki-cockpit/src/data/surfaces.ts)
   (`composeInstruments()` — the ONE place that answers "which instruments
   exist in this world, and why").
+- If the block contributes region grouping or visual grammar: use the existing
+  `ui_regions` surface when possible. New visual primitives, primitive packs or
+  slots require code in
+  [wiki_core/template_blocks.py](../../../wiki_core/template_blocks.py)
+  (`VISUAL_PRIMITIVES`, `VISUAL_PRIMITIVE_PACKS`,
+  `VISUAL_PRIMITIVE_SLOTS`), a frontend registry entry in
+  `apps/wiki-cockpit/src/data/visualPrimitives.ts`, and tests. YAML may choose
+  a known pack; it must not introduce arbitrary styling.
 - Give it a face: an icon in `BLOCK_ICONS` and an i18n `block.desc.<family>`
   line (EN + PT) in
   [apps/wiki-cockpit/src/data/typeCatalog.tsx](../../../apps/wiki-cockpit/src/data/typeCatalog.tsx)
@@ -156,6 +164,9 @@ code is today:
    `clusterStars` with TRUE hidden counts, `guides`) and dispatch it in
    `computeWorldLayout()`. If the perspective has drillable groups, extend
    `groupKeyForPage()` so page selection can emit canonical URLs.
+   If the perspective reuses operational groups, keep `WorldGroup` compatible
+   and attach compiled region payloads (`derived.region_groups`) in the shell
+   rather than recalculating attention/action summaries inside the layout.
 3. [apps/wiki-cockpit/src/components/WorldView.tsx](../../../apps/wiki-cockpit/src/components/WorldView.tsx)
    — add the id to the perspective-glyphs array in the command bar (the button
    renders only if the stack offers the view).

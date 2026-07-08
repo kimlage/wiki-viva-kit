@@ -443,6 +443,12 @@
         },
         {
           "config": {
+            "visual_pack": "region_operations"
+          },
+          "id": "wiki.block.ui_regions.v1"
+        },
+        {
+          "config": {
             "providers": [
               "stale",
               "meeting_followup",

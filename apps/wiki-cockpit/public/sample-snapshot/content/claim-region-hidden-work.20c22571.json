@@ -1,0 +1,32 @@
+{
+  "backlinks": [],
+  "body": "\n# Hidden clusters can hide work\n\nSynthetic stress content for the region-grouping cockpit plan. Its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public demo.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "claim-region-hidden-work",
+    "page_type": "claim",
+    "stale_after_days": 30,
+    "sub_lens": "percepcao",
+    "title": "Hidden clusters can hide work",
+    "updated_at": "2026-05-04",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "stale",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "claim-region-hidden-work",
+    "page_type": "claim",
+    "path": "memories/claims/claim-region-hidden-work.md",
+    "summary": "Synthetic stress content for the region-grouping cockpit plan. Its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public demo.",
+    "summary_truncated": false,
+    "title": "Hidden clusters can hide work",
+    "updated_at": "2026-05-04"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

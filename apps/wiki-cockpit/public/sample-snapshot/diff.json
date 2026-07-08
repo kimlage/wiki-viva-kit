@@ -5,13 +5,13 @@
       "git",
       "diff",
       "--stat",
-      "bd6102841d35ecced934dbe67b875a130ed11444..HEAD"
+      "c5de44408a1b2693fb0a98c09ae9b83ba4fd8bee..HEAD"
     ],
     [
       "git",
       "diff",
       "--name-status",
-      "bd6102841d35ecced934dbe67b875a130ed11444..HEAD"
+      "c5de44408a1b2693fb0a98c09ae9b83ba4fd8bee..HEAD"
     ],
     [
       "git",
@@ -38,10 +38,10 @@
   ],
   "compare": {
     "base_ref": "origin/main",
-    "current_branch": "wiki/template-blocks-impl",
+    "current_branch": "wiki/visual-region-grouping-plan",
     "default_branch": "main",
-    "head_commit": "84bdabf5effd",
-    "merge_base": "bd6102841d35"
+    "head_commit": "71c845fb84fd",
+    "merge_base": "c5de44408a1b"
   },
   "files": [],
   "repo_id": "wiki-viva-demo",

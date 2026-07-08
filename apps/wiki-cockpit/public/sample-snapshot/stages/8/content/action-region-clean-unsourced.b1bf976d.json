@@ -1,0 +1,33 @@
+{
+  "backlinks": [],
+  "body": "\n# Clean unsourced region claims\n\nSynthetic stress content for the region-grouping cockpit plan. Its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public demo.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "action-region-clean-unsourced",
+    "page_type": "action",
+    "stale_after_days": 30,
+    "status": "open",
+    "sub_lens": "producao",
+    "title": "Clean unsourced region claims",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "action-region-clean-unsourced",
+    "page_type": "action",
+    "path": "memories/actions/action-region-clean-unsourced.md",
+    "summary": "Synthetic stress content for the region-grouping cockpit plan. Its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public demo.",
+    "summary_truncated": false,
+    "title": "Clean unsourced region claims",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "source_refs": []
+}

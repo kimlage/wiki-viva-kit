@@ -337,6 +337,40 @@
       "surface": "missions",
       "title": "Missions"
     },
+    "wiki.block.ui_regions.v1": {
+      "anchors": [
+        "root_entity",
+        "context_hub",
+        "holon",
+        "project",
+        "source",
+        "template_block"
+      ],
+      "config_schema": {
+        "actions": "bool",
+        "allowed_packs": "list",
+        "attention_rail": "bool",
+        "hidden_histograms": "bool",
+        "summaries": "bool",
+        "visual_pack": "enum:region_operations,evidence_first,review_first,quiet_structure"
+      },
+      "defaults": {
+        "actions": true,
+        "attention_rail": true,
+        "hidden_histograms": true,
+        "summaries": true,
+        "visual_pack": "region_operations"
+      },
+      "family": "ui_regions",
+      "kind": "interface",
+      "origin": "registry",
+      "scope": {
+        "default_mode": "descendants"
+      },
+      "summary": "Region cards, attention rails and action-aware grouping for dense map regions.",
+      "surface": "panels",
+      "title": "Region groups"
+    },
     "wiki.block.ui_views.v1": {
       "anchors": [
         "root_entity",
@@ -372,7 +406,8 @@
     "quadrant_lenses": {
       "blocks": [
         "wiki.block.quadrants.v1",
-        "wiki.block.relations.v1"
+        "wiki.block.relations.v1",
+        "wiki.block.ui_regions.v1"
       ],
       "summary": "The four AQAL lenses with full interiors, plus the relations module on Q3.",
       "title": "Quadrant lenses"
@@ -497,6 +532,41 @@
       "panels",
       "score",
       "views"
+    ],
+    "visual_primitive_packs": [
+      "evidence_first",
+      "quiet_structure",
+      "region_operations",
+      "review_first"
+    ],
+    "visual_primitive_slots": [
+      "cluster.tooltip",
+      "dock.action",
+      "fallback.card",
+      "legend.entry",
+      "reader.badge",
+      "region.card",
+      "region.empty",
+      "region.marker",
+      "region.rail",
+      "region.shelf"
+    ],
+    "visual_primitives": [
+      "action_lane",
+      "attention_rail",
+      "bridge_count",
+      "center_badge",
+      "core_debt_meter",
+      "empty_region_affordance",
+      "hidden_histogram",
+      "legend_key",
+      "region_card",
+      "region_work_card",
+      "review_halo",
+      "risk_notch",
+      "scope_chip",
+      "source_badge",
+      "type_shelf"
     ]
   },
   "warnings": []

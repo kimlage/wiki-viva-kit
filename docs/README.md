@@ -44,7 +44,10 @@ starting point for persistent context is `memories/`.
   / short-term-memory release in
   [wiki-viva-v6.7.md](references/releases/wiki-viva-v6.7.md), the
   root-entity/input-stage release in
-  [wiki-viva-v6.8.md](references/releases/wiki-viva-v6.8.md), plus the modular
+  [wiki-viva-v6.8.md](references/releases/wiki-viva-v6.8.md), the visual
+  region grouping refactor plan in
+  [visual-region-grouping-refactor-2026-07-08.md](references/proposals/visual-region-grouping-refactor-2026-07-08.md),
+  plus the modular
   template blocks / spatial cockpit release in
   [wiki-viva-v6.9.md](references/releases/wiki-viva-v6.9.md), the canonical
   quadrant-flight patch in

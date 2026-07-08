@@ -542,6 +542,24 @@ button.stripChip:hover {
   white-space: nowrap;
 }
 
+.radarRimPill button.regionRimCard {
+  min-width: 132px;
+  max-width: 176px;
+  justify-items: stretch;
+  gap: 4px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  text-align: left;
+  white-space: normal;
+}
+
+.radarRimPill .rimHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .radarRimPill strong {
   font-size: 13px;
 }
@@ -549,6 +567,50 @@ button.stripChip:hover {
 .radarRimPill small {
   color: #93a4b1;
   font-size: 11px;
+}
+
+.rimTypeMix,
+.rimAction {
+  color: #9fb6c6;
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.rimAction {
+  color: #ffd28a;
+  font-style: normal;
+}
+
+.rimAttentionRail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.rimAttentionRail i,
+.rimAttentionRail.calm {
+  border: 1px solid rgba(255, 180, 84, 0.28);
+  border-radius: 999px;
+  padding: 1px 5px;
+  color: #ffcf94;
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.rimAttentionRail .attention-risk {
+  border-color: rgba(255, 122, 138, 0.38);
+  color: #ffb7c1;
+}
+
+.rimAttentionRail .attention-proposal {
+  border-color: rgba(197, 124, 255, 0.36);
+  color: #ddb9ff;
+}
+
+.rimAttentionRail.calm {
+  border-color: rgba(94, 230, 168, 0.24);
+  color: #8eeabc;
 }
 
 .radarRimPill .rimDots {
@@ -2230,7 +2292,7 @@ pre {
 
 .quadrantGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(84px, 1fr));
+  grid-template-columns: repeat(2, minmax(116px, 1fr));
   gap: 4px;
   padding: 5px;
   border: 1px solid rgba(127, 208, 232, 0.22);
@@ -2242,7 +2304,7 @@ pre {
 .quadrantCell {
   display: grid;
   justify-items: start;
-  gap: 1px;
+  gap: 3px;
   padding: 6px 9px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -2251,6 +2313,7 @@ pre {
   cursor: pointer;
   font: inherit;
   text-align: left;
+  min-height: 72px;
 }
 
 .quadrantCell:hover {
@@ -2262,14 +2325,39 @@ pre {
   background: rgba(127, 208, 232, 0.14);
 }
 
+.quadrantCell.hasAttention {
+  border-color: rgba(255, 180, 84, 0.35);
+}
+
+.quadrantCell.hasRaw:not(.active) {
+  box-shadow: inset 3px 0 0 rgba(87, 217, 160, 0.45);
+}
+
 .quadrantCell strong {
   font-size: 11.5px;
   color: #e6f2f8;
+  max-width: 100%;
+  line-height: 1.15;
+  white-space: normal;
+}
+
+.quadrantCell small,
+.quadrantType,
+.quadrantAttention {
+  font-size: 10px;
+  line-height: 1.15;
 }
 
 .quadrantCell small {
-  font-size: 11px;
+  color: #dff2fb;
+}
+
+.quadrantType {
   color: #93a4b1;
+}
+
+.quadrantAttention {
+  color: #ffcf94;
 }
 
 .quadrantCore {
@@ -3209,6 +3297,33 @@ pre {
   font-size: 12px;
   color: #9fb6c6;
   text-decoration: none;
+}
+
+.fallbackRegionCard {
+  display: grid;
+  gap: 2px;
+  min-width: 150px;
+  max-width: 220px;
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
+.fallbackRegionCard strong {
+  color: #dff2fb;
+  font-size: 12px;
+}
+
+.fallbackRegionCard span,
+.fallbackRegionCard small,
+.fallbackRegionCard em {
+  color: #9fb6c6;
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.2;
+}
+
+.fallbackRegionCard em {
+  color: #ffcf94;
 }
 
 .fallbackGroupLink:hover {
@@ -4974,6 +5089,34 @@ pre {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.blocksVisualGrammar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.blocksVisualGrammar span {
+  display: grid;
+  gap: 2px;
+  border: 1px solid #1a252d;
+  border-radius: 7px;
+  background: #0b1218;
+  padding: 6px 8px;
+}
+
+.blocksVisualGrammar strong {
+  color: #9fb4c2;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.blocksVisualGrammar em {
+  color: #ffcf94;
+  font-size: 11px;
+  font-style: normal;
+}
+
 .identityChip {
   font-size: 11px;
   padding: 3px 9px;

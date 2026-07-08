@@ -102,6 +102,39 @@ def test_quadrant_assignments_cover_all_lenses_and_core(tmp_path: Path) -> None:
     assert "per-1" in rec["derived"]["quadrant_sub_lens"]["q3"]["pessoas"]
 
 
+def test_region_groups_and_visual_grammar_are_resolved_from_templates(tmp_path: Path) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n  - id: wiki.block.ui_regions.v1\n"
+            "    config: { visual_pack: region_operations }\n---\n# Root\n"
+        ),
+        "memories/actions/a.md": _leaf("act-1", "action", extra="status: open\n"),
+        "memories/claims/c.md": _leaf("claim-1", "claim", extra="updated_at: 2026-03-01\n"),
+        "memories/sources/s.md": _leaf("src-1", "source"),
+    }
+    world = _world(_wiki(tmp_path, pages))
+    record = build_block_stacks_payload(world)["anchors"]["root-demo"]
+
+    assert record["visual_grammar"]["default_pack"] == "region_operations"
+    region_groups = record["derived"]["region_groups"]["groups"]
+    pratica = next(group for group in region_groups if group["label_key"] == "pratica")
+    intencao = next(group for group in region_groups if group["label_key"] == "intencao")
+
+    assert pratica["summary"]["raw"] == 1
+    assert pratica["summary"]["open_actions"] == 1
+    assert pratica["visual"]["pack_id"] == "evidence_first"
+    assert intencao["summary"]["stale"] == 1
+    assert any(hint["kind"] == "refresh" for hint in intencao["action_hints"])
+    assert "region.card" in pratica["visual"]["slots"]
+
+    blocks = build_blocks_payload(world)
+    vocab = blocks["vocabulary"]
+    assert "region_card" in vocab["visual_primitives"]
+    assert "region_operations" in vocab["visual_primitive_packs"]
+
+
 def test_explicit_quadrant_frontmatter_wins_over_page_type_default(tmp_path: Path) -> None:
     pages = {
         "memories/index.md": (
@@ -349,6 +382,27 @@ def test_validation_flags_unknown_block_and_non_anchor(tmp_path: Path) -> None:
     warnings = " | ".join(validate_blocks(world))
     assert "does_not_exist" in warnings
     assert "cannot anchor blocks" in warnings
+
+
+def test_validation_flags_unknown_visual_primitive(tmp_path: Path) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n"
+            "  - id: wiki.block.ui_regions.v1\n"
+            "    config:\n"
+            "      visual_pack: region_operations\n"
+            "      packs:\n"
+            "        region_operations:\n"
+            "          slots:\n"
+            "            region.card: made_up_card\n"
+            "---\n# Root\n"
+        ),
+    }
+    warnings = " | ".join(validate_blocks(_world(_wiki(tmp_path, pages))))
+    assert "made_up_card" in warnings
+    assert "unknown visual primitive" in warnings
 
 
 def test_snapshot_payload_is_deterministic(tmp_path: Path) -> None:

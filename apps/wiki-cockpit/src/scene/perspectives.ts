@@ -9,7 +9,7 @@
 // draw calls bounded while cluster-stars carry the TRUE hidden counts, so all
 // pages stay countable and one drill away.
 
-import type { GraphEdge, GraphNode } from "../types";
+import type { GraphEdge, GraphNode, RegionGroupPayload } from "../types";
 import { pageTypeStyle } from "../data/presentation";
 import { QUADRANT_CENTER_ANGLE, SCENE_FACETS, nodeQuadrant, sceneFacetOf, type QuadrantHomes, type SceneFacet } from "./facets";
 import type { GalaxyLayout, LayoutNode, LayoutWedge } from "./layout";
@@ -39,6 +39,7 @@ export type WorldGroup = {
   anchor: [number, number, number];
   drill: { context?: string; group?: string } | null;
   memberIds: string[];
+  region?: RegionGroupPayload;
 };
 
 export type ClusterStar = {

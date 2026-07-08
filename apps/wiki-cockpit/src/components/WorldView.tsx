@@ -18,6 +18,7 @@ import { buildUrl, navigate, patchWorld, retreat } from "../router";
 import type { WorldPatch, WorldRoute } from "../router";
 import { anchorRecord, focusAnchorId } from "../data/blocks";
 import { composeInstruments, rootAnchor } from "../data/surfaces";
+import { regionPayloadByKey } from "../data/visualPrimitives";
 import type { RuntimeConfig } from "../data/runtimeConfig";
 import type { ActionCard, BriefSpec, PageRecord, SnapshotBundle } from "../types";
 import { CoachMarks, tourSeen } from "./CoachMarks";
@@ -474,6 +475,7 @@ export function WorldView({
     () => anchorRecord(bundle, activeQuadrantAnchorId ?? undefined),
     [bundle, activeQuadrantAnchorId]
   );
+  const activeRegionPayloads = useMemo(() => regionPayloadByKey(activeQuadrantAnchor), [activeQuadrantAnchor]);
 
   // The AUTHORITATIVE per-page quadrant classification: the compiler's derived
   // quadrant_assignments on the ACTIVE anchor, inverted into a pageId → facet
@@ -508,7 +510,8 @@ export function WorldView({
       return {
         quadrants: SCENE_FACETS.map((facet) => ({
           facet,
-          count: countWithoutCenter(assignments[facet === "intencao" ? "q1" : facet === "pratica" ? "q2" : facet === "relacoes" ? "q3" : "q4"])
+          count: countWithoutCenter(assignments[facet === "intencao" ? "q1" : facet === "pratica" ? "q2" : facet === "relacoes" ? "q3" : "q4"]),
+          region: activeRegionPayloads.get(facet)
         })),
         core: countWithoutCenter(assignments.q0_core)
       };
@@ -521,8 +524,8 @@ export function WorldView({
       if (home) counts.set(home, (counts.get(home) ?? 0) + 1);
       else core += 1;
     });
-    return { quadrants: SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0 })), core };
-  }, [route.perspective, activeQuadrantAnchor, activeQuadrantAnchorId, bundle.graph, quadrantHomes]);
+    return { quadrants: SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0, region: activeRegionPayloads.get(facet) })), core };
+  }, [route.perspective, activeQuadrantAnchor, activeQuadrantAnchorId, activeRegionPayloads, bundle.graph, quadrantHomes]);
 
   // The world's condition — the honest ambient readout (weather is set from it in
   // the scene). Every segment is a real count that flies to the act point.
@@ -839,6 +842,7 @@ export function WorldView({
         missionMarkers={missionMarkers}
         flyToPageId={flyToPageId}
         anchorInfo={anchorInfo}
+        activeAnchorRecord={activeQuadrantAnchor}
         quadrantHomes={quadrantHomes}
         founding={fallbackActive ? null : founding}
         seed={fallbackActive ? null : seed}
@@ -958,16 +962,31 @@ export function WorldView({
         {quadrantCounts && (
           <div className="quadrantCompass" role="group" aria-label={t("world.quadrantCompassAria")}>
             <div className="quadrantGrid">
-              {quadrantCounts.quadrants.map(({ facet, count }) => (
+              {quadrantCounts.quadrants.map(({ facet, count, region }) => (
                 <button
                   key={facet}
-                  className={route.query.quadrant === facet ? "quadrantCell active" : "quadrantCell"}
+                  className={[
+                    "quadrantCell",
+                    route.query.quadrant === facet ? "active" : "",
+                    region?.attention_hints.length ? "hasAttention" : "",
+                    region?.summary.raw ? "hasRaw" : ""
+                  ].filter(Boolean).join(" ")}
                   onClick={() => handleQuadrantSelect(facet)}
                   title={t(`facet.${facet}`)}
                   type="button"
                 >
                   <strong>{t(`facet.${facet}`)}</strong>
-                  <small>{count}</small>
+                  <small>{region ? `${region.summary.shown}/${region.summary.total}` : count}</small>
+                  {region && (
+                    <>
+                      <span className="quadrantType">{region.type_mix[0] ? `${region.type_mix[0].family} ${region.type_mix[0].count}` : t("region.empty")}</span>
+                      <span className="quadrantAttention">
+                        {region.attention_hints.length > 0
+                          ? region.attention_hints.slice(0, 2).map((hint) => t(`region.attention.${hint.kind}`, { n: hint.count })).join(" · ")
+                          : t("region.healthy")}
+                      </span>
+                    </>
+                  )}
                 </button>
               ))}
             </div>
