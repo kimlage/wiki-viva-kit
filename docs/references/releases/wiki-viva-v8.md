@@ -13,10 +13,9 @@ sensitive_data_policy: no_personal_data
 
 # Wiki Viva v8 release candidate
 
-Status: **blocked / unreleased**. The v8 contract and downstream package exist,
-but the public source SHA remains intentionally unpinned until all release gates
-and browser evidence pass. No consumer should import this release note as proof
-of a published v8 release.
+Status: **release candidate / human gate pending**. The v8 payload is pinned to
+`7062960647ca0c619396357d73f9e03855891f8c` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+This is reviewable release evidence, not proof of a merged/tagged stable release.
 
 ## Product boundary
 
@@ -122,15 +121,27 @@ blank world, center error, overlap, unreadable label or sample fallback.
 
 ## Current blockers
 
-- `release.source_sha` is not pinned because this is still an active worktree.
-- Public bundle budgets/warnings must be green, not waived.
-- The complete cross-browser runtime matrix and redacted private pilot preflight
-  must be rerun at the final source SHA.
-- Architecture debt may only decrease; a documented baseline is not evidence
-  that the native runtime boundary is complete.
+- PR #61 still requires the human review/merge gate and a release tag.
+- The private pilot remains paused until it has a clean upgrade branch,
+  current gate receipts and a complete migration report.
+- The four existing wiki staleness warnings remain visible; they were not
+  reclassified as release errors.
 
-Update this section and the machine package in the same release commit. Until
-then, downstream consumers remain `paused` or `blocked`.
+## Final candidate evidence
+
+- Python: 673 passed, 4 skipped; audit 0 errors with 4 known staleness
+  warnings; methodology 22/22.
+- Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
+  sidecar promotion/rollback checks pass.
+- Frontend: 322 unit tests and 15 gate tests pass; architecture reports
+  0 violations and 0 legacy debt.
+- Bundle: initial JS 130.79 kB gzip, CSS 0.96 kB gzip and largest lazy/worker
+  chunk 50.69 kB gzip, all below the committed budgets.
+- Browser matrix: final rerun 27 passed with 2 environment-gated real-endpoint
+  tests; the configured real operator origin/UI group passed separately.
+- Manual public browser QA covered four views, six overlays, four lenses,
+  docks, reader, fallback and mobile. The redacted private read-only pass had
+  real operator provenance, no sample fallback and no new console warnings.
 
 ## Superseded planning surfaces
 

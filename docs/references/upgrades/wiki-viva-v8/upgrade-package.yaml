@@ -1,10 +1,11 @@
 schema_version: wiki_viva_upgrade_package.v1
 
 release:
-  id: wiki-viva-v8-rc
-  status: blocked_until_public_gates_and_visual_qa_pass
-  source_sha: REQUIRED_AT_RELEASE
+  id: wiki-viva-v8-rc1
+  status: release_candidate
+  source_sha: 7062960647ca0c619396357d73f9e03855891f8c
   plan: docs/references/proposals/wiki-viva-v8-unified-living-world-execution-plan-2026-07-09.md
+  pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 contract_versions:
   route: wiki_world_route.v8
@@ -138,6 +139,6 @@ privacy:
     - private_console_or_network_payloads
 
 known_limitations:
-  - The package source SHA remains deliberately unpinned until the public release commit exists.
-  - No downstream import may start while the release status is blocked.
+  - The payload is pinned to the reviewed branch SHA, but PR 61 still requires the human merge gate and a release tag.
+  - Private pilot import remains paused until its own clean branch, current gate receipts and migration report exist.
   - Consumer-specific core failures must first become synthetic public fixtures.

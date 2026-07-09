@@ -16,13 +16,13 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: v8-worktree-unpinned
+    current_kit_version: wiki-viva-v8-rc1@70629606
     current_layout:
       memory_root: memories
       references_root: docs/references
       cockpit_root: apps/wiki-cockpit
       generated_cache_root: data/derived/wiki
-    current_runtime: compat
+    current_runtime: v8
     local_operator: localhost_operator
     local_templates:
       registry: wiki.templates.yaml
@@ -34,10 +34,10 @@ consumers:
     drift_status:
       state: self
       drift_total: 0
-      worktree: active_release_worktree
+      worktree: payload_source_clean
     upgrade_wave: public_kit
-    status: blocked
-    blocker: public gates, browser matrix and release SHA are not complete
+    status: candidate
+    blocker: PR 61 human review, merge and release tag remain
 
   - id: private-pilot-01
     repository:
@@ -71,5 +71,5 @@ consumers:
       details: retained_only_in_private_preflight
       verified_read_only_on: "2026-07-09"
     upgrade_wave: paused
-    status: blocked
-    blocker: public release is unpinned and both worktrees are active/dirty
+    status: paused
+    blocker: public PR human gate plus a dirty private checkout and missing current gate receipts

@@ -278,46 +278,36 @@ Forbidden states:
 - visual particles or halos without traceable input data.
 - demo proof that does not reproduce private-scale pressure.
 
-## Current Branch And History Audit
+## Branch And History Audit
 
-Audit refreshed on 2026-07-09. A read-only `git ls-remote` check confirmed that
-the live remote `origin/main` still points to `c5de4440`; the local tracking ref
-matches it.
+Audit refreshed on 2026-07-09. A final read-only `git ls-remote` check confirmed
+that live `origin/main` still points to `c5de4440`; the v8 payload branch is
+published at `70629606` in draft PR
+[#61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 
 | Surface | Observed state | Treatment |
 | --- | --- | --- |
 | `origin/main` | `c5de4440` `feat(wiki): release recursive quadrant cockpit v6.9` | Public baseline. Most recent implementation branches have been absorbed here. |
 | local `main` | `71c845f` `fix(cockpit): keep active center out of quadrants`, one commit ahead of `origin/main` | Already an ancestor of the current branch. Keep it in the final integration history and do not leave `main` as the only named ref carrying the fix. |
-| current branch | `wiki/visual-region-grouping-plan` at `a3604c11`, two commits ahead of `origin/main` (`71c845f` + visual grouping primitives) | Active integration seed. Rename or continue this exact lineage; do not cherry-pick it into a disconnected branch. |
-| current worktree | Large uncommitted WIP touching cockpit UI, WebGL scene, routes, demo snapshots, E2E specs, source fixtures, visual control, docs and server code | Classify before implementation: intentional code, generated artifacts, test coverage, docs or discardable experiment. Do not flatten blindly into one commit. |
+| current branch | `wiki/v8-unified-living-world`; reviewable payload `70629606`, seven commits ahead of `origin/main`, in draft PR #61 | Sole integration/release-candidate line. Runtime code and generated artifacts have separate commits. |
+| current worktree | The implementation payload was clean at `70629606`; this final metadata update pins that SHA and records the PR/gate evidence. | No broad WIP remains. Release metadata is a separate reviewable commit. |
 | `wiki/plan-ops-cockpit-3d` | two commits ahead, plan-only branch | Superseded by this plan; retain as historical input. |
 | `wiki/plan-sources-templates-facets` | one commit ahead, plan-only branch | Superseded/absorbed; source/template/facet principles are consolidated here. |
 | zero-ahead local/remote branches | `wiki/cockpit-layout-fixes-2026-07-02`, `wiki/codex-missions-impl`, `wiki/codex-plan-rev2-work-briefs`, `wiki/impl-sources-templates-facets`, `wiki/one-world-cockpit-plan`, `wiki/one-world-impl`, `wiki/ops-cockpit-*`, `wiki/refine-threejs-*`, `wiki/scene-culling-*`, `wiki/template-blocks-impl`, and their matching `origin/wiki/*` branches | Already absorbed in `origin/main`; use as history/context only. Do not cherry-pick unless an audit finds a missing specific diff. |
-| `private/main` | moved to `92ef6d9d` after audio-brainstorm ingestion and QA updates | Downstream validation surface only. It is not an upstream source for public code. |
-| `private-mirror-sync-2026-06-12` | ahead/behind old mirror work | Out of scope for v8 cockpit integration. |
+| `private-pilot-01` | Read-only downstream validation; exact branch, SHA, paths and titles retained only in private evidence. | Downstream validation surface only. It is not an upstream source for public code. |
+| legacy private mirror | Historical downstream work, details redacted at the public boundary. | Out of scope for v8 cockpit integration. |
 
-Preferred branch line while the current branch remains local/unpublished:
+The branch was renamed in place, preserving `71c845f` and `a3604c11`. The plan
+is the first v8 commit, the implementation is separate from generated fixture/
+snapshot evidence, and source-identity/provenance fixes remain reviewable.
 
-```sh
-git branch -m wiki/v8-unified-living-world
-```
+### Pre-implementation Baseline Review Evidence - 2026-07-09
 
-Renaming preserves both existing commits and avoids leaving another active
-branch that appears to be a parallel plan. If the branch is published before
-the rename, create `wiki/v8-unified-living-world` at the same tip, freeze
-the old branch and document the replacement in the PR.
+The planning audit captured the following evidence before v8 implementation.
+It is retained to explain the measured delta and must not be read as current
+release state; the execution ledger and release note above are authoritative.
 
-The currently staged plan should be the first new contract commit. Then
-classify the unstaged WIP and commit it by reviewable behavior. Do not create a
-single checkpoint that mixes hand-authored runtime code, generated snapshots,
-fixture sources and visual experiments merely to make the tree clean.
-
-### Final Review Evidence - 2026-07-09
-
-The final planning audit found the following current-state evidence. This is a
-baseline, not proof that a v8 phase is complete.
-
-| Surface | Current evidence | Consequence for v8 |
+| Surface | Baseline evidence | Consequence for v8 |
 | --- | --- | --- |
 | Git line | Live `origin/main` is `c5de4440`; local `main` adds `71c845f`; current branch adds `a3604c11`; only this plan is staged while the broad cockpit/demo WIP is unstaged/untracked. | Preserve the current lineage, commit the contract separately and classify every WIP file before integration. |
 | Python suite | `638 passed, 4 skipped` on `/opt/anaconda3/bin/python -m pytest tests/`. | Deterministic core is currently healthy, but this does not validate the v8 contracts or visual product. |
@@ -359,7 +349,7 @@ existing visual suite green.
 | `one-world-cockpit-plan-2026-07-02.md` | Approve/Add/Health dissolve into the world, honest degradation, gate/weather/intake model. | Absorbed into route/world-state, docks and visual QA tracks. |
 | `codex-agentic-missions-plan-2026-07-02.md` | Human-readable briefs, local Codex jobs, Work tray, draft PR handoff. | Absorbed into work-loop track; execution remains optional and degraded honestly. |
 | `recursive-quadrant-centers-refactor-2026-07-07.md` | Quadrants as anchor-relative projections, `?center=`, subject/parent projection metadata, private migration inventory. | Already largely implemented in v6.9; remains a v8 invariant and regression target. |
-| `visual-region-grouping-refactor-2026-07-08.md` | Regions as practical visual groupings, primitive packs, dense synthetic demo, private read-only comparison. | Active WIP input; needs consolidation under the unified contract. |
+| `visual-region-grouping-refactor-2026-07-08.md` | Regions as practical visual groupings, primitive packs, dense synthetic demo, private read-only comparison. | Superseded/absorbed; retained only as a historical input with a pointer to this contract. |
 | `wiki/plan-ops-cockpit-3d` | Early decisions: quadrants as perspective, local-first cockpit, O1-O6 direction. | Superseded; cite as historical source if needed. |
 | `wiki/plan-sources-templates-facets` | Earlier source/template/facet framing. | Superseded by implemented branches plus this plan. |
 
@@ -2115,6 +2105,9 @@ Every bug class that motivated v8 needs an operational proof.
 | Legacy view loses meaning | legacy-route fixture set | `/demo/w/radar`, `/demo/w/districts`, `/demo/w/trails/...` | hydrate and copy canonical link | mapping preserves documented question and emits warning | old and canonical screenshots show equivalent entities/intent |
 | Mobile chrome hides the world | mobile-occupancy fixture | canonical long-label route at `390x844` | open default, compass, dock, reader and fallback | occupancy budgets and 44px close targets pass | center/one meaningful object visible; no clipped breadcrumb/update text |
 | Dock focus leaks to world | surface-focus fixture | canonical route with `dock=source` | open, Tab, Escape, close/reopen | focus enters surface, background is inert, focus restores to trigger | correct close label and one-layer Escape behavior |
+| Real operator is mislabeled as demo | runtime-config fixture plus configured real endpoint | real route through `dev:proxy` | load the real endpoint after a demo session | env provenance overrides demo config; expected repo and `local operator` render; demo banner absent | header, origin and sample-fallback state agree |
+| Repeated semantic family IDs collide as React keys | repeated-family projection fixture | `/demo/w?center=root&view=quadrants&overlay=attention` plus snapshot-v1 compatibility | render the same semantic family in multiple physical regions | semantic IDs stay unchanged while physical instance keys are deterministic and unique | no duplicated/omitted shell, ring, glow or fallback node; zero React key warnings |
+| Dirty snapshot impersonates clean HEAD or mixes sidecars | dirty-source and promotion fixtures | snapshot builder/loader contract | edit source, change sidecar-only body and inject promotion failure | `uncommitted:<hash>` is content-bound; sidecar changes update bundle/snapshot identity; failed promotion restores prior directory | diagnostic names one revision and the previous valid world remains available |
 
 Rows are examples, not the limit. New regressions require adding a row with
 fixture, URL, interaction, automated assertion and visual checklist before
@@ -2194,20 +2187,21 @@ advances. A phase is not `done` without evidence.
 
 | Phase / gate | Status | Evidence required | Current evidence / blocker |
 | --- | --- | --- | --- |
-| Plan versioned in repo and linked from PR | `in_progress` | Git-tracked plan file plus PR link/reference. | Staged locally for commit; PR reference pending. |
-| Final repo/product planning audit | `done` | Live remote check, branch/WIP inventory, code hotspot review, tests/build/gates and desktop/mobile/fallback browser evidence. | Recorded in “Final Review Evidence”; public PR/implementation evidence remains separate. |
-| Phase 0 - work line consolidation | `in_progress` | Branch, absorbed local fix, WIP classification and superseded-plan note. | Lineage renamed in place to `wiki/v8-unified-living-world`; `71c845f` and `c5de4440` remain ancestors; WIP governance/migration map recorded. Plan commit and PR reference remain open. |
+| Plan versioned in repo and linked from PR | `done` | Git-tracked plan file plus PR link/reference. | Contract commit `d01b17f0`; referenced by draft PR [#61](https://github.com/kimlage/wiki-viva-kit/pull/61). |
+| Human PR / merge / tag gate | `blocked` | Human review, required CI, merge to `main` and release tag. | Draft PR #61 is open. This external gate is intentionally not represented as completed implementation. |
+| Final repo/product planning audit | `done` | Live remote check, branch/WIP inventory, code hotspot review, tests/build/gates and desktop/mobile/fallback browser evidence. | Pre-implementation evidence is retained as a baseline; final automated/manual evidence is recorded in this ledger, the release note and PR #61. |
+| Phase 0 - work line consolidation | `done` | Branch, absorbed local fix, WIP classification and superseded-plan note. | One branch/PR preserves `71c845f` and `a3604c11`; plan, implementation, generated artifacts and provenance fixes are separate commits; prior plans are marked absorbed/superseded. |
 | Phase 1 - unified contract | `done` | Route/state/schema tests, view/lens/overlay contract and canonical-vs-legacy route matrix. | Canonical entity/vocabulary, state ownership, history policy, `legacy`/`compat`/`v8` flags, v8 URL writer and explicit mappings for `radar`, `districts`, `trails`, `atlas`, `focus` and short lenses pass router/runtime tests; regions are rejected as centers. |
 | Phase 1A - walking skeleton | `done` | Fixture, runtime path, tests and visual QA evidence package. | Root/source/person/action/family, dock, reader, fallback and inspect-select-read-recenter flow pass reducer/unit coverage and the four-project browser package; QA JSON records route/runtime/viewport/console/network/screenshots. |
-| Phase 2 - backend/snapshot | `done` | Snapshot schema/version, source states, regions, warnings and deterministic tests. | `wiki_web_snapshot.v2` now validates 24 atomic payloads plus version vector, relation vocabulary, canonical work, four-way empty-region expectation, source lifecycle/closure and warnings; `wiki_web_snapshot.py --check-contract` is green and frontend distinguishes stale, partial, unsupported, corrupt and torn loads. |
+| Phase 2 - backend/snapshot | `done` | Snapshot schema/version, source states, regions, warnings and deterministic tests. | `wiki_web_snapshot.v2` validates 24 payloads, sidecars, version vector, relations, work, regions, lifecycle and warnings. Clean/dirty source identity is honest; complete bundles stage, validate, atomically promote and roll back. Frontend rejects stale, partial, unsupported, corrupt and torn loads. |
 | Phase 3 - templates/blocks/visual grammar | `done` | Registry validation, block docs and Blocks dock explanation. | Closed primitive IDs/packs/slots, required-slot validation, `VisualPrimitiveRegistry` installation and tests are live; Blocks dock exposes resolved stack, scene profile, active pack, slots and reason. |
-| Phase 4 - interaction runtime/game engine | `done` | Runtime modules, reducer, view/overlay/surface/scene registries, input controller and harness tests. | Runtime, reducer, all registries/effects/input/resource/command/diagnostic modules pass; components use injected application ports, architecture gate reports 0 violations/0 accepted debt, and operator mutations use nonce + idempotent attempt receipts. |
-| Phase 5 - frontend rendering | `in_progress` | Runtime-backed views/overlays, a11y/i18n, fallback and instrumentation evidence. | Four views/six overlays, 2D fallback, focus/inert restoration, 44px targets, safe-area handling, EN/PT runtime controls, lazy boundaries and bounded performance evidence pass; semantic overlay token migration is the remaining blocker. |
+| Phase 4 - interaction runtime/game engine | `done` | Runtime modules, reducer, view/overlay/surface/scene registries, input controller and harness tests. | Runtime, reducer, registries/effects/input/resource/command/diagnostic modules pass; components use injected ports, architecture reports 0 violations/0 debt, operator commands use nonce + idempotent receipts, and the server rejects non-loopback binds. |
+| Phase 5 - frontend rendering | `done` | Runtime-backed views/overlays, a11y/i18n, fallback and instrumentation evidence. | Four views, six overlays, one semantic encoding resolver, 2D fallback, stable layout signature, keyed morphs, focus/inert restoration, 44px targets, safe-area handling, EN/PT controls, live legend, lazy boundaries and bounded performance evidence pass. |
 | Phase 6 - dense synthetic demo | `done` | Regression fixture matrix and dense sample data. | Seven deterministic scenario manifests generate 467 public pages; dense stress has 378 selected pages (>350 mobile threshold), every source/action state axis is covered, region `shown + hidden = total`, and temp regeneration drift is green. |
-| Phase 7 - tests/gates | `in_progress` | Python gates, frontend tests, Playwright E2E and diff checks. | Snapshot/demo/architecture/bundle/unit and four browser projects are individually green; final single-run public gate sweep remains after semantic-token integration and docs merge. |
-| Phase 8 - visual validation | `in_progress` | QA evidence package for desktop, mobile, fallback and private read-only pass. | Public Chromium desktop, WebKit touch/mobile, forced reduced-motion fallback and Firefox/history matrix passes; Create safe-area defect and performance warm-up flake were fixed without relaxing budgets. Private read-only pass remains. |
-| Phase 9 - downstream repository upgrades | `in_progress` | Consumer inventory, upgrade package, migration reports, pilot/wave status and redacted QA evidence. | Public upgrade/preflight/report tooling, inventory and runbook are implemented with synthetic tests; private pilot preflight is read-only and currently records honest release/branch/worktree/drift blockers. Final source SHA/PR reference remains. |
-| Phase 10 - documentation/release | `in_progress` | README, cockpit README, modular-blocks, extending-the-kit, examples, diagrams and release notes. | Runtime architecture, downstream upgrade, extension/block guidance and release artifacts are being consolidated; final gate, commit sequence, PR link and release SHA remain. |
+| Phase 7 - tests/gates | `done` | Python gates, frontend tests, Playwright E2E and diff checks. | 673 Python tests pass (4 skipped), frontend 322/322, gate tests 15/15, architecture 0/0, bundle budgets green, final browser rerun 27/27 (2 real-endpoint opt-in), demo/snapshot/diff gates and Ruff on changed Python are green. Whole-tree Ruff is not a release gate and retains pre-existing bootstrap/style debt. |
+| Phase 8 - visual validation | `done` | QA evidence package for desktop, mobile, fallback and private read-only pass. | Automated four-engine/profile matrix plus manual in-app walk covered four views, six overlays, four lenses, docks, reader, fallback and mobile. Private-pilot read-only proved real provenance/no sample fallback/no new console warnings and left its checkout fingerprint unchanged. |
+| Phase 9 - downstream repository upgrades | `done` | Consumer inventory, upgrade package, migration reports, pilot/wave status and redacted QA evidence. | Package is pinned to `70629606`, with inventory, allow/block lists, preflight, report compiler/schema, rollback and compatibility window. Public source is candidate; private pilot is honestly paused until its own clean branch/gate receipts/import report. No private import was performed upstream. |
+| Phase 10 - documentation/release | `done` | README, cockpit README, modular-blocks, extending-the-kit, examples, diagrams and release notes. | Runtime/upgrade guides, README surfaces, extension/block guidance, command reference, release candidate, exact source SHA and PR #61 are versioned. Stable release remains the separate human merge/tag gate above. |
 
 ## Workstreams And Dependencies
 
@@ -3188,8 +3182,8 @@ The v8 unified execution is complete only when all conditions are true:
 
 - [x] Rename/confirm the current lineage as `wiki/v8-unified-living-world`
   without duplicating its two public-ahead commits.
-- [ ] Commit this staged v8 plan as the sole execution contract and reference
-  it in the PR body.
+- [x] Commit this v8 plan as the sole execution contract and reference it in
+  draft PR #61.
 - [x] Classify current WIP and separate generated artifacts where possible.
 - [x] Apply the WIP governance matrix: keep, absorb, regenerate, discard,
   split commit or transform into fixture/test.
@@ -3224,33 +3218,39 @@ The v8 unified execution is complete only when all conditions are true:
 - [x] Implement initial views `quadrants`, `radar`, `sources`, `work` and
   overlays `attention`, `freshness`, `actions`, `ownership`, `evidence`,
   `quality`.
-- [ ] Implement P0 visual/conceptual backlog with real-data source and
+- [x] Implement P0 visual/conceptual backlog with real-data source and
   operator-decision statement for each item.
-- [ ] Implement deterministic spatial continuity, semantic zoom/motion,
+- [x] Implement deterministic spatial continuity, semantic zoom/motion,
   semantic visual tokens, surface stack and responsive occupancy budgets.
 - [x] Expand the public synthetic demo until it pressures the real bugs.
 - [x] Split demo data into scenario manifests/builders and add a regeneration
   drift check.
-- [ ] Fill the regression evidence matrix with fixture, URL, interaction,
+- [x] Fill the regression evidence matrix with fixture, URL, interaction,
   assertion and visual checklist for each prior bug class.
 - [x] Implement/validate backend snapshot, template blocks, interaction runtime
   and frontend rendering by track.
-- [ ] Run automated gates.
-- [ ] Run snapshot-contract, architecture-boundary, bundle-size and demo-drift
+- [x] Run automated gates.
+- [x] Run snapshot-contract, architecture-boundary, bundle-size and demo-drift
   gates.
-- [ ] Run mandatory desktop/mobile/fallback visual QA and record the evidence
+- [x] Run mandatory desktop/mobile/fallback visual QA and record the evidence
   package.
-- [ ] Run Chromium desktop, WebKit mobile, forced fallback and Firefox smoke
+- [x] Run Chromium desktop, WebKit mobile, forced fallback and Firefox smoke
   browser projects plus the north-star operator tasks.
-- [ ] Validate the private cockpit read-only.
-- [ ] Publish the downstream v8 upgrade package: release notes, import
+- [x] Validate the private cockpit read-only with public-safe evidence and an
+  unchanged checkout fingerprint.
+- [x] Publish the downstream v8 upgrade package: release notes, import
   allowlist, breaking changes, route migration, schema versions, commands,
   rollback, compat window and visual QA checklist.
-- [ ] Create the consumer repo inventory and mark pilot/wave/paused status.
-- [ ] Run downstream preflight for each candidate: clean branch, current gates,
-  `wiki_toolkit_drift.py`, snapshot, local override report and privacy risk.
-- [ ] Generate migration reports for downstream pilot/waves with SHA source,
-  SHA target, imported files, overrides, warnings, fixtures, gates and QA
-  evidence.
-- [ ] Update README, cockpit README, modular-blocks, extending-the-kit,
+- [x] Create the consumer repo inventory and mark pilot/wave/paused status.
+- [x] Compile read-only downstream preflight for the inventory candidates;
+  release, branch/worktree, current-gate, drift, snapshot, override and privacy
+  blockers remain explicit rather than being bypassed.
+- [x] Deliver the migration-report schema/template/compiler and synthetic
+  completeness checks. Real consumer reports are created only after an actual
+  allowlisted import; the private pilot remains paused by preflight.
+- [x] Update README, cockpit README, modular-blocks, extending-the-kit,
   examples, diagrams, PR/release notes and downstream SHA migration notes.
+
+The implementation checklist is complete. Draft PR #61 remains the explicit
+human review/merge/tag gate; it is not silently converted into an automated
+approval.
