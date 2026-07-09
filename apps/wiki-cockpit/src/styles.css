@@ -263,6 +263,7 @@ code {
 .sceneCanvasFrame {
   position: absolute;
   inset: 40px 0 32px;
+  z-index: 0;
   /* NEVER measure zero: r3f defers committing the scene until the container
      has size; a 0x0 window during the dev-CSS load raced the ResizeObserver
      and left a black world (HUD alive, canvas dead). A hard floor closes it. */
@@ -412,6 +413,33 @@ button.stripChip:hover {
   flex: none;
 }
 
+.radarKeyPopover .overlayLegendScale li {
+  padding: 3px 5px;
+  border-left: 2px solid var(--overlay-color);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--overlay-color) 9%, transparent);
+}
+
+.radarKeyPopover .overlayLegendScale li i,
+.overlayFallbackLegend span i {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 18px;
+  border: 1px solid var(--overlay-color);
+  border-radius: 5px;
+  color: #f4f7f9;
+  background: color-mix(in srgb, var(--overlay-color) 38%, #10161b);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.radarKeyPopover .contextPositionLegend {
+  max-height: 88px;
+  overflow: auto;
+}
+
 @media (max-width: 900px) {
   .radarShell:not(.fallbackMode) {
     height: auto;
@@ -466,6 +494,21 @@ button.stripChip:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
+.radarTooltip.groupTooltip {
+  gap: 5px;
+  max-width: 340px;
+  border-color: rgba(127, 208, 232, 0.36);
+}
+
+.radarTooltip.orbitClusterTooltip {
+  gap: 5px;
+  max-width: 330px;
+  border-color: rgba(87, 217, 160, 0.42);
+  background:
+    linear-gradient(135deg, rgba(87, 217, 160, 0.08), transparent 58%),
+    rgba(8, 13, 17, 0.95);
+}
+
 .radarTooltip strong {
   color: #eef7fb;
   font-size: 13px;
@@ -475,9 +518,69 @@ button.stripChip:hover {
   color: #ff9daa;
 }
 
+.radarTooltip .tooltipComposition {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.radarTooltip .tooltipComposition i,
+.radarTooltip .tooltipSignals i {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 156px;
+  padding: 2px 6px;
+  overflow: hidden;
+  border: 1px solid rgba(127, 208, 232, 0.18);
+  border-radius: 999px;
+  background: rgba(10, 18, 24, 0.72);
+  color: #d8e6ee;
+  font-style: normal;
+  font-size: 10.5px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.radarTooltip .tooltipComposition b,
+.radarTooltip .tooltipSignals b {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+}
+
+.radarTooltip .tooltipSignals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.radarTooltip .tooltipSignals span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radarTooltip .tooltipSignals em {
+  color: #eef7fb;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.radarTooltip .tooltipAttention {
+  color: #ffd28a;
+  font-weight: 700;
+}
+
 .radarLabel span {
-  display: grid;
-  justify-items: center;
+  display: inline-flex;
+}
+
+.radarLabel .nodeLabelBody {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
   gap: 1px;
   padding: 3px 8px;
   border-radius: 7px;
@@ -489,9 +592,234 @@ button.stripChip:hover {
   max-width: 160px;
 }
 
-/* Long Portuguese titles are truncated so labels never overprint each other
-   in dense scenes; the full title is still on the node's hover tooltip. */
+.radarLabel .nodeOverlaySignal {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  max-width: 150px;
+  gap: 4px;
+  padding: 1px 5px;
+  border-left: 2px solid var(--overlay-color);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--overlay-color) 12%, rgba(6, 11, 15, 0.9));
+  color: #dce7ed;
+}
+
+.radarLabel .nodeOverlaySignal.ring-dashed {
+  border-left-style: dashed;
+}
+
+.radarLabel .nodeOverlaySignal.ring-double {
+  border-left-style: double;
+  border-left-width: 4px;
+}
+
+.radarLabel .nodeOverlaySignal b {
+  color: var(--overlay-color);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.radarLabel .nodeOverlaySignal small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #b9c7ce;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.radarLabel .nodeCompactLabel .nodeOverlaySignal small,
+.radarLabel .nodeGlyphOnlyLabel .nodeOverlaySignal small {
+  display: none;
+}
+
+.radarLabel button.nodeLabelBody {
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+.radarLabel button.nodeLabelBody:hover {
+  border-color: rgba(123, 220, 255, 0.5);
+  box-shadow: 0 0 12px rgba(107, 215, 255, 0.16);
+}
+
+.radarLabel .nodeGroupLabel {
+  gap: 3px;
+  max-width: 230px;
+  padding: 5px 9px;
+  border-color: rgba(123, 220, 255, 0.28);
+  background: rgba(6, 15, 20, 0.88);
+}
+
+.radarLabel .nodeGroupLabelSatellite {
+  flex-direction: row;
+  gap: 5px;
+  max-width: 190px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  background: rgba(6, 13, 18, 0.76);
+}
+
+.radarLabel .nodeCompactLabel {
+  flex-direction: row;
+  gap: 5px;
+  max-width: 176px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: rgba(5, 10, 14, 0.66);
+  border-color: rgba(123, 220, 255, 0.18);
+}
+
+.radarLabel .nodeMetricLabel {
+  flex-direction: row;
+  gap: 4px;
+  max-width: 72px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(4, 10, 14, 0.6);
+  border-color: rgba(123, 220, 255, 0.18);
+}
+
+.radarLabel .nodeGlyphOnlyLabel {
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 50%;
+  background: rgba(6, 13, 18, 0.58);
+  border-color: rgba(123, 220, 255, 0.2);
+}
+
+.nodeVisualGlyph {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 6px;
+  border: 1px solid rgba(123, 220, 255, 0.36);
+  background: rgba(123, 220, 255, 0.1);
+  color: #9fe7ff;
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.radarLabel .nodeGlyphOnlyLabel .nodeVisualGlyph {
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(123, 220, 255, 0.14);
+}
+
+.nodeGroupComposition {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  width: min(118px, 100%);
+  min-height: 8px;
+  padding: 1px 2px;
+  border-radius: 999px;
+  background: rgba(216, 246, 255, 0.05);
+  border: 1px solid rgba(216, 246, 255, 0.08);
+}
+
+.nodeGroupComposition i {
+  --chip-color: #9fe7ff;
+  --chip-share: 20%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 1 var(--chip-share);
+  min-width: 11px;
+  height: 8px;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--chip-color) 88%, transparent), color-mix(in srgb, var(--chip-color) 34%, transparent));
+  box-shadow: 0 0 7px color-mix(in srgb, var(--chip-color) 38%, transparent);
+  font-style: normal;
+  overflow: hidden;
+}
+
+.nodeGroupComposition b {
+  color: #041016;
+  font-size: 7px;
+  font-weight: 800;
+  line-height: 1;
+  transform: translateY(-0.2px);
+}
+
+.radarLabel .nodeMetricLabel .nodeGroupComposition,
+.radarLabel .nodeCompactLabel .nodeGroupComposition {
+  width: 58px;
+  min-width: 42px;
+}
+
+.nodeGroupStateRail {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 12px;
+  padding: 1px 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(216, 246, 255, 0.07);
+}
+
+.nodeGroupStateRail i {
+  --state-color: #9fe7ff;
+  --state-intensity: 0.35;
+  display: inline-grid;
+  place-items: center;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 2px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.72), transparent 28%),
+    color-mix(in srgb, var(--state-color) calc(38% + var(--state-intensity) * 44%), rgba(5, 10, 14, 0.42));
+  box-shadow:
+    0 0 calc(5px + var(--state-intensity) * 10px) color-mix(in srgb, var(--state-color) 44%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--state-color) 62%, rgba(255, 255, 255, 0.1));
+  color: #041016;
+  font-style: normal;
+  line-height: 1;
+}
+
+.nodeGroupStateRail i.state-risk,
+.nodeGroupStateRail i.state-gap {
+  border-radius: 3px;
+}
+
+.nodeGroupStateRail i.state-action {
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.nodeGroupStateRail i.state-evidence {
+  min-width: 18px;
+}
+
+.nodeGroupStateRail b {
+  font-size: 7px;
+  font-weight: 900;
+  line-height: 1;
+  transform: translateY(-0.2px);
+}
+
+.radarLabel .nodeMetricLabel .nodeGroupStateRail,
+.radarLabel .nodeCompactLabel .nodeGroupStateRail {
+  max-width: 56px;
+  overflow: hidden;
+}
+
+/* Page titles may truncate in dense scenes. Group handles are navigational
+   objects, so they wrap to two lines instead of hiding the object identity. */
 .radarLabel strong {
+  display: block;
   font-size: 13px;
   font-weight: 700;
   color: #eef7fb;
@@ -501,7 +829,37 @@ button.stripChip:hover {
   white-space: nowrap;
 }
 
+.radarLabel .nodeGroupLabel strong {
+  text-align: center;
+  line-height: 1.12;
+}
+
+.radarLabel .nodeGroupLabelRoot strong {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.radarLabel .nodeGroupLabelSatellite strong {
+  max-width: 136px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: 12px;
+  line-height: 1.08;
+}
+
+.radarLabel .nodeCompactLabel strong {
+  max-width: 124px;
+  font-size: 11px;
+  line-height: 1.1;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .radarLabel em {
+  display: block;
   font-style: normal;
   font-size: 12px;
   font-weight: 700;
@@ -509,6 +867,40 @@ button.stripChip:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.radarLabel .nodeGroupLabel em {
+  max-width: 210px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.radarLabel .nodeGroupLabelSatellite em {
+  display: none;
+}
+
+.radarLabel .nodeCompactLabel em {
+  max-width: 34px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(255, 181, 94, 0.1);
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.radarLabel .nodeMetricLabel em {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  max-width: 38px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgba(123, 220, 255, 0.12);
+  border: 1px solid rgba(123, 220, 255, 0.22);
+  font-size: 10px;
+  line-height: 1;
 }
 
 .radarDeadlineCaption span {
@@ -683,6 +1075,7 @@ button.stripChip:hover {
   min-height: 36px;
   display: flex;
   align-items: center;
+  gap: 8px;
   width: 100%;
   padding: 8px 10px;
   border: 1px solid #2b3941;
@@ -692,6 +1085,25 @@ button.stripChip:hover {
   font: inherit;
   text-align: left;
   overflow-wrap: anywhere;
+}
+
+.fallbackNode.groupNode {
+  background: linear-gradient(135deg, rgba(32, 65, 74, 0.78), rgba(10, 18, 22, 0.96));
+  border-color: rgba(123, 220, 255, 0.55) !important;
+}
+
+.fallbackNodeGlyph {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 6px;
+  border: 1px solid rgba(123, 220, 255, 0.45);
+  background: rgba(123, 220, 255, 0.1);
+  color: #a5eaff;
+  font-weight: 800;
 }
 
 .fallbackNode:hover,
@@ -723,6 +1135,68 @@ button.stripChip:hover {
   pointer-events: none;
 }
 
+.sceneHtmlLabel.sceneHtmlInteractive {
+  pointer-events: auto;
+  width: min(690px, calc(100vw - 48px));
+  translate: -50% -50%;
+}
+
+.sceneHtmlLabel.sceneHtmlInteractive > .seedPalettePlate {
+  position: relative !important;
+  transform: none !important;
+  width: 100%;
+}
+
+.sceneClusterLabel {
+  pointer-events: auto;
+}
+
+.sceneClusterLabel button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid rgba(134, 230, 255, 0.55);
+  border-radius: 999px;
+  background: rgba(6, 14, 18, 0.78);
+  color: #dff8ff;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 14px rgba(94, 226, 255, 0.18);
+  cursor: pointer;
+}
+
+.sceneClusterLabel button:hover,
+.sceneClusterLabel button:focus-visible {
+  border-color: rgba(157, 245, 255, 0.9);
+  background: rgba(7, 20, 26, 0.92);
+  box-shadow: 0 0 18px rgba(94, 226, 255, 0.34);
+}
+
+.sceneClusterDetail {
+  display: none;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #a8c6d2;
+  font-weight: 700;
+}
+
+.sceneClusterLabel button:hover .sceneClusterDetail,
+.sceneClusterLabel button:focus-visible .sceneClusterDetail {
+  display: inline;
+}
+
+.sceneHtmlControl {
+  pointer-events: auto;
+}
+
 .fallbackCensus {
   display: flex;
   flex-wrap: wrap;
@@ -745,6 +1219,11 @@ button.stripChip:hover {
   width: 9px;
   height: 9px;
   border-radius: 3px;
+}
+
+.overlayFallbackLegend span {
+  border-left: 2px solid var(--overlay-color);
+  background: color-mix(in srgb, var(--overlay-color) 8%, #0f1518);
 }
 
 .stat {
@@ -1967,6 +2446,47 @@ pre {
     height: 300px;
   }
 
+  .worldTopStrip {
+    align-items: flex-start;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  .worldBreadcrumbs {
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .worldBreadcrumbs span {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  .worldBreadcrumbs strong {
+    display: inline-block;
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .worldMeta {
+    max-width: 58%;
+    min-width: 0;
+    overflow: hidden;
+    padding: 0;
+    background: transparent;
+    color: #8fa4b4;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
 
 
   /* Command bar: search takes the first full row, controls wrap below; the
@@ -2046,7 +2566,59 @@ pre {
 }
 
 .worldWorkspace {
+  --visual-glow: 1;
+  --visual-contrast: 1;
+  --visual-density: 1;
+  --visual-motion: 1;
+  --visual-ui-scale: 1;
+  --visual-glass: 1;
   padding: 10px 14px 14px;
+}
+
+.worldWorkspace .radarLabel .nodeLabelBody,
+.worldWorkspace .clusterStarLabel button,
+.worldWorkspace .worldMissionCard,
+.worldWorkspace .worldMissionChip,
+.worldWorkspace .quadrantCompass,
+.worldWorkspace .focusLegend,
+.worldWorkspace .packetTray,
+.worldWorkspace .missionsPanel,
+.worldWorkspace .pageReader {
+  filter: saturate(var(--visual-contrast));
+}
+
+.worldWorkspace .radarLabel .nodeLabelBody,
+.worldWorkspace .sceneClusterLabel button,
+.worldWorkspace .clusterStarLabel button,
+.worldWorkspace .quadrantHealthRing,
+.worldWorkspace .dockBadge {
+  box-shadow: 0 0 calc(12px * var(--visual-glow)) rgba(94, 226, 255, 0.16);
+}
+
+.worldWorkspace .worldTopStrip,
+.worldWorkspace .worldCommandBar,
+.worldWorkspace .worldMissionCard,
+.worldWorkspace .worldMissionChip,
+.worldWorkspace .quadrantCompass,
+.worldWorkspace .pageReader,
+.worldWorkspace .packetTray,
+.worldWorkspace .missionsPanel,
+.worldWorkspace .visualControlPanel {
+  backdrop-filter: blur(calc(6px * var(--visual-glass)));
+}
+
+.worldWorkspace.visualLabels-quiet .radarLabel .nodeLabelBody:not(.nodeGroupLabelRoot),
+.worldWorkspace.visualLabels-quiet .sceneClusterDetail,
+.worldWorkspace.visualLabels-quiet .clusterStarLabel small {
+  opacity: 0.62;
+}
+
+.worldWorkspace.visualLabels-dense .radarLabel .nodeLabelBody {
+  max-width: 220px;
+}
+
+.worldWorkspace.visualLabels-dense .sceneClusterDetail {
+  display: inline;
 }
 
 .worldWorkspace .sceneShell {
@@ -2153,6 +2725,118 @@ pre {
   gap: 10px;
   color: #6f8494;
   white-space: nowrap;
+}
+
+.worldRuntimeControls,
+.worldRuntimeControlGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.worldWorkspace[data-world-overlay="attention"] { --overlay-accent: #ffb45c; }
+.worldWorkspace[data-world-overlay="freshness"] { --overlay-accent: #62d7c8; }
+.worldWorkspace[data-world-overlay="actions"] { --overlay-accent: #7ca7ff; }
+.worldWorkspace[data-world-overlay="ownership"] { --overlay-accent: #d58cff; }
+.worldWorkspace[data-world-overlay="evidence"] { --overlay-accent: #7ee787; }
+.worldWorkspace[data-world-overlay="quality"] { --overlay-accent: #f2d06b; }
+
+.worldRuntimeControls {
+  margin-left: auto;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--overlay-accent, #7fd0e8) 28%, transparent);
+  border-radius: 10px;
+  background: rgba(5, 11, 17, 0.76);
+  backdrop-filter: blur(10px);
+}
+
+.runtimeControl {
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #9fb6c6;
+  font: inherit;
+  cursor: pointer;
+}
+
+.runtimeControl.active,
+.runtimeControl[aria-pressed="true"] {
+  color: #f4fbff;
+  border-color: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 52%, transparent);
+  background: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 16%, transparent);
+}
+
+.worldRuntimeSelect {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #8fa5b4;
+}
+
+.worldRuntimeSelect select {
+  min-height: 32px;
+  max-width: 112px;
+  border: 1px solid rgba(127, 208, 232, 0.3);
+  border-radius: 7px;
+  background: #09131c;
+  color: #e6f2f8;
+  font: inherit;
+}
+
+@media (max-width: 760px) {
+  .worldTopStrip {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    max-height: 132px;
+    overflow: auto;
+  }
+
+  .worldBreadcrumbs {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .worldBreadcrumbs span:last-child,
+  .worldBreadcrumbs strong {
+    max-width: min(62vw, 240px);
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .worldRuntimeControls {
+    order: 3;
+    width: 100%;
+    justify-content: space-between;
+    overflow-x: auto;
+  }
+
+  .runtimeControl {
+    min-height: 44px;
+  }
+
+  .worldRuntimeSelect span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .worldRuntimeSelect select {
+    min-height: 44px;
+  }
+
+  .readerClose,
+  .dockHeader .readerClose {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 /* CONDITION strip: the honest ambient readout in the top strip. */
@@ -2278,51 +2962,356 @@ pre {
   color: #6f7f8c;
 }
 
-/* QUADRANT compass: the 2×2 AQAL grid, top-right, in the Quadrants perspective. */
+/* QUADRANT compass: a compact holographic instrument, not a text card grid. */
 .quadrantCompass {
   position: absolute;
   top: 44px;
   right: 12px;
-  z-index: 28;
+  z-index: 58;
+  pointer-events: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   align-items: flex-end;
 }
 
-.quadrantGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(116px, 1fr));
-  gap: 4px;
-  padding: 5px;
-  border: 1px solid rgba(127, 208, 232, 0.22);
-  border-radius: 12px;
-  background: rgba(6, 12, 18, 0.9);
-  backdrop-filter: blur(6px);
+.quadrantCompassApprovedTextOnly .quadrantCell,
+.quadrantCompassApprovedTextOnly .quadrantHealthRing,
+.quadrantCompassApprovedTextOnly .quadrantCountBadge,
+.quadrantCompassApprovedTextOnly .quadrantInstrument {
+  display: none !important;
 }
 
-.quadrantCell {
+.quadrantGrid {
+  position: relative;
   display: grid;
-  justify-items: start;
-  gap: 3px;
-  padding: 6px 9px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: rgba(16, 26, 34, 0.75);
+  grid-template-columns: repeat(2, minmax(76px, 1fr));
+  width: 184px;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid rgba(127, 208, 232, 0.22);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(127, 208, 232, 0.18), transparent 34%),
+    radial-gradient(circle at 82% 86%, rgba(197, 124, 255, 0.12), transparent 38%),
+    linear-gradient(135deg, rgba(127, 208, 232, 0.07), transparent 40%),
+    rgba(5, 10, 15, 0.64);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    inset 0 0 28px rgba(127, 208, 232, 0.08),
+    0 16px 42px rgba(0, 0, 0, 0.34);
+}
+
+.quadrantGrid::before,
+.quadrantGrid::after {
+  position: absolute;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(127, 208, 232, 0.24), transparent);
+}
+
+.quadrantGrid::before {
+  left: 7px;
+  right: 7px;
+  top: 50%;
+  height: 1px;
+}
+
+.quadrantGrid::after {
+  top: 7px;
+  bottom: 7px;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(127, 208, 232, 0.24), transparent);
+}
+
+.quadrantCompass.drillMode {
+  top: 100px;
+  right: 18px;
+}
+
+.quadrantCompass.familyDrillMode {
+  top: 78px;
+  right: 16px;
+  opacity: 0.88;
+}
+
+.quadrantCompass.drillMode .quadrantGrid {
+  grid-template-columns: repeat(2, minmax(66px, 1fr));
+  width: 156px;
+  gap: 5px;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(5, 10, 15, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+.quadrantCompass.familyDrillMode .quadrantGrid {
+  grid-template-columns: repeat(2, minmax(54px, 1fr));
+  width: 128px;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg, rgba(127, 208, 232, 0.08), rgba(87, 217, 160, 0.05)),
+    rgba(5, 10, 15, 0.5);
+  box-shadow:
+    inset 0 0 18px rgba(127, 208, 232, 0.06),
+    0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.quadrantTextGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 320px;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, rgba(127, 208, 232, 0.06), transparent 52%),
+    rgba(5, 10, 15, 0.68);
+  box-shadow: inset 0 0 20px rgba(127, 208, 232, 0.05), 0 16px 42px rgba(0, 0, 0, 0.34);
+}
+
+.quadrantTextGrid::before,
+.quadrantTextGrid::after {
+  display: none;
+}
+
+.quadrantCompass.drillMode .quadrantTextGrid {
+  width: 300px;
+  background: rgba(5, 10, 15, 0.62);
+}
+
+.quadrantCompass.familyDrillMode .quadrantTextGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 244px;
+  gap: 4px;
+  padding: 5px;
+}
+
+.quadrantTextCell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) auto;
+  gap: 5px;
+  align-items: center;
+  min-height: 54px;
+  padding: 6px 7px;
+  border: 1px solid rgba(127, 208, 232, 0.12);
+  border-radius: 9px;
+  background: rgba(16, 26, 34, 0.5);
   color: #cfe0ea;
   cursor: pointer;
   font: inherit;
   text-align: left;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.quadrantTextCell:hover,
+.quadrantTextCell:focus-visible {
+  border-color: rgba(127, 208, 232, 0.38);
+  background: rgba(127, 208, 232, 0.1);
+  transform: translateX(-1px);
+  outline: none;
+}
+
+.quadrantTextCell.active {
+  border-color: #7fd0e8;
+  background:
+    linear-gradient(90deg, rgba(127, 208, 232, 0.16), rgba(127, 208, 232, 0.04)),
+    rgba(16, 26, 34, 0.68);
+  box-shadow: inset 2px 0 0 #7fd0e8, 0 0 20px rgba(127, 208, 232, 0.1);
+}
+
+.quadrantTextCell.preview:not(.active) {
+  border-color: rgba(127, 208, 232, 0.3);
+}
+
+.quadrantTextCell.hasAttention {
+  border-color: rgba(255, 180, 84, 0.35);
+}
+
+.quadrantTextCell-intencao {
+  border-color: rgba(127, 208, 232, 0.2);
+}
+
+.quadrantTextCell-pratica {
+  border-color: rgba(255, 180, 84, 0.24);
+}
+
+.quadrantTextCell-relacoes {
+  border-color: rgba(197, 124, 255, 0.24);
+}
+
+.quadrantTextCell-sistemas {
+  border-color: rgba(94, 230, 168, 0.22);
+}
+
+.quadrantAreaDot {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--quadrant-health);
+  box-shadow: 0 0 12px rgba(127, 208, 232, 0.16);
+}
+
+.quadrantAreaDot::after {
+  position: absolute;
+  inset: 3.5px;
+  content: "";
+  border-radius: inherit;
+  background: rgba(5, 10, 15, 0.88);
+}
+
+.quadrantAreaCopy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.quadrantAreaCopy strong {
+  overflow: visible;
+  color: #e6f2f8;
+  font-size: 11.5px;
+  line-height: 1.1;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.quadrantAqalPosition {
+  overflow: visible;
+  color: #8fd0e8;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.quadrantAreaCopy small {
+  overflow: visible;
+  color: #8da2b0;
+  font-size: 9.5px;
+  line-height: 1.2;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.quadrantAreaAction {
+  display: inline-grid;
+  min-width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 1px solid rgba(255, 180, 84, 0.36);
+  border-radius: 999px;
+  color: #ffd28a;
+  font-size: 9px;
+  font-weight: 800;
+  background: rgba(255, 180, 84, 0.1);
+}
+
+.quadrantCell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: auto;
   min-height: 72px;
+  padding: 5px;
+  place-items: center;
+  border: 1px solid rgba(127, 208, 232, 0.16);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(127, 208, 232, 0.2), rgba(16, 26, 34, 0.44) 58%, rgba(3, 8, 12, 0.82)),
+    linear-gradient(140deg, rgba(223, 248, 255, 0.07), transparent 48%);
+  color: #cfe0ea;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  align-content: center;
+  overflow: visible;
+  box-shadow:
+    inset 0 0 18px rgba(127, 208, 232, 0.04),
+    0 0 0 1px rgba(3, 8, 12, 0.5);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.quadrantCell::before {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  z-index: 3;
+  content: "Q" attr(data-wilber-quadrant);
+  color: rgba(223, 248, 255, 0.58);
+  font-size: 8px;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.quadrantCell-intencao {
+  border-color: rgba(127, 208, 232, 0.22);
+}
+
+.quadrantCell-pratica {
+  border-color: rgba(255, 180, 84, 0.24);
+}
+
+.quadrantCell-relacoes {
+  border-color: rgba(197, 124, 255, 0.24);
+}
+
+.quadrantCell-sistemas {
+  border-color: rgba(94, 230, 168, 0.22);
+}
+
+.quadrantCompass.drillMode .quadrantCell {
+  width: auto;
+  min-height: 58px;
+  padding: 5px;
+  place-items: center;
+  align-content: center;
+  border-radius: 14px;
+  background: radial-gradient(circle at 50% 42%, rgba(127, 208, 232, 0.18), rgba(16, 26, 34, 0.58) 64%, rgba(3, 8, 12, 0.86));
+}
+
+.quadrantCompass.familyDrillMode .quadrantCell {
+  width: auto;
+  min-height: 50px;
+  padding: 4px;
+  border-color: rgba(127, 208, 232, 0.12);
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 46%, rgba(127, 208, 232, 0.14), rgba(16, 26, 34, 0.42) 64%, rgba(3, 8, 12, 0.76));
 }
 
 .quadrantCell:hover {
   border-color: rgba(127, 208, 232, 0.4);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0 22px rgba(127, 208, 232, 0.08),
+    0 0 26px rgba(127, 208, 232, 0.12);
 }
 
 .quadrantCell.active {
   border-color: #7fd0e8;
-  background: rgba(127, 208, 232, 0.14);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(127, 208, 232, 0.28), rgba(16, 26, 34, 0.48) 60%, rgba(3, 8, 12, 0.86)),
+    linear-gradient(140deg, rgba(223, 248, 255, 0.12), transparent 48%);
+  box-shadow:
+    0 0 24px rgba(127, 208, 232, 0.22),
+    inset 0 0 24px rgba(127, 208, 232, 0.1);
+}
+
+.quadrantCell.preview:not(.active) {
+  border-color: rgba(127, 208, 232, 0.32);
+  box-shadow:
+    inset 0 0 18px rgba(127, 208, 232, 0.08),
+    0 0 18px rgba(127, 208, 232, 0.08);
 }
 
 .quadrantCell.hasAttention {
@@ -2330,20 +3319,81 @@ pre {
 }
 
 .quadrantCell.hasRaw:not(.active) {
-  box-shadow: inset 3px 0 0 rgba(87, 217, 160, 0.45);
+  box-shadow:
+    inset 0 -3px 0 rgba(87, 217, 160, 0.42),
+    0 0 0 1px rgba(3, 8, 12, 0.5);
 }
 
-.quadrantCell strong {
-  font-size: 11.5px;
-  color: #e6f2f8;
-  max-width: 100%;
-  line-height: 1.15;
-  white-space: normal;
+.quadrantCellHead {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.quadrantFullLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.quadrantHealthRing {
+  position: absolute;
+  inset: 9px;
+  display: grid;
+  place-items: center;
+  width: auto;
+  height: auto;
+  border-radius: 999px;
+  background: var(--quadrant-health);
+  box-shadow:
+    0 0 18px rgba(127, 208, 232, 0.14),
+    0 0 30px rgba(94, 230, 168, 0.06);
+}
+
+.quadrantHealthRing::after {
+  position: absolute;
+  inset: 5px;
+  content: "";
+  border-radius: inherit;
+  background: rgba(5, 10, 15, 0.86);
+  box-shadow: inset 0 0 0 1px rgba(223, 248, 255, 0.1);
+}
+
+.quadrantHealthRing b {
+  position: relative;
+  z-index: 1;
+  color: #dff8ff;
+  font-size: 8.5px;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.quadrantCompass.drillMode .quadrantHealthRing {
+  position: absolute;
+  inset: 7px;
+  width: auto;
+  height: auto;
+}
+
+.quadrantCompass.familyDrillMode .quadrantHealthRing {
+  inset: 6px;
+  box-shadow: 0 0 12px rgba(127, 208, 232, 0.12);
+}
+
+.quadrantCompass.familyDrillMode .quadrantHealthRing b {
+  display: none;
 }
 
 .quadrantCell small,
 .quadrantType,
-.quadrantAttention {
+.quadrantAttention,
+.quadrantMetric,
+.quadrantAction {
   font-size: 10px;
   line-height: 1.15;
 }
@@ -2352,12 +3402,360 @@ pre {
   color: #dff2fb;
 }
 
-.quadrantType {
-  color: #93a4b1;
+.quadrantCountBadge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - 16px);
+  min-width: 22px;
+  padding: 1px 5px;
+  border: 1px solid rgba(127, 208, 232, 0.22);
+  border-radius: 999px;
+  color: #e6f2f8;
+  text-align: center;
+  background: rgba(4, 10, 15, 0.45);
+  box-shadow: 0 0 16px rgba(127, 208, 232, 0.14);
 }
 
-.quadrantAttention {
+.quadrantCompass.drillMode .quadrantCountBadge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  min-width: 18px;
+  padding: 1px 4px;
+  border-color: rgba(223, 248, 255, 0.28);
+  font-size: 10px;
+  line-height: 1.2;
+  box-shadow: 0 0 16px rgba(127, 208, 232, 0.18);
+}
+
+.quadrantCompass.familyDrillMode .quadrantCountBadge {
+  min-width: 16px;
+  padding: 0 4px;
+  font-size: 9px;
+  background: rgba(4, 10, 15, 0.54);
+}
+
+.quadrantType {
+  display: none;
+}
+
+.quadrantMetric {
+  color: #c7d8e2;
+  font-weight: 700;
+}
+
+.quadrantInstrument {
+  position: absolute;
+  inset: 4px;
+  display: block;
+  pointer-events: none;
+}
+
+.quadrantComposition {
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: 7px;
+  display: flex;
+  width: auto;
+  height: 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(3, 8, 12, 0.6);
+}
+
+.quadrantCompass.drillMode .quadrantComposition {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  width: auto;
+  height: 4px;
+  border: 0;
+  background: rgba(3, 8, 12, 0.72);
+}
+
+.quadrantComposition i {
+  display: block;
+  width: var(--share);
+  min-width: 6px;
+  border-right: 1px solid rgba(2, 8, 12, 0.55);
+}
+
+.quadrantComposition i:last-child {
+  border-right: 0;
+}
+
+.quadrantComposition .family-source {
+  background: #57d9a0;
+}
+
+.quadrantComposition .family-event {
+  background: #d989ff;
+}
+
+.quadrantComposition .family-person {
+  background: #ffb3c1;
+}
+
+.quadrantComposition .family-hub {
+  background: #7fd0e8;
+}
+
+.quadrantComposition .family-action {
+  background: #ff9c54;
+}
+
+.quadrantComposition .family-decision {
+  background: #e8c268;
+}
+
+.quadrantComposition .family-rule {
+  background: #8fa3ff;
+}
+
+.quadrantComposition .family-root {
+  background: #6bd7ff;
+}
+
+.quadrantComposition .family-content,
+.quadrantComposition .family-empty {
+  background: #9fb6c6;
+}
+
+.quadrantSignalRow,
+.quadrantMicroStats {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.quadrantMicroStats {
+  left: auto;
+  right: 6px;
+}
+
+.quadrantSignalRow i,
+.quadrantMicroStats i {
+  display: inline-grid;
+  place-items: center;
+  min-width: 7px;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(127, 208, 232, 0.18);
+  border-radius: 999px;
+  color: transparent;
+  font-style: normal;
+  font-size: 0;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.quadrantCompass.drillMode .quadrantSignalRow i,
+.quadrantCompass.drillMode .quadrantMicroStats i {
+  min-width: 7px;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  overflow: hidden;
+  color: transparent;
+  font-size: 0;
+  border-radius: 999px;
+}
+
+.quadrantCompass.drillMode .quadrantSignalRow i span,
+.quadrantCompass.drillMode .quadrantActionCue {
+  display: none;
+}
+
+.quadrantSignalRow .signal-calm {
+  min-width: 14px;
+  width: 14px;
+  background: radial-gradient(circle, #5ee6a8 0 38%, rgba(94, 230, 168, 0.12) 42% 100%);
+  border-color: rgba(94, 230, 168, 0.3);
+}
+
+.quadrantSignalRow .signal-stale,
+.quadrantMicroStats .microAction {
   color: #ffcf94;
+  border-color: rgba(255, 180, 84, 0.42);
+  background: rgba(255, 180, 84, 0.13);
+}
+
+.quadrantSignalRow .signal-risk {
+  color: #ffb7c1;
+  border-color: rgba(255, 122, 138, 0.48);
+  background: rgba(255, 122, 138, 0.14);
+}
+
+.quadrantSignalRow .signal-proposal {
+  color: #ddb9ff;
+  border-color: rgba(197, 124, 255, 0.48);
+  background: rgba(197, 124, 255, 0.14);
+}
+
+.quadrantSignalRow .signal-raw,
+.quadrantMicroStats .microRaw {
+  color: #9ff1c9;
+  border-color: rgba(87, 217, 160, 0.46);
+  background: rgba(87, 217, 160, 0.13);
+}
+
+.quadrantSignalRow .signal-unsourced,
+.quadrantSignalRow .signal-hidden {
+  color: #b7c4ce;
+  border-color: rgba(159, 182, 198, 0.34);
+  background: rgba(159, 182, 198, 0.1);
+}
+
+.quadrantMicroStats {
+  justify-content: flex-end;
+  min-height: 7px;
+}
+
+.quadrantMicroStats .microSource {
+  color: #9fdff4;
+  border-color: rgba(127, 208, 232, 0.4);
+  background: rgba(127, 208, 232, 0.12);
+}
+
+.quadrantMicroStats .microCalm {
+  min-width: 28px;
+  background:
+    radial-gradient(circle at 7px 50%, #5ee6a8 0 2.6px, transparent 3px),
+    radial-gradient(circle at 15px 50%, rgba(94, 230, 168, 0.62) 0 2.2px, transparent 2.6px),
+    radial-gradient(circle at 22px 50%, rgba(94, 230, 168, 0.38) 0 1.8px, transparent 2.2px);
+  border-color: rgba(94, 230, 168, 0.2);
+}
+
+.quadrantActionCue {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 17px;
+  padding: 1px 4px;
+  border: 1px solid rgba(255, 210, 138, 0.34);
+  border-radius: 999px;
+  color: #ffd28a;
+  background: rgba(255, 180, 84, 0.1);
+}
+
+.quadrantActionCue svg {
+  flex: 0 0 auto;
+  width: 11px;
+  height: 11px;
+}
+
+.quadrantActionCue b {
+  font-size: 9px;
+  line-height: 1;
+}
+
+.quadrantHoverPanel {
+  position: absolute;
+  top: -6px;
+  right: calc(100% + 12px);
+  z-index: 35;
+  display: none;
+  width: 272px;
+  pointer-events: none;
+  padding: 10px 12px;
+  border: 1px solid rgba(127, 208, 232, 0.28);
+  border-radius: 10px;
+  background:
+    linear-gradient(145deg, rgba(127, 208, 232, 0.08), transparent 42%),
+    rgba(5, 10, 15, 0.94);
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.48),
+    inset 0 0 24px rgba(127, 208, 232, 0.06);
+  color: #aebfca;
+  text-align: left;
+  white-space: normal;
+}
+
+.quadrantCompass.drillMode .quadrantHoverPanel {
+  top: 52px;
+  right: 0;
+  width: 260px;
+}
+
+.quadrantTextCell:hover .quadrantHoverPanel,
+.quadrantTextCell:focus-visible .quadrantHoverPanel {
+  display: grid;
+  gap: 5px;
+}
+
+.quadrantHoverPanel strong {
+  font-size: 12px;
+}
+
+.quadrantHoverPanel small,
+.quadrantHoverPanel span,
+.quadrantHoverPanel em {
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.quadrantHoverPanel em {
+  color: #ffd28a;
+  font-style: normal;
+}
+
+.quadrantTypeMix,
+.quadrantAttentionRail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.quadrantTypeMix i,
+.quadrantAttentionRail i {
+  border: 1px solid rgba(127, 208, 232, 0.18);
+  border-radius: 999px;
+  padding: 1px 5px;
+  color: #9fb6c6;
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.quadrantAttentionRail i {
+  border-color: rgba(255, 180, 84, 0.3);
+  color: #ffcf94;
+}
+
+.quadrantAttentionRail .attention-calm {
+  border-color: rgba(94, 230, 168, 0.22);
+  color: #8eeabc;
+}
+
+.quadrantAttentionRail .attention-risk {
+  border-color: rgba(255, 122, 138, 0.38);
+  color: #ffb7c1;
+}
+
+.quadrantAttentionRail .attention-proposal {
+  border-color: rgba(197, 124, 255, 0.36);
+  color: #ddb9ff;
+}
+
+.quadrantAction {
+  color: #ffd28a;
+  font-style: normal;
 }
 
 .quadrantCore {
@@ -2411,6 +3809,165 @@ pre {
 .quadrantSeed:hover {
   border-color: #7fd0e8;
   background: rgba(127, 208, 232, 0.14);
+}
+
+@media (max-width: 620px) {
+  .quadrantCompass {
+    top: 132px;
+    right: 10px;
+  }
+
+  .quadrantCompass.familyDrillMode {
+    top: 152px;
+    right: 20px;
+    opacity: 0.86;
+  }
+
+  .quadrantGrid {
+    grid-template-columns: repeat(2, minmax(54px, 1fr));
+    width: 132px;
+    gap: 5px;
+    padding: 5px;
+    border-radius: 14px;
+    background: rgba(5, 10, 15, 0.66);
+    backdrop-filter: blur(8px);
+  }
+
+  .quadrantCompass.familyDrillMode .quadrantGrid {
+    grid-template-columns: repeat(2, minmax(48px, 1fr));
+    width: 116px;
+    gap: 4px;
+    padding: 4px;
+  }
+
+  .quadrantTextGrid,
+  .quadrantCompass.drillMode .quadrantTextGrid,
+  .quadrantCompass.familyDrillMode .quadrantTextGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(340px, calc(100vw - 34px));
+    gap: 4px;
+    padding: 5px;
+  }
+
+  .quadrantTextCell {
+    min-height: 52px;
+    padding: 5px 6px;
+  }
+
+  .quadrantCell {
+    width: auto;
+    min-height: 50px;
+    padding: 4px;
+    place-items: center;
+    align-content: center;
+    border-radius: 12px;
+    background: radial-gradient(circle at 50% 42%, rgba(127, 208, 232, 0.18), rgba(16, 26, 34, 0.58) 64%, rgba(3, 8, 12, 0.86));
+  }
+
+  .quadrantCompass.familyDrillMode .quadrantCell {
+    width: auto;
+    min-height: 44px;
+  }
+
+  .quadrantCellHead {
+    position: absolute;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+  }
+
+  .quadrantFullLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .quadrantHealthRing {
+    position: absolute;
+    inset: 5px;
+    width: auto;
+    height: auto;
+  }
+
+  .quadrantHealthRing b {
+    display: none;
+  }
+
+  .quadrantCountBadge {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 2;
+    transform: translate(-50%, -50%);
+    min-width: 18px;
+    padding: 1px 4px;
+    border-color: rgba(223, 248, 255, 0.28);
+    font-size: 10px;
+    line-height: 1.2;
+    box-shadow: 0 0 16px rgba(127, 208, 232, 0.18);
+  }
+
+  .quadrantInstrument {
+    position: absolute;
+    inset: 4px;
+    display: block;
+    pointer-events: none;
+  }
+
+  .quadrantComposition {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 6px;
+    width: auto;
+    height: 4px;
+    border: 0;
+    background: rgba(3, 8, 12, 0.72);
+  }
+
+  .quadrantSignalRow,
+  .quadrantMicroStats {
+    position: absolute;
+    left: 5px;
+    top: 5px;
+    gap: 0;
+  }
+
+  .quadrantMicroStats {
+    left: auto;
+    right: 5px;
+  }
+
+  .quadrantSignalRow i,
+  .quadrantMicroStats i {
+    min-width: 7px;
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    overflow: hidden;
+    color: transparent;
+    font-size: 0;
+    border-radius: 999px;
+  }
+
+  .quadrantSignalRow i span,
+  .quadrantActionCue {
+    display: none;
+  }
+
+  .quadrantHoverPanel {
+    top: 52px;
+    right: 0;
+    width: min(260px, calc(100vw - 34px));
+  }
+
+  .quadrantSeed {
+    padding: 4px 9px;
+    font-size: 11px;
+  }
 }
 
 /* CREATE dock ("Semear no quadrante"): the type palette grouped by quadrant,
@@ -2819,6 +4376,7 @@ pre {
 .trayButton {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   gap: 6px;
   border: 1px solid #2a3944;
   background: rgba(10, 18, 25, 0.85);
@@ -2827,6 +4385,15 @@ pre {
   padding: 6px 10px;
   cursor: pointer;
   font-size: 12px;
+}
+
+.trayButton span {
+  min-width: 0;
+}
+
+.missionsButton {
+  flex: 0 0 auto;
+  min-width: 116px;
 }
 
 .trayButton.active {
@@ -3180,6 +4747,8 @@ pre {
   padding: 3px 8px;
   cursor: pointer;
   pointer-events: auto;
+  transform: translateY(-30px) scale(0.92);
+  transform-origin: center;
 }
 
 .clusterStarLabel strong {
@@ -3196,6 +4765,28 @@ pre {
   height: 5px;
   border-radius: 50%;
   display: inline-block;
+}
+
+.parentDrillGateLabel button {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(143, 224, 255, 0.72);
+  border-radius: 50%;
+  background: rgba(7, 16, 23, 0.82);
+  color: #dff8ff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 0 18px rgba(94, 230, 183, 0.28);
+}
+
+.parentDrillGateLabel button:hover {
+  border-color: #5ee6b7;
+  color: #ffffff;
+  box-shadow: 0 0 24px rgba(94, 230, 183, 0.42);
 }
 
 .horizonBeacon button {
@@ -3420,10 +5011,22 @@ pre {
   }
   .worldWorkspace .radarShell:not(.fallbackMode) .radarStatusStrip {
     position: absolute;
-    bottom: 46px;
-    right: 0;
-    height: 32px;
-    padding: 0 12px;
+    bottom: 184px;
+    right: 12px;
+    left: auto;
+    width: max-content;
+    max-width: calc(100% - 24px);
+    height: auto;
+    min-height: 32px;
+    padding: 4px 6px;
+    z-index: 28;
+  }
+  .worldWorkspace .radarShell:not(.fallbackMode) .radarKeyPopover {
+    position: fixed;
+    inset: 118px 12px 232px;
+    width: auto;
+    max-height: none;
+    overflow: auto;
   }
   .worldWorkspace .sceneShell {
     height: calc(100vh - 96px);
@@ -4034,6 +5637,345 @@ pre {
   font-size: 12px;
 }
 
+.visualControlPanel {
+  position: absolute;
+  left: 18px;
+  bottom: 58px;
+  z-index: 68;
+  width: min(410px, calc(100vw - 36px));
+  max-height: min(76vh, 620px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  border: 1px solid rgba(117, 209, 245, 0.36);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(197, 124, 255, 0.2), transparent 30%),
+    radial-gradient(circle at 92% 16%, rgba(94, 226, 255, 0.18), transparent 26%),
+    rgba(7, 13, 19, 0.94);
+  box-shadow: 0 22px 80px rgba(0, 0, 0, 0.58), 0 0 calc(32px * var(--visual-glow)) rgba(139, 226, 255, 0.2);
+  padding: 12px;
+  color: #dff2fb;
+  isolation: isolate;
+  transform-origin: left bottom;
+  animation: visualControlEnter 220ms ease-out;
+}
+
+.visualControlPanel::before,
+.visualControlPanel::after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  z-index: -1;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+.visualControlPanel::before {
+  border: 1px solid rgba(139, 226, 255, 0.22);
+  box-shadow: inset 0 0 calc(20px * var(--visual-glow)) rgba(94, 226, 255, 0.08);
+  animation: visualControlRune 2800ms linear infinite;
+}
+
+.visualControlPanel::after {
+  background:
+    linear-gradient(90deg, transparent, rgba(94, 226, 255, 0.16), transparent),
+    linear-gradient(0deg, transparent, rgba(197, 124, 255, 0.1), transparent);
+  opacity: calc(0.22 + (var(--visual-glow) * 0.12));
+  transform: translateY(0);
+  animation: visualControlScan 3600ms ease-in-out infinite;
+}
+
+.visualControlMotes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.visualControlMotes i {
+  position: absolute;
+  width: calc(3px * var(--visual-glow));
+  height: calc(3px * var(--visual-glow));
+  border-radius: 999px;
+  background: #8ce7ff;
+  box-shadow: 0 0 calc(12px * var(--visual-glow)) #8ce7ff;
+  opacity: 0.78;
+  animation: visualControlMote 4600ms ease-in-out infinite;
+}
+
+.visualControlMotes i:nth-child(1) { left: 8%; top: 72%; animation-delay: -200ms; }
+.visualControlMotes i:nth-child(2) { left: 18%; top: 18%; animation-delay: -1100ms; background: #c57cff; box-shadow: 0 0 calc(12px * var(--visual-glow)) #c57cff; }
+.visualControlMotes i:nth-child(3) { left: 42%; top: 88%; animation-delay: -1900ms; }
+.visualControlMotes i:nth-child(4) { left: 65%; top: 14%; animation-delay: -2600ms; background: #5ee6a8; box-shadow: 0 0 calc(12px * var(--visual-glow)) #5ee6a8; }
+.visualControlMotes i:nth-child(5) { left: 84%; top: 62%; animation-delay: -3100ms; }
+.visualControlMotes i:nth-child(6) { left: 92%; top: 28%; animation-delay: -3700ms; background: #ffd27a; box-shadow: 0 0 calc(12px * var(--visual-glow)) #ffd27a; }
+
+.worldWorkspace.visualControlOpen .worldMissionCard,
+.worldWorkspace.visualControlOpen .worldMissionSlim,
+.worldWorkspace.visualControlOpen .quadrantCompass,
+.worldWorkspace.visualControlOpen .quadrantScopeChip {
+  opacity: 0.42;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.visualControlHeader {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.visualControlHeader strong {
+  display: block;
+  font-size: 14px;
+}
+
+.visualControlHeader small {
+  display: block;
+  color: #7d93a3;
+  font-size: 11px;
+}
+
+.visualControlIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(107, 215, 255, 0.32);
+  border-radius: 8px;
+  background: rgba(107, 215, 255, 0.08);
+  color: #8ce7ff;
+}
+
+.visualControlGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.visualControlPresetGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.visualControlPresetGrid button {
+  min-width: 0;
+  border: 1px solid rgba(107, 215, 255, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(94, 226, 255, 0.13), rgba(197, 124, 255, 0.06)),
+    rgba(10, 18, 25, 0.72);
+  color: #cfe8f4;
+  padding: 7px 6px;
+  font: inherit;
+  font-size: 11px;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+
+.visualControlPresetGrid button:hover,
+.visualControlPresetGrid button:focus-visible {
+  border-color: #6bd7ff;
+  box-shadow: 0 0 calc(16px * var(--visual-glow)) rgba(107, 215, 255, 0.18);
+}
+
+.visualControlSlider {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid rgba(42, 57, 68, 0.9);
+  border-radius: 8px;
+  background: rgba(10, 18, 25, 0.72);
+  padding: 8px;
+}
+
+.visualControlSlider span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #9fb6c6;
+  font-size: 11px;
+}
+
+.visualControlSlider b {
+  color: #e6f2f8;
+}
+
+.visualControlSlider input {
+  width: 100%;
+  accent-color: #6bd7ff;
+}
+
+.visualControlModes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.visualControlModes button,
+.visualControlToggle {
+  border: 1px solid #2a3944;
+  border-radius: 8px;
+  background: rgba(10, 18, 25, 0.74);
+  color: #9fb6c6;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.visualControlModes button {
+  cursor: pointer;
+}
+
+.visualControlModes button.active {
+  border-color: #6bd7ff;
+  color: #dff2fb;
+  box-shadow: 0 0 14px rgba(107, 215, 255, 0.18);
+}
+
+.visualControlToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.visualControlToggle input {
+  accent-color: #5ee6a8;
+}
+
+.visualControlOutput {
+  min-height: 132px;
+  resize: vertical;
+  border: 1px solid #22303a;
+  border-radius: 8px;
+  background: rgba(3, 7, 11, 0.72);
+  color: #9fdff2;
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 8px;
+}
+
+.visualControlOutput.invalid {
+  border-color: rgba(255, 122, 138, 0.82);
+  color: #ffc8ce;
+}
+
+.visualControlPayloadHint {
+  color: #7d93a3;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.visualControlPayloadHint[role="alert"] {
+  color: #ff9aa7;
+}
+
+.visualControlSnippet {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(94, 226, 255, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(94, 226, 255, 0.06), rgba(197, 124, 255, 0.04)),
+    rgba(3, 7, 11, 0.5);
+  padding: 7px;
+}
+
+.visualControlSnippet span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #7d93a3;
+  font-size: 11px;
+}
+
+.visualControlSnippet b {
+  color: #dff2fb;
+}
+
+.visualControlSnippet textarea {
+  min-height: 58px;
+  resize: vertical;
+  border: 1px solid rgba(42, 57, 68, 0.8);
+  border-radius: 7px;
+  background: rgba(1, 5, 8, 0.82);
+  color: #b9f0ff;
+  font: 10px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding: 7px;
+}
+
+.visualControlActions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.visualControlActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.visualControlActions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 680px) {
+  .visualControlPanel {
+    left: 10px;
+    right: 10px;
+    bottom: 58px;
+    width: auto;
+  }
+  .visualControlGrid {
+    grid-template-columns: 1fr;
+  }
+  .visualControlPresetGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@keyframes visualControlEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes visualControlRune {
+  0% { clip-path: inset(0 72% 72% 0); }
+  25% { clip-path: inset(0 0 72% 72%); }
+  50% { clip-path: inset(72% 0 0 72%); }
+  75% { clip-path: inset(72% 72% 0 0); }
+  100% { clip-path: inset(0 72% 72% 0); }
+}
+
+@keyframes visualControlScan {
+  0%, 100% { transform: translateY(-26%); }
+  50% { transform: translateY(26%); }
+}
+
+@keyframes visualControlMote {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(0.8);
+    opacity: 0.28;
+  }
+  50% {
+    transform: translate3d(22px, -26px, 0) scale(1.35);
+    opacity: 0.92;
+  }
+}
+
 .tourButton span[aria-hidden] {
   font-size: 13px;
   font-weight: 700;
@@ -4370,6 +6312,7 @@ pre {
   position: fixed;
   inset: 0;
   z-index: 62;
+  pointer-events: none;
   /* Kept light so the world stays present behind every dock — the approve dock's
      purple gate halos must read through, not be blurred into the dark. */
   background: rgba(4, 8, 12, 0.32);
@@ -4379,9 +6322,10 @@ pre {
   position: fixed;
   top: 0;
   right: 0;
-  bottom: 0;
+  bottom: 86px;
   z-index: 63;
   width: min(46%, 560px);
+  box-sizing: border-box;
   min-width: 320px;
   display: flex;
   flex-direction: column;
@@ -4410,6 +6354,71 @@ pre {
   font-size: 12.5px;
   line-height: 1.45;
 }
+
+.dockTelemetry {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+  padding: 7px;
+  border: 1px solid rgba(127, 208, 232, 0.18);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(127, 208, 232, 0.08), rgba(5, 11, 17, 0.28)),
+    rgba(10, 18, 25, 0.62);
+}
+
+.dockTelemetryItem {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dockTelemetryTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.dockTelemetryTop small {
+  min-width: 0;
+  color: #8fa8b8;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dockTelemetryTop strong {
+  color: #edf8ff;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dockTelemetryMeter {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(127, 208, 232, 0.12);
+  overflow: hidden;
+}
+
+.dockTelemetryMeter i {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  border-radius: inherit;
+  background: #7fd0e8;
+  box-shadow: 0 0 10px rgba(127, 208, 232, 0.45);
+}
+
+.dockTelemetryItem-good .dockTelemetryMeter i { background: #58d99b; box-shadow: 0 0 10px rgba(88, 217, 155, 0.42); }
+.dockTelemetryItem-warn .dockTelemetryMeter i { background: #ffb454; box-shadow: 0 0 10px rgba(255, 180, 84, 0.42); }
+.dockTelemetryItem-bad .dockTelemetryMeter i { background: #ff7a8a; box-shadow: 0 0 10px rgba(255, 122, 138, 0.42); }
+.dockTelemetryItem-muted .dockTelemetryMeter i { background: #6f8190; box-shadow: none; }
+
 .dockActions {
   display: flex;
   gap: 8px;
@@ -4500,9 +6509,31 @@ pre {
   cursor: pointer;
   border: none;
 }
+
 @media (max-width: 980px) {
   .worldDock {
-    width: 100%;
+    top: 84px;
+    right: 10px;
+    bottom: 92px;
+    width: min(420px, calc(100% - 20px));
+    min-width: 0;
+    border: 1px solid #2a4655;
+    border-radius: 16px;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.52), 0 0 28px rgba(103, 222, 245, 0.08);
+  }
+
+  .dockTelemetry {
+    grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+  }
+
+  .dockTelemetryTop {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1px;
+  }
+
+  .dockTelemetryTop small,
+  .dockTelemetryTop strong {
     min-width: 0;
   }
 }
@@ -4661,7 +6692,11 @@ pre {
   gap: 8px;
   flex-wrap: wrap;
 }
-.sourceHealth small {
+.sourceHealth .dockTelemetry {
+  flex-basis: 100%;
+  width: 100%;
+}
+.sourceHealth > small {
   color: #7f95a3;
   font-size: 11px;
 }
@@ -4860,9 +6895,24 @@ pre {
 }
 /* State never rides on color alone in the 2D fallback (WCAG 1.4.1). */
 .fallbackNodeState {
-  display: block;
-  color: #8aa0ad;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding-left: 5px;
+  border-left: 2px solid var(--overlay-color);
+  color: #aebdc6;
   font-size: 10px;
+}
+.fallbackNodeState.ring-dashed {
+  border-left-style: dashed;
+}
+.fallbackNodeState.ring-double {
+  border-left-style: double;
+  border-left-width: 4px;
+}
+.fallbackNodeState b {
+  color: var(--overlay-color);
 }
 .gateFileHead {
   display: flex;
@@ -5558,6 +7608,10 @@ pre {
   min-height: 0;
   flex: 1;
 }
+.createTelemetryWrap {
+  grid-column: 1 / -1;
+  padding: 8px 10px 0;
+}
 .createTypeList {
   overflow-y: auto;
   border-right: 1px solid #1c2a33;
@@ -5848,7 +7902,7 @@ pre {
    One anchored-plate language, shared with the quest plates: dark glass,
    thin border, platePop. Cards are BUTTONS in the world; the canvas stays
    orbitable around them. */
-.spatialCardWrap, .questionPlate, .worldPlateWrap, .guideBeaconWrap, .seedPickPlate, .seedTitleWrap { pointer-events: auto; }
+.spatialCardWrap, .questionPlate, .worldPlateWrap, .guideBeaconWrap, .seedPickPlate, .seedTitleWrap, .seedPalettePlate { pointer-events: auto; }
 
 /* Anchored-above law: these overlays anchor at a point ON their subject (the
    node's top pole) and rise by their OWN height in screen space — the pointer
@@ -5896,6 +7950,84 @@ pre {
 }
 .spatialCard.spatialCardType { width: 150px; padding: 11px 12px; }
 .spatialCardIcon { color: #8fd0e8; display: inline-flex; }
+
+.seedPalettePlate {
+  width: min(690px, calc(100vw - 48px));
+}
+
+.seedPaletteBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.seedPaletteBody .seedTitle {
+  align-self: center;
+}
+
+.seedPaletteGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 150px));
+  justify-content: center;
+  gap: 10px;
+}
+
+.seedPaletteGrid .spatialCard {
+  width: 100%;
+  min-height: 66px;
+}
+
+@media (max-width: 760px) {
+  .seedPalettePlate {
+    width: min(286px, calc(100vw - 32px));
+  }
+
+  .sceneHtmlLabel.sceneHtmlInteractive {
+    width: min(286px, calc(100vw - 32px));
+  }
+
+  .sceneShell:has(.seedPalettePlate) .quadrantCompass {
+    display: none;
+  }
+
+  .seedPaletteBody .seedTitle {
+    min-height: 44px;
+    padding-right: 48px;
+  }
+
+  .seedPaletteBody .seedTitle .questPlateClose {
+    top: 50%;
+    right: 2px;
+    width: 46px;
+    height: 46px;
+    transform: translateY(-50%);
+    font-size: 20px;
+  }
+
+  .seedPaletteGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .seedPaletteGrid .spatialCard {
+    min-height: 58px;
+    padding: 7px 8px;
+  }
+
+  .seedPaletteGrid .spatialCardMinor {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .spatialCard strong {
+    font-size: 12px;
+  }
+
+  .spatialCard small {
+    font-size: 10px;
+  }
+}
 
 .questionPlateBody {
   display: flex;
@@ -5986,6 +8118,21 @@ pre {
   background: rgba(7, 13, 19, 0.95);
   border-right: 1.5px solid #3a5262;
   border-bottom: 1.5px solid #3a5262;
+}
+.worldPlate.worldPlateSide {
+  width: 218px;
+  padding: 10px 12px;
+  background: rgba(7, 13, 19, 0.91);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.48), 0 0 16px rgba(121, 199, 232, 0.08);
+}
+.worldPlate.worldPlateSide::after { display: none; }
+.worldPlate.worldPlateSide header strong { font-size: 12px; }
+.worldPlate.worldPlateSide .worldPlateMeta { font-size: 9.5px; }
+.worldPlate.worldPlateSide .worldPlateActions { gap: 5px; }
+.worldPlate.worldPlateSide .plateCta,
+.worldPlate.worldPlateSide .plateGhost {
+  padding: 5px 9px;
+  font-size: 11px;
 }
 .worldPlate header { display: flex; align-items: center; gap: 7px; padding-right: 16px; }
 .worldPlate header strong { font-size: 12.5px; color: #eaf4fa; line-height: 1.3; }

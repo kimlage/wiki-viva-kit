@@ -19,6 +19,16 @@ export function anchorRecord(bundle: SnapshotBundle, pageId: string | undefined)
   return bundle.blockStacks?.anchors?.[pageId] ?? null;
 }
 
+export function anchorDeclaresBlock(record: AnchorRecord | null | undefined, blockId: string): boolean {
+  return Boolean(
+    record?.stack?.some((block) => block.id === blockId && (block.origin === "page" || block.origin.startsWith("template:")))
+  );
+}
+
+export function anchorDeclaresQuadrants(record: AnchorRecord | null | undefined): boolean {
+  return Boolean(record?.interface?.has_quadrants && anchorDeclaresBlock(record, "wiki.block.quadrants.v1"));
+}
+
 export function blockDef(bundle: SnapshotBundle, blockId: string): BlockDefinition | null {
   return bundle.blocks?.blocks?.[blockId] ?? null;
 }

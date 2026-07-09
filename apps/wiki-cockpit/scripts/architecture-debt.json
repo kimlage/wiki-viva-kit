@@ -1,0 +1,7 @@
+{
+  "$schema": "wiki-viva-cockpit.architecture-debt.v1",
+  "policyVersion": "wiki-viva-cockpit.boundaries.v2",
+  "description": "V8 architecture has zero accepted boundary debt. Any violation or attempted baseline growth fails.",
+  "ruleDebt": {},
+  "debt": []
+}

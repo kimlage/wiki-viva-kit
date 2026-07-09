@@ -9,9 +9,9 @@ import { useState } from "react";
 import { Check, Loader2, Play, Sparkles } from "lucide-react";
 import { t } from "../data/i18n";
 import { gateFixSpec, trimGateOutput } from "../data/approval";
-import { runGate } from "../data/snapshot";
 import { ExpandablePre } from "./ExpandablePre";
 import type { BriefSpec, GateRecord, GateRunResult } from "../types";
+import type { OperatorPort } from "../application/ports";
 
 const GATE_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
   pass: "good",
@@ -44,6 +44,7 @@ export function GateChecks({
   gates,
   busy,
   demo,
+  runGate,
   onComposeBrief,
   onNotice,
   onRefetch
@@ -51,6 +52,7 @@ export function GateChecks({
   gates: GateRecord[];
   busy?: boolean;
   demo?: boolean;
+  runGate: OperatorPort["runGate"];
   onComposeBrief?: (spec: BriefSpec) => void;
   onNotice: (text: string) => void;
   onRefetch: () => void;

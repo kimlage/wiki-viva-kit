@@ -27,6 +27,7 @@ import type { PerspectiveId } from "../../scene/perspectives";
 
 export function CommandBar({
   route,
+  activePerspective,
   instruments,
   condition,
   changedCount,
@@ -45,6 +46,7 @@ export function CommandBar({
   onOpenTour
 }: {
   route: WorldRoute;
+  activePerspective?: string;
   instruments: Instruments;
   condition: WorldCondition;
   changedCount: number;
@@ -62,6 +64,7 @@ export function CommandBar({
   onToggleMissions: () => void;
   onOpenTour: () => void;
 }) {
+  const pressedPerspective = activePerspective ?? route.perspective;
   return (
     <div className="worldCommandBar" role="toolbar" aria-label={t("world.commandBarAria")}>
       <label className="commandSearch">
@@ -132,10 +135,10 @@ export function CommandBar({
           return (
             <button
               key={perspective}
-              className={route.perspective === perspective ? "glyphButton active" : "glyphButton"}
+              className={pressedPerspective === perspective ? "glyphButton active" : "glyphButton"}
               onClick={() => onNavigateWorld({ perspective })}
               title={`${info.label} (${index + 1}) — ${info.hint}`}
-              aria-pressed={route.perspective === perspective}
+              aria-pressed={pressedPerspective === perspective}
               type="button"
             >
               <span aria-hidden>{info.glyph}</span>
@@ -151,11 +154,11 @@ export function CommandBar({
           return (
             <button
               key="focus"
-              className={route.perspective === "focus" ? "glyphButton active" : "glyphButton"}
+              className={pressedPerspective === "focus" ? "glyphButton active" : "glyphButton"}
               onClick={() => enabled && onNavigateWorld({ perspective: "focus" })}
               disabled={!enabled}
               title={enabled ? `${info.label} (F) — ${info.hint}` : t("perspective.focus.needsPage")}
-              aria-pressed={route.perspective === "focus"}
+              aria-pressed={pressedPerspective === "focus"}
               type="button"
             >
               <span aria-hidden>{info.glyph}</span>

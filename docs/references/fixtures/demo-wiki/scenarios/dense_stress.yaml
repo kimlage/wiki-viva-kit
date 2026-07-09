@@ -1,0 +1,44 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: dense_stress
+seed: 8003
+purpose: Dense public pressure for hidden clusters, long labels and visual budgets.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, source, action, artifact]
+source_pages:
+  - memories/artifacts/artifact-region-map-01.md
+  - memories/actions/action-region-review-evidence.md
+  - memories/claims/claim-region-hidden-work.md
+composition:
+  include_ids:
+    - root-alex-rivera
+    - hub-clientes
+    - source-product-analytics
+    - source-support-tickets
+  include_id_prefixes: [artifact-region-, action-region-, claim-region-]
+expected:
+  page_count: 378
+  page_id_sha256: f3433934ec5ea7d133ed5425f704919c6857a67972264a436c7f7e9651a5d246
+  required_capabilities: [region_groups, density_instrumentation, compact_fallback]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  blocks: wiki_blocks.v2
+canonical_routes:
+  - /demo/w?center=root-alex-rivera&view=quadrants&overlay=quality&group=family:artifact
+legacy_routes: []
+interactions: [zoom_out, open_hidden_cluster, resize, switch_overlay, open_dock]
+automated_assertions:
+  - region groups never become centers
+  - hidden counts equal grouped canonical pages
+  - overlay switches preserve node coordinates
+visual:
+  viewports: [1440x960, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+  steps: [open_dense_root, inspect_hidden_count, resize_mobile, switch_all_overlays]
+expected_warnings: [hidden_clusters_present, compact_mode_allowed]
+expected_failures: []
+generated_files: [apps/wiki-cockpit/public/sample-snapshot/region_groups.json]
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

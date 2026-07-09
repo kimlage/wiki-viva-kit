@@ -5,13 +5,14 @@ import subprocess
 import threading
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from wiki_core.config import WikiConfig, load_config
-from wiki_core.web.server import CockpitServer
+from wiki_core.web.server import CockpitServer, main, serve
 
 
 def _write(path: Path, text: str) -> None:
@@ -55,17 +56,41 @@ class _Server:
     def url(self, path: str) -> str:
         return f"http://127.0.0.1:{self.port}{path}"
 
-    def get(self, path: str) -> tuple[int, dict[str, Any]]:
+    def get(self, path: str, headers: dict[str, str] | None = None) -> tuple[int, dict[str, Any]]:
+        req = urllib.request.Request(self.url(path), headers=headers or {}, method="GET")
         try:
-            with urllib.request.urlopen(self.url(path)) as resp:  # noqa: S310 - localhost test
+            with urllib.request.urlopen(req) as resp:  # noqa: S310 - localhost test
                 return resp.status, json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:  # 4xx still carry a JSON envelope
             return exc.code, json.loads(exc.read().decode("utf-8"))
 
-    def post(self, path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    def get_headers(self, path: str, headers: dict[str, str]) -> tuple[int, dict[str, str]]:
+        req = urllib.request.Request(self.url(path), headers=headers, method="GET")
+        try:
+            with urllib.request.urlopen(req) as resp:  # noqa: S310 - localhost test
+                return resp.status, dict(resp.headers.items())
+        except urllib.error.HTTPError as exc:
+            return exc.code, dict(exc.headers.items())
+
+    def post(
+        self,
+        path: str,
+        body: dict[str, Any],
+        *,
+        attempt_key: str | None = None,
+        nonce: str | None = None,
+        origin: str | None = None,
+    ) -> tuple[int, dict[str, Any]]:
         data = json.dumps(body).encode("utf-8")
+        headers = {
+            "content-type": "application/json",
+            "X-Wiki-Operator-Nonce": nonce if nonce is not None else self.server.operator_nonce,
+            "X-Wiki-Attempt-Key": attempt_key or f"test-{uuid.uuid4()}",
+        }
+        if origin is not None:
+            headers["Origin"] = origin
         req = urllib.request.Request(
-            self.url(path), data=data, headers={"content-type": "application/json"}, method="POST"
+            self.url(path), data=data, headers=headers, method="POST"
         )
         try:
             with urllib.request.urlopen(req) as resp:  # noqa: S310 - localhost test
@@ -96,6 +121,17 @@ def test_health_carries_codex_capability(server: _Server) -> None:
     assert set(body["codex"]) >= {"installed", "authed", "usable", "enabled"}
 
 
+def test_operator_refuses_non_loopback_bind_before_loading_repo(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ValueError, match="may bind only"):
+        serve(tmp_path, host="0.0.0.0", port=0)
+
+    with pytest.raises(SystemExit) as exc:
+        main(["--root", str(tmp_path), "--host", "0.0.0.0", "--port", "0"])
+    assert exc.value.code == 2
+
+
 def test_health_carries_operator_handshake(server: _Server) -> None:
     status, body = server.get("/api/health")
     assert status == 200
@@ -103,6 +139,20 @@ def test_health_carries_operator_handshake(server: _Server) -> None:
     assert body["server_version"].startswith("wiki_web_server.")
     assert "codex" in body["schema_capabilities"]
     assert "briefs" in body["schema_capabilities"]
+    assert "operator_security_v1" in body["schema_capabilities"]
+    assert body["operator_security"]["nonce"] == server.server.operator_nonce
+    assert body["operator_security"]["mutations"] == "post_only"
+
+
+def test_local_cockpit_cors_allows_parallel_vite_previews(server: _Server) -> None:
+    status, headers = server.get_headers("/api/health", {"Origin": "http://127.0.0.1:5174"})
+    assert status == 200
+    assert headers["Access-Control-Allow-Origin"] == "http://127.0.0.1:5174"
+    assert headers["Vary"] == "Origin"
+
+    status, headers = server.get_headers("/api/health", {"Origin": "https://example.com"})
+    assert status == 200
+    assert "Access-Control-Allow-Origin" not in headers
 
 
 def test_codex_capability_endpoint(server: _Server) -> None:
@@ -175,3 +225,41 @@ def test_existing_endpoints_still_route(server: _Server) -> None:
     # And an unknown POST path still 404s (fallthrough guard intact).
     status, body = server.post("/api/nope", {})
     assert status == 404
+
+
+def test_operator_rejects_untrusted_host_origin_and_nonce(server: _Server) -> None:
+    status, body = server.get("/api/health", {"Host": "attacker.example"})
+    assert status == 403 and "loopback" in body["error"]
+
+    status, body = server.post("/api/git/workflow", {"operation": "status"}, nonce="wrong-nonce")
+    assert status == 403 and "nonce" in body["error"]
+
+    status, body = server.post(
+        "/api/git/workflow",
+        {"operation": "status"},
+        origin="https://attacker.example",
+    )
+    assert status == 403 and "origin" in body["error"]
+
+
+def test_operator_attempt_key_is_idempotent_and_input_bound(server: _Server) -> None:
+    key = "attempt-fixed-0001"
+    first_status, first = server.post(
+        "/api/git/workflow", {"operation": "status", "dry_run": True}, attempt_key=key
+    )
+    second_status, second = server.post(
+        "/api/git/workflow", {"operation": "status", "dry_run": True}, attempt_key=key
+    )
+    assert first_status == second_status
+    assert first["attempt_key"] == key and first["replayed"] is False
+    assert second["attempt_key"] == key and second["replayed"] is True
+
+    status, body = server.post(
+        "/api/git/workflow", {"operation": "diff", "dry_run": True}, attempt_key=key
+    )
+    assert status == 409 and "different input" in body["error"]
+
+
+def test_snapshot_write_is_post_only(server: _Server) -> None:
+    status, body = server.get("/api/snapshot/write")
+    assert status == 405 and "POST-only" in body["error"]

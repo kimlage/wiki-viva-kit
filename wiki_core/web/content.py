@@ -168,6 +168,7 @@ def build_page_content(
     return {
         "ok": True,
         "schema_version": PAGE_CONTENT_SCHEMA_VERSION,
+        "snapshot_id": str(snapshot.get("manifest.json", {}).get("snapshot_id") or ""),
         "page": {**_page_brief(page), "summary": str(page.get("summary") or ""),
                  "summary_truncated": bool(page.get("summary_truncated")),
                  "updated_at": str(page.get("updated_at") or ""),

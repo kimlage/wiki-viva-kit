@@ -22,12 +22,28 @@ The Vite app reads `/wiki-cockpit.config.json` at runtime:
 | Key | Meaning | Local default |
 | --- | --- | --- |
 | `api_base` | Operator API base URL. | `/api` |
-| `snapshot_base` | Static snapshot base URL. Empty means try `${api_base}/snapshot`, then sample data. | empty |
+| `snapshot_base` | Static snapshot base URL. Empty means try `${api_base}/snapshot`. Sample data is allowed only under `/demo`. | empty |
 | `repo_label` | Display label for the deployed surface. | empty |
 | `mode` | Runtime label shown in the UI. | `local_operator` |
 
 The static build never needs repository write credentials. Any hosted writer
 must still operate through proposal branches and Pull Requests.
+
+Local/private validation must prove the data origin before visual review:
+
+```sh
+python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
+cd apps/wiki-cockpit
+npm run dev:proxy -- --port 5174
+WIKI_COCKPIT_SNAPSHOT_URL=http://127.0.0.1:5174/api/snapshot/pages.json \
+  WIKI_COCKPIT_EXPECT_REPO_ID=<repo-id> \
+  WIKI_COCKPIT_MIN_PAGES=<expected-minimum> \
+  npm run check:snapshot-api
+```
+
+If `/api/snapshot/*.json` returns `text/html`, the Vite proxy is not active and
+the check must fail. The app also blocks `sample_fallback` outside `/demo`, so a
+private cockpit cannot silently impersonate the bundled demo snapshot.
 
 Static snapshots include operational JSON files such as `manifest.json`,
 `operations.json`, `git.json`, `timeline.json` and `diff.json`. Treat

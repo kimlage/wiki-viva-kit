@@ -129,6 +129,28 @@ def test_region_groups_and_visual_grammar_are_resolved_from_templates(tmp_path: 
     assert any(hint["kind"] == "refresh" for hint in intencao["action_hints"])
     assert "region.card" in pratica["visual"]["slots"]
 
+    dense_pages = [_leaf(f"artifact-{index}", "artifact") for index in range(45)]
+    dense_root = tmp_path / "dense"
+    dense_root.mkdir()
+    dense_world = _world(
+        _wiki(
+            dense_root,
+            {
+                "memories/index.md": pages["memories/index.md"],
+                **{f"memories/artifacts/{index}.md": value for index, value in enumerate(dense_pages)},
+            },
+        )
+    )
+    dense_record = build_block_stacks_payload(dense_world)["anchors"]["root-demo"]
+    dense_pratica = next(
+        group for group in dense_record["derived"]["region_groups"]["groups"] if group["label_key"] == "pratica"
+    )
+    assert {key: dense_pratica["summary"][key] for key in ("total", "shown", "hidden")} == {
+        "total": 45,
+        "shown": 40,
+        "hidden": 5,
+    }
+
     blocks = build_blocks_payload(world)
     vocab = blocks["vocabulary"]
     assert "region_card" in vocab["visual_primitives"]

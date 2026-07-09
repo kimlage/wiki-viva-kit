@@ -11,6 +11,7 @@ import { t, uiLanguage } from "../data/i18n";
 import { contextLabel, isRawData, pageTypeStyle, trustColor } from "../data/presentation";
 import { composeInstruments } from "../data/surfaces";
 import type { BriefSpec, PageRecord, SnapshotBundle } from "../types";
+import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
 import { HelpTip } from "./HelpTip";
 
 export type Mission = {
@@ -170,6 +171,55 @@ function ProgressBar({ value, max, tone }: { value: number; max: number; tone: s
   );
 }
 
+function missionTelemetry({
+  missions,
+  pagesTotal,
+  fresh,
+  evidenced,
+  recentWins
+}: {
+  missions: Mission[];
+  pagesTotal: number;
+  fresh: number;
+  evidenced: number;
+  recentWins: number;
+}): DockTelemetryItem[] {
+  return [
+    {
+      key: "open",
+      label: t("missions.telemetry.open"),
+      value: missions.length,
+      tone: missions.length > 0 ? "warn" : "good",
+      ratio: Math.min(missions.length / 8, 1),
+      detail: missions.length > 0 ? t("world.missionCount", { n: missions.length }) : t("world.missionClear")
+    },
+    {
+      key: "fresh",
+      label: t("missions.telemetry.fresh"),
+      value: `${fresh}/${pagesTotal}`,
+      tone: pagesTotal > 0 && fresh === pagesTotal ? "good" : "info",
+      ratio: pagesTotal > 0 ? fresh / pagesTotal : 0,
+      detail: t("missions.freshnessDetail", { fresh, total: pagesTotal })
+    },
+    {
+      key: "evidence",
+      label: t("missions.telemetry.evidence"),
+      value: evidenced,
+      tone: evidenced > 0 ? "good" : "muted",
+      ratio: pagesTotal > 0 ? evidenced / pagesTotal : 0,
+      detail: t("missions.evidenceDetail", { n: evidenced })
+    },
+    {
+      key: "wins",
+      label: t("missions.telemetry.recent"),
+      value: recentWins,
+      tone: recentWins > 0 ? "info" : "muted",
+      ratio: Math.min(recentWins / 20, 1),
+      detail: t("missions.recentWinsDetail", { n: recentWins })
+    }
+  ];
+}
+
 export function MissionsPanel({
   bundle,
   demo,
@@ -197,11 +247,15 @@ export function MissionsPanel({
       <header>
         <strong>{t("missions.title")}</strong>
         <HelpTip title={t("missions.title")} body={t("missions.karmaHelp")} />
-        <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
           ×
         </button>
       </header>
       <p className="missionsIntro">{t("missions.intro")}</p>
+      <DockTelemetryRail
+        label={t("missions.telemetry.aria")}
+        items={missionTelemetry({ missions, pagesTotal: pages.length, fresh, evidenced, recentWins })}
+      />
 
       {onComposeBrief && missions.length > 0 && (
         <div className="missionsBriefTopRow">

@@ -5,7 +5,7 @@
 import { GitPullRequest, Play } from "lucide-react";
 import { t } from "../../data/i18n";
 import { contextLabel, isRawData } from "../../data/presentation";
-import type { ActionCard, PageRecord } from "../../types";
+import type { OperatorCommandCard, PageRecord } from "../../types";
 import { HelpTip } from "../HelpTip";
 
 const ACTION_TITLES: Record<string, string> = {
@@ -16,15 +16,15 @@ const ACTION_TITLES: Record<string, string> = {
   "graph-check": "Check related content"
 };
 
-function actionTitle(action: ActionCard): string {
+function operatorCommandTitle(action: OperatorCommandCard): string {
   return ACTION_TITLES[action.id] || action.title;
 }
 
 export function PacketTray({
   packetPages,
-  reviewAction,
-  gateAction,
-  prAction,
+  reviewCommand,
+  gateCommand,
+  prCommand,
   onRun,
   onOpenPage,
   onTogglePacket,
@@ -32,10 +32,10 @@ export function PacketTray({
   onClose
 }: {
   packetPages: PageRecord[];
-  reviewAction?: ActionCard;
-  gateAction?: ActionCard;
-  prAction?: ActionCard;
-  onRun: (action: ActionCard) => void;
+  reviewCommand?: OperatorCommandCard;
+  gateCommand?: OperatorCommandCard;
+  prCommand?: OperatorCommandCard;
+  onRun: (action: OperatorCommandCard) => void;
   onOpenPage: (id: string) => void;
   onTogglePacket: (id: string) => void;
   onClearPacket: () => void;
@@ -72,22 +72,22 @@ export function PacketTray({
         {packetPages.length === 0 && <p>{t("misc.packetEmpty")}</p>}
       </div>
       <div className="packetActions">
-        {reviewAction && (
-          <button className="secondaryButton" onClick={() => onRun(reviewAction)} type="button">
+        {reviewCommand && (
+          <button className="secondaryButton" onClick={() => onRun(reviewCommand)} type="button">
             <Play size={14} />
-            <span>{actionTitle(reviewAction)}</span>
+            <span>{operatorCommandTitle(reviewCommand)}</span>
           </button>
         )}
-        {gateAction && (
-          <button className="secondaryButton" onClick={() => onRun(gateAction)} type="button">
+        {gateCommand && (
+          <button className="secondaryButton" onClick={() => onRun(gateCommand)} type="button">
             <Play size={14} />
-            <span>{actionTitle(gateAction)}</span>
+            <span>{operatorCommandTitle(gateCommand)}</span>
           </button>
         )}
-        {prAction && (
-          <button className="secondaryButton" onClick={() => onRun(prAction)} type="button">
+        {prCommand && (
+          <button className="secondaryButton" onClick={() => onRun(prCommand)} type="button">
             <GitPullRequest size={14} />
-            <span>{actionTitle(prAction)}</span>
+            <span>{operatorCommandTitle(prCommand)}</span>
           </button>
         )}
       </div>

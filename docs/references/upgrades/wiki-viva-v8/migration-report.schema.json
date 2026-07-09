@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kimlage/wiki-viva-kit/wiki_viva_migration_report.v1.schema.json",
+  "title": "Wiki Viva v8 downstream migration report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "report_id",
+    "status",
+    "source",
+    "consumer_before",
+    "consumer_after",
+    "files_imported",
+    "local_overrides_kept",
+    "warnings",
+    "fixtures_added",
+    "gates",
+    "visual_qa_evidence",
+    "rollback",
+    "validation_errors"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_viva_migration_report.v1"},
+    "report_id": {"type": "string", "pattern": "^migration:[0-9a-f]{20}$"},
+    "status": {"enum": ["complete", "blocked"]},
+    "public_export": {"type": "boolean"},
+    "source": {"type": "object"},
+    "consumer_before": {"type": "object"},
+    "consumer_after": {"type": "object"},
+    "files_imported": {"type": "array", "items": {"type": "string"}},
+    "local_overrides_kept": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array"},
+    "fixtures_added": {"type": "array", "items": {"type": "string"}},
+    "gates": {"type": "array"},
+    "visual_qa_evidence": {"type": "array"},
+    "rollback": {"type": "object"},
+    "validation_errors": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

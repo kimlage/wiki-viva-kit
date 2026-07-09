@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AnchorRecord } from "../types";
-import { regionPayloadByKey, resolvePrimitiveForSlot, resolvedPrimitiveDiagnostics } from "./visualPrimitives";
+import { installVisualPrimitiveRegistry, regionPayloadByKey, resolvePrimitiveForSlot, resolvedPrimitiveDiagnostics, validateVisualGrammar } from "./visualPrimitives";
+import { createDefaultKernel } from "../world/registries/RegistryKernel";
 
 const record: AnchorRecord = {
   stack: [],
@@ -75,5 +76,24 @@ describe("visual primitive registry", () => {
     const diagnostics = resolvedPrimitiveDiagnostics(record);
     expect(diagnostics.find((entry) => entry.slot === "region.card")?.primitive).toBe("region_card");
     expect(diagnostics.every((entry) => entry.purpose.length > 0)).toBe(true);
+  });
+
+  it("installs the closed primitive vocabulary into the runtime registry", () => {
+    const kernel = createDefaultKernel();
+    installVisualPrimitiveRegistry(kernel);
+    expect(kernel.visualPrimitives.require("region_work_card").dataField).toContain("action_hints");
+    expect(() => kernel.visualPrimitives.require("arbitrary_css")).toThrow(/Unknown visual primitive/);
+  });
+
+  it("rejects unknown packs, slots and incompatible primitive placement", () => {
+    const invalid = structuredClone(record);
+    invalid.visual_grammar!.default_pack = "made_up";
+    invalid.visual_grammar!.packs.made_up = { slots: { "reader.badge": "attention_rail", "bad.slot": "unknown" } };
+    expect(validateVisualGrammar(invalid)).toEqual(expect.arrayContaining([
+      "unknown visual pack 'made_up'",
+      "unknown visual slot 'bad.slot'",
+      "unknown visual primitive 'unknown'",
+      "primitive 'attention_rail' cannot render in slot 'reader.badge'"
+    ]));
   });
 });

@@ -1,0 +1,93 @@
+import {
+  buildIngestionPlan,
+  cancelCodexJob,
+  composeBrief,
+  composeSourceBrief,
+  discardBrief,
+  getBrief,
+  intakeCopy,
+  listBriefs,
+  listCodexJobs,
+  loadCodexCapability,
+  loadFileDiff,
+  loadPageContent,
+  loadSnapshotBundle,
+  returnCodexJob,
+  runOperatorCommand,
+  runGate,
+  runGitWorkflow,
+  runIngestionStep,
+  saveBriefText,
+  spawnCodexJob,
+  streamCodexLog
+} from "../data/snapshot";
+import {
+  buildUrl,
+  getRouteUrlSnapshot,
+  installLinkInterceptor,
+  navigate,
+  parseRoute,
+  patchWorld,
+  retreat,
+  subscribeRouteUrl,
+  worldFromRoute
+} from "../router";
+import type { ApplicationPorts, NavigationPort, OperatorPort } from "../application/ports";
+
+const operator: OperatorPort = {
+  loadSnapshotBundle,
+  loadPageContent,
+  loadCodexCapability,
+  composeBrief,
+  listBriefs,
+  getBrief,
+  saveBriefText,
+  discardBrief,
+  spawnCodexJob,
+  listCodexJobs,
+  streamCodexLog,
+  returnCodexJob,
+  cancelCodexJob,
+  loadFileDiff,
+  intakeCopy,
+  runGate,
+  runOperatorCommand,
+  runGitWorkflow,
+  composeSourceBrief,
+  buildIngestionPlan,
+  runIngestionStep
+};
+
+const navigation: NavigationPort = {
+  subscribe: subscribeRouteUrl,
+  getSnapshot: getRouteUrlSnapshot,
+  getServerSnapshot: () => "/",
+  attachLinkInterceptor: installLinkInterceptor,
+  parseUrl(url) {
+    const [pathname, search = ""] = url.split("?");
+    return parseRoute(pathname, search ? `?${search}` : "");
+  },
+  toWorld: worldFromRoute,
+  href: buildUrl,
+  patch: patchWorld,
+  hrefForPatch(route, patch) {
+    return buildUrl(patchWorld(route, patch));
+  },
+  dispatch(intent) {
+    if (intent.type === "navigate") {
+      navigate(intent.target, { replace: intent.replace });
+      return;
+    }
+    if (intent.type === "patch-world") {
+      navigate(patchWorld(intent.route, intent.patch), { replace: intent.replace });
+      return;
+    }
+    if (intent.type === "retreat-world") {
+      navigate(retreat(intent.route), { replace: intent.replace });
+      return;
+    }
+    window.history.back();
+  }
+};
+
+export const browserApplication: ApplicationPorts = { navigation, operator };

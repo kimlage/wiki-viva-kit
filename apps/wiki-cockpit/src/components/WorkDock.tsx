@@ -10,13 +10,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, X } from "lucide-react";
 import { codexUnavailableReason, t } from "../data/i18n";
 import type { BriefRecord, CodexCapability, CodexJobRecord } from "../types";
-import {
-  cancelCodexJob,
-  discardBrief,
-  listBriefs,
-  listCodexJobs,
-  streamCodexLog
-} from "../data/snapshot";
+import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
+import type { OperatorPort } from "../application/ports";
 
 type PillTone = "good" | "warn" | "bad" | "info" | "muted";
 
@@ -58,9 +53,51 @@ function jobClock(job: CodexJobRecord): string {
   return "";
 }
 
+function workTelemetry(jobs: CodexJobRecord[], drafts: BriefRecord[], offline: boolean): DockTelemetryItem[] {
+  const active = jobs.filter((job) => ACTIVE.has(job.status)).length;
+  const delivered = jobs.filter((job) => job.status === "delivered" || job.status === "returned").length;
+  const failed = jobs.filter((job) => job.status === "failed" || job.status === "cancelled").length;
+  const total = Math.max(jobs.length + drafts.length, 1);
+  return [
+    {
+      key: "active",
+      label: t("work.telemetry.active"),
+      value: active,
+      tone: active > 0 ? "info" : offline ? "warn" : "muted",
+      ratio: active / total,
+      detail: offline ? t("work.offlineTitle") : t("work.telemetry.activeDetail", { n: active })
+    },
+    {
+      key: "delivered",
+      label: t("work.telemetry.delivered"),
+      value: delivered,
+      tone: delivered > 0 ? "warn" : "muted",
+      ratio: delivered / total,
+      detail: t("work.telemetry.deliveredDetail", { n: delivered })
+    },
+    {
+      key: "drafts",
+      label: t("work.telemetry.drafts"),
+      value: drafts.length,
+      tone: drafts.length > 0 ? "info" : "muted",
+      ratio: drafts.length / total,
+      detail: t("work.telemetry.draftsDetail", { n: drafts.length })
+    },
+    {
+      key: "failed",
+      label: t("work.telemetry.failed"),
+      value: failed,
+      tone: failed > 0 ? "bad" : "good",
+      ratio: failed / total,
+      detail: t("work.telemetry.failedDetail", { n: failed })
+    }
+  ];
+}
+
 export function WorkDock({
   capability,
   demo,
+  operator,
   onResumeBrief,
   onReturn,
   onDiagnose,
@@ -69,12 +106,14 @@ export function WorkDock({
 }: {
   capability: CodexCapability;
   demo: boolean;
+  operator: Pick<OperatorPort, "cancelCodexJob" | "discardBrief" | "listBriefs" | "listCodexJobs" | "streamCodexLog">;
   onResumeBrief: (briefId: string) => void;
   onReturn?: (jobId: string, feedback: string) => void;
   onDiagnose?: () => void;
   onNotice: (text: string) => void;
   onClose: () => void;
 }) {
+  const { cancelCodexJob, discardBrief, listBriefs, listCodexJobs, streamCodexLog } = operator;
   const [jobs, setJobs] = useState<CodexJobRecord[]>([]);
   const [drafts, setDrafts] = useState<BriefRecord[]>([]);
   const [openLog, setOpenLog] = useState<string | null>(null);
@@ -178,10 +217,11 @@ export function WorkDock({
           <button className="textButton" onClick={load} title={t("work.refresh")} type="button">
             <RefreshCw size={13} />
           </button>
-          <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
             <X size={16} />
           </button>
         </header>
+        <DockTelemetryRail label={t("work.telemetry.aria")} items={workTelemetry(jobs, drafts, offline)} />
 
         {demo ? (
           <p className="workEmpty">{t("work.demoOff")}</p>

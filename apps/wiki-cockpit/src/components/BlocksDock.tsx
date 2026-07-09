@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { Boxes, ChevronLeft, X } from "lucide-react";
+import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
 import { t } from "../data/i18n";
 import { anchorIds, anchorRecord, blockDef, focusAnchorId, originDetail, originLabel } from "../data/blocks";
 import { blockDescription, blockIcon } from "../data/typeCatalog";
@@ -49,6 +50,7 @@ export function BlocksDock({
   // that INHERITS a block must not hide it from the root's attach list.
   const activeId = focusId && anchors.includes(focusId) ? focusId : focusAnchorId(bundle, focusId ?? undefined);
   const record = anchorRecord(bundle, activeId ?? undefined);
+  const telemetry = useMemo(() => (record ? blockTelemetry(bundle, record) : []), [bundle, record]);
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const def = selectedBlock ? blockDef(bundle, selectedBlock) : null;
 
@@ -60,7 +62,7 @@ export function BlocksDock({
         <header className="dockHeader">
           <Boxes size={15} aria-hidden />
           <strong>{t("blocks.title")}</strong>
-          <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
             <X size={16} />
           </button>
         </header>
@@ -86,6 +88,8 @@ export function BlocksDock({
                 ))}
               </select>
             </label>
+
+            <DockTelemetryRail label={t("blocks.telemetry.label")} items={telemetry} />
 
             {def && selectedBlock ? (
               <BlockInspectorView
@@ -117,6 +121,74 @@ export function BlocksDock({
       </aside>
     </>
   );
+}
+
+function blockTelemetry(bundle: SnapshotBundle, record: NonNullable<ReturnType<typeof anchorRecord>>): DockTelemetryItem[] {
+  const stack = record.stack ?? [];
+  const knownBlocks = stack.filter((entry) => entry.known).length;
+  const unknownBlocks = Math.max(0, stack.length - knownBlocks);
+  const activeModules = [
+    record.interface.has_quadrants,
+    record.interface.has_relations,
+    record.interface.missions.active || record.interface.missions.providers.length > 0,
+    record.interface.create.catalog.length > 0 || record.interface.create.obligations.length > 0,
+    record.interface.intake.forms.length > 0,
+    record.interface.regions?.active
+  ].filter(Boolean).length;
+  const groups = record.derived.region_groups?.groups ?? [];
+  const groupMembers = groups.reduce((sum, group) => sum + group.member_ids.length, 0);
+  const groupAttention = groups.reduce(
+    (sum, group) => sum + group.attention_hints.reduce((inner, hint) => inner + hint.count, 0),
+    0
+  );
+  const missing = record.derived.missing_subpages?.length ?? 0;
+  const derivedWarnings = record.derived.warnings?.length ?? 0;
+  const bundleWarnings = bundle.blocks?.warnings?.length ?? 0;
+  const gateIssues = stack.reduce((sum, entry) => {
+    const def = blockDef(bundle, entry.id);
+    return sum + (def?.gates?.warnings?.length ?? 0) + (def?.gates?.errors?.length ?? 0);
+  }, 0);
+  const issueCount = unknownBlocks + missing + derivedWarnings + bundleWarnings + gateIssues;
+
+  return [
+    {
+      key: "stack",
+      label: t("blocks.telemetry.stack"),
+      value: stack.length,
+      tone: unknownBlocks > 0 ? "warn" : "good",
+      ratio: stack.length > 0 ? knownBlocks / stack.length : 0,
+      detail: t("blocks.telemetry.stackDetail", { known: knownBlocks, unknown: unknownBlocks })
+    },
+    {
+      key: "modules",
+      label: t("blocks.telemetry.modules"),
+      value: activeModules,
+      tone: activeModules > 0 ? "info" : "muted",
+      ratio: activeModules / 6,
+      detail: t("blocks.telemetry.modulesDetail", { active: activeModules })
+    },
+    {
+      key: "groups",
+      label: t("blocks.telemetry.groups"),
+      value: `${groups.length}/${groupMembers}`,
+      tone: groupAttention > 0 ? "warn" : groups.length > 0 ? "good" : "muted",
+      ratio: groups.length > 0 ? groups.filter((group) => group.member_ids.length > 0).length / groups.length : 0,
+      detail: t("blocks.telemetry.groupsDetail", { groups: groups.length, members: groupMembers, attention: groupAttention })
+    },
+    {
+      key: "issues",
+      label: t("blocks.telemetry.issues"),
+      value: issueCount,
+      tone: issueCount > 0 ? "warn" : "good",
+      ratio: issueCount > 0 ? Math.min(issueCount / 8, 1) : 1,
+      detail: t("blocks.telemetry.issuesDetail", {
+        missing,
+        warnings: derivedWarnings + bundleWarnings,
+        gates: gateIssues,
+        unknown: unknownBlocks
+      })
+    }
+  ];
 }
 
 function StackView({

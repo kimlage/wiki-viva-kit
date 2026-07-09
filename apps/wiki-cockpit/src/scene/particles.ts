@@ -23,6 +23,16 @@ export type FlowParticle = {
   speed: number;
 };
 
+export type GroupPullParticle = {
+  kind: "group_pull";
+  from: [number, number, number];
+  control: [number, number, number];
+  to: [number, number, number];
+  color: string;
+  phase: number;
+  speed: number;
+};
+
 export type EmberParticle = {
   kind: "ember";
   origin: [number, number, number];
@@ -103,6 +113,34 @@ export type FlowEdgeInput = {
   key: string;
 };
 
+export type GroupPullInput = {
+  from: [number, number, number];
+  to: [number, number, number];
+  color: string;
+  key: string;
+};
+
+export type ParticleLodBudget = {
+  auraMax: number;
+  flowMax: number;
+  groupInputLimit: number;
+  groupPullMax: number;
+  emberMax: number;
+  gapMax: number;
+};
+
+export function particleLodBudget(view: { perspective: string; level: number }, rich: boolean): ParticleLodBudget {
+  const familyDrill = view.perspective === "quadrants" && view.level >= 2;
+  return {
+    auraMax: rich ? 120 : 60,
+    flowMax: familyDrill ? (rich ? 30 : 18) : rich ? 72 : 36,
+    groupInputLimit: familyDrill ? (rich ? 20 : 14) : rich ? 36 : 22,
+    groupPullMax: familyDrill ? (rich ? 28 : 16) : rich ? 64 : 36,
+    emberMax: rich ? 60 : 30,
+    gapMax: rich ? 140 : 70
+  };
+}
+
 // Flow sparks: provenance moving along evidence/ingestion/review arcs.
 // When the budget is tight every edge keeps at least one spark (thinning is
 // uniform, never an arbitrary subset of equally real relations).
@@ -122,6 +160,38 @@ export function buildFlowParticles(edges: FlowEdgeInput[], perEdge = 2, maxParti
         color: edge.color,
         phase: random(),
         speed: 0.14 + random() * 0.1
+      });
+    }
+  }
+  return particles;
+}
+
+// Group pull sparks: visible children feeding the centered grouped object.
+// Direction is child -> center, so the operator reads aggregation rather than
+// a decorative orbit. Every visible child keeps at least one spark until the
+// global budget is exhausted uniformly by sorted key.
+export function buildGroupPullParticles(inputs: GroupPullInput[], perInput = 2, maxParticles = 56): GroupPullParticle[] {
+  const particles: GroupPullParticle[] = [];
+  const sorted = [...inputs].sort((a, b) => a.key.localeCompare(b.key));
+  const budgetPerInput = sorted.length > 0 ? Math.max(1, Math.min(perInput, Math.floor(maxParticles / sorted.length))) : perInput;
+  for (const input of sorted) {
+    if (particles.length >= maxParticles) break;
+    const random = seededRandom(input.key.split("").reduce((total, char) => (total * 43 + char.charCodeAt(0)) % 2147483000, 19) + 53);
+    const distance = Math.hypot(input.to[0] - input.from[0], input.to[1] - input.from[1], input.to[2] - input.from[2]);
+    const control: [number, number, number] = [
+      (input.from[0] + input.to[0]) / 2,
+      (input.from[1] + input.to[1]) / 2 + Math.min(Math.max(distance * 0.18, 0.18), 0.9),
+      (input.from[2] + input.to[2]) / 2
+    ];
+    for (let index = 0; index < budgetPerInput && particles.length < maxParticles; index += 1) {
+      particles.push({
+        kind: "group_pull" as const,
+        from: input.from,
+        control,
+        to: input.to,
+        color: input.color,
+        phase: random(),
+        speed: 0.18 + random() * 0.12
       });
     }
   }
@@ -197,6 +267,15 @@ export function flowPoint(particle: FlowParticle, t: number): [number, number, n
   const y = inverse * inverse * particle.from[1] + 2 * inverse * u * particle.control[1] + u * u * particle.to[1];
   const z = inverse * inverse * particle.from[2] + 2 * inverse * u * particle.control[2] + u * u * particle.to[2];
   return [x, y, z, Math.sin(u * Math.PI)];
+}
+
+export function groupPullPoint(particle: GroupPullParticle, t: number): [number, number, number, number] {
+  const u = (particle.phase + t * particle.speed) % 1;
+  const inverse = 1 - u;
+  const x = inverse * inverse * particle.from[0] + 2 * inverse * u * particle.control[0] + u * u * particle.to[0];
+  const y = inverse * inverse * particle.from[1] + 2 * inverse * u * particle.control[1] + u * u * particle.to[1];
+  const z = inverse * inverse * particle.from[2] + 2 * inverse * u * particle.control[2] + u * u * particle.to[2];
+  return [x, y, z, Math.sin(u * Math.PI) * 0.78];
 }
 
 export function emberPoint(particle: EmberParticle, t: number): [number, number, number, number] {

@@ -60,6 +60,29 @@ function normalize(raw: RawRuntimeConfig): RuntimeConfig {
   };
 }
 
+export function applyRuntimeEnv(
+  config: RuntimeConfig,
+  env: Record<string, unknown>
+): RuntimeConfig {
+  const value = (key: string): string | undefined =>
+    typeof env[key] === "string" ? String(env[key]) : undefined;
+  const apiBase = value("VITE_WIKI_API_BASE");
+  const snapshotBase = value("VITE_WIKI_SNAPSHOT_BASE");
+  const repoLabel = value("VITE_WIKI_REPO_LABEL");
+  const mode = value("VITE_WIKI_RUNTIME_MODE");
+  return {
+    ...config,
+    apiBase: apiBase === undefined ? config.apiBase : cleanBase(apiBase),
+    snapshotBase:
+      snapshotBase === undefined ? config.snapshotBase : cleanBase(snapshotBase),
+    repoLabel: repoLabel === undefined ? config.repoLabel : repoLabel.trim(),
+    mode:
+      mode === undefined
+        ? config.mode
+        : mode.trim() || DEFAULT_CONFIG.mode
+  };
+}
+
 export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
   if (!runtimeConfigPromise) {
     runtimeConfigPromise = fetch("/wiki-cockpit.config.json", { cache: "no-store", headers: { accept: "application/json" } })
@@ -69,8 +92,9 @@ export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
       })
       .catch(() => DEFAULT_CONFIG)
       .then((config) => {
-        configurePresentation(config.presentation);
-        return config;
+        const resolved = applyRuntimeEnv(config, import.meta.env);
+        configurePresentation(resolved.presentation);
+        return resolved;
       });
   }
   return runtimeConfigPromise;

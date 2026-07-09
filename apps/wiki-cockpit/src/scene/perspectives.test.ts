@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { GraphEdge, GraphNode } from "../types";
-import { computeWorldLayout, groupKeyForPage, worldLevel } from "./perspectives";
+import {
+  centeredQuadrantGroupScale,
+  computeWorldLayout,
+  groupKeyForPage,
+  initialQuadrantFamilyOffset,
+  initialQuadrantRegionOrbit,
+  regionFamilyAnchorInCenteredRegion,
+  worldLevel
+} from "./perspectives";
 import type { WorldRequest } from "./perspectives";
 import { homeQuadrant, nodeQuadrant, quadrantHomesFromAssignments, QUADRANT_CENTER_ANGLE } from "./facets";
 
@@ -167,9 +175,9 @@ describe("perspective engine", () => {
     // Exactly the four quadrant groups, always, in canonical order — even empty.
     const quadrantGroups = layout.groups.filter((g) => g.kind === "quadrant");
     expect(quadrantGroups.map((g) => g.key)).toEqual(["intencao", "pratica", "relacoes", "sistemas"]);
-    // decision→intencao and source→sistemas are populated in the fixture.
+    // decision→intencao and source→pratica are populated in the fixture.
     expect(quadrantGroups.find((g) => g.key === "intencao")!.count).toBeGreaterThan(0);
-    expect(quadrantGroups.find((g) => g.key === "sistemas")!.count).toBeGreaterThan(0);
+    expect(quadrantGroups.find((g) => g.key === "pratica")!.count).toBeGreaterThan(0);
     // The fixture has structural pages (root_index/context_hub/context_note) → a
     // core group is emitted (only because it is populated; it is not a 5th quadrant).
     const core = layout.groups.filter((g) => g.kind === "core");
@@ -181,7 +189,7 @@ describe("perspective engine", () => {
     expect(layout.totals.shown + layout.totals.hidden).toBe(layout.totals.total);
   });
 
-  it("quadrants: every node sits in ITS facet's sector, the root alone holds the center, structure wraps outside", () => {
+  it("quadrants: grouped objects sit in their facet sectors, the root alone holds the center, structure wraps outside", () => {
     // The regression this pins: a hand-written floor-square table once put
     // Culture/relations' square over Identity/intent nodes, and a structural swarm at the
     // origin buried the root. Sector membership is now a geometric CONTRACT.
@@ -191,6 +199,11 @@ describe("perspective engine", () => {
     for (const item of layout.nodes) {
       if (item.isRoot) continue;
       const radius = Math.hypot(item.position[0], item.position[2]);
+      if (item.isGroup) {
+        expect(item.groupKey).toMatch(/^family:/);
+        expect(radius).toBeLessThanOrEqual(layout.rOuter + 0.01);
+        continue;
+      }
       const home = homeQuadrant(item.page_type);
       if (!home) {
         // Structural pages live OUTSIDE the quadrants, never at the center.
@@ -218,6 +231,33 @@ describe("perspective engine", () => {
     expect(anchors.get("sistemas")![2]).toBeGreaterThan(0);
   });
 
+  it("quadrants: initial zones breathe away from the center without leaving their sectors", () => {
+    const layout = computeWorldLayout(request({ perspective: "quadrants", maxNodes: 200 }));
+    const groupNodes = layout.nodes.filter((item) => item.isGroup && item.groupKind === "family");
+    const expectedOrbit = initialQuadrantRegionOrbit(layout.rInner, layout.rOuter);
+
+    expect(groupNodes.length).toBeGreaterThan(0);
+    expect(expectedOrbit).toBeGreaterThan(layout.rInner + (layout.rOuter - layout.rInner) * 0.78);
+
+    const minGroupRadius = Math.min(...groupNodes.map((item) => Math.hypot(item.position[0], item.position[2])));
+    expect(minGroupRadius).toBeGreaterThan(layout.rInner + (layout.rOuter - layout.rInner) * 0.72);
+    expect(Math.max(...groupNodes.map((item) => Math.hypot(item.position[0], item.position[2])))).toBeLessThanOrEqual(layout.rOuter + 0.01);
+
+    const closestPair = groupNodes.reduce((closest, item, index) => {
+      const nextClosest = groupNodes.slice(index + 1).reduce((innerClosest, other) => {
+        const distance = Math.hypot(item.position[0] - other.position[0], item.position[2] - other.position[2]);
+        return Math.min(innerClosest, distance);
+      }, closest);
+      return Math.min(closest, nextClosest);
+    }, Number.POSITIVE_INFINITY);
+    expect(closestPair).toBeGreaterThan(0.98);
+
+    const first = initialQuadrantFamilyOffset("source", 0, 4, 12);
+    const last = initialQuadrantFamilyOffset("source", 3, 4, 12);
+    expect(first.fan).toBeLessThan(-0.75);
+    expect(last.fan).toBeGreaterThan(0.75);
+  });
+
   it("quadrants: compiled homes are anchor-relative, not global page homes", () => {
     const rootHomes = quadrantHomesFromAssignments({
       q1: [],
@@ -242,7 +282,8 @@ describe("perspective engine", () => {
   it("quadrants: the active center is not duplicated inside its own quadrant", () => {
     const nodes = [
       node("root", "system", { page_type: "root_entity", path: "memories/index.md" }),
-      node("company", "empresas", { page_type: "root_entity", path: "memories/companies/company.md" }),
+      node("company", "empresas", { page_type: "root_entity", path: "memories/companies/company.md", title: "Alex Rivera" }),
+      node("company-person", "empresas", { page_type: "person", path: "memories/people/casey.md", title: "Alex Rivera" }),
       node("company-intent", "empresas", { page_type: "claim", path: "memories/companies/company/intent.md" })
     ];
     const layout = computeWorldLayout(
@@ -258,6 +299,7 @@ describe("perspective engine", () => {
           // Defensive regression: even if a stale/parent-derived payload maps
           // the active center to a quadrant, the map renders it only once.
           company: "sistemas",
+          "company-person": "relacoes",
           "company-intent": "intencao"
         }
       })
@@ -267,7 +309,331 @@ describe("perspective engine", () => {
     expect(center).toHaveLength(1);
     expect(center[0]).toMatchObject({ isRoot: true, position: [0, 0, 0] });
     expect(layout.groups.find((group) => group.key === "sistemas")?.count).toBe(0);
+    expect(layout.groups.find((group) => group.key === "relacoes")?.count).toBe(0);
     expect(layout.groups.find((group) => group.key === "intencao")?.count).toBe(1);
+    expect(layout.nodes.some((item) => item.id === "company-person")).toBe(false);
+  });
+
+  it("quadrants: a locked page becomes the physical center even when it is not the active anchor", () => {
+    const nodes = [
+      node("demo-root", "system", { page_type: "root_entity", path: "memories/index.md" }),
+      node("person-casey", "empresas", { page_type: "person", title: "Casey Morgan" }),
+      node("meeting-alignment", "empresas", { page_type: "meeting", title: "Team alignment" }),
+      node("source-collaboration", "documentos", { page_type: "source", title: "Collaboration archive" }),
+      node("claim-start", "documentos", { page_type: "claim", title: "Data oficial" })
+    ];
+    const layout = computeWorldLayout({
+      perspective: "quadrants",
+      nodes,
+      edges: [
+        { source: "person-casey", target: "demo-root", type: "moc_parent", status: "valid", weight: 2 },
+        { source: "meeting-alignment", target: "person-casey", type: "markdown_link", status: "valid", weight: 1 },
+        { source: "person-casey", target: "source-collaboration", type: "source_ref", status: "valid", weight: 1 },
+        { source: "claim-start", target: "person-casey", type: "markdown_link", status: "valid", weight: 1 }
+      ],
+      pageId: "person-casey",
+      centerId: "demo-root",
+      quadrantHomes: {
+        "demo-root": null,
+        "meeting-alignment": "relacoes",
+        "source-collaboration": "pratica",
+        "claim-start": "intencao"
+      },
+      maxNodes: 24,
+      snapshotAt: SNAPSHOT
+    });
+
+    const center = layout.nodes.find((item) => item.isRoot);
+    expect(layout.level).toBe(3);
+    expect(center).toMatchObject({ id: "person-casey", page_type: "person", position: [0, 0, 0] });
+    expect(layout.nodes.find((item) => item.id === "meeting-alignment")).toBeTruthy();
+    expect(layout.nodes.find((item) => item.id === "source-collaboration")).toBeTruthy();
+    expect(layout.nodes.some((item) => item.isGroup && item.groupKind === "quadrant")).toBe(false);
+    expect(layout.groups.filter((group) => group.kind === "quadrant")).toHaveLength(0);
+    expect(layout.guides.filter((guide) => guide.kind === "ray")).toHaveLength(0);
+  });
+
+  it("quadrants: a locked page with quadrant lenses exposes conceptual quadrant controls, not physical quadrant objects", () => {
+    const nodes = [
+      node("company-root", "clientes", { page_type: "root_entity", title: "Clearpath" }),
+      node("company-intent", "clientes", { page_type: "claim", title: "Strategic intent" }),
+      node("company-source", "clientes", { page_type: "source", title: "Customer interviews" }),
+      node("company-person", "clientes", { page_type: "person", title: "Caio Prado" })
+    ];
+    const layout = computeWorldLayout({
+      perspective: "quadrants",
+      nodes,
+      edges: [
+        { source: "company-root", target: "company-intent", type: "markdown_link", status: "valid", weight: 1 },
+        { source: "company-root", target: "company-source", type: "source_ref", status: "valid", weight: 1 },
+        { source: "company-person", target: "company-root", type: "markdown_link", status: "valid", weight: 1 }
+      ],
+      pageId: "company-root",
+      centerId: "company-root",
+      centerHasQuadrants: true,
+      quadrantHomes: {
+        "company-root": null,
+        "company-intent": "intencao",
+        "company-source": "pratica",
+        "company-person": "relacoes"
+      },
+      maxNodes: 40,
+      snapshotAt: SNAPSHOT
+    });
+
+    expect(layout.level).toBe(3);
+    expect(layout.nodes.find((item) => item.isRoot)).toMatchObject({ id: "company-root", position: [0, 0, 0] });
+    expect(layout.nodes.filter((item) => item.isGroup && item.groupKind === "quadrant")).toHaveLength(0);
+    expect(layout.groups.filter((group) => group.kind === "quadrant").map((group) => group.key)).toEqual([
+      "intencao",
+      "pratica",
+      "relacoes",
+      "sistemas"
+    ]);
+    expect(layout.groups.filter((group) => group.kind === "quadrant").map((group) => group.drill)).toEqual([null, null, null, null]);
+  });
+
+  it("quadrants: selecting a quadrant is a camera lens over the same world, while family aggregates stay inside content", () => {
+    const { nodes, edges } = fixture();
+    const root = node("demo-root", "system", { page_type: "root_entity", title: "Alex Rivera" });
+    const sourceA = node("source-a", "system", { page_type: "source", title: "Extrato bancario" });
+    const sourceB = node("source-b", "system", { page_type: "source", title: "Planilha oficial" });
+    const oneAction = node("refresh-action", "system", { page_type: "action", title: "Revisar extrato" });
+    nodes.push(root, sourceA, sourceB, oneAction);
+    const quadrantHomes = {
+      "demo-root": null,
+      "source-a": "pratica" as const,
+      "source-b": "pratica" as const,
+      "refresh-action": "pratica" as const
+    };
+
+    const top = computeWorldLayout({
+      perspective: "quadrants",
+      nodes,
+      edges,
+      centerId: "demo-root",
+      quadrantHomes,
+      quadrant: "pratica",
+      maxNodes: 120,
+      snapshotAt: SNAPSHOT
+    });
+    expect(top.level).toBe(0);
+    expect(top.nodes.find((item) => item.isRoot)).toMatchObject({ id: "demo-root", position: [0, 0, 0] });
+    expect(top.nodes.some((item) => item.isGroup && item.groupKind === "quadrant")).toBe(false);
+    expect(top.groups.find((group) => group.kind === "quadrant" && group.key === "pratica")).toMatchObject({
+      drill: null
+    });
+    expect(top.cameraTarget?.[0]).toBeGreaterThan(0);
+    expect(top.cameraTarget?.[2]).toBeLessThan(0);
+    const sourceGroup = top.nodes.find((item) => item.isGroup && item.groupKey === "family:source");
+    expect(sourceGroup).toBeTruthy();
+    expect(sourceGroup).toMatchObject({
+      page_type: "visual_group_source",
+      groupLabelKey: "source",
+      isGroup: true,
+      groupDrill: { group: "family:source" }
+    });
+    expect(sourceGroup?.groupPreviewIds?.length).toBeGreaterThan(0);
+    expect(top.nodes.some((item) => sourceGroup?.groupPreviewIds?.includes(item.id))).toBe(true);
+    expect(top.nodes.some((item) => item.id === "source-a")).toBe(false);
+    expect(top.nodes.some((item) => item.id === "refresh-action")).toBe(true);
+  });
+
+  it("quadrants: repeated family projections have unique visual ids but one semantic drill key", () => {
+    const root = node("demo-root", "system", { page_type: "root_entity" });
+    const practice = Array.from({ length: 3 }, (_, index) =>
+      node(`practice-source-${index}`, "system", { page_type: "source" })
+    );
+    const systems = Array.from({ length: 3 }, (_, index) =>
+      node(`systems-source-${index}`, "system", { page_type: "source" })
+    );
+    const nodes = [root, ...practice, ...systems];
+    const quadrantHomes = Object.fromEntries([
+      [root.id, null],
+      ...practice.map((item) => [item.id, "pratica" as const]),
+      ...systems.map((item) => [item.id, "sistemas" as const])
+    ]);
+
+    const layout = computeWorldLayout({
+      perspective: "quadrants",
+      nodes,
+      edges: [],
+      centerId: root.id,
+      quadrantHomes,
+      maxNodes: 120,
+      snapshotAt: SNAPSHOT
+    });
+    const projectedSources = layout.nodes.filter(
+      (item) => item.isGroup && item.groupKey === "family:source"
+    );
+
+    expect(projectedSources).toHaveLength(2);
+    expect(projectedSources.map((item) => item.id).sort()).toEqual([
+      "region:pratica:family:source",
+      "region:sistemas:family:source"
+    ]);
+    expect(projectedSources.every((item) => item.groupDrill?.group === "family:source")).toBe(true);
+    expect(new Set(layout.nodes.map((item) => item.id)).size).toBe(layout.nodes.length);
+  });
+
+  it("quadrants: a bare region route is only a lens and never replaces the real center", () => {
+    expect(centeredQuadrantGroupScale(3, "quadrant", 1)).toBeGreaterThan(0.52);
+    expect(centeredQuadrantGroupScale(24, "region_family", 2)).toBeGreaterThan(0.62);
+
+    const root = node("demo-root", "system", { page_type: "root_entity", title: "Alex Rivera" });
+    const sources = Array.from({ length: 8 }, (_, index) => node(`source-${index}`, "system", { page_type: "source", title: `Source ${index}` }));
+    const nodes = [root, ...sources];
+    const quadrantHomes = Object.fromEntries([["demo-root", null], ...sources.map((item) => [item.id, "pratica" as const])]);
+
+    const region = computeWorldLayout({
+      perspective: "quadrants",
+      nodes,
+      edges: [],
+      centerId: "demo-root",
+      quadrantHomes,
+      quadrant: "pratica",
+      maxNodes: 120,
+      snapshotAt: SNAPSHOT
+    });
+    const regionCenter = region.nodes.find((item) => item.isRoot);
+    const familyGroup = region.nodes.find((item) => item.isGroup && item.groupKind === "family");
+    expect(region.level).toBe(0);
+    expect(regionCenter?.id).toBe("demo-root");
+    expect(region.nodes.some((item) => item.id === "region:pratica" && item.isRoot)).toBe(false);
+    expect(region.groups.find((group) => group.kind === "quadrant" && group.key === "pratica")?.drill).toBeNull();
+    expect(region.cameraTarget).toBeTruthy();
+    expect(familyGroup?.groupDrill).toEqual({ group: "family:source" });
+
+    const family = computeWorldLayout({
+      perspective: "quadrants",
+      nodes,
+      edges: [],
+      centerId: "demo-root",
+      quadrantHomes,
+      quadrant: "pratica",
+      group: "family:source",
+      maxNodes: 120,
+      snapshotAt: SNAPSHOT
+    });
+    const familyCenter = family.nodes.find((item) => item.isRoot);
+    const centeredGroup = family.nodes.find((item) => item.isRoot && item.isGroup);
+    const childRadii = family.nodes.filter((item) => !item.isRoot && !item.isGroup).map((item) => Math.hypot(item.position[0], item.position[2]));
+    expect(familyCenter).toMatchObject({ id: "demo-root", position: [0, 0, 0] });
+    expect(Boolean(familyCenter?.isGroup)).toBe(false);
+    expect(centeredGroup).toBeUndefined();
+    expect(family.groups.find((group) => group.kind === "family" && group.key === "family:source")).toMatchObject({
+      drill: null,
+      count: 8
+    });
+    expect(familyCenter?.scale).toBeGreaterThan(0.4);
+    expect(Math.min(...childRadii)).toBeGreaterThan(2);
+  });
+
+  it("quadrants: selected lenses give real family groups enough physical clearance", () => {
+    const root = node("demo-root", "system", { page_type: "root_entity", title: "Alex Rivera" });
+    const families = [
+      ["source", "source"],
+      ["event", "ingestion_event"],
+      ["hub", "source_catalog"],
+      ["content", "context_note"],
+      ["rule", "operational_rule"],
+      ["person", "person"]
+    ] as const;
+    const familyPages = families.flatMap(([family, pageType]) =>
+      Array.from({ length: 4 }, (_, index) =>
+        node(`${family}-${index}`, "system", {
+          page_type: pageType,
+          title: `${family} ${index}`
+        })
+      )
+    );
+    const nodes = [root, ...familyPages];
+    const quadrantHomes = Object.fromEntries([
+      ["demo-root", null],
+      ...familyPages.map((item) => [item.id, "pratica" as const])
+    ]);
+
+    const layout = computeWorldLayout({
+      perspective: "quadrants",
+      nodes,
+      edges: [],
+      centerId: "demo-root",
+      quadrantHomes,
+      quadrant: "pratica",
+      maxNodes: 180,
+      snapshotAt: SNAPSHOT
+    });
+    const familyGroups = layout.nodes.filter((item) => item.isGroup && item.groupKind === "family");
+    expect(familyGroups).toHaveLength(families.length);
+    const radii = familyGroups.map((item) => Math.hypot(item.position[0], item.position[2]));
+    expect(Math.min(...radii)).toBeGreaterThan(2.2);
+
+    const closestPair = familyGroups.reduce((closest, item, index) => {
+      const nextClosest = familyGroups.slice(index + 1).reduce((innerClosest, other) => {
+        const distance = Math.hypot(item.position[0] - other.position[0], item.position[2] - other.position[2]);
+        return Math.min(innerClosest, distance);
+      }, closest);
+      return Math.min(closest, nextClosest);
+    }, Number.POSITIVE_INFINITY);
+    expect(closestPair).toBeGreaterThan(1.08);
+
+    const compactAnchor = regionFamilyAnchorInCenteredRegion(familyPages.slice(0, 4), -Math.PI / 2, 0, 2);
+    const denseAnchor = regionFamilyAnchorInCenteredRegion(familyPages.slice(0, 4), -Math.PI / 2, 0, families.length);
+    expect(Math.hypot(denseAnchor[0], denseAnchor[2])).toBeGreaterThan(Math.hypot(compactAnchor[0], compactAnchor[2]) + 0.4);
+  });
+
+  it("quadrants: dense groups use LOD caps instead of filling the canvas with children", () => {
+    const root = node("demo-root", "system", { page_type: "root_entity", title: "Alex Rivera" });
+    const denseSources = Array.from({ length: 72 }, (_, index) =>
+      node(`dense-source-${index}`, "system", {
+        page_type: "source",
+        title: `Source ${index}`,
+        metrics: { inbound_links: index % 4, outbound_links: 1, source_ref_count: 1 }
+      })
+    );
+    const nodes = [root, ...denseSources];
+    const quadrantHomes = Object.fromEntries([
+      ["demo-root", null],
+      ...denseSources.map((item) => [item.id, "pratica" as const])
+    ]);
+
+    const region = computeWorldLayout({
+      perspective: "quadrants",
+      nodes,
+      edges: [],
+      centerId: "demo-root",
+      quadrantHomes,
+      quadrant: "pratica",
+      maxNodes: 160,
+      snapshotAt: SNAPSHOT
+    });
+    const sourceGroup = region.nodes.find((item) => item.isGroup && item.groupKey === "family:source");
+    expect(sourceGroup).toBeTruthy();
+    expect(sourceGroup?.scale).toBeLessThanOrEqual(0.55);
+    expect(sourceGroup?.groupPreviewIds).toHaveLength(3);
+    expect(sourceGroup?.groupComposition).toEqual([{ family: "source", count: 72 }]);
+    const visibleSourceChildren = region.nodes.filter((item) => item.id.startsWith("dense-source-"));
+    expect(visibleSourceChildren).toHaveLength(1);
+    expect(region.totals.hidden).toBeGreaterThan(60);
+
+    const family = computeWorldLayout({
+      perspective: "quadrants",
+      nodes,
+      edges: [],
+      centerId: "demo-root",
+      quadrantHomes,
+      quadrant: "pratica",
+      group: "family:source",
+      maxNodes: 160,
+      snapshotAt: SNAPSHOT
+    });
+    const familyChildren = family.nodes.filter((item) => item.id.startsWith("dense-source-"));
+    expect(familyChildren).toHaveLength(16);
+    expect(familyChildren.some((item) => item.position[0] < -0.2)).toBe(true);
+    expect(familyChildren.some((item) => item.position[0] > 0.2)).toBe(true);
+    expect(familyChildren.some((item) => item.position[2] < -0.2)).toBe(true);
+    expect(familyChildren.some((item) => item.position[2] > 0.2)).toBe(true);
+    expect(family.clusterStars.find((star) => star.key === "qstar-family:source")?.count).toBe(56);
   });
 
   it("quadrants is deterministic and never emits a core group when there are no structural pages", () => {

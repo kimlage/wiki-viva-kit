@@ -1,0 +1,43 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: failures
+seed: 8005
+purpose: Visible safe degradation for transport, snapshot, content, WebGL and effect failures.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, source, action]
+source_pages:
+  - memories/index.md
+  - memories/sources/source-health-checks.md
+  - memories/sources/source-error-traces.md
+composition:
+  include_ids:
+    - root-alex-rivera
+    - source-health-checks
+    - source-error-traces
+    - action-region-sync-support
+expected:
+  page_count: 4
+  page_id_sha256: 31360e1f7e2eeecd7cb34c7cc9bc0d17f82351ecdf4dfad49a55fb71d4ec16eb
+  required_capabilities: [offline_banner, partial_snapshot, fallback_2d, inert_static_effects]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  blocks: wiki_blocks.v2
+canonical_routes:
+  - /demo/w?center=root-alex-rivera&view=radar&overlay=attention
+legacy_routes: []
+interactions: [disconnect_api, load_partial_snapshot, request_missing_content, lose_webgl, preview_effect]
+automated_assertions:
+  - real routes never swap to sample data when sampleFallback is false
+  - missing content preserves current center and exposes retry
+  - static demo rejects execution without fabricated success
+visual:
+  viewports: [1440x960, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+  steps: [verify_offline_banner, verify_partial_data, verify_missing_reader, verify_webgl_fallback]
+expected_warnings: [old_snapshot, partial_snapshot, missing_content]
+expected_failures: [api_offline, corrupt_snapshot, torn_snapshot, webgl_loss, effect_timeout]
+generated_files: [apps/wiki-cockpit/public/sample-snapshot/snapshot_warnings.json]
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

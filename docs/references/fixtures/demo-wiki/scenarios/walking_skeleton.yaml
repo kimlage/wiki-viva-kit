@@ -1,0 +1,50 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: walking_skeleton
+seed: 8001
+purpose: Minimum root, source, person, action, family, reader and fallback vertical slice.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, source, person, action, artifact, ingestion_event]
+source_pages:
+  - memories/index.md
+  - memories/financeiro/index.md
+  - memories/sources/source-banco-export.md
+  - memories/people/person-marina-costa.md
+  - memories/actions/action-enviar-proposta.md
+composition:
+  include_ids:
+    - root-alex-rivera
+    - hub-financeiro
+    - source-banco-export
+    - event-ingest-banco-2026-05
+    - person-marina-costa
+    - action-enviar-proposta
+    - claim-custos-sobem
+    - artifact-relatorio-recon
+expected:
+  page_count: 8
+  page_id_sha256: 1e8cd58682b7d23fec3a689d2a40dfcd9200ae46aef9398547ed5cead89c6eab
+  required_capabilities: [stable_page_ids, validated_runtime_boundary, static_demo_inert]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  blocks: wiki_blocks.v2
+canonical_routes:
+  - /demo/w?center=root-alex-rivera&view=quadrants&overlay=actions
+  - /demo/w?center=source-banco-export&view=sources&overlay=evidence&dock=source
+legacy_routes: []
+interactions: [inspect, select, read, recenter, open_family_group, open_dock, close_reader]
+automated_assertions:
+  - center remains stable while reader and docks open
+  - stage page sets are monotonic
+  - static operator command preview remains inert
+visual:
+  viewports: [1440x960, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+  steps: [open_root, inspect_source, open_reader, recenter_person, verify_fallback]
+expected_warnings: [empty_world_at_stage_0]
+expected_failures: []
+generated_files: [apps/wiki-cockpit/public/sample-snapshot/stages]
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

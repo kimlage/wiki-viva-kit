@@ -1,4 +1,4 @@
-import type { FreshnessState, GraphNode } from "../types";
+import type { FreshnessState, GraphNode, OverlayMetrics } from "../types";
 import { pageTypeStyle } from "../data/presentation";
 
 export type SceneQuality = "compact" | "balanced" | "rich";
@@ -25,6 +25,7 @@ export type LayoutNode = {
   source_ref_count: number;
   inbound_links: number;
   outbound_links: number;
+  overlay_metrics?: OverlayMetrics;
   ageDays: number;
   overdueRatio: number;
   isHub: boolean;
@@ -35,7 +36,55 @@ export type LayoutNode = {
   // 2nd-hop context nodes that are shown for orientation, not emphasis.
   ring?: number;
   faint?: boolean;
+  // Synthetic, navigable grouping object. It is not a Markdown page; it is a
+  // visual operation node derived from real members and opens a drill-down.
+  isGroup?: boolean;
+  groupKey?: string;
+  groupKind?: string;
+  groupLabelKey?: string;
+  groupMemberIds?: string[];
+  groupDrill?: { context?: string; group?: string } | null;
+  visualGlyph?: string;
+  groupCaption?: string;
+  groupPreviewIds?: string[];
+  groupComposition?: { family: string; count: number }[];
+  inspection?: {
+    kind: "orbit_cluster";
+    family: string;
+    laneKind: "context" | "evidence" | "gap" | "attention";
+    count: number;
+    representativeId: string;
+    centerId: string;
+  };
 };
+
+/**
+ * Return stable React keys for physical node instances without changing their
+ * semantic ids.
+ *
+ * Snapshot v1 compatibility layouts can project the same semantic family
+ * group (for example `family:source`) into more than one physical region. A
+ * semantic id is correct for navigation, selection and drill state, but it is
+ * not sufficient as a React sibling key in that case. Unique ids keep their
+ * old key; only repeated ids gain a deterministic position suffix. The final
+ * occurrence suffix also keeps malformed exact duplicates warning-free while
+ * preserving them for diagnostics instead of silently dropping a node.
+ */
+export function layoutNodeInstanceKeys(nodes: readonly LayoutNode[]): string[] {
+  const totals = new Map<string, number>();
+  nodes.forEach((node) => totals.set(node.id, (totals.get(node.id) ?? 0) + 1));
+
+  const occurrences = new Map<string, number>();
+  return nodes.map((node) => {
+    if ((totals.get(node.id) ?? 0) === 1) return node.id;
+
+    const position = node.position.map((value) => Number(value.toFixed(4))).join(",");
+    const base = `${node.id}@${position}`;
+    const occurrence = occurrences.get(base) ?? 0;
+    occurrences.set(base, occurrence + 1);
+    return occurrence === 0 ? base : `${base}#${occurrence + 1}`;
+  });
+}
 
 export type LayoutWedge = {
   context: string;

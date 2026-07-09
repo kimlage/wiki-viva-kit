@@ -7,6 +7,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronLeft, Search, Sprout, X } from "lucide-react";
+import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
 import { t } from "../data/i18n";
 import { contextLabel, pageTypeLabel } from "../data/presentation";
 import { AUTO_FIELDS, contextsOf, createBriefSpec, curatedPalette, registryHomeOverrides } from "../data/creation";
@@ -95,6 +96,10 @@ export function CreateDock({
   const spec: TemplateSpec | undefined = types[type];
   const home = spec ? homeQuadrant(type, overrides) : null;
   const moldGroups = useMemo(() => groupPinnedByFacet(spec), [spec]);
+  const telemetry = useMemo(
+    () => createTelemetry(palette, contexts, buckets, moldGroups, byQuadrant),
+    [palette, contexts, buckets, moldGroups, byQuadrant]
+  );
   const setField = (key: string, value: string) => setValues((v) => ({ ...v, [key]: value }));
 
   const pick = (pt: string) => {
@@ -141,7 +146,7 @@ export function CreateDock({
         <Sprout size={15} aria-hidden />
         <strong>{t("create.title")}</strong>
         <span className="createSheetIntro">{t("create.intro")}</span>
-        <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
           <X size={16} />
         </button>
       </header>
@@ -150,6 +155,9 @@ export function CreateDock({
         <p className="dockIntro createEmpty">{t("create.noTypes")}</p>
       ) : (
         <div className={mobileForm ? "createSheetBody showForm" : "createSheetBody"}>
+          <div className="createTelemetryWrap">
+            <DockTelemetryRail label={t("create.telemetry.aria")} items={telemetry} />
+          </div>
           {/* LEFT: what can be born HERE — the scope's small catalog first
               (icons + plain-language purpose); the long tail only behind an
               explicit "more types…". The filter appears with the long list. */}
@@ -259,6 +267,53 @@ export function CreateDock({
       )}
     </section>
   );
+}
+
+function createTelemetry(
+  palette: { primary: string[]; rest: string[] },
+  contexts: string[],
+  buckets: Record<Bucket, string[]>,
+  moldGroups: [Bucket, string[]][],
+  byQuadrant: boolean
+): DockTelemetryItem[] {
+  const total = palette.primary.length + palette.rest.length;
+  const bucketCount = BUCKET_ORDER.filter((bucket) => buckets[bucket].length > 0).length;
+  const moldFields = moldGroups.reduce((sum, [, fields]) => sum + fields.length, 0);
+
+  return [
+    {
+      key: "templates",
+      label: t("create.telemetry.templates"),
+      value: total,
+      tone: total > 0 ? "info" : "muted",
+      ratio: total > 0 ? 1 : 0,
+      detail: t("create.telemetry.templatesDetail", { n: total })
+    },
+    {
+      key: "catalog",
+      label: t("create.telemetry.catalog"),
+      value: `${palette.primary.length}/${total}`,
+      tone: palette.primary.length > 0 ? "good" : "warn",
+      ratio: total > 0 ? palette.primary.length / total : 0,
+      detail: t("create.telemetry.catalogDetail", { primary: palette.primary.length, rest: palette.rest.length })
+    },
+    {
+      key: "homes",
+      label: t("create.telemetry.homes"),
+      value: byQuadrant ? bucketCount : "core",
+      tone: byQuadrant ? "info" : "muted",
+      ratio: byQuadrant ? bucketCount / BUCKET_ORDER.length : 0,
+      detail: byQuadrant ? t("create.telemetry.homesDetail", { n: bucketCount }) : t("create.telemetry.homesCore")
+    },
+    {
+      key: "mold",
+      label: t("create.telemetry.mold"),
+      value: moldFields,
+      tone: moldFields > 0 ? "good" : "muted",
+      ratio: Math.min(moldFields / 6, 1),
+      detail: t("create.telemetry.moldDetail", { fields: moldFields, contexts: contexts.length })
+    }
+  ];
 }
 
 

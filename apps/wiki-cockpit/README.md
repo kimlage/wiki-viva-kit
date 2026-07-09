@@ -153,10 +153,10 @@ npm install
 npm run dev
 ```
 
-The app falls back to `public/sample-snapshot/` when no local operator API is
-running.
-Open `/demo` to force the bundled sample snapshot even when a local operator
-API is available — it is a **title screen** with two doors:
+The operational routes fail closed when no real snapshot is available; they
+never substitute the bundled sample universe. Open `/demo` to opt into the
+bundled sample snapshot even when a local operator API is available — it is a
+**title screen** with two doors:
 
 - `/demo/genesis` — **start from zero**: the genesis tutorial. The world
   starts EMPTY (the founding rite is the only interface) and each step is a
@@ -198,10 +198,15 @@ of the same snapshot can serve the full in-world reader.
 Then, in this directory:
 
 ```sh
-npm run dev
+npm run dev:proxy
 ```
 
-Vite proxies `/api` to `http://127.0.0.1:8765`. The Python server exposes:
+`dev:proxy` replaces the bundled demo provenance with `api_base=/api`,
+`snapshot_base=/api/snapshot` and `mode=local_operator`, then proxies `/api`
+to `http://127.0.0.1:8765`. This prevents real data from being mislabeled as
+demo data while leaving the static `/demo` build unchanged. The Python server
+refuses non-loopback binds; it is a local operator, not a remotely exposed
+service. It exposes:
 
 - `/api/snapshot/*.json` for the deterministic read model;
 - `/api/pages/{id}/content` for the in-world reader: typed frontmatter, full
@@ -262,8 +267,9 @@ The app loads `/wiki-cockpit.config.json` at runtime:
 
 - `api_base`: operator API base URL. Use `/api` for local Vite proxy or a
   trusted Cloud Run operator adapter.
-- `snapshot_base`: optional static snapshot base URL. When empty, the app tries
-  `${api_base}/snapshot` and then bundled sample data.
+- `snapshot_base`: optional static snapshot base URL. When empty, operational
+  routes try `${api_base}/snapshot` and show an explicit unavailable state if
+  it fails. Bundled sample data is reachable only through `/demo`.
 - `repo_label`: optional display label for hosted review surfaces.
 - `mode`: display/runtime mode label such as `static`, `local_operator` or
   `github_connected`.

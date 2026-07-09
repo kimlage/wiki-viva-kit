@@ -1,0 +1,42 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: normal_operations
+seed: 8002
+purpose: Representative calm daily world with healthy and actionable regions.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, source, person, action, meeting, artifact, nested_center]
+source_pages:
+  - memories/index.md
+  - memories/clientes/index.md
+  - memories/sistema/index.md
+composition:
+  include_all: true
+  exclude_id_prefixes: [artifact-region-pressure-, action-region-pressure-, claim-region-pressure-]
+expected:
+  page_count: 107
+  page_id_sha256: c3a7e172bbd0c57271eea9c99e1a8e0a90d98ee59545f07ce268619f3d5129e6
+  required_capabilities: [stable_page_ids, integrity_sha256, source_lifecycle, region_groups]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  blocks: wiki_blocks.v2
+canonical_routes:
+  - /demo/w?center=root-alex-rivera&view=quadrants&overlay=actions
+  - /demo/w?center=root-alex-rivera&view=radar&overlay=attention
+  - /demo/w?center=root-alex-rivera&view=work&overlay=ownership
+legacy_routes: [/demo/w/quadrants, /demo/w/radar]
+interactions: [switch_view, switch_lens, switch_overlay, open_reader, open_dock, recenter]
+automated_assertions:
+  - view lens and overlay change independently from center
+  - healthy regions remain visually quiet
+  - generated page IDs and input hash remain stable
+visual:
+  viewports: [1440x960, 1280x900, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback, firefox-smoke]
+  steps: [open_root, visit_all_views, visit_all_overlays, open_work_dock, verify_calm_region]
+expected_warnings: []
+expected_failures: []
+generated_files: [apps/wiki-cockpit/public/sample-snapshot]
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

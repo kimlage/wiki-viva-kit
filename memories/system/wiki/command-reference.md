@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-07
+updated_at: 2026-07-09
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Command reference
 
-Last updated: 2026-07-07.
+Last updated: 2026-07-09.
 
 This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/README.md) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
 
@@ -49,6 +49,9 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_archive.py](../../../scripts/wiki_archive.py) | Archives resolved proposals (and events) into ingestion/archive/ | Take immutable history out of the flat, re-audited dir |
 | [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) | Publishes non-versioned artifacts to Drive + manifest | Give a stable (Drive) link to what git ignores |
 | [wiki_toolkit_drift.py](../../../scripts/wiki_toolkit_drift.py) | Detects toolkit drift between branches | Find fixes not yet backported between main and opensource |
+| [wiki_upgrade_inventory.py](../../../scripts/wiki_upgrade_inventory.py) | Validates the public-safe v8 consumer inventory | Review pilot/wave/paused status before downstream preflight |
+| [wiki_upgrade_preflight.py](../../../scripts/wiki_upgrade_preflight.py) | Compiles a read-only downstream upgrade preflight | Prove release pin, branch, gates, drift, snapshot, overrides and privacy before import |
+| [wiki_upgrade_report.py](../../../scripts/wiki_upgrade_report.py) | Validates evidence and compiles v8 migration reports | Close a downstream upgrade with SHAs, allowlisted files, gates, QA and rollback |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Living gate: lists, transitions, rebases | Move proposals between states and supersede old ones |
 | [wiki_score.py](../../../scripts/wiki_score.py) | Operational karma and vitality | Record/view append-only scoring |
 | [wiki_insight_job.py](../../../scripts/wiki_insight_job.py) | Closes the Information -> Insight cycle | Gather signals about a theme for an insight proposal |
@@ -139,6 +142,37 @@ python3 scripts/wiki_migration_inventory.py
 python3 scripts/wiki_migration_inventory.py --show-frontmatter
 python3 scripts/wiki_migration_inventory.py --format json
 ```
+
+### v8 downstream upgrade package
+
+[wiki_upgrade_inventory.py](../../../scripts/wiki_upgrade_inventory.py),
+[wiki_upgrade_preflight.py](../../../scripts/wiki_upgrade_preflight.py) and
+[wiki_upgrade_report.py](../../../scripts/wiki_upgrade_report.py) implement the
+read-only productized migration flow documented in the
+[v8 downstream runbook](../../../docs/references/guides/wiki-viva-v8-downstream-upgrade.md).
+They never copy toolkit files. The package allowlist/blocklist remains the
+review boundary.
+
+```sh
+python3 scripts/wiki_upgrade_inventory.py --check
+python3 scripts/wiki_upgrade_preflight.py \
+  --consumer-root /path/to/consumer \
+  --consumer-id <inventory-id> \
+  --checked-on 2026-07-09 \
+  --gate-evidence /path/to/gate-evidence.json \
+  --check
+python3 scripts/wiki_upgrade_report.py --template > wiki-v8-migration-evidence.yaml
+python3 scripts/wiki_upgrade_report.py \
+  --evidence wiki-v8-migration-evidence.yaml \
+  --json-out wiki-v8-migration-report.json \
+  --markdown-out wiki-v8-migration-report.md \
+  --check
+```
+
+Add `--redact` to preflight evidence that may leave a private repo and
+`--public-export` to a migration report only after route, center, paths and
+screenshots are public-safe. Both commands fail while the public release SHA is
+unpinned or required evidence is incomplete.
 
 ### [wiki_migrate_templates.py](../../../scripts/wiki_migrate_templates.py) - assisted source + template migration
 

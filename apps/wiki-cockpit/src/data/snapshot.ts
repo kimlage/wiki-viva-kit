@@ -15,12 +15,14 @@ import type {
 import { CODEX_UNAVAILABLE } from "../types";
 import type { RuntimeConfig } from "./runtimeConfig";
 import { apiUrl, loadRuntimeConfig } from "./runtimeConfig";
+import { fetchOperatorHealth, operatorPost } from "../world/clients/operatorClient";
 
-const FILES = {
-  manifest: "manifest.json",
+const CORE_FILES = {
   operations: "operations.json",
   graph: "graph.json",
   pages: "pages.json",
+  // Legacy payload name retained through the v8 compatibility window. The
+  // typed records are OperatorCommandCard; domain actions live in work_items.
   actions: "actions.json",
   freshness: "freshness.json",
   gates: "gates.json",
@@ -34,6 +36,48 @@ const FILES = {
   commands: "commands.json"
 } as const;
 
+const V2_FILES = {
+  operatorCommands: "operator_commands.json",
+  workItems: "work_items.json",
+  regionGroups: "region_groups.json",
+  sourceLifecycle: "source_lifecycle.json",
+  snapshotWarnings: "snapshot_warnings.json"
+} as const;
+
+const SUPPORTED_SNAPSHOT_VERSIONS = new Set(["wiki_web_snapshot.v1", "wiki_web_snapshot.v2"]);
+const REQUIRED_V2_PAYLOADS = new Set([
+  ...Object.values(CORE_FILES),
+  ...Object.values(V2_FILES),
+  "score.json",
+  "source_entities.json",
+  "templates.json",
+  "blocks.json",
+  "block_stacks.json"
+]);
+
+export type SnapshotCompatibility = NonNullable<SnapshotBundle["manifest"]["compatibility"]>;
+export type SnapshotLoadErrorCode = "unsupported" | "partial" | "integrity" | "torn";
+
+export class SnapshotLoadError extends Error {
+  constructor(public readonly code: SnapshotLoadErrorCode, message: string) {
+    super(message);
+    this.name = "SnapshotLoadError";
+  }
+}
+
+export function classifySnapshotManifest(manifest: SnapshotBundle["manifest"]): SnapshotCompatibility {
+  if (!SUPPORTED_SNAPSHOT_VERSIONS.has(manifest.schema_version)) {
+    throw new SnapshotLoadError("unsupported", `Unsupported snapshot version: ${manifest.schema_version || "<empty>"}`);
+  }
+  if (manifest.schema_version === "wiki_web_snapshot.v1") {
+    return {
+      state: "stale_version",
+      warnings: ["Previous snapshot version loaded in compatibility mode; regenerate with wiki_web_snapshot.v2."]
+    };
+  }
+  return { state: "current", warnings: [] };
+}
+
 export const SAMPLE_BASE = "/sample-snapshot";
 
 function demoModeRequested(): boolean {
@@ -41,10 +85,14 @@ function demoModeRequested(): boolean {
   return window.location.pathname.startsWith("/demo") || new URLSearchParams(window.location.search).get("demo") === "1";
 }
 
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { headers: { accept: "application/json" } });
+async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(url, { headers: { accept: "application/json" }, signal });
+  const contentType = response.headers.get("content-type") || "";
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`);
+  }
+  if (!contentType.toLowerCase().includes("application/json")) {
+    throw new Error(`${url} returned ${contentType || "unknown content type"} instead of application/json`);
   }
   return (await response.json()) as T;
 }
@@ -61,31 +109,101 @@ const EMPTY_SCORE = {
   vitality: {}
 };
 
-async function loadFromBase(base: string): Promise<SnapshotBundle> {
-  const entries = await Promise.all(
-    Object.entries(FILES).map(async ([key, file]) => [key, await fetchJson(`${base}/${file}`)])
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+async function sha256(value: unknown): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error("Snapshot integrity verification is unavailable in this browser");
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson(value)));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function validateSnapshotEnvelope(
+  manifest: SnapshotBundle["manifest"],
+  payloads: Record<string, unknown>
+): Promise<void> {
+  classifySnapshotManifest(manifest);
+  if (manifest.schema_version !== "wiki_web_snapshot.v2") return;
+  const emptyCompat = manifest.capabilities?.includes("empty_world_compat") ?? false;
+  if (!manifest.snapshot_id || (!manifest.root_page_id && !emptyCompat) || !manifest.bundle_hash || !manifest.integrity) {
+    throw new SnapshotLoadError("partial", "Snapshot v2 envelope is incomplete");
+  }
+  const missingRequired = [...REQUIRED_V2_PAYLOADS].filter((name) => !(name in manifest.integrity!));
+  if (missingRequired.length) {
+    throw new SnapshotLoadError("partial", `Snapshot ${manifest.snapshot_id} is partial; missing integrity entries: ${missingRequired.join(", ")}`);
+  }
+  for (const [name, expected] of Object.entries(manifest.integrity)) {
+    // Content sidecars are integrity-checked when the reader fetches them; the
+    // initial world load must not eagerly download every page body.
+    if (name.startsWith("content/")) continue;
+    if (!(name in payloads)) throw new SnapshotLoadError("partial", `Snapshot ${manifest.snapshot_id} is missing required payload ${name}`);
+    const actual = await sha256(payloads[name]);
+    if (actual !== expected.sha256) throw new SnapshotLoadError("integrity", `Snapshot ${manifest.snapshot_id} failed integrity for ${name}`);
+  }
+  const pages = (payloads["pages.json"] as SnapshotBundle["pages"] | undefined)?.pages ?? [];
+  const ids = new Set<string>();
+  for (const page of pages) {
+    if (!page.id || ids.has(page.id)) throw new SnapshotLoadError("integrity", `Snapshot ${manifest.snapshot_id} contains a duplicate or empty page id: ${page.id}`);
+    ids.add(page.id);
+  }
+  if (!emptyCompat && !ids.has(manifest.root_page_id!)) throw new SnapshotLoadError("integrity", `Snapshot ${manifest.snapshot_id} root page is missing from pages.json`);
+  if (manifest.contract_errors?.length) throw new SnapshotLoadError("integrity", `Snapshot ${manifest.snapshot_id} contract errors: ${manifest.contract_errors.join("; ")}`);
+}
+
+async function loadFromBase(base: string, signal?: AbortSignal): Promise<SnapshotBundle> {
+  const manifest = await fetchJson<SnapshotBundle["manifest"]>(`${base}/manifest.json`, signal);
+  manifest.compatibility = classifySnapshotManifest(manifest);
+  const coreEntries = await Promise.all(
+    Object.entries(CORE_FILES).map(async ([key, file]) => [key, await fetchJson(`${base}/${file}`, signal), file] as const)
   );
-  const bundle = Object.fromEntries(entries) as SnapshotBundle;
+  const v2Entries = manifest.schema_version === "wiki_web_snapshot.v2"
+    ? await Promise.all(Object.entries(V2_FILES).map(async ([key, file]) => [key, await fetchJson(`${base}/${file}`, signal), file] as const))
+    : [
+        ["operatorCommands", { schema_version: "wiki_operator_commands.v1", operator_commands: [] }, "operator_commands.json"],
+        ["workItems", { schema_version: "wiki_work_items.v1", actions: [] }, "work_items.json"],
+        ["regionGroups", { schema_version: "wiki_region_groups.v2", groups: [] }, "region_groups.json"],
+        ["sourceLifecycle", { schema_version: "wiki_source_lifecycle.v2", sources: [] }, "source_lifecycle.json"],
+        ["snapshotWarnings", { schema_version: "wiki_snapshot_warnings.v1", warnings: [] }, "snapshot_warnings.json"]
+      ] as const;
+  const entries = [...coreEntries, ...v2Entries];
+  const bundle = Object.fromEntries([["manifest", manifest], ...entries.map(([key, value]) => [key, value])]) as SnapshotBundle;
+  const payloads: Record<string, unknown> = Object.fromEntries(entries.map(([, value, file]) => [file, value]));
   // Optional read models keep old snapshots loadable.
-  bundle.score = await fetchJson(`${base}/score.json`).catch(() => EMPTY_SCORE) as SnapshotBundle["score"];
-  bundle.sourceEntities = await fetchJson(`${base}/source_entities.json`).catch(
+  bundle.score = await fetchJson(`${base}/score.json`, signal).catch(() => EMPTY_SCORE) as SnapshotBundle["score"];
+  payloads["score.json"] = bundle.score;
+  bundle.sourceEntities = await fetchJson(`${base}/source_entities.json`, signal).catch(
     () => ({ schema_version: "wiki_web_source_entities.v1", sources: [] })
   ) as SnapshotBundle["sourceEntities"];
-  bundle.templates = await fetchJson(`${base}/templates.json`).catch(
+  payloads["source_entities.json"] = bundle.sourceEntities;
+  bundle.templates = await fetchJson(`${base}/templates.json`, signal).catch(
     () => ({ schema_version: "wiki_templates.v1", facets_order: [], types: {} })
   ) as SnapshotBundle["templates"];
+  payloads["templates.json"] = bundle.templates;
   // v2 blocks — optional, so pre-v2 snapshots keep loading.
-  bundle.blocks = await fetchJson(`${base}/blocks.json`).catch(
+  bundle.blocks = await fetchJson(`${base}/blocks.json`, signal).catch(
     () => ({ schema_version: "wiki_web_blocks.v1", blocks: {}, vocabulary: {}, warnings: [] })
   ) as SnapshotBundle["blocks"];
-  bundle.blockStacks = await fetchJson(`${base}/block_stacks.json`).catch(
+  payloads["blocks.json"] = bundle.blocks;
+  bundle.blockStacks = await fetchJson(`${base}/block_stacks.json`, signal).catch(
     () => ({ schema_version: "wiki_web_block_stacks.v1", anchors: {} })
   ) as SnapshotBundle["blockStacks"];
+  payloads["block_stacks.json"] = bundle.blockStacks;
+  await validateSnapshotEnvelope(bundle.manifest, payloads);
+  const confirmation = await fetchJson<SnapshotBundle["manifest"]>(`${base}/manifest.json`, signal);
+  if (bundle.manifest.snapshot_id && confirmation.snapshot_id !== bundle.manifest.snapshot_id) {
+    throw new SnapshotLoadError("torn", `Snapshot changed while loading (${bundle.manifest.snapshot_id} -> ${confirmation.snapshot_id || "unknown"})`);
+  }
   return bundle;
 }
 
 export async function loadSnapshotBundle(
-  options: { demo?: boolean; stage?: number | null } = {}
+  options: { demo?: boolean; stage?: number | null; signal?: AbortSignal } = {}
 ): Promise<{ bundle: SnapshotBundle; source: string; runtime: RuntimeConfig }> {
   // Demo is an in-memory bundle switch: synthetic ids never resolve against
   // the real snapshot, and switching universes never reloads the document.
@@ -96,7 +214,7 @@ export async function loadSnapshotBundle(
     // the world materializes because the data changes, never by UI simulation.
     const base = options.stage != null ? `${SAMPLE_BASE}/stages/${options.stage}` : SAMPLE_BASE;
     return {
-      bundle: await loadFromBase(base),
+      bundle: await loadFromBase(base, options.signal),
       source: base,
       runtime: { ...demoRuntime, apiBase: "", snapshotBase: base, repoLabel: "wiki-viva-kit demo", mode: "static_demo" }
     };
@@ -108,8 +226,7 @@ export async function loadSnapshotBundle(
   const candidates = [
     { base: configured, sampleFallback: false },
     { base: runtimeBase, sampleFallback: false },
-    { base: apiBase, sampleFallback: false },
-    { base: SAMPLE_BASE, sampleFallback: true }
+    { base: apiBase, sampleFallback: false }
   ].filter((candidate): candidate is { base: string; sampleFallback: boolean } => Boolean(candidate.base));
   let lastError: unknown = null;
   const seen = new Set<string>();
@@ -117,23 +234,16 @@ export async function loadSnapshotBundle(
     if (seen.has(`${base}:${sampleFallback ? "fallback" : "configured"}`)) continue;
     seen.add(`${base}:${sampleFallback ? "fallback" : "configured"}`);
     try {
-      const bundle = await loadFromBase(base);
-      if (sampleFallback) {
-        // Every REAL base failed and the bundled demo sample loaded instead.
-        // Never impersonate the user's wiki: mark the runtime so the shell can
-        // label the world as sample data (repo label + demo-style mode).
-        return {
-          bundle,
-          source: base,
-          runtime: { ...runtime, repoLabel: "sample data (operator unreachable)", mode: "sample_fallback" }
-        };
-      }
+      const bundle = await loadFromBase(base, options.signal);
       return { bundle, source: base, runtime };
     } catch (error) {
       lastError = error;
     }
   }
-  throw lastError instanceof Error ? lastError : new Error("snapshot unavailable");
+  const detail = lastError instanceof Error ? lastError.message : "snapshot unavailable";
+  throw new Error(
+    `Real cockpit snapshot unavailable. Start the operator backend and Vite API proxy; sample fallback is blocked outside /demo. Last error: ${detail}`
+  );
 }
 
 // Mirrors wiki_core.web.content.sidecar_name (fnv-1a 32-bit) so the static
@@ -156,15 +266,22 @@ export function sidecarName(pageId: string): string {
 
 export async function loadPageContent(
   pageId: string,
-  options: { demo?: boolean; snapshotSource?: string } = {}
+  options: {
+    demo?: boolean;
+    snapshotSource?: string;
+    snapshotId?: string;
+    integrity?: SnapshotBundle["manifest"]["integrity"];
+    signal?: AbortSignal;
+  } = {}
 ): Promise<PageContent> {
   const attempts: (() => Promise<PageContent>)[] = [];
   if (options.demo) {
-    attempts.push(() => fetchJson<PageContent>(`${SAMPLE_BASE}/content/${sidecarName(pageId)}`));
+    attempts.push(() => fetchJson<PageContent>(`${options.snapshotSource || SAMPLE_BASE}/content/${sidecarName(pageId)}`, options.signal));
   } else {
     attempts.push(async () => {
       const response = await fetch(await apiUrl(`/pages/${encodeURIComponent(pageId)}/content`), {
-        headers: { accept: "application/json" }
+        headers: { accept: "application/json" },
+        signal: options.signal
       });
       const payload = (await response.json()) as PageContent;
       if (!response.ok && !payload.error) throw new Error(`content failed: ${response.status}`);
@@ -172,14 +289,27 @@ export async function loadPageContent(
     });
     const base = options.snapshotSource;
     if (base && !base.endsWith("/api/snapshot")) {
-      attempts.push(() => fetchJson<PageContent>(`${base}/content/${sidecarName(pageId)}`));
+      attempts.push(() => fetchJson<PageContent>(`${base}/content/${sidecarName(pageId)}`, options.signal));
     }
   }
   let lastError: unknown = null;
   for (const attempt of attempts) {
     try {
       const payload = await attempt();
-      if (payload && payload.ok) return payload;
+      if (payload && payload.ok) {
+        if (options.snapshotId && payload.snapshot_id && payload.snapshot_id !== options.snapshotId) {
+          throw new Error(`Content revision mismatch (${payload.snapshot_id} != ${options.snapshotId})`);
+        }
+        const sidecarPath = `content/${sidecarName(pageId)}`;
+        const expected = options.integrity?.[sidecarPath]?.sha256;
+        if (options.demo && options.integrity && !expected) {
+          throw new Error(`Content sidecar is absent from snapshot integrity: ${sidecarPath}`);
+        }
+        if (expected && (await sha256(payload)) !== expected) {
+          throw new Error(`Content sidecar failed integrity: ${sidecarPath}`);
+        }
+        return payload;
+      }
       if (payload && payload.error) lastError = new Error(payload.error);
     } catch (error) {
       lastError = error;
@@ -195,13 +325,7 @@ export async function loadPageContent(
 // omit server_version/schema_capabilities entirely, which is how we detect
 // staleness and show the honest "restart the operator" state everywhere.
 export async function loadHealth(): Promise<OperatorHealth | null> {
-  try {
-    const response = await fetch(await apiUrl("/health"), { headers: { accept: "application/json" } });
-    if (!response.ok) return null;
-    return (await response.json()) as OperatorHealth;
-  } catch {
-    return null;
-  }
+  return fetchOperatorHealth();
 }
 
 // Live Codex capability, read from /api/health (one fetch — the health payload
@@ -241,11 +365,7 @@ export async function loadCodexCapability(runtime: RuntimeConfig): Promise<Codex
 // is deterministic and zero-token server-side; it also persists a draft so the
 // brief is inspectable and (Phase 2) executable by its stable id + sha.
 export async function composeBrief(spec: BriefSpec): Promise<BriefRecord> {
-  const response = await fetch(await apiUrl("/briefs"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ spec })
-  });
+  const response = await operatorPost("/briefs", { spec });
   const result = (await response.json()) as BriefRecord;
   if (!response.ok && !result.brief_id) {
     throw new Error(result.error || `brief compose failed: ${response.status}`);
@@ -269,11 +389,7 @@ export async function getBrief(briefId: string): Promise<BriefRecord | null> {
 }
 
 export async function saveBriefText(briefId: string, text: string): Promise<BriefRecord> {
-  const response = await fetch(await apiUrl(`/briefs/${encodeURIComponent(briefId)}`), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ text })
-  });
+  const response = await operatorPost(`/briefs/${encodeURIComponent(briefId)}`, { text });
   const result = (await response.json()) as BriefRecord;
   // A refused save (e.g. non-draft) comes back ok:false WITH a brief_id — fail
   // closed so callers never treat a rejection as a saved record.
@@ -284,11 +400,7 @@ export async function saveBriefText(briefId: string, text: string): Promise<Brie
 }
 
 export async function discardBrief(briefId: string): Promise<BriefRecord> {
-  const response = await fetch(await apiUrl(`/briefs/${encodeURIComponent(briefId)}/discard`), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({})
-  });
+  const response = await operatorPost(`/briefs/${encodeURIComponent(briefId)}/discard`, {});
   const result = (await response.json()) as BriefRecord;
   if (!response.ok && !result.brief_id) {
     throw new Error(result.error || `brief discard failed: ${response.status}`);
@@ -303,16 +415,12 @@ export async function spawnCodexJob(
   briefSha: string,
   options: { dryRun?: boolean; force?: boolean; parentJobId?: string } = {}
 ): Promise<CodexJobRecord> {
-  const response = await fetch(await apiUrl("/codex/jobs"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
+  const response = await operatorPost("/codex/jobs", {
       brief_id: briefId,
       brief_sha: briefSha,
       dry_run: options.dryRun ?? false,
       force: options.force ?? false,
       parent_job_id: options.parentJobId
-    })
   });
   const result = (await response.json()) as CodexJobRecord;
   if (!response.ok && !result.job_id) {
@@ -348,11 +456,7 @@ export async function streamCodexLog(jobId: string): Promise<string> {
 // Return a delivered job with feedback: composes a follow-up brief that
 // continues the SAME branch. Returns the brief to open in the studio.
 export async function returnCodexJob(jobId: string, feedback: string): Promise<BriefRecord> {
-  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}/return`), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ feedback })
-  });
+  const response = await operatorPost(`/codex/jobs/${encodeURIComponent(jobId)}/return`, { feedback });
   const result = (await response.json()) as BriefRecord;
   if (!response.ok && !result.brief_id) {
     throw new Error(result.error || `return failed: ${response.status}`);
@@ -361,11 +465,7 @@ export async function returnCodexJob(jobId: string, feedback: string): Promise<B
 }
 
 export async function cancelCodexJob(jobId: string): Promise<CodexJobRecord | null> {
-  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}/cancel`), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({})
-  });
+  const response = await operatorPost(`/codex/jobs/${encodeURIComponent(jobId)}/cancel`, {});
   if (!response.ok && response.status === 404) return null;
   return (await response.json()) as CodexJobRecord;
 }
@@ -391,36 +491,24 @@ export async function intakeCopy(
   sourcePath: string,
   context: string
 ): Promise<{ ok: boolean; path?: string; context?: string; filename?: string; error?: string; reason?: string }> {
-  const response = await fetch(await apiUrl("/intake/copy"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ source_path: sourcePath, context })
-  });
+  const response = await operatorPost("/intake/copy", { source_path: sourcePath, context });
   return (await response.json()) as { ok: boolean; path?: string };
 }
 
 // Run one honesty gate; the server persists a receipt so the gate turns green.
 export async function runGate(gateId: string): Promise<GateRunResult> {
-  const response = await fetch(await apiUrl("/gates/run"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ gate_id: gateId })
-  });
+  const response = await operatorPost("/gates/run", { gate_id: gateId });
   // The response carries redacted stdout/stderr — keep them: they are the only
   // failure detail that exists (receipts persist status alone).
   return (await response.json()) as GateRunResult;
 }
 
-export async function runCockpitAction(
+export async function runOperatorCommand(
   actionId: string,
   dryRun?: boolean
-): Promise<import("../types").ActionRunResult> {
-  const response = await fetch(await apiUrl("/actions/run"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ action_id: actionId, dry_run: dryRun })
-  });
-  const payload = (await response.json()) as import("../types").ActionRunResult;
+): Promise<import("../types").OperatorCommandRunResult> {
+  const response = await operatorPost("/actions/run", { action_id: actionId, dry_run: dryRun });
+  const payload = (await response.json()) as import("../types").OperatorCommandRunResult;
   // A check that RAN and failed is a RESULT, not a transport error: the
   // operator returns 400 with a full `results[]` (per-step stdout/stderr).
   // Surface it so the UI can show WHICH gate failed — throwing here turned an
@@ -437,11 +525,7 @@ export async function runGitWorkflow(
   payload: Record<string, unknown> = {},
   dryRun = true
 ): Promise<WorkflowRunResult> {
-  const response = await fetch(await apiUrl("/git/workflow"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ ...payload, operation, dry_run: dryRun })
-  });
+  const response = await operatorPost("/git/workflow", { ...payload, operation, dry_run: dryRun });
   const result = (await response.json()) as WorkflowRunResult;
   if (!response.ok && !result.operation) {
     throw new Error(result.error || `workflow failed: ${response.status}`);
@@ -452,20 +536,12 @@ export async function runGitWorkflow(
 export async function composeSourceBrief(
   sourceId: string
 ): Promise<{ ok: boolean; spec?: import("../types").BriefSpec; pending?: number; error?: string }> {
-  const response = await fetch(await apiUrl(`/sources/${encodeURIComponent(sourceId)}/brief`), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({})
-  });
+  const response = await operatorPost(`/sources/${encodeURIComponent(sourceId)}/brief`, {});
   return (await response.json()) as { ok: boolean; spec?: import("../types").BriefSpec; pending?: number; error?: string };
 }
 
 export async function triageSource(source: string, context?: string): Promise<SourceTriageResult> {
-  const response = await fetch(await apiUrl("/sources/triage"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ source, context })
-  });
+  const response = await operatorPost("/sources/triage", { source, context });
   const result = (await response.json()) as SourceTriageResult;
   if (!response.ok && !result.risk_flags && !result.error) {
     throw new Error(`source triage failed: ${response.status}`);
@@ -474,11 +550,7 @@ export async function triageSource(source: string, context?: string): Promise<So
 }
 
 export async function buildIngestionPlan(source: string, context?: string): Promise<IngestionPlan> {
-  const response = await fetch(await apiUrl("/ingestion/plan"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ source, context })
-  });
+  const response = await operatorPost("/ingestion/plan", { source, context });
   const result = (await response.json()) as IngestionPlan;
   if (!response.ok && !result.stages) {
     throw new Error(result.error || `ingestion plan failed: ${response.status}`);
@@ -492,11 +564,7 @@ export async function runIngestionStep(
   stepId: string,
   dryRun = true
 ): Promise<IngestionStepResult> {
-  const response = await fetch(await apiUrl("/ingestion/run"), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ source, context, step_id: stepId, dry_run: dryRun })
-  });
+  const response = await operatorPost("/ingestion/run", { source, context, step_id: stepId, dry_run: dryRun });
   const result = (await response.json()) as IngestionStepResult;
   if (!response.ok && !result.step_id) {
     throw new Error(result.error || `ingestion step failed: ${response.status}`);

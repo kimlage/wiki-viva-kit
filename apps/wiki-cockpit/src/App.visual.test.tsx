@@ -3,7 +3,13 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { browserApplication } from "./infrastructure/browserApplication";
 import type { SnapshotBundle } from "./types";
+
+const mockSnapshotState = vi.hoisted(() => ({
+  runtimeMode: "local_operator",
+  source: "/api/snapshot"
+}));
 
 const bundle: SnapshotBundle = {
   manifest: {
@@ -215,8 +221,17 @@ vi.mock("./components/SystemScene", () => ({
 vi.mock("./data/snapshot", () => ({
   loadSnapshotBundle: vi.fn(async () => ({
     bundle,
-    source: "/api/snapshot",
-    runtime: { apiBase: "/api", snapshotBase: "", repoLabel: "", mode: "local_operator", presentation: {} }
+    source: mockSnapshotState.source,
+    runtime: {
+      apiBase: "/api",
+      snapshotBase: "",
+      repoLabel: "",
+      mode: mockSnapshotState.runtimeMode,
+      language: "",
+      strings: {},
+      presentation: {},
+      codexEnabled: true
+    }
   })),
   loadPageContent: vi.fn(async () => ({
     ok: true,
@@ -253,10 +268,11 @@ vi.mock("./data/snapshot", () => ({
     source_refs: []
   })),
   sidecarName: (id: string) => `${id}.json`,
-  runCockpitAction: vi.fn(),
+  runOperatorCommand: vi.fn(),
   runGitWorkflow: vi.fn(),
   buildIngestionPlan: vi.fn(),
   runIngestionStep: vi.fn(),
+  composeSourceBrief: vi.fn(async () => ({ ok: false })),
   loadCodexCapability: vi.fn(async () => ({
     enabled: true,
     installed: false,
@@ -284,10 +300,12 @@ vi.mock("./data/snapshot", () => ({
 
 async function renderRoute(path: string) {
   window.history.pushState({}, "", path);
-  render(<App />);
+  render(<App ports={browserApplication} />);
 }
 
 afterEach(() => {
+  mockSnapshotState.runtimeMode = "local_operator";
+  mockSnapshotState.source = "/api/snapshot";
   cleanup();
 });
 
@@ -295,7 +313,7 @@ describe("visual route contract", () => {
   it("renders the world shell with HUD, perspectives and 2D routes", async () => {
     await renderRoute("/w/radar");
     expect(await screen.findByLabelText("3D knowledge world")).toBeTruthy();
-    expect(screen.getByText("Galaxy")).toBeTruthy();
+    expect(await screen.findByText("Galaxy")).toBeTruthy();
     expect(screen.getByRole("group", { name: "Perspectives (keys 1–5)" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Districts/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Trails/ })).toBeTruthy();
@@ -346,5 +364,17 @@ describe("visual route contract", () => {
       expect(window.location.pathname).toContain("source-fixture");
     });
     expect(window.location.search).toContain("reader=1");
+  });
+
+  it("blocks sample fallback outside demo so real validation cannot impersonate sample data", async () => {
+    mockSnapshotState.runtimeMode = "sample_fallback";
+    mockSnapshotState.source = "/sample-snapshot";
+
+    await renderRoute("/w/radar");
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/Real snapshot required/);
+    expect(alert.textContent).toMatch(/Sample fallback is blocked outside \/demo/);
+    expect(screen.queryByLabelText("3D knowledge world")).toBeNull();
   });
 });

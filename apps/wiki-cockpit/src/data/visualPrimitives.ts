@@ -1,4 +1,5 @@
 import type { AnchorRecord, RegionGroupPayload } from "../types";
+import type { RegistryKernel } from "../world/registries/RegistryKernel";
 
 export const VISUAL_PRIMITIVES = [
   "region_card",
@@ -149,6 +150,40 @@ export const DEFAULT_SLOT_PRIMITIVES: Record<VisualSlotId, VisualPrimitiveId> = 
   "dock.action": "action_lane",
   "legend.entry": "legend_key"
 };
+
+export function installVisualPrimitiveRegistry(kernel: RegistryKernel): void {
+  for (const definition of Object.values(PRIMITIVE_DEFINITIONS)) {
+    if (kernel.visualPrimitives.has(definition.id)) continue;
+    kernel.visualPrimitives.register({
+      id: definition.id,
+      dataField: definition.data.join(","),
+      purpose: definition.purpose,
+      accessibilityText: definition.purpose
+    });
+  }
+}
+
+export function validateVisualGrammar(record: AnchorRecord | null | undefined): string[] {
+  if (!record?.visual_grammar) return [];
+  const errors: string[] = [];
+  const grammar = record.visual_grammar;
+  if (!(VISUAL_PACKS as readonly string[]).includes(grammar.default_pack)) errors.push(`unknown visual pack '${grammar.default_pack}'`);
+  for (const [packId, pack] of Object.entries(grammar.packs ?? {})) {
+    if (!(VISUAL_PACKS as readonly string[]).includes(packId)) errors.push(`unknown visual pack '${packId}'`);
+    for (const [slot, primitive] of Object.entries(pack.slots ?? {})) {
+      if (!isSlot(slot)) errors.push(`unknown visual slot '${slot}'`);
+      if (!isPrimitive(String(primitive))) errors.push(`unknown visual primitive '${primitive}'`);
+      if (isSlot(slot) && isPrimitive(String(primitive)) && !PRIMITIVE_DEFINITIONS[primitive as VisualPrimitiveId].slots.includes(slot)) {
+        errors.push(`primitive '${primitive}' cannot render in slot '${slot}'`);
+      }
+    }
+    for (const required of ["region.marker", "legend.entry"] as VisualSlotId[]) {
+      const resolved = pack.slots?.[required] || DEFAULT_SLOT_PRIMITIVES[required];
+      if (!isPrimitive(String(resolved))) errors.push(`pack '${packId}' removes required slot '${required}'`);
+    }
+  }
+  return [...new Set(errors)].sort();
+}
 
 function isPrimitive(value: string): value is VisualPrimitiveId {
   return (VISUAL_PRIMITIVES as readonly string[]).includes(value);

@@ -1,0 +1,143 @@
+schema_version: wiki_viva_upgrade_package.v1
+
+release:
+  id: wiki-viva-v8-rc
+  status: blocked_until_public_gates_and_visual_qa_pass
+  source_sha: REQUIRED_AT_RELEASE
+  plan: docs/references/proposals/wiki-viva-v8-unified-living-world-execution-plan-2026-07-09.md
+
+contract_versions:
+  route: wiki_world_route.v8
+  snapshot: wiki_web_snapshot.v2
+  snapshot_envelope: wiki_web_snapshot.v2
+  blocks: wiki_templates.v2+wiki_web_block_stacks.v1
+  visual_grammar: wiki_visual_grammar.v8
+  runtime: wiki_world_runtime.v8
+  source_lifecycle: wiki_source_lifecycle.v2
+  freshness: wiki_web_freshness.v1
+
+portable_import:
+  # Block rules win over allow rules. Paths are always repository-relative.
+  allow:
+    - wiki_core/**
+    - scripts/wiki_*.py
+    - tests/**
+    - apps/wiki-cockpit/**
+    - .skills/wiki-*/**
+    - .github/workflows/**
+    - docs/references/guides/**
+    - docs/references/releases/wiki-viva-v8.md
+    - docs/references/upgrades/wiki-viva-v8/**
+    - docs/references/fixtures/demo-wiki/**
+    - wiki.page-types.yaml
+    - wiki.templates.yaml
+    - requirements.txt
+  block:
+    - memories/**
+    - memorias/**
+    - wiki.config.yaml
+    - wiki.targets.yaml
+    - wiki.templates.local.yaml
+    - wiki.page-types.local.yaml
+    - data/raw/**
+    - data/derived/**
+    - private/**
+    - output/**
+    - test-results/**
+    - "**/dist/**"
+    - "**/coverage/**"
+    - "**/test-results/**"
+    - "**/playwright-report/**"
+    - "**/.playwright-cli/**"
+    - "**/*.tsbuildinfo"
+    - "**/*.log"
+    - "**/.DS_Store"
+    - .env
+    - .env.*
+    - "**/.env"
+    - "**/.env.*"
+    - "**/*private-snapshot*"
+    - "**/*credentials*"
+    - "**/*secrets*"
+
+preflight:
+  branch_prefix: wiki/
+  required_gates:
+    - toolkit_drift
+    - audit
+    - input_stage
+    - pytest
+    - diff_check
+
+migration:
+  commit_boundaries:
+    - faithful_public_import
+    - regenerated_artifacts
+    - downstream_adaptations
+  required_gates:
+    - toolkit_drift
+    - audit
+    - methodology_coverage
+    - operation_compile
+    - input_stage
+    - pytest
+    - snapshot_contract
+    - architecture
+    - bundle
+    - demo_drift
+    - diff_check
+  visual_profiles:
+    - desktop
+    - mobile
+    - fallback
+
+runtime_policy:
+  rollout_modes:
+    - legacy
+    - compat
+    - v8
+  initial_downstream_mode: compat
+  rollback_first: switch_to_compat_or_legacy
+  rollback_second: revert_reviewable_commits
+  flags_must_not_weaken:
+    - route_grammar
+    - secret_scanning
+    - public_private_boundary
+    - sample_fallback_blocking
+
+compatibility:
+  - surface: legacy_cockpit_routes
+    v8_behavior: read_and_normalize_to_canonical_route_state
+    warning_becomes_error: v9_release_candidate
+    removal_target: v9_stable_unless_reports_show_blockers
+  - surface: previous_snapshot_version
+    v8_behavior: load_previous_supported_version_with_warning_and_migrator
+    warning_becomes_error: after_one_release_cycle
+    removal_target: two_release_cycles_after_v8
+  - surface: legacy_block_vocabulary_aliases
+    v8_behavior: read_with_warning_and_emit_canonical_blocks
+    warning_becomes_error: v9_release_candidate
+    removal_target: v9_stable
+  - surface: legacy_quadrant_query
+    v8_behavior: read_as_lens_alias_with_lens_precedence
+    warning_becomes_error: v9_release_candidate
+    removal_target: v9_stable
+  - surface: legacy_local_dock_wiring
+    v8_behavior: allowed_only_in_compat_mode
+    warning_becomes_error: after_v8_warning_cycle
+    removal_target: v9_stable
+
+privacy:
+  default_public_report: redacted
+  never_publish:
+    - private_page_titles
+    - personal_or_financial_values
+    - authenticated_urls
+    - raw_source_content
+    - secrets_or_credentials
+    - private_console_or_network_payloads
+
+known_limitations:
+  - The package source SHA remains deliberately unpinned until the public release commit exists.
+  - No downstream import may start while the release status is blocked.
+  - Consumer-specific core failures must first become synthetic public fixtures.

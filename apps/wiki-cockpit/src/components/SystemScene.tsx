@@ -1,59 +1,67 @@
 // SystemScene: the navigable 3D knowledge world. The space itself is the
 // navigation — drill level is camera altitude bound to the URL, perspectives
 // re-arrange the same node identities (MORPH), and reading happens in-world.
-// Honest encodings are non-negotiable: hue = context (area), tone = state
-// (aging: bleached draft > calm fresh > aged stale > veiled unknown, with
-// attention riding on amber emissive/glow/embers), shape = kind, line = typed
-// relation; hidden pages are always countable cluster-stars.
+// Honest encodings are non-negotiable: active overlay = body color + ring +
+// symbol/text, context = position/label, shape = kind and line = typed relation;
+// hidden pages are always countable cluster-stars.
 //
 // The scene's self-contained layers live in src/scene/parts/*; this file keeps
 // the shell — route/patch types, Canvas wiring, the keyboard scheme, layout
 // requests, morph bookkeeping and the SceneContent composition. Symbols that
 // moved are re-exported below so existing import paths keep working.
 
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { AnchorRecord, GitState, GraphEdge, GraphNode } from "../types";
 import { t } from "../data/i18n";
-import { contextStyle, edgeStyle, isRawData, trustColor, worldGroupLabel } from "../data/presentation";
+import { contextStyle, edgeStyle, isRawData, pageTypeStyle, trustColor, worldGroupLabel } from "../data/presentation";
 import { regionPayloadByKey } from "../data/visualPrimitives";
+import { SEMANTIC_VISUAL_TOKENS_VERSION, strongAttentionNodeIds, visualEncodingResolver } from "../data/visualEncoding";
 import { nodeQuadrant, SCENE_FACETS } from "../scene/facets";
 import type { QuadrantHomes, SceneFacet } from "../scene/facets";
 import { scenePerformanceProfile } from "../scene/layout";
 import type { LayoutNode, ScenePerformanceProfile } from "../scene/layout";
 import { computeWorldLayout } from "../scene/perspectives";
 import type { ClusterStar, PerspectiveId, WorldGroup, WorldLayout, WorldRequest } from "../scene/perspectives";
-import { FoundingRite, GuideBeacon, SeedFlow, WorldPlate } from "../scene/spatial";
-import type { FoundingSpec, GuideSpec, SeedSpec } from "../scene/spatial";
-import { CameraDirector } from "../scene/parts/camera";
-import { FallbackPlanView, SceneFallback } from "../scene/parts/fallback";
-import { GateRing, ProposalStems, QuadrantPlanes, WorldGuides } from "../scene/parts/guides";
-import { HoverTooltip, sceneCensus, StatusStrip } from "../scene/parts/hud";
-import type { AnchorHoverInfo, SceneFilter } from "../scene/parts/hud";
-import { buildLabelSet, GroupRimPills, NodeLabels } from "../scene/parts/labels";
-import { BirthBursts, QuestMarkers } from "../scene/parts/markers";
-import type { MissionMarker } from "../scene/parts/markers";
+import { FoundingRite, GuideBeacon, SeedFlow, WorldPlate } from "../renderers/scene/spatial";
+import type { FoundingSpec, GuideSpec, SeedSpec } from "../renderers/scene/spatial";
+import { CameraDirector } from "../renderers/scene/parts/camera";
+import { FallbackPlanView, SceneFallback } from "../renderers/scene/parts/fallback";
+import { AggregateStateRim, DensityPressureField, DensityReliefField, DrillContextTethers, DrillOriginEcho, DrillWaypoints, FocusContextField, GateRing, HiddenDepthHalo, InspectionBeams, ParentDrillGate, ParentDrillPath, ProposalStems, QuadrantPlanes, RelationLanes, TravelWake, travelWakeLevel, WorldGuides } from "../renderers/scene/parts/guides";
+import { HoverTooltip, sceneCensus, StatusStrip } from "../renderers/scene/parts/hud";
+import type { AnchorHoverInfo, SceneFilter } from "../renderers/scene/parts/hud";
+import { buildLabelSet, GroupRimPills, labelsForActivePlate, NodeLabels } from "../renderers/scene/parts/labels";
+import { BirthBursts, QuestMarkers } from "../renderers/scene/parts/markers";
+import type { MissionMarker } from "../renderers/scene/parts/markers";
 import {
   allowAmbientMotion,
-  edgeControlPoint,
+  edgeControlPointForLayout,
   freshnessLabel,
   layoutNodeIndex,
   nodeTrustKey,
   prefersReducedMotion,
+  relationLanesForLayout,
+  groupRelationBundlesForLayout,
+  sceneFallbackReason,
+  selectEvidenceFlowEdges,
   selectSceneEdges,
-  shouldUseFallback,
-  TRUST_MATERIALS
-} from "../scene/parts/materials";
-import type { SceneEdge, TrustKey } from "../scene/parts/materials";
-import { ClusterStars, GlowSprites, HorizonBeacons, NodeInstances, RingSprites, StarField } from "../scene/parts/nodes";
-import type { MorphState } from "../scene/parts/nodes";
-import { AmbientDriver, isEvidenceGap, SceneParticles } from "../scene/parts/particles-layer";
+  shouldUseFallback
+} from "../renderers/scene/parts/materials";
+import type { SceneEdge, TrustKey } from "../renderers/scene/parts/materials";
+import { CenterSignalSprites, ClusterStars, GlowSprites, GroupChildOrbits, GroupShells, HorizonBeacons, NodeInstances, RingSprites, SemanticPageDetails, StarField, semanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
+import type { MorphState, SemanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
+import { AmbientDriver, isEvidenceGap, SceneParticles } from "../renderers/scene/parts/particles-layer";
+import { DEFAULT_VISUAL_CONTROL_CONFIG } from "./visualControl";
+import type { VisualControlConfig } from "./visualControl";
+import { RUNTIME_PERFORMANCE_RESET_EVENT, RuntimePerformanceTelemetry } from "../world/performance";
+import type { RuntimePerformanceEvidence } from "../world/performance";
+import type { OverlayId } from "../world/contracts";
 
 // Moved symbols that other files import from this module (WorldView, tests,
 // the visual-test mock) stay reachable at their old path via re-exports.
-export { canUseWebGL, sceneFallbackPreferred } from "../scene/parts/materials";
+export { canUseWebGL, sceneFallbackPreferred } from "../renderers/scene/parts/materials";
 export { FallbackPlanView };
 export type { AnchorHoverInfo, MissionMarker };
 
@@ -71,6 +79,7 @@ export type SceneRoute = {
   centerId?: string;
   reader: boolean;
   filter: string;
+  lens?: string;
   quadrant?: string;
 };
 
@@ -78,10 +87,13 @@ export type ScenePatch = {
   perspective?: PerspectiveId;
   context?: string | null;
   group?: string | null;
+  worldGroup?: string | null;
   pageId?: string | null;
   reader?: boolean;
   filter?: string | null;
+  lens?: string | null;
   quadrant?: string | null;
+  dock?: string | null;
 };
 
 export type RelationIsolation = "hierarquia" | "evidencia" | "links" | "citado-por";
@@ -95,6 +107,57 @@ function viewportSnapshot() {
     pixelRatio: window.devicePixelRatio || 1,
     hardwareConcurrency: navigator.hardwareConcurrency || 4,
     reducedMotion: prefersReducedMotion()
+  };
+}
+
+function sceneVisualTuning(config: VisualControlConfig | undefined): VisualControlConfig {
+  return config ?? DEFAULT_VISUAL_CONTROL_CONFIG;
+}
+
+function spacedPoint(point: [number, number, number], center: [number, number, number], spacing: number): [number, number, number] {
+  return [
+    center[0] + (point[0] - center[0]) * spacing,
+    center[1] + (point[1] - center[1]) * (0.75 + spacing * 0.25),
+    center[2] + (point[2] - center[2]) * spacing
+  ];
+}
+
+function applyVisualSpacing(layout: WorldLayout, spacing: number): WorldLayout {
+  if (Math.abs(spacing - 1) < 0.01) return layout;
+  const center = layout.nodes.find((node) => node.isRoot)?.position ?? ([0, 0, 0] as [number, number, number]);
+  const scaleRadius = (value: number | null) => value === null ? null : value * spacing;
+  return {
+    ...layout,
+    nodes: layout.nodes.map((node) => ({
+      ...node,
+      position: node.isRoot ? node.position : spacedPoint(node.position, center, spacing)
+    })),
+    wedges: layout.wedges.map((wedge) => ({
+      ...wedge,
+      rimPosition: spacedPoint(wedge.rimPosition, center, spacing)
+    })),
+    guides: layout.guides.map((guide) => {
+      if (guide.kind === "circle") return { ...guide, radius: guide.radius * spacing };
+      if (guide.kind === "arc") return { ...guide, radius: guide.radius * spacing };
+      return { ...guide, r0: guide.r0 * spacing, r1: guide.r1 * spacing };
+    }),
+    groups: layout.groups.map((group) => ({
+      ...group,
+      anchor: spacedPoint(group.anchor, center, spacing)
+    })),
+    clusterStars: layout.clusterStars.map((star) => ({
+      ...star,
+      position: spacedPoint(star.position, center, spacing)
+    })),
+    beacons: layout.beacons.map((beacon) => ({
+      ...beacon,
+      position: spacedPoint(beacon.position, center, spacing)
+    })),
+    rInner: layout.rInner * spacing,
+    rOuter: layout.rOuter * spacing,
+    unknownR: scaleRadius(layout.unknownR),
+    cameraTarget: layout.cameraTarget ? spacedPoint(layout.cameraTarget, center, spacing) : undefined,
+    drillOrigin: layout.drillOrigin ? spacedPoint(layout.drillOrigin, center, spacing) : undefined
   };
 }
 
@@ -150,7 +213,7 @@ function useWorldLayout(request: WorldRequest): WorldLayout {
   return layout;
 }
 
-function EdgeArcs({ edges, quality }: { edges: SceneEdge[]; quality: string }) {
+function EdgeArcs({ edges, layout, quality }: { edges: SceneEdge[]; layout: WorldLayout; quality: string }) {
   const { invalidate } = useThree();
   const object = useMemo(() => {
     if (edges.length === 0) return null;
@@ -164,7 +227,7 @@ function EdgeArcs({ edges, quality }: { edges: SceneEdge[]; quality: string }) {
     for (const edge of edges) {
       from.set(...edge.from.position);
       to.set(...edge.to.position);
-      control.set(...edgeControlPoint(edge.from.position, edge.to.position, edge.type));
+      control.set(...edgeControlPointForLayout(edge, layout));
       const curve = new THREE.QuadraticBezierCurve3(from.clone(), control.clone(), to.clone());
       const points = curve.getPoints(segments);
       color.set(edgeStyle(edge.type).color).multiplyScalar(edge.emphasis);
@@ -186,7 +249,7 @@ function EdgeArcs({ edges, quality }: { edges: SceneEdge[]; quality: string }) {
       toneMapped: false
     });
     return { lines: new THREE.LineSegments(geometry, material), geometry, material };
-  }, [edges, quality]);
+  }, [edges, layout, quality]);
   useEffect(() => {
     invalidate();
     return () => {
@@ -241,14 +304,117 @@ function RouteLine({ route, color = "#dff8ff" }: { route: LayoutNode[]; color?: 
   return <primitive object={object.line} />;
 }
 
+function groupNodeMatchesId(node: LayoutNode, id: string): boolean {
+  if (!id) return false;
+  return node.id === id || node.path === id || node.groupKey === id || node.groupDrill?.group === id;
+}
+
+function GroupTethers({ nodes, quality, motion, activeGroupId = "" }: { nodes: LayoutNode[]; quality: string; motion: boolean; activeGroupId?: string }) {
+  const { invalidate } = useThree();
+  const materialRef = useRef<THREE.LineBasicMaterial | null>(null);
+  const object = useMemo(() => {
+    const center = nodes.find((node) => node.isRoot && node.isGroup) ?? nodes.find((node) => node.isRoot);
+    if (!center) return null;
+    const centerPoint = new THREE.Vector3(...center.position);
+    const centerGroupMembers = new Set(center.groupMemberIds ?? []);
+    const rootOverview = !center.isGroup;
+    const limit = rootOverview ? (quality === "rich" ? 16 : quality === "balanced" ? 12 : 8) : quality === "rich" ? 30 : quality === "balanced" ? 22 : 12;
+    const candidates = nodes
+      .filter((node) => {
+        if (node.id === center.id) return false;
+        if (rootOverview) return node.isGroup && (node.groupKind === "quadrant" || node.groupKind === "region_family");
+        if (node.isGroup) return true;
+        return centerGroupMembers.has(node.id) || center.groupPreviewIds?.includes(node.id) || node.faint;
+      })
+      .sort((a, b) => {
+        if (rootOverview) {
+          const quadrantRank = Number(b.groupKind === "quadrant") - Number(a.groupKind === "quadrant");
+          if (quadrantRank !== 0) return quadrantRank;
+        }
+        const groupRank = Number(b.isGroup) - Number(a.isGroup);
+        if (groupRank !== 0) return groupRank;
+        return centerPoint.distanceTo(new THREE.Vector3(...a.position)) - centerPoint.distanceTo(new THREE.Vector3(...b.position));
+      })
+      .slice(0, limit);
+    if (candidates.length === 0) return null;
+    const positions: number[] = [];
+    const colors: number[] = [];
+    const color = new THREE.Color();
+    for (const node of candidates) {
+      const target = new THREE.Vector3(...node.position);
+      const distance = centerPoint.distanceTo(target);
+      if (distance < 0.04) continue;
+      const active = groupNodeMatchesId(node, activeGroupId) || groupNodeMatchesId(center, activeGroupId);
+      const midpoint = centerPoint.clone().lerp(target, 0.5);
+      midpoint.y += Math.min(Math.max(distance * 0.16, 0.18), 0.82);
+      const curve = new THREE.QuadraticBezierCurve3(centerPoint.clone(), midpoint, target.clone());
+      const points = curve.getPoints(quality === "compact" ? 5 : 10);
+      const baseColor = node.isGroup ? pageTypeStyle(node.page_type).accent : contextStyle(node.context).accent;
+      color.set(baseColor).multiplyScalar(active ? 1.18 : node.faint ? 0.62 : 0.86);
+      for (let index = 0; index < points.length - 1; index += 1) {
+        const fade = active ? 0.74 + (index / Math.max(points.length - 2, 1)) * 0.42 : 0.45 + (index / Math.max(points.length - 2, 1)) * 0.55;
+        positions.push(points[index].x, points[index].y, points[index].z);
+        positions.push(points[index + 1].x, points[index + 1].y, points[index + 1].z);
+        colors.push(color.r * fade, color.g * fade, color.b * fade, color.r, color.g, color.b);
+      }
+    }
+    if (positions.length === 0) return null;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colors), 3));
+    const material = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: quality === "compact" ? 0.2 : 0.34,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      toneMapped: false
+    });
+    materialRef.current = material;
+    return { lines: new THREE.LineSegments(geometry, material), geometry, material };
+  }, [activeGroupId, nodes, quality]);
+  useFrame((state) => {
+    if (!motion || !materialRef.current) return;
+    materialRef.current.opacity = (quality === "compact" ? 0.18 : activeGroupId ? 0.46 : 0.3) + Math.sin(state.clock.elapsedTime * 1.8) * (activeGroupId ? 0.065 : 0.04);
+    state.invalidate();
+  });
+  useEffect(() => {
+    invalidate();
+    return () => {
+      object?.geometry.dispose();
+      object?.material.dispose();
+      if (materialRef.current === object?.material) materialRef.current = null;
+    };
+  }, [invalidate, object]);
+  if (!object) return null;
+  return <primitive object={object.lines} />;
+}
+
 // The target-lock ring was replaced by the WorldPlate (scene/spatial.tsx): the
 // first reading level is an anchored SUMMARY at the node — the full reader is
 // a chosen second step. Q/W/E/R keys keep working via the keyboard scheme.
 
 // ---------------------------------------------------------------------------
 
+function RuntimeFrameProbe({
+  telemetry,
+  width,
+  onEvidence
+}: {
+  telemetry: RuntimePerformanceTelemetry;
+  width: number;
+  onEvidence: (evidence: RuntimePerformanceEvidence) => void;
+}) {
+  useFrame((_state, delta) => {
+    const evidence = telemetry.recordFrame(delta * 1_000, width);
+    if (evidence) onEvidence(evidence);
+  });
+  return null;
+}
+
 function SceneContent({
   layout,
+  overlay,
   edges,
   git,
   profile,
@@ -259,16 +425,24 @@ function SceneContent({
   isolateRelation,
   walk,
   morph,
+  cameraTravelVia,
   filter,
   motion,
+  visualTuning,
   activityLevel,
   weather,
+  activeAnchorRecord,
   activeQuadrant,
   quadrantHomes,
   bornIds,
   missionMarkers,
   flyToId,
   readerOpen,
+  sourceNodeCount,
+  performanceWidth,
+  routeUsabilityMs,
+  performanceTelemetry,
+  onPerformanceEvidence,
   onMarkerAct,
   onMarkerResolve,
   onMarkerDismiss,
@@ -280,9 +454,11 @@ function SceneContent({
   onLockRead,
   onLockPacket,
   onLockTrails,
-  onLockClose
+  onLockClose,
+  onRetreat
 }: {
   layout: WorldLayout;
+  overlay: OverlayId;
   edges: GraphEdge[];
   git: GitState;
   profile: ScenePerformanceProfile;
@@ -293,16 +469,24 @@ function SceneContent({
   isolateRelation: RelationIsolation | null;
   walk: { ids: string[]; step: number } | null;
   morph: React.RefObject<MorphState>;
+  cameraTravelVia: [number, number, number] | null;
   filter: SceneFilter | null;
   motion: boolean;
+  visualTuning: VisualControlConfig;
   activityLevel: number;
   weather?: string;
+  activeAnchorRecord?: AnchorRecord | null;
   activeQuadrant?: string;
   quadrantHomes?: QuadrantHomes;
   bornIds?: string[];
   missionMarkers?: MissionMarker[];
   flyToId?: string;
   readerOpen: boolean;
+  sourceNodeCount: number;
+  performanceWidth: number;
+  routeUsabilityMs: number;
+  performanceTelemetry: RuntimePerformanceTelemetry;
+  onPerformanceEvidence: (evidence: RuntimePerformanceEvidence) => void;
   onMarkerAct?: (pageId: string) => void;
   onMarkerResolve?: (pageId: string) => void;
   onMarkerDismiss?: (pageId: string) => void;
@@ -315,6 +499,7 @@ function SceneContent({
   onLockPacket: () => void;
   onLockTrails: () => void;
   onLockClose: () => void;
+  onRetreat: () => void;
 }) {
   const [hoveredId, setHoveredId] = useState("");
   // First-frame kick: in `frameloop="demand"` a freshly mounted scene can sit
@@ -366,18 +551,30 @@ function SceneContent({
     () => selectSceneEdges(edges, layout, focusIds, highlightedIds, profile, isolateRelation, selectedKeys),
     [edges, focusIds, highlightedIds, isolateRelation, layout, profile, selectedKeys]
   );
+  const relationLanes = useMemo(() => relationLanesForLayout(edges, layout), [edges, layout]);
+  const groupRelationBundles = useMemo(() => groupRelationBundlesForLayout(edges, layout), [edges, layout]);
   const flowEdges = useMemo(() => {
     const attention = (node: LayoutNode) =>
       node.freshness_state === "stale" || node.approved_state === "proposal" || node.risk_flags.length > 0;
-    return sceneEdges.filter((edge) => {
+    const attentionFlows = sceneEdges.filter((edge) => {
       if (edge.type === "markdown_link") return edge.emphasis >= 1;
       if (edge.emphasis >= 1) return true;
       if (edge.type === "ingestion_chain" || edge.type === "pr_impact") return attention(edge.from) || attention(edge.to);
       return false;
     });
-  }, [sceneEdges]);
+    const evidenceFlows = selectEvidenceFlowEdges(sceneEdges, layout, profile.quality);
+    const byKey = new Map<string, SceneEdge>();
+    for (const edge of [...attentionFlows, ...evidenceFlows]) {
+      byKey.set(`${edge.from.id}->${edge.to.id}:${edge.type}`, edge);
+    }
+    return [...byKey.values()];
+  }, [layout, profile.quality, sceneEdges]);
   const route = useMemo(() => mocParentRoute(edges, layout, selectedId), [edges, layout, selectedId]);
-  const labels = useMemo(() => buildLabelSet(layout, highlightedIds, selectedId, 14), [highlightedIds, layout, selectedId]);
+  const labelModeFactor = visualTuning.labels === "dense" ? 1.45 : visualTuning.labels === "quiet" ? 0.68 : 1;
+  const labelDensityFactor = Math.max(0.6, Math.min(1.5, visualTuning.density));
+  const baseLabelBudget = layout.perspective === "quadrants" ? (layout.level === 0 ? 6 : layout.level >= 2 ? 6 : 8) : 14;
+  const labelBudget = Math.max(3, Math.round(baseLabelBudget * labelModeFactor * labelDensityFactor));
+  const labels = useMemo(() => buildLabelSet(layout, highlightedIds, selectedId, labelBudget), [highlightedIds, labelBudget, layout, selectedId]);
 
   // Evidence walk: highlight the current hop and draw the walked chain.
   const walkRoute = useMemo(() => {
@@ -429,11 +626,66 @@ function SceneContent({
   );
 
   const rootNode = layout.nodes.find((node) => node.isRoot);
+  const centerNode = layout.nodes.find((node) => node.isRoot && node.isGroup) ?? rootNode;
+  const rootBody = rootNode ? semanticRootBodyPrimitive(rootNode.page_type) : null;
+  const rootEncoding = rootNode ? visualEncodingResolver.resolve(rootNode, overlay) : null;
+  const physicalDrillOrigin = cameraTravelVia ?? layout.drillOrigin ?? null;
+  const hoveredNode = hoveredId ? layoutNodeIndex(layout).get(hoveredId) ?? null : null;
   const lockedNode = useMemo(() => {
     if (!selectedId) return null;
     const index = layoutNodeIndex(layout);
     return index.get(selectedId) ?? null;
   }, [layout, selectedId]);
+  const plateNode = lockedNode && !readerOpen ? lockedNode : null;
+  const visibleLabels = useMemo(() => labelsForActivePlate(labels, plateNode), [labels, plateNode]);
+  const relationLineCount =
+    sceneEdges.length +
+    relationLanes.length +
+    groupRelationBundles.length +
+    (route.length > 1 ? 1 : 0) +
+    (walkRoute.length > 1 ? 1 : 0);
+  const labelCount =
+    visibleLabels.length +
+    (layout.perspective === "quadrants" && layout.level >= 1 ? 0 : layout.groups.length) +
+    layout.clusterStars.length +
+    layout.beacons.length +
+    (missionMarkers?.length ?? 0) +
+    (plateNode ? 1 : 0);
+  const interactiveNodeCount = layout.nodes.length + layout.clusterStars.length + layout.beacons.length;
+  useEffect(() => {
+    onPerformanceEvidence(
+      performanceTelemetry.updateCounters(
+        {
+          sourceNodes: sourceNodeCount,
+          interactiveNodes: interactiveNodeCount,
+          relationLines: relationLineCount,
+          labels: labelCount,
+          fallbackReason: null,
+          routeUsabilityMs
+        },
+        performanceWidth
+      )
+    );
+  }, [
+    interactiveNodeCount,
+    labelCount,
+    onPerformanceEvidence,
+    performanceTelemetry,
+    performanceWidth,
+    relationLineCount,
+    routeUsabilityMs,
+    sourceNodeCount
+  ]);
+  const publishParticleCount = useCallback(
+    (particles: number) =>
+      onPerformanceEvidence(performanceTelemetry.updateCounters({ particles }, performanceWidth)),
+    [onPerformanceEvidence, performanceTelemetry, performanceWidth]
+  );
+  const travelWakeTarget = lockedNode ?? centerNode ?? null;
+  const travelWakeColor = travelWakeTarget
+    ? pageTypeStyle(travelWakeTarget.page_type).accent || contextStyle(travelWakeTarget.context).accent
+    : "#dff8ff";
+  const navigationWakeLevel = travelWakeLevel(layout.level, Boolean(lockedNode));
 
   // Weather atmosphere — a SUBTLE tint of the base void, driven by the same
   // honest computeCondition() signal the Condition strip prints in exact counts
@@ -443,19 +695,49 @@ function SceneContent({
     <>
       <color attach="background" args={[sky]} />
       <fogExp2 attach="fog" args={[sky, 0.032]} />
-      <hemisphereLight args={["#1a3040", "#05080c", 0.5]} />
-      <directionalLight position={[4, 6, 3]} intensity={1.2} color="#cfeaff" />
+      <hemisphereLight args={["#1a3040", "#05080c", 0.45 + visualTuning.contrast * 0.08]} />
+      <directionalLight position={[4, 6, 3]} intensity={1.02 + visualTuning.contrast * 0.18} color="#cfeaff" />
       <StarField quality={profile.quality} />
       {/* No data, no instrument: the EMPTY world is a pure void — no rings,
           no wedges, no gate torus. The founding rite is its only interface. */}
       {layout.nodes.length > 0 && <WorldGuides layout={layout} />}
       {layout.nodes.length > 0 && layout.level === 0 && <GateRing git={git} />}
+      <DensityReliefField layout={layout} motion={motion} />
       <ProposalStems nodes={layout.nodes} />
-      <EdgeArcs edges={sceneEdges} quality={profile.quality} />
+      <EdgeArcs edges={sceneEdges} layout={layout} quality={profile.quality} />
       <RouteLine route={route} />
       {walkRoute.length > 1 && <RouteLine route={walkRoute} color={edgeStyle("source_ref").color} />}
+      <GroupTethers nodes={layout.nodes} quality={profile.quality} motion={motion} activeGroupId={hoveredId} />
+      <FocusContextField node={hoveredNode && hoveredNode.id !== lockedNode?.id ? hoveredNode : null} mode="hover" motion={motion} />
+      <InspectionBeams node={hoveredNode && hoveredNode.id !== lockedNode?.id ? hoveredNode : null} motion={motion} />
+      <FocusContextField node={lockedNode} mode="lock" motion={motion} />
+      <HiddenDepthHalo layout={layout} motion={motion} />
+      {physicalDrillOrigin && travelWakeTarget && (
+        <TravelWake from={physicalDrillOrigin} to={travelWakeTarget.position} level={navigationWakeLevel} color={travelWakeColor} motion={motion} />
+      )}
+      <DensityPressureField layout={layout} motion={motion} />
+      <AggregateStateRim layout={layout} motion={motion} />
+      {layout.perspective === "quadrants" && layout.level >= 1 && centerNode?.isGroup && (
+        <DrillOriginEcho layout={layout} origin={physicalDrillOrigin} motion={motion} onRetreat={onRetreat} />
+      )}
+      {layout.perspective === "quadrants" && layout.level >= 1 && centerNode?.isGroup && (
+        <DrillContextTethers layout={layout} motion={motion} />
+      )}
+      {layout.perspective === "quadrants" && layout.level >= 1 && centerNode?.isGroup && (
+        <DrillWaypoints layout={layout} motion={motion} />
+      )}
+      {layout.perspective === "quadrants" && layout.level >= 1 && centerNode?.isGroup && (
+        <ParentDrillPath layout={layout} travelVia={physicalDrillOrigin} motion={motion} />
+      )}
+      {layout.perspective === "quadrants" && layout.level >= 1 && centerNode?.isGroup && (
+        <ParentDrillGate layout={layout} travelVia={physicalDrillOrigin} motion={motion} onRetreat={onRetreat} />
+      )}
+      {!(layout.perspective === "quadrants" && layout.level >= 3 && !centerNode?.isGroup) && (
+        <RelationLanes lanes={relationLanes} bundles={groupRelationBundles} layout={layout} motion={motion} />
+      )}
       <NodeInstances
         nodes={layout.nodes.filter((node) => !node.isRoot)}
+        overlay={overlay}
         profile={profile}
         selectedId={selectedId}
         morph={morph}
@@ -464,11 +746,13 @@ function SceneContent({
         onHover={handleHover}
         registerMaterial={registerMaterial}
       />
-      {rootNode && (
+      <SemanticPageDetails nodes={layout.nodes} overlay={overlay} quality={profile.quality} motion={motion} />
+      {rootNode && rootBody && !rootNode.isGroup && (
         <mesh
           ref={rootRef}
           position={rootNode.position}
           scale={rootNode.scale}
+          rotation={rootBody.rotation}
           frustumCulled={false}
           onClick={(event) => {
             event.stopPropagation();
@@ -477,17 +761,21 @@ function SceneContent({
           onPointerMove={(event) => handleHover(rootNode, event)}
           onPointerOut={() => handleHover(null)}
         >
-          <sphereGeometry args={[1, profile.geometrySegments + 8, profile.geometrySegments + 8]} />
+          <RootBodyGeometry body={rootBody} segments={profile.geometrySegments} />
           <meshStandardMaterial
-            color={trustColor("root")}
-            emissive={trustColor("root")}
-            emissiveIntensity={TRUST_MATERIALS.root.emissiveIntensity}
-            roughness={0.3}
+            color={rootEncoding?.color ?? rootBody.color}
+            emissive={rootEncoding?.color ?? rootBody.color}
+            emissiveIntensity={Math.max(rootEncoding?.emissive ?? 0, rootBody.emissiveIntensity * 0.35)}
+            roughness={rootBody.roughness}
+            metalness={rootBody.metalness}
+            transparent={rootBody.opacity < 1}
+            opacity={rootBody.opacity}
             toneMapped={false}
           />
         </mesh>
       )}
-      {layout.perspective === "quadrants" && (
+      <CenterSignalSprites node={rootNode && !rootNode.isGroup ? rootNode : null} record={activeAnchorRecord} quality={profile.quality} motion={motion} />
+      {layout.perspective === "quadrants" && (layout.level < 3 || layout.groups.some((group) => group.kind === "quadrant")) && (
         <QuadrantPlanes rOuter={layout.rOuter} activeQuadrant={activeQuadrant} />
       )}
       {missionMarkers && missionMarkers.length > 0 && onMarkerAct && (
@@ -502,26 +790,46 @@ function SceneContent({
       )}
       <GlowSprites nodes={layout.nodes} highlightedIds={highlightedIds} approvalIds={approvalIds} selectedId={selectedId} walkTargetId={walkTargetId} registerPulse={registerPulse} />
       {bornIds && bornIds.length > 0 && <BirthBursts nodes={layout.nodes} bornIds={bornIds} />}
-      <RingSprites nodes={layout.nodes} />
-      <SceneParticles layout={layout} flowEdges={flowEdges} activityLevel={activityLevel} quality={profile.quality} motion={motion} showGaps={filter === "unsourced"} />
-      <NodeLabels labels={labels} selectedId={selectedId} />
-      <GroupRimPills groups={layout.groups} focusedGroupKey={focusedGroupKey} onGroupSelect={onGroupSelect} />
+      {layout.perspective === "quadrants" && (
+        <GroupChildOrbits nodes={layout.nodes} layoutLevel={layout.level} quality={profile.quality} motion={motion} onSelect={onSelect} onHover={handleHover} />
+      )}
+      <GroupShells nodes={layout.nodes} overlay={overlay} motion={motion} quality={profile.quality} layoutLevel={layout.level} activeGroupId={hoveredId} morph={morph} onSelect={onSelect} onHover={handleHover} />
+      <RingSprites nodes={layout.nodes} overlay={overlay} />
+      <SceneParticles
+        layout={layout}
+        flowEdges={flowEdges}
+        activityLevel={activityLevel}
+        quality={profile.quality}
+        motion={motion}
+        showGaps={filter === "unsourced"}
+        density={visualTuning.density}
+        glow={visualTuning.glow}
+        motionScale={visualTuning.motion}
+        enabled={visualTuning.particles}
+        onCount={publishParticleCount}
+      />
+      <NodeLabels labels={visibleLabels} overlay={overlay} selectedId={selectedId} groups={layout.groups} onGroupSelect={onGroupSelect} />
+      {!(layout.perspective === "quadrants" && layout.level >= 1) && (
+        <GroupRimPills groups={layout.groups} focusedGroupKey={focusedGroupKey} onGroupSelect={onGroupSelect} />
+      )}
       <ClusterStars stars={layout.clusterStars} onDrill={onStarDrill} />
       <HorizonBeacons beacons={layout.beacons} onJump={onBeaconJump} />
       {/* R7 — two-level reading: the locked node shows its SUMMARY plate in
           place; the full reader (a dock) is the chosen second step and hides
           the plate while open. */}
-      {lockedNode && !readerOpen && (
-        <WorldPlate node={lockedNode} onOpen={onLockRead} onTrails={onLockTrails} onPacket={onLockPacket} onClose={onLockClose} />
+      {plateNode && (
+        <WorldPlate node={plateNode} onOpen={onLockRead} onTrails={onLockTrails} onPacket={onLockPacket} onClose={onLockClose} />
       )}
       <CameraDirector
         layout={layout}
         lockedNode={lockedNode}
         flyToNode={flyToId ? layoutNodeIndex(layout).get(flyToId) ?? null : null}
+        travelVia={physicalDrillOrigin}
         enableIntro={profile.enableIntro}
         motion={motion}
       />
-      <AmbientDriver enabled={motion} rootRef={rootRef} pulses={pulses} />
+      <AmbientDriver enabled={motion && visualTuning.motion > 0.01} rootRef={rootRef} pulses={pulses} motionScale={visualTuning.motion} glow={visualTuning.glow} />
+      <RuntimeFrameProbe telemetry={performanceTelemetry} width={performanceWidth} onEvidence={onPerformanceEvidence} />
     </>
   );
 }
@@ -530,6 +838,18 @@ function SceneContent({
 
 const NO_EDGES: GraphEdge[] = [];
 const NO_IDS: string[] = [];
+
+function RootBodyGeometry({ body, segments }: { body: SemanticRootBodyPrimitive; segments: number }) {
+  if (body.geometry === "source_slab") return <boxGeometry args={[1.35, 0.22, 0.82]} />;
+  if (body.geometry === "person_totem") return <cylinderGeometry args={[0.52, 0.7, 1.05, 16]} />;
+  if (body.geometry === "event_ring") return <torusGeometry args={[0.68, 0.08, 8, 42]} />;
+  if (body.geometry === "action_beacon") return <coneGeometry args={[0.72, 1.18, 4]} />;
+  if (body.geometry === "rule_plinth") return <boxGeometry args={[1.2, 0.32, 0.55]} />;
+  if (body.geometry === "hub_gate") return <torusGeometry args={[0.72, 0.09, 6, 42]} />;
+  if (body.geometry === "decision_crystal") return <octahedronGeometry args={[0.86, 0]} />;
+  if (body.geometry === "content_sheet") return <boxGeometry args={[0.78, 0.16, 1.02]} />;
+  return <sphereGeometry args={[1, segments + 8, segments + 8]} />;
+}
 
 // Weather → the void's sky/fog color. Kept very dark and near-neutral so it
 // reads as atmosphere, never as a colored data layer. blocked=ember, aging=amber,
@@ -543,6 +863,8 @@ const WEATHER_SKY: Record<string, string> = {
 
 export function SystemScene({
   nodes,
+  overlay = "attention",
+  sourceNodeCount: sourceNodeCountInput,
   edges = NO_EDGES,
   git,
   route,
@@ -554,11 +876,13 @@ export function SystemScene({
   snapshotAt,
   activityLevel = 0,
   weather = "clear",
+  visualTuning: visualTuningInput,
   bornPageIds,
   missionMarkers,
   flyToPageId,
   anchorInfo,
   activeAnchorRecord,
+  centerHasQuadrants = false,
   quadrantHomes,
   founding = null,
   seed = null,
@@ -567,6 +891,7 @@ export function SystemScene({
   onMarkerDismiss,
   onNavigate,
   onRetreat,
+  onHistoryBack,
   onFocusSearch,
   onTogglePacket,
   onRunRefresh,
@@ -574,6 +899,8 @@ export function SystemScene({
   children
 }: {
   nodes: GraphNode[];
+  overlay?: OverlayId;
+  sourceNodeCount?: number;
   edges?: GraphEdge[];
   git: GitState;
   route: SceneRoute;
@@ -585,11 +912,13 @@ export function SystemScene({
   snapshotAt?: string;
   activityLevel?: number;
   weather?: string;
+  visualTuning?: VisualControlConfig;
   bornPageIds?: string[];
   missionMarkers?: MissionMarker[];
   flyToPageId?: string;
   anchorInfo?: Record<string, AnchorHoverInfo>;
   activeAnchorRecord?: AnchorRecord | null;
+  centerHasQuadrants?: boolean;
   // Per-page quadrant classification from the interpretation layer — the
   // scene never re-derives what the compiler already decided.
   quadrantHomes?: QuadrantHomes;
@@ -602,6 +931,7 @@ export function SystemScene({
   onMarkerDismiss?: (pageId: string) => void;
   onNavigate?: (patch: ScenePatch) => void;
   onRetreat?: () => void;
+  onHistoryBack?: () => void;
   onFocusSearch?: () => void;
   onTogglePacket?: (nodeId: string) => void;
   onRunRefresh?: () => void;
@@ -611,6 +941,55 @@ export function SystemScene({
   const [fallback, setFallback] = useState(shouldUseFallback);
   const [motion, setMotion] = useState(allowAmbientMotion);
   const profile = useSceneProfile(nodes.length);
+  const visualTuning = sceneVisualTuning(visualTuningInput);
+  const visualMotion = motion && visualTuning.motion > 0.01;
+  const sourceNodeCount = sourceNodeCountInput ?? nodes.length;
+  const performanceTelemetry = useMemo(() => new RuntimePerformanceTelemetry(), []);
+  const performanceOutputRef = useRef<HTMLOutputElement>(null);
+  const sceneShellRef = useRef<HTMLDivElement>(null);
+  const performanceRouteKey = [route.perspective, route.context, route.group, route.pageId, route.filter, route.lens, route.quadrant].join("|");
+  const performanceRouteRef = useRef({ key: performanceRouteKey, startedAt: typeof performance === "undefined" ? 0 : performance.now() });
+  if (performanceRouteRef.current.key !== performanceRouteKey) {
+    performanceRouteRef.current = {
+      key: performanceRouteKey,
+      startedAt: typeof performance === "undefined" ? 0 : performance.now()
+    };
+    performanceTelemetry.resetFrames();
+  }
+  const publishPerformanceEvidence = useCallback((evidence: RuntimePerformanceEvidence) => {
+    const output = performanceOutputRef.current;
+    if (!output) return;
+    const active = evidence.evaluations[evidence.activeDevice]!.normal;
+    const serialized = JSON.stringify(evidence);
+    output.value = serialized;
+    output.textContent = serialized;
+    output.dataset.performanceReady = "true";
+    output.dataset.performanceDevice = evidence.activeDevice;
+    output.dataset.performanceStatus = active.status;
+    output.dataset.performanceSamples = String(evidence.sampleCount);
+    output.dataset.performanceInteractiveNodes = String(evidence.counters.interactiveNodes);
+    output.dataset.performanceRelationLines = String(evidence.counters.relationLines);
+    output.dataset.performanceLabels = String(evidence.counters.labels);
+    output.dataset.performanceParticles = String(evidence.counters.particles);
+    output.dataset.performanceFallbackReason = evidence.counters.fallbackReason ?? "";
+    output.dataset.performanceFrameMedian = evidence.counters.frameTimeMedianMs?.toFixed(2) ?? "";
+    output.dataset.performanceFrameP95 = evidence.counters.frameTimeP95Ms?.toFixed(2) ?? "";
+  }, []);
+  useEffect(() => {
+    const resetMeasurementWindow = () => {
+      performanceTelemetry.resetFrames();
+      const output = performanceOutputRef.current;
+      if (!output) return;
+      output.value = "";
+      output.textContent = "";
+      output.dataset.performanceReady = "false";
+      output.dataset.performanceSamples = "0";
+      output.dataset.performanceFrameMedian = "";
+      output.dataset.performanceFrameP95 = "";
+    };
+    window.addEventListener(RUNTIME_PERFORMANCE_RESET_EVENT, resetMeasurementWindow);
+    return () => window.removeEventListener(RUNTIME_PERFORMANCE_RESET_EVENT, resetMeasurementWindow);
+  }, [performanceTelemetry]);
   // Cluster-stars with nothing deeper to open reveal in place by raising the
   // node budget for the current level; any route change resets it.
   const [revealBoost, setRevealBoost] = useState(0);
@@ -624,30 +1003,34 @@ export function SystemScene({
       group: route.group,
       pageId: route.pageId,
       centerId: route.centerId,
-      quadrant: (route.quadrant || undefined) as WorldRequest["quadrant"],
+      quadrant: (route.lens || route.quadrant || undefined) as WorldRequest["quadrant"],
       quadrantHomes,
+      centerHasQuadrants,
       nodes,
       edges,
-      maxNodes: Math.min(profile.maxNodes + revealBoost, 480),
+      maxNodes: Math.min(Math.max(24, Math.round(profile.maxNodes * visualTuning.density)) + revealBoost, 480),
       snapshotAt
     }),
     [
       edges,
       nodes,
       profile.maxNodes,
+      visualTuning.density,
       quadrantHomes,
+      centerHasQuadrants,
       revealBoost,
       route.centerId,
       route.context,
       route.group,
       route.pageId,
       route.perspective,
+      route.lens,
       route.quadrant,
       snapshotAt
     ]
   );
   const rawLayout = useWorldLayout(request);
-  const layout = useMemo<WorldLayout>(() => {
+  const enrichedLayout = useMemo<WorldLayout>(() => {
     const regions = regionPayloadByKey(activeAnchorRecord);
     if (regions.size === 0) return rawLayout;
     return {
@@ -665,6 +1048,15 @@ export function SystemScene({
       })
     };
   }, [activeAnchorRecord, rawLayout]);
+  const layout = useMemo<WorldLayout>(
+    () => applyVisualSpacing(enrichedLayout, visualTuning.spacing),
+    [enrichedLayout, visualTuning.spacing]
+  );
+  const performanceWidth = typeof window === "undefined" ? 1200 : window.innerWidth;
+  const routeUsabilityMs = useMemo(
+    () => Math.max(0, (typeof performance === "undefined" ? 0 : performance.now()) - performanceRouteRef.current.startedAt),
+    [layout, performanceRouteKey]
+  );
   const [hover, setHover] = useState<{ node: LayoutNode; x: number; y: number } | null>(null);
   const [focusedGroupIndex, setFocusedGroupIndex] = useState<number>(-1);
   const [focusedNodeIndex, setFocusedNodeIndex] = useState<number>(-1);
@@ -672,7 +1064,12 @@ export function SystemScene({
   const [announcement, setAnnouncement] = useState("");
   const highlightedIds = useMemo(() => new Set(highlightedPageIds), [highlightedPageIds]);
   const approvalIds = useMemo(() => new Set(approvalPageIds), [approvalPageIds]);
-  const census = useMemo(() => sceneCensus(nodes, edges, layout), [edges, layout, nodes]);
+  const census = useMemo(() => sceneCensus(nodes, edges, layout, overlay), [edges, layout, nodes, overlay]);
+  const layoutPositionSignature = useMemo(
+    () => layout.nodes.map((node) => `${node.id}@${node.position.join(",")}`).sort().join("|"),
+    [layout]
+  );
+  const strongAttentionCount = useMemo(() => strongAttentionNodeIds(layout.nodes).size, [layout.nodes]);
   const nodeIndex = useMemo(() => layoutNodeIndex(layout), [layout]);
   const selectedId = route.pageId ?? "";
   const filter: SceneFilter | null =
@@ -684,6 +1081,38 @@ export function SystemScene({
           ? (route.filter as TrustKey)
           : null;
 
+  useEffect(() => {
+    if (!fallback) return;
+    performanceTelemetry.resetFrames();
+    const visible = new Set(layout.nodes.flatMap((node) => [node.id, node.path]));
+    const visibleRelations = edges.filter((edge) => visible.has(edge.source) && visible.has(edge.target)).length;
+    publishPerformanceEvidence(
+      performanceTelemetry.updateCounters(
+        {
+          sourceNodes: sourceNodeCount,
+          interactiveNodes: layout.nodes.length + layout.clusterStars.length + layout.beacons.length,
+          relationLines: visibleRelations,
+          labels: layout.nodes.length + layout.groups.length + layout.clusterStars.length + layout.beacons.length,
+          particles: 0,
+          fallbackReason: sceneFallbackReason() ?? "runtime_fallback",
+          frameTimeMedianMs: null,
+          frameTimeP95Ms: null,
+          routeUsabilityMs
+        },
+        performanceWidth
+      )
+    );
+  }, [
+    edges,
+    fallback,
+    layout,
+    sourceNodeCount,
+    performanceTelemetry,
+    performanceWidth,
+    publishPerformanceEvidence,
+    routeUsabilityMs
+  ]);
+
   const navigate = useCallback((patch: ScenePatch) => onNavigate?.(patch), [onNavigate]);
   const hrefFor = useCallback((patch: ScenePatch) => (makeHref ? makeHref(patch) : "#"), [makeHref]);
 
@@ -691,26 +1120,48 @@ export function SystemScene({
   // identity and glide between perspectives/levels; cut under reduced motion.
   const morph = useRef<MorphState>({ from: new Map(), start: null, duration: 0.8, active: false });
   const previousLayout = useRef<WorldLayout | null>(null);
+  const cameraTravelVia = useRef<[number, number, number] | null>(null);
+  const pendingTravelVia = useRef<[number, number, number] | null>(null);
   useMemo(() => {
     // Idempotent under StrictMode double-invoke: same layout = no-op.
     if (previousLayout.current === layout) return null;
     const previous = previousLayout.current;
-    if (previous && previous !== layout && motion) {
+    let nextTravelVia: [number, number, number] | null = null;
+    if (previous && previous !== layout && visualMotion) {
       const from = new Map<string, [number, number, number]>();
       previous.nodes.forEach((node) => from.set(node.id, node.position));
       const changedShape = previous.perspective !== layout.perspective || previous.level !== layout.level;
+      const explicitOrigin = pendingTravelVia.current;
+      const physicalQuadrantDrill =
+        previous.perspective === "quadrants" &&
+        layout.perspective === "quadrants" &&
+        (Boolean(explicitOrigin) || (changedShape && previous.group !== layout.group));
+      if (physicalQuadrantDrill) {
+        const nextCenterGroup = layout.nodes.find((node) => node.isRoot && node.isGroup);
+        const previousCenterPosition = nextCenterGroup ? previous.nodes.find((node) => node.id === nextCenterGroup.id)?.position : null;
+        nextTravelVia = explicitOrigin ?? previousCenterPosition ?? null;
+        if (nextTravelVia) {
+          layout.nodes.forEach((node) => {
+            if (!from.has(node.id) && (node.isGroup || (node.ring ?? 0) <= 2)) from.set(node.id, nextTravelVia!);
+          });
+        }
+      } else if (explicitOrigin) {
+        nextTravelVia = explicitOrigin;
+      }
       morph.current = {
         from,
         start: null,
-        duration: changedShape ? 0.8 : 0.45,
+        duration: physicalQuadrantDrill ? 1.05 : changedShape ? 0.8 : 0.45,
         active: from.size > 0
       };
     } else {
       morph.current = { from: new Map(), start: null, duration: 0.8, active: false };
     }
+    pendingTravelVia.current = null;
+    cameraTravelVia.current = nextTravelVia;
     previousLayout.current = layout;
     return null;
-  }, [layout, motion]);
+  }, [layout, visualMotion]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
@@ -739,10 +1190,35 @@ export function SystemScene({
 
   const selectNode = useCallback(
     (node: LayoutNode) => {
+      if (node.isGroup) {
+        if (node.groupKind === "quadrant" && SCENE_FACETS.includes(node.groupLabelKey as SceneFacet)) {
+          navigate({
+            perspective: "quadrants",
+            lens: node.groupLabelKey,
+            reader: false
+          });
+          announce(t("scene.groupFocus", { label: node.title, n: node.groupMemberIds?.length ?? 0, shown: node.groupPreviewIds?.length ?? 0 }));
+          return;
+        }
+        if (!node.groupDrill) {
+          announce(t("scene.opening", { label: node.title, n: node.groupMemberIds?.length ?? 0 }));
+          return;
+        }
+        pendingTravelVia.current = node.position;
+        navigate({
+          context: node.groupDrill?.context ?? null,
+          group: node.groupDrill?.group ?? null,
+          pageId: null,
+          reader: false
+        });
+        announce(t("scene.opening", { label: node.title, n: node.groupMemberIds?.length ?? 0 }));
+        return;
+      }
       // R7: a click LOCKS the node and shows its summary plate in place — the
       // full reader is a chosen second step (Enter/Q or the plate's Open).
       // The 2D fallback has no plates, so there a click opens the reader
       // directly — otherwise selecting would show nothing at all.
+      pendingTravelVia.current = node.position;
       navigate(fallback ? { pageId: node.id, reader: true } : { pageId: node.id });
       announce(`${node.title}, ${contextStyle(node.context).label}, ${freshnessLabel(node.freshness_state)}`);
     },
@@ -769,17 +1245,18 @@ export function SystemScene({
       if (group.kind === "quadrant" && SCENE_FACETS.includes(group.labelKey as SceneFacet)) {
         navigate({
           perspective: "quadrants",
-          context: null,
-          group: null,
-          quadrant: group.labelKey,
-          pageId: null,
+          lens: group.labelKey,
           reader: false
         });
         announce(t("scene.groupFocus", { label: worldGroupLabel(group.kind, group.labelKey), n: group.count, shown: group.shown }));
         return;
       }
       if (group.drill) {
-        navigate({ context: group.drill.context ?? null, group: group.drill.group ?? null, pageId: null, reader: false });
+        const origin =
+          layout.nodes.find((node) => groupNodeMatchesId(node, group.key)) ??
+          layout.nodes.find((node) => node.groupKind === group.kind && node.groupLabelKey === group.labelKey);
+        pendingTravelVia.current = origin?.position ?? group.anchor;
+        navigate({ context: group.drill.context ?? null, group: group.drill.group ?? null, worldGroup: group.drill.group ?? null, pageId: null, reader: false });
         announce(t("scene.opening", { label: worldGroupLabel(group.kind, group.labelKey), n: group.count }));
         return;
       }
@@ -800,9 +1277,11 @@ export function SystemScene({
         announce(t("scene.showingMore", { n: extra, label: worldGroupLabel(star.kind, star.labelKey) }));
         return;
       }
+      pendingTravelVia.current = star.position;
       navigate({
         context: star.drill.context ?? route.context ?? null,
         group: star.drill.group ?? null,
+        worldGroup: star.drill.group ?? null,
         pageId: null,
         reader: false
       });
@@ -862,7 +1341,7 @@ export function SystemScene({
       }
       if (event.key === "Backspace" || (event.altKey && event.key === "ArrowLeft")) {
         event.preventDefault();
-        window.history.back();
+        onHistoryBack?.();
         return;
       }
       if (event.key === "m" || event.key === "M") {
@@ -930,7 +1409,7 @@ export function SystemScene({
           if (focusedNodeIndex >= 0 && group.memberIds[focusedNodeIndex]) {
             const node = nodeIndex.get(group.memberIds[focusedNodeIndex]);
             if (node) selectNode(node);
-          } else if (group.drill) {
+          } else {
             handleGroupSelect(group);
           }
         }
@@ -958,6 +1437,7 @@ export function SystemScene({
     navigate,
     nodeIndex,
     onFocusSearch,
+    onHistoryBack,
     onRetreat,
     onRunRefresh,
     onTogglePacket,
@@ -967,6 +1447,10 @@ export function SystemScene({
     selectNode
   ]);
   const focusedGroupKey = layout.groups[focusedGroupIndex]?.key ?? "";
+  const shellCenterNode = layout.nodes.find((node) => node.isRoot && node.isGroup) ?? layout.nodes.find((node) => node.isRoot);
+  const shellVisualGroup =
+    shellCenterNode?.isGroup ? shellCenterNode.groupKey || shellCenterNode.groupDrill?.group || shellCenterNode.id : layout.group;
+  const shellRealCenter = route.pageId || route.centerId || "";
 
   // Guide beacon anchor: the step's subject if it exists in this layout, else
   // the root, else a spot in the void above the founding cards. Anchored at
@@ -984,15 +1468,43 @@ export function SystemScene({
 
 
   return (
-    <div className={fallback ? "sceneShell radarShell fallbackMode" : "sceneShell radarShell"} aria-label="Content relationship map">
+    <div
+      ref={sceneShellRef}
+      className={fallback ? "sceneShell radarShell fallbackMode" : "sceneShell radarShell"}
+      data-scene-perspective={layout.perspective}
+      data-scene-center={shellRealCenter}
+      data-scene-group={shellVisualGroup ?? ""}
+      data-scene-level={layout.level}
+      data-scene-lens={route.lens ?? ""}
+      data-scene-overlay={overlay}
+      data-overlay-token-version={SEMANTIC_VISUAL_TOKENS_VERSION}
+      data-layout-position-signature={layoutPositionSignature}
+      data-strong-attention-count={strongAttentionCount}
+      data-scene-quadrant={route.lens ?? route.quadrant ?? ""}
+      data-scene-center-has-quadrants={centerHasQuadrants ? "true" : "false"}
+      data-visual-density={visualTuning.density.toFixed(2)}
+      data-visual-spacing={visualTuning.spacing.toFixed(2)}
+      data-visual-glow={visualTuning.glow.toFixed(2)}
+      data-visual-motion={visualTuning.motion.toFixed(2)}
+      data-visual-particles={visualTuning.particles ? "on" : "off"}
+      aria-label={t("scene.relationshipMapAria")}
+    >
       <div className="visuallyHidden" aria-live="polite" role="status">
         {announcement}
       </div>
+      <output
+        ref={performanceOutputRef}
+        className="runtimePerformanceOutput visuallyHidden"
+        data-testid="runtime-performance"
+        data-performance-ready="false"
+        aria-hidden="true"
+      />
       {fallback ? (
         <>
           {children}
           <SceneFallback
             layout={layout}
+            overlay={overlay}
             git={git}
             selectedPageId={selectedId}
             highlightedIds={highlightedIds}
@@ -1013,7 +1525,7 @@ export function SystemScene({
             <Canvas
               camera={{ position: [0, 5.2, 8.6], fov: 40 }}
               dpr={profile.dpr}
-              frameloop={motion ? "always" : "demand"}
+              frameloop={visualMotion ? "always" : "demand"}
               // Zero-debounce measuring: shrink the window where a late CSS
               // layout could leave the canvas committed at 0×0 (black world).
               resize={{ scroll: false, debounce: 0 }}
@@ -1021,13 +1533,13 @@ export function SystemScene({
                 antialias: profile.quality !== "compact",
                 powerPreference: "high-performance",
                 toneMapping: THREE.ACESFilmicToneMapping,
-                toneMappingExposure: 1.15
+                toneMappingExposure: 1 + visualTuning.contrast * 0.15
               }}
               onPointerMissed={(event) => {
                 const target = event.target as HTMLElement | null;
                 if (
                   target?.closest?.(
-                    ".sceneHtmlLabel, .worldTopStrip, .worldCommandBar, .worldMissionCard, .pageReader, .packetTray, .worldMinimap, .radarStatusStrip"
+                    ".sceneHtmlLabel, .worldTopStrip, .quadrantCompass, .focusLegend, .worldCommandBar, .worldMissionCard, .pageReader, .packetTray, .worldMinimap, .radarStatusStrip"
                   )
                 ) {
                   return;
@@ -1037,6 +1549,7 @@ export function SystemScene({
             >
               <SceneContent
                 layout={layout}
+                overlay={overlay}
                 edges={edges}
                 git={git}
                 profile={profile}
@@ -1047,16 +1560,24 @@ export function SystemScene({
                 isolateRelation={isolateRelation}
                 walk={walk}
                 morph={morph}
+                cameraTravelVia={cameraTravelVia.current}
                 filter={filter}
-                motion={motion}
+                motion={visualMotion}
+                visualTuning={visualTuning}
                 activityLevel={activityLevel}
                 weather={weather}
-                activeQuadrant={route.quadrant || ""}
+                activeAnchorRecord={activeAnchorRecord}
+                activeQuadrant={route.lens || route.quadrant || ""}
                 quadrantHomes={quadrantHomes}
                 bornIds={bornPageIds}
                 missionMarkers={missionMarkers}
                 flyToId={flyToPageId}
                 readerOpen={route.reader}
+                sourceNodeCount={sourceNodeCount}
+                performanceWidth={performanceWidth}
+                routeUsabilityMs={routeUsabilityMs}
+                performanceTelemetry={performanceTelemetry}
+                onPerformanceEvidence={publishPerformanceEvidence}
                 onMarkerAct={(pageId) => navigate({ pageId, reader: true })}
                 onMarkerResolve={onMarkerResolve}
                 onMarkerDismiss={onMarkerDismiss}
@@ -1069,15 +1590,19 @@ export function SystemScene({
                 onLockPacket={() => route.pageId && onTogglePacket?.(route.pageId)}
                 onLockTrails={() => navigate({ perspective: "trails" })}
                 onLockClose={() => navigate({ pageId: null, reader: false })}
+                onRetreat={() => {
+                  onRetreat?.();
+                  announce(t("scene.levelUp"));
+                }}
               />
               {/* Spatial surfaces — the interface IN the world (R1/R4/R5). */}
               {founding && <FoundingRite {...founding} />}
-              {seed && <SeedFlow {...seed} rOuter={layout.rOuter} />}
+              {seed && <SeedFlow {...seed} portal={sceneShellRef} rOuter={layout.rOuter} />}
               {guide && <GuideBeacon {...guide} anchor={guideAnchor} />}
             </Canvas>
           </div>
           {children}
-          <HoverTooltip hover={hover} anchorInfo={anchorInfo} />
+          <HoverTooltip hover={hover} anchorInfo={anchorInfo} groups={layout.groups} />
           {/* No data, no instrument: a filter strip over a 1-2 node world is
               noise — census chips earn their place only when there is a crowd
               to filter. */}
@@ -1093,16 +1618,18 @@ export function SystemScene({
           <div className={minimapExpanded ? "worldMinimap expanded" : "worldMinimap"} aria-label={t("scene.minimap")}>
             <FallbackPlanView
               layout={layout}
+              overlay={overlay}
               selectedPageId={selectedId}
               highlightedIds={highlightedIds}
               onNodeSelect={(id) => {
                 const node = nodeIndex.get(id);
                 if (node) selectNode(node);
               }}
-              onContextSelect={(context) => {
+              onGroupSelect={(group) => {
                 setMinimapExpanded(false);
-                navigate({ context, group: null, pageId: null, reader: false });
+                handleGroupSelect(group);
               }}
+              onStarDrill={handleStarDrill}
             />
             <button
               className="minimapToggle"

@@ -5,7 +5,7 @@
 
 import { t, uiLanguage } from "./i18n";
 
-export type NodeShape = "sphere" | "hub" | "crystal" | "diamond" | "comet" | "slab" | "spark";
+export type NodeShape = "sphere" | "hub" | "crystal" | "diamond" | "comet" | "slab" | "spark" | "totem";
 
 export type PageTypeStyle = {
   label: string;
@@ -43,7 +43,7 @@ const FAMILY_STYLE: Record<string, { shape: NodeShape; accent: string }> = {
   action: { shape: "comet", accent: "#ff9c54" },
   rule: { shape: "slab", accent: "#8fa3ff" },
   event: { shape: "spark", accent: "#d989ff" },
-  person: { shape: "sphere", accent: "#ffb3c1" }
+  person: { shape: "totem", accent: "#ffb3c1" }
 };
 
 function style(family: string, label: string): PageTypeStyle {
@@ -59,6 +59,7 @@ const DEFAULT_PAGE_TYPES: Record<string, PageTypeStyle> = {
   source_catalog: style("hub", "source library"),
   relationship_map: style("hub", "relationship map"),
   source: style("source", "evidence source"),
+  evidence: style("source", "evidence record"),
   source_config: style("source", "source rules"),
   source_registry: style("source", "source registry"),
   input_channel: style("source", "input channel"),
@@ -82,7 +83,18 @@ const DEFAULT_PAGE_TYPES: Record<string, PageTypeStyle> = {
   artifact: style("content", "artifact"),
   context_note: style("content", "context note"),
   perspective: style("rule", "reading lens"),
-  proposal: style("event", "review draft")
+  proposal: style("event", "review draft"),
+  visual_group: style("hub", "group"),
+  visual_group_region: style("hub", "region group"),
+  visual_group_source: style("source", "data sources"),
+  visual_group_hub: style("hub", "area hubs"),
+  visual_group_decision: style("decision", "decisions and claims"),
+  visual_group_action: style("action", "actions and processes"),
+  visual_group_rule: style("rule", "rules and governance"),
+  visual_group_event: style("event", "events and meetings"),
+  visual_group_person: style("person", "people and roles"),
+  visual_group_content: style("content", "content objects"),
+  visual_group_root: style("root", "root objects")
 };
 
 // Portuguese labels for the built-in page types. Config `page_types` overrides
@@ -95,6 +107,7 @@ const PT_PAGE_TYPE_LABELS: Record<string, string> = {
   source_catalog: "biblioteca de fontes",
   relationship_map: "mapa de relações",
   source: "fonte de evidência",
+  evidence: "registro de evidência",
   source_config: "regras da fonte",
   source_registry: "registro de fontes",
   input_channel: "canal de entrada",
@@ -118,7 +131,18 @@ const PT_PAGE_TYPE_LABELS: Record<string, string> = {
   artifact: "artefato",
   context_note: "nota de contexto",
   perspective: "lente de leitura",
-  proposal: "rascunho de revisão"
+  proposal: "rascunho de revisão",
+  visual_group: "grupo",
+  visual_group_region: "grupo de região",
+  visual_group_source: "fontes de dados",
+  visual_group_hub: "hubs de área",
+  visual_group_decision: "decisões e claims",
+  visual_group_action: "ações e processos",
+  visual_group_rule: "regras e governança",
+  visual_group_event: "eventos e reuniões",
+  visual_group_person: "pessoas e papéis",
+  visual_group_content: "objetos de conteúdo",
+  visual_group_root: "objetos raiz"
 };
 
 const DEFAULT_TRUST_COLORS: TrustColors = {
@@ -303,12 +327,13 @@ export function worldGroupLabel(kind: string, labelKey: string): string {
   if (kind === "orphan") return t("group.orphan");
   if (kind === "relation") return t(`relation.${labelKey}`);
   if (kind === "facet" || kind === "quadrant") return t(`facet.${labelKey}`);
+  if (kind === "family" || kind === "region_family") return pageTypeLabel(`visual_group_${labelKey}`);
   if (kind === "core") return t("quadrant.core");
   return labelKey;
 }
 
 export function perspectiveLabel(perspective: string): { label: string; hint: string; glyph: string } {
-  const glyphs: Record<string, string> = { radar: "◎", atlas: "🜨", districts: "⬡", trails: "⇢", focus: "✦", quadrants: "田" };
+  const glyphs: Record<string, string> = { radar: "◎", atlas: "🜨", districts: "⬡", trails: "⇢", focus: "✦", center: "⌾", quadrants: "田" };
   return {
     label: t(`perspective.${perspective}`),
     hint: t(`perspective.${perspective}.hint`),

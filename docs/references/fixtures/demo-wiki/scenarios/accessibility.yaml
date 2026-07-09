@@ -1,0 +1,45 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: accessibility
+seed: 8007
+purpose: Keyboard, reduced-motion, color-independent, touch and screen-reader fallback contract.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, person, action, artifact]
+source_pages:
+  - memories/index.md
+  - memories/actions/action-region-clean-unsourced.md
+composition:
+  include_ids:
+    - root-alex-rivera
+    - person-marina-costa
+    - action-region-clean-unsourced
+    - claim-region-grouping-needed
+    - artifact-dashboard-atlas
+    - rule-nada-publica-sem-review
+expected:
+  page_count: 6
+  page_id_sha256: 80b6bd557cb597378be7433221e4614f88ea293fc57b9c02c349e4c5a85189ba
+  required_capabilities: [keyboard_navigation, reduced_motion, non_color_state, touch_targets, semantic_fallback]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  blocks: wiki_blocks.v2
+canonical_routes:
+  - /demo/w?center=root-alex-rivera&view=quadrants&overlay=actions
+legacy_routes: []
+interactions: [tab_all_controls, activate_with_keyboard, enable_reduced_motion, inspect_without_color, use_touch]
+automated_assertions:
+  - focus order follows visible semantic order
+  - dialogs trap and restore focus
+  - reduced motion removes nonessential animation without removing state
+  - fallback exposes the same inspect select read and recenter actions
+visual:
+  viewports: [1440x960, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+  steps: [keyboard_walk, reduced_motion_walk, grayscale_state_check, touch_target_check, screen_reader_fallback]
+expected_warnings: []
+expected_failures: []
+generated_files: [apps/wiki-cockpit/public/sample-snapshot]
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

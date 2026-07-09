@@ -1,0 +1,50 @@
+# Copy this file into the consumer PR and replace every placeholder with
+# evidence from that repository. The public package intentionally does not
+# contain real private paths, SHAs, routes or screenshots.
+schema_version: wiki_viva_migration_evidence.v1
+source:
+  release: wiki-viva-v8-rc
+  sha: REPLACE_WITH_PINNED_PUBLIC_SHA
+  plan: docs/references/proposals/wiki-viva-v8-unified-living-world-execution-plan-2026-07-09.md
+consumer_before:
+  repository: consumer-id
+  branch: wiki/upgrade-v8
+  head_sha: REPLACE_WITH_PREVIOUS_CONSUMER_SHA
+  kit_version: untracked
+  gate_status: pass
+consumer_after:
+  branch: wiki/upgrade-v8
+  import_commit_sha: REPLACE_WITH_IMPORT_COMMIT_SHA
+  artifact_commit_sha: null
+  adaptation_commit_sha: null
+files_imported:
+  - wiki_core/upgrade.py
+local_overrides_kept:
+  - wiki.config.yaml
+  - wiki.targets.yaml
+warnings: []
+fixtures_added: []
+gates:
+  - {id: toolkit_drift, command: "record exact command", status: pass}
+  - {id: audit, command: "record exact command", status: pass}
+  - {id: methodology_coverage, command: "record exact command", status: pass}
+  - {id: operation_compile, command: "record exact command", status: pass}
+  - {id: input_stage, command: "record exact command", status: pass}
+  - {id: pytest, command: "record exact command", status: pass}
+  - {id: snapshot_contract, command: "record exact command", status: pass}
+  - {id: architecture, command: "record exact command", status: pass}
+  - {id: bundle, command: "record exact command", status: pass}
+  - {id: demo_drift, command: "record exact command", status: pass}
+  - {id: diff_check, command: "record exact command", status: pass}
+visual_qa_evidence:
+  - {profile: desktop, route_ref: "route:sha256:REPLACE", center_ref: "center:sha256:REPLACE", viewport: 1440x1000, browser: chromium, screenshot_ref: qa/desktop.png, console_status: clean, network_status: clean, sample_fallback: false}
+  - {profile: mobile, route_ref: "route:sha256:REPLACE", center_ref: "center:sha256:REPLACE", viewport: 390x844, browser: webkit, screenshot_ref: qa/mobile.png, console_status: clean, network_status: clean, sample_fallback: false}
+  - {profile: fallback, route_ref: "route:sha256:REPLACE", center_ref: "center:sha256:REPLACE", viewport: 1440x1000, browser: chromium, screenshot_ref: qa/fallback.png, console_status: clean, network_status: clean, sample_fallback: false}
+rollback:
+  previous_sha: REPLACE_WITH_PREVIOUS_CONSUMER_SHA
+  import_commit_sha: REPLACE_WITH_IMPORT_COMMIT_SHA
+  command: git revert <adaptation> <artifacts> <import>
+  preserves_local_paths:
+    - wiki.config.yaml
+    - wiki.targets.yaml
+    - memories/

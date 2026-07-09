@@ -8,11 +8,6 @@ const contentByCase: { current: PageContent } = {
   current: { ok: false, error: "sem conteúdo" }
 };
 
-vi.mock("../data/snapshot", () => ({
-  loadPageContent: vi.fn(async () => contentByCase.current),
-  sidecarName: (id: string) => `${id}.json`
-}));
-
 import { PageReader } from "./PageReader";
 
 function page(id: string, over: Record<string, unknown> = {}) {
@@ -49,6 +44,7 @@ const baseProps = {
   demo: false,
   trail: [],
   packetIds: [] as string[],
+  loadPageContent: vi.fn(async () => contentByCase.current),
   onNavigatePage: vi.fn(),
   onClose: vi.fn(),
   onTogglePacket: vi.fn()

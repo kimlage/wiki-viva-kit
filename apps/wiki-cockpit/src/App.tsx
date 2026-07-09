@@ -19,8 +19,7 @@ import {
   TerminalSquare
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { WorldView } from "./components/WorldView";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { BlocksDock } from "./components/BlocksDock";
 // CreateDock and the genesis guide render inside WorldView now — the create
 // flow is spatial-first, the tutorial voice is an in-world beacon.
@@ -37,27 +36,15 @@ import { GENESIS_FINAL_STAGE, genesisAttachMatches, genesisCreateMatches, genesi
 import { configureLanguage, t } from "./data/i18n";
 import { qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel, registerContextPalette } from "./data/presentation";
-import {
-  buildIngestionPlan,
-  composeBrief,
-  discardBrief,
-  getBrief,
-  loadCodexCapability,
-  loadSnapshotBundle,
-  returnCodexJob,
-  runCockpitAction,
-  runGitWorkflow,
-  runIngestionStep,
-  saveBriefText,
-  spawnCodexJob
-} from "./data/snapshot";
 import type { RuntimeConfig } from "./data/runtimeConfig";
-import { buildUrl, installLinkInterceptor, navigate, parseRoute, patchWorld, useRouteUrl, worldFromRoute } from "./router";
 import type { Route } from "./router";
+import type { ApplicationPorts } from "./application/ports";
 import { groupKeyForPage } from "./scene/perspectives";
-import type { ActionCard, BriefRecord, BriefSpec, CodexCapability, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
+import type { OperatorCommandCard, BriefRecord, BriefSpec, CodexCapability, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
 import { CODEX_UNAVAILABLE } from "./types";
-import "./styles.css";
+import "./shell.css";
+
+const RuntimeWorldView = lazy(() => import("./components/RuntimeWorldView").then((module) => ({ default: module.RuntimeWorldView })));
 
 type LoadState =
   | { status: "loading" }
@@ -80,6 +67,11 @@ function modeLabel(mode: string): string {
     sample_fallback: "SAMPLE DATA — operator unreachable"
   };
   return labels[mode] || mode.replaceAll("_", " ");
+}
+
+function isBlockedSampleFallback(route: Route, state: LoadState): boolean {
+  if (route.demo || state.status !== "ready") return false;
+  return state.runtime.mode === "sample_fallback" || state.source.includes("/sample-snapshot");
 }
 
 function gateStatusLabel(status: string): string {
@@ -152,7 +144,7 @@ function Nav({
   );
 }
 
-function actionTitle(action: ActionCard): string {
+function operatorCommandTitle(action: OperatorCommandCard): string {
   const labels: Record<string, string> = {
     "git-status": "Check work state",
     "review-local-changes": "Inspect changed content",
@@ -163,7 +155,7 @@ function actionTitle(action: ActionCard): string {
   return labels[action.id] || action.title;
 }
 
-function actionReason(action: ActionCard): string {
+function operatorCommandReason(action: OperatorCommandCard): string {
   const labels: Record<string, string> = {
     "review-local-changes": "Shows changed content before saving a version or preparing approval.",
     "run-honesty-gates": "Confirms whether local checks support the next human decision.",
@@ -173,11 +165,11 @@ function actionReason(action: ActionCard): string {
   return labels[action.id] || action.human_reason;
 }
 
-function ActionButton({ action, onRun }: { action: ActionCard; onRun: (action: ActionCard) => void }) {
+function OperatorCommandButton({ action, onRun }: { action: OperatorCommandCard; onRun: (action: OperatorCommandCard) => void }) {
   const risky = action.risk_level !== "read";
-  const title = actionTitle(action);
+  const title = operatorCommandTitle(action);
   return (
-    <button className={risky ? "actionButton risky" : "actionButton"} onClick={() => onRun(action)} title={actionReason(action)}>
+    <button className={risky ? "actionButton risky" : "actionButton"} onClick={() => onRun(action)} title={operatorCommandReason(action)}>
       {risky ? <RefreshCw size={16} /> : <Play size={16} />}
       <span>{title}</span>
     </button>
@@ -188,7 +180,7 @@ function commandResultTitle(result: CommandRunResult): string {
   if ("summary" in result && result.summary) return result.summary;
   if ("operation" in result) return result.operation.replaceAll("_", " ");
   if ("action_id" in result) {
-    const key = `actionTitle.${result.action_id}`;
+    const key = `operatorCommandTitle.${result.action_id}`;
     const label = t(key);
     return label === key ? result.action_id.replaceAll("_", " ") : label;
   }
@@ -598,7 +590,7 @@ function approvalMissingItems(bundle: SnapshotBundle, risks: string[], checkRead
   return missing;
 }
 
-function approvalActionLabel(actionId: string): string {
+function approvalCommandLabel(actionId: string): string {
   const labels: Record<string, string> = {
     "pr-summary": "Prepare packet",
     "review-local-changes": "Inspect changes",
@@ -612,14 +604,14 @@ function ApprovalInbox({
   onRun
 }: {
   bundle: SnapshotBundle;
-  onRun: (action: ActionCard) => void;
+  onRun: (action: OperatorCommandCard) => void;
 }) {
   const checks = reviewChecklist(bundle);
   const decision = approvalDecision(bundle);
   const risks = approvalRiskHints(bundle);
-  const prAction = bundle.actions.actions.find((action) => action.id === "pr-summary");
-  const gateAction = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
-  const reviewAction = bundle.actions.actions.find((action) => action.id === "review-local-changes");
+  const prCommand = bundle.actions.actions.find((action) => action.id === "pr-summary");
+  const gateCommand = bundle.actions.actions.find((action) => action.id === "run-honesty-gates");
+  const reviewCommand = bundle.actions.actions.find((action) => action.id === "review-local-changes");
   const changedFiles = bundle.diff.files.slice(0, 6);
   const primaryChangedFiles = changedFiles.slice(0, 3);
   const changedAreas = [...new Set(bundle.diff.files.map((file) => changeAreaLabel(file.category)).filter(Boolean))].slice(0, 8);
@@ -703,16 +695,16 @@ function ApprovalInbox({
             </ul>
           </details>
           <div className="approvalItemActions">
-            {prAction && (
-              <button className="actionButton" onClick={() => onRun(prAction)} title={actionReason(prAction)}>
+            {prCommand && (
+              <button className="actionButton" onClick={() => onRun(prCommand)} title={operatorCommandReason(prCommand)}>
                 <Play size={16} />
-                <span>{approvalActionLabel(prAction.id)}</span>
+                <span>{approvalCommandLabel(prCommand.id)}</span>
               </button>
             )}
-            {reviewAction && (
-              <button className="secondaryButton" onClick={() => onRun(reviewAction)} title={actionReason(reviewAction)}>
+            {reviewCommand && (
+              <button className="secondaryButton" onClick={() => onRun(reviewCommand)} title={operatorCommandReason(reviewCommand)}>
                 <Search size={16} />
-                <span>{approvalActionLabel(reviewAction.id)}</span>
+                <span>{approvalCommandLabel(reviewCommand.id)}</span>
               </button>
             )}
           </div>
@@ -778,10 +770,10 @@ function ApprovalInbox({
             </ul>
           </details>
           <div className="approvalItemActions">
-            {gateAction && (
-              <button className="actionButton" onClick={() => onRun(gateAction)} title={actionReason(gateAction)}>
+            {gateCommand && (
+              <button className="actionButton" onClick={() => onRun(gateCommand)} title={operatorCommandReason(gateCommand)}>
                 <Play size={16} />
-                <span>{approvalActionLabel(gateAction.id)}</span>
+                <span>{approvalCommandLabel(gateCommand.id)}</span>
               </button>
             )}
           </div>
@@ -1086,12 +1078,32 @@ function GitWorkflowPanel({
 // bookmarks keep working with zero rendering cost. Their components lived
 // here until the 2026-07 cleanup.
 
-export function App() {
-  const url = useRouteUrl();
-  const route = useMemo<Route>(() => {
-    const [pathname, search = ""] = url.split("?");
-    return parseRoute(pathname, search ? `?${search}` : "");
-  }, [url]);
+export function App({ ports }: { ports: ApplicationPorts }) {
+  const { navigation, operator } = ports;
+  const url = useSyncExternalStore(navigation.subscribe, navigation.getSnapshot, navigation.getServerSnapshot);
+  const route = useMemo<Route>(() => navigation.parseUrl(url), [navigation, url]);
+  // UI code emits navigation intentions through the injected application port.
+  // URL grammar remains pure and independently testable on the same boundary.
+  const navigate = (target: Route | string, options: { replace?: boolean } = {}) =>
+    navigation.dispatch({ type: "navigate", target, replace: options.replace });
+  const buildUrl = navigation.href;
+  const patchWorld = navigation.patch;
+  const worldFromRoute = navigation.toWorld;
+  const {
+    buildIngestionPlan,
+    composeBrief,
+    composeSourceBrief,
+    discardBrief,
+    getBrief,
+    loadCodexCapability,
+    loadSnapshotBundle,
+    returnCodexJob,
+    runOperatorCommand,
+    runGitWorkflow,
+    runIngestionStep,
+    saveBriefText,
+    spawnCodexJob
+  } = operator;
   const [realState, setRealState] = useState<LoadState>({ status: "loading" });
   const [demoState, setDemoState] = useState<LoadState>({ status: "loading" });
   const [commandResult, setCommandResult] = useState<CommandRunResult | null>(null);
@@ -1165,9 +1177,10 @@ export function App() {
   }, [demoState.status, route.demo, desiredStage]);
 
   // The SPA router owns every internal anchor click.
-  useEffect(() => installLinkInterceptor(), []);
+  useEffect(() => navigation.attachLinkInterceptor(), [navigation]);
 
   const loadState = route.demo ? demoState : realState;
+  const blockedSampleFallback = isBlockedSampleFallback(route, loadState);
 
   // Live Codex capability: only meaningful with the local operator, so it is
   // probed once the real bundle is ready and never in the demo. It fails closed.
@@ -1201,8 +1214,8 @@ export function App() {
     loadState.status === "ready" ? loadState.runtime.strings : undefined
   );
 
-  // Hue = area: register every context of THIS wiki so sorted names get
-  // distinct palette slots (deterministic, no hash collisions up to 12 areas).
+  // Context accents remain deterministic secondary keylines for labels and
+  // guides; node body color is resolved exclusively from the active overlay.
   // Inline during render — like configureLanguage above — so the very first
   // scene paint already uses the registered slots (idempotent, module state).
   if (loadState.status === "ready") {
@@ -1280,17 +1293,17 @@ export function App() {
   const navWorld = worldFromRoute(route);
   const dockHref = (dock: "approve" | "intake" | "gates" | "source" | "create") => buildUrl(patchWorld(navWorld, { dock }));
 
-  const runAction = async (action: ActionCard) => {
+  const executeOperatorCommand = async (action: OperatorCommandCard) => {
     if (busyAction) return;
     if (route.demo) {
       setNotice({ text: t("demo.actionsOff"), tone: "info", showResult: false });
       return;
     }
-    const title = actionTitle(action);
+    const title = operatorCommandTitle(action);
     setBusyAction(title);
     setNotice(null);
     try {
-      const result = await runCockpitAction(action.id, action.default_dry_run);
+      const result = await runOperatorCommand(action.id, action.default_dry_run);
       setCommandResult(result);
       announceResult(title, result.ok);
     } catch (error) {
@@ -1479,8 +1492,23 @@ export function App() {
     if (loadState.status === "loading") {
       return <main className="workspace"><section className="panel"><h1>Loading cockpit</h1></section></main>;
     }
-    if (loadState.status === "error") {
-      return <main className="workspace"><section className="panel"><h1>Snapshot unavailable</h1><p>{loadState.error}</p></section></main>;
+    if (loadState.status === "error" || blockedSampleFallback) {
+      const error =
+        loadState.status === "error"
+          ? loadState.error
+          : "Sample fallback is blocked outside /demo. Start the backend on 127.0.0.1:8765 and Vite with WIKI_COCKPIT_PROXY_API=1 so /api/snapshot/pages.json returns the real repo JSON.";
+      return (
+        <main className="workspace">
+          <section className="panel sampleFallbackBlocker" role="alert">
+            <h1>Real snapshot required</h1>
+            <p>{error}</p>
+            <p>
+              Demo/sample data is available only under <code>/demo</code>; the private cockpit must prove its own
+              snapshot before visual validation.
+            </p>
+          </section>
+        </main>
+      );
     }
     const { bundle, runtime } = loadState;
     // Legacy routes render the one-frame "opening" placeholder while the
@@ -1491,16 +1519,20 @@ export function App() {
     if (worldRoute) {
       return (
         <>
-          <WorldView
+          <Suspense fallback={<main className="worldRouteLoading" role="status">Loading world runtime…</main>}>
+          <RuntimeWorldView
             key={worldRoute.demo ? (worldRoute.query.genesis ? `genesis-${worldRoute.query.stage}` : "demo") : "real"}
             bundle={bundle}
             runtime={runtime}
             route={worldRoute}
             bornPageIds={worldRoute.demo ? bornPageIds : []}
-            onRun={runAction}
+            onRun={executeOperatorCommand}
             onNotice={notify}
             onComposeBrief={runBrief}
+            navigation={navigation}
+            loadPageContent={operator.loadPageContent}
           />
+          </Suspense>
         </>
       );
     }
@@ -1582,6 +1614,8 @@ export function App() {
             bundle={loadState.bundle}
             busy={Boolean(busyAction)}
             demo={route.demo}
+            loadFileDiff={operator.loadFileDiff}
+            runGate={operator.runGate}
             onWorkflow={runWorkflow}
             onComposeBrief={runBrief}
             onNotice={notify}
@@ -1593,6 +1627,7 @@ export function App() {
           <GatesDock
             bundle={loadState.bundle}
             demo={route.demo}
+            runGate={operator.runGate}
             onComposeBrief={runBrief}
             onNotice={notify}
             onRefetch={refetchReal}
@@ -1603,6 +1638,7 @@ export function App() {
           <IntakeDock
             bundle={loadState.bundle}
             initialSrc={worldRoute.query.src}
+            intakeCopy={operator.intakeCopy}
             onComposeBrief={runBrief}
             onOpenCreate={() => navigate(buildUrl(patchWorld(worldRoute, { dock: "create", src: null })))}
             onNotice={notify}
@@ -1613,6 +1649,7 @@ export function App() {
           <WorkDock
             capability={codexCapability}
             demo={route.demo}
+            operator={operator}
             onResumeBrief={resumeBrief}
             onReturn={returnJob}
             onDiagnose={openCodexDock}
@@ -1625,6 +1662,7 @@ export function App() {
             bundle={loadState.bundle}
             sourceId={worldRoute.query.src}
             onComposeBrief={runBrief}
+            onRequestBrief={composeSourceBrief}
             onNotice={notify}
             onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
             onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}

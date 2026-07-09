@@ -18,14 +18,24 @@ from pathlib import Path
 from typing import Any
 
 from wiki_core.config import WikiConfig
-from wiki_core.frontmatter import parse_frontmatter
+from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.paths import WikiPaths
 from wiki_core.source_recipe import extract_recipe_mapping, parse_recipe, validate_recipe
 from wiki_core.source_state import read_state, stream_cursor
 
 SOURCE_ENTITIES_SCHEMA_VERSION = "wiki_web_source_entities.v1"
 
-_SYNC_STATES = {"ok", "partial", "failed", "running", "queued", "never"}
+_SYNC_STATES = {
+    "ok",
+    "partial",
+    "failed",
+    "needs_auth",
+    "parser_error",
+    "secret_blocked",
+    "running",
+    "queued",
+    "never",
+}
 
 
 def _iso_days_ago(value: str, today: dt.date) -> int | None:
@@ -74,7 +84,7 @@ def _contained(root: Path, rel: str) -> Path | None:
     return resolved
 
 
-def _ingestion_events_index(paths: WikiPaths) -> dict[str, dict[str, str]]:
+def _ingestion_events_index(paths: WikiPaths) -> dict[str, dict[str, Any]]:
     """The wiki's OWN record of syncs: the newest ingestion event per source.
 
     A source page's `sync:` block is the machine-updated telemetry — but a wiki
@@ -97,9 +107,19 @@ def _ingestion_events_index(paths: WikiPaths) -> dict[str, dict[str, str]]:
         refs = values.get("source_refs") if isinstance(values.get("source_refs"), list) else []
         for ref in refs:
             source_id = str(ref)
+            closure = values.get("impact_closure") if isinstance(values.get("impact_closure"), dict) else {}
+            consolidated_into = list_values(values.get("consolidated_into"))
+            no_change = list_values(closure.get("no_change"))
             current = index.get(source_id)
             if current is None or when > current["date"]:
-                index[source_id] = {"date": when, "event": paths.rel(path)}
+                index[source_id] = {
+                    "date": when,
+                    "event": paths.rel(path),
+                    "consolidated_into": consolidated_into,
+                    "reviewed_no_change": bool(no_change),
+                    "no_change": no_change,
+                    "gate_state": str(values.get("gate_state") or values.get("status") or ""),
+                }
     return index
 
 
@@ -108,7 +128,7 @@ def _source_record(
     paths: WikiPaths,
     page_path: Path,
     today: dt.date,
-    events_index: dict[str, dict[str, str]] | None = None,
+    events_index: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     values, _ = parse_frontmatter(page_path)
     if str(values.get("page_type") or "") != "source":
@@ -182,6 +202,18 @@ def _source_record(
             last_event_ref = last_event_ref or derived["event"]
             sync_derived = True
 
+    event_closure = dict((events_index or {}).get(source_id) or {})
+    lifecycle_values = values.get("source_lifecycle") if isinstance(values.get("source_lifecycle"), dict) else {}
+    pipeline_timestamps = lifecycle_values.get("pipeline_stage_timestamps")
+    if not isinstance(pipeline_timestamps, dict):
+        pipeline_timestamps = {}
+
+    def lifecycle_value(key: str, fallback: Any = "") -> Any:
+        direct = values.get(f"source_{key}")
+        if direct not in (None, "", []):
+            return direct
+        return lifecycle_values.get(key, fallback)
+
     return {
         "source_id": source_id,
         "path": rel,
@@ -202,6 +234,30 @@ def _source_record(
             "derived_from_event": sync_derived,
             "streams_fresh": fresh,
             "streams_total": selected_total,
+            "event_closure": {
+                "consolidated_into": list(event_closure.get("consolidated_into") or []),
+                "reviewed_no_change": bool(event_closure.get("reviewed_no_change")),
+                "no_change": list(event_closure.get("no_change") or []),
+                "gate_state": str(event_closure.get("gate_state") or ""),
+            },
+        },
+        "lifecycle": {
+            "state": str(lifecycle_values.get("state") or lifecycle_value("lifecycle_state") or values.get("lifecycle_state") or ""),
+            "freshness_state": str(lifecycle_value("freshness_state") or ""),
+            "last_attempt_state": str(lifecycle_value("last_attempt_state") or ""),
+            "pipeline_stage": str(lifecycle_value("pipeline_stage") or ""),
+            "pipeline_stage_timestamps": {str(k): str(v) for k, v in pipeline_timestamps.items()},
+            "adoption_state": str(lifecycle_value("adoption_state") or values.get("ingestion_state") or ""),
+            "last_sync_success_at": str(lifecycle_value("last_sync_success_at") or ""),
+            "last_ingested_at": str(lifecycle_value("last_ingested_at") or values.get("last_ingested_at") or ""),
+            "last_attempt_at": str(lifecycle_value("last_attempt_at") or ""),
+            "emitted_page_ids": list_values(lifecycle_value("emitted_page_ids", [])),
+            "emitted_action_ids": list_values(lifecycle_value("emitted_action_ids", [])),
+            "proposal_ids": list_values(lifecycle_value("proposal_ids", [])),
+            "raw_artifact_count": _int_or_zero(lifecycle_value("raw_artifact_count", 0)),
+            "secret_safe_log_refs": list_values(lifecycle_value("secret_safe_log_refs", [])),
+            "reviewed_no_change_receipt": str(lifecycle_value("reviewed_no_change_receipt") or ""),
+            "accepted_ref": str(lifecycle_value("accepted_ref") or ""),
         },
         "recipe_ok": bool(recipe_json) and not recipe_errors,
         "recipe_errors": recipe_errors,

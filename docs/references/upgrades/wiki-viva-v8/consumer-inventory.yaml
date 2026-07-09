@@ -1,0 +1,75 @@
+schema_version: wiki_viva_consumer_inventory.v1
+verified_on: "2026-07-09"
+
+publication_policy:
+  private_paths: redact
+  private_remotes: redact
+  private_commit_shas: keep_in_consumer_report_only
+  private_drift_paths: count_only
+
+consumers:
+  - id: wiki-viva-kit-public-source
+    repository:
+      name: wiki-viva-kit
+      path: .
+      remote: https://github.com/kimlage/wiki-viva-kit
+      owner: kimlage
+    consumer_type: public_example
+    role: implementation_source
+    current_kit_version: v8-worktree-unpinned
+    current_layout:
+      memory_root: memories
+      references_root: docs/references
+      cockpit_root: apps/wiki-cockpit
+      generated_cache_root: data/derived/wiki
+    current_runtime: compat
+    local_operator: localhost_operator
+    local_templates:
+      registry: wiki.templates.yaml
+      local_override: absent
+      page_types: wiki.page-types.yaml
+      source_adapters: public_only
+    privacy_risk: public_safe
+    evidence_redaction_required: false
+    drift_status:
+      state: self
+      drift_total: 0
+      worktree: active_release_worktree
+    upgrade_wave: public_kit
+    status: blocked
+    blocker: public gates, browser matrix and release SHA are not complete
+
+  - id: private-pilot-01
+    repository:
+      name: private-pilot-01
+      path: <local-private-checkout>
+      remote: <private>
+      owner: <redacted>
+    consumer_type: private_operational_wiki
+    role: first_private_pilot
+    current_kit_version: 0.1.109+untracked-public-sha
+    current_layout:
+      memory_root: memorias
+      references_root: docs/referencias
+      cockpit_root: apps/wiki-cockpit
+      generated_cache_root: data/derived/wiki
+      language: pt
+      context_count: 7
+    current_runtime: legacy
+    local_operator: localhost_operator
+    local_templates:
+      registry: wiki.templates.yaml
+      local_override: absent
+      page_types: downstream_owned
+      source_adapters: private
+    privacy_risk: financial_personal
+    evidence_redaction_required: true
+    drift_status:
+      state: diverged
+      scope: wiki_toolkit_drift_core_prefixes
+      drift_total: 16
+      details: retained_only_in_private_preflight
+      verified_read_only_on: "2026-07-09"
+    upgrade_wave: paused
+    status: blocked
+    blocker: public release is unpinned and both worktrees are active/dirty

@@ -5,6 +5,8 @@
 // links are all the same thing; internal navigation never reloads the app.
 
 import { useSyncExternalStore } from "react";
+import { DOCK_IDS } from "./world/contracts";
+import type { DockId, RuntimeMode } from "./world/contracts";
 
 // `focus` is a valid URL perspective (page-centered lenses) reachable only with
 // a page locked; `quadrants` is the AQAL home map (key 5). Quadrants is the
@@ -32,8 +34,14 @@ export type WorldQuery = {
   station: number; // gate station 1..6 (0 = none)
   ack: string[]; // acknowledged blocker ids (scope/risk)
   tray: TrayId; // "" | packet | missions | work (trays are URL state now)
-  quadrant: string; // active AQAL quadrant (meaningful under perspective=quadrants)
+  lens: string; // active conceptual lens (meaningful under perspective=quadrants)
+  view: string; // canonical v8 world geometry; legacy positional perspective remains readable
+  overlay: string; // canonical v8 visual metric
+  page: string; // canonical v8 selected page
+  worldGroup: string; // real grouping opened inside a world lens, encoded as ?group=family:*
+  quadrant: string; // legacy active AQAL quadrant, kept only until callers migrate to lens
   center: string; // active recursive quadrant/template anchor; independent from reader page
+  runtime: RuntimeMode | ""; // explicit rollback/compat flag; v8 is the canonical default
   // Genesis tutorial (demo only): the world starts EMPTY and each stage is a
   // real pre-built snapshot. `genesis` keeps the whole world grammar usable
   // inside the tutorial; `stage` picks which staged snapshot is loaded.
@@ -41,8 +49,11 @@ export type WorldQuery = {
   stage: number;
 };
 
-export const DOCKS = ["approve", "intake", "gates", "codex", "work", "source", "create", "blocks"] as const;
-export type DockId = "" | (typeof DOCKS)[number];
+// Compatibility re-export. The canonical surface vocabulary belongs to the
+// world contract; legacy route consumers may keep importing these names while
+// migration completes without reversing the dependency direction.
+export const DOCKS = DOCK_IDS;
+export type { DockId } from "./world/contracts";
 export const TRAYS = ["packet", "missions", "work"] as const;
 export type TrayId = "" | (typeof TRAYS)[number];
 
@@ -87,14 +98,24 @@ const EMPTY_QUERY: WorldQuery = {
   station: 0,
   ack: [],
   tray: "",
+  lens: "",
+  view: "",
+  overlay: "",
+  page: "",
+  worldGroup: "",
   quadrant: "",
   center: "",
+  runtime: "",
   genesis: false,
   stage: 0
 };
 
 function isPerspective(value: string): value is PerspectiveId {
   return (PERSPECTIVES as readonly string[]).includes(value);
+}
+
+function asRuntimeMode(value: string | null): RuntimeMode | "" {
+  return value === "legacy" || value === "compat" || value === "v8" ? value : "";
 }
 
 function parseQuery(search: string): WorldQuery {
@@ -112,8 +133,14 @@ function parseQuery(search: string): WorldQuery {
     station: Number.isFinite(stationRaw) && stationRaw > 0 ? stationRaw : 0,
     ack: (params.get("ack") || "").split(",").map((item) => item.trim()).filter(Boolean),
     tray: asTray(params.get("tray")),
+    lens: params.get("lens") || "",
+    view: params.get("view") || "",
+    overlay: params.get("overlay") || "",
+    page: params.get("page") || "",
+    worldGroup: params.get("group") || "",
     quadrant: params.get("quadrant") || "",
     center: params.get("center") || "",
+    runtime: asRuntimeMode(params.get("runtime")),
     genesis: params.get("genesis") === "1",
     stage: (() => {
       const raw = Number.parseInt(params.get("stage") || "0", 10);
@@ -156,7 +183,15 @@ export function parseRoute(pathname: string, search = ""): Route {
     };
   }
   if (path === "/" || path === "/ops" || path === "/w") {
-    return { kind: "world", demo, perspective: DEFAULT_PERSPECTIVE, perspectiveExplicit: false, query };
+    const canonicalView = isPerspective(query.view) ? query.view : DEFAULT_PERSPECTIVE;
+    return {
+      kind: "world",
+      demo,
+      perspective: canonicalView,
+      perspectiveExplicit: Boolean(query.view),
+      pageId: query.page || undefined,
+      query
+    };
   }
   if (path.startsWith("/w/")) {
     const segments = path.slice("/w/".length).split("/").filter(Boolean).map(decodeURIComponent);
@@ -166,6 +201,7 @@ export function parseRoute(pathname: string, search = ""): Route {
     // Positional grammar: context › group › page. Trails is ego-centric and
     // ignores the group slot, so its second segment is already the page.
     let [context, group, pageId] = rest;
+    if (context === "~") context = "";
     if ((perspective === "trails" || perspective === "focus") && rest.length === 2) {
       pageId = rest[1];
       group = "";
@@ -193,7 +229,7 @@ export function buildUrl(route: Route): string {
   if (route.kind === "pageAlias") {
     return route.pageId ? `${prefix}/pages/${encodeURIComponent(route.pageId)}` : `${prefix}/pages`;
   }
-  const segments = [route.perspective, route.context, route.group, route.pageId]
+  const segments = [route.perspective, route.context || (route.group ? "~" : undefined), route.group, route.pageId]
     .filter((segment): segment is string => Boolean(segment))
     .map(encodeURIComponent);
   const params = new URLSearchParams();
@@ -208,8 +244,14 @@ export function buildUrl(route: Route): string {
   if (route.query.station > 0) params.set("station", String(route.query.station));
   if (route.query.ack.length > 0) params.set("ack", route.query.ack.join(","));
   if (route.query.tray) params.set("tray", route.query.tray);
+  if (route.query.lens) params.set("lens", route.query.lens);
+  if (route.query.view) params.set("view", route.query.view);
+  if (route.query.overlay) params.set("overlay", route.query.overlay);
+  if (route.query.page) params.set("page", route.query.page);
+  if (route.query.worldGroup) params.set("group", route.query.worldGroup);
   if (route.query.quadrant) params.set("quadrant", route.query.quadrant);
   if (route.query.center) params.set("center", route.query.center);
+  if (route.query.runtime) params.set("runtime", route.query.runtime);
   if (route.query.genesis) {
     params.set("genesis", "1");
     if (route.query.stage > 0) params.set("stage", String(route.query.stage));
@@ -234,8 +276,14 @@ export type WorldPatch = {
   station?: number | null;
   ack?: string[];
   tray?: TrayId | null;
+  lens?: string | null;
+  view?: string | null;
+  overlay?: string | null;
+  page?: string | null;
+  worldGroup?: string | null;
   quadrant?: string | null;
   center?: string | null;
+  runtime?: RuntimeMode | null;
   genesis?: boolean;
   stage?: number | null;
 };
@@ -263,17 +311,25 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
       station: patch.station === null ? 0 : patch.station ?? route.query.station,
       ack: patch.ack ?? route.query.ack,
       tray: patch.tray === null ? "" : patch.tray ?? route.query.tray,
+      lens: patch.lens === null ? "" : patch.lens ?? route.query.lens,
+      view: patch.view === null ? "" : patch.view ?? route.query.view,
+      overlay: patch.overlay === null ? "" : patch.overlay ?? route.query.overlay,
+      page: patch.page === null ? "" : patch.page ?? route.query.page,
+      worldGroup: patch.worldGroup === null ? "" : patch.worldGroup ?? route.query.worldGroup,
       quadrant: patch.quadrant === null ? "" : patch.quadrant ?? route.query.quadrant,
       center: patch.center === null ? "" : patch.center ?? route.query.center,
+      runtime: patch.runtime === null ? "" : patch.runtime ?? route.query.runtime,
       genesis: patch.genesis ?? route.query.genesis,
       stage: patch.stage === null ? 0 : patch.stage ?? route.query.stage
     }
   };
-  // Grammar is positional: a group needs a context, and a locked page needs
-  // both — clearing the context releases the lock instead of emitting a
-  // malformed URL whose pageId would be re-parsed as a context.
-  if (!next.context) {
+  // Grammar is positional: most groups need a context, and a locked page needs
+  // one. Quadrants are conceptual lenses, not groups; only derived real-family
+  // groups inside the quadrant map may use the global "~" placeholder.
+  if (!next.context && next.perspective !== "quadrants") {
     next.group = undefined;
+  }
+  if (!next.context) {
     next.pageId = undefined;
   }
   if (patch.perspective && patch.perspective !== route.perspective && patch.group === undefined) {
@@ -303,7 +359,11 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
   // The active quadrant scopes the quadrant-aware perspectives (the AQAL map and
   // the two spatial views that can honor it); it is meaningless in atlas / trails
   // / focus, so it clears there.
-  if (!QUADRANT_AWARE.has(next.perspective)) next.query.quadrant = "";
+  if (!QUADRANT_AWARE.has(next.perspective)) {
+    next.query.lens = "";
+    next.query.quadrant = "";
+  }
+  if (next.perspective !== "quadrants") next.query.worldGroup = "";
   return next;
 }
 
@@ -349,7 +409,7 @@ export function navigate(target: Route | string, options: { replace?: boolean } 
   emit();
 }
 
-function subscribe(listener: Listener): () => void {
+export function subscribeRouteUrl(listener: Listener): () => void {
   listeners.add(listener);
   const onPop = () => emit();
   window.addEventListener("popstate", onPop);
@@ -362,12 +422,12 @@ function subscribe(listener: Listener): () => void {
 // Strings are Object.is-comparable, so reading location directly keeps the
 // snapshot fresh even when history changes outside navigate() (tests, other
 // scripts) without breaking useSyncExternalStore's caching contract.
-function getUrlSnapshot(): string {
+export function getRouteUrlSnapshot(): string {
   return window.location.pathname + window.location.search;
 }
 
 export function useRouteUrl(): string {
-  return useSyncExternalStore(subscribe, getUrlSnapshot, () => "/");
+  return useSyncExternalStore(subscribeRouteUrl, getRouteUrlSnapshot, () => "/");
 }
 
 // Intercept internal anchor clicks so plain <a href> stays the navigation

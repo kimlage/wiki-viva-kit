@@ -1,0 +1,104 @@
+import type { RuntimeConfig } from "../data/runtimeConfig";
+import type { Route, WorldPatch, WorldRoute } from "../router";
+import type {
+  OperatorCommandRunResult,
+  BriefRecord,
+  BriefSpec,
+  CodexCapability,
+  CodexJobRecord,
+  GateRunResult,
+  IngestionPlan,
+  IngestionStepResult,
+  PageContent,
+  SnapshotBundle,
+  WorkflowRunResult
+} from "../types";
+
+export type SnapshotLoadOptions = { demo?: boolean; stage?: number | null; signal?: AbortSignal };
+export type SnapshotLoadResult = { bundle: SnapshotBundle; source: string; runtime: RuntimeConfig };
+export type ContentLoadOptions = {
+  demo?: boolean;
+  snapshotSource?: string;
+  snapshotId?: string;
+  integrity?: SnapshotBundle["manifest"]["integrity"];
+  signal?: AbortSignal;
+};
+export type DiffLoadResult = {
+  ok: boolean;
+  path?: string;
+  tracked?: boolean;
+  truncated?: boolean;
+  diff?: string[];
+  error?: string;
+};
+export type IntakeCopyResult = {
+  ok: boolean;
+  path?: string;
+  context?: string;
+  filename?: string;
+  error?: string;
+  reason?: string;
+};
+export type SourceBriefResult = { ok: boolean; spec?: BriefSpec; pending?: number; error?: string };
+
+// Concrete fetch/HTTP code implements this port at the composition root. UI
+// surfaces receive the port (or a narrower member) and can be tested without a
+// browser transport; they never import the operator client itself.
+export interface OperatorPort {
+  loadSnapshotBundle(options?: SnapshotLoadOptions): Promise<SnapshotLoadResult>;
+  loadPageContent(pageId: string, options?: ContentLoadOptions): Promise<PageContent>;
+  loadCodexCapability(runtime: RuntimeConfig): Promise<CodexCapability>;
+  composeBrief(spec: BriefSpec): Promise<BriefRecord>;
+  listBriefs(): Promise<BriefRecord[]>;
+  getBrief(briefId: string): Promise<BriefRecord | null>;
+  saveBriefText(briefId: string, text: string): Promise<BriefRecord>;
+  discardBrief(briefId: string): Promise<BriefRecord>;
+  spawnCodexJob(
+    briefId: string,
+    briefSha: string,
+    options?: { dryRun?: boolean; force?: boolean; parentJobId?: string }
+  ): Promise<CodexJobRecord>;
+  listCodexJobs(): Promise<CodexJobRecord[]>;
+  streamCodexLog(jobId: string): Promise<string>;
+  returnCodexJob(jobId: string, feedback: string): Promise<BriefRecord>;
+  cancelCodexJob(jobId: string): Promise<CodexJobRecord | null>;
+  loadFileDiff(path: string): Promise<DiffLoadResult>;
+  intakeCopy(sourcePath: string, context: string): Promise<IntakeCopyResult>;
+  runGate(gateId: string): Promise<GateRunResult>;
+  runOperatorCommand(actionId: string, dryRun?: boolean): Promise<OperatorCommandRunResult>;
+  runGitWorkflow(
+    operation: string,
+    payload?: Record<string, unknown>,
+    dryRun?: boolean
+  ): Promise<WorkflowRunResult>;
+  composeSourceBrief(sourceId: string): Promise<SourceBriefResult>;
+  buildIngestionPlan(source: string, context?: string): Promise<IngestionPlan>;
+  runIngestionStep(source: string, context: string, stepId: string, dryRun?: boolean): Promise<IngestionStepResult>;
+}
+
+export type NavigationIntent =
+  | { type: "navigate"; target: Route | string; replace?: boolean }
+  | { type: "patch-world"; route: WorldRoute; patch: WorldPatch; replace?: boolean }
+  | { type: "retreat-world"; route: WorldRoute; replace?: boolean }
+  | { type: "history-back" };
+
+// Navigation writes are commands, never helper calls from components. Pure
+// URL grammar helpers live on the same injected boundary so renderer code does
+// not become coupled to the compatibility router module.
+export interface NavigationPort {
+  subscribe(listener: () => void): () => void;
+  getSnapshot(): string;
+  getServerSnapshot(): string;
+  attachLinkInterceptor(): () => void;
+  parseUrl(url: string): Route;
+  toWorld(route: Route): WorldRoute;
+  href(route: Route): string;
+  patch(route: WorldRoute, patch: WorldPatch): WorldRoute;
+  hrefForPatch(route: WorldRoute, patch: WorldPatch): string;
+  dispatch(intent: NavigationIntent): void;
+}
+
+export type ApplicationPorts = {
+  navigation: NavigationPort;
+  operator: OperatorPort;
+};

@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
 from wiki_core.config import WikiConfig
 from wiki_core.web.content import build_page_content, sidecar_name, write_content_sidecars
-from wiki_core.web.snapshot import _summary, build_snapshot, write_snapshot
+from wiki_core.web.snapshot import (
+    _summary,
+    build_snapshot,
+    snapshot_contract_errors,
+    write_snapshot,
+)
 
 
 def _write(path: Path, text: str) -> None:
@@ -139,7 +145,16 @@ def test_content_sidecars_written_behind_flag(tmp_path: Path) -> None:
     written = write_snapshot(tmp_path, out_dir, config, clean=True, content_sidecars=True)
     sidecar = out_dir / "content" / sidecar_name("example-hub")
     assert sidecar.is_file()
-    assert f"content/{sidecar_name('example-hub')}" in written
+    sidecar_rel = f"content/{sidecar_name('example-hub')}"
+    assert sidecar_rel in written
+    manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert sidecar_rel in manifest["files"]
+    assert sidecar_rel in manifest["integrity"]
+    loaded = {
+        name: json.loads((out_dir / name).read_text(encoding="utf-8"))
+        for name in manifest["files"]
+    }
+    assert snapshot_contract_errors(loaded) == []
 
     snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z", content_sidecars=True)
     assert snapshot["manifest.json"]["content_sidecars"] is True

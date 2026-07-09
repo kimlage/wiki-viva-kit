@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { canUseWebGL, SystemScene } from "./SystemScene";
 import type { GitState, GraphNode } from "../types";
@@ -48,7 +48,7 @@ const git: GitState = {
 };
 
 describe("SystemScene fallback", () => {
-  it("uses the 2D fallback with the same topology and URLs when WebGL is unavailable", () => {
+  it("uses the 2D fallback with the same topology, URLs and measurable fallback reason", async () => {
     expect(canUseWebGL()).toBe(false);
 
     render(
@@ -66,8 +66,23 @@ describe("SystemScene fallback", () => {
     // Groups render as links sharing the world URL grammar.
     const groupLink = screen.getByRole("link", { name: /example · 1/ });
     expect(groupLink.getAttribute("href")).toBe("/w/radar/example");
-    // Alpha is stale in the fixture: its accessible name now carries the state
-    // chip too (fallback never encodes state in color alone).
-    expect(screen.getByRole("link", { name: /Alpha needs refresh/ })).toBeTruthy();
+    // Alpha is stale in the fixture: the active attention overlay resolves it
+    // to a labelled/symbol-backed signal, never color alone.
+    const alpha = screen.getByRole("link", { name: /Alpha Attention: Needs attention/ });
+    expect(alpha.getAttribute("data-overlay")).toBe("attention");
+    expect(alpha.getAttribute("data-overlay-state")).toBe("watch");
+    const output = screen.getByTestId("runtime-performance") as HTMLOutputElement;
+    await waitFor(() => expect(output.dataset.performanceReady).toBe("true"));
+    const evidence = JSON.parse(output.value) as {
+      counters: { sourceNodes: number; interactiveNodes: number; fallbackReason: string; particles: number };
+      evaluations: { desktop: { normal: { status: string } } };
+    };
+    expect(evidence.counters).toMatchObject({
+      sourceNodes: 2,
+      interactiveNodes: 2,
+      fallbackReason: "webgl_unavailable",
+      particles: 0
+    });
+    expect(evidence.evaluations.desktop.normal.status).toBe("fallback");
   });
 });

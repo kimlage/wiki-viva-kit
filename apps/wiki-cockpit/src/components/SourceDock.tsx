@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { Database, ExternalLink, Lock, RefreshCw, X } from "lucide-react";
 import { t } from "../data/i18n";
 import { contextLabel } from "../data/presentation";
+import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
 import { ExpandablePre } from "./ExpandablePre";
 import type { BriefSpec, SnapshotBundle, SourceEntity } from "../types";
 
@@ -27,10 +28,52 @@ function ageLabel(days: number | null): string {
   return t("source.stream.daysAgo", { n: days });
 }
 
+function sourceTelemetry(sources: SourceEntity[]): DockTelemetryItem[] {
+  const totalStreams = sources.reduce((sum, source) => sum + source.sync.streams_total, 0);
+  const freshStreams = sources.reduce((sum, source) => sum + source.sync.streams_fresh, 0);
+  const pending = sources.reduce((sum, source) => sum + source.pending_streams, 0);
+  const brokenRecipes = sources.filter((source) => !source.recipe_ok).length;
+  return [
+    {
+      key: "sources",
+      label: t("source.telemetry.sources"),
+      value: sources.length,
+      tone: "info",
+      ratio: sources.length > 0 ? 1 : 0,
+      detail: t("source.list.title", { n: sources.length })
+    },
+    {
+      key: "fresh",
+      label: t("source.telemetry.fresh"),
+      value: `${freshStreams}/${totalStreams}`,
+      tone: totalStreams > 0 && freshStreams === totalStreams ? "good" : pending > 0 ? "warn" : "muted",
+      ratio: totalStreams > 0 ? freshStreams / totalStreams : 0,
+      detail: t("source.health.fresh", { fresh: freshStreams, total: totalStreams })
+    },
+    {
+      key: "pending",
+      label: t("source.telemetry.pending"),
+      value: pending,
+      tone: pending > 0 ? "warn" : "good",
+      ratio: sources.length > 0 ? pending / Math.max(totalStreams, 1) : 0,
+      detail: pending > 0 ? t("source.list.pending", { n: pending }) : t("source.telemetry.none")
+    },
+    {
+      key: "recipes",
+      label: t("source.telemetry.recipes"),
+      value: brokenRecipes,
+      tone: brokenRecipes > 0 ? "bad" : "good",
+      ratio: sources.length > 0 ? 1 - brokenRecipes / sources.length : 0,
+      detail: brokenRecipes > 0 ? t("source.telemetry.recipesBroken", { n: brokenRecipes }) : t("source.telemetry.recipesOk")
+    }
+  ];
+}
+
 export function SourceDock({
   bundle,
   sourceId,
   onComposeBrief,
+  onRequestBrief,
   onNotice,
   onOpenPage,
   onOpenSource,
@@ -39,6 +82,7 @@ export function SourceDock({
   bundle: SnapshotBundle;
   sourceId: string;
   onComposeBrief?: (spec: BriefSpec) => void;
+  onRequestBrief?: (sourceId: string) => Promise<{ ok: boolean; spec?: BriefSpec; error?: string }>;
   onNotice: (text: string) => void;
   onOpenPage?: (pathOrId: string) => void;
   onOpenSource?: (id: string) => void;
@@ -64,7 +108,7 @@ export function SourceDock({
           <header className="dockHeader">
             <Database size={15} aria-hidden />
             <strong>{t("source.list.title", { n: sources.length })}</strong>
-            <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+            <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
               <X size={16} />
             </button>
           </header>
@@ -72,6 +116,7 @@ export function SourceDock({
             {t("source.list.intro")}
             {pendingTotal > 0 ? ` ${t("source.list.pending", { n: pendingTotal })}` : ""}
           </p>
+          <DockTelemetryRail label={t("source.telemetry.aria")} items={sourceTelemetry(ordered)} />
           {ordered.length === 0 && <p className="dockIntro">{t("source.list.empty")}</p>}
           <ul className="sourceList">
             {ordered.map((s) => {
@@ -107,7 +152,7 @@ export function SourceDock({
         <aside className="sourceDock worldDock" role="dialog" aria-label={t("source.title")}>
           <header className="dockHeader">
             <strong>{t("source.title")}</strong>
-            <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+            <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
               <X size={16} />
             </button>
           </header>
@@ -126,11 +171,10 @@ export function SourceDock({
   const selected = source.streams.filter((s) => s.selected);
 
   const composeBrief = async () => {
-    if (!onComposeBrief) return;
+    if (!onComposeBrief || !onRequestBrief) return;
     // Compose from the server so the recipe grounding + stale-stream targeting
     // stay authoritative (mirrors the honest gate-fix flow).
-    const { composeSourceBrief } = await import("../data/snapshot");
-    const result = await composeSourceBrief(source.source_id);
+    const result = await onRequestBrief(source.source_id);
     if (result.ok && result.spec) {
       onComposeBrief(result.spec);
     } else {
@@ -146,7 +190,7 @@ export function SourceDock({
           <Database size={15} aria-hidden />
           <strong>{source.title}</strong>
           <span className={`pill pill-${syncTone}`}>{t(`source.sync.${source.sync.last_status}`)}</span>
-          <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
             <X size={16} />
           </button>
         </header>
@@ -161,6 +205,7 @@ export function SourceDock({
         </div>
 
         <div className="sourceHealth" aria-label={t("source.health.aria")}>
+          <DockTelemetryRail label={t("source.telemetry.aria")} items={sourceTelemetry([source])} />
           <span className="stripChip static">
             {t("source.health.fresh", { fresh: source.sync.streams_fresh, total: source.sync.streams_total })}
           </span>

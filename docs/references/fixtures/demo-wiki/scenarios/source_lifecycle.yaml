@@ -1,0 +1,42 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: source_lifecycle
+seed: 8004
+purpose: Source lifecycle, freshness and last-attempt state matrix.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, source, ingestion_event]
+source_pages:
+  - memories/sources
+  - memories/system/ingestion/events
+composition:
+  include_ids: [root-alex-rivera]
+  include_page_types: [source, ingestion_event]
+expected:
+  page_count: 36
+  page_id_sha256: 24084240cfd0383c6120beb3fb7d35d1dccf6a170fb29f15c591021bb819b0ed
+  required_capabilities: [source_lifecycle, freshness, last_attempt, evidence_links]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  source_lifecycle: wiki_source_lifecycle.v2
+canonical_routes:
+  - /demo/w?center=root-alex-rivera&view=sources&overlay=freshness&dock=source
+  - /demo/w?center=source-banco-export&view=sources&overlay=evidence&dock=source
+legacy_routes: []
+interactions: [open_each_source_state, inspect_attempt, inspect_freshness, open_evidence]
+automated_assertions:
+  - every source has lifecycle freshness and last-attempt axes
+  - never_synced is never inferred when a successful event exists
+  - dock card and visual state agree
+visual:
+  viewports: [1440x960, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+  steps: [open_sources_view, inspect_fresh, inspect_stale, inspect_never_synced, inspect_blocked]
+expected_warnings: [stale_source, never_synced_source, blocked_source]
+expected_failures: [needs_auth, parser_error, secret_blocked]
+generated_files:
+  - apps/wiki-cockpit/public/sample-snapshot/source_entities.json
+  - apps/wiki-cockpit/public/sample-snapshot/source_lifecycle.json
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

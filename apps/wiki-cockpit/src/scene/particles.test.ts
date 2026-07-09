@@ -6,10 +6,13 @@ import {
   buildEmberParticles,
   buildFlowParticles,
   buildGapParticles,
+  buildGroupPullParticles,
   buildStemParticles,
   emberPoint,
   flowPoint,
   gapPoint,
+  groupPullPoint,
+  particleLodBudget,
   stemPoint
 } from "./particles";
 
@@ -63,6 +66,30 @@ describe("particle builders", () => {
     expect(JSON.stringify(buildFlowParticles(edges, 2, 72))).toEqual(JSON.stringify(particles));
   });
 
+  it("builds deterministic child-to-group pull sparks", () => {
+    const inputs = Array.from({ length: 40 }, (_, index) => ({
+      from: [index * 0.1, 0, 1] as [number, number, number],
+      to: [0, 0, 0] as [number, number, number],
+      color: "#57d9a0",
+      key: `child-${index}`
+    }));
+    const particles = buildGroupPullParticles(inputs, 2, 32);
+    expect(particles).toHaveLength(32);
+    expect(particles[0].kind).toBe("group_pull");
+    expect(particles[0].to).toEqual([0, 0, 0]);
+    expect(JSON.stringify(buildGroupPullParticles(inputs, 2, 32))).toEqual(JSON.stringify(particles));
+  });
+
+  it("uses a quieter particle budget inside dense quadrant family drills", () => {
+    const rootBudget = particleLodBudget({ perspective: "quadrants", level: 0 }, true);
+    const familyBudget = particleLodBudget({ perspective: "quadrants", level: 2 }, true);
+
+    expect(familyBudget.flowMax).toBeLessThan(rootBudget.flowMax);
+    expect(familyBudget.groupInputLimit).toBeLessThan(rootBudget.groupInputLimit);
+    expect(familyBudget.groupPullMax).toBeLessThan(rootBudget.groupPullMax);
+    expect(familyBudget.auraMax).toBe(rootBudget.auraMax);
+  });
+
   it("prioritizes the most overdue nodes for embers", () => {
     const nodes = [
       layoutNode("mild", { overdueRatio: 1.1 }),
@@ -114,5 +141,11 @@ describe("analytic evaluation", () => {
     expect(yStart).toBeCloseTo(2, 5);
     expect(ySunk).toBeLessThan(yStart);
     expect(alphaStart).toBeCloseTo(0.45, 2);
+    const pull = buildGroupPullParticles([{ from: [2, 0, 0], to: [0, 0, 0], color: "#fff", key: "pull" }], 1)[0];
+    const [pullX0] = groupPullPoint({ ...pull, phase: 0, speed: 0 }, 0);
+    const [pullXEnd, , , pullAlphaEnd] = groupPullPoint({ ...pull, phase: 0.999, speed: 0 }, 0);
+    expect(pullX0).toBeCloseTo(2, 5);
+    expect(pullXEnd).toBeLessThan(0.01);
+    expect(pullAlphaEnd).toBeLessThan(0.05);
   });
 });

@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-07-07
+updated_at: 2026-07-09
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,18 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-07-09] System | v8 downstream upgrade commands documented
+
+- The [command reference](wiki/command-reference.md) now documents the three
+  read-only v8 downstream tools: consumer inventory validation, preflight and
+  deterministic migration-report compilation.
+- Their public package, allowlist/blocklist, redaction boundary and per-repo
+  rollback are documented in the
+  [v8 downstream upgrade runbook](../../docs/references/guides/wiki-viva-v8-downstream-upgrade.md).
+- This log entry records documentation/tooling only; it does not claim that the
+  blocked release candidate has a final public SHA or that any private consumer
+  has been migrated.
 
 ## [2026-07-07] System | Quadrant terminology clarified
 

@@ -13,8 +13,8 @@ import { t } from "../data/i18n";
 import { contextLabel, contextStyle, isMetaPage, isRawData, landmarkGlyph, pageTypeLabel, trustColor } from "../data/presentation";
 import { facetsOrder, pinnedFieldStatus, templateSpec } from "../data/templates";
 import { TemplateInspector } from "./TemplateInspector";
-import { loadPageContent } from "../data/snapshot";
-import type { ActionCard, BriefSpec, PageContent, PageRecord, QuadrantProjection, ResolvedLink, SnapshotBundle } from "../types";
+import type { OperatorCommandCard, BriefSpec, PageContent, PageRecord, QuadrantProjection, ResolvedLink, SnapshotBundle } from "../types";
+import type { OperatorPort } from "../application/ports";
 
 export type RelationGroupKey = "hierarquia" | "evidencia" | "links" | "citado-por";
 
@@ -107,36 +107,23 @@ function makeDiagramZoomable(figure: HTMLElement): void {
   });
 }
 
-// Fenced ```mermaid blocks render as real diagrams (lazy-loaded, strict
-// security level). Failures fall back to the source with an honest notice.
+// Mermaid source remains readable and safe in the core reader. Specialized
+// diagram rendering is an optional v8 capability: bundling every parser made
+// the default reader carry several oversized modules even when no diagram was
+// opened.
 async function renderMermaidBlocks(container: HTMLElement): Promise<void> {
   const blocks = [...container.querySelectorAll<HTMLElement>("pre code.language-mermaid")];
   if (blocks.length === 0) return;
-  try {
-    const { default: mermaid } = await import("mermaid");
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "dark", darkMode: true });
-    let index = 0;
-    for (const code of blocks) {
-      const pre = code.closest("pre");
-      if (!pre || !pre.parentElement) continue;
-      const source = code.textContent || "";
-      index += 1;
-      try {
-        const { svg } = await mermaid.render(`readerDiagram${index}-${Date.now() % 100000}`, source);
-        const wrapper = document.createElement("figure");
-        wrapper.className = "readerDiagram";
-        wrapper.innerHTML = DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true, svgFilters: true } });
-        makeDiagramZoomable(wrapper);
-        pre.replaceWith(wrapper);
-      } catch {
-        const note = document.createElement("p");
-        note.className = "readerNotice";
-        note.textContent = t("reader.diagramError");
-        pre.before(note);
-      }
-    }
-  } catch {
-    /* mermaid chunk unavailable (offline static build) — code stays visible */
+  for (const code of blocks) {
+    const pre = code.closest("pre");
+    if (!pre) continue;
+    pre.classList.add("diagramSource");
+    pre.setAttribute("role", "figure");
+    pre.setAttribute("aria-label", "Mermaid diagram source; optional renderer not loaded");
+    const note = document.createElement("small");
+    note.className = "diagramCapabilityNote";
+    note.textContent = "Diagram source · optional renderer";
+    pre.prepend(note);
   }
 }
 
@@ -396,6 +383,7 @@ export function PageReader({
   pageId,
   demo,
   snapshotSource,
+  loadPageContent,
   devMode,
   trail,
   packetIds,
@@ -403,7 +391,7 @@ export function PageReader({
   onNavigatePage,
   onClose,
   onTogglePacket,
-  onRunAction,
+  onRunOperatorCommand,
   onComposeBrief,
   onHoverLink,
   onIsolateRelation,
@@ -413,6 +401,7 @@ export function PageReader({
   pageId: string;
   demo: boolean;
   snapshotSource?: string;
+  loadPageContent: OperatorPort["loadPageContent"];
   devMode?: boolean;
   trail: PageRecord[];
   packetIds: string[];
@@ -420,7 +409,7 @@ export function PageReader({
   onNavigatePage: (id: string) => void;
   onClose: () => void;
   onTogglePacket: (id: string) => void;
-  onRunAction?: (action: ActionCard) => void;
+  onRunOperatorCommand?: (action: OperatorCommandCard) => void;
   onComposeBrief?: (spec: BriefSpec) => void;
   onHoverLink?: (id: string | null) => void;
   onIsolateRelation?: (relation: RelationGroupKey | null) => void;
@@ -437,6 +426,7 @@ export function PageReader({
 
   useEffect(() => {
     let active = true;
+    const controller = new AbortController();
     setLoading(true);
     setContent(null);
     setWalkStep(-1);
@@ -444,15 +434,22 @@ export function PageReader({
       setLoading(false);
       return undefined;
     }
-    loadPageContent(page.id, { demo, snapshotSource }).then((payload) => {
+    loadPageContent(page.id, {
+      demo,
+      snapshotSource,
+      snapshotId: bundle.manifest?.snapshot_id,
+      integrity: bundle.manifest?.integrity,
+      signal: controller.signal
+    }).then((payload) => {
       if (!active) return;
       setContent(payload);
       setLoading(false);
     });
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [demo, page, snapshotSource]);
+  }, [bundle.manifest?.integrity, bundle.manifest?.snapshot_id, demo, page, snapshotSource]);
 
   // Focus trap: the dock is a focused dialog; Esc returns to the scene.
   // onClose travels through a ref so parent re-renders never re-run the trap
@@ -546,9 +543,9 @@ export function PageReader({
   }
 
   const inPacket = packetIds.includes(page.id) || packetIds.includes(page.path);
-  const graphAction = bundle.actions.actions.find((action) => action.id === "graph-check");
-  const reviewAction = bundle.actions.actions.find((action) => action.id === "review-local-changes");
-  const prAction = bundle.actions.actions.find((action) => action.id === "pr-summary");
+  const graphCommand = bundle.actions.actions.find((action) => action.id === "graph-check");
+  const reviewCommand = bundle.actions.actions.find((action) => action.id === "review-local-changes");
+  const prCommand = bundle.actions.actions.find((action) => action.id === "pr-summary");
 
   return (
     <>
@@ -761,20 +758,20 @@ export function PageReader({
               <span>{t("reader.brief")}</span>
             </button>
           )}
-          {onRunAction && graphAction && (
-            <button className="secondaryButton" onClick={() => onRunAction(graphAction)} type="button">
+          {onRunOperatorCommand && graphCommand && (
+            <button className="secondaryButton" onClick={() => onRunOperatorCommand(graphCommand)} type="button">
               <Search size={15} />
               <span>{t("reader.connections")}</span>
             </button>
           )}
-          {onRunAction && reviewAction && (
-            <button className="secondaryButton" onClick={() => onRunAction(reviewAction)} type="button">
+          {onRunOperatorCommand && reviewCommand && (
+            <button className="secondaryButton" onClick={() => onRunOperatorCommand(reviewCommand)} type="button">
               <GitBranch size={15} />
               <span>{t("reader.inspectChanges")}</span>
             </button>
           )}
-          {onRunAction && prAction && (
-            <button className="secondaryButton" onClick={() => onRunAction(prAction)} type="button">
+          {onRunOperatorCommand && prCommand && (
+            <button className="secondaryButton" onClick={() => onRunOperatorCommand(prCommand)} type="button">
               <ListChecks size={15} />
               <span>{t("reader.prepareApproval")}</span>
             </button>

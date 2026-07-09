@@ -7,8 +7,10 @@
 
 import { X } from "lucide-react";
 import { t } from "../data/i18n";
+import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
 import { GateChecks } from "./GateChecks";
 import type { BriefSpec, GateRecord, SnapshotBundle } from "../types";
+import type { OperatorPort } from "../application/ports";
 
 const GATE_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
   pass: "good",
@@ -17,9 +19,48 @@ const GATE_TONE: Record<string, "good" | "warn" | "bad" | "muted"> = {
   not_run: "muted"
 };
 
+function gatesTelemetry(gates: GateRecord[]): DockTelemetryItem[] {
+  const total = gates.length;
+  const passed = gates.filter((gate) => gate.status === "pass").length;
+  const failed = gates.filter((gate) => gate.status === "fail").length;
+  const partial = gates.filter((gate) => gate.status === "partial").length;
+  const notRun = gates.filter((gate) => gate.status === "not_run").length;
+  return [
+    {
+      key: "passed",
+      label: t("gate.telemetry.passed"),
+      value: `${passed}/${total}`,
+      tone: total > 0 && passed === total ? "good" : "info",
+      ratio: total > 0 ? passed / total : 0
+    },
+    {
+      key: "failed",
+      label: t("gate.telemetry.failed"),
+      value: failed,
+      tone: failed > 0 ? "bad" : "good",
+      ratio: total > 0 ? failed / total : 0
+    },
+    {
+      key: "partial",
+      label: t("gate.telemetry.partial"),
+      value: partial,
+      tone: partial > 0 ? "warn" : "muted",
+      ratio: total > 0 ? partial / total : 0
+    },
+    {
+      key: "notRun",
+      label: t("gate.telemetry.notRun"),
+      value: notRun,
+      tone: notRun > 0 ? "muted" : "good",
+      ratio: total > 0 ? notRun / total : 0
+    }
+  ];
+}
+
 export function GatesDock({
   bundle,
   demo,
+  runGate,
   onComposeBrief,
   onNotice,
   onRefetch,
@@ -27,6 +68,7 @@ export function GatesDock({
 }: {
   bundle: SnapshotBundle;
   demo?: boolean;
+  runGate: OperatorPort["runGate"];
   onComposeBrief?: (spec: BriefSpec) => void;
   onNotice: (text: string) => void;
   onRefetch: () => void;
@@ -42,13 +84,14 @@ export function GatesDock({
         <header className="dockHeader">
           <strong>{t("gate.gates.label")}</strong>
           <span className={`pill pill-${GATE_TONE[overall] ?? "muted"}`}>{t(`gate.gate.${overall}`)}</span>
-          <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
             <X size={16} />
           </button>
         </header>
         <p className="dockIntro">{t("gate.intro")}</p>
+        <DockTelemetryRail label={t("gate.telemetry.aria")} items={gatesTelemetry(gates)} />
 
-        <GateChecks gates={gates} demo={demo} onComposeBrief={onComposeBrief} onNotice={onNotice} onRefetch={onRefetch} />
+        <GateChecks gates={gates} demo={demo} runGate={runGate} onComposeBrief={onComposeBrief} onNotice={onNotice} onRefetch={onRefetch} />
       </aside>
     </>
   );

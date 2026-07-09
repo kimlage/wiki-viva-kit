@@ -77,6 +77,9 @@ export type PageRecord = {
   summary: string;
   summary_truncated?: boolean;
   moc_children_count?: number;
+  work?: Record<string, unknown>;
+  source_lifecycle_state?: string;
+  source_blocked_reason?: string;
 };
 
 export type ResolvedLink =
@@ -104,6 +107,7 @@ export type PageContent = {
   ok: boolean;
   error?: string;
   schema_version?: string;
+  snapshot_id?: string;
   page?: PageBrief & {
     summary: string;
     summary_truncated: boolean;
@@ -133,6 +137,24 @@ export type GraphNode = {
     outbound_links: number;
     source_ref_count: number;
   };
+  overlay_metrics?: OverlayMetrics;
+};
+
+export type OverlayMetric = {
+  state: string;
+  value: number | null;
+  count: number;
+  reasons: string[];
+  refs: string[];
+};
+
+export type OverlayMetrics = {
+  attention: OverlayMetric;
+  freshness: OverlayMetric;
+  actions: OverlayMetric;
+  ownership: OverlayMetric;
+  evidence: OverlayMetric;
+  quality: OverlayMetric;
 };
 
 export type GraphEdge = {
@@ -141,22 +163,27 @@ export type GraphEdge = {
   type: string;
   status: string;
   weight: number;
+  id?: string;
+  direction?: string;
+  basis?: string;
+  provenance?: Record<string, string>;
+  observed_at?: string;
 };
 
-export type ActionCommand = {
+export type OperatorCommandStep = {
   label: string;
   argv: string[];
   writes: boolean;
 };
 
-export type ActionCard = {
+export type OperatorCommandCard = {
   id: string;
   kind: string;
   title: string;
   human_reason: string;
   risk_level: "read" | "derive" | "proposal_write" | "external_write" | "destructive";
   default_dry_run: boolean;
-  commands: ActionCommand[];
+  commands: OperatorCommandStep[];
 };
 
 export type GateRecord = {
@@ -182,9 +209,21 @@ export type GateRunResult = {
 export type SnapshotBundle = {
   manifest: {
     schema_version: string;
+    snapshot_id?: string;
+    root_page_id?: string;
+    bundle_hash?: string;
+    capabilities?: string[];
+    versions?: Record<string, string>;
+    integrity?: Record<string, { sha256: string; bytes: number }>;
+    contract_errors?: string[];
+    compatibility?: {
+      state: "current" | "stale_version" | "partial";
+      warnings: string[];
+    };
     generated_at: string;
     mode: string;
     content_sidecars?: boolean;
+    source_sha?: string;
     source_commit: string | null;
     repo: {
       repo_id: string;
@@ -207,12 +246,17 @@ export type SnapshotBundle = {
   graph: {
     nodes: GraphNode[];
     edges: GraphEdge[];
+    relation_vocabulary_version?: string;
+    relation_types?: Record<string, unknown>[];
+    relation_diagnostics?: Record<string, unknown>[];
   };
   pages: {
     pages: PageRecord[];
   };
   actions: {
-    actions: ActionCard[];
+    // `actions.json` is the v1 transport compatibility surface. Its records
+    // are operator commands, never canonical `page_type: action` work items.
+    actions: OperatorCommandCard[];
   };
   freshness: {
     summary: Record<FreshnessState, number>;
@@ -273,13 +317,18 @@ export type SnapshotBundle = {
     quality_flags?: Record<string, unknown[]>;
   };
   commands: {
-    commands: ActionCommand[];
+    commands: OperatorCommandStep[];
   };
   score: ScorePayload;
   sourceEntities: SourceEntitiesPayload;
   templates: TemplatesPayload;
   blocks: BlocksPayload;
   blockStacks: BlockStacksPayload;
+  operatorCommands?: { schema_version: string; operator_commands: Record<string, unknown>[] };
+  workItems?: { schema_version: string; actions: Record<string, unknown>[] };
+  regionGroups?: { schema_version: string; groups: RegionGroupPayload[] };
+  sourceLifecycle?: { schema_version: string; sources: Record<string, unknown>[] };
+  snapshotWarnings?: { schema_version: string; warnings: Record<string, unknown>[] };
 };
 
 // --- Modular template blocks (v2) ---
@@ -561,7 +610,7 @@ export type CommandResultEntry = {
   dry_run: boolean;
 };
 
-export type ActionRunResult = {
+export type OperatorCommandRunResult = {
   ok: boolean;
   action_id: string;
   dry_run: boolean;
@@ -615,6 +664,14 @@ export type OperatorHealth = {
   repo?: string;
   server_version?: string;
   schema_capabilities?: string[];
+  operator_security?: {
+    version: "wiki_operator_security.v1" | string;
+    nonce_header: string;
+    nonce: string;
+    attempt_header: string;
+    max_body_bytes: number;
+    mutations: "post_only" | string;
+  };
   codex?: CodexCapability;
 };
 
@@ -749,4 +806,4 @@ export type IngestionStepResult = {
   plan: IngestionPlan;
 };
 
-export type CommandRunResult = ActionRunResult | WorkflowRunResult | IngestionStepResult;
+export type CommandRunResult = OperatorCommandRunResult | WorkflowRunResult | IngestionStepResult;

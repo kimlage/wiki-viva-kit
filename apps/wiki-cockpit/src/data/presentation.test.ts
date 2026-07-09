@@ -45,6 +45,9 @@ describe("presentation registry", () => {
     expect(pageTypeLabel("source")).toBe("evidence source");
     expect(pageTypeStyle("decision").shape).toBe("diamond");
     expect(pageTypeStyle("action").shape).toBe("comet");
+    expect(pageTypeStyle("meeting").shape).toBe("spark");
+    expect(pageTypeStyle("operational_rule").shape).toBe("slab");
+    expect(pageTypeStyle("person").shape).toBe("totem");
     expect(pageTypeStyle("context_hub").family).toBe("hub");
   });
 
@@ -80,7 +83,7 @@ describe("presentation registry", () => {
   });
 });
 
-describe("context palette registry (hue = area)", () => {
+describe("context secondary-keyline palette registry", () => {
   const PRIVATE_LIKE = ["financeiro", "sistema", "empresas", "profissional", "documentos", "fiscal", "projetos-pessoais", "custos"];
 
   it("assigns 8 registered contexts 8 DISTINCT accents (sorted, deterministic)", () => {

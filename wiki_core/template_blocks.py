@@ -24,7 +24,7 @@ and every resolved block carrying its `origin`.
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -234,7 +234,6 @@ SUBLENS_DEFAULT_BY_TYPE: dict[str, str] = {
     "input_stage": "fontes",
     "template_block": "governanca",
     "skill": "automacoes",
-    "tool": "ferramentas",
 }
 
 ROOT_ENTITY_TYPE_PARENT_PROJECTION: dict[str, tuple[str, str]] = {
@@ -1402,8 +1401,12 @@ def _page_is_open_action(page: dict[str, Any]) -> bool:
     return status not in {"done", "closed", "complete", "completed", "cancelled", "canceled"}
 
 
+REGION_PREVIEW_LIMIT = 40
+
+
 def _summary_for_pages(world: BlockWorld, pages: list[dict[str, Any]]) -> dict[str, int]:
     total = len(pages)
+    shown = min(total, REGION_PREVIEW_LIMIT)
     stale = sum(1 for page in pages if _page_freshness(page, world) == "stale")
     raw = sum(1 for page in pages if page["page_type"] in RAW_PAGE_TYPES)
     source_backed = sum(1 for page in pages if list_values(page["values"].get("source_refs")))
@@ -1414,8 +1417,8 @@ def _summary_for_pages(world: BlockWorld, pages: list[dict[str, Any]]) -> dict[s
     )
     return {
         "total": total,
-        "shown": total,
-        "hidden": 0,
+        "shown": shown,
+        "hidden": total - shown,
         "stale": stale,
         "proposal": sum(1 for page in pages if _page_is_proposal(page)),
         "risk": sum(1 for page in pages if _page_has_risk(page)),

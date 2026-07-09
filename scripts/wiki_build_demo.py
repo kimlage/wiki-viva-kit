@@ -26,10 +26,15 @@ introduced it is not done.
 
 from __future__ import annotations
 
+import argparse
+import datetime as dt
+import hashlib
+import json
 import shutil
 import sys
+import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 import yaml
 
@@ -38,9 +43,34 @@ if str(KIT_ROOT) not in sys.path:
     sys.path.insert(0, str(KIT_ROOT))
 FIXTURE = KIT_ROOT / "docs/references/fixtures/demo-wiki"
 OUT = KIT_ROOT / "apps/wiki-cockpit/public/sample-snapshot"
+SCENARIOS_DIR = FIXTURE / "scenarios"
 
-# A recent, fixed reference so the demo looks fresh with a couple of honest
-# stale/overdue signals. Regenerating updates freshness to the real build date.
+# Demo snapshots are release artifacts, not clocks.  A fixed instant keeps the
+# generated bundle byte-for-byte reproducible and makes freshness assertions a
+# conscious fixture edit instead of a surprise on tomorrow's CI run.
+DEMO_REFERENCE_DATE = dt.date(2026, 7, 9)
+DEMO_GENERATED_AT = "2026-07-09T00:00:00Z"
+DEMO_FIXTURE_ID = "wiki-viva-demo-v8"
+DEMO_SEED = 8008
+
+REQUIRED_SCENARIOS = (
+    "walking_skeleton",
+    "normal_operations",
+    "dense_stress",
+    "source_lifecycle",
+    "failures",
+    "compatibility",
+    "accessibility",
+)
+
+GENERATED_FIXTURE_CONFIGS = (
+    "wiki.config.yaml",
+    "wiki.page-types.yaml",
+    "wiki.templates.yaml",
+)
+
+# Dates are evaluated against DEMO_REFERENCE_DATE so fresh/stale/overdue states
+# remain stable until the fixture contract is intentionally advanced.
 FRESH = "2026-07-03"
 OLD = "2026-05-04"
 
@@ -133,6 +163,138 @@ def page(rel: str, front: dict[str, Any], body: str) -> tuple[str, dict[str, Any
 def render(front: dict[str, Any], body: str) -> str:
     head = yaml.safe_dump(front, sort_keys=False, allow_unicode=True).strip()
     return f"---\n{head}\n---\n\n{body.strip()}\n"
+
+
+def page_id_hash(page_ids: Sequence[str]) -> str:
+    """Stable identity for a scenario's exact semantic page set."""
+    return hashlib.sha256("\n".join(sorted(set(page_ids))).encode("utf-8")).hexdigest()
+
+
+def load_scenario_manifests(scenarios_dir: Path | None = None) -> dict[str, dict[str, Any]]:
+    """Load and minimally validate the public v8 scenario registry.
+
+    The YAML files are authored inputs.  Keeping the loader here makes the
+    manifest executable: tests and future screenshot runners consume the same
+    scenario contract instead of maintaining a second matrix in code.
+    """
+    root = scenarios_dir or SCENARIOS_DIR
+    index_path = root / "manifest.yaml"
+    if not index_path.is_file():
+        raise ValueError(f"demo scenario index is missing: {index_path}")
+    index = yaml.safe_load(index_path.read_text(encoding="utf-8")) or {}
+    if index.get("schema_version") != "wiki_demo_scenarios.v1":
+        raise ValueError("demo scenario index must use wiki_demo_scenarios.v1")
+    if index.get("fixture_id") != DEMO_FIXTURE_ID:
+        raise ValueError(f"demo scenario fixture_id must be {DEMO_FIXTURE_ID}")
+
+    entries = index.get("scenario_manifests")
+    if not isinstance(entries, list) or not entries:
+        raise ValueError("demo scenario index must declare scenario_manifests")
+
+    manifests: dict[str, dict[str, Any]] = {}
+    root_resolved = root.resolve()
+    for relative in entries:
+        path = (root / str(relative)).resolve()
+        if path.parent != root_resolved:
+            raise ValueError(f"scenario manifest must be a direct child of {root}: {relative}")
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        scenario_id = str(payload.get("scenario_id") or "")
+        if payload.get("schema_version") != "wiki_demo_scenario.v1":
+            raise ValueError(f"{relative}: expected wiki_demo_scenario.v1")
+        if payload.get("fixture_id") != DEMO_FIXTURE_ID:
+            raise ValueError(f"{relative}: fixture_id must be {DEMO_FIXTURE_ID}")
+        if not scenario_id or path.name != f"{scenario_id}.yaml":
+            raise ValueError(f"{relative}: file name and scenario_id must agree")
+        if not isinstance(payload.get("seed"), int) or int(payload["seed"]) < 0:
+            raise ValueError(f"{relative}: seed must be a non-negative integer")
+        for required in (
+            "builder",
+            "source_pages",
+            "composition",
+            "expected",
+            "versions",
+            "canonical_routes",
+            "interactions",
+            "automated_assertions",
+            "visual",
+            "expected_warnings",
+            "expected_failures",
+            "generated_files",
+            "regeneration_command",
+        ):
+            if required not in payload:
+                raise ValueError(f"{relative}: missing required field {required}")
+        if scenario_id in manifests:
+            raise ValueError(f"duplicate demo scenario: {scenario_id}")
+        manifests[scenario_id] = payload
+
+    missing = sorted(set(REQUIRED_SCENARIOS) - manifests.keys())
+    unexpected = sorted(manifests.keys() - set(REQUIRED_SCENARIOS))
+    if missing or unexpected:
+        raise ValueError(f"demo scenario registry mismatch; missing={missing}, unexpected={unexpected}")
+    return manifests
+
+
+def scenario_page_ids(
+    scenario_id: str,
+    *,
+    pages: list[tuple[str, dict[str, Any], str]] | None = None,
+    manifests: dict[str, dict[str, Any]] | None = None,
+) -> list[str]:
+    """Resolve a scenario's composable selectors against the canonical cast."""
+    pages = build_pages() if pages is None else pages
+    manifests = load_scenario_manifests() if manifests is None else manifests
+    if scenario_id not in manifests:
+        raise ValueError(f"unknown demo scenario: {scenario_id}")
+    composition = manifests[scenario_id].get("composition") or {}
+    by_id = {str(front.get("page_id") or ""): (rel, front, body) for rel, front, body in pages}
+    if len(by_id) != len(pages) or "" in by_id:
+        raise ValueError("demo pages must have unique non-empty page_id values")
+
+    selected: set[str] = set(by_id) if composition.get("include_all") is True else set()
+    explicit = {str(item) for item in composition.get("include_ids") or []}
+    unknown = sorted(explicit - by_id.keys())
+    if unknown:
+        raise ValueError(f"{scenario_id}: unknown include_ids: {unknown}")
+    selected.update(explicit)
+
+    prefixes = tuple(str(item) for item in composition.get("include_id_prefixes") or [])
+    excluded_prefixes = tuple(str(item) for item in composition.get("exclude_id_prefixes") or [])
+    page_types = {str(item) for item in composition.get("include_page_types") or []}
+    for page_id, (_, front, _) in by_id.items():
+        if prefixes and page_id.startswith(prefixes):
+            selected.add(page_id)
+        if page_types and str(front.get("page_type") or "") in page_types:
+            selected.add(page_id)
+    if excluded_prefixes:
+        selected = {page_id for page_id in selected if not page_id.startswith(excluded_prefixes)}
+    return sorted(selected)
+
+
+def build_scenario_pages(scenario_id: str) -> list[tuple[str, dict[str, Any], str]]:
+    """Materialize one scenario from the shared domain cast."""
+    pages = build_pages()
+    selected = set(scenario_page_ids(scenario_id, pages=pages))
+    return [item for item in pages if str(item[1].get("page_id") or "") in selected]
+
+
+def validate_scenario_manifests() -> dict[str, dict[str, Any]]:
+    """Prove that every declared count/hash still matches its builder inputs."""
+    manifests = load_scenario_manifests()
+    pages = build_pages()
+    for scenario_id, manifest in manifests.items():
+        page_ids = scenario_page_ids(scenario_id, pages=pages, manifests=manifests)
+        expected = manifest.get("expected") or {}
+        if expected.get("page_count") != len(page_ids):
+            raise ValueError(
+                f"{scenario_id}: expected page_count {expected.get('page_count')}, built {len(page_ids)}"
+            )
+        actual_hash = page_id_hash(page_ids)
+        if expected.get("page_id_sha256") != actual_hash:
+            raise ValueError(
+                f"{scenario_id}: expected page_id_sha256 {expected.get('page_id_sha256')}, built {actual_hash}"
+            )
+    return manifests
 
 
 # ---------------------------------------------------------------------------
@@ -641,25 +803,223 @@ keeping a calm calendar.
     sources = [
         ("source-banco-export", "Extrato do Banco", "financeiro", "Banco", "memories/financeiro/index.md"),
         ("source-agenda", "Agenda", "pessoal", "Google Calendar", "memories/index.md"),
+        ("source-inbox-capture", "Inbox capture stream", "pessoal", "Inbox", "memories/index.md"),
+        ("source-notes-vault", "Notes vault index", "pessoal", "Markdown vault", "memories/index.md"),
+        ("source-reference-folder", "Reference folder mirror", "estudio", "Drive folder", "memories/index.md"),
+        ("source-reading-queue", "Reading queue export", "estudio", "Read-it-later", "memories/index.md"),
+        ("source-calendar-archive", "Calendar archive", "pessoal", "Calendar", "memories/index.md"),
+        ("source-decision-log", "Decision log export", "sistema", "Decision ledger", "memories/index.md"),
+        ("source-template-registry", "Template registry snapshot", "sistema", "Template registry", "memories/index.md"),
+        ("source-health-checks", "Health checks output", "sistema", "Checks", "memories/index.md"),
+        ("source-action-ledger", "Action ledger export", "sistema", "Action tracker", "memories/index.md"),
+        ("source-publication-queue", "Publication queue", "sistema", "Review queue", "memories/index.md"),
+        ("source-evidence-ledger", "Evidence ledger export", "sistema", "Evidence ledger", "memories/index.md"),
+        ("source-relation-cadence", "Relation cadence export", "pessoal", "Relations", "memories/index.md"),
         ("source-chat-export", "Export do Chat", "clientes", "WhatsApp", "memories/clientes/index.md"),
         ("source-product-analytics", "Product analytics export", "clientes", "Analytics", "memories/clientes/index.md"),
         ("source-support-tickets", "Support tickets export", "clientes", "Helpdesk", "memories/clientes/index.md"),
+        ("source-crm-accounts", "CRM accounts export", "clientes", "CRM", "memories/clientes/index.md"),
+        ("source-sales-pipeline", "Sales pipeline export", "clientes", "CRM", "memories/clientes/index.md"),
+        ("source-call-recordings", "Call recordings archive", "clientes", "Call archive", "memories/clientes/index.md"),
+        ("source-nps-surveys", "NPS survey export", "clientes", "Survey tool", "memories/clientes/index.md"),
+        ("source-feature-flags", "Feature flag audit", "clientes", "Feature flags", "memories/clientes/product-ops/index.md"),
+        ("source-usage-warehouse", "Usage warehouse extract", "clientes", "Warehouse", "memories/clientes/product-ops/index.md"),
+        ("source-release-notes", "Release notes archive", "clientes", "Docs", "memories/clientes/product-ops/index.md"),
+        ("source-error-traces", "Error trace export", "clientes", "Observability", "memories/clientes/product-ops/index.md"),
+        ("source-clearpath-billing", "Clearpath billing feed", "clientes", "Billing", "memories/empresas/clearpath-labs.md"),
+        ("source-clearpath-support", "Clearpath support feed", "clientes", "Helpdesk", "memories/empresas/clearpath-labs.md"),
+        ("source-clearpath-roadmap", "Clearpath roadmap archive", "clientes", "Roadmap", "memories/empresas/clearpath-labs.md"),
+        ("source-clearpath-risk-log", "Clearpath risk log", "clientes", "Risk register", "memories/empresas/clearpath-labs.md"),
     ]
+    lifecycle_fixtures: dict[str, dict[str, Any]] = {
+        "source-action-ledger": {
+            "region_expectations": {
+                "intencao": {
+                    "state": "required",
+                    "basis": "The action-ledger source contract requires at least one declared intent or reviewed no-change receipt.",
+                    "expected_type_hints": ["action"],
+                    "expected_action_hints": ["review_source_contract"],
+                    "next_interaction": "seedPage",
+                }
+            },
+            "source_lifecycle": {
+                "state": "configured", "freshness_state": "never_synced", "last_attempt_state": "never",
+                "pipeline_stage": "configured", "adoption_state": "pending",
+            }
+        },
+        "source-reference-folder": {
+            "region_expectations": {
+                "intencao": {
+                    "state": "optional",
+                    "basis": "The reference folder may be evidence-only; an empty intent lens is explicitly healthy.",
+                    "next_interaction": "openDock:source",
+                }
+            },
+            "source_lifecycle": {
+                "state": "ready", "freshness_state": "never_synced", "last_attempt_state": "never",
+                "pipeline_stage": "configured", "adoption_state": "pending",
+            }
+        },
+        "source-release-notes": {
+            "sync": {"last_run_at": FRESH, "last_status": "running", "last_event_ref": ""},
+            "source_lifecycle": {
+                "state": "syncing", "freshness_state": "fresh", "last_attempt_state": "ok",
+                "pipeline_stage": "indexed", "pipeline_stage_timestamps": {"manifested": FRESH, "extracted": FRESH, "indexed": FRESH},
+                "adoption_state": "pending", "last_attempt_at": FRESH, "raw_artifact_count": 2,
+                "secret_safe_log_refs": ["logs/demo/source-release-notes-attempt"],
+            },
+        },
+        "source-chat-export": {
+            "sync": {"last_run_at": FRESH, "last_status": "ok", "last_event_ref": "memories/system/ingestion/events/event-ingest-chat-2026-07.md"},
+            "source_lifecycle": {
+                "state": "proposed", "freshness_state": "fresh", "last_attempt_state": "ok",
+                "pipeline_stage": "proposal_ready", "adoption_state": "pending", "last_sync_success_at": FRESH,
+                "last_attempt_at": FRESH, "proposal_ids": ["event-ingest-chat-2026-07"], "raw_artifact_count": 1,
+                "secret_safe_log_refs": ["logs/demo/source-chat-export-attempt"],
+            },
+        },
+        "source-product-analytics": {
+            "sync": {"last_run_at": FRESH, "last_status": "ok", "last_event_ref": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md"},
+            "source_lifecycle": {
+                "state": "ingested", "freshness_state": "fresh", "last_attempt_state": "ok",
+                "pipeline_stage": "complete", "adoption_state": "accepted", "accepted_ref": "demo-sha:product-analytics-accepted",
+                "last_sync_success_at": FRESH, "last_ingested_at": FRESH, "last_attempt_at": FRESH,
+                "emitted_page_ids": ["dashboard-clearpath-activation"],
+                "proposal_ids": ["proposal-ingest-product-analytics-2026-07"], "raw_artifact_count": 1,
+                "secret_safe_log_refs": ["logs/demo/source-product-analytics-attempt"],
+            },
+        },
+        "source-support-tickets": {
+            "sync": {"last_run_at": OLD, "last_status": "ok", "last_event_ref": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md"},
+            "source_lifecycle": {
+                "state": "proposed", "freshness_state": "stale", "last_attempt_state": "ok",
+                "pipeline_stage": "proposal_ready", "adoption_state": "pending", "last_sync_success_at": OLD,
+                "last_attempt_at": OLD, "proposal_ids": ["event-ingest-support-tickets-2026-06"],
+                "raw_artifact_count": 1, "secret_safe_log_refs": ["logs/demo/source-support-tickets-attempt"],
+            },
+        },
+        "source-banco-export": {
+            "sync": {"last_run_at": OLD, "last_status": "ok", "last_event_ref": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"},
+            "source_lifecycle": {
+                "state": "consolidated", "freshness_state": "stale", "last_attempt_state": "ok",
+                "pipeline_stage": "gate_pending", "adoption_state": "pending", "last_sync_success_at": OLD,
+                "last_attempt_at": OLD, "emitted_page_ids": ["claim-custos-sobem", "artifact-relatorio-recon"],
+                "proposal_ids": ["event-ingest-banco-2026-05"], "raw_artifact_count": 1,
+                "secret_safe_log_refs": ["logs/demo/source-banco-export-attempt"],
+            },
+        },
+        "source-agenda": {
+            "sync": {"last_run_at": FRESH, "last_status": "ok", "last_event_ref": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md"},
+            "source_lifecycle": {
+                "state": "ingested", "freshness_state": "fresh", "last_attempt_state": "ok",
+                "pipeline_stage": "complete", "adoption_state": "accepted", "accepted_ref": "demo-sha:agenda-accepted",
+                "last_sync_success_at": FRESH, "last_ingested_at": FRESH, "last_attempt_at": FRESH,
+                "emitted_page_ids": ["meeting-weekly-sync"], "proposal_ids": ["event-ingest-agenda-2026-07"],
+                "raw_artifact_count": 1, "secret_safe_log_refs": ["logs/demo/source-agenda-attempt"],
+            },
+        },
+        "source-decision-log": {
+            "sync": {"last_run_at": FRESH, "last_status": "ok", "last_event_ref": ""},
+            "source_lifecycle": {
+                "state": "ingested", "freshness_state": "fresh", "last_attempt_state": "ok",
+                "pipeline_stage": "complete", "adoption_state": "reviewed_no_change", "accepted_ref": "demo-sha:decision-log-no-change",
+                "last_sync_success_at": FRESH, "last_ingested_at": FRESH, "last_attempt_at": FRESH,
+                "reviewed_no_change_receipt": "receipt:demo-decision-log-no-change",
+                "secret_safe_log_refs": ["logs/demo/source-decision-log-attempt"],
+            },
+        },
+        "source-health-checks": {
+            "relation_cases": [
+                {
+                    "type": "markdown_link", "target": "source-error-traces", "direction": "directed",
+                    "basis": "synthetic_allowed_cycle", "provenance": {"fixture": "failures", "field": "relation_cases"},
+                }
+            ],
+            "sync": {"last_run_at": FRESH, "last_status": "failed", "last_event_ref": ""},
+            "source_blocked_reason": "The synthetic health endpoint returned an operational failure.",
+            "source_lifecycle": {
+                "state": "blocked", "freshness_state": "stale", "last_attempt_state": "failed",
+                "pipeline_stage": "manifested", "adoption_state": "pending", "last_attempt_at": FRESH,
+                "secret_safe_log_refs": ["logs/demo/source-health-checks-failed"],
+            },
+        },
+        "source-crm-accounts": {
+            "region_expectations": {
+                "intencao": {
+                    "state": "not_applicable",
+                    "basis": "This blocked CRM adapter exposes account evidence, not intent records.",
+                    "next_interaction": "openDock:source",
+                }
+            },
+            "sync": {"last_run_at": FRESH, "last_status": "needs_auth", "last_event_ref": ""},
+            "source_blocked_reason": "Authorization is required; no credential value is stored in the fixture.",
+            "source_lifecycle": {
+                "state": "blocked", "freshness_state": "never_synced", "last_attempt_state": "needs_auth",
+                "pipeline_stage": "configured", "adoption_state": "pending", "last_attempt_at": FRESH,
+                "secret_safe_log_refs": ["logs/demo/source-crm-accounts-needs-auth"],
+            },
+        },
+        "source-error-traces": {
+            "relation_cases": [
+                {
+                    "type": "markdown_link", "target": "source-health-checks", "direction": "directed",
+                    "basis": "synthetic_allowed_cycle", "provenance": {"fixture": "failures", "field": "relation_cases"},
+                },
+                {"type": "unknown_demo_relation", "target": "missing-demo-page", "direction": "directed"},
+                {"type": "source_ref", "target": "source-health-checks", "direction": "reverse"},
+            ],
+            "region_expectations": {
+                "intencao": {
+                    "state": "unknown",
+                    "basis": "No template or operator rule has decided whether error traces should project intent.",
+                    "next_interaction": "openDock:blocks",
+                }
+            },
+            "sync": {"last_run_at": FRESH, "last_status": "parser_error", "last_event_ref": ""},
+            "source_blocked_reason": "The synthetic trace export is malformed.",
+            "source_lifecycle": {
+                "state": "blocked", "freshness_state": "stale", "last_attempt_state": "parser_error",
+                "pipeline_stage": "extracted", "adoption_state": "pending", "last_attempt_at": FRESH,
+                "raw_artifact_count": 1, "secret_safe_log_refs": ["logs/demo/source-error-traces-parser"],
+            },
+        },
+        "source-publication-queue": {
+            "sync": {"last_run_at": FRESH, "last_status": "secret_blocked", "last_event_ref": ""},
+            "source_blocked_reason": "Secret scanning blocked the synthetic attempt before publication.",
+            "source_lifecycle": {
+                "state": "blocked", "freshness_state": "never_synced", "last_attempt_state": "secret_blocked",
+                "pipeline_stage": "extracted", "adoption_state": "pending", "last_attempt_at": FRESH,
+                "secret_safe_log_refs": ["logs/demo/source-publication-queue-secret-block"],
+            },
+        },
+    }
     for sid, title, context, platform, moc in sources:
+        source_front = fm(
+            page_id=sid,
+            page_type="source",
+            title=title,
+            context=context,
+            updated_at=FRESH if sid != "source-banco-export" else OLD,
+            moc_parent=moc,
+            source_type="live",
+            platform=platform,
+            owner="root-alex-rivera",
+        )
+        source_front.update(
+            lifecycle_fixtures.get(
+                sid,
+                {
+                    "source_lifecycle": {
+                        "state": "ready", "freshness_state": "never_synced", "last_attempt_state": "never",
+                        "pipeline_stage": "configured", "adoption_state": "pending",
+                    }
+                },
+            )
+        )
         pages.append(
             page(
                 f"memories/sources/{sid}.md",
-                fm(
-                    page_id=sid,
-                    page_type="source",
-                    title=title,
-                    context=context,
-                    updated_at=FRESH if sid != "source-banco-export" else OLD,
-                    moc_parent=moc,
-                    source_type="live",
-                    platform=platform,
-                    owner="root-alex-rivera",
-                ),
+                source_front,
                 f"# {title}\n\nA live source. Its content is born by ingestion — manual creation under it is off. (The bank export is intentionally overdue.)",
             )
         )
@@ -671,17 +1031,24 @@ keeping a calm calendar.
     # story beat the gamification package turns into a sync mission.
     ingestion_events = [
         ("event-ingest-banco-2026-05", "Ingestão: extrato do banco (maio)", OLD, "source-banco-export",
+         ["claim-custos-sobem", "artifact-relatorio-recon"],
          "Normalized import of the bank statement. The claim about cloud costs and the reconciliation report were born here."),
-        ("event-ingest-chat-2026-07", "Ingestão: export do chat", FRESH, "source-chat-export",
-         "Normalized import of the client chat export — meetings and people references updated."),
-        ("event-ingest-agenda-2026-07", "Ingestão: agenda", FRESH, "source-agenda",
-         "Normalized import of the calendar — encounters and cadences refreshed."),
-        ("event-ingest-product-analytics-2026-07", "Ingestão: product analytics", FRESH, "source-product-analytics",
+        ("event-ingest-chat-2026-07", "Ingestão: export do chat", FRESH, "source-chat-export", [],
+         "Normalized import of the client chat export — the proposal is still awaiting consolidation."),
+        ("event-ingest-agenda-2026-07", "Ingestão: agenda", FRESH, "source-agenda", ["meeting-weekly-sync"],
+         "Normalized import of the calendar — encounters and cadences refreshed and accepted."),
+        ("event-ingest-product-analytics-2026-07", "Ingestão: product analytics", FRESH, "source-product-analytics", ["dashboard-clearpath-activation"],
          "Normalized import of product analytics used by the region-grouping stress demo."),
-        ("event-ingest-support-tickets-2026-06", "Ingestão: support tickets", OLD, "source-support-tickets",
-         "Older helpdesk import kept intentionally overdue so the demo has stale evidence work."),
+        ("event-ingest-support-tickets-2026-06", "Ingestão: support tickets", OLD, "source-support-tickets", [],
+         "Older helpdesk import kept intentionally overdue and unconsolidated so the demo has stale evidence work."),
     ]
-    for eid, title, when, source_ref, body in ingestion_events:
+    for eid, title, when, source_ref, consolidated_into, body in ingestion_events:
+        event_extra: dict[str, Any] = {}
+        if eid == "event-ingest-product-analytics-2026-07":
+            event_extra = {
+                "proposal_ids": ["proposal-ingest-product-analytics-2026-07"],
+                "previous_refs": ["event-ingest-agenda-2026-07"],
+            }
         pages.append(
             page(
                 f"memories/system/ingestion/events/{eid}.md",
@@ -694,10 +1061,30 @@ keeping a calm calendar.
                     stale_after_days="365",  # a dated event is history, never "stale"
                     moc_parent="memories/index.md",
                     source_refs=[source_ref],
+                    consolidated_into=consolidated_into,
+                    **event_extra,
                 ),
                 f"# {title}\n\n{body}\n\n## Source\n\n- Source: `{source_ref}`\n- Normalized event: this page IS the record of the sync.",
             )
         )
+
+    pages.append(
+        page(
+            "memories/system/ingestion/proposals/proposal-ingest-product-analytics-2026-07.md",
+            fm(
+                page_id="proposal-ingest-product-analytics-2026-07",
+                page_type="proposal",
+                title="Proposal: integrate product analytics evidence",
+                context="sistema",
+                updated_at=FRESH,
+                moc_parent="memories/index.md",
+                source_refs=["source-product-analytics"],
+                consolidated_into=["dashboard-clearpath-activation"],
+                gate_state="approved",
+            ),
+            "# Proposal: integrate product analytics evidence\n\nSynthetic reviewed proposal connecting the ingest event to the canonical dashboard.",
+        )
+    )
 
     # --- Leaves that populate the quadrant interiors -----------------------
     leaves = [
@@ -777,6 +1164,115 @@ keeping a calm calendar.
             "and unsourced conclusions visible in the public demo."
         )
         pages.append(page(f"memories/{_leaf_dir(ptype)}/{lid}.md", front, body))
+
+    # Hundreds-scale pressure. These records are deliberately repetitive in
+    # shape but not opaque: every ID is stable, every action is canonical, and
+    # source/evidence/staleness fields vary deterministically. The normal
+    # scenario excludes this prefix; dense_stress includes it and therefore
+    # crosses the mobile 350-node threshold while staying below desktop 800.
+    for index in range(1, 241):
+        page_id = f"artifact-region-pressure-{index:03d}"
+        long_label = (
+            f"Artefato operacional extremamente detalhado para validar colisão e leitura em português número {index:03d}"
+            if index % 12 == 0
+            else f"Dense evidence artifact {index:03d}"
+        )
+        source_refs = ["source-product-analytics" if index % 3 else "source-support-tickets"] if index % 5 else []
+        pages.append(
+            page(
+                f"memories/artifacts/{page_id}.md",
+                fm(
+                    page_id=page_id,
+                    page_type="artifact",
+                    title=long_label,
+                    context="clientes",
+                    updated_at=OLD if index % 7 == 0 else FRESH,
+                    moc_parent="memories/clientes/index.md" if index % 2 else "memories/clientes/product-ops/index.md",
+                    sub_lens="producao",
+                    source_refs=source_refs,
+                ),
+                f"# {long_label}\n\nPublic deterministic density artifact {index:03d}; source links and freshness are real fixture fields.",
+            )
+        )
+
+    action_states = ("open", "in_progress", "blocked", "waiting_human", "done", "cancelled")
+    owner_kinds = ("human", "agent", "system", "other", "unassigned")
+    for index in range(1, 61):
+        page_id = f"action-region-pressure-{index:03d}"
+        state = action_states[(index - 1) % len(action_states)]
+        owner_kind = owner_kinds[(index - 1) % len(owner_kinds)]
+        owner_ref = "" if owner_kind == "unassigned" else (
+            "person-marina-costa" if owner_kind == "human" else f"demo-{owner_kind}-operator"
+        )
+        title = (
+            f"Ação que aguarda julgamento humano sobre evidência sintética de alta densidade {index:03d}"
+            if state == "waiting_human"
+            else f"Dense canonical action {index:03d}"
+        )
+        due_at = "2026-06-15" if index % 4 == 0 else "2026-08-15"
+        extra: dict[str, Any] = {
+            "state": state,
+            "owner_kind": owner_kind,
+            "owner_ref": owner_ref,
+            "created_at": "2026-06-01",
+            "due_at": due_at,
+            "parent_ref": "hub-clientes",
+            "source_refs": ["source-support-tickets"],
+            "evidence_refs": [
+                "dashboard-clearpath-activation"
+                if index == 1
+                else f"artifact-region-pressure-{((index - 1) % 240) + 1:03d}"
+            ],
+            "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+            "priority": "high" if index % 3 == 0 else "normal",
+        }
+        if state == "blocked":
+            extra.update({"blocked_by": ["source-support-tickets"], "blocker_reason": "Synthetic parser dependency is blocked."})
+        if state == "done":
+            extra.update({"completed_at": FRESH, "completion_receipt": f"receipt:demo-action-done-{index:03d}"})
+        if state == "cancelled":
+            extra["cancellation_receipt"] = f"receipt:demo-action-cancelled-{index:03d}"
+        pages.append(
+            page(
+                f"memories/actions/{page_id}.md",
+                fm(
+                    page_id=page_id,
+                    page_type="action",
+                    title=title,
+                    context="clientes",
+                    updated_at=OLD if index % 4 == 0 else FRESH,
+                    stale_after_days=30,
+                    moc_parent="memories/clientes/index.md",
+                    sub_lens="intencao" if state in {"open", "waiting_human", "blocked"} else "producao",
+                    **extra,
+                ),
+                f"# {title}\n\nCanonical synthetic work object {index:03d}; it is not an executable operator command.",
+            )
+        )
+
+    for index in range(1, 61):
+        page_id = f"claim-region-pressure-{index:03d}"
+        title = (
+            f"Conclusão sintética sem evidência precisa permanecer visível e explicável {index:03d}"
+            if index % 10 == 0
+            else f"Dense evidence claim {index:03d}"
+        )
+        pages.append(
+            page(
+                f"memories/claims/{page_id}.md",
+                fm(
+                    page_id=page_id,
+                    page_type="claim",
+                    title=title,
+                    context="clientes",
+                    updated_at=OLD if index % 6 == 0 else FRESH,
+                    moc_parent="memories/clientes/index.md",
+                    sub_lens="percepcao",
+                    source_refs=["source-product-analytics"] if index % 4 else [],
+                ),
+                f"# {title}\n\nPublic deterministic claim {index:03d}; missing evidence is intentional when source_refs is empty.",
+            )
+        )
 
     # --- Perspectives (the lens content blocks reference) ------------------
     perspectives = [
@@ -946,41 +1442,6 @@ def _stage_of(front: dict[str, Any]) -> int:
     return STAGE_BY_PAGE.get(str(front.get("page_id") or ""), FINAL_STAGE)
 
 
-def _neutralize_repo_state(out_dir: Path) -> None:
-    """The fixture lives INSIDE the kit repo, so build_snapshot's git walk finds
-    the kit's real worktree — leaking the developer's uncommitted files into the
-    demo (an Approve badge of 135 in a fictional world is a lie). The demo is a
-    SELF-CONTAINED universe: clean tree, empty diff, honest zero."""
-    import json
-
-    git_path = out_dir / "git.json"
-    if git_path.exists():
-        git = json.loads(git_path.read_text(encoding="utf-8"))
-        git["current_branch"] = git.get("default_branch") or "main"
-        git["worktree"] = {"clean": True, "changed_files": []}
-        git["proposal"] = {
-            "is_proposal_branch": False,
-            "theme": "",
-            "draft_pr_url": None,
-            "human_gate_state": "clean",
-        }
-        git_path.write_text(json.dumps(git, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    diff_path = out_dir / "diff.json"
-    if diff_path.exists():
-        diff = json.loads(diff_path.read_text(encoding="utf-8"))
-        diff["files"] = []
-        diff["summary"] = {
-            "file_count": 0,
-            "branch_file_count": 0,
-            "working_tree_file_count": 0,
-            "insertions": 0,
-            "deletions": 0,
-            "status_counts": {},
-            "privacy_review_required": False,
-        }
-        diff_path.write_text(json.dumps(diff, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
-
 def write_fixture(target: Path, stage: int = FINAL_STAGE) -> list[str]:
     """Write the fixture-wiki for `stage` into `target`. Returns page_ids."""
     memories = target / "memories"
@@ -1014,58 +1475,240 @@ def write_fixture(target: Path, stage: int = FINAL_STAGE) -> list[str]:
     return written
 
 
-def build_stage_snapshots() -> dict[str, Any]:
-    """One REAL snapshot per genesis stage under OUT/stages/<k>/ + manifest."""
-    import tempfile
+def _input_files(fixture_root: Path) -> list[tuple[str, bytes]]:
+    entries: list[tuple[str, bytes]] = []
+    for path in sorted(item for item in fixture_root.rglob("*") if item.is_file()):
+        rel = path.relative_to(fixture_root).as_posix()
+        if rel.startswith("scenarios/"):
+            continue
+        entries.append((f"fixture/{rel}", path.read_bytes()))
+    for path in sorted(SCENARIOS_DIR.glob("*.yaml")):
+        entries.append((f"scenarios/{path.name}", path.read_bytes()))
+    return entries
 
+
+def source_input_hash(fixture_root: Path) -> str:
+    """Hash authored scenario manifests plus the exact generated wiki inputs."""
+    digest = hashlib.sha256()
+    for rel, content in _input_files(fixture_root):
+        digest.update(rel.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(content).digest())
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _fixture_metadata(fixture_root: Path, *, stage: int | None = None) -> dict[str, Any]:
+    return {
+        "fixture_id": DEMO_FIXTURE_ID,
+        "scenario_id": "walking_skeleton" if stage is not None else "normal_operations",
+        "scenario_ids": list(REQUIRED_SCENARIOS),
+        "seed": DEMO_SEED,
+        "source_input_sha256": source_input_hash(fixture_root),
+        "reference_date": DEMO_REFERENCE_DATE.isoformat(),
+        **({"genesis_stage": stage} if stage is not None else {}),
+    }
+
+
+def _write_snapshot_deterministic(
+    fixture_root: Path,
+    out_dir: Path,
+    *,
+    stage: int | None = None,
+) -> dict[str, Path]:
+    """Build one frozen snapshot from a self-contained temporary fixture."""
     from wiki_core.config import load_config
-    from wiki_core.web.snapshot import write_snapshot
+    from wiki_core.web import snapshot as snapshot_module
+    from wiki_core.web.sources import build_sources_payload
 
-    stages_dir = OUT / "stages"
+    config = load_config(fixture_root)
+    original_today = snapshot_module._today
+    original_sources = snapshot_module._safe_source_entities
+
+    def frozen_sources(root: Path, loaded_config: Any) -> dict[str, Any]:
+        try:
+            return build_sources_payload(root, loaded_config, today=DEMO_REFERENCE_DATE)
+        except Exception as exc:  # noqa: BLE001 - same safe snapshot contract
+            return {"schema_version": "wiki_web_source_entities.v1", "sources": [], "error": str(exc)}
+
+    snapshot_module._today = lambda: DEMO_REFERENCE_DATE
+    snapshot_module._safe_source_entities = frozen_sources
+    try:
+        payloads = snapshot_module.build_snapshot(
+            fixture_root,
+            config,
+            mode="static",
+            generated_at=DEMO_GENERATED_AT,
+            content_sidecars=True,
+        )
+    finally:
+        snapshot_module._today = original_today
+        snapshot_module._safe_source_entities = original_sources
+
+    payloads["manifest.json"]["fixture"] = _fixture_metadata(fixture_root, stage=stage)
+    artifacts = snapshot_module.prepare_snapshot_artifacts(
+        fixture_root, config, payloads, content_sidecars=True
+    )
+    return snapshot_module.promote_snapshot_artifacts(out_dir, artifacts)
+
+
+def build_stage_snapshots(out_root: Path | None = None) -> dict[str, Any]:
+    """Build one real, deterministic snapshot per genesis stage."""
+    out_root = out_root or OUT
+    stages_dir = out_root / "stages"
     if stages_dir.exists():
         shutil.rmtree(stages_dir)
-    manifest: dict[str, Any] = {"schema_version": "wiki_genesis_stages.v1", "final_stage": FINAL_STAGE, "stages": []}
+    manifest: dict[str, Any] = {
+        "schema_version": "wiki_genesis_stages.v1",
+        "fixture_id": DEMO_FIXTURE_ID,
+        "scenario_id": "walking_skeleton",
+        "seed": DEMO_SEED,
+        "final_stage": FINAL_STAGE,
+        "stages": [],
+    }
     previous: set[str] = set()
     for stage in range(FINAL_STAGE + 1):
         with tempfile.TemporaryDirectory(prefix=f"wiki-demo-stage-{stage}-") as tmp:
             tmp_root = Path(tmp)
             page_ids = set(write_fixture(tmp_root, stage))
-            config = load_config(tmp_root)
             out_dir = stages_dir / str(stage)
-            write_snapshot(tmp_root, out_dir, config, clean=True, mode="static", content_sidecars=True)
-            _neutralize_repo_state(out_dir)
+            _write_snapshot_deterministic(tmp_root, out_dir, stage=stage)
             manifest["stages"].append(
                 {
                     "stage": stage,
                     "dir": f"stages/{stage}",
                     "focus": STAGE_FOCUS.get(stage, ""),
                     "page_count": len(page_ids),
+                    "page_id_sha256": page_id_hash(sorted(page_ids)),
+                    "source_input_sha256": source_input_hash(tmp_root),
                     "added_pages": sorted(page_ids - previous),
                     "root_attachments": root_attachments(stage) if stage >= 1 else {},
                 }
             )
             previous = page_ids
-    import json
-
+    stages_dir.mkdir(parents=True, exist_ok=True)
     (stages_dir / "stages.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return manifest
 
 
-def main() -> None:
-    from wiki_core.config import load_config
-    from wiki_core.web.snapshot import write_snapshot
+def build_demo(fixture_dir: Path, out_dir: Path) -> dict[str, Any]:
+    """Generate the complete fixture and snapshots only into caller paths."""
+    write_fixture(fixture_dir, FINAL_STAGE)
+    written = _write_snapshot_deterministic(fixture_dir, out_dir)
+    stages = build_stage_snapshots(out_dir)
+    return {
+        "page_count": len(list((fixture_dir / "memories").rglob("*.md"))),
+        "snapshot_file_count": len(written),
+        "stage_count": len(stages["stages"]),
+        "source_input_sha256": source_input_hash(fixture_dir),
+    }
 
-    write_fixture(FIXTURE, FINAL_STAGE)
-    config = load_config(FIXTURE)
-    written = write_snapshot(FIXTURE, OUT, config, clean=True, mode="static", content_sidecars=True)
-    _neutralize_repo_state(OUT)
-    pages = len(list((FIXTURE / "memories").rglob("*.md")))
-    manifest = build_stage_snapshots()
-    print(
-        f"demo: {pages} pages -> {len(written)} snapshot files in {OUT.relative_to(KIT_ROOT)}"
-        f" + {len(manifest['stages'])} genesis stages"
+
+def _fixture_file_map(root: Path) -> dict[str, bytes]:
+    files: dict[str, bytes] = {}
+    memories = root / "memories"
+    if memories.exists():
+        for path in sorted(item for item in memories.rglob("*") if item.is_file()):
+            files[path.relative_to(root).as_posix()] = path.read_bytes()
+    for name in GENERATED_FIXTURE_CONFIGS:
+        path = root / name
+        if path.is_file():
+            files[name] = path.read_bytes()
+    return files
+
+
+def _tree_file_map(root: Path) -> dict[str, bytes]:
+    if not root.exists():
+        return {}
+    return {
+        path.relative_to(root).as_posix(): path.read_bytes()
+        for path in sorted(item for item in root.rglob("*") if item.is_file())
+    }
+
+
+def _map_drift(generated: dict[str, bytes], committed: dict[str, bytes], label: str) -> list[str]:
+    drift: list[str] = []
+    for rel in sorted(generated.keys() - committed.keys()):
+        drift.append(f"{label}: missing {rel}")
+    for rel in sorted(committed.keys() - generated.keys()):
+        drift.append(f"{label}: unexpected {rel}")
+    for rel in sorted(generated.keys() & committed.keys()):
+        if generated[rel] != committed[rel]:
+            drift.append(f"{label}: changed {rel}")
+    return drift
+
+
+def demo_drift(fixture_dir: Path | None = None, out_dir: Path | None = None) -> list[str]:
+    """Regenerate in an isolated directory and report committed-artifact drift."""
+    fixture_dir = fixture_dir or FIXTURE
+    out_dir = out_dir or OUT
+    with tempfile.TemporaryDirectory(prefix="wiki-demo-check-") as tmp:
+        generated_fixture = Path(tmp) / "fixture"
+        generated_out = Path(tmp) / "snapshot"
+        build_demo(generated_fixture, generated_out)
+        return [
+            *_map_drift(_fixture_file_map(generated_fixture), _fixture_file_map(fixture_dir), "fixture"),
+            *_map_drift(_tree_file_map(generated_out), _tree_file_map(out_dir), "snapshot"),
+        ]
+
+
+def _replace_generated_fixture(generated: Path, target: Path) -> None:
+    target.mkdir(parents=True, exist_ok=True)
+    memories = target / "memories"
+    if memories.exists():
+        shutil.rmtree(memories)
+    shutil.copytree(generated / "memories", memories)
+    for name in GENERATED_FIXTURE_CONFIGS:
+        shutil.copy2(generated / name, target / name)
+
+
+def _replace_tree(generated: Path, target: Path) -> None:
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(generated, target)
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Build or verify the deterministic public Wiki Viva demo")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="regenerate in a temporary directory and fail if committed fixture/snapshot artifacts drift",
     )
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _parser().parse_args(argv)
+    # Loading the registry is a gate in both modes: malformed or incomplete
+    # scenario contracts must never produce apparently valid snapshots.
+    validate_scenario_manifests()
+    if args.check:
+        drift = demo_drift()
+        if drift:
+            print(f"demo drift: {len(drift)} generated artifact(s) differ", file=sys.stderr)
+            for item in drift[:40]:
+                print(f"  - {item}", file=sys.stderr)
+            if len(drift) > 40:
+                print(f"  - ... and {len(drift) - 40} more", file=sys.stderr)
+            print("run scripts/wiki_build_demo.py to regenerate intentionally", file=sys.stderr)
+            return 1
+        print(f"demo: deterministic fixture and snapshot are current ({DEMO_FIXTURE_ID}, seed {DEMO_SEED})")
+        return 0
+
+    with tempfile.TemporaryDirectory(prefix="wiki-demo-build-") as tmp:
+        generated_fixture = Path(tmp) / "fixture"
+        generated_out = Path(tmp) / "snapshot"
+        report = build_demo(generated_fixture, generated_out)
+        _replace_generated_fixture(generated_fixture, FIXTURE)
+        _replace_tree(generated_out, OUT)
+    print(
+        f"demo: {report['page_count']} pages -> {report['snapshot_file_count']} snapshot files "
+        f"in {OUT.relative_to(KIT_ROOT)} + {report['stage_count']} genesis stages "
+        f"(input {report['source_input_sha256'][:12]})"
+    )
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

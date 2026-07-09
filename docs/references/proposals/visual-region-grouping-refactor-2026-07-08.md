@@ -15,12 +15,12 @@ tags:
   - wiki/cockpit
   - wiki/quadrants
   - wiki/templates
-  - status/plan
+  - status/superseded
 date: "2026-07-08"
-status: plan
+status: superseded
 context: system
 visibility: public_reference
-updated_at: 2026-07-08
+updated_at: 2026-07-09
 stale_after_days: 45
 sources_policy: "local_code_review_plus_read_only_private_cockpit"
 gate: github_pr
@@ -41,12 +41,14 @@ related_pages:
   - ../../../apps/wiki-cockpit/src/scene/parts/labels.tsx
   - ../../../apps/wiki-cockpit/src/scene/parts/fallback.tsx
   - ../../../scripts/wiki_build_demo.py
-target_version: "wiki-viva v7 visual grouping candidate"
+target_version: "historical input absorbed by wiki-viva v8"
 audience: "wiki-viva maintainers, cockpit implementers and downstream wiki owners"
 scope: "Plan for refactoring visual regions into first-class navigable groups with practical summaries, actions, data-type distinction, attention signals and template-resolved visual primitives, proven in the public synthetic demo and checked read-only against the private cockpit."
 ---
 
 # Plan - Visual Region Grouping for the Cockpit Map
+
+> **Superseded / absorbed.** This proposal is retained as historical input only. The sole active execution contract is [Wiki Viva v8 Unified Living World](wiki-viva-v8-unified-living-world-execution-plan-2026-07-09.md); implementation status and release evidence belong there.
 
 Updated on: 2026-07-08.
 
@@ -64,18 +66,14 @@ the current checkouts instead of stale browser state.
 - Public kit checkout: `wiki-viva-kit`, local `main` at `71c845fb`
   (`fix(cockpit): keep active center out of quadrants`), one commit ahead of
   `origin/main`.
-- Private downstream checkout: `sargam_controle_pessoal`, local `main` at
-  `0a84da3a` (`chore(wiki): apply wiki viva v6.9.3 active center fix`), one
-  commit ahead of `origin/main`.
+- Private downstream evidence was recorded under the public-safe identifier
+  `private-pilot-01`; exact paths, SHAs, page IDs and content remain private.
 - Public demo route used for implementation target:
   `http://127.0.0.1:5173/demo/w/quadrants`.
 - Private route used read-only as scale reference:
   `http://127.0.0.1:5174/w/quadrants`.
-- Private snapshot was regenerated at `2026-07-08T00:05:28Z` and the cockpit
-  showed `554 pages`, updated `2026-07-08 00:06`, in `local_operator` mode.
-- Private quadrant totals after restart: Identity and intent `40`, Outputs and
-  evidence `231`, Culture and relations `28`, Systems and governance `70`.
-  Visible/total in the current map: `17/40`, `101/231`, `12/28`, `30/70`.
+- The private snapshot was validated read-only in `local_operator` mode; only
+  public-safe pass/fail and aggregate behavior may leave that checkout.
 - Public synthetic demo was edited and regenerated on 2026-07-08. It now has
   `82 pages` and explicit region-grouping stress content under nested client
   centers.
@@ -641,7 +639,7 @@ Recommended shape:
   "schema_version": "wiki.region_groups.v1",
   "generated_at": "2026-07-08T00:05:28Z",
   "anchors": {
-    "root-kim-de-amorim-lage": {
+    "synthetic-root": {
       "regions": [
         {
           "id": "quadrant:intencao",

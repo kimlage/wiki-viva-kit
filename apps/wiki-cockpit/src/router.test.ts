@@ -14,8 +14,14 @@ const BASE_QUERY: WorldQuery = {
   station: 0,
   ack: [],
   tray: "",
+  lens: "",
+  view: "",
+  overlay: "",
+  page: "",
+  worldGroup: "",
   quadrant: "",
   center: "",
+  runtime: "",
   genesis: false,
   stage: 0
 };
@@ -31,6 +37,22 @@ const world = (
 });
 
 describe("router grammar", () => {
+  it("hydrates the canonical v8 query grammar without conflating view, lens and overlay", () => {
+    expect(parseRoute("/w", "?center=root&view=radar&lens=q3_relacoes&overlay=evidence&page=source-mail&reader=1")).toMatchObject({
+      kind: "world",
+      perspective: "radar",
+      pageId: "source-mail",
+      query: { center: "root", view: "radar", lens: "q3_relacoes", overlay: "evidence", page: "source-mail", reader: true }
+    });
+  });
+
+  it("round-trips explicit runtime rollback modes without changing semantic route fields", () => {
+    const parsed = parseRoute("/w", "?center=root&view=quadrants&runtime=legacy");
+    expect(parsed).toMatchObject({ kind: "world", query: { center: "root", view: "quadrants", runtime: "legacy" } });
+    if (parsed.kind !== "world") throw new Error("expected world route");
+    expect(buildUrl(parsed)).toContain("runtime=legacy");
+    expect(patchWorld(parsed, { runtime: "compat" })).toMatchObject({ query: { runtime: "compat", center: "root" } });
+  });
   it("parses the world grammar /w/:perspective/:context?/:group?/:pageId?", () => {
     const route = parseRoute("/w/atlas/financeiro/faturas/custo-starlink", "?reader=1&q=star");
     expect(route).toMatchObject({
@@ -60,6 +82,46 @@ describe("router grammar", () => {
       group: "decision",
       pageId: "abc",
       query: { filter: "stale", packet: ["a", "b"], reader: true }
+    });
+  });
+
+  it("round-trips a conceptual lens without drilling into a group route", () => {
+    const route = world({
+      perspective: "quadrants",
+      query: { lens: "pratica" }
+    });
+    const url = buildUrl(route);
+    expect(url).toBe("/w/quadrants?lens=pratica");
+    const parsed = parseRoute("/w/quadrants", "?lens=pratica");
+    expect(parsed).toMatchObject({
+      kind: "world",
+      perspective: "quadrants",
+      context: undefined,
+      group: undefined,
+      query: { lens: "pratica" }
+    });
+    expect(patchWorld(world({ perspective: "quadrants" }), { lens: "pratica" })).toMatchObject({
+      perspective: "quadrants",
+      context: undefined,
+      group: undefined,
+      query: { lens: "pratica" }
+    });
+  });
+
+  it("round-trips a real family group separately from conceptual lens", () => {
+    const route = world({
+      perspective: "quadrants",
+      query: { center: "root-alex-rivera", lens: "pratica", worldGroup: "family:source" }
+    });
+    const url = buildUrl(route);
+    expect(url).toBe("/w/quadrants?lens=pratica&group=family%3Asource&center=root-alex-rivera");
+    const parsed = parseRoute("/w/quadrants", "?center=root-alex-rivera&lens=pratica&group=family%3Asource");
+    expect(parsed).toMatchObject({
+      kind: "world",
+      perspective: "quadrants",
+      context: undefined,
+      group: undefined,
+      query: { center: "root-alex-rivera", lens: "pratica", worldGroup: "family:source" }
     });
   });
 
@@ -157,7 +219,7 @@ describe("router grammar", () => {
     const base = world({ context: "a", pageId: "p", query: { dock: "approve", station: 4, diff: true, reader: true } });
     // Releasing the page clears diff.
     expect(patchWorld(base, { pageId: null }).query.diff).toBe(false);
-    // Leaving the approve dock clears the station.
+    // Leaving the approve dock clears the selected approval lane.
     expect(patchWorld(base, { dock: "gates" }).query.station).toBe(0);
   });
 

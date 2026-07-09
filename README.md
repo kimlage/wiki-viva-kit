@@ -4,43 +4,59 @@ A Markdown/Git-first **living operational wiki** with a deterministic Python cor
 honesty gates in CI, and deep reading delegated to the AI agent that runs the
 repo (Claude, Codex, Gemini or any other) — no LLM client embedded in the code.
 
-![The 3D knowledge world — Radar perspective, bundled demo with synthetic data](docs/assets/cockpit-radar-demo.png)
+Your wiki is one **navigable living world**, not a file tree or a collection of
+dashboard islands. Every entity is a real page. The active center remains a
+real page while registered views change geometry, lenses change semantic
+projection and overlays encode one selected metric. Color follows the active
+overlay through semantic tokens — it is not a permanent area/context hue.
+Shape expresses kind, lines express typed relations and every motion/effect
+must be backed by snapshot data and a declared purpose.
 
-Your wiki is a **navigable 3D world**, not a file tree. Every dot is a page:
-**hue = its area** (finance stays one color everywhere), and **state shows as
-aging** — up-to-date pages sit vivid and calm, overdue ones darken and shed
-amber embers, drafts float bleached on stems, never-checked pages recede behind
-a gray veil. Shape = kind, lines = real relations, hidden pages are always
-countable. Nothing is decorative: **if it glows, it needs you.**
+```mermaid
+flowchart LR
+    Source["Sources + canonical Markdown"] --> Snapshot["Atomic validated snapshot"]
+    Route["Canonical / legacy route"] --> Runtime["WorldRuntime"]
+    Snapshot --> Runtime
+    Blocks["Resolved block stacks"] --> Registry["RegistryKernel"]
+    Registry --> Runtime
+    Runtime --> World["3D world / equivalent 2D fallback"]
+    Runtime --> Surfaces["Registered reader, docks and effects"]
+```
 
-The shot above is the bundled demo (synthetic sample data — no account, no
-tokens): `npm --prefix apps/wiki-cockpit install && npm --prefix
+The bundled demo uses synthetic sample data — no account, no
+tokens: `npm --prefix apps/wiki-cockpit install && npm --prefix
 apps/wiki-cockpit run dev`, then open `http://localhost:5173/demo` — a title
 screen offers **start from zero** (the genesis tutorial: found a world in an
 empty void and watch the interface materialize block by block) or the **full
-world**.
+world.
 
-## Six perspectives, one world
+The unified v8 runtime is currently a blocked release candidate, not a published
+consumer release. See the
+[v8 release note](docs/references/releases/wiki-viva-v8.md) for the exact
+remaining gates and do not migrate a downstream repo until its public SHA is
+pinned in the upgrade package.
 
-![MORPH between perspectives — Radar → Atlas → Districts → Radar (demo)](docs/assets/cockpit-morph-demo.gif)
+## Registered views, one world
 
-The same pages, six arrangements — **Quadrants** (the AQAL home map and the
-default landing view: four fixed regions around the root entity at the center),
-**Radar** (what needs attention now), **Atlas** (what lives where),
-**Districts** (everything by kind), **Trails** (one page's connections),
-**Focus** (one page through the four lenses, key `F` with a page locked).
-Switching (keys `1–5`) MORPHs the world: every node keeps its identity and
-glides to its new place, so nothing is lost between views. The URL follows you
-— back button, refresh and sharing just work.
+The native v8 views are **Quadrants**, **Radar**, **Sources** and **Work**.
+They preserve the same real center and keyed entity identities while changing
+only registered geometry/encoding behavior. **Atlas**, **Focus**,
+**Districts** and **Trails** remain compatibility views while their documented
+questions migrate into the unified runtime; legacy links normalize with visible
+warnings and canonical writers never emit deprecated route forms.
 
-The interface lives **in** the world, composed from the template block stack
-(see [modular blocks](docs/references/guides/modular-blocks.md)): an empty wiki
-shows only the **founding rite** (choose who the world is, name it, a ghost
-root breathes where it will be born); creating a page is a **spatial seed
-flow** (the scope's curated palette as cards, a ghost at the type's home
-quadrant, one anchored question); clicking a node opens a summary **plate at
-the node** — the full reader is a chosen second step, never the price of a
-click.
+The URL carries shareable semantic state (`center`, `view`, `lens`, `overlay`,
+optional real family group/page/reader/dock). Hover, camera vectors, safe-area
+rectangles and density tiers remain ephemeral/derived and do not pollute links.
+Back, refresh and share therefore restore meaning rather than component-local
+state.
+
+The interface lives **in** the world and is selected by the template block
+stack through registered modules (see
+[modular blocks](docs/references/guides/modular-blocks.md)). Components render
+runtime selectors and dispatch typed interactions; they do not own transport,
+route history or a parallel dock router. Empty-world founding, create, reader,
+source, gates, work and fallback flows use the same interaction grammar.
 
 The official language of this project is **English**. Generated pages and
 artifacts (cockpit, ingestion proposals) are rendered in the language configured
@@ -78,10 +94,8 @@ in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
 
 ## The human gate, in-world
 
-![Approve changes — the gate dock over the 3D world (demo)](docs/assets/cockpit-gate-demo.png)
-
 Approving, adding knowledge, creating pages, inspecting block stacks, source
-sync, health checks and local Codex jobs are **docks inside the world**
+sync, health checks and local Codex jobs are **registered surfaces inside the world**
 (`?dock=approve|intake|gates|codex|work|source|create|blocks`) — deep-linkable
 URL state, not separate pages. The gate shows changed **content pages first**
 (title · area · state, per-file diffs on demand), repository code collapsed
@@ -109,6 +123,9 @@ python3 scripts/wiki_quality_report.py --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_web_snapshot.py --check-contract
+npm --prefix apps/wiki-cockpit run check:architecture
+npm --prefix apps/wiki-cockpit run check:bundle
 
 # 4. Compile the daily cockpit
 python3 scripts/wiki_operation_compile.py --write
@@ -122,7 +139,8 @@ python3 scripts/wiki_okf_import.py --bundle tmp/okf-bundle --context system --dr
 # 6. Optional: run the local web cockpit
 python3 scripts/wiki_web_snapshot.py --out data/derived/wiki/web-snapshot --clean
 python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
-cd apps/wiki-cockpit && npm install && npm run dev
+cd apps/wiki-cockpit && npm install && npm run dev:proxy
+npm run check:snapshot-api
 ```
 
 The local operator server serves snapshot JSON, allowlisted checks, source
@@ -130,6 +148,12 @@ pre-triage, the ingestion wizard and proposal-branch Git workflows. Mutating Git
 and ingestion write steps are dry-run first in the UI and stay oriented around
 `wiki/<topic>` branches plus draft PRs; hosted deployments are later adapters,
 not a prerequisite for local operation.
+
+For a real/private cockpit, `npm run dev` is not enough: start Vite with the API
+proxy (`npm run dev:proxy`, equivalent to `WIKI_COCKPIT_PROXY_API=1 vite`) so
+`/api/snapshot/pages.json` reaches the Python operator on `127.0.0.1:8765`.
+The app blocks sample fallback outside `/demo`; `check:snapshot-api` must return
+JSON before any visual validation is trusted.
 
 The deep reading itself is performed by the agent that runs the repo: the
 pipeline emits a `*-llm-context-request.json` package; the agent records results
@@ -153,6 +177,10 @@ is the context that explains how the wiki itself works:
 | --- | --- |
 | [Default open-source process](docs/references/guides/default-open-source-process.md) | Complete default model: entities, ingestion, gates and PR flow |
 | [Web cockpit deployment adapters](docs/references/guides/web-cockpit-deployment.md) | Runtime config plus Vercel read-only and GCP controlled-operator examples |
+| [v8 runtime architecture](docs/references/guides/wiki-viva-v8-runtime-architecture.md) | World grammar, state/effects, registries, snapshot, budgets and security |
+| [Registry-first extensions](docs/references/guides/extending-the-kit.md) | Add blocks, sources, primitives, people, surfaces and interactions |
+| [v8 downstream upgrade](docs/references/guides/wiki-viva-v8-downstream-upgrade.md) | Inventory, preflight, allowlisted import, reports, waves and rollback |
+| [v8 release candidate](docs/references/releases/wiki-viva-v8.md) | Version matrix, breaking changes, compatibility and current blockers |
 | [Root entity](memories/system/wiki-viva-kit.md) | Semantic top page for this kit and its integral quadrants |
 | [Input stage](memories/system/input-stage.md) | Generated catalog of root entity, channels, source configs and target pages |
 | [Meta-wiki index](memories/system/wiki/index.md) | Map of all documentation |
@@ -206,6 +234,9 @@ list. Localized repos pin their own names there (e.g. a Portuguese repo sets
    integral perspectives; source channels inherit that context deterministically.
 7. **Interop by adapter** — OKF is an exchange layer. The internal wiki keeps the
    richer `page_type`, perspective, privacy and PR-gate contracts.
+8. **One runtime grammar** — real pages are entities; view, lens, overlay,
+   region and surfaces remain registered projections/controls around a real
+   center, with equivalent 3D and 2D fallback semantics.
 
 ## License & contributing
 

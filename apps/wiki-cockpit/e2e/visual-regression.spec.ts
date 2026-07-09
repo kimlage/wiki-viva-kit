@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // The world routes render the 2D fallback under ?visual=1 (deterministic,
 // motion-free) — the same topology and URLs as the 3D scene.

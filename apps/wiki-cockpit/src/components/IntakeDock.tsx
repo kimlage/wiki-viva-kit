@@ -7,15 +7,18 @@
 
 import { useState } from "react";
 import { FilePlus, Sparkles, X } from "lucide-react";
+import { DockTelemetryRail, type DockTelemetryItem } from "./DockTelemetryRail";
 import { t } from "../data/i18n";
 import { contextLabel } from "../data/presentation";
 import { contextsOf } from "../data/creation";
-import { intakeCopy } from "../data/snapshot";
+import { composeInstruments } from "../data/surfaces";
 import type { BriefSpec, SnapshotBundle } from "../types";
+import type { OperatorPort } from "../application/ports";
 
 export function IntakeDock({
   bundle,
   initialSrc,
+  intakeCopy,
   onComposeBrief,
   onOpenCreate,
   onNotice,
@@ -23,12 +26,15 @@ export function IntakeDock({
 }: {
   bundle: SnapshotBundle;
   initialSrc?: string;
+  intakeCopy: OperatorPort["intakeCopy"];
   onComposeBrief?: (spec: BriefSpec) => void;
   onOpenCreate?: () => void;
   onNotice: (text: string) => void;
   onClose: () => void;
 }) {
   const contexts = contextsOf(bundle);
+  const instruments = composeInstruments(bundle);
+  const telemetry = intakeTelemetry(bundle, contexts, instruments.intakeForms);
   const [src, setSrc] = useState(initialSrc ?? "");
   const [context, setContext] = useState(contexts[0] ?? "system");
   const [busy, setBusy] = useState(false);
@@ -57,11 +63,12 @@ export function IntakeDock({
       <aside className="intakeDock worldDock" role="dialog" aria-label={t("intake.title")}>
         <header className="dockHeader">
           <strong>{t("intake.title")}</strong>
-          <button className="readerClose" onClick={onClose} title={t("help.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
             <X size={16} />
           </button>
         </header>
         <p className="dockIntro">{t("intake.intro")}</p>
+        <DockTelemetryRail label={t("intake.telemetry.aria")} items={telemetry} />
 
         <label className="intakeField">
           <span>{t("intake.path")}</span>
@@ -126,4 +133,43 @@ export function IntakeDock({
       </aside>
     </>
   );
+}
+
+function intakeTelemetry(bundle: SnapshotBundle, contexts: string[], forms: string[]): DockTelemetryItem[] {
+  const sourceCount = bundle.sourceEntities?.sources?.length ?? bundle.sources?.sources?.length ?? 0;
+  const pendingStreams = (bundle.sourceEntities?.sources ?? []).reduce((sum, source) => sum + source.pending_streams, 0);
+  return [
+    {
+      key: "areas",
+      label: t("intake.telemetry.areas"),
+      value: contexts.length,
+      tone: contexts.length > 0 ? "info" : "muted",
+      ratio: contexts.length > 0 ? 1 : 0,
+      detail: t("intake.telemetry.areasDetail", { n: contexts.length })
+    },
+    {
+      key: "forms",
+      label: t("intake.telemetry.forms"),
+      value: forms.length,
+      tone: forms.length > 0 ? "good" : "warn",
+      ratio: forms.length > 0 ? 1 : 0,
+      detail: t("intake.telemetry.formsDetail", { n: forms.length })
+    },
+    {
+      key: "sources",
+      label: t("intake.telemetry.sources"),
+      value: sourceCount,
+      tone: sourceCount > 0 ? "info" : "muted",
+      ratio: sourceCount > 0 ? 1 : 0,
+      detail: t("intake.telemetry.sourcesDetail", { n: sourceCount })
+    },
+    {
+      key: "pending",
+      label: t("intake.telemetry.pending"),
+      value: pendingStreams,
+      tone: pendingStreams > 0 ? "warn" : "good",
+      ratio: pendingStreams > 0 ? Math.min(pendingStreams / 8, 1) : 1,
+      detail: pendingStreams > 0 ? t("intake.telemetry.pendingDetail", { n: pendingStreams }) : t("intake.telemetry.pendingClear")
+    }
+  ];
 }

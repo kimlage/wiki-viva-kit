@@ -1,0 +1,32 @@
+{
+  "schema_version": "wiki_viva_gate_evidence.v1",
+  "consumer_head": "REPLACE_WITH_CURRENT_CONSUMER_HEAD_SHA",
+  "gates": [
+    {
+      "id": "toolkit_drift",
+      "command": "python3 scripts/wiki_toolkit_drift.py --ref-path /path/to/wiki-viva-kit --check",
+      "status": "reviewed",
+      "note": "Use pass only for zero drift; use reviewed when the exact drift is the planned upgrade/import delta."
+    },
+    {
+      "id": "audit",
+      "command": "python3 scripts/wiki_audit.py --check",
+      "status": "pass"
+    },
+    {
+      "id": "input_stage",
+      "command": "python3 scripts/wiki_input_stage.py --check",
+      "status": "pass"
+    },
+    {
+      "id": "pytest",
+      "command": "python3 -m pytest tests/",
+      "status": "pass"
+    },
+    {
+      "id": "diff_check",
+      "command": "git diff --check",
+      "status": "pass"
+    }
+  ]
+}

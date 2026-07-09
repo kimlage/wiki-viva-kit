@@ -1,0 +1,43 @@
+schema_version: wiki_demo_scenario.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: compatibility
+seed: 8006
+purpose: Previous snapshot, block and runtime contracts plus documented legacy route mappings.
+builder:
+  module: scripts/wiki_build_demo.py
+  callable: build_scenario_pages
+  domain_builders: [root_entity, nested_center, artifact]
+source_pages:
+  - memories/index.md
+  - memories/estudio/biblioteca-ai-safety/index.md
+composition:
+  include_ids:
+    - root-alex-rivera
+    - library-ai-safety
+    - holon-product-ops
+    - project-atlas-launch
+expected:
+  page_count: 4
+  page_id_sha256: 40df0f19cc08535198031c5a8e2e249be10a1b2279f9d3a9255b5709fd326fc4
+  required_capabilities: [legacy_route_normalization, schema_version_negotiation, canonical_link_writer]
+versions:
+  snapshot: wiki_web_snapshot.v2
+  runtime: wiki_world_runtime.v8
+  blocks: wiki_blocks.v2
+canonical_routes:
+  - /demo/w?center=root-alex-rivera&view=quadrants&overlay=actions
+  - /demo/w?center=library-ai-safety&view=quadrants&overlay=evidence
+legacy_routes: [/demo/w/quadrants, /demo/w/radar, /demo/w/districts, /demo/w/trails/project-atlas-launch]
+interactions: [hydrate_legacy_route, copy_canonical_link, open_old_snapshot, inspect_warning]
+automated_assertions:
+  - legacy routes preserve their documented question
+  - canonical writers never emit legacy route state
+  - unsupported versions fail visibly
+visual:
+  viewports: [1440x960, 390x844]
+  browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback, firefox-smoke]
+  steps: [open_each_legacy_route, compare_canonical_state, inspect_deprecation_warning]
+expected_warnings: [legacy_route_normalized, old_snapshot_version]
+expected_failures: [unsupported_snapshot_version]
+generated_files: [apps/wiki-cockpit/public/sample-snapshot/manifest.json]
+regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

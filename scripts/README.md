@@ -21,3 +21,19 @@ to run the localhost-only operator API with allowlisted commands.
 Use [wiki_web_deploy_bundle.py](wiki_web_deploy_bundle.py) when one
 implementation needs portable static deploy inputs plus a deployment proof
 without choosing Vercel, GCP or any other host inside the core kit.
+
+The v8 downstream release flow is read-only by default:
+
+- [wiki_upgrade_inventory.py](wiki_upgrade_inventory.py) validates the
+  public-safe consumer/wave inventory.
+- [wiki_upgrade_preflight.py](wiki_upgrade_preflight.py) checks the pinned
+  release, consumer branch/worktree, current gate receipts, portable drift,
+  snapshot, overrides and privacy/redaction without copying files.
+- [wiki_upgrade_report.py](wiki_upgrade_report.py) validates allowlisted import
+  evidence and compiles deterministic JSON/Markdown migration reports with
+  gates, visual QA and rollback.
+
+The package and runbook live under
+[docs/references/upgrades/wiki-viva-v8](../docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml)
+and
+[wiki-viva-v8-downstream-upgrade.md](../docs/references/guides/wiki-viva-v8-downstream-upgrade.md).

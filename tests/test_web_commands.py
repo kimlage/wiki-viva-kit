@@ -4,7 +4,11 @@ import subprocess
 from pathlib import Path
 
 from wiki_core.config import WikiConfig
-from wiki_core.web.commands import build_action_cards, is_allowed_argv, run_action
+from wiki_core.web.commands import (
+    build_operator_command_cards,
+    is_allowed_argv,
+    run_action,
+)
 
 
 def _init_repo(root: Path) -> None:
@@ -12,7 +16,7 @@ def _init_repo(root: Path) -> None:
 
 
 def test_action_cards_expose_safe_git_and_gate_actions() -> None:
-    payload = build_action_cards(WikiConfig(repo_id="test"))
+    payload = build_operator_command_cards(WikiConfig(repo_id="test"))
     action_ids = {action["id"] for action in payload["actions"]}
 
     assert {"git-status", "review-local-changes", "run-honesty-gates", "pr-summary"} <= action_ids
