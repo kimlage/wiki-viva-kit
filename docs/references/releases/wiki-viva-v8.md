@@ -124,13 +124,15 @@ blank world, center error, overlap, unreadable label or sample fallback.
 - PR #61 still requires the human review/merge gate and a release tag.
 - The private pilot remains paused until it has a clean upgrade branch,
   current gate receipts and a complete migration report.
-- The four existing wiki staleness warnings remain visible; they were not
-  reclassified as release errors.
+- Three existing wiki staleness warnings remain visible after refreshing the
+  deterministic operational pass; they were not reclassified as release
+  errors.
 
 ## Final candidate evidence
 
-- Python: 673 passed, 4 skipped; audit 0 errors with 4 known staleness
-  warnings; methodology 22/22.
+- Python: 673 passed, 4 skipped; audit 0 errors with 3 known staleness
+  warnings; methodology 22/22. Every command in the remote `audit-and-test`
+  workflow passes locally, including operational-pass freshness.
 - Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
   sidecar promotion/rollback checks pass.
 - Frontend: 322 unit tests and 15 gate tests pass; architecture reports
