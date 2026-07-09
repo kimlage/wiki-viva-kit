@@ -9,11 +9,12 @@ updated_at: '2026-05-04'
 moc_parent: memories/index.md
 source_refs:
 - source-support-tickets
+consolidated_into: []
 ---
 
 # Ingestão: support tickets
 
-Older helpdesk import kept intentionally overdue so the demo has stale evidence work.
+Older helpdesk import kept intentionally overdue and unconsolidated so the demo has stale evidence work.
 
 ## Source
 

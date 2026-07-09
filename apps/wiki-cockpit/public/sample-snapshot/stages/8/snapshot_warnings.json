@@ -1,0 +1,63 @@
+{
+  "schema_version": "wiki_snapshot_warnings.v1",
+  "warnings": [
+    {
+      "anchor_id": "holon-product-ops",
+      "code": "region_imbalance",
+      "largest": 126,
+      "median": 3,
+      "severity": "warning"
+    },
+    {
+      "anchor_id": "holon-product-ops",
+      "code": "region_hidden_density",
+      "count": 86,
+      "region_id": "quadrant:pratica",
+      "severity": "info"
+    },
+    {
+      "anchor_id": "hub-clientes",
+      "code": "region_hidden_density",
+      "count": 24,
+      "region_id": "quadrant:intencao",
+      "severity": "info"
+    },
+    {
+      "anchor_id": "hub-clientes",
+      "code": "region_hidden_density",
+      "count": 154,
+      "region_id": "quadrant:pratica",
+      "severity": "info"
+    },
+    {
+      "code": "source_blocked",
+      "reason": "Authorization is required; no credential value is stored in the fixture.",
+      "severity": "warning",
+      "source_id": "source-crm-accounts"
+    },
+    {
+      "code": "source_blocked",
+      "reason": "The synthetic trace export is malformed.",
+      "severity": "warning",
+      "source_id": "source-error-traces"
+    },
+    {
+      "code": "source_blocked",
+      "reason": "The synthetic health endpoint returned an operational failure.",
+      "severity": "warning",
+      "source_id": "source-health-checks"
+    },
+    {
+      "code": "source_blocked",
+      "reason": "Secret scanning blocked the synthetic attempt before publication.",
+      "severity": "warning",
+      "source_id": "source-publication-queue"
+    },
+    {
+      "anchor_id": "source-action-ledger",
+      "code": "region_expected_missing",
+      "region_id": "quadrant:intencao",
+      "severity": "warning"
+    }
+  ]
+}

@@ -9,11 +9,13 @@ updated_at: '2026-07-03'
 moc_parent: memories/index.md
 source_refs:
 - source-agenda
+consolidated_into:
+- meeting-weekly-sync
 ---
 
 # Ingestão: agenda
 
-Normalized import of the calendar — encounters and cadences refreshed.
+Normalized import of the calendar — encounters and cadences refreshed and accepted.
 
 ## Source
 

@@ -1,5 +1,16 @@
 {
-  "backlinks": [],
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "event-ingest-banco-2026-05",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "relation": "impact",
+      "title": "Ingest\u00e3o: extrato do banco (maio)"
+    }
+  ],
   "body": "\n# Relat\u00f3rio de reconcilia\u00e7\u00e3o\n\nContent that lands in its quadrant interior.\n",
   "frontmatter": {
     "context": "financeiro",
@@ -31,6 +42,7 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-310ad26ebb0d1ee8",
   "source_refs": [
     {
       "approved_state": "approved",

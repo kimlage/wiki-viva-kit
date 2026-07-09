@@ -9,6 +9,13 @@
       "moc_parent": "memories/empresas/clearpath-labs.md",
       "page_type": "decision",
       "path": "memories/empresas/clearpath/decision-clearpath-enter-midmarket.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "30",
@@ -28,6 +35,13 @@
       "moc_parent": "memories/clientes/product-ops/index.md",
       "page_type": "decision",
       "path": "memories/decisions/decision-onboarding.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "30",
@@ -47,6 +61,13 @@
       "moc_parent": "memories/clientes/index.md",
       "page_type": "decision",
       "path": "memories/decisions/decision-precos.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "30",

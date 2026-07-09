@@ -9,6 +9,13 @@
       "moc_parent": "memories/index.md",
       "page_type": "person",
       "path": "memories/people/person-marina-costa.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "45",
@@ -28,6 +35,13 @@
       "moc_parent": "memories/financeiro/index.md",
       "page_type": "claim",
       "path": "memories/claims/claim-custos-sobem.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [
         "source-banco-export"
@@ -49,6 +63,13 @@
       "moc_parent": "memories/index.md",
       "page_type": "context_hub",
       "path": "memories/financeiro/index.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "30",
@@ -68,6 +89,13 @@
       "moc_parent": "memories/financeiro/index.md",
       "page_type": "artifact",
       "path": "memories/artifacts/artifact-relatorio-recon.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [
         "source-banco-export"
@@ -89,6 +117,13 @@
       "moc_parent": "",
       "page_type": "root_entity",
       "path": "memories/index.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "30",

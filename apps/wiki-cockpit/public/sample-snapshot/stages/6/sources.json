@@ -10,7 +10,16 @@
       "moc_parent": "memories/financeiro/index.md",
       "page_type": "source",
       "path": "memories/sources/source-banco-export.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
+      "source_blocked_reason": "",
+      "source_lifecycle_state": "",
       "source_refs": [],
       "stale_after_days": "30",
       "status": "",

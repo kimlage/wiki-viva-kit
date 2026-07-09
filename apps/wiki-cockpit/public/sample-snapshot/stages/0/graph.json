@@ -1,7 +1,221 @@
 {
   "edges": [],
   "nodes": [],
+  "overlay_metrics_version": "wiki_semantic_visual_tokens.v1",
+  "relation_diagnostics": [],
+  "relation_types": [
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "blocked-by row",
+      "family": "dependency",
+      "id": "dependency",
+      "label": "dependency",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "blocker to dependent work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "supporting evidence row",
+      "family": "evidence",
+      "id": "evidence_supports",
+      "label": "evidence supports",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence to supported work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "affected page row",
+      "family": "impact",
+      "id": "impact",
+      "label": "impact",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest/proposal to canonical change"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "linked page row",
+      "family": "citation",
+      "id": "markdown_link",
+      "label": "markdown link",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored citation"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "parent/child row",
+      "family": "hierarchy",
+      "id": "moc_parent",
+      "label": "moc parent",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "structural parent"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "owner row",
+      "family": "ownership",
+      "id": "ownership",
+      "label": "ownership",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "owner to owned object"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "participant row",
+      "family": "participation",
+      "id": "participation",
+      "label": "participation",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "participant to event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "proposal transition row",
+      "family": "impact",
+      "id": "proposal_transition",
+      "label": "proposal transition",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest event to review proposal"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "emitted event row",
+      "family": "source_emission",
+      "id": "source_emission",
+      "label": "source emission",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "source to ingest event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "source reference row",
+      "family": "evidence",
+      "id": "source_ref",
+      "label": "source ref",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence reference"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "previous/next row",
+      "family": "temporal",
+      "id": "temporal_sequence",
+      "label": "temporal sequence",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "earlier to later event"
+    }
+  ],
+  "relation_vocabulary_version": "wiki_relation_types.v1",
   "repo_id": "wiki-viva-demo",
-  "schema_version": "wiki_web_graph.v1",
+  "schema_version": "wiki_web_graph.v2",
   "wanted_pages": {}
 }

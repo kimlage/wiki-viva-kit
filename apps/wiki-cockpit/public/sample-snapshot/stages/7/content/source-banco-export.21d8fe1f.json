@@ -8,8 +8,33 @@
     "page_id": "source-banco-export",
     "page_type": "source",
     "platform": "Banco",
+    "source_lifecycle": {
+      "adoption_state": "pending",
+      "emitted_page_ids": [
+        "claim-custos-sobem",
+        "artifact-relatorio-recon"
+      ],
+      "freshness_state": "stale",
+      "last_attempt_at": "2026-05-04",
+      "last_attempt_state": "ok",
+      "last_sync_success_at": "2026-05-04",
+      "pipeline_stage": "gate_pending",
+      "proposal_ids": [
+        "event-ingest-banco-2026-05"
+      ],
+      "raw_artifact_count": 1,
+      "secret_safe_log_refs": [
+        "logs/demo/source-banco-export-attempt"
+      ],
+      "state": "consolidated"
+    },
     "source_type": "live",
     "stale_after_days": 30,
+    "sync": {
+      "last_event_ref": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "last_run_at": "2026-05-04",
+      "last_status": "ok"
+    },
     "title": "Extrato do Banco",
     "updated_at": "2026-05-04",
     "visibility": "private_self"
@@ -30,5 +55,6 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-c2dbcb9d51e90543",
   "source_refs": []
 }

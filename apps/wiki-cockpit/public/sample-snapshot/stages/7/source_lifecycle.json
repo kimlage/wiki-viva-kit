@@ -1,0 +1,39 @@
+{
+  "schema_version": "wiki_source_lifecycle.v2",
+  "sources": [
+    {
+      "accepted_ref": "",
+      "adoption_state": "pending",
+      "blocked_reason": "",
+      "contract_warnings": [],
+      "emitted_action_ids": [],
+      "emitted_page_ids": [
+        "claim-custos-sobem",
+        "artifact-relatorio-recon"
+      ],
+      "freshness_state": "stale",
+      "last_attempt_at": "2026-05-04",
+      "last_attempt_state": "ok",
+      "last_event_ref": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "last_ingested_at": "",
+      "last_run_at": "2026-05-04",
+      "last_sync_success_at": "2026-05-04",
+      "lifecycle_state": "consolidated",
+      "pipeline_stage": "gate_pending",
+      "pipeline_stage_timestamps": {},
+      "proposal_ids": [
+        "event-ingest-banco-2026-05"
+      ],
+      "raw_artifact_count": 1,
+      "reviewed_no_change_receipt": "",
+      "secret_safe_log_refs": [
+        "logs/demo/source-banco-export-attempt"
+      ],
+      "source_id": "source-banco-export",
+      "stream_counts": {
+        "fresh": 0,
+        "total": 0
+      }
+    }
+  ]
+}

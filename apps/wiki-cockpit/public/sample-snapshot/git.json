@@ -1,11 +1,11 @@
 {
-  "available": true,
+  "available": false,
   "branch_prefix": "wiki/",
-  "current_branch": "main",
+  "current_branch": "",
   "default_branch": "main",
   "proposal": {
     "draft_pr_url": null,
-    "human_gate_state": "clean",
+    "human_gate_state": "blocked",
     "is_proposal_branch": false,
     "theme": ""
   },
@@ -15,7 +15,7 @@
     "behind": 0,
     "last_fetch_at": null,
     "name": "",
-    "remote": "origin"
+    "remote": ""
   },
   "worktree": {
     "changed_files": [],

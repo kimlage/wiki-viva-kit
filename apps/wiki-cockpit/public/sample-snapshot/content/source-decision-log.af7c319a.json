@@ -1,0 +1,55 @@
+{
+  "backlinks": [],
+  "body": "\n# Decision log export\n\nA live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)\n",
+  "frontmatter": {
+    "context": "sistema",
+    "moc_parent": "memories/index.md",
+    "owner": "root-alex-rivera",
+    "page_id": "source-decision-log",
+    "page_type": "source",
+    "platform": "Decision ledger",
+    "source_lifecycle": {
+      "accepted_ref": "demo-sha:decision-log-no-change",
+      "adoption_state": "reviewed_no_change",
+      "freshness_state": "fresh",
+      "last_attempt_at": "2026-07-03",
+      "last_attempt_state": "ok",
+      "last_ingested_at": "2026-07-03",
+      "last_sync_success_at": "2026-07-03",
+      "pipeline_stage": "complete",
+      "reviewed_no_change_receipt": "receipt:demo-decision-log-no-change",
+      "secret_safe_log_refs": [
+        "logs/demo/source-decision-log-attempt"
+      ],
+      "state": "ingested"
+    },
+    "source_type": "live",
+    "stale_after_days": 30,
+    "sync": {
+      "last_event_ref": "",
+      "last_run_at": "2026-07-03",
+      "last_status": "ok"
+    },
+    "title": "Decision log export",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "source-decision-log",
+    "page_type": "source",
+    "path": "memories/sources/source-decision-log.md",
+    "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+    "summary_truncated": false,
+    "title": "Decision log export",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-310ad26ebb0d1ee8",
+  "source_refs": []
+}

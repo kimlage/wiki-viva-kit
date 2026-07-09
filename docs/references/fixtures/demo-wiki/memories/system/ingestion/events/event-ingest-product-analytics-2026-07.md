@@ -9,6 +9,12 @@ updated_at: '2026-07-03'
 moc_parent: memories/index.md
 source_refs:
 - source-product-analytics
+consolidated_into:
+- dashboard-clearpath-activation
+proposal_ids:
+- proposal-ingest-product-analytics-2026-07
+previous_refs:
+- event-ingest-agenda-2026-07
 ---
 
 # Ingestão: product analytics

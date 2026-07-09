@@ -1,0 +1,42 @@
+{
+  "backlinks": [],
+  "body": "\n# Clearpath billing feed\n\nA live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "owner": "root-alex-rivera",
+    "page_id": "source-clearpath-billing",
+    "page_type": "source",
+    "platform": "Billing",
+    "source_lifecycle": {
+      "adoption_state": "pending",
+      "freshness_state": "never_synced",
+      "last_attempt_state": "never",
+      "pipeline_stage": "configured",
+      "state": "ready"
+    },
+    "source_type": "live",
+    "stale_after_days": 30,
+    "title": "Clearpath billing feed",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/empresas/clearpath-labs.md",
+    "page_id": "source-clearpath-billing",
+    "page_type": "source",
+    "path": "memories/sources/source-clearpath-billing.md",
+    "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+    "summary_truncated": false,
+    "title": "Clearpath billing feed",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-310ad26ebb0d1ee8",
+  "source_refs": []
+}

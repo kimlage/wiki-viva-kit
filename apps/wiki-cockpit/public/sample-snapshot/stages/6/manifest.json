@@ -1,5 +1,23 @@
 {
+  "bundle_hash": "f377e16236c82b07dc9b7ff498096eb25414bc17499cdbf2d59373bbf04506d5",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "content_sidecars"
+  ],
   "content_sidecars": true,
+  "contract_errors": [],
   "files": [
     "manifest.json",
     "operations.json",
@@ -20,9 +38,164 @@
     "commands.json",
     "score.json",
     "blocks.json",
-    "block_stacks.json"
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json",
+    "content/artifact-relatorio-recon.8b3a520f.json",
+    "content/claim-custos-sobem.0be31ee0.json",
+    "content/event-ingest-banco-2026-05.60d41f0b.json",
+    "content/hub-financeiro.405d007d.json",
+    "content/person-marina-costa.3db0e184.json",
+    "content/root-alex-rivera.f4a10886.json",
+    "content/source-banco-export.21d8fe1f.json"
   ],
-  "generated_at": "2026-07-08T00:45:51Z",
+  "fixture": {
+    "fixture_id": "wiki-viva-demo-v8",
+    "genesis_stage": 6,
+    "reference_date": "2026-07-09",
+    "scenario_id": "walking_skeleton",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8008,
+    "source_input_sha256": "8361e950393b9e4dd1a77e588ddc0f220a51421d8cfe6304e3fc125094e86610"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2716,
+      "sha256": "cf43b7c1a259039fccc54a39581f20a02cb7414462ea1edd0e494ee6f3f13d9a"
+    },
+    "block_stacks.json": {
+      "bytes": 28395,
+      "sha256": "123ecb064089a78989d5c8ef4046ce3248cf37dbd3279f553cc93e0c832e44b2"
+    },
+    "blocks.json": {
+      "bytes": 8822,
+      "sha256": "234a3cca4785e87c13926ecf030f2c3a00297d30f54b362608709de38e1edeb0"
+    },
+    "commands.json": {
+      "bytes": 1179,
+      "sha256": "25bd6ac0d80ab8d11b0ad0b5a77e63d3dba898dbcbde23a173d7d3c762c50621"
+    },
+    "content/artifact-relatorio-recon.8b3a520f.json": {
+      "bytes": 1494,
+      "sha256": "6088bb31d1b92cee7a1d6d9dda7b1babf3b2e6e7570725dad49c65ac82df037a"
+    },
+    "content/claim-custos-sobem.0be31ee0.json": {
+      "bytes": 1462,
+      "sha256": "cab475f4ba35d45249530a6b73ffb7e7e5e5501ebdeb6361941b117dd1eddaef"
+    },
+    "content/event-ingest-banco-2026-05.60d41f0b.json": {
+      "bytes": 1850,
+      "sha256": "365f7f2184855c7d044de422ce0ae4a98e7180dc32a58433fad2e5aa1c43d4e6"
+    },
+    "content/hub-financeiro.405d007d.json": {
+      "bytes": 1979,
+      "sha256": "e768c13a9413e4dbf7f7464b66eeb53e851740a2c794c6de6ba1bd2fb89f45fd"
+    },
+    "content/person-marina-costa.3db0e184.json": {
+      "bytes": 1215,
+      "sha256": "5f386475c60929474127db9e5423e7d5ed94957258500d15e922dffcc509a989"
+    },
+    "content/root-alex-rivera.f4a10886.json": {
+      "bytes": 2788,
+      "sha256": "f0d638ee92950659ddd349c88f8fe3d037c6a6245aa9aa395fbbfbfc063a6bed"
+    },
+    "content/source-banco-export.21d8fe1f.json": {
+      "bytes": 1639,
+      "sha256": "77b141021a43d4676c1b23b783ab64ecb76989f52ed4cb3667a7f0e4cf32346f"
+    },
+    "decisions.json": {
+      "bytes": 57,
+      "sha256": "7a6de588120478326c5782d735734ac49649b6a59a8b8dce6c755d8eede95720"
+    },
+    "diff.json": {
+      "bytes": 367,
+      "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "freshness.json": {
+      "bytes": 490,
+      "sha256": "396ae68293ea1491789e483673aa512df4731adae2c342abe199174de69da1e2"
+    },
+    "gates.json": {
+      "bytes": 664,
+      "sha256": "309171f121e0fcb4abf72d9042fbf72ba7c69153b2a28a4cc4f6c48b613f6da8"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 14332,
+      "sha256": "994e021f0c1ca6d9808c7267e9e774d30a101248d8554bd2354e028f19415be5"
+    },
+    "ingestion.json": {
+      "bytes": 905,
+      "sha256": "e7da846732f95940f113e4630deea09bbbb10bd5cdbca244247df3dd5576f961"
+    },
+    "operations.json": {
+      "bytes": 203,
+      "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
+    },
+    "operator_commands.json": {
+      "bytes": 3260,
+      "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
+    },
+    "pages.json": {
+      "bytes": 4966,
+      "sha256": "431d597e00b50396c3842ebe4fdea7eab33ea756e2fe0cbc5c141fa2fd6b9eda"
+    },
+    "quality.json": {
+      "bytes": 3697,
+      "sha256": "2b5fd12d7b3cf6b2db795055fa3f8351801d7861e28fe817bf7fa7ea9281dcd2"
+    },
+    "region_groups.json": {
+      "bytes": 14037,
+      "sha256": "0f7b19e9777a58e097885f284924d1860909cbdebf1787be565718fabca569df"
+    },
+    "score.json": {
+      "bytes": 1757,
+      "sha256": "b19d3ad8d52d4a011577e0ffedf34860a45441deb5451f0abe7c4587d39e9cf2"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 60,
+      "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
+    },
+    "source_entities.json": {
+      "bytes": 1404,
+      "sha256": "332bc09b33d294060b844bd196c3b80ff9a889698afe9ce76329d9466c166845"
+    },
+    "source_lifecycle.json": {
+      "bytes": 824,
+      "sha256": "30e97d2a51c0e17e2fc7ae7a3aae10302d0d62b9f5c38fac79f04f75acd08f4c"
+    },
+    "sources.json": {
+      "bytes": 783,
+      "sha256": "60c940b73570b1c9b58fd08b85a9eb3bbe4585a3b21f2dd1b50dae14abc1e00d"
+    },
+    "templates.json": {
+      "bytes": 23131,
+      "sha256": "746bd08e56a46f874c1dc4e982eb380cd21f98f034f4472ee1d9b779651602ed"
+    },
+    "timeline.json": {
+      "bytes": 2202,
+      "sha256": "2d1d900e9d082073a957718f64d32ac229a80259dbb429ed6eefbf5cfda4471a"
+    },
+    "work_items.json": {
+      "bytes": 52,
+      "sha256": "17bed50b6bb4ca952dd73d966240c34a7a4e0cc4225edabf56fac829fa2066a5"
+    }
+  },
   "mode": "static",
   "repo": {
     "branch_prefix": "wiki/",
@@ -33,6 +206,22 @@
     "memory_root": "memories",
     "repo_id": "wiki-viva-demo"
   },
-  "schema_version": "wiki_web_snapshot.v1",
-  "source_commit": null
+  "root_page_id": "root-alex-rivera",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-f377e16236c82b07",
+  "source_commit": null,
+  "source_sha": "uncommitted:292efb4ffd88c87fbfc0ff0f7868fb18fa7cc7c7d79101e3265e2dcc5209da6f",
+  "versions": {
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
 }

@@ -9,6 +9,9 @@ updated_at: '2026-05-04'
 moc_parent: memories/index.md
 source_refs:
 - source-banco-export
+consolidated_into:
+- claim-custos-sobem
+- artifact-relatorio-recon
 ---
 
 # Ingestão: extrato do banco (maio)

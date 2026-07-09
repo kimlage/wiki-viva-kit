@@ -1,47 +1,12 @@
 {
-  "available": true,
-  "commands": [
-    [
-      "git",
-      "diff",
-      "--stat",
-      "c5de44408a1b2693fb0a98c09ae9b83ba4fd8bee..HEAD"
-    ],
-    [
-      "git",
-      "diff",
-      "--name-status",
-      "c5de44408a1b2693fb0a98c09ae9b83ba4fd8bee..HEAD"
-    ],
-    [
-      "git",
-      "diff",
-      "--stat"
-    ],
-    [
-      "git",
-      "diff",
-      "--name-status"
-    ],
-    [
-      "git",
-      "diff",
-      "--cached",
-      "--stat"
-    ],
-    [
-      "git",
-      "diff",
-      "--cached",
-      "--name-status"
-    ]
-  ],
+  "available": false,
+  "commands": [],
   "compare": {
-    "base_ref": "origin/main",
-    "current_branch": "wiki/visual-region-grouping-plan",
+    "base_ref": "",
+    "current_branch": "",
     "default_branch": "main",
-    "head_commit": "71c845fb84fd",
-    "merge_base": "c5de44408a1b"
+    "head_commit": "",
+    "merge_base": ""
   },
   "files": [],
   "repo_id": "wiki-viva-demo",

@@ -6,6 +6,31 @@
       "config_ref": "",
       "context": "financeiro",
       "how_to_export": "",
+      "lifecycle": {
+        "accepted_ref": "",
+        "adoption_state": "pending",
+        "emitted_action_ids": [],
+        "emitted_page_ids": [
+          "claim-custos-sobem",
+          "artifact-relatorio-recon"
+        ],
+        "freshness_state": "stale",
+        "last_attempt_at": "2026-05-04",
+        "last_attempt_state": "ok",
+        "last_ingested_at": "",
+        "last_sync_success_at": "2026-05-04",
+        "pipeline_stage": "gate_pending",
+        "pipeline_stage_timestamps": {},
+        "proposal_ids": [
+          "event-ingest-banco-2026-05"
+        ],
+        "raw_artifact_count": 1,
+        "reviewed_no_change_receipt": "",
+        "secret_safe_log_refs": [
+          "logs/demo/source-banco-export-attempt"
+        ],
+        "state": "consolidated"
+      },
       "locator": "",
       "next_due_days": null,
       "owner": "root-alex-rivera",
@@ -20,7 +45,16 @@
       "stewards": [],
       "streams": [],
       "sync": {
-        "derived_from_event": true,
+        "derived_from_event": false,
+        "event_closure": {
+          "consolidated_into": [
+            "claim-custos-sobem",
+            "artifact-relatorio-recon"
+          ],
+          "gate_state": "",
+          "no_change": [],
+          "reviewed_no_change": false
+        },
         "last_event_ref": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
         "last_run_at": "2026-05-04",
         "last_status": "ok",

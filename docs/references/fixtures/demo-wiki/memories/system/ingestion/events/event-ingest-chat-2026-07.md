@@ -9,11 +9,12 @@ updated_at: '2026-07-03'
 moc_parent: memories/index.md
 source_refs:
 - source-chat-export
+consolidated_into: []
 ---
 
 # Ingestão: export do chat
 
-Normalized import of the client chat export — meetings and people references updated.
+Normalized import of the client chat export — the proposal is still awaiting consolidation.
 
 ## Source
 

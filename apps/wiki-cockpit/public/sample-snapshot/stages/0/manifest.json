@@ -1,5 +1,24 @@
 {
+  "bundle_hash": "c27a8524e9dd273a9400be0b05f700afb0625fcffc9ad26d919aee693d94c45f",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "empty_world_compat",
+    "content_sidecars"
+  ],
   "content_sidecars": true,
+  "contract_errors": [],
   "files": [
     "manifest.json",
     "operations.json",
@@ -20,9 +39,129 @@
     "commands.json",
     "score.json",
     "blocks.json",
-    "block_stacks.json"
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json"
   ],
-  "generated_at": "2026-07-08T00:45:49Z",
+  "fixture": {
+    "fixture_id": "wiki-viva-demo-v8",
+    "genesis_stage": 0,
+    "reference_date": "2026-07-09",
+    "scenario_id": "walking_skeleton",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8008,
+    "source_input_sha256": "d9de65f345a1091fd2a82f3b1429a2d4939817733c46f82f5ad48ad7a3c4aa5e"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2716,
+      "sha256": "cf43b7c1a259039fccc54a39581f20a02cb7414462ea1edd0e494ee6f3f13d9a"
+    },
+    "block_stacks.json": {
+      "bytes": 96,
+      "sha256": "86b33717ff10ba9309de0c49b0a999fa8d82272823651483daf7f168d41f6828"
+    },
+    "blocks.json": {
+      "bytes": 8822,
+      "sha256": "234a3cca4785e87c13926ecf030f2c3a00297d30f54b362608709de38e1edeb0"
+    },
+    "commands.json": {
+      "bytes": 1179,
+      "sha256": "25bd6ac0d80ab8d11b0ad0b5a77e63d3dba898dbcbde23a173d7d3c762c50621"
+    },
+    "decisions.json": {
+      "bytes": 57,
+      "sha256": "7a6de588120478326c5782d735734ac49649b6a59a8b8dce6c755d8eede95720"
+    },
+    "diff.json": {
+      "bytes": 367,
+      "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "freshness.json": {
+      "bytes": 119,
+      "sha256": "de9ef44ab7bbe6658bcd2372fea1f26a818d7f443a6ec9aebd2e557b80c4f813"
+    },
+    "gates.json": {
+      "bytes": 664,
+      "sha256": "309171f121e0fcb4abf72d9042fbf72ba7c69153b2a28a4cc4f6c48b613f6da8"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 4227,
+      "sha256": "5f30d326af907dc03e9519892a0822df3ef233fbbd2a257d4174d67fdcd538f8"
+    },
+    "ingestion.json": {
+      "bytes": 503,
+      "sha256": "6e2b6b6d55ef730a164499db71adc30c8ead0a760effe3fdc07a7ebf9b358c74"
+    },
+    "operations.json": {
+      "bytes": 203,
+      "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
+    },
+    "operator_commands.json": {
+      "bytes": 3260,
+      "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
+    },
+    "pages.json": {
+      "bytes": 76,
+      "sha256": "8b5a8b052656aceef67724b7ab292740ec9e785f5fb353e9187b05d0ff409141"
+    },
+    "quality.json": {
+      "bytes": 1361,
+      "sha256": "b1797661666163a6b07cf0594df956b62e4334965c51ac230afad9eae36dbe95"
+    },
+    "region_groups.json": {
+      "bytes": 54,
+      "sha256": "fe58861bc0797438ffc95c549b7ef7ec3783ba22624e2598c7125ecfe46c831b"
+    },
+    "score.json": {
+      "bytes": 305,
+      "sha256": "31bcdbf9c91bc9ad7d8819c42ed061f8b131304985370b3102eaff443b247725"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 60,
+      "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
+    },
+    "source_entities.json": {
+      "bytes": 111,
+      "sha256": "f4292ccacefb82edba29fb9eef0b7e1ccc7cccdfaa76324e5b61dd427d874137"
+    },
+    "source_lifecycle.json": {
+      "bytes": 58,
+      "sha256": "fae2169dc386a6fc7caaaa74d1990c34433b478868cb06deaa288d176fe214ff"
+    },
+    "sources.json": {
+      "bytes": 53,
+      "sha256": "3e06d1354853a719039a50edcbbbd52504c3cceca302f82f4c84b276d8a7fb75"
+    },
+    "templates.json": {
+      "bytes": 23131,
+      "sha256": "746bd08e56a46f874c1dc4e982eb380cd21f98f034f4472ee1d9b779651602ed"
+    },
+    "timeline.json": {
+      "bytes": 509,
+      "sha256": "56edabfc4bbb059ee1dd3e543edf8b7649026009fafa927fd1b2ac2cb0f46bbd"
+    },
+    "work_items.json": {
+      "bytes": 52,
+      "sha256": "17bed50b6bb4ca952dd73d966240c34a7a4e0cc4225edabf56fac829fa2066a5"
+    }
+  },
   "mode": "static",
   "repo": {
     "branch_prefix": "wiki/",
@@ -33,6 +172,22 @@
     "memory_root": "memories",
     "repo_id": "wiki-viva-demo"
   },
-  "schema_version": "wiki_web_snapshot.v1",
-  "source_commit": null
+  "root_page_id": "",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-c27a8524e9dd273a",
+  "source_commit": null,
+  "source_sha": "uncommitted:c27a8524e9dd273a9400be0b05f700afb0625fcffc9ad26d919aee693d94c45f",
+  "versions": {
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
 }

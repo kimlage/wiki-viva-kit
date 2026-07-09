@@ -9,6 +9,13 @@
       "moc_parent": "",
       "page_type": "root_entity",
       "path": "memories/index.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
       "risk_flags": [],
       "source_refs": [],
       "stale_after_days": "30",

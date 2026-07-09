@@ -14,7 +14,7 @@
       "label": "Snapshot generated",
       "path": "",
       "status": "blocked",
-      "timestamp": "2026-07-08T00:45:50Z",
+      "timestamp": "2026-07-09T00:00:00Z",
       "weight": 1
     },
     {
@@ -73,7 +73,7 @@
       "weight": 1
     }
   ],
-  "generated_at": "2026-07-08T00:45:50Z",
+  "generated_at": "2026-07-09T00:00:00Z",
   "repo_id": "wiki-viva-demo",
   "schema_version": "wiki_web_timeline.v1",
   "summary": {
@@ -89,6 +89,6 @@
     },
     "event_count": 6,
     "first_at": "2026-05-04T00:00:00Z",
-    "last_at": "2026-07-08T00:45:50Z"
+    "last_at": "2026-07-09T00:00:00Z"
   }
 }

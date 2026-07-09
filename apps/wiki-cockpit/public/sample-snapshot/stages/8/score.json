@@ -26,15 +26,15 @@
       "indicadores": {
         "acoes_com_resultado": 0.0,
         "aprovacoes_no_sla": 0.0,
-        "fontes_recentes": 4.0,
+        "fontes_recentes": 16.0,
         "insights_revisados": 0.0,
-        "paginas_atualizadas": 37.0,
+        "paginas_atualizadas": 350.0,
         "paginas_orfas": 0.0,
-        "pendencias": 5.0,
+        "pendencias": 64.0,
         "responsabilidades_sem_dono": 0.0,
         "riscos_privacidade_resolvidos": 0.0
       },
-      "indice_vitalidade": 94.2,
+      "indice_vitalidade": 100.0,
       "participacao_distribuida": 0,
       "participantes": [],
       "score_aggregado": 0.0
@@ -45,15 +45,15 @@
       "indicadores": {
         "acoes_com_resultado": 0.0,
         "aprovacoes_no_sla": 0.0,
-        "fontes_recentes": 0.0,
+        "fontes_recentes": 2.0,
         "insights_revisados": 0.0,
-        "paginas_atualizadas": 4.0,
+        "paginas_atualizadas": 6.0,
         "paginas_orfas": 0.0,
         "pendencias": 1.0,
         "responsabilidades_sem_dono": 0.0,
         "riscos_privacidade_resolvidos": 0.0
       },
-      "indice_vitalidade": 19.9,
+      "indice_vitalidade": 42.6,
       "participacao_distribuida": 0,
       "participantes": [],
       "score_aggregado": 0.0
@@ -83,15 +83,15 @@
       "indicadores": {
         "acoes_com_resultado": 0.0,
         "aprovacoes_no_sla": 0.0,
-        "fontes_recentes": 1.0,
+        "fontes_recentes": 5.0,
         "insights_revisados": 0.0,
-        "paginas_atualizadas": 6.0,
+        "paginas_atualizadas": 10.0,
         "paginas_orfas": 1.0,
         "pendencias": 0.0,
         "responsabilidades_sem_dono": 0.0,
         "riscos_privacidade_resolvidos": 0.0
       },
-      "indice_vitalidade": 37.6,
+      "indice_vitalidade": 67.9,
       "participacao_distribuida": 0,
       "participantes": [],
       "score_aggregado": 0.0
@@ -102,15 +102,15 @@
       "indicadores": {
         "acoes_com_resultado": 0.0,
         "aprovacoes_no_sla": 0.0,
-        "fontes_recentes": 0.0,
+        "fontes_recentes": 6.0,
         "insights_revisados": 0.0,
-        "paginas_atualizadas": 22.0,
+        "paginas_atualizadas": 29.0,
         "paginas_orfas": 0.0,
         "pendencias": 0.0,
         "responsabilidades_sem_dono": 0.0,
         "riscos_privacidade_resolvidos": 0.0
       },
-      "indice_vitalidade": 84.0,
+      "indice_vitalidade": 94.6,
       "participacao_distribuida": 0,
       "participantes": [],
       "score_aggregado": 0.0

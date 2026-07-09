@@ -1322,6 +1322,32 @@
         ]
       }
     },
+    "proposal": {
+      "blocks": [],
+      "body_template": "",
+      "can_anchor_blocks": false,
+      "controls": [],
+      "creatable": true,
+      "extends": null,
+      "facets": {},
+      "home_quadrant": null,
+      "identity": {},
+      "page_type": "proposal",
+      "pinned_fields": [],
+      "scene": {
+        "emphasis": "none",
+        "shape": "sphere"
+      },
+      "skills": {},
+      "subpages": [],
+      "view": {
+        "badges": [
+          "freshness"
+        ],
+        "center": "document",
+        "panels": []
+      }
+    },
     "relationship_map": {
       "blocks": [],
       "body_template": "docs/references/templates/wiki/relationship-map.md",
