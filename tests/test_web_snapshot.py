@@ -228,6 +228,18 @@ def test_nested_snapshot_source_identity_ignores_sibling_generated_output(
     )["manifest.json"]["source_sha"]
     assert after_sibling == initial
 
+    subprocess.run(["git", "add", "generated-output/manifest.json"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "sibling generated output"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    after_sibling_commit = build_snapshot(
+        source_root, config, generated_at="2026-07-01T00:00:00Z"
+    )["manifest.json"]["source_sha"]
+    assert after_sibling_commit == initial
+
     nested_page = source_root / "memories/example/index.md"
     nested_page.write_text(
         nested_page.read_text(encoding="utf-8") + "\nNested source edit.\n",

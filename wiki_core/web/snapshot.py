@@ -166,21 +166,6 @@ def _read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-def _repo_commit(root: Path) -> str | None:
-    try:
-        proc = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=root,
-            text=True,
-            capture_output=True,
-            check=False,
-            timeout=10,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return proc.stdout.strip() if proc.returncode == 0 else None
-
-
 def _git_bytes(root: Path, *args: str) -> bytes | None:
     """Run one bounded, non-interactive Git read and return its exact bytes."""
 
@@ -289,10 +274,17 @@ def _source_identity(root: Path, fallback_hash: str) -> tuple[str, str | None]:
     Dirty or non-Git sources use the explicit ``uncommitted:<sha256>`` form.
     """
 
-    head = _repo_commit(root)
-    git_scope = _git_source_scope(root) if head else None
-    if head and git_scope is not None:
+    git_scope = _git_source_scope(root)
+    if git_scope is not None:
         repo_root, scope = git_scope
+        head_raw = _git_bytes(
+            repo_root, "log", "-1", "--format=%H", "--", scope
+        )
+        head = (
+            head_raw.decode("ascii", errors="replace").strip()
+            if head_raw is not None
+            else ""
+        )
         status = _git_bytes(
             repo_root,
             "status",
@@ -302,9 +294,9 @@ def _source_identity(root: Path, fallback_hash: str) -> tuple[str, str | None]:
             "--",
             scope,
         )
-        if status == b"":
+        if head and status == b"":
             return head, head
-        if status is not None:
+        if head and status is not None:
             return (
                 f"uncommitted:{_dirty_worktree_hash(repo_root, scope, head, status)}",
                 None,
