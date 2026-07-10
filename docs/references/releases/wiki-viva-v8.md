@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`d27bf316534d660b6754c35d0cfdf5f368c33fb6` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`e7d7eae07bcbca03641c8affb5200c6397fa2699` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
 downstream preflight safety boundary, `5179dc5c` makes nested centers
@@ -34,6 +34,13 @@ review: generated artifacts are idempotent, action has one schema declaration,
 and scene LOD uses the full scoped-world count before strict performance QA.
 `d27bf316` moves the retained browser-evidence upload to the official Node 24
 action after the final CI surfaced the last deprecated-action warning.
+`e7d7eae0` closes the P0 rendered-navigation blocker: every Alex quadrant now
+contains reachable real pages, technical buckets are translated into semantic
+collections with counts/descriptions/examples, group navigation cannot loop to
+itself, recenter resets the lens, and the same runtime/canvas survives the
+complete journey. The same payload makes the canonical action template and
+demo author `action_state`, valid ownership, next action, priority/attention
+basis, blockers and terminal receipts under one validated contract.
 
 ## Product boundary
 
@@ -50,6 +57,9 @@ v8 consolidates the cockpit into one center-relative living world:
 - source lifecycle, freshness and last attempt remain separate;
 - collections add typed `collection_member` edges and linked sub-worlds while
   keeping `moc_parent` as the canonical location contract;
+- quadrant family handles are density controls only: each explains a semantic
+  collection and reaches a reader or real center in at most two steps without
+  inventing a page, stale breadcrumb or second canvas;
 - action pages expose canonical runtime state, ownership, next action,
   blockers, priority and completion/cancellation receipts without discarding
   useful editorial `status` wording;
@@ -150,32 +160,35 @@ blank world, center error, overlap, unreadable label or sample fallback.
 ## Remaining external gate and known warnings
 
 - PR #61 still requires the human review/merge gate and a release tag.
-- Six explicit stale-page/operation-date warnings remain visible after the
+- Three explicit stale-page warnings remain visible after the
   deterministic operational pass; they were not reclassified as release
   errors.
 
 ## Final candidate evidence
 
-- Python: 703 passed, 4 skipped; audit 0 errors with 6 known staleness/date
+- Python: 705 passed, 4 skipped; audit 0 errors with 3 known staleness
   warnings; methodology 22/22. Every command in the remote `audit-and-test`
   workflow passes locally, including operational-pass freshness.
 - Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
   sidecar promotion/rollback checks pass.
-- Frontend: 389 unit tests across 51 files and 15 gate tests pass; architecture reports
+- Frontend: 393 unit tests across 51 files and 15 gate tests pass; architecture reports
   0 violations and 0 legacy debt.
-- Bundle: initial JS 137.99 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
-  chunk 53.20 kB gzip, all below the committed budgets.
-- Browser matrix: 51 passed with 2 environment-gated real-endpoint tests. A
-  dedicated clean Chromium performance project preserves the same 33.33 ms p95
-  budget; the accepted final windows measured normal median/p95 12.3/16.8 ms
-  and dense median/p95 10.1/21.5 ms. The final reader delta adds explicit
-  foreground/mobile/fallback regression specs and was exercised in the in-app
-  browser at `917x908`, `390x844` and `1280x900` without document/shell overflow.
+- Bundle: initial JS 139.07 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
+  chunk 53.85 kB gzip, all below the committed budgets.
+- Browser matrix: 55 passed with 2 environment-gated real-endpoint skips across
+  57 scenarios. A dedicated clean Chromium performance project passes both
+  normal and dense windows under the strict 33.33 ms p95 budget. The P0 Alex
+  journey also passed three consecutive focused repetitions and exercises all
+  visible Q1-Q4 pages/groups, native mouse/keyboard/focus behavior, collection
+  explanation, reader/recenter, breadcrumb/lens, no loop and one persistent
+  canvas. Mobile WebKit proves the same two-step path and mission foreground at
+  `390x664`; the in-app Browser covered `1280x900` and `390x664` with no
+  document/shell overflow.
 - Manual public browser QA covered four views, six overlays, four lenses,
   semantic motion, docks, reader, fallback and mobile. It preserved one canvas,
   had no document overflow, measured p95 12.1 ms on the normal world and proved
   atomic 400 ms overlay crossfades plus reader/Guide focus restoration.
-- Downstream pilot: portable source `d27bf316`; the prior private proof at
+- Downstream pilot: portable source `e7d7eae0`; the prior private proof at
   `fa65d5f9` had toolkit drift 0 and a real snapshot v2
   with 24 payloads and complete private/redacted-public migration reports with
   zero validation errors. Redacted desktop, mobile and fallback evidence uses

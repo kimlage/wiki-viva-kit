@@ -2199,7 +2199,7 @@ advances. A phase is not `done` without evidence.
 | Plan versioned in repo and linked from PR | `done` | Git-tracked plan file plus PR link/reference. | Contract commit `d01b17f0`; referenced by draft PR [#61](https://github.com/kimlage/wiki-viva-kit/pull/61). |
 | Human PR / merge / tag gate | `blocked` | Human review, required CI, merge to `main` and release tag. | Draft PR #61 is open. This external gate is intentionally not represented as completed implementation. |
 | Final repo/product planning audit | `done` | Live remote check, branch/WIP inventory, code hotspot review, tests/build/gates and desktop/mobile/fallback browser evidence. | Pre-implementation evidence is retained as a baseline; final automated/manual evidence is recorded in this ledger, the release note and PR #61. |
-| Phase 0 - work line consolidation | `done` | Branch, absorbed local fix, WIP classification and superseded-plan note. | One branch/PR preserves `71c845f` and `a3604c11`; the accepted implementation history continues through `3813ff45` (collections), `a5b1e720` (idempotent operational pass), `c84de9ac` (generic linked anchors), `fbb3e45f` (canonical action contract), `6544c810` (Node 24 CI actions), `2a1428c4` (nested source discovery), `5b09ca0b` (collection-capable page-type validation), `2da6c73a` (performance/generated-contract closure) and `d27bf316` (Node 24 evidence upload). Prior plans are marked absorbed/superseded. |
+| Phase 0 - work line consolidation | `done` | Branch, absorbed local fix, WIP classification and superseded-plan note. | One branch/PR preserves `71c845f` and `a3604c11`; the accepted implementation history continues through `3813ff45` (collections), `a5b1e720` (idempotent operational pass), `c84de9ac` (generic linked anchors), `fbb3e45f` (canonical action contract), `6544c810` (Node 24 CI actions), `2a1428c4` (nested source discovery), `5b09ca0b` (collection-capable page-type validation), `2da6c73a` (performance/generated-contract closure), `d27bf316` (Node 24 evidence upload) and payload `e7d7eae0` (P0 semantic quadrant navigation, regenerated action contract and snapshots). Prior plans are marked absorbed/superseded. |
 | Phase 1 - unified contract | `done` | Route/state/schema tests, view/lens/overlay contract and canonical-vs-legacy route matrix. | Canonical entity/vocabulary, state ownership, history policy, `legacy`/`compat`/`v8` flags, v8 URL writer and explicit mappings for `radar`, `districts`, `trails`, `atlas`, `focus` and short lenses pass router/runtime tests; regions are rejected as centers. |
 | Phase 1A - walking skeleton | `done` | Fixture, runtime path, tests and visual QA evidence package. | Root/source/person/action/family, dock, reader, fallback and inspect-select-read-recenter flow pass reducer/unit coverage and the four-project browser package; QA JSON records route/runtime/viewport/console/network/screenshots. |
 | Phase 2 - backend/snapshot | `done` | Snapshot schema/version, source states, regions, warnings and deterministic tests. | `wiki_web_snapshot.v2` validates 24 payloads, sidecars, version vector, relations, work, regions, lifecycle and warnings. Clean/dirty source identity is honest; complete bundles stage, validate, atomically promote and roll back. Frontend rejects stale, partial, unsupported, corrupt and torn loads. |
@@ -2207,10 +2207,10 @@ advances. A phase is not `done` without evidence.
 | Phase 4 - interaction runtime/game engine | `done` | Runtime modules, reducer, view/overlay/surface/scene registries, input controller and harness tests. | Runtime, reducer, registries/effects/input/resource/command/diagnostic modules pass; components use injected ports, architecture reports 0 violations/0 debt, operator commands use nonce + idempotent receipts, and the server rejects non-loopback binds. |
 | Phase 5 - frontend rendering | `done` | Runtime-backed views/overlays, a11y/i18n, fallback and instrumentation evidence. | Four views, six overlays, one semantic encoding resolver, 2D fallback, stable layout signature, keyed morphs, focus/inert restoration, 44px targets, safe-area handling, EN/PT controls, live legend, lazy boundaries and bounded performance evidence pass. |
 | Phase 6 - dense synthetic demo | `done` | Regression fixture matrix and dense sample data. | The authored fixture retains 467 public pages. The instructional default now selects `normal_operations` (107 pages), while `dense_stress` remains an explicit 378-page snapshot and `?demo_scenario=dense_stress` route (>350 mobile threshold). Seven deterministic manifests cover every source/action state axis; region `shown + hidden = total` and regeneration drift remain green. |
-| Phase 7 - tests/gates | `done` | Python gates, frontend tests, Playwright E2E and diff checks. | Python: 703 passed, 4 skipped. Frontend: 389/389 across 51 files; Node gates 15/15; architecture 0 violations/0 debt; snapshot API, bundle, demo/snapshot drift and diff checks green. The final browser matrix passed 51 scenarios with 2 real-endpoint opt-in skips across dedicated Chromium performance, Chromium desktop, WebKit mobile, forced fallback and Firefox. Audit reports 0 errors and 6 explicit stale-page/operation-date warnings; deterministic operation/input compilations match HEAD. Whole-tree Ruff is not a release gate and retains pre-existing bootstrap/style debt. |
-| Phase 8 - visual validation | `done` | QA evidence package for desktop, mobile, fallback and private read-only pass. | Final in-app traversal proved one canvas, fixed center/lens, quadrants available in all four views and zero document overflow. The Guide owns a bounded viewport sheet at `1280x720` and `390x844`; quadrant focus exposes an explicit All state and active-cell toggle. After correcting LOD to use the full scoped-world count, the default 107-page world measured median 12.3 ms and p95 16.8 ms (`within_budget`); dense stress measured median 10.1 ms and p95 21.5 ms against the stress budget. Overlay evidence captures at 0/160/480 ms prove a 400 ms per-entity crossfade with the control atomically locked until resolve; view/lens/travel retain identity instead of remounting. Reader layering, WebKit touch exits and reduced-motion fallback keep the foreground bounded, inert the background and restore canonical navigation. No current console/network application error or document overflow was observed. |
-| Phase 9 - downstream repository upgrades | `done` | Consumer inventory, upgrade package, migration reports, pilot/wave status and redacted QA evidence. | The portable implementation source is pinned to `d27bf316`, with exact-tree comparison, inventory, allow/block lists, runtime-config protection, report compiler/schema, rollback and compatibility window. The private pilot previously completed the 560-page real snapshot v2 migration and remains under draft PR #208; its collection/action-state refresh is a downstream-only verification item tracked there. No private data was imported upstream; both human merge gates remain external. |
-| Phase 10 - documentation/release | `done` | README, cockpit README, modular-blocks, extending-the-kit, examples, diagrams and release notes. | Runtime/upgrade guides, README surfaces, extension/block guidance, command reference, release candidate, implementation source `d27bf316` and PR #61 are versioned. Stable release remains the separate human merge/tag gate above. |
+| Phase 7 - tests/gates | `done` | Python gates, frontend tests, Playwright E2E and diff checks. | Python: 705 passed, 4 skipped. Frontend: 393/393 across 51 files; Node gates 15/15; architecture 0 violations/0 debt; snapshot API, bundle, demo/snapshot drift, OKF and diff checks green. The final browser matrix passed 55 scenarios with 2 real-endpoint opt-in skips across 57 scenarios in dedicated Chromium performance, Chromium desktop, WebKit mobile, forced fallback and Firefox projects; the P0 journey also passed three consecutive focused repetitions. Audit reports 0 errors and 3 explicit stale-page warnings. Bundle evidence is 139.07 kB initial JS gzip, 1.73 kB initial CSS gzip and 53.85 kB largest lazy chunk. Deterministic operation/input/source compilations match HEAD. Whole-tree Ruff is not a release gate and retains pre-existing bootstrap/style debt. |
+| Phase 8 - visual validation | `done` | QA evidence package for desktop, mobile, fallback and private read-only pass. | The exact Alex route was traversed in the in-app Browser at `1280x900` and `390x664`: Q1-Q4, every visible real page and semantic group, collection examples and Sources -> Evidence origins. Every node-like target is a native mouse/keyboard/focus control; groups expose count, description and examples; a member reaches a reader or real center in at most two steps; recenter resets the lens to `all`; breadcrumb and center match the destination; no group loops; and one canvas survives the complete route. The mission foreground now owns mobile without the compass competing, while the closed mission and compass keep Q2 targets pointer-safe. Desktop/mobile evidence reports exact viewport dimensions and zero document overflow. The strict Chromium performance project passed both normal and dense budgets at p95 <= 33.33 ms; earlier accepted numeric windows remain historical evidence rather than being mislabeled as this run. Reader/Guide/dock foreground arbitration, reduced motion, WebKit touch and forced fallback remain green, with no current application console/network failure observed. |
+| Phase 9 - downstream repository upgrades | `done` | Consumer inventory, upgrade package, migration reports, pilot/wave status and redacted QA evidence. | The portable implementation source is pinned to payload `e7d7eae0`, with exact-tree comparison, inventory, allow/block lists, runtime-config protection, report compiler/schema, rollback and compatibility window. The private pilot previously completed the 560-page real snapshot v2 migration and remains under draft PR #208; the controlled P0/action-contract refresh is explicitly pending there and cannot be claimed upstream before verification. No private data was imported upstream; both human merge gates remain external. |
+| Phase 10 - documentation/release | `done` | README, cockpit README, modular-blocks, extending-the-kit, examples, diagrams and release notes. | Runtime/upgrade guides, README surfaces, extension/block guidance, command reference, release candidate, implementation payload `e7d7eae0` and PR #61 are versioned. Stable release remains the separate human merge/tag gate above. |
 
 ### Post-implementation UX correction ledger - 2026-07-09
 
@@ -2226,13 +2226,14 @@ regression test and browser proof agree.
 | UX-R3 - unified view/lens/overlay navigation | `done` | One visible navigator must explain and operate the three independent axes without duplicate v8 navigation. | Navigator + Guide explain four views, five lenses and six overlays; Sources and Work are native geometries. Shortcuts 1-4, Next steps, reader/docks/fallback and URLs write the same canonical `/demo/w` grammar; the canvas/center persist and all world controls are inert behind Guide, coach, docks and reader. |
 | UX-R4 - stable quadrant semantics | `done` | Items occupy deterministic 2x2 territories; selection never recenters; Q1-Q4 work in every view without moving item positions or remounting the canvas. | Quadrants uses deterministic 2x2 territories and a fixed real center; selection never recenters. Q1-Q4 work in all four views without moving positions or remounting the canvas. The snapshot census remains 107 nodes while every view receives the same 32-node compiler-scoped root world; inherited anchors with empty assignments show the real center plus four honest empty territories. Assertions cover exact totals (`shown + hidden = total`, including the 73-item stress case), local/global census separation and capped Source/Work samples around their full perimeter. |
 | UX-R5 - instructional demo | `done` | First-time learning, free exploration and from-zero formation must be distinct entry paths; normal use must not start in stress-test density. | `/demo` exposes Guided (`tour=1`), Explore (`tour=0`) and Genesis. `normal_operations` is the 107-page default; `dense_stress` is an explicit 378-page universe. Scenario/tour are allowlisted, route writes preserve scenario/tour/genesis/stage/q/filter/packet, and App switches live bundles without leaving the selected demo path. |
-| UX-R6 - final regression and visual gate | `done` | Full Python/frontend/gate suites, browser regression projects, demo drift, no console/network regressions and final plan/PR evidence. | The final correction boundary passes 703 Python tests with 4 skips, 389 frontend tests across 51 files, 15 Node gates and the 51-pass browser matrix. Human review, merge and tag remain the separate external gate. |
+| UX-R6 - final regression and visual gate | `done` | Full Python/frontend/gate suites, browser regression projects, demo drift, no console/network regressions and final plan/PR evidence. | The final correction boundary passes 705 Python tests with 4 skips, 393 frontend tests across 51 files, 15 Node gates and the 55-pass browser matrix with 2 real-endpoint opt-in skips across 57 scenarios. Human review, merge and tag remain the separate external gate. |
 | UX-R7 - reader foreground and information hierarchy | `done` | A reader must own the foreground in every view/fallback, preserve quadrant context without a floating instrument, expose decision-ready facts before prose and retain usable actions on desktop/mobile. | The exact reported route now hides compass, mission, navigator and visual-control surfaces through one primary-surface state; the reader uses the dock layer, modal/inert/focus restoration contract and filtered focus trap. The repeated Markdown H1 is removed, a compact Q2 position chip preserves context, action state/next step/due/owner/priority/evidence lead the page, empty relations disappear and secondary commands live in an in-bounds More menu. Unit/build/gates and manual `917x908`/`390x844`/fallback checks are green with zero overflow. |
 | UX-R8 - semantic motion and surface continuity | `done` | Motion must explain view, lens, overlay, travel, retreat and surface lifecycle; it must be interruptible, reduced-motion safe, non-generic and verified in the real browser. | Payload `88bc0195` centralizes one CSS/WebGL grammar, deliberately slows spatial transitions, uses symmetric easing, stable entity staggering, per-entity 300-400 ms overlay crossfades, atomic overlay retargeting and real enter/exit presence for reader, Guide and docks. Reduced/off cuts active scene, camera and surface motion immediately; render-aborted bookkeeping cannot consume a transition. Instructive world/reader loading, focus restoration and v1 visual-setting migration were covered by the then-current 370-test frontend suite and final desktop/mobile browser evidence. Metadata `c47d6542` is published and remote `audit-and-test` passed in 1m12s. |
 | UX-R9 - final navigation and explanation audit | `done` | The Guide must own the viewport without colliding with missions, quadrant focus must have an obvious All return, every surface exit must resolve URL and UI together, and fallback/reader flows must remain bounded. | Payload `4e4ee631` removes the Guide's filtered fixed-position containing block, presents all three axes in a responsive full sheet, marks each quadrant with `aria-pressed`, adds explicit All plus active-cell toggle, and synchronizes lazy-route writes through a browser-wide event. WebKit touch close, universal reader Esc, fallback first viewport, refreshed visual baselines, `1280x720` scroll checks and the final 51-pass browser matrix close the rendered regressions. |
 | UX-R10 - downstream grouping and scroll closure | `done` | Real downstream worlds must use compiler-owned members, preserve inherited quadrant ownership and keep one unambiguous fallback scroll owner; migration evidence must include every allowlisted skill without admitting private overrides. | `d2ddcb5f` scopes local worlds and inherited quadrants; `487f7935` makes the fallback the sole vertical scrollport; `fa65d5f9` fixes wildcard skill allowlists after a final evidence audit. Synthetic tests plus the migrated 560-page pilot prove 109 anchors, 99 non-empty worlds, Q0 zero, toolkit drift zero, one scroll axis and complete redacted reports without publishing private paths or content. |
 | UX-R11 - adaptive compatibility closure | `done` | Compatibility views, density fallback and baselines must be honest across Darwin/Linux without hiding native controls or weakening interaction semantics. | `bcb296de` latches adaptive fallback only after a measured 120-frame window, separates Darwin/Linux references and retains the compatibility identity of Districts/Trails without false native selection. `6544c810` upgrades checkout/setup actions, `2da6c73a` makes LOD consume the full scoped-world count and isolates strict frame telemetry without relaxing its budget, and `d27bf316` moves evidence upload to Node 24. |
 | UX-R12 - collection and work-state contract | `done` | Transversal groupings must not rewrite hierarchy; action authoring and runtime must share one state/ownership/next-step/blocker/receipt contract; source registries must not flatten ingestion events. | `3813ff45` through `5b09ca0b` add typed `collection_member` edges, explicit/typed selectors for every collection-capable anchor, linked quadrants/relations, reader hierarchy, source-only registry membership, nested-source discovery and canonical action fields. Synthetic context-hub/source/action regressions pass; real private counts and action normalization remain private evidence in PR #208. |
+| UX-R13 - semantic quadrant/group navigation blocker | `done` | From Alex, Q1-Q4 and every visible node/group must be operable by mouse, keyboard and focus; groups must explain real collections and reach a real page in at most two steps without loop, stale breadcrumb/lens or canvas remount. | Payload `e7d7eae0` replaces technical buckets with semantic family names, keeps real page previews inside every active quadrant, makes each group a bounded collection with count/description/examples, removes same-route group loops, resets lens to `all` on recenter, and makes decorative marks non-interactive. The exact Chromium journey visits all four quadrants and every visible target, alternates keyboard/mouse, verifies reader/recenter/breadcrumb/lens and one canvas, then covers Sources -> Evidence origins. WebKit validates the two-tap mobile path and the `390x664` mission/compass safe area; the final matrix passes 55 + 2 opt-in skips. |
 
 ## Workstreams And Dependencies
 
@@ -2691,6 +2692,13 @@ Required automated coverage:
 - Surface registration from block stacks.
 - Input normalization across mouse, touch, keyboard, command/search, deep link
   and fallback controls.
+- The exact Alex P0 route visits Q1-Q4, clicks or activates every visible page
+  and group, and proves that node-like targets are native focusable controls
+  while decorative marks never advertise pointer/keyboard behavior.
+- A group activation exposes a real collection count, short description and
+  member examples; the active group cannot link to itself; one more activation
+  reaches a reader or real center; recenter resets the lens to `all`; and the
+  breadcrumb, center and persistent canvas remain coherent throughout.
 - Projection basis and multi-center behavior.
 - Route normalization and forbidden `region:*` roots.
 - Hover does not mutate route, center, lens, group, reader or camera travel.
@@ -2743,35 +2751,44 @@ Objective: prove the product by operating it.
 
 Manual browser walk, public demo:
 
-1. Open desktop `/demo/w?center=<demo-root>&view=quadrants&overlay=actions`.
+1. Open desktop
+   `/demo/w?center=root-alex-rivera&view=quadrants&lens=all&overlay=actions`.
 2. Confirm one nonblank WebGL canvas.
-3. Click every quadrant/lens.
-4. Switch views: `quadrants`, `radar`, `sources` and `work`.
-5. Switch overlays: `attention`, `freshness`, `actions`, `ownership`,
+3. Visit Q1, Q2, Q3 and Q4; activate every visible page and group by mouse and
+   keyboard, including the semantic replacements for Area Hubs, People and
+   Roles, Content Objects, Data Sources and Event Emitters.
+4. For each group, confirm a collection count, short description and member
+   examples; activate an example and reach a real page/reader in at most two
+   steps, without returning to the same group list.
+5. After every transition confirm the real breadcrumb/center, current lens,
+   lens reset to `all` on recenter and identity of the original canvas.
+6. Switch views: `quadrants`, `radar`, `sources` and `work`.
+7. Switch overlays: `attention`, `freshness`, `actions`, `ownership`,
    `evidence` and `quality`.
-6. Switch center to root, nested company/project, source, person, action and
+8. Switch center to root, nested company/project, source, person, action and
    meeting.
-7. Open a source and verify source dock/state/log/brief behavior.
-8. Open a person and verify relation/development placeholders do not break the
+9. Open a source and verify source dock/state/log/brief behavior.
+10. Open a person and verify relation/development placeholders do not break the
    current model.
-9. Open an action and verify action state/region membership.
-10. Open reader and close it without changing center unexpectedly.
-11. Open Blocks, Source, Intake, Gates, Approve, Work and Missions docks.
-12. Use search, keyboard traversal and browser back/forward.
-13. Open fallback `?visual=1`.
-14. Repeat critical path in mobile viewport.
-15. Check long PT labels, top strip, command bar, minimap, reader and docks for
+11. Open an action and verify action state/region membership.
+12. Open reader and close it without changing center unexpectedly.
+13. Open Blocks, Source, Intake, Gates, Approve, Work and Missions docks.
+14. Use search, keyboard traversal and browser back/forward.
+15. Open fallback `?visual=1`.
+16. Repeat the two-step group path in mobile viewport with Missions both closed
+    and open; no compass/group/reader surface may compete with the foreground.
+17. Check long PT labels, top strip, command bar, minimap, reader and docks for
     overlap.
-16. Check console errors and failed network requests.
-17. Confirm route and visible center remain semantically correct after every
+18. Check console errors and failed network requests.
+19. Confirm route and visible center remain semantically correct after every
     click.
-18. Capture the visual QA evidence package: screenshots/video, route, center,
+20. Capture the visual QA evidence package: screenshots/video, route, center,
     view, lens, overlay, dock/reader/fallback state, viewport, browser,
     fixture/snapshot version, `sampleFallback`, console/network status,
     performance counters and blockers.
-19. Repeat representative paths in WebKit mobile and forced fallback, not only
+21. Repeat representative paths in WebKit mobile and forced fallback, not only
     a resized Chromium viewport.
-20. Complete the north-star operator tasks: identify attention, explain a
+22. Complete the north-star operator tasks: identify attention, explain a
     visual mark, reach evidence/next action and reverse the flow one layer at a
     time.
 
@@ -2792,6 +2809,9 @@ Acceptance:
 - Visual inspection finds no semantic route error, incoherent center, blank
   canvas, overlap, unusable mobile dock, unreadable PT label or misleading
   fallback.
+- No grouping loops to itself; every semantic group is understandable from its
+  count/description/examples and reaches a real page or reader in at most two
+  steps, with breadcrumb, center and lens agreeing with the destination.
 - QA evidence is reproducible from route, fixture/snapshot version and
   screenshots/video paths.
 - If a visual defect remains, it is either fixed or documented as a blocker,
@@ -3116,6 +3136,10 @@ The v8 unified execution is complete only when all conditions are true:
   operator decision it helps make.
 - Quadrants behave as center-relative lenses/projections.
 - Regions behave as visual groupings, never entities.
+- Every visible quadrant/group target is a native mouse/keyboard/focus control;
+  semantic groups expose count, description and real examples, never link to
+  themselves, and reach a real page/reader in at most two steps while
+  breadcrumb, center, lens reset and canvas identity stay coherent.
 - Sources behave as places/emitters with inspectable state.
 - Templates/blocks determine behavior, surfaces and visual grammar.
 - `WorldRuntime` owns canonical cockpit state: `center`, `view`, `lens`,

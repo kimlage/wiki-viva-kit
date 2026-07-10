@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc1@d27bf316
+    current_kit_version: wiki-viva-v8-rc1@e7d7eae0
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -34,7 +34,7 @@ consumers:
     drift_status:
       state: self
       drift_total: 0
-      worktree: payload_source_clean
+      worktree: payload_source_pinned
     upgrade_wave: public_kit
     status: candidate
     blocker: PR 61 human review, merge and release tag remain
@@ -65,11 +65,11 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: clean
+      state: prior_green_refresh_pending
       scope: wiki_toolkit_drift_core_prefixes
       drift_total: 0
-      details: completed_migration_report_retained_only_in_redacted_private_evidence
+      details: prior migration evidence is retained privately; payload e7d7eae0 must be imported by controlled allowlist and revalidated in PR 208
       verified_on: "2026-07-10"
     upgrade_wave: pilot
-    status: ready
-    blocker: private human PR review and merge remain
+    status: refresh_pending
+    blocker: controlled payload e7d7eae0 import, real-data validation and private human PR review remain
