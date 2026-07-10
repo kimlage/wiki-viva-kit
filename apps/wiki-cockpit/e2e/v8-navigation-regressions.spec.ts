@@ -1,6 +1,13 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
+// These tests intentionally keep one WebGL world mounted through long route,
+// reader and dock journeys. Video/trace would become part of the renderer's
+// own 120-frame budget and can honestly trigger the adaptive 2D verdict before
+// the 3D continuity assertion finishes. Dedicated performance/fallback specs
+// cover that branch; keep this interaction contract observer-free.
+test.use({ trace: "off", video: "off" });
+
 const NATIVE_VIEWS = ["quadrants", "radar", "sources", "work"] as const;
 type NativeView = (typeof NATIVE_VIEWS)[number];
 type NativeOverlay = "attention" | "freshness" | "actions" | "ownership" | "evidence" | "quality";
@@ -98,6 +105,63 @@ async function expectSurfaceBackground(page: Page, inert: boolean) {
     }
     expect(await target.evaluate((element) => (element as HTMLElement).inert), selector).toBe(inert);
   }
+}
+
+for (const [view, lens, overlay, compatibilityLabel, compatibilityHint, currentOnly] of [
+  ["radar", "all", "freshness", null, null, false],
+  ["atlas", "type", "actions", "Atlas", "hierarchy: what lives under each area", false],
+  ["districts", "type", "actions", "Districts", "identification: the world sorted by kind", true]
+] as const) {
+  test(`explicit legacy ${view} deep link preserves its registered compatibility projection`, async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+      window.localStorage.setItem("wiki-cockpit.missionCard", "open");
+    });
+    await page.goto(`/demo/w/${view}?visual=1&tour=0`);
+
+    const workspace = page.locator(".worldWorkspace");
+    await expect(workspace).toHaveAttribute("data-runtime-mode", "compat", { timeout: 20_000 });
+    await expect(workspace).toHaveAttribute("data-world-view", view);
+    await expect(workspace).toHaveAttribute("data-world-lens", lens);
+    await expect(workspace).toHaveAttribute("data-world-overlay", overlay);
+    await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-perspective", view);
+    await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-overlay", overlay);
+
+    const address = new URL(page.url());
+    expect(address.pathname).toBe(`/demo/w/${view}`);
+    expect(address.searchParams.get("view")).toBeNull();
+
+    const navigator = page.locator(".worldNavigator");
+    if (compatibilityLabel && compatibilityHint) {
+      await expect(navigator).toHaveAttribute("data-native-view", "");
+      await expect(navigator).toHaveAttribute("data-compatibility-view", view);
+      await expect(navigator.locator('[data-view-option][aria-pressed="true"]')).toHaveCount(0);
+      await expect(navigator.locator(`[data-compatibility-context="${view}"]`)).toContainText(compatibilityLabel);
+      await expect(navigator.locator(`[data-compatibility-context="${view}"]`)).toContainText(compatibilityHint);
+
+      const missionContext = page.locator(".missionContextSummary");
+      await expect(missionContext).toHaveAttribute("data-view-context", "compatibility");
+      await expect(missionContext.locator(".missionViewBadge")).toHaveText("Compatibility view");
+      await expect(missionContext.locator(".missionViewContext")).toHaveText(compatibilityLabel);
+      await expect(missionContext.locator(".missionViewHint")).toHaveText(compatibilityHint);
+    } else {
+      await expect(navigator).toHaveAttribute("data-native-view", view);
+      await expect(navigator).toHaveAttribute("data-compatibility-view", "");
+      await expect(navigator.locator(`[data-view-option="${view}"]`)).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator(".missionContextSummary")).toHaveAttribute("data-view-context", "native");
+    }
+
+    const compatibilityGlyph = page.locator(`.perspectiveGlyphs [data-perspective-option="${view}"]`);
+    await expect(compatibilityGlyph).toHaveAttribute("aria-pressed", "true");
+    await expect(compatibilityGlyph).toHaveAttribute("data-compatibility-current-only", currentOnly ? "true" : "false");
+
+    if (view === "districts") {
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(navigator.locator('[data-compatibility-context="districts"]')).toBeVisible();
+      await expect(navigator.locator('[data-view-option][aria-pressed="true"]')).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    }
+  });
 }
 
 test("v8 keyboard shortcuts 1-4 update one canonical view grammar", async ({ page }) => {

@@ -1,5 +1,12 @@
 import type { Locator, Page } from "@playwright/test";
-import { attachViewportScreenshot, expect, test, waitForRuntimePerformance } from "./fixtures";
+import {
+  attachViewportScreenshot,
+  expect,
+  expectStablePerformanceBudgetFallback,
+  test,
+  waitForRuntimePerformance,
+  waitForSettledRuntimePerformance
+} from "./fixtures";
 import { expectSpatialCardsWithinSafeArea } from "./spatial-assertions";
 import { expectOverlayEncodingMatrix } from "./overlay-assertions";
 
@@ -232,24 +239,47 @@ test("WebKit mobile keeps semantic overlay tokens and geometry stable", async ({
   await attachViewportScreenshot(page, testInfo, "webkit-mobile-overlay-quality");
 });
 
-test("WebKit mobile publishes bounded real render counters and passes normal/stress budgets", async ({ page }, testInfo) => {
-  test.setTimeout(70_000);
+test("WebKit mobile either passes the sustained frame budget or switches to the explicit 2D map", async ({ page }, testInfo) => {
+  test.setTimeout(100_000);
   await prepareMobileWorld(page);
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
-  const evidence = await waitForRuntimePerformance(page, { minimumSamples: 120, timeout: 45_000 });
+  const evidence = await waitForSettledRuntimePerformance(page);
   expect(evidence.activeDevice).toBe("mobile");
-  expect(evidence.sampleCount).toBeGreaterThanOrEqual(evidence.samplePolicy.minimumSamples);
   expect(evidence.sampleCount).toBeLessThanOrEqual(evidence.samplePolicy.capacity);
   expect(evidence.counters.sourceNodes).toBeGreaterThan(0);
   expect(evidence.counters.interactiveNodes).toBeGreaterThan(0);
   expect(evidence.counters.labels).toBeGreaterThan(0);
-  expect(evidence.counters.fallbackReason).toBeNull();
-  expect(evidence.counters.frameTimeMedianMs).toBeGreaterThan(0);
-  expect(evidence.counters.frameTimeP95Ms).toBeGreaterThan(0);
-  for (const scenario of ["normal", "stress"] as const) {
-    expect(evidence.evaluations.mobile?.[scenario].violations, `mobile ${scenario}`).toEqual([]);
-    expect(evidence.evaluations.mobile?.[scenario].status, `mobile ${scenario}`).not.toBe("blocked");
+  const performanceFallback = evidence.counters.fallbackReason === "performance_budget";
+  if (performanceFallback) {
+    expect(evidence.sampleCount).toBe(evidence.samplePolicy.capacity);
+    expect(evidence.counters.particles).toBe(0);
+    expect(evidence.counters.frameTimeMedianMs ?? 0).toBeGreaterThan(
+      1_000 / evidence.evaluations.mobile!.normal.budget.minimumFps
+    );
+    expect(evidence.evaluations.mobile?.normal.status).toBe("fallback");
+    expect(evidence.evaluations.mobile?.normal.violations.length).toBeGreaterThan(0);
+    expect(evidence.evaluations.mobile?.normal.violations.every((violation) =>
+      violation.startsWith("frameTimeP95Ms:")
+    )).toBe(true);
+    await expectStablePerformanceBudgetFallback(page);
+
+    // Route changes must preserve the same session verdict too.
+    const group = page.locator(".fallbackGroupLink:not(.emptyFacet)").first();
+    await expect(group).toBeVisible();
+    await group.tap();
+    await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-fallback-reason", "performance_budget");
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-fallback-active", "true");
+  } else {
+    expect(evidence.sampleCount).toBe(evidence.samplePolicy.capacity);
+    expect(evidence.counters.fallbackReason).toBeNull();
+    expect(evidence.counters.frameTimeMedianMs).toBeGreaterThan(0);
+    expect(evidence.counters.frameTimeP95Ms).toBeGreaterThan(0);
+    for (const scenario of ["normal", "stress"] as const) {
+      expect(evidence.evaluations.mobile?.[scenario].violations, `mobile ${scenario}`).toEqual([]);
+      expect(evidence.evaluations.mobile?.[scenario].status, `mobile ${scenario}`).not.toBe("blocked");
+    }
   }
+  expect(evidence.evaluations.mobile?.normal.status).not.toBe("blocked");
   await testInfo.attach("runtime-performance-mobile.json", {
     body: Buffer.from(`${JSON.stringify(evidence, null, 2)}\n`, "utf8"),
     contentType: "application/json"

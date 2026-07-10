@@ -12,6 +12,7 @@ import type { ClusterStar, WorldGroup, WorldLayout } from "../../../scene/perspe
 import { layoutNodeInstanceKeys } from "../../../scene/layout";
 import type { ScenePatch } from "../../../components/SystemScene";
 import { nodeDisplayColor, workspaceLabel } from "./materials";
+import type { SceneFallbackReason } from "./materials";
 import type { SceneCensus } from "./hud";
 import type { OverlayId } from "../../../world/contracts";
 
@@ -129,6 +130,7 @@ export function SceneFallback({
   layout,
   overlay,
   git,
+  fallbackReason,
   selectedPageId,
   highlightedIds,
   census,
@@ -140,6 +142,7 @@ export function SceneFallback({
   layout: WorldLayout;
   overlay: OverlayId;
   git: GitState;
+  fallbackReason: SceneFallbackReason;
   selectedPageId: string;
   highlightedIds: Set<string>;
   census: SceneCensus;
@@ -152,11 +155,17 @@ export function SceneFallback({
   const fallbackNodes = layout.nodes.slice(0, 24);
   const fallbackNodeKeys = layoutNodeInstanceKeys(fallbackNodes);
   return (
-    <div className="sceneFallback" aria-label="Content map">
+    <div className="sceneFallback" aria-label="Content map" data-fallback-reason={fallbackReason}>
       <div className="fallbackCore">
         <strong>{git.proposal.is_proposal_branch ? "Draft change" : "Approved content"}</strong>
         <span>{workspaceLabel(git)}</span>
       </div>
+      {fallbackReason === "performance_budget" && (
+        <aside className="performanceFallbackNotice" role="status">
+          <strong>{t("scene.fallback.performance.title")}</strong>
+          <span>{t("scene.fallback.performance.body")}</span>
+        </aside>
+      )}
       <FallbackPlanView
         layout={layout}
         overlay={overlay}

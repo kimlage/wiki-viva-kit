@@ -1,13 +1,16 @@
 import { attachViewportScreenshot, expect, test } from "./fixtures";
 import { expectSpatialCardsWithinSafeArea } from "./spatial-assertions";
-import { expectOverlayEncodingMatrix } from "./overlay-assertions";
+import { expectCollapsedFilterClearance, expectOverlayEncodingMatrix } from "./overlay-assertions";
 
 const REQUIRED_DESKTOP_VIEWPORTS = [
   { width: 1440, height: 960 },
-  { width: 1280, height: 900 }
+  { width: 1280, height: 900 },
+  // At this width the command bar wraps on both macOS and Linux. Its measured
+  // safe area must remain just as pointer-reachable as the single-row bar.
+  { width: 1100, height: 900 }
 ] as const;
 
-test("Chromium desktop covers both v8 viewports without clipping the world chrome", async ({ page }, testInfo) => {
+test("Chromium desktop covers the required v8 viewports without clipping the world chrome", async ({ page }, testInfo) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
     window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
@@ -56,6 +59,7 @@ test("Chromium desktop covers both v8 viewports without clipping the world chrom
     expect.soft(layout.clipped, `${viewport.width}x${viewport.height} clipped labels`).toEqual([]);
     expect.soft(layout.canvas?.width ?? 0, `${viewport.width}x${viewport.height} canvas width`).toBeGreaterThan(640);
     expect.soft(layout.canvas?.height ?? 0, `${viewport.width}x${viewport.height} canvas height`).toBeGreaterThan(480);
+    await expectCollapsedFilterClearance(page);
     await attachViewportScreenshot(page, testInfo, `chromium-${viewport.width}x${viewport.height}`);
   }
 });

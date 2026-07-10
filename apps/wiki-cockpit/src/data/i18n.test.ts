@@ -22,6 +22,15 @@ describe("i18n", () => {
     expect(t("mission.approve.help")).toContain("human reviews");
   });
 
+  it("explains the sustained-performance fallback in both languages", () => {
+    configureLanguage("en");
+    expect(t("scene.fallback.performance.title")).toBe("Performance-safe map");
+    expect(t("scene.fallback.performance.body")).toContain("same pages, groups and navigation");
+    configureLanguage("pt-BR");
+    expect(t("scene.fallback.performance.title")).toBe("Mapa seguro para este dispositivo");
+    expect(t("scene.fallback.performance.body")).toContain("mesmas páginas, grupos e navegação");
+  });
+
   it("keeps the shared tour wording valid outside demo routes", () => {
     configureLanguage("en");
     expect(t("tour.welcome.body")).toContain("This guide presents");
@@ -58,6 +67,16 @@ describe("i18n", () => {
     const missingInEn = [...pt].filter((key) => !en.has(key));
     expect(missingInPt, `keys missing in PT: ${missingInPt.join(", ")}`).toEqual([]);
     expect(missingInEn, `keys missing in EN: ${missingInEn.join(", ")}`).toEqual([]);
+  });
+
+  it("explains compatibility views in both cockpit languages", () => {
+    configureLanguage("en");
+    expect(t("world.experience.compatibility.badge")).toBe("Compatibility view");
+    expect(t("world.experience.compatibility.switchHint")).toContain("native view");
+
+    configureLanguage("pt");
+    expect(t("world.experience.compatibility.badge")).toBe("Visão de compatibilidade");
+    expect(t("world.experience.compatibility.switchHint")).toContain("visão nativa");
   });
 
   it("derives a localized Codex-unavailable headline from capability booleans", () => {

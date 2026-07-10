@@ -114,15 +114,15 @@ describe("WorldRuntime walking skeleton", () => {
   });
 
   it.each([
-    ["quadrants", "quadrants", "actions"],
-    ["radar", "radar", "freshness"],
-    ["districts", "districts", "actions"],
-    ["trails", "trails", "evidence"],
-    ["atlas", "atlas", "actions"],
-    ["focus", "focus", "evidence"]
-  ])("keeps the explicit v8 compatibility mapping for legacy %s", (legacy, view, overlay) => {
+    ["quadrants", "quadrants", "all", "actions"],
+    ["radar", "radar", "all", "freshness"],
+    ["districts", "districts", "type", "actions"],
+    ["trails", "trails", "relations", "evidence"],
+    ["atlas", "atlas", "type", "actions"],
+    ["focus", "focus", "relations", "evidence"]
+  ])("keeps the explicit v8 compatibility mapping for legacy %s", (legacy, view, lens, overlay) => {
     const world = runtime(`/w/${legacy}?center=root`);
-    expect(world.getState()).toMatchObject({ view, overlay });
+    expect(world.getState()).toMatchObject({ mode: "compat", view, lens, overlay });
     expect(world.getState().warnings.map((warning) => warning.code)).toContain("legacy_route");
   });
 

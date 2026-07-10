@@ -16,13 +16,30 @@ import {
   Sprout,
   Trophy
 } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from "react";
 import { t } from "../../data/i18n";
 import { perspectiveLabel } from "../../data/presentation";
+import { isNativeWorldViewId } from "../../world/experience";
 import type { Instruments } from "../../data/surfaces";
 import { HelpTip } from "../HelpTip";
 import type { PerspectiveId, WorldPatch, WorldRoute } from "../../router";
 import type { WorldCondition } from "../../scene/condition";
+
+const COMPATIBILITY_PERSPECTIVE_ORDER = ["radar", "atlas", "districts", "trails", "quadrants"] as const satisfies readonly PerspectiveId[];
+
+export function visibleCompatibilityPerspectives(
+  activePerspective: string,
+  availablePerspectives: readonly PerspectiveId[]
+): PerspectiveId[] {
+  const available = new Set(availablePerspectives);
+  // The active legacy deep link remains visible as honest current context even
+  // when the template does not offer it. No other hidden perspective leaks
+  // into discovery, and the template-owned list is never mutated.
+  return COMPATIBILITY_PERSPECTIVE_ORDER.filter(
+    (perspective) => available.has(perspective) || perspective === activePerspective
+  );
+}
 
 export function CommandBar({
   route,
@@ -66,8 +83,36 @@ export function CommandBar({
   onOpenTour: () => void;
 }) {
   const pressedPerspective = activePerspective ?? route.perspective;
+  const compatibilityPerspectives = visibleCompatibilityPerspectives(pressedPerspective, instruments.perspectives);
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // The command bar wraps according to both the available width and the
+  // platform's font metrics. Publish its measured height to the scene shell so
+  // sibling HUD surfaces can reserve the real hit region instead of guessing
+  // from a single desktop screenshot.
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    const sceneShell = bar?.closest<HTMLElement>(".sceneShell");
+    if (!bar || !sceneShell) return;
+
+    const publishHeight = () => {
+      sceneShell.style.setProperty("--world-command-bar-height", `${Math.ceil(bar.getBoundingClientRect().height)}px`);
+    };
+    publishHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      return () => sceneShell.style.removeProperty("--world-command-bar-height");
+    }
+    const observer = new ResizeObserver(publishHeight);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      sceneShell.style.removeProperty("--world-command-bar-height");
+    };
+  }, []);
+
   return (
-    <div className="worldCommandBar" role="toolbar" aria-label={t("world.commandBarAria")}>
+    <div ref={barRef} className="worldCommandBar" role="toolbar" aria-label={t("world.commandBarAria")}>
       <label className="commandSearch">
         <Search size={14} aria-hidden />
         <input
@@ -130,17 +175,24 @@ export function CommandBar({
       </div>
       {showCompatibilityPerspectives && (
       <div className="perspectiveGlyphs" role="group" aria-label={t("world.perspectives")}>
-        {(["radar", "atlas", "districts", "trails", "quadrants"] as PerspectiveId[])
-          .filter((perspective) => instruments.perspectives.includes(perspective))
-          .map((perspective, index) => {
+        {compatibilityPerspectives.map((perspective, index) => {
           const info = perspectiveLabel(perspective);
+          const currentOnly = pressedPerspective === perspective &&
+            !isNativeWorldViewId(perspective) &&
+            !instruments.perspectives.includes(perspective);
           return (
             <button
               key={perspective}
-              className={pressedPerspective === perspective ? "glyphButton active" : "glyphButton"}
+              className={pressedPerspective === perspective
+                ? currentOnly ? "glyphButton active compatibilityCurrent" : "glyphButton active"
+                : "glyphButton"}
               onClick={() => onNavigateWorld({ perspective })}
-              title={`${info.label} (${index + 1}) — ${info.hint}`}
+              title={currentOnly
+                ? `${t("world.experience.compatibility.badge")}: ${info.label} — ${info.hint}`
+                : `${info.label} (${index + 1}) — ${info.hint}`}
               aria-pressed={pressedPerspective === perspective}
+              data-perspective-option={perspective}
+              data-compatibility-current-only={currentOnly ? "true" : "false"}
               type="button"
             >
               <span aria-hidden>{info.glyph}</span>

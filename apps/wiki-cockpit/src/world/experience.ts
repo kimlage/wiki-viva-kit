@@ -67,6 +67,8 @@ export type QuadrantLensExperience = {
 export const WORLD_EXPERIENCE_KEYS = {
   compactAria: "world.experience.compactAria",
   viewGroupAria: "world.experience.viewGroupAria",
+  compatibilityBadge: "world.experience.compatibility.badge",
+  compatibilitySwitchHint: "world.experience.compatibility.switchHint",
   overlaySelectLabel: "world.overlayControl",
   learn: "world.experience.learn",
   close: "world.experience.close",

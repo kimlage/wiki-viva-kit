@@ -1,10 +1,16 @@
 // @vitest-environment happy-dom
 
-import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { canUseWebGL, sceneMotionDurationSeconds, sceneMotionIntent, SystemScene } from "./SystemScene";
 import type { SceneMotionSnapshot } from "./SystemScene";
 import type { GitState, GraphNode } from "../types";
+import {
+  latchRuntimePerformanceFallback,
+  RUNTIME_PERFORMANCE_FALLBACK_EVENT,
+  RUNTIME_PERFORMANCE_FALLBACK_SESSION_KEY,
+  runtimePerformanceFallbackLatched
+} from "../world/performance";
 
 const nodes: GraphNode[] = [
   {
@@ -48,6 +54,11 @@ const git: GitState = {
   }
 };
 
+afterEach(() => {
+  cleanup();
+  window.sessionStorage.removeItem(RUNTIME_PERFORMANCE_FALLBACK_SESSION_KEY);
+});
+
 const motionSnapshot = (patch: Partial<SceneMotionSnapshot> = {}): SceneMotionSnapshot => ({
   key: "quadrants|q2|actions||0|root|",
   view: "quadrants",
@@ -89,6 +100,21 @@ describe("scene semantic motion transaction", () => {
 });
 
 describe("SystemScene fallback", () => {
+  it("shares the adaptive session verdict with the containing world shell", () => {
+    let broadcasts = 0;
+    const onFallback = () => {
+      broadcasts += 1;
+    };
+    window.addEventListener(RUNTIME_PERFORMANCE_FALLBACK_EVENT, onFallback);
+    expect(runtimePerformanceFallbackLatched()).toBe(false);
+
+    latchRuntimePerformanceFallback();
+
+    expect(runtimePerformanceFallbackLatched()).toBe(true);
+    expect(broadcasts).toBe(1);
+    window.removeEventListener(RUNTIME_PERFORMANCE_FALLBACK_EVENT, onFallback);
+  });
+
   it("uses the 2D fallback with the same topology, URLs and measurable fallback reason", async () => {
     expect(canUseWebGL()).toBe(false);
 
@@ -104,6 +130,8 @@ describe("SystemScene fallback", () => {
 
     expect(screen.getByLabelText("Content map")).toBeTruthy();
     const scene = container.querySelector(".sceneShell");
+    expect(scene?.getAttribute("data-scene-fallback-reason")).toBe("webgl_unavailable");
+    expect(container.querySelector(".sceneFallback")?.getAttribute("data-fallback-reason")).toBe("webgl_unavailable");
     expect(scene?.getAttribute("data-motion-intent")).toBe("view");
     expect(scene?.getAttribute("data-motion-duration-ms")).toBe("0");
     expect(screen.getByText("Draft change")).toBeTruthy();
@@ -115,7 +143,7 @@ describe("SystemScene fallback", () => {
     const alpha = screen.getByRole("link", { name: /Alpha Attention: Needs attention/ });
     expect(alpha.getAttribute("data-overlay")).toBe("attention");
     expect(alpha.getAttribute("data-overlay-state")).toBe("watch");
-    const output = screen.getByTestId("runtime-performance") as HTMLOutputElement;
+    const output = container.querySelector('[data-testid="runtime-performance"]') as HTMLOutputElement;
     await waitFor(() => expect(output.dataset.performanceReady).toBe("true"));
     const evidence = JSON.parse(output.value) as {
       counters: { sourceNodes: number; interactiveNodes: number; fallbackReason: string; particles: number };
@@ -128,5 +156,28 @@ describe("SystemScene fallback", () => {
       particles: 0
     });
     expect(evidence.evaluations.desktop.normal.status).toBe("fallback");
+  });
+
+  it("keeps a session-latched performance fallback explicit and navigable", async () => {
+    window.sessionStorage.setItem(RUNTIME_PERFORMANCE_FALLBACK_SESSION_KEY, "1");
+    const { container } = render(
+      <SystemScene
+        nodes={nodes}
+        git={git}
+        route={{ perspective: "radar", reader: false, filter: "" }}
+        makeHref={() => "/w/radar"}
+      />
+    );
+
+    expect(container.querySelector(".sceneShell")?.getAttribute("data-scene-fallback-reason")).toBe("performance_budget");
+    expect(screen.getByText("Performance-safe map")).toBeTruthy();
+    expect(screen.getByText(/same pages, groups and navigation/)).toBeTruthy();
+    const output = screen.getByTestId("runtime-performance") as HTMLOutputElement;
+    await waitFor(() => expect(output.dataset.performanceFallbackReason).toBe("performance_budget"));
+    expect(JSON.parse(output.value).evaluations.desktop.normal.status).toBe("fallback");
+    const latchedEvidence = output.value;
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(output.dataset.performanceFallbackReason).toBe("performance_budget");
+    expect(output.value).toBe(latchedEvidence);
   });
 });

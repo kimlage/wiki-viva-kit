@@ -9,7 +9,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { t } from "../data/i18n";
-import { contextLabel, pageTypeLabel, worldGroupLabel } from "../data/presentation";
+import { contextLabel, pageTypeLabel, perspectiveLabel, worldGroupLabel } from "../data/presentation";
 import { groupKeyForPage } from "../scene/perspectives";
 import type { PerspectiveId as ScenePerspectiveId } from "../scene/perspectives";
 import { SCENE_FACETS, nodeQuadrant, quadrantHomesFromAssignments, sceneFacetOf } from "../scene/facets";
@@ -58,6 +58,10 @@ import type { FoundingSpec } from "../renderers/scene/spatial";
 import { demoWorldUrl, genesisAction, genesisQuadrantMatches, genesisUrl } from "../data/genesis";
 import { genesisGuide } from "../data/genesisGuide";
 import { motionCssVariables, overlayResolveDurationMs } from "../world/visual/motionGrammar";
+import {
+  RUNTIME_PERFORMANCE_FALLBACK_EVENT,
+  runtimePerformanceFallbackLatched
+} from "../world/performance";
 
 const SystemScene = lazy(() => import("./SystemScene").then((module) => ({ default: module.SystemScene })));
 const PageReader = lazy(() => import("./PageReader").then((module) => ({ default: module.PageReader })));
@@ -1134,16 +1138,21 @@ export function WorldView({
   // fallback for reduced-motion / no-WebGL / visual-test mode. LIVE state —
   // it must track the same media signal SystemScene's internal fallback does,
   // or the two branches disagree and no surface renders at all.
-  const [fallbackActive, setFallbackActive] = useState(sceneFallbackPreferred);
+  const [environmentFallbackActive, setEnvironmentFallbackActive] = useState(sceneFallbackPreferred);
+  const [performanceFallbackActive, setPerformanceFallbackActive] = useState(runtimePerformanceFallbackLatched);
+  const fallbackActive = environmentFallbackActive || performanceFallbackActive;
   useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return undefined;
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setFallbackActive(sceneFallbackPreferred());
-    media.addEventListener?.("change", update);
-    window.addEventListener("popstate", update);
+    if (typeof window === "undefined") return undefined;
+    const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    const updateEnvironment = () => setEnvironmentFallbackActive(sceneFallbackPreferred());
+    const activatePerformanceFallback = () => setPerformanceFallbackActive(true);
+    media?.addEventListener?.("change", updateEnvironment);
+    window.addEventListener(RUNTIME_PERFORMANCE_FALLBACK_EVENT, activatePerformanceFallback);
+    window.addEventListener("popstate", updateEnvironment);
     return () => {
-      media.removeEventListener?.("change", update);
-      window.removeEventListener("popstate", update);
+      media?.removeEventListener?.("change", updateEnvironment);
+      window.removeEventListener(RUNTIME_PERFORMANCE_FALLBACK_EVENT, activatePerformanceFallback);
+      window.removeEventListener("popstate", updateEnvironment);
     };
   }, []);
 
@@ -1391,8 +1400,10 @@ export function WorldView({
   }, [bundle, missions]);
 
   // The home view is a TEMPLATE decision (interface.views.default), not a
-  // platform constant: a bare entry URL normalizes to the stack's default, and
-  // a deep link to a perspective this world doesn't offer falls back too.
+  // platform constant: only a bare entry URL normalizes to the stack's
+  // default. Explicit compatibility deep links remain addressable even when
+  // the template does not advertise them as navigation buttons — discovery
+  // and route validity are separate contracts.
   useEffect(() => {
     if (route.query.lens) setPreviewQuadrant(null);
   }, [route.query.lens]);
@@ -1403,6 +1414,10 @@ export function WorldView({
     // `/w?view=radar` writer back into the conflicting
     // `/w/quadrants?view=radar` double grammar.
     if (worldState.mode === "v8" && route.query.view) return;
+    // Positional `/w/radar`, `/w/atlas`, `/w/districts`, ... URLs are the
+    // supported legacy reader grammar. Their registered view/lens/overlay
+    // mapping must win over the current template's discoverable-view list.
+    if (route.perspectiveExplicit) return;
     // Applies to the EMPTY world too: before any lens exists there is no
     // quadrant map — the frame materializes only when the block attaches.
     if (!instruments.perspectives.includes(route.perspective) && route.perspective !== "focus") {
@@ -1451,7 +1466,16 @@ export function WorldView({
   }
   if (selectedPage && selectedPage.id !== centeredRealPage?.id) crumbs.push({ label: selectedPage.title, patch: {} });
 
-  const navigatorView = isNativeWorldViewId(worldState.view) ? worldState.view : "quadrants";
+  const navigatorView = isNativeWorldViewId(worldState.view) ? worldState.view : null;
+  const compatibilityNavigatorView = navigatorView
+    ? undefined
+    : { id: worldState.view, ...perspectiveLabel(worldState.view) };
+  const activeViewLabel = navigatorView
+    ? t(`world.view.${navigatorView}`)
+    : compatibilityNavigatorView?.label ?? worldState.view;
+  const activeViewHint = navigatorView
+    ? t(`world.experience.view.${navigatorView}.description`)
+    : compatibilityNavigatorView?.hint ?? "";
 
   const sceneRoute = {
     perspective: effectivePerspective,
@@ -1486,6 +1510,7 @@ export function WorldView({
       data-world-view={worldState.view}
       data-world-lens={worldState.lens}
       data-world-overlay={worldState.overlay}
+      data-world-fallback-active={fallbackActive ? "true" : "false"}
       data-visual-motion={visualConfig.motion.toFixed(2)}
       data-runtime-warnings={worldState.warnings.map((warning) => warning.code).join(",")}
     >
@@ -1555,6 +1580,7 @@ export function WorldView({
           </nav>
           <WorldNavigator
             view={navigatorView}
+            compatibilityView={compatibilityNavigatorView}
             overlay={worldState.overlay}
             overlayResolving={overlayResolving}
             lens={worldState.lens}
@@ -1735,8 +1761,9 @@ export function WorldView({
             the keyboard search flow must never depend on the card state. */}
         <MissionCard
           rows={missionRows}
-          viewLabel={t(`world.view.${navigatorView}`)}
-          viewHint={t(`world.experience.view.${navigatorView}.description`)}
+          viewLabel={activeViewLabel}
+          viewHint={activeViewHint}
+          viewBadge={compatibilityNavigatorView ? t("world.experience.compatibility.badge") : undefined}
           overlayLabel={t(`world.overlay.${worldState.overlay}`)}
           missionsEnabled={instruments.missionsEnabled}
           open={missionCardOpen}

@@ -38,8 +38,15 @@ import { useSurfacePresence } from "./useSurfacePresence";
 
 export type WorldExperienceTranslate = (key: string) => string;
 
+export type CompatibilityViewContext = {
+  id: string;
+  label: string;
+  hint: string;
+};
+
 export type WorldNavigatorProps = {
-  view: NativeWorldViewId;
+  view?: NativeWorldViewId | null;
+  compatibilityView?: CompatibilityViewContext;
   overlay: OverlayId;
   lens?: LensId | null;
   overlayResolving?: boolean;
@@ -76,6 +83,7 @@ function ExperienceIcon({ id, size = 16 }: { id: ExperienceIconId; size?: number
 
 export function WorldNavigator({
   view,
+  compatibilityView,
   overlay,
   lens,
   overlayResolving = false,
@@ -96,6 +104,9 @@ export function WorldNavigator({
   const isExpanded = expanded ?? internalExpanded;
   const panelPresence = useSurfacePresence(isExpanded);
   const selectedLens = activeQuadrantLensOption(lens);
+  const activeCompatibilityView = view ? undefined : compatibilityView;
+  const compatibilityBadge = translate(WORLD_EXPERIENCE_KEYS.compatibilityBadge);
+  const compatibilitySwitchHint = translate(WORLD_EXPERIENCE_KEYS.compatibilitySwitchHint);
 
   const changeExpanded = (next: boolean) => {
     if (expanded === undefined) setInternalExpanded(next);
@@ -114,11 +125,26 @@ export function WorldNavigator({
     <section
       className="worldNavigator"
       aria-label={translate(WORLD_EXPERIENCE_KEYS.compactAria)}
-      data-world-view={view}
+      data-world-view={view ?? activeCompatibilityView?.id ?? ""}
+      data-native-view={view ?? ""}
+      data-compatibility-view={activeCompatibilityView?.id ?? ""}
       data-world-overlay={overlay}
       data-world-lens={selectedLens}
     >
       <div className="worldNavigatorCompact worldRuntimeControls">
+        {activeCompatibilityView && (
+          <div
+            className="worldNavigatorCompatibility"
+            role="note"
+            aria-label={`${compatibilityBadge}: ${activeCompatibilityView.label}. ${activeCompatibilityView.hint}`}
+            data-compatibility-context={activeCompatibilityView.id}
+            title={compatibilitySwitchHint}
+          >
+            <span>{compatibilityBadge}</span>
+            <strong>{activeCompatibilityView.label}</strong>
+            <small>{activeCompatibilityView.hint}</small>
+          </div>
+        )}
         <div
           className="worldNavigatorViewControls worldRuntimeControlGroup"
           role="group"
@@ -202,6 +228,21 @@ export function WorldNavigator({
               <X size={17} aria-hidden="true" focusable="false" />
             </button>
           </header>
+
+          {activeCompatibilityView && (
+            <aside
+              className="worldNavigatorCompatibilityNotice"
+              aria-label={`${compatibilityBadge}: ${activeCompatibilityView.label}`}
+              data-compatibility-notice={activeCompatibilityView.id}
+            >
+              <span>{compatibilityBadge}</span>
+              <div>
+                <strong>{activeCompatibilityView.label}</strong>
+                <p>{activeCompatibilityView.hint}</p>
+              </div>
+              <small>{compatibilitySwitchHint}</small>
+            </aside>
+          )}
 
           <section className="worldNavigatorMentalModel" aria-labelledby={`${resolvedPanelId}-mental-model`}>
             <h3 id={`${resolvedPanelId}-mental-model`}>{translate(WORLD_EXPERIENCE_KEYS.mentalModelTitle)}</h3>

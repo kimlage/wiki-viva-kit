@@ -46,16 +46,21 @@ import {
   groupRelationBundlesForLayout,
   sceneFallbackReason,
   selectEvidenceFlowEdges,
-  selectSceneEdges,
-  shouldUseFallback
+  selectSceneEdges
 } from "../renderers/scene/parts/materials";
-import type { SceneEdge, TrustKey } from "../renderers/scene/parts/materials";
+import type { SceneEdge, SceneFallbackReason, TrustKey } from "../renderers/scene/parts/materials";
 import { CenterSignalSprites, ClusterStars, GlowSprites, GroupChildOrbits, GroupShells, HorizonBeacons, NodeInstances, RingSprites, SemanticPageDetails, StarField, morphAttachmentOpacity, overlayCrossfadeWeights, semanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
 import type { MorphState, OverlayTransitionState, SemanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
 import { AmbientDriver, isEvidenceGap, SceneParticles } from "../renderers/scene/parts/particles-layer";
 import { DEFAULT_VISUAL_CONTROL_CONFIG } from "./visualControl";
 import type { VisualControlConfig } from "./visualControl";
-import { RUNTIME_PERFORMANCE_RESET_EVENT, RuntimePerformanceTelemetry } from "../world/performance";
+import {
+  latchRuntimePerformanceFallback,
+  RUNTIME_PERFORMANCE_RESET_EVENT,
+  RuntimePerformanceTelemetry,
+  runtimePerformanceFallbackLatched,
+  sustainedPerformanceFallbackRequired
+} from "../world/performance";
 import type { RuntimePerformanceEvidence } from "../world/performance";
 import type { OverlayId, RuntimeMode, ViewId } from "../world/contracts";
 import { motionDurationSeconds, overlayResolveDurationMs } from "../world/visual/motionGrammar";
@@ -518,7 +523,7 @@ function RuntimeFrameProbe({
   onEvidence: (evidence: RuntimePerformanceEvidence) => void;
 }) {
   useFrame((_state, delta) => {
-    const evidence = telemetry.recordFrame(delta * 1_000, width);
+    const evidence = telemetry.recordFrame(delta * 1_000, width, document.visibilityState);
     if (evidence) onEvidence(evidence);
   });
   return null;
@@ -1167,7 +1172,13 @@ export function SystemScene({
   makeHref?: (patch: ScenePatch) => string;
   children?: React.ReactNode;
 }) {
-  const [fallback, setFallback] = useState(shouldUseFallback);
+  const [environmentFallbackReason, setEnvironmentFallbackReason] = useState<SceneFallbackReason | null>(sceneFallbackReason);
+  const [performanceFallbackLatched, setPerformanceFallbackLatched] = useState(runtimePerformanceFallbackLatched);
+  const performanceFallbackLatchedRef = useRef(performanceFallbackLatched);
+  const fallbackReason: SceneFallbackReason | null = performanceFallbackLatched
+    ? "performance_budget"
+    : environmentFallbackReason;
+  const fallback = fallbackReason !== null;
   const [motion, setMotion] = useState(allowAmbientMotion);
   const profile = useSceneProfile(nodes.length);
   const visualTuning = sceneVisualTuning(visualTuningInput);
@@ -1203,9 +1214,17 @@ export function SystemScene({
     output.dataset.performanceFallbackReason = evidence.counters.fallbackReason ?? "";
     output.dataset.performanceFrameMedian = evidence.counters.frameTimeMedianMs?.toFixed(2) ?? "";
     output.dataset.performanceFrameP95 = evidence.counters.frameTimeP95Ms?.toFixed(2) ?? "";
+    if (sustainedPerformanceFallbackRequired(evidence) && !performanceFallbackLatchedRef.current) {
+      performanceFallbackLatchedRef.current = true;
+      latchRuntimePerformanceFallback();
+      setPerformanceFallbackLatched(true);
+    }
   }, []);
   useEffect(() => {
     const resetMeasurementWindow = () => {
+      // A fallback verdict is session-latched and has no live renderer left to
+      // remeasure. Preserve its published proof across tab visibility changes.
+      if (fallback || performanceFallbackLatchedRef.current) return;
       performanceTelemetry.resetFrames();
       const output = performanceOutputRef.current;
       if (!output) return;
@@ -1217,8 +1236,12 @@ export function SystemScene({
       output.dataset.performanceFrameP95 = "";
     };
     window.addEventListener(RUNTIME_PERFORMANCE_RESET_EVENT, resetMeasurementWindow);
-    return () => window.removeEventListener(RUNTIME_PERFORMANCE_RESET_EVENT, resetMeasurementWindow);
-  }, [performanceTelemetry]);
+    document.addEventListener("visibilitychange", resetMeasurementWindow);
+    return () => {
+      window.removeEventListener(RUNTIME_PERFORMANCE_RESET_EVENT, resetMeasurementWindow);
+      document.removeEventListener("visibilitychange", resetMeasurementWindow);
+    };
+  }, [fallback, performanceTelemetry]);
   // Cluster-stars with nothing deeper to open reveal in place by raising the
   // node budget for the current level; any route change resets it.
   const [revealBoost, setRevealBoost] = useState(0);
@@ -1419,7 +1442,10 @@ export function SystemScene({
 
   useEffect(() => {
     if (!fallback) return;
-    performanceTelemetry.resetFrames();
+    // Preserve the complete 120-frame proof that caused an adaptive fallback.
+    // Environment fallbacks never sampled a usable renderer, so their empty
+    // window remains the truthful representation.
+    if (fallbackReason !== "performance_budget") performanceTelemetry.resetFrames();
     const visible = new Set(layout.nodes.flatMap((node) => [node.id, node.path]));
     const visibleRelations = edges.filter((edge) => visible.has(edge.source) && visible.has(edge.target)).length;
     publishPerformanceEvidence(
@@ -1430,9 +1456,10 @@ export function SystemScene({
           relationLines: visibleRelations,
           labels: layout.nodes.length + layout.groups.length + layout.clusterStars.length + layout.beacons.length,
           particles: 0,
-          fallbackReason: sceneFallbackReason() ?? "runtime_fallback",
-          frameTimeMedianMs: null,
-          frameTimeP95Ms: null,
+          fallbackReason: fallbackReason ?? sceneFallbackReason() ?? "runtime_fallback",
+          ...(fallbackReason === "performance_budget"
+            ? {}
+            : { frameTimeMedianMs: null, frameTimeP95Ms: null }),
           routeUsabilityMs
         },
         performanceWidth
@@ -1441,6 +1468,7 @@ export function SystemScene({
   }, [
     edges,
     fallback,
+    fallbackReason,
     layout,
     sourceNodeCount,
     performanceTelemetry,
@@ -1582,7 +1610,7 @@ export function SystemScene({
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => {
-      setFallback(shouldUseFallback());
+      setEnvironmentFallbackReason(sceneFallbackReason());
       setMotion(allowAmbientMotion());
     };
     update();
@@ -1921,6 +1949,7 @@ export function SystemScene({
       data-scene-center-has-quadrants={centerHasQuadrants ? "true" : "false"}
       data-scene-source-node-count={sourceNodeCount}
       data-scene-input-node-count={nodes.length}
+      data-scene-fallback-reason={fallbackReason ?? ""}
       data-visual-density={visualTuning.density.toFixed(2)}
       data-visual-spacing={visualTuning.spacing.toFixed(2)}
       data-visual-glow={visualTuning.glow.toFixed(2)}
@@ -1948,6 +1977,7 @@ export function SystemScene({
             layout={layout}
             overlay={overlay}
             git={git}
+            fallbackReason={fallbackReason!}
             selectedPageId={selectedId}
             highlightedIds={highlightedIds}
             census={census}

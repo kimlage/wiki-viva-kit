@@ -52,6 +52,34 @@ export const FRAME_SAMPLE_POLICY: Readonly<FrameSamplePolicy> = Object.freeze({
 // interaction verdict is not polluted by cold-start/navigation frames.
 export const RUNTIME_PERFORMANCE_RESET_EVENT = "wiki-viva:runtime-performance-reset";
 
+// The adaptive verdict is shared by the scene and the DOM shell. SystemScene
+// owns the bounded-frame measurement, while WorldView owns the 2D twins of
+// spatial flows (founding, create and guide). A central session latch plus one
+// explicit event keeps both owners on the same branch without coupling the
+// renderer to shell callbacks.
+export const RUNTIME_PERFORMANCE_FALLBACK_SESSION_KEY = "wiki-viva.performanceFallback.v1";
+export const RUNTIME_PERFORMANCE_FALLBACK_EVENT = "wiki-viva:runtime-performance-fallback";
+
+export function runtimePerformanceFallbackLatched(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(RUNTIME_PERFORMANCE_FALLBACK_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function latchRuntimePerformanceFallback(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(RUNTIME_PERFORMANCE_FALLBACK_SESSION_KEY, "1");
+  } catch {
+    // Storage can be disabled by an embedding policy. The event still keeps
+    // the mounted shell aligned with SystemScene's in-memory verdict.
+  }
+  window.dispatchEvent(new Event(RUNTIME_PERFORMANCE_FALLBACK_EVENT));
+}
+
 export type RuntimeBudgetMatrix = Record<
   RuntimeDeviceClass,
   Record<"normal" | "stress", RuntimeBudgetEvaluation>
@@ -211,6 +239,34 @@ export function runtimePerformanceEvidence(
   };
 }
 
+// A slow frame during startup or one partial sample window must never eject a
+// user from the spatial world. Conversely, once a complete bounded window
+// proves that frame time alone cannot meet the active device's minimum FPS,
+// keeping an explicitly blocked 3D renderer alive is not an honest result.
+// Count and interaction-latency violations stay diagnostic: switching to 2D
+// cannot be claimed to repair those separate contracts.
+export function sustainedPerformanceFallbackRequired(evidence: RuntimePerformanceEvidence): boolean {
+  if (evidence.sampleCount !== evidence.samplePolicy.capacity) return false;
+  if (evidence.counters.fallbackReason !== null) return false;
+  const active = evidence.evaluations[evidence.activeDevice]?.normal;
+  if (!active || active.status !== "blocked" || active.violations.length === 0) return false;
+  if (!active.violations.every((violation) => violation.startsWith("frameTimeP95Ms:"))) return false;
+  // p95 alone can be tripped by a handful of expensive route/surface frames.
+  // Automatic degradation is deliberately stricter than the diagnostic gate:
+  // the typical frame must also miss the device's minimum FPS, proving a
+  // sustained renderer limitation instead of transient interaction jank.
+  const maximumFrameMs = 1_000 / active.budget.minimumFps;
+  return evidence.counters.frameTimeMedianMs !== null &&
+    evidence.counters.frameTimeMedianMs > maximumFrameMs;
+}
+
+// Browser animation clocks may deliver one very large delta when a background
+// tab is throttled or resumed. That is not renderer work and must never become
+// evidence for a session fallback.
+export function runtimeFrameMeasurementAllowed(visibilityState: string): boolean {
+  return visibilityState === "visible";
+}
+
 // A bounded, allocation-light sampler for the render loop. record() never
 // reaches React state. It returns true only at evidence publication milestones;
 // callers may then serialize one snapshot directly into a DOM output element.
@@ -298,7 +354,12 @@ export class RuntimePerformanceTelemetry {
     return runtimePerformanceEvidence(this.#counters, width, this.#frames.sampleCount, this.#frames.policy);
   }
 
-  recordFrame(frameTimeMs: number, width: number): RuntimePerformanceEvidence | null {
+  recordFrame(
+    frameTimeMs: number,
+    width: number,
+    visibilityState: string
+  ): RuntimePerformanceEvidence | null {
+    if (!runtimeFrameMeasurementAllowed(visibilityState)) return null;
     if (!this.#frames.record(frameTimeMs)) return null;
     const summary = this.#frames.summary();
     this.#counters = {

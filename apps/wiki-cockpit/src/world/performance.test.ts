@@ -7,8 +7,10 @@ import {
   percentile,
   RUNTIME_DENSITY_BUDGETS,
   runtimeDeviceClass,
+  runtimeFrameMeasurementAllowed,
   RuntimePerformanceTelemetry,
   runtimePerformanceEvidence,
+  sustainedPerformanceFallbackRequired,
   summarizeFrameTimes,
   type RuntimeRenderCounters
 } from "./performance";
@@ -95,6 +97,43 @@ describe("v8 runtime performance contract", () => {
     expect(mobileEvidence.evaluations.desktop).toBeUndefined();
   });
 
+  it("requests 2D fallback only after a full window proves a frame-time-only block", () => {
+    const slow = counters({ frameTimeMedianMs: 80, frameTimeP95Ms: 171 });
+    const complete = runtimePerformanceEvidence(slow, 390, FRAME_SAMPLE_POLICY.capacity);
+    expect(sustainedPerformanceFallbackRequired(complete)).toBe(true);
+
+    const transientSpikes = runtimePerformanceEvidence(
+      counters({ frameTimeMedianMs: 16, frameTimeP95Ms: 171 }),
+      390,
+      FRAME_SAMPLE_POLICY.capacity
+    );
+    expect(sustainedPerformanceFallbackRequired(transientSpikes)).toBe(false);
+
+    expect(
+      sustainedPerformanceFallbackRequired(
+        runtimePerformanceEvidence(slow, 390, FRAME_SAMPLE_POLICY.capacity - 1)
+      )
+    ).toBe(false);
+    expect(
+      sustainedPerformanceFallbackRequired(
+        runtimePerformanceEvidence(
+          counters({ frameTimeP95Ms: 171, relationLines: 221 }),
+          390,
+          FRAME_SAMPLE_POLICY.capacity
+        )
+      )
+    ).toBe(false);
+    expect(
+      sustainedPerformanceFallbackRequired(
+        runtimePerformanceEvidence(
+          counters({ frameTimeP95Ms: 171, fallbackReason: "webgl_unavailable" }),
+          390,
+          FRAME_SAMPLE_POLICY.capacity
+        )
+      )
+    ).toBe(false);
+  });
+
   it("bounds render-loop samples, skips warmup and publishes only at fixed milestones", () => {
     const sampler = new BoundedFrameTimeSampler({ capacity: 4, warmupFrames: 2, minimumSamples: 2, publishEvery: 2 });
     expect(sampler.record(99)).toBe(false);
@@ -115,7 +154,7 @@ describe("v8 runtime performance contract", () => {
     telemetry.updateCounters(counters({ frameTimeMedianMs: null, frameTimeP95Ms: null }), 1280);
     const publications: NonNullable<ReturnType<RuntimePerformanceTelemetry["recordFrame"]>>[] = [];
     for (let index = 0; index < 90; index += 1) {
-      const evidence = telemetry.recordFrame(16 + (index % 3), 1280);
+      const evidence = telemetry.recordFrame(16 + (index % 3), 1280, "visible");
       if (evidence) publications.push(evidence);
     }
     expect(publications.map((evidence) => ({
@@ -130,5 +169,22 @@ describe("v8 runtime performance contract", () => {
     expect(telemetry.snapshot(1280).counters.frameTimeP95Ms).toBe(18);
     expect(telemetry.snapshot(1280).samplePolicy.capacity).toBe(FRAME_SAMPLE_POLICY.capacity);
     expect(telemetry.snapshot(1280).sampleCount).toBe(90);
+  });
+
+  it("never counts visibility-throttled frames as renderer evidence", () => {
+    const telemetry = new RuntimePerformanceTelemetry({ warmupFrames: 0 });
+    telemetry.updateCounters(counters({ frameTimeMedianMs: null, frameTimeP95Ms: null }), 1280);
+
+    expect(runtimeFrameMeasurementAllowed("visible")).toBe(true);
+    expect(runtimeFrameMeasurementAllowed("hidden")).toBe(false);
+    for (let index = 0; index < FRAME_SAMPLE_POLICY.capacity; index += 1) {
+      expect(telemetry.recordFrame(171, 1280, "hidden")).toBeNull();
+    }
+    expect(telemetry.snapshot(1280).sampleCount).toBe(0);
+
+    for (let index = 0; index < FRAME_SAMPLE_POLICY.minimumSamples; index += 1) {
+      telemetry.recordFrame(16, 1280, "visible");
+    }
+    expect(telemetry.snapshot(1280).sampleCount).toBe(FRAME_SAMPLE_POLICY.minimumSamples);
   });
 });

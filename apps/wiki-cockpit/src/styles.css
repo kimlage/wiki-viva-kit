@@ -1194,6 +1194,28 @@ button.stripChip:hover {
   overflow-wrap: anywhere;
 }
 
+.performanceFallbackNotice {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid rgba(107, 215, 255, 0.32);
+  border-left: 3px solid #6bd7ff;
+  border-radius: 8px;
+  background: rgba(14, 31, 40, 0.88);
+  color: #dceaf1;
+}
+
+.performanceFallbackNotice strong {
+  color: #bfeeff;
+  font-size: 14px;
+}
+
+.performanceFallbackNotice span {
+  color: #aebbc5;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .fallbackNodeGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -2933,6 +2955,56 @@ pre {
   margin-left: 0;
 }
 
+.worldNavigatorCompatibility {
+  display: grid;
+  min-width: 0;
+  max-width: 230px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 7px;
+  align-items: center;
+  padding: 4px 7px;
+  border: 1px solid rgba(216, 174, 92, 0.34);
+  border-radius: 8px;
+  background: rgba(216, 174, 92, 0.08);
+}
+
+.worldNavigatorCompatibility > span,
+.worldNavigatorCompatibilityNotice > span,
+.missionViewBadge {
+  display: inline-flex;
+  width: max-content;
+  padding: 2px 6px;
+  border: 1px solid rgba(216, 174, 92, 0.38);
+  border-radius: 999px;
+  background: rgba(216, 174, 92, 0.1);
+  color: #f0ce87;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.worldNavigatorCompatibility > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #f4e4c1;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worldNavigatorCompatibility > small {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  color: #a9956f;
+  font-size: 9.5px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .worldNavigatorView,
 .worldNavigatorLearn {
   display: inline-flex;
@@ -3032,6 +3104,37 @@ pre {
 .worldNavigatorPanelHeader p {
   max-width: 640px;
   font-size: 12.5px;
+}
+
+.worldNavigatorCompatibilityNotice {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, 1fr) minmax(180px, 0.65fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(216, 174, 92, 0.28);
+  border-radius: 12px;
+  background: rgba(216, 174, 92, 0.055);
+}
+
+.worldNavigatorCompatibilityNotice div {
+  min-width: 0;
+}
+
+.worldNavigatorCompatibilityNotice strong {
+  color: #f4e4c1;
+  font-size: 13px;
+}
+
+.worldNavigatorCompatibilityNotice p {
+  font-size: 11.5px;
+}
+
+.worldNavigatorCompatibilityNotice > small {
+  padding-left: 10px;
+  border-left: 1px solid rgba(216, 174, 92, 0.18);
+  font-size: 10.5px;
 }
 
 .worldNavigatorMentalModel {
@@ -3324,6 +3427,13 @@ pre {
     width: 100%;
   }
 
+  .worldNavigatorCompatibility {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+  }
+
   .worldNavigatorViewControls {
     display: grid;
     grid-column: 1 / -1;
@@ -3367,9 +3477,22 @@ pre {
   }
 
   .worldNavigatorPanelHeader,
+  .worldNavigatorCompatibilityNotice,
   .worldNavigatorMentalModel,
   .worldNavigatorSection {
     grid-column: 1;
+  }
+
+  .worldNavigatorCompatibilityNotice {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .worldNavigatorCompatibilityNotice > small {
+    grid-column: 1 / -1;
+    padding-top: 7px;
+    padding-left: 0;
+    border-top: 1px solid rgba(216, 174, 92, 0.18);
+    border-left: 0;
   }
 
   .worldNavigatorMentalModel ol,
@@ -4679,6 +4802,10 @@ pre {
   color: #bfe6f2;
   font-weight: 700;
 }
+
+.missionContextSummary .missionViewBadge {
+  margin-right: 3px;
+}
 .missionCollapse {
   grid-area: collapse;
   align-self: start;
@@ -4710,6 +4837,10 @@ pre {
 }
 .worldMissionChip span {
   color: #7d93a3;
+}
+
+.worldMissionChip .missionViewBadge {
+  flex: 0 0 auto;
 }
 .worldMissionChip i {
   width: 8px;
@@ -5058,6 +5189,13 @@ pre {
   border-color: #6bd7ff;
   color: #dff2fb;
   box-shadow: 0 0 12px rgba(107, 215, 255, 0.25);
+}
+
+.glyphButton.compatibilityCurrent {
+  border-color: rgba(240, 206, 135, 0.7);
+  background: rgba(216, 174, 92, 0.1);
+  color: #f4e4c1;
+  box-shadow: 0 0 12px rgba(216, 174, 92, 0.16);
 }
 
 .trayButton {
@@ -5967,10 +6105,10 @@ pre {
 /* Content-hugging pill anchored bottom-left: wraps its chips (never clips the
    Key button) and never runs under the reader dock (right) or minimap. */
 .worldWorkspace .radarStatusStrip {
-  /* Keep a real pointer-safe gutter above the command bar. Its text is a few
-     pixels taller under Linux font metrics, so the old 46px offset could put
-     the collapsed filter target underneath the search field in CI. */
-  bottom: 58px;
+  /* Reserve the measured command-bar hit region plus a real pointer-safe
+     gutter. The bar wraps by viewport and its icon buttons are taller under
+     Linux font metrics, so a fixed offset cannot safely represent it. */
+  bottom: calc(var(--world-command-bar-height, 68px) + 8px);
   left: 12px;
   right: auto;
   width: auto;

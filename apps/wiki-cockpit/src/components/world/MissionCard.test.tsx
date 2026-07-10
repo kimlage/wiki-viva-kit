@@ -93,6 +93,26 @@ describe("MissionCard", () => {
     expect(container.querySelector(".missionContextSummary")).toBeTruthy();
   });
 
+  it("labels compatibility context instead of borrowing a native view", () => {
+    const compatibilityProps = {
+      ...baseProps,
+      viewLabel: "Atlas",
+      viewHint: "Hierarchy: what lives under each area",
+      viewBadge: "Compatibility view"
+    };
+    const { container, rerender } = render(<MissionCard {...compatibilityProps} rows={rows()} />);
+
+    const summary = container.querySelector(".missionContextSummary");
+    expect(summary?.getAttribute("data-view-context")).toBe("compatibility");
+    expect(screen.getByText("Compatibility view")).toBeTruthy();
+    expect(screen.getByText("Atlas")).toBeTruthy();
+    expect(screen.getByText("Hierarchy: what lives under each area")).toBeTruthy();
+
+    rerender(<MissionCard {...compatibilityProps} rows={rows()} open={false} />);
+    const chip = screen.getByRole("button", { name: /Compatibility view.*Atlas.*2 pending/ });
+    expect(chip.getAttribute("data-view-context")).toBe("compatibility");
+  });
+
   it("keeps secondary CTA and help in a separate action band", () => {
     const onMain = vi.fn();
     const onAction = vi.fn();

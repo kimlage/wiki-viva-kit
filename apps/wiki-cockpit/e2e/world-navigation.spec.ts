@@ -3,6 +3,12 @@ import { inflateSync } from "node:zlib";
 import { expect, test } from "./fixtures";
 import { expectSpatialCardsWithinSafeArea } from "./spatial-assertions";
 
+// This suite proves persistent-canvas interaction. Recording every frame can
+// itself push the bounded runtime below the product budget and correctly swap
+// to the safe 2D map, which would test a different contract. Dedicated
+// performance and fallback specs cover that branch with explicit evidence.
+test.use({ trace: "off", video: "off" });
+
 test.describe.configure({ timeout: 60000 });
 
 async function prepareWorld(page: Page, path = "/demo/w/quadrants") {

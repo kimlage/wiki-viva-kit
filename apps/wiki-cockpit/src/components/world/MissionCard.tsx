@@ -28,6 +28,7 @@ export function MissionCard({
   rows,
   viewLabel,
   viewHint,
+  viewBadge,
   overlayLabel,
   missionsEnabled,
   open,
@@ -42,6 +43,7 @@ export function MissionCard({
   rows: MissionRow[];
   viewLabel: string;
   viewHint: string;
+  viewBadge?: string;
   overlayLabel: string;
   missionsEnabled: boolean;
   open: boolean;
@@ -107,9 +109,11 @@ export function MissionCard({
           aria-expanded={false}
           aria-controls={panelId}
           title={`${viewHint} · ${overlayLabel}`}
+          data-view-context={viewBadge ? "compatibility" : "native"}
           type="button"
         >
           <i aria-hidden />
+          {viewBadge && <small className="missionViewBadge">{viewBadge}</small>}
           <strong>{viewLabel}</strong>
           <span>
             {actionable.length > 0 ? t("world.missionCount", { n: actionable.length }) : t("world.missionClear")}
@@ -123,7 +127,8 @@ export function MissionCard({
     <div className="worldMissionCard" id={panelId} role="region" aria-labelledby={titleId}>
       <header>
         <strong id={titleId}>{t("world.nextSteps")}</strong>
-        <span className="missionContextSummary">
+        <span className="missionContextSummary" data-view-context={viewBadge ? "compatibility" : "native"}>
+          {viewBadge && <span className="missionViewBadge">{viewBadge}</span>}
           <span className="missionViewContext">{viewLabel}</span>
           <span aria-hidden> · </span>
           <span className="missionViewHint">{viewHint}</span>

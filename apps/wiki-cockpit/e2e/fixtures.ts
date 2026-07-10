@@ -32,6 +32,7 @@ export type RuntimePerformanceEvidence = {
   };
   evaluations: Partial<Record<"desktop" | "mobile", Record<"normal" | "stress", {
     status: "within_budget" | "compact" | "fallback" | "blocked";
+    budget: { minimumFps: number };
     violations: string[];
     degradationReasons: string[];
   }>>>;
@@ -245,6 +246,64 @@ export async function waitForRuntimePerformance(
   const evidence = await page.evaluate(performanceEvidenceInPage);
   if (!evidence) throw new Error("runtime performance output was ready but not parseable");
   return evidence;
+}
+
+// A complete window can settle in only two honest ways: the active 3D budget
+// is no longer blocked, or SystemScene has committed the explicit adaptive 2D
+// verdict. A full frame-only block whose median also misses minimum FPS is
+// transient by design, so wait one more React commit instead of racing the
+// fallback latch; isolated p95 spikes remain a settled diagnostic failure.
+export async function waitForSettledRuntimePerformance(
+  page: Page,
+  options: { timeout?: number } = {}
+): Promise<RuntimePerformanceEvidence> {
+  await page.waitForFunction(
+    () => {
+      const output = document.querySelector<HTMLOutputElement>('[data-testid="runtime-performance"]');
+      const raw = output?.value || output?.textContent || "";
+      if (!raw) return false;
+      try {
+        const evidence = JSON.parse(raw) as RuntimePerformanceEvidence;
+        const reason = evidence.counters.fallbackReason;
+        // Unexpected environment fallbacks are settled enough for the caller
+        // to fail with their exact reason instead of timing out opaquely.
+        if (reason && reason !== "performance_budget") return true;
+        if (evidence.sampleCount < evidence.samplePolicy.capacity) return false;
+        if (reason === "performance_budget") return true;
+        const active = evidence.evaluations[evidence.activeDevice]?.normal;
+        const frameOnlyBlock =
+          active?.status === "blocked" &&
+          active.violations.length > 0 &&
+          active.violations.every((violation) => violation.startsWith("frameTimeP95Ms:"));
+        const sustainedFrameBlock = frameOnlyBlock && active !== undefined &&
+          evidence.counters.frameTimeMedianMs !== null &&
+          evidence.counters.frameTimeMedianMs > 1_000 / active.budget.minimumFps;
+        return !sustainedFrameBlock;
+      } catch {
+        return false;
+      }
+    },
+    undefined,
+    { timeout: options.timeout ?? 45_000 }
+  );
+  return waitForRuntimePerformance(page, { minimumSamples: 0, timeout: 5_000 });
+}
+
+export async function expectStablePerformanceBudgetFallback(page: Page): Promise<void> {
+  const scene = page.locator(".sceneShell");
+  await expect(scene).toHaveClass(/fallbackMode/);
+  await expect(scene).toHaveAttribute("data-scene-fallback-reason", "performance_budget");
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-fallback-active", "true");
+  await expect(page.locator(".sceneShell canvas")).toHaveCount(0);
+  await expect(page.getByText(/Performance-safe map|Mapa seguro para este dispositivo/)).toBeVisible();
+
+  // The session verdict outranks a later media toggle and must never oscillate
+  // back to the renderer that the complete bounded window rejected.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(scene).toHaveAttribute("data-scene-fallback-reason", "performance_budget");
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-fallback-active", "true");
+  await expect(page.locator(".sceneShell canvas")).toHaveCount(0);
 }
 
 export async function resetRuntimePerformanceWindow(page: Page): Promise<void> {

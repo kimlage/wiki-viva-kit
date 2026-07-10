@@ -74,6 +74,8 @@ const EN: Dict = {
   "world.overlay.quality": "Quality",
   "world.experience.compactAria": "Explore the same world by view, lens and overlay",
   "world.experience.viewGroupAria": "Choose how the world is arranged",
+  "world.experience.compatibility.badge": "Compatibility view",
+  "world.experience.compatibility.switchHint": "Choose a native view to keep exploring with the current cockpit.",
   "world.experience.learn": "Guide",
   "world.experience.close": "Close the view guide",
   "world.experience.title": "How to read this world",
@@ -152,6 +154,8 @@ const EN: Dict = {
   "world.loading": "Loading world…",
   "world.readerLoading": "Loading reader…",
   "scene.relationshipMapAria": "Content relationship map",
+  "scene.fallback.performance.title": "Performance-safe map",
+  "scene.fallback.performance.body": "The 3D view could not sustain smooth interaction on this device. This 2D map keeps the same pages, groups and navigation.",
 
   // Perspectives
   "perspective.radar": "Radar",
@@ -1090,6 +1094,8 @@ const PT: Dict = {
   "world.overlay.quality": "Qualidade",
   "world.experience.compactAria": "Explorar o mesmo mundo por visão, lente e sobreposição",
   "world.experience.viewGroupAria": "Escolher como o mundo é organizado",
+  "world.experience.compatibility.badge": "Visão de compatibilidade",
+  "world.experience.compatibility.switchHint": "Escolha uma visão nativa para continuar explorando no cockpit atual.",
   "world.experience.learn": "Entenda",
   "world.experience.close": "Fechar o guia de visões",
   "world.experience.title": "Como ler este mundo",
@@ -1168,6 +1174,8 @@ const PT: Dict = {
   "world.loading": "Carregando o mundo…",
   "world.readerLoading": "Carregando o leitor…",
   "scene.relationshipMapAria": "Mapa de relações do conteúdo",
+  "scene.fallback.performance.title": "Mapa seguro para este dispositivo",
+  "scene.fallback.performance.body": "A visão 3D não sustentou uma interação fluida neste dispositivo. Este mapa 2D mantém as mesmas páginas, grupos e navegação.",
 
   "perspective.radar": "Radar",
   "perspective.radar.hint": "verificação: o que precisa de atenção agora",

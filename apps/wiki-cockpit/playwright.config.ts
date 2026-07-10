@@ -22,7 +22,11 @@ export default defineConfig({
   ],
   expect: {
     toHaveScreenshot: {
-      maxDiffPixelRatio: 0.035
+      // Platform-specific references plus the real reduced-motion branch are
+      // now byte-stable across consecutive runs. Keep a small raster margin,
+      // but no longer allow a materially different world to hide in 3.5% of
+      // a mostly dark frame.
+      maxDiffPixelRatio: 0.01
     }
   },
   use: {

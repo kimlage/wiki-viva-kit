@@ -3,10 +3,14 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorldNavigator } from "./WorldNavigator";
+import type { CompatibilityViewContext } from "./WorldNavigator";
+import type { NativeWorldViewId } from "../../world/experience";
 
 const COPY: Record<string, string> = {
   "world.experience.compactAria": "World view controls",
   "world.experience.viewGroupAria": "Arrange the same pages",
+  "world.experience.compatibility.badge": "Compatibility view",
+  "world.experience.compatibility.switchHint": "Choose a native view to continue.",
   "world.overlayControl": "Overlay",
   "world.experience.learn": "Learn how this works",
   "world.experience.close": "Close explanation",
@@ -40,7 +44,12 @@ function translate(key: string): string {
   return COPY[key] ?? `translated:${key}`;
 }
 
-function setup(options: { expanded?: boolean; lens?: "q1_intencao" | "q2_pratica" | "q3_relacoes" | "q4_sistemas" | "type" | null } = {}) {
+function setup(options: {
+  expanded?: boolean;
+  lens?: "q1_intencao" | "q2_pratica" | "q3_relacoes" | "q4_sistemas" | "type" | null;
+  view?: NativeWorldViewId | null;
+  compatibilityView?: CompatibilityViewContext;
+} = {}) {
   const callbacks = {
     onExpandedChange: vi.fn(),
     onViewChange: vi.fn(),
@@ -49,7 +58,8 @@ function setup(options: { expanded?: boolean; lens?: "q1_intencao" | "q2_pratica
   };
   const result = render(
     <WorldNavigator
-      view="radar"
+      view={options.view === undefined ? "radar" : options.view}
+      compatibilityView={options.compatibilityView}
       overlay="freshness"
       lens={options.lens ?? "type"}
       expanded={options.expanded}
@@ -81,6 +91,26 @@ describe("WorldNavigator", () => {
     const learn = screen.getByRole("button", { name: "Learn how this works" });
     expect(learn.getAttribute("aria-expanded")).toBe("false");
     expect(learn.getAttribute("aria-controls")).toBe("experience-test");
+  });
+
+  it("shows an honest compatibility context without pressing a native view", () => {
+    const compatibilityView = {
+      id: "atlas",
+      label: "Atlas",
+      hint: "Hierarchy: what lives under each area"
+    };
+    const { container, onViewChange } = setup({ view: null, compatibilityView, expanded: true });
+
+    expect(container.querySelector(".worldNavigator")?.getAttribute("data-native-view")).toBe("");
+    expect(container.querySelector(".worldNavigator")?.getAttribute("data-compatibility-view")).toBe("atlas");
+    expect(screen.getByRole("note", { name: /Compatibility view: Atlas/ })).toBeTruthy();
+    expect(container.querySelector('[data-compatibility-notice="atlas"]')).toBeTruthy();
+    expect(container.querySelectorAll('[data-view-option][aria-pressed="true"]')).toHaveLength(0);
+    expect(container.querySelectorAll('[data-view-card][aria-pressed="true"]')).toHaveLength(0);
+    expect(screen.getAllByText("Hierarchy: what lives under each area").length).toBeGreaterThanOrEqual(1);
+
+    fireEvent.click(container.querySelector('[data-view-option="quadrants"]')!);
+    expect(onViewChange).toHaveBeenCalledWith("quadrants");
   });
 
   it("expands into an explained three-axis model with all cards and lenses", () => {

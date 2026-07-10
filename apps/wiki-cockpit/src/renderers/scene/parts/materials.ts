@@ -32,7 +32,7 @@ function isVisualTestMode(): boolean {
   return new URLSearchParams(window.location.search).get("visual") === "1";
 }
 
-export type SceneFallbackReason = "visual_test" | "reduced_motion" | "webgl_unavailable";
+export type SceneFallbackReason = "visual_test" | "reduced_motion" | "webgl_unavailable" | "performance_budget";
 
 export function sceneFallbackReason(): SceneFallbackReason | null {
   if (isVisualTestMode()) return "visual_test";
