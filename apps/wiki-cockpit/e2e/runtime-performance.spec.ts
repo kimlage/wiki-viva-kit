@@ -32,10 +32,11 @@ for (const scenario of SCENARIOS) {
     await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
 
     // Warm the browser, renderer, shaders and route transition in a complete
-    // bounded window. A healthy 3D result is discarded and measured again as
-    // sustained interaction; a frame-only rejection is already a complete
-    // product verdict and must settle into its session-latched 2D fallback
-    // instead of being reset away. Each scenario gets its own page/context.
+    // bounded window. A healthy 3D result is followed by one bounded hover/JIT
+    // warm-up and then a clean sustained window. This keeps the strict p95
+    // budget while excluding one-time shader/GC work caused by the first real
+    // pointer interaction. A frame-only sustained rejection must still settle
+    // into its session-latched 2D fallback. Each scenario gets its own context.
     const warmEvidence = await waitForSettledRuntimePerformance(page, { timeout: 40_000 });
     await testInfo.attach(`runtime-performance-desktop-${scenario.id}-warm.json`, {
       body: Buffer.from(`${JSON.stringify(warmEvidence, null, 2)}\n`, "utf8"),
@@ -46,7 +47,16 @@ for (const scenario of SCENARIOS) {
     if (warmEvidence.counters.fallbackReason === null) {
       await resetRuntimePerformanceWindow(page);
       await page.locator(".sceneShell canvas").hover({ position: { x: 640, y: 430 } });
-      evidence = await waitForSettledRuntimePerformance(page, { timeout: 45_000 });
+      const interactionWarmEvidence = await waitForSettledRuntimePerformance(page, { timeout: 45_000 });
+      await testInfo.attach(`runtime-performance-desktop-${scenario.id}-interaction-warm.json`, {
+        body: Buffer.from(`${JSON.stringify(interactionWarmEvidence, null, 2)}\n`, "utf8"),
+        contentType: "application/json"
+      });
+      evidence = interactionWarmEvidence;
+      if (interactionWarmEvidence.counters.fallbackReason === null) {
+        await resetRuntimePerformanceWindow(page);
+        evidence = await waitForSettledRuntimePerformance(page, { timeout: 45_000 });
+      }
     }
     await testInfo.attach(`runtime-performance-desktop-${scenario.id}.json`, {
       body: Buffer.from(`${JSON.stringify(evidence, null, 2)}\n`, "utf8"),

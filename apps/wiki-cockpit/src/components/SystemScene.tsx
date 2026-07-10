@@ -1180,10 +1180,14 @@ export function SystemScene({
     : environmentFallbackReason;
   const fallback = fallbackReason !== null;
   const [motion, setMotion] = useState(allowAmbientMotion);
-  const profile = useSceneProfile(nodes.length);
+  const sourceNodeCount = sourceNodeCountInput ?? nodes.length;
+  // Density LOD is a property of the scoped world, not only the handful of
+  // projected handles currently visible. Using `nodes.length` kept the
+  // 107-page normal universe on rich antialiased geometry while the telemetry
+  // correctly evaluated all 107 source nodes.
+  const profile = useSceneProfile(sourceNodeCount);
   const visualTuning = sceneVisualTuning(visualTuningInput);
   const visualMotion = motion && visualTuning.motion > 0.01;
-  const sourceNodeCount = sourceNodeCountInput ?? nodes.length;
   const performanceTelemetry = useMemo(() => new RuntimePerformanceTelemetry(), []);
   const performanceOutputRef = useRef<HTMLOutputElement>(null);
   const sceneShellRef = useRef<HTMLDivElement>(null);
@@ -1949,6 +1953,7 @@ export function SystemScene({
       data-scene-center-has-quadrants={centerHasQuadrants ? "true" : "false"}
       data-scene-source-node-count={sourceNodeCount}
       data-scene-input-node-count={nodes.length}
+      data-scene-performance-profile={profile.label}
       data-scene-fallback-reason={fallbackReason ?? ""}
       data-visual-density={visualTuning.density.toFixed(2)}
       data-visual-spacing={visualTuning.spacing.toFixed(2)}

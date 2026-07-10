@@ -19,6 +19,7 @@ page_types:
         stale_after_days: string
         source_refs: list
         collection_refs: list
+        collection: object
         moc_parent: string
         subject_ref: string
         subject_role: string
@@ -83,6 +84,7 @@ page_types:
     field_types:
       updated_at: date
       stale_after_days: string
+      collection: object
   dashboard:
     template: docs/references/templates/wiki/operation.md
     allowed_dirs:
@@ -98,6 +100,7 @@ page_types:
       updated_at: date
       stale_after_days: string
       collection_refs: list
+      collection: object
   artifact:
     template: docs/references/templates/wiki/artifact.md
     allowed_dirs:

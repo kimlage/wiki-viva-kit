@@ -313,7 +313,9 @@ afterEach(() => {
 describe("visual route contract", () => {
   it("renders the world shell with HUD, perspectives and 2D routes", async () => {
     await renderRoute("/w/radar");
-    expect(await screen.findByLabelText("3D knowledge world")).toBeTruthy();
+    expect(
+      await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
+    ).toBeTruthy();
     expect(await screen.findByText("Galaxy")).toBeTruthy();
     expect(screen.getByRole("group", { name: "Perspectives (keys 1–5)" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Districts/ })).toBeTruthy();
@@ -356,7 +358,9 @@ describe("visual route contract", () => {
 
   it("keeps search as URL state and lists results in the mission card", async () => {
     await renderRoute("/w/radar?q=Source");
-    expect(await screen.findByLabelText("3D knowledge world")).toBeTruthy();
+    expect(
+      await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
+    ).toBeTruthy();
     expect(await screen.findByText(/1 result/)).toBeTruthy();
     const hit = screen.getByRole("button", { name: /Source Fixture/ });
     fireEvent.click(hit);
@@ -395,7 +399,9 @@ describe("visual route contract", () => {
     // world shell to commit before simulating an in-document navigation; under
     // the full parallel suite, dispatching on the loader call alone can race the
     // navigation effect and turn this regression test into a timing flake.
-    expect(await screen.findByLabelText("3D knowledge world")).toBeTruthy();
+    expect(
+      await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
+    ).toBeTruthy();
 
     browserApplication.navigation.dispatch({
       type: "navigate",

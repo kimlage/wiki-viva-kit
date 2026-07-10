@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import yaml
+
 from wiki_core.page_types import (
     PAGE_TYPES_SCHEMA_VERSION,
     load_page_type_registry,
@@ -50,6 +52,26 @@ def test_repo_registry_has_critical_content_shapes() -> None:
         assert shape.get("required_frontmatter")
         assert shape.get("field_types")
         assert shape.get("template")
+
+
+def test_repo_registry_declares_action_exactly_once() -> None:
+    document = yaml.compose(
+        (Path(__file__).resolve().parents[1] / "wiki.page-types.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert isinstance(document, yaml.MappingNode)
+    page_types = next(
+        value
+        for key, value in document.value
+        if isinstance(key, yaml.ScalarNode) and key.value == "page_types"
+    )
+    assert isinstance(page_types, yaml.MappingNode)
+    assert [
+        key.value
+        for key, _value in page_types.value
+        if isinstance(key, yaml.ScalarNode) and key.value == "action"
+    ] == ["action"]
 
 
 def test_relation_page_types_require_hierarchy_parent() -> None:

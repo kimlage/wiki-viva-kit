@@ -121,6 +121,7 @@ describe("SystemScene fallback", () => {
     const { container } = render(
       <SystemScene
         nodes={nodes}
+        sourceNodeCount={107}
         git={git}
         route={{ perspective: "radar", reader: false, filter: "" }}
         highlightedPageIds={["alpha"]}
@@ -131,6 +132,7 @@ describe("SystemScene fallback", () => {
     expect(screen.getByLabelText("Content map")).toBeTruthy();
     const scene = container.querySelector(".sceneShell");
     expect(scene?.getAttribute("data-scene-fallback-reason")).toBe("webgl_unavailable");
+    expect(scene?.getAttribute("data-scene-performance-profile")).toContain("dense");
     expect(container.querySelector(".sceneFallback")?.getAttribute("data-fallback-reason")).toBe("webgl_unavailable");
     expect(scene?.getAttribute("data-motion-intent")).toBe("view");
     expect(scene?.getAttribute("data-motion-duration-ms")).toBe("0");
@@ -150,7 +152,7 @@ describe("SystemScene fallback", () => {
       evaluations: { desktop: { normal: { status: string } } };
     };
     expect(evidence.counters).toMatchObject({
-      sourceNodes: 2,
+      sourceNodes: 107,
       interactiveNodes: 2,
       fallbackReason: "webgl_unavailable",
       particles: 0

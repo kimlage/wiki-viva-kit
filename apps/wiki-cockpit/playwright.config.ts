@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const matrixOnlySpecs = /(?:mobile-parity|fallback-parity|firefox-smoke)\.spec\.ts/;
+const performanceSpec = /runtime-performance\.spec\.ts/;
+const matrixOnlySpecs = /(?:runtime-performance|mobile-parity|fallback-parity|firefox-smoke)\.spec\.ts/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -44,6 +45,20 @@ export default defineConfig({
     timeout: 120000
   },
   projects: [
+    {
+      // Wall-clock frame evidence must not inherit GPU readback stalls from
+      // visual-baseline tests in the shared Chromium process. A dedicated
+      // first project keeps the same strict budget in a clean browser.
+      name: "chromium-performance",
+      testMatch: performanceSpec,
+      use: {
+        ...devices["Desktop Chrome"],
+        browserName: "chromium",
+        deviceScaleFactor: 1,
+        screen: { width: 1280, height: 900 },
+        viewport: { width: 1280, height: 900 }
+      }
+    },
     {
       name: "chromium-desktop",
       testIgnore: matrixOnlySpecs,

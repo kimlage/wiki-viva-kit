@@ -4,7 +4,7 @@ page_type: source_registry
 title: "Canonical source registry"
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-07-10
 stale_after_days: 30
 sources_policy: memoria_consolidada
 gate: github_pr
@@ -18,7 +18,7 @@ parent_projection:
 
 # Canonical source registry
 
-Updated at: 2026-06-25.
+Updated at: 2026-07-10.
 
 Index of canonical sources: link, type, ingestion state, last update and next suggested refresh.
 
