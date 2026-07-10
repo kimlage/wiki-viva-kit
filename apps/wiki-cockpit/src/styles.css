@@ -6518,6 +6518,42 @@ pre {
     line-height: 1;
   }
 
+  /* Real downstream worlds can repeat the same semantic family in several
+     quadrants, while the dense fixture can place several different families
+     inside Q2. Resolve those two honest shapes explicitly after projection:
+     each rule overrides the wider-phone family offset only on short screens. */
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="intencao"][data-world-target-id="family:hub"],
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="intencao"][data-world-target-id="family:decision"] {
+    translate: -50px 25px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:hub"] {
+    translate: -20px 40px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:rule"] {
+    translate: 50px 20px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:content"] {
+    translate: 70px 30px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="relacoes"][data-world-target-id="family:hub"] {
+    translate: -40px 35px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="sistemas"][data-world-target-id="family:hub"] {
+    translate: 100px -50px;
+  }
+
   .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
     [data-world-target-kind="group"][data-world-target-id="family:event"] {
     translate: -120px 100px;

@@ -17,7 +17,15 @@ test.describe.configure({ timeout: 90_000 });
 
 async function prepareCanonicalV8World(
   page: Page,
-  options: { view?: NativeView; lens?: NativeLens; overlay?: NativeOverlay; missionCard?: "open" | "closed"; group?: string } = {}
+  options: {
+    view?: NativeView;
+    lens?: NativeLens;
+    overlay?: NativeOverlay;
+    missionCard?: "open" | "closed";
+    group?: string;
+    center?: string;
+    scenario?: "dense_stress";
+  } = {}
 ) {
   await page.addInitScript(({ missionCard }) => {
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
@@ -29,7 +37,9 @@ async function prepareCanonicalV8World(
   const lens = options.lens ?? "all";
   const overlay = options.overlay ?? (view === "radar" ? "freshness" : "actions");
   const group = options.group ? `&group=${encodeURIComponent(options.group)}` : "";
-  await page.goto(`/demo/w?center=root-alex-rivera&view=${view}&lens=${lens}&overlay=${overlay}${group}&tour=0`);
+  const center = options.center ?? "root-alex-rivera";
+  const scenario = options.scenario ? `&demo_scenario=${options.scenario}` : "";
+  await page.goto(`/demo/w?center=${center}&view=${view}&lens=${lens}&overlay=${overlay}${group}${scenario}&tour=0`);
   const workspace = page.locator(".worldWorkspace");
   await expect(workspace).toHaveAttribute("data-runtime-mode", "v8", { timeout: 20_000 });
   await expect(workspace).toHaveAttribute("data-world-view", view);
@@ -460,87 +470,100 @@ test("the mobile world guide owns the viewport and exposes all three axes", asyn
 
 test("short mobile quadrant overview keeps every semantic group target disjoint", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 664 });
-  await prepareCanonicalV8World(page, { view: "quadrants", lens: "all", overlay: "actions" });
-  await rememberCanvas(page);
-
-  const groups = page.locator('.sceneHtmlControl [data-world-target-kind="group"].nodeGroupLabelSatellite');
-  await expect.poll(() => groups.count(), { timeout: 10_000 }).toBeGreaterThan(4);
-
-  const geometry = await groups.evaluateAll((elements) => {
-    const visible = elements.flatMap((element) => {
-      const style = getComputedStyle(element);
-      const bounds = element.getBoundingClientRect();
-      if (style.display === "none" || style.visibility === "hidden" || bounds.width <= 0 || bounds.height <= 0) return [];
-      const hit = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
-      const hitControl = hit?.closest<HTMLElement>("[data-world-node-id]") ?? null;
-      return [{
-        nodeId: (element as HTMLElement).dataset.worldNodeId ?? "",
-        id: (element as HTMLElement).dataset.worldTargetId ?? "",
-        quadrant: (element as HTMLElement).dataset.worldQuadrant ?? "",
-        label: element.getAttribute("aria-label") ?? "",
-        hitNodeId: hitControl?.dataset.worldNodeId ?? "",
-        left: bounds.left,
-        right: bounds.right,
-        top: bounds.top,
-        bottom: bounds.bottom,
-        width: bounds.width,
-        height: bounds.height
-      }];
-    });
-    const overlaps = visible.flatMap((entry, index) => visible.slice(index + 1).flatMap((candidate) => {
-      const overlapWidth = Math.min(entry.right, candidate.right) - Math.max(entry.left, candidate.left);
-      const overlapHeight = Math.min(entry.bottom, candidate.bottom) - Math.max(entry.top, candidate.top);
-      return overlapWidth > 1 && overlapHeight > 1
-        ? [{ first: `${entry.quadrant}:${entry.id}:${entry.label}`, second: `${candidate.quadrant}:${candidate.id}:${candidate.label}`, overlapWidth, overlapHeight }]
-        : [];
-    }));
-    return { visible, overlaps, viewport: { width: window.innerWidth, height: window.innerHeight } };
-  });
-
-  await testInfo.attach("short-mobile-quadrant-geometry", {
-    body: Buffer.from(JSON.stringify(geometry, null, 2)),
-    contentType: "application/json"
-  });
-
-  expect(geometry.visible.every((entry) => entry.quadrant)).toBe(true);
-  expect(geometry.visible.every((entry) => entry.label)).toBe(true);
-  expect(geometry.visible.every((entry) => entry.nodeId && entry.hitNodeId === entry.nodeId)).toBe(true);
-  // Fractional transforms can report 43.99998 CSS px for an authored 44px
-  // control. Keep a subpixel tolerance while preserving the 44px contract.
-  expect(geometry.visible.every((entry) => entry.width >= 43.9 && entry.height >= 43.9)).toBe(true);
-  expect(geometry.visible.every((entry) =>
-    entry.left >= -1 && entry.right <= geometry.viewport.width + 1 &&
-    entry.top >= -1 && entry.bottom <= geometry.viewport.height + 1
-  )).toBe(true);
-  expect(geometry.overlaps).toEqual([]);
-
-  const screenshotPath = testInfo.outputPath("short-mobile-quadrant-overview.png");
-  await page.screenshot({ path: screenshotPath });
-  await testInfo.attach("short-mobile-quadrant-overview", { path: screenshotPath, contentType: "image/png" });
-  await expectRememberedCanvas(page);
-
   const lensByQuadrant: Record<string, NativeLens> = {
     intencao: "q1_intencao",
     pratica: "q2_pratica",
     relacoes: "q3_relacoes",
     sistemas: "q4_sistemas"
   };
-  for (const destination of geometry.visible) {
-    const target = page.locator(`[data-world-node-id="${destination.nodeId}"]`);
-    await expect(target).toHaveCount(1);
-    await target.focus();
-    await expect(target).toBeFocused();
-    await target.click();
-    expect(new URL(page.url()).searchParams.get("group")).toBe(destination.id);
-    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", lensByQuadrant[destination.quadrant]);
-    await expect(page.locator(".worldBreadcrumbs")).toContainText(destination.label);
-    await expect(page.locator(`[data-world-group-summary="${destination.id}"]`)).toBeVisible();
+  const cases = [
+    { id: "instructional", center: "root-alex-rivera", minimumGroups: 5, scenario: undefined },
+    { id: "dense-repeated-families", center: "hub-clientes", minimumGroups: 4, scenario: "dense_stress" as const }
+  ];
+
+  for (const fixture of cases) {
+    await prepareCanonicalV8World(page, {
+      view: "quadrants",
+      lens: "all",
+      overlay: "actions",
+      center: fixture.center,
+      scenario: fixture.scenario
+    });
+    await rememberCanvas(page);
+
+    const groups = page.locator('.sceneHtmlControl [data-world-target-kind="group"].nodeGroupLabelSatellite');
+    await expect.poll(() => groups.count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(fixture.minimumGroups);
+
+    const geometry = await groups.evaluateAll((elements) => {
+      const visible = elements.flatMap((element) => {
+        const style = getComputedStyle(element);
+        const bounds = element.getBoundingClientRect();
+        if (style.display === "none" || style.visibility === "hidden" || bounds.width <= 0 || bounds.height <= 0) return [];
+        const hit = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+        const hitControl = hit?.closest<HTMLElement>("[data-world-node-id]") ?? null;
+        return [{
+          nodeId: (element as HTMLElement).dataset.worldNodeId ?? "",
+          id: (element as HTMLElement).dataset.worldTargetId ?? "",
+          quadrant: (element as HTMLElement).dataset.worldQuadrant ?? "",
+          label: element.getAttribute("aria-label") ?? "",
+          hitNodeId: hitControl?.dataset.worldNodeId ?? "",
+          left: bounds.left,
+          right: bounds.right,
+          top: bounds.top,
+          bottom: bounds.bottom,
+          width: bounds.width,
+          height: bounds.height
+        }];
+      });
+      const overlaps = visible.flatMap((entry, index) => visible.slice(index + 1).flatMap((candidate) => {
+        const overlapWidth = Math.min(entry.right, candidate.right) - Math.max(entry.left, candidate.left);
+        const overlapHeight = Math.min(entry.bottom, candidate.bottom) - Math.max(entry.top, candidate.top);
+        return overlapWidth > 1 && overlapHeight > 1
+          ? [{ first: `${entry.quadrant}:${entry.id}:${entry.label}`, second: `${candidate.quadrant}:${candidate.id}:${candidate.label}`, overlapWidth, overlapHeight }]
+          : [];
+      }));
+      return { visible, overlaps, viewport: { width: window.innerWidth, height: window.innerHeight } };
+    });
+
+    await testInfo.attach(`short-mobile-quadrant-geometry-${fixture.id}`, {
+      body: Buffer.from(JSON.stringify(geometry, null, 2)),
+      contentType: "application/json"
+    });
+
+    expect(geometry.visible.every((entry) => entry.quadrant)).toBe(true);
+    expect(geometry.visible.every((entry) => entry.label)).toBe(true);
+    expect(geometry.visible.every((entry) => entry.nodeId && entry.hitNodeId === entry.nodeId)).toBe(true);
+    // Fractional transforms can report 43.99998 CSS px for an authored 44px
+    // control. Keep a subpixel tolerance while preserving the 44px contract.
+    expect(geometry.visible.every((entry) => entry.width >= 43.9 && entry.height >= 43.9)).toBe(true);
+    expect(geometry.visible.every((entry) =>
+      entry.left >= -1 && entry.right <= geometry.viewport.width + 1 &&
+      entry.top >= -1 && entry.bottom <= geometry.viewport.height + 1
+    )).toBe(true);
+    expect(geometry.overlaps).toEqual([]);
+
+    const screenshotPath = testInfo.outputPath(`short-mobile-quadrant-overview-${fixture.id}.png`);
+    await page.screenshot({ path: screenshotPath });
+    await testInfo.attach(`short-mobile-quadrant-overview-${fixture.id}`, { path: screenshotPath, contentType: "image/png" });
     await expectRememberedCanvas(page);
 
-    await page.goBack();
-    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
-    await expect(page).not.toHaveURL(/[?&]group=/);
-    await expectRememberedCanvas(page);
+    for (const destination of geometry.visible) {
+      const target = page.locator(`[data-world-node-id="${destination.nodeId}"]`);
+      await expect(target).toHaveCount(1);
+      await target.focus();
+      await expect(target).toBeFocused();
+      await target.click();
+      expect(new URL(page.url()).searchParams.get("group")).toBe(destination.id);
+      await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", lensByQuadrant[destination.quadrant]);
+      await expect(page.locator(".worldBreadcrumbs")).toContainText(destination.label);
+      await expect(page.locator(`[data-world-group-summary="${destination.id}"]`)).toBeVisible();
+      await expectRememberedCanvas(page);
+
+      await page.goBack();
+      await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+      await expect(page).not.toHaveURL(/[?&]group=/);
+      await expectRememberedCanvas(page);
+    }
   }
 });
 
