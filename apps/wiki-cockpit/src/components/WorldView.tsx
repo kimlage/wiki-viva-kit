@@ -18,7 +18,7 @@ import { parseRealFamilyGroupId } from "../scene/worldState";
 import { computeCondition } from "../scene/condition";
 import { rankPages } from "../scene/search";
 import { canonicalWorldUrl, hydrateWorldRoute } from "../world/state/routeHydration";
-import type { RuntimeEvent } from "../world/contracts";
+import type { OverlayId, RuntimeEvent } from "../world/contracts";
 import type { WorldPatch, WorldRoute } from "../router";
 import type { NavigationPort, OperatorPort } from "../application/ports";
 import { anchorDeclaresQuadrants, anchorRecord, focusAnchorId } from "../data/blocks";
@@ -39,6 +39,7 @@ import { MissionCard, SEARCH_VISIBLE } from "./world/MissionCard";
 import type { MissionRow } from "./world/MissionCard";
 import { PacketTray } from "./world/PacketTray";
 import { WorldNavigator } from "./world/WorldNavigator";
+import { useSurfacePresence } from "./world/useSurfacePresence";
 import { isNativeWorldViewId } from "../world/experience";
 import {
   DEFAULT_VISUAL_CONTROL_CONFIG,
@@ -55,6 +56,7 @@ import type { VisualControlConfig, VisualLabelMode } from "./visualControl";
 import type { FoundingSpec } from "../renderers/scene/spatial";
 import { demoWorldUrl, genesisAction, genesisQuadrantMatches, genesisUrl } from "../data/genesis";
 import { genesisGuide } from "../data/genesisGuide";
+import { motionCssVariables, overlayResolveDurationMs } from "../world/visual/motionGrammar";
 
 const SystemScene = lazy(() => import("./SystemScene").then((module) => ({ default: module.SystemScene })));
 const PageReader = lazy(() => import("./PageReader").then((module) => ({ default: module.PageReader })));
@@ -427,6 +429,12 @@ export function WorldView({
   worldState: import("../world/contracts").WorldState;
 }) {
   const pages = bundle.pages.pages;
+  const selectedPage = findPage(pages, route.pageId);
+  const readerOpen = Boolean(route.pageId && route.query.reader && selectedPage);
+  const readerPresence = useSurfacePresence(readerOpen);
+  const [lastReaderPage, setLastReaderPage] = useState<PageRecord | undefined>(selectedPage);
+  if (selectedPage && selectedPage !== lastReaderPage) setLastReaderPage(selectedPage);
+  const readerPage = selectedPage ?? lastReaderPage;
   const dispatchRuntime = (event: RuntimeEvent) => {
     const next = worldRuntime.dispatch(event);
     navigation.dispatch({ type: "navigate", target: canonicalWorldUrl(next, route.demo, route.query) });
@@ -442,6 +450,9 @@ export function WorldView({
   const [missionCardOpen, setMissionCardOpen] = useState(missionCardPref);
   const [worldNavigatorOpen, setWorldNavigatorOpen] = useState(false);
   const [visualPanelOpen, setVisualPanelOpen] = useState(false);
+  const [overlayResolving, setOverlayResolving] = useState(false);
+  const overlayResolvingRef = useRef(false);
+  const overlayResolveTimerRef = useRef<number | null>(null);
   const [visualConfig, setVisualConfig] = useState<VisualControlConfig>(() =>
     loadVisualControlConfig(typeof window === "undefined" ? undefined : window.localStorage)
   );
@@ -460,8 +471,12 @@ export function WorldView({
   const [hoverLinkId, setHoverLinkId] = useState<string | null>(null);
   const [walk, setWalk] = useState<{ ids: string[]; step: number } | null>(null);
   const [trailIds, setTrailIds] = useState<string[]>([]);
-  const primarySurfaceOpen = Boolean(worldState.dock || worldState.readerId || route.query.reader);
+  const primarySurfaceOpen = Boolean(worldState.dock || worldState.readerId || route.query.reader || readerPresence.mounted);
   const searchRef = useRef<HTMLInputElement>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
+  const readerWasOpenRef = useRef(readerOpen);
+  const dockOpenerRef = useRef<HTMLElement | null>(null);
+  const previousDockRef = useRef(route.query.dock);
   const searchRouteTimerRef = useRef<number | null>(null);
   const tourOpenerRef = useRef<HTMLElement | null>(null);
   const openTour = useCallback(() => {
@@ -502,7 +517,31 @@ export function WorldView({
       target.inert = false;
       target.removeAttribute("aria-hidden");
     });
-  }, [route.query.reader, worldNavigatorOpen, worldState.dock, worldState.readerId]);
+  }, [primarySurfaceOpen, worldNavigatorOpen]);
+
+  useEffect(() => {
+    if (readerWasOpenRef.current && !readerOpen) {
+      workspaceRef.current?.focus({ preventScroll: true });
+    }
+    readerWasOpenRef.current = readerOpen;
+  }, [readerOpen]);
+
+  useEffect(() => {
+    const previousDock = previousDockRef.current;
+    const currentDock = route.query.dock;
+    if (currentDock && !previousDock) {
+      dockOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    } else if (!currentDock && previousDock) {
+      const restoreFocus = () => {
+        const opener = dockOpenerRef.current;
+        if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
+        else searchRef.current?.focus({ preventScroll: true });
+      };
+      if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(restoreFocus);
+      else window.setTimeout(restoreFocus, 0);
+    }
+    previousDockRef.current = currentDock;
+  }, [route.query.dock]);
 
   // Canonical page navigation: selecting a page ALWAYS emits the full URL
   // (context › group › page), so the positional grammar stays unambiguous and
@@ -606,10 +645,69 @@ export function WorldView({
       "--visual-spacing": String(visualConfig.spacing),
       "--visual-motion": String(visualConfig.motion),
       "--visual-ui-scale": String(visualConfig.uiScale),
-      "--visual-glass": String(visualConfig.glass)
+      "--visual-glass": String(visualConfig.glass),
+      ...motionCssVariables(visualConfig.motion)
     }) as CSSProperties,
     [visualConfig]
   );
+
+  const releaseOverlayResolve = useCallback(() => {
+    if (overlayResolveTimerRef.current === null && !overlayResolvingRef.current) return;
+    if (overlayResolveTimerRef.current !== null) window.clearTimeout(overlayResolveTimerRef.current);
+    overlayResolveTimerRef.current = null;
+    overlayResolvingRef.current = false;
+    setOverlayResolving(false);
+  }, []);
+
+  const changeOverlay = (nextOverlay: OverlayId) => {
+    if (nextOverlay === worldRuntime.getState().overlay || overlayResolvingRef.current) return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const duration = overlayResolveDurationMs(visualConfig.motion, reduced);
+    overlayResolvingRef.current = duration > 0;
+    setOverlayResolving(duration > 0);
+    dispatchRuntime({ type: "setOverlay", overlay: nextOverlay });
+    if (overlayResolveTimerRef.current !== null) window.clearTimeout(overlayResolveTimerRef.current);
+    if (duration > 0) {
+      overlayResolveTimerRef.current = window.setTimeout(() => {
+        releaseOverlayResolve();
+      }, duration);
+    }
+  };
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    const cutIfReduced = () => {
+      if (visualConfig.motion <= 0 || media?.matches) releaseOverlayResolve();
+    };
+    cutIfReduced();
+    media?.addEventListener?.("change", cutIfReduced);
+    return () => media?.removeEventListener?.("change", cutIfReduced);
+  }, [releaseOverlayResolve, visualConfig.motion]);
+
+  useEffect(() => () => {
+    if (overlayResolveTimerRef.current !== null) window.clearTimeout(overlayResolveTimerRef.current);
+    overlayResolveTimerRef.current = null;
+    overlayResolvingRef.current = false;
+  }, []);
+
+  // Docks are siblings of the world workspace in App. Mirror only the shared
+  // motion grammar to :root so those surfaces honor the same user speed/off
+  // choice without leaking the rest of the visual tuning outside the world.
+  useEffect(() => {
+    const root = document.documentElement;
+    const variables = motionCssVariables(visualConfig.motion);
+    const previous = new Map<string, string>();
+    Object.entries(variables).forEach(([name, value]) => {
+      previous.set(name, root.style.getPropertyValue(name));
+      root.style.setProperty(name, value);
+    });
+    return () => {
+      previous.forEach((value, name) => {
+        if (value) root.style.setProperty(name, value);
+        else root.style.removeProperty(name);
+      });
+    };
+  }, [visualConfig.motion]);
 
   const knownGroupKey = (segment: string): boolean => {
     if (route.perspective === "radar" || route.perspective === "districts") {
@@ -918,8 +1016,6 @@ export function WorldView({
     });
   }
 
-  const selectedPage = findPage(pages, route.pageId);
-  const readerOpen = Boolean(route.pageId && route.query.reader && selectedPage);
   const trailPages = trailIds.map((id) => findPage(pages, id)).filter((page): page is PageRecord => Boolean(page));
 
   // Focus legend: the four lenses with live 1-hop counts, computed from the
@@ -1343,6 +1439,8 @@ export function WorldView({
 
   return (
     <main
+      ref={workspaceRef}
+      tabIndex={-1}
       className={[
         "worldWorkspace",
         `visualLabels-${visualConfig.labels}`,
@@ -1359,6 +1457,7 @@ export function WorldView({
       data-world-view={worldState.view}
       data-world-lens={worldState.lens}
       data-world-overlay={worldState.overlay}
+      data-visual-motion={visualConfig.motion.toFixed(2)}
       data-runtime-warnings={worldState.warnings.map((warning) => warning.code).join(",")}
     >
       <Suspense fallback={<div className="sceneLoading" role="status">{t("world.loading")}</div>}>
@@ -1428,11 +1527,12 @@ export function WorldView({
           <WorldNavigator
             view={navigatorView}
             overlay={worldState.overlay}
+            overlayResolving={overlayResolving}
             lens={worldState.lens}
             expanded={worldNavigatorOpen}
             onExpandedChange={setWorldNavigatorOpen}
             onViewChange={(view) => dispatchRuntime({ type: "setView", view })}
-            onOverlayChange={(overlay) => dispatchRuntime({ type: "setOverlay", overlay })}
+            onOverlayChange={changeOverlay}
             onLensChange={(lens) => dispatchRuntime({ type: "setLens", lens })}
           />
           {/* Condition strip: the honest ambient readout — every segment a real
@@ -1612,12 +1712,23 @@ export function WorldView({
         />
 
         {/* RIGHT: the in-world reader dock. */}
-        {readerOpen && <div className="readerDockBackdrop" aria-hidden="true" />}
-        {readerOpen && selectedPage && (
+        {readerPresence.mounted && readerPage && (
+          <div
+            className={readerPresence.phase === "closing" ? "readerSurfacePresence closing" : "readerSurfacePresence"}
+            aria-hidden={readerPresence.phase === "closing" ? true : undefined}
+            ref={(target) => {
+              if (target) target.inert = readerPresence.phase === "closing";
+            }}
+            data-surface-phase={readerPresence.phase}
+            onAnimationEnd={(event) => {
+              if (readerPresence.phase === "closing" && event.currentTarget === event.target) readerPresence.completeExit();
+            }}
+          >
+          <div className="readerDockBackdrop" aria-hidden="true" />
           <Suspense fallback={<aside className="pageReader" role="status">{t("world.readerLoading")}</aside>}>
           <PageReader
             bundle={bundle}
-            pageId={selectedPage.id}
+            pageId={readerPage.id}
             demo={route.demo}
             snapshotSource={runtime.snapshotBase}
             loadPageContent={loadPageContent}
@@ -1635,6 +1746,7 @@ export function WorldView({
             onEvidenceStep={(ids, step) => setWalk({ ids, step })}
           />
           </Suspense>
+          </div>
         )}
 
         {/* BOTTOM command bar: search, perspective glyphs, packet tray. In an

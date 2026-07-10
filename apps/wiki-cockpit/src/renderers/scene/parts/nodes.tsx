@@ -21,12 +21,15 @@ import { layoutNodeInstanceKeys } from "../../../scene/layout";
 import type { LayoutNode, ScenePerformanceProfile, SceneQuality } from "../../../scene/layout";
 import type { Beacon, ClusterStar } from "../../../scene/perspectives";
 import type { OverlayId } from "../../../world/contracts";
+import { motionProgress, motionStagger } from "../../../world/visual/motionGrammar";
+import type { MotionIntent } from "../../../world/visual/motionGrammar";
 import { nodeTrustKey, superShape, trustDisplayColor, trustMaterial, TRUST_MATERIALS } from "./materials";
 import type { SuperShape, TrustKey } from "./materials";
 
 type NodeGroup = {
   key: string;
   shape: SuperShape;
+  fromEncoding: ResolvedVisualEncoding;
   encoding: ResolvedVisualEncoding;
   trust: TrustKey | "root";
   dimmed: boolean;
@@ -35,10 +38,102 @@ type NodeGroup = {
 
 export type MorphState = {
   from: Map<string, [number, number, number]>;
+  current?: Map<string, [number, number, number]>;
+  start: number | null;
+  duration: number;
+  active: boolean;
+  intent?: MotionIntent;
+  sequence?: number;
+};
+
+/**
+ * Geometry that cannot share the entity matrices stays hidden while the world
+ * is changing shape, then resolves during the final quarter of the same
+ * transaction. This keeps relation lines attached perceptually without adding
+ * another animation clock.
+ */
+export function morphAttachmentOpacity(
+  morph: MorphState | null | undefined,
+  elapsedTime: number,
+  baseOpacity = 1
+): number {
+  if (!morph?.active) return baseOpacity;
+  if (morph.start === null || morph.duration <= 0) return 0;
+  const progress = Math.min(Math.max((elapsedTime - morph.start) / morph.duration, 0), 1);
+  const resolveProgress = Math.min(Math.max((progress - 0.72) / 0.28, 0), 1);
+  return baseOpacity * motionProgress("overlay", resolveProgress);
+}
+
+export type OverlayTransitionState = {
+  from: OverlayId;
+  to: OverlayId;
   start: number | null;
   duration: number;
   active: boolean;
 };
+
+export type EntityMotionSample = {
+  local: number;
+  eased: number;
+};
+
+/** One entity clock for bodies, labels, halos, rings and group shells. */
+export function entityMotionSample(
+  key: string,
+  progress: number,
+  intent: MotionIntent = "view",
+  maximumStagger = 0.1
+): EntityMotionSample {
+  const stagger = motionStagger(key, maximumStagger);
+  const local = Math.min(Math.max((progress - stagger) / Math.max(1 - stagger, 0.01), 0), 1);
+  return { local, eased: motionProgress(intent, local) };
+}
+
+export function overlayCrossfadeWeights(key: string, progress: number): { from: number; to: number } {
+  const sample = entityMotionSample(key, progress, "overlay", 0.12).eased;
+  return { from: 1 - sample, to: sample };
+}
+
+export function MorphingNodeGroup({
+  node,
+  morph,
+  children
+}: {
+  node: LayoutNode;
+  morph: RefObject<MorphState>;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<THREE.Group>(null);
+  const { invalidate } = useThree();
+  const applyPosition = useCallback(
+    (progress: number) => {
+      if (!ref.current) return;
+      const state = morph.current;
+      const from = state?.from.get(node.id);
+      const { eased } = entityMotionSample(node.id, progress, state?.intent ?? "view");
+      ref.current.position.set(
+        from ? from[0] + (node.position[0] - from[0]) * eased : node.position[0],
+        from ? from[1] + (node.position[1] - from[1]) * eased : node.position[1],
+        from ? from[2] + (node.position[2] - from[2]) * eased : node.position[2]
+      );
+      state?.current?.set(node.id, [ref.current.position.x, ref.current.position.y, ref.current.position.z]);
+    },
+    [morph, node.id, node.position]
+  );
+  useLayoutEffect(() => {
+    applyPosition(morph.current?.active ? 0 : 1);
+    invalidate();
+  }, [applyPosition, invalidate, morph]);
+  useFrame((state) => {
+    const current = morph.current;
+    if (!current?.active) return;
+    if (current.start === null) current.start = state.clock.elapsedTime;
+    const progress = Math.min((state.clock.elapsedTime - current.start) / current.duration, 1);
+    applyPosition(progress);
+    state.invalidate();
+  });
+  return <group ref={ref}>{children}</group>;
+}
 
 export function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
@@ -63,6 +158,7 @@ function InstancedNodeMesh({
   profile,
   selectedId,
   morph,
+  overlayTransition,
   onSelect,
   onHover,
   registerMaterial
@@ -71,11 +167,13 @@ function InstancedNodeMesh({
   profile: ScenePerformanceProfile;
   selectedId: string;
   morph: React.RefObject<MorphState>;
+  overlayTransition?: RefObject<OverlayTransitionState>;
   onSelect: (node: LayoutNode) => void;
   onHover: (node: LayoutNode | null, event?: ThreeEvent<PointerEvent>) => void;
   registerMaterial: (trust: TrustKey | "root", dimmed: boolean, material: THREE.MeshStandardMaterial | null) => void;
 }) {
   const ref = useRef<THREE.InstancedMesh>(null);
+  const materialRef = useRef<THREE.MeshStandardMaterial | null>(null);
   // Invisible companion mesh with generously enlarged spheres that OWNS the
   // pointer events. Tiny nodes at 532-page scale are almost unclickable and
   // hover flickers between adjacent instanced meshes; a fat, uniform hit target
@@ -95,13 +193,13 @@ function InstancedNodeMesh({
       group.items.forEach((node, index) => {
         const selected = node.id === selectedId || node.path === selectedId ? 1.18 : 1;
         const from = state?.from.get(node.id);
-        // Per-context stagger keeps the morph readable at scale.
-        const stagger = ((node.context || "system").length % 5) * 0.06;
-        const local = Math.min(Math.max((t - stagger) / Math.max(1 - stagger, 0.01), 0), 1);
-        const eased = easeOutCubic(local);
+        // Stable per-entity stagger keeps dense layouts readable without
+        // synchronizing by translated context-name length.
+        const { eased } = entityMotionSample(node.id, t, state?.intent ?? "view");
         const x = from ? from[0] + (node.position[0] - from[0]) * eased : node.position[0];
         const y = from ? from[1] + (node.position[1] - from[1]) * eased : node.position[1];
         const z = from ? from[2] + (node.position[2] - from[2]) * eased : node.position[2];
+        state?.current?.set(node.id, [x, y, z]);
         const dampen = node.faint ? 0.85 : 1;
         const visScale = node.scale * selected * dampen;
         posVec.set(x, y, z);
@@ -130,7 +228,6 @@ function InstancedNodeMesh({
     const t = Math.min((state.clock.elapsedTime - morphState.start) / morphState.duration, 1);
     applyPositions(t);
     state.invalidate();
-    if (t >= 1) morphState.active = false;
   });
 
   const dim = group.dimmed ? 0.25 : 1;
@@ -140,21 +237,77 @@ function InstancedNodeMesh({
   const baseColor = useMemo(() => new THREE.Color(1, 1, 1).multiplyScalar(dim), [dim]);
   const emissiveColor = useMemo(() => new THREE.Color(group.encoding.color).multiplyScalar(dim), [dim, group.encoding.color]);
 
-  // Per-instance overlay colors. useLayoutEffect (pre-paint, refs attached) so
-  // no white-flash frame; keyed on group.items — the same dependency
-  // applyPositions uses — so same-length membership swaps recolor correctly.
-  // NEVER inside the morph loop: instanceColor is independent of matrices.
-  const colorScratch = useMemo(() => new THREE.Color(), []);
+  // Per-instance color keeps each entity identifiable while the shared group
+  // material interpolates the exact previous/current opacity and emissive
+  // states. Groups are split by both semantic states, so one material remains
+  // honest for every instance it owns.
+  const fromColor = useMemo(() => new THREE.Color(), []);
+  const toColor = useMemo(() => new THREE.Color(), []);
+  const mixedColor = useMemo(() => new THREE.Color(), []);
+  const fromEmissive = useMemo(() => new THREE.Color(), []);
+  const toEmissive = useMemo(() => new THREE.Color(), []);
+  const applyOverlayEncoding = useCallback(
+    (progress: number) => {
+      const mesh = ref.current;
+      const material = materialRef.current;
+      if (!mesh || !material) return;
+      const transition = overlayTransition?.current;
+      const transitioning = Boolean(
+        transition?.active &&
+        transition.to === group.encoding.overlay &&
+        transition.from === group.fromEncoding.overlay
+      );
+      group.items.forEach((node, index) => {
+        const weights = transitioning ? overlayCrossfadeWeights(node.id, progress) : { from: 0, to: 1 };
+        const previous = visualEncodingResolver.resolve(node, group.fromEncoding.overlay);
+        const next = visualEncodingResolver.resolve(node, group.encoding.overlay);
+        mixedColor.lerpColors(fromColor.set(previous.color), toColor.set(next.color), weights.to);
+        mesh.setColorAt(index, mixedColor);
+      });
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+      const materialProgress = transitioning ? motionProgress("overlay", progress) : 1;
+      material.emissive.lerpColors(
+        fromEmissive.set(group.fromEncoding.color),
+        toEmissive.set(group.encoding.color),
+        materialProgress
+      ).multiplyScalar(dim);
+      material.emissiveIntensity = THREE.MathUtils.lerp(
+        group.fromEncoding.emissive * dim,
+        group.encoding.emissive * dim,
+        materialProgress
+      );
+      material.opacity = THREE.MathUtils.lerp(
+        group.fromEncoding.opacity,
+        group.encoding.opacity,
+        materialProgress
+      );
+    },
+    [dim, fromColor, fromEmissive, group, mixedColor, overlayTransition, toColor, toEmissive]
+  );
+
   useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    group.items.forEach((node, index) => {
-      const hex = visualEncodingResolver.resolve(node, group.encoding.overlay).color;
-      mesh.setColorAt(index, colorScratch.set(hex));
-    });
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    const transition = overlayTransition?.current;
+    const transitioning = Boolean(
+      transition?.active &&
+      transition.to === group.encoding.overlay &&
+      transition.from === group.fromEncoding.overlay
+    );
+    applyOverlayEncoding(transitioning ? 0 : 1);
     invalidate();
-  }, [colorScratch, group.encoding.overlay, group.items, invalidate]);
+  }, [applyOverlayEncoding, group.encoding.overlay, group.fromEncoding.overlay, invalidate, overlayTransition]);
+
+  useFrame((state) => {
+    const transition = overlayTransition?.current;
+    if (!transition?.active || transition.to !== group.encoding.overlay) return;
+    if (transition.start === null) transition.start = state.clock.elapsedTime;
+    const progress = transition.duration <= 0
+      ? 1
+      : Math.min((state.clock.elapsedTime - transition.start) / transition.duration, 1);
+    applyOverlayEncoding(progress);
+    state.invalidate();
+  });
+
   return (
     <group>
       <instancedMesh
@@ -187,11 +340,14 @@ function InstancedNodeMesh({
           <sphereGeometry args={[1, profile.geometrySegments, profile.geometrySegments]} />
         )}
         <meshStandardMaterial
-          ref={(material) => registerMaterial(group.trust, group.dimmed, material)}
+          ref={(material) => {
+            materialRef.current = material;
+            registerMaterial(group.trust, group.dimmed, material);
+          }}
           color={baseColor}
           emissive={emissiveColor}
           emissiveIntensity={group.encoding.emissive * dim}
-          transparent={group.encoding.opacity < 1 || dim < 1}
+          transparent={group.fromEncoding.opacity < 1 || group.encoding.opacity < 1 || dim < 1}
           opacity={group.encoding.opacity}
           roughness={0.5}
           metalness={0.1}
@@ -229,6 +385,7 @@ export function NodeInstances({
   profile,
   selectedId,
   morph,
+  overlayTransition,
   dimTest,
   onSelect,
   onHover,
@@ -239,6 +396,7 @@ export function NodeInstances({
   profile: ScenePerformanceProfile;
   selectedId: string;
   morph: React.RefObject<MorphState>;
+  overlayTransition?: RefObject<OverlayTransitionState>;
   dimTest: (node: LayoutNode) => boolean;
   onSelect: (node: LayoutNode) => void;
   onHover: (node: LayoutNode | null, event?: ThreeEvent<PointerEvent>) => void;
@@ -246,19 +404,22 @@ export function NodeInstances({
 }) {
   const groups = useMemo(() => {
     const byKey = new Map<string, NodeGroup>();
+    const transition = overlayTransition?.current;
+    const fromOverlay = transition?.to === overlay ? transition.from : overlay;
     for (const node of nodes) {
       if (node.isGroup) continue;
       const shape = superShape(node.page_type);
       const trust = node.isRoot ? ("root" as const) : nodeTrustKey(node);
       const dimmed = dimTest(node);
+      const fromEncoding = visualEncodingResolver.resolve(node, fromOverlay);
       const encoding = visualEncodingResolver.resolve(node, overlay);
-      const key = `${shape}:${trust}:${encoding.state}:${dimmed ? "dim" : "lit"}`;
-      const group = byKey.get(key) ?? { key, shape, trust, encoding, dimmed, items: [] };
+      const key = `${shape}:${trust}:${fromEncoding.overlay}:${fromEncoding.state}->${encoding.overlay}:${encoding.state}:${dimmed ? "dim" : "lit"}`;
+      const group = byKey.get(key) ?? { key, shape, trust, fromEncoding, encoding, dimmed, items: [] };
       group.items.push(node);
       byKey.set(key, group);
     }
     return [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key));
-  }, [dimTest, nodes, overlay]);
+  }, [dimTest, nodes, overlay, overlayTransition]);
   return (
     <>
       {groups.map((group) => (
@@ -268,6 +429,7 @@ export function NodeInstances({
           profile={profile}
           selectedId={selectedId}
           morph={morph}
+          overlayTransition={overlayTransition}
           onSelect={onSelect}
           onHover={onHover}
           registerMaterial={registerMaterial}
@@ -345,7 +507,8 @@ export function GlowSprites({
   approvalIds,
   selectedId,
   walkTargetId,
-  registerPulse
+  registerPulse,
+  morph
 }: {
   nodes: LayoutNode[];
   highlightedIds: Set<string>;
@@ -353,6 +516,7 @@ export function GlowSprites({
   selectedId: string;
   walkTargetId: string;
   registerPulse: (kind: "stale" | "highlight", material: THREE.SpriteMaterial | null) => void;
+  morph: RefObject<MorphState>;
 }) {
   const texture = glowTexture();
   const glowing = useMemo(
@@ -404,52 +568,196 @@ export function GlowSprites({
         // reduced-motion/compact tiers must never lose the attention cue.
         const opacity = centerGroup ? 0.18 : approval ? 0.82 : highlighted ? 0.75 : selectedSemantic ? 0.12 : selected ? 0.62 : trust === "stale" ? 0.5 : 0.3;
         return (
-          <sprite key={`glow-${instanceKeys[index]}`} position={node.position} scale={[size, size, 1]}>
-            <spriteMaterial
-              ref={(material) => {
-                if (trust === "stale" && !selected && !highlighted && !approval) registerPulse("stale", material);
-                if (highlighted || approval) registerPulse("highlight", material);
-              }}
-              map={texture}
-              color={color}
-              transparent
-              opacity={opacity}
-              blending={THREE.AdditiveBlending}
-              depthWrite={false}
-              toneMapped={false}
-            />
-          </sprite>
+          <MorphingNodeGroup key={`glow-${instanceKeys[index]}`} node={node} morph={morph}>
+            <sprite scale={[size, size, 1]}>
+              <spriteMaterial
+                ref={(material) => {
+                  if (trust === "stale" && !selected && !highlighted && !approval) registerPulse("stale", material);
+                  if (highlighted || approval) registerPulse("highlight", material);
+                }}
+                map={texture}
+                color={color}
+                transparent
+                opacity={opacity}
+                blending={THREE.AdditiveBlending}
+                depthWrite={false}
+                toneMapped={false}
+              />
+            </sprite>
+          </MorphingNodeGroup>
         );
       })}
     </group>
   );
 }
 
-export function RingSprites({ nodes, overlay }: { nodes: LayoutNode[]; overlay: OverlayId }) {
+export function RingSprites({
+  nodes,
+  overlay,
+  morph,
+  overlayTransition
+}: {
+  nodes: LayoutNode[];
+  overlay: OverlayId;
+  morph: RefObject<MorphState>;
+  overlayTransition?: RefObject<OverlayTransitionState>;
+}) {
   const strongTexture = ringTexture(0.09);
   const quietTexture = ringTexture(0.045);
+  const { invalidate } = useThree();
+  const materialRefs = useRef(new Map<string, THREE.SpriteMaterial>());
+  const groupRefs = useRef(new Map<string, THREE.Group>());
+  const strongAttention = useMemo(() => strongAttentionNodeIds(nodes), [nodes]);
+  const transition = overlayTransition?.current;
+  const fromOverlay = transition?.to === overlay ? transition.from : overlay;
+  const keyed = useMemo(() => {
+    const encoded = nodes
+      .map((node) => {
+        const fromEncoding = visualEncodingResolver.resolve(node, fromOverlay);
+        const encoding = visualEncodingResolver.resolve(node, overlay);
+        const fromVisible = fromEncoding.ring !== "none" && (fromOverlay !== "attention" || strongAttention.has(node.id));
+        const visible = encoding.ring !== "none" && (overlay !== "attention" || strongAttention.has(node.id));
+        return { node, fromEncoding, encoding, fromVisible, visible };
+      })
+      .filter(({ fromVisible, visible }) => fromVisible || visible);
+    const instanceKeys = layoutNodeInstanceKeys(encoded.map(({ node }) => node));
+    return encoded.map((entry, index) => ({ ...entry, instanceKey: instanceKeys[index] }));
+  }, [fromOverlay, nodes, overlay, strongAttention]);
+
+  const applyRingEncoding = useCallback(
+    (progress: number) => {
+      const current = overlayTransition?.current;
+      const transitioning = Boolean(current?.active && current.to === overlay && current.from === fromOverlay);
+      keyed.forEach(({ node, fromEncoding, encoding, fromVisible, visible, instanceKey }) => {
+        const weights = transitioning ? overlayCrossfadeWeights(node.id, progress) : { from: 0, to: 1 };
+        const fromOpacity = fromVisible ? Math.min(0.3 + fromEncoding.emissive * 0.65, 0.9) * weights.from : 0;
+        const toOpacity = visible ? Math.min(0.3 + encoding.emissive * 0.65, 0.9) * weights.to : 0;
+        const fromGroup = groupRefs.current.get(`${instanceKey}:from`);
+        const toGroup = groupRefs.current.get(`${instanceKey}:to`);
+        if (fromGroup) fromGroup.visible = fromOpacity > 0.001;
+        if (toGroup) toGroup.visible = toOpacity > 0.001;
+        const fromMain = materialRefs.current.get(`${instanceKey}:from:main`);
+        const fromDouble = materialRefs.current.get(`${instanceKey}:from:double`);
+        const toMain = materialRefs.current.get(`${instanceKey}:to:main`);
+        const toDouble = materialRefs.current.get(`${instanceKey}:to:double`);
+        if (fromMain) fromMain.opacity = fromOpacity;
+        if (fromDouble) fromDouble.opacity = fromOpacity * 0.65;
+        if (toMain) toMain.opacity = toOpacity;
+        if (toDouble) toDouble.opacity = toOpacity * 0.65;
+      });
+    },
+    [fromOverlay, keyed, overlay, overlayTransition]
+  );
+
+  useLayoutEffect(() => {
+    const current = overlayTransition?.current;
+    const transitioning = Boolean(current?.active && current.to === overlay && current.from === fromOverlay);
+    applyRingEncoding(transitioning ? 0 : 1);
+    invalidate();
+  }, [applyRingEncoding, fromOverlay, invalidate, overlay, overlayTransition]);
+
+  useFrame((state) => {
+    const current = overlayTransition?.current;
+    if (!current?.active || current.to !== overlay) return;
+    if (current.start === null) current.start = state.clock.elapsedTime;
+    const progress = current.duration <= 0
+      ? 1
+      : Math.min((state.clock.elapsedTime - current.start) / current.duration, 1);
+    applyRingEncoding(progress);
+    state.invalidate();
+  });
+
   if (!strongTexture || !quietTexture) return null;
-  const strongAttention = strongAttentionNodeIds(nodes);
-  const encoded = nodes
-    .map((node) => ({ node, encoding: visualEncodingResolver.resolve(node, overlay) }))
-    .filter(({ node, encoding }) => encoding.ring !== "none" && (overlay !== "attention" || strongAttention.has(node.id)));
-  const instanceKeys = layoutNodeInstanceKeys(encoded.map(({ node }) => node));
   return (
     <group>
-      {encoded.map(({ node, encoding }, index) => {
+      {keyed.map(({ node, fromEncoding, encoding, fromVisible, visible, instanceKey }) => {
+        const fromSize = node.scale * (fromEncoding.ring === "double" ? 3.8 : 3.2);
         const size = node.scale * (encoding.ring === "double" ? 3.8 : 3.2);
-        const opacity = Math.min(0.3 + encoding.emissive * 0.65, 0.9);
         return (
-          <group key={`overlay-ring-${overlay}-${instanceKeys[index]}`}>
-            <sprite position={node.position} scale={[size, size, 1]}>
-              <spriteMaterial map={encoding.ring === "dashed" ? quietTexture : strongTexture} color={encoding.color} transparent opacity={opacity} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
-            </sprite>
-            {encoding.ring === "double" && (
-              <sprite position={node.position} scale={[size * 1.25, size * 1.25, 1]}>
-                <spriteMaterial map={quietTexture} color={encoding.color} transparent opacity={opacity * 0.65} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
-              </sprite>
-            )}
-          </group>
+          <MorphingNodeGroup key={`overlay-ring-${instanceKey}`} node={node} morph={morph}>
+            <group
+              ref={(group) => {
+                if (group) groupRefs.current.set(`${instanceKey}:from`, group);
+                else groupRefs.current.delete(`${instanceKey}:from`);
+              }}
+            >
+              {fromVisible && (
+                <sprite scale={[fromSize, fromSize, 1]}>
+                  <spriteMaterial
+                    ref={(material) => {
+                      if (material) materialRefs.current.set(`${instanceKey}:from:main`, material);
+                      else materialRefs.current.delete(`${instanceKey}:from:main`);
+                    }}
+                    map={fromEncoding.ring === "dashed" ? quietTexture : strongTexture}
+                    color={fromEncoding.color}
+                    transparent
+                    opacity={0}
+                    blending={THREE.AdditiveBlending}
+                    depthWrite={false}
+                    toneMapped={false}
+                  />
+                </sprite>
+              )}
+              {fromVisible && fromEncoding.ring === "double" && (
+                <sprite scale={[fromSize * 1.25, fromSize * 1.25, 1]}>
+                  <spriteMaterial
+                    ref={(material) => {
+                      if (material) materialRefs.current.set(`${instanceKey}:from:double`, material);
+                      else materialRefs.current.delete(`${instanceKey}:from:double`);
+                    }}
+                    map={quietTexture}
+                    color={fromEncoding.color}
+                    transparent
+                    opacity={0}
+                    blending={THREE.AdditiveBlending}
+                    depthWrite={false}
+                    toneMapped={false}
+                  />
+                </sprite>
+              )}
+            </group>
+            <group
+              ref={(group) => {
+                if (group) groupRefs.current.set(`${instanceKey}:to`, group);
+                else groupRefs.current.delete(`${instanceKey}:to`);
+              }}
+            >
+              {visible && (
+                <sprite scale={[size, size, 1]}>
+                  <spriteMaterial
+                    ref={(material) => {
+                      if (material) materialRefs.current.set(`${instanceKey}:to:main`, material);
+                      else materialRefs.current.delete(`${instanceKey}:to:main`);
+                    }}
+                    map={encoding.ring === "dashed" ? quietTexture : strongTexture}
+                    color={encoding.color}
+                    transparent
+                    opacity={0}
+                    blending={THREE.AdditiveBlending}
+                    depthWrite={false}
+                    toneMapped={false}
+                  />
+                </sprite>
+              )}
+              {visible && encoding.ring === "double" && (
+                <sprite scale={[size * 1.25, size * 1.25, 1]}>
+                  <spriteMaterial
+                    ref={(material) => {
+                      if (material) materialRefs.current.set(`${instanceKey}:to:double`, material);
+                      else materialRefs.current.delete(`${instanceKey}:to:double`);
+                    }}
+                    map={quietTexture}
+                    color={encoding.color}
+                    transparent
+                    opacity={0}
+                    blending={THREE.AdditiveBlending}
+                    depthWrite={false}
+                    toneMapped={false}
+                  />
+                </sprite>
+              )}
+            </group>
+          </MorphingNodeGroup>
         );
       })}
     </group>
@@ -2096,6 +2404,7 @@ function GroupShell({
   layoutLevel,
   activeGroupId = "",
   morph,
+  overlayTransition,
   onSelect,
   onHover
 }: {
@@ -2106,21 +2415,47 @@ function GroupShell({
   layoutLevel: number;
   activeGroupId?: string;
   morph?: RefObject<MorphState>;
+  overlayTransition?: RefObject<OverlayTransitionState>;
   onSelect?: (node: LayoutNode) => void;
   onHover?: (node: LayoutNode | null, event?: ThreeEvent<PointerEvent>) => void;
 }) {
   const ref = useRef<THREE.Group>(null);
+  const overlayMaterialRefs = useRef<Array<THREE.MeshBasicMaterial | null>>([]);
   const { invalidate } = useThree();
+  const transition = overlayTransition?.current;
+  const fromOverlay = transition?.to === overlay ? transition.from : overlay;
+  const fromEncoding = visualEncodingResolver.resolve(node, fromOverlay);
+  const encoding = visualEncodingResolver.resolve(node, overlay);
+  const color = encoding.color;
+  const overlayFromColor = useMemo(() => new THREE.Color(), []);
+  const overlayToColor = useMemo(() => new THREE.Color(), []);
+  const overlayMixedColor = useMemo(() => new THREE.Color(), []);
+  const applyOverlayColor = useCallback(
+    (progress: number) => {
+      const current = overlayTransition?.current;
+      const transitioning = Boolean(current?.active && current.from === fromOverlay && current.to === overlay);
+      const weights = transitioning ? overlayCrossfadeWeights(node.id, progress) : { from: 0, to: 1 };
+      overlayMixedColor.lerpColors(
+        overlayFromColor.set(fromEncoding.color),
+        overlayToColor.set(encoding.color),
+        weights.to
+      );
+      overlayMaterialRefs.current.forEach((material) => material?.color.copy(overlayMixedColor));
+    },
+    [encoding.color, fromEncoding.color, fromOverlay, node.id, overlay, overlayFromColor, overlayMixedColor, overlayToColor, overlayTransition]
+  );
   const applyPosition = useCallback(
     (t: number) => {
       if (!ref.current) return;
       const from = morph?.current?.from.get(node.id);
-      const eased = easeOutCubic(t);
+      const sample = entityMotionSample(node.id, t, morph?.current?.intent ?? "view");
+      const eased = sample.eased;
       const x = from ? from[0] + (node.position[0] - from[0]) * eased : node.position[0];
       const y = from ? from[1] + (node.position[1] - from[1]) * eased : node.position[1];
       const z = from ? from[2] + (node.position[2] - from[2]) * eased : node.position[2];
       ref.current.position.set(x, y, z);
-      ref.current.scale.setScalar(groupDrillGrowthScale(node, layoutLevel, Boolean(from), t));
+      morph?.current?.current?.set(node.id, [x, y, z]);
+      ref.current.scale.setScalar(groupDrillGrowthScale(node, layoutLevel, Boolean(from), sample.local));
     },
     [layoutLevel, morph, node, node.id, node.position]
   );
@@ -2129,6 +2464,13 @@ function GroupShell({
     applyPosition(morph?.current?.active ? 0 : 1);
     invalidate();
   }, [applyPosition, invalidate, morph]);
+
+  useLayoutEffect(() => {
+    const current = overlayTransition?.current;
+    const transitioning = Boolean(current?.active && current.from === fromOverlay && current.to === overlay);
+    applyOverlayColor(transitioning ? 0 : 1);
+    invalidate();
+  }, [applyOverlayColor, fromOverlay, invalidate, overlay, overlayTransition]);
 
   useFrame((state) => {
     const morphState = morph?.current;
@@ -2139,6 +2481,17 @@ function GroupShell({
     state.invalidate();
   });
 
+  useFrame((state) => {
+    const current = overlayTransition?.current;
+    if (!current?.active || current.to !== overlay) return;
+    if (current.start === null) current.start = state.clock.elapsedTime;
+    const progress = current.duration <= 0
+      ? 1
+      : Math.min((state.clock.elapsedTime - current.start) / current.duration, 1);
+    applyOverlayColor(progress);
+    state.invalidate();
+  });
+
         const members = node.groupMemberIds?.length ?? 0;
         const profile = groupShellProfile(node, layoutLevel, activeGroupId);
         const isCenterGroup = profile.center;
@@ -2146,7 +2499,6 @@ function GroupShell({
         const isRegionGroup = node.groupKind === "quadrant";
         const family = pageTypeStyle(node.page_type).family;
         const visualKey = groupVisualKey(node, family);
-        const color = visualEncodingResolver.resolve(node, overlay).color;
         const composition = node.groupComposition ?? [];
         const pips = groupVisualPips(composition, visualKey === "region" ? "hub" : visualKey, members, isCenterGroup);
         const statusBeacons = groupStatusBeacons(node);
@@ -2174,7 +2526,7 @@ function GroupShell({
             </mesh>
             <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, verticalLift, 0]} renderOrder={1}>
               <torusGeometry args={[radius, tube, 8, 72]} />
-              <meshBasicMaterial color={color} transparent opacity={profile.ringOpacity} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+              <meshBasicMaterial ref={(material) => { overlayMaterialRefs.current[0] = material; }} color={color} transparent opacity={profile.ringOpacity} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
             </mesh>
             <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, verticalLift + 0.02, 0]} scale={[1.18, 1.18, 1]}>
               <torusGeometry args={[radius, Math.max(tube * 0.55, 0.009), 6, 72]} />
@@ -2188,14 +2540,14 @@ function GroupShell({
                 </mesh>
                 <mesh position={[0, verticalLift + 0.16, 0]} scale={[radius * 0.08, 0.7, radius * 0.08]} renderOrder={4}>
                   <cylinderGeometry args={[1, 1, 1, 10]} />
-                  <meshBasicMaterial color={color} transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+                  <meshBasicMaterial ref={(material) => { overlayMaterialRefs.current[1] = material; }} color={color} transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
                 </mesh>
               </>
             )}
             {isCenterGroup && (
               <mesh rotation={[Math.PI / 2.7, 0, Math.PI / 8]} position={[0, verticalLift + 0.14, 0]} renderOrder={2}>
                 <torusGeometry args={[radius * 0.72, Math.max(tube * 0.7, 0.012), 6, 72]} />
-                <meshBasicMaterial color={color} transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
+                <meshBasicMaterial ref={(material) => { overlayMaterialRefs.current[2] = material; }} color={color} transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} />
               </mesh>
             )}
             <GroupCoreGlyph node={node} radius={radius} color={color} isCenterGroup={isCenterGroup} />
@@ -2248,6 +2600,7 @@ export function GroupShells({
   layoutLevel,
   activeGroupId = "",
   morph,
+  overlayTransition,
   onSelect,
   onHover
 }: {
@@ -2258,6 +2611,7 @@ export function GroupShells({
   layoutLevel: number;
   activeGroupId?: string;
   morph?: RefObject<MorphState>;
+  overlayTransition?: RefObject<OverlayTransitionState>;
   onSelect?: (node: LayoutNode) => void;
   onHover?: (node: LayoutNode | null, event?: ThreeEvent<PointerEvent>) => void;
 }) {
@@ -2276,6 +2630,7 @@ export function GroupShells({
           layoutLevel={layoutLevel}
           activeGroupId={activeGroupId}
           morph={morph}
+          overlayTransition={overlayTransition}
           onSelect={onSelect}
           onHover={onHover}
         />

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   centerSignalBadges,
+  entityMotionSample,
   groupChildOrbitClusterHoverNode,
   groupChildOrbitClusterPoses,
   groupChildOrbitClusterVisualProfile,
@@ -19,6 +20,8 @@ import {
   groupShellProfile,
   groupStatusBeacons,
   groupVisualPips,
+  morphAttachmentOpacity,
+  overlayCrossfadeWeights,
   semanticDetailFamily,
   semanticDetailEligible,
   semanticDetailLimit,
@@ -418,6 +421,43 @@ describe("group visual object grammar", () => {
     expect(groupDrillGrowthScale(center, 2, true, 0)).toBeGreaterThan(groupDrillGrowthScale(center, 1, true, 0));
     expect(groupDrillGrowthScale(satellite, 1, true, 0)).toBe(1);
     expect(groupDrillGrowthScale(center, 1, false, 0)).toBe(1);
+  });
+
+  it("shares one staggered entity clock across bodies, shells and attachments", () => {
+    const body = entityMotionSample("region:pratica", 0.5, "travel");
+    const shell = entityMotionSample("region:pratica", 0.5, "travel");
+
+    expect(shell).toEqual(body);
+    expect(entityMotionSample("region:pratica", 0, "travel")).toEqual({ local: 0, eased: 0 });
+    expect(entityMotionSample("region:pratica", 1, "travel")).toEqual({ local: 1, eased: 1 });
+    expect(body.local).toBeLessThanOrEqual(0.5);
+  });
+
+  it("crossfades overlay signals per entity with a bounded short stagger", () => {
+    expect(overlayCrossfadeWeights("page-a", 0)).toEqual({ from: 1, to: 0 });
+    expect(overlayCrossfadeWeights("page-a", 1)).toEqual({ from: 0, to: 1 });
+    const midpoint = overlayCrossfadeWeights("page-a", 0.5);
+    expect(midpoint.from + midpoint.to).toBeCloseTo(1, 8);
+    expect(midpoint.to).toBeGreaterThan(0);
+    expect(midpoint.to).toBeLessThan(1);
+  });
+
+  it("keeps destination relation geometry hidden until the shared morph settles", () => {
+    const morph = {
+      from: new Map(),
+      current: new Map(),
+      start: 10,
+      duration: 2,
+      active: true,
+      intent: "travel" as const,
+      sequence: 3
+    };
+
+    expect(morphAttachmentOpacity(morph, 10, 0.5)).toBe(0);
+    expect(morphAttachmentOpacity(morph, 11.4, 0.5)).toBe(0);
+    expect(morphAttachmentOpacity(morph, 11.8, 0.5)).toBeGreaterThan(0);
+    expect(morphAttachmentOpacity(morph, 12, 0.5)).toBe(0.5);
+    expect(morphAttachmentOpacity({ ...morph, active: false }, 10, 0.5)).toBe(0.5);
   });
 
   it("turns groups into typed physical landmarks, not generic shells", () => {

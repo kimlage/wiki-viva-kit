@@ -5,6 +5,27 @@
   color: #e9edf1;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  /* Semantic motion defaults. WorldView overrides these from the local motion
+     preference, but every non-world surface still inherits the same rhythm. */
+  --motion-speed: 0.78;
+  --motion-duration-feedback: 205ms;
+  --motion-duration-control: 282ms;
+  --motion-duration-overlay: 410ms;
+  --motion-duration-surfaceEnter: 538ms;
+  --motion-duration-surfaceExit: 436ms;
+  --motion-duration-lens: 692ms;
+  --motion-duration-view: 923ms;
+  --motion-duration-travel: 1256ms;
+  --motion-duration-retreat: 974ms;
+  --motion-easing-feedback: cubic-bezier(0.2, 0, 0, 1);
+  --motion-easing-control: cubic-bezier(0.2, 0, 0, 1);
+  --motion-easing-overlay: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --motion-easing-surfaceEnter: cubic-bezier(0.22, 0.65, 0.3, 1);
+  --motion-easing-surfaceExit: cubic-bezier(0.4, 0, 1, 1);
+  --motion-easing-lens: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-easing-view: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-easing-travel: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-easing-retreat: cubic-bezier(0.32, 0, 0.67, 0);
 }
 
 * {
@@ -191,6 +212,16 @@ button {
   }
 }
 
+.worldWorkspace[data-visual-motion="0.00"] *,
+.worldWorkspace[data-visual-motion="0.00"] *::before,
+.worldWorkspace[data-visual-motion="0.00"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+
 .demoBanner {
   display: flex;
   align-items: center;
@@ -273,6 +304,99 @@ code {
      z-index up to 50) in its own stacking context so it never paints over the
      HUD panels, the reader dock/modal or the tooltip that are its siblings. */
   isolation: isolate;
+}
+
+/* Route changes keep the same canvas, but each semantic change gets a distinct
+   settling cue. Entity color/rings resolve in WebGL; this layer is only a quiet
+   orientation accent and never masks the data or captures input. */
+.sceneTransitionCue {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: center;
+}
+
+.sceneTransitionCue::after {
+  position: absolute;
+  inset: 12%;
+  content: "";
+  border: 1px solid color-mix(in srgb, var(--overlay-accent, #7fd0e8) 24%, transparent);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.sceneTransitionCue-view {
+  background: radial-gradient(circle at 50% 54%, transparent 24%, rgba(3, 8, 12, 0.18) 82%);
+  animation: worldViewSettle var(--motion-duration-view) var(--motion-easing-view) both;
+}
+
+.sceneTransitionCue-view::after {
+  animation: worldFrameResolve var(--motion-duration-view) var(--motion-easing-view) both;
+}
+
+.sceneTransitionCue-travel {
+  background: radial-gradient(circle at 50% 54%, transparent 16%, rgba(3, 8, 12, 0.4) 82%);
+  animation: worldTravelSettle var(--motion-duration-travel) var(--motion-easing-travel) both;
+}
+
+.sceneTransitionCue-travel::after {
+  animation: worldFrameResolve var(--motion-duration-travel) var(--motion-easing-travel) both;
+}
+
+.sceneTransitionCue-retreat {
+  background: radial-gradient(circle at 50% 54%, rgba(3, 8, 12, 0.28), transparent 68%);
+  animation: worldLensOrient var(--motion-duration-retreat) var(--motion-easing-retreat) both;
+}
+
+.sceneTransitionCue-control {
+  background: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 8%, transparent);
+  animation: worldOverlayResolve var(--motion-duration-control) var(--motion-easing-control) both;
+}
+
+.sceneTransitionCue-lens {
+  background: radial-gradient(circle at 50% 54%, color-mix(in srgb, var(--overlay-accent, #7fd0e8) 10%, transparent), transparent 54%);
+  animation: worldLensOrient var(--motion-duration-lens) var(--motion-easing-lens) both;
+}
+
+.sceneTransitionCue-overlay {
+  background: radial-gradient(circle at 50% 54%, color-mix(in srgb, var(--overlay-accent, #7fd0e8) 4%, transparent), transparent 46%);
+  animation: worldOverlaySignalResolve var(--motion-duration-overlay) var(--motion-easing-overlay) both;
+}
+
+@keyframes worldViewSettle {
+  0% { opacity: 0.22; transform: scale(0.996); }
+  38% { opacity: 0.08; }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+@keyframes worldTravelSettle {
+  0% { opacity: 0.46; backdrop-filter: blur(5px); transform: scale(0.992); }
+  34% { opacity: 0.2; backdrop-filter: blur(2px); }
+  100% { opacity: 0; backdrop-filter: blur(0); transform: scale(1); }
+}
+
+@keyframes worldFrameResolve {
+  0% { opacity: 0; transform: scale(0.72); }
+  22% { opacity: 0.36; }
+  100% { opacity: 0; transform: scale(1.08); }
+}
+
+@keyframes worldLensOrient {
+  0% { opacity: 0.28; transform: scale(0.96); }
+  100% { opacity: 0; transform: scale(1.03); }
+}
+
+@keyframes worldOverlayResolve {
+  0% { opacity: 0.2; }
+  42% { opacity: 0.08; }
+  100% { opacity: 0; }
+}
+
+@keyframes worldOverlaySignalResolve {
+  0% { opacity: 0.08; transform: scale(0.992); }
+  100% { opacity: 0; transform: scale(1.01); }
 }
 
 /* Radar shell: full-bleed command view with thin HUD bars. */
@@ -1345,7 +1469,7 @@ button.stripChip:hover {
   border: 1px solid transparent;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  transition: background var(--motion-duration-feedback) var(--motion-easing-feedback), border-color var(--motion-duration-feedback) var(--motion-easing-feedback), color var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 .btn:disabled {
   opacity: 0.45;
@@ -1389,7 +1513,7 @@ button.stripChip:hover {
   font-weight: 600;
   font-size: 12.5px;
   max-width: 240px;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background var(--motion-duration-feedback) var(--motion-easing-feedback), border-color var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 
 .actionButton:hover {
@@ -2552,6 +2676,8 @@ pre {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
   }
 }
@@ -2593,6 +2719,10 @@ pre {
   min-height: 0;
   overflow: hidden;
   padding: 10px 14px 14px;
+}
+
+.worldWorkspace:focus {
+  outline: none;
 }
 
 .worldWorkspace .radarLabel .nodeLabelBody,
@@ -2826,6 +2956,18 @@ pre {
   box-shadow: 0 24px 72px rgba(0, 0, 0, 0.58), inset 0 1px rgba(255, 255, 255, 0.04);
   color: #dff2fb;
   backdrop-filter: blur(18px);
+  transform-origin: top right;
+  animation: navigatorPanelEnter var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
+}
+
+.worldNavigatorPanel.closing {
+  pointer-events: none;
+  animation: navigatorPanelExit var(--motion-duration-surfaceExit) var(--motion-easing-surfaceExit) both;
+}
+
+@keyframes navigatorPanelExit {
+  from { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 0; transform: translate3d(16px, -10px, 0) scale(0.985); }
 }
 
 .worldNavigatorPanelHeader,
@@ -2951,7 +3093,7 @@ pre {
   color: #dff2fb;
   text-align: left;
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+  transition: border-color var(--motion-duration-feedback) var(--motion-easing-feedback), background var(--motion-duration-feedback) var(--motion-easing-feedback), transform var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 
 .worldNavigatorCard:hover,
@@ -3268,7 +3410,7 @@ pre {
   padding: 2px 9px;
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color 0.12s ease, color 0.12s ease;
+  transition: border-color var(--motion-duration-feedback) var(--motion-easing-feedback), color var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 .conditionSeg:hover {
   border-color: #6bd7ff;
@@ -3356,7 +3498,7 @@ pre {
   flex-direction: column;
   gap: 6px;
   align-items: flex-end;
-  transition: opacity 140ms ease, visibility 140ms ease;
+  transition: opacity var(--motion-duration-control) var(--motion-easing-control), visibility var(--motion-duration-control) var(--motion-easing-control);
 }
 
 .quadrantCompassApprovedTextOnly .quadrantCell,
@@ -3490,7 +3632,7 @@ pre {
   cursor: pointer;
   font: inherit;
   text-align: left;
-  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  transition: border-color var(--motion-duration-feedback) var(--motion-easing-feedback), background var(--motion-duration-feedback) var(--motion-easing-feedback), transform var(--motion-duration-feedback) var(--motion-easing-feedback), box-shadow var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 
 .quadrantTextCell:hover,
@@ -3622,7 +3764,7 @@ pre {
   box-shadow:
     inset 0 0 18px rgba(127, 208, 232, 0.04),
     0 0 0 1px rgba(3, 8, 12, 0.5);
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease, background 160ms ease;
+  transition: border-color var(--motion-duration-control) var(--motion-easing-control), box-shadow var(--motion-duration-control) var(--motion-easing-control), transform var(--motion-duration-control) var(--motion-easing-control), background var(--motion-duration-control) var(--motion-easing-control);
 }
 
 .quadrantCell::before {
@@ -4187,7 +4329,7 @@ pre {
   font: inherit;
   font-size: 11.5px;
   cursor: pointer;
-  transition: border-color 0.12s ease, background 0.12s ease;
+  transition: border-color var(--motion-duration-feedback) var(--motion-easing-feedback), background var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 
 .quadrantSeed:hover {
@@ -4398,6 +4540,7 @@ pre {
   background: rgba(8, 15, 21, 0.88);
   backdrop-filter: blur(6px);
   padding: 10px;
+  animation: missionSurfaceEnter var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
 }
 
 .worldMissionCard header {
@@ -4455,6 +4598,7 @@ pre {
   color: #dff2fb;
   font-size: 12.5px;
   cursor: pointer;
+  animation: hudControlEnter var(--motion-duration-control) var(--motion-easing-control) both;
 }
 .worldMissionChip span {
   color: #7d93a3;
@@ -4592,7 +4736,7 @@ pre {
   border-radius: 7px;
   padding: 6px 10px;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background var(--motion-duration-feedback) var(--motion-easing-feedback), border-color var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 
 .missionRowAction:hover {
@@ -4857,6 +5001,7 @@ pre {
   background: rgba(8, 15, 21, 0.95);
   backdrop-filter: blur(8px);
   padding: 10px;
+  animation: bottomSurfaceEnter var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
 }
 
 .packetTray header {
@@ -4914,6 +5059,24 @@ pre {
   pointer-events: none;
   background: rgba(3, 7, 10, 0.24);
   backdrop-filter: blur(0.6px);
+  animation: backdropResolve var(--motion-duration-overlay) var(--motion-easing-overlay) both;
+}
+
+.readerSurfacePresence.closing {
+  pointer-events: none;
+  animation: surfacePresenceClock var(--motion-duration-surfaceExit) linear both;
+}
+
+.readerSurfacePresence.closing .readerDockBackdrop {
+  animation: readerBackdropExit var(--motion-duration-surfaceExit) var(--motion-easing-surfaceExit) both;
+}
+
+.readerSurfacePresence.closing .pageReader {
+  animation: readerDockExit var(--motion-duration-surfaceExit) var(--motion-easing-surfaceExit) both;
+}
+
+.readerSurfacePresence.closing .pageReader.expanded {
+  animation-name: readerModalExit;
 }
 
 .pageReader {
@@ -4932,6 +5095,96 @@ pre {
   box-shadow: -22px 0 56px rgba(0, 0, 0, 0.5);
   outline: none;
   overflow: hidden;
+}
+
+.pageReader:not(.expanded) {
+  animation: readerDockEnter var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
+}
+
+.pageReader .readerHead,
+.pageReader .readerScroll,
+.pageReader .readerActionBar {
+  animation: readerContentEnter var(--motion-duration-overlay) var(--motion-easing-overlay) both;
+}
+
+@keyframes navigatorPanelEnter {
+  from { opacity: 0; transform: translateY(-8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes missionSurfaceEnter {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes hudControlEnter {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes bottomSurfaceEnter {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes backdropResolve {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes readerDockEnter {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes readerModalEnter {
+  from { opacity: 0; transform: translateX(50%) scale(0.985); }
+  to { opacity: 1; transform: translateX(50%) scale(1); }
+}
+
+@keyframes readerSheetEnter {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes readerContentEnter {
+  from { opacity: 0; translate: 0 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes surfacePresenceClock {
+  from { opacity: 1; }
+  to { opacity: 1; }
+}
+
+@keyframes readerBackdropExit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes readerDockExit {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(32px, 0, 0); }
+}
+
+@keyframes readerModalExit {
+  from { opacity: 1; transform: translateX(50%) translateY(0) scale(1); }
+  to { opacity: 0; transform: translateX(50%) translateY(12px) scale(0.985); }
+}
+
+@keyframes readerSheetExit {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(36px); }
+}
+
+@keyframes coachCardEnter {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.985); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes anchoredSurfaceEnter {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .fallbackMode .pageReader {
@@ -5171,7 +5424,7 @@ pre {
   border: 1px solid #1f303b;
   border-radius: 9px;
   background: rgba(10, 18, 25, 0.72);
-  transition: border-color 140ms ease, background 140ms ease;
+  transition: border-color var(--motion-duration-feedback) var(--motion-easing-feedback), background var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 
 .readerRelationGroup:hover,
@@ -5838,6 +6091,7 @@ pre {
   border-radius: 12px;
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65);
   z-index: 64;
+  animation: readerModalEnter var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
 }
 
 .pageReader.expanded .readerBody {
@@ -5873,6 +6127,16 @@ pre {
     transform: none;
     border: 0;
     border-radius: 0;
+  }
+
+  .pageReader:not(.expanded),
+  .pageReader.expanded {
+    animation-name: readerSheetEnter;
+  }
+
+  .readerSurfacePresence.closing .pageReader,
+  .readerSurfacePresence.closing .pageReader.expanded {
+    animation-name: readerSheetExit;
   }
 
   .readerHead {
@@ -6086,6 +6350,7 @@ pre {
   inset: 0;
   z-index: 90;
   background: rgba(3, 7, 10, 0.55);
+  animation: backdropResolve var(--motion-duration-overlay) var(--motion-easing-overlay) both;
 }
 
 .coachSpotlight {
@@ -6107,10 +6372,12 @@ pre {
   border-radius: 12px;
   background: rgba(8, 14, 20, 0.98);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  animation: coachCardEnter var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
 }
 
 .coachCard.anchored {
   transform: none;
+  animation-name: anchoredSurfaceEnter;
 }
 
 .coachCard h2 {
@@ -6153,6 +6420,7 @@ pre {
   background: rgba(8, 15, 21, 0.96);
   backdrop-filter: blur(8px);
   padding: 12px 14px;
+  animation: bottomSurfaceEnter var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
 }
 
 .missionsPanel header {
@@ -6344,7 +6612,7 @@ pre {
   color: #dff2fb;
   isolation: isolate;
   transform-origin: left bottom;
-  animation: visualControlEnter 220ms ease-out;
+  animation: visualControlEnter var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
 }
 
 .visualControlPanel::before,
@@ -6360,7 +6628,7 @@ pre {
 .visualControlPanel::before {
   border: 1px solid rgba(139, 226, 255, 0.22);
   box-shadow: inset 0 0 calc(20px * var(--visual-glow)) rgba(94, 226, 255, 0.08);
-  animation: visualControlRune 2800ms linear infinite;
+  animation: visualControlRune 5200ms linear infinite;
 }
 
 .visualControlPanel::after {
@@ -6369,7 +6637,7 @@ pre {
     linear-gradient(0deg, transparent, rgba(197, 124, 255, 0.1), transparent);
   opacity: calc(0.22 + (var(--visual-glow) * 0.12));
   transform: translateY(0);
-  animation: visualControlScan 3600ms ease-in-out infinite;
+  animation: visualControlScan 6400ms ease-in-out infinite;
 }
 
 .visualControlMotes {
@@ -6388,7 +6656,7 @@ pre {
   background: #8ce7ff;
   box-shadow: 0 0 calc(12px * var(--visual-glow)) #8ce7ff;
   opacity: 0.78;
-  animation: visualControlMote 4600ms ease-in-out infinite;
+  animation: visualControlMote 8000ms ease-in-out infinite;
 }
 
 .visualControlMotes i:nth-child(1) { left: 8%; top: 72%; animation-delay: -200ms; }
@@ -6404,7 +6672,7 @@ pre {
 .worldWorkspace.visualControlOpen .quadrantScopeChip {
   opacity: 0.42;
   pointer-events: none;
-  transition: opacity 160ms ease;
+  transition: opacity var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 
 .visualControlHeader {
@@ -7002,6 +7270,7 @@ pre {
      purple gate halos must read through, not be blurred into the dark. */
   background: rgba(4, 8, 12, 0.32);
   backdrop-filter: blur(1px);
+  animation: backdropResolve var(--motion-duration-overlay) var(--motion-easing-overlay) both;
 }
 .worldDock {
   position: fixed;
@@ -7021,6 +7290,27 @@ pre {
   backdrop-filter: blur(12px);
   box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45);
   overflow-y: auto;
+  animation: dockSlide var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
+}
+
+.appDockPresence.closing {
+  position: relative;
+  z-index: 100;
+  pointer-events: none;
+  animation: surfacePresenceClock var(--motion-duration-surfaceExit) linear both;
+}
+
+.appDockPresence.closing .dockBackdrop {
+  animation: readerBackdropExit var(--motion-duration-surfaceExit) var(--motion-easing-surfaceExit) both;
+}
+
+.appDockPresence.closing .worldDock {
+  animation: dockSlideExit var(--motion-duration-surfaceExit) var(--motion-easing-surfaceExit) both;
+}
+
+@keyframes dockSlideExit {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(30px); }
 }
 .dockHeader {
   display: flex;
@@ -8003,7 +8293,7 @@ pre {
   color: #dceaf2;
   text-decoration: none;
   text-align: left;
-  transition: transform 120ms ease, border-color 120ms ease;
+  transition: transform var(--motion-duration-feedback) var(--motion-easing-feedback), border-color var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 .demoGateDoor:hover {
   transform: translateY(-2px);
@@ -8586,7 +8876,7 @@ pre {
   border: 1.5px solid;
   background: rgba(7, 13, 19, 0.85);
   cursor: pointer;
-  animation: questFloat 2.6s ease-in-out infinite;
+  animation: questSettle var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
 }
 .questMarker i {
   transform: rotate(-45deg);
@@ -8599,10 +8889,10 @@ pre {
 .questMarker.quest-approve { border-color: #c57cff; color: #c57cff; box-shadow: 0 0 10px rgba(197, 124, 255, 0.35); }
 .questMarker.quest-verify { border-color: #79e6ff; color: #79e6ff; box-shadow: 0 0 10px rgba(121, 230, 255, 0.3); }
 .questMarker.quest-evidence { border-color: #c57cff; color: #c57cff; box-shadow: 0 0 10px rgba(197, 124, 255, 0.3); }
-.questMarker:hover { transform: rotate(45deg) scale(1.25); animation-play-state: paused; }
-@keyframes questFloat {
-  0%, 100% { translate: 0 0; }
-  50% { translate: 0 -4px; }
+.questMarker:hover { transform: rotate(45deg) scale(1.18); }
+@keyframes questSettle {
+  from { translate: 0 3px; opacity: 0.35; }
+  to { translate: 0 0; opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .questMarker { animation: none; }
@@ -8631,15 +8921,15 @@ pre {
 .stripToggle { font-weight: 600; }
 
 /* --- Working surfaces ARRIVE (never teleport) ------------------------------ */
-.createSheet { animation: sheetRise 240ms cubic-bezier(0.2, 0.9, 0.3, 1); }
+.createSheet { animation: sheetRise var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both; }
 @keyframes sheetRise {
-  from { transform: translateY(26px); opacity: 0; }
+  from { transform: translateY(18px); opacity: 0; }
 }
-.worldDock { animation: dockSlide 220ms ease-out; }
+.worldDock { animation: dockSlide var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both; }
 @keyframes dockSlide {
-  from { transform: translateX(30px); opacity: 0; }
+  from { transform: translateX(24px); opacity: 0; }
 }
-.genesisCard { animation: sheetRise 240ms cubic-bezier(0.2, 0.9, 0.3, 1); }
+.genesisCard { animation: sheetRise var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both; }
 @media (prefers-reduced-motion: reduce) {
   .createSheet, .worldDock, .genesisCard { animation: none; }
 }
@@ -8678,7 +8968,7 @@ pre {
   background: rgba(7, 13, 19, 0.96);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
   text-align: left;
-  animation: platePop 160ms ease-out;
+  animation: platePop var(--motion-duration-control) var(--motion-easing-control) both;
 }
 .questPlate.quest-refresh { border-color: #ffb454; }
 .questPlate.quest-approve, .questPlate.quest-evidence { border-color: #c57cff; }
@@ -8698,7 +8988,7 @@ pre {
 }
 .questPlateClose:hover { color: #eaf4fa; }
 @keyframes platePop {
-  from { transform: scale(0.6); opacity: 0; }
+  from { transform: scale(0.94) translateY(4px); opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .questPlate { animation: none; } }
 
@@ -8713,7 +9003,7 @@ pre {
    tip lands on the item at every camera angle and zoom, by construction.
    (A dedicated child div: drei's `center` owns the wrapper's inline
    transform, so the raise must live one level down.) */
-.anchoredAbove { transform: translateY(calc(-50% - 8px)); animation: anchoredPop 160ms ease-out; }
+.anchoredAbove { transform: translateY(calc(-50% - 8px)); animation: anchoredPop var(--motion-duration-control) var(--motion-easing-control) both; }
 .anchoredAbove.anchoredTight { transform: translateY(-50%); }
 /* Opacity-only pop: the raise transform must never be overridden mid-animation. */
 @keyframes anchoredPop { from { opacity: 0; } }
@@ -8732,8 +9022,8 @@ pre {
   color: #eaf4fa;
   text-align: left;
   cursor: pointer;
-  animation: platePop 180ms ease-out;
-  transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+  animation: platePop var(--motion-duration-control) var(--motion-easing-control) both;
+  transition: border-color var(--motion-duration-feedback) var(--motion-easing-feedback), transform var(--motion-duration-feedback) var(--motion-easing-feedback), box-shadow var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 .spatialCard:hover, .spatialCard:focus-visible {
   border-color: #79c7e8;
@@ -9028,7 +9318,7 @@ pre {
   color: #eaf4fa;
   font-size: 12px;
   position: relative;
-  animation: platePop 180ms ease-out;
+  animation: platePop var(--motion-duration-control) var(--motion-easing-control) both;
 }
 .seedTitle .questPlateClose { top: 5px; }
 
@@ -9043,7 +9333,7 @@ pre {
   border: 1.5px solid #2f4250;
   background: rgba(7, 13, 19, 0.96);
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.6);
-  animation: platePop 180ms ease-out;
+  animation: platePop var(--motion-duration-control) var(--motion-easing-control) both;
   position: relative;
 }
 .seedPickBody header { display: flex; align-items: center; }

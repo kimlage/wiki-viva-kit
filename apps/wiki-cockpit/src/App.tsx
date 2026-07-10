@@ -31,6 +31,7 @@ import { GatesDock } from "./components/GatesDock";
 import { IntakeDock } from "./components/IntakeDock";
 import { WorkDock } from "./components/WorkDock";
 import { SourceDock } from "./components/SourceDock";
+import { useSurfacePresence } from "./components/world/useSurfacePresence";
 import { ExpandablePre } from "./components/ExpandablePre";
 import { GENESIS_FINAL_STAGE, genesisAttachMatches, genesisCreateMatches, genesisUrl } from "./data/genesis";
 import { configureLanguage, t } from "./data/i18n";
@@ -67,6 +68,42 @@ function modeLabel(mode: string): string {
     sample_fallback: "SAMPLE DATA — operator unreachable"
   };
   return labels[mode] || mode.replaceAll("_", " ");
+}
+
+function WorldRouteLoading({ readerOpen }: { readerOpen: boolean }) {
+  return (
+    <main className={readerOpen ? "worldRouteLoading withReader" : "worldRouteLoading"} role="status">
+      <div className="worldRouteLoadingFrame">
+        <div className="worldRouteLoadingTop" aria-hidden="true">
+          <strong>Galaxy</strong>
+          <span>Quadrants</span><span>Radar</span><span>Sources</span><span>Work</span><span>Overlay</span>
+        </div>
+        <div className="worldRouteLoadingStage" aria-hidden="true">
+          <aside>
+            <strong>Next steps</strong>
+            <span>Preparing operational signals…</span>
+          </aside>
+          <section>
+            <Sparkles size={18} />
+            <strong>Building one continuous world</strong>
+            <span>Keeping page identity and position while the scene arrives.</span>
+          </section>
+        </div>
+        {readerOpen && (
+          <aside className="worldRouteReaderLoading" aria-hidden="true">
+            <div><span>page</span><span>context</span><span>evidence</span></div>
+            <h2>Loading page context</h2>
+            <p>The world stays visible while relationships and evidence arrive.</p>
+            <section>
+              <small>ACTION AT A GLANCE</small>
+              <strong>Preparing the next decision…</strong>
+            </section>
+          </aside>
+        )}
+        <span className="visuallyHidden">Loading world runtime…</span>
+      </div>
+    </main>
+  );
 }
 
 function isBlockedSampleFallback(route: Route, state: LoadState): boolean {
@@ -1299,7 +1336,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     setNotice({ text: ok ? t("toast.completed", { title }) : t("toast.needsAttention", { title }), tone: ok ? "good" : "warn", showResult: true });
   };
   const scrollToResult = () => {
-    document.getElementById("actionResult")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    document.getElementById("actionResult")?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
   };
 
   // When a world dock is open, the left rail highlights the item that opened it
@@ -1508,6 +1546,13 @@ export function App({ ports }: { ports: ApplicationPorts }) {
 
   const worldRoute = route.kind === "world" ? route : null;
   const isWorld = Boolean(worldRoute);
+  const requestedDock = worldRoute && ["codex", "approve", "gates", "intake", "work", "source", "blocks"].includes(worldRoute.query.dock || "")
+    ? worldRoute.query.dock
+    : null;
+  const dockPresence = useSurfacePresence(Boolean(requestedDock));
+  const [lastDock, setLastDock] = useState<string | null>(requestedDock);
+  if (requestedDock && requestedDock !== lastDock) setLastDock(requestedDock);
+  const renderedDock = requestedDock ?? lastDock;
 
   // The demo TITLE SCREEN: /demo asks how you want to enter — found a world
   // from zero (genesis tutorial) or explore the full one. No bundle needed.
@@ -1517,6 +1562,9 @@ export function App({ ports }: { ports: ApplicationPorts }) {
 
   const content = (() => {
     if (loadState.status === "loading") {
+      if (worldRoute) {
+        return <WorldRouteLoading readerOpen={Boolean(worldRoute.pageId && worldRoute.query.reader)} />;
+      }
       return <main className="workspace"><section className="panel"><h1>Loading cockpit</h1></section></main>;
     }
     if (loadState.status === "error" || blockedSampleFallback) {
@@ -1546,9 +1594,9 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     if (worldRoute) {
       return (
         <>
-          <Suspense fallback={<main className="worldRouteLoading" role="status">Loading world runtime…</main>}>
+          <Suspense fallback={<WorldRouteLoading readerOpen={Boolean(worldRoute.pageId && worldRoute.query.reader)} />}>
           <RuntimeWorldView
-            key={worldRoute.demo ? (worldRoute.query.genesis ? `genesis-${worldRoute.query.stage}` : "demo") : "real"}
+            key={worldRoute.demo ? (worldRoute.query.genesis ? "genesis" : "demo") : "real"}
             bundle={bundle}
             runtime={runtime}
             route={worldRoute}
@@ -1566,13 +1614,13 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     return null;
   })();
 
-  const codexDockOpen = route.kind === "world" && route.query.dock === "codex";
-  const gateDockOpen = route.kind === "world" && route.query.dock === "approve";
-  const gatesDockOpen = route.kind === "world" && route.query.dock === "gates";
-  const intakeDockOpen = route.kind === "world" && route.query.dock === "intake";
-  const workDockOpen = route.kind === "world" && route.query.dock === "work";
-  const sourceDockOpen = route.kind === "world" && route.query.dock === "source";
-  const blocksDockOpen = route.kind === "world" && route.query.dock === "blocks";
+  const codexDockOpen = dockPresence.mounted && renderedDock === "codex";
+  const gateDockOpen = dockPresence.mounted && renderedDock === "approve";
+  const gatesDockOpen = dockPresence.mounted && renderedDock === "gates";
+  const intakeDockOpen = dockPresence.mounted && renderedDock === "intake";
+  const workDockOpen = dockPresence.mounted && renderedDock === "work";
+  const sourceDockOpen = dockPresence.mounted && renderedDock === "source";
+  const blocksDockOpen = dockPresence.mounted && renderedDock === "blocks";
 
   return (
     <div className={isWorld ? "appShell worldShellMode" : "appShell"}>
@@ -1628,6 +1676,18 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onClose={() => setActiveBrief(null)}
           />
         )}
+        {dockPresence.mounted && (
+        <div
+          className={dockPresence.phase === "closing" ? "appDockPresence closing" : "appDockPresence"}
+          aria-hidden={dockPresence.phase === "closing" ? true : undefined}
+          ref={(target) => {
+            if (target) target.inert = dockPresence.phase === "closing";
+          }}
+          data-surface-phase={dockPresence.phase}
+          onAnimationEnd={(event) => {
+            if (dockPresence.phase === "closing" && event.currentTarget === event.target) dockPresence.completeExit();
+          }}
+        >
         {codexDockOpen && worldRoute && (
           <CodexDock
             capability={codexCapability}
@@ -1729,6 +1789,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             }}
             onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
           />
+        )}
+        </div>
         )}
         {commandResult && (
           <div className={isWorld ? "worldOutputDock" : undefined}>

@@ -11,6 +11,7 @@ async function prepareWorld(page: Page, path = "/demo/w/quadrants") {
     window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
     window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
     window.localStorage.removeItem("wikiCockpitVisualControl.v1");
+    window.localStorage.removeItem("wikiCockpitVisualControl.v2");
   });
   await page.goto(path);
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20000 });

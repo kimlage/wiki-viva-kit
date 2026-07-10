@@ -16,7 +16,7 @@ import {
   X
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { t } from "../../data/i18n";
 import type { LensId, OverlayId } from "../../world/contracts";
@@ -34,6 +34,7 @@ import type {
   NativeWorldViewId,
   QuadrantLensSelection
 } from "../../world/experience";
+import { useSurfacePresence } from "./useSurfacePresence";
 
 export type WorldExperienceTranslate = (key: string) => string;
 
@@ -41,6 +42,7 @@ export type WorldNavigatorProps = {
   view: NativeWorldViewId;
   overlay: OverlayId;
   lens?: LensId | null;
+  overlayResolving?: boolean;
   expanded?: boolean;
   defaultExpanded?: boolean;
   panelId?: string;
@@ -76,6 +78,7 @@ export function WorldNavigator({
   view,
   overlay,
   lens,
+  overlayResolving = false,
   expanded,
   defaultExpanded = false,
   panelId,
@@ -88,13 +91,16 @@ export function WorldNavigator({
   const generatedId = useId().replaceAll(":", "");
   const resolvedPanelId = panelId || `world-experience-${generatedId}`;
   const panelHeadingId = `${resolvedPanelId}-title`;
+  const learnButtonRef = useRef<HTMLButtonElement>(null);
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
   const isExpanded = expanded ?? internalExpanded;
+  const panelPresence = useSurfacePresence(isExpanded);
   const selectedLens = activeQuadrantLensOption(lens);
 
   const changeExpanded = (next: boolean) => {
     if (expanded === undefined) setInternalExpanded(next);
     onExpandedChange?.(next);
+    if (!next) queueMicrotask(() => learnButtonRef.current?.focus({ preventScroll: true }));
   };
 
   const onPanelKeyDown = (event: KeyboardEvent<HTMLElement>) => {
@@ -139,6 +145,8 @@ export function WorldNavigator({
           <select
             value={overlay}
             aria-label={translate(WORLD_EXPERIENCE_KEYS.overlaySelectLabel)}
+            aria-busy={overlayResolving || undefined}
+            disabled={overlayResolving}
             onChange={(event) => {
               if (isWorldOverlayId(event.target.value)) onOverlayChange(event.target.value);
             }}
@@ -152,6 +160,7 @@ export function WorldNavigator({
         </label>
 
         <button
+          ref={learnButtonRef}
           className={isExpanded ? "runtimeControl worldNavigatorLearn active" : "runtimeControl worldNavigatorLearn"}
           type="button"
           aria-expanded={isExpanded}
@@ -163,13 +172,21 @@ export function WorldNavigator({
         </button>
       </div>
 
-      {isExpanded && (
+      {panelPresence.mounted && (
         <div
           id={resolvedPanelId}
-          className="worldNavigatorPanel"
+          className={panelPresence.phase === "closing" ? "worldNavigatorPanel closing" : "worldNavigatorPanel"}
           role="region"
           aria-labelledby={panelHeadingId}
+          aria-hidden={panelPresence.phase === "closing" ? true : undefined}
+          ref={(target) => {
+            if (target) target.inert = panelPresence.phase === "closing";
+          }}
+          data-surface-phase={panelPresence.phase}
           onKeyDown={onPanelKeyDown}
+          onAnimationEnd={(event) => {
+            if (panelPresence.phase === "closing" && event.currentTarget === event.target) panelPresence.completeExit();
+          }}
         >
           <header className="worldNavigatorPanelHeader">
             <div>
@@ -273,6 +290,7 @@ export function WorldNavigator({
                     aria-pressed={overlay === option.id}
                     aria-describedby={descriptionId}
                     data-overlay-card={option.id}
+                    disabled={overlayResolving}
                     onClick={() => onOverlayChange(option.id)}
                   >
                     <span className="worldNavigatorCardTitle">

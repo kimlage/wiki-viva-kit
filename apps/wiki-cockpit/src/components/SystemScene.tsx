@@ -12,7 +12,7 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { AnchorRecord, GitState, GraphEdge, GraphNode } from "../types";
 import { t } from "../data/i18n";
@@ -50,14 +50,16 @@ import {
   shouldUseFallback
 } from "../renderers/scene/parts/materials";
 import type { SceneEdge, TrustKey } from "../renderers/scene/parts/materials";
-import { CenterSignalSprites, ClusterStars, GlowSprites, GroupChildOrbits, GroupShells, HorizonBeacons, NodeInstances, RingSprites, SemanticPageDetails, StarField, semanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
-import type { MorphState, SemanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
+import { CenterSignalSprites, ClusterStars, GlowSprites, GroupChildOrbits, GroupShells, HorizonBeacons, NodeInstances, RingSprites, SemanticPageDetails, StarField, morphAttachmentOpacity, overlayCrossfadeWeights, semanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
+import type { MorphState, OverlayTransitionState, SemanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
 import { AmbientDriver, isEvidenceGap, SceneParticles } from "../renderers/scene/parts/particles-layer";
 import { DEFAULT_VISUAL_CONTROL_CONFIG } from "./visualControl";
 import type { VisualControlConfig } from "./visualControl";
 import { RUNTIME_PERFORMANCE_RESET_EVENT, RuntimePerformanceTelemetry } from "../world/performance";
 import type { RuntimePerformanceEvidence } from "../world/performance";
 import type { OverlayId, RuntimeMode, ViewId } from "../world/contracts";
+import { motionDurationSeconds, overlayResolveDurationMs } from "../world/visual/motionGrammar";
+import type { MotionIntent } from "../world/visual/motionGrammar";
 
 // Moved symbols that other files import from this module (WorldView, tests,
 // the visual-test mock) stay reachable at their old path via re-exports.
@@ -98,6 +100,66 @@ export type ScenePatch = {
   quadrant?: string | null;
   dock?: string | null;
 };
+
+export type SceneMotionSnapshot = {
+  key: string;
+  view: string;
+  lens: string;
+  overlay: OverlayId;
+  group: string;
+  level: number;
+  center: string;
+  page: string;
+};
+
+export type SceneMotionTransaction = SceneMotionSnapshot & {
+  sequence: number;
+  intent: MotionIntent;
+  duration: number;
+};
+
+type SceneTransitionBookkeeping = {
+  transaction: SceneMotionTransaction;
+  overlay: OverlayTransitionState;
+};
+
+type PendingTravelOrigin = {
+  point: [number, number, number];
+  token: number;
+};
+
+type LayoutMotionBookkeeping = {
+  layout: WorldLayout;
+  morph: MorphState;
+  cameraTravelVia: [number, number, number] | null;
+  consumedTravelToken: number;
+};
+
+/** One semantic decision feeds the canvas morph, camera and DOM settle cue. */
+export function sceneMotionIntent(
+  previous: SceneMotionSnapshot | null,
+  next: SceneMotionSnapshot
+): MotionIntent {
+  if (!previous || previous.view !== next.view) return "view";
+  if (next.level < previous.level || (Boolean(previous.group) && !next.group)) return "retreat";
+  if (
+    next.level > previous.level ||
+    previous.group !== next.group ||
+    previous.center !== next.center
+  ) {
+    return "travel";
+  }
+  if (previous.page !== next.page) return previous.page && !next.page ? "retreat" : "control";
+  if (previous.lens !== next.lens) return "lens";
+  if (previous.overlay !== next.overlay) return "overlay";
+  return "control";
+}
+
+export function sceneMotionDurationSeconds(intent: MotionIntent, speed: number, reduced = false): number {
+  return intent === "overlay"
+    ? overlayResolveDurationMs(speed, reduced) / 1_000
+    : motionDurationSeconds(intent, speed, reduced);
+}
 
 export type RelationIsolation = "hierarquia" | "evidencia" | "links" | "citado-por";
 
@@ -239,7 +301,7 @@ function useWorldLayout(request: WorldRequest): WorldLayout {
   return layout;
 }
 
-function EdgeArcs({ edges, layout, quality }: { edges: SceneEdge[]; layout: WorldLayout; quality: string }) {
+function EdgeArcs({ edges, layout, quality, morph }: { edges: SceneEdge[]; layout: WorldLayout; quality: string; morph: React.RefObject<MorphState> }) {
   const { invalidate } = useThree();
   const object = useMemo(() => {
     if (edges.length === 0) return null;
@@ -269,13 +331,17 @@ function EdgeArcs({ edges, layout, quality }: { edges: SceneEdge[]; layout: Worl
     const material = new THREE.LineBasicMaterial({
       vertexColors: true,
       transparent: true,
-      opacity: 0.95,
+      opacity: morph.current?.active ? 0 : 0.95,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false
     });
     return { lines: new THREE.LineSegments(geometry, material), geometry, material };
-  }, [edges, layout, quality]);
+  }, [edges, layout, morph, quality]);
+  useFrame((state) => {
+    if (!object) return;
+    object.material.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, 0.95);
+  });
   useEffect(() => {
     invalidate();
     return () => {
@@ -310,15 +376,19 @@ function mocParentRoute(edges: GraphEdge[], layout: WorldLayout, selectedId: str
   return route;
 }
 
-function RouteLine({ route, color = "#dff8ff" }: { route: LayoutNode[]; color?: string }) {
+function RouteLine({ route, morph, color = "#dff8ff" }: { route: LayoutNode[]; morph: React.RefObject<MorphState>; color?: string }) {
   const { invalidate } = useThree();
   const object = useMemo(() => {
     if (route.length < 2) return null;
     const points = route.map((node) => new THREE.Vector3(...node.position));
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9, toneMapped: false });
+    const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: morph.current?.active ? 0 : 0.9, toneMapped: false });
     return { line: new THREE.Line(geometry, material), geometry, material };
-  }, [color, route]);
+  }, [color, morph, route]);
+  useFrame((state) => {
+    if (!object) return;
+    object.material.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, 0.9);
+  });
   useEffect(() => {
     invalidate();
     return () => {
@@ -335,7 +405,19 @@ function groupNodeMatchesId(node: LayoutNode, id: string): boolean {
   return node.id === id || node.path === id || node.groupKey === id || node.groupDrill?.group === id;
 }
 
-function GroupTethers({ nodes, quality, motion, activeGroupId = "" }: { nodes: LayoutNode[]; quality: string; motion: boolean; activeGroupId?: string }) {
+function GroupTethers({
+  nodes,
+  quality,
+  motion,
+  morph,
+  activeGroupId = ""
+}: {
+  nodes: LayoutNode[];
+  quality: string;
+  motion: boolean;
+  morph: React.RefObject<MorphState>;
+  activeGroupId?: string;
+}) {
   const { invalidate } = useThree();
   const materialRef = useRef<THREE.LineBasicMaterial | null>(null);
   const object = useMemo(() => {
@@ -391,18 +473,22 @@ function GroupTethers({ nodes, quality, motion, activeGroupId = "" }: { nodes: L
     const material = new THREE.LineBasicMaterial({
       vertexColors: true,
       transparent: true,
-      opacity: quality === "compact" ? 0.2 : 0.34,
+      opacity: morph.current?.active ? 0 : quality === "compact" ? 0.2 : 0.34,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       toneMapped: false
     });
     materialRef.current = material;
     return { lines: new THREE.LineSegments(geometry, material), geometry, material };
-  }, [activeGroupId, nodes, quality]);
+  }, [activeGroupId, morph, nodes, quality]);
   useFrame((state) => {
-    if (!motion || !materialRef.current) return;
-    materialRef.current.opacity = (quality === "compact" ? 0.18 : activeGroupId ? 0.46 : 0.3) + Math.sin(state.clock.elapsedTime * 1.8) * (activeGroupId ? 0.065 : 0.04);
-    state.invalidate();
+    if (!materialRef.current) return;
+    const morphing = Boolean(morph.current?.active);
+    const baseOpacity =
+      (quality === "compact" ? 0.18 : activeGroupId ? 0.46 : 0.3) +
+      (motion ? Math.sin(state.clock.elapsedTime * 1.8) * (activeGroupId ? 0.065 : 0.04) : 0);
+    materialRef.current.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, baseOpacity);
+    if (motion || morphing) state.invalidate();
   });
   useEffect(() => {
     invalidate();
@@ -438,6 +524,36 @@ function RuntimeFrameProbe({
   return null;
 }
 
+// The shared morph stays active until every registered layer has sampled its
+// final frame. Keeping completion here prevents the instanced body from ending
+// the transaction before labels, rings and halos reach the same coordinate.
+function MorphCompletion({ morph }: { morph: React.RefObject<MorphState> }) {
+  useFrame((state) => {
+    const current = morph.current;
+    if (!current?.active || current.start === null) return;
+    if (state.clock.elapsedTime - current.start < current.duration) return;
+    current.active = false;
+    state.invalidate();
+  });
+  return null;
+}
+
+function OverlayTransitionCompletion({ transition }: { transition: React.RefObject<OverlayTransitionState> }) {
+  useFrame((state) => {
+    const current = transition.current;
+    if (!current?.active) return;
+    if (current.start === null) {
+      current.start = state.clock.elapsedTime;
+      state.invalidate();
+      return;
+    }
+    if (current.duration > 0 && state.clock.elapsedTime - current.start < current.duration) return;
+    current.active = false;
+    state.invalidate();
+  });
+  return null;
+}
+
 function SceneContent({
   layout,
   overlay,
@@ -451,6 +567,8 @@ function SceneContent({
   isolateRelation,
   walk,
   morph,
+  transition,
+  overlayTransition,
   cameraTravelVia,
   filter,
   motion,
@@ -495,6 +613,8 @@ function SceneContent({
   isolateRelation: RelationIsolation | null;
   walk: { ids: string[]; step: number } | null;
   morph: React.RefObject<MorphState>;
+  transition: SceneMotionTransaction;
+  overlayTransition: React.RefObject<OverlayTransitionState>;
   cameraTravelVia: [number, number, number] | null;
   filter: SceneFilter | null;
   motion: boolean;
@@ -663,7 +783,6 @@ function SceneContent({
   const rootNode = layout.nodes.find((node) => node.isRoot);
   const centerNode = layout.nodes.find((node) => node.isRoot && node.isGroup) ?? rootNode;
   const rootBody = rootNode ? semanticRootBodyPrimitive(rootNode.page_type) : null;
-  const rootEncoding = rootNode ? visualEncodingResolver.resolve(rootNode, overlay) : null;
   const physicalDrillOrigin = cameraTravelVia ?? layout.drillOrigin ?? null;
   const hoveredNode = hoveredId ? layoutNodeIndex(layout).get(hoveredId) ?? null : null;
   const lockedNode = useMemo(() => {
@@ -738,11 +857,11 @@ function SceneContent({
       {layout.nodes.length > 0 && <WorldGuides layout={layout} />}
       {layout.nodes.length > 0 && layout.level === 0 && <GateRing git={git} />}
       <DensityReliefField layout={layout} motion={motion} />
-      <ProposalStems nodes={layout.nodes} />
-      <EdgeArcs edges={sceneEdges} layout={layout} quality={profile.quality} />
-      <RouteLine route={route} />
-      {walkRoute.length > 1 && <RouteLine route={walkRoute} color={edgeStyle("source_ref").color} />}
-      <GroupTethers nodes={layout.nodes} quality={profile.quality} motion={motion} activeGroupId={hoveredId} />
+      <ProposalStems nodes={layout.nodes} morph={morph} />
+      <EdgeArcs edges={sceneEdges} layout={layout} quality={profile.quality} morph={morph} />
+      <RouteLine route={route} morph={morph} />
+      {walkRoute.length > 1 && <RouteLine route={walkRoute} morph={morph} color={edgeStyle("source_ref").color} />}
+      <GroupTethers nodes={layout.nodes} quality={profile.quality} motion={motion} morph={morph} activeGroupId={hoveredId} />
       <FocusContextField node={hoveredNode && hoveredNode.id !== lockedNode?.id ? hoveredNode : null} mode="hover" motion={motion} />
       <InspectionBeams node={hoveredNode && hoveredNode.id !== lockedNode?.id ? hoveredNode : null} motion={motion} />
       <FocusContextField node={lockedNode} mode="lock" motion={motion} />
@@ -770,12 +889,16 @@ function SceneContent({
       {!(layout.perspective === "quadrants" && layout.level >= 3 && !centerNode?.isGroup) && (
         <RelationLanes lanes={relationLanes} bundles={groupRelationBundles} layout={layout} motion={motion} />
       )}
+      {/* Ambient pulse samples first; semantic overlay interpolation then owns
+          the material for the short transaction and yields when it completes. */}
+      <AmbientDriver enabled={motion && visualTuning.motion > 0.01} rootRef={rootRef} pulses={pulses} motionScale={visualTuning.motion} glow={visualTuning.glow} />
       <NodeInstances
         nodes={layout.nodes.filter((node) => !node.isRoot)}
         overlay={overlay}
         profile={profile}
         selectedId={selectedId}
         morph={morph}
+        overlayTransition={overlayTransition}
         dimTest={dimTest}
         onSelect={onSelect}
         onHover={handleHover}
@@ -797,15 +920,11 @@ function SceneContent({
           onPointerOut={() => handleHover(null)}
         >
           <RootBodyGeometry body={rootBody} segments={profile.geometrySegments} />
-          <meshStandardMaterial
-            color={rootEncoding?.color ?? rootBody.color}
-            emissive={rootEncoding?.color ?? rootBody.color}
-            emissiveIntensity={Math.max(rootEncoding?.emissive ?? 0, rootBody.emissiveIntensity * 0.35)}
-            roughness={rootBody.roughness}
-            metalness={rootBody.metalness}
-            transparent={rootBody.opacity < 1}
-            opacity={rootBody.opacity}
-            toneMapped={false}
+          <RootOverlayMaterial
+            node={rootNode}
+            overlay={overlay}
+            body={rootBody}
+            transition={overlayTransition}
           />
         </mesh>
       )}
@@ -823,13 +942,13 @@ function SceneContent({
           onDismiss={onMarkerDismiss}
         />
       )}
-      <GlowSprites nodes={layout.nodes} highlightedIds={highlightedIds} approvalIds={approvalIds} selectedId={selectedId} walkTargetId={walkTargetId} registerPulse={registerPulse} />
+      <GlowSprites nodes={layout.nodes} highlightedIds={highlightedIds} approvalIds={approvalIds} selectedId={selectedId} walkTargetId={walkTargetId} registerPulse={registerPulse} morph={morph} />
       {bornIds && bornIds.length > 0 && <BirthBursts nodes={layout.nodes} bornIds={bornIds} />}
       {layout.perspective === "quadrants" && (
         <GroupChildOrbits nodes={layout.nodes} layoutLevel={layout.level} quality={profile.quality} motion={motion} onSelect={onSelect} onHover={handleHover} />
       )}
-      <GroupShells nodes={layout.nodes} overlay={overlay} motion={motion} quality={profile.quality} layoutLevel={layout.level} activeGroupId={hoveredId} morph={morph} onSelect={onSelect} onHover={handleHover} />
-      <RingSprites nodes={layout.nodes} overlay={overlay} />
+      <GroupShells nodes={layout.nodes} overlay={overlay} motion={motion} quality={profile.quality} layoutLevel={layout.level} activeGroupId={hoveredId} morph={morph} overlayTransition={overlayTransition} onSelect={onSelect} onHover={handleHover} />
+      <RingSprites nodes={layout.nodes} overlay={overlay} morph={morph} overlayTransition={overlayTransition} />
       <SceneParticles
         layout={layout}
         flowEdges={flowEdges}
@@ -843,7 +962,7 @@ function SceneContent({
         enabled={visualTuning.particles}
         onCount={publishParticleCount}
       />
-      <NodeLabels labels={visibleLabels} overlay={overlay} selectedId={selectedId} groups={layout.groups} onGroupSelect={onGroupSelect} />
+      <NodeLabels labels={visibleLabels} overlay={overlay} selectedId={selectedId} morph={morph} groups={layout.groups} onGroupSelect={onGroupSelect} />
       {!(layout.perspective === "quadrants" && layout.level >= 1) && (
         <GroupRimPills groups={layout.groups} focusedGroupKey={focusedGroupKey} onGroupSelect={onGroupSelect} />
       )}
@@ -862,9 +981,12 @@ function SceneContent({
         travelVia={physicalDrillOrigin}
         enableIntro={profile.enableIntro}
         motion={motion}
+        motionScale={visualTuning.motion}
+        transition={transition}
       />
-      <AmbientDriver enabled={motion && visualTuning.motion > 0.01} rootRef={rootRef} pulses={pulses} motionScale={visualTuning.motion} glow={visualTuning.glow} />
       <RuntimeFrameProbe telemetry={performanceTelemetry} width={performanceWidth} onEvidence={onPerformanceEvidence} />
+      <MorphCompletion morph={morph} />
+      <OverlayTransitionCompletion transition={overlayTransition} />
     </>
   );
 }
@@ -873,6 +995,78 @@ function SceneContent({
 
 const NO_EDGES: GraphEdge[] = [];
 const NO_IDS: string[] = [];
+
+function RootOverlayMaterial({
+  node,
+  overlay,
+  body,
+  transition
+}: {
+  node: LayoutNode;
+  overlay: OverlayId;
+  body: SemanticRootBodyPrimitive;
+  transition: React.RefObject<OverlayTransitionState>;
+}) {
+  const ref = useRef<THREE.MeshStandardMaterial | null>(null);
+  const { invalidate } = useThree();
+  const current = transition.current;
+  const fromOverlay = current?.to === overlay ? current.from : overlay;
+  const fromEncoding = useMemo(() => visualEncodingResolver.resolve(node, fromOverlay), [fromOverlay, node]);
+  const encoding = useMemo(() => visualEncodingResolver.resolve(node, overlay), [node, overlay]);
+  const fromColor = useMemo(() => new THREE.Color(), []);
+  const toColor = useMemo(() => new THREE.Color(), []);
+  const mixedColor = useMemo(() => new THREE.Color(), []);
+  const applyEncoding = useCallback(
+    (progress: number) => {
+      const material = ref.current;
+      if (!material) return;
+      const active = transition.current;
+      const transitioning = Boolean(active?.active && active.from === fromOverlay && active.to === overlay);
+      const weights = transitioning ? overlayCrossfadeWeights(node.id, progress) : { from: 0, to: 1 };
+      mixedColor.lerpColors(fromColor.set(fromEncoding.color), toColor.set(encoding.color), weights.to);
+      material.color.copy(mixedColor);
+      material.emissive.copy(mixedColor);
+      material.emissiveIntensity = THREE.MathUtils.lerp(
+        Math.max(fromEncoding.emissive, body.emissiveIntensity * 0.35),
+        Math.max(encoding.emissive, body.emissiveIntensity * 0.35),
+        weights.to
+      );
+      material.opacity = body.opacity * THREE.MathUtils.lerp(fromEncoding.opacity, encoding.opacity, weights.to);
+    },
+    [body.emissiveIntensity, body.opacity, encoding, fromColor, fromEncoding, fromOverlay, mixedColor, node.id, overlay, toColor, transition]
+  );
+
+  useLayoutEffect(() => {
+    const active = transition.current;
+    applyEncoding(active?.active && active.from === fromOverlay && active.to === overlay ? 0 : 1);
+    invalidate();
+  }, [applyEncoding, fromOverlay, invalidate, overlay, transition]);
+
+  useFrame((state) => {
+    const active = transition.current;
+    if (!active?.active || active.to !== overlay) return;
+    if (active.start === null) active.start = state.clock.elapsedTime;
+    const progress = active.duration <= 0
+      ? 1
+      : Math.min((state.clock.elapsedTime - active.start) / active.duration, 1);
+    applyEncoding(progress);
+    state.invalidate();
+  });
+
+  return (
+    <meshStandardMaterial
+      ref={ref}
+      color={encoding.color ?? body.color}
+      emissive={encoding.color ?? body.color}
+      emissiveIntensity={Math.max(encoding.emissive, body.emissiveIntensity * 0.35)}
+      roughness={body.roughness}
+      metalness={body.metalness}
+      transparent={body.opacity < 1 || fromEncoding.opacity < 1 || encoding.opacity < 1}
+      opacity={body.opacity * encoding.opacity}
+      toneMapped={false}
+    />
+  );
+}
 
 function RootBodyGeometry({ body, segments }: { body: SemanticRootBodyPrimitive; segments: number }) {
   if (body.geometry === "source_slab") return <boxGeometry args={[1.35, 0.22, 0.82]} />;
@@ -1087,6 +1281,113 @@ export function SystemScene({
     () => applyVisualSpacing(enrichedLayout, visualTuning.spacing),
     [enrichedLayout, visualTuning.spacing]
   );
+  const presentationParts = {
+    view: layout.perspective,
+    lens: route.lens || route.quadrant || "",
+    overlay,
+    group: layout.group || "",
+    level: layout.level,
+    center: layout.nodes.find((node) => node.isRoot)?.id || route.centerId || "",
+    page: route.pageId || ""
+  };
+  const presentation: SceneMotionSnapshot = {
+    ...presentationParts,
+    key: [
+      presentationParts.view,
+      presentationParts.lens,
+      presentationParts.overlay,
+      presentationParts.group,
+      presentationParts.level,
+      presentationParts.center,
+      presentationParts.page
+    ].join("|")
+  };
+  const [sceneTransitionState, setSceneTransitionState] = useState<SceneTransitionBookkeeping>(() => {
+    const intent: MotionIntent = "view";
+    return {
+      transaction: {
+        ...presentation,
+        sequence: 1,
+        intent,
+        duration: sceneMotionDurationSeconds(intent, visualTuning.motion, !visualMotion || fallback)
+      },
+      overlay: {
+        from: overlay,
+        to: overlay,
+        start: null,
+        duration: 0,
+        active: false
+      }
+    };
+  });
+  let activeSceneTransitionState = sceneTransitionState;
+  const presentationChanged = sceneTransitionState.transaction.key !== presentation.key;
+  const mustCutActiveMotion =
+    (!visualMotion || fallback) &&
+    (sceneTransitionState.transaction.duration > 0 || sceneTransitionState.overlay.active);
+  if (presentationChanged || mustCutActiveMotion) {
+    const previous = sceneTransitionState.transaction;
+    if (presentationChanged) {
+      const intent = sceneMotionIntent(previous, presentation);
+      const requestedDuration = sceneMotionDurationSeconds(intent, visualTuning.motion, !visualMotion || fallback);
+      // The navigator treats an overlay resolve as one atomic 300–400 ms
+      // operation. If an external route nevertheless retargets it mid-flight,
+      // cut directly to the latest truth instead of replaying the old target
+      // as a visibly incorrect origin.
+      const interruptedOverlay = intent === "overlay" && sceneTransitionState.overlay.active;
+      const duration = interruptedOverlay ? 0 : requestedDuration;
+      activeSceneTransitionState = {
+        transaction: {
+          ...presentation,
+          sequence: previous.sequence + 1,
+          intent,
+          duration
+        },
+        overlay:
+          intent === "overlay" && previous.overlay !== overlay && duration > 0
+            ? {
+                from: previous.overlay,
+                to: overlay,
+                start: null,
+                duration,
+                active: true
+              }
+            : {
+                from: overlay,
+                to: overlay,
+                start: null,
+                duration: 0,
+                active: false
+              }
+      };
+    } else {
+      activeSceneTransitionState = {
+        transaction: {
+          ...previous,
+          sequence: previous.sequence + 1,
+          duration: 0
+        },
+        overlay: {
+          from: overlay,
+          to: overlay,
+          start: null,
+          duration: 0,
+          active: false
+        }
+      };
+    }
+    // Render-phase state adjustment is intentional: React discards it with an
+    // aborted render, unlike mutating a ref during render. The guarded second
+    // render commits one coherent transaction to every WebGL layer.
+    setSceneTransitionState(activeSceneTransitionState);
+  }
+  const sceneTransition = activeSceneTransitionState.transaction;
+  const overlayTransition = useMemo<React.RefObject<OverlayTransitionState>>(
+    () => ({ current: activeSceneTransitionState.overlay }),
+    [activeSceneTransitionState.overlay]
+  );
+  const activeMotionIntent = sceneTransition.intent;
+  const activeMotionDurationMs = !visualMotion || fallback ? 0 : Math.round(sceneTransition.duration * 1_000);
   const performanceWidth = typeof window === "undefined" ? 1200 : window.innerWidth;
   const routeUsabilityMs = useMemo(
     () => Math.max(0, (typeof performance === "undefined" ? 0 : performance.now()) - performanceRouteRef.current.startedAt),
@@ -1153,20 +1454,41 @@ export function SystemScene({
 
   // MORPH bookkeeping: remember the previous layout's positions so nodes keep
   // identity and glide between perspectives/levels; cut under reduced motion.
-  const morph = useRef<MorphState>({ from: new Map(), start: null, duration: 0.8, active: false });
-  const previousLayout = useRef<WorldLayout | null>(null);
-  const cameraTravelVia = useRef<[number, number, number] | null>(null);
-  const pendingTravelVia = useRef<[number, number, number] | null>(null);
-  useMemo(() => {
-    // Idempotent under StrictMode double-invoke: same layout = no-op.
-    if (previousLayout.current === layout) return null;
-    const previous = previousLayout.current;
+  const [pendingTravelOrigin, setPendingTravelOrigin] = useState<PendingTravelOrigin | null>(null);
+  const nextTravelToken = useRef(0);
+  const queueTravelOrigin = useCallback((point: [number, number, number]) => {
+    nextTravelToken.current += 1;
+    setPendingTravelOrigin({ point, token: nextTravelToken.current });
+  }, []);
+  const [layoutMotionState, setLayoutMotionState] = useState<LayoutMotionBookkeeping>(() => ({
+    layout,
+    morph: {
+      from: new Map(),
+      current: new Map(layout.nodes.map((node) => [node.id, node.position] as const)),
+      start: null,
+      duration: sceneTransition.duration,
+      active: false,
+      intent: sceneTransition.intent,
+      sequence: sceneTransition.sequence
+    },
+    cameraTravelVia: null,
+    consumedTravelToken: 0
+  }));
+  let activeLayoutMotionState = layoutMotionState;
+  const layoutChanged = layoutMotionState.layout !== layout;
+  const mustCutActiveMorph = (!visualMotion || fallback) && layoutMotionState.morph.active;
+  if (layoutChanged || mustCutActiveMorph) {
+    const previous = layoutMotionState.layout;
     let nextTravelVia: [number, number, number] | null = null;
-    if (previous && previous !== layout && visualMotion) {
+    const hasPendingTravel =
+      layoutChanged &&
+      pendingTravelOrigin !== null &&
+      pendingTravelOrigin.token > layoutMotionState.consumedTravelToken;
+    const explicitOrigin = hasPendingTravel ? pendingTravelOrigin.point : null;
+    if (layoutChanged && visualMotion && !fallback) {
       const from = new Map<string, [number, number, number]>();
-      previous.nodes.forEach((node) => from.set(node.id, node.position));
+      previous.nodes.forEach((node) => from.set(node.id, layoutMotionState.morph.current?.get(node.id) ?? node.position));
       const changedShape = previous.perspective !== layout.perspective || previous.level !== layout.level;
-      const explicitOrigin = pendingTravelVia.current;
       const physicalQuadrantDrill =
         previous.perspective === "quadrants" &&
         layout.perspective === "quadrants" &&
@@ -1183,20 +1505,78 @@ export function SystemScene({
       } else if (explicitOrigin) {
         nextTravelVia = explicitOrigin;
       }
-      morph.current = {
-        from,
-        start: null,
-        duration: physicalQuadrantDrill ? 1.05 : changedShape ? 0.8 : 0.45,
-        active: from.size > 0
+
+      // A native view can reveal many entities that the previous LOD did not
+      // render. They still belong to the same world: let them unfold from the
+      // closest prior semantic context instead of teleporting to final slots.
+      if (changedShape || explicitOrigin) {
+        const previousRoot = previous.nodes.find((node) => node.isRoot)?.position ?? ([0, 0, 0] as [number, number, number]);
+        const contextOrigins = new Map<string, [number, number, number]>();
+        previous.nodes.forEach((node) => {
+          if (!contextOrigins.has(node.context) && (node.isGroup || node.isHub)) {
+            contextOrigins.set(node.context, node.position);
+          }
+        });
+        layout.nodes.forEach((node) => {
+          if (!from.has(node.id)) {
+            from.set(node.id, explicitOrigin ?? contextOrigins.get(node.context) ?? previousRoot);
+          }
+        });
+      }
+      const fallbackIntent: MotionIntent =
+        previous.level > layout.level || (Boolean(previous.group) && !layout.group)
+          ? "retreat"
+          : physicalQuadrantDrill
+            ? "travel"
+            : changedShape
+              ? "view"
+              : "lens";
+      const sharedTransaction =
+        sceneTransition.sequence !== layoutMotionState.morph.sequence && sceneTransition.intent !== "overlay";
+      const morphIntent = sharedTransaction ? sceneTransition.intent : fallbackIntent;
+      activeLayoutMotionState = {
+        layout,
+        morph: {
+          from,
+          current: new Map(layoutMotionState.morph.current ?? []),
+          start: null,
+          duration: sharedTransaction
+            ? sceneTransition.duration
+            : motionDurationSeconds(morphIntent, visualTuning.motion),
+          active: from.size > 0,
+          intent: morphIntent,
+          sequence: sceneTransition.sequence
+        },
+        cameraTravelVia: nextTravelVia,
+        consumedTravelToken: hasPendingTravel
+          ? pendingTravelOrigin!.token
+          : layoutMotionState.consumedTravelToken
       };
     } else {
-      morph.current = { from: new Map(), start: null, duration: 0.8, active: false };
+      activeLayoutMotionState = {
+        layout,
+        morph: {
+          from: new Map(),
+          current: new Map(layout.nodes.map((node) => [node.id, node.position] as const)),
+          start: null,
+          duration: 0,
+          active: false,
+          intent: sceneTransition.intent,
+          sequence: sceneTransition.sequence
+        },
+        cameraTravelVia: null,
+        consumedTravelToken: hasPendingTravel
+          ? pendingTravelOrigin!.token
+          : layoutMotionState.consumedTravelToken
+      };
     }
-    pendingTravelVia.current = null;
-    cameraTravelVia.current = nextTravelVia;
-    previousLayout.current = layout;
-    return null;
-  }, [layout, visualMotion]);
+    setLayoutMotionState(activeLayoutMotionState);
+  }
+  const morph = useMemo<React.RefObject<MorphState>>(
+    () => ({ current: activeLayoutMotionState.morph }),
+    [activeLayoutMotionState.morph]
+  );
+  const cameraTravelVia = activeLayoutMotionState.cameraTravelVia;
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
@@ -1239,7 +1619,7 @@ export function SystemScene({
           announce(t("scene.opening", { label: node.title, n: node.groupMemberIds?.length ?? 0 }));
           return;
         }
-        pendingTravelVia.current = node.position;
+        queueTravelOrigin(node.position);
         navigate({
           context: node.groupDrill?.context ?? null,
           group: node.groupDrill?.group ?? null,
@@ -1253,11 +1633,11 @@ export function SystemScene({
       // full reader is a chosen second step (Enter/Q or the plate's Open).
       // The 2D fallback has no plates, so there a click opens the reader
       // directly — otherwise selecting would show nothing at all.
-      pendingTravelVia.current = node.position;
+      queueTravelOrigin(node.position);
       navigate(fallback ? { pageId: node.id, reader: true } : { pageId: node.id });
       announce(`${node.title}, ${contextStyle(node.context).label}, ${freshnessLabel(node.freshness_state)}`);
     },
-    [announce, fallback, navigate]
+    [announce, fallback, navigate, queueTravelOrigin]
   );
 
   const handleHover = useCallback((node: LayoutNode | null, event?: ThreeEvent<PointerEvent>) => {
@@ -1290,7 +1670,7 @@ export function SystemScene({
         const origin =
           layout.nodes.find((node) => groupNodeMatchesId(node, group.key)) ??
           layout.nodes.find((node) => node.groupKind === group.kind && node.groupLabelKey === group.labelKey);
-        pendingTravelVia.current = origin?.position ?? group.anchor;
+        queueTravelOrigin(origin?.position ?? group.anchor);
         navigate({ context: group.drill.context ?? null, group: group.drill.group ?? null, worldGroup: group.drill.group ?? null, pageId: null, reader: false });
         announce(t("scene.opening", { label: worldGroupLabel(group.kind, group.labelKey), n: group.count }));
         return;
@@ -1300,7 +1680,7 @@ export function SystemScene({
       setFocusedNodeIndex(-1);
       announce(t("scene.groupFocus", { label: worldGroupLabel(group.kind, group.labelKey), n: group.count, shown: group.shown }));
     },
-    [announce, layout.groups, navigate]
+    [announce, layout.groups, navigate, queueTravelOrigin]
   );
 
   const handleStarDrill = useCallback(
@@ -1312,7 +1692,7 @@ export function SystemScene({
         announce(t("scene.showingMore", { n: extra, label: worldGroupLabel(star.kind, star.labelKey) }));
         return;
       }
-      pendingTravelVia.current = star.position;
+      queueTravelOrigin(star.position);
       navigate({
         context: star.drill.context ?? route.context ?? null,
         group: star.drill.group ?? null,
@@ -1322,7 +1702,7 @@ export function SystemScene({
       });
       announce(t("scene.openingHidden", { n: star.count, label: worldGroupLabel(star.kind, star.labelKey) }));
     },
-    [announce, navigate, route.context]
+    [announce, navigate, queueTravelOrigin, route.context]
   );
 
   const handleBeaconJump = useCallback(
@@ -1546,6 +1926,9 @@ export function SystemScene({
       data-visual-glow={visualTuning.glow.toFixed(2)}
       data-visual-motion={visualTuning.motion.toFixed(2)}
       data-visual-particles={visualTuning.particles ? "on" : "off"}
+      data-motion-intent={activeMotionIntent}
+      data-motion-duration-ms={activeMotionDurationMs}
+      data-motion-sequence={sceneTransition.sequence}
       aria-label={t("scene.relationshipMapAria")}
     >
       <div className="visuallyHidden" aria-live="polite" role="status">
@@ -1619,7 +2002,9 @@ export function SystemScene({
                 isolateRelation={isolateRelation}
                 walk={walk}
                 morph={morph}
-                cameraTravelVia={cameraTravelVia.current}
+                transition={sceneTransition}
+                overlayTransition={overlayTransition}
+                cameraTravelVia={cameraTravelVia}
                 filter={filter}
                 motion={visualMotion}
                 visualTuning={visualTuning}
@@ -1659,6 +2044,15 @@ export function SystemScene({
               {seed && <SeedFlow {...seed} portal={sceneShellRef} rOuter={layout.rOuter} />}
               {guide && <GuideBeacon {...guide} anchor={guideAnchor} />}
             </Canvas>
+            <div
+              key={`scene-transition-${sceneTransition.sequence}`}
+              className={`sceneTransitionCue sceneTransitionCue-${activeMotionIntent}`}
+              style={{ animationDuration: `${activeMotionDurationMs}ms` }}
+              data-motion-intent={activeMotionIntent}
+              data-motion-duration-ms={activeMotionDurationMs}
+              data-motion-sequence={sceneTransition.sequence}
+              aria-hidden="true"
+            />
           </div>
           {children}
           <HoverTooltip hover={hover} anchorInfo={anchorInfo} groups={layout.groups} />

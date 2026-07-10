@@ -9,6 +9,8 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { LayoutNode } from "../../../scene/layout";
 import type { WorldLayout } from "../../../scene/perspectives";
+import { motionDurationSeconds, motionProgress } from "../../../world/visual/motionGrammar";
+import type { MotionIntent } from "../../../world/visual/motionGrammar";
 
 export function travelThetaFromWorldPoint(point: [number, number, number] | null | undefined): number | null {
   if (!point) return null;
@@ -81,7 +83,9 @@ export function CameraDirector({
   flyToNode = null,
   travelVia = null,
   enableIntro,
-  motion
+  motion,
+  motionScale = 1,
+  transition
 }: {
   layout: WorldLayout;
   lockedNode: LayoutNode | null;
@@ -94,6 +98,8 @@ export function CameraDirector({
   travelVia?: [number, number, number] | null;
   enableIntro: boolean;
   motion: boolean;
+  motionScale?: number;
+  transition: { sequence: number; intent: MotionIntent; duration: number };
 }) {
   const { camera, size, invalidate } = useThree();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -113,8 +119,10 @@ export function CameraDirector({
     start: number | null;
     duration: number;
     active: boolean;
+    intent: MotionIntent;
   } | null>(null);
   const lastKey = useRef("");
+  const lastTransitionSequence = useRef(0);
 
   const lerpAngle = (from: number, to: number, t: number) => {
     const delta = Math.atan2(Math.sin(to - from), Math.cos(to - from));
@@ -182,8 +190,15 @@ export function CameraDirector({
             ? centeredGroupCameraDistance(layout, fitDistance)
             : fitDistance;
     const desiredDistance = baseDesiredDistance;
-    const key = `${layout.perspective}:${layout.level}:${layout.group ?? ""}:${lockedNode?.id ?? ""}:${flyToNode?.id ?? ""}:${(layout.cameraTarget ?? []).map((n) => n.toFixed(1)).join(",")}:${(travelVia ?? []).map((n) => n.toFixed(1)).join(",")}:${fitDistance.toFixed(2)}`;
-    if (key === lastKey.current) return;
+    const centerId = layout.nodes.find((node) => node.isRoot)?.id ?? "";
+    const key = `${layout.perspective}:${layout.level}:${layout.group ?? ""}:${centerId}:${lockedNode?.id ?? ""}:${flyToNode?.id ?? ""}:${(layout.cameraTarget ?? []).map((n) => n.toFixed(1)).join(",")}:${(travelVia ?? []).map((n) => n.toFixed(1)).join(",")}:${fitDistance.toFixed(2)}`;
+    if (key === lastKey.current && motion) {
+      // Overlay transactions deliberately leave the camera untouched. Lens
+      // transactions may arrive one render before their worker layout, so keep
+      // those pending until cameraTarget changes.
+      if (transition.intent === "overlay") lastTransitionSequence.current = transition.sequence;
+      return;
+    }
     const firstFrame = lastKey.current === "";
     lastKey.current = key;
 
@@ -210,24 +225,20 @@ export function CameraDirector({
     const distanceSwell = groupTravel || lockedTravel ? Math.min(Math.max(fitDistance * (layout.level >= 2 ? 0.085 : 0.105), 0.48), 1.25) : 0;
     const targetLift = groupTravel ? groupCameraLift + (layout.level >= 2 ? 0.22 : 0.3) : lockedTravel ? 0.18 : 0;
 
-    // FOCUS ~350ms; WARP/RETREAT ~600ms; intro slightly longer glide.
-    const duration = !motion
-      ? 0
-      : lockedTravel
-        ? 1.05
-        : lockedNode
-          ? 0.35
-          : groupTravel
-            ? layout.level >= 2
-              ? 1.35
-              : 1.22
-            : quadrantGroupTarget
-              ? 0.95
-              : regionTarget
-                ? 0.75
-                : firstFrame && enableIntro
-                  ? 0.75
-                  : 0.6;
+    const fallbackIntent: MotionIntent = lockedTravel || groupTravel || quadrantGroupTarget
+      ? "travel"
+      : lockedNode
+        ? "control"
+        : regionTarget
+          ? "lens"
+          : "view";
+    const sharedTransition =
+      transition.sequence !== lastTransitionSequence.current && transition.intent !== "overlay";
+    lastTransitionSequence.current = transition.sequence;
+    const motionIntent = sharedTransition ? transition.intent : fallbackIntent;
+    const duration = sharedTransition
+      ? transition.duration
+      : motionDurationSeconds(motionIntent, motionScale, !motion);
     animation.current = {
       fromTarget: currentTarget,
       viaTarget,
@@ -243,7 +254,8 @@ export function CameraDirector({
       targetLift,
       start: null,
       duration: Math.max(duration, 0.0001),
-      active: true
+      active: true,
+      intent: motionIntent
     };
     if ("fov" in camera) {
       (camera as THREE.PerspectiveCamera).fov = 40;
@@ -260,7 +272,7 @@ export function CameraDirector({
       invalidate();
     }
     invalidate();
-  }, [camera, cameraTargetKey, enableIntro, fitDistance, flyToNode, invalidate, layout, layout.group, layout.level, layout.perspective, lockedNode, motion, travelVia]);
+  }, [camera, cameraTargetKey, enableIntro, fitDistance, flyToNode, invalidate, layout, layout.group, layout.level, layout.perspective, lockedNode, motion, motionScale, transition.duration, transition.intent, transition.sequence, travelVia]);
 
   useFrame((state) => {
     const anim = animation.current;
@@ -268,7 +280,7 @@ export function CameraDirector({
     if (!anim?.active || !controls) return;
     if (anim.start === null) anim.start = state.clock.elapsedTime;
     const t = Math.min((state.clock.elapsedTime - anim.start) / anim.duration, 1);
-    const eased = THREE.MathUtils.smootherstep(t, 0, 1);
+    const eased = motionProgress(anim.intent, t);
     const travelArc = Math.sin(t * Math.PI);
     const target = anim.viaTarget
       ? anim.fromTarget

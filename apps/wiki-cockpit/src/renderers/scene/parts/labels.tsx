@@ -4,7 +4,7 @@
 
 import { Html } from "@react-three/drei";
 import { useMemo } from "react";
-import type { CSSProperties } from "react";
+import type { CSSProperties, RefObject } from "react";
 import { t } from "../../../data/i18n";
 import { contextStyle, edgeStyle, pageTypeStyle, trustColor, worldGroupLabel } from "../../../data/presentation";
 import { primitiveSlotClass, resolvePrimitiveForSlot } from "../../../data/visualPrimitives";
@@ -12,6 +12,8 @@ import { localizedEncodingAria, localizedEncodingText, visualEncodingResolver } 
 import type { LayoutNode } from "../../../scene/layout";
 import type { WorldGroup, WorldLayout } from "../../../scene/perspectives";
 import type { OverlayId } from "../../../world/contracts";
+import { MorphingNodeGroup } from "./nodes";
+import type { MorphState } from "./nodes";
 
 export type SceneLabel = {
   node: LayoutNode;
@@ -246,12 +248,14 @@ export function NodeLabels({
   labels,
   overlay,
   selectedId,
+  morph,
   groups = [],
   onGroupSelect
 }: {
   labels: SceneLabel[];
   overlay: OverlayId;
   selectedId: string;
+  morph: RefObject<MorphState>;
   groups?: WorldGroup[];
   onGroupSelect?: (group: WorldGroup) => void;
 }) {
@@ -371,17 +375,18 @@ export function NodeLabels({
           </span>
         );
         return (
-          <Html
-            key={`label-${node.id}`}
-            position={[node.position[0], node.position[1] + lift, node.position[2]]}
-            center
-            distanceFactor={distanceFactor}
-            className={selected ? "radarLabel selected" : "radarLabel"}
-            wrapperClass={interactiveGroup ? "sceneHtmlLabel sceneHtmlControl" : "sceneHtmlLabel"}
-            zIndexRange={[30, 0]}
-          >
-            {body}
-          </Html>
+          <MorphingNodeGroup key={`label-${node.id}`} node={node} morph={morph}>
+            <Html
+              position={[0, lift, 0]}
+              center
+              distanceFactor={distanceFactor}
+              className={selected ? "radarLabel selected" : "radarLabel"}
+              wrapperClass={interactiveGroup ? "sceneHtmlLabel sceneHtmlControl" : "sceneHtmlLabel"}
+              zIndexRange={[30, 0]}
+            >
+              {body}
+            </Html>
+          </MorphingNodeGroup>
         );
       })}
     </group>

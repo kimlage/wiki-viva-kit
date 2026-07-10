@@ -4,8 +4,9 @@
 // besides the labels' own buttons.
 
 import { Html } from "@react-three/drei";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
+import type { RefObject } from "react";
 import * as THREE from "three";
 import { t } from "../../../data/i18n";
 import { contextStyle, edgeStyle, pageTypeStyle, trustColor } from "../../../data/presentation";
@@ -14,6 +15,8 @@ import type { GitState } from "../../../types";
 import type { LayoutNode } from "../../../scene/layout";
 import type { WorldLayout } from "../../../scene/perspectives";
 import type { GroupRelationBundle, RelationLane } from "./materials";
+import { morphAttachmentOpacity } from "./nodes";
+import type { MorphState } from "./nodes";
 
 export type DensityPressureSpec = {
   intensity: number;
@@ -1427,20 +1430,37 @@ export function WorldGuides({ layout }: { layout: WorldLayout }) {
   );
 }
 
-export function ProposalStems({ nodes }: { nodes: LayoutNode[] }) {
-  const stems = nodes.filter((node) => node.position[1] > 0.05);
-  return (
-    <group>
-      {stems.map((node) => (
-        <StaticLine
-          key={`stem-${node.id}`}
-          points={[new THREE.Vector3(node.position[0], 0, node.position[2]), new THREE.Vector3(...node.position)]}
-          color={trustColor("proposal")}
-          opacity={0.5}
-        />
-      ))}
-    </group>
-  );
+export function ProposalStems({ nodes, morph }: { nodes: LayoutNode[]; morph: RefObject<MorphState> }) {
+  const { invalidate } = useThree();
+  const object = useMemo(() => {
+    const points = nodes
+      .filter((node) => node.position[1] > 0.05)
+      .flatMap((node) => [
+        new THREE.Vector3(node.position[0], 0, node.position[2]),
+        new THREE.Vector3(...node.position)
+      ]);
+    if (points.length === 0) return null;
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const material = new THREE.LineBasicMaterial({
+      color: trustColor("proposal"),
+      transparent: true,
+      opacity: morph.current?.active ? 0 : 0.5,
+      toneMapped: false
+    });
+    return { lines: new THREE.LineSegments(geometry, material), geometry, material };
+  }, [morph, nodes]);
+  useFrame((state) => {
+    if (!object) return;
+    object.material.opacity = morphAttachmentOpacity(morph.current, state.clock.elapsedTime, 0.5);
+  });
+  useEffect(() => {
+    invalidate();
+    return () => {
+      object?.geometry.dispose();
+      object?.material.dispose();
+    };
+  }, [invalidate, object]);
+  return object ? <primitive object={object.lines} /> : null;
 }
 
 export function GateRing({ git }: { git: GitState }) {

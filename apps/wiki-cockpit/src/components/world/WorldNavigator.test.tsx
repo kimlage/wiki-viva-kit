@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorldNavigator } from "./WorldNavigator";
 
@@ -114,16 +114,59 @@ describe("WorldNavigator", () => {
     expect(onLensChange).toHaveBeenNthCalledWith(2, "all");
   });
 
-  it("supports controlled explanation state and reports explicit close", () => {
-    const { onExpandedChange } = setup({ expanded: true });
+  it("keeps an overlay resolve atomic before accepting another signal", () => {
+    const callbacks = {
+      onExpandedChange: vi.fn(),
+      onViewChange: vi.fn(),
+      onOverlayChange: vi.fn(),
+      onLensChange: vi.fn()
+    };
+    const { container } = render(
+      <WorldNavigator
+        view="radar"
+        overlay="actions"
+        overlayResolving
+        expanded
+        panelId="resolving-overlay"
+        translate={translate}
+        {...callbacks}
+      />
+    );
+
+    expect(screen.getByRole("combobox", { name: "Overlay" }).hasAttribute("disabled")).toBe(true);
+    expect(container.querySelectorAll<HTMLButtonElement>("[data-overlay-card]:disabled")).toHaveLength(6);
+    fireEvent.click(container.querySelector('[data-overlay-card="quality"]')!);
+    expect(callbacks.onOverlayChange).not.toHaveBeenCalled();
+  });
+
+  it("supports controlled explanation state, reports explicit close and restores focus", async () => {
+    const { container, onExpandedChange, rerender } = setup({ expanded: true });
     const learn = screen.getByRole("button", { name: "Learn how this works" });
     expect(learn.getAttribute("aria-expanded")).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: "Close explanation" }));
     expect(onExpandedChange).toHaveBeenCalledWith(false);
+    rerender(
+      <WorldNavigator
+        view="radar"
+        overlay="freshness"
+        lens="type"
+        expanded={false}
+        panelId="experience-test"
+        translate={translate}
+        onExpandedChange={onExpandedChange}
+        onViewChange={vi.fn()}
+        onOverlayChange={vi.fn()}
+        onLensChange={vi.fn()}
+      />
+    );
+    const closing = container.querySelector<HTMLElement>(".worldNavigatorPanel.closing");
+    expect(closing?.dataset.surfacePhase).toBe("closing");
+    expect(screen.queryByRole("region", { name: "Understand this world" })).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(learn));
   });
 
-  it("supports an uncontrolled learn flow and closes the contextual panel with Escape", () => {
+  it("supports an uncontrolled learn flow and closes the contextual panel with Escape", async () => {
     const onExpandedChange = vi.fn();
     render(
       <WorldNavigator
@@ -147,5 +190,6 @@ describe("WorldNavigator", () => {
     fireEvent.keyDown(panel, { key: "Escape" });
     expect(screen.queryByRole("region", { name: "Understand this world" })).toBeNull();
     expect(onExpandedChange).toHaveBeenLastCalledWith(false);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Learn how this works" })));
   });
 });

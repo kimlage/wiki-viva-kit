@@ -2,7 +2,8 @@
 
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { canUseWebGL, SystemScene } from "./SystemScene";
+import { canUseWebGL, sceneMotionDurationSeconds, sceneMotionIntent, SystemScene } from "./SystemScene";
+import type { SceneMotionSnapshot } from "./SystemScene";
 import type { GitState, GraphNode } from "../types";
 
 const nodes: GraphNode[] = [
@@ -47,11 +48,51 @@ const git: GitState = {
   }
 };
 
+const motionSnapshot = (patch: Partial<SceneMotionSnapshot> = {}): SceneMotionSnapshot => ({
+  key: "quadrants|q2|actions||0|root|",
+  view: "quadrants",
+  lens: "q2",
+  overlay: "actions",
+  group: "",
+  level: 0,
+  center: "root",
+  page: "",
+  ...patch
+});
+
+describe("scene semantic motion transaction", () => {
+  it("distinguishes view, lens, overlay and page control without a generic fallback", () => {
+    const root = motionSnapshot();
+    expect(sceneMotionIntent(null, root)).toBe("view");
+    expect(sceneMotionIntent(root, motionSnapshot({ view: "radar" }))).toBe("view");
+    expect(sceneMotionIntent(root, motionSnapshot({ lens: "q3" }))).toBe("lens");
+    expect(sceneMotionIntent(root, motionSnapshot({ overlay: "evidence" }))).toBe("overlay");
+    expect(sceneMotionIntent(root, motionSnapshot({ page: "page-a" }))).toBe("control");
+  });
+
+  it("uses travel for entering or recentering and retreat for reversing depth", () => {
+    const root = motionSnapshot();
+    const drilled = motionSnapshot({ group: "family:source", level: 2 });
+    expect(sceneMotionIntent(root, drilled)).toBe("travel");
+    expect(sceneMotionIntent(drilled, root)).toBe("retreat");
+    expect(sceneMotionIntent(root, motionSnapshot({ center: "root-b" }))).toBe("travel");
+    expect(sceneMotionIntent(motionSnapshot({ page: "page-a" }), root)).toBe("retreat");
+  });
+
+  it("keeps real overlay crossfades short and cuts them under reduced motion", () => {
+    expect(sceneMotionDurationSeconds("overlay", 0.78)).toBeGreaterThanOrEqual(0.3);
+    expect(sceneMotionDurationSeconds("overlay", 0.78)).toBeLessThanOrEqual(0.4);
+    expect(sceneMotionDurationSeconds("overlay", 0.2)).toBe(0.4);
+    expect(sceneMotionDurationSeconds("overlay", 1.4)).toBe(0.3);
+    expect(sceneMotionDurationSeconds("overlay", 0.78, true)).toBe(0);
+  });
+});
+
 describe("SystemScene fallback", () => {
   it("uses the 2D fallback with the same topology, URLs and measurable fallback reason", async () => {
     expect(canUseWebGL()).toBe(false);
 
-    render(
+    const { container } = render(
       <SystemScene
         nodes={nodes}
         git={git}
@@ -62,6 +103,9 @@ describe("SystemScene fallback", () => {
     );
 
     expect(screen.getByLabelText("Content map")).toBeTruthy();
+    const scene = container.querySelector(".sceneShell");
+    expect(scene?.getAttribute("data-motion-intent")).toBe("view");
+    expect(scene?.getAttribute("data-motion-duration-ms")).toBe("0");
     expect(screen.getByText("Draft change")).toBeTruthy();
     // Groups render as links sharing the world URL grammar.
     const groupLink = screen.getByRole("link", { name: /example · 1/ });

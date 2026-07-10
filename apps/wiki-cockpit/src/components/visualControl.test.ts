@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_VISUAL_CONTROL_CONFIG,
   isVisualControlCommand,
+  LEGACY_VISUAL_CONTROL_STORAGE_KEY,
+  loadVisualControlConfig,
   normalizeVisualControlConfig,
   visualControlDefaultSnippet,
   VISUAL_CONTROL_COCKPIT_VERSION,
   VISUAL_CONTROL_PRESETS,
+  VISUAL_CONTROL_STORAGE_KEY,
   visualControlPayload
 } from "./visualControl";
 
@@ -66,5 +69,33 @@ describe("visual control command", () => {
     for (const preset of Object.values(VISUAL_CONTROL_PRESETS)) {
       expect(normalizeVisualControlConfig(preset)).toEqual(preset);
     }
+    expect(DEFAULT_VISUAL_CONTROL_CONFIG.motion).toBe(0.78);
+    expect(VISUAL_CONTROL_PRESETS["debug dense"].motion).toBeLessThan(VISUAL_CONTROL_PRESETS["city model"].motion);
+    expect(VISUAL_CONTROL_PRESETS["city model"].motion).toBeLessThan(DEFAULT_VISUAL_CONTROL_CONFIG.motion);
+    expect(VISUAL_CONTROL_PRESETS.cinematic.motion).toBeGreaterThan(DEFAULT_VISUAL_CONTROL_CONFIG.motion);
+  });
+
+  it("migrates v1 settings without re-enabling motion or losing tuning", () => {
+    const storage = (values: Record<string, string>) => ({
+      getItem: (key: string) => values[key] ?? null
+    }) as Storage;
+
+    const disabled = loadVisualControlConfig(storage({
+      [LEGACY_VISUAL_CONTROL_STORAGE_KEY]: JSON.stringify({ ...DEFAULT_VISUAL_CONTROL_CONFIG, motion: 0, spacing: 1.4 })
+    }));
+    expect(disabled.motion).toBe(0);
+    expect(disabled.spacing).toBe(1.4);
+
+    const formerDefault = loadVisualControlConfig(storage({
+      [LEGACY_VISUAL_CONTROL_STORAGE_KEY]: JSON.stringify({ ...DEFAULT_VISUAL_CONTROL_CONFIG, motion: 1, glow: 1.3 })
+    }));
+    expect(formerDefault.motion).toBe(DEFAULT_VISUAL_CONTROL_CONFIG.motion);
+    expect(formerDefault.glow).toBe(1.3);
+
+    const current = loadVisualControlConfig(storage({
+      [LEGACY_VISUAL_CONTROL_STORAGE_KEY]: JSON.stringify({ ...DEFAULT_VISUAL_CONTROL_CONFIG, motion: 0 }),
+      [VISUAL_CONTROL_STORAGE_KEY]: JSON.stringify({ ...DEFAULT_VISUAL_CONTROL_CONFIG, motion: 1.2 })
+    }));
+    expect(current.motion).toBe(1.2);
   });
 });

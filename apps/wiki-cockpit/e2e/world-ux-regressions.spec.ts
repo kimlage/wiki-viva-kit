@@ -21,6 +21,7 @@ async function prepareWorld(page: Page, options: { missionCard?: "open" | "close
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
     window.localStorage.setItem("wiki-cockpit.missionCard", missionCard);
     window.localStorage.removeItem("wikiCockpitVisualControl.v1");
+    window.localStorage.removeItem("wikiCockpitVisualControl.v2");
   }, { missionCard: options.missionCard ?? "closed" });
   await page.goto("/demo/w/quadrants?center=root-alex-rivera");
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });

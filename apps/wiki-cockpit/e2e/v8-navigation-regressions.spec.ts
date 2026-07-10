@@ -9,16 +9,18 @@ test.describe.configure({ timeout: 90_000 });
 
 async function prepareCanonicalV8World(
   page: Page,
-  options: { view?: NativeView; overlay?: NativeOverlay; missionCard?: "open" | "closed" } = {}
+  options: { view?: NativeView; overlay?: NativeOverlay; missionCard?: "open" | "closed"; group?: string } = {}
 ) {
   await page.addInitScript(({ missionCard }) => {
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
     window.localStorage.setItem("wiki-cockpit.missionCard", missionCard);
     window.localStorage.removeItem("wikiCockpitVisualControl.v1");
+    window.localStorage.removeItem("wikiCockpitVisualControl.v2");
   }, { missionCard: options.missionCard ?? "closed" });
   const view = options.view ?? "quadrants";
   const overlay = options.overlay ?? (view === "radar" ? "freshness" : "actions");
-  await page.goto(`/demo/w?center=root-alex-rivera&view=${view}&lens=all&overlay=${overlay}&tour=0`);
+  const group = options.group ? `&group=${encodeURIComponent(options.group)}` : "";
+  await page.goto(`/demo/w?center=root-alex-rivera&view=${view}&lens=all&overlay=${overlay}${group}&tour=0`);
   const workspace = page.locator(".worldWorkspace");
   await expect(workspace).toHaveAttribute("data-runtime-mode", "v8", { timeout: 20_000 });
   await expect(workspace).toHaveAttribute("data-world-view", view);
@@ -112,6 +114,60 @@ test("v8 keyboard shortcuts 1-4 update one canonical view grammar", async ({ pag
     expect(route).toEqual({ pathname: "/demo/w", queryView: view, runtimeView: view });
     await expectRememberedCanvas(page);
   }
+});
+
+test("semantic motion distinguishes a world morph from an overlay resolve", async ({ page }) => {
+  await prepareCanonicalV8World(page, { view: "quadrants", overlay: "actions" });
+  const workspace = page.locator(".worldWorkspace");
+  const scene = page.locator(".sceneShell");
+  const cue = page.locator(".sceneTransitionCue");
+  await rememberCanvas(page);
+
+  await expect(workspace).toHaveAttribute("data-visual-motion", "0.78");
+  await page.getByRole("button", { name: "Radar", exact: true }).click();
+  await expect(scene).toHaveAttribute("data-motion-intent", "view");
+  await expect(cue).toHaveAttribute("data-motion-intent", "view");
+  const viewDuration = Number(await scene.getAttribute("data-motion-duration-ms"));
+  expect(viewDuration).toBeGreaterThanOrEqual(850);
+  expect(viewDuration).toBeLessThanOrEqual(1_100);
+  await expectRememberedCanvas(page);
+
+  const geometryBeforeOverlay = await scene.getAttribute("data-layout-position-signature");
+  await page.getByLabel("Overlay", { exact: true }).selectOption("evidence");
+  await expect(scene).toHaveAttribute("data-motion-intent", "overlay");
+  await expect(cue).toHaveAttribute("data-motion-intent", "overlay");
+  const overlayDuration = Number(await scene.getAttribute("data-motion-duration-ms"));
+  expect(overlayDuration).toBeGreaterThanOrEqual(300);
+  expect(overlayDuration).toBeLessThan(viewDuration);
+  await expect(scene).toHaveAttribute("data-layout-position-signature", geometryBeforeOverlay ?? "");
+  await expectRememberedCanvas(page);
+});
+
+test("one semantic transaction sequences quadrant retreat and return travel on the persistent canvas", async ({ page }) => {
+  await prepareCanonicalV8World(page, { view: "quadrants", overlay: "actions", group: "family:source" });
+  const scene = page.locator(".sceneShell");
+  const cue = page.locator(".sceneTransitionCue");
+  await rememberCanvas(page);
+
+  const initialSequence = Number(await scene.getAttribute("data-motion-sequence"));
+  await expect(scene).not.toHaveAttribute("data-scene-level", "0");
+  await page.locator(".worldBreadcrumbs .crumbButton").last().click();
+  await expect(scene).toHaveAttribute("data-motion-intent", "retreat");
+  await expect(scene).toHaveAttribute("data-scene-level", "0");
+  const retreatSequence = Number(await scene.getAttribute("data-motion-sequence"));
+  expect(retreatSequence).toBeGreaterThan(initialSequence);
+  await expect(cue).toHaveAttribute("data-motion-sequence", String(retreatSequence));
+  await expect(cue).toHaveAttribute("data-motion-intent", "retreat");
+  await expectRememberedCanvas(page);
+
+  await page.goBack();
+  await expect(scene).toHaveAttribute("data-motion-intent", "travel");
+  await expect(scene).not.toHaveAttribute("data-scene-level", "0");
+  const travelSequence = Number(await scene.getAttribute("data-motion-sequence"));
+  expect(travelSequence).toBeGreaterThan(retreatSequence);
+  await expect(cue).toHaveAttribute("data-motion-sequence", String(travelSequence));
+  await expect(cue).toHaveAttribute("data-motion-intent", "travel");
+  await expectRememberedCanvas(page);
 });
 
 test("the stale next step switches the canonical view to Radar", async ({ page }) => {

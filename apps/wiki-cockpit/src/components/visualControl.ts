@@ -1,3 +1,5 @@
+import { DEFAULT_MOTION_SPEED } from "../world/visual/motionGrammar";
+
 export type VisualLabelMode = "quiet" | "balanced" | "dense";
 
 export type VisualControlConfig = {
@@ -12,7 +14,10 @@ export type VisualControlConfig = {
   particles: boolean;
 };
 
-export const VISUAL_CONTROL_STORAGE_KEY = "wikiCockpitVisualControl.v1";
+// v2 introduces the semantic-motion baseline. loadVisualControlConfig keeps
+// every v1 user choice and remaps only the former untouched default (1×).
+export const VISUAL_CONTROL_STORAGE_KEY = "wikiCockpitVisualControl.v2";
+export const LEGACY_VISUAL_CONTROL_STORAGE_KEY = "wikiCockpitVisualControl.v1";
 export const VISUAL_CONTROL_SCHEMA = "wiki_cockpit_visual_config.v1";
 export const VISUAL_CONTROL_COCKPIT_VERSION = "0.1.109";
 export const VISUAL_CONTROL_COMMANDS = ["/god_mode", "/abrachaindabra"] as const;
@@ -22,7 +27,7 @@ export const DEFAULT_VISUAL_CONTROL_CONFIG: VisualControlConfig = {
   contrast: 1,
   density: 1,
   spacing: 1,
-  motion: 1,
+  motion: DEFAULT_MOTION_SPEED,
   uiScale: 1,
   glass: 1,
   labels: "balanced",
@@ -36,7 +41,7 @@ export const VISUAL_CONTROL_PRESETS: Record<string, VisualControlConfig> = {
     contrast: 1.08,
     density: 0.9,
     spacing: 1.18,
-    motion: 0.85,
+    motion: 0.68,
     uiScale: 0.98,
     glass: 0.9,
     labels: "quiet",
@@ -47,7 +52,7 @@ export const VISUAL_CONTROL_PRESETS: Record<string, VisualControlConfig> = {
     contrast: 1.12,
     density: 1.22,
     spacing: 1.28,
-    motion: 0.55,
+    motion: 0.52,
     uiScale: 1.04,
     glass: 0.82,
     labels: "dense",
@@ -58,7 +63,7 @@ export const VISUAL_CONTROL_PRESETS: Record<string, VisualControlConfig> = {
     contrast: 1.16,
     density: 0.82,
     spacing: 1.05,
-    motion: 1.18,
+    motion: 0.92,
     uiScale: 1,
     glass: 1.08,
     labels: "balanced",
@@ -103,7 +108,17 @@ export function loadVisualControlConfig(storage: Storage | undefined): VisualCon
   if (!storage) return DEFAULT_VISUAL_CONTROL_CONFIG;
   try {
     const raw = storage.getItem(VISUAL_CONTROL_STORAGE_KEY);
-    return raw ? normalizeVisualControlConfig(JSON.parse(raw)) : DEFAULT_VISUAL_CONTROL_CONFIG;
+    if (raw) return normalizeVisualControlConfig(JSON.parse(raw));
+
+    const legacyRaw = storage.getItem(LEGACY_VISUAL_CONTROL_STORAGE_KEY);
+    if (!legacyRaw) return DEFAULT_VISUAL_CONTROL_CONFIG;
+    const legacy = JSON.parse(legacyRaw) as Partial<VisualControlConfig>;
+    // 1× was the old shipped default. Explicit zero and every custom speed are
+    // accessibility/user intent and must survive the storage-key migration.
+    return normalizeVisualControlConfig({
+      ...legacy,
+      motion: legacy.motion === 1 ? DEFAULT_MOTION_SPEED : legacy.motion
+    });
   } catch {
     return DEFAULT_VISUAL_CONTROL_CONFIG;
   }
