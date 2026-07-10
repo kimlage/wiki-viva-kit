@@ -121,6 +121,35 @@ def test_event_markdown_is_specific_never_placeholder(repo, language, forbidden)
     assert "| Tight window" not in md                # risks are bullets, not table rows
 
 
+def test_event_markdown_lives_under_its_canonical_source(repo):
+    tmp, cfg, paths, request = repo
+    agg = aggregate_results(request, paths.llm_cache)
+
+    with_path = build_event_markdown(
+        agg,
+        config=cfg,
+        context="system",
+        date=dt.date(2026, 6, 11),
+        source_page="memories/sources/source-test.md",
+        source_ref="source-test",
+        event_dir=paths.ingest_events_dir,
+        root=tmp,
+    )
+    assert "moc_parent: memories/sources/source-test.md" in with_path
+    assert "moc_parent: memories/system/source-registry.md" not in with_path
+
+    with_id_only = build_event_markdown(
+        agg,
+        config=cfg,
+        context="system",
+        date=dt.date(2026, 6, 11),
+        source_ref="source-test",
+        event_dir=paths.ingest_events_dir,
+        root=tmp,
+    )
+    assert "moc_parent: source-test" in with_id_only
+
+
 def test_pending_lifecycle_until_consolidated(repo):
     tmp, cfg, paths, request = repo
     pend = pending_consolidations(tmp, cfg)

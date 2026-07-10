@@ -313,10 +313,21 @@ def build_event_markdown(
         f"updated_at: {date.isoformat()}",
         f"stale_after_days: {freshness_for(context, 'source_catalog', config)}",
         "sources_policy: evento_normalizado_com_quadrantes",
-        "gate: github_pr",
-        "sensitive_data_policy: private_sensitive_allowed",
-        f"source_id: {source_id}",
     ]
+    canonical_source_parent = source_page or source_ref
+    if canonical_source_parent:
+        # The registry is an index/collection of source pages, never the
+        # hierarchical parent of every ingestion event. Keep the normalized
+        # event under its canonical source so the journey is registry ->
+        # source -> event without flattening the event ledger.
+        fm.append(f"moc_parent: {canonical_source_parent}")
+    fm.extend(
+        [
+            "gate: github_pr",
+            "sensitive_data_policy: private_sensitive_allowed",
+            f"source_id: {source_id}",
+        ]
+    )
     if source_ref:
         fm.append(f"source_ref: {source_ref}")
     fm.extend(
