@@ -398,7 +398,7 @@ const EN: Dict = {
   "tour.progress": "{step} of {total}",
   "tour.welcome.title": "Welcome to the knowledge world",
   "tour.welcome.body":
-    "This demo teaches one stable world through three independent controls. A view rearranges the same pages, a quadrant lens focuses a perspective, and an overlay changes what the marks mean. Your center and selection stay put until you change them.",
+    "This guide presents one stable world through three independent controls. A view rearranges the same pages, a quadrant lens focuses a perspective, and an overlay changes what the marks mean. Your center and selection stay put until you change them.",
   "tour.views.title": "First choose the question",
   "tour.views.body":
     "Quadrants shows where content belongs around the center. Radar shows what needs attention. Sources traces origin and evidence. Work organizes what needs action. Switching view morphs the existing world instead of opening another screen.",
@@ -1407,7 +1407,7 @@ const PT: Dict = {
   "tour.progress": "{step} de {total}",
   "tour.welcome.title": "Bem-vinda ao mundo de conhecimento",
   "tour.welcome.body":
-    "Este demo ensina um único mundo estável por três controles independentes. Uma visão reorganiza as mesmas páginas, uma lente de quadrante foca uma perspectiva e um overlay muda o significado das marcas. Centro e seleção permanecem até você mudá-los.",
+    "Este guia apresenta um único mundo estável por três controles independentes. Uma visão reorganiza as mesmas páginas, uma lente de quadrante foca uma perspectiva e um overlay muda o significado das marcas. Centro e seleção permanecem até você mudá-los.",
   "tour.views.title": "Primeiro escolha a pergunta",
   "tour.views.body":
     "Quadrantes mostra onde o conteúdo vive ao redor do centro. Radar mostra o que pede atenção. Fontes rastreia origem e evidência. Trabalho organiza o que precisa de ação. Trocar a visão transforma o mundo existente, sem abrir outra tela.",

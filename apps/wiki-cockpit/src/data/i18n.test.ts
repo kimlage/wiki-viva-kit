@@ -22,6 +22,15 @@ describe("i18n", () => {
     expect(t("mission.approve.help")).toContain("human reviews");
   });
 
+  it("keeps the shared tour wording valid outside demo routes", () => {
+    configureLanguage("en");
+    expect(t("tour.welcome.body")).toContain("This guide presents");
+    expect(t("tour.welcome.body").toLowerCase()).not.toContain("demo");
+    configureLanguage("pt");
+    expect(t("tour.welcome.body")).toContain("Este guia apresenta");
+    expect(t("tour.welcome.body").toLowerCase()).not.toContain("demo");
+  });
+
   it("interpolates params and falls back key → EN → key", () => {
     configureLanguage("pt");
     expect(t("world.pages", { n: 42 })).toBe("42 páginas");
