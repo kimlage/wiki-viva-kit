@@ -643,7 +643,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -693,7 +693,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -743,7 +743,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -793,7 +793,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -843,7 +843,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -893,7 +893,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -943,7 +943,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -993,7 +993,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1043,7 +1043,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1093,7 +1093,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1132,7 +1132,9 @@
         "relation_cases": []
       },
       "risk_flags": [],
-      "source_refs": [],
+      "source_refs": [
+        "source-product-analytics"
+      ],
       "stale_after_days": "30",
       "status": "open",
       "summary": "Synthetic stress content for the region-grouping cockpit plan. Its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public demo.",
@@ -1141,7 +1143,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Unsourced claims weaken evidence quality.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1149,8 +1151,10 @@
         "completion_receipt": "",
         "created_at": "2026-07-03",
         "due_at": "",
-        "evidence_refs": [],
-        "next_action": "",
+        "evidence_refs": [
+          "source-product-analytics"
+        ],
+        "next_action": "Link each unsourced claim or mark it for removal.",
         "owner_kind": "unassigned",
         "owner_ref": "",
         "parent_ref": "memories/clientes/index.md",
@@ -1398,7 +1402,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1448,7 +1452,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1498,7 +1502,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [
           "source-support-tickets"
         ],
@@ -1550,7 +1554,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1600,7 +1604,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "receipt:demo-action-cancelled-006",
@@ -1650,7 +1654,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1700,7 +1704,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1750,7 +1754,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [
           "source-support-tickets"
         ],
@@ -1802,7 +1806,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1852,7 +1856,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "receipt:demo-action-cancelled-012",
@@ -1902,7 +1906,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -1952,7 +1956,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2002,7 +2006,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [
           "source-support-tickets"
         ],
@@ -2054,7 +2058,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2104,7 +2108,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "receipt:demo-action-cancelled-018",
@@ -2154,7 +2158,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2204,7 +2208,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2254,7 +2258,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [
           "source-support-tickets"
         ],
@@ -2306,7 +2310,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2356,7 +2360,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "receipt:demo-action-cancelled-024",
@@ -2406,7 +2410,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2456,7 +2460,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2506,7 +2510,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [
           "source-support-tickets"
         ],
@@ -2558,7 +2562,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2608,7 +2612,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "receipt:demo-action-cancelled-030",
@@ -2658,7 +2662,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2708,7 +2712,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2758,7 +2762,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [
           "source-support-tickets"
         ],
@@ -2810,7 +2814,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2860,7 +2864,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "receipt:demo-action-cancelled-036",
@@ -2910,7 +2914,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -2960,7 +2964,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3010,7 +3014,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [
           "source-support-tickets"
         ],
@@ -3062,7 +3066,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3112,7 +3116,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "receipt:demo-action-cancelled-042",
@@ -3162,7 +3166,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3212,7 +3216,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3262,7 +3266,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [
           "source-support-tickets"
         ],
@@ -3314,7 +3318,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3364,7 +3368,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "receipt:demo-action-cancelled-048",
@@ -3414,7 +3418,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3464,7 +3468,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3514,7 +3518,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [
           "source-support-tickets"
         ],
@@ -3566,7 +3570,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3616,7 +3620,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "receipt:demo-action-cancelled-054",
@@ -3666,7 +3670,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3716,7 +3720,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3766,7 +3770,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [
           "source-support-tickets"
         ],
@@ -3818,7 +3822,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Its lifecycle and evidence state require review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -3868,7 +3872,7 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The synthetic action is overdue.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "receipt:demo-action-cancelled-060",
@@ -12409,7 +12413,9 @@
         "relation_cases": []
       },
       "risk_flags": [],
-      "source_refs": [],
+      "source_refs": [
+        "source-support-tickets"
+      ],
       "stale_after_days": "30",
       "status": "open",
       "summary": "Synthetic stress content for the region-grouping cockpit plan. Its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public demo.",
@@ -12418,20 +12424,22 @@
       "updated_at": "2026-05-04",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "The supporting source is outside its freshness window.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
         "completed_at": "",
         "completion_receipt": "",
-        "created_at": "2026-05-04",
+        "created_at": "2026-07-03",
         "due_at": "",
-        "evidence_refs": [],
-        "next_action": "",
+        "evidence_refs": [
+          "source-support-tickets"
+        ],
+        "next_action": "Refresh the support-ticket source and verify its receipt.",
         "owner_kind": "unassigned",
         "owner_ref": "",
         "parent_ref": "memories/clientes/index.md",
-        "priority": "normal",
+        "priority": "high",
         "state": "open"
       }
     },
@@ -12703,7 +12711,9 @@
         "relation_cases": []
       },
       "risk_flags": [],
-      "source_refs": [],
+      "source_refs": [
+        "source-product-analytics"
+      ],
       "stale_after_days": "30",
       "status": "open",
       "summary": "Synthetic stress content for the region-grouping cockpit plan. Its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public demo.",
@@ -12712,7 +12722,7 @@
       "updated_at": "2026-07-03",
       "visibility": "private_self",
       "work": {
-        "attention_basis": "",
+        "attention_basis": "Dense evidence needs a human review.",
         "blocked_by": [],
         "blocker_reason": "",
         "cancellation_receipt": "",
@@ -12720,8 +12730,10 @@
         "completion_receipt": "",
         "created_at": "2026-07-03",
         "due_at": "",
-        "evidence_refs": [],
-        "next_action": "",
+        "evidence_refs": [
+          "source-product-analytics"
+        ],
+        "next_action": "Review the region evidence and record the result.",
         "owner_kind": "unassigned",
         "owner_ref": "",
         "parent_ref": "memories/clientes/index.md",

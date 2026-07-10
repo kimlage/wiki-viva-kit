@@ -55,6 +55,65 @@ async function expectRememberedCanvas(page: Page) {
   })).toBe(true);
 }
 
+async function visibleWorldTargetIds(page: Page, kind: "page" | "group") {
+  return page.locator(`[data-world-target-kind="${kind}"]`).evaluateAll((elements) =>
+    elements
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return (
+          style.visibility !== "hidden" &&
+          style.display !== "none" &&
+          rect.width > 0 &&
+          rect.height > 0 &&
+          !element.closest("[inert]")
+        );
+      })
+      .map((element) => element.getAttribute("data-world-target-id") ?? "")
+      .filter(Boolean)
+      .sort()
+  );
+}
+
+async function expectVisibleWorldTargetsAccessible(page: Page) {
+  const targets = await page.locator("[data-world-target-kind]").evaluateAll((elements) => {
+    const visibleElements = elements
+      .filter((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
+      });
+    return visibleElements.map((element) => {
+      (element as HTMLElement).focus();
+      return {
+        id: (element as HTMLElement).dataset.worldTargetId ?? "",
+        kind: (element as HTMLElement).dataset.worldTargetKind ?? "",
+        tag: element.tagName.toLowerCase(),
+        tabIndex: (element as HTMLElement).tabIndex,
+        name: element.getAttribute("aria-label") || (element.textContent ?? "").trim(),
+        focused: document.activeElement === element
+      };
+    });
+  });
+  expect(targets.length).toBeGreaterThan(0);
+  expect(new Set(targets.map((target) => `${target.kind}:${target.id}`)).size).toBe(targets.length);
+  for (const target of targets) {
+    expect(["button", "a"], `${target.id} must be a native control`).toContain(target.tag);
+    expect(target.tabIndex, `${target.id} must be keyboard reachable`).toBeGreaterThanOrEqual(0);
+    expect(target.name.trim(), `${target.id} must have an accessible name`).not.toBe("");
+    expect(target.focused, `${target.id} must accept DOM focus`).toBe(true);
+  }
+
+  const decorativeViolations = await page.locator("[data-world-decorative=true]").evaluateAll((elements) =>
+    elements.filter((element) => {
+      const html = element as HTMLElement;
+      const tag = element.tagName.toLowerCase();
+      return tag === "button" || tag === "a" || html.tabIndex >= 0 || getComputedStyle(element).cursor === "pointer";
+    }).length
+  );
+  expect(decorativeViolations).toBe(0);
+}
+
 const SURFACE_BACKGROUND_SELECTORS = [
   ".sceneCanvasFrame",
   ".worldCommandBar",
@@ -429,6 +488,225 @@ test("the compact quadrant compass can return from a focused lens to all", async
   await expect(page.locator("canvas")).toHaveCount(1);
 });
 
+test("Alex quadrant journey reaches semantic collections and real pages in two steps without remount or loops", async ({ page }) => {
+  test.setTimeout(180_000);
+  await prepareCanonicalV8World(page, { lens: "all", overlay: "actions" });
+  await rememberCanvas(page);
+
+  const journey = [
+    {
+      quadrant: 1,
+      lens: "q1_intencao" as const,
+      facet: "Identity & intent",
+      directPage: "insight-calendario-calmo",
+      groups: []
+    },
+    {
+      quadrant: 2,
+      lens: "q2_pratica" as const,
+      facet: "Outputs & evidence",
+      groups: [
+        { label: "sources & evidence", id: "family:source", count: 13 },
+        { label: "ingestion events", id: "family:event", count: 5 }
+      ]
+    },
+    {
+      quadrant: 3,
+      lens: "q3_relacoes" as const,
+      facet: "Culture & relations",
+      directPage: "person-bea-rivera",
+      groups: [
+        { label: "people & responsibilities", id: "family:person", count: 2 }
+      ]
+    },
+    {
+      quadrant: 4,
+      lens: "q4_sistemas" as const,
+      facet: "Systems & governance",
+      groups: [
+        { label: "areas & workspaces", id: "family:hub", count: 4 },
+        { label: "tools in this world", id: "family:content", count: 3 }
+      ]
+    }
+  ];
+
+  for (const step of journey) {
+    const quadrant = page.locator(`[data-wilber-quadrant="${step.quadrant}"]`);
+    await quadrant.click();
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", step.lens);
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
+    await expectRememberedCanvas(page);
+    // Lens state commits before the worker-backed scene finishes its spatial
+    // transition. Wait for the semantic group set itself so the regression
+    // never exercises outgoing controls from the previous quadrant.
+    await expect.poll(() => visibleWorldTargetIds(page, "group"), { timeout: 10_000 })
+      .toEqual(step.groups.map((group) => group.id).sort());
+    await expectVisibleWorldTargetsAccessible(page);
+
+    const visiblePageIds = await visibleWorldTargetIds(page, "page");
+    expect(new Set(visiblePageIds).size).toBe(visiblePageIds.length);
+    if (step.directPage) expect(visiblePageIds).toContain(step.directPage);
+
+    // Exercise every page-shaped target actually exposed by this quadrant,
+    // alternating mouse and keyboard. A visible node must reach either its
+    // reader or a real center, then return to the same breadcrumb/lens state.
+    for (const [targetIndex, pageId] of visiblePageIds.entries()) {
+      const pageTarget = page.locator(`[data-world-target-kind="page"][data-world-target-id="${pageId}"]`);
+      await expect(pageTarget).toHaveCount(1);
+      const pageTitle = await pageTarget.getAttribute("title");
+      expect(pageTitle).toBeTruthy();
+      await pageTarget.focus();
+      if (targetIndex % 2 === 0) await pageTarget.press("Enter");
+      else await pageTarget.click();
+      await expect.poll(async () => ({
+        center: await page.locator(".worldWorkspace").getAttribute("data-world-center"),
+        reader: await page.locator(".pageReader").count()
+      })).not.toEqual({ center: "root-alex-rivera", reader: 0 });
+
+      const destinationCenter = await page.locator(".worldWorkspace").getAttribute("data-world-center");
+      if (destinationCenter !== "root-alex-rivera") {
+        expect(destinationCenter).toBe(pageId);
+        await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+        await expect(page.locator(".worldBreadcrumbs")).toContainText(pageTitle!);
+      } else {
+        await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", step.lens);
+        await expect(page.locator(".pageReader")).toBeVisible();
+        await expect(page.locator(".readerHead h2")).toHaveText(pageTitle!);
+      }
+      await expectRememberedCanvas(page);
+      if (destinationCenter !== "root-alex-rivera") {
+        await page.goBack();
+      } else {
+        await page.locator(".pageReader .readerClose").last().click();
+        await expect(page.locator(".pageReader")).toHaveCount(0);
+        const plate = page.locator(".worldPlate");
+        if (await plate.count()) {
+          await plate.locator(".questPlateClose").click();
+          await expect(plate).toHaveCount(0);
+        }
+      }
+      await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
+      await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", step.lens);
+      await expect(page.locator(".worldBreadcrumbs")).toContainText("Alex Rivera");
+      await expect.poll(() => visibleWorldTargetIds(page, "page"), { timeout: 10_000 })
+        .toEqual([...visiblePageIds].sort());
+    }
+
+    await expect.poll(() => visibleWorldTargetIds(page, "group"), { timeout: 10_000 })
+      .toEqual(step.groups.map((group) => group.id).sort());
+
+    for (const [groupIndex, group] of step.groups.entries()) {
+      const groupControl = page.getByRole("button", { name: group.label, exact: true });
+      await expect(groupControl).toHaveCount(1);
+      await groupControl.focus();
+      if (groupIndex % 2 === 0) await groupControl.press("Enter");
+      else await groupControl.click();
+
+      await expect(page).toHaveURL(new RegExp(`[?&]group=${encodeURIComponent(group.id).replaceAll("%", "%")}(?:&|$)`));
+      await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", step.lens);
+      await expect(page.locator(".worldBreadcrumbs")).toContainText(step.facet);
+      await expect(page.locator(".worldBreadcrumbs")).toContainText(group.label);
+      await expectRememberedCanvas(page);
+
+      const summary = page.locator(`[data-world-group-summary="${group.id}"]`);
+      await expect(summary).toHaveAttribute("data-world-group-count", String(group.count));
+      await expect(summary.locator("p")).not.toHaveText("");
+      const examples = summary.locator("[data-world-member-id]");
+      const exampleCount = await examples.count();
+      expect(exampleCount).toBeGreaterThan(0);
+      expect(exampleCount).toBeLessThanOrEqual(3);
+      await expect(page.locator(`[data-world-target-kind="group"][data-world-target-id="${group.id}"]`)).toHaveCount(0);
+
+      for (let index = 0; index < exampleCount; index += 1) {
+        const example = examples.nth(index);
+        const memberId = await example.getAttribute("data-world-member-id");
+        expect(memberId).toBeTruthy();
+        if (index % 2 === 0) await example.click();
+        else await example.press("Enter");
+        await expect.poll(async () => ({
+          center: await page.locator(".worldWorkspace").getAttribute("data-world-center"),
+          reader: await page.locator(".pageReader").count()
+        })).not.toEqual({ center: "root-alex-rivera", reader: 0 });
+
+        const destinationCenter = await page.locator(".worldWorkspace").getAttribute("data-world-center");
+        if (destinationCenter !== "root-alex-rivera") {
+          expect(destinationCenter).toBe(memberId);
+          await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+        } else {
+          await expect(page.locator(".pageReader")).toBeVisible();
+          await expect(page).toHaveURL(new RegExp(`[?&]page=${memberId}(?:&|$)`));
+        }
+        await expectRememberedCanvas(page);
+        if (destinationCenter !== "root-alex-rivera") {
+          await page.goBack();
+        } else {
+          await page.locator(".pageReader .readerClose").last().click();
+          await expect(page.locator(".pageReader")).toHaveCount(0);
+          const plate = page.locator(".worldPlate");
+          if (await plate.count()) {
+            await plate.locator(".questPlateClose").click();
+            await expect(plate).toHaveCount(0);
+          }
+        }
+        await expect(summary).toBeVisible();
+      }
+
+      const facetCrumb = page.getByRole("button", { name: step.facet, exact: true });
+      await expect(facetCrumb).toHaveCount(1);
+      await facetCrumb.click();
+      await expect(page).not.toHaveURL(/[?&]group=/);
+      await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", step.lens);
+      await expectRememberedCanvas(page);
+    }
+  }
+
+  // A collection belongs to the lens that explains it. Changing quadrant
+  // leaves the collection instead of silently reusing the same family key for
+  // an empty or semantically different population.
+  await page.locator('[data-wilber-quadrant="2"]').click();
+  await page.getByRole("button", { name: "sources & evidence", exact: true }).press("Enter");
+  await expect(page.locator('[data-world-group-summary="family:source"]')).toBeVisible();
+  await page.locator('[data-wilber-quadrant="3"]').click();
+  await expect(page).not.toHaveURL(/[?&]group=/);
+  await expect(page.locator('[data-world-group-summary="family:source"]')).toHaveCount(0);
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "q3_relacoes");
+  await expectRememberedCanvas(page);
+
+  // The Sources view's former technical "Event Emitters" bucket is a real
+  // semantic collection too: one activation explains it, the next reaches a
+  // source page, and the same canvas remains mounted throughout.
+  await page.locator(".worldNavigatorView").filter({ hasText: /^Sources$/ }).click();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-view", "sources");
+  await expectVisibleWorldTargetsAccessible(page);
+  const origins = page.getByRole("button", { name: "Evidence origins", exact: true });
+  await expect(origins).toHaveCount(1);
+  await origins.focus();
+  await origins.press("Enter");
+  const originsSummary = page.locator('[data-world-group-summary="family:source"]');
+  await expect(originsSummary).toHaveAttribute("data-world-group-count", "13");
+  await expect(originsSummary.locator("p")).toContainText("Source pages");
+  await expect(page.locator(".worldBreadcrumbs")).toContainText("Sources");
+  await expect(page.locator(".worldBreadcrumbs")).toContainText("Evidence origins");
+  await expect(page.locator('[data-world-target-id="source-emitters"]')).toHaveCount(0);
+  const sourceExample = originsSummary.locator("[data-world-member-id]").first();
+  const sourceId = await sourceExample.getAttribute("data-world-member-id");
+  expect(sourceId).toBeTruthy();
+  await sourceExample.click();
+  await expect.poll(async () => ({
+    center: await page.locator(".worldWorkspace").getAttribute("data-world-center"),
+    reader: await page.locator(".pageReader").count()
+  })).not.toEqual({ center: "root-alex-rivera", reader: 0 });
+  const sourceDestinationCenter = await page.locator(".worldWorkspace").getAttribute("data-world-center");
+  if (sourceDestinationCenter !== "root-alex-rivera") {
+    expect(sourceDestinationCenter).toBe(sourceId);
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+  } else {
+    await expect(page.locator(".pageReader")).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`[?&]page=${sourceId}(?:&|$)`));
+  }
+  await expectRememberedCanvas(page);
+});
+
 test("global view shortcuts stay suspended under the coach, docks and reader", async ({ page }) => {
   await prepareCanonicalV8World(page, { missionCard: "open" });
 
@@ -605,3 +883,29 @@ test(`${view} fallback node hrefs use the canonical deep-link grammar`, async ({
   expect(deepLink.searchParams.get("visual")).toBe("1");
 });
 }
+
+test("quadrant fallback renders the active collection as a summary, never a same-route link", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+    window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
+  });
+  await page.goto(
+    "/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&group=family%3Asource&visual=1&tour=0"
+  );
+  await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/, { timeout: 20_000 });
+  await expect(page.locator('[data-world-group-summary="family:source"]')).toHaveAttribute("data-world-group-count", "13");
+  await expect(page.locator(".fallbackGroups .currentGroup")).toContainText("sources & evidence · 13");
+  await expect(page.locator('.fallbackGroups a[href*="group=family%3Asource"]')).toHaveCount(0);
+  await expect(page.locator('[data-world-target-kind="page"]')).not.toHaveCount(0);
+  await expect(page.locator(".fallbackPlan")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator('.fallbackPlan [style*="cursor"]')).toHaveCount(0);
+  await expectVisibleWorldTargetsAccessible(page);
+
+  const anchorLink = page.locator('[data-world-target-kind="page"][data-world-target-id="source-action-ledger"]');
+  await expect(anchorLink).toHaveCount(1);
+  const anchorHref = new URL((await anchorLink.getAttribute("href"))!, page.url());
+  expect(anchorHref.searchParams.get("center")).toBe("source-action-ledger");
+  expect(anchorHref.searchParams.get("lens")).toBe("all");
+  expect(anchorHref.searchParams.get("page")).toBeNull();
+  expect(anchorHref.searchParams.get("reader")).toBeNull();
+});

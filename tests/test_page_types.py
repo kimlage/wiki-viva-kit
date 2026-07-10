@@ -106,10 +106,11 @@ def test_relation_page_types_require_hierarchy_parent() -> None:
 def test_action_shape_exposes_the_runtime_work_contract() -> None:
     registry = load_page_type_registry(Path(__file__).resolve().parents[1])
     assert registry is not None
-    fields = registry.page_types["action"]["field_types"]
+    action = registry.page_types["action"]
+    fields = action["field_types"]
     assert {
-        "action_state": "string",
-        "owner_kind": "string",
+        "action_state": "enum:open,in_progress,blocked,waiting_human,done,cancelled",
+        "owner_kind": "enum:human,agent,system,other,unassigned",
         "owner_ref": "string",
         "created_at": "date",
         "due_at": "date",
@@ -122,6 +123,74 @@ def test_action_shape_exposes_the_runtime_work_contract() -> None:
         "completion_receipt": "string",
         "cancellation_receipt": "string",
     }.items() <= fields.items()
+    assert {
+        "action_state",
+        "owner_kind",
+        "created_at",
+        "next_action",
+        "priority",
+        "attention_basis",
+    } <= set(action["required_frontmatter"])
+
+
+def test_action_template_uses_a_runtime_valid_owner_kind() -> None:
+    template = (
+        Path(__file__).resolve().parents[1]
+        / "docs/references/templates/wiki/action.md"
+    ).read_text(encoding="utf-8")
+    assert "owner_kind: unassigned" in template
+    assert "owner_kind: page" not in template
+
+
+def test_action_shape_enforces_blocker_and_terminal_receipts() -> None:
+    registry = load_page_type_registry(Path(__file__).resolve().parents[1])
+    assert registry is not None
+    shape = registry.page_types["action"]
+    base = {
+        "page_id": "action-x",
+        "page_type": "action",
+        "context": "system",
+        "visibility": "private_self",
+        "updated_at": "2026-07-10",
+        "stale_after_days": "30",
+        "source_refs": ["source-x"],
+        "moc_parent": "memories/index.md",
+        "owner_kind": "human",
+        "created_at": "2026-07-10",
+        "next_action": "Review the evidence.",
+        "priority": "normal",
+        "attention_basis": "A review is due.",
+    }
+
+    blocked = validate_shape(
+        Path.cwd(),
+        "memories/actions/action-x.md",
+        {**base, "action_state": "blocked"},
+        "# Action\n",
+        shape,
+    )
+    assert any("blocked action requires `blocker_reason`" in error for error in blocked)
+
+    done = validate_shape(
+        Path.cwd(),
+        "memories/actions/action-x.md",
+        {**base, "action_state": "done"},
+        "# Action\n",
+        shape,
+    )
+    assert any("done action requires `completion_receipt`" in error for error in done)
+
+    cancelled = validate_shape(
+        Path.cwd(),
+        "memories/actions/action-x.md",
+        {**base, "action_state": "cancelled"},
+        "# Action\n",
+        shape,
+    )
+    assert any(
+        "cancelled action requires `cancellation_receipt`" in error
+        for error in cancelled
+    )
 
 
 def test_every_collection_capable_anchor_accepts_the_collection_contract() -> None:

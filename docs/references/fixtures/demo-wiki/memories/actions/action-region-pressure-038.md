@@ -8,7 +8,7 @@ context: clientes
 updated_at: '2026-07-03'
 moc_parent: memories/clientes/index.md
 sub_lens: producao
-state: in_progress
+action_state: in_progress
 owner_kind: system
 owner_ref: demo-system-operator
 created_at: '2026-06-01'
@@ -20,6 +20,7 @@ evidence_refs:
 - artifact-region-pressure-038
 next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: normal
+attention_basis: Its lifecycle and evidence state require review.
 ---
 
 # Dense canonical action 038

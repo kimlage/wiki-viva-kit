@@ -86,15 +86,15 @@ const DEFAULT_PAGE_TYPES: Record<string, PageTypeStyle> = {
   proposal: style("event", "review draft"),
   visual_group: style("hub", "group"),
   visual_group_region: style("hub", "region group"),
-  visual_group_source: style("source", "data sources"),
-  visual_group_hub: style("hub", "area hubs"),
+  visual_group_source: style("source", "sources & evidence"),
+  visual_group_hub: style("hub", "areas & workspaces"),
   visual_group_decision: style("decision", "decisions and claims"),
-  visual_group_action: style("action", "actions and processes"),
-  visual_group_rule: style("rule", "rules and governance"),
-  visual_group_event: style("event", "events and meetings"),
-  visual_group_person: style("person", "people and roles"),
-  visual_group_content: style("content", "content objects"),
-  visual_group_root: style("root", "root objects")
+  visual_group_action: style("action", "actions & workflows"),
+  visual_group_rule: style("rule", "rules & governance"),
+  visual_group_event: style("event", "ingestion events"),
+  visual_group_person: style("person", "people & responsibilities"),
+  visual_group_content: style("content", "tools in this world"),
+  visual_group_root: style("root", "independent worlds")
 };
 
 // Portuguese labels for the built-in page types. Config `page_types` overrides
@@ -134,15 +134,15 @@ const PT_PAGE_TYPE_LABELS: Record<string, string> = {
   proposal: "rascunho de revisão",
   visual_group: "grupo",
   visual_group_region: "grupo de região",
-  visual_group_source: "fontes de dados",
-  visual_group_hub: "hubs de área",
+  visual_group_source: "fontes & evidências",
+  visual_group_hub: "áreas & espaços de trabalho",
   visual_group_decision: "decisões e claims",
-  visual_group_action: "ações e processos",
-  visual_group_rule: "regras e governança",
-  visual_group_event: "eventos e reuniões",
-  visual_group_person: "pessoas e papéis",
-  visual_group_content: "objetos de conteúdo",
-  visual_group_root: "objetos raiz"
+  visual_group_action: "ações & fluxos",
+  visual_group_rule: "regras & governança",
+  visual_group_event: "eventos de ingestão",
+  visual_group_person: "pessoas & responsabilidades",
+  visual_group_content: "ferramentas deste mundo",
+  visual_group_root: "mundos independentes"
 };
 
 const DEFAULT_TRUST_COLORS: TrustColors = {
@@ -333,6 +333,12 @@ export function worldGroupLabel(kind: string, labelKey: string): string {
   if (kind === "work_queue") return t(`work.queue.${labelKey}`);
   if (kind === "core") return t("quadrant.core");
   return labelKey;
+}
+
+export function worldGroupDescription(kind: string, labelKey: string): string {
+  if (kind === "family" || kind === "region_family") return t(`group.family.${labelKey}.description`);
+  if (kind === "source_flow") return t(`group.source_flow.${labelKey}.description`);
+  return "";
 }
 
 export function perspectiveLabel(perspective: string): { label: string; hint: string; glyph: string } {

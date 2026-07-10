@@ -37,6 +37,7 @@ export type LayoutNode = {
   // 2nd-hop context nodes that are shown for orientation, not emphasis.
   ring?: number;
   faint?: boolean;
+  quadrant?: string;
   // Synthetic, navigable grouping object. It is not a Markdown page; it is a
   // visual operation node derived from real members and opens a drill-down.
   isGroup?: boolean;
@@ -44,7 +45,7 @@ export type LayoutNode = {
   groupKind?: string;
   groupLabelKey?: string;
   groupMemberIds?: string[];
-  groupDrill?: { context?: string; group?: string } | null;
+  groupDrill?: { context?: string; group?: string; lens?: string } | null;
   visualGlyph?: string;
   groupCaption?: string;
   groupPreviewIds?: string[];

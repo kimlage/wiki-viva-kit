@@ -8,7 +8,7 @@ context: clientes
 updated_at: '2026-07-03'
 moc_parent: memories/clientes/index.md
 sub_lens: intencao
-state: open
+action_state: open
 owner_kind: human
 owner_ref: person-marina-costa
 created_at: '2026-06-01'
@@ -20,6 +20,7 @@ evidence_refs:
 - artifact-region-pressure-031
 next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: normal
+attention_basis: Its lifecycle and evidence state require review.
 ---
 
 # Dense canonical action 031

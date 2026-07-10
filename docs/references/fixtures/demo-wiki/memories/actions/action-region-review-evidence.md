@@ -8,6 +8,14 @@ context: clientes
 updated_at: '2026-07-03'
 moc_parent: memories/clientes/index.md
 status: open
+action_state: open
+owner_kind: unassigned
+created_at: '2026-07-03'
+next_action: Review the region evidence and record the result.
+priority: normal
+attention_basis: Dense evidence needs a human review.
+source_refs:
+- source-product-analytics
 sub_lens: producao
 ---
 

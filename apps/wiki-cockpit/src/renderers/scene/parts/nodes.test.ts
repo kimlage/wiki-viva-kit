@@ -29,7 +29,8 @@ import {
   semanticDetailSignalScore,
   semanticObjectPrimitive,
   semanticRootBodyPrimitive,
-  semanticZoomMarks
+  semanticZoomMarks,
+  visibleSceneNodesForQuadrantLens
 } from "./nodes";
 import type { LayoutNode } from "../../../scene/layout";
 import type { GroupChildOrbitLane } from "./nodes";
@@ -59,6 +60,21 @@ function layoutNode(overrides: Partial<LayoutNode> & Pick<LayoutNode, "id">): La
 }
 
 describe("semantic page details", () => {
+  it("removes mouse-only nodes outside the active root quadrant while preserving deeper collections", () => {
+    const root = layoutNode({ id: "root", isRoot: true });
+    const q1 = layoutNode({ id: "q1-page", quadrant: "intencao" });
+    const q2 = layoutNode({ id: "q2-group", quadrant: "pratica", isGroup: true });
+    const core = layoutNode({ id: "core-page" });
+
+    expect(visibleSceneNodesForQuadrantLens([root, q1, q2, core], "quadrants", 0, "pratica").map((node) => node.id)).toEqual([
+      "root",
+      "q2-group"
+    ]);
+    expect(visibleSceneNodesForQuadrantLens([root, q1, q2, core], "quadrants", 0, "all")).toHaveLength(4);
+    expect(visibleSceneNodesForQuadrantLens([root, q1, q2, core], "quadrants", 2, "pratica")).toHaveLength(4);
+    expect(visibleSceneNodesForQuadrantLens([root, q1, q2, core], "radar", 0, "pratica")).toHaveLength(4);
+  });
+
   it("derives center visual signals from practical page data and primitive slots", () => {
     const signals = centerSignalBadges(
       layoutNode({
@@ -874,7 +890,7 @@ describe("group visual object grammar", () => {
     });
 
     expect(sourceCluster.id).toBe("cluster:region:pratica:family:source:evidence:source");
-    expect(sourceCluster.title).toBe("data sources · 8");
+    expect(sourceCluster.title).toBe("sources & evidence · 8");
     expect(sourceCluster.page_type).toBe("source");
     expect(sourceCluster.source_ref_count).toBe(8);
     expect(sourceCluster.inspection).toMatchObject({
@@ -887,7 +903,7 @@ describe("group visual object grammar", () => {
     });
     expect(sourceCluster.groupPreviewIds).toEqual(["source-a"]);
     expect(sourceCluster.isGroup).toBe(false);
-    expect(attentionCluster.title).toBe("events and meetings · 4");
+    expect(attentionCluster.title).toBe("ingestion events · 4");
     expect(attentionCluster.page_type).toBe("meeting");
     expect(attentionCluster.risk_flags).toEqual(["cluster_attention"]);
     expect(attentionCluster.approved_state).toBe("proposal");

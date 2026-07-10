@@ -23,6 +23,8 @@
   ],
   "body": "\n# Dense canonical action 027\n\nCanonical synthetic work object 027; it is not an executable operator command.\n",
   "frontmatter": {
+    "action_state": "blocked",
+    "attention_basis": "Its lifecycle and evidence state require review.",
     "blocked_by": [
       "source-support-tickets"
     ],
@@ -45,7 +47,6 @@
       "source-support-tickets"
     ],
     "stale_after_days": 30,
-    "state": "blocked",
     "sub_lens": "intencao",
     "title": "Dense canonical action 027",
     "updated_at": "2026-07-03",
@@ -67,7 +68,7 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-00e7ee456d3cc4ca",
+  "snapshot_id": "wiki-viva-demo-9db0006466c24e71",
   "source_refs": [
     {
       "approved_state": "approved",

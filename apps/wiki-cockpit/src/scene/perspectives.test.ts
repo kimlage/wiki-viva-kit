@@ -7,7 +7,7 @@ import {
   regionFamilyAnchorInCenteredRegion,
   worldLevel
 } from "./perspectives";
-import type { WorldRequest } from "./perspectives";
+import type { WorldLayout, WorldRequest } from "./perspectives";
 import { homeQuadrant, nodeQuadrant, quadrantHomesFromAssignments, QUADRANT_CENTER_ANGLE, SCENE_FACETS } from "./facets";
 
 const SNAPSHOT = "2026-07-01T00:00:00Z";
@@ -201,6 +201,7 @@ describe("perspective engine", () => {
       "unconsolidated"
     ]);
     expect(sourceLayout.groups.map((group) => group.count)).toEqual([2, 2, 1]);
+    expect(sourceLayout.groups[0]?.drill).toEqual({ context: undefined, group: "family:source" });
     const sourceARadius = Math.hypot(...sourceLayout.nodes.find((item) => item.id === "source-a")!.position.filter((_, index) => index !== 1));
     const sourceBRadius = Math.hypot(...sourceLayout.nodes.find((item) => item.id === "source-b")!.position.filter((_, index) => index !== 1));
     expect(sourceARadius).toBeCloseTo(2.35, 2);
@@ -208,6 +209,19 @@ describe("perspective engine", () => {
     expect(Math.hypot(sourceLayout.nodes.find((item) => item.id === "evidence-a")!.position[0], sourceLayout.nodes.find((item) => item.id === "evidence-a")!.position[2])).toBeGreaterThan(3.3);
     expect(positionMap(sourceLayout)).not.toEqual(positionMap(radarLayout));
     expect(sourceLayout.totals).toEqual({ total: 6, shown: 6, hidden: 0 });
+
+    const emitterCollection = computeWorldLayout({
+      perspective: "sources",
+      nodes,
+      edges,
+      centerId: "world-root",
+      group: "family:source",
+      maxNodes: 30,
+      snapshotAt: SNAPSHOT
+    });
+    expect(emitterCollection.groups).toEqual([]);
+    expect(emitterCollection.nodes.map((item) => item.id).sort()).toEqual(["source-a", "source-b", "world-root"]);
+    expect(emitterCollection.totals).toEqual({ total: 3, shown: 3, hidden: 0 });
   });
 
   it("samples a capped Sources perimeter across the full unconsolidated population", () => {
@@ -437,11 +451,18 @@ describe("perspective engine", () => {
       snapshotAt: SNAPSHOT
     });
     const groupNodes = layout.nodes.filter((item) => item.isGroup && item.groupKind === "family");
+    const quadrantAngle = (7 * Math.PI) / 4;
+    const tangentCoordinates = groupNodes.map((item) =>
+      (-Math.sin(quadrantAngle) * item.position[0] + Math.cos(quadrantAngle) * item.position[2]).toFixed(2)
+    );
+    const radialCoordinates = groupNodes.map((item) =>
+      (Math.cos(quadrantAngle) * item.position[0] + Math.sin(quadrantAngle) * item.position[2]).toFixed(2)
+    );
 
     expect(groupNodes).toHaveLength(pageTypes.length);
     expect(groupNodes.every((item) => item.position[0] > 0 && item.position[2] < 0)).toBe(true);
-    expect(new Set(groupNodes.map((item) => item.position[0])).size).toBe(3);
-    expect(new Set(groupNodes.map((item) => item.position[2])).size).toBe(2);
+    expect(new Set(tangentCoordinates).size).toBe(3);
+    expect(new Set(radialCoordinates).size).toBe(2);
     expect(new Set(groupNodes.map((item) => Math.hypot(item.position[0], item.position[2]).toFixed(2))).size).toBeGreaterThan(2);
     expect(Math.max(...groupNodes.map((item) => Math.hypot(item.position[0], item.position[2])))).toBeLessThanOrEqual(layout.rOuter);
 
@@ -635,7 +656,11 @@ describe("perspective engine", () => {
     });
     expect(top.cameraTarget?.[0]).toBeGreaterThan(0);
     expect(top.cameraTarget?.[2]).toBeLessThan(0);
-    lensLayouts.forEach((layout) => expect(positionMap(layout)).toEqual(positionMap(top)));
+    const stablePositionMap = (layout: WorldLayout) => positionMap({
+      ...layout,
+      nodes: layout.nodes.filter((item) => !item.faint)
+    });
+    lensLayouts.forEach((layout) => expect(stablePositionMap(layout)).toEqual(stablePositionMap(top)));
     expect(new Set(lensLayouts.map((layout) => JSON.stringify(layout.cameraTarget))).size).toBe(4);
     const sourceGroup = top.nodes.find((item) => item.isGroup && item.groupKey === "family:source");
     expect(sourceGroup).toBeTruthy();
@@ -643,11 +668,11 @@ describe("perspective engine", () => {
       page_type: "visual_group_source",
       groupLabelKey: "source",
       isGroup: true,
-      groupDrill: { group: "family:source" }
+      groupDrill: { group: "family:source", lens: "pratica" }
     });
     expect(sourceGroup?.groupPreviewIds?.length).toBeGreaterThan(0);
-    expect(top.nodes.some((item) => sourceGroup?.groupPreviewIds?.includes(item.id))).toBe(false);
-    expect(top.nodes.some((item) => item.id === "source-a")).toBe(false);
+    expect(top.nodes.some((item) => sourceGroup?.groupPreviewIds?.includes(item.id))).toBe(true);
+    expect(top.nodes.some((item) => !item.isGroup && item.page_type === "source")).toBe(true);
     expect(top.nodes.some((item) => item.id === "refresh-action")).toBe(true);
   });
 
@@ -685,6 +710,7 @@ describe("perspective engine", () => {
       "region:sistemas:family:source"
     ]);
     expect(projectedSources.every((item) => item.groupDrill?.group === "family:source")).toBe(true);
+    expect(projectedSources.map((item) => item.groupDrill?.lens).sort()).toEqual(["pratica", "sistemas"]);
     expect(new Set(layout.nodes.map((item) => item.id)).size).toBe(layout.nodes.length);
   });
 
@@ -714,7 +740,7 @@ describe("perspective engine", () => {
     expect(region.nodes.some((item) => item.id === "region:pratica" && item.isRoot)).toBe(false);
     expect(region.groups.find((group) => group.kind === "quadrant" && group.key === "pratica")?.drill).toBeNull();
     expect(region.cameraTarget).toBeTruthy();
-    expect(familyGroup?.groupDrill).toEqual({ group: "family:source" });
+    expect(familyGroup?.groupDrill).toEqual({ group: "family:source", lens: "pratica" });
 
     const family = computeWorldLayout({
       perspective: "quadrants",
@@ -749,10 +775,11 @@ describe("perspective engine", () => {
       count: 8
     });
     expect(familyCenter?.scale).toBeGreaterThan(0.4);
-    expect(Math.min(...childRadii)).toBeGreaterThan(2);
-    expect(positionMap(sameFamilyThroughAnotherLens)).toEqual(positionMap(family));
-    expect(sameFamilyThroughAnotherLens.groups.find((group) => group.key === "family:source")?.count).toBe(8);
-    expect(sameFamilyThroughAnotherLens.cameraTarget).not.toEqual(family.cameraTarget);
+    expect(Math.min(...childRadii)).toBeGreaterThan(1.5);
+    expect(positionMap(sameFamilyThroughAnotherLens)).not.toEqual(positionMap(family));
+    expect(sameFamilyThroughAnotherLens.groups.find((group) => group.key === "family:source")?.count).toBe(0);
+    expect(family.cameraTarget).toBeUndefined();
+    expect(sameFamilyThroughAnotherLens.cameraTarget).toBeUndefined();
   });
 
   it("quadrants: selected lenses give real family groups enough physical clearance", () => {
@@ -839,7 +866,7 @@ describe("perspective engine", () => {
     expect(sourceGroup?.groupPreviewIds).toHaveLength(3);
     expect(sourceGroup?.groupComposition).toEqual([{ family: "source", count: 72 }]);
     const visibleSourceChildren = region.nodes.filter((item) => item.id.startsWith("dense-source-"));
-    expect(visibleSourceChildren).toHaveLength(0);
+    expect(visibleSourceChildren).toHaveLength(1);
     expect(region.totals.total).toBe(73);
     expect(region.totals.shown + region.totals.hidden).toBe(73);
     expect(region.groups.every((group) => group.shown <= group.count)).toBe(true);
@@ -860,8 +887,8 @@ describe("perspective engine", () => {
     expect(familyChildren).toHaveLength(16);
     expect(familyChildren.some((item) => item.position[0] < -0.2)).toBe(true);
     expect(familyChildren.some((item) => item.position[0] > 0.2)).toBe(true);
-    expect(familyChildren.some((item) => item.position[2] < -0.2)).toBe(true);
-    expect(familyChildren.some((item) => item.position[2] > 0.2)).toBe(true);
+    expect(familyChildren.every((item) => item.position[2] < -0.2)).toBe(true);
+    expect(new Set(familyChildren.map((item) => Math.hypot(item.position[0], item.position[2]).toFixed(2))).size).toBe(2);
     expect(family.clusterStars.find((star) => star.key === "qstar-family:source")?.count).toBe(56);
     expect(family.totals.total).toBe(73);
     expect(family.totals.shown + family.totals.hidden).toBe(73);

@@ -4931,6 +4931,38 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
+      "id": "e84b00c9e02f3066abbe",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "evidence_refs",
+        "page_id": "action-region-clean-unsourced",
+        "path": "memories/actions/action-region-clean-unsourced.md"
+      },
+      "source": "source-product-analytics",
+      "status": "valid",
+      "target": "action-region-clean-unsourced",
+      "type": "evidence_supports",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "677abe56f39759511834",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "evidence_refs",
+        "page_id": "action-region-review-evidence",
+        "path": "memories/actions/action-region-review-evidence.md"
+      },
+      "source": "source-product-analytics",
+      "status": "valid",
+      "target": "action-region-review-evidence",
+      "type": "evidence_supports",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
       "id": "fbc8bfea5c9d2cf54281",
       "observed_at": "2026-07-03",
       "provenance": {
@@ -5123,6 +5155,22 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
+      "id": "97cb3727bdee17d026ce",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "evidence_refs",
+        "page_id": "action-region-sync-support",
+        "path": "memories/actions/action-region-sync-support.md"
+      },
+      "source": "source-support-tickets",
+      "status": "valid",
+      "target": "action-region-sync-support",
+      "type": "evidence_supports",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
       "id": "a7c1debb8a5a2272faef",
       "observed_at": "2026-07-03",
       "provenance": {
@@ -5162,7 +5210,7 @@
       "metrics": {
         "inbound_links": 0,
         "outbound_links": 1,
-        "source_ref_count": 0
+        "source_ref_count": 1
       },
       "overlay_metrics": {
         "actions": {
@@ -5186,13 +5234,15 @@
           "value": 0.5
         },
         "evidence": {
-          "count": 0,
+          "count": 1,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-product-analytics"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -10218,7 +10268,7 @@
       "metrics": {
         "inbound_links": 0,
         "outbound_links": 1,
-        "source_ref_count": 0
+        "source_ref_count": 1
       },
       "overlay_metrics": {
         "actions": {
@@ -10242,13 +10292,15 @@
           "value": 0.5
         },
         "evidence": {
-          "count": 0,
+          "count": 1,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-product-analytics"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -10298,7 +10350,7 @@
       "metrics": {
         "inbound_links": 0,
         "outbound_links": 1,
-        "source_ref_count": 0
+        "source_ref_count": 1
       },
       "overlay_metrics": {
         "actions": {
@@ -10323,13 +10375,15 @@
           "value": 0.5
         },
         "evidence": {
-          "count": 0,
+          "count": 1,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-support-tickets"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -33965,7 +34019,7 @@
           "value": 1
         },
         "evidence": {
-          "count": 61,
+          "count": 62,
           "reasons": [
             "evidence:linked"
           ],
@@ -34030,10 +34084,11 @@
             "artifact-region-pressure-059",
             "artifact-region-pressure-060",
             "dashboard-clearpath-activation",
+            "source-product-analytics",
             "source-support-tickets"
           ],
           "state": "linked",
-          "value": 61
+          "value": 62
         },
         "freshness": {
           "count": 1,
@@ -34160,15 +34215,23 @@
       },
       "overlay_metrics": {
         "actions": {
-          "count": 0,
-          "reasons": [],
-          "refs": [],
-          "state": "none",
-          "value": 0
+          "count": 2,
+          "reasons": [
+            "action:action-region-clean-unsourced:open",
+            "action:action-region-review-evidence:open"
+          ],
+          "refs": [
+            "action-region-clean-unsourced",
+            "action-region-review-evidence"
+          ],
+          "state": "open",
+          "value": 2
         },
         "attention": {
-          "count": 1,
+          "count": 3,
           "reasons": [
+            "action:action-region-clean-unsourced:open",
+            "action:action-region-review-evidence:open",
             "snapshot_warning:region_hidden_density"
           ],
           "refs": [
@@ -34178,13 +34241,15 @@
           "value": 0.5
         },
         "evidence": {
-          "count": 0,
+          "count": 1,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-product-analytics"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -34198,10 +34263,10 @@
         "ownership": {
           "count": 0,
           "reasons": [
-            "owner:not_applicable"
+            "owner:unassigned"
           ],
           "refs": [],
-          "state": "unknown",
+          "state": "unassigned",
           "value": null
         },
         "quality": {
@@ -34237,7 +34302,7 @@
       },
       "overlay_metrics": {
         "actions": {
-          "count": 60,
+          "count": 61,
           "reasons": [
             "action:action-region-pressure-001:open",
             "action:action-region-pressure-002:in_progress",
@@ -34298,7 +34363,8 @@
             "action:action-region-pressure-057:blocked",
             "action:action-region-pressure-058:waiting_human",
             "action:action-region-pressure-059:done",
-            "action:action-region-pressure-060:cancelled"
+            "action:action-region-pressure-060:cancelled",
+            "action:action-region-sync-support:open"
           ],
           "refs": [
             "action-region-pressure-001",
@@ -34360,13 +34426,14 @@
             "action-region-pressure-057",
             "action-region-pressure-058",
             "action-region-pressure-059",
-            "action-region-pressure-060"
+            "action-region-pressure-060",
+            "action-region-sync-support"
           ],
           "state": "blocked",
-          "value": 40
+          "value": 41
         },
         "attention": {
-          "count": 42,
+          "count": 43,
           "reasons": [
             "action:action-region-pressure-001:open",
             "action:action-region-pressure-002:in_progress",
@@ -34408,6 +34475,7 @@
             "action:action-region-pressure-056:overdue",
             "action:action-region-pressure-057:blocked",
             "action:action-region-pressure-058:waiting_human",
+            "action:action-region-sync-support:open",
             "freshness:stale",
             "snapshot_warning:region_hidden_density"
           ],

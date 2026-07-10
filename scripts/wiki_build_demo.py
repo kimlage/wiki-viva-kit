@@ -1107,7 +1107,25 @@ keeping a calm calendar.
         # q2 behavior/production
         # Content revalidation 2026-07-07: an OPEN commitment is intent, not
         # produced work — home_quadrant carries the content-level judgment.
-        ("action-enviar-proposta", "action", "Enviar proposta para Caio", "clientes", "memories/clientes/index.md", {"status": "open", "home_quadrant": "intencao"}, "intencao"),
+        (
+            "action-enviar-proposta",
+            "action",
+            "Enviar proposta para Caio",
+            "clientes",
+            "memories/clientes/index.md",
+            {
+                "status": "open",
+                "action_state": "open",
+                "owner_kind": "unassigned",
+                "created_at": FRESH,
+                "next_action": "Send the promised proposal and record the delivery receipt.",
+                "priority": "normal",
+                "attention_basis": "A promised client follow-up is still open.",
+                "source_refs": ["source-agenda"],
+                "home_quadrant": "intencao",
+            },
+            "intencao",
+        ),
         ("artifact-dashboard-atlas", "artifact", "Dashboard do Atlas", "clientes", "memories/clientes/product-ops/atlas-launch/index.md", {}, "producao"),
         ("artifact-relatorio-recon", "artifact", "Relatório de reconciliação", "financeiro", "memories/financeiro/index.md", {"source_refs": ["source-banco-export"]}, "producao"),
         # q3 relations/meetings/culture
@@ -1179,9 +1197,63 @@ keeping a calm calendar.
         ("artifact-region-map-06", "artifact", "Region map sketch 06", "clientes", "memories/empresas/clearpath-labs.md", {"source_refs": ["source-clearpath-customer-interviews"]}, "producao", FRESH),
         ("artifact-region-map-07", "artifact", "Region map sketch 07", "clientes", "memories/empresas/clearpath-labs.md", {"source_refs": ["source-product-analytics"]}, "producao", FRESH),
         ("artifact-region-map-08", "artifact", "Region map sketch 08", "clientes", "memories/empresas/clearpath-labs.md", {"source_refs": ["source-support-tickets"]}, "producao", OLD),
-        ("action-region-review-evidence", "action", "Review region evidence", "clientes", "memories/clientes/index.md", {"status": "open"}, "producao", FRESH),
-        ("action-region-clean-unsourced", "action", "Clean unsourced region claims", "clientes", "memories/clientes/index.md", {"status": "open"}, "producao", FRESH),
-        ("action-region-sync-support", "action", "Refresh support ticket source", "clientes", "memories/clientes/index.md", {"status": "open"}, "producao", OLD),
+        (
+            "action-region-review-evidence",
+            "action",
+            "Review region evidence",
+            "clientes",
+            "memories/clientes/index.md",
+            {
+                "status": "open",
+                "action_state": "open",
+                "owner_kind": "unassigned",
+                "created_at": FRESH,
+                "next_action": "Review the region evidence and record the result.",
+                "priority": "normal",
+                "attention_basis": "Dense evidence needs a human review.",
+                "source_refs": ["source-product-analytics"],
+            },
+            "producao",
+            FRESH,
+        ),
+        (
+            "action-region-clean-unsourced",
+            "action",
+            "Clean unsourced region claims",
+            "clientes",
+            "memories/clientes/index.md",
+            {
+                "status": "open",
+                "action_state": "open",
+                "owner_kind": "unassigned",
+                "created_at": FRESH,
+                "next_action": "Link each unsourced claim or mark it for removal.",
+                "priority": "normal",
+                "attention_basis": "Unsourced claims weaken evidence quality.",
+                "source_refs": ["source-product-analytics"],
+            },
+            "producao",
+            FRESH,
+        ),
+        (
+            "action-region-sync-support",
+            "action",
+            "Refresh support ticket source",
+            "clientes",
+            "memories/clientes/index.md",
+            {
+                "status": "open",
+                "action_state": "open",
+                "owner_kind": "unassigned",
+                "created_at": FRESH,
+                "next_action": "Refresh the support-ticket source and verify its receipt.",
+                "priority": "high",
+                "attention_basis": "The supporting source is outside its freshness window.",
+                "source_refs": ["source-support-tickets"],
+            },
+            "producao",
+            OLD,
+        ),
         ("claim-region-grouping-needed", "claim", "Dense regions need summaries", "clientes", "memories/clientes/index.md", {}, "percepcao", FRESH),
         ("claim-region-hidden-work", "claim", "Hidden clusters can hide work", "clientes", "memories/clientes/index.md", {}, "percepcao", OLD),
         ("claim-region-evidence-ready", "claim", "Evidence shelf clarifies source-backed work", "clientes", "memories/clientes/product-ops/index.md", {"source_refs": ["source-product-analytics"]}, "percepcao", FRESH),
@@ -1244,7 +1316,7 @@ keeping a calm calendar.
         )
         due_at = "2026-06-15" if index % 4 == 0 else "2026-08-15"
         extra: dict[str, Any] = {
-            "state": state,
+            "action_state": state,
             "owner_kind": owner_kind,
             "owner_ref": owner_ref,
             "created_at": "2026-06-01",
@@ -1258,6 +1330,11 @@ keeping a calm calendar.
             ],
             "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
             "priority": "high" if index % 3 == 0 else "normal",
+            "attention_basis": (
+                "The synthetic action is overdue."
+                if due_at < FRESH
+                else "Its lifecycle and evidence state require review."
+            ),
         }
         if state == "blocked":
             extra.update({"blocked_by": ["source-support-tickets"], "blocker_reason": "Synthetic parser dependency is blocked."})

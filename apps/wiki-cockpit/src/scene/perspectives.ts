@@ -60,7 +60,7 @@ export type WorldGroup = {
   count: number;
   shown: number;
   anchor: [number, number, number];
-  drill: { context?: string; group?: string } | null;
+  drill: { context?: string; group?: string; lens?: string } | null;
   memberIds: string[];
   region?: RegionGroupPayload;
 };
@@ -74,7 +74,7 @@ export type ClusterStar = {
   scale: number;
   histogram: { fresh: number; stale: number; unknown: number; proposal: number; risk: number };
   // null = nothing deeper to open — the star reveals in place instead.
-  drill: { context?: string; group?: string } | null;
+  drill: { context?: string; group?: string; lens?: string } | null;
 };
 
 export type Beacon = {
@@ -209,7 +209,7 @@ function makeNode(
   snapshotMs: number,
   position: [number, number, number],
   scale: number,
-  options: { isHub?: boolean; isRoot?: boolean; ring?: number; faint?: boolean } = {}
+  options: { isHub?: boolean; isRoot?: boolean; ring?: number; faint?: boolean; quadrant?: SceneFacet } = {}
 ): LayoutNode {
   const updatedMs = parseDateMs(node.updated_at ?? "");
   const ageDays = updatedMs === null ? 0 : Math.max(0, (snapshotMs - updatedMs) / 86400000);
@@ -234,7 +234,8 @@ function makeNode(
     position: [Number(position[0].toFixed(4)), Number(position[1].toFixed(4)), Number(position[2].toFixed(4))],
     scale: Number(scale.toFixed(4)),
     ...(options.ring !== undefined ? { ring: options.ring } : {}),
-    ...(options.faint ? { faint: true } : {})
+    ...(options.faint ? { faint: true } : {}),
+    ...(options.quadrant ? { quadrant: options.quadrant } : {})
   };
 }
 
@@ -287,8 +288,8 @@ function makeGroupNode(
   members: GraphNode[],
   position: [number, number, number],
   scale: number,
-  drill: { context?: string; group?: string } | null,
-  options: { isRoot?: boolean; ring?: number; faint?: boolean; nodeId?: string } = {}
+  drill: { context?: string; group?: string; lens?: string } | null,
+  options: { isRoot?: boolean; ring?: number; faint?: boolean; nodeId?: string; quadrant?: SceneFacet } = {}
 ): LayoutNode {
   const stale = members.some((node) => node.freshness_state === "stale");
   const unknown = members.length > 0 && members.every((node) => node.freshness_state === "unknown");
@@ -318,6 +319,7 @@ function makeGroupNode(
     scale: Number(scale.toFixed(4)),
     ...(options.ring !== undefined ? { ring: options.ring } : {}),
     ...(options.faint ? { faint: true } : {}),
+    ...(options.quadrant ? { quadrant: options.quadrant } : {}),
     isGroup: true,
     groupKey: key,
     groupKind: kind,
@@ -344,14 +346,13 @@ function groupComposition(members: GraphNode[]): { family: string; count: number
 }
 
 function shouldAggregateFamily(members: GraphNode[]): boolean {
-  return members.length >= 3;
+  return members.length >= 2;
 }
 
 function previewLimitForGroup(memberCount: number): number {
-  // The family shell and honest count carry the root overview. Real members
-  // appear one interaction deeper; keeping preview meshes beside every shell
-  // made the 107-page instructional world visually and computationally noisy.
-  return 0;
+  // A selected quadrant keeps two real, navigable examples beside each shell.
+  // The group reduces density without replacing every page with abstraction.
+  return Math.min(memberCount, 1);
 }
 
 function visibleFamilyChildLimit(memberCount: number, budget: number): number {
@@ -379,19 +380,23 @@ function previewNodesAround(
   snapshotMs: number,
   anchor: [number, number, number],
   radius: number,
-  limit = 3
+  limit = 3,
+  quadrant?: SceneFacet
 ): LayoutNode[] {
   const previews = members.slice(0, Math.min(limit, previewLimitForGroup(members.length)));
   const start = stableHash(groupKey) * Math.PI * 2;
   return previews.map((node, index) => {
     const angle = start + (index / Math.max(previews.length, 1)) * Math.PI * 2;
+    const anchorRadius = Math.hypot(anchor[0], anchor[2]) || 1;
+    const offsetX = previews.length === 1 ? (-anchor[0] / anchorRadius) * radius : Math.cos(angle) * radius;
+    const offsetZ = previews.length === 1 ? (-anchor[2] / anchorRadius) * radius : Math.sin(angle) * radius;
     const y = anchor[1] + 0.08 + (node.approved_state === "proposal" ? 0.18 : 0);
     return makeNode(
       node,
       snapshotMs,
-      [anchor[0] + Math.cos(angle) * radius, y, anchor[2] + Math.sin(angle) * radius],
+      [anchor[0] + offsetX, y, anchor[2] + offsetZ],
       Math.min(nodeScale(node) * 0.68, 0.18),
-      { faint: true, ring: 2 }
+      { faint: true, ring: 2, quadrant }
     );
   });
 }
@@ -420,7 +425,8 @@ function quadrantFamilyTerritoryOffset(index: number, total: number): [number, n
   const rowStart = row * columns;
   const itemsInRow = Math.min(columns, Math.max(total - rowStart, 1));
   const columnInRow = index - rowStart;
-  const x = itemsInRow === 1 ? 0 : -1.2 + (columnInRow / (itemsInRow - 1)) * 2.4;
+  const halfWidth = itemsInRow === 2 ? 1.55 : 1.35;
+  const x = itemsInRow === 1 ? 0 : -halfWidth + (columnInRow / (itemsInRow - 1)) * halfWidth * 2;
   const z = rows === 1 ? 0 : -1.2 + (row / (rows - 1)) * 2.4;
   return [Number(x.toFixed(4)), Number(z.toFixed(4))];
 }
@@ -434,7 +440,13 @@ function quadrantFamilyTerritoryAnchor(
   rOuter: number
 ): [number, number, number] {
   const center = quadrantRegionPosition(facet, rInner, rOuter);
-  const [offsetX, offsetZ] = quadrantFamilyTerritoryOffset(index, total);
+  const [tangentOffset, radialOffset] = quadrantFamilyTerritoryOffset(index, total);
+  const angle = QUADRANT_CENTER_ANGLE[facet];
+  // Family shelves use the quadrant's own tangent/radial frame. This keeps
+  // two families visibly separated inside every quadrant instead of applying
+  // one global X offset that collapses under some camera angles.
+  const offsetX = -Math.sin(angle) * tangentOffset + Math.cos(angle) * radialOffset;
+  const offsetZ = Math.cos(angle) * tangentOffset + Math.sin(angle) * radialOffset;
   return [
     Number((center[0] + offsetX).toFixed(4)),
     list.some((node) => node.approved_state === "proposal") ? 0.35 : 0,
@@ -461,56 +473,40 @@ export function regionFamilyAnchorInCenteredRegion(
 function pageNodesInTerritory(
   members: GraphNode[],
   snapshotMs: number,
-  anchor: [number, number, number]
+  anchor: [number, number, number],
+  quadrant: SceneFacet
 ): LayoutNode[] {
   return members.map((node, index) => {
     const offset = (index - (members.length - 1) / 2) * 0.44;
     const y = node.approved_state === "proposal" ? 0.35 : 0;
     return makeNode(node, snapshotMs, [anchor[0] + offset, y, anchor[2]], nodeScale(node), {
-      ring: 1
+      ring: 1,
+      quadrant
     });
   });
 }
 
 function familyDrillPageNodes(members: GraphNode[], snapshotMs: number): LayoutNode[] {
-  const innerCount = Math.min(members.length, members.length > 10 ? 8 : members.length);
+  const innerCount = Math.min(members.length, members.length > 10 ? 7 : members.length);
   const outerCount = Math.max(members.length - innerCount, 0);
   return members.map((node, index) => {
     const outer = index >= innerCount;
     const ringIndex = outer ? index - innerCount : index;
     const ringSize = outer ? outerCount : innerCount;
-    const phase = outer ? -Math.PI / 2 + Math.PI / Math.max(ringSize, 2) : -Math.PI / 2;
-    const angle = members.length === 1 ? -Math.PI / 2 : phase + (ringIndex / Math.max(ringSize, 1)) * Math.PI * 2;
-    const radius = outer ? 2.85 : members.length <= 4 ? 2.08 : 2.32;
-    const y = node.approved_state === "proposal" ? 0.35 : 0;
+    // Collections read as two stable shelves behind the active center. A full
+    // 360-degree ring put near-camera labels under the command bar and beyond
+    // the viewport edges, so keep the same deterministic order on a bounded
+    // back arc instead.
+    const arc = Math.PI * (outer ? 0.76 : 0.68);
+    const angle = ringSize <= 1
+      ? -Math.PI / 2
+      : -Math.PI / 2 - arc / 2 + (ringIndex / (ringSize - 1)) * arc;
+    const compactShelf = members.length <= 4;
+    const radius = outer ? 2.9 : compactShelf ? 2.2 : 2.1;
+    const y = node.approved_state === "proposal" ? (compactShelf ? 0.82 : 0.35) : compactShelf ? 0.55 : 0;
     return makeNode(node, snapshotMs, [Math.cos(angle) * radius, y, Math.sin(angle) * radius], Math.min(nodeScale(node), members.length > 10 ? 0.22 : 0.3), {
       ring: outer ? 2 : 1
     });
-  });
-}
-
-function surroundingFamilyNodes(
-  activeFamily: string,
-  familyEntries: [string, GraphNode[]][],
-  rootNode: GraphNode | null,
-  radius: number
-): LayoutNode[] {
-  const siblings = familyEntries.filter(([family]) => family !== activeFamily);
-  return siblings.map(([family, list], index) => {
-    const angle = -Math.PI * 0.72 + (index / Math.max(siblings.length - 1, 1)) * Math.PI * 1.44;
-    const key = realFamilyGroupId(family);
-    return makeGroupNode(
-      key,
-      "family",
-      family,
-      pageTypeLabel(`visual_group_${family}`),
-      rootNode?.context || "system",
-      list,
-      [Math.cos(angle) * radius, -0.06, Math.sin(angle) * radius],
-      Math.min(0.28 + Math.log2(list.length + 1) * 0.035, 0.46),
-      { group: key },
-      { ring: 3, faint: true }
-    );
   });
 }
 
@@ -598,7 +594,7 @@ const SOURCE_EMITTER_TYPES = new Set([
   "input_stage"
 ]);
 
-function isSourceEmitterType(pageType: string): boolean {
+export function isSourceEmitterType(pageType: string): boolean {
   return SOURCE_EMITTER_TYPES.has(pageType);
 }
 
@@ -607,6 +603,7 @@ export function groupKeyForPage(
   page: { moc_parent?: string; page_type: string; freshness_state: string; approved_state?: string; risk_flags?: string[] }
 ): string | undefined {
   if (perspective === "trails") return undefined;
+  if (perspective === "quadrants") return realFamilyGroupId(pageTypeStyle(page.page_type).family);
   if (perspective === "sources") {
     return isSourceEmitterType(page.page_type) ? "source-emitters" : "unconsolidated";
   }
@@ -1680,16 +1677,20 @@ function sourcesLayout(request: WorldRequest): WorldLayout {
   const unconsolidated = request.nodes
     .filter((node) => node.id !== centerId && !emitterIds.has(node.id) && !emittedBy.has(node.id))
     .sort(attentionFirst);
+  const emitterCollectionActive = request.group === "family:source";
 
   // Preserve source places before their emissions. An emitted artifact never
   // appears without its emitter merely because the node budget is tight.
   let remaining = Math.max(request.maxNodes - (center ? 1 : 0), 0);
   const visibleByKey = new Map<string, GraphNode[]>();
-  [
-    ["source-emitters", emitters],
-    ["emitted-evidence", emitted],
-    ["unconsolidated", unconsolidated]
-  ].forEach(([key, members]) => {
+  const visibleBuckets: [string, GraphNode[]][] = emitterCollectionActive
+    ? [["source-emitters", emitters]]
+    : [
+        ["source-emitters", emitters],
+        ["emitted-evidence", emitted],
+        ["unconsolidated", unconsolidated]
+      ];
+  visibleBuckets.forEach(([key, members]) => {
     const list = members as GraphNode[];
     const visible = spacedSample(list, remaining);
     visibleByKey.set(key as string, visible);
@@ -1780,7 +1781,7 @@ function sourcesLayout(request: WorldRequest): WorldLayout {
       anchor: [0, 0.05, 5.85]
     }
   ];
-  const groups: WorldGroup[] = buckets.map((bucket) => {
+  const groups: WorldGroup[] = emitterCollectionActive ? [] : buckets.map((bucket) => {
     const visible = bucket.members.filter((node) => visibleIds.has(node.id));
     return {
       key: bucket.key,
@@ -1789,11 +1790,15 @@ function sourcesLayout(request: WorldRequest): WorldLayout {
       count: bucket.members.length,
       shown: visible.length,
       anchor: bucket.anchor,
-      drill: null,
+      drill: bucket.key === "source-emitters"
+        ? { context: request.context, group: "family:source" }
+        : null,
       memberIds: visible.map((node) => node.id)
     };
   });
-  const clusterStars = buckets.flatMap((bucket) => {
+  const clusterStars = buckets
+    .filter((bucket) => !emitterCollectionActive || bucket.key === "source-emitters")
+    .flatMap((bucket) => {
     const hidden = bucket.members.filter((node) => !visibleIds.has(node.id));
     return hidden.length > 0
       ? [starFor(`source-star-${bucket.key}`, bucket.kind, bucket.labelKey, hidden, bucket.anchor, null)]
@@ -1801,6 +1806,9 @@ function sourcesLayout(request: WorldRequest): WorldLayout {
   });
 
   const shown = nodes.length;
+  const reachableTotal = emitterCollectionActive
+    ? emitters.length + (center ? 1 : 0)
+    : request.nodes.length;
   return {
     perspective: "sources",
     level: 0,
@@ -1823,8 +1831,8 @@ function sourcesLayout(request: WorldRequest): WorldLayout {
     rOuter: 5.7,
     deadlineF: DEADLINE_F,
     unknownR: null,
-    totals: { total: request.nodes.length, shown, hidden: Math.max(request.nodes.length - shown, 0) },
-    truncated: Math.max(request.nodes.length - shown, 0)
+    totals: { total: reachableTotal, shown, hidden: Math.max(reachableTotal - shown, 0) },
+    truncated: Math.max(reachableTotal - shown, 0)
   };
 }
 
@@ -2071,7 +2079,7 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
   if (activeFamilyGroup) {
     // A quadrant selector is a lens, never a data filter. Family routes must
     // therefore resolve the same members and positions under all four lenses.
-    const worldMembers = [...regionMembers.values()].flat();
+    const worldMembers = selectedQuadrant ? [...(regionMembers.get(selectedQuadrant) ?? [])] : [...regionMembers.values()].flat();
     const familyMembers = worldMembers.filter((node) => familyLabelKey(familyOf(node)) === activeFamilyGroup.family).sort(attentionFirst);
     const familyEntries = [...groupByFamily(worldMembers).entries()].sort((a, b) => familyRank(a[0]) - familyRank(b[0]) || a[0].localeCompare(b[0]));
     const parentSpans = allocateWedgeSpans(familyEntries.map(([family, list]) => ({ key: family, weight: list.length })));
@@ -2084,12 +2092,10 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
     if (rootNode) {
       nodes.push(makeNode(rootNode, snapshotMs, [0, 0, 0], 0.46, { isHub: true, isRoot: true, ring: 0 }));
     }
-    const visible = familyMembers.slice(0, visibleFamilyChildLimit(familyMembers.length, Math.max(request.maxNodes - 1, 8)));
+    const visible = familyMembers.slice(0, visibleFamilyChildLimit(familyMembers.length, Math.max(request.maxNodes - 1, 1)));
     const hidden = familyMembers.slice(visible.length);
     const pageNodes = familyDrillPageNodes(visible, snapshotMs);
     nodes.push(...pageNodes);
-    const siblingFamilies = surroundingFamilyNodes(activeFamilyGroup.family, familyEntries, rootNode, 2.85);
-    nodes.push(...siblingFamilies);
     if (hidden.length > 0) {
       clusterStars.push(starFor(`qstar-${centerKey}`, "family", activeFamilyGroup.family, hidden, [0, 0, drillROuter], null));
     }
@@ -2123,8 +2129,7 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
       unknownR: null,
       totals: { total: canonicalTotal, shown: canonicalShown, hidden: hidden.length },
       truncated: hidden.length,
-      ...(drillOrigin ? { drillOrigin } : {}),
-      ...(selectedQuadrant ? { cameraTarget: quadrantRegionPosition(selectedQuadrant, rInner, rOuter) } : {})
+      ...(drillOrigin ? { drillOrigin } : {})
     };
   }
 
@@ -2154,23 +2159,18 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
           list,
           familyAnchor,
           familyGroupScale(list.length, 0),
-          { group: key },
-          { ring: 1, nodeId: visualNodeId }
+          { group: key, lens: facet },
+          { ring: 1, nodeId: visualNodeId, quadrant: facet }
         );
         nodes.push(familyGroupNode);
-        const previews = previewNodesAround(
-          visualNodeId,
-          list,
-          snapshotMs,
-          familyAnchor,
-          0.32,
-          3
-        );
+        const previews = selectedQuadrant === facet
+          ? previewNodesAround(visualNodeId, list, snapshotMs, familyAnchor, 0.9, 1, facet)
+          : [];
         previews.forEach((node) => renderedPageIds.add(node.id));
         nodes.push(...previews);
         regionMemberIds.push(...previews.map((node) => node.id));
       } else {
-        const pageNodes = pageNodesInTerritory(list, snapshotMs, familyAnchor);
+        const pageNodes = pageNodesInTerritory(list, snapshotMs, familyAnchor, facet);
         pageNodes.forEach((node) => renderedPageIds.add(node.id));
         nodes.push(...pageNodes);
         regionMemberIds.push(...pageNodes.map((node) => node.id));

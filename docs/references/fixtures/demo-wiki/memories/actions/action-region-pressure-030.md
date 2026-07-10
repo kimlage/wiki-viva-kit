@@ -8,7 +8,7 @@ context: clientes
 updated_at: '2026-07-03'
 moc_parent: memories/clientes/index.md
 sub_lens: producao
-state: cancelled
+action_state: cancelled
 owner_kind: unassigned
 owner_ref: ''
 created_at: '2026-06-01'
@@ -20,6 +20,7 @@ evidence_refs:
 - artifact-region-pressure-030
 next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: high
+attention_basis: Its lifecycle and evidence state require review.
 cancellation_receipt: receipt:demo-action-cancelled-030
 ---
 

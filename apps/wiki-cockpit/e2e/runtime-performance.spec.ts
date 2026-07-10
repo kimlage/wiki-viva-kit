@@ -6,12 +6,33 @@ import {
   waitForSettledRuntimePerformance,
   type RuntimePerformanceEvidence
 } from "./fixtures";
+import type { Page } from "@playwright/test";
 
 const DESKTOP_FRAME_P95_BUDGET_MS = 33.33;
 const SCENARIOS = [
   { id: "normal_operations", budget: "normal", sourceNodes: 107 },
   { id: "dense_stress", budget: "stress", sourceNodes: 378 }
 ] as const;
+
+async function hoverClearCanvasPoint(page: Page) {
+  const canvas = page.locator(".sceneShell canvas");
+  const point = await canvas.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const candidates = [
+      [0.5, 0.82], [0.2, 0.75], [0.8, 0.75], [0.5, 0.56],
+      [0.12, 0.56], [0.88, 0.56], [0.3, 0.34], [0.7, 0.34]
+    ];
+    for (const [xFraction, yFraction] of candidates) {
+      const x = rect.left + rect.width * xFraction;
+      const y = rect.top + rect.height * yFraction;
+      if (document.elementFromPoint(x, y) === element) {
+        return { x: rect.width * xFraction, y: rect.height * yFraction };
+      }
+    }
+    throw new Error("No pointer-safe canvas point remained after HUD and semantic labels were laid out");
+  });
+  await canvas.hover({ position: point });
+}
 
 // Recording a Playwright trace and video consumes the same CPU/GPU frame time
 // this file measures. Keep the product budget strict, but remove observer
@@ -46,7 +67,7 @@ for (const scenario of SCENARIOS) {
     let evidence: RuntimePerformanceEvidence = warmEvidence;
     if (warmEvidence.counters.fallbackReason === null) {
       await resetRuntimePerformanceWindow(page);
-      await page.locator(".sceneShell canvas").hover({ position: { x: 640, y: 430 } });
+      await hoverClearCanvasPoint(page);
       const interactionWarmEvidence = await waitForSettledRuntimePerformance(page, { timeout: 45_000 });
       await testInfo.attach(`runtime-performance-desktop-${scenario.id}-interaction-warm.json`, {
         body: Buffer.from(`${JSON.stringify(interactionWarmEvidence, null, 2)}\n`, "utf8"),

@@ -163,6 +163,150 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
   await attachViewportScreenshot(page, testInfo, "webkit-mobile-touch-flow");
 });
 
+test("WebKit mobile opens a semantic quadrant collection and reaches a real center in two taps", async ({ page }, testInfo) => {
+  await prepareMobileWorld(
+    page,
+    "/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0"
+  );
+  await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
+  await expect(page.locator(".sceneShell canvas")).toHaveCount(1, { timeout: 20_000 });
+  await page.evaluate(() => {
+    (window as Window & { __mobileQuadrantCanvas?: HTMLCanvasElement }).__mobileQuadrantCanvas =
+      document.querySelector<HTMLCanvasElement>(".sceneShell canvas") ?? undefined;
+  });
+
+  const group = page.getByRole("button", { name: "sources & evidence", exact: true });
+  await expectTouchTarget(group);
+  await group.tap();
+
+  const summary = page.locator('[data-world-group-summary="family:source"]');
+  await expect(summary).toHaveAttribute("data-world-group-count", "13");
+  await expect(summary).toContainText("Systems, files, and records");
+  await expectMobileViewportBounded(page, ".familyCollectionPanel");
+  const examples = summary.locator("[data-world-member-id]");
+  await expect(examples).toHaveCount(3);
+  for (let index = 0; index < 3; index += 1) await expectTouchTarget(examples.nth(index));
+
+  const firstMember = examples.first();
+  const memberId = await firstMember.getAttribute("data-world-member-id");
+  expect(memberId).toBeTruthy();
+  await firstMember.tap();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", memberId!);
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+  await expect(page.locator(".worldBreadcrumbs")).toContainText("Action ledger export");
+  expect(await page.evaluate(() =>
+    document.querySelector(".sceneShell canvas") ===
+    (window as Window & { __mobileQuadrantCanvas?: HTMLCanvasElement }).__mobileQuadrantCanvas
+  )).toBe(true);
+  await expectMobileViewportBounded(page, ".sceneShell");
+  await attachViewportScreenshot(page, testInfo, "webkit-mobile-quadrant-collection");
+});
+
+test("WebKit mobile keeps the visible mission, quadrant controls and real Q2 targets pointer-safe", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+    window.localStorage.removeItem("wikiCockpitMissionCard.v1");
+    window.localStorage.removeItem("wiki-cockpit.missionCard");
+  });
+  await page.setViewportSize({ width: 390, height: 664 });
+  await page.goto(
+    "/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0"
+  );
+  await expect(page.getByText("Loading cockpit")).toHaveCount(0, { timeout: 20_000 });
+  await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
+  await expect(page.locator(".sceneShell canvas")).toHaveCount(1, { timeout: 20_000 });
+  await waitForSettledRuntimePerformance(page);
+  await expect(page.locator(".worldMissionSlim")).toBeVisible();
+  await expect(page.locator(".quadrantCompass")).toBeVisible();
+
+  await page.evaluate(() => {
+    (window as Window & { __missionQuadrantCanvas?: HTMLCanvasElement }).__missionQuadrantCanvas =
+      document.querySelector<HTMLCanvasElement>(".sceneShell canvas") ?? undefined;
+  });
+
+  const targetIds = [
+    "root-alex-rivera",
+    "source-action-ledger",
+    "event-ingest-agenda-2026-07",
+    "family:source",
+    "family:event"
+  ] as const;
+  for (const id of targetIds) {
+    const target = page.locator(`[data-world-target-id="${id}"]`);
+    await expect(target).toHaveCount(1);
+    await expectTouchTarget(target);
+  }
+
+  const overlaps = await page.evaluate((ids) => {
+    const rect = (element: Element) => element.getBoundingClientRect();
+    const intersects = (left: DOMRect, right: DOMRect) =>
+      Math.min(left.right, right.right) - Math.max(left.left, right.left) > 1 &&
+      Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top) > 1;
+    const blockers = [".worldMissionSlim", ".quadrantCompass", ".worldCommandBar", ".radarStatusStrip"]
+      .flatMap((selector) => Array.from(document.querySelectorAll(selector)))
+      .filter((element) => {
+        const style = getComputedStyle(element);
+        const bounds = rect(element);
+        return style.display !== "none" && style.visibility !== "hidden" && bounds.width > 0 && bounds.height > 0;
+      });
+    const targets = ids.flatMap((id) => {
+      const target = document.querySelector(`[data-world-target-id="${id}"]`);
+      return target ? [{ id, target, bounds: rect(target) }] : [];
+    });
+    return ids.flatMap((id) => {
+      const entry = targets.find((candidate) => candidate.id === id);
+      if (!entry) return [{ id, blocker: "missing" }];
+      const outsideViewport =
+        entry.bounds.left < 0 || entry.bounds.right > window.innerWidth ||
+        entry.bounds.top < 0 || entry.bounds.bottom > window.innerHeight;
+      const surfaceOverlaps = blockers
+        .filter((blocker) => intersects(entry.bounds, rect(blocker)))
+        .map((blocker) => ({ id, blocker: blocker.className }));
+      const targetOverlaps = targets
+        .filter((candidate) => candidate.id !== id && intersects(entry.bounds, candidate.bounds))
+        .map((candidate) => ({ id, blocker: `target:${candidate.id}` }));
+      return [
+        ...(outsideViewport ? [{ id, blocker: "viewport" }] : []),
+        ...surfaceOverlaps,
+        ...targetOverlaps
+      ];
+    });
+  }, targetIds);
+  expect(overlaps).toEqual([]);
+
+  const returnToQ2 = async () => {
+    await page.goBack();
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "q2_pratica");
+    await expect(page.locator(".worldMissionSlim")).toBeVisible();
+  };
+
+  await page.locator('[data-world-target-id="source-action-ledger"]').tap();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "source-action-ledger");
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+  await returnToQ2();
+
+  await page.locator('[data-world-target-id="event-ingest-agenda-2026-07"]').tap();
+  await expect(page.locator(".pageReader")).toBeVisible();
+  await expect(page).toHaveURL(/[?&]page=event-ingest-agenda-2026-07(?:&|$)/);
+  await returnToQ2();
+
+  await page.locator('[data-world-target-id="family:source"]').tap();
+  await expect(page.locator('[data-world-group-summary="family:source"]')).toBeVisible();
+  await returnToQ2();
+
+  await page.locator('[data-world-target-id="family:event"]').tap();
+  await expect(page.locator('[data-world-group-summary="family:event"]')).toBeVisible();
+  await returnToQ2();
+
+  await page.locator('[data-world-target-id="root-alex-rivera"]').tap();
+  await expect(page.locator(".pageReader")).toBeVisible();
+  expect(await page.evaluate(() =>
+    document.querySelector(".sceneShell canvas") ===
+    (window as Window & { __missionQuadrantCanvas?: HTMLCanvasElement }).__missionQuadrantCanvas
+  )).toBe(true);
+});
+
 test("WebKit mobile keeps the same semantic route in reduced-motion fallback", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await prepareMobileWorld(page, "/demo/w/quadrants?center=root-alex-rivera&lens=pratica");

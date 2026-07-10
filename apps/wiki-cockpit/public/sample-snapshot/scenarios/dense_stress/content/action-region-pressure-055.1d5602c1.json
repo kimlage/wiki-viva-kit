@@ -13,6 +13,8 @@
   ],
   "body": "\n# Dense canonical action 055\n\nCanonical synthetic work object 055; it is not an executable operator command.\n",
   "frontmatter": {
+    "action_state": "open",
+    "attention_basis": "Its lifecycle and evidence state require review.",
     "context": "clientes",
     "created_at": "2026-06-01",
     "due_at": "2026-08-15",
@@ -31,7 +33,6 @@
       "source-support-tickets"
     ],
     "stale_after_days": 30,
-    "state": "open",
     "sub_lens": "intencao",
     "title": "Dense canonical action 055",
     "updated_at": "2026-07-03",
@@ -53,7 +54,7 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-00e7ee456d3cc4ca",
+  "snapshot_id": "wiki-viva-demo-9db0006466c24e71",
   "source_refs": [
     {
       "approved_state": "approved",

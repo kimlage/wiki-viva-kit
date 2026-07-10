@@ -19,9 +19,18 @@ export function travelThetaFromWorldPoint(point: [number, number, number] | null
   return Math.atan2(-x, -z);
 }
 
+function isCenteredFamilyCollection(layout: WorldLayout): boolean {
+  return layout.perspective === "quadrants" && layout.level >= 2 && Boolean(layout.group?.startsWith("family:"));
+}
+
+export function centeredCollectionCameraTheta(layout: WorldLayout, travelTheta: number | null): number | null {
+  return isCenteredFamilyCollection(layout) ? 0 : travelTheta;
+}
+
 export function centeredGroupCameraLift(layout: WorldLayout): number {
   if (layout.perspective !== "quadrants" || layout.level < 1) return 0;
   const center = layout.nodes.find((node) => node.isRoot && node.isGroup);
+  if (!center && isCenteredFamilyCollection(layout)) return 1.6;
   if (!center) return 0;
   return Math.min(Math.max(center.scale * 0.65, 0.22), 0.58);
 }
@@ -29,8 +38,8 @@ export function centeredGroupCameraLift(layout: WorldLayout): number {
 export function centeredGroupSafeAreaDistanceMultiplier(layout: WorldLayout): number {
   if (layout.perspective !== "quadrants" || layout.level < 1) return 1;
   const center = layout.nodes.find((node) => node.isRoot && node.isGroup);
-  const memberCount = center?.groupMemberIds?.length ?? 0;
-  if (!center || memberCount < 18) return 1;
+  const memberCount = center?.groupMemberIds?.length ?? (isCenteredFamilyCollection(layout) ? Math.max(layout.nodes.length - 1, 0) : 0);
+  if ((!center && !isCenteredFamilyCollection(layout)) || memberCount < 18) return 1;
   const densityGain = Math.log2(memberCount / 16) * (layout.level >= 2 ? 0.14 : 0.045);
   const levelGain = layout.level >= 2 ? 0.08 : 0.025;
   return Number(Math.min(layout.level >= 2 ? 1.34 : 1.16, 1 + levelGain + densityGain).toFixed(4));
@@ -46,6 +55,9 @@ export function centeredGroupCameraPhi(layout: WorldLayout): number {
 export function centeredGroupCameraDistance(layout: WorldLayout, fitDistance: number): number {
   if (layout.perspective !== "quadrants" || layout.level < 1) return fitDistance;
   const center = layout.nodes.find((node) => node.isRoot && node.isGroup);
+  if (!center && isCenteredFamilyCollection(layout)) {
+    return Number((Math.max(layout.rOuter * 1.6, 5.8) * centeredGroupSafeAreaDistanceMultiplier(layout)).toFixed(4));
+  }
   if (!center) return fitDistance;
   const bodyRadius = Math.max(center.scale * 3.25, center.groupKind === "quadrant" ? 1.18 : 0.96);
   const bodyFit = bodyRadius * (layout.level >= 2 ? 3.55 : 3.35);
@@ -210,7 +222,7 @@ export function CameraDirector({
       currentOffset.lengthSq() > 0.0001 ? currentOffset : new THREE.Vector3(0, 1, 1)
     );
     const regionTheta = regionDirection ? Math.atan2(-regionDirection.x, -regionDirection.z) : null;
-    const desiredTheta = regionTheta ?? groupTravelTheta;
+    const desiredTheta = regionTheta ?? centeredCollectionCameraTheta(layout, groupTravelTheta);
     const targetPhi = regionTarget
         ? lockedNode
           ? 1.02

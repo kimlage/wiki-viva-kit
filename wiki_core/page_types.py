@@ -118,6 +118,20 @@ def validate_shape(
             error = field_type_error(str(field), str(expected), values[field])
             if error:
                 errors.append(f"{rel}: {error}")
+    if str(values.get("page_type") or "") == "action":
+        action_state = str(values.get("action_state") or "").strip()
+        if action_state == "blocked" and not str(
+            values.get("blocker_reason") or ""
+        ).strip():
+            errors.append(f"{rel}: blocked action requires `blocker_reason`")
+        if action_state == "done" and not str(
+            values.get("completion_receipt") or ""
+        ).strip():
+            errors.append(f"{rel}: done action requires `completion_receipt`")
+        if action_state == "cancelled" and not str(
+            values.get("cancellation_receipt") or ""
+        ).strip():
+            errors.append(f"{rel}: cancelled action requires `cancellation_receipt`")
     allowed_dirs = [str(item).rstrip("/") for item in (shape.get("allowed_dirs") or [])]
     if allowed_dirs and not any(rel.startswith(prefix + "/") or rel == prefix for prefix in allowed_dirs):
         errors.append(f"{rel}: page_type `{values.get('page_type')}` not allowed in this directory")

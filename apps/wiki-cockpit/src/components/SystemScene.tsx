@@ -49,7 +49,7 @@ import {
   selectSceneEdges
 } from "../renderers/scene/parts/materials";
 import type { SceneEdge, SceneFallbackReason, TrustKey } from "../renderers/scene/parts/materials";
-import { CenterSignalSprites, ClusterStars, GlowSprites, GroupChildOrbits, GroupShells, HorizonBeacons, NodeInstances, RingSprites, SemanticPageDetails, StarField, morphAttachmentOpacity, overlayCrossfadeWeights, semanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
+import { CenterSignalSprites, ClusterStars, GlowSprites, GroupChildOrbits, GroupShells, HorizonBeacons, NodeInstances, RingSprites, SemanticPageDetails, StarField, morphAttachmentOpacity, overlayCrossfadeWeights, semanticRootBodyPrimitive, visibleSceneNodesForQuadrantLens } from "../renderers/scene/parts/nodes";
 import type { MorphState, OverlayTransitionState, SemanticRootBodyPrimitive } from "../renderers/scene/parts/nodes";
 import { AmbientDriver, isEvidenceGap, SceneParticles } from "../renderers/scene/parts/particles-layer";
 import { DEFAULT_VISUAL_CONTROL_CONFIG } from "./visualControl";
@@ -103,6 +103,7 @@ export type ScenePatch = {
   filter?: string | null;
   lens?: string | null;
   quadrant?: string | null;
+  center?: string | null;
   dock?: string | null;
 };
 
@@ -677,6 +678,21 @@ function SceneContent({
   pulses.current.highlight = [];
   pulses.current.staleMaterials = [];
 
+  const sceneNodes = useMemo(
+    () => visibleSceneNodesForQuadrantLens(layout.nodes, layout.perspective, layout.level, activeQuadrant),
+    [activeQuadrant, layout.level, layout.nodes, layout.perspective]
+  );
+  const sceneLayout = useMemo(
+    () => sceneNodes === layout.nodes ? layout : { ...layout, nodes: sceneNodes },
+    [layout, sceneNodes]
+  );
+  const sceneClusterStars = useMemo(
+    () => layout.perspective === "quadrants" && layout.level === 0 && activeQuadrant && SCENE_FACETS.includes(activeQuadrant as SceneFacet)
+      ? []
+      : layout.clusterStars,
+    [activeQuadrant, layout.clusterStars, layout.level, layout.perspective]
+  );
+
   const focusIds = useMemo(() => {
     const ids = new Set<string>();
     if (selectedId) ids.add(selectedId);
@@ -708,11 +724,11 @@ function SceneContent({
     return edges;
   }, [edges, layout.perspective]);
   const sceneEdges = useMemo(
-    () => selectSceneEdges(perspectiveEdges, layout, focusIds, highlightedIds, profile, isolateRelation, selectedKeys),
-    [focusIds, highlightedIds, isolateRelation, layout, perspectiveEdges, profile, selectedKeys]
+    () => selectSceneEdges(perspectiveEdges, sceneLayout, focusIds, highlightedIds, profile, isolateRelation, selectedKeys),
+    [focusIds, highlightedIds, isolateRelation, perspectiveEdges, profile, sceneLayout, selectedKeys]
   );
-  const relationLanes = useMemo(() => relationLanesForLayout(perspectiveEdges, layout), [layout, perspectiveEdges]);
-  const groupRelationBundles = useMemo(() => groupRelationBundlesForLayout(perspectiveEdges, layout), [layout, perspectiveEdges]);
+  const relationLanes = useMemo(() => relationLanesForLayout(perspectiveEdges, sceneLayout), [perspectiveEdges, sceneLayout]);
+  const groupRelationBundles = useMemo(() => groupRelationBundlesForLayout(perspectiveEdges, sceneLayout), [perspectiveEdges, sceneLayout]);
   const flowEdges = useMemo(() => {
     const attention = (node: LayoutNode) =>
       node.freshness_state === "stale" || node.approved_state === "proposal" || node.risk_flags.length > 0;
@@ -732,9 +748,18 @@ function SceneContent({
   const route = useMemo(() => mocParentRoute(edges, layout, selectedId), [edges, layout, selectedId]);
   const labelModeFactor = visualTuning.labels === "dense" ? 1.45 : visualTuning.labels === "quiet" ? 0.68 : 1;
   const labelDensityFactor = Math.max(0.6, Math.min(1.5, visualTuning.density));
-  const baseLabelBudget = layout.perspective === "quadrants" ? (layout.level === 0 ? 6 : layout.level >= 2 ? 6 : 8) : 14;
+  const baseLabelBudget = layout.perspective === "quadrants"
+    ? layout.level === 0
+      ? activeQuadrant ? 10 : 16
+      : layout.level >= 2
+        ? Math.min(24, Math.max(8, layout.nodes.filter((node) => !node.isGroup).length))
+        : 10
+    : 14;
   const labelBudget = Math.max(3, Math.round(baseLabelBudget * labelModeFactor * labelDensityFactor));
-  const labels = useMemo(() => buildLabelSet(layout, highlightedIds, selectedId, labelBudget), [highlightedIds, labelBudget, layout, selectedId]);
+  const labels = useMemo(
+    () => buildLabelSet(sceneLayout, highlightedIds, selectedId, labelBudget, activeQuadrant as SceneFacet | undefined),
+    [activeQuadrant, highlightedIds, labelBudget, sceneLayout, selectedId]
+  );
 
   // Evidence walk: highlight the current hop and draw the walked chain.
   const walkRoute = useMemo(() => {
@@ -805,12 +830,12 @@ function SceneContent({
     (walkRoute.length > 1 ? 1 : 0);
   const labelCount =
     visibleLabels.length +
-    (layout.perspective === "quadrants" && layout.level >= 1 ? 0 : layout.groups.length) +
-    layout.clusterStars.length +
+    (layout.perspective === "quadrants" ? 0 : layout.groups.length) +
+    sceneClusterStars.length +
     layout.beacons.length +
     (missionMarkers?.length ?? 0) +
     (plateNode ? 1 : 0);
-  const interactiveNodeCount = layout.nodes.length + layout.clusterStars.length + layout.beacons.length;
+  const interactiveNodeCount = sceneNodes.length + sceneClusterStars.length + layout.beacons.length;
   useEffect(() => {
     onPerformanceEvidence(
       performanceTelemetry.updateCounters(
@@ -862,11 +887,11 @@ function SceneContent({
       {layout.nodes.length > 0 && <WorldGuides layout={layout} />}
       {layout.nodes.length > 0 && layout.level === 0 && <GateRing git={git} />}
       <DensityReliefField layout={layout} motion={motion} />
-      <ProposalStems nodes={layout.nodes} morph={morph} />
+      <ProposalStems nodes={sceneNodes} morph={morph} />
       <EdgeArcs edges={sceneEdges} layout={layout} quality={profile.quality} morph={morph} />
       <RouteLine route={route} morph={morph} />
       {walkRoute.length > 1 && <RouteLine route={walkRoute} morph={morph} color={edgeStyle("source_ref").color} />}
-      <GroupTethers nodes={layout.nodes} quality={profile.quality} motion={motion} morph={morph} activeGroupId={hoveredId} />
+      <GroupTethers nodes={sceneNodes} quality={profile.quality} motion={motion} morph={morph} activeGroupId={hoveredId} />
       <FocusContextField node={hoveredNode && hoveredNode.id !== lockedNode?.id ? hoveredNode : null} mode="hover" motion={motion} />
       <InspectionBeams node={hoveredNode && hoveredNode.id !== lockedNode?.id ? hoveredNode : null} motion={motion} />
       <FocusContextField node={lockedNode} mode="lock" motion={motion} />
@@ -898,7 +923,7 @@ function SceneContent({
           the material for the short transaction and yields when it completes. */}
       <AmbientDriver enabled={motion && visualTuning.motion > 0.01} rootRef={rootRef} pulses={pulses} motionScale={visualTuning.motion} glow={visualTuning.glow} />
       <NodeInstances
-        nodes={layout.nodes.filter((node) => !node.isRoot)}
+        nodes={sceneNodes.filter((node) => !node.isRoot)}
         overlay={overlay}
         profile={profile}
         selectedId={selectedId}
@@ -909,7 +934,7 @@ function SceneContent({
         onHover={handleHover}
         registerMaterial={registerMaterial}
       />
-      <SemanticPageDetails nodes={layout.nodes} overlay={overlay} quality={profile.quality} motion={motion} />
+      <SemanticPageDetails nodes={sceneNodes} overlay={overlay} quality={profile.quality} motion={motion} />
       {rootNode && rootBody && !rootNode.isGroup && (
         <mesh
           ref={rootRef}
@@ -939,7 +964,7 @@ function SceneContent({
       )}
       {missionMarkers && missionMarkers.length > 0 && onMarkerAct && (
         <QuestMarkers
-          nodes={layout.nodes}
+          nodes={sceneNodes}
           markers={missionMarkers}
           selectedId={selectedId}
           onAct={onMarkerAct}
@@ -947,13 +972,13 @@ function SceneContent({
           onDismiss={onMarkerDismiss}
         />
       )}
-      <GlowSprites nodes={layout.nodes} highlightedIds={highlightedIds} approvalIds={approvalIds} selectedId={selectedId} walkTargetId={walkTargetId} registerPulse={registerPulse} morph={morph} />
-      {bornIds && bornIds.length > 0 && <BirthBursts nodes={layout.nodes} bornIds={bornIds} />}
+      <GlowSprites nodes={sceneNodes} highlightedIds={highlightedIds} approvalIds={approvalIds} selectedId={selectedId} walkTargetId={walkTargetId} registerPulse={registerPulse} morph={morph} />
+      {bornIds && bornIds.length > 0 && <BirthBursts nodes={sceneNodes} bornIds={bornIds} />}
       {layout.perspective === "quadrants" && (
-        <GroupChildOrbits nodes={layout.nodes} layoutLevel={layout.level} quality={profile.quality} motion={motion} onSelect={onSelect} onHover={handleHover} />
+        <GroupChildOrbits nodes={sceneNodes} layoutLevel={layout.level} quality={profile.quality} motion={motion} onSelect={onSelect} onHover={handleHover} />
       )}
-      <GroupShells nodes={layout.nodes} overlay={overlay} motion={motion} quality={profile.quality} layoutLevel={layout.level} activeGroupId={hoveredId} morph={morph} overlayTransition={overlayTransition} onSelect={onSelect} onHover={handleHover} />
-      <RingSprites nodes={layout.nodes} overlay={overlay} morph={morph} overlayTransition={overlayTransition} />
+      <GroupShells nodes={sceneNodes} overlay={overlay} motion={motion} quality={profile.quality} layoutLevel={layout.level} activeGroupId={hoveredId} morph={morph} overlayTransition={overlayTransition} onSelect={onSelect} onHover={handleHover} />
+      <RingSprites nodes={sceneNodes} overlay={overlay} morph={morph} overlayTransition={overlayTransition} />
       <SceneParticles
         layout={layout}
         flowEdges={flowEdges}
@@ -967,11 +992,19 @@ function SceneContent({
         enabled={visualTuning.particles}
         onCount={publishParticleCount}
       />
-      <NodeLabels labels={visibleLabels} overlay={overlay} selectedId={selectedId} morph={morph} groups={layout.groups} onGroupSelect={onGroupSelect} />
-      {!(layout.perspective === "quadrants" && layout.level >= 1) && (
+      <NodeLabels
+        labels={visibleLabels}
+        overlay={overlay}
+        selectedId={selectedId}
+        morph={morph}
+        groups={layout.groups}
+        onGroupSelect={onGroupSelect}
+        onNodeSelect={onSelect}
+      />
+      {layout.perspective !== "quadrants" && (
         <GroupRimPills groups={layout.groups} focusedGroupKey={focusedGroupKey} onGroupSelect={onGroupSelect} />
       )}
-      <ClusterStars stars={layout.clusterStars} onDrill={onStarDrill} />
+      <ClusterStars stars={sceneClusterStars} onDrill={onStarDrill} />
       <HorizonBeacons beacons={layout.beacons} onJump={onBeaconJump} />
       {/* R7 — two-level reading: the locked node shows its SUMMARY plate in
           place; the full reader (a dock) is the chosen second step and hides
@@ -1117,6 +1150,7 @@ export function SystemScene({
   anchorInfo,
   activeAnchorRecord,
   centerHasQuadrants = false,
+  centerableIds,
   quadrantHomes,
   founding = null,
   seed = null,
@@ -1153,6 +1187,7 @@ export function SystemScene({
   anchorInfo?: Record<string, AnchorHoverInfo>;
   activeAnchorRecord?: AnchorRecord | null;
   centerHasQuadrants?: boolean;
+  centerableIds?: ReadonlySet<string>;
   // Per-page quadrant classification from the interpretation layer — the
   // scene never re-derives what the compiler already decided.
   quadrantHomes?: QuadrantHomes;
@@ -1253,20 +1288,28 @@ export function SystemScene({
     setRevealBoost(0);
   }, [route.perspective, route.context, route.group, route.pageId]);
   const request = useMemo<WorldRequest>(
-    () => ({
-      perspective: route.perspective,
-      context: route.context,
-      group: route.group,
-      pageId: route.pageId,
-      centerId: route.centerId,
-      quadrant: (route.lens || route.quadrant || undefined) as WorldRequest["quadrant"],
-      quadrantHomes,
-      centerHasQuadrants,
-      nodes,
-      edges,
-      maxNodes: Math.min(Math.max(24, Math.round(profile.maxNodes * visualTuning.density)) + revealBoost, 480),
-      snapshotAt
-    }),
+    () => {
+      const semanticCollectionOnPhone =
+        (typeof window === "undefined" ? 1200 : window.innerWidth) <= 620 &&
+        route.perspective === "quadrants" &&
+        Boolean(route.group?.startsWith("family:"));
+      return {
+        perspective: route.perspective,
+        context: route.context,
+        group: route.group,
+        pageId: route.pageId,
+        centerId: route.centerId,
+        quadrant: (route.lens || route.quadrant || undefined) as WorldRequest["quadrant"],
+        quadrantHomes,
+        centerHasQuadrants,
+        nodes,
+        edges,
+        maxNodes: semanticCollectionOnPhone
+          ? Math.min(4 + revealBoost, 24)
+          : Math.min(Math.max(24, Math.round(profile.maxNodes * visualTuning.density)) + revealBoost, 480),
+        snapshotAt
+      };
+    },
     [
       edges,
       nodes,
@@ -1655,21 +1698,26 @@ export function SystemScene({
         navigate({
           context: node.groupDrill?.context ?? null,
           group: node.groupDrill?.group ?? null,
+          lens: node.groupDrill?.lens ?? null,
           pageId: null,
           reader: false
         });
         announce(t("scene.opening", { label: node.title, n: node.groupMemberIds?.length ?? 0 }));
         return;
       }
-      // R7: a click LOCKS the node and shows its summary plate in place — the
-      // full reader is a chosen second step (Enter/Q or the plate's Open).
-      // The 2D fallback has no plates, so there a click opens the reader
-      // directly — otherwise selecting would show nothing at all.
+      if (layout.perspective === "quadrants" && centerableIds?.has(node.id) && node.id !== route.centerId) {
+        queueTravelOrigin(node.position);
+        navigate({ center: node.id, lens: "all", group: null, worldGroup: null, pageId: null, reader: false });
+        announce(t("scene.opening", { label: node.title, n: 1 }));
+        return;
+      }
+      // Quadrant pages are real destinations behind grouping shells, so one
+      // activation opens the reader. Other views keep the summary-plate step.
       queueTravelOrigin(node.position);
-      navigate(fallback ? { pageId: node.id, reader: true } : { pageId: node.id });
+      navigate(fallback || layout.perspective === "quadrants" ? { pageId: node.id, reader: true } : { pageId: node.id });
       announce(`${node.title}, ${contextStyle(node.context).label}, ${freshnessLabel(node.freshness_state)}`);
     },
-    [announce, fallback, navigate, queueTravelOrigin]
+    [announce, centerableIds, fallback, layout.perspective, navigate, queueTravelOrigin, route.centerId]
   );
 
   const handleHover = useCallback((node: LayoutNode | null, event?: ThreeEvent<PointerEvent>) => {
@@ -1703,7 +1751,14 @@ export function SystemScene({
           layout.nodes.find((node) => groupNodeMatchesId(node, group.key)) ??
           layout.nodes.find((node) => node.groupKind === group.kind && node.groupLabelKey === group.labelKey);
         queueTravelOrigin(origin?.position ?? group.anchor);
-        navigate({ context: group.drill.context ?? null, group: group.drill.group ?? null, worldGroup: group.drill.group ?? null, pageId: null, reader: false });
+        navigate({
+          context: group.drill.context ?? null,
+          group: group.drill.group ?? null,
+          worldGroup: group.drill.group ?? null,
+          lens: group.drill.lens ?? null,
+          pageId: null,
+          reader: false
+        });
         announce(t("scene.opening", { label: worldGroupLabel(group.kind, group.labelKey), n: group.count }));
         return;
       }
@@ -1729,6 +1784,7 @@ export function SystemScene({
         context: star.drill.context ?? route.context ?? null,
         group: star.drill.group ?? null,
         worldGroup: star.drill.group ?? null,
+        lens: star.drill.lens ?? null,
         pageId: null,
         reader: false
       });
@@ -1987,6 +2043,7 @@ export function SystemScene({
             highlightedIds={highlightedIds}
             census={census}
             makeHref={hrefFor}
+            centerableIds={centerableIds}
             onNodeSelect={(id) => {
               const node = nodeIndex.get(id);
               if (node) selectNode(node);
@@ -2109,15 +2166,6 @@ export function SystemScene({
               overlay={overlay}
               selectedPageId={selectedId}
               highlightedIds={highlightedIds}
-              onNodeSelect={(id) => {
-                const node = nodeIndex.get(id);
-                if (node) selectNode(node);
-              }}
-              onGroupSelect={(group) => {
-                setMinimapExpanded(false);
-                handleGroupSelect(group);
-              }}
-              onStarDrill={handleStarDrill}
             />
             <button
               className="minimapToggle"

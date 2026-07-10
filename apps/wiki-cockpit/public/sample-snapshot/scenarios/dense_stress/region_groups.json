@@ -390,7 +390,7 @@
         "raw": 2,
         "risk": 0,
         "shown": 40,
-        "source_backed": 159,
+        "source_backed": 162,
         "stale": 34,
         "total": 188,
         "unsourced": 0
@@ -871,6 +871,11 @@
       "absence_state": "not_empty",
       "action_hints": [
         {
+          "count": 2,
+          "kind": "review",
+          "label_key": "region.action.review"
+        },
+        {
           "count": 19,
           "kind": "refresh",
           "label_key": "region.action.refresh"
@@ -883,7 +888,7 @@
           "kind": "stale"
         },
         {
-          "count": 92,
+          "count": 94,
           "kind": "hidden"
         }
       ],
@@ -898,6 +903,8 @@
       "kind": "quadrant",
       "label_key": "pratica",
       "member_ids": [
+        "action-region-clean-unsourced",
+        "action-region-review-evidence",
         "artifact-region-map-01",
         "artifact-region-map-02",
         "artifact-region-map-04",
@@ -1032,17 +1039,17 @@
         "artifact-region-pressure-239"
       ],
       "next_safe_interaction": "",
-      "purpose": "verify",
+      "purpose": "act",
       "summary": {
-        "hidden": 92,
-        "open_actions": 0,
+        "hidden": 94,
+        "open_actions": 2,
         "proposal": 0,
         "raw": 0,
         "risk": 0,
         "shown": 40,
-        "source_backed": 132,
+        "source_backed": 134,
         "stale": 19,
-        "total": 132,
+        "total": 134,
         "unsourced": 0
       },
       "type_mix": [
@@ -1050,6 +1057,11 @@
           "count": 132,
           "family": "content",
           "page_type": "artifact"
+        },
+        {
+          "count": 2,
+          "family": "action",
+          "page_type": "action"
         }
       ],
       "visual": {
@@ -1229,12 +1241,12 @@
       "absence_state": "not_empty",
       "action_hints": [
         {
-          "count": 60,
+          "count": 61,
           "kind": "review",
           "label_key": "region.action.review"
         },
         {
-          "count": 27,
+          "count": 28,
           "kind": "refresh",
           "label_key": "region.action.refresh"
         }
@@ -1242,11 +1254,11 @@
       "anchor_id": "source-support-tickets",
       "attention_hints": [
         {
-          "count": 27,
+          "count": 28,
           "kind": "stale"
         },
         {
-          "count": 87,
+          "count": 88,
           "kind": "hidden"
         }
       ],
@@ -1321,6 +1333,7 @@
         "action-region-pressure-058",
         "action-region-pressure-059",
         "action-region-pressure-060",
+        "action-region-sync-support",
         "artifact-region-map-03",
         "artifact-region-map-05",
         "artifact-region-map-08",
@@ -1392,15 +1405,15 @@
       "next_safe_interaction": "",
       "purpose": "act",
       "summary": {
-        "hidden": 87,
-        "open_actions": 60,
+        "hidden": 88,
+        "open_actions": 61,
         "proposal": 0,
         "raw": 0,
         "risk": 0,
         "shown": 40,
-        "source_backed": 127,
-        "stale": 27,
-        "total": 127,
+        "source_backed": 128,
+        "stale": 28,
+        "total": 128,
         "unsourced": 0
       },
       "type_mix": [
@@ -1410,7 +1423,7 @@
           "page_type": "artifact"
         },
         {
-          "count": 60,
+          "count": 61,
           "family": "action",
           "page_type": "action"
         }

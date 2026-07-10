@@ -411,6 +411,9 @@ test("desktop cockpit modules keep one semantic world while navigating", async (
 
   await page.locator(".missionsButton").click();
   await expect(page.locator(".missionsPanel")).toBeVisible({ timeout: 10000 });
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-primary-surface-open", "true");
+  await expect(page.locator(".quadrantCompass")).toBeHidden();
+  await expect(page.locator(".quadrantCompass")).toHaveAttribute("aria-hidden", "true");
   await expect(page.locator(".missionsPanel .dockTelemetry")).toBeVisible();
   await expect(page.locator(".missionsPanel .dockTelemetryItem")).toHaveCount(4);
   await expectNavigableWorld(page, expectedCenter);
@@ -515,7 +518,7 @@ test("hovering real scene objects inspects without navigating the world", async 
   expect(beforeScene.center).toBe("root-alex-rivera");
   expect(beforeScene.group).toBe("family:source");
 
-  const diegeticObject = page.locator("button.nodeGroupLabel, .clusterStarLabel button, .radarRimPill button").first();
+  const diegeticObject = page.locator("button.nodeLabelBody, .clusterStarLabel button, .radarRimPill button").first();
   await expect(diegeticObject).toBeVisible({ timeout: 10000 });
   await diegeticObject.hover();
   await page.waitForTimeout(350);
@@ -540,7 +543,7 @@ test("selecting a page keeps the declared quadrant center and its lenses", async
   await expect(page.locator(".worldBreadcrumbs")).toContainText("Caio Prado");
 });
 
-test("real group drill-down keeps the real page centered and demotes conceptual lenses", async ({ page }) => {
+test("real group drill-down keeps the real page parent and exposes a semantic local collection", async ({ page }) => {
   await prepareWorld(page, "/demo/w/quadrants?center=root-alex-rivera&lens=pratica&group=family%3Asource");
 
   await expectSingleWorld(page);
@@ -551,8 +554,12 @@ test("real group drill-down keeps the real page centered and demotes conceptual 
   await expectCanonicalWilberGrid(page);
   await expect(page.locator(".quadrantAreaNav")).toHaveCount(0);
   await expect(page.locator(".worldBreadcrumbs")).toContainText("Alex Rivera");
-  await expect(page.locator(".worldBreadcrumbs")).toContainText("data sources");
+  await expect(page.locator(".worldBreadcrumbs")).toContainText("Outputs & evidence");
+  await expect(page.locator(".worldBreadcrumbs")).toContainText("sources & evidence");
   await expect(page).not.toHaveURL(/region%3A|region:/);
-  await expect(page.locator(".nodeGroupLabel").filter({ hasText: /data sources/i })).toHaveCount(0);
+  const summary = page.locator('[data-world-group-summary="family:source"]');
+  await expect(summary).toContainText("13 real pages");
+  await expect(summary.locator("[data-world-member-id]")).toHaveCount(3);
+  await expect(page.locator('[data-world-target-kind="page"]')).not.toHaveCount(0);
   await expect(page.locator("canvas")).toHaveCount(1);
 });

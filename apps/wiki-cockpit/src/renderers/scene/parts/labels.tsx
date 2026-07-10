@@ -10,7 +10,9 @@ import { contextStyle, edgeStyle, pageTypeStyle, trustColor, worldGroupLabel } f
 import { primitiveSlotClass, resolvePrimitiveForSlot } from "../../../data/visualPrimitives";
 import { localizedEncodingAria, localizedEncodingText, visualEncodingResolver } from "../../../data/visualEncoding";
 import type { LayoutNode } from "../../../scene/layout";
+import { parseRegionDrillKey } from "../../../scene/perspectives";
 import type { WorldGroup, WorldLayout } from "../../../scene/perspectives";
+import type { SceneFacet } from "../../../scene/facets";
 import type { OverlayId } from "../../../world/contracts";
 import { MorphingNodeGroup } from "./nodes";
 import type { MorphState } from "./nodes";
@@ -139,7 +141,13 @@ export function labelLiftForNode(node: LayoutNode, tier = 0): number {
   return node.scale * 1.7 + 0.14 + tier * 0.3;
 }
 
-export function buildLabelSet(layout: WorldLayout, highlightedIds: Set<string>, selectedId: string, budget: number): SceneLabel[] {
+export function buildLabelSet(
+  layout: WorldLayout,
+  highlightedIds: Set<string>,
+  selectedId: string,
+  budget: number,
+  activeQuadrant?: SceneFacet
+): SceneLabel[] {
   const seen = new Set<string>();
   const labels: SceneLabel[] = [];
   const scopedQuadrantDrill = layout.perspective === "quadrants" && layout.level >= 1;
@@ -192,6 +200,23 @@ export function buildLabelSet(layout: WorldLayout, highlightedIds: Set<string>, 
       highlightLabels += 1;
     }
   }
+  if (scopedQuadrantDrill) {
+    for (const node of layout.nodes) {
+      if (!node.isRoot && !node.isGroup) candidates.push({ node, annotation: null, annotationColor: null });
+    }
+  } else if (quadrantRoot) {
+    const previewIds = new Set(
+      layout.nodes
+        .filter((node) => node.isGroup && (!activeQuadrant || parseRegionDrillKey(node.id)?.facet === activeQuadrant))
+        .flatMap((node) => node.groupPreviewIds ?? [])
+    );
+    for (const node of layout.nodes) {
+      if (previewIds.has(node.id)) candidates.push({ node, annotation: null, annotationColor: null, compact: true });
+      else if (activeQuadrant && !node.isGroup && node.quadrant === activeQuadrant) {
+        candidates.push({ node, annotation: null, annotationColor: null, compact: true });
+      }
+    }
+  }
   const groupLabelCandidates = layout.nodes
     .filter((node) => node.isGroup)
     .sort((a, b) => {
@@ -222,13 +247,16 @@ export function buildLabelSet(layout: WorldLayout, highlightedIds: Set<string>, 
       candidates.push({ node, annotation: mode === "glyph" ? null : node.isRoot ? null : compactGroupMetric(node), annotationColor: "#9fdff4", compact: !node.isRoot, mode });
       continue;
     }
-    if (quadrantRoot && !node.isRoot && node.groupKind !== "quadrant") {
+    if (quadrantRoot && !node.isRoot) {
+      const region = parseRegionDrillKey(node.id);
+      if (node.groupKind !== "family" || (activeQuadrant && region?.facet !== activeQuadrant)) continue;
+      candidates.push({ node, annotation: compactGroupMetric(node), annotationColor: "#9fdff4", compact: true, mode: "full" });
       continue;
     }
     candidates.push({ node, annotation: quadrantRoot && !node.isRoot ? null : compactGroupMetric(node), annotationColor: "#9fdff4", compact: quadrantRoot && !node.isRoot });
   }
   for (const node of layout.nodes) {
-    if (quadrantRoot && node.isGroup && node.groupKind !== "quadrant") continue;
+    if (quadrantRoot && node.isGroup) continue;
     if (node.isHub && !node.isRoot) candidates.push({ node, annotation: null, annotationColor: null });
   }
   for (const candidate of candidates) {
@@ -250,7 +278,8 @@ export function NodeLabels({
   selectedId,
   morph,
   groups = [],
-  onGroupSelect
+  onGroupSelect,
+  onNodeSelect
 }: {
   labels: SceneLabel[];
   overlay: OverlayId;
@@ -258,6 +287,7 @@ export function NodeLabels({
   morph: RefObject<MorphState>;
   groups?: WorldGroup[];
   onGroupSelect?: (group: WorldGroup) => void;
+  onNodeSelect?: (node: LayoutNode) => void;
 }) {
   const tiers = useMemo(() => {
     const buckets = new Map<number, SceneLabel[]>();
@@ -346,10 +376,14 @@ export function NodeLabels({
             <small>{overlayText}</small>
           </span>
         );
+        const interactivePage = !node.isGroup && Boolean(onNodeSelect);
+        const targetKind = node.isGroup ? "group" : "page";
         const body = interactiveGroup && groupHandle ? (
           <button
             aria-label={labelTitle}
             className={bodyClass}
+            data-world-target-id={node.groupDrill?.group ?? node.groupKey ?? node.id}
+            data-world-target-kind={targetKind}
             onClick={(event) => {
               event.stopPropagation();
               onGroupSelect?.(groupHandle);
@@ -364,8 +398,25 @@ export function NodeLabels({
             {stateRail}
             {composition}
           </button>
+        ) : interactivePage ? (
+          <button
+            aria-label={labelTitle}
+            className={bodyClass}
+            data-world-target-id={node.id}
+            data-world-target-kind="page"
+            onClick={(event) => {
+              event.stopPropagation();
+              onNodeSelect?.(node);
+            }}
+            title={labelTitle}
+            type="button"
+          >
+            {showTitle && <strong>{labelTitle}</strong>}
+            {showMetric && annotation && <em style={{ color: annotationColor ?? undefined }}>{annotation}</em>}
+            {overlaySignal}
+          </button>
         ) : (
-          <span aria-label={labelTitle} className={bodyClass || undefined} title={labelTitle}>
+          <span aria-hidden="true" className={bodyClass || undefined} data-world-decorative="true" title={labelTitle}>
             {node.visualGlyph && <i className="nodeVisualGlyph" aria-hidden>{node.visualGlyph}</i>}
             {showTitle && <strong>{labelTitle}</strong>}
             {showMetric && annotation && <em style={{ color: annotationColor ?? undefined }}>{annotation}</em>}
@@ -381,7 +432,7 @@ export function NodeLabels({
               center
               distanceFactor={distanceFactor}
               className={selected ? "radarLabel selected" : "radarLabel"}
-              wrapperClass={interactiveGroup ? "sceneHtmlLabel sceneHtmlControl" : "sceneHtmlLabel"}
+              wrapperClass={interactiveGroup || interactivePage ? "sceneHtmlLabel sceneHtmlControl" : "sceneHtmlLabel"}
               zIndexRange={[30, 0]}
             >
               {body}
@@ -393,8 +444,8 @@ export function NodeLabels({
   );
 }
 
-// Rim pills: the diegetic group handles. Honest shown/total counts; click
-// drills (or cycles focus when the group has no deeper level).
+// Rim pills: the diegetic group handles. Only destinations with a real drill
+// are controls; terminal map captions stay visibly static and mouse-inert.
 export function GroupRimPills({
   groups,
   focusedGroupKey,
@@ -416,12 +467,22 @@ export function GroupRimPills({
         // An empty facet lens is an honest absence — a dimmed, non-interactive
         // "no X lens registered" wedge rather than a clickable pill over nothing.
         const emptyFacet = group.kind === "facet" && group.count === 0;
+        const interactive = !emptyFacet && Boolean(group.drill || group.kind === "quadrant");
         const label = emptyFacet
           ? t("focus.emptyFacet", { facet: worldGroupLabel(group.kind, group.labelKey) })
           : worldGroupLabel(group.kind, group.labelKey);
+        const header = (
+          <span className="rimHeader">
+            <strong>{label}</strong>
+            {!emptyFacet && <small>{group.shown < group.count ? `${group.shown}/${group.count}` : group.count}</small>}
+          </span>
+        );
         return (
-          <Html key={`rim-${group.key}`} position={group.anchor} center distanceFactor={5.2} wrapperClass="sceneHtmlLabel sceneHtmlControl" className="radarRimPill" zIndexRange={[40, 0]}>
-            <button
+          <Html key={`rim-${group.key}`} position={group.anchor} center distanceFactor={5.2} wrapperClass={interactive ? "sceneHtmlLabel sceneHtmlControl" : "sceneHtmlLabel"} className="radarRimPill" zIndexRange={[40, 0]}>
+            {interactive ? <button
+              aria-label={label}
+              data-world-target-id={group.drill?.group ?? group.key}
+              data-world-target-kind="group"
               style={{ borderColor: emptyFacet ? "#3a4652" : accent, pointerEvents: emptyFacet ? "none" : "auto" }}
               className={[
                 emptyFacet ? "emptyFacet" : "",
@@ -437,10 +498,7 @@ export function GroupRimPills({
               title={region ? primitive.purpose : undefined}
               type="button"
             >
-              <span className="rimHeader">
-                <strong>{label}</strong>
-                {!emptyFacet && <small>{group.shown < group.count ? `${group.shown}/${group.count}` : group.count}</small>}
-              </span>
+              {header}
               {region && (
                 <>
                   <span className="rimTypeMix">
@@ -458,7 +516,11 @@ export function GroupRimPills({
                   {action && <em className="rimAction">{t(action.label_key, { n: action.count })}</em>}
                 </>
               )}
-            </button>
+            </button> : (
+              <span className="rimStaticLabel" data-world-decorative="true" aria-hidden="true">
+                {header}
+              </span>
+            )}
           </Html>
         );
       })}

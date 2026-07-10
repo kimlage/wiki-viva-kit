@@ -8,6 +8,14 @@ context: clientes
 updated_at: '2026-07-03'
 moc_parent: memories/clientes/index.md
 status: open
+action_state: open
+owner_kind: unassigned
+created_at: '2026-07-03'
+next_action: Link each unsourced claim or mark it for removal.
+priority: normal
+attention_basis: Unsourced claims weaken evidence quality.
+source_refs:
+- source-product-analytics
 sub_lens: producao
 ---
 

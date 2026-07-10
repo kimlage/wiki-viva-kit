@@ -8,7 +8,7 @@ context: clientes
 updated_at: '2026-07-03'
 moc_parent: memories/clientes/index.md
 sub_lens: intencao
-state: blocked
+action_state: blocked
 owner_kind: agent
 owner_ref: demo-agent-operator
 created_at: '2026-06-01'
@@ -20,6 +20,7 @@ evidence_refs:
 - artifact-region-pressure-027
 next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: high
+attention_basis: Its lifecycle and evidence state require review.
 blocked_by:
 - source-support-tickets
 blocker_reason: Synthetic parser dependency is blocked.

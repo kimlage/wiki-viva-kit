@@ -9,8 +9,8 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { t } from "../data/i18n";
-import { contextLabel, pageTypeLabel, perspectiveLabel, worldGroupLabel } from "../data/presentation";
-import { groupKeyForPage } from "../scene/perspectives";
+import { contextLabel, pageTypeLabel, pageTypeStyle, perspectiveLabel, worldGroupDescription, worldGroupLabel } from "../data/presentation";
+import { groupKeyForPage, isSourceEmitterType } from "../scene/perspectives";
 import type { PerspectiveId as ScenePerspectiveId } from "../scene/perspectives";
 import { SCENE_FACETS, nodeQuadrant, quadrantHomesFromAssignments, sceneFacetOf } from "../scene/facets";
 import type { QuadrantHomes, SceneFacet } from "../scene/facets";
@@ -512,7 +512,14 @@ export function WorldView({
   const [hoverLinkId, setHoverLinkId] = useState<string | null>(null);
   const [walk, setWalk] = useState<{ ids: string[]; step: number } | null>(null);
   const [trailIds, setTrailIds] = useState<string[]>([]);
-  const primarySurfaceOpen = Boolean(worldState.dock || worldState.readerId || route.query.reader || readerPresence.mounted);
+  const primarySurfaceOpen = Boolean(
+    worldState.dock ||
+    worldState.readerId ||
+    route.query.reader ||
+    readerPresence.mounted ||
+    trayOpen ||
+    missionsOpen
+  );
   const searchRef = useRef<HTMLInputElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const readerWasOpenRef = useRef(readerOpen);
@@ -611,7 +618,14 @@ export function WorldView({
       ...patch,
       pageId: page.id,
       context: page.context || "system",
-      group: isEgoPerspective(perspective) ? null : groupKeyForPage(perspective, page) ?? null
+      // A quadrant family is an explicit density-reduction step, not a page's
+      // canonical location. Opening a real page from the quadrant root must
+      // therefore not invent `family:<type>` (which produced empty technical
+      // collections and false breadcrumbs). An already-open collection stays
+      // in the base route; other perspectives still derive their real group.
+      ...(perspective === "quadrants"
+        ? {}
+        : { group: isEgoPerspective(perspective) ? null : groupKeyForPage(perspective, page) ?? null })
     };
   };
   const canonicalV8Route = (base: WorldRoute, patch: WorldPatch) => {
@@ -1138,6 +1152,14 @@ export function WorldView({
     ),
     [activeQuadrantAnchor, activeQuadrantAnchorId, bundle.graph]
   );
+  const centerableIds = useMemo(
+    () => new Set(
+      Object.entries(bundle.blockStacks?.anchors ?? {})
+        .filter(([, record]) => anchorSupportsQuadrants(record))
+        .map(([pageId]) => pageId)
+    ),
+    [bundle.blockStacks]
+  );
 
   // Quadrant lens: live per-quadrant home counts (+ the honest core) for the
   // active center. It is independent from the base view, so Q1–Q4 can focus
@@ -1478,7 +1500,12 @@ export function WorldView({
 
   // Breadcrumbs: URL-derived, every segment clickable, registry labels.
   const realFamilyGroup = effectivePerspective === "quadrants" ? parseRealFamilyGroupId(route.query.worldGroup) : null;
-  const sceneGroup: string | undefined = effectivePerspective === "quadrants" ? realFamilyGroup?.key : route.group;
+  const sourceFlowCollection = effectivePerspective === "sources" && worldState.group === "family:source"
+    ? { key: "family:source", kind: "source_flow", labelKey: "emitters" } as const
+    : null;
+  const sceneGroup: string | undefined = effectivePerspective === "quadrants"
+    ? realFamilyGroup?.key
+    : sourceFlowCollection?.key ?? route.group;
   const previewQuadrantFacet =
     SCENE_FACETS.includes(previewQuadrant as SceneFacet) ? previewQuadrant : null;
   const runtimeQuadrantFacet: SceneFacet | null =
@@ -1489,6 +1516,35 @@ export function WorldView({
   const selectedQuadrantFacet = runtimeQuadrantFacet;
   const activeQuadrantFacet = (previewQuadrantFacet || selectedQuadrantFacet) as SceneFacet | null;
   const cameraQuadrantFacet = runtimeQuadrantFacet ?? undefined;
+  const familyMembers = useMemo(() => {
+    if (!realFamilyGroup) return [];
+    const ids = new Set(
+      runtimeSceneGraph.nodes
+        .filter((node) => node.id !== activeQuadrantAnchorId)
+        .filter((node) => !runtimeQuadrantFacet || nodeQuadrant(node.id, node.page_type, quadrantHomes) === runtimeQuadrantFacet)
+        .filter((node) => pageTypeStyle(node.page_type).family === realFamilyGroup.family)
+        .map((node) => node.id)
+    );
+    return pages
+      .filter((page) => ids.has(page.id))
+      .sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
+  }, [activeQuadrantAnchorId, pages, quadrantHomes, realFamilyGroup, runtimeQuadrantFacet, runtimeSceneGraph.nodes]);
+  const sourceFlowMembers = useMemo(() => {
+    if (!sourceFlowCollection) return [];
+    const ids = new Set(
+      runtimeSceneGraph.nodes
+        .filter((node) => isSourceEmitterType(node.page_type))
+        .map((node) => node.id)
+    );
+    return pages
+      .filter((page) => ids.has(page.id))
+      .sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
+  }, [pages, runtimeSceneGraph.nodes, sourceFlowCollection]);
+  const semanticCollection = realFamilyGroup
+    ? { key: realFamilyGroup.key, kind: "family", labelKey: realFamilyGroup.family, facet: runtimeQuadrantFacet ?? "all", members: familyMembers }
+    : sourceFlowCollection
+      ? { ...sourceFlowCollection, facet: "all", members: sourceFlowMembers }
+      : null;
   const centeredRealPage =
     activeQuadrantAnchorId
       ? findPage(pages, activeQuadrantAnchorId)
@@ -1505,7 +1561,22 @@ export function WorldView({
   }
   if (sceneGroup && !isEgoPerspective(route.perspective)) {
     if (realFamilyGroup) {
+      if (runtimeQuadrantFacet) {
+        crumbs.push({
+          label: t(`facet.${runtimeQuadrantFacet}`),
+          patch: { lens: worldState.lens, group: null, worldGroup: null, pageId: null, reader: false }
+        });
+      }
       crumbs.push({ label: worldGroupLabel("family", realFamilyGroup.family), patch: { pageId: null, reader: false } });
+    } else if (sourceFlowCollection) {
+      crumbs.push({
+        label: t("world.view.sources"),
+        patch: { view: "sources", group: null, worldGroup: null, pageId: null, reader: false }
+      });
+      crumbs.push({
+        label: worldGroupLabel(sourceFlowCollection.kind, sourceFlowCollection.labelKey),
+        patch: { pageId: null, reader: false }
+      });
     } else {
       const groupKind = route.perspective === "districts" ? "page_type" : route.perspective === "atlas" ? "hub" : "attention";
       crumbs.push({ label: worldGroupLabel(groupKind, sceneGroup), patch: { pageId: null, reader: false } });
@@ -1547,7 +1618,7 @@ export function WorldView({
         visualConfig.particles ? "" : "visualParticlesOff",
         visualPanelOpen ? "visualControlOpen" : "",
         worldNavigatorOpen ? "worldNavigatorOpen" : "",
-        realFamilyGroup ? "familyDrillOpen" : ""
+        semanticCollection ? "familyDrillOpen" : ""
       ].filter(Boolean).join(" ")}
       style={visualWorkspaceStyle}
       aria-label={t("world.aria")}
@@ -1584,6 +1655,7 @@ export function WorldView({
         anchorInfo={anchorInfo}
         activeAnchorRecord={activeQuadrantAnchor}
         centerHasQuadrants={activeCenterHasQuadrants}
+        centerableIds={centerableIds}
         quadrantHomes={quadrantHomes}
         founding={fallbackActive ? null : founding}
         seed={fallbackActive ? null : seed}
@@ -1675,6 +1747,44 @@ export function WorldView({
             <span>{route.demo ? t("world.demoMode") : runtime.mode || bundle.manifest.mode}</span>
           </div>
         </MeasuredWorldTopStrip>
+        )}
+
+        {semanticCollection && (
+          <aside
+            className="familyCollectionPanel"
+            data-world-group-summary={semanticCollection.key}
+            data-world-group-count={semanticCollection.members.length}
+            data-world-group-facet={semanticCollection.facet}
+            aria-label={worldGroupLabel(semanticCollection.kind, semanticCollection.labelKey)}
+          >
+            <header>
+              <strong>{worldGroupLabel(semanticCollection.kind, semanticCollection.labelKey)}</strong>
+              <span>{t("group.collection.count", { n: semanticCollection.members.length })}</span>
+            </header>
+            <p>{worldGroupDescription(semanticCollection.kind, semanticCollection.labelKey)}</p>
+            <div className="familyCollectionExamples">
+              <small>{t("group.collection.examples")}</small>
+              {semanticCollection.members.slice(0, 3).map((page) => {
+                const recenters = centerableIds.has(page.id) && page.id !== worldState.centerId;
+                return (
+                  <button
+                    key={page.id}
+                    data-world-member-id={page.id}
+                    title={page.title}
+                    onClick={() => navigateWorld(
+                      recenters
+                        ? { center: page.id, lens: "all", group: null, worldGroup: null, pageId: null, reader: false }
+                        : { pageId: page.id, reader: true }
+                    )}
+                    type="button"
+                  >
+                    <strong>{page.title}</strong>
+                    <span>{pageTypeLabel(page.page_type)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
         )}
 
         {/* FOCUS legend: the four lenses with live counts. An empty lens is an
@@ -1856,7 +1966,11 @@ export function WorldView({
             packetIds={route.query.packet}
             activeCenterId={activeQuadrantAnchorId}
             onNavigatePage={(id) => navigateWorld({ pageId: id, reader: true })}
-            onClose={() => navigateWorld({ reader: false })}
+            onClose={() => navigateWorld(
+              effectivePerspective === "quadrants"
+                ? { pageId: null, reader: false }
+                : { reader: false }
+            )}
             onTogglePacket={togglePacket}
             onRunOperatorCommand={onRun}
             onComposeBrief={onComposeBrief}

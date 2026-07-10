@@ -917,7 +917,7 @@
         "raw": 0,
         "risk": 0,
         "shown": 5,
-        "source_backed": 0,
+        "source_backed": 1,
         "stale": 1,
         "total": 5,
         "unsourced": 3
@@ -1030,7 +1030,7 @@
         "raw": 7,
         "risk": 0,
         "shown": 13,
-        "source_backed": 3,
+        "source_backed": 6,
         "stale": 2,
         "total": 13,
         "unsourced": 0
@@ -3596,12 +3596,18 @@
       "visual_role": "quadrant"
     },
     {
-      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
-      "absence_state": "healthy",
-      "action_hints": [],
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 1,
+          "kind": "review",
+          "label_key": "region.action.review"
+        }
+      ],
       "anchor_id": "source-agenda",
       "attention_hints": [],
-      "expectation": "empty",
+      "expectation": "present",
       "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
       "expectation_state": "optional",
       "expected_action_hints": [],
@@ -3611,22 +3617,30 @@
       "id": "quadrant:intencao",
       "kind": "quadrant",
       "label_key": "intencao",
-      "member_ids": [],
+      "member_ids": [
+        "action-enviar-proposta"
+      ],
       "next_safe_interaction": "",
-      "purpose": "navigate",
+      "purpose": "act",
       "summary": {
         "hidden": 0,
-        "open_actions": 0,
+        "open_actions": 1,
         "proposal": 0,
         "raw": 0,
         "risk": 0,
-        "shown": 0,
-        "source_backed": 0,
+        "shown": 1,
+        "source_backed": 1,
         "stale": 0,
-        "total": 0,
+        "total": 1,
         "unsourced": 0
       },
-      "type_mix": [],
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "action",
+          "page_type": "action"
+        }
+      ],
       "visual": {
         "emphasis": [
           "healthy"
@@ -7620,6 +7634,11 @@
       "absence_state": "not_empty",
       "action_hints": [
         {
+          "count": 2,
+          "kind": "review",
+          "label_key": "region.action.review"
+        },
+        {
           "count": 1,
           "kind": "inspect_sources",
           "label_key": "region.action.inspectSources"
@@ -7647,6 +7666,8 @@
       "kind": "quadrant",
       "label_key": "pratica",
       "member_ids": [
+        "action-region-clean-unsourced",
+        "action-region-review-evidence",
         "artifact-region-map-01",
         "artifact-region-map-02",
         "artifact-region-map-04",
@@ -7655,17 +7676,17 @@
         "proposal-ingest-product-analytics-2026-07"
       ],
       "next_safe_interaction": "",
-      "purpose": "navigate",
+      "purpose": "act",
       "summary": {
         "hidden": 0,
-        "open_actions": 0,
+        "open_actions": 2,
         "proposal": 1,
         "raw": 1,
         "risk": 0,
-        "shown": 6,
-        "source_backed": 6,
+        "shown": 8,
+        "source_backed": 8,
         "stale": 0,
-        "total": 6,
+        "total": 8,
         "unsourced": 0
       },
       "type_mix": [
@@ -7673,6 +7694,11 @@
           "count": 4,
           "family": "content",
           "page_type": "artifact"
+        },
+        {
+          "count": 2,
+          "family": "action",
+          "page_type": "action"
         },
         {
           "count": 1,
@@ -9088,7 +9114,12 @@
       "absence_state": "not_empty",
       "action_hints": [
         {
-          "count": 3,
+          "count": 1,
+          "kind": "review",
+          "label_key": "region.action.review"
+        },
+        {
+          "count": 4,
           "kind": "refresh",
           "label_key": "region.action.refresh"
         },
@@ -9101,7 +9132,7 @@
       "anchor_id": "source-support-tickets",
       "attention_hints": [
         {
-          "count": 3,
+          "count": 4,
           "kind": "stale"
         },
         {
@@ -9120,23 +9151,24 @@
       "kind": "quadrant",
       "label_key": "pratica",
       "member_ids": [
+        "action-region-sync-support",
         "artifact-region-map-03",
         "artifact-region-map-05",
         "artifact-region-map-08",
         "event-ingest-support-tickets-2026-06"
       ],
       "next_safe_interaction": "",
-      "purpose": "verify",
+      "purpose": "act",
       "summary": {
         "hidden": 0,
-        "open_actions": 0,
+        "open_actions": 1,
         "proposal": 0,
         "raw": 1,
         "risk": 0,
-        "shown": 4,
-        "source_backed": 4,
-        "stale": 3,
-        "total": 4,
+        "shown": 5,
+        "source_backed": 5,
+        "stale": 4,
+        "total": 5,
         "unsourced": 0
       },
       "type_mix": [
@@ -9144,6 +9176,11 @@
           "count": 3,
           "family": "content",
           "page_type": "artifact"
+        },
+        {
+          "count": 1,
+          "family": "action",
+          "page_type": "action"
         },
         {
           "count": 1,

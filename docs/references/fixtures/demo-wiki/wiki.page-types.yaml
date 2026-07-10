@@ -4,7 +4,7 @@ page_types:
     template: docs/references/templates/wiki/action.md
     allowed_dirs:
       - memories/actions
-    required_frontmatter: &relation_required
+    required_frontmatter:
       - page_id
       - page_type
       - context
@@ -13,6 +13,12 @@ page_types:
       - stale_after_days
       - source_refs
       - moc_parent
+      - action_state
+      - owner_kind
+      - created_at
+      - next_action
+      - priority
+      - attention_basis
     field_types:
       <<: &relation_field_types
         updated_at: date
@@ -29,8 +35,8 @@ page_types:
         claims: list
         decisions: list
         actions: list
-      action_state: string
-      owner_kind: string
+      action_state: enum:open,in_progress,blocked,waiting_human,done,cancelled
+      owner_kind: enum:human,agent,system,other,unassigned
       owner_ref: string
       created_at: date
       due_at: date
@@ -46,7 +52,15 @@ page_types:
     template: docs/references/templates/wiki/claim.md
     allowed_dirs:
       - memories/claims
-    required_frontmatter: *relation_required
+    required_frontmatter: &relation_required
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - source_refs
+      - moc_parent
     field_types:
       <<: *relation_field_types
       perspectives_required: list

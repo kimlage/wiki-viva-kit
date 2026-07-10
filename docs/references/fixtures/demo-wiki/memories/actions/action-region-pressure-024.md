@@ -8,7 +8,7 @@ context: clientes
 updated_at: '2026-05-04'
 moc_parent: memories/clientes/index.md
 sub_lens: producao
-state: cancelled
+action_state: cancelled
 owner_kind: other
 owner_ref: demo-other-operator
 created_at: '2026-06-01'
@@ -20,6 +20,7 @@ evidence_refs:
 - artifact-region-pressure-024
 next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: high
+attention_basis: The synthetic action is overdue.
 cancellation_receipt: receipt:demo-action-cancelled-024
 ---
 

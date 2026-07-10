@@ -364,7 +364,7 @@ describe("scene labels", () => {
           groupLabelKey: "source"
         })
       )
-    ).toBe("fontes de dados");
+    ).toBe("fontes & evidências");
   });
 
   it("connects visible group labels to their drill-down group object", () => {

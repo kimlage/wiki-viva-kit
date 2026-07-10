@@ -2,7 +2,7 @@
   "actions": [
     {
       "action_id": "action-region-clean-unsourced",
-      "attention_basis": "",
+      "attention_basis": "Unsourced claims weaken evidence quality.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -11,8 +11,10 @@
       "contract_warnings": [],
       "created_at": "2026-07-03",
       "due_at": "",
-      "evidence_refs": [],
-      "next_action": "",
+      "evidence_refs": [
+        "source-product-analytics"
+      ],
+      "next_action": "Link each unsourced claim or mark it for removal.",
       "overdue": false,
       "owner": {
         "kind": "unassigned",
@@ -21,13 +23,15 @@
       "page_id": "action-region-clean-unsourced",
       "parent_ref": "memories/clientes/index.md",
       "priority": "normal",
-      "source_refs": [],
+      "source_refs": [
+        "source-product-analytics"
+      ],
       "state": "open",
       "title": "Clean unsourced region claims"
     },
     {
       "action_id": "action-region-pressure-001",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -56,7 +60,7 @@
     },
     {
       "action_id": "action-region-pressure-002",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -85,7 +89,7 @@
     },
     {
       "action_id": "action-region-pressure-003",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [
         "source-support-tickets"
       ],
@@ -116,7 +120,7 @@
     },
     {
       "action_id": "action-region-pressure-004",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -145,7 +149,7 @@
     },
     {
       "action_id": "action-region-pressure-005",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -174,7 +178,7 @@
     },
     {
       "action_id": "action-region-pressure-006",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-006",
@@ -203,7 +207,7 @@
     },
     {
       "action_id": "action-region-pressure-007",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -232,7 +236,7 @@
     },
     {
       "action_id": "action-region-pressure-008",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -261,7 +265,7 @@
     },
     {
       "action_id": "action-region-pressure-009",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [
         "source-support-tickets"
       ],
@@ -292,7 +296,7 @@
     },
     {
       "action_id": "action-region-pressure-010",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -321,7 +325,7 @@
     },
     {
       "action_id": "action-region-pressure-011",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -350,7 +354,7 @@
     },
     {
       "action_id": "action-region-pressure-012",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-012",
@@ -379,7 +383,7 @@
     },
     {
       "action_id": "action-region-pressure-013",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -408,7 +412,7 @@
     },
     {
       "action_id": "action-region-pressure-014",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -437,7 +441,7 @@
     },
     {
       "action_id": "action-region-pressure-015",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [
         "source-support-tickets"
       ],
@@ -468,7 +472,7 @@
     },
     {
       "action_id": "action-region-pressure-016",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -497,7 +501,7 @@
     },
     {
       "action_id": "action-region-pressure-017",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -526,7 +530,7 @@
     },
     {
       "action_id": "action-region-pressure-018",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-018",
@@ -555,7 +559,7 @@
     },
     {
       "action_id": "action-region-pressure-019",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -584,7 +588,7 @@
     },
     {
       "action_id": "action-region-pressure-020",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -613,7 +617,7 @@
     },
     {
       "action_id": "action-region-pressure-021",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [
         "source-support-tickets"
       ],
@@ -644,7 +648,7 @@
     },
     {
       "action_id": "action-region-pressure-022",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -673,7 +677,7 @@
     },
     {
       "action_id": "action-region-pressure-023",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -702,7 +706,7 @@
     },
     {
       "action_id": "action-region-pressure-024",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-024",
@@ -731,7 +735,7 @@
     },
     {
       "action_id": "action-region-pressure-025",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -760,7 +764,7 @@
     },
     {
       "action_id": "action-region-pressure-026",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -789,7 +793,7 @@
     },
     {
       "action_id": "action-region-pressure-027",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [
         "source-support-tickets"
       ],
@@ -820,7 +824,7 @@
     },
     {
       "action_id": "action-region-pressure-028",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -849,7 +853,7 @@
     },
     {
       "action_id": "action-region-pressure-029",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -878,7 +882,7 @@
     },
     {
       "action_id": "action-region-pressure-030",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-030",
@@ -907,7 +911,7 @@
     },
     {
       "action_id": "action-region-pressure-031",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -936,7 +940,7 @@
     },
     {
       "action_id": "action-region-pressure-032",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -965,7 +969,7 @@
     },
     {
       "action_id": "action-region-pressure-033",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [
         "source-support-tickets"
       ],
@@ -996,7 +1000,7 @@
     },
     {
       "action_id": "action-region-pressure-034",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1025,7 +1029,7 @@
     },
     {
       "action_id": "action-region-pressure-035",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1054,7 +1058,7 @@
     },
     {
       "action_id": "action-region-pressure-036",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-036",
@@ -1083,7 +1087,7 @@
     },
     {
       "action_id": "action-region-pressure-037",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1112,7 +1116,7 @@
     },
     {
       "action_id": "action-region-pressure-038",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1141,7 +1145,7 @@
     },
     {
       "action_id": "action-region-pressure-039",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [
         "source-support-tickets"
       ],
@@ -1172,7 +1176,7 @@
     },
     {
       "action_id": "action-region-pressure-040",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1201,7 +1205,7 @@
     },
     {
       "action_id": "action-region-pressure-041",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1230,7 +1234,7 @@
     },
     {
       "action_id": "action-region-pressure-042",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-042",
@@ -1259,7 +1263,7 @@
     },
     {
       "action_id": "action-region-pressure-043",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1288,7 +1292,7 @@
     },
     {
       "action_id": "action-region-pressure-044",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1317,7 +1321,7 @@
     },
     {
       "action_id": "action-region-pressure-045",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [
         "source-support-tickets"
       ],
@@ -1348,7 +1352,7 @@
     },
     {
       "action_id": "action-region-pressure-046",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1377,7 +1381,7 @@
     },
     {
       "action_id": "action-region-pressure-047",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1406,7 +1410,7 @@
     },
     {
       "action_id": "action-region-pressure-048",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-048",
@@ -1435,7 +1439,7 @@
     },
     {
       "action_id": "action-region-pressure-049",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1464,7 +1468,7 @@
     },
     {
       "action_id": "action-region-pressure-050",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1493,7 +1497,7 @@
     },
     {
       "action_id": "action-region-pressure-051",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [
         "source-support-tickets"
       ],
@@ -1524,7 +1528,7 @@
     },
     {
       "action_id": "action-region-pressure-052",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1553,7 +1557,7 @@
     },
     {
       "action_id": "action-region-pressure-053",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1582,7 +1586,7 @@
     },
     {
       "action_id": "action-region-pressure-054",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-054",
@@ -1611,7 +1615,7 @@
     },
     {
       "action_id": "action-region-pressure-055",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1640,7 +1644,7 @@
     },
     {
       "action_id": "action-region-pressure-056",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1669,7 +1673,7 @@
     },
     {
       "action_id": "action-region-pressure-057",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [
         "source-support-tickets"
       ],
@@ -1700,7 +1704,7 @@
     },
     {
       "action_id": "action-region-pressure-058",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1729,7 +1733,7 @@
     },
     {
       "action_id": "action-region-pressure-059",
-      "attention_basis": "",
+      "attention_basis": "Its lifecycle and evidence state require review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1758,7 +1762,7 @@
     },
     {
       "action_id": "action-region-pressure-060",
-      "attention_basis": "",
+      "attention_basis": "The synthetic action is overdue.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-060",
@@ -1787,7 +1791,7 @@
     },
     {
       "action_id": "action-region-review-evidence",
-      "attention_basis": "",
+      "attention_basis": "Dense evidence needs a human review.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
@@ -1796,8 +1800,10 @@
       "contract_warnings": [],
       "created_at": "2026-07-03",
       "due_at": "",
-      "evidence_refs": [],
-      "next_action": "",
+      "evidence_refs": [
+        "source-product-analytics"
+      ],
+      "next_action": "Review the region evidence and record the result.",
       "overdue": false,
       "owner": {
         "kind": "unassigned",
@@ -1806,23 +1812,27 @@
       "page_id": "action-region-review-evidence",
       "parent_ref": "memories/clientes/index.md",
       "priority": "normal",
-      "source_refs": [],
+      "source_refs": [
+        "source-product-analytics"
+      ],
       "state": "open",
       "title": "Review region evidence"
     },
     {
       "action_id": "action-region-sync-support",
-      "attention_basis": "",
+      "attention_basis": "The supporting source is outside its freshness window.",
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
       "completed_at": "",
       "completion_receipt": "",
       "contract_warnings": [],
-      "created_at": "2026-05-04",
+      "created_at": "2026-07-03",
       "due_at": "",
-      "evidence_refs": [],
-      "next_action": "",
+      "evidence_refs": [
+        "source-support-tickets"
+      ],
+      "next_action": "Refresh the support-ticket source and verify its receipt.",
       "overdue": false,
       "owner": {
         "kind": "unassigned",
@@ -1830,8 +1840,10 @@
       },
       "page_id": "action-region-sync-support",
       "parent_ref": "memories/clientes/index.md",
-      "priority": "normal",
-      "source_refs": [],
+      "priority": "high",
+      "source_refs": [
+        "source-support-tickets"
+      ],
       "state": "open",
       "title": "Refresh support ticket source"
     }

@@ -9,7 +9,7 @@ context: clientes
 updated_at: '2026-05-04'
 moc_parent: memories/clientes/index.md
 sub_lens: intencao
-state: waiting_human
+action_state: waiting_human
 owner_kind: human
 owner_ref: person-marina-costa
 created_at: '2026-06-01'
@@ -21,6 +21,7 @@ evidence_refs:
 - artifact-region-pressure-016
 next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: normal
+attention_basis: The synthetic action is overdue.
 ---
 
 # Ação que aguarda julgamento humano sobre evidência sintética de alta densidade 016

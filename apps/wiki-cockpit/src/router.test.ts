@@ -256,7 +256,18 @@ describe("router grammar", () => {
     expect(opened.query.center).toBe("root-alex-rivera");
     expect(buildUrl(opened)).toContain("center=root-alex-rivera");
 
-    expect(patchWorld(opened, { center: "company-clearpath-labs" }).query.center).toBe("company-clearpath-labs");
+    const recentered = patchWorld(opened, { center: "company-clearpath-labs" });
+    expect(recentered).toMatchObject({
+      group: undefined,
+      pageId: undefined,
+      query: {
+        center: "company-clearpath-labs",
+        lens: "all",
+        worldGroup: "",
+        page: "",
+        reader: false
+      }
+    });
     expect(patchWorld(opened, { center: null }).query.center).toBe("");
   });
 

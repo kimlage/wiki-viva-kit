@@ -307,6 +307,7 @@ export type WorldPatch = {
 };
 
 export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
+  const centerChanged = typeof patch.center === "string" && patch.center !== route.query.center;
   const next: WorldRoute = {
     kind: "world",
     demo: patch.demo ?? route.demo,
@@ -343,6 +344,17 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
       tour: patch.tour === null ? "" : patch.tour ?? route.query.tour
     }
   };
+  // A center is a new subject, not a filter on the old one. Normalize every
+  // route writer here (including docks that bypass the runtime reducer) so a
+  // stale quadrant/group/reader cannot describe the previous center.
+  if (centerChanged) {
+    next.group = undefined;
+    next.pageId = undefined;
+    next.query.lens = "all";
+    next.query.worldGroup = "";
+    next.query.page = "";
+    next.query.reader = false;
+  }
   // Grammar is positional: most groups need a context, and a locked page needs
   // one. Quadrants are conceptual lenses, not groups; only derived real-family
   // groups inside the quadrant map may use the global "~" placeholder.

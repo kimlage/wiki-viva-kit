@@ -25,14 +25,14 @@
     {
       "anchor_id": "source-product-analytics",
       "code": "region_hidden_density",
-      "count": 92,
+      "count": 94,
       "region_id": "quadrant:pratica",
       "severity": "info"
     },
     {
       "anchor_id": "source-support-tickets",
       "code": "region_hidden_density",
-      "count": 87,
+      "count": 88,
       "region_id": "quadrant:pratica",
       "severity": "info"
     }

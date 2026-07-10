@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-06-25
+updated_at: 2026-07-10
 stale_after_days: 180
 sources_policy: append_only_impact_dispensas
 gate: github_pr
@@ -57,3 +57,6 @@ only to the current diff; it is not a permanent exemption.
 - 2026-07-06 | changed: [memories/system/wiki-viva-kit.md](../wiki-viva-kit.md) | affected: [memories/system/input-stage.md](../input-stage.md) | reason: no source/channel/perspective changed; the root's new blocks:/packages: keys are v2 attachment metadata the input stage does not compile.
 - 2026-07-06 | changed: [memories/system/wiki-viva-kit.md](../wiki-viva-kit.md) | affected: [memories/system/processes/wiki-methodology-maintenance.md](../processes/wiki-methodology-maintenance.md) | reason: maintenance process and gates unchanged; the root's explicit block attachments preserve the exact cockpit behavior it had from type defaults.
 - 2026-07-07 | changed: [memories/system/perspectives/roles-relationships.md](../perspectives/roles-relationships.md), [memories/system/perspectives/systems-processes.md](../perspectives/systems-processes.md) | affected: [memories/system/perspectives/stakeholder.md](../perspectives/stakeholder.md) | reason: v6.9.2 changes only the public labels to Culture and relations / Systems and governance; the stakeholder perspective already states the same cross-quadrant boundary and needs no prose change.
+- 2026-07-10 | changed: [memories/system/input-stage.md](../input-stage.md) | affected: [memories/system/input-channels/methodology-reference.md](../input-channels/methodology-reference.md) | reason: release-candidate regeneration only refreshes the deterministic input-stage freshness date; channel inventory, routing and quadrant scope are unchanged.
+- 2026-07-10 | changed: [memories/system/input-stage.md](../input-stage.md) | affected: [memories/system/processes/wiki-methodology-maintenance.md](../processes/wiki-methodology-maintenance.md) | reason: timestamp-only input-stage regeneration; the maintenance process, cadence and gates remain unchanged.
+- 2026-07-10 | changed: [memories/system/input-stage.md](../input-stage.md) | affected: [memories/system/wiki-viva-kit.md](../wiki-viva-kit.md) | reason: timestamp-only input-stage regeneration; the root entity, source routing, channels and perspective bundle remain unchanged.

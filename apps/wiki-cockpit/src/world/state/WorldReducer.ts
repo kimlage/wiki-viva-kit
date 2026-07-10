@@ -21,7 +21,15 @@ export function createWorldReducer(index: PageEntityIndex, kernel: RegistryKerne
       }
       case "selectCenter":
         return index.has(event.entityId)
-          ? { ...state, centerId: event.entityId, selectedId: undefined, hoveredId: undefined, readerId: undefined, group: undefined }
+          ? {
+              ...state,
+              centerId: event.entityId,
+              lens: "all",
+              selectedId: undefined,
+              hoveredId: undefined,
+              readerId: undefined,
+              group: undefined
+            }
           : state;
       case "setView": {
         const view = kernel.views.get(event.view);
@@ -30,7 +38,16 @@ export function createWorldReducer(index: PageEntityIndex, kernel: RegistryKerne
         return { ...state, view: event.view, overlay };
       }
       case "setLens":
-        return { ...state, lens: event.lens };
+        return event.lens === state.lens
+          ? state
+          : {
+              ...state,
+              lens: event.lens,
+              group: undefined,
+              selectedId: undefined,
+              hoveredId: undefined,
+              readerId: undefined
+            };
       case "setOverlay": {
         const view = kernel.views.require(state.view);
         return view.allowedOverlays.includes(event.overlay) ? { ...state, overlay: event.overlay } : state;

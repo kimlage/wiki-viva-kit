@@ -17,6 +17,7 @@ import { resolvePrimitiveForSlot } from "../../../data/visualPrimitives";
 import type { VisualPrimitiveId, VisualSlotId } from "../../../data/visualPrimitives";
 import type { AnchorRecord } from "../../../types";
 import { glowTexture, ringTexture } from "../glow";
+import { SCENE_FACETS } from "../../../scene/facets";
 import { layoutNodeInstanceKeys } from "../../../scene/layout";
 import type { LayoutNode, ScenePerformanceProfile, SceneQuality } from "../../../scene/layout";
 import type { Beacon, ClusterStar } from "../../../scene/perspectives";
@@ -76,6 +77,25 @@ export type EntityMotionSample = {
   local: number;
   eased: number;
 };
+
+/**
+ * A quadrant lens is a real spatial scope at the world root. Nodes outside the
+ * selected territory must not remain as mouse-only WebGL hit targets after
+ * their DOM labels disappear. Deeper collection drills own their complete
+ * member set, so the lens no longer filters them.
+ */
+export function visibleSceneNodesForQuadrantLens(
+  nodes: LayoutNode[],
+  perspective: string,
+  level: number,
+  activeQuadrant?: string
+): LayoutNode[] {
+  const quadrant = activeQuadrant && SCENE_FACETS.includes(activeQuadrant as (typeof SCENE_FACETS)[number])
+    ? activeQuadrant
+    : null;
+  if (perspective !== "quadrants" || level !== 0 || !quadrant) return nodes;
+  return nodes.filter((node) => node.isRoot || node.quadrant === quadrant);
+}
 
 /** One entity clock for bodies, labels, halos, rings and group shells. */
 export function entityMotionSample(

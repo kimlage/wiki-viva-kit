@@ -3190,7 +3190,7 @@
                 "raw": 0,
                 "risk": 0,
                 "shown": 5,
-                "source_backed": 0,
+                "source_backed": 1,
                 "stale": 1,
                 "total": 5,
                 "unsourced": 3
@@ -3292,7 +3292,7 @@
                 "raw": 7,
                 "risk": 0,
                 "shown": 13,
-                "source_backed": 3,
+                "source_backed": 6,
                 "stale": 2,
                 "total": 13,
                 "unsourced": 0
@@ -9998,16 +9998,10 @@
     "source-agenda": {
       "derived": {
         "empty_quadrants": [
-          "q1",
           "q3",
           "q4"
         ],
         "missions": [
-          {
-            "anchor": "source-agenda",
-            "provider": "quadrant_absence",
-            "quadrant": "q1"
-          },
           {
             "anchor": "source-agenda",
             "provider": "quadrant_absence",
@@ -10021,7 +10015,9 @@
         ],
         "quadrant_assignments": {
           "q0_core": [],
-          "q1": [],
+          "q1": [
+            "action-enviar-proposta"
+          ],
           "q2": [
             "event-ingest-agenda-2026-07"
           ],
@@ -10030,6 +10026,22 @@
         },
         "quadrant_nested_mode": "summarize",
         "quadrant_projections": {
+          "action-enviar-proposta": [
+            {
+              "basis": "page_semantics",
+              "center": "source-agenda",
+              "facet": "intencao",
+              "local_facet_under_subject": "intencao",
+              "local_quadrant_under_subject": "q1",
+              "local_sub_lens_under_subject": "intencao",
+              "page": "action-enviar-proposta",
+              "quadrant": "q1",
+              "reason": "",
+              "sub_lens": "intencao",
+              "subject_center": "source-agenda",
+              "through_center": ""
+            }
+          ],
           "event-ingest-agenda-2026-07": [
             {
               "basis": "page_semantics",
@@ -10048,7 +10060,11 @@
           ]
         },
         "quadrant_sub_lens": {
-          "q1": {},
+          "q1": {
+            "intencao": [
+              "action-enviar-proposta"
+            ]
+          },
           "q2": {
             "evidencias": [
               "event-ingest-agenda-2026-07"
@@ -10061,26 +10077,40 @@
           "anchor": "source-agenda",
           "groups": [
             {
-              "action_hints": [],
+              "action_hints": [
+                {
+                  "count": 1,
+                  "kind": "review",
+                  "label_key": "region.action.review"
+                }
+              ],
               "attention_hints": [],
               "id": "quadrant:intencao",
               "kind": "quadrant",
               "label_key": "intencao",
-              "member_ids": [],
-              "purpose": "navigate",
+              "member_ids": [
+                "action-enviar-proposta"
+              ],
+              "purpose": "act",
               "summary": {
                 "hidden": 0,
-                "open_actions": 0,
+                "open_actions": 1,
                 "proposal": 0,
                 "raw": 0,
                 "risk": 0,
-                "shown": 0,
-                "source_backed": 0,
+                "shown": 1,
+                "source_backed": 1,
                 "stale": 0,
-                "total": 0,
+                "total": 1,
                 "unsourced": 0
               },
-              "type_mix": [],
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "action",
+                  "page_type": "action"
+                }
+              ],
               "visual": {
                 "emphasis": [
                   "healthy"
@@ -19528,6 +19558,8 @@
             "claim-region-evidence-ready"
           ],
           "q2": [
+            "action-region-clean-unsourced",
+            "action-region-review-evidence",
             "artifact-region-map-01",
             "artifact-region-map-02",
             "artifact-region-map-04",
@@ -19540,6 +19572,38 @@
         },
         "quadrant_nested_mode": "summarize",
         "quadrant_projections": {
+          "action-region-clean-unsourced": [
+            {
+              "basis": "page_semantics",
+              "center": "source-product-analytics",
+              "facet": "pratica",
+              "local_facet_under_subject": "pratica",
+              "local_quadrant_under_subject": "q2",
+              "local_sub_lens_under_subject": "producao",
+              "page": "action-region-clean-unsourced",
+              "quadrant": "q2",
+              "reason": "",
+              "sub_lens": "producao",
+              "subject_center": "source-product-analytics",
+              "through_center": ""
+            }
+          ],
+          "action-region-review-evidence": [
+            {
+              "basis": "page_semantics",
+              "center": "source-product-analytics",
+              "facet": "pratica",
+              "local_facet_under_subject": "pratica",
+              "local_quadrant_under_subject": "q2",
+              "local_sub_lens_under_subject": "producao",
+              "page": "action-region-review-evidence",
+              "quadrant": "q2",
+              "reason": "",
+              "sub_lens": "producao",
+              "subject_center": "source-product-analytics",
+              "through_center": ""
+            }
+          ],
           "artifact-region-map-01": [
             {
               "basis": "page_semantics",
@@ -19667,6 +19731,8 @@
               "event-ingest-product-analytics-2026-07"
             ],
             "producao": [
+              "action-region-clean-unsourced",
+              "action-region-review-evidence",
               "artifact-region-map-01",
               "artifact-region-map-02",
               "artifact-region-map-04",
@@ -19730,6 +19796,11 @@
             {
               "action_hints": [
                 {
+                  "count": 2,
+                  "kind": "review",
+                  "label_key": "region.action.review"
+                },
+                {
                   "count": 1,
                   "kind": "inspect_sources",
                   "label_key": "region.action.inspectSources"
@@ -19749,6 +19820,8 @@
               "kind": "quadrant",
               "label_key": "pratica",
               "member_ids": [
+                "action-region-clean-unsourced",
+                "action-region-review-evidence",
                 "artifact-region-map-01",
                 "artifact-region-map-02",
                 "artifact-region-map-04",
@@ -19756,17 +19829,17 @@
                 "event-ingest-product-analytics-2026-07",
                 "proposal-ingest-product-analytics-2026-07"
               ],
-              "purpose": "navigate",
+              "purpose": "act",
               "summary": {
                 "hidden": 0,
-                "open_actions": 0,
+                "open_actions": 2,
                 "proposal": 1,
                 "raw": 1,
                 "risk": 0,
-                "shown": 6,
-                "source_backed": 6,
+                "shown": 8,
+                "source_backed": 8,
                 "stale": 0,
-                "total": 6,
+                "total": 8,
                 "unsourced": 0
               },
               "type_mix": [
@@ -19774,6 +19847,11 @@
                   "count": 4,
                   "family": "content",
                   "page_type": "artifact"
+                },
+                {
+                  "count": 2,
+                  "family": "action",
+                  "page_type": "action"
                 },
                 {
                   "count": 1,
@@ -23136,6 +23214,7 @@
           "q0_core": [],
           "q1": [],
           "q2": [
+            "action-region-sync-support",
             "artifact-region-map-03",
             "artifact-region-map-05",
             "artifact-region-map-08",
@@ -23146,6 +23225,22 @@
         },
         "quadrant_nested_mode": "summarize",
         "quadrant_projections": {
+          "action-region-sync-support": [
+            {
+              "basis": "page_semantics",
+              "center": "source-support-tickets",
+              "facet": "pratica",
+              "local_facet_under_subject": "pratica",
+              "local_quadrant_under_subject": "q2",
+              "local_sub_lens_under_subject": "producao",
+              "page": "action-region-sync-support",
+              "quadrant": "q2",
+              "reason": "",
+              "sub_lens": "producao",
+              "subject_center": "source-support-tickets",
+              "through_center": ""
+            }
+          ],
           "artifact-region-map-03": [
             {
               "basis": "page_semantics",
@@ -23218,6 +23313,7 @@
               "event-ingest-support-tickets-2026-06"
             ],
             "producao": [
+              "action-region-sync-support",
               "artifact-region-map-03",
               "artifact-region-map-05",
               "artifact-region-map-08"
@@ -23272,7 +23368,12 @@
             {
               "action_hints": [
                 {
-                  "count": 3,
+                  "count": 1,
+                  "kind": "review",
+                  "label_key": "region.action.review"
+                },
+                {
+                  "count": 4,
                   "kind": "refresh",
                   "label_key": "region.action.refresh"
                 },
@@ -23284,7 +23385,7 @@
               ],
               "attention_hints": [
                 {
-                  "count": 3,
+                  "count": 4,
                   "kind": "stale"
                 },
                 {
@@ -23296,22 +23397,23 @@
               "kind": "quadrant",
               "label_key": "pratica",
               "member_ids": [
+                "action-region-sync-support",
                 "artifact-region-map-03",
                 "artifact-region-map-05",
                 "artifact-region-map-08",
                 "event-ingest-support-tickets-2026-06"
               ],
-              "purpose": "verify",
+              "purpose": "act",
               "summary": {
                 "hidden": 0,
-                "open_actions": 0,
+                "open_actions": 1,
                 "proposal": 0,
                 "raw": 1,
                 "risk": 0,
-                "shown": 4,
-                "source_backed": 4,
-                "stale": 3,
-                "total": 4,
+                "shown": 5,
+                "source_backed": 5,
+                "stale": 4,
+                "total": 5,
                 "unsourced": 0
               },
               "type_mix": [
@@ -23319,6 +23421,11 @@
                   "count": 3,
                   "family": "content",
                   "page_type": "artifact"
+                },
+                {
+                  "count": 1,
+                  "family": "action",
+                  "page_type": "action"
                 },
                 {
                   "count": 1,

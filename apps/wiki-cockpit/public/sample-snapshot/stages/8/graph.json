@@ -1398,6 +1398,22 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
+      "id": "61ee5f7eb3ccd8aaf122",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "evidence_refs",
+        "page_id": "action-enviar-proposta",
+        "path": "memories/actions/action-enviar-proposta.md"
+      },
+      "source": "source-agenda",
+      "status": "valid",
+      "target": "action-enviar-proposta",
+      "type": "evidence_supports",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
       "id": "d31f49700672102af3bc",
       "observed_at": "2026-07-03",
       "provenance": {
@@ -1956,6 +1972,38 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
+      "id": "e84b00c9e02f3066abbe",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "evidence_refs",
+        "page_id": "action-region-clean-unsourced",
+        "path": "memories/actions/action-region-clean-unsourced.md"
+      },
+      "source": "source-product-analytics",
+      "status": "valid",
+      "target": "action-region-clean-unsourced",
+      "type": "evidence_supports",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "677abe56f39759511834",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "evidence_refs",
+        "page_id": "action-region-review-evidence",
+        "path": "memories/actions/action-region-review-evidence.md"
+      },
+      "source": "source-product-analytics",
+      "status": "valid",
+      "target": "action-region-review-evidence",
+      "type": "evidence_supports",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
       "id": "67041b6f13ef51da66e4",
       "observed_at": "2026-07-03",
       "provenance": {
@@ -2132,6 +2180,22 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
+      "id": "97cb3727bdee17d026ce",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "evidence_refs",
+        "page_id": "action-region-sync-support",
+        "path": "memories/actions/action-region-sync-support.md"
+      },
+      "source": "source-support-tickets",
+      "status": "valid",
+      "target": "action-region-sync-support",
+      "type": "evidence_supports",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
       "id": "cf0736837870fb107d3a",
       "observed_at": "2026-05-04",
       "provenance": {
@@ -2283,7 +2347,7 @@
       "metrics": {
         "inbound_links": 0,
         "outbound_links": 2,
-        "source_ref_count": 0
+        "source_ref_count": 1
       },
       "overlay_metrics": {
         "actions": {
@@ -2307,13 +2371,15 @@
           "value": 0.5
         },
         "evidence": {
-          "count": 0,
+          "count": 1,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-agenda"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -2361,7 +2427,7 @@
       "metrics": {
         "inbound_links": 0,
         "outbound_links": 1,
-        "source_ref_count": 0
+        "source_ref_count": 1
       },
       "overlay_metrics": {
         "actions": {
@@ -2385,13 +2451,15 @@
           "value": 0.5
         },
         "evidence": {
-          "count": 0,
+          "count": 1,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-product-analytics"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -2441,7 +2509,7 @@
       "metrics": {
         "inbound_links": 0,
         "outbound_links": 1,
-        "source_ref_count": 0
+        "source_ref_count": 1
       },
       "overlay_metrics": {
         "actions": {
@@ -2465,13 +2533,15 @@
           "value": 0.5
         },
         "evidence": {
-          "count": 0,
+          "count": 1,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-product-analytics"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -2521,7 +2591,7 @@
       "metrics": {
         "inbound_links": 0,
         "outbound_links": 1,
-        "source_ref_count": 0
+        "source_ref_count": 1
       },
       "overlay_metrics": {
         "actions": {
@@ -2546,13 +2616,15 @@
           "value": 0.5
         },
         "evidence": {
-          "count": 0,
+          "count": 1,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-support-tickets"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -5040,13 +5112,17 @@
           "value": 0.5
         },
         "evidence": {
-          "count": 0,
+          "count": 3,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-agenda",
+            "source-product-analytics",
+            "source-support-tickets"
+          ],
+          "state": "linked",
+          "value": 3
         },
         "freshness": {
           "count": 1,
@@ -7735,27 +7811,35 @@
       },
       "overlay_metrics": {
         "actions": {
-          "count": 0,
-          "reasons": [],
-          "refs": [],
-          "state": "none",
-          "value": 0
+          "count": 1,
+          "reasons": [
+            "action:action-enviar-proposta:open"
+          ],
+          "refs": [
+            "action-enviar-proposta"
+          ],
+          "state": "open",
+          "value": 1
         },
         "attention": {
-          "count": 0,
-          "reasons": [],
-          "refs": [],
-          "state": "quiet",
-          "value": 0
-        },
-        "evidence": {
-          "count": 0,
+          "count": 1,
           "reasons": [
-            "evidence:not_recorded"
+            "action:action-enviar-proposta:open"
           ],
           "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-agenda"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -7769,10 +7853,10 @@
         "ownership": {
           "count": 0,
           "reasons": [
-            "owner:not_applicable"
+            "owner:unassigned"
           ],
           "refs": [],
-          "state": "unknown",
+          "state": "unassigned",
           "value": null
         },
         "quality": {
@@ -9158,27 +9242,38 @@
       },
       "overlay_metrics": {
         "actions": {
-          "count": 0,
-          "reasons": [],
-          "refs": [],
-          "state": "none",
-          "value": 0
+          "count": 2,
+          "reasons": [
+            "action:action-region-clean-unsourced:open",
+            "action:action-region-review-evidence:open"
+          ],
+          "refs": [
+            "action-region-clean-unsourced",
+            "action-region-review-evidence"
+          ],
+          "state": "open",
+          "value": 2
         },
         "attention": {
-          "count": 0,
-          "reasons": [],
-          "refs": [],
-          "state": "quiet",
-          "value": 0
-        },
-        "evidence": {
-          "count": 0,
+          "count": 2,
           "reasons": [
-            "evidence:not_recorded"
+            "action:action-region-clean-unsourced:open",
+            "action:action-region-review-evidence:open"
           ],
           "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "state": "watch",
+          "value": 0.5
+        },
+        "evidence": {
+          "count": 1,
+          "reasons": [
+            "evidence:linked"
+          ],
+          "refs": [
+            "source-product-analytics"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -9192,10 +9287,10 @@
         "ownership": {
           "count": 0,
           "reasons": [
-            "owner:not_applicable"
+            "owner:unassigned"
           ],
           "refs": [],
-          "state": "unknown",
+          "state": "unassigned",
           "value": null
         },
         "quality": {
@@ -9682,15 +9777,20 @@
       },
       "overlay_metrics": {
         "actions": {
-          "count": 0,
-          "reasons": [],
-          "refs": [],
-          "state": "none",
-          "value": 0
-        },
-        "attention": {
           "count": 1,
           "reasons": [
+            "action:action-region-sync-support:open"
+          ],
+          "refs": [
+            "action-region-sync-support"
+          ],
+          "state": "open",
+          "value": 1
+        },
+        "attention": {
+          "count": 2,
+          "reasons": [
+            "action:action-region-sync-support:open",
             "freshness:stale"
           ],
           "refs": [],
@@ -9698,13 +9798,15 @@
           "value": 0.5
         },
         "evidence": {
-          "count": 0,
+          "count": 1,
           "reasons": [
-            "evidence:not_recorded"
+            "evidence:linked"
           ],
-          "refs": [],
-          "state": "unrecorded",
-          "value": 0
+          "refs": [
+            "source-support-tickets"
+          ],
+          "state": "linked",
+          "value": 1
         },
         "freshness": {
           "count": 1,
@@ -9718,10 +9820,10 @@
         "ownership": {
           "count": 0,
           "reasons": [
-            "owner:not_applicable"
+            "owner:unassigned"
           ],
           "refs": [],
-          "state": "unknown",
+          "state": "unassigned",
           "value": null
         },
         "quality": {

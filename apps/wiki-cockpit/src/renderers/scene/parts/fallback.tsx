@@ -20,18 +20,12 @@ export function FallbackPlanView({
   layout,
   overlay,
   selectedPageId,
-  highlightedIds,
-  onNodeSelect,
-  onGroupSelect,
-  onStarDrill
+  highlightedIds
 }: {
   layout: WorldLayout;
   overlay: OverlayId;
   selectedPageId: string;
   highlightedIds: Set<string>;
-  onNodeSelect?: (nodeId: string) => void;
-  onGroupSelect?: (group: WorldGroup) => void;
-  onStarDrill?: (star: ClusterStar) => void;
 }) {
   const size = 420;
   const scale = size / 2 / (layout.rOuter + 1.2);
@@ -41,7 +35,7 @@ export function FallbackPlanView({
   const strongAttention = strongAttentionNodeIds(layout.nodes);
   const instanceKeys = layoutNodeInstanceKeys(layout.nodes);
   return (
-    <svg className="fallbackPlan" viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Content map plan view">
+    <svg className="fallbackPlan" viewBox={`0 0 ${size} ${size}`} aria-hidden="true" focusable="false">
       {layout.guides
         .filter((guide): guide is Extract<typeof guide, { kind: "circle" }> => guide.kind === "circle")
         .map((guide, index) => (
@@ -72,8 +66,6 @@ export function FallbackPlanView({
           y={px(group.anchor[2])}
           className="planContextLabel"
           textAnchor="middle"
-          style={{ cursor: onGroupSelect && (group.drill || group.kind === "quadrant") ? "pointer" : undefined }}
-          onClick={() => (group.drill || group.kind === "quadrant") && onGroupSelect?.(group)}
         >
           {worldGroupLabel(group.kind, group.labelKey)} · {group.shown < group.count ? `${group.shown}/${group.count}` : group.count}
         </text>
@@ -87,8 +79,6 @@ export function FallbackPlanView({
             fill="#334a5c"
             stroke="#6bd7ff"
             strokeWidth={1.4}
-            onClick={() => star.drill && onStarDrill?.(star)}
-            style={{ cursor: onStarDrill && star.drill ? "pointer" : undefined }}
           />
           <text x={px(star.position[0])} y={px(star.position[2]) + 3} className="planContextLabel" textAnchor="middle">
             +{star.count}
@@ -115,8 +105,6 @@ export function FallbackPlanView({
             data-overlay={overlay}
             data-overlay-state={encoding.state}
             data-overlay-strong={strong ? "true" : "false"}
-            onClick={() => onNodeSelect?.(node.id)}
-            style={{ cursor: onNodeSelect ? "pointer" : undefined }}
           />
         );
       })}
@@ -135,6 +123,7 @@ export function SceneFallback({
   highlightedIds,
   census,
   makeHref,
+  centerableIds,
   onNodeSelect,
   onGroupSelect,
   onStarDrill
@@ -147,6 +136,7 @@ export function SceneFallback({
   highlightedIds: Set<string>;
   census: SceneCensus;
   makeHref: (patch: ScenePatch) => string;
+  centerableIds?: ReadonlySet<string>;
   onNodeSelect?: (nodeId: string) => void;
   onGroupSelect: (group: WorldGroup) => void;
   onStarDrill: (star: ClusterStar) => void;
@@ -154,6 +144,7 @@ export function SceneFallback({
   const strongAttention = strongAttentionNodeIds(layout.nodes);
   const fallbackNodes = layout.nodes.slice(0, 24);
   const fallbackNodeKeys = layoutNodeInstanceKeys(fallbackNodes);
+  const currentCenterId = layout.nodes.find((node) => node.isRoot)?.id;
   return (
     <div className="sceneFallback" aria-label="Content map" data-fallback-reason={fallbackReason}>
       <div className="fallbackCore">
@@ -171,9 +162,6 @@ export function SceneFallback({
         overlay={overlay}
         selectedPageId={selectedPageId}
         highlightedIds={highlightedIds}
-        onNodeSelect={onNodeSelect}
-        onGroupSelect={onGroupSelect}
-        onStarDrill={onStarDrill}
       />
       <div
         className="fallbackCensus overlayFallbackLegend"
@@ -201,13 +189,27 @@ export function SceneFallback({
               </span>
             );
           }
+          if (!group.drill && group.kind !== "quadrant") {
+            return (
+              <span
+                key={group.key}
+                className="fallbackGroupLink currentGroup"
+                data-world-decorative="true"
+                aria-hidden="true"
+              >
+                {worldGroupLabel(group.kind, group.labelKey)} · {group.count}
+              </span>
+            );
+          }
           return (
             <a
               key={group.key}
               className={group.region ? "fallbackGroupLink fallbackRegionCard" : "fallbackGroupLink"}
+              data-world-target-id={group.key}
+              data-world-target-kind="group"
               href={
                 group.drill
-                  ? makeHref({ context: group.drill.context ?? null, group: group.drill.group ?? null, pageId: null, reader: false })
+                  ? makeHref({ context: group.drill.context ?? null, group: group.drill.group ?? null, lens: group.drill.lens ?? null, pageId: null, reader: false })
                   : makeHref({})
               }
               onClick={(event) => {
@@ -261,13 +263,18 @@ export function SceneFallback({
           const encodingText = localizedEncodingText(encoding);
           const encodingAria = localizedEncodingAria(encoding);
           const strong = overlay !== "attention" || strongAttention.has(node.id);
+          const recenters = !node.isGroup && node.id !== currentCenterId && Boolean(centerableIds?.has(node.id));
           const href = node.isGroup
-            ? makeHref({ context: node.groupDrill?.context ?? null, group: node.groupDrill?.group ?? null, pageId: null, reader: false })
-            : makeHref({ pageId: node.id, reader: true });
+            ? makeHref({ context: node.groupDrill?.context ?? null, group: node.groupDrill?.group ?? null, lens: node.groupDrill?.lens ?? null, pageId: null, reader: false })
+            : recenters
+              ? makeHref({ center: node.id, lens: "all", group: null, worldGroup: null, pageId: null, reader: false })
+              : makeHref({ pageId: node.id, reader: true });
           return (
             <a
               className={`fallbackNode node-${node.freshness_state}${node.isGroup ? " groupNode" : ""}${node.id === selectedPageId || node.path === selectedPageId ? " active" : ""}${highlightedIds.has(node.id) || highlightedIds.has(node.path) ? " highlighted" : ""}`}
               key={`fallback-node-${fallbackNodeKeys[index]}`}
+              data-world-target-id={node.id}
+              data-world-target-kind={node.isGroup ? "group" : "page"}
               href={href}
               onClick={(event) => {
                 event.preventDefault();

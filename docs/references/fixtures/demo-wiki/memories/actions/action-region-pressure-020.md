@@ -8,7 +8,7 @@ context: clientes
 updated_at: '2026-05-04'
 moc_parent: memories/clientes/index.md
 sub_lens: producao
-state: in_progress
+action_state: in_progress
 owner_kind: unassigned
 owner_ref: ''
 created_at: '2026-06-01'
@@ -20,6 +20,7 @@ evidence_refs:
 - artifact-region-pressure-020
 next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: normal
+attention_basis: The synthetic action is overdue.
 ---
 
 # Dense canonical action 020

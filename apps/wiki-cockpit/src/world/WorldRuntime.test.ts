@@ -94,6 +94,34 @@ describe("WorldRuntime walking skeleton", () => {
     expect(world.getState()).toMatchObject({ centerId: "person-bea", selectedId: undefined, readerId: undefined });
   });
 
+  it("resets lens, group and reading state when a real page becomes the center", () => {
+    const world = runtime("/w?center=root&view=quadrants&lens=q4_sistemas&overlay=actions&group=family%3Ahub&page=source-mail&reader=1");
+
+    world.dispatch({ type: "selectCenter", entityId: "person-bea" });
+
+    expect(world.getState()).toMatchObject({
+      centerId: "person-bea",
+      lens: "all",
+      group: undefined,
+      selectedId: undefined,
+      readerId: undefined
+    });
+  });
+
+  it("leaves an open collection when the user changes quadrant lens", () => {
+    const world = runtime("/w?center=root&view=quadrants&lens=q2_pratica&overlay=actions&group=family%3Asource&page=source-mail&reader=1");
+
+    world.dispatch({ type: "setLens", lens: "q3_relacoes" });
+
+    expect(world.getState()).toMatchObject({
+      centerId: "root",
+      lens: "q3_relacoes",
+      group: undefined,
+      selectedId: undefined,
+      readerId: undefined
+    });
+  });
+
   it("rejects derived objects as centers and keeps lens/overlay changes local", () => {
     const world = runtime();
     world.dispatch({ type: "selectCenter", entityId: "region:source" });

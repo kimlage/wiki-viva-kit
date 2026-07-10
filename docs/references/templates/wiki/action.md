@@ -14,8 +14,9 @@ status: pending
 action_state: open
 next_action: "Describe the next executable or externally blocked step."
 priority: normal
-owner_kind: page
-owner_ref: {{owner_id}}
+attention_basis: "Explain why this action deserves its declared priority."
+owner_kind: unassigned
+owner_ref: ""
 created_at: YYYY-MM-DD
 due_at: YYYY-MM-DD
 blocked_by: []

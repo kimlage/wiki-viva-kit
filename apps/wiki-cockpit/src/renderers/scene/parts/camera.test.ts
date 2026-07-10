@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  centeredCollectionCameraTheta,
   centeredGroupCameraDistance,
   centeredGroupCameraLift,
   centeredGroupCameraPhi,
@@ -100,6 +101,20 @@ describe("quadrant camera travel", () => {
     expect(shallow).toBeGreaterThan(5.2);
     expect(deep).toBeGreaterThan(5.5);
     expect(deep).toBeGreaterThan(0.7 * 3.25 * 3.4);
+  });
+
+  it("centers a real-page family collection after travelling from its quadrant", () => {
+    const layout = quadrantLayout(0.46, 2, 13);
+    layout.group = "family:source";
+    layout.nodes = [
+      layoutNode({ id: "root-alex-rivera", isRoot: true, isHub: true, scale: 0.46 }),
+      ...Array.from({ length: 13 }, (_, index) => layoutNode({ id: `source-${index}`, page_type: "source" }))
+    ];
+
+    expect(centeredCollectionCameraTheta(layout, -Math.PI / 2)).toBe(0);
+    expect(centeredGroupCameraLift(layout)).toBeGreaterThan(0);
+    expect(centeredGroupCameraDistance(layout, 9)).toBeGreaterThanOrEqual(5.8);
+    expect(centeredGroupCameraDistance(layout, 9)).toBeLessThan(9);
   });
 
   it("adds bounded safe-area breathing room for dense grouped drills", () => {

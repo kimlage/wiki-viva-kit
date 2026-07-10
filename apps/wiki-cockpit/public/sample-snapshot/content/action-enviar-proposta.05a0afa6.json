@@ -1,12 +1,32 @@
 {
-  "backlinks": [],
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "page_id": "source-agenda",
+      "page_type": "source",
+      "path": "memories/sources/source-agenda.md",
+      "relation": "evidence_supports",
+      "title": "Agenda"
+    }
+  ],
   "body": "\n# Enviar proposta para Caio\n\nProposal promised to [Caio Prado](../people/person-caio-prado.md).\n",
   "frontmatter": {
+    "action_state": "open",
+    "attention_basis": "A promised client follow-up is still open.",
     "context": "clientes",
+    "created_at": "2026-07-03",
     "home_quadrant": "intencao",
     "moc_parent": "memories/clientes/index.md",
+    "next_action": "Send the promised proposal and record the delivery receipt.",
+    "owner_kind": "unassigned",
     "page_id": "action-enviar-proposta",
     "page_type": "action",
+    "priority": "normal",
+    "source_refs": [
+      "source-agenda"
+    ],
     "stale_after_days": 30,
     "status": "open",
     "sub_lens": "intencao",
@@ -43,6 +63,18 @@
     }
   ],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-e19721a0933cae2a",
-  "source_refs": []
+  "snapshot_id": "wiki-viva-demo-3a7e59e1808bc23d",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "page_id": "source-agenda",
+      "page_type": "source",
+      "path": "memories/sources/source-agenda.md",
+      "ref": "source-agenda",
+      "resolved": true,
+      "title": "Agenda"
+    }
+  ]
 }

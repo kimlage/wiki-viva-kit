@@ -764,9 +764,12 @@ button.stripChip:hover {
   text-align: center;
 }
 
-.radarLabel button.nodeLabelBody:hover {
+.radarLabel button.nodeLabelBody:hover,
+.radarLabel button.nodeLabelBody:focus-visible {
   border-color: rgba(123, 220, 255, 0.5);
   box-shadow: 0 0 12px rgba(107, 215, 255, 0.16);
+  outline: 2px solid rgba(123, 220, 255, 0.55);
+  outline-offset: 2px;
 }
 
 .radarLabel .nodeGroupLabel {
@@ -1055,6 +1058,18 @@ button.stripChip:hover {
   background: rgba(8, 13, 17, 0.85);
   color: #dbe7ee;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.radarRimPill .rimStaticLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 4px;
+  color: #738795;
+  cursor: default;
+  opacity: 0.72;
+  pointer-events: none;
   white-space: nowrap;
 }
 
@@ -1365,6 +1380,11 @@ button.stripChip:hover {
 }
 
 .sceneHtmlControl {
+  pointer-events: none;
+}
+
+.sceneHtmlControl button,
+.sceneHtmlControl a {
   pointer-events: auto;
 }
 
@@ -3542,6 +3562,13 @@ pre {
   }
 }
 
+@media (pointer: coarse) {
+  .radarLabel button.nodeLabelBody {
+    min-width: 44px;
+    min-height: 45px;
+  }
+}
+
 /* CONDITION strip: the honest ambient readout in the top strip. */
 .conditionStrip {
   display: flex;
@@ -3663,6 +3690,107 @@ pre {
 .focusLensEmpty {
   font-style: italic;
   color: #6f7f8c;
+}
+
+/* A family drill is a real, bounded collection: explain the semantic reason
+   for the grouping and offer real member destinations immediately. */
+.familyCollectionPanel {
+  position: absolute;
+  top: calc(var(--world-top-strip-height, 46px) + 10px);
+  left: 12px;
+  z-index: 56;
+  width: min(330px, calc(100% - 250px));
+  display: grid;
+  gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid rgba(127, 208, 232, 0.3);
+  border-radius: 12px;
+  background: rgba(6, 13, 19, 0.92);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.4), 0 0 22px rgba(107, 215, 255, 0.08);
+  backdrop-filter: blur(10px);
+  transition: opacity var(--motion-duration-control) var(--motion-easing-control), visibility var(--motion-duration-control) var(--motion-easing-control);
+}
+
+.familyCollectionPanel header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.familyCollectionPanel header strong {
+  color: #eef7fb;
+  font-size: 14px;
+}
+
+.familyCollectionPanel header span,
+.familyCollectionPanel p,
+.familyCollectionExamples > small,
+.familyCollectionExamples button span {
+  color: #8fa6b5;
+  font-size: 10.5px;
+}
+
+.familyCollectionPanel p {
+  margin: 0;
+  line-height: 1.42;
+}
+
+.familyCollectionExamples {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.familyCollectionExamples > small {
+  grid-column: 1 / -1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.familyCollectionExamples button {
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid #2a414e;
+  border-radius: 8px;
+  background: rgba(11, 22, 29, 0.88);
+  color: #dfeef5;
+  cursor: pointer;
+  text-align: left;
+}
+
+.familyCollectionExamples button:hover,
+.familyCollectionExamples button:focus-visible {
+  border-color: #79c7e8;
+  outline: 2px solid rgba(121, 199, 232, 0.32);
+  outline-offset: 1px;
+}
+
+.familyCollectionExamples button strong {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.familyCollectionExamples button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worldWorkspace.familyDrillOpen .worldMissionCard,
+.worldWorkspace.familyDrillOpen .worldMissionSlim {
+  display: none;
+}
+
+.worldWorkspace[data-primary-surface-open="true"] .familyCollectionPanel,
+.worldWorkspace.worldNavigatorOpen .familyCollectionPanel {
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
 }
 
 /* QUADRANT compass: a compact holographic instrument, not a text card grid. */
@@ -4572,14 +4700,18 @@ pre {
 @media (max-width: 620px) {
   .quadrantCompass,
   .quadrantCompass.drillMode {
-    top: 168px;
+    top: calc(var(--world-top-strip-height, 148px) + 8px);
     right: 10px;
+    width: min(340px, calc(100vw - 34px));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px 6px;
   }
 
   .quadrantCompass.familyDrillMode {
-    top: 186px;
-    right: 20px;
-    opacity: 0.86;
+    top: calc(var(--world-top-strip-height, 148px) + 8px);
+    right: 10px;
   }
 
   .quadrantGrid {
@@ -4602,16 +4734,18 @@ pre {
   .quadrantTextGrid,
   .quadrantCompass.drillMode .quadrantTextGrid,
   .quadrantCompass.familyDrillMode .quadrantTextGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: min(340px, calc(100vw - 34px));
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
     gap: 4px;
-    padding: 5px;
+    padding: 4px;
   }
 
   .quadrantCompassFooter,
   .quadrantCompass.drillMode .quadrantCompassFooter,
   .quadrantCompass.familyDrillMode .quadrantCompassFooter {
-    width: min(340px, calc(100vw - 34px));
+    grid-column: 1;
+    width: auto;
   }
 
   .quadrantAll {
@@ -4619,8 +4753,29 @@ pre {
   }
 
   .quadrantTextCell {
-    min-height: 52px;
-    padding: 5px 6px;
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    min-height: 44px;
+    gap: 3px;
+    padding: 4px;
+  }
+
+  .quadrantAreaDot {
+    width: 9px;
+    height: 9px;
+  }
+
+  .quadrantAreaDot::after {
+    inset: 2px;
+  }
+
+  .quadrantAreaCopy strong {
+    font-size: 10px;
+  }
+
+  .quadrantAqalPosition,
+  .quadrantAreaCopy small,
+  .quadrantCore {
+    display: none;
   }
 
   .quadrantCell {
@@ -4734,8 +4889,75 @@ pre {
   }
 
   .quadrantSeed {
+    grid-column: 2;
+    min-height: 44px;
+    margin: 0;
     padding: 4px 9px;
     font-size: 11px;
+  }
+
+  .worldWorkspace.familyDrillOpen .quadrantCompass {
+    display: none;
+  }
+
+  /* A collection is already the active work surface. Keep only search and
+     the honest demo exit in the phone command rail, freeing the map for its
+     real member examples instead of stacking unrelated destinations below. */
+  .worldWorkspace.familyDrillOpen .worldCommandBar .commandDocks,
+  .worldWorkspace.familyDrillOpen .worldCommandBar .missionsButton,
+  .worldWorkspace.familyDrillOpen .worldCommandBar .workButton,
+  .worldWorkspace.familyDrillOpen .worldCommandBar .tourButton,
+  .worldWorkspace.familyDrillOpen .worldCommandBar .commandHint {
+    display: none;
+  }
+
+  .worldWorkspace.familyDrillOpen .worldCommandBar {
+    gap: 6px;
+  }
+
+  .worldWorkspace.familyDrillOpen .worldCommandBar .commandSearch {
+    flex-basis: 180px;
+  }
+
+  /* The 3D anchor projection compresses at phone aspect ratios. Keep the five
+     stable semantic family handles in their own quadrant lanes so their full
+     44px touch targets never compete for the same pixels. */
+  .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:source"] {
+    translate: -55px -15px;
+  }
+
+  .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:event"] {
+    translate: 15px 5px;
+  }
+
+  .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:person"] {
+    translate: 0 -15px;
+  }
+
+  .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:hub"] {
+    translate: 70px -50px;
+  }
+
+  .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:content"] {
+    translate: 10px -10px;
+  }
+
+  .worldWorkspace[data-world-lens="q2_pratica"] [data-world-target-kind="group"][data-world-target-id="family:source"] {
+    translate: 0 8px;
+  }
+
+  .worldWorkspace[data-world-lens="q2_pratica"] [data-world-target-kind="group"][data-world-target-id="family:event"] {
+    translate: -145px 96px;
+  }
+
+  /* In the focused Q2 phone shelf, keep the real center in the third lane.
+     The larger pre-transform body preserves a true 44px touch target after
+     the perspective projection scales the HTML label. Together with the two
+     family offsets above this leaves the compass, mission chip and command
+     rail as disjoint pointer-safe surfaces. */
+  .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
+    .radarLabel button.nodeLabelBody:not(.nodeCompactLabel):not(.nodeGroupLabel) {
+    translate: 90px 0;
   }
 }
 
@@ -6031,9 +6253,19 @@ pre {
   color: #ffcf94;
 }
 
-.fallbackGroupLink:hover {
+.fallbackGroupLink:not(.currentGroup):not(.emptyFacet):hover {
   border-color: #6bd7ff;
   color: #dff2fb;
+}
+
+.fallbackGroupLink.currentGroup {
+  padding-inline: 2px;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #6f7f8c;
+  cursor: default;
+  pointer-events: none;
 }
 
 .fallbackGroupLink.starLink {
@@ -6087,6 +6319,23 @@ pre {
   }
   .pageReader {
     width: clamp(400px, 58vw, 520px);
+  }
+}
+
+@media (max-width: 760px) {
+  .familyCollectionPanel {
+    top: calc(var(--world-top-strip-height, 46px) + 8px);
+    left: 8px;
+    width: calc(100% - 16px);
+    padding: 9px 10px;
+  }
+
+  .familyCollectionPanel p {
+    font-size: 11px;
+  }
+
+  .familyCollectionExamples button {
+    min-height: 44px;
   }
 }
 
@@ -6163,6 +6412,77 @@ pre {
   .worldWorkspace .sceneShell {
     height: 100%;
     min-height: 0;
+  }
+}
+
+/* On phones the measured navigator, compact four-lens strip and wrapped
+   command bar are real pointer surfaces. Fit the WebGL viewport between them
+   so semantic nodes never sit behind controls that intercept touch. */
+@media (max-width: 620px) {
+  .worldWorkspace .sceneShell:not(.fallbackMode) .sceneCanvasFrame {
+    inset:
+      calc(var(--world-top-strip-height, 148px) + 102px)
+      0
+      calc(var(--world-command-bar-height, 174px) + 8px);
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+  }
+
+  .worldWorkspace.familyDrillOpen .sceneShell:not(.fallbackMode) .sceneCanvasFrame {
+    inset:
+      calc(var(--world-top-strip-height, 148px) + 164px)
+      0
+      calc(var(--world-command-bar-height, 174px) + 8px);
+    overflow: hidden;
+  }
+}
+
+/* Short phone viewports cannot afford three stacked HUD rows above and below
+   the map. Keep the mission and the four quadrant choices, collapse duplicate
+   status/destination controls, and lay the five Q2 destinations into three
+   disjoint touch lanes inside the resulting safe area. */
+@media (max-width: 620px) and (max-height: 720px) {
+  .worldWorkspace[data-world-fallback-active="false"] .conditionStrip,
+  .worldWorkspace[data-world-fallback-active="false"] .worldMeta,
+  .worldWorkspace[data-world-fallback-active="false"] .quadrantCompassFooter,
+  .worldWorkspace[data-world-fallback-active="false"] .quadrantSeed,
+  .worldWorkspace[data-world-fallback-active="false"] .worldCommandBar .commandDocks {
+    display: none;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"] .sceneShell:not(.fallbackMode) .sceneCanvasFrame {
+    inset:
+      calc(var(--world-top-strip-height, 120px) + 62px)
+      0
+      calc(var(--world-command-bar-height, 130px) + 45px);
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"] .worldMissionSlim {
+    bottom: calc(var(--world-command-bar-height, 130px) + 4px);
+  }
+
+  .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
+    [data-world-target-kind="group"][data-world-target-id="family:event"] {
+    translate: -120px 100px;
+  }
+
+  .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
+    .nodeCompactLabel[data-world-target-kind="page"] {
+    width: 52px;
+    max-width: 52px;
+    padding-inline: 4px;
+    translate: 0 22px;
+  }
+
+  .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
+    .nodeCompactLabel[data-world-target-kind="page"] .nodeOverlaySignal {
+    display: none;
+  }
+
+  .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
+    .radarLabel button.nodeLabelBody:not(.nodeCompactLabel):not(.nodeGroupLabel) {
+    translate: 116px -27px;
   }
 }
 
@@ -9291,7 +9611,12 @@ pre {
    (A dedicated child div: drei's `center` owns the wrapper's inline
    transform, so the raise must live one level down.) */
 .anchoredAbove { transform: translateY(calc(-50% - 8px)); animation: anchoredPop var(--motion-duration-control) var(--motion-easing-control) both; }
-.anchoredAbove.anchoredTight { transform: translateY(-50%); }
+.anchoredAbove.anchoredTight {
+  /* Keep the closed mission marker beside its page label. Sharing the exact
+     screen-space center made the marker steal mouse input from the page even
+     though both controls remained keyboard reachable. */
+  transform: translate(34px, -50%);
+}
 /* Opacity-only pop: the raise transform must never be overridden mid-animation. */
 @keyframes anchoredPop { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .anchoredAbove { animation: none; } }
