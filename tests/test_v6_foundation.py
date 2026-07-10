@@ -338,6 +338,31 @@ def test_registry_config_column_only_links_existing_config(tmp_path, monkeypatch
     assert rows["T"] == ""                              # missing -> not linked
 
 
+def test_source_registry_recurses_and_excludes_catalogs_and_artifacts(tmp_path, monkeypatch):
+    reg = _load_script("wiki_source_registry")
+    cfg = WikiConfig()
+    paths = WikiPaths(tmp_path, cfg)
+    _write(
+        tmp_path / "memories/sources/nested/source.md",
+        '---\npage_id: source-nested\npage_type: source\ntitle: "Nested source"\n---\n',
+    )
+    _write(
+        tmp_path / "memories/sources/catalog.md",
+        '---\npage_id: source-catalog\npage_type: source_catalog\ntitle: "Catalog"\n---\n',
+    )
+    _write(
+        tmp_path / "memories/sources/evidence.md",
+        '---\npage_id: source-artifact\npage_type: artifact\ntitle: "Evidence artifact"\n---\n',
+    )
+    monkeypatch.setattr(reg, "ROOT", tmp_path)
+
+    rows = reg.collect_sources(paths, "2026-06-10")
+
+    assert [(row["title"], row["rel"]) for row in rows] == [
+        ("Nested source", "memories/sources/nested/source.md")
+    ]
+
+
 def test_source_registry_marks_next_refresh_status(tmp_path, monkeypatch):
     reg = _load_script("wiki_source_registry")
     cfg = WikiConfig()

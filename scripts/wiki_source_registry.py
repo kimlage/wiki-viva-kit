@@ -27,8 +27,10 @@ sys.path.insert(0, str(ROOT))
 from wiki_core.config import freshness_for, load_config
 from wiki_core.paths import WikiPaths
 
-# Source page_types that count as a canonical source in the registry.
-SOURCE_PAGE_TYPES = {"source", "source_catalog", "artifact"}
+# Only real source pages are canonical registry members. Catalogs and artifacts
+# may describe sources, but they are not source nodes and must not become peers
+# of the sources they index or evidence.
+SOURCE_PAGE_TYPES = {"source"}
 # Strings per language for the generated page (driven by config.language).
 STRINGS = {
     "pt": {
@@ -148,14 +150,14 @@ def _refresh_fields(fm: dict[str, object], as_of: dt.date, strings: dict[str, st
 
 
 def collect_sources(paths: WikiPaths, as_of: str | None = None) -> list[dict[str, str]]:
-    """One row per canonical source page under the sources dir, sorted by title."""
+    """One row per canonical source page anywhere below the sources dir."""
     sources_dir = paths.sources_dir
     as_of_date = _parse_date(as_of) or dt.date.today()
     strings = _strings(load_config(ROOT).language)
     rows: list[dict[str, str]] = []
     if not sources_dir.is_dir():
         return rows
-    for md in sorted(sources_dir.glob("*.md")):
+    for md in sorted(sources_dir.rglob("*.md")):
         if md.name in {"index.md", "README.md"}:
             continue
         fm = read_frontmatter(md)
