@@ -23,7 +23,7 @@ import {
   User,
   X
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { t } from "../data/i18n";
 import { contextLabel, contextStyle, isMetaPage, isRawData, landmarkGlyph, pageTypeLabel, trustColor } from "../data/presentation";
 import { facetsOrder, pinnedFieldStatus, templateSpec } from "../data/templates";
@@ -360,6 +360,16 @@ function ReaderBody({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    container.querySelectorAll<HTMLTableElement>("table").forEach((table) => {
+      if (table.parentElement?.classList.contains("readerTableScroll")) return;
+      const scroller = document.createElement("div");
+      scroller.className = "readerTableScroll";
+      scroller.setAttribute("role", "region");
+      scroller.setAttribute("aria-label", t("reader.tableScroll"));
+      scroller.tabIndex = 0;
+      table.before(scroller);
+      scroller.appendChild(table);
+    });
     container.querySelectorAll<HTMLAnchorElement>("a[href]").forEach((anchor) => {
       const href = anchor.getAttribute("href") || "";
       if (href.startsWith("#")) return; // in-page fragment anchors stay native
@@ -587,7 +597,15 @@ export function PageReader({
   // Comfortable reading: the dock expands into a centered modal (key F).
   const [expanded, setExpanded] = useState(false);
   const dockRef = useRef<HTMLElement>(null);
+  const readerScrollRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+
+  // The reader is one persistent surface while its page changes. Reset its
+  // own scrollport before paint so a registry -> source -> event journey never
+  // inherits the previous document's reading position.
+  useLayoutEffect(() => {
+    if (readerScrollRef.current) readerScrollRef.current.scrollTop = 0;
+  }, [pageId]);
 
   useEffect(() => {
     openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -870,7 +888,7 @@ export function PageReader({
         </div>
       </div>
 
-      <div className="readerScroll">
+      <div className="readerScroll" ref={readerScrollRef}>
         {actionOverview && <ActionSummaryPanel overview={actionOverview} />}
         {loading && <p className="readerNotice">{t("reader.loading")}</p>}
         {!loading && content?.ok && sections.length > 0 && (

@@ -5776,6 +5776,8 @@ pre {
 }
 
 .readerBody {
+  min-width: 0;
+  max-width: 100%;
   font-size: 13px;
   line-height: 1.55;
   color: #c8d8e2;
@@ -5819,18 +5821,37 @@ pre {
   overflow-x: auto;
 }
 
-.readerBody table {
-  display: block;
+.readerTableScroll {
+  width: 100%;
   max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
-  border-collapse: collapse;
-  font-size: 12px;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
 }
 
-.readerBody th,
-.readerBody td {
+.readerTableScroll:focus-visible {
+  outline: 2px solid rgba(107, 215, 255, 0.72);
+  outline-offset: 2px;
+}
+
+.readerBody .readerTableScroll table {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  border-collapse: collapse;
+  font-size: 12px;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.readerBody .readerTableScroll th,
+.readerBody .readerTableScroll td {
   border: 1px solid #24333d;
   padding: 3px 7px;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .readerSection {

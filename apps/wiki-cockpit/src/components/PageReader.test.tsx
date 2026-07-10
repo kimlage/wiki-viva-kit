@@ -208,6 +208,53 @@ describe("PageReader", () => {
     expect(baseProps.onNavigatePage).toHaveBeenCalledWith("beta");
   });
 
+  it("resets its persistent scrollport before rendering a different page", async () => {
+    const loadPageContent = vi.fn(async (id: string) => ({
+      ok: true,
+      body: `# ${id}\n\nBody for ${id}.`,
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    } as PageContent));
+    const { container, rerender } = render(
+      <PageReader {...baseProps} loadPageContent={loadPageContent} pageId="alpha" />
+    );
+
+    await screen.findByText("Body for alpha.");
+    const scrollport = container.querySelector<HTMLElement>(".readerScroll")!;
+    scrollport.scrollTop = 420;
+
+    rerender(<PageReader {...baseProps} loadPageContent={loadPageContent} pageId="beta" />);
+
+    expect(scrollport.scrollTop).toBe(0);
+    expect(await screen.findByText("Body for beta.")).toBeTruthy();
+    expect(loadPageContent).toHaveBeenLastCalledWith("beta", expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  });
+
+  it("contains wide Markdown tables in a keyboard-readable horizontal scroll region", async () => {
+    contentByCase.current = {
+      ok: true,
+      body: [
+        "| Canonical source identifier | Latest normalized ingestion event |",
+        "| --- | --- |",
+        "| source-with-a-long-unbroken-identifier | event-with-a-long-unbroken-identifier |"
+      ].join("\n"),
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    const { container } = render(<PageReader {...baseProps} pageId="alpha" />);
+
+    await screen.findByText("source-with-a-long-unbroken-identifier");
+    const scroller = screen.getByRole("region", { name: "Scrollable table" });
+    const table = scroller.querySelector("table");
+    expect(scroller.classList.contains("readerTableScroll")).toBe(true);
+    expect(scroller.tabIndex).toBe(0);
+    expect(table).toBeTruthy();
+    expect(table?.parentElement).toBe(scroller);
+    expect(container.querySelectorAll(".readerTableScroll")).toHaveLength(1);
+  });
+
   it("degrades honestly when content is unavailable: summary + operator notice, no dead end", async () => {
     contentByCase.current = { ok: false, error: "404" };
     render(
