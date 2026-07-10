@@ -248,7 +248,7 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     assert inventory["schema_version"] == CONSUMER_INVENTORY_SCHEMA_VERSION
     assert package_is_pinned(pkg) is True
     assert pkg["release"]["status"] == "release_candidate"
-    assert pkg["release"]["source_sha"] == "1d801f1cd4b94147a2618dbab55f5b4336651451"
+    assert pkg["release"]["source_sha"] == "d4a3c890132e4c5ff91846f0f2a746e8a64ecc7c"
     assert portable_path_status("apps/wiki-cockpit/.env.local", pkg)[0] is False
     assert (
         portable_path_status(

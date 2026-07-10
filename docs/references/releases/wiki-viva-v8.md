@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`1d801f1cd4b94147a2618dbab55f5b4336651451` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`d4a3c890132e4c5ff91846f0f2a746e8a64ecc7c` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
 downstream preflight safety boundary, `5179dc5c` makes nested centers
@@ -57,6 +57,16 @@ in-app Browser: generated ingestion events now use their canonical source page
 path, or the canonical source ID fallback, as `moc_parent`. The source registry
 therefore remains a source-only collection instead of flattening normalized
 events into its hierarchy.
+`a483ad02` closes the final reader-navigation P0 discovered while traversing
+registry -> source -> event: the persistent reader resets its internal
+scrollport before each page paints, and wide Markdown tables remain readable in
+an accessible, keyboard-focusable horizontal scroll region without creating
+document overflow or per-character wrapping.
+`d4a3c890` closes the remaining tall-mobile P0 found at `390x844`: semantic
+group landmarks keep disjoint 44 px native controls and stable per-quadrant
+lanes on both short and tall phones, including repeated families in real
+downstream worlds. The regression covers both heights, hit-testing, overflow,
+collection progress and canvas continuity.
 
 ## Product boundary
 
@@ -187,9 +197,9 @@ blank world, center error, overlap, unreadable label or sample fallback.
   workflow passes locally, including operational-pass freshness.
 - Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
   sidecar promotion/rollback checks pass.
-- Frontend: 393 unit tests across 51 files and 15 gate tests pass; architecture reports
+- Frontend: 395 unit tests across 51 files and 15 gate tests pass; architecture reports
   0 violations and 0 legacy debt.
-- Bundle: initial JS 139.06 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
+- Bundle: initial JS 139.11 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
   chunk 53.89 kB gzip, all below the committed budgets.
 - Browser matrix: 57 passed with 2 environment-gated real-endpoint skips across
   59 scenarios. A dedicated clean Chromium performance project passes both
@@ -207,13 +217,14 @@ blank world, center error, overlap, unreadable label or sample fallback.
   semantic motion, docks, reader, fallback and mobile. It preserved one canvas,
   had no document overflow, measured p95 12.1 ms on the normal world and proved
   atomic 400 ms overlay crossfades plus reader/Guide focus restoration.
-- Downstream pilot: portable source `1d801f1c`; the prior private proof at
+- Downstream pilot: portable source `d4a3c890`; the prior private proof at
   `fa65d5f9` had toolkit drift 0 and a real snapshot v2
   with 24 payloads and complete private/redacted-public migration reports with
   zero validation errors. Redacted desktop, mobile and fallback evidence uses
   real operator provenance, no sample fallback, clean console/network state
   and exactly one fallback scroll axis across 560 real pages.
-  The controlled private refresh to `1d801f1c` remains the next evidence gate
+  The controlled private refresh to `d4a3c890` is being validated locally and
+  remains the next evidence gate
   in PR #208; no private content is claimed by this public candidate.
 
 ## Superseded planning surfaces
