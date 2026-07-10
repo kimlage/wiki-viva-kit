@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`d4a3c890132e4c5ff91846f0f2a746e8a64ecc7c` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`e14bf73b069d50733a1b4e1154c8bc3943b59755` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
 downstream preflight safety boundary, `5179dc5c` makes nested centers
@@ -67,6 +67,10 @@ group landmarks keep disjoint 44 px native controls and stable per-quadrant
 lanes on both short and tall phones, including repeated families in real
 downstream worlds. The regression covers both heights, hit-testing, overflow,
 collection progress and canvas continuity.
+`e14bf73b` closes the WebKit/Linux route race found by remote visual CI: a
+query debounce can no longer replay the pre-close Create dock over an
+Enter-opened reader. The submitted marker is bounded to the uncommitted query,
+so the same search remains usable after closing the reader.
 
 ## Product boundary
 
@@ -197,7 +201,7 @@ blank world, center error, overlap, unreadable label or sample fallback.
   workflow passes locally, including operational-pass freshness.
 - Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
   sidecar promotion/rollback checks pass.
-- Frontend: 395 unit tests across 51 files and 15 gate tests pass; architecture reports
+- Frontend: 397 unit tests across 51 files and 15 gate tests pass; architecture reports
   0 violations and 0 legacy debt.
 - Bundle: initial JS 139.11 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
   chunk 53.89 kB gzip, all below the committed budgets.
@@ -217,13 +221,13 @@ blank world, center error, overlap, unreadable label or sample fallback.
   semantic motion, docks, reader, fallback and mobile. It preserved one canvas,
   had no document overflow, measured p95 12.1 ms on the normal world and proved
   atomic 400 ms overlay crossfades plus reader/Guide focus restoration.
-- Downstream pilot: portable source `d4a3c890`; the prior private proof at
+- Downstream pilot: portable source `e14bf73b`; the prior private proof at
   `fa65d5f9` had toolkit drift 0 and a real snapshot v2
   with 24 payloads and complete private/redacted-public migration reports with
   zero validation errors. Redacted desktop, mobile and fallback evidence uses
   real operator provenance, no sample fallback, clean console/network state
   and exactly one fallback scroll axis across 560 real pages.
-  The controlled private refresh to `d4a3c890` is being validated locally and
+  The controlled private refresh to `e14bf73b` is being validated locally and
   remains the next evidence gate
   in PR #208; no private content is claimed by this public candidate.
 
