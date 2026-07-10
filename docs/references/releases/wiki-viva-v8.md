@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`cb33c7c1876011f7c2f5b4a9c7bdee39855ef158` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`0229502e1b0b78bbddda0d1b79e9125dd22120f0` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 
 ## Product boundary
@@ -30,6 +30,8 @@ v8 consolidates the cockpit into one center-relative living world:
 - registries own views, overlays, surfaces, scene systems, visual primitives,
   effects, commands and typed relations;
 - source lifecycle, freshness and last attempt remain separate;
+- a primary-surface contract keeps quadrant/HUD instruments behind readers and
+  docks, while the reader exposes decision-ready action facts before prose;
 - static demo, localhost operator and private adapter have explicit capability
   and security boundaries.
 
@@ -130,17 +132,19 @@ blank world, center error, overlap, unreadable label or sample fallback.
 
 ## Final candidate evidence
 
-- Python: 673 passed, 4 skipped; audit 0 errors with 3 known staleness
+- Python: 674 passed, 4 skipped; audit 0 errors with 3 known staleness
   warnings; methodology 22/22. Every command in the remote `audit-and-test`
   workflow passes locally, including operational-pass freshness.
 - Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
   sidecar promotion/rollback checks pass.
-- Frontend: 322 unit tests and 15 gate tests pass; architecture reports
+- Frontend: 351 unit tests and 15 gate tests pass; architecture reports
   0 violations and 0 legacy debt.
-- Bundle: initial JS 130.79 kB gzip, CSS 0.96 kB gzip and largest lazy/worker
-  chunk 50.69 kB gzip, all below the committed budgets.
-- Browser matrix: final rerun 27 passed with 2 environment-gated real-endpoint
-  tests; the configured real operator origin/UI group passed separately.
+- Bundle: initial JS 136.72 kB gzip, CSS 1.02 kB gzip and largest lazy/worker
+  chunk 50.91 kB gzip, all below the committed budgets.
+- Browser matrix: the last full cross-browser rerun remains 42 passed with 2
+  environment-gated real-endpoint tests. The final reader delta adds explicit
+  foreground/mobile/fallback regression specs and was exercised in the in-app
+  browser at `917x908`, `390x844` and `1280x900` without document/shell overflow.
 - Manual public browser QA covered four views, six overlays, four lenses,
   docks, reader, fallback and mobile. The redacted private read-only pass had
   real operator provenance, no sample fallback and no new console warnings.
