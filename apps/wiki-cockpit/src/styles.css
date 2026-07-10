@@ -2799,7 +2799,8 @@ pre {
 .worldWorkspace .sceneShell.fallbackMode {
   height: 100%;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Narrow viewports: the nav collapses to a top row and the header stack grows,
@@ -6027,6 +6028,12 @@ pre {
 /* 2D fallback: HUD pieces stack in flow instead of covering the nested
    navigation lists (the absolute command bar stole the last row of links). */
 .sceneShell.fallbackMode {
+  overflow: visible;
+}
+
+.sceneShell.fallbackMode .sceneFallback {
+  height: auto;
+  min-height: 100%;
   overflow: visible;
 }
 

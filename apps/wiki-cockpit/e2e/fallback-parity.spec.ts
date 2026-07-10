@@ -49,6 +49,26 @@ test("forced fallback preserves route, first viewport and source/action/person/r
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", /pratica|q2_pratica/);
   await expect(page.locator(".fallbackCore")).toBeInViewport();
   await expect(page.locator(".fallbackGroupLink:not(.emptyFacet)").first()).toBeVisible();
+  const scrollContract = await page.locator(".sceneShell").evaluate((shell) => {
+    const fallback = shell.querySelector<HTMLElement>(".sceneFallback");
+    const verticalScrollports = [shell, fallback].filter((element) => {
+      if (!element) return false;
+      const overflowY = getComputedStyle(element).overflowY;
+      return ["auto", "scroll"].includes(overflowY) && element.scrollHeight > element.clientHeight + 1;
+    }).length;
+    return {
+      shellOverflowX: getComputedStyle(shell).overflowX,
+      fallbackOverflowY: fallback ? getComputedStyle(fallback).overflowY : "missing",
+      verticalScrollports,
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
+    };
+  });
+  expect(scrollContract).toEqual({
+    shellOverflowX: "hidden",
+    fallbackOverflowY: "visible",
+    verticalScrollports: 1,
+    documentOverflow: 0
+  });
 
   await openSearchResult(page, "CRM accounts export");
   await openSearchResult(page, "Clean unsourced region claims");
