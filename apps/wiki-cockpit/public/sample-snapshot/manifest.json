@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "6614ff37485fdad88e8608c2e6a09220563a532a884d1364c7d723df6168c9ce",
+  "bundle_hash": "8952cd073408dd5e2d28d9a0b2154af7b907ddcb85d833ccd2843a94cf7b8301",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -166,7 +166,7 @@
       "accessibility"
     ],
     "seed": 8002,
-    "source_input_sha256": "d8bc05ffc625663bda431ccd00f9f71dc35e50139b297876766f78ead1529fa1"
+    "source_input_sha256": "67d02d7873e4caa6f502477540a5d265ad00f8ee97bbc8227a8d05927c393d72"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -175,12 +175,12 @@
       "sha256": "cf43b7c1a259039fccc54a39581f20a02cb7414462ea1edd0e494ee6f3f13d9a"
     },
     "block_stacks.json": {
-      "bytes": 429991,
-      "sha256": "2740f98a264a8f24483f3873f143c833071b2b19812f126908a5db61691d1ed5"
+      "bytes": 451964,
+      "sha256": "673b66c7136ea4b0db715a9e33db269dd7d7a98ef9bbf0f67bfe4b4680740e76"
     },
     "blocks.json": {
-      "bytes": 9128,
-      "sha256": "ab007a9519e2e373f0fade760e76f90971ad64856d4df232b0a9ab7bc9570b28"
+      "bytes": 9268,
+      "sha256": "f0cf42fde146f084667f07789ce27891f9bad0d6c09cf71d2bf94391425e20a1"
     },
     "commands.json": {
       "bytes": 1179,
@@ -188,435 +188,435 @@
     },
     "content/action-enviar-proposta.05a0afa6.json": {
       "bytes": 1213,
-      "sha256": "967524dda2f4ac6eaece0a4368869b1f9851664b3db26459600fe84152152375"
+      "sha256": "7715245905923b55ed1f2695a7faa4749e7fecc08532c0e20e98b313ce16a385"
     },
     "content/action-region-clean-unsourced.b1bf976d.json": {
       "bytes": 1221,
-      "sha256": "4d3d1a2b87eb530dae81f56e8023944acd0ab91084544515b57beffa00e5c791"
+      "sha256": "b7d5815b0a131cb7f3707420be5a1e92ae01a05ed1d02e5d34828b70907d4a4c"
     },
     "content/action-region-review-evidence.113ce011.json": {
       "bytes": 1200,
-      "sha256": "965b23aa6032c83fe9e238a2dcbcab01e5d3a3722bbd5400b1b2a09477aca707"
+      "sha256": "24649b5632ef0d5298804258554a27e57e26e324038e7cdd02b436be2c428c49"
     },
     "content/action-region-sync-support.5f1f5ac0.json": {
       "bytes": 1212,
-      "sha256": "4e25a92305ecde6aa1f0e9c0e4bf94c11637ac0551e6c696c46633781be5ab7a"
+      "sha256": "a097551ebe0f691a4a7dd447aa40f1f3dd6dacfdc061dd607e86d83fbf8cb345"
     },
     "content/artifact-benchmark-safety.006aebe2.json": {
       "bytes": 945,
-      "sha256": "ecc71e65452be1df8d76af927cff09c633a95c94aac70372736ddb17d4404b0e"
+      "sha256": "77916b1c0aebe6a1ca74fb274960b2493bee396dda9f2daf3b70075a05b42fa5"
     },
     "content/artifact-clearpath-prototype.cc27c1af.json": {
       "bytes": 1021,
-      "sha256": "3d3fb61bba76534c12fe9d7724fec30102c66d35fc54a563e118b6c58526a9c8"
+      "sha256": "fe6eda2c741f8d4fa4cb17e4d03743ff2e290d83db11aa7bbe6c4bebe824534b"
     },
     "content/artifact-dashboard-atlas.528653ec.json": {
       "bytes": 933,
-      "sha256": "356072eda88d4d259942efa8050111220cacac52bc19f248cb8f489d708e1e45"
+      "sha256": "a1997edfbff47ad10f301e37e6ab10baf24db0188e5931431687e1e427ba67a2"
     },
     "content/artifact-region-map-01.7d18eac3.json": {
       "bytes": 1478,
-      "sha256": "ec21fc3e766726c66ee8517762c35b5e7f8df1072993a6c18fd8477cfed6fafd"
+      "sha256": "841dfbd259fac55f60d8dd5efdda936be8524febcebad15fc08f74e3e1e4e2c2"
     },
     "content/artifact-region-map-02.7e18ec56.json": {
       "bytes": 1478,
-      "sha256": "a35af843ecb6e5640d88cba3c1e475f028ecc5348431071ae7ab3665db8f4511"
+      "sha256": "925c07d72daeb1d20e10b341fa45b936f28c7cc796639d5b15aa6f4c87947807"
     },
     "content/artifact-region-map-03.7f18ede9.json": {
       "bytes": 1468,
-      "sha256": "a448fee68fc6a17ef135a6d4f846f710bae30ad3e109a9305443b203f70b0d48"
+      "sha256": "15fb46a6cefae5dde20b78188afdaf83a0ebf054d34b7c94f0aa4eee51cb0c90"
     },
     "content/artifact-region-map-04.8018ef7c.json": {
       "bytes": 1502,
-      "sha256": "71ed8d465f0d6fc34eae20514f572bffe5cd1eb897a5c338badef280e96c9205"
+      "sha256": "75a4fb03114fb867729bf76316a01280e4000149b4dc22d5f1bacd69e389bf14"
     },
     "content/artifact-region-map-05.8118f10f.json": {
       "bytes": 1492,
-      "sha256": "2c3a5f9fdc32e94d56104fd9e28318a3cb537b8c0033b623451a27eb71062ead"
+      "sha256": "14a36a435cfaa1794107001d89d882802eda85ba594e531c3b2d8da54cb88960"
     },
     "content/artifact-region-map-06.8218f2a2.json": {
       "bytes": 1550,
-      "sha256": "fe9bcd3b5bf328f2fefcfc8e4dbb877e15bfd28e6cb73ab920fc92bbd88b3885"
+      "sha256": "13d432b838bace83336ebdeeb401e010a98da1be3db07e403dd6ad43d13d85c5"
     },
     "content/artifact-region-map-07.8318f435.json": {
       "bytes": 1496,
-      "sha256": "5581a15bc0b7035ad363cbb7ec918d203d464054d104c72d01c8f32b3ecb2861"
+      "sha256": "1e9584884f580a75dacd8d3727639717dcba274bbe5342fdccbe76dd52d8775e"
     },
     "content/artifact-region-map-08.8418f5c8.json": {
       "bytes": 1486,
-      "sha256": "94f379d0a29c39ba8a61c3593e483dab0fcf42f6ecf0c3a377cc230bc5aacbc6"
+      "sha256": "5119dc5da1e016e5e3093646d51d6f66ebdad8080d7a3384f5c7b4c6f744ce02"
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1494,
-      "sha256": "6f1721c742582d7bece3470f538b49a6ab74338e3cfb07db27f2fcf1b87209d0"
+      "sha256": "2890ea05db69010b9f9333aea2ebb5548c589d9c72bd687953fdcf16302d807d"
     },
     "content/artifact-template-library-example.4a124b65.json": {
       "bytes": 1116,
-      "sha256": "ecaaf3817c428e3ddd442e2249bd72847e2e7f0db9c6a695a0c43979ae91087b"
+      "sha256": "91837b6d5285233fa8c160868ac1175206dafe4f1778014319d227a7b0935d3c"
     },
     "content/block-library-lens.3bdc7ff7.json": {
       "bytes": 2845,
-      "sha256": "1136f5105ea3d3b8ee6fa8708693543a232c04bea7409657e054e363c1dc279a"
+      "sha256": "461bc9a64e7fcbcfa51cd02de0879b3b931bab4c076faa0451ba86df2e1f46e3"
     },
     "content/claim-clearpath-market-signal.8ec8804a.json": {
       "bytes": 1063,
-      "sha256": "9d627034c3954fc0fd4ff7afa4b1a6a0e404e736ef143c335e5501119cb3f38b"
+      "sha256": "f04e65b3220addb964508d324eb5c2535a2e35360634df21f04a932f3be82ecd"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 1462,
-      "sha256": "2a7cb79d56ae9b00b65d4ebd1a1e3db2cacb24eee0e595bb8768d090cc5e24f5"
+      "sha256": "7e16044ff9a13915075204e8f6f81cda406ca5a22b60fe43b9f53bbb3989b591"
     },
     "content/claim-pulse-activation.38e10cd6.json": {
       "bytes": 1146,
-      "sha256": "58ab957ebba5879c94006dfa19c7fc65b85641188079315a5c84f2e019cbd115"
+      "sha256": "6562c0f620703e6a2c486688101068842dd867da65110c99baaee5f2eaee435b"
     },
     "content/claim-region-evidence-ready.153eb2ca.json": {
       "bytes": 1578,
-      "sha256": "19b510338072aa64771006aac621258eab81ae538e39a7a64ff90636edb52259"
+      "sha256": "bff30f61aa121f468e8118cc21da607b4f45b7dc5a5e3d92ae45e0eb83ede509"
     },
     "content/claim-region-grouping-needed.3562287e.json": {
       "bytes": 1197,
-      "sha256": "20f133fa658be3f32408d9dc625a037ce2dd88f217976158142173c0336aaecf"
+      "sha256": "65df4d4548f57dd76ade80ed3e403c255ccd0fe7a26be66e7ca74a6fb45f6656"
     },
     "content/claim-region-hidden-work.20c22571.json": {
       "bytes": 1188,
-      "sha256": "ee9cab3422234ce02aaf03a3aa1b7a33dca76c38a1f7407b8471779e5ab9dc52"
+      "sha256": "f6cdd17cac3c3f60e6b5f4327712cfc3f6cfee312934c7e15581e9ebc8b91f48"
     },
     "content/claim-scaling-laws.4fa5829f.json": {
       "bytes": 946,
-      "sha256": "d37a1ce7394b37f3f2b92a19619d2e6e6516f3717ecb3322731caa9a8838ed31"
+      "sha256": "bd84162675ec431484e5bb3c0faef6dd453ef2ab8e23bc08282798edb0f8b2f9"
     },
     "content/claim-template-library-purpose.9c5b84a9.json": {
       "bytes": 1096,
-      "sha256": "d714116bcafb04f3c49a48dbde78483abb28b5d4cfb26bdc1cdfb03457d3e19a"
+      "sha256": "c592549056675c3946c1fcfcfacf8e600eb7cbc08af89890ad8883105b1f9ee2"
     },
     "content/company-clearpath-labs.3af57f9e.json": {
       "bytes": 5930,
-      "sha256": "e22b59987e568d50a4ce99e237095a0586cc230c4a81248c06c369a5ff9dd95a"
+      "sha256": "3d7b4ffdfbcf0293a6593ec2f61db3066d3798216cb97ae50f876b610992593f"
     },
     "content/dashboard-clearpath-activation.7cff7fcb.json": {
       "bytes": 1706,
-      "sha256": "f2a4136bd8443a873db08186f890b3d0cecf8974e2cdc2801da13300492de73a"
+      "sha256": "fff28f29d0edfa7ff21a0bcc6197e415547a2286fa7089e149efd6b2347808c4"
     },
     "content/decision-clearpath-enter-midmarket.bcbd1634.json": {
       "bytes": 1076,
-      "sha256": "5d7d87ad02057005c67841b597992eafc106152072a4da17b2ff03ef47822656"
+      "sha256": "4e0d66ca877cdfddc5aa1632c57fc52d634b806339feaee050ca8d5689af270f"
     },
     "content/decision-onboarding.c7dd4f27.json": {
       "bytes": 952,
-      "sha256": "e6437e93a31634c3f64c092245c366d01f566a747434e7d041748d253279a3e5"
+      "sha256": "04d02cdd691e3ef95c35eca461f1ecca2fd587cf25f24e817bc6e741dbbc207e"
     },
     "content/decision-precos.9841cd2a.json": {
       "bytes": 913,
-      "sha256": "289a1098e58deb6c95b889b8b97921657615504e68e5bd0b4385ea844589f282"
+      "sha256": "778cbd346488a75947566096d49cb93146aa651036582d1c7d966b49a9b26496"
     },
     "content/event-ingest-agenda-2026-07.239edae8.json": {
       "bytes": 1644,
-      "sha256": "b0ae5d4150a72663d26c460776752659cdd27a06411107aa876fd66bf6afce9c"
+      "sha256": "22a45bf0486e064e4c94cf5c874b373b23c4f9c89d98bd7f8187a0c0cab025b5"
     },
     "content/event-ingest-banco-2026-05.60d41f0b.json": {
       "bytes": 1850,
-      "sha256": "67458885c887b1be86465d68f37d6bff54b74adfe63613b5b6aed944d852237a"
+      "sha256": "ca645fface709c912cba2d66ed5160b340b467cf2cf4e7eea4458fd2946552c4"
     },
     "content/event-ingest-chat-2026-07.1960cfa6.json": {
       "bytes": 1715,
-      "sha256": "820748fe959bbfafc02bedde53a6b2c46cb6193d91cdf68627ee4edbb967fb82"
+      "sha256": "89074ed0e44c12142b93aedda51d66d845b40a561b4e64ef3f790f657aa7c54a"
     },
     "content/event-ingest-product-analytics-2026-07.736e4284.json": {
       "bytes": 2222,
-      "sha256": "701a0af0afc2d1ab5c1ddeebfdba1c63f90b34e338a7285a664d71fcd7ae0ab8"
+      "sha256": "5d09c685579cca82181a98c452f7b6f88176ea8185769e76e1315c07e170a358"
     },
     "content/event-ingest-support-tickets-2026-06.fc48bb42.json": {
       "bytes": 1821,
-      "sha256": "f63aa98c3024091232111a2d53de94e854400ae54f24c444e907d68d97f2784a"
+      "sha256": "d1f5a8f447814c50e2841a95813f064d2a5c5e9e1fc6492729bf4f5bfcc561a2"
     },
     "content/holon-product-ops.744a6fbe.json": {
       "bytes": 4180,
-      "sha256": "9d4c649aa337c8a374f9551f251ada1218658898c6042c3be0b019ae1eb8e451"
+      "sha256": "f55cfc08788d7e7f546e3a7a7e167169218e380ffdd0cdb7953b07c31dbe35ea"
     },
     "content/hub-clientes.3f6a2080.json": {
       "bytes": 5905,
-      "sha256": "930f8fb4a8e0cad6acb3de0abb0390af49e8241cb8632e08b5a20d3cf56818fa"
+      "sha256": "1953fe8214cb838bffd04571b2ad3a10b0873ad1cd7361ddc663db645f07faff"
     },
     "content/hub-estudio.5299d7d0.json": {
       "bytes": 1068,
-      "sha256": "397bc759c9783df30d718d28fef04c9419449dfde0ebe01c34b14fe56cb6f09b"
+      "sha256": "326d939c63b7e236830951bcc051ae5db7fa92d80ba5fc62c6efb756f107b4f5"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 2448,
-      "sha256": "006cb8047042bf005b23d213b70df83af8363d11ae2f0fe34ef480c7d839bb14"
+      "sha256": "f011c84e1f8af7e81bab9da5afc1186337b0098c5e5f793270d712f73aafcba8"
     },
     "content/hub-sistema.ee25ae91.json": {
       "bytes": 4029,
-      "sha256": "58d0f2eceba3882a06ea2158c5fdce5c2210a27a7f6b05a9c5ff3607eb9d6e0b"
+      "sha256": "38fd09364c84278ad67df64aa18e04da18975661a2894cf90e64a21b34a92baf"
     },
     "content/idx-decisoes.2978228e.json": {
-      "bytes": 841,
-      "sha256": "fc574dafd55c1ed9ea8c2aad3f29d39c68b6d12e7e767f7ebf8c4155ecde8386"
+      "bytes": 2193,
+      "sha256": "51e746093d3d433ba7f14ef3aae8aae86418559df8f0132dda938a4a0f08a3c4"
     },
     "content/insight-calendario-calmo.bc9fec19.json": {
       "bytes": 924,
-      "sha256": "1a6ede595883c4ed8f00886a6255997c4d37c3238977374d2d0929f78aa9e461"
+      "sha256": "2a77411f369b737c707a53142eda820d196516c67eab788311c1a83f3ef92ee1"
     },
     "content/journal-2026-07-02.d025db62.json": {
       "bytes": 1253,
-      "sha256": "0485dd2be7bb82c50be23f56871a8ddefcc04c5ea613517ed61363a441b0e8d1"
+      "sha256": "59524713ba8a5803973c8fb4307eeae0fe0cb681b1045201ba46fbbd1b1a3ad9"
     },
     "content/library-ai-safety.bea650b2.json": {
       "bytes": 2188,
-      "sha256": "330bf95e40e91459850980f7ffd57507f43120f6eeb55d53d5817a3d4486a8e4"
+      "sha256": "d393f472a9efb45c9bf71f6869d31ce0f5bee9d0ecfaeb2d17da3ed251adc733"
     },
     "content/meeting-clearpath-alignment.86ab71a9.json": {
       "bytes": 1018,
-      "sha256": "efa6eb3d4fc4ee0446c39bf6ae5d0340480a50ca385f2efaaf76d9c891abbc63"
+      "sha256": "df358298c189e21e39fb72afb7e1f17b47f5552fbdd9a7ee655b38f0daa2eb7c"
     },
     "content/meeting-template-library-review.84aa2e5c.json": {
       "bytes": 1096,
-      "sha256": "84a075ce322c5ec3004efad055257c3463fafe3b6e3e0697f26f830b141d25b3"
+      "sha256": "2cce7d0efd1912bccb095bdc70fc4bf296c7ca00fce6b3389d28194983e71d3f"
     },
     "content/meeting-weekly-sync.c890e266.json": {
       "bytes": 1631,
-      "sha256": "69df5299cf962618ef92744ffa1fa5b5ff565943d08e68dd956581b32d4e5ee0"
+      "sha256": "146db2949116f6d6d8fee2b2b3669c7df4306592e74e41883ce9ab0a9f61db11"
     },
     "content/person-bea-rivera.8cb44a81.json": {
       "bytes": 1129,
-      "sha256": "aa863167d0c1854e92399c901305b539ced835e04eaeb0ddff5ddad72280f2f9"
+      "sha256": "bbafc8c607f2a9b09cabdf38aa6dc57b265a9e48dc026e5c1fd3b7f9bb8b4b6d"
     },
     "content/person-caio-prado.c4b6be2e.json": {
       "bytes": 1231,
-      "sha256": "01820bbc30c9d2d9ffe8320f09b4d8a2596e3f3f9954498125eb30f69d8e9347"
+      "sha256": "d3944ebb6bd65ecfba928ecf3ce2c320f24607491559018869f52d5cf9f5ac36"
     },
     "content/person-joao-mendes.471a0cbf.json": {
       "bytes": 1202,
-      "sha256": "bb682cb6d2e8292e004f29a88e64d8ff405ed57feed992f6144eca7c5584a8da"
+      "sha256": "eb7f2597563e201b5b8e9caa17687b1d011c1dc102939b3a028d165a6c309b7d"
     },
     "content/person-lia-fontes.0c04e983.json": {
       "bytes": 964,
-      "sha256": "67c51bf22106ef5ce6b888963d73393ad0baa066bc2d0d2d954592ae8752cc3c"
+      "sha256": "ae3931c1411928d12384e8c4e046c157355580df93ec270e8134ac0912f1fdd1"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "d064577577195db1abd4a6f1b29f805ac522c27ad59f7e20f8f2f955f6b7c3cb"
+      "sha256": "17b7f18866c2c1f294b259a5b83f4536e402faa84204c63c17a5cc453a0e1974"
     },
     "content/person-rita-souza.3db9d808.json": {
       "bytes": 880,
-      "sha256": "95ecaededb71ec11fbe2001011b5c0ee01449e70b8f3b68bafea2ab1fae05205"
+      "sha256": "b5cb918dfa322d499e28ac85f05404d312b464b40feb8e1409637793b4dfbf2f"
     },
     "content/perspective-artifacts-evidence.25d8ec03.json": {
       "bytes": 1198,
-      "sha256": "5c1d1a6c7f858e23d59111339fd5828f0246e9ac539b64dba5bfd1373f759a46"
+      "sha256": "d905d142fdee12081c0bd40a5acae10f95e004ce140999b775a784db93f13c35"
     },
     "content/perspective-financial.d470a7bf.json": {
       "bytes": 1143,
-      "sha256": "b48a647220b9a4c2c1619a8e8c788b9fec7da80e5b9cf5449785c71e0e5c1a35"
+      "sha256": "384723ec365e8b741f1706171e161711f9b6d94c02cb1d3a598c4eb536f9b9ff"
     },
     "content/perspective-identity-intent.7d6d78eb.json": {
       "bytes": 1204,
-      "sha256": "9d3919727c98a22d58bb773c3900d66470ee12f0f985f1402049dc6194265ad8"
+      "sha256": "756e08470a0f233dd3648e61295312710aca481cd44a61365c26e3397648eb39"
     },
     "content/perspective-privacy-publication.de1b090b.json": {
       "bytes": 1205,
-      "sha256": "6398b911616c3440684f47efd0c172de2127742441dfa110dc1b5d50e4b003a5"
+      "sha256": "ed3b438691c438baa1f5dbb9d1449d629a7c4c12096ce87d5974eb65e06619a9"
     },
     "content/perspective-roles-relationships.f613f6bb.json": {
       "bytes": 1231,
-      "sha256": "4aa99bf77e6227dfb38ccae16a826937d941c69a08a4174ffbe19c8478c09d48"
+      "sha256": "c6216e4f31cdc13e64dea3869ce2eda10987e1fd74811e6b0a35a782429ceaf3"
     },
     "content/perspective-systems-processes.f5548ffe.json": {
       "bytes": 1231,
-      "sha256": "94df9220c8eb737d9e84b167aa46bdc03004e4eb8d6b75e7ec2e35d80cd0db7d"
+      "sha256": "f0a81afa49c8963c3b7b6b2bc16596f6fc57fb49f9ef846148231e20cf9bea75"
     },
     "content/process-clearpath-approval.e72d9e2f.json": {
       "bytes": 984,
-      "sha256": "fc731c4d8c5f7345d4aa7dee583f8c1694fb27074c26a91323a363b9497fb70d"
+      "sha256": "b93191a08e89059b79e40530f0586df97bce67ecef240254db49b53f3619ccf4"
     },
     "content/process-fechamento-mensal.86cea7aa.json": {
       "bytes": 910,
-      "sha256": "bb887af0328eb1e91cf29c1b0181773717b39c6123c6058a3c006da3d8c5ceb4"
+      "sha256": "661669e2b687cb7158dfb1220276c493be93d86fdc6ed5e4a63128b4350cbf24"
     },
     "content/process-template-library-governance.41b6e964.json": {
       "bytes": 1096,
-      "sha256": "b6a3ed8e450147067f7340be37ec95e619f3c2a5e96116345bfb69cc4f5c10ca"
+      "sha256": "e6f9bf2170313deeef8c8835b2dcf54274a3900dc68e60a1abde0da847cad543"
     },
     "content/product-clearpath-pulse.f89a79e3.json": {
       "bytes": 1551,
-      "sha256": "56f1f14f95901e7219a0bf802e633b8697e52228956800d1099e623ebc37a3ab"
+      "sha256": "fbfab0a81d9d59aacffa153336ba1182a465001065b76f47c19c38f5ef6993e1"
     },
     "content/project-atlas-launch.26b6f390.json": {
       "bytes": 1479,
-      "sha256": "338c4363f71bca6f63e049ec4135eaf68ee0b1981423c0fe627bd87b145519b3"
+      "sha256": "0d64d3133143a877a0360f1eeb362dcd057ffe11165df0e83595de47700f8efe"
     },
     "content/proposal-ingest-product-analytics-2026-07.2dfc4f84.json": {
       "bytes": 1777,
-      "sha256": "0b78aecf164bb900f771e6c91a66f031e9161117f7d32f2058d175902b5a1d48"
+      "sha256": "51fe43b89ff58aad274391f09594e4ad49377b3eefebbd832a6e2d0b9965780f"
     },
     "content/role-clearpath-customer-success-lead.9b8a2724.json": {
       "bytes": 1100,
-      "sha256": "794bf414a491566d6b051023f416f5025d2c02b6f2ac1d96bbe1859321cb3ebf"
+      "sha256": "5d24a2fd6c51d004599d9d82d0d84fdd6e2e229435bc94f885e9c8c07caa1e78"
     },
     "content/role-consultora.261f0ea0.json": {
       "bytes": 864,
-      "sha256": "6e5d779416ae8b7bd1313a64dc339cd07bc6aae1d7ceffb0497409e344a41d4f"
+      "sha256": "5a00d9142bc03f764a7e956911f18afff16bc74e7d0c1a0840abae2dca63e49e"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 13259,
-      "sha256": "0ec9193c3c203c22bb2674d8311c7d8f27d888b6c50b5142b563d18c592f29aa"
+      "sha256": "5741885971a3485abeefb26770849bd726bb319b51749c8319226b5357a1ed47"
     },
     "content/rule-clearpath-release-gate.6bccf948.json": {
       "bytes": 1062,
-      "sha256": "f6646194c03ee237d2261f34f08c1c961bfbdfe64144b988efb2a0fe8e69ff3f"
+      "sha256": "e828246ba018cfa53cd836ae92cbfbaedd5db4218cc98f58739e7ce570b36ab2"
     },
     "content/rule-nada-publica-sem-review.63750616.json": {
       "bytes": 968,
-      "sha256": "f0efffc4c2db5a26c01b2413e81d3460e3d9305486481824d07f9e72d96fa5fa"
+      "sha256": "cec9d41a4676bd8d335932c3026d43b703c477aec6107d36a4b2109c989fb67d"
     },
     "content/skill-agent-classify-quadrants.963805cf.json": {
       "bytes": 1200,
-      "sha256": "36ff43167c949173618ccd789888ed9d5ddbb9369b02fbe2ab5c143fb78778a9"
+      "sha256": "c3311e0a4b2afec91d97d3be6bd32c0250f556e92992d1ba42e9d1cc271a51c2"
     },
     "content/skill-agent-deep-read.7630764e.json": {
       "bytes": 1118,
-      "sha256": "9956d043c38b4766f8eab67e9a465983f008d3aa60fd8b4c1f2852997845cba1"
+      "sha256": "4670a235cb42b7ece76d9ac0fe365ddd3f2a682808299dcb7954e623ae065814"
     },
     "content/skill-human-review-privacy.f31a7680.json": {
       "bytes": 1207,
-      "sha256": "c55ba1b1d3aef8afe86ef56e2d5bd10bedb67606be37906bd9e8b91f4b6543a0"
+      "sha256": "9d5c75665cd3d887a8ac2966e6f88c339747d50ba25c89d24bc16ab4da335d31"
     },
     "content/source-action-ledger.ec9c5cd9.json": {
       "bytes": 1517,
-      "sha256": "43052eb4dbb8caf275b5b1ea23e699f510e0c2843474f8bc02a5c64a3abb88c8"
+      "sha256": "c0c9088bd5650ba79b7fd17af691216eeb47a646400c9b91e00f76daa06ceaf2"
     },
     "content/source-agenda.f538317f.json": {
       "bytes": 1610,
-      "sha256": "12c7f2406b6cc084e13d04d54ac6af15a7afff17ff9e57e61c8fb418956e7164"
+      "sha256": "d3384167d494c0270d78de5152d0142019ff176dfb3861eab6d5020e03bc33dd"
     },
     "content/source-banco-export.21d8fe1f.json": {
       "bytes": 1639,
-      "sha256": "35c535bee3673cc0529ba979d52193c39148bd3e54f6ead2d15eb16457b13025"
+      "sha256": "e3cb1c884143f5cda91a786a18a7c7cbaff3544bb147feab501548492b7c21a6"
     },
     "content/source-calendar-archive.b0c27d5e.json": {
       "bytes": 1220,
-      "sha256": "2015d833ac42be1fee8d97f4be56de03d26fe193d03fa7189e501e26d374a30d"
+      "sha256": "c1fe84d75b42b74eaa33471ec7306cc54d6dc246a6581b35169be636ea4e03ed"
     },
     "content/source-call-recordings.493fa442.json": {
       "bytes": 1262,
-      "sha256": "506ead8488b6448e799bd64a0676618c57db14048420c825b13a1944c70598c9"
+      "sha256": "ce2fa39cd530ff72533938f6b68bc4200802e92e9e3dac3e27261004b117f161"
     },
     "content/source-chat-export.ab08dca2.json": {
       "bytes": 1551,
-      "sha256": "17399185594729059032ebd577eeac7c533bb1a3095ce22446671f3cd48fde96"
+      "sha256": "a504357b73808a91d0d4610729c0ec2c6049775bfdd965c761c52a7d2eb25196"
     },
     "content/source-clearpath-billing.ac81b6b1.json": {
       "bytes": 1278,
-      "sha256": "37f94889215725893b1ebda5707203d5590bdbad6aae6e751da0a5de33ea967c"
+      "sha256": "0504596540042d3b29bcface3445319adf1fe0c1ad09e0b9a5010d7a95f71578"
     },
     "content/source-clearpath-customer-interviews.fe211d91.json": {
       "bytes": 1163,
-      "sha256": "989765b5f5f71c8ce6c3f5cd5648b86e84454582c76014044f29443b9641148d"
+      "sha256": "f72adb0b6d099a060901ba6a8918298d822ec9f294c0ff380f0a335e6f7905ab"
     },
     "content/source-clearpath-risk-log.955fc04a.json": {
       "bytes": 1275,
-      "sha256": "1ac2aa159ba08a170846169e96a92377424a3ab95e6c72f026e007530641a42f"
+      "sha256": "028eef76f229ad2f224a0963bebe00021326ec512ed335e59abe8c9a9c53880b"
     },
     "content/source-clearpath-roadmap.29eebdc2.json": {
       "bytes": 1287,
-      "sha256": "5ad222479059fed450cd69e67232672bb38ba3649ca87b85b9f4d44ab04379ba"
+      "sha256": "2dece686135071abcf6598bb795748143b457c7501abf905ec95126f8969283f"
     },
     "content/source-clearpath-support.cff72d2d.json": {
       "bytes": 1279,
-      "sha256": "33dc2589ff6479cf5c78b5e71b82491fa7534c02edccaf5d0849b95c336236c7"
+      "sha256": "0ff0defab69b108eade8e85d80e7a4595d4b217b6c7bdb19e83b69a681c3cfe8"
     },
     "content/source-crm-accounts.045e8fb4.json": {
       "bytes": 1700,
-      "sha256": "9918aac5febb8efc0426541172910e2e103fcce4b1c2d33487086d4560196b2b"
+      "sha256": "8f5b262afa25ae71ca100e006713fb1ca832a8602912bf330af4c7dbe841725b"
     },
     "content/source-decision-log.af7c319a.json": {
       "bytes": 1581,
-      "sha256": "7dec9c965b416be79879980dfdfd7b9310785b256ab4f19da0961ec4427d7fae"
+      "sha256": "709d265d5450222bfea52940497723c17862926baa6fabf38f458c3ed8f9e6ed"
     },
     "content/source-error-traces.42cb8fa8.json": {
       "bytes": 2313,
-      "sha256": "f9a6ad4c590d4560a5b2291915f07a832b70430955ab20ca19d86a64d106f644"
+      "sha256": "5e6a5fd03b729d7016b85cd1a74f4e8963424bc37ace0d5a7cb6a75c3e0b9812"
     },
     "content/source-evidence-ledger.a6cf164c.json": {
       "bytes": 1242,
-      "sha256": "5400b14c598741eaa029726fa19ceffe221eff96399bd9b91d40783b2fcd2d6f"
+      "sha256": "9b8ec972a7c41ce9e3b414c1f7cf791e7373702226d8612fa1d5aa760e4cfc84"
     },
     "content/source-feature-flags.584ec4b5.json": {
       "bytes": 1266,
-      "sha256": "3648f6388c652984f74d5fb3bd7b542200f054f52013137b6304819aa151b7f9"
+      "sha256": "d5a035650989a0f2d24121474eca2a14115429f8a0d96ee73b6df798137e7940"
     },
     "content/source-health-checks.9ebc3675.json": {
       "bytes": 1908,
-      "sha256": "e9a6c0223a443c8a400a58aa3fb6db586f09ad710399954681ca1e0e311fb45e"
+      "sha256": "a5efd745cfc36512fb675c958136ba8fa45ba41ab55df592168441c15835f7f8"
     },
     "content/source-inbox-capture.b68fa932.json": {
       "bytes": 1220,
-      "sha256": "533021f749e050ec1d15f9da24e0e92c08ad11c2e9d8ae729851f50c20eb4fee"
+      "sha256": "d82180661b921303d80a55545bc08550614cbced2cda773b3491056df44df496"
     },
     "content/source-notes-vault.6052136d.json": {
       "bytes": 1214,
-      "sha256": "16df0099396b4458260c89c3098fd27164a34c611ee37ad4dfbbc2ce71fdcf33"
+      "sha256": "a374ba174f39d1539738ef24a892184cdc97fe9b44e35ec17c3f6e706d5802db"
     },
     "content/source-nps-surveys.655f0160.json": {
       "bytes": 1231,
-      "sha256": "d4564c3f3faac10922c5c87ea785fbe97e3647b3de0721e468cbb53bdb608c0b"
+      "sha256": "8fb59312171614b564410ea0198f03cfc1db6a0a7c9f5b68ba94cfa56e0d9e00"
     },
     "content/source-product-analytics.7e84039f.json": {
       "bytes": 1769,
-      "sha256": "e0df6666d47e796e816e43e50dc04c27537ccd68105d5a00759975e9a25f7754"
+      "sha256": "81ecd722e512b8c1f4ed9134a59ebcc389b2519a27619eba4ab7e2df5c872137"
     },
     "content/source-publication-queue.e5fb37c5.json": {
       "bytes": 1525,
-      "sha256": "b4f36c5e33eb70adccb353a544d6e277a070e66edd4631c9ffaf60957876424f"
+      "sha256": "da39b58ccd6be4a05d5f1aeb99933a23641abd1f727da36e5554edbb50c450ff"
     },
     "content/source-reading-queue.39102ed7.json": {
       "bytes": 1228,
-      "sha256": "e6e3e024cda7e95bf33f5bd3571007a5fb5efe081367ef89199074c922951a6b"
+      "sha256": "57d91143674f130fbc7bc23b8a6f9abf124981ea973d45398a7cc534c541f34e"
     },
     "content/source-reference-folder.e81dc9c7.json": {
       "bytes": 1435,
-      "sha256": "0aeb16fa05e5c0cf474a803c9b46b70392c90b1baa87bb7505c55ffbc01cb0d9"
+      "sha256": "2653d379638ac0c421ad8c857971d98c994d02f3165b6c5d3cd3a4bf7870b678"
     },
     "content/source-relation-cadence.1e34d2f1.json": {
       "bytes": 1242,
-      "sha256": "7469fe870322e43fe72163b622555807fedd0c593edf4140adbc3d9f5e343c48"
+      "sha256": "a5cfa862f26090cb938ce4439edb1820cf33a96c97e6d4e1fd5754c313164c76"
     },
     "content/source-release-notes.32ff3a48.json": {
       "bytes": 1559,
-      "sha256": "183dab21f21c29cc976be8180117aec452ead741629c3b828aacad917f9127b3"
+      "sha256": "7c3581e10733cc083b9b5fced7d869205aae2a96aed11d5bec934e4dad36da1d"
     },
     "content/source-sales-pipeline.a320b636.json": {
       "bytes": 1244,
-      "sha256": "fe13f40d6342abafbb50a8ae8de6f07780e3a64fa0dbf7fbb799a3ab5b6ef54f"
+      "sha256": "71597c30275105bfca49e0fd4deea3016dde94a53261ee276b890a88cba0dcbb"
     },
     "content/source-support-tickets.e9968562.json": {
       "bytes": 1613,
-      "sha256": "e698fbbe71bf17a406fc4123d1ea1c3b9df2a52249fbc3f39690f778f0e6d3d6"
+      "sha256": "6f078dbc196b9fc640c38eb6b157716cf3500f6bfc1e89d1d3a49c818b4cc39c"
     },
     "content/source-template-registry.159b91c7.json": {
       "bytes": 1262,
-      "sha256": "3fcbb82e5639121e5c809738c8c75a2d12a2b1fa27e7744e4b450a4419f8a134"
+      "sha256": "c5eddd960491498e7675dce7c1c698313c6ff86684dd8e966d715406943468e4"
     },
     "content/source-usage-warehouse.460d4538.json": {
       "bytes": 1283,
-      "sha256": "b4ea83e608556c6fdc22c18447bdf600b02f213e969542648384d1d024579943"
+      "sha256": "6603dbd2575ff0202bbc4fa6cbf94bcfb5973e366c6cd1e1c7678338c7eca84f"
     },
     "content/tool-banco-app.f00739cb.json": {
       "bytes": 989,
-      "sha256": "c6601cd65e68b1e27c292895bb47b500a424bb715a25f08486ce1eba988e8d32"
+      "sha256": "92487108685ac8ff00f35f34ca45765dc89c326e87acb0bc8c4c6b428cb7abdf"
     },
     "content/tool-google-drive.84896e00.json": {
       "bytes": 1059,
-      "sha256": "8ba824b5d6787acd66fa0b45f2683e99755a5d1de1927e2d58f3922f5b253ad1"
+      "sha256": "9c38403fba95495c79a6c10870d8a98102424b10e0c1e4b541479b2e8d9a946f"
     },
     "content/tool-obsidian.e3fff9cb.json": {
       "bytes": 968,
-      "sha256": "64bbaeebfe8d3c72934d0c76dc2c8faf3090fcb1cf277f37362682b8dd26dd46"
+      "sha256": "e357bd33251c84c5008d35ec0559df8be6324bfede0935dd3559f30b56067fef"
     },
     "decisions.json": {
-      "bytes": 1954,
-      "sha256": "00bafed14342e68048520360d5396b877c23691250f8e1badb2f5e8c7a5a8940"
+      "bytes": 2152,
+      "sha256": "01785c6a7df4d2c43cda794084850cb2d1a566e1411e6d8e06ec23d2126afc3c"
     },
     "diff.json": {
       "bytes": 367,
@@ -635,8 +635,8 @@
       "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
     },
     "graph.json": {
-      "bytes": 159804,
-      "sha256": "5f0ceb83c8bf0b52705b3157c42b5e9eeba8154718f3e02aff47ec044587396c"
+      "bytes": 161257,
+      "sha256": "10ea7cf8eb9b0e2b6eefb35ccf28cd29575e48765403454ae1562d953daeb90e"
     },
     "ingestion.json": {
       "bytes": 2587,
@@ -651,16 +651,16 @@
       "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
     },
     "pages.json": {
-      "bytes": 78099,
-      "sha256": "bb1060565e162cb475afb5e5ed3a082eae69c5f26ef9bdf7fadd7b98eab385dd"
+      "bytes": 85367,
+      "sha256": "21f004cecfe3dfdfaa3d1c8172ec778ad41622dbe9bed8f1001be7bdb3d41af6"
     },
     "quality.json": {
-      "bytes": 42309,
-      "sha256": "57e0d92b8dbe57ff88a90a8db0ed8b2d03f008f8f8ba364c89bdee6d5b82b4d6"
+      "bytes": 42313,
+      "sha256": "c136941b4e21e2b3438eb7dc50010f5f778a0d179c8837dcc87072ffd4b13adb"
     },
     "region_groups.json": {
-      "bytes": 196857,
-      "sha256": "6f1db4714016c263a067a1471650acd5d500346886af6699f6a8187f7376f49b"
+      "bytes": 201516,
+      "sha256": "8dda08a0f0991e3af0908585f09417874730a63ef644cb9c89b66a573b5fc413"
     },
     "score.json": {
       "bytes": 2136,
@@ -679,12 +679,12 @@
       "sha256": "5443d8c248d1054aa927ed882221e90ac2c0c4cefef4683d3f1a4e81cfbe87e4"
     },
     "sources.json": {
-      "bytes": 23641,
-      "sha256": "edda1f337dec09fdd7c652b1a83ca1eceb558f52bf8821c5f0a5df25991c7c00"
+      "bytes": 25621,
+      "sha256": "d14b800fb6fee65a016c841b5b611d9f256bda4707b59b1cb600c24e3ad98b6a"
     },
     "templates.json": {
-      "bytes": 23471,
-      "sha256": "45b8187fbf92e4821785714e5d17dac05188b9ae2bfc23be8a4a5f31859403f5"
+      "bytes": 24363,
+      "sha256": "53224ed68b4cf13995c3caf12346ac34d188c7006995c326e46e950e4e61db69"
     },
     "timeline.json": {
       "bytes": 26654,
@@ -707,9 +707,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-6614ff37485fdad8",
+  "snapshot_id": "wiki-viva-demo-8952cd073408dd5e",
   "source_commit": null,
-  "source_sha": "uncommitted:84ee4f91a44501a6877341d677ffda4952768c74f806932bbe34e9d3aca19fd1",
+  "source_sha": "uncommitted:c29168a21f7fe1dfdaa14f03a829de9a0cdc621d21574ec3ed7b2ca6c0d37552",
   "versions": {
     "block_vocabulary": "wiki_blocks.v2",
     "canonical_route": "wiki_world_route.v8",

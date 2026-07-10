@@ -228,6 +228,22 @@ function relationGroups(bundle: SnapshotBundle, page: PageRecord, content: PageC
   bundle.pages.pages
     .filter((candidate) => candidate.moc_parent && (candidate.moc_parent === page.path || candidate.moc_parent === page.id))
     .forEach((child) => hierarchy.push(entry(child, t("reader.below"))));
+  bundle.graph.edges
+    .filter((edge) => edge.type === "collection_member")
+    .forEach((edge) => {
+      if (edge.target === page.id || edge.target === page.path) {
+        const member = pageByKey(bundle, edge.source);
+        if (member && !hierarchy.some((item) => item.id === member.id)) {
+          hierarchy.push(entry(member, t("reader.collectionMember")));
+        }
+      }
+      if (edge.source === page.id || edge.source === page.path) {
+        const collection = pageByKey(bundle, edge.target);
+        if (collection && !hierarchy.some((item) => item.id === collection.id)) {
+          hierarchy.push(entry(collection, t("reader.inCollection")));
+        }
+      }
+    });
 
   // Without the content payload (static mode), refs still resolve against the
   // bundle — gap markers are reserved for refs that truly do not resolve.
@@ -249,8 +265,13 @@ function relationGroups(bundle: SnapshotBundle, page: PageRecord, content: PageC
     .map((link) => entry(link, t("reader.internalLink")));
 
   const cited: RelationEntry[] = (content?.backlinks ?? [])
-    .filter((backlink) => backlink.relation !== "moc_parent")
-    .map((backlink) => entry(backlink, backlink.relation === "source_ref" ? t("reader.usesAsSource") : t("reader.citesPage")));
+    .filter((backlink) => backlink.relation !== "moc_parent" && backlink.relation !== "collection_member")
+    .map((backlink) => entry(
+      backlink,
+      backlink.relation === "source_ref"
+        ? t("reader.usesAsSource")
+        : t("reader.citesPage")
+    ));
   (content?.backlinks ?? [])
     .filter((backlink) => backlink.relation === "moc_parent")
     .forEach((backlink) => {

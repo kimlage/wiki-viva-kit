@@ -7,6 +7,7 @@ from pathlib import Path
 
 from wiki_core.config import load_config
 from wiki_core.template_blocks import (
+    anchor_chain,
     build_block_stacks_payload,
     build_blocks_payload,
     interview_spec,
@@ -637,3 +638,218 @@ def test_source_and_holon_centers_include_their_typed_relations(tmp_path: Path) 
     evidence_projection = anchors["project-demo"]["derived"]["quadrant_projections"]["evidence-hub"][0]
     assert evidence_projection["basis"] == "project_reference"
     assert evidence_projection["sub_lens"] == "evidencias"
+
+
+def test_collection_index_owns_typed_members_without_reparenting_them(tmp_path: Path) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n  - id: wiki.block.relations.v1\n"
+            "---\n# Root\n"
+        ),
+        "memories/claims/index.md": (
+            "---\npage_id: claims-index\npage_type: ontology_index\ntitle: Claims\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/index.md\n"
+            "collection:\n  member_types: [claim]\n  contexts: ['*']\n"
+            "---\n# Claims\n"
+        ),
+        "memories/claims/a.md": _leaf("claim-a", "claim"),
+        "memories/claims/b.md": _leaf("claim-b", "claim"),
+        "memories/decisions/a.md": _leaf("decision-a", "decision"),
+        "memories/claims/legacy-child.md": (
+            "---\npage_id: decision-legacy-child\npage_type: decision\ntitle: Legacy child\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/claims/index.md\n---\n# Legacy child\n"
+        ),
+    }
+    world = _world(_wiki(tmp_path, pages))
+    payload = build_block_stacks_payload(world)
+    assignments = payload["anchors"]["claims-index"]["derived"]["quadrant_assignments"]
+
+    assert assignments["q1"] == ["claim-a", "claim-b"]
+    assert "decision-a" not in {
+        member for members in assignments.values() for member in members
+    }
+    assert "decision-legacy-child" not in {
+        member for members in assignments.values() for member in members
+    }
+    # Canonical hierarchy is unchanged: claims remain direct root children;
+    # collection ownership is not smuggled into moc_parent/anchor ancestry.
+    assert world.by_id["claim-a"]["moc_parent"] == "memories/index.md"
+    assert [page["id"] for page in anchor_chain(world, world.by_id["claim-a"])] == [
+        "root-demo"
+    ]
+    stack = payload["anchors"]["claims-index"]["stack"]
+    assert next(item for item in stack if item["id"] == "wiki.block.quadrants.v1")["scope"] == "linked"
+    assert next(item for item in stack if item["id"] == "wiki.block.relations.v1")["scope"] == "linked"
+
+
+def test_legacy_ontology_index_without_collection_keeps_descendant_scope(
+    tmp_path: Path,
+) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n---\n# Root\n"
+        ),
+        "memories/actions/index.md": (
+            "---\npage_id: actions-index\npage_type: ontology_index\ntitle: Actions\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/index.md\n---\n# Actions\n"
+        ),
+        "memories/actions/a.md": (
+            "---\npage_id: action-a\npage_type: action\ntitle: Action A\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/actions/index.md\n---\n# Action A\n"
+        ),
+    }
+    record = build_block_stacks_payload(_world(_wiki(tmp_path, pages)))["anchors"][
+        "actions-index"
+    ]
+    assignments = record["derived"]["quadrant_assignments"]
+
+    assert assignments["q2"] == ["action-a"]
+    collection_aware = [
+        item for item in record["stack"] if item.get("collection_scope")
+    ]
+    assert collection_aware
+    assert {item["scope"] for item in collection_aware} == {"descendants"}
+    assert {item["scope_basis"] for item in collection_aware} == {
+        "canonical_hierarchy"
+    }
+
+
+def test_nearest_page_block_can_disable_collection_scope_activation(
+    tmp_path: Path,
+) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n---\n# Root\n"
+        ),
+        "memories/claims/index.md": (
+            "---\npage_id: claims-index\npage_type: ontology_index\ntitle: Claims\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/index.md\n"
+            "collection:\n  member_types: [claim]\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n    scope: descendants\n"
+            "---\n# Claims\n"
+        ),
+        "memories/claims/member.md": _leaf("claim-member", "claim"),
+        "memories/claims/child.md": (
+            "---\npage_id: action-child\npage_type: action\ntitle: Child\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/claims/index.md\n---\n# Child\n"
+        ),
+    }
+    world = _world(_wiki(tmp_path, pages))
+    record = build_block_stacks_payload(world)["anchors"]["claims-index"]
+    quad = next(
+        item for item in record["stack"] if item["id"] == "wiki.block.quadrants.v1"
+    )
+
+    assert quad["origin"] == "page"
+    assert quad["collection_scope"] is False
+    assert quad["scope"] == "descendants"
+    assignments = record["derived"]["quadrant_assignments"]
+    assert assignments["q2"] == ["action-child"]
+    assert "claim-member" not in {
+        member for members in assignments.values() for member in members
+    }
+
+
+def test_collection_scope_marker_must_be_boolean(tmp_path: Path) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n---\n# Root\n"
+        ),
+        "memories/claims/index.md": (
+            "---\npage_id: claims-index\npage_type: ontology_index\ntitle: Claims\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/index.md\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n    collection_scope: 'yes'\n"
+            "---\n# Claims\n"
+        ),
+    }
+    warnings = validate_blocks(_world(_wiki(tmp_path, pages)))
+    assert any("collection_scope must be boolean" in warning for warning in warnings)
+
+
+def test_contexts_only_collection_is_incomplete_and_does_not_activate_linked_scope(
+    tmp_path: Path,
+) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n---\n# Root\n"
+        ),
+        "memories/claims/index.md": (
+            "---\npage_id: claims-index\npage_type: ontology_index\ntitle: Claims\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/index.md\ncollection:\n  contexts: ['*']\n"
+            "---\n# Claims\n"
+        ),
+        "memories/claims/child.md": (
+            "---\npage_id: claim-child\npage_type: claim\ntitle: Child\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/claims/index.md\n---\n# Child\n"
+        ),
+    }
+    world = _world(_wiki(tmp_path, pages))
+    warnings = validate_blocks(world)
+    record = build_block_stacks_payload(world)["anchors"]["claims-index"]
+
+    assert any("no member selector" in warning for warning in warnings)
+    quad = next(
+        item for item in record["stack"] if item["id"] == "wiki.block.quadrants.v1"
+    )
+    assert quad["scope"] == "descendants"
+    assert record["derived"]["quadrant_assignments"]["q1"] == ["claim-child"]
+
+
+def test_source_registry_owns_only_sources_then_source_owns_its_events(tmp_path: Path) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n---\n# Root\n"
+        ),
+        "memories/system/source-registry.md": (
+            "---\npage_id: source-registry\npage_type: source_registry\ntitle: Sources\ncontext: system\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/index.md\n---\n# Sources\n"
+        ),
+        "memories/sources/a.md": _leaf("source-a", "source"),
+        "memories/sources/b.md": _leaf("source-b", "source"),
+        "memories/sources/catalog.md": _leaf("source-catalog", "source_catalog"),
+        "memories/system/ingestion/events/a.md": _leaf(
+            "event-a", "ingestion_event", extra="source_refs: [source-a]\n"
+        ),
+        "memories/system/ingestion/events/b.md": _leaf(
+            "event-b", "ingestion_event", extra="source_refs: [source-b]\n"
+        ),
+    }
+    payload = build_block_stacks_payload(_world(_wiki(tmp_path, pages)))
+    registry_assignments = payload["anchors"]["source-registry"]["derived"][
+        "quadrant_assignments"
+    ]
+    registry_members = {
+        member for members in registry_assignments.values() for member in members
+    }
+    assert registry_members == {"source-a", "source-b"}
+    assert "source-catalog" not in registry_members
+    assert "event-a" not in registry_members and "event-b" not in registry_members
+
+    source_members = {
+        member
+        for members in payload["anchors"]["source-a"]["derived"][
+            "quadrant_assignments"
+        ].values()
+        for member in members
+    }
+    assert source_members == {"event-a"}

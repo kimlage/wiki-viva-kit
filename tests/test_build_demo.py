@@ -199,6 +199,25 @@ def test_committed_stage_snapshots_are_consistent() -> None:
     assert "role-clearpath-customer-success-lead" in company_q["q3"]
     assert "rule-clearpath-release-gate" in company_q["q4"]
 
+    # The instructional fixture must exercise the collection contract itself,
+    # not only ship compiler unit tests for downstream consumers.
+    decision_ids = {
+        page["id"]
+        for page in full_pages["pages"]
+        if page["page_type"] == "decision"
+    }
+    decision_q = anchors["idx-decisoes"]["derived"]["quadrant_assignments"]
+    assert set(decision_q["q1"]) == decision_ids
+    assert decision_q["q0_core"] == []
+    graph = json.loads((SAMPLE / "graph.json").read_text(encoding="utf-8"))
+    collection_sources = {
+        edge["source"]
+        for edge in graph["edges"]
+        if edge["type"] == "collection_member"
+        and edge["target"] == "idx-decisoes"
+    }
+    assert collection_sources == decision_ids
+
 
 def test_committed_default_and_dense_snapshots_match_scenario_manifests() -> None:
     demo = _demo_module()

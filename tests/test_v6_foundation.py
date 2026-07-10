@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -240,6 +241,43 @@ def test_source_registry_is_deterministic_and_titled():
     assert a == b  # deterministic
     assert reg.STRINGS[config.language]["title"] in a
     assert "page_type: source_registry" in a
+    frontmatter = yaml.safe_load(a.split("---", 2)[1])
+    assert frontmatter["parent_projection"] == {
+        "quadrant": "q2",
+        "sub_lens": "evidencias",
+        "reason": "The generated source registry is an observable evidence index of canonical sources.",
+    }
+
+
+def test_source_registry_contract_requires_explicit_evidence_projection():
+    registry = yaml.safe_load((ROOT / "wiki.page-types.yaml").read_text(encoding="utf-8"))
+    shape = registry["page_types"]["source_registry"]
+    assert "parent_projection" in shape["required_frontmatter"]
+    assert shape["field_types"]["parent_projection"] == "object"
+
+
+@pytest.mark.parametrize(
+    ("language", "reason"),
+    [
+        ("en", "The generated source registry is an observable evidence index of canonical sources."),
+        ("pt", "O registro de fontes gerado e um indice observavel de evidencias das fontes canonicas."),
+    ],
+)
+def test_source_registry_projection_reason_follows_repo_language(tmp_path, monkeypatch, language, reason):
+    reg = _load_script("wiki_source_registry")
+    (tmp_path / "wiki.config.yaml").write_text(
+        f"repo_id: demo\nlanguage: {language}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(reg, "ROOT", tmp_path)
+    config = WikiConfig(language=language)
+    rendered = reg.build_registry(WikiPaths(tmp_path, config), config, "2026-06-10")
+    frontmatter = yaml.safe_load(rendered.split("---", 2)[1])
+    assert frontmatter["parent_projection"] == {
+        "quadrant": "q2",
+        "sub_lens": "evidencias",
+        "reason": reason,
+    }
 
 
 # --------------------------------------------------------------------------- #

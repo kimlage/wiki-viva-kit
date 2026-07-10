@@ -905,7 +905,8 @@
         "action-enviar-proposta",
         "claim-region-grouping-needed",
         "claim-region-hidden-work",
-        "decision-precos"
+        "decision-precos",
+        "idx-decisoes"
       ],
       "next_safe_interaction": "",
       "purpose": "act",
@@ -915,10 +916,10 @@
         "proposal": 0,
         "raw": 0,
         "risk": 0,
-        "shown": 4,
+        "shown": 5,
         "source_backed": 0,
         "stale": 1,
-        "total": 4,
+        "total": 5,
         "unsourced": 3
       },
       "type_mix": [
@@ -936,6 +937,11 @@
           "count": 1,
           "family": "decision",
           "page_type": "decision"
+        },
+        {
+          "count": 1,
+          "family": "hub",
+          "page_type": "ontology_index"
         }
       ],
       "visual": {
@@ -1007,7 +1013,6 @@
         "artifact-region-map-01",
         "artifact-region-map-02",
         "artifact-region-map-03",
-        "idx-decisoes",
         "source-call-recordings",
         "source-chat-export",
         "source-crm-accounts",
@@ -1024,10 +1029,10 @@
         "proposal": 0,
         "raw": 7,
         "risk": 0,
-        "shown": 14,
+        "shown": 13,
         "source_backed": 3,
         "stale": 2,
-        "total": 14,
+        "total": 13,
         "unsourced": 0
       },
       "type_mix": [
@@ -1045,11 +1050,6 @@
           "count": 3,
           "family": "content",
           "page_type": "artifact"
-        },
-        {
-          "count": 1,
-          "family": "hub",
-          "page_type": "ontology_index"
         }
       ],
       "visual": {
@@ -1905,6 +1905,233 @@
           "region.empty": "empty_region_affordance",
           "region.marker": "action_lane",
           "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 3,
+          "kind": "add_evidence",
+          "label_key": "region.action.addEvidence"
+        }
+      ],
+      "anchor_id": "idx-decisoes",
+      "attention_hints": [
+        {
+          "count": 3,
+          "kind": "unsourced"
+        }
+      ],
+      "expectation": "present",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:intencao",
+      "kind": "quadrant",
+      "label_key": "intencao",
+      "member_ids": [
+        "decision-clearpath-enter-midmarket",
+        "decision-onboarding",
+        "decision-precos"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "verify",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 3,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 3,
+        "unsourced": 3
+      },
+      "type_mix": [
+        {
+          "count": 3,
+          "family": "decision",
+          "page_type": "decision"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "attention"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "evidence_first",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "dock.action": "action_lane",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "reader.badge": "source_badge",
+          "region.card": "region_card",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "action_lane",
+          "region.rail": "attention_rail",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "idx-decisoes",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:pratica",
+      "kind": "quadrant",
+      "label_key": "pratica",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "quiet_structure",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "center_badge",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "scope_chip",
+          "region.rail": "core_debt_meter",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "idx-decisoes",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:relacoes",
+      "kind": "quadrant",
+      "label_key": "relacoes",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "quiet_structure",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "center_badge",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "scope_chip",
+          "region.rail": "core_debt_meter",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "absence_state": "healthy",
+      "action_hints": [],
+      "anchor_id": "idx-decisoes",
+      "attention_hints": [],
+      "expectation": "empty",
+      "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
+      "expectation_state": "optional",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "quadrant:sistemas",
+      "kind": "quadrant",
+      "label_key": "sistemas",
+      "member_ids": [],
+      "next_safe_interaction": "",
+      "purpose": "navigate",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 0,
+        "raw": 0,
+        "risk": 0,
+        "shown": 0,
+        "source_backed": 0,
+        "stale": 0,
+        "total": 0,
+        "unsourced": 0
+      },
+      "type_mix": [],
+      "visual": {
+        "emphasis": [
+          "healthy"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "quiet_structure",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "center_badge",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "scope_chip",
+          "region.rail": "core_debt_meter",
           "region.shelf": "type_shelf"
         }
       },

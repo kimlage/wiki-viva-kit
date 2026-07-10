@@ -308,6 +308,7 @@ export type EdgeStyle = { label: string; color: string };
 
 const EDGE_STYLES: Record<string, EdgeStyle> = {
   moc_parent: { label: "navigation", color: "#4f8fb5" },
+  collection_member: { label: "collection", color: "#70a9cc" },
   source_ref: { label: "evidence", color: "#57d9a0" },
   markdown_link: { label: "reference", color: "#5a6a76" },
   pr_impact: { label: "review impact", color: "#c57cff" },

@@ -146,6 +146,7 @@ const EDGE_PRIORITY: Record<string, number> = {
   pr_impact: 5,
   ingestion_chain: 4,
   source_ref: 3,
+  collection_member: 2,
   moc_parent: 2,
   markdown_link: 1
 };
@@ -154,6 +155,7 @@ const EDGE_REST_OPACITY: Record<string, number> = {
   pr_impact: 0.9,
   ingestion_chain: 0.8,
   source_ref: 0.42,
+  collection_member: 0.2,
   moc_parent: 0.18,
   markdown_link: 0
 };
@@ -409,12 +411,13 @@ function edgeEmphasis(
   if (insideHighlight && edge.type === "pr_impact") return 1;
   let rest = EDGE_REST_OPACITY[edge.type] ?? 0.3;
   // Atlas raises the solid hierarchy web — it IS the perspective.
-  if (mocEmphasis && edge.type === "moc_parent") rest = 0.55;
+  if (mocEmphasis && (edge.type === "moc_parent" || edge.type === "collection_member")) rest = 0.55;
   if (rootOverview) {
     const rootScale: Record<string, number> = {
       pr_impact: 0.75,
       ingestion_chain: 0.52,
       source_ref: 0.36,
+      collection_member: 0.34,
       moc_parent: 0.34,
       markdown_link: 0
     };
@@ -425,6 +428,7 @@ function edgeEmphasis(
       pr_impact: 0.62,
       ingestion_chain: 0.42,
       source_ref: 0.28,
+      collection_member: 0.3,
       moc_parent: 0.3,
       markdown_link: 0
     };
@@ -434,6 +438,7 @@ function edgeEmphasis(
       pr_impact: 0.58,
       ingestion_chain: 0.36,
       source_ref: 0.24,
+      collection_member: 0.26,
       moc_parent: 0.26,
       markdown_link: 0
     };
@@ -447,7 +452,7 @@ function relationEdgeMatch(relation: RelationIsolation, edge: GraphEdge, selecte
   const fromSelected = selectedKeys.has(edge.source);
   const toSelected = selectedKeys.has(edge.target);
   if (!fromSelected && !toSelected) return false;
-  if (relation === "hierarquia") return edge.type === "moc_parent";
+  if (relation === "hierarquia") return edge.type === "moc_parent" || edge.type === "collection_member";
   if (relation === "evidencia") return edge.type === "source_ref" || edge.type === "ingestion_chain";
   if (relation === "links") return edge.type === "markdown_link" && fromSelected;
   return edge.type === "markdown_link" && toSelected;
@@ -579,6 +584,7 @@ function rootOverviewTypeCap(type: string, quality: string): number {
     pr_impact: rich ? 2 : balanced ? 1 : 1,
     ingestion_chain: rich ? 3 : balanced ? 2 : 1,
     source_ref: rich ? 2 : balanced ? 1 : 1,
+    collection_member: rich ? 2 : balanced ? 1 : 1,
     moc_parent: rich ? 2 : balanced ? 1 : 1,
     markdown_link: 0
   };
@@ -602,6 +608,7 @@ function familyOverviewTypeCap(type: string, quality: string): number {
     pr_impact: rich ? 3 : 2,
     ingestion_chain: rich ? 3 : balanced ? 2 : 1,
     source_ref: rich ? 4 : balanced ? 3 : 2,
+    collection_member: rich ? 3 : balanced ? 2 : 1,
     moc_parent: rich ? 3 : balanced ? 2 : 1,
     markdown_link: 0
   };
@@ -621,6 +628,7 @@ function quadrantDrillTypeCap(type: string, quality: string): number {
     pr_impact: rich ? 3 : balanced ? 2 : 1,
     ingestion_chain: rich ? 4 : balanced ? 3 : 1,
     source_ref: rich ? 5 : balanced ? 3 : 2,
+    collection_member: rich ? 3 : balanced ? 2 : 1,
     moc_parent: rich ? 3 : balanced ? 2 : 1,
     markdown_link: 0
   };
@@ -640,6 +648,7 @@ function pageDrillTypeCap(type: string, quality: string): number {
     pr_impact: rich ? 2 : 1,
     ingestion_chain: rich ? 2 : balanced ? 1 : 1,
     source_ref: rich ? 3 : balanced ? 2 : 1,
+    collection_member: rich ? 2 : 1,
     moc_parent: rich ? 2 : 1,
     markdown_link: 0
   };

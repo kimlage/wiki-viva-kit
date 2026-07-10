@@ -357,6 +357,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -365,6 +366,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -373,6 +375,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -381,6 +384,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [
@@ -398,6 +402,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -406,6 +411,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -414,6 +420,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "stale",
@@ -427,6 +434,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "copy_file",
@@ -440,6 +448,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -886,6 +895,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -894,6 +904,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -902,6 +913,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -910,6 +922,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [
               "context_note",
@@ -929,6 +942,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "copy_file",
@@ -942,6 +956,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -950,6 +965,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",

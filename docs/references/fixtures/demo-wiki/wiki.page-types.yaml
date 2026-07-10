@@ -17,6 +17,7 @@ page_types:
       updated_at: date
       stale_after_days: string
       source_refs: list
+      collection_refs: list
       moc_parent: string
       subject_ref: string
       subject_role: string
@@ -82,6 +83,7 @@ page_types:
     field_types: &common_field_types
       updated_at: date
       stale_after_days: string
+      collection_refs: list
   artifact:
     template: docs/references/templates/wiki/artifact.md
     allowed_dirs:
@@ -124,7 +126,11 @@ page_types:
     allowed_dirs:
       - memories
     required_frontmatter: *common_required
-    field_types: *common_field_types
+    field_types:
+      <<: *common_field_types
+      moc_parent: string
+      parent_projection: object
+      collection: object
   operational_rule:
     template: docs/references/templates/wiki/gate.md
     allowed_dirs:
@@ -302,8 +308,18 @@ page_types:
     template_none_reason: "The source registry is generated from source frontmatter."
     allowed_dirs:
       - memories/system
-    required_frontmatter: *common_required
-    field_types: *common_field_types
+    required_frontmatter:
+      - page_id
+      - page_type
+      - context
+      - visibility
+      - updated_at
+      - stale_after_days
+      - parent_projection
+    field_types:
+      <<: *common_field_types
+      parent_projection: object
+      collection: object
   input_stage:
     template: none
     template_none_reason: "The input stage is generated from the root entity, input channels, sources and source configs."

@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "2ef2ac7f2bf12e9e93478f90f39e2b2e747afce6b39922f20a50a44f565ca1a5",
+  "bundle_hash": "eb097d5981b8854394530cec25709216d05fcf68f5d34737d3fe5381c7ff54bf",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -65,7 +65,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "e4218a4497d1bce02368e3e63f611694b0ffeda07ac53b6c3aa70dda4faa37ff"
+    "source_input_sha256": "d4a6bbc8fd94feff7cc3d81b06ac547b7b65784bf668898a5e4d9889732bf0d9"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -74,12 +74,12 @@
       "sha256": "cf43b7c1a259039fccc54a39581f20a02cb7414462ea1edd0e494ee6f3f13d9a"
     },
     "block_stacks.json": {
-      "bytes": 18486,
-      "sha256": "e88c8db73e0440c1aa0d9d4cfe316d80c62d4493b166ec636ee61f1ec0264b82"
+      "bytes": 18936,
+      "sha256": "7f7079b45ad1e7f36f5d50b213caf1b6374f35abe71b8b48968929fb1f48d001"
     },
     "blocks.json": {
-      "bytes": 8822,
-      "sha256": "234a3cca4785e87c13926ecf030f2c3a00297d30f54b362608709de38e1edeb0"
+      "bytes": 8962,
+      "sha256": "d4176600b20818f1cd954c3f82d838150bedecc5b59df633f0cfae52d81e7a25"
     },
     "commands.json": {
       "bytes": 1179,
@@ -87,23 +87,23 @@
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1008,
-      "sha256": "e289c3b62819f9b2bfbdbb92c63e14cf58bf8e733241eede06b745d5141f7256"
+      "sha256": "59fe854e8600fddb78a09850acdfec5186dfa50cc06b014250b92719065e4f08"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 976,
-      "sha256": "75292e9c49d274adecee01958871c86e879e39c304d96e8fe00a063067010422"
+      "sha256": "4b1d6dfa68e70fcb8264756cbaf4d800e6b90e9c6de705c7032898ee25006cb4"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 1747,
-      "sha256": "9e4b03620efb740435b325cdc5c35a713e8addb5a382d62543328356214385b6"
+      "sha256": "1ce24140611145d8a462acfc491a4c739d70498028896eb4c26988b6f65cd04f"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "af29b2ddeb1897ee1fc63c8440db1b47a9be4a6bafbc0a09ee93e2e17111fb01"
+      "sha256": "428d4f7e9dbe5a15b168d8fcafc595dd066c49c2a6c7c8ec7e5054bc7a8483b6"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2270,
-      "sha256": "749b55acb57764015e7a5e5c943a922ff63868be199b0f664684de5c4a3d790a"
+      "sha256": "cb23d3f58f05d034d8cc6dfdbe88fd0cbdca820678f738e98dcf97b3fdd295d1"
     },
     "decisions.json": {
       "bytes": 57,
@@ -126,8 +126,8 @@
       "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
     },
     "graph.json": {
-      "bytes": 10229,
-      "sha256": "6c3fa01e9af2379bdebf531a7ed55f224de5113a62a6a461a8bb55a7b7fdadca"
+      "bytes": 10609,
+      "sha256": "0a83501550fa48567a01ea4d2e3970c341c55b06f7734fbefb0fa81de64b1c5e"
     },
     "ingestion.json": {
       "bytes": 503,
@@ -142,8 +142,8 @@
       "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
     },
     "pages.json": {
-      "bytes": 3378,
-      "sha256": "77e0fdf457a64616fdd880be271703ac64f2e08aa1284d0625489c7cef6bd50a"
+      "bytes": 3708,
+      "sha256": "5abbecd9419084f65fd47a0750e8f0ae5915812276c8202a9a0fb37df56fff23"
     },
     "quality.json": {
       "bytes": 2963,
@@ -174,8 +174,8 @@
       "sha256": "3e06d1354853a719039a50edcbbbd52504c3cceca302f82f4c84b276d8a7fb75"
     },
     "templates.json": {
-      "bytes": 23131,
-      "sha256": "746bd08e56a46f874c1dc4e982eb380cd21f98f034f4472ee1d9b779651602ed"
+      "bytes": 24023,
+      "sha256": "411b8b628420cb8b0dd3c48b493b3c44a24119ae3595bf89b98f7ba8d9e1c456"
     },
     "timeline.json": {
       "bytes": 1685,
@@ -198,9 +198,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-2ef2ac7f2bf12e9e",
+  "snapshot_id": "wiki-viva-demo-eb097d5981b88543",
   "source_commit": null,
-  "source_sha": "uncommitted:c5b60e47a7c1f623e88f8822419827fb69d63276e04359ee68566ee9826e70c0",
+  "source_sha": "uncommitted:ebd7834a91501c31aa160853ffa4b76c5641081c27f6f57335d80275beac09db",
   "versions": {
     "block_vocabulary": "wiki_blocks.v2",
     "canonical_route": "wiki_world_route.v8",

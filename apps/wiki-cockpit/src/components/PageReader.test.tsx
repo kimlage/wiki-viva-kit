@@ -235,6 +235,61 @@ describe("PageReader", () => {
     expect(screen.getByRole("button", { name: /beta/ })).toBeTruthy();
   });
 
+  it("renders collection membership as structure in both directions without cited-by duplication", async () => {
+    const collectionBundle = {
+      ...bundle,
+      pages: {
+        pages: [
+          page("claims-index", { title: "Claims collection", page_type: "ontology_index" }),
+          page("claim-a", { title: "Claim A", page_type: "claim" })
+        ]
+      },
+      graph: {
+        nodes: [],
+        edges: [
+          { source: "claim-a", target: "claims-index", type: "collection_member", status: "valid", weight: 1 }
+        ]
+      }
+    } as unknown as SnapshotBundle;
+    contentByCase.current = {
+      ok: true,
+      body: "Collection body",
+      resolved_links: [],
+      backlinks: [{
+        page_id: "claim-a",
+        path: "memories/x/claim-a.md",
+        title: "Claim A",
+        context: "x",
+        page_type: "claim",
+        freshness_state: "fresh",
+        approved_state: "approved",
+        relation: "collection_member"
+      }],
+      source_refs: []
+    };
+    const first = render(
+      <PageReader {...baseProps} bundle={collectionBundle} pageId="claims-index" />
+    );
+
+    await screen.findByText(/member of this collection/);
+    expect(screen.getAllByRole("button", { name: /Claim A/ })).toHaveLength(1);
+    expect(screen.queryByText("Cited by")).toBeNull();
+    first.unmount();
+
+    contentByCase.current = {
+      ok: true,
+      body: "Member body",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    render(<PageReader {...baseProps} bundle={collectionBundle} pageId="claim-a" />);
+
+    await screen.findByText(/in collection/);
+    expect(screen.getAllByRole("button", { name: /Claims collection/ })).toHaveLength(1);
+    expect(screen.queryByText("Cited by")).toBeNull();
+  });
+
   it("shows quadrant projection details for the active center", async () => {
     contentByCase.current = { ok: false, error: "static" };
     const projectionBundle = {

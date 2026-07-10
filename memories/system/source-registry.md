@@ -10,6 +10,10 @@ sources_policy: memoria_consolidada
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed
 moc_parent: memories/index.md
+parent_projection:
+  quadrant: q2
+  sub_lens: evidencias
+  reason: "The generated source registry is an observable evidence index of canonical sources."
 ---
 
 # Canonical source registry

@@ -115,7 +115,9 @@
         "holon",
         "project",
         "source",
-        "template_block"
+        "template_block",
+        "ontology_index",
+        "source_registry"
       ],
       "config_schema": {
         "labels": {
@@ -178,7 +180,8 @@
         "allowed_modes": [
           "children",
           "descendants",
-          "context"
+          "context",
+          "linked"
         ],
         "default_mode": "descendants"
       },
@@ -194,7 +197,8 @@
       "anchors": [
         "root_entity",
         "context_hub",
-        "holon"
+        "holon",
+        "ontology_index"
       ],
       "contributes": {
         "intake_forms": [
@@ -344,7 +348,9 @@
         "holon",
         "project",
         "source",
-        "template_block"
+        "template_block",
+        "ontology_index",
+        "source_registry"
       ],
       "config_schema": {
         "actions": "bool",
@@ -377,7 +383,9 @@
         "context_hub",
         "holon",
         "project",
-        "source"
+        "source",
+        "ontology_index",
+        "source_registry"
       ],
       "config_schema": {
         "available": "list",
@@ -489,6 +497,7 @@
       "children",
       "context",
       "descendants",
+      "linked",
       "self"
     ],
     "score_loops": [

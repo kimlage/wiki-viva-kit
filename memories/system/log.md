@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-07-09
+updated_at: 2026-07-10
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,17 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-07-10] System | Collection-owned subworld contract
+
+- [People registry](../people/index.md) now declares a typed `person`
+  collection while remaining intentionally empty in the public kit; this makes
+  the privacy-safe empty state explicit and lets downstream private members
+  populate the subworld without changing their canonical `moc_parent`.
+- Collection membership is separate from hierarchy, compiles to the typed
+  `collection_member` relation and activates linked block scope only when a
+  collection is declared. Legacy ontology indexes without a collection keep
+  their descendant behavior.
 
 ## [2026-07-09] System | v8 downstream upgrade commands documented
 

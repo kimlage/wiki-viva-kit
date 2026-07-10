@@ -2,6 +2,9 @@
   "pages": [
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "pessoal",
       "freshness_state": "fresh",
       "id": "root-alex-rivera",

@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "3e56d13350327b61205f825cc689310ae7d552900696d7729c704ac682d2e0f6",
+  "bundle_hash": "0caf3d78c1cdf5af4081abc6dfa44bd3bbf398c581569fe3a85546b62ff05de2",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -64,7 +64,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "95c4842b6600bc660df421cc04b8aacca9da80d9cc5d461a2c3c18f901250b57"
+    "source_input_sha256": "4cf524d72acfb37247ef6993b932e67aedcfd0e8ad709cc2f89258e5175748d4"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -73,12 +73,12 @@
       "sha256": "cf43b7c1a259039fccc54a39581f20a02cb7414462ea1edd0e494ee6f3f13d9a"
     },
     "block_stacks.json": {
-      "bytes": 16860,
-      "sha256": "d06670bb54ab5fb0bb49bbe4a78ef1a992b7e0aea27233f45145cc8a2b493563"
+      "bytes": 17210,
+      "sha256": "46f9790418c0245dfe1ea0725667371e9f5fb11b00d0c63ab1d70953db1354b0"
     },
     "blocks.json": {
-      "bytes": 8822,
-      "sha256": "234a3cca4785e87c13926ecf030f2c3a00297d30f54b362608709de38e1edeb0"
+      "bytes": 8962,
+      "sha256": "d4176600b20818f1cd954c3f82d838150bedecc5b59df633f0cfae52d81e7a25"
     },
     "commands.json": {
       "bytes": 1179,
@@ -86,19 +86,19 @@
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1008,
-      "sha256": "e57cddd670c2c0dcd09c68149085feaa3817602610408993599faa5698965704"
+      "sha256": "418c10120c457c6f76013cdb9c893e1b839b94702d86184e7577f87f770aaec0"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 976,
-      "sha256": "231af2efde96c1b56a3d87c50d0e26b9df2d9b3363f5b546db7537100484978a"
+      "sha256": "07c6f1c4e81abaa8f0343c58df8e9fc9c5d8ba3438dd86c18d208a2b95ebbd5c"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 1747,
-      "sha256": "657d57c00831e261e58ee5749d1217e3c90224371925d0d33d6911df800ad55e"
+      "sha256": "ebbdcdbfd063c9842b313da1a4b88ae8ed74c2cff5fa39e5fa1ad57235cd92d2"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1963,
-      "sha256": "79fef9b0b78cc116e8367b0b769e023407ff05b505172ca734e3d18d39dab3c1"
+      "sha256": "6b3c65b4c535635e1958a458907f452259b956478ac6c2237afbc2b002f5b3e8"
     },
     "decisions.json": {
       "bytes": 57,
@@ -121,8 +121,8 @@
       "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
     },
     "graph.json": {
-      "bytes": 8949,
-      "sha256": "f90f783899dd3eab9e5d58a42ceac3d7540f036d8e6c86b6b5252757c0771646"
+      "bytes": 9329,
+      "sha256": "303f9805b0ffb086c20cfe9b7e50253ee8ea7f0e26027e20f742c99625173eca"
     },
     "ingestion.json": {
       "bytes": 503,
@@ -137,8 +137,8 @@
       "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
     },
     "pages.json": {
-      "bytes": 2721,
-      "sha256": "4519852571a5ebabdfb8c1c5e9ab73e1c80a501936cc0a539d4763402828f7f0"
+      "bytes": 2985,
+      "sha256": "0a664af55354d7ca57649cf59c568605298c73cc8eaeeb8b2c01cb8f61787877"
     },
     "quality.json": {
       "bytes": 2631,
@@ -169,8 +169,8 @@
       "sha256": "3e06d1354853a719039a50edcbbbd52504c3cceca302f82f4c84b276d8a7fb75"
     },
     "templates.json": {
-      "bytes": 23131,
-      "sha256": "746bd08e56a46f874c1dc4e982eb380cd21f98f034f4472ee1d9b779651602ed"
+      "bytes": 24023,
+      "sha256": "411b8b628420cb8b0dd3c48b493b3c44a24119ae3595bf89b98f7ba8d9e1c456"
     },
     "timeline.json": {
       "bytes": 1451,
@@ -193,9 +193,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-3e56d13350327b61",
+  "snapshot_id": "wiki-viva-demo-0caf3d78c1cdf5af",
   "source_commit": null,
-  "source_sha": "uncommitted:642365b56cd79d7ab483ee200d707609087b85f5529ec840450413153b04687b",
+  "source_sha": "uncommitted:ead800fcc3f898f80c56b0b506c42ca9c6d444c3fe010145c879e05660821072",
   "versions": {
     "block_vocabulary": "wiki_blocks.v2",
     "canonical_route": "wiki_world_route.v8",

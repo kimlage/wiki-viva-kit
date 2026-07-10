@@ -16,6 +16,7 @@ PAGE_GRAPH_SCHEMA_VERSION = "wiki_page_graph.v1"
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 FRONTMATTER_REF_FIELDS = (
     "source_refs",
+    "collection_refs",
     "claims",
     "decisions",
     "actions",

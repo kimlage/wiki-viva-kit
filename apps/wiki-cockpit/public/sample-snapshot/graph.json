@@ -481,6 +481,23 @@
       "weight": 2
     },
     {
+      "basis": "collection.member_types",
+      "direction": "directed",
+      "id": "6bde282b6aa42e5c1c9c",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "collection",
+        "origin": "collection_page",
+        "page_id": "idx-decisoes",
+        "path": "memories/indexes/idx-decisoes.md"
+      },
+      "source": "decision-clearpath-enter-midmarket",
+      "status": "valid",
+      "target": "idx-decisoes",
+      "type": "collection_member",
+      "weight": 1
+    },
+    {
       "basis": "frontmatter",
       "direction": "directed",
       "id": "44ae9dc6f86016b945e5",
@@ -497,6 +514,23 @@
       "weight": 2
     },
     {
+      "basis": "collection.member_types",
+      "direction": "directed",
+      "id": "8ff27146008f296ecc0c",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "collection",
+        "origin": "collection_page",
+        "page_id": "idx-decisoes",
+        "path": "memories/indexes/idx-decisoes.md"
+      },
+      "source": "decision-onboarding",
+      "status": "valid",
+      "target": "idx-decisoes",
+      "type": "collection_member",
+      "weight": 1
+    },
+    {
       "basis": "frontmatter",
       "direction": "directed",
       "id": "d5d4b3674d56d21203d8",
@@ -511,6 +545,23 @@
       "target": "hub-clientes",
       "type": "moc_parent",
       "weight": 2
+    },
+    {
+      "basis": "collection.member_types",
+      "direction": "directed",
+      "id": "09b45532bbe97f0296a0",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "collection",
+        "origin": "collection_page",
+        "page_id": "idx-decisoes",
+        "path": "memories/indexes/idx-decisoes.md"
+      },
+      "source": "decision-precos",
+      "status": "valid",
+      "target": "idx-decisoes",
+      "type": "collection_member",
+      "weight": 1
     },
     {
       "basis": "frontmatter",
@@ -10084,6 +10135,25 @@
     }
   ],
   "relation_types": [
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "collection membership row",
+      "family": "collection",
+      "id": "collection_member",
+      "label": "collection member",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "member to collection index"
+    },
     {
       "allows_cycles": false,
       "allows_multiple": true,

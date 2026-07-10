@@ -1,11 +1,55 @@
 {
-  "backlinks": [],
-  "body": "\n# \u00cdndice de decis\u00f5es\n\nContent that lands in its quadrant interior.\n",
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "decision-clearpath-enter-midmarket",
+      "page_type": "decision",
+      "path": "memories/empresas/clearpath/decision-clearpath-enter-midmarket.md",
+      "relation": "collection_member",
+      "title": "Clearpath enters the midmarket segment"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "decision-onboarding",
+      "page_type": "decision",
+      "path": "memories/decisions/decision-onboarding.md",
+      "relation": "collection_member",
+      "title": "Padronizar onboarding de cliente"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "decision-precos",
+      "page_type": "decision",
+      "path": "memories/decisions/decision-precos.md",
+      "relation": "collection_member",
+      "title": "Reajustar pre\u00e7o de consultoria"
+    }
+  ],
+  "body": "\n# \u00cdndice de decis\u00f5es\n\nThis canonical index gathers every synthetic decision as a linked collection. The decisions keep their real structural parents; entering this page changes the navigation scope, not the underlying hierarchy.\n",
   "frontmatter": {
+    "collection": {
+      "contexts": [
+        "*"
+      ],
+      "member_types": [
+        "decision"
+      ]
+    },
     "context": "clientes",
     "moc_parent": "memories/clientes/index.md",
     "page_id": "idx-decisoes",
     "page_type": "ontology_index",
+    "parent_projection": {
+      "quadrant": "q1",
+      "reason": "The decision index is an intentional collection of choices around the active client world.",
+      "sub_lens": "intencao"
+    },
     "stale_after_days": 30,
     "title": "\u00cdndice de decis\u00f5es",
     "updated_at": "2026-07-03",
@@ -20,13 +64,13 @@
     "page_id": "idx-decisoes",
     "page_type": "ontology_index",
     "path": "memories/indexes/idx-decisoes.md",
-    "summary": "Content that lands in its quadrant interior.",
+    "summary": "This canonical index gathers every synthetic decision as a linked collection. The decisions keep their real structural parents; entering this page changes the navigation scope, not the underlying hierarchy.",
     "summary_truncated": false,
     "title": "\u00cdndice de decis\u00f5es",
     "updated_at": "2026-07-03"
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-6614ff37485fdad8",
+  "snapshot_id": "wiki-viva-demo-8952cd073408dd5e",
   "source_refs": []
 }

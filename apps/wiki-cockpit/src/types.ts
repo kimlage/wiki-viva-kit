@@ -74,9 +74,12 @@ export type PageRecord = {
   risk_flags: string[];
   source_refs: string[];
   moc_parent: string;
+  collection_refs?: string[];
+  collection?: Record<string, unknown>;
   summary: string;
   summary_truncated?: boolean;
   moc_children_count?: number;
+  collection_members_count?: number;
   work?: Record<string, unknown>;
   source_lifecycle_state?: string;
   source_blocked_reason?: string;

@@ -29,6 +29,13 @@ from pathlib import Path
 from typing import Any
 
 from wiki_core.config import WikiConfig, load_config
+from wiki_core.collections import (
+    collection_spec,
+    collection_reference_diagnostics,
+    collection_membership_basis,
+    member_collection_refs,
+    validate_collection_declaration,
+)
 from wiki_core.facets import FACET_QUADRANTS, FACETS, facet_of, home_quadrant
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
@@ -42,7 +49,7 @@ VISUAL_GRAMMAR_SCHEMA_VERSION = "wiki.visual_grammar.v1"
 
 # --- The FIXED vocabulary (source of truth in code) -------------------------
 BLOCK_KINDS = frozenset({"interpretation", "interface", "gate", "skill"})
-SCOPE_MODES = frozenset({"self", "children", "descendants", "context"})
+SCOPE_MODES = frozenset({"self", "children", "descendants", "context", "linked"})
 NESTED_MODES = frozenset({"summarize", "project_all", "hide_nested"})
 SURFACES = frozenset({"views", "missions", "create", "intake", "score", "panels"})
 MISSION_PROVIDERS = frozenset(
@@ -465,6 +472,12 @@ def _scope_reaches(
         return True
     if scope == "self":
         return False
+    if scope == "linked" and collection_membership_basis(
+        anchor,
+        target,
+        default=world.registry.resolve(anchor["page_type"]).collection,
+    ):
+        return True
     if _page_ref_matches(target["values"].get("subject_ref") or target["values"].get("subject"), anchor):
         return True
     if (
@@ -490,6 +503,11 @@ def _scope_reaches(
         return True
     if not _is_descendant(world, target, anchor) and _project_member_role(anchor, target):
         return True
+    # ``linked`` is an explicit relation scope. It must not silently degrade to
+    # the descendants fallback below; doing so would re-flatten collection
+    # indexes into their canonical hierarchy.
+    if scope == "linked":
+        return False
     if scope == "children":
         return target["moc_parent"] in {anchor["path"], anchor["id"]}
     if scope == "context":
@@ -522,6 +540,14 @@ def _block_instances(entries: Any) -> list[dict[str, Any]]:
         elif isinstance(entry, dict) and entry.get("id"):
             out.append(dict(entry))
     return out
+
+
+def _collection_scope_instance_errors(label: str, instance: dict[str, Any]) -> list[str]:
+    if "collection_scope" in instance and not isinstance(
+        instance.get("collection_scope"), bool
+    ):
+        return [f"{label}: collection_scope must be boolean"]
+    return []
 
 
 def _package_instances(world: BlockWorld, entries: Any) -> list[dict[str, Any]]:
@@ -558,6 +584,7 @@ def _apply(stack: list[dict[str, Any]], instance: dict[str, Any], *, origin: str
             existing["config"].update(config)
             existing["scope"] = scope
             existing["origin"] = origin
+            existing["collection_scope"] = bool(instance.get("collection_scope", False))
             return
     stack.append(
         {
@@ -567,8 +594,45 @@ def _apply(stack: list[dict[str, Any]], instance: dict[str, Any], *, origin: str
             "kind": kind,
             "config": config,
             "known": block_id in world.blocks,
+            "collection_scope": bool(instance.get("collection_scope", False)),
         }
     )
+
+
+def _has_collection_contract(world: BlockWorld, anchor: dict[str, Any]) -> bool:
+    default = world.registry.resolve(anchor["page_type"]).collection
+    spec = collection_spec(anchor, default)
+    if spec["member_types"] or spec["members"]:
+        return True
+    return any(
+        page["id"] != anchor["id"]
+        and any(
+            ref in {anchor["id"], anchor["path"]}
+            for ref in member_collection_refs(page)
+        )
+        for page in world.pages
+    )
+
+
+def _activate_collection_scopes(
+    world: BlockWorld, page: dict[str, Any], stack: list[dict[str, Any]]
+) -> None:
+    """Switch collection-aware type blocks only when membership is declared.
+
+    Legacy ontology indexes often own real moc descendants. They must keep that
+    behavior until the page or one of its members explicitly declares a
+    collection relation. The resolved stack records the basis either way.
+    """
+
+    active = _has_collection_contract(world, page)
+    for entry in stack:
+        if not entry.get("collection_scope"):
+            continue
+        entry["declared_scope"] = str(entry.get("scope") or "descendants")
+        entry["scope"] = "linked" if active else entry["declared_scope"]
+        entry["scope_basis"] = (
+            "collection_contract" if active else "canonical_hierarchy"
+        )
 
 
 def resolve_stack(world: BlockWorld, page: dict[str, Any]) -> list[dict[str, Any]]:
@@ -603,6 +667,7 @@ def resolve_stack(world: BlockWorld, page: dict[str, Any]) -> list[dict[str, Any
         world, page["values"].get("packages")
     ):
         _apply(stack, inst, origin="page", world=world)
+    _activate_collection_scopes(world, page, stack)
     return stack
 
 
@@ -1715,6 +1780,63 @@ def validate_blocks(world: BlockWorld) -> list[str]:
     """WARN-first: an unknown surface/provider/landmark is an authoring mistake,
     not data corruption. Returns human-readable strings for the audit gate."""
     errors: list[str] = []
+    collection_defaults = {
+        page_type: dict(world.registry.resolve(page_type).collection)
+        for page_type in world.registry.raw_types
+        if world.registry.resolve(page_type).collection
+    }
+    for diagnostic in collection_reference_diagnostics(
+        world.pages, defaults_by_type=collection_defaults
+    ):
+        errors.append(
+            f"page `{diagnostic['page_id']}`: {diagnostic['field']} references "
+            f"missing page `{diagnostic['ref']}`"
+        )
+    for page in world.pages:
+        for problem in validate_collection_declaration(page):
+            errors.append(f"page `{page['id']}`: {problem}")
+        declared_collection = page["values"].get("collection")
+        if isinstance(declared_collection, dict):
+            if not is_anchor_type(world, page["page_type"]):
+                errors.append(
+                    f"page `{page['id']}`: collection requires a block-anchor page type"
+                )
+            for member_type in declared_collection.get("member_types") or []:
+                if str(member_type) not in world.registry.raw_types:
+                    errors.append(
+                        f"page `{page['id']}`: collection references unknown member type `{member_type}`"
+                    )
+            known_contexts = set(world.config.contexts)
+            for context in declared_collection.get("contexts") or []:
+                if str(context) != "*" and str(context) not in known_contexts:
+                    errors.append(
+                        f"page `{page['id']}`: collection references unknown context `{context}`"
+                    )
+            merged_collection = collection_spec(
+                page, world.registry.resolve(page["page_type"]).collection
+            )
+            inbound_collection_refs = any(
+                candidate["id"] != page["id"]
+                and any(
+                    ref in {page["id"], page["path"]}
+                    for ref in member_collection_refs(candidate)
+                )
+                for candidate in world.pages
+            )
+            if not (
+                merged_collection["member_types"]
+                or merged_collection["members"]
+                or inbound_collection_refs
+            ):
+                errors.append(
+                    f"page `{page['id']}`: collection has no member selector or inbound collection_refs"
+                )
+        for ref in member_collection_refs(page):
+            target = world.by_id.get(ref) or world.by_path.get(ref)
+            if target is not None and not is_anchor_type(world, target["page_type"]):
+                errors.append(
+                    f"page `{page['id']}`: collection_refs target `{ref}` is not a block anchor"
+                )
     for block_id, definition in sorted(world.blocks.items()):
         kind = str(definition.get("kind") or "")
         if kind not in BLOCK_KINDS:
@@ -1743,15 +1865,25 @@ def validate_blocks(world: BlockWorld) -> list[str]:
         errors.extend(_visual_config_errors(f"block `{block_id}`", definition.get("config")))
     # Identity vocabulary on types.
     for page_type in world.registry.raw_types:
-        identity = world.registry.resolve(page_type).identity
-        if not identity:
-            continue
-        if identity.get("landmark") and identity["landmark"] not in IDENTITY_LANDMARKS:
-            errors.append(f"type `{page_type}`: unknown identity landmark `{identity['landmark']}`")
-        if identity.get("motif") and identity["motif"] not in IDENTITY_MOTIFS:
-            errors.append(f"type `{page_type}`: unknown identity motif `{identity['motif']}`")
-        if identity.get("ambient") and identity["ambient"] not in IDENTITY_AMBIENTS:
-            errors.append(f"type `{page_type}`: unknown identity ambient `{identity['ambient']}`")
+        spec = world.registry.resolve(page_type)
+        identity = spec.identity
+        if identity:
+            if identity.get("landmark") and identity["landmark"] not in IDENTITY_LANDMARKS:
+                errors.append(f"type `{page_type}`: unknown identity landmark `{identity['landmark']}`")
+            if identity.get("motif") and identity["motif"] not in IDENTITY_MOTIFS:
+                errors.append(f"type `{page_type}`: unknown identity motif `{identity['motif']}`")
+            if identity.get("ambient") and identity["ambient"] not in IDENTITY_AMBIENTS:
+                errors.append(f"type `{page_type}`: unknown identity ambient `{identity['ambient']}`")
+        for inst in _block_instances(list(spec.blocks)):
+            if inst["id"] not in world.blocks:
+                errors.append(
+                    f"type `{page_type}`: references unknown block `{inst['id']}`"
+                )
+            errors.extend(
+                _collection_scope_instance_errors(
+                    f"type `{page_type}` block `{inst['id']}`", inst
+                )
+            )
     # Packages: every block a package groups must exist.
     for name, package in sorted(world.registry.raw_packages.items()):
         for inst in _block_instances(package.get("blocks")):
@@ -1776,6 +1908,11 @@ def validate_blocks(world: BlockWorld) -> list[str]:
         for inst in instances:
             if inst["id"] not in world.blocks:
                 errors.append(f"page `{page['id']}`: references unknown block `{inst['id']}`")
+            errors.extend(
+                _collection_scope_instance_errors(
+                    f"page `{page['id']}` block `{inst['id']}`", inst
+                )
+            )
             errors.extend(_visual_config_errors(f"page `{page['id']}` block `{inst['id']}`", inst.get("config")))
         for name in package_names:
             if name and name not in world.registry.raw_packages:

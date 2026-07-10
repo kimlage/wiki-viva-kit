@@ -939,15 +939,50 @@
       }
     },
     "ontology_index": {
-      "blocks": [],
+      "blocks": [
+        {
+          "collection_scope": true,
+          "config": {
+            "mode": "optional_lens"
+          },
+          "id": "wiki.block.quadrants.v1",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": true,
+          "id": "wiki.block.relations.v1",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": true,
+          "config": {
+            "default": "quadrants"
+          },
+          "id": "wiki.block.ui_views.v1",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": true,
+          "config": {
+            "visual_pack": "quiet_structure"
+          },
+          "id": "wiki.block.ui_regions.v1",
+          "scope": "descendants"
+        }
+      ],
       "body_template": "",
-      "can_anchor_blocks": false,
+      "can_anchor_blocks": true,
       "controls": [],
       "creatable": false,
       "extends": null,
       "facets": {},
       "home_quadrant": null,
-      "identity": {},
+      "identity": {
+        "ambient": "none",
+        "horizon_label": "title",
+        "landmark": "shelf",
+        "motif": "shelves"
+      },
       "page_type": "ontology_index",
       "pinned_fields": [],
       "scene": {
@@ -1872,15 +1907,50 @@
       }
     },
     "source_registry": {
-      "blocks": [],
+      "blocks": [
+        {
+          "config": {
+            "mode": "optional_lens"
+          },
+          "id": "wiki.block.quadrants.v1",
+          "scope": "linked"
+        },
+        {
+          "config": {
+            "default": "sources"
+          },
+          "id": "wiki.block.ui_views.v1",
+          "scope": "linked"
+        },
+        {
+          "config": {
+            "visual_pack": "evidence_first"
+          },
+          "id": "wiki.block.ui_regions.v1",
+          "scope": "linked"
+        }
+      ],
       "body_template": "",
-      "can_anchor_blocks": false,
+      "can_anchor_blocks": true,
+      "collection": {
+        "contexts": [
+          "*"
+        ],
+        "member_types": [
+          "source"
+        ]
+      },
       "controls": [],
       "creatable": false,
       "extends": null,
       "facets": {},
       "home_quadrant": null,
-      "identity": {},
+      "identity": {
+        "ambient": "none",
+        "horizon_label": "title",
+        "landmark": "engine",
+        "motif": "streams"
+      },
       "page_type": "source_registry",
       "pinned_fields": [],
       "scene": {

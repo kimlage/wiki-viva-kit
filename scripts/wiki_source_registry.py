@@ -51,6 +51,9 @@ STRINGS = {
         "status_soon": "proxima",
         "status_ok": "em dia",
         "back": "Voltar ao indice em [{index}]({index_link}).",
+        "projection_reason": (
+            "O registro de fontes gerado e um indice observavel de evidencias das fontes canonicas."
+        ),
     },
     "en": {
         "title": "Canonical source registry",
@@ -69,6 +72,9 @@ STRINGS = {
         "status_soon": "soon",
         "status_ok": "ok",
         "back": "Back to the index at [{index}]({index_link}).",
+        "projection_reason": (
+            "The generated source registry is an observable evidence index of canonical sources."
+        ),
     },
 }
 
@@ -203,6 +209,10 @@ def build_registry(paths: WikiPaths, config, updated_at: str) -> str:
         "gate: github_pr",
         "sensitive_data_policy: private_sensitive_allowed",
         f"moc_parent: {index_rel}",
+        "parent_projection:",
+        "  quadrant: q2",
+        "  sub_lens: evidencias",
+        f'  reason: "{s["projection_reason"]}"',
         "---",
         "",
         f"# {s['title']}",

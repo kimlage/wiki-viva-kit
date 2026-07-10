@@ -41,6 +41,7 @@
       "hub-clientes": {
         "children": [
           "holon-product-ops",
+          "idx-decisoes",
           "source-call-recordings",
           "source-chat-export",
           "source-crm-accounts",
@@ -84,6 +85,14 @@
         "parent": "root-alex-rivera",
         "path": "memories/sistema/index.md",
         "title": "Sistema"
+      },
+      "idx-decisoes": {
+        "children": [],
+        "id": "idx-decisoes",
+        "page_type": "ontology_index",
+        "parent": "hub-clientes",
+        "path": "memories/indexes/idx-decisoes.md",
+        "title": "\u00cdndice de decis\u00f5es"
       },
       "library-ai-safety": {
         "children": [],
@@ -781,6 +790,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -789,6 +799,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -797,6 +808,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -805,6 +817,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [
@@ -823,6 +836,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Prop\u00f3sito do template",
@@ -838,6 +852,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -846,6 +861,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -861,6 +877,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "stale",
@@ -874,6 +891,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -1672,6 +1690,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -1680,6 +1699,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -1688,6 +1708,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -1696,6 +1717,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [
               "context_note",
@@ -1715,6 +1737,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Percep\u00e7\u00e3o e inten\u00e7\u00e3o da empresa",
@@ -1730,6 +1753,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -1738,6 +1762,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -1753,6 +1778,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_missions.v1",
           "kind": "interface",
@@ -1761,6 +1787,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -1769,6 +1796,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "copy_file",
@@ -2458,6 +2486,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -2466,6 +2495,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -2474,6 +2504,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "default": "quadrants"
           },
@@ -2484,6 +2515,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_quadrant",
             "catalog": [
@@ -2502,6 +2534,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Inten\u00e7\u00e3o da equipe",
@@ -2517,6 +2550,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -2525,6 +2559,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -2540,6 +2575,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "stale",
@@ -2554,6 +2590,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -2566,6 +2603,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "visual_pack": "region_operations"
           },
@@ -2683,7 +2721,8 @@
             "action-enviar-proposta",
             "claim-region-grouping-needed",
             "claim-region-hidden-work",
-            "decision-precos"
+            "decision-precos",
+            "idx-decisoes"
           ],
           "q2": [
             "action-region-clean-unsourced",
@@ -2692,7 +2731,6 @@
             "artifact-region-map-01",
             "artifact-region-map-02",
             "artifact-region-map-03",
-            "idx-decisoes",
             "source-call-recordings",
             "source-chat-export",
             "source-crm-accounts",
@@ -2888,18 +2926,18 @@
           ],
           "idx-decisoes": [
             {
-              "basis": "page_semantics",
+              "basis": "nested_center_self_projection",
               "center": "hub-clientes",
-              "facet": "pratica",
+              "facet": "intencao",
               "local_facet_under_subject": "pratica",
               "local_quadrant_under_subject": "q2",
               "local_sub_lens_under_subject": "evidencias",
               "page": "idx-decisoes",
-              "quadrant": "q2",
-              "reason": "",
-              "sub_lens": "evidencias",
-              "subject_center": "hub-clientes",
-              "through_center": ""
+              "quadrant": "q1",
+              "reason": "The decision index is an intentional collection of choices around the active client world.",
+              "sub_lens": "intencao",
+              "subject_center": "idx-decisoes",
+              "through_center": "idx-decisoes"
             }
           ],
           "journal-2026-07-02": [
@@ -3051,7 +3089,8 @@
           "q1": {
             "intencao": [
               "action-enviar-proposta",
-              "decision-precos"
+              "decision-precos",
+              "idx-decisoes"
             ],
             "percepcao": [
               "claim-region-grouping-needed",
@@ -3060,7 +3099,6 @@
           },
           "q2": {
             "evidencias": [
-              "idx-decisoes",
               "source-call-recordings",
               "source-chat-export",
               "source-crm-accounts",
@@ -3129,7 +3167,8 @@
                 "action-enviar-proposta",
                 "claim-region-grouping-needed",
                 "claim-region-hidden-work",
-                "decision-precos"
+                "decision-precos",
+                "idx-decisoes"
               ],
               "purpose": "act",
               "summary": {
@@ -3138,10 +3177,10 @@
                 "proposal": 0,
                 "raw": 0,
                 "risk": 0,
-                "shown": 4,
+                "shown": 5,
                 "source_backed": 0,
                 "stale": 1,
-                "total": 4,
+                "total": 5,
                 "unsourced": 3
               },
               "type_mix": [
@@ -3159,6 +3198,11 @@
                   "count": 1,
                   "family": "decision",
                   "page_type": "decision"
+                },
+                {
+                  "count": 1,
+                  "family": "hub",
+                  "page_type": "ontology_index"
                 }
               ],
               "visual": {
@@ -3220,7 +3264,6 @@
                 "artifact-region-map-01",
                 "artifact-region-map-02",
                 "artifact-region-map-03",
-                "idx-decisoes",
                 "source-call-recordings",
                 "source-chat-export",
                 "source-crm-accounts",
@@ -3236,10 +3279,10 @@
                 "proposal": 0,
                 "raw": 7,
                 "risk": 0,
-                "shown": 14,
+                "shown": 13,
                 "source_backed": 3,
                 "stale": 2,
-                "total": 14,
+                "total": 13,
                 "unsourced": 0
               },
               "type_mix": [
@@ -3257,11 +3300,6 @@
                   "count": 3,
                   "family": "content",
                   "page_type": "artifact"
-                },
-                {
-                  "count": 1,
-                  "family": "hub",
-                  "page_type": "ontology_index"
                 }
               ],
               "visual": {
@@ -3470,6 +3508,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -3478,6 +3517,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -3486,6 +3526,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -3494,6 +3535,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [
@@ -3514,6 +3556,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -3522,6 +3565,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -3530,6 +3574,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -3545,6 +3590,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "stale",
@@ -3558,6 +3604,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -3570,6 +3617,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "copy_file",
@@ -3978,6 +4026,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -3986,6 +4035,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -3994,6 +4044,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -4002,6 +4053,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [
@@ -4022,6 +4074,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -4030,6 +4083,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -4038,6 +4092,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -4053,6 +4108,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "stale",
@@ -4066,6 +4122,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -4078,6 +4135,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "copy_file",
@@ -4601,6 +4659,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -4609,6 +4668,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -4617,6 +4677,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -4625,6 +4686,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [
@@ -4642,6 +4704,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -4650,6 +4713,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -4658,6 +4722,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -4673,6 +4738,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "stale",
@@ -4686,6 +4752,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -4698,6 +4765,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "copy_file",
@@ -5311,6 +5379,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -5319,6 +5388,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -5327,6 +5397,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -5335,6 +5406,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [
@@ -5353,6 +5425,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -5361,6 +5434,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -5369,6 +5443,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -5384,6 +5459,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "stale",
@@ -5397,6 +5473,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -5409,6 +5486,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "copy_file",
@@ -5430,6 +5508,582 @@
           "review_first"
         ],
         "default_pack": "region_operations",
+        "packs": {
+          "evidence_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "action_lane",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "reader.badge": "source_badge",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "quiet_structure": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "center_badge",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "scope_chip",
+              "region.rail": "core_debt_meter",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "region_operations": {
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "action_lane",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          },
+          "review_first": {
+            "extends": "region_operations",
+            "slots": {
+              "cluster.tooltip": "hidden_histogram",
+              "dock.action": "review_halo",
+              "fallback.card": "region_work_card",
+              "legend.entry": "legend_key",
+              "region.card": "region_card",
+              "region.empty": "empty_region_affordance",
+              "region.marker": "review_halo",
+              "region.rail": "attention_rail",
+              "region.shelf": "type_shelf"
+            }
+          }
+        },
+        "primitive_purpose": {
+          "action_lane": "separate work items from context",
+          "attention_rail": "filter attention inside the active region",
+          "bridge_count": "explain cross-region dependencies",
+          "center_badge": "show the active anchor center",
+          "core_debt_meter": "flag classification debt in the core ring",
+          "empty_region_affordance": "explain required absences and valid creation paths",
+          "hidden_histogram": "describe hidden work behind render limits",
+          "legend_key": "explain the resolved visual grammar",
+          "region_card": "summarize region size and purpose",
+          "region_work_card": "show composition, attention and next actions",
+          "review_halo": "show pending proposal or approval review",
+          "risk_notch": "show risk without flooding the region",
+          "scope_chip": "show the active center, region or filter scope",
+          "source_badge": "mark raw, synced and consolidated evidence",
+          "type_shelf": "show why a region is dense by page family"
+        },
+        "schema_version": "wiki.visual_grammar.v1"
+      }
+    },
+    "idx-decisoes": {
+      "derived": {
+        "empty_quadrants": [
+          "q2",
+          "q3",
+          "q4"
+        ],
+        "missions": [
+          {
+            "anchor": "idx-decisoes",
+            "provider": "quadrant_absence",
+            "quadrant": "q2"
+          },
+          {
+            "anchor": "idx-decisoes",
+            "provider": "quadrant_absence",
+            "quadrant": "q3"
+          },
+          {
+            "anchor": "idx-decisoes",
+            "provider": "quadrant_absence",
+            "quadrant": "q4"
+          }
+        ],
+        "quadrant_assignments": {
+          "q0_core": [],
+          "q1": [
+            "decision-clearpath-enter-midmarket",
+            "decision-onboarding",
+            "decision-precos"
+          ],
+          "q2": [],
+          "q3": [],
+          "q4": []
+        },
+        "quadrant_nested_mode": "summarize",
+        "quadrant_projections": {
+          "decision-clearpath-enter-midmarket": [
+            {
+              "basis": "page_semantics",
+              "center": "idx-decisoes",
+              "facet": "intencao",
+              "local_facet_under_subject": "intencao",
+              "local_quadrant_under_subject": "q1",
+              "local_sub_lens_under_subject": "intencao",
+              "page": "decision-clearpath-enter-midmarket",
+              "quadrant": "q1",
+              "reason": "",
+              "sub_lens": "intencao",
+              "subject_center": "idx-decisoes",
+              "through_center": ""
+            }
+          ],
+          "decision-onboarding": [
+            {
+              "basis": "page_semantics",
+              "center": "idx-decisoes",
+              "facet": "intencao",
+              "local_facet_under_subject": "intencao",
+              "local_quadrant_under_subject": "q1",
+              "local_sub_lens_under_subject": "intencao",
+              "page": "decision-onboarding",
+              "quadrant": "q1",
+              "reason": "",
+              "sub_lens": "intencao",
+              "subject_center": "idx-decisoes",
+              "through_center": ""
+            }
+          ],
+          "decision-precos": [
+            {
+              "basis": "page_semantics",
+              "center": "idx-decisoes",
+              "facet": "intencao",
+              "local_facet_under_subject": "intencao",
+              "local_quadrant_under_subject": "q1",
+              "local_sub_lens_under_subject": "intencao",
+              "page": "decision-precos",
+              "quadrant": "q1",
+              "reason": "",
+              "sub_lens": "intencao",
+              "subject_center": "idx-decisoes",
+              "through_center": ""
+            }
+          ]
+        },
+        "quadrant_sub_lens": {
+          "q1": {
+            "intencao": [
+              "decision-clearpath-enter-midmarket",
+              "decision-onboarding",
+              "decision-precos"
+            ]
+          },
+          "q2": {},
+          "q3": {},
+          "q4": {}
+        },
+        "region_groups": {
+          "anchor": "idx-decisoes",
+          "groups": [
+            {
+              "action_hints": [
+                {
+                  "count": 3,
+                  "kind": "add_evidence",
+                  "label_key": "region.action.addEvidence"
+                }
+              ],
+              "attention_hints": [
+                {
+                  "count": 3,
+                  "kind": "unsourced"
+                }
+              ],
+              "id": "quadrant:intencao",
+              "kind": "quadrant",
+              "label_key": "intencao",
+              "member_ids": [
+                "decision-clearpath-enter-midmarket",
+                "decision-onboarding",
+                "decision-precos"
+              ],
+              "purpose": "verify",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 3,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 3,
+                "unsourced": 3
+              },
+              "type_mix": [
+                {
+                  "count": 3,
+                  "family": "decision",
+                  "page_type": "decision"
+                }
+              ],
+              "visual": {
+                "emphasis": [
+                  "attention"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "evidence_first",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "dock.action": "action_lane",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "reader.badge": "source_badge",
+                  "region.card": "region_card",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "action_lane",
+                  "region.rail": "attention_rail",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:pratica",
+              "kind": "quadrant",
+              "label_key": "pratica",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "quiet_structure",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "center_badge",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "scope_chip",
+                  "region.rail": "core_debt_meter",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:relacoes",
+              "kind": "quadrant",
+              "label_key": "relacoes",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "quiet_structure",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "center_badge",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "scope_chip",
+                  "region.rail": "core_debt_meter",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            },
+            {
+              "action_hints": [],
+              "attention_hints": [],
+              "id": "quadrant:sistemas",
+              "kind": "quadrant",
+              "label_key": "sistemas",
+              "member_ids": [],
+              "purpose": "navigate",
+              "summary": {
+                "hidden": 0,
+                "open_actions": 0,
+                "proposal": 0,
+                "raw": 0,
+                "risk": 0,
+                "shown": 0,
+                "source_backed": 0,
+                "stale": 0,
+                "total": 0,
+                "unsourced": 0
+              },
+              "type_mix": [],
+              "visual": {
+                "emphasis": [
+                  "healthy"
+                ],
+                "grammar_id": "wiki.visual_grammar.v1",
+                "pack_id": "quiet_structure",
+                "slots": {
+                  "cluster.tooltip": "hidden_histogram",
+                  "fallback.card": "region_work_card",
+                  "legend.entry": "legend_key",
+                  "region.card": "center_badge",
+                  "region.empty": "empty_region_affordance",
+                  "region.marker": "scope_chip",
+                  "region.rail": "core_debt_meter",
+                  "region.shelf": "type_shelf"
+                }
+              },
+              "visual_role": "quadrant"
+            }
+          ],
+          "schema_version": "wiki.region_groups.v1"
+        },
+        "relations": {
+          "due": [],
+          "open_commitments": [],
+          "upcoming_dates": []
+        },
+        "warnings": []
+      },
+      "identity": {
+        "ambient": "none",
+        "context": "clientes",
+        "horizon_label": "title",
+        "horizon_text": "\u00cdndice de decis\u00f5es",
+        "landmark": "shelf",
+        "motif": "shelves"
+      },
+      "interface": {
+        "create": {
+          "arrangement": "by_family",
+          "catalog": [
+            "context_note",
+            "source",
+            "person",
+            "project",
+            "holon",
+            "decision",
+            "tool"
+          ],
+          "disabled_reason": "",
+          "obligations": [],
+          "obligations_first": true
+        },
+        "has_quadrants": true,
+        "has_relations": true,
+        "intake": {
+          "forms": [
+            "meeting_note",
+            "interaction_note"
+          ]
+        },
+        "missions": {
+          "active": true,
+          "providers": [
+            "stale",
+            "template_conformity",
+            "quadrant_absence",
+            "relation_cadence_overdue",
+            "date_upcoming",
+            "commitment_open"
+          ],
+          "quiet": false,
+          "weather_contrib": true
+        },
+        "regions": {
+          "active": true,
+          "visual_pack": "quiet_structure"
+        },
+        "score": {
+          "loops": [
+            "context_vitality"
+          ],
+          "no_leaderboard": true
+        },
+        "views": {
+          "available": [
+            "quadrants",
+            "atlas",
+            "focus"
+          ],
+          "default": "quadrants"
+        }
+      },
+      "stack": [
+        {
+          "collection_scope": false,
+          "config": {},
+          "id": "wiki.block.privacy_boundary.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {},
+          "id": "wiki.block.git_human_gate.v1",
+          "kind": "gate",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": true,
+          "config": {
+            "default": "quadrants"
+          },
+          "declared_scope": "descendants",
+          "id": "wiki.block.ui_views.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:ontology_index",
+          "scope": "linked",
+          "scope_basis": "collection_contract"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "arrangement": "by_family",
+            "catalog": [
+              "context_note",
+              "source",
+              "person",
+              "project",
+              "holon",
+              "decision",
+              "tool"
+            ],
+            "obligations_first": true
+          },
+          "id": "wiki.block.ui_create.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "anchor:hub-clientes",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": true,
+          "config": {
+            "mode": "optional_lens"
+          },
+          "declared_scope": "descendants",
+          "id": "wiki.block.quadrants.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "template:ontology_index",
+          "scope": "linked",
+          "scope_basis": "collection_contract"
+        },
+        {
+          "collection_scope": true,
+          "config": {},
+          "declared_scope": "descendants",
+          "id": "wiki.block.relations.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "template:ontology_index",
+          "scope": "linked",
+          "scope_basis": "collection_contract"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "optional": [
+              "perspective-financial"
+            ],
+            "required": [
+              "perspective-privacy-publication"
+            ]
+          },
+          "id": "wiki.block.perspective_bundle.v1",
+          "kind": "interpretation",
+          "known": true,
+          "origin": "anchor:root-alex-rivera",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "providers": [
+              "stale",
+              "template_conformity"
+            ]
+          },
+          "id": "wiki.block.ui_missions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "anchor:hub-clientes",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": false,
+          "config": {
+            "loops": [
+              "context_vitality"
+            ]
+          },
+          "id": "wiki.block.gamification.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "anchor:hub-clientes",
+          "scope": "descendants"
+        },
+        {
+          "collection_scope": true,
+          "config": {
+            "visual_pack": "quiet_structure"
+          },
+          "declared_scope": "descendants",
+          "id": "wiki.block.ui_regions.v1",
+          "kind": "interface",
+          "known": true,
+          "origin": "template:ontology_index",
+          "scope": "linked",
+          "scope_basis": "collection_contract"
+        }
+      ],
+      "visual_grammar": {
+        "allowed_packs": [
+          "evidence_first",
+          "quiet_structure",
+          "region_operations",
+          "review_first"
+        ],
+        "default_pack": "quiet_structure",
         "packs": {
           "evidence_first": {
             "extends": "region_operations",
@@ -5849,6 +6503,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -5857,6 +6512,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -5865,6 +6521,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "default": "districts"
           },
@@ -5875,6 +6532,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [
@@ -5891,6 +6549,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Ideias e pressupostos",
@@ -5907,6 +6566,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -5915,6 +6575,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -5930,6 +6591,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "stale",
@@ -5945,6 +6607,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -5957,6 +6620,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "promote_reference"
@@ -6340,6 +7004,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -6348,6 +7013,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -6356,6 +7022,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -6364,6 +7031,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [
               "context_note",
@@ -6383,6 +7051,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -6391,6 +7060,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -6399,6 +7069,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -6414,6 +7085,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_missions.v1",
           "kind": "interface",
@@ -6422,6 +7094,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -6430,6 +7103,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "copy_file",
@@ -6852,6 +7526,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -6860,6 +7535,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -6868,6 +7544,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -6876,6 +7553,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [
               "context_note",
@@ -6895,6 +7573,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Percep\u00e7\u00e3o e inten\u00e7\u00e3o da empresa",
@@ -6910,6 +7589,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -6918,6 +7598,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -6933,6 +7614,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_missions.v1",
           "kind": "interface",
@@ -6941,6 +7623,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -6949,6 +7632,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "copy_file",
@@ -7353,6 +8037,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -7361,6 +8046,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -7369,6 +8055,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "default": "trails"
           },
@@ -7379,6 +8066,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_quadrant",
             "catalog": [
@@ -7397,6 +8085,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Inten\u00e7\u00e3o da equipe",
@@ -7413,6 +8102,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -7421,6 +8111,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -7436,6 +8127,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "stale",
@@ -7449,6 +8141,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "mission_health"
@@ -7461,6 +8154,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "visual_pack": "region_operations"
           },
@@ -8576,6 +9270,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -8584,6 +9279,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -8592,6 +9288,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -8600,6 +9297,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [
               "context_note",
@@ -8619,6 +9317,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "copy_file",
@@ -8632,6 +9331,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -8640,6 +9340,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -8648,6 +9349,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -8663,6 +9365,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_missions.v1",
           "kind": "interface",
@@ -8671,6 +9374,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -9039,6 +9743,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -9047,6 +9752,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -9055,6 +9761,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -9063,6 +9770,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -9075,6 +9783,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -9083,6 +9792,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -9091,6 +9801,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -9106,6 +9817,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -9119,6 +9831,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -9127,6 +9840,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -9135,6 +9849,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -9546,6 +10261,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -9554,6 +10270,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -9562,6 +10279,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -9570,6 +10288,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -9582,6 +10301,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -9590,6 +10310,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -9598,6 +10319,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -9613,6 +10335,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -9626,6 +10349,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -9634,6 +10358,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -9642,6 +10367,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -10105,6 +10831,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -10113,6 +10840,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -10121,6 +10849,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -10129,6 +10858,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [],
@@ -10142,6 +10872,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -10150,6 +10881,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -10158,6 +10890,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -10173,6 +10906,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -10186,6 +10920,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -10198,6 +10933,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -10206,6 +10942,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -10579,6 +11316,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -10587,6 +11325,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -10595,6 +11334,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -10603,6 +11343,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -10615,6 +11356,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -10623,6 +11365,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -10631,6 +11374,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -10646,6 +11390,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -10659,6 +11404,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -10667,6 +11413,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -10675,6 +11422,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -11050,6 +11798,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -11058,6 +11807,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -11066,6 +11816,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -11074,6 +11825,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [],
@@ -11087,6 +11839,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -11095,6 +11848,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -11103,6 +11857,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -11118,6 +11873,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -11131,6 +11887,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -11143,6 +11900,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -11151,6 +11909,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -11564,6 +12323,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -11572,6 +12332,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -11580,6 +12341,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -11588,6 +12350,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [],
@@ -11601,6 +12364,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -11609,6 +12373,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -11617,6 +12382,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -11632,6 +12398,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -11645,6 +12412,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -11657,6 +12425,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -11665,6 +12434,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -12038,6 +12808,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -12046,6 +12817,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -12054,6 +12826,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -12062,6 +12835,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -12074,6 +12848,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Percep\u00e7\u00e3o e inten\u00e7\u00e3o da empresa",
@@ -12089,6 +12864,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -12097,6 +12873,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -12112,6 +12889,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -12125,6 +12903,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -12133,6 +12912,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -12141,6 +12921,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -12539,6 +13320,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -12547,6 +13329,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -12555,6 +13338,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -12563,6 +13347,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -12575,6 +13360,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Percep\u00e7\u00e3o e inten\u00e7\u00e3o da empresa",
@@ -12590,6 +13376,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -12598,6 +13385,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -12613,6 +13401,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -12626,6 +13415,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -12634,6 +13424,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -12642,6 +13433,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -13015,6 +13807,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -13023,6 +13816,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -13031,6 +13825,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -13039,6 +13834,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -13051,6 +13847,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Percep\u00e7\u00e3o e inten\u00e7\u00e3o da empresa",
@@ -13066,6 +13863,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -13074,6 +13872,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -13089,6 +13888,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -13102,6 +13902,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -13110,6 +13911,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -13118,6 +13920,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -13491,6 +14294,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -13499,6 +14303,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -13507,6 +14312,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -13515,6 +14321,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -13527,6 +14334,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Percep\u00e7\u00e3o e inten\u00e7\u00e3o da empresa",
@@ -13542,6 +14350,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -13550,6 +14359,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -13565,6 +14375,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -13578,6 +14389,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -13586,6 +14398,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -13594,6 +14407,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -13967,6 +14781,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -13975,6 +14790,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -13983,6 +14799,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -13991,6 +14808,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -14003,6 +14821,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Percep\u00e7\u00e3o e inten\u00e7\u00e3o da empresa",
@@ -14018,6 +14837,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -14026,6 +14846,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -14041,6 +14862,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -14054,6 +14876,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -14062,6 +14885,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -14070,6 +14894,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -14445,6 +15270,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -14453,6 +15279,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -14461,6 +15288,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -14469,6 +15297,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [],
@@ -14482,6 +15311,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -14490,6 +15320,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -14498,6 +15329,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -14513,6 +15345,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -14526,6 +15359,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -14538,6 +15372,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -14546,6 +15381,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -14919,6 +15755,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -14927,6 +15764,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -14935,6 +15773,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -14943,6 +15782,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -14955,6 +15795,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -14963,6 +15804,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -14971,6 +15813,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -14986,6 +15829,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -14999,6 +15843,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -15007,6 +15852,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -15015,6 +15861,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -15390,6 +16237,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -15398,6 +16246,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -15406,6 +16255,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "default": "quadrants"
           },
@@ -15416,6 +16266,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_quadrant",
             "catalog": [],
@@ -15429,6 +16280,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Inten\u00e7\u00e3o da equipe",
@@ -15444,6 +16296,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -15452,6 +16305,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -15467,6 +16321,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -15480,6 +16335,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -15492,6 +16348,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "visual_pack": "region_operations"
           },
@@ -15502,6 +16359,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -15510,6 +16368,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -15883,6 +16742,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -15891,6 +16751,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -15899,6 +16760,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -15907,6 +16769,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -15919,6 +16782,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -15927,6 +16791,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -15935,6 +16800,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -15950,6 +16816,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -15963,6 +16830,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -15971,6 +16839,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -15979,6 +16848,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -16354,6 +17224,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -16362,6 +17233,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -16370,6 +17242,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "default": "quadrants"
           },
@@ -16380,6 +17253,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_quadrant",
             "catalog": [],
@@ -16393,6 +17267,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Inten\u00e7\u00e3o da equipe",
@@ -16408,6 +17283,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -16416,6 +17292,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -16431,6 +17308,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -16444,6 +17322,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -16456,6 +17335,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "visual_pack": "region_operations"
           },
@@ -16466,6 +17346,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -16474,6 +17355,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -16847,6 +17729,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -16855,6 +17738,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -16863,6 +17747,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -16871,6 +17756,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -16883,6 +17769,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -16891,6 +17778,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -16899,6 +17787,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -16914,6 +17803,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -16927,6 +17817,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -16935,6 +17826,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -16943,6 +17835,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -17316,6 +18209,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -17324,6 +18218,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -17332,6 +18227,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -17340,6 +18236,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -17352,6 +18249,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -17360,6 +18258,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -17368,6 +18267,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -17383,6 +18283,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -17396,6 +18297,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -17404,6 +18306,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -17412,6 +18315,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -17785,6 +18689,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -17793,6 +18698,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -17801,6 +18707,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -17809,6 +18716,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -17821,6 +18729,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -17829,6 +18738,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -17837,6 +18747,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -17852,6 +18763,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -17865,6 +18777,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -17873,6 +18786,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -17881,6 +18795,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -18256,6 +19171,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -18264,6 +19180,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -18272,6 +19189,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -18280,6 +19198,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [],
@@ -18293,6 +19212,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -18301,6 +19221,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -18309,6 +19230,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -18324,6 +19246,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -18337,6 +19260,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -18349,6 +19273,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -18357,6 +19282,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -18907,6 +19833,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -18915,6 +19842,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -18923,6 +19851,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -18931,6 +19860,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [],
@@ -18944,6 +19874,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -18952,6 +19883,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -18960,6 +19892,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -18975,6 +19908,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -18988,6 +19922,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -19000,6 +19935,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -19008,6 +19944,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -19381,6 +20318,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -19389,6 +20327,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -19397,6 +20336,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -19405,6 +20345,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -19417,6 +20358,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -19425,6 +20367,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -19433,6 +20376,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -19448,6 +20392,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -19461,6 +20406,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -19469,6 +20415,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -19477,6 +20424,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -19850,6 +20798,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -19858,6 +20807,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -19866,6 +20816,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -19874,6 +20825,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -19886,6 +20838,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -19894,6 +20847,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -19902,6 +20856,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -19917,6 +20872,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -19930,6 +20886,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -19938,6 +20895,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -19946,6 +20904,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -20319,6 +21278,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -20327,6 +21287,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -20335,6 +21296,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -20343,6 +21305,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -20355,6 +21318,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -20363,6 +21327,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -20371,6 +21336,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -20386,6 +21352,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -20399,6 +21366,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -20407,6 +21375,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -20415,6 +21384,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -20788,6 +21758,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -20796,6 +21767,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -20804,6 +21776,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -20812,6 +21785,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -20824,6 +21798,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -20832,6 +21807,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -20840,6 +21816,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -20855,6 +21832,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -20868,6 +21846,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -20876,6 +21855,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -20884,6 +21864,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -21259,6 +22240,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -21267,6 +22249,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -21275,6 +22258,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "default": "quadrants"
           },
@@ -21285,6 +22269,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_quadrant",
             "catalog": [],
@@ -21298,6 +22283,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Inten\u00e7\u00e3o da equipe",
@@ -21313,6 +22299,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -21321,6 +22308,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -21336,6 +22324,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -21349,6 +22338,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -21361,6 +22351,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "visual_pack": "region_operations"
           },
@@ -21371,6 +22362,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -21379,6 +22371,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -21754,6 +22747,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -21762,6 +22756,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -21770,6 +22765,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -21778,6 +22774,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [],
@@ -21791,6 +22788,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -21799,6 +22797,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -21807,6 +22806,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -21822,6 +22822,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -21835,6 +22836,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -21847,6 +22849,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -21855,6 +22858,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -22341,6 +23345,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -22349,6 +23354,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -22357,6 +23363,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -22365,6 +23372,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_family",
             "catalog": [],
@@ -22378,6 +23386,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -22386,6 +23395,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -22394,6 +23404,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -22409,6 +23420,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -22422,6 +23434,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -22434,6 +23447,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -22442,6 +23456,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -22815,6 +23830,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -22823,6 +23839,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -22831,6 +23848,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.ui_views.v1",
           "kind": "interface",
@@ -22839,6 +23857,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "catalog": [],
             "disabled_reason": "create.sourceContentByIngestion",
@@ -22851,6 +23870,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
@@ -22859,6 +23879,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -22867,6 +23888,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -22882,6 +23904,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -22895,6 +23918,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.gamification.v1",
           "kind": "interface",
@@ -22903,6 +23927,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -22911,6 +23936,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",
@@ -23286,6 +24312,7 @@
       },
       "stack": [
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.privacy_boundary.v1",
           "kind": "gate",
@@ -23294,6 +24321,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.git_human_gate.v1",
           "kind": "gate",
@@ -23302,6 +24330,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "default": "quadrants"
           },
@@ -23312,6 +24341,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "arrangement": "by_quadrant",
             "catalog": [],
@@ -23325,6 +24355,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "labels": {
               "q1": "Inten\u00e7\u00e3o da equipe",
@@ -23340,6 +24371,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
@@ -23348,6 +24380,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "optional": [
               "perspective-financial"
@@ -23363,6 +24396,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "providers": [
               "source_cursor_overdue",
@@ -23376,6 +24410,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "loops": [
               "context_vitality"
@@ -23388,6 +24423,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {
             "visual_pack": "region_operations"
           },
@@ -23398,6 +24434,7 @@
           "scope": "descendants"
         },
         {
+          "collection_scope": false,
           "config": {},
           "id": "wiki.block.source_recipe.v1",
           "kind": "gate",
@@ -23406,6 +24443,7 @@
           "scope": "self"
         },
         {
+          "collection_scope": false,
           "config": {
             "forms": [
               "source_sync",

@@ -3,6 +3,9 @@
   "sources": [
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-product-analytics",
@@ -31,6 +34,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-support-tickets",

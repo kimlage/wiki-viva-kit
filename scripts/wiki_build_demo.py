@@ -1117,8 +1117,27 @@ keeping a calm calendar.
         ("process-fechamento-mensal", "process", "Fechamento mensal", "financeiro", "memories/financeiro/index.md", {"cadence": "monthly"}, "processos"),
         # Content revalidation: a publication gate is GOVERNANCE (systems).
         ("rule-nada-publica-sem-review", "operational_rule", "Nada publica sem review humano", "sistema", "memories/sistema/index.md", {"home_quadrant": "sistemas"}, "governanca"),
-        # q0 structural
-        ("idx-decisoes", "ontology_index", "Índice de decisões", "clientes", "memories/clientes/index.md", {}, None),
+        # Canonical collection index: a real Q1 doorway whose linked scope
+        # gathers decisions without rewriting their structural parents.
+        (
+            "idx-decisoes",
+            "ontology_index",
+            "Índice de decisões",
+            "clientes",
+            "memories/clientes/index.md",
+            {
+                "parent_projection": {
+                    "quadrant": "q1",
+                    "sub_lens": "intencao",
+                    "reason": "The decision index is an intentional collection of choices around the active client world.",
+                },
+                "collection": {
+                    "member_types": ["decision"],
+                    "contexts": ["*"],
+                },
+            },
+            None,
+        ),
         # library leaves (optional-lens quadrants)
         ("claim-scaling-laws", "claim", "Scaling laws seguem valendo em 2026", "estudio", "memories/estudio/biblioteca-ai-safety/index.md", {}, "percepcao"),
         ("artifact-benchmark-safety", "artifact", "Benchmark de safety evals", "estudio", "memories/estudio/biblioteca-ai-safety/index.md", {}, "producao"),
@@ -1137,6 +1156,12 @@ keeping a calm calendar.
             body += "Quick sync with [João Mendes](../people/person-joao-mendes.md); nothing blocking."
         elif lid == "action-enviar-proposta":
             body += "Proposal promised to [Caio Prado](../people/person-caio-prado.md)."
+        elif lid == "idx-decisoes":
+            body += (
+                "This canonical index gathers every synthetic decision as a linked collection. "
+                "The decisions keep their real structural parents; entering this page changes "
+                "the navigation scope, not the underlying hierarchy."
+            )
         else:
             body += "Content that lands in its quadrant interior."
         pages.append(page(f"memories/{_leaf_dir(ptype)}/{lid}.md", front, body))

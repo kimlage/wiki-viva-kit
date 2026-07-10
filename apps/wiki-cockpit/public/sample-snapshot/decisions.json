@@ -2,6 +2,9 @@
   "decisions": [
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "decision-clearpath-enter-midmarket",
@@ -28,6 +31,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "decision-onboarding",
@@ -54,6 +60,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "decision-precos",

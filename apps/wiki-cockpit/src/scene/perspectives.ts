@@ -1415,7 +1415,7 @@ export const TRAIL_SECTORS = ["hierarquia", "evidencia", "links", "citado-por"] 
 export type TrailSector = (typeof TRAIL_SECTORS)[number];
 
 function trailSectorFor(edge: GraphEdge, outbound: boolean): TrailSector {
-  if (edge.type === "moc_parent") return "hierarquia";
+  if (edge.type === "moc_parent" || edge.type === "collection_member") return "hierarquia";
   if (edge.type === "source_ref" || edge.type === "ingestion_chain") return "evidencia";
   return outbound ? "links" : "citado-por";
 }

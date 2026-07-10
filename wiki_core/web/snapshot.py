@@ -11,6 +11,12 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from wiki_core.collections import (
+    COLLECTION_RELATION_TYPE,
+    collection_memberships,
+    collection_reference_diagnostics,
+    member_collection_refs,
+)
 from wiki_core.closure import build_ingestion_closure_report
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.freshness import freshness_state, is_stale_exempt
@@ -18,6 +24,7 @@ from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.graph import build_page_graph
 from wiki_core.paths import WikiPaths
 from wiki_core.quality import build_quality_report
+from wiki_core.templates_registry import load_template_registry
 from wiki_core.web.commands import build_operator_command_cards
 from wiki_core.web.diff import build_diff_payload
 from wiki_core.web.git_ops import build_git_state
@@ -55,6 +62,15 @@ RELATION_TYPES: dict[str, dict[str, Any]] = {
         "provenance_bearing": False,
         "visual_line_intent": "structural parent",
         "fallback": "parent/child row",
+    },
+    COLLECTION_RELATION_TYPE: {
+        "family": "collection",
+        "direction": "directed",
+        "allows_multiple": True,
+        "allows_cycles": False,
+        "provenance_bearing": False,
+        "visual_line_intent": "member to collection index",
+        "fallback": "collection membership row",
     },
     "source_ref": {
         "family": "evidence",
@@ -476,6 +492,10 @@ def _page_record(
         "risk_flags": [],
         "source_refs": source_refs,
         "moc_parent": str(values.get("moc_parent") or ""),
+        "collection_refs": member_collection_refs(values),
+        "collection": values.get("collection")
+        if isinstance(values.get("collection"), dict)
+        else {},
         "summary": summary,
         "summary_truncated": summary_truncated,
     }
@@ -557,6 +577,18 @@ def _pages_payload(root: Path, config: WikiConfig) -> dict[str, Any]:
         page["moc_children_count"] = children.get(str(page["path"]), 0) + children.get(
             str(page["id"]), 0
         )
+    registry = load_template_registry(root, config)
+    defaults = {
+        page_type: dict(registry.resolve(page_type).collection)
+        for page_type in registry.raw_types
+        if registry.resolve(page_type).collection
+    }
+    collection_counts: dict[str, int] = {}
+    for membership in collection_memberships(pages, defaults_by_type=defaults):
+        key = str(membership["collection"])
+        collection_counts[key] = collection_counts.get(key, 0) + 1
+    for page in pages:
+        page["collection_members_count"] = collection_counts.get(str(page["id"]), 0)
     return {
         "schema_version": "wiki_web_pages.v1",
         "repo_id": config.repo_id,
@@ -998,6 +1030,7 @@ def _graph_payload(
     graph = build_page_graph(root, config)
     pages_by_path = {str(page["path"]): page for page in pages_payload["pages"]}
     id_by_path = {rel: (node.page_id or rel) for rel, node in graph.nodes.items()}
+    path_by_id = {page_id: rel for rel, page_id in id_by_path.items()}
     overlay_metrics = _graph_overlay_metrics(
         pages_payload,
         id_by_path,
@@ -1060,10 +1093,21 @@ def _graph_payload(
                         "weight": 1,
                     }
                 )
+        collection_target_paths = {
+            ref if ref in id_by_path else path_by_id.get(ref, ref)
+            for ref in page.get("collection_refs") or []
+        }
         for target in node.outbound_frontmatter_refs:
             if target in id_by_path:
+                # Collection edges are emitted below from the normalized
+                # membership compiler so member-side, collection-side and
+                # typed declarations share one provenance contract.
+                if target in collection_target_paths:
+                    continue
                 edge_type = (
-                    "moc_parent" if target == page.get("moc_parent") else "source_ref"
+                    "moc_parent"
+                    if target == page.get("moc_parent")
+                    else "source_ref"
                 )
                 edges.append(
                     {
@@ -1244,6 +1288,77 @@ def _graph_payload(
                     if isinstance(case.get("provenance"), dict)
                     else None,
                 )
+
+    registry = load_template_registry(root, config)
+    collection_defaults = {
+        page_type: dict(registry.resolve(page_type).collection)
+        for page_type in registry.raw_types
+        if registry.resolve(page_type).collection
+    }
+    pages_by_id = {
+        str(page.get("id") or ""): page for page in pages_payload["pages"]
+    }
+    for membership in collection_memberships(
+        pages_payload["pages"], defaults_by_type=collection_defaults
+    ):
+        member_id = str(membership["member"])
+        collection_id = str(membership["collection"])
+        member_page = pages_by_id.get(member_id) or {}
+        declaration_page = pages_by_id.get(
+            str(membership.get("declaration_page") or "")
+        ) or {}
+        provenance_page = (
+            member_page if membership["origin"] == "member" else declaration_page
+        )
+        emit_relation(
+            member_id,
+            collection_id,
+            COLLECTION_RELATION_TYPE,
+            provenance_page,
+            "collection_refs"
+            if membership["basis"] == "member.collection_refs"
+            else "collection",
+            basis=str(membership["basis"]),
+            provenance={
+                "page_id": str(provenance_page.get("id") or "")
+                if membership["origin"] != "template_default"
+                else "",
+                "path": str(provenance_page.get("path") or "")
+                if membership["origin"] != "template_default"
+                else "wiki.templates.yaml",
+                "field": "collection_refs"
+                if membership["origin"] == "member"
+                else "collection"
+                if membership["origin"] == "collection_page"
+                else f"templates.types.{membership['template_type']}.collection",
+                "origin": str(membership["origin"]),
+            },
+        )
+    for diagnostic in collection_reference_diagnostics(
+        pages_payload["pages"], defaults_by_type=collection_defaults
+    ):
+        diagnostic_key = f"{diagnostic['field']}|{diagnostic['ref']}"
+        diagnostic_hash = hashlib.sha256(diagnostic_key.encode("utf-8")).hexdigest()[:12]
+        relation_diagnostics.append(
+            {
+                "id": (
+                    f"{diagnostic['page_id']}:collection-diagnostic:"
+                    f"{diagnostic_hash}"
+                ),
+                "source": diagnostic["page_id"],
+                "target": diagnostic["ref"],
+                "type": COLLECTION_RELATION_TYPE,
+                "status": "invalid",
+                "reasons": ["invalid_endpoint", diagnostic["code"]],
+                "basis": diagnostic["field"],
+                "provenance": {
+                    "page_id": diagnostic["page_id"],
+                    "path": diagnostic["path"],
+                    "field": diagnostic["field"],
+                    "origin": diagnostic["origin"],
+                },
+            }
+        )
 
     relation_type_records = [
         {

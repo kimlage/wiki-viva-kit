@@ -27,7 +27,7 @@ const nodes = [
 ];
 const edges: GraphEdge[] = [
   { source: "claims-index", target: "root", type: "moc_parent", status: "valid", weight: 2 },
-  { source: "claim-a", target: "claims-index", type: "moc_parent", status: "valid", weight: 2 },
+  { source: "claim-a", target: "claims-index", type: "collection_member", status: "valid", weight: 1 },
   { source: "claim-b", target: "claim-a", type: "source_ref", status: "valid", weight: 1 },
   { source: "unrelated-source", target: "claim-a", type: "source_ref", status: "valid", weight: 1 }
 ];
@@ -81,7 +81,7 @@ describe("compiled anchor world scope", () => {
 
     expect(scoped.nodes.map((item) => item.id)).toEqual(["claims-index", "claim-a", "claim-b"]);
     expect(scoped.edges).toEqual([
-      { source: "claim-a", target: "claims-index", type: "moc_parent", status: "valid", weight: 2 },
+      { source: "claim-a", target: "claims-index", type: "collection_member", status: "valid", weight: 1 },
       { source: "claim-b", target: "claim-a", type: "source_ref", status: "valid", weight: 1 }
     ]);
   });

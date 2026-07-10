@@ -570,15 +570,15 @@
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 13,
-      "information_density_per_1000_words": 100.0,
-      "link_density_per_1000_words": 100.0,
+      "estimated_tokens": 41,
+      "information_density_per_1000_words": 31.25,
+      "link_density_per_1000_words": 31.25,
       "outbound_links": 1,
       "page_type": "ontology_index",
       "path": "memories/indexes/idx-decisoes.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 10
+      "words": 32
     },
     {
       "body_links": 0,

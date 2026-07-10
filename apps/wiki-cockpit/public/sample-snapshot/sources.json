@@ -3,6 +3,9 @@
   "sources": [
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-crm-accounts",
@@ -38,6 +41,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-call-recordings",
@@ -66,6 +72,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-clearpath-billing",
@@ -94,6 +103,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-clearpath-customer-interviews",
@@ -122,6 +134,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-clearpath-risk-log",
@@ -150,6 +165,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-clearpath-roadmap",
@@ -178,6 +196,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-clearpath-support",
@@ -206,6 +227,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-error-traces",
@@ -262,6 +286,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-chat-export",
@@ -290,6 +317,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-feature-flags",
@@ -318,6 +348,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-nps-surveys",
@@ -346,6 +379,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-product-analytics",
@@ -374,6 +410,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-release-notes",
@@ -402,6 +441,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-sales-pipeline",
@@ -430,6 +472,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-support-tickets",
@@ -458,6 +503,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "source-usage-warehouse",
@@ -486,6 +534,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "estudio",
       "freshness_state": "fresh",
       "id": "source-reading-queue",
@@ -514,6 +565,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "estudio",
       "freshness_state": "fresh",
       "id": "source-reference-folder",
@@ -549,6 +603,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "financeiro",
       "freshness_state": "stale",
       "id": "source-banco-export",
@@ -577,6 +634,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "pessoal",
       "freshness_state": "fresh",
       "id": "source-agenda",
@@ -605,6 +665,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "pessoal",
       "freshness_state": "fresh",
       "id": "source-calendar-archive",
@@ -633,6 +696,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "pessoal",
       "freshness_state": "fresh",
       "id": "source-inbox-capture",
@@ -661,6 +727,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "pessoal",
       "freshness_state": "fresh",
       "id": "source-notes-vault",
@@ -689,6 +758,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "pessoal",
       "freshness_state": "fresh",
       "id": "source-relation-cadence",
@@ -717,6 +789,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "sistema",
       "freshness_state": "fresh",
       "id": "source-action-ledger",
@@ -758,6 +833,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "sistema",
       "freshness_state": "fresh",
       "id": "source-decision-log",
@@ -786,6 +864,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "sistema",
       "freshness_state": "fresh",
       "id": "source-evidence-ledger",
@@ -814,6 +895,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "sistema",
       "freshness_state": "fresh",
       "id": "source-health-checks",
@@ -853,6 +937,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "sistema",
       "freshness_state": "fresh",
       "id": "source-publication-queue",
@@ -881,6 +968,9 @@
     },
     {
       "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
       "context": "sistema",
       "freshness_state": "fresh",
       "id": "source-template-registry",

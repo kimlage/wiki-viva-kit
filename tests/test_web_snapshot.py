@@ -177,6 +177,161 @@ def test_build_snapshot_contains_plan_files_and_local_data(tmp_path: Path) -> No
             assert set(metric) == {"state", "value", "count", "reasons", "refs"}
 
 
+def test_collection_membership_edge_is_unique_and_keeps_declaration_provenance(
+    tmp_path: Path,
+) -> None:
+    config = _sample_repo(tmp_path)
+    _write(
+        tmp_path / "memories/claims/index.md",
+        """---
+page_id: claims-index
+page_type: ontology_index
+title: "Claims"
+context: example
+visibility: private_self
+updated_at: 2026-07-01
+stale_after_days: 30
+moc_parent: memories/index.md
+collection:
+  member_types: [claim]
+---
+
+# Claims
+""",
+    )
+    _write(
+        tmp_path / "memories/claims/a.md",
+        """---
+page_id: claim-a
+page_type: claim
+title: "Claim A"
+context: example
+visibility: private_self
+updated_at: 2026-07-01
+stale_after_days: 30
+moc_parent: memories/index.md
+source_refs: []
+collection_refs:
+  - claims-index
+---
+
+# Claim A
+""",
+    )
+
+    snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")
+    edges = [
+        edge
+        for edge in snapshot["graph.json"]["edges"]
+        if edge["type"] == "collection_member"
+        and edge["source"] == "claim-a"
+        and edge["target"] == "claims-index"
+    ]
+
+    assert len(edges) == 1
+    assert edges[0]["basis"] == "member.collection_refs"
+    assert edges[0]["provenance"] == {
+        "page_id": "claim-a",
+        "path": "memories/claims/a.md",
+        "field": "collection_refs",
+        "origin": "member",
+    }
+    pages = {page["id"]: page for page in snapshot["pages.json"]["pages"]}
+    assert pages["claims-index"]["collection_members_count"] == 1
+    assert {row["id"] for row in snapshot["graph.json"]["relation_types"]} >= {
+        "collection_member"
+    }
+
+
+def test_unresolved_collection_reference_is_preserved_as_graph_diagnostic(
+    tmp_path: Path,
+) -> None:
+    config = _sample_repo(tmp_path)
+    _write(
+        tmp_path / "memories/example/note.md",
+        """---
+page_id: note-a
+page_type: context_note
+title: "Note"
+context: example
+visibility: private_self
+updated_at: 2026-07-01
+stale_after_days: 30
+collection_refs: [missing-index]
+---
+
+# Note
+""",
+    )
+
+    snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")
+    diagnostic = next(
+        row
+        for row in snapshot["graph.json"]["relation_diagnostics"]
+        if "unresolved_collection_ref" in row["reasons"]
+    )
+    assert diagnostic["source"] == "note-a"
+    assert diagnostic["target"] == "missing-index"
+    assert diagnostic["type"] == "collection_member"
+    assert diagnostic["provenance"]["field"] == "collection_refs"
+
+
+def test_template_default_collection_membership_points_provenance_to_registry_contract(
+    tmp_path: Path,
+) -> None:
+    config = _sample_repo(tmp_path)
+    kit_root = Path(__file__).resolve().parents[1]
+    shutil.copy(kit_root / "wiki.templates.yaml", tmp_path / "wiki.templates.yaml")
+    _write(
+        tmp_path / "memories/system/source-registry.md",
+        """---
+page_id: source-registry
+page_type: source_registry
+title: "Sources"
+context: system
+visibility: private_self
+updated_at: 2026-07-01
+stale_after_days: 30
+moc_parent: memories/index.md
+---
+
+# Sources
+""",
+    )
+    _write(
+        tmp_path / "memories/sources/a.md",
+        """---
+page_id: source-a
+page_type: source
+title: "Source A"
+context: example
+visibility: private_self
+updated_at: 2026-07-01
+stale_after_days: 30
+moc_parent: memories/index.md
+---
+
+# Source A
+""",
+    )
+
+    snapshot = build_snapshot(tmp_path, config, generated_at="2026-07-01T00:00:00Z")
+    edge = next(
+        row
+        for row in snapshot["graph.json"]["edges"]
+        if row["source"] == "source-a"
+        and row["target"] == "source-registry"
+        and row["type"] == "collection_member"
+    )
+    assert edge["basis"] == "collection.member_types"
+    assert edge["provenance"] == {
+        "page_id": "",
+        "path": "wiki.templates.yaml",
+        "field": "templates.types.source_registry.collection",
+        "origin": "template_default",
+    }
+
+
 def test_dirty_snapshot_source_identity_is_honest_deterministic_and_content_bound(
     tmp_path: Path,
 ) -> None:
