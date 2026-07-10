@@ -881,10 +881,14 @@ export function WorldView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchDraft]);
   useEffect(() => {
-    if (searchDraft === route.query.q) {
-      if (submittedSearchRef.current === searchDraft) submittedSearchRef.current = null;
-      return undefined;
+    // Keep the marker for the whole lifetime of the submitted draft. Clearing
+    // it as soon as `route.q` commits is too early: under CPU contention a
+    // draft effect created before that commit can still flush afterward. A
+    // genuine edit moves away from the submitted value and releases it.
+    if (submittedSearchRef.current !== null && submittedSearchRef.current !== searchDraft) {
+      submittedSearchRef.current = null;
     }
+    if (searchDraft === route.query.q) return undefined;
     if (isVisualControlCommand(searchDraft)) return undefined;
     // A direct Enter submission owns this draft. Its one route transaction
     // already wrote `q`, `page`, `reader` and `dock=null`; never let a later
