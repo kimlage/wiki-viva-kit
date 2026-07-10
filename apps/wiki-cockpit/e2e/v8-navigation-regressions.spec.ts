@@ -468,8 +468,7 @@ test("the mobile world guide owns the viewport and exposes all three axes", asyn
   }
 });
 
-test("short mobile quadrant overview keeps every semantic group target disjoint", async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 390, height: 664 });
+test("mobile quadrant overview keeps every semantic group target disjoint at every phone height", async ({ page }, testInfo) => {
   const lensByQuadrant: Record<string, NativeLens> = {
     intencao: "q1_intencao",
     pratica: "q2_pratica",
@@ -480,8 +479,10 @@ test("short mobile quadrant overview keeps every semantic group target disjoint"
     { id: "instructional", center: "root-alex-rivera", minimumGroups: 5, scenario: undefined },
     { id: "dense-repeated-families", center: "hub-clientes", minimumGroups: 4, scenario: "dense_stress" as const }
   ];
+  const runs = [664, 844].flatMap((height) => cases.map((fixture) => ({ height, fixture })));
 
-  for (const fixture of cases) {
+  for (const { height, fixture } of runs) {
+    await page.setViewportSize({ width: 390, height });
     await prepareCanonicalV8World(page, {
       view: "quadrants",
       lens: "all",
@@ -525,7 +526,7 @@ test("short mobile quadrant overview keeps every semantic group target disjoint"
       return { visible, overlaps, viewport: { width: window.innerWidth, height: window.innerHeight } };
     });
 
-    await testInfo.attach(`short-mobile-quadrant-geometry-${fixture.id}`, {
+    await testInfo.attach(`mobile-${height}-quadrant-geometry-${fixture.id}`, {
       body: Buffer.from(JSON.stringify(geometry, null, 2)),
       contentType: "application/json"
     });
@@ -541,10 +542,14 @@ test("short mobile quadrant overview keeps every semantic group target disjoint"
       entry.top >= -1 && entry.bottom <= geometry.viewport.height + 1
     )).toBe(true);
     expect(geometry.overlaps).toEqual([]);
+    expect(await page.evaluate(() => ({
+      horizontal: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      vertical: document.documentElement.scrollHeight > document.documentElement.clientHeight
+    }))).toEqual({ horizontal: false, vertical: false });
 
-    const screenshotPath = testInfo.outputPath(`short-mobile-quadrant-overview-${fixture.id}.png`);
+    const screenshotPath = testInfo.outputPath(`mobile-${height}-quadrant-overview-${fixture.id}.png`);
     await page.screenshot({ path: screenshotPath });
-    await testInfo.attach(`short-mobile-quadrant-overview-${fixture.id}`, { path: screenshotPath, contentType: "image/png" });
+    await testInfo.attach(`mobile-${height}-quadrant-overview-${fixture.id}`, { path: screenshotPath, contentType: "image/png" });
     await expectRememberedCanvas(page);
 
     for (const destination of geometry.visible) {

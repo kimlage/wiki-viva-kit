@@ -4919,9 +4919,65 @@ pre {
     flex-basis: 180px;
   }
 
+  /* A phone overview is a map, not a caption shelf. Keep every semantic group
+     as an honest 44px native control (glyph + count, full accessible name) at
+     every phone height. Tall phones otherwise restore the 176px desktop
+     captions and repeated families intercept one another's center point. */
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .radarLabel .nodeGroupLabelSatellite.nodeCompactLabel {
+    position: relative;
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 3px;
+    justify-content: center;
+    gap: 0;
+    overflow: visible;
+    border-radius: 50%;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel strong,
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel .nodeOverlaySignal,
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel .nodeGroupStateRail,
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel .nodeGroupComposition {
+    display: none;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel .nodeVisualGlyph {
+    min-width: 28px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel em {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    display: inline-grid;
+    min-width: 18px;
+    height: 18px;
+    max-width: 28px;
+    place-items: center;
+    padding: 0 4px;
+    border: 1px solid rgba(127, 208, 232, 0.35);
+    background: rgba(5, 10, 14, 0.94);
+    font-size: 9px;
+    line-height: 1;
+  }
+
   /* The 3D anchor projection compresses at phone aspect ratios. Keep the five
      stable semantic family handles in their own quadrant lanes so their full
-     44px touch targets never compete for the same pixels. */
+     touch targets never compete for the same pixels. */
   .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:source"] {
     translate: -55px -25px;
   }
@@ -4940,6 +4996,46 @@ pre {
 
   .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:content"] {
     translate: 10px 8px;
+  }
+
+  /* Real downstream worlds can repeat one semantic family in several
+     quadrants. The quadrant is part of the landmark's meaning, so resolve
+     those repetitions into stable per-quadrant lanes on every phone height. */
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="intencao"][data-world-target-id="family:hub"],
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="intencao"][data-world-target-id="family:decision"] {
+    translate: -50px 25px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:hub"] {
+    translate: -20px 40px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:rule"] {
+    translate: 50px 20px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:content"] {
+    translate: 70px 30px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:action"] {
+    translate: 0 -15px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="relacoes"][data-world-target-id="family:hub"] {
+    translate: -40px 35px;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="sistemas"][data-world-target-id="family:hub"] {
+    translate: 100px -50px;
   }
 
   .worldWorkspace[data-world-lens="q2_pratica"] [data-world-target-kind="group"][data-world-target-id="family:source"] {
@@ -6461,8 +6557,8 @@ pre {
 
 /* Short phone viewports cannot afford three stacked HUD rows above and below
    the map. Keep the mission and the four quadrant choices, collapse duplicate
-   status/destination controls, and lay the five Q2 destinations into three
-   disjoint touch lanes inside the resulting safe area. */
+   status/destination controls, and leave the overview's phone-wide landmark
+   contract intact inside the resulting safe area. */
 @media (max-width: 620px) and (max-height: 720px) {
   .worldWorkspace[data-world-fallback-active="false"] .conditionStrip,
   .worldWorkspace[data-world-fallback-active="false"] .worldMeta,
@@ -6481,98 +6577,6 @@ pre {
 
   .worldWorkspace[data-world-fallback-active="false"] .worldMissionSlim {
     bottom: calc(var(--world-command-bar-height, 130px) + 4px);
-  }
-
-  /* Short phone canvases compress the projected family territories into a
-     shallow band. Keep the group landmarks as honest 44px semantic controls
-     (glyph + count, full accessible name) instead of letting their desktop
-     captions cover one another and redirect a tap to a neighboring family. */
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    .radarLabel .nodeGroupLabelSatellite.nodeCompactLabel {
-    position: relative;
-    width: 44px;
-    min-width: 44px;
-    max-width: 44px;
-    height: 44px;
-    min-height: 44px;
-    padding: 3px;
-    justify-content: center;
-    gap: 0;
-    overflow: visible;
-    border-radius: 50%;
-  }
-
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    .nodeGroupLabelSatellite.nodeCompactLabel strong,
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    .nodeGroupLabelSatellite.nodeCompactLabel .nodeOverlaySignal,
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    .nodeGroupLabelSatellite.nodeCompactLabel .nodeGroupStateRail,
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    .nodeGroupLabelSatellite.nodeCompactLabel .nodeGroupComposition {
-    display: none;
-  }
-
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    .nodeGroupLabelSatellite.nodeCompactLabel .nodeVisualGlyph {
-    min-width: 28px;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border-radius: 50%;
-  }
-
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    .nodeGroupLabelSatellite.nodeCompactLabel em {
-    position: absolute;
-    right: -3px;
-    bottom: -3px;
-    display: inline-grid;
-    min-width: 18px;
-    height: 18px;
-    max-width: 28px;
-    place-items: center;
-    padding: 0 4px;
-    border: 1px solid rgba(127, 208, 232, 0.35);
-    background: rgba(5, 10, 14, 0.94);
-    font-size: 9px;
-    line-height: 1;
-  }
-
-  /* Real downstream worlds can repeat the same semantic family in several
-     quadrants, while the dense fixture can place several different families
-     inside Q2. Resolve those two honest shapes explicitly after projection:
-     each rule overrides the wider-phone family offset only on short screens. */
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    [data-world-quadrant="intencao"][data-world-target-id="family:hub"],
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    [data-world-quadrant="intencao"][data-world-target-id="family:decision"] {
-    translate: -50px 25px;
-  }
-
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    [data-world-quadrant="pratica"][data-world-target-id="family:hub"] {
-    translate: -20px 40px;
-  }
-
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    [data-world-quadrant="pratica"][data-world-target-id="family:rule"] {
-    translate: 50px 20px;
-  }
-
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    [data-world-quadrant="pratica"][data-world-target-id="family:content"] {
-    translate: 70px 30px;
-  }
-
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    [data-world-quadrant="relacoes"][data-world-target-id="family:hub"] {
-    translate: -40px 35px;
-  }
-
-  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
-    [data-world-quadrant="sistemas"][data-world-target-id="family:hub"] {
-    translate: 100px -50px;
   }
 
   .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
