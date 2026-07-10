@@ -526,6 +526,11 @@ export function WorldView({
   const dockOpenerRef = useRef<HTMLElement | null>(null);
   const previousDockRef = useRef(route.query.dock);
   const searchRouteTimerRef = useRef<number | null>(null);
+  // Enter commits query + reader atomically. React may flush the draft effect
+  // after the key handler, so remember the submitted value as well as clearing
+  // an already-created timer; otherwise that late effect can replay the route
+  // that existed before a dock closed and replace the reader with that dock.
+  const submittedSearchRef = useRef<string | null>(null);
   const tourOpenerRef = useRef<HTMLElement | null>(null);
   const openTour = useCallback(() => {
     tourOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -876,16 +881,26 @@ export function WorldView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchDraft]);
   useEffect(() => {
-    if (searchDraft === route.query.q) return undefined;
+    if (searchDraft === route.query.q) {
+      if (submittedSearchRef.current === searchDraft) submittedSearchRef.current = null;
+      return undefined;
+    }
     if (isVisualControlCommand(searchDraft)) return undefined;
-    const timer = window.setTimeout(() => navigateWorld({ q: searchDraft || null }, { replace: true }), 250);
+    // A direct Enter submission owns this draft. Its one route transaction
+    // already wrote `q`, `page`, `reader` and `dock=null`; never let a later
+    // debounce reduce that state back to a query-only route.
+    if (submittedSearchRef.current === searchDraft) return undefined;
+    const timer = window.setTimeout(
+      () => navigateWorld({ q: searchDraft || null, dock: null }, { replace: true }),
+      250
+    );
     searchRouteTimerRef.current = timer;
     return () => {
       window.clearTimeout(timer);
       if (searchRouteTimerRef.current === timer) searchRouteTimerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchDraft]);
+  }, [route.query.q, searchDraft]);
 
   const searchHits = useMemo(
     () => (route.query.q ? rankPages(pages, route.query.q) : []),
@@ -943,6 +958,10 @@ export function WorldView({
         window.clearTimeout(searchRouteTimerRef.current);
         searchRouteTimerRef.current = null;
       }
+      // If the debounce already committed this query, no later draft effect is
+      // pending and retaining the marker would suppress a future identical
+      // query after the reader closes.
+      if (currentSearchValue !== route.query.q) submittedSearchRef.current = currentSearchValue;
       openHit(keyboardHits[activeHit] ?? keyboardHits[0], currentSearchValue);
     } else if (event.key === "Escape") {
       event.preventDefault();

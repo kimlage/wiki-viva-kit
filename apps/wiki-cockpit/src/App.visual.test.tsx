@@ -371,6 +371,45 @@ describe("visual route contract", () => {
     expect(window.location.search).toContain("reader=1");
   });
 
+  it("keeps an Enter-opened reader after a create dock closes and the search debounce expires", async () => {
+    await renderRoute("/w/radar?dock=create");
+    expect(await screen.findByRole("dialog", { name: "Create a page" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close panel" }));
+    await waitFor(() => expect(window.location.search).not.toContain("dock=create"));
+
+    const search = screen.getByLabelText("Search content");
+    fireEvent.change(search, { target: { value: "Source Fixture" } });
+    fireEvent.keyDown(search, { key: "Enter", code: "Enter" });
+
+    expect(await screen.findByLabelText("Reader: Source Fixture")).toBeTruthy();
+    await new Promise((resolve) => window.setTimeout(resolve, 350));
+    expect(window.location.search).toContain("reader=1");
+    expect(window.location.search).not.toContain("dock=create");
+    expect(screen.getByLabelText("Reader: Source Fixture")).toBeTruthy();
+  });
+
+  it("does not suppress a repeated query after its debounce completed before Enter", async () => {
+    await renderRoute("/w/radar");
+    expect(await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })).toBeTruthy();
+
+    const search = screen.getByLabelText("Search content");
+    fireEvent.change(search, { target: { value: "Source Fixture" } });
+    await waitFor(() => expect(window.location.search).toContain("q=Source+Fixture"));
+    fireEvent.keyDown(search, { key: "Enter", code: "Enter" });
+    expect(await screen.findByLabelText("Reader: Source Fixture")).toBeTruthy();
+
+    const closeButtons = screen.getAllByTitle("Close reader (Esc)");
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+    await waitFor(() => expect(window.location.search).not.toContain("reader=1"));
+    fireEvent.change(screen.getByLabelText("Search content"), { target: { value: "" } });
+    await waitFor(() => expect(window.location.search).not.toContain("q="));
+
+    fireEvent.change(screen.getByLabelText("Search content"), { target: { value: "Source Fixture" } });
+    await waitFor(() => expect(window.location.search).toContain("q=Source+Fixture"));
+    expect(await screen.findByText(/1 result/)).toBeTruthy();
+  });
+
   it("blocks sample fallback outside demo so real validation cannot impersonate sample data", async () => {
     mockSnapshotState.runtimeMode = "sample_fallback";
     mockSnapshotState.source = "/sample-snapshot";
