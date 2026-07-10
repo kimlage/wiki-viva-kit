@@ -19,7 +19,7 @@ import {
   TerminalSquare
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { BlocksDock } from "./components/BlocksDock";
 // CreateDock and the genesis guide render inside WorldView now — the create
 // flow is spatial-first, the tutorial voice is an in-world beacon.
@@ -1117,7 +1117,11 @@ function GitWorkflowPanel({
 
 export function App({ ports }: { ports: ApplicationPorts }) {
   const { navigation, operator } = ports;
-  const url = useSyncExternalStore(navigation.subscribe, navigation.getSnapshot, navigation.getServerSnapshot);
+  const [url, setUrl] = useState(() => navigation.getSnapshot());
+  useEffect(
+    () => navigation.subscribe(() => setUrl(navigation.getSnapshot())),
+    [navigation]
+  );
   const route = useMemo<Route>(() => navigation.parseUrl(url), [navigation, url]);
   // UI code emits navigation intentions through the injected application port.
   // URL grammar remains pure and independently testable on the same boundary.
@@ -1553,6 +1557,21 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const [lastDock, setLastDock] = useState<string | null>(requestedDock);
   if (requestedDock && requestedDock !== lastDock) setLastDock(requestedDock);
   const renderedDock = requestedDock ?? lastDock;
+  const closeRequestedDock = () => {
+    if (!worldRoute) return;
+    const target = hrefForWorldPatch(worldRoute, { dock: null });
+    // WebKit may keep the old navigation-store snapshot for the rest of the
+    // touch turn when a fixed dock unmounts from its own close button. Crossing
+    // one task boundary makes the URL and rendered surface resolve together.
+    window.setTimeout(() => {
+      navigate(target);
+      // Also drive one local render. WebKit occasionally updates history but
+      // defers the subscribed render for a fixed element's touch turn;
+      // the local phase update makes the closing surface inert immediately
+      // and lets React re-read the now-current URL snapshot.
+      dockPresence.beginExit();
+    }, 0);
+  };
 
   // The demo TITLE SCREEN: /demo asks how you want to enter — found a world
   // from zero (genesis tutorial) or explore the full one. No bundle needed.
@@ -1693,7 +1712,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             capability={codexCapability}
             busy={codexBusy}
             onReverify={reverifyCodex}
-            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
+            onClose={closeRequestedDock}
           />
         )}
         {gateDockOpen && worldRoute && loadState.status === "ready" && (
@@ -1707,7 +1726,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onComposeBrief={runBrief}
             onNotice={notify}
             onRefetch={refetchReal}
-            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
+            onClose={closeRequestedDock}
           />
         )}
         {gatesDockOpen && worldRoute && loadState.status === "ready" && (
@@ -1718,7 +1737,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onComposeBrief={runBrief}
             onNotice={notify}
             onRefetch={refetchReal}
-            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
+            onClose={closeRequestedDock}
           />
         )}
         {intakeDockOpen && worldRoute && loadState.status === "ready" && (
@@ -1729,7 +1748,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onComposeBrief={runBrief}
             onOpenCreate={() => navigate(hrefForWorldPatch(worldRoute, { dock: "create", src: null }))}
             onNotice={notify}
-            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
+            onClose={closeRequestedDock}
           />
         )}
         {workDockOpen && worldRoute && (
@@ -1741,7 +1760,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onReturn={returnJob}
             onDiagnose={openCodexDock}
             onNotice={notify}
-            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
+            onClose={closeRequestedDock}
           />
         )}
         {sourceDockOpen && worldRoute && loadState.status === "ready" && (
@@ -1753,7 +1772,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onNotice={notify}
             onOpenPage={(pathOrId) => navigate(hrefForWorldPatch(worldRoute, { dock: null, pageId: pathOrId, reader: true }))}
             onOpenSource={(id) => navigate(hrefForWorldPatch(worldRoute, { dock: "source", src: id || null }))}
-            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
+            onClose={closeRequestedDock}
           />
         )}
         {/* dock=create is answered INSIDE WorldView: the spatial seed flow in
@@ -1787,7 +1806,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
                   `snapshot, and open a draft PR. Never touch main directly.`
               });
             }}
-            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
+            onClose={closeRequestedDock}
           />
         )}
         </div>

@@ -225,6 +225,8 @@ async function sceneContract(page: Page) {
 async function closeSurface(page: Page) {
   await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/[?&]dock=/);
+  await expect(page.locator(".appDockPresence")).toHaveCount(0);
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-primary-surface-open", "false");
   await expectSingleWorld(page);
 }
 
@@ -278,13 +280,12 @@ test("desktop cockpit modules keep one 3D world while navigating", async ({ page
   await expectCanonicalWilberGrid(page);
   await expectSingleWorld(page);
 
-  const activeLensUrl = page.url();
   const activeLensScene = await sceneContract(page);
   await page.locator(".quadrantTextCell.active").click();
-  // Runtime interactions are idempotent: selecting the already-active lens is
-  // a no-op, not an implicit "clear" verb that erases canonical route state.
-  await expect(page).toHaveURL(activeLensUrl);
-  expect(await sceneContract(page)).toEqual(activeLensScene);
+  // The selected cell is also the compact, discoverable way back to the whole
+  // world. It clears only the lens; center, view and mounted canvas stay put.
+  await expect(page).toHaveURL(/[?&]lens=all(?:&|$)/);
+  expect(await sceneContract(page)).toEqual({ ...activeLensScene, quadrant: "" });
   await expectSingleWorld(page);
 
   await expect(page.locator(".operationStation")).toHaveCount(0);

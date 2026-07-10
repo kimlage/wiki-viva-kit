@@ -16,6 +16,10 @@ export function useSurfacePresence(open: boolean, fallbackExitMs = 1600) {
     setPhase("open");
   }, []);
 
+  const beginExit = useCallback(() => {
+    setPhase("closing");
+  }, []);
+
   useEffect(() => {
     if (open) {
       setMounted(true);
@@ -31,5 +35,11 @@ export function useSurfacePresence(open: boolean, fallbackExitMs = 1600) {
     return () => window.clearTimeout(timeout);
   }, [completeExit, fallbackExitMs, phase]);
 
-  return { mounted, phase, completeExit };
+  // Effects run after paint. Derive the first closing frame from the current
+  // prop so a surface becomes inert immediately when its route closes; this
+  // prevents the outgoing dock from intercepting the next touch/click for one
+  // frame while still keeping it mounted for the exit animation.
+  const renderedPhase: SurfacePhase = !open && mounted ? "closing" : phase;
+
+  return { mounted, phase: renderedPhase, beginExit, completeExit };
 }

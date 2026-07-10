@@ -6037,6 +6037,14 @@ pre {
   align-self: flex-start;
 }
 
+@media (max-width: 620px) {
+  .sceneShell.fallbackMode .sceneFallback {
+    /* Keep the real center summary in the first reduced-motion viewport after
+       the compact quadrant controls gained their explicit All state. */
+    padding-top: 4px;
+  }
+}
+
 .sceneShell.fallbackMode .quadrantScopeChip {
   position: sticky;
   top: 72px;

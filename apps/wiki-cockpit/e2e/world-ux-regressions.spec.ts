@@ -88,7 +88,10 @@ test("desktop shell and open navigator panel never create document scrollbars", 
     });
     expect.soft(panelBounds.top, `${viewport.width}x${viewport.height} panel top`).toBeGreaterThanOrEqual(0);
     expect.soft(panelBounds.bottom, `${viewport.width}x${viewport.height} panel bottom`).toBeLessThanOrEqual(panelBounds.viewportHeight + 1);
-    expect.soft(panelBounds.internalOverflow, `${viewport.width}x${viewport.height} panel has an internal scroll range`).toBeGreaterThan(0);
+    // Tall viewports may fit the complete guide without needing a scroll
+    // range. The contract is that any overflow stays inside the panel, never
+    // that every supported viewport must manufacture overflow.
+    expect.soft(panelBounds.internalOverflow, `${viewport.width}x${viewport.height} panel internal overflow`).toBeGreaterThanOrEqual(0);
     expect.soft(panelBounds.overflowY, `${viewport.width}x${viewport.height} panel owns its overflow`).toMatch(/auto|scroll/);
   }
 });

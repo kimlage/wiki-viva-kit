@@ -414,11 +414,7 @@ export function worldFromRoute(route: Route): WorldRoute {
 // --- history plumbing -------------------------------------------------------
 
 type Listener = () => void;
-const listeners = new Set<Listener>();
-
-function emit(): void {
-  listeners.forEach((listener) => listener());
-}
+const ROUTE_CHANGE_EVENT = "wiki-viva:route-change";
 
 export function navigate(target: Route | string, options: { replace?: boolean } = {}): void {
   const url = typeof target === "string" ? target : buildUrl(target);
@@ -426,16 +422,19 @@ export function navigate(target: Route | string, options: { replace?: boolean } 
   if (window.location.pathname + window.location.search !== url) {
     window.history[method]({}, "", url);
   }
-  emit();
+  // A browser event is deliberately used instead of a module-local listener
+  // set. RuntimeWorldView is a lazy capability chunk; a route write must wake
+  // the App shell even if the bundler/runtime evaluates router plumbing in a
+  // separate module instance.
+  window.dispatchEvent(new Event(ROUTE_CHANGE_EVENT));
 }
 
 export function subscribeRouteUrl(listener: Listener): () => void {
-  listeners.add(listener);
-  const onPop = () => emit();
-  window.addEventListener("popstate", onPop);
+  window.addEventListener("popstate", listener);
+  window.addEventListener(ROUTE_CHANGE_EVENT, listener);
   return () => {
-    listeners.delete(listener);
-    window.removeEventListener("popstate", onPop);
+    window.removeEventListener("popstate", listener);
+    window.removeEventListener(ROUTE_CHANGE_EVENT, listener);
   };
 }
 

@@ -11,7 +11,24 @@ async function openSearchResult(page: Page, title: string) {
   await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
   await expect(page.locator(".quadrantCompass")).toBeHidden();
   await expect(page.locator(".worldNavigator")).toBeHidden();
-  expect(await page.locator(".sceneShell").evaluate((shell) => shell.scrollWidth - shell.clientWidth)).toBeLessThanOrEqual(1);
+  await page.locator(".pageReader").evaluate(async (reader) => {
+    const finite = reader
+      .getAnimations({ subtree: true })
+      .filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
+    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
+  const readerGeometry = await page.locator(".pageReader").evaluate((reader) => {
+    const rect = reader.getBoundingClientRect();
+    return {
+      left: rect.left,
+      right: rect.right,
+      viewportWidth: window.innerWidth,
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
+    };
+  });
+  expect(readerGeometry.left).toBeGreaterThanOrEqual(-1);
+  expect(readerGeometry.right).toBeLessThanOrEqual(readerGeometry.viewportWidth + 1);
+  expect(readerGeometry.documentOverflow).toBeLessThanOrEqual(1);
   await page.locator(".pageReader .readerClose").last().click();
   await expect(page.locator(".pageReader")).toHaveCount(0);
 }
@@ -43,8 +60,12 @@ test("forced fallback preserves route, first viewport and source/action/person/r
   await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
   await page.locator(".sourceDock .readerClose").first().click();
   await expect(page).not.toHaveURL(/[?&]dock=/);
+  await expect(page.locator(".appDockPresence")).toHaveCount(0);
 
-  await page.locator(".fallbackNode:not(.groupNode)").first().click();
+  const fallbackNode = page.locator(".fallbackNode:not(.groupNode)").first();
+  await fallbackNode.scrollIntoViewIfNeeded();
+  await expect(fallbackNode).toBeVisible();
+  await fallbackNode.click();
   await expect(page).toHaveURL(/reader=1/);
   await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10_000 });
   await attachViewportScreenshot(page, testInfo, "chromium-forced-fallback");

@@ -1168,6 +1168,16 @@ export function WorldView({
         return;
       }
       const current = routeRef.current;
+      if (current.query.reader) {
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        navigation.dispatch({
+          type: "patch-world",
+          route: current,
+          patch: { reader: false }
+        });
+        return;
+      }
       if (current.query.dock) {
         event.stopImmediatePropagation();
         event.stopPropagation();

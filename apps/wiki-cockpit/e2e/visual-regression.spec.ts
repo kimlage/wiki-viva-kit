@@ -28,7 +28,7 @@ for (const route of routes) {
 test("legacy /pages/:id bookmark lands in the world with the reader open", async ({ page }) => {
   await page.goto("/demo/pages/root-alex-rivera?visual=1");
   await page.waitForURL(/\/demo\/w\/atlas(?:\/|\?|$)/);
-  await expect(page.getByLabel(/Reader:/)).toBeVisible();
+  await expect(page.locator(".pageReader")).toBeVisible();
   await expect(page).toHaveScreenshot("world-reader-demo.png", { animations: "disabled", fullPage: false });
 });
 
@@ -41,13 +41,19 @@ test("keyboard loop: drill \u2192 lock \u2192 read \u2192 retreat over the same 
   // Lock a page (opens the reader and pins ?reader=1 in the URL).
   await page.locator(".fallbackNode").first().click();
   await page.waitForURL(/reader=1/);
-  await expect(page.getByLabel(/Reader:/)).toBeVisible();
+  await expect(page.locator(".pageReader")).toBeVisible();
   // Esc releases the reader, then the lock, then retreats level by level —
   // always the exact reverse of the drill (spatial memory holds).
   await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/reader=1/);
+  await expect(page.locator(".pageReader")).toHaveCount(0);
   for (let step = 0; step < 3; step += 1) {
+    const before = page.url();
     await page.keyboard.press("Escape");
+    await expect.poll(() => page.url()).not.toBe(before);
+    // Let the next route become the scene's committed retreat origin before
+    // sending the next key in the ladder.
+    await page.waitForTimeout(100);
   }
   await expect(page).toHaveURL(/\/demo\/w\/atlas(\?|$)/);
 });

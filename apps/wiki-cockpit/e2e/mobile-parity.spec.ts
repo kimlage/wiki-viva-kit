@@ -105,6 +105,7 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
   await expectTouchTarget(sourceClose);
   await sourceClose.tap();
   await expect(page).not.toHaveURL(/[?&]dock=/);
+  await expect(page.locator(".appDockPresence")).toHaveCount(0);
 
   await page.locator(".dockButton").filter({ hasText: /Create|Criar/ }).tap();
   await expect(page).toHaveURL(/[?&]dock=create/);
@@ -114,6 +115,7 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
   await expectTouchTarget(createClose);
   await createClose.tap();
   await expect(page).not.toHaveURL(/[?&]dock=create/);
+  await expect(page.locator(".appDockPresence")).toHaveCount(0);
 
   for (const longTitle of [
     "Evidence shelf clarifies source-backed work",
