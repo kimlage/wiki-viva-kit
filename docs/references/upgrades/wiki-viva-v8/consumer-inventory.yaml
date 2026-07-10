@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc1@cfa32594
+    current_kit_version: wiki-viva-v8-rc1@39b28fe8
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -47,7 +47,7 @@ consumers:
       owner: <redacted>
     consumer_type: private_operational_wiki
     role: first_private_pilot
-    current_kit_version: wiki-viva-v8-rc1@fa65d5f9
+    current_kit_version: wiki-viva-v8-rc1@cfa32594
     current_layout:
       memory_root: memorias
       references_root: docs/referencias
@@ -65,11 +65,11 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: prior_green_refresh_pending
+      state: mobile_integrity_refresh_pending
       scope: wiki_toolkit_drift_core_prefixes
       drift_total: 0
-      details: prior migration evidence is retained privately; payload cfa32594 must be imported by controlled allowlist and revalidated in PR 208
+      details: controlled cfa32594 migration evidence is retained privately; payload 39b28fe8 must be imported by controlled allowlist and revalidated in PR 208
       verified_on: "2026-07-10"
     upgrade_wave: pilot
     status: refresh_pending
-    blocker: controlled payload cfa32594 import, real-data validation and private human PR review remain
+    blocker: controlled payload 39b28fe8 import, real-data mobile validation and private human PR review remain
