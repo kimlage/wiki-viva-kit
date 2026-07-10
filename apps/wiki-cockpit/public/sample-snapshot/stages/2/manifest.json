@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "1c01235cac7be4f50153cc4bd1210f8f8d1cf5be995f85ef8fce89a9460bff3b",
+  "bundle_hash": "6b5655c429512f26771d20bb75bba5a336443cf5c837aad55887c5a18e9da927",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -61,7 +61,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "1fe6648f568457a5ed12b6ad384260803f9b1d8b4bffb7de634e37f83dc4437c"
+    "source_input_sha256": "3c772c31e53bdbc9d86c079e1d5fb0e6ddddfcaed07f93b3bbe162ddc07e4258"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -70,12 +70,12 @@
       "sha256": "cf43b7c1a259039fccc54a39581f20a02cb7414462ea1edd0e494ee6f3f13d9a"
     },
     "block_stacks.json": {
-      "bytes": 7851,
-      "sha256": "1cd82bcb6df89b3454d19f119e86333edb67baa3d59eddfc7232008d1605bbb1"
+      "bytes": 7917,
+      "sha256": "d78045d02c477546c10685eb47812b612b0ac1cf23f59398317dfb69bc55a0d2"
     },
     "blocks.json": {
-      "bytes": 8962,
-      "sha256": "d4176600b20818f1cd954c3f82d838150bedecc5b59df633f0cfae52d81e7a25"
+      "bytes": 9051,
+      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
     },
     "commands.json": {
       "bytes": 1179,
@@ -83,7 +83,7 @@
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1749,
-      "sha256": "e5c544f343c6bf2b71827d3f309e23243948e23be9f0cc42d7aa953dee727d9b"
+      "sha256": "6a3cf2d38544943fbdb85d894134c8b0798e6d3a61e23c5f374430d57d802790"
     },
     "decisions.json": {
       "bytes": 57,
@@ -154,8 +154,8 @@
       "sha256": "3e06d1354853a719039a50edcbbbd52504c3cceca302f82f4c84b276d8a7fb75"
     },
     "templates.json": {
-      "bytes": 24023,
-      "sha256": "411b8b628420cb8b0dd3c48b493b3c44a24119ae3595bf89b98f7ba8d9e1c456"
+      "bytes": 23927,
+      "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
     },
     "timeline.json": {
       "bytes": 735,
@@ -178,9 +178,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-1c01235cac7be4f5",
+  "snapshot_id": "wiki-viva-demo-6b5655c429512f26",
   "source_commit": null,
-  "source_sha": "uncommitted:438b96157c54979435e4c4e0a0f811e7e2d15fa30d01996072d9fee301ed610d",
+  "source_sha": "uncommitted:367baf996e03c0d337c97fa0dff48a8d5bbe564bdfdb9ec754b7b6f2e24021ba",
   "versions": {
     "block_vocabulary": "wiki_blocks.v2",
     "canonical_route": "wiki_world_route.v8",

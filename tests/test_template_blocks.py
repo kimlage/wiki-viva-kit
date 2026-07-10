@@ -686,6 +686,54 @@ def test_collection_index_owns_typed_members_without_reparenting_them(tmp_path: 
     assert next(item for item in stack if item["id"] == "wiki.block.relations.v1")["scope"] == "linked"
 
 
+def test_context_hub_collection_reuses_installed_interpretation_blocks(
+    tmp_path: Path,
+) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n  - id: wiki.block.relations.v1\n"
+            "---\n# Root\n"
+        ),
+        "memories/finance/index.md": (
+            "---\npage_id: finance-hub\npage_type: context_hub\ntitle: Finance\ncontext: finance\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/index.md\n"
+            "collection:\n  member_types: [claim]\n  contexts: ['*']\n"
+            "---\n# Finance\n"
+        ),
+        "memories/finance/direct-action.md": (
+            "---\npage_id: direct-action\npage_type: action\ntitle: Direct child\ncontext: finance\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/finance/index.md\nsource_refs: []\n---\n# Direct child\n"
+        ),
+        "memories/claims/linked.md": (
+            "---\npage_id: linked-claim\npage_type: claim\ntitle: Linked claim\ncontext: other\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/index.md\nsource_refs: []\n---\n# Linked claim\n"
+        ),
+    }
+
+    record = build_block_stacks_payload(_world(_wiki(tmp_path, pages)))["anchors"][
+        "finance-hub"
+    ]
+    assignments = record["derived"]["quadrant_assignments"]
+    assert assignments["q1"] == ["linked-claim"]
+    assert "direct-action" not in {
+        member for members in assignments.values() for member in members
+    }
+    interpretation = {
+        item["id"]: item
+        for item in record["stack"]
+        if item["id"] in {"wiki.block.quadrants.v1", "wiki.block.relations.v1"}
+    }
+    assert {item["scope"] for item in interpretation.values()} == {"linked"}
+    assert {item["scope_basis"] for item in interpretation.values()} == {
+        "collection_contract"
+    }
+
+
 def test_legacy_ontology_index_without_collection_keeps_descendant_scope(
     tmp_path: Path,
 ) -> None:
@@ -737,6 +785,7 @@ def test_nearest_page_block_can_disable_collection_scope_activation(
             "moc_parent: memories/index.md\n"
             "collection:\n  member_types: [claim]\n"
             "blocks:\n  - id: wiki.block.quadrants.v1\n    scope: descendants\n"
+            "    collection_scope: false\n"
             "---\n# Claims\n"
         ),
         "memories/claims/member.md": _leaf("claim-member", "claim"),

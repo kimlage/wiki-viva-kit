@@ -346,13 +346,15 @@
           "scope": "self"
         },
         {
-          "collection_scope": false,
+          "collection_scope": true,
           "config": {},
+          "declared_scope": "descendants",
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
           "known": true,
           "origin": "page",
-          "scope": "descendants"
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
         }
       ],
       "visual_grammar": {

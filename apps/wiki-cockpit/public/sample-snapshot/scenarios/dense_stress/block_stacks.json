@@ -5210,22 +5210,26 @@
           "scope": "descendants"
         },
         {
-          "collection_scope": false,
+          "collection_scope": true,
           "config": {},
+          "declared_scope": "descendants",
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
           "known": true,
           "origin": "anchor:root-alex-rivera",
-          "scope": "descendants"
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
         },
         {
-          "collection_scope": false,
+          "collection_scope": true,
           "config": {},
+          "declared_scope": "descendants",
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
           "known": true,
           "origin": "anchor:root-alex-rivera",
-          "scope": "descendants"
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
         },
         {
           "collection_scope": false,
@@ -5742,22 +5746,26 @@
           "scope": "self"
         },
         {
-          "collection_scope": false,
+          "collection_scope": true,
           "config": {},
+          "declared_scope": "descendants",
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
           "known": true,
           "origin": "page",
-          "scope": "descendants"
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
         },
         {
-          "collection_scope": false,
+          "collection_scope": true,
           "config": {},
+          "declared_scope": "descendants",
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
           "known": true,
           "origin": "page",
-          "scope": "descendants"
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
         },
         {
           "collection_scope": false,
@@ -9620,22 +9628,26 @@
           "scope": "descendants"
         },
         {
-          "collection_scope": false,
+          "collection_scope": true,
           "config": {},
+          "declared_scope": "descendants",
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
           "known": true,
           "origin": "anchor:root-alex-rivera",
-          "scope": "descendants"
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
         },
         {
-          "collection_scope": false,
+          "collection_scope": true,
           "config": {},
+          "declared_scope": "descendants",
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
           "known": true,
           "origin": "anchor:root-alex-rivera",
-          "scope": "descendants"
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
         },
         {
           "collection_scope": false,
@@ -12553,22 +12565,26 @@
           "scope": "descendants"
         },
         {
-          "collection_scope": false,
+          "collection_scope": true,
           "config": {},
+          "declared_scope": "descendants",
           "id": "wiki.block.quadrants.v1",
           "kind": "interpretation",
           "known": true,
           "origin": "anchor:root-alex-rivera",
-          "scope": "descendants"
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
         },
         {
-          "collection_scope": false,
+          "collection_scope": true,
           "config": {},
+          "declared_scope": "descendants",
           "id": "wiki.block.relations.v1",
           "kind": "interpretation",
           "known": true,
           "origin": "anchor:root-alex-rivera",
-          "scope": "descendants"
+          "scope": "descendants",
+          "scope_basis": "canonical_hierarchy"
         },
         {
           "collection_scope": false,

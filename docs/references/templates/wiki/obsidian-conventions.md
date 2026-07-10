@@ -107,12 +107,13 @@ collection:
 ---
 ```
 
-`ontology_index` keeps its existing `descendants` behavior until the page (or a
+Any block anchor keeps its existing `descendants` behavior until the page (or a
 member pointing to it) declares a collection contract. The compiler then
-resolves its collection-aware quadrant, relation, view, and region blocks to
+resolves installed collection-aware quadrant and relation blocks to
 `scope: linked`; the canonical `moc_parent` ancestry of every member remains
-unchanged. This conditional activation preserves legacy indexes whose real
-children already live below them. `source_registry` declares the same linked
+unchanged. This applies equally to an `ontology_index`, a contextual hub, or a
+downstream anchor type, and preserves legacy worlds whose real children already
+live below them. `source_registry` declares the same linked
 contract at the template-type level for `member_types: [source]`: entering the
 registry shows canonical source pages, while entering one source follows
 `source_refs` to that source's ingestion events. This prevents a global
@@ -123,9 +124,11 @@ Rules:
 - `collection`, `collection_refs`, and every list inside the collection object
   are explicit frontmatter contracts; unknown keys and invalid shapes are
   reported by block validation.
-- Page authors never set the template registry's internal `collection_scope`
-  marker. They declare membership through the fields above; the resolved stack
-  exposes `declared_scope` and `scope_basis` so linked activation is inspectable.
+- Normal page authors do not set the template registry's internal
+  `collection_scope` marker. They declare membership through the fields above;
+  the resolved stack exposes `declared_scope` and `scope_basis` so linked
+  activation is inspectable. A nearest block instance may explicitly set the
+  marker to `false` only as an advanced, reviewable opt-out.
 - `contexts` narrows a typed selector; it is not a selector by itself. A
   contexts-only collection without `member_types`, `members`, or inbound
   `collection_refs` is reported as incomplete and stays on descendant scope.

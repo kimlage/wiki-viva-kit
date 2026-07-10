@@ -941,7 +941,6 @@
     "ontology_index": {
       "blocks": [
         {
-          "collection_scope": true,
           "config": {
             "mode": "optional_lens"
           },
@@ -949,12 +948,10 @@
           "scope": "descendants"
         },
         {
-          "collection_scope": true,
           "id": "wiki.block.relations.v1",
           "scope": "descendants"
         },
         {
-          "collection_scope": true,
           "config": {
             "default": "quadrants"
           },
@@ -962,7 +959,6 @@
           "scope": "descendants"
         },
         {
-          "collection_scope": true,
           "config": {
             "visual_pack": "quiet_structure"
           },

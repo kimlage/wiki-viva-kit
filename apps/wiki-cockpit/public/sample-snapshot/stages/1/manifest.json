@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "03de4dbad64ce6bb7fe30647d8e6ed14f52f64b96c602b844ef557513f78ce4d",
+  "bundle_hash": "2bf4810434ee12a356c13817b30fb67c9bcc6b6b7fab0b6bb66f6d64b0235267",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -61,7 +61,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "d8bc69d4d65708c41870502ac71e5f8f7edb4e03a34ebb32d3a69bfeb74b2c9b"
+    "source_input_sha256": "637732fca3913b78b973f0c3677cd432ef0c1032d8670ea43da1a79620b1bbdb"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -74,8 +74,8 @@
       "sha256": "7d858fa01995ad6a679439f1d6dec8df2a5af0ed22f375dd25df005c48b81940"
     },
     "blocks.json": {
-      "bytes": 8962,
-      "sha256": "d4176600b20818f1cd954c3f82d838150bedecc5b59df633f0cfae52d81e7a25"
+      "bytes": 9051,
+      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
     },
     "commands.json": {
       "bytes": 1179,
@@ -83,7 +83,7 @@
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1683,
-      "sha256": "df62d7c4f92f209623132e63194a39047446b2021c66b6abd0fbc95b3b3dc7dc"
+      "sha256": "497a953d4f5647df8fb71ab3cb115958aba5bfe7753176d444ef22aecd41d8a2"
     },
     "decisions.json": {
       "bytes": 57,
@@ -154,8 +154,8 @@
       "sha256": "3e06d1354853a719039a50edcbbbd52504c3cceca302f82f4c84b276d8a7fb75"
     },
     "templates.json": {
-      "bytes": 24023,
-      "sha256": "411b8b628420cb8b0dd3c48b493b3c44a24119ae3595bf89b98f7ba8d9e1c456"
+      "bytes": 23927,
+      "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
     },
     "timeline.json": {
       "bytes": 735,
@@ -178,9 +178,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-03de4dbad64ce6bb",
+  "snapshot_id": "wiki-viva-demo-2bf4810434ee12a3",
   "source_commit": null,
-  "source_sha": "uncommitted:f47c4f78460ff0b5908785fa8c16a0b64a4b95cc21c4592ba904193443d50820",
+  "source_sha": "uncommitted:55d411dfbb65c50dff413d98646d30ac28f6c2a3f308e352f9c4100c6147a763",
   "versions": {
     "block_vocabulary": "wiki_blocks.v2",
     "canonical_route": "wiki_world_route.v8",

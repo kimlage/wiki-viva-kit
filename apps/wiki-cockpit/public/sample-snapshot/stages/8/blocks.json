@@ -119,6 +119,7 @@
         "ontology_index",
         "source_registry"
       ],
+      "collection_scope": true,
       "config_schema": {
         "labels": {
           "q1": "string",
@@ -216,6 +217,7 @@
         "holon",
         "ontology_index"
       ],
+      "collection_scope": true,
       "contributes": {
         "intake_forms": [
           "meeting_note",
@@ -249,6 +251,10 @@
         "overlays": []
       },
       "scope": {
+        "allowed_modes": [
+          "descendants",
+          "linked"
+        ],
         "default_mode": "descendants"
       },
       "summary": "People below this anchor read as a cared-for network: bond, cadence, dates, open loops.",

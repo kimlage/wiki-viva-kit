@@ -578,13 +578,18 @@ def _apply(stack: list[dict[str, Any]], instance: dict[str, Any], *, origin: str
     config = dict(instance.get("config") or {})
     definition = world.blocks.get(block_id) or {}
     kind = str(definition.get("kind") or "")
+    collection_scope = (
+        bool(instance.get("collection_scope"))
+        if "collection_scope" in instance
+        else bool(definition.get("collection_scope", False))
+    )
     for existing in stack:
         if existing["id"] == block_id:
             # Nearer ring wins: override config key-by-key, adopt nearer scope/origin.
             existing["config"].update(config)
             existing["scope"] = scope
             existing["origin"] = origin
-            existing["collection_scope"] = bool(instance.get("collection_scope", False))
+            existing["collection_scope"] = collection_scope
             return
     stack.append(
         {
@@ -594,7 +599,7 @@ def _apply(stack: list[dict[str, Any]], instance: dict[str, Any], *, origin: str
             "kind": kind,
             "config": config,
             "known": block_id in world.blocks,
-            "collection_scope": bool(instance.get("collection_scope", False)),
+            "collection_scope": collection_scope,
         }
     )
 
@@ -1844,6 +1849,9 @@ def validate_blocks(world: BlockWorld) -> list[str]:
         scope = (definition.get("scope") or {}).get("default_mode")
         if scope is not None and scope not in SCOPE_MODES:
             errors.append(f"block `{block_id}`: unknown scope mode `{scope}`")
+        errors.extend(
+            _collection_scope_instance_errors(f"block `{block_id}`", definition)
+        )
         for anchor_type in definition.get("anchors") or []:
             if anchor_type not in world.registry.raw_types:
                 errors.append(f"block `{block_id}`: anchors unknown page type `{anchor_type}`")

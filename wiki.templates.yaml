@@ -57,6 +57,10 @@ blocks:
     family: quadrants
     title: "Quadrants"
     summary: "Four AQAL lenses with full interiors over any anchored scope."
+    # Any anchor that declares a collection can reuse this same block with a
+    # linked scope. The compiler activates it conditionally; hierarchy remains
+    # the default when no collection contract exists.
+    collection_scope: true
     contract_ref: wiki_core.quadrants
     perspectives:
       q1: perspective-identity-intent
@@ -103,7 +107,8 @@ blocks:
     family: relations
     title: "Relations"
     summary: "People below this anchor read as a cared-for network: bond, cadence, dates, open loops."
-    scope: { default_mode: descendants }
+    collection_scope: true
+    scope: { default_mode: descendants, allowed_modes: [descendants, linked] }
     anchors: [root_entity, context_hub, holon, ontology_index]
     perspectives: { q3: perspective-roles-relationships }
     contributes:
@@ -520,10 +525,10 @@ types:
     # `collection_scope`. Without a real selector/member link these blocks keep
     # descendants, preserving legacy indexes with canonical children.
     blocks:
-      - { id: wiki.block.quadrants.v1, scope: descendants, collection_scope: true, config: { mode: optional_lens } }
-      - { id: wiki.block.relations.v1, scope: descendants, collection_scope: true }
-      - { id: wiki.block.ui_views.v1, scope: descendants, collection_scope: true, config: { default: quadrants } }
-      - { id: wiki.block.ui_regions.v1, scope: descendants, collection_scope: true, config: { visual_pack: quiet_structure } }
+      - { id: wiki.block.quadrants.v1, scope: descendants, config: { mode: optional_lens } }
+      - { id: wiki.block.relations.v1, scope: descendants }
+      - { id: wiki.block.ui_views.v1, scope: descendants, config: { default: quadrants } }
+      - { id: wiki.block.ui_regions.v1, scope: descendants, config: { visual_pack: quiet_structure } }
     creatable: false
   source_registry:
     view: { center: dashboard, badges: [] }
