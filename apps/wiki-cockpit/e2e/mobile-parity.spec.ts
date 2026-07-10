@@ -140,6 +140,7 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
     await page.locator(".commandSearch input").fill(longTitle);
     await page.locator(".commandSearch input").press("Enter");
     await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10_000 });
+    await expect(page).not.toHaveURL(/[?&]dock=/);
     await expect(page.locator(".readerHead h2")).toHaveText(longTitle);
     await expect(page.locator(".quadrantCompass")).toBeHidden();
     await expect(page.locator(".worldNavigator")).toBeHidden();

@@ -6214,7 +6214,13 @@ pre {
   .sceneShell.fallbackMode .sceneFallback {
     /* Keep the real center summary in the first reduced-motion viewport after
        the compact quadrant controls gained their explicit All state. */
-    padding-top: 4px;
+    padding-top: 0;
+  }
+
+  .sceneShell.fallbackMode .quadrantCompass {
+    /* Preserve a little platform-font headroom in WebKit/Linux without
+       shrinking any label or touch target. */
+    margin-bottom: 4px;
   }
 
   .sceneShell.fallbackMode .quadrantSeed {

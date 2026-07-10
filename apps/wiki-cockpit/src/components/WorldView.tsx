@@ -881,7 +881,18 @@ export function WorldView({
   useEffect(() => setActiveHit(0), [route.query.q]);
   const visibleHits = searchHits.slice(0, SEARCH_VISIBLE);
   const openHit = (page?: PageRecord, query?: string) => {
-    if (page) navigateWorld({ ...(query === undefined ? {} : { q: query || null }), pageId: page.id, reader: true });
+    if (page) {
+      // Search is a direct read intent and therefore owns the primary-surface
+      // slot. Clear any dock in the same route transaction so an adaptive
+      // renderer switch cannot replay a stale Create/source surface over the
+      // requested reader.
+      navigateWorld({
+        ...(query === undefined ? {} : { q: query || null }),
+        dock: null,
+        pageId: page.id,
+        reader: true
+      });
+    }
   };
   const onSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     const currentSearchValue = event.currentTarget.value;
