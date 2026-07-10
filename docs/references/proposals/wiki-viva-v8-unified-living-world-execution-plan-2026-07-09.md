@@ -283,14 +283,17 @@ Forbidden states:
 
 Audit refreshed on 2026-07-10. The final v8 UX payload after the rendered-flow
 review is `4e4ee631` in draft PR
-[#61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+[#61](https://github.com/kimlage/wiki-viva-kit/pull/61). The downstream safety
+payload is `3e5c0867`: preflight reads the exact pinned Git tree and protects a
+consumer-owned runtime config instead of comparing/importing later checkout
+state.
 
 | Surface | Observed state | Treatment |
 | --- | --- | --- |
 | `origin/main` | `c5de4440` `feat(wiki): release recursive quadrant cockpit v6.9` | Public baseline. Most recent implementation branches have been absorbed here. |
 | local `main` | `71c845f` `fix(cockpit): keep active center out of quadrants`, one commit ahead of `origin/main` | Already an ancestor of the current branch. Keep it in the final integration history and do not leave `main` as the only named ref carrying the fix. |
-| current branch | `wiki/v8-unified-living-world`; final review payload `4e4ee631` follows the semantic-motion boundary and its metadata as separate reviewable commits. | Sole integration/release-candidate line. Runtime code, generated artifacts and release metadata remain reviewable commit boundaries. |
-| current worktree | Final Guide, quadrant reset, route/surface synchronization, fallback and updated visual baselines are committed through `4e4ee631`; the package/release metadata now pins that exact payload. | No broad WIP remains. Human review, merge and tag remain external gates. |
+| current branch | `wiki/v8-unified-living-world`; final rendered review payload `4e4ee631` is followed by downstream safety payload `3e5c0867` and separate release metadata. | Sole integration/release-candidate line. Runtime code, generated artifacts, upgrade safety and release metadata remain reviewable commit boundaries. |
+| current worktree | Final Guide, quadrant reset, route/surface synchronization, fallback and visual baselines are committed through `4e4ee631`; exact-tree preflight and runtime-config protection are committed in `3e5c0867`; package/release metadata pins the latter. | No broad WIP remains. Human review, merge and tag remain external gates. |
 | `wiki/plan-ops-cockpit-3d` | two commits ahead, plan-only branch | Superseded by this plan; retain as historical input. |
 | `wiki/plan-sources-templates-facets` | one commit ahead, plan-only branch | Superseded/absorbed; source/template/facet principles are consolidated here. |
 | zero-ahead local/remote branches | `wiki/cockpit-layout-fixes-2026-07-02`, `wiki/codex-missions-impl`, `wiki/codex-plan-rev2-work-briefs`, `wiki/impl-sources-templates-facets`, `wiki/one-world-cockpit-plan`, `wiki/one-world-impl`, `wiki/ops-cockpit-*`, `wiki/refine-threejs-*`, `wiki/scene-culling-*`, `wiki/template-blocks-impl`, and their matching `origin/wiki/*` branches | Already absorbed in `origin/main`; use as history/context only. Do not cherry-pick unless an audit finds a missing specific diff. |
@@ -2198,9 +2201,9 @@ advances. A phase is not `done` without evidence.
 | Phase 4 - interaction runtime/game engine | `done` | Runtime modules, reducer, view/overlay/surface/scene registries, input controller and harness tests. | Runtime, reducer, registries/effects/input/resource/command/diagnostic modules pass; components use injected ports, architecture reports 0 violations/0 debt, operator commands use nonce + idempotent receipts, and the server rejects non-loopback binds. |
 | Phase 5 - frontend rendering | `done` | Runtime-backed views/overlays, a11y/i18n, fallback and instrumentation evidence. | Four views, six overlays, one semantic encoding resolver, 2D fallback, stable layout signature, keyed morphs, focus/inert restoration, 44px targets, safe-area handling, EN/PT controls, live legend, lazy boundaries and bounded performance evidence pass. |
 | Phase 6 - dense synthetic demo | `done` | Regression fixture matrix and dense sample data. | The authored fixture retains 467 public pages. The instructional default now selects `normal_operations` (107 pages), while `dense_stress` remains an explicit 378-page snapshot and `?demo_scenario=dense_stress` route (>350 mobile threshold). Seven deterministic manifests cover every source/action state axis; region `shown + hidden = total` and regeneration drift remain green. |
-| Phase 7 - tests/gates | `done` | Python gates, frontend tests, Playwright E2E and diff checks. | Python: 674 passed, 4 skipped. Frontend: 371/371 across 49 files; Node gates 15/15; architecture 0 violations; snapshot API, bundle, demo/snapshot drift and diff checks green. The final browser matrix passed 47 scenarios with 2 real-endpoint opt-in skips across Chromium desktop, WebKit mobile, forced fallback and Firefox. Audit reports 0 errors and 6 explicit stale-page/operation-date warnings; deterministic operation/input compilations still match HEAD. Whole-tree Ruff is not a release gate and retains pre-existing bootstrap/style debt. |
+| Phase 7 - tests/gates | `done` | Python gates, frontend tests, Playwright E2E and diff checks. | Python: 676 passed, 4 skipped. Frontend: 371/371 across 49 files; Node gates 15/15; architecture 0 violations; snapshot API, bundle, demo/snapshot drift and diff checks green. The final browser matrix passed 47 scenarios with 2 real-endpoint opt-in skips across Chromium desktop, WebKit mobile, forced fallback and Firefox. Audit reports 0 errors and 6 explicit stale-page/operation-date warnings; deterministic operation/input compilations still match HEAD. Whole-tree Ruff is not a release gate and retains pre-existing bootstrap/style debt. |
 | Phase 8 - visual validation | `done` | QA evidence package for desktop, mobile, fallback and private read-only pass. | Final in-app traversal proved one canvas, fixed center/lens, quadrants available in all four views and zero document overflow. The Guide now owns a bounded viewport sheet at `1280x720` and `390x844`, with its three-axis mental model unobstructed; quadrant focus exposes an explicit All state and active-cell toggle. The default 107-page world measured median 11.8 ms and p95 12.1 ms (`within_budget`); dense stress measured p95 12.7 ms in the committed compact profile. Overlay evidence captures at 0/160/480 ms prove a 400 ms per-entity crossfade with the control atomically locked until resolve; view/lens/travel retain identity instead of remounting. Reader layering, WebKit touch exits and reduced-motion fallback keep the foreground bounded, inert the background and restore canonical navigation. No current console/network application error or document overflow was observed; historical HMR errors predate the stable build. |
-| Phase 9 - downstream repository upgrades | `done` | Consumer inventory, upgrade package, migration reports, pilot/wave status and redacted QA evidence. | Package is pinned to `4e4ee631`, with inventory, allow/block lists, preflight, report compiler/schema, rollback and compatibility window. Public source is candidate; the private pilot preflight is explicitly blocked until its dirty worktree, current ingestion closure, freshness gate and real snapshot v1-to-v2 migration are resolved. No private data was imported upstream. |
+| Phase 9 - downstream repository upgrades | `in_progress` | Consumer inventory, upgrade package, migration reports, pilot/wave status and redacted QA evidence. | Package is pinned to `3e5c0867`, with exact-tree comparison, inventory, allow/block lists, runtime-config protection, report compiler/schema, rollback and compatibility window. The private pilot now has a clean `wiki/` branch, closed ingestion and green current gates; allowlisted import, real snapshot v2, redacted visual QA and the migration report remain active. No private data is imported upstream. |
 | Phase 10 - documentation/release | `done` | README, cockpit README, modular-blocks, extending-the-kit, examples, diagrams and release notes. | Runtime/upgrade guides, README surfaces, extension/block guidance, command reference, release candidate, exact source SHA and PR #61 are versioned. Stable release remains the separate human merge/tag gate above. |
 
 ### Post-implementation UX correction ledger - 2026-07-09
@@ -3266,10 +3269,12 @@ The v8 unified execution is complete only when all conditions are true:
   blockers remain explicit rather than being bypassed.
 - [x] Deliver the migration-report schema/template/compiler and synthetic
   completeness checks. Real consumer reports are created only after an actual
-  allowlisted import; the private pilot remains paused by preflight.
+  allowlisted import.
+- [ ] Complete the private-pilot allowlisted import, real snapshot v2,
+  downstream adaptations, redacted visual QA and migration report.
 - [x] Update README, cockpit README, modular-blocks, extending-the-kit,
   examples, diagrams, PR/release notes and downstream SHA migration notes.
 
-The implementation checklist is complete. Draft PR #61 remains the explicit
-human review/merge/tag gate; it is not silently converted into an automated
-approval.
+The public runtime checklist is complete. The private-pilot adoption item above
+remains active. Draft PR #61 remains the explicit human review/merge/tag gate;
+it is not silently converted into an automated approval.

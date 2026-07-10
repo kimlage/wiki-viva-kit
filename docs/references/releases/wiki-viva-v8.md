@@ -14,8 +14,10 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`4e4ee631d104637c744e6d3f2dbee107b24c2bab` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`3e5c08671fadebd3d77b76cb2f0e7c9c2ddc8c42` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
+The final rendered UX payload remains `4e4ee631`; `3e5c0867` adds the
+downstream preflight safety boundary and consumer runtime-config protection.
 
 ## Product boundary
 
@@ -140,11 +142,11 @@ blank world, center error, overlap, unreadable label or sample fallback.
   workflow passes locally, including operational-pass freshness.
 - Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
   sidecar promotion/rollback checks pass.
-- Frontend: 370 unit tests across 48 files and 15 gate tests pass; architecture reports
+- Frontend: 371 unit tests across 49 files and 15 gate tests pass; architecture reports
   0 violations and 0 legacy debt.
 - Bundle: initial JS 137.46 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
   chunk 54.24 kB gzip, all below the committed budgets.
-- Browser matrix: the last full cross-browser rerun remains 42 passed with 2
+- Browser matrix: the last full cross-browser rerun remains 47 passed with 2
   environment-gated real-endpoint tests. The final reader delta adds explicit
   foreground/mobile/fallback regression specs and was exercised in the in-app
   browser at `917x908`, `390x844` and `1280x900` without document/shell overflow.

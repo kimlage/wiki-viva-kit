@@ -3,7 +3,7 @@ schema_version: wiki_viva_upgrade_package.v1
 release:
   id: wiki-viva-v8-rc1
   status: release_candidate
-  source_sha: 4e4ee631d104637c744e6d3f2dbee107b24c2bab
+  source_sha: 3e5c08671fadebd3d77b76cb2f0e7c9c2ddc8c42
   plan: docs/references/proposals/wiki-viva-v8-unified-living-world-execution-plan-2026-07-09.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
@@ -141,5 +141,5 @@ privacy:
 
 known_limitations:
   - The payload is pinned to the reviewed branch SHA, but PR 61 still requires the human merge gate and a release tag.
-  - Private pilot import remains paused until its own clean branch, current gate receipts and migration report exist.
+  - The private pilot repaired its branch, ingestion closure and current gates; the allowlisted import and migration report remain in progress.
   - Consumer-specific core failures must first become synthetic public fixtures.
