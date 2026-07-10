@@ -3,7 +3,7 @@ schema_version: wiki_viva_upgrade_package.v1
 release:
   id: wiki-viva-v8-rc1
   status: release_candidate
-  source_sha: 2da6c73a4f57d23cf3e1a286974576445e34656d
+  source_sha: d27bf316534d660b6754c35d0cfdf5f368c33fb6
   plan: docs/references/proposals/wiki-viva-v8-unified-living-world-execution-plan-2026-07-09.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 

@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`2da6c73a4f57d23cf3e1a286974576445e34656d` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`d27bf316534d660b6754c35d0cfdf5f368c33fb6` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
 downstream preflight safety boundary, `5179dc5c` makes nested centers
@@ -32,6 +32,8 @@ authoring, nested canonical-source discovery, generic collection-capable
 anchors and Node 24-backed CI actions. `2da6c73a` closes the final integrity
 review: generated artifacts are idempotent, action has one schema declaration,
 and scene LOD uses the full scoped-world count before strict performance QA.
+`d27bf316` moves the retained browser-evidence upload to the official Node 24
+action after the final CI surfaced the last deprecated-action warning.
 
 ## Product boundary
 
@@ -173,7 +175,7 @@ blank world, center error, overlap, unreadable label or sample fallback.
   semantic motion, docks, reader, fallback and mobile. It preserved one canvas,
   had no document overflow, measured p95 12.1 ms on the normal world and proved
   atomic 400 ms overlay crossfades plus reader/Guide focus restoration.
-- Downstream pilot: portable source `2da6c73a`; the prior private proof at
+- Downstream pilot: portable source `d27bf316`; the prior private proof at
   `fa65d5f9` had toolkit drift 0 and a real snapshot v2
   with 24 payloads and complete private/redacted-public migration reports with
   zero validation errors. Redacted desktop, mobile and fallback evidence uses
