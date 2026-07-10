@@ -14,6 +14,16 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-10] System | Canonical action-state authoring
+
+- The public [action template](../../docs/references/templates/wiki/action.md)
+  now authors the same `action_state`, next-step, ownership, due/blocker and
+  receipt fields consumed by the v8 work model.
+- Human `status` wording remains readable during migration, while runtime state
+  is restricted to `open`, `in_progress`, `blocked`, `waiting_human`, `done`
+  or `cancelled`. Recurrence remains cadence metadata rather than a false work
+  state.
+
 ## [2026-07-10] System | Collection-owned subworld contract
 
 - [People registry](../people/index.md) now declares a typed `person`

@@ -13,20 +13,34 @@ page_types:
       - stale_after_days
       - source_refs
       - moc_parent
-    field_types: &relation_field_types
-      updated_at: date
-      stale_after_days: string
-      source_refs: list
-      collection_refs: list
-      moc_parent: string
-      subject_ref: string
-      subject_role: string
-      parent_projection: object
-      projection_overrides: object
-      evidence_refs: list
-      claims: list
-      decisions: list
-      actions: list
+    field_types:
+      <<: &relation_field_types
+        updated_at: date
+        stale_after_days: string
+        source_refs: list
+        collection_refs: list
+        moc_parent: string
+        subject_ref: string
+        subject_role: string
+        parent_projection: object
+        projection_overrides: object
+        evidence_refs: list
+        claims: list
+        decisions: list
+        actions: list
+      action_state: string
+      owner_kind: string
+      owner_ref: string
+      created_at: date
+      due_at: date
+      completed_at: date
+      blocked_by: list
+      blocker_reason: string
+      next_action: string
+      priority: string
+      attention_basis: string
+      completion_receipt: string
+      cancellation_receipt: string
   claim:
     template: docs/references/templates/wiki/claim.md
     allowed_dirs:

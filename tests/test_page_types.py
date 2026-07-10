@@ -81,6 +81,27 @@ def test_relation_page_types_require_hierarchy_parent() -> None:
     assert root_shape.get("field_types", {}).get("moc_parent") == "string"
 
 
+def test_action_shape_exposes_the_runtime_work_contract() -> None:
+    registry = load_page_type_registry(Path(__file__).resolve().parents[1])
+    assert registry is not None
+    fields = registry.page_types["action"]["field_types"]
+    assert {
+        "action_state": "string",
+        "owner_kind": "string",
+        "owner_ref": "string",
+        "created_at": "date",
+        "due_at": "date",
+        "completed_at": "date",
+        "blocked_by": "list",
+        "blocker_reason": "string",
+        "next_action": "string",
+        "priority": "string",
+        "attention_basis": "string",
+        "completion_receipt": "string",
+        "cancellation_receipt": "string",
+    }.items() <= fields.items()
+
+
 def test_template_coverage_requires_reason_for_none(tmp_path: Path) -> None:
     assert template_coverage_error(tmp_path, "x", {"template": "none"}) is not None
     assert template_coverage_error(
