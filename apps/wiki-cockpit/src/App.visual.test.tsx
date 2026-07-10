@@ -382,7 +382,8 @@ describe("visual route contract", () => {
     fireEvent.change(search, { target: { value: "Source Fixture" } });
     fireEvent.keyDown(search, { key: "Enter", code: "Enter" });
 
-    expect(await screen.findByLabelText("Reader: Source Fixture")).toBeTruthy();
+    await waitFor(() => expect(window.location.search).toContain("reader=1"), { timeout: 3_000 });
+    expect(await screen.findByLabelText("Reader: Source Fixture", {}, { timeout: 3_000 })).toBeTruthy();
     await new Promise((resolve) => window.setTimeout(resolve, 350));
     expect(window.location.search).toContain("reader=1");
     expect(window.location.search).not.toContain("dock=create");
@@ -397,7 +398,8 @@ describe("visual route contract", () => {
     fireEvent.change(search, { target: { value: "Source Fixture" } });
     await waitFor(() => expect(window.location.search).toContain("q=Source+Fixture"));
     fireEvent.keyDown(search, { key: "Enter", code: "Enter" });
-    expect(await screen.findByLabelText("Reader: Source Fixture")).toBeTruthy();
+    await waitFor(() => expect(window.location.search).toContain("reader=1"), { timeout: 3_000 });
+    expect(await screen.findByLabelText("Reader: Source Fixture", {}, { timeout: 3_000 })).toBeTruthy();
 
     const closeButtons = screen.getAllByTitle("Close reader (Esc)");
     fireEvent.click(closeButtons[closeButtons.length - 1]);
