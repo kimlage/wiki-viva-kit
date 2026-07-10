@@ -248,7 +248,7 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     assert inventory["schema_version"] == CONSUMER_INVENTORY_SCHEMA_VERSION
     assert package_is_pinned(pkg) is True
     assert pkg["release"]["status"] == "release_candidate"
-    assert pkg["release"]["source_sha"] == "3e5c08671fadebd3d77b76cb2f0e7c9c2ddc8c42"
+    assert pkg["release"]["source_sha"] == "487f79352373b8c11717d2bf4b39d63ac9aff771"
     assert portable_path_status("apps/wiki-cockpit/.env.local", pkg)[0] is False
     assert (
         portable_path_status(
@@ -271,6 +271,39 @@ def test_portable_blocklist_wins_and_private_paths_are_not_importable() -> None:
         is False
     )
     assert portable_path_status("random.txt", pkg)[0] is False
+
+
+def test_portable_wildcard_directory_glob_honors_block_precedence() -> None:
+    pkg = package()
+    pkg["portable_import"] = {
+        "allow": [".skills/wiki-*/**"],
+        "block": [".skills/wiki-private*/**"],
+    }
+
+    assert portable_path_status(".skills/wiki-viva", pkg) == (
+        True,
+        "allowed by .skills/wiki-*/**",
+    )
+    assert portable_path_status(".skills/wiki-viva/SKILL.md", pkg) == (
+        True,
+        "allowed by .skills/wiki-*/**",
+    )
+    assert portable_path_status(".skills/wiki-viva/reference/setup.md", pkg)[0] is True
+    assert portable_path_status(".skills/not-a-wiki-skill/SKILL.md", pkg)[0] is False
+    assert portable_path_status(".skills/wiki-private-client/SKILL.md", pkg) == (
+        False,
+        "blocked by .skills/wiki-private*/**",
+    )
+
+
+def test_portable_literal_globstar_keeps_directory_semantics() -> None:
+    pkg = package()
+    pkg["portable_import"] = {"allow": ["foo/**"], "block": []}
+
+    assert portable_path_status("foo", pkg)[0] is True
+    assert portable_path_status("foo/bar.txt", pkg)[0] is True
+    assert portable_path_status("foo/nested/bar.txt", pkg)[0] is True
+    assert portable_path_status("foobar/bar.txt", pkg)[0] is False
 
 
 def test_portable_drift_is_byte_exact_and_honors_consumer_ignore(

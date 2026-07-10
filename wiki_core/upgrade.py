@@ -256,7 +256,13 @@ def _matches(path: str, pattern: str) -> bool:
     candidate = pattern.lstrip("./")
     if candidate.endswith("/**"):
         prefix = candidate[:-3].rstrip("/")
-        return normalized == prefix or normalized.startswith(f"{prefix}/")
+        # ``foo/**`` is a directory contract, so it includes both ``foo`` and
+        # every descendant. Match the prefix as a glob as well: portable
+        # package entries such as ``.skills/wiki-*/**`` otherwise fall into
+        # this branch and are incorrectly treated as a literal directory.
+        return fnmatch.fnmatchcase(normalized, prefix) or fnmatch.fnmatchcase(
+            normalized, candidate
+        )
     if candidate.endswith("/"):
         return normalized.startswith(candidate)
     return normalized == candidate or fnmatch.fnmatchcase(normalized, candidate)
