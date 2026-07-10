@@ -102,6 +102,22 @@ def test_action_shape_exposes_the_runtime_work_contract() -> None:
     }.items() <= fields.items()
 
 
+def test_every_collection_capable_anchor_accepts_the_collection_contract() -> None:
+    registry = load_page_type_registry(Path(__file__).resolve().parents[1])
+    assert registry is not None
+    for page_type in (
+        "context_hub",
+        "holon",
+        "ontology_index",
+        "project",
+        "root_entity",
+        "source",
+        "source_registry",
+        "template_block",
+    ):
+        assert registry.page_types[page_type]["field_types"]["collection"] == "object"
+
+
 def test_template_coverage_requires_reason_for_none(tmp_path: Path) -> None:
     assert template_coverage_error(tmp_path, "x", {"template": "none"}) is not None
     assert template_coverage_error(
