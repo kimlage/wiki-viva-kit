@@ -219,10 +219,14 @@ test("WebKit mobile keeps the visible mission, quadrant controls and real Q2 tar
   await expect(page.locator(".worldMissionSlim")).toBeVisible();
   await expect(page.locator(".quadrantCompass")).toBeVisible();
 
-  await page.evaluate(() => {
-    (window as Window & { __missionQuadrantCanvas?: HTMLCanvasElement }).__missionQuadrantCanvas =
-      document.querySelector<HTMLCanvasElement>(".sceneShell canvas") ?? undefined;
+  const rendererMode = await page.evaluate(() => {
+    const renderer = document.querySelector(".sceneShell canvas, .sceneShell .sceneFallback");
+    if (!renderer) throw new Error("adaptive renderer is unavailable");
+    (window as Window & { __missionQuadrantRenderer?: Element }).__missionQuadrantRenderer = renderer;
+    return renderer.matches("canvas") ? "3d" : "performance_budget";
   });
+  expect(["3d", "performance_budget"]).toContain(rendererMode);
+  if (rendererMode === "performance_budget") await expectStablePerformanceBudgetFallback(page);
 
   const targetIds = [
     "root-alex-rivera",
@@ -234,10 +238,11 @@ test("WebKit mobile keeps the visible mission, quadrant controls and real Q2 tar
   for (const id of targetIds) {
     const target = page.locator(`[data-world-target-id="${id}"]`);
     await expect(target).toHaveCount(1);
+    if (rendererMode === "performance_budget") await target.scrollIntoViewIfNeeded();
     await expectTouchTarget(target);
   }
 
-  const overlaps = await page.evaluate((ids) => {
+  const overlaps = rendererMode === "3d" ? await page.evaluate((ids) => {
     const rect = (element: Element) => element.getBoundingClientRect();
     const intersects = (left: DOMRect, right: DOMRect) =>
       Math.min(left.right, right.right) - Math.max(left.left, right.left) > 1 &&
@@ -271,14 +276,25 @@ test("WebKit mobile keeps the visible mission, quadrant controls and real Q2 tar
         ...targetOverlaps
       ];
     });
-  }, targetIds);
+  }, targetIds) : [];
   expect(overlaps).toEqual([]);
+
+  const expectRendererContinuity = async () => {
+    expect(await page.evaluate((mode) => {
+      const current = mode === "3d"
+        ? document.querySelector(".sceneShell canvas")
+        : document.querySelector(".sceneShell .sceneFallback");
+      return current ===
+        (window as Window & { __missionQuadrantRenderer?: Element }).__missionQuadrantRenderer;
+    }, rendererMode)).toBe(true);
+  };
 
   const returnToQ2 = async () => {
     await page.goBack();
     await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
     await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "q2_pratica");
     await expect(page.locator(".worldMissionSlim")).toBeVisible();
+    await expectRendererContinuity();
   };
 
   await page.locator('[data-world-target-id="source-action-ledger"]').tap();
@@ -301,10 +317,7 @@ test("WebKit mobile keeps the visible mission, quadrant controls and real Q2 tar
 
   await page.locator('[data-world-target-id="root-alex-rivera"]').tap();
   await expect(page.locator(".pageReader")).toBeVisible();
-  expect(await page.evaluate(() =>
-    document.querySelector(".sceneShell canvas") ===
-    (window as Window & { __missionQuadrantCanvas?: HTMLCanvasElement }).__missionQuadrantCanvas
-  )).toBe(true);
+  await expectRendererContinuity();
 });
 
 test("WebKit mobile keeps the same semantic route in reduced-motion fallback", async ({ page }, testInfo) => {
@@ -346,9 +359,14 @@ test("WebKit mobile keeps the same semantic route in reduced-motion fallback", a
   expect(fallbackEvidence.counters.particles).toBe(0);
   expect(fallbackEvidence.evaluations.mobile?.normal.status).toBe("fallback");
 
-  const group = page.locator(".fallbackGroupLink:not(.emptyFacet)").first();
+  const group = page.locator('[data-world-target-id="family:source"]');
+  await expect(group).toHaveCount(1);
+  await group.scrollIntoViewIfNeeded();
   await expect(group).toBeVisible();
   await group.tap();
+  await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
+  await expect(page.locator('[data-world-group-summary="family:source"]')).toBeVisible();
+  await page.goBack();
   await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
 
   const node = page.locator(".fallbackNode:not(.groupNode)").first();

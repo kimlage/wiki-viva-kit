@@ -263,6 +263,14 @@ export function SceneFallback({
           const encodingText = localizedEncodingText(encoding);
           const encodingAria = localizedEncodingAria(encoding);
           const strong = overlay !== "attention" || strongAttention.has(node.id);
+          // Region-scoped family nodes use an internal layout id so multiple
+          // quadrants can own the same semantic family. The interactive 3D
+          // label exposes the canonical drill id; the adaptive 2D surface must
+          // expose that same id or a performance fallback silently breaks
+          // keyboard/touch automation and deep-navigation semantics.
+          const targetId = node.isGroup
+            ? node.groupDrill?.group ?? node.groupKey ?? node.id
+            : node.id;
           const recenters = !node.isGroup && node.id !== currentCenterId && Boolean(centerableIds?.has(node.id));
           const href = node.isGroup
             ? makeHref({ context: node.groupDrill?.context ?? null, group: node.groupDrill?.group ?? null, lens: node.groupDrill?.lens ?? null, pageId: null, reader: false })
@@ -273,7 +281,7 @@ export function SceneFallback({
             <a
               className={`fallbackNode node-${node.freshness_state}${node.isGroup ? " groupNode" : ""}${node.id === selectedPageId || node.path === selectedPageId ? " active" : ""}${highlightedIds.has(node.id) || highlightedIds.has(node.path) ? " highlighted" : ""}`}
               key={`fallback-node-${fallbackNodeKeys[index]}`}
-              data-world-target-id={node.id}
+              data-world-target-id={targetId}
               data-world-target-kind={node.isGroup ? "group" : "page"}
               href={href}
               onClick={(event) => {
