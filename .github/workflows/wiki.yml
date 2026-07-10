@@ -95,3 +95,14 @@ jobs:
       - name: Desktop, mobile, fallback and cross-browser gates
         working-directory: apps/wiki-cockpit
         run: npm run test:visual
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cockpit-visual-${{ runner.os }}-attempt-${{ github.run_attempt }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            apps/wiki-cockpit/test-results
+            apps/wiki-cockpit/e2e/__screenshots__/linux
+            output/playwright/wiki-cockpit-report

@@ -5967,7 +5967,10 @@ pre {
 /* Content-hugging pill anchored bottom-left: wraps its chips (never clips the
    Key button) and never runs under the reader dock (right) or minimap. */
 .worldWorkspace .radarStatusStrip {
-  bottom: 46px;
+  /* Keep a real pointer-safe gutter above the command bar. Its text is a few
+     pixels taller under Linux font metrics, so the old 46px offset could put
+     the collapsed filter target underneath the search field in CI. */
+  bottom: 58px;
   left: 12px;
   right: auto;
   width: auto;

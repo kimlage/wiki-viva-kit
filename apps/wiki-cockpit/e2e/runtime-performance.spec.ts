@@ -6,8 +6,15 @@ const SCENARIOS = [
   { id: "dense_stress", budget: "stress", sourceNodes: 378 }
 ] as const;
 
+// Recording a Playwright trace and video consumes the same CPU/GPU frame time
+// this file measures. Keep the product budget strict, but remove observer
+// overhead from the bounded measurement window. The JSON telemetry attachment
+// remains the authoritative failure evidence for these tests.
+test.use({ trace: "off", video: "off" });
+
 for (const scenario of SCENARIOS) {
   test(`Chromium desktop publishes bounded real render counters for ${scenario.id}`, async ({ page }, testInfo) => {
+    test.setTimeout(90_000);
     await page.addInitScript(() => {
       window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
       window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
@@ -25,7 +32,7 @@ for (const scenario of SCENARIOS) {
     await resetRuntimePerformanceWindow(page);
     await page.locator(".sceneShell canvas").hover({ position: { x: 640, y: 430 } });
 
-    const evidence = await waitForRuntimePerformance(page, { minimumSamples: 120 });
+    const evidence = await waitForRuntimePerformance(page, { minimumSamples: 120, timeout: 40_000 });
     await testInfo.attach(`runtime-performance-desktop-${scenario.id}.json`, {
       body: Buffer.from(`${JSON.stringify(evidence, null, 2)}\n`, "utf8"),
       contentType: "application/json"

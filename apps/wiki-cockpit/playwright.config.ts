@@ -5,7 +5,10 @@ const matrixOnlySpecs = /(?:mobile-parity|fallback-parity|firefox-smoke)\.spec\.
 export default defineConfig({
   testDir: "./e2e",
   outputDir: "./test-results",
-  snapshotPathTemplate: "{testDir}/__screenshots__/{arg}{ext}",
+  // Pixel output is renderer- and font-stack-dependent. Keep reviewed
+  // references per OS and browser project instead of weakening the visual
+  // contract until a macOS image happens to pass on Linux (or vice versa).
+  snapshotPathTemplate: "{testDir}/__screenshots__/{platform}/{projectName}/{arg}{ext}",
   fullyParallel: false,
   preserveOutput: "always",
   retries: process.env.CI ? 1 : 0,

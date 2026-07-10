@@ -1,5 +1,10 @@
 import { expect, test } from "./fixtures";
 
+// A missing reference is written as a review candidate by Playwright. Do not
+// let a retry compare against that just-created file and turn an unreviewed
+// baseline into a green (flaky) CI result.
+test.describe.configure({ retries: 0 });
+
 // The world routes render the 2D fallback under ?visual=1 (deterministic,
 // motion-free) — the same topology and URLs as the 3D scene.
 const routes = [

@@ -300,14 +300,12 @@ export class RuntimePerformanceTelemetry {
 
   recordFrame(frameTimeMs: number, width: number): RuntimePerformanceEvidence | null {
     if (!this.#frames.record(frameTimeMs)) return null;
-    if (this.#frames.complete) {
-      const summary = this.#frames.summary();
-      this.#counters = {
-        ...this.#counters,
-        frameTimeMedianMs: summary.medianMs,
-        frameTimeP95Ms: summary.p95Ms
-      };
-    }
+    const summary = this.#frames.summary();
+    this.#counters = {
+      ...this.#counters,
+      frameTimeMedianMs: summary.medianMs,
+      frameTimeP95Ms: summary.p95Ms
+    };
     return runtimePerformanceEvidence(this.#counters, width, this.#frames.sampleCount, this.#frames.policy);
   }
 

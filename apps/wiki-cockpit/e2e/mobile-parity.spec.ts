@@ -3,6 +3,15 @@ import { attachViewportScreenshot, expect, test, waitForRuntimePerformance } fro
 import { expectSpatialCardsWithinSafeArea } from "./spatial-assertions";
 import { expectOverlayEncodingMatrix } from "./overlay-assertions";
 
+// Video/trace recording at a 3x mobile device scale materially taxes the same
+// WebKit render loop used by the runtime budget test. CI still captures the
+// automatic screenshot plus redacted JSON evidence for every failure; local
+// runs retain the richer interactive artifacts for diagnosis.
+test.use({
+  trace: process.env.CI ? "off" : "retain-on-failure",
+  video: process.env.CI ? "off" : "retain-on-failure"
+});
+
 async function prepareMobileWorld(page: Page, path = "/demo/w/quadrants?center=root-alex-rivera") {
   await page.addInitScript(() => {
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
@@ -191,7 +200,20 @@ test("WebKit mobile keeps the same semantic route in reduced-motion fallback", a
   await node.tap();
   await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10_000 });
   await expect(page.locator(".quadrantCompass")).toBeHidden();
-  expect(await page.locator(".sceneShell").evaluate((shell) => shell.scrollWidth - shell.clientWidth)).toBeLessThanOrEqual(1);
+  const horizontalScrollContract = await page.locator(".sceneShell").evaluate((shell) => ({
+    internalOverflow: shell.scrollWidth - shell.clientWidth,
+    overflowX: getComputedStyle(shell).overflowX,
+    documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    windowScrollX: window.scrollX
+  }));
+  // Fractional WebKit layout may leave up to a few non-painted internal CSS
+  // pixels. The user-facing contract is stricter and more direct: the shell
+  // clips the x axis, the document has no x overflow and the viewport did not
+  // move horizontally.
+  expect(horizontalScrollContract.internalOverflow).toBeLessThanOrEqual(4);
+  expect(horizontalScrollContract.overflowX).toMatch(/^(hidden|clip)$/);
+  expect(horizontalScrollContract.documentOverflow).toBeLessThanOrEqual(1);
+  expect(horizontalScrollContract.windowScrollX).toBe(0);
   const close = page.locator(".pageReader .readerClose").last();
   await expectTouchTarget(close);
   await close.tap();
@@ -211,9 +233,10 @@ test("WebKit mobile keeps semantic overlay tokens and geometry stable", async ({
 });
 
 test("WebKit mobile publishes bounded real render counters and passes normal/stress budgets", async ({ page }, testInfo) => {
+  test.setTimeout(70_000);
   await prepareMobileWorld(page);
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
-  const evidence = await waitForRuntimePerformance(page, { minimumSamples: 120 });
+  const evidence = await waitForRuntimePerformance(page, { minimumSamples: 120, timeout: 45_000 });
   expect(evidence.activeDevice).toBe("mobile");
   expect(evidence.sampleCount).toBeGreaterThanOrEqual(evidence.samplePolicy.minimumSamples);
   expect(evidence.sampleCount).toBeLessThanOrEqual(evidence.samplePolicy.capacity);

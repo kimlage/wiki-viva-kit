@@ -111,21 +111,24 @@ describe("v8 runtime performance contract", () => {
   });
 
   it("does not publish telemetry on every frame", () => {
-    const telemetry = new RuntimePerformanceTelemetry({ capacity: 60, warmupFrames: 0, minimumSamples: 30, publishEvery: 30 });
+    const telemetry = new RuntimePerformanceTelemetry({ warmupFrames: 0 });
     telemetry.updateCounters(counters({ frameTimeMedianMs: null, frameTimeP95Ms: null }), 1280);
-    let publications = 0;
-    let firstPublication: ReturnType<RuntimePerformanceTelemetry["recordFrame"]> = null;
+    const publications: NonNullable<ReturnType<RuntimePerformanceTelemetry["recordFrame"]>>[] = [];
     for (let index = 0; index < 90; index += 1) {
       const evidence = telemetry.recordFrame(16 + (index % 3), 1280);
-      if (evidence) {
-        publications += 1;
-        firstPublication ??= evidence;
-      }
+      if (evidence) publications.push(evidence);
     }
-    expect(publications).toBe(2);
-    expect(firstPublication?.counters.frameTimeP95Ms).toBeNull();
+    expect(publications.map((evidence) => ({
+      sampleCount: evidence.sampleCount,
+      medianMs: evidence.counters.frameTimeMedianMs,
+      p95Ms: evidence.counters.frameTimeP95Ms
+    }))).toEqual([
+      { sampleCount: 30, medianMs: 17, p95Ms: 18 },
+      { sampleCount: 60, medianMs: 17, p95Ms: 18 },
+      { sampleCount: 90, medianMs: 17, p95Ms: 18 }
+    ]);
     expect(telemetry.snapshot(1280).counters.frameTimeP95Ms).toBe(18);
-    expect(telemetry.snapshot(1280).samplePolicy.capacity).toBe(60);
-    expect(telemetry.snapshot(1280).sampleCount).toBe(FRAME_SAMPLE_POLICY.capacity / 2);
+    expect(telemetry.snapshot(1280).samplePolicy.capacity).toBe(FRAME_SAMPLE_POLICY.capacity);
+    expect(telemetry.snapshot(1280).sampleCount).toBe(90);
   });
 });
