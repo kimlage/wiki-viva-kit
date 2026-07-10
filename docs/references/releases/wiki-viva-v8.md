@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`fa65d5f9eccdc910302fa236dc5e42df28c9c29b` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`2da6c73a4f57d23cf3e1a286974576445e34656d` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
 downstream preflight safety boundary, `5179dc5c` makes nested centers
@@ -26,7 +26,12 @@ quadrant projections, fixing Focus center ownership and refining long fallback
 labels; `487f7935` closes the last responsive review with one vertical fallback
 scrollport and no horizontal/document overflow. `fa65d5f9` closes the final
 upgrade audit by honoring wildcard-bearing portable skill allowlists, with
-synthetic block-precedence coverage.
+synthetic block-precedence coverage. `3813ff45` through `5b09ca0b` add explicit
+collection membership without rewriting hierarchy, canonical action-state
+authoring, nested canonical-source discovery, generic collection-capable
+anchors and Node 24-backed CI actions. `2da6c73a` closes the final integrity
+review: generated artifacts are idempotent, action has one schema declaration,
+and scene LOD uses the full scoped-world count before strict performance QA.
 
 ## Product boundary
 
@@ -41,6 +46,11 @@ v8 consolidates the cockpit into one center-relative living world:
 - registries own views, overlays, surfaces, scene systems, visual primitives,
   effects, commands and typed relations;
 - source lifecycle, freshness and last attempt remain separate;
+- collections add typed `collection_member` edges and linked sub-worlds while
+  keeping `moc_parent` as the canonical location contract;
+- action pages expose canonical runtime state, ownership, next action,
+  blockers, priority and completion/cancellation receipts without discarding
+  useful editorial `status` wording;
 - a primary-surface contract keeps quadrant/HUD instruments behind readers and
   docks, while the reader exposes decision-ready action facts before prose;
 - one semantic motion grammar drives CSS and WebGL view/lens/travel/retreat
@@ -75,8 +85,8 @@ The authoritative machine list is
 | --- | --- | --- |
 | `/w/quadrants/...` | `view=quadrants` with explicit center/lens/overlay | Read and normalize through v8. |
 | `/w/radar/...` | `view=radar&overlay=freshness` | Preserve the freshness question. |
-| `/w/districts/...` | compatibility view plus `lens=type` | Warning through v8; removal no earlier than v9. |
-| `/w/trails/...` | compatibility focus/relations/evidence state around a real center | Missing page normalizes to root with warning. |
+| `/w/districts/...` | `mode=compat&view=districts&lens=type&overlay=actions` | Direct links retain the legacy geometry even when native navigation hides it; no native view is falsely selected. |
+| `/w/trails/...` | `mode=compat&view=trails&lens=relations&overlay=evidence` around a real center | Direct links retain the ego-graph identity; a missing page normalizes to root with warning. |
 | `quadrant=<id>` | `lens=<quadrant-id>` | `lens` wins when both exist. |
 | short `intencao/pratica/relacoes/sistemas` | `q1_intencao/q2_pratica/q3_relacoes/q4_sistemas` | Legacy read, canonical write. |
 | `group=region:*` | real `family:*` group or ephemeral visual focus | Never written by v8. |
@@ -144,24 +154,27 @@ blank world, center error, overlap, unreadable label or sample fallback.
 
 ## Final candidate evidence
 
-- Python: 682 passed, 4 skipped; audit 0 errors with 6 known staleness/date
+- Python: 703 passed, 4 skipped; audit 0 errors with 6 known staleness/date
   warnings; methodology 22/22. Every command in the remote `audit-and-test`
   workflow passes locally, including operational-pass freshness.
 - Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
   sidecar promotion/rollback checks pass.
-- Frontend: 378 unit tests across 50 files and 15 gate tests pass; architecture reports
+- Frontend: 389 unit tests across 51 files and 15 gate tests pass; architecture reports
   0 violations and 0 legacy debt.
-- Bundle: initial JS 137.63 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
-  chunk 54.25 kB gzip, all below the committed budgets.
-- Browser matrix: the last full cross-browser rerun remains 47 passed with 2
-  environment-gated real-endpoint tests. The final reader delta adds explicit
+- Bundle: initial JS 137.99 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
+  chunk 53.20 kB gzip, all below the committed budgets.
+- Browser matrix: 51 passed with 2 environment-gated real-endpoint tests. A
+  dedicated clean Chromium performance project preserves the same 33.33 ms p95
+  budget; the accepted final windows measured normal median/p95 12.3/16.8 ms
+  and dense median/p95 10.1/21.5 ms. The final reader delta adds explicit
   foreground/mobile/fallback regression specs and was exercised in the in-app
   browser at `917x908`, `390x844` and `1280x900` without document/shell overflow.
 - Manual public browser QA covered four views, six overlays, four lenses,
   semantic motion, docks, reader, fallback and mobile. It preserved one canvas,
   had no document overflow, measured p95 12.1 ms on the normal world and proved
   atomic 400 ms overlay crossfades plus reader/Guide focus restoration.
-- Downstream pilot: exact source `fa65d5f9`, toolkit drift 0, real snapshot v2
+- Downstream pilot: portable source `2da6c73a`; the prior private proof at
+  `fa65d5f9` had toolkit drift 0 and a real snapshot v2
   with 24 payloads and complete private/redacted-public migration reports with
   zero validation errors. Redacted desktop, mobile and fallback evidence uses
   real operator provenance, no sample fallback, clean console/network state
