@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`39b28fe8d74680c517f613f7f14d9556b6eeba1b` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`b942735fb8335ce4782fdb329568478bcb56dfae` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
 downstream preflight safety boundary, `5179dc5c` makes nested centers
@@ -44,12 +44,14 @@ basis, blockers and terminal receipts under one validated contract. It also
 normalizes semantic family target IDs across the 3D and adaptive 2D renderers;
 when a measured WebKit session falls back for performance, the same collection
 and real-page journey remains touchable without pretending the canvas survived.
-`39b28fe8` closes the real short-mobile hit-collision blocker found during the
-final in-app Browser audit: five semantic group landmarks now keep disjoint
-44 px targets at `390x664`, the visual hit target resolves to the intended
-group, and every activation preserves quadrant, breadcrumb, collection and the
-same runtime/canvas. It also adds a real-browser regression proving resolved
-Markdown links work by mouse and keyboard without remounting the world.
+`b942735f` closes the real short-mobile hit-collision blocker found during the
+final in-app Browser audit. It preserves the five disjoint 44 px semantic
+landmarks introduced by `39b28fe8`, and extends the regression to a dense
+synthetic center with repeated families across quadrants and multiple families
+inside Q2. In both worlds, the visual hit target resolves to the intended
+group and every mouse/keyboard activation preserves quadrant, breadcrumb,
+collection and the same runtime/canvas. Resolved Markdown links remain proven
+by mouse and keyboard without remounting the world.
 
 ## Product boundary
 
@@ -191,21 +193,22 @@ blank world, center error, overlap, unreadable label or sample fallback.
   visible Q1-Q4 pages/groups, native mouse/keyboard/focus behavior, collection
   explanation, reader/recenter, breadcrumb/lens, no loop and one persistent
   canvas. Mobile WebKit proves the same two-step path and mission foreground at
-  `390x664`; the short-mobile regression additionally proves five disjoint
-  semantic group targets, correct `elementFromPoint`, focus, route, lens,
-  breadcrumb, collection and canvas identity. The in-app Browser covered
+  `390x664`; the short-mobile regression additionally proves disjoint semantic
+  group targets in both the instructional and dense repeated-family worlds,
+  correct `elementFromPoint`, focus, route, lens, breadcrumb, collection and
+  canvas identity. The in-app Browser covered
   `1280x900` and `390x664` with no document/shell overflow.
 - Manual public browser QA covered four views, six overlays, four lenses,
   semantic motion, docks, reader, fallback and mobile. It preserved one canvas,
   had no document overflow, measured p95 12.1 ms on the normal world and proved
   atomic 400 ms overlay crossfades plus reader/Guide focus restoration.
-- Downstream pilot: portable source `39b28fe8`; the prior private proof at
+- Downstream pilot: portable source `b942735f`; the prior private proof at
   `fa65d5f9` had toolkit drift 0 and a real snapshot v2
   with 24 payloads and complete private/redacted-public migration reports with
   zero validation errors. Redacted desktop, mobile and fallback evidence uses
   real operator provenance, no sample fallback, clean console/network state
   and exactly one fallback scroll axis across 560 real pages.
-  The controlled private refresh to `39b28fe8` remains the next evidence gate
+  The controlled private refresh to `b942735f` remains the next evidence gate
   in PR #208; no private content is claimed by this public candidate.
 
 ## Superseded planning surfaces
