@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc1@b942735f
+    current_kit_version: wiki-viva-v8-rc1@1d801f1c
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -68,8 +68,8 @@ consumers:
       state: mobile_integrity_refresh_pending
       scope: wiki_toolkit_drift_core_prefixes
       drift_total: 0
-      details: controlled cfa32594 migration evidence is retained privately; payload b942735f must be imported by controlled allowlist and revalidated in PR 208
+      details: controlled cfa32594 migration evidence is retained privately; payload 1d801f1c must be imported by controlled allowlist and revalidated in PR 208, retaining b942735f as historical mobile P0 evidence
       verified_on: "2026-07-10"
     upgrade_wave: pilot
     status: refresh_pending
-    blocker: controlled payload b942735f import, real-data mobile validation and private human PR review remain
+    blocker: controlled payload 1d801f1c import, real-data source hierarchy and mobile validation, and private human PR review remain

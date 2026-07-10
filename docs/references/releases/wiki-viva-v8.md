@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`b942735fb8335ce4782fdb329568478bcb56dfae` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`1d801f1cd4b94147a2618dbab55f5b4336651451` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
 downstream preflight safety boundary, `5179dc5c` makes nested centers
@@ -52,6 +52,11 @@ inside Q2. In both worlds, the visual hit target resolves to the intended
 group and every mouse/keyboard activation preserves quadrant, breadcrumb,
 collection and the same runtime/canvas. Resolved Markdown links remain proven
 by mouse and keyboard without remounting the world.
+`1d801f1c` closes the source-hierarchy integrity blocker discovered in the
+in-app Browser: generated ingestion events now use their canonical source page
+path, or the canonical source ID fallback, as `moc_parent`. The source registry
+therefore remains a source-only collection instead of flattening normalized
+events into its hierarchy.
 
 ## Product boundary
 
@@ -177,7 +182,7 @@ blank world, center error, overlap, unreadable label or sample fallback.
 
 ## Final candidate evidence
 
-- Python: 705 passed, 4 skipped; audit 0 errors with 3 known staleness
+- Python: 706 passed, 4 skipped; audit 0 errors with 3 known staleness
   warnings; methodology 22/22. Every command in the remote `audit-and-test`
   workflow passes locally, including operational-pass freshness.
 - Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
@@ -202,13 +207,13 @@ blank world, center error, overlap, unreadable label or sample fallback.
   semantic motion, docks, reader, fallback and mobile. It preserved one canvas,
   had no document overflow, measured p95 12.1 ms on the normal world and proved
   atomic 400 ms overlay crossfades plus reader/Guide focus restoration.
-- Downstream pilot: portable source `b942735f`; the prior private proof at
+- Downstream pilot: portable source `1d801f1c`; the prior private proof at
   `fa65d5f9` had toolkit drift 0 and a real snapshot v2
   with 24 payloads and complete private/redacted-public migration reports with
   zero validation errors. Redacted desktop, mobile and fallback evidence uses
   real operator provenance, no sample fallback, clean console/network state
   and exactly one fallback scroll axis across 560 real pages.
-  The controlled private refresh to `b942735f` remains the next evidence gate
+  The controlled private refresh to `1d801f1c` remains the next evidence gate
   in PR #208; no private content is claimed by this public candidate.
 
 ## Superseded planning surfaces
