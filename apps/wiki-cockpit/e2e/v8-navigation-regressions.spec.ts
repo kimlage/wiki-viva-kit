@@ -107,12 +107,38 @@ async function expectSurfaceBackground(page: Page, inert: boolean) {
   }
 }
 
+async function expectMissionSurfaceBelowTopStrip(page: Page, selector: ".worldMissionCard" | ".worldMissionSlim") {
+  const mission = page.locator(selector);
+  await expect(mission).toBeVisible();
+  const hudGeometry = await page.evaluate((missionSelector) => {
+    const shell = document.querySelector<HTMLElement>(".sceneShell");
+    const strip = document.querySelector<HTMLElement>(".worldTopStrip");
+    const missionSurface = document.querySelector<HTMLElement>(missionSelector);
+    if (!shell || !strip || !missionSurface) return null;
+    const stripRect = strip.getBoundingClientRect();
+    const missionRect = missionSurface.getBoundingClientRect();
+    return {
+      measuredHeight: Number.parseFloat(shell.style.getPropertyValue("--world-top-strip-height")),
+      renderedHeight: Math.ceil(stripRect.height),
+      gap: missionRect.top - stripRect.bottom
+    };
+  }, selector);
+  expect(hudGeometry).not.toBeNull();
+  expect(hudGeometry?.measuredHeight).toBe(hudGeometry?.renderedHeight);
+  expect(hudGeometry?.gap).toBeGreaterThanOrEqual(8);
+}
+
 for (const [view, lens, overlay, compatibilityLabel, compatibilityHint, currentOnly] of [
   ["radar", "all", "freshness", null, null, false],
   ["atlas", "type", "actions", "Atlas", "hierarchy: what lives under each area", false],
   ["districts", "type", "actions", "Districts", "identification: the world sorted by kind", true]
 ] as const) {
   test(`explicit legacy ${view} deep link preserves its registered compatibility projection`, async ({ page }) => {
+    if (compatibilityLabel) {
+      // A Linux-like wrapped desktop width exercises the platform-font case
+      // where compatibility context makes the top strip taller than one row.
+      await page.setViewportSize({ width: 1100, height: 900 });
+    }
     await page.addInitScript(() => {
       window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
       window.localStorage.setItem("wiki-cockpit.missionCard", "open");
@@ -144,6 +170,10 @@ for (const [view, lens, overlay, compatibilityLabel, compatibilityHint, currentO
       await expect(missionContext.locator(".missionViewBadge")).toHaveText("Compatibility view");
       await expect(missionContext.locator(".missionViewContext")).toHaveText(compatibilityLabel);
       await expect(missionContext.locator(".missionViewHint")).toHaveText(compatibilityHint);
+      await expectMissionSurfaceBelowTopStrip(page, ".worldMissionCard");
+      await page.locator(".missionCollapse").click();
+      await expect(page.locator(".worldMissionCard")).toHaveCount(0);
+      await expectMissionSurfaceBelowTopStrip(page, ".worldMissionSlim");
     } else {
       await expect(navigator).toHaveAttribute("data-native-view", view);
       await expect(navigator).toHaveAttribute("data-compatibility-view", "");
@@ -163,6 +193,44 @@ for (const [view, lens, overlay, compatibilityLabel, compatibilityHint, currentO
     }
   });
 }
+
+test("fallback HUD flows mission status between context and quadrant navigation", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+    window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
+  });
+  await page.goto("/demo/w/radar?visual=1&tour=0");
+
+  await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/, { timeout: 20_000 });
+  await expectMissionSurfaceBelowTopStrip(page, ".worldMissionSlim");
+  await expect(page.locator(".quadrantCompass")).toBeVisible();
+
+  const flow = await page.evaluate(() => {
+    const strip = document.querySelector<HTMLElement>(".worldTopStrip");
+    const mission = document.querySelector<HTMLElement>(".worldMissionSlim");
+    const compass = document.querySelector<HTMLElement>(".quadrantCompass");
+    if (!strip || !mission || !compass) return null;
+    const stripRect = strip.getBoundingClientRect();
+    const missionRect = mission.getBoundingClientRect();
+    const compassRect = compass.getBoundingClientRect();
+    return {
+      missionGap: missionRect.top - stripRect.bottom,
+      compassGap: compassRect.top - missionRect.bottom,
+      missionBeforeCompass: Boolean(mission.compareDocumentPosition(compass) & Node.DOCUMENT_POSITION_FOLLOWING)
+    };
+  });
+  expect(flow).not.toBeNull();
+  expect(flow?.missionGap).toBeGreaterThanOrEqual(8);
+  expect(flow?.compassGap).toBeGreaterThanOrEqual(8);
+  expect(flow?.missionBeforeCompass).toBe(true);
+
+  await page.locator(".fallbackNode").first().click();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-primary-surface-open", "true");
+  await expect(page.locator(".pageReader")).toBeVisible();
+  await expect(page.locator(".worldMissionSlim")).toBeHidden();
+  expect(await page.locator(".worldMissionSlim").evaluate((element) => getComputedStyle(element).display)).toBe("none");
+});
 
 test("v8 keyboard shortcuts 1-4 update one canonical view grammar", async ({ page }) => {
   await prepareCanonicalV8World(page);

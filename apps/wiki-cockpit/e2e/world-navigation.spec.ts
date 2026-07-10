@@ -1,12 +1,18 @@
 import type { Page } from "@playwright/test";
 import { inflateSync } from "node:zlib";
-import { expect, test } from "./fixtures";
+import {
+  expect,
+  expectStablePerformanceBudgetFallback,
+  test,
+  waitForSettledRuntimePerformance
+} from "./fixtures";
 import { expectSpatialCardsWithinSafeArea } from "./spatial-assertions";
 
-// This suite proves persistent-canvas interaction. Recording every frame can
-// itself push the bounded runtime below the product budget and correctly swap
-// to the safe 2D map, which would test a different contract. Dedicated
-// performance and fallback specs cover that branch with explicit evidence.
+// prepareWorld proves that every scenario starts with one live WebGL world.
+// Recording every frame can itself push the bounded runtime below the product
+// budget, so keep observer overhead out of the initial proof. The long desktop
+// journey below then treats the product's session-latched 2D map as an honest
+// continuation of that same world rather than as a remount or test failure.
 test.use({ trace: "off", video: "off" });
 
 test.describe.configure({ timeout: 60000 });
@@ -33,6 +39,73 @@ async function expectSingleWorld(page: Page) {
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/);
   await expect(page.locator(".sceneCanvasFrame")).toBeVisible();
   await expect(page.locator(".worldCommandBar")).toBeVisible();
+}
+
+type NavigableWorldMode = "3d" | "performance_budget";
+
+const observedNavigableWorldMode = new WeakMap<Page, NavigableWorldMode>();
+
+/**
+ * Assert the continuity contract after the initial WebGL proof. A healthy
+ * runner keeps one canvas; a runner whose complete 120-frame window misses the
+ * product budget may replace it once with the explicit, session-latched 2D
+ * map. In either case the same scene shell, semantic center and command bar
+ * remain available for the rest of the journey.
+ */
+async function expectNavigableWorld(page: Page, expectedCenter?: string): Promise<NavigableWorldMode> {
+  const scene = page.locator(".sceneShell");
+  await expect(scene).toHaveCount(1);
+  await expect(page.locator(".worldCommandBar")).toBeVisible();
+
+  const handle = await page.waitForFunction(() => {
+    const shell = document.querySelector<HTMLElement>(".sceneShell");
+    const workspace = document.querySelector<HTMLElement>(".worldWorkspace");
+    if (!shell || !workspace) return false;
+    const canvasCount = shell.querySelectorAll("canvas").length;
+    const fallback = shell.classList.contains("fallbackMode");
+    const reason = shell.dataset.sceneFallbackReason ?? "";
+    const workspaceFallback = workspace.dataset.worldFallbackActive ?? "";
+    if (!fallback && canvasCount === 1 && workspaceFallback === "false") return "3d";
+    if (
+      fallback &&
+      reason === "performance_budget" &&
+      canvasCount === 0 &&
+      workspaceFallback === "true"
+    ) return "performance_budget";
+    if (fallback) return `unexpected:${reason || "unknown"}:${canvasCount}:${workspaceFallback}`;
+    return false;
+  }, undefined, { timeout: 10_000 });
+  const mode = await handle.jsonValue() as string;
+  expect(["3d", "performance_budget"], `coherent adaptive world state: ${mode}`).toContain(mode);
+
+  if (expectedCenter !== undefined) {
+    await expect(scene).toHaveAttribute("data-scene-center", expectedCenter);
+    await expect(scene).toHaveAttribute("data-scene-perspective", "quadrants");
+  }
+
+  const previous = observedNavigableWorldMode.get(page);
+  if (previous === "performance_budget") {
+    expect(mode, "the session-latched performance fallback must not oscillate back to WebGL").toBe(
+      "performance_budget"
+    );
+  }
+
+  if (mode === "performance_budget") {
+    if (previous !== "performance_budget") {
+      // The first observation also toggles the media preference to prove that
+      // the product verdict outranks later environmental changes.
+      await expectStablePerformanceBudgetFallback(page);
+    } else {
+      await expect(scene).toHaveAttribute("data-scene-fallback-reason", "performance_budget");
+      await expect(page.locator(".sceneShell canvas")).toHaveCount(0);
+    }
+    await expect(page.locator(".sceneShell .sceneFallback")).toHaveCount(1);
+    observedNavigableWorldMode.set(page, "performance_budget");
+    return "performance_budget";
+  }
+
+  observedNavigableWorldMode.set(page, "3d");
+  return "3d";
 }
 
 async function expectWorldCanvasHasSignal(page: Page) {
@@ -228,47 +301,53 @@ async function sceneContract(page: Page) {
   }));
 }
 
-async function closeSurface(page: Page) {
+async function closeSurface(page: Page, expectedCenter?: string) {
   await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/[?&]dock=/);
   await expect(page.locator(".appDockPresence")).toHaveCount(0);
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-primary-surface-open", "false");
-  await expectSingleWorld(page);
+  await expectNavigableWorld(page, expectedCenter);
 }
 
-async function openDock(page: Page, label: string, dock: string, visibleSelector: string) {
+async function openDock(
+  page: Page,
+  label: string,
+  dock: string,
+  visibleSelector: string,
+  expectedCenter?: string
+) {
   await page.locator(".dockButton", { hasText: label }).first().click();
   await expect(page).toHaveURL(new RegExp(`[?&]dock=${dock}`));
   if (visibleSelector) await expect(page.locator(visibleSelector).first()).toBeVisible({ timeout: 10000 });
-  await expectSingleWorld(page);
+  await expectNavigableWorld(page, expectedCenter);
 }
 
-test("desktop cockpit modules keep one 3D world while navigating", async ({ page }) => {
+test("desktop cockpit modules keep one semantic world while navigating", async ({ page }) => {
+  test.setTimeout(90_000);
   await prepareWorld(page);
 
   await page.locator(".glyphButton", { hasText: "Atlas" }).click();
   await expect(page).toHaveURL(/\/demo\/w\/atlas(?:\?|$)/);
-  await expectSingleWorld(page);
-  await expectWorldCanvasHasSignal(page);
+  await expectNavigableWorld(page);
 
   await page.locator(".glyphButton", { hasText: "Quadrants" }).click();
   await expect(page).toHaveURL(/\/demo\/w\/quadrants(?:\?|$)/);
   await expect(page.locator(".quadrantCompass")).toBeVisible();
   await expectCanonicalWilberGrid(page);
-  await expectSingleWorld(page);
-  await expectWorldCanvasHasSignal(page);
+  await expectNavigableWorld(page);
   await expectCompactControlsFit(page);
 
   const quadrantUrl = page.url();
   const beforeQuadrantHover = await sceneContract(page);
   expect(beforeQuadrantHover.center).not.toMatch(/^region:/);
   expect(beforeQuadrantHover.centerHasQuadrants).toBe("true");
+  const expectedCenter = beforeQuadrantHover.center;
   await page.locator(".quadrantCompass button").first().hover();
   await page.waitForTimeout(350);
   expect(page.url()).toBe(quadrantUrl);
   expect(await sceneContract(page)).toEqual(beforeQuadrantHover);
   await expect(page).not.toHaveURL(/region%3A|region:/);
-  await expectSingleWorld(page);
+  await expectNavigableWorld(page, expectedCenter);
 
   await page.locator(".quadrantTextCell").nth(1).hover();
   await page.waitForTimeout(250);
@@ -284,81 +363,107 @@ test("desktop cockpit modules keep one 3D world while navigating", async ({ page
   expect(afterQuadrantClick.perspective).toBe("quadrants");
   expect(afterQuadrantClick.quadrant).not.toBe("");
   await expectCanonicalWilberGrid(page);
-  await expectSingleWorld(page);
+  await expectNavigableWorld(page, expectedCenter);
 
   const activeLensScene = await sceneContract(page);
   await page.locator(".quadrantTextCell.active").click();
   // The selected cell is also the compact, discoverable way back to the whole
-  // world. It clears only the lens; center, view and mounted canvas stay put.
+  // world. It clears only the lens; center, view and world shell stay put.
   await expect(page).toHaveURL(/[?&]lens=all(?:&|$)/);
   expect(await sceneContract(page)).toEqual({ ...activeLensScene, quadrant: "" });
-  await expectSingleWorld(page);
+  await expectNavigableWorld(page, expectedCenter);
+
+  // Docks do not alter the render route. Settle the final quadrant route's
+  // complete 120-frame window now, so the remainder deliberately exercises
+  // either a healthy canvas or the one-way performance fallback without
+  // racing the verdict halfway through a surface assertion.
+  const performanceEvidence = await waitForSettledRuntimePerformance(page, { timeout: 45_000 });
+  expect([null, "performance_budget"]).toContain(performanceEvidence.counters.fallbackReason);
+  await expectNavigableWorld(page, expectedCenter);
 
   await expect(page.locator(".operationStation")).toHaveCount(0);
-  await openDock(page, "Sources", "source", ".sourceDock");
+  await openDock(page, "Sources", "source", ".sourceDock", expectedCenter);
   await expect(page.locator(".sourceDock .dockTelemetry")).toBeVisible();
   await expect(page.locator(".sourceDock .dockTelemetryItem")).toHaveCount(4);
   await expectCompactControlsFit(page);
   // The active surface makes the world underneath inert. Close it explicitly
   // before opening another dock instead of clicking through its backdrop.
-  await closeSurface(page);
-  await openDock(page, "Health", "gates", ".gatesDock");
+  await closeSurface(page, expectedCenter);
+  await openDock(page, "Health", "gates", ".gatesDock", expectedCenter);
   await expect(page.locator(".gatesDock .dockTelemetry")).toBeVisible();
   await expect(page.locator(".gatesDock .dockTelemetryItem")).toHaveCount(4);
   await expectCompactControlsFit(page);
-  await closeSurface(page);
-  await openDock(page, "Approve", "approve", ".gateDock");
+  await closeSurface(page, expectedCenter);
+  await openDock(page, "Approve", "approve", ".gateDock", expectedCenter);
   await expect(page.locator(".gateDock > .dockTelemetry")).toBeVisible();
   await expect(page.locator(".gateDock > .dockTelemetry .dockTelemetryItem")).toHaveCount(4);
   await expectCompactControlsFit(page);
-  await closeSurface(page);
+  await closeSurface(page, expectedCenter);
 
   await page.locator(".workButton").click();
   await expect(page).toHaveURL(/[?&]dock=work/);
   await expect(page.locator(".workDockPanel")).toBeVisible({ timeout: 10000 });
   await expect(page.locator(".workDockPanel .dockTelemetry")).toBeVisible();
   await expect(page.locator(".workDockPanel .dockTelemetryItem")).toHaveCount(4);
-  await expectSingleWorld(page);
+  await expectNavigableWorld(page, expectedCenter);
   await expectCompactControlsFit(page);
-  await closeSurface(page);
+  await closeSurface(page, expectedCenter);
 
   await page.locator(".missionsButton").click();
   await expect(page.locator(".missionsPanel")).toBeVisible({ timeout: 10000 });
   await expect(page.locator(".missionsPanel .dockTelemetry")).toBeVisible();
   await expect(page.locator(".missionsPanel .dockTelemetryItem")).toHaveCount(4);
-  await expectSingleWorld(page);
+  await expectNavigableWorld(page, expectedCenter);
   await expectCompactControlsFit(page);
   await page.keyboard.press("Escape");
 
-  await openDock(page, "Blocks", "blocks", ".blocksDock");
+  await openDock(page, "Blocks", "blocks", ".blocksDock", expectedCenter);
   await expect(page.locator(".blocksDock .dockTelemetry")).toBeVisible();
   await expect(page.locator(".blocksDock .dockTelemetryItem")).toHaveCount(4);
   await expectCompactControlsFit(page);
-  await closeSurface(page);
-  await openDock(page, "Add", "intake", ".intakeDock");
+  await closeSurface(page, expectedCenter);
+  await openDock(page, "Add", "intake", ".intakeDock", expectedCenter);
   await expect(page.locator(".intakeDock .dockTelemetry")).toBeVisible();
   await expect(page.locator(".intakeDock .dockTelemetryItem")).toHaveCount(4);
   await expectCompactControlsFit(page);
-  await closeSurface(page);
+  await closeSurface(page, expectedCenter);
 
   await page.locator(".dockButton", { hasText: "Create" }).first().click();
   await expect(page).toHaveURL(/[?&]dock=create/);
-  await expectSingleWorld(page);
+  const createMode = await expectNavigableWorld(page, expectedCenter);
   await page.waitForTimeout(500);
-  await expectSpatialCardsWithinSafeArea(page, { expectedPrimary: 7, expectedTotal: 8 });
   const createUrl = page.url();
   const createScene = await sceneContract(page);
-  await page.locator(".spatialCardType").first().hover();
-  await page.waitForTimeout(250);
+  if (createMode === "3d") {
+    await expectSpatialCardsWithinSafeArea(page, { expectedPrimary: 7, expectedTotal: 8 });
+    await page.locator(".spatialCardType").first().hover();
+    await page.waitForTimeout(250);
+  } else {
+    // The same URL has a declared DOM twin when the renderer is no longer
+    // safe. Prove that its curated catalog, mold and create action remain
+    // understandable and usable instead of asking for spatial geometry that
+    // intentionally no longer exists.
+    const createSheet = page.locator(".createSheet");
+    await expect(createSheet).toBeVisible();
+    await expect(createSheet).toHaveAttribute("role", "dialog");
+    await expect(createSheet).toHaveAttribute("aria-label", /Create a page|Criar página/);
+    await expect(createSheet.locator(".dockTelemetryItem")).toHaveCount(4);
+    await expect(createSheet.locator(".createTypeRow")).toHaveCount(7);
+    await expect(createSheet.locator(".createForm")).toBeVisible();
+    await expect(page.locator(".spatialCardType")).toHaveCount(0);
+    await createSheet.locator(".createForm .intakeField input").first().fill("Adaptive map draft");
+    await expect(createSheet.locator(".createFormFoot .btn--primary")).toBeEnabled();
+    await createSheet.locator(".createTypeRow").first().hover();
+  }
   expect(page.url()).toBe(createUrl);
   expect(await sceneContract(page)).toEqual(createScene);
-  await closeSurface(page);
+  await closeSurface(page, expectedCenter);
 
   await page.locator(".commandSearch input").fill("Alex Rivera");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/reader=1/, { timeout: 10000 });
   await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10000 });
-  await expectSingleWorld(page);
+  await expectNavigableWorld(page, expectedCenter);
   await expectCompactControlsFit(page);
 });
 

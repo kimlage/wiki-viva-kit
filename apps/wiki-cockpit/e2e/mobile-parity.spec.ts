@@ -171,6 +171,10 @@ test("WebKit mobile keeps the same semantic route in reduced-motion fallback", a
   await expect(page).not.toHaveURL(/[?&]visual=1/);
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", /pratica|q2_pratica/);
+  await expect(page.locator(".worldMissionSlim")).toBeVisible();
+  await expect(page.locator(".quadrantCompass")).toBeVisible();
+  await expect(page.locator(".quadrantSeed")).toBeHidden();
+  await expect(page.locator(".worldCommandBar .dockButton").filter({ hasText: /Create|Criar/ })).toBeVisible();
   await expect(page.locator(".fallbackCore")).toBeInViewport();
   const initialFallbackGeometry = await page.evaluate(() => {
     const shell = document.querySelector<HTMLElement>(".sceneShell.fallbackMode");

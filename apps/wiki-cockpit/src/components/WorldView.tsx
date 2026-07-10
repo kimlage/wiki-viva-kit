@@ -5,8 +5,8 @@
 // tray, minimap hint). The old below-the-fold panel stack is gone: every ops
 // action is reachable inside the viewport.
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { t } from "../data/i18n";
 import { contextLabel, pageTypeLabel, perspectiveLabel, worldGroupLabel } from "../data/presentation";
@@ -65,6 +65,42 @@ import {
 
 const SystemScene = lazy(() => import("./SystemScene").then((module) => ({ default: module.SystemScene })));
 const PageReader = lazy(() => import("./PageReader").then((module) => ({ default: module.PageReader })));
+
+function MeasuredWorldTopStrip({ children, ariaLabel }: { children: ReactNode; ariaLabel: string }) {
+  const stripRef = useRef<HTMLDivElement>(null);
+
+  // Compatibility context can wrap differently across platform font stacks.
+  // Publish the actual strip height so the mission surface always starts
+  // below its complete pointer region instead of relying on a screenshot-tuned
+  // desktop offset. Keep this component-local so it also runs after the lazy
+  // scene shell resolves from Suspense.
+  useLayoutEffect(() => {
+    const strip = stripRef.current;
+    const sceneShell = strip?.closest<HTMLElement>(".sceneShell");
+    if (!strip || !sceneShell) return;
+
+    const publishHeight = () => {
+      sceneShell.style.setProperty("--world-top-strip-height", `${Math.ceil(strip.getBoundingClientRect().height)}px`);
+    };
+    publishHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      return () => sceneShell.style.removeProperty("--world-top-strip-height");
+    }
+    const observer = new ResizeObserver(publishHeight);
+    observer.observe(strip);
+    return () => {
+      observer.disconnect();
+      sceneShell.style.removeProperty("--world-top-strip-height");
+    };
+  }, []);
+
+  return (
+    <div ref={stripRef} className="worldTopStrip" aria-label={ariaLabel}>
+      {children}
+    </div>
+  );
+}
 
 // Ego-centric perspectives lock one page at the center and have no group slot
 // in the positional URL: Trails (relations) and Focus (facet lenses).
@@ -1563,7 +1599,7 @@ export function WorldView({
             The EMPTY world shows nothing — "0 pages · demo" over the founding
             void is noise, and the founding rite is the only interface. */}
         {!instruments.worldEmpty && (
-        <div className="worldTopStrip" aria-label={t("world.breadcrumbsAria")}>
+        <MeasuredWorldTopStrip ariaLabel={t("world.breadcrumbsAria")}>
           <nav className="worldBreadcrumbs" aria-label={t("world.breadcrumbsAria")}>
             {crumbs.map((crumb, index) => (
               <span key={`${crumb.label}-${index}`}>
@@ -1627,7 +1663,7 @@ export function WorldView({
             <span>{t("world.updated", { when: updatedLabel(bundle.manifest.generated_at) })}</span>
             <span>{route.demo ? t("world.demoMode") : runtime.mode || bundle.manifest.mode}</span>
           </div>
-        </div>
+        </MeasuredWorldTopStrip>
         )}
 
         {/* FOCUS legend: the four lenses with live counts. An empty lens is an
@@ -1662,6 +1698,34 @@ export function WorldView({
             })}
           </div>
         )}
+
+        {/* LEFT mission surface. Collapsed by choice it is a single honest
+            chip (worst tone + pending count) — the world stays visible;
+            expanded it is the do-now card. Search results always render:
+            the keyboard search flow must never depend on the card state.
+            It precedes the compass so the fallback flow has the same semantic
+            order as the layered HUD: context, mission, then navigation. */}
+        <MissionCard
+          rows={missionRows}
+          viewLabel={activeViewLabel}
+          viewHint={activeViewHint}
+          viewBadge={compatibilityNavigatorView ? t("world.experience.compatibility.badge") : undefined}
+          overlayLabel={t(`world.overlay.${worldState.overlay}`)}
+          missionsEnabled={instruments.missionsEnabled}
+          open={missionCardOpen}
+          onToggle={() => {
+            setMissionCardOpen((open) => {
+              persistMissionCard(!open);
+              return !open;
+            });
+          }}
+          query={route.query.q}
+          searchHits={searchHits}
+          visibleHits={visibleHits}
+          activeHit={activeHit}
+          onActiveHit={setActiveHit}
+          onOpenHit={openHit}
+        />
 
         {/* QUADRANT compass: each cell selects a conceptual lens and moves the
             camera inside the same 3D world. Counts are honest home-quadrant
@@ -1754,32 +1818,6 @@ export function WorldView({
             </button>
           </div>
         )}
-
-        {/* LEFT mission surface. Collapsed by choice it is a single honest
-            chip (worst tone + pending count) — the world stays visible;
-            expanded it is the do-now card. Search results always render:
-            the keyboard search flow must never depend on the card state. */}
-        <MissionCard
-          rows={missionRows}
-          viewLabel={activeViewLabel}
-          viewHint={activeViewHint}
-          viewBadge={compatibilityNavigatorView ? t("world.experience.compatibility.badge") : undefined}
-          overlayLabel={t(`world.overlay.${worldState.overlay}`)}
-          missionsEnabled={instruments.missionsEnabled}
-          open={missionCardOpen}
-          onToggle={() => {
-            setMissionCardOpen((open) => {
-              persistMissionCard(!open);
-              return !open;
-            });
-          }}
-          query={route.query.q}
-          searchHits={searchHits}
-          visibleHits={visibleHits}
-          activeHit={activeHit}
-          onActiveHit={setActiveHit}
-          onOpenHit={openHit}
-        />
 
         {/* RIGHT: the in-world reader dock. */}
         {readerPresence.mounted && readerPage && (
