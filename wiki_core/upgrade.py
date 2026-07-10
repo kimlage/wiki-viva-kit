@@ -299,9 +299,19 @@ def _ignore_patterns(root: Path) -> list[str]:
 
 
 def compare_portable_files(
-    kit_root: Path, consumer_root: Path, package: dict[str, Any]
+    kit_root: Path,
+    consumer_root: Path,
+    package: dict[str, Any],
+    *,
+    source_sha: str | None = None,
 ) -> dict[str, Any]:
-    """Compare allowlisted files byte-for-byte; consumer ignore entries are explicit."""
+    """Compare allowlisted files byte-for-byte.
+
+    When ``source_sha`` is supplied, the public side comes from that exact Git
+    tree rather than the kit checkout's working tree.  This matters for release
+    metadata commits made after the payload they pin: preflight must never
+    silently compare a consumer with later, unpinned files on disk.
+    """
 
     ignored_patterns = _ignore_patterns(consumer_root)
 
@@ -313,25 +323,126 @@ def compare_portable_files(
             and not any(_matches(rel, pattern) for pattern in ignored_patterns)
         }
 
-    kit_files = selected(kit_root)
+    source_blobs: dict[str, str] = {}
+    if source_sha:
+        source_blobs = _git_tree_blobs(kit_root, source_sha)
+        kit_files = {
+            rel
+            for rel in source_blobs
+            if portable_path_status(rel, package)[0]
+            and not any(_matches(rel, pattern) for pattern in ignored_patterns)
+        }
+    else:
+        kit_files = selected(kit_root)
     consumer_files = selected(consumer_root)
     shared = kit_files & consumer_files
-    differing = sorted(
-        rel
-        for rel in shared
-        if (kit_root / rel).read_bytes() != (consumer_root / rel).read_bytes()
-    )
+    if source_sha:
+        blob_payloads = _git_blob_payloads(
+            kit_root, {source_blobs[rel] for rel in shared}
+        )
+        differing = sorted(
+            rel
+            for rel in shared
+            if blob_payloads[source_blobs[rel]] != (consumer_root / rel).read_bytes()
+        )
+    else:
+        differing = sorted(
+            rel
+            for rel in shared
+            if (kit_root / rel).read_bytes() != (consumer_root / rel).read_bytes()
+        )
     report = {
         "only_in_kit": sorted(kit_files - consumer_files),
         "only_in_consumer": sorted(consumer_files - kit_files),
         "content_differs": differing,
         "ignored_per_repo": ignored_patterns,
+        "source_mode": "pinned_git_tree" if source_sha else "working_tree",
+        "source_sha": source_sha or "",
     }
     report["drift_total"] = sum(
         len(report[key])
         for key in ("only_in_kit", "only_in_consumer", "content_differs")
     )
     return report
+
+
+def _git_commit_available(root: Path, sha: str) -> bool:
+    if not sha:
+        return False
+    try:
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+            cwd=root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return True
+
+
+def _git_tree_blobs(root: Path, sha: str) -> dict[str, str]:
+    """Return repository-relative blob paths for one exact Git tree."""
+
+    try:
+        raw = subprocess.check_output(
+            ["git", "ls-tree", "-r", "-z", sha],
+            cwd=root,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError(f"release source_sha is unavailable in kit checkout: {sha}") from exc
+    blobs: dict[str, str] = {}
+    for record in raw.split(b"\0"):
+        if not record:
+            continue
+        metadata, separator, raw_path = record.partition(b"\t")
+        parts = metadata.split()
+        if not separator or len(parts) != 3 or parts[1] != b"blob":
+            continue
+        path = raw_path.decode("utf-8", errors="surrogateescape")
+        blobs[path] = parts[2].decode("ascii")
+    return blobs
+
+
+def _git_blob_payloads(root: Path, object_ids: set[str]) -> dict[str, bytes]:
+    """Read many Git blobs through one batch process."""
+
+    if not object_ids:
+        return {}
+    ordered = sorted(object_ids)
+    process = subprocess.Popen(
+        ["git", "cat-file", "--batch"],
+        cwd=root,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    assert process.stdin is not None
+    assert process.stdout is not None
+    assert process.stderr is not None
+    process.stdin.write("".join(f"{oid}\n" for oid in ordered).encode("ascii"))
+    process.stdin.close()
+    payloads: dict[str, bytes] = {}
+    try:
+        for requested in ordered:
+            header = process.stdout.readline().decode("ascii", errors="replace").strip()
+            parts = header.split()
+            if len(parts) != 3 or parts[1] != "blob":
+                raise ValueError(f"could not read release blob {requested}: {header}")
+            size = int(parts[2])
+            payload = process.stdout.read(size)
+            terminator = process.stdout.read(1)
+            if len(payload) != size or terminator != b"\n":
+                raise ValueError(f"truncated release blob {requested}")
+            payloads[requested] = payload
+    finally:
+        stderr = process.stderr.read().decode("utf-8", errors="replace").strip()
+        return_code = process.wait()
+    if return_code != 0:
+        raise ValueError(f"could not read release blobs: {stderr or return_code}")
+    return payloads
 
 
 def _git(root: Path, *args: str) -> str:
@@ -389,6 +500,7 @@ def discover_local_overrides(root: Path) -> dict[str, Any]:
         "wiki.templates.local.yaml",
         "wiki.page-types.yaml",
         "wiki.page-types.local.yaml",
+        "apps/wiki-cockpit/public/wiki-cockpit.config.json",
         ".toolkit-drift-ignore",
     ]
     present = [rel for rel in known if (root / rel).exists()]
@@ -529,7 +641,25 @@ def build_preflight_report(
     state = git_state(consumer_root)
     layout = configured_layout(consumer_root)
     overrides = discover_local_overrides(consumer_root)
-    drift = compare_portable_files(kit_root, consumer_root, package)
+    release_pinned = package_is_pinned(package)
+    release_sha = str((package.get("release") or {}).get("source_sha") or "")
+    release_source_available = release_pinned and _git_commit_available(
+        kit_root, release_sha
+    )
+    if release_source_available:
+        drift = compare_portable_files(
+            kit_root, consumer_root, package, source_sha=release_sha
+        )
+    else:
+        drift = {
+            "only_in_kit": [],
+            "only_in_consumer": [],
+            "content_differs": [],
+            "ignored_per_repo": _ignore_patterns(consumer_root),
+            "drift_total": 0,
+            "source_mode": "pinned_git_tree",
+            "source_sha": release_sha,
+        }
     allow_sample = consumer.get("local_operator") == "static_demo"
     snapshot = _snapshot_state(consumer_root, layout, allow_sample=allow_sample)
     required_gates = [
@@ -544,10 +674,19 @@ def build_preflight_report(
     checks.append(
         _check(
             "release_pinned",
-            "pass" if package_is_pinned(package) else "fail",
+            "pass" if release_pinned else "fail",
             "exact public release and SHA"
-            if package_is_pinned(package)
+            if release_pinned
             else "release source_sha is not pinned",
+        )
+    )
+    checks.append(
+        _check(
+            "release_source_available",
+            "pass" if release_source_available else "fail",
+            f"pinned Git tree available: {release_sha}"
+            if release_source_available
+            else f"pinned Git tree unavailable: {release_sha or 'missing'}",
         )
     )
     branch_prefix = str(
@@ -580,7 +719,15 @@ def build_preflight_report(
     drift_evidence_status = str(
         (gate_summary.get("statuses") or {}).get("toolkit_drift") or ""
     )
-    if drift["drift_total"] == 0 and drift_evidence_status == "pass":
+    if not release_source_available:
+        checks.append(
+            _check(
+                "toolkit_drift",
+                "fail",
+                "cannot compare drift because the pinned release tree is unavailable",
+            )
+        )
+    elif drift["drift_total"] == 0 and drift_evidence_status == "pass":
         checks.append(_check("toolkit_drift", "pass", "drift_total=0"))
     elif drift["drift_total"] > 0 and drift_evidence_status == "reviewed":
         checks.append(

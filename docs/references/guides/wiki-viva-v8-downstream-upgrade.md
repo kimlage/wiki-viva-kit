@@ -4,7 +4,7 @@ page_id: guide-wiki-viva-v8-downstream-upgrade
 page_type: reference_guide
 context: system
 visibility: public_candidate
-updated_at: 2026-07-09
+updated_at: 2026-07-10
 stale_after_days: 90
 sources_policy: release_runbook
 gate: github_pr
@@ -113,6 +113,8 @@ nor one guessable hash per private worktree entry.
 Preflight blocks when any of these are false:
 
 - exact public release/SHA is ready;
+- the pinned commit object exists in the kit checkout; portable drift is read
+  from that exact Git tree, never from later files at the checkout's `HEAD`;
 - branch uses `wiki/` and the worktree is clean;
 - current-gate evidence belongs to current HEAD and passes;
 - portable drift is zero or explicitly reviewed for the candidate wave;
@@ -126,7 +128,9 @@ an adaptation decision, never permission to overwrite local files.
 
 The blocklist wins over the allowlist. In particular, the default import never
 includes memory roots, `wiki.config.yaml`, targets, local templates, raw/cache
-data, private snapshots, `.env` files, credentials or downstream evidence.
+data, private snapshots, `.env` files, credentials, downstream evidence or the
+consumer-owned `apps/wiki-cockpit/public/wiki-cockpit.config.json` runtime
+configuration.
 
 Use a reviewed file-transfer/diff workflow and stage only paths accepted by
 `portable_import`. Keep three commit boundaries:

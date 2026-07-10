@@ -33,13 +33,15 @@ def sha(label: str) -> str:
     return hashlib.sha256(label.encode("utf-8")).hexdigest()
 
 
-def package(*, pinned: bool = True) -> dict:
+def package(*, pinned: bool = True, source_sha: str | None = None) -> dict:
     return {
         "schema_version": UPGRADE_PACKAGE_SCHEMA_VERSION,
         "release": {
             "id": "wiki-viva-v8-rc1",
             "status": "candidate",
-            "source_sha": sha("public-kit") if pinned else "REQUIRED_AT_RELEASE",
+            "source_sha": (source_sha or sha("public-kit"))
+            if pinned
+            else "REQUIRED_AT_RELEASE",
             "plan": "docs/references/proposals/v8.md",
         },
         "contract_versions": {
@@ -51,7 +53,13 @@ def package(*, pinned: bool = True) -> dict:
         },
         "portable_import": {
             "allow": ["wiki_core/**", "scripts/wiki_*.py", "tests/**"],
-            "block": ["memories/**", "wiki.config.yaml", "data/derived/**", ".env*"],
+            "block": [
+                "memories/**",
+                "wiki.config.yaml",
+                "apps/wiki-cockpit/public/wiki-cockpit.config.json",
+                "data/derived/**",
+                ".env*",
+            ],
         },
         "preflight": {
             "branch_prefix": "wiki/",
@@ -109,12 +117,20 @@ def commit_all(root: Path, message: str = "fixture") -> str:
     ).strip()
 
 
+def repo_head(root: Path) -> str:
+    return subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=root, text=True
+    ).strip()
+
+
 def make_matching_repos(tmp_path: Path) -> tuple[Path, Path, str]:
     kit = tmp_path / "kit"
     target = tmp_path / "consumer"
     for root in (kit, target):
         (root / "wiki_core").mkdir(parents=True)
         (root / "wiki_core/core.py").write_text("VALUE = 1\n", encoding="utf-8")
+    init_repo(kit)
+    commit_all(kit, "public payload")
     (target / "data/derived/wiki/web-snapshot").mkdir(parents=True)
     (target / "data/derived/wiki/web-snapshot/manifest.json").write_text(
         json.dumps(
@@ -234,6 +250,12 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     assert pkg["release"]["status"] == "release_candidate"
     assert pkg["release"]["source_sha"] == "4e4ee631d104637c744e6d3f2dbee107b24c2bab"
     assert portable_path_status("apps/wiki-cockpit/.env.local", pkg)[0] is False
+    assert (
+        portable_path_status(
+            "apps/wiki-cockpit/public/wiki-cockpit.config.json", pkg
+        )[0]
+        is False
+    )
 
 
 def test_portable_blocklist_wins_and_private_paths_are_not_importable() -> None:
@@ -242,6 +264,12 @@ def test_portable_blocklist_wins_and_private_paths_are_not_importable() -> None:
     assert portable_path_status("scripts/wiki_upgrade_report.py", pkg)[0] is True
     assert portable_path_status("memories/private.md", pkg)[0] is False
     assert portable_path_status("wiki.config.yaml", pkg)[0] is False
+    assert (
+        portable_path_status(
+            "apps/wiki-cockpit/public/wiki-cockpit.config.json", pkg
+        )[0]
+        is False
+    )
     assert portable_path_status("random.txt", pkg)[0] is False
 
 
@@ -269,7 +297,7 @@ def test_preflight_is_ready_only_with_pinned_release_clean_branch_current_gates_
     report = build_preflight_report(
         kit_root=kit,
         consumer_root=target,
-        package=package(),
+        package=package(source_sha=repo_head(kit)),
         consumer=consumer(),
         gate_evidence=gate_evidence(head),
         checked_on="2026-07-09",
@@ -318,7 +346,7 @@ def test_preflight_can_be_ready_with_clean_explicitly_reviewed_upgrade_drift(
     report = build_preflight_report(
         kit_root=kit,
         consumer_root=target,
-        package=package(),
+        package=package(source_sha=repo_head(kit)),
         consumer=consumer(),
         gate_evidence=evidence,
         checked_on="2026-07-09",
@@ -335,7 +363,7 @@ def test_preflight_blocks_unknown_privacy_even_when_every_other_check_passes(
     report = build_preflight_report(
         kit_root=kit,
         consumer_root=target,
-        package=package(),
+        package=package(source_sha=repo_head(kit)),
         consumer=unknown,
         gate_evidence=gate_evidence(head),
         checked_on="2026-07-09",
@@ -357,7 +385,7 @@ def test_redacted_preflight_never_emits_local_drift_or_status_paths(
     report = build_preflight_report(
         kit_root=kit,
         consumer_root=target,
-        package=package(),
+        package=package(source_sha=repo_head(kit)),
         consumer=consumer(privacy="financial_personal"),
         gate_evidence=gate_evidence(head),
         checked_on="2026-07-09",
@@ -372,6 +400,58 @@ def test_redacted_preflight_never_emits_local_drift_or_status_paths(
     assert report["consumer_before"]["status_short"] == []
     assert report["consumer_before"]["status_entry_count"] == 1
     assert "only_in_consumer_count" in report["drift"]
+
+
+def test_preflight_compares_the_pinned_release_tree_not_later_kit_head(
+    tmp_path: Path,
+) -> None:
+    kit, target, consumer_head = make_matching_repos(tmp_path)
+    pinned_sha = repo_head(kit)
+    (kit / "wiki_core/core.py").write_text("VALUE = 2\n", encoding="utf-8")
+    later_sha = commit_all(kit, "later unpinned payload")
+
+    report = build_preflight_report(
+        kit_root=kit,
+        consumer_root=target,
+        package=package(source_sha=pinned_sha),
+        consumer=consumer(),
+        gate_evidence=gate_evidence(consumer_head),
+        checked_on="2026-07-10",
+    )
+
+    assert later_sha != pinned_sha
+    assert report["status"] == "ready"
+    assert report["drift"]["drift_total"] == 0
+    assert report["drift"]["source_mode"] == "pinned_git_tree"
+    assert report["drift"]["source_sha"] == pinned_sha
+
+
+def test_preflight_detects_the_local_operator_runtime_config_as_an_override(
+    tmp_path: Path,
+) -> None:
+    kit, target, _ = make_matching_repos(tmp_path)
+    runtime_config = target / "apps/wiki-cockpit/public/wiki-cockpit.config.json"
+    runtime_config.parent.mkdir(parents=True)
+    runtime_config.write_text(
+        '{"api_base":"/api","mode":"local_operator"}\n', encoding="utf-8"
+    )
+    consumer_head = commit_all(target, "local operator config")
+
+    report = build_preflight_report(
+        kit_root=kit,
+        consumer_root=target,
+        package=package(source_sha=repo_head(kit)),
+        consumer=consumer(),
+        gate_evidence=gate_evidence(consumer_head),
+        checked_on="2026-07-10",
+    )
+
+    assert report["status"] == "ready"
+    assert (
+        "apps/wiki-cockpit/public/wiki-cockpit.config.json"
+        in report["local_overrides"]["known_files"]
+    )
+    assert "local_overrides" in report["warnings"]
 
 
 def test_migration_report_is_complete_deterministic_and_renderable() -> None:
@@ -439,7 +519,7 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
     tmp_path: Path,
 ) -> None:
     kit, target, head = make_matching_repos(tmp_path)
-    pkg = package()
+    pkg = package(source_sha=repo_head(kit))
     inventory = {
         "schema_version": CONSUMER_INVENTORY_SCHEMA_VERSION,
         "verified_on": "2026-07-09",
