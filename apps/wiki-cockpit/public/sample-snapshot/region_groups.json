@@ -2856,10 +2856,6 @@
       "anchor_id": "root-alex-rivera",
       "attention_hints": [
         {
-          "count": 1,
-          "kind": "proposal"
-        },
-        {
           "count": 18,
           "kind": "raw"
         }
@@ -2880,7 +2876,6 @@
         "event-ingest-chat-2026-07",
         "event-ingest-product-analytics-2026-07",
         "event-ingest-support-tickets-2026-06",
-        "proposal-ingest-product-analytics-2026-07",
         "source-action-ledger",
         "source-agenda",
         "source-calendar-archive",
@@ -2900,13 +2895,13 @@
       "summary": {
         "hidden": 0,
         "open_actions": 0,
-        "proposal": 1,
+        "proposal": 0,
         "raw": 18,
         "risk": 0,
-        "shown": 19,
-        "source_backed": 6,
+        "shown": 18,
+        "source_backed": 5,
         "stale": 0,
-        "total": 19,
+        "total": 18,
         "unsourced": 0
       },
       "type_mix": [
@@ -2919,16 +2914,11 @@
           "count": 5,
           "family": "event",
           "page_type": "ingestion_event"
-        },
-        {
-          "count": 1,
-          "family": "event",
-          "page_type": "proposal"
         }
       ],
       "visual": {
         "emphasis": [
-          "attention"
+          "healthy"
         ],
         "grammar_id": "wiki.visual_grammar.v1",
         "pack_id": "evidence_first",
@@ -3099,6 +3089,76 @@
         }
       },
       "visual_role": "quadrant"
+    },
+    {
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 1,
+          "kind": "open_blocks",
+          "label_key": "region.action.openBlocks"
+        }
+      ],
+      "anchor_id": "root-alex-rivera",
+      "attention_hints": [
+        {
+          "count": 1,
+          "kind": "proposal"
+        }
+      ],
+      "expectation": "present",
+      "expectation_basis": "No explicit template, source or operator expectation is registered.",
+      "expectation_state": "unknown",
+      "expected_action_hints": [],
+      "expected_member_hints": [],
+      "expected_source_hints": [],
+      "expected_type_hints": [],
+      "id": "core:q0",
+      "kind": "core",
+      "label_key": "core",
+      "member_ids": [
+        "proposal-ingest-product-analytics-2026-07"
+      ],
+      "next_safe_interaction": "",
+      "purpose": "understand",
+      "summary": {
+        "hidden": 0,
+        "open_actions": 0,
+        "proposal": 1,
+        "raw": 0,
+        "risk": 0,
+        "shown": 1,
+        "source_backed": 1,
+        "stale": 0,
+        "total": 1,
+        "unsourced": 0
+      },
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "event",
+          "page_type": "proposal"
+        }
+      ],
+      "visual": {
+        "emphasis": [
+          "attention"
+        ],
+        "grammar_id": "wiki.visual_grammar.v1",
+        "pack_id": "quiet_structure",
+        "slots": {
+          "cluster.tooltip": "hidden_histogram",
+          "fallback.card": "region_work_card",
+          "legend.entry": "legend_key",
+          "region.card": "center_badge",
+          "region.empty": "empty_region_affordance",
+          "region.marker": "scope_chip",
+          "region.rail": "core_debt_meter",
+          "region.shelf": "type_shelf"
+        }
+      },
+      "visual_role": "core"
     },
     {
       "absence_reason": "The action-ledger source contract requires at least one declared intent or reviewed no-change receipt.",
@@ -3360,12 +3420,23 @@
       "visual_role": "quadrant"
     },
     {
-      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
-      "absence_state": "healthy",
-      "action_hints": [],
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 1,
+          "kind": "inspect_sources",
+          "label_key": "region.action.inspectSources"
+        }
+      ],
       "anchor_id": "source-agenda",
-      "attention_hints": [],
-      "expectation": "empty",
+      "attention_hints": [
+        {
+          "count": 1,
+          "kind": "raw"
+        }
+      ],
+      "expectation": "present",
       "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
       "expectation_state": "optional",
       "expected_action_hints": [],
@@ -3375,32 +3446,42 @@
       "id": "quadrant:pratica",
       "kind": "quadrant",
       "label_key": "pratica",
-      "member_ids": [],
+      "member_ids": [
+        "event-ingest-agenda-2026-07"
+      ],
       "next_safe_interaction": "",
       "purpose": "navigate",
       "summary": {
         "hidden": 0,
         "open_actions": 0,
         "proposal": 0,
-        "raw": 0,
+        "raw": 1,
         "risk": 0,
-        "shown": 0,
-        "source_backed": 0,
+        "shown": 1,
+        "source_backed": 1,
         "stale": 0,
-        "total": 0,
+        "total": 1,
         "unsourced": 0
       },
-      "type_mix": [],
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "event",
+          "page_type": "ingestion_event"
+        }
+      ],
       "visual": {
         "emphasis": [
           "healthy"
         ],
         "grammar_id": "wiki.visual_grammar.v1",
-        "pack_id": "region_operations",
+        "pack_id": "evidence_first",
         "slots": {
           "cluster.tooltip": "hidden_histogram",
+          "dock.action": "action_lane",
           "fallback.card": "region_work_card",
           "legend.entry": "legend_key",
+          "reader.badge": "source_badge",
           "region.card": "region_card",
           "region.empty": "empty_region_affordance",
           "region.marker": "action_lane",
@@ -3513,12 +3594,12 @@
       "visual_role": "quadrant"
     },
     {
-      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
-      "absence_state": "healthy",
+      "absence_reason": "",
+      "absence_state": "not_empty",
       "action_hints": [],
       "anchor_id": "source-banco-export",
       "attention_hints": [],
-      "expectation": "empty",
+      "expectation": "present",
       "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
       "expectation_state": "optional",
       "expected_action_hints": [],
@@ -3528,7 +3609,9 @@
       "id": "quadrant:intencao",
       "kind": "quadrant",
       "label_key": "intencao",
-      "member_ids": [],
+      "member_ids": [
+        "claim-custos-sobem"
+      ],
       "next_safe_interaction": "",
       "purpose": "navigate",
       "summary": {
@@ -3537,13 +3620,19 @@
         "proposal": 0,
         "raw": 0,
         "risk": 0,
-        "shown": 0,
-        "source_backed": 0,
+        "shown": 1,
+        "source_backed": 1,
         "stale": 0,
-        "total": 0,
+        "total": 1,
         "unsourced": 0
       },
-      "type_mix": [],
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "decision",
+          "page_type": "claim"
+        }
+      ],
       "visual": {
         "emphasis": [
           "healthy"
@@ -3564,12 +3653,23 @@
       "visual_role": "quadrant"
     },
     {
-      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
-      "absence_state": "healthy",
-      "action_hints": [],
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 1,
+          "kind": "inspect_sources",
+          "label_key": "region.action.inspectSources"
+        }
+      ],
       "anchor_id": "source-banco-export",
-      "attention_hints": [],
-      "expectation": "empty",
+      "attention_hints": [
+        {
+          "count": 1,
+          "kind": "raw"
+        }
+      ],
+      "expectation": "present",
       "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
       "expectation_state": "optional",
       "expected_action_hints": [],
@@ -3579,32 +3679,48 @@
       "id": "quadrant:pratica",
       "kind": "quadrant",
       "label_key": "pratica",
-      "member_ids": [],
+      "member_ids": [
+        "artifact-relatorio-recon",
+        "event-ingest-banco-2026-05"
+      ],
       "next_safe_interaction": "",
       "purpose": "navigate",
       "summary": {
         "hidden": 0,
         "open_actions": 0,
         "proposal": 0,
-        "raw": 0,
+        "raw": 1,
         "risk": 0,
-        "shown": 0,
-        "source_backed": 0,
+        "shown": 2,
+        "source_backed": 2,
         "stale": 0,
-        "total": 0,
+        "total": 2,
         "unsourced": 0
       },
-      "type_mix": [],
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "content",
+          "page_type": "artifact"
+        },
+        {
+          "count": 1,
+          "family": "event",
+          "page_type": "ingestion_event"
+        }
+      ],
       "visual": {
         "emphasis": [
           "healthy"
         ],
         "grammar_id": "wiki.visual_grammar.v1",
-        "pack_id": "region_operations",
+        "pack_id": "evidence_first",
         "slots": {
           "cluster.tooltip": "hidden_histogram",
+          "dock.action": "action_lane",
           "fallback.card": "region_work_card",
           "legend.entry": "legend_key",
+          "reader.badge": "source_badge",
           "region.card": "region_card",
           "region.empty": "empty_region_affordance",
           "region.marker": "action_lane",
@@ -4176,12 +4292,23 @@
       "visual_role": "quadrant"
     },
     {
-      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
-      "absence_state": "healthy",
-      "action_hints": [],
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 1,
+          "kind": "inspect_sources",
+          "label_key": "region.action.inspectSources"
+        }
+      ],
       "anchor_id": "source-chat-export",
-      "attention_hints": [],
-      "expectation": "empty",
+      "attention_hints": [
+        {
+          "count": 1,
+          "kind": "raw"
+        }
+      ],
+      "expectation": "present",
       "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
       "expectation_state": "optional",
       "expected_action_hints": [],
@@ -4191,32 +4318,42 @@
       "id": "quadrant:pratica",
       "kind": "quadrant",
       "label_key": "pratica",
-      "member_ids": [],
+      "member_ids": [
+        "event-ingest-chat-2026-07"
+      ],
       "next_safe_interaction": "",
       "purpose": "navigate",
       "summary": {
         "hidden": 0,
         "open_actions": 0,
         "proposal": 0,
-        "raw": 0,
+        "raw": 1,
         "risk": 0,
-        "shown": 0,
-        "source_backed": 0,
+        "shown": 1,
+        "source_backed": 1,
         "stale": 0,
-        "total": 0,
+        "total": 1,
         "unsourced": 0
       },
-      "type_mix": [],
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "event",
+          "page_type": "ingestion_event"
+        }
+      ],
       "visual": {
         "emphasis": [
           "healthy"
         ],
         "grammar_id": "wiki.visual_grammar.v1",
-        "pack_id": "region_operations",
+        "pack_id": "evidence_first",
         "slots": {
           "cluster.tooltip": "hidden_histogram",
+          "dock.action": "action_lane",
           "fallback.card": "region_work_card",
           "legend.entry": "legend_key",
+          "reader.badge": "source_badge",
           "region.card": "region_card",
           "region.empty": "empty_region_affordance",
           "region.marker": "action_lane",
@@ -4584,12 +4721,12 @@
       "visual_role": "quadrant"
     },
     {
-      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
-      "absence_state": "healthy",
+      "absence_reason": "",
+      "absence_state": "not_empty",
       "action_hints": [],
       "anchor_id": "source-clearpath-customer-interviews",
       "attention_hints": [],
-      "expectation": "empty",
+      "expectation": "present",
       "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
       "expectation_state": "optional",
       "expected_action_hints": [],
@@ -4599,7 +4736,9 @@
       "id": "quadrant:pratica",
       "kind": "quadrant",
       "label_key": "pratica",
-      "member_ids": [],
+      "member_ids": [
+        "artifact-region-map-06"
+      ],
       "next_safe_interaction": "",
       "purpose": "navigate",
       "summary": {
@@ -4608,13 +4747,19 @@
         "proposal": 0,
         "raw": 0,
         "risk": 0,
-        "shown": 0,
-        "source_backed": 0,
+        "shown": 1,
+        "source_backed": 1,
         "stale": 0,
-        "total": 0,
+        "total": 1,
         "unsourced": 0
       },
-      "type_mix": [],
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "content",
+          "page_type": "artifact"
+        }
+      ],
       "visual": {
         "emphasis": [
           "healthy"
@@ -7185,12 +7330,12 @@
       "visual_role": "quadrant"
     },
     {
-      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
-      "absence_state": "healthy",
+      "absence_reason": "",
+      "absence_state": "not_empty",
       "action_hints": [],
       "anchor_id": "source-product-analytics",
       "attention_hints": [],
-      "expectation": "empty",
+      "expectation": "present",
       "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
       "expectation_state": "optional",
       "expected_action_hints": [],
@@ -7200,7 +7345,9 @@
       "id": "quadrant:intencao",
       "kind": "quadrant",
       "label_key": "intencao",
-      "member_ids": [],
+      "member_ids": [
+        "claim-region-evidence-ready"
+      ],
       "next_safe_interaction": "",
       "purpose": "navigate",
       "summary": {
@@ -7209,13 +7356,19 @@
         "proposal": 0,
         "raw": 0,
         "risk": 0,
-        "shown": 0,
-        "source_backed": 0,
+        "shown": 1,
+        "source_backed": 1,
         "stale": 0,
-        "total": 0,
+        "total": 1,
         "unsourced": 0
       },
-      "type_mix": [],
+      "type_mix": [
+        {
+          "count": 1,
+          "family": "decision",
+          "page_type": "claim"
+        }
+      ],
       "visual": {
         "emphasis": [
           "healthy"
@@ -7236,12 +7389,27 @@
       "visual_role": "quadrant"
     },
     {
-      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
-      "absence_state": "healthy",
-      "action_hints": [],
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 1,
+          "kind": "inspect_sources",
+          "label_key": "region.action.inspectSources"
+        }
+      ],
       "anchor_id": "source-product-analytics",
-      "attention_hints": [],
-      "expectation": "empty",
+      "attention_hints": [
+        {
+          "count": 1,
+          "kind": "proposal"
+        },
+        {
+          "count": 1,
+          "kind": "raw"
+        }
+      ],
+      "expectation": "present",
       "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
       "expectation_state": "optional",
       "expected_action_hints": [],
@@ -7251,32 +7419,57 @@
       "id": "quadrant:pratica",
       "kind": "quadrant",
       "label_key": "pratica",
-      "member_ids": [],
+      "member_ids": [
+        "artifact-region-map-01",
+        "artifact-region-map-02",
+        "artifact-region-map-04",
+        "artifact-region-map-07",
+        "event-ingest-product-analytics-2026-07",
+        "proposal-ingest-product-analytics-2026-07"
+      ],
       "next_safe_interaction": "",
       "purpose": "navigate",
       "summary": {
         "hidden": 0,
         "open_actions": 0,
-        "proposal": 0,
-        "raw": 0,
+        "proposal": 1,
+        "raw": 1,
         "risk": 0,
-        "shown": 0,
-        "source_backed": 0,
+        "shown": 6,
+        "source_backed": 6,
         "stale": 0,
-        "total": 0,
+        "total": 6,
         "unsourced": 0
       },
-      "type_mix": [],
+      "type_mix": [
+        {
+          "count": 4,
+          "family": "content",
+          "page_type": "artifact"
+        },
+        {
+          "count": 1,
+          "family": "event",
+          "page_type": "ingestion_event"
+        },
+        {
+          "count": 1,
+          "family": "event",
+          "page_type": "proposal"
+        }
+      ],
       "visual": {
         "emphasis": [
-          "healthy"
+          "attention"
         ],
         "grammar_id": "wiki.visual_grammar.v1",
-        "pack_id": "region_operations",
+        "pack_id": "evidence_first",
         "slots": {
           "cluster.tooltip": "hidden_histogram",
+          "dock.action": "action_lane",
           "fallback.card": "region_work_card",
           "legend.entry": "legend_key",
+          "reader.badge": "source_badge",
           "region.card": "region_card",
           "region.empty": "empty_region_affordance",
           "region.marker": "action_lane",
@@ -8664,12 +8857,32 @@
       "visual_role": "quadrant"
     },
     {
-      "absence_reason": "wiki.block.quadrants.v1 projects this lens but does not require members.",
-      "absence_state": "healthy",
-      "action_hints": [],
+      "absence_reason": "",
+      "absence_state": "not_empty",
+      "action_hints": [
+        {
+          "count": 3,
+          "kind": "refresh",
+          "label_key": "region.action.refresh"
+        },
+        {
+          "count": 1,
+          "kind": "inspect_sources",
+          "label_key": "region.action.inspectSources"
+        }
+      ],
       "anchor_id": "source-support-tickets",
-      "attention_hints": [],
-      "expectation": "empty",
+      "attention_hints": [
+        {
+          "count": 3,
+          "kind": "stale"
+        },
+        {
+          "count": 1,
+          "kind": "raw"
+        }
+      ],
+      "expectation": "present",
       "expectation_basis": "wiki.block.quadrants.v1 projects this lens but does not require members.",
       "expectation_state": "optional",
       "expected_action_hints": [],
@@ -8679,32 +8892,50 @@
       "id": "quadrant:pratica",
       "kind": "quadrant",
       "label_key": "pratica",
-      "member_ids": [],
+      "member_ids": [
+        "artifact-region-map-03",
+        "artifact-region-map-05",
+        "artifact-region-map-08",
+        "event-ingest-support-tickets-2026-06"
+      ],
       "next_safe_interaction": "",
-      "purpose": "navigate",
+      "purpose": "verify",
       "summary": {
         "hidden": 0,
         "open_actions": 0,
         "proposal": 0,
-        "raw": 0,
+        "raw": 1,
         "risk": 0,
-        "shown": 0,
-        "source_backed": 0,
-        "stale": 0,
-        "total": 0,
+        "shown": 4,
+        "source_backed": 4,
+        "stale": 3,
+        "total": 4,
         "unsourced": 0
       },
-      "type_mix": [],
+      "type_mix": [
+        {
+          "count": 3,
+          "family": "content",
+          "page_type": "artifact"
+        },
+        {
+          "count": 1,
+          "family": "event",
+          "page_type": "ingestion_event"
+        }
+      ],
       "visual": {
         "emphasis": [
-          "healthy"
+          "attention"
         ],
         "grammar_id": "wiki.visual_grammar.v1",
-        "pack_id": "region_operations",
+        "pack_id": "evidence_first",
         "slots": {
           "cluster.tooltip": "hidden_histogram",
+          "dock.action": "action_lane",
           "fallback.card": "region_work_card",
           "legend.entry": "legend_key",
+          "reader.badge": "source_badge",
           "region.card": "region_card",
           "region.empty": "empty_region_affordance",
           "region.marker": "action_lane",

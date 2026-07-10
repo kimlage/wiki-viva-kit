@@ -14,6 +14,27 @@
       "count": 148,
       "region_id": "quadrant:pratica",
       "severity": "info"
+    },
+    {
+      "anchor_id": "source-product-analytics",
+      "code": "region_hidden_density",
+      "count": 6,
+      "region_id": "quadrant:intencao",
+      "severity": "info"
+    },
+    {
+      "anchor_id": "source-product-analytics",
+      "code": "region_hidden_density",
+      "count": 92,
+      "region_id": "quadrant:pratica",
+      "severity": "info"
+    },
+    {
+      "anchor_id": "source-support-tickets",
+      "code": "region_hidden_density",
+      "count": 87,
+      "region_id": "quadrant:pratica",
+      "severity": "info"
     }
   ]
 }

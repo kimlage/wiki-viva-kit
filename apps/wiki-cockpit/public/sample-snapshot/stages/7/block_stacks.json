@@ -2332,22 +2332,10 @@
     "source-banco-export": {
       "derived": {
         "empty_quadrants": [
-          "q1",
-          "q2",
           "q3",
           "q4"
         ],
         "missions": [
-          {
-            "anchor": "source-banco-export",
-            "provider": "quadrant_absence",
-            "quadrant": "q1"
-          },
-          {
-            "anchor": "source-banco-export",
-            "provider": "quadrant_absence",
-            "quadrant": "q2"
-          },
           {
             "anchor": "source-banco-export",
             "provider": "quadrant_absence",
@@ -2361,16 +2349,81 @@
         ],
         "quadrant_assignments": {
           "q0_core": [],
-          "q1": [],
-          "q2": [],
+          "q1": [
+            "claim-custos-sobem"
+          ],
+          "q2": [
+            "artifact-relatorio-recon",
+            "event-ingest-banco-2026-05"
+          ],
           "q3": [],
           "q4": []
         },
         "quadrant_nested_mode": "summarize",
-        "quadrant_projections": {},
+        "quadrant_projections": {
+          "artifact-relatorio-recon": [
+            {
+              "basis": "page_semantics",
+              "center": "source-banco-export",
+              "facet": "pratica",
+              "local_facet_under_subject": "pratica",
+              "local_quadrant_under_subject": "q2",
+              "local_sub_lens_under_subject": "producao",
+              "page": "artifact-relatorio-recon",
+              "quadrant": "q2",
+              "reason": "",
+              "sub_lens": "producao",
+              "subject_center": "source-banco-export",
+              "through_center": ""
+            }
+          ],
+          "claim-custos-sobem": [
+            {
+              "basis": "page_semantics",
+              "center": "source-banco-export",
+              "facet": "intencao",
+              "local_facet_under_subject": "intencao",
+              "local_quadrant_under_subject": "q1",
+              "local_sub_lens_under_subject": "percepcao",
+              "page": "claim-custos-sobem",
+              "quadrant": "q1",
+              "reason": "",
+              "sub_lens": "percepcao",
+              "subject_center": "source-banco-export",
+              "through_center": ""
+            }
+          ],
+          "event-ingest-banco-2026-05": [
+            {
+              "basis": "page_semantics",
+              "center": "source-banco-export",
+              "facet": "pratica",
+              "local_facet_under_subject": "pratica",
+              "local_quadrant_under_subject": "q2",
+              "local_sub_lens_under_subject": "evidencias",
+              "page": "event-ingest-banco-2026-05",
+              "quadrant": "q2",
+              "reason": "",
+              "sub_lens": "evidencias",
+              "subject_center": "source-banco-export",
+              "through_center": ""
+            }
+          ]
+        },
         "quadrant_sub_lens": {
-          "q1": {},
-          "q2": {},
+          "q1": {
+            "percepcao": [
+              "claim-custos-sobem"
+            ]
+          },
+          "q2": {
+            "evidencias": [
+              "event-ingest-banco-2026-05"
+            ],
+            "producao": [
+              "artifact-relatorio-recon"
+            ]
+          },
           "q3": {},
           "q4": {}
         },
@@ -2383,7 +2436,9 @@
               "id": "quadrant:intencao",
               "kind": "quadrant",
               "label_key": "intencao",
-              "member_ids": [],
+              "member_ids": [
+                "claim-custos-sobem"
+              ],
               "purpose": "navigate",
               "summary": {
                 "hidden": 0,
@@ -2391,13 +2446,19 @@
                 "proposal": 0,
                 "raw": 0,
                 "risk": 0,
-                "shown": 0,
-                "source_backed": 0,
+                "shown": 1,
+                "source_backed": 1,
                 "stale": 0,
-                "total": 0,
+                "total": 1,
                 "unsourced": 0
               },
-              "type_mix": [],
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "decision",
+                  "page_type": "claim"
+                }
+              ],
               "visual": {
                 "emphasis": [
                   "healthy"
@@ -2418,36 +2479,63 @@
               "visual_role": "quadrant"
             },
             {
-              "action_hints": [],
-              "attention_hints": [],
+              "action_hints": [
+                {
+                  "count": 1,
+                  "kind": "inspect_sources",
+                  "label_key": "region.action.inspectSources"
+                }
+              ],
+              "attention_hints": [
+                {
+                  "count": 1,
+                  "kind": "raw"
+                }
+              ],
               "id": "quadrant:pratica",
               "kind": "quadrant",
               "label_key": "pratica",
-              "member_ids": [],
+              "member_ids": [
+                "artifact-relatorio-recon",
+                "event-ingest-banco-2026-05"
+              ],
               "purpose": "navigate",
               "summary": {
                 "hidden": 0,
                 "open_actions": 0,
                 "proposal": 0,
-                "raw": 0,
+                "raw": 1,
                 "risk": 0,
-                "shown": 0,
-                "source_backed": 0,
+                "shown": 2,
+                "source_backed": 2,
                 "stale": 0,
-                "total": 0,
+                "total": 2,
                 "unsourced": 0
               },
-              "type_mix": [],
+              "type_mix": [
+                {
+                  "count": 1,
+                  "family": "content",
+                  "page_type": "artifact"
+                },
+                {
+                  "count": 1,
+                  "family": "event",
+                  "page_type": "ingestion_event"
+                }
+              ],
               "visual": {
                 "emphasis": [
                   "healthy"
                 ],
                 "grammar_id": "wiki.visual_grammar.v1",
-                "pack_id": "region_operations",
+                "pack_id": "evidence_first",
                 "slots": {
                   "cluster.tooltip": "hidden_histogram",
+                  "dock.action": "action_lane",
                   "fallback.card": "region_work_card",
                   "legend.entry": "legend_key",
+                  "reader.badge": "source_badge",
                   "region.card": "region_card",
                   "region.empty": "empty_region_affordance",
                   "region.marker": "action_lane",

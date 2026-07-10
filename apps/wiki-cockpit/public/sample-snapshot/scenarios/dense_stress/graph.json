@@ -34167,11 +34167,15 @@
           "value": 0
         },
         "attention": {
-          "count": 0,
-          "reasons": [],
-          "refs": [],
-          "state": "quiet",
-          "value": 0
+          "count": 1,
+          "reasons": [
+            "snapshot_warning:region_hidden_density"
+          ],
+          "refs": [
+            "warning:region_hidden_density"
+          ],
+          "state": "watch",
+          "value": 0.5
         },
         "evidence": {
           "count": 0,
@@ -34362,7 +34366,7 @@
           "value": 40
         },
         "attention": {
-          "count": 41,
+          "count": 42,
           "reasons": [
             "action:action-region-pressure-001:open",
             "action:action-region-pressure-002:in_progress",
@@ -34404,7 +34408,8 @@
             "action:action-region-pressure-056:overdue",
             "action:action-region-pressure-057:blocked",
             "action:action-region-pressure-058:waiting_human",
-            "freshness:stale"
+            "freshness:stale",
+            "snapshot_warning:region_hidden_density"
           ],
           "refs": [
             "action-region-pressure-003",
@@ -34426,7 +34431,8 @@
             "action-region-pressure-051",
             "action-region-pressure-052",
             "action-region-pressure-056",
-            "action-region-pressure-057"
+            "action-region-pressure-057",
+            "warning:region_hidden_density"
           ],
           "state": "urgent",
           "value": 1
