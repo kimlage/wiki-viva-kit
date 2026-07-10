@@ -1,5 +1,5 @@
 schema_version: wiki_viva_consumer_inventory.v1
-verified_on: "2026-07-09"
+verified_on: "2026-07-10"
 
 publication_policy:
   private_paths: redact
@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc1@88bc0195
+    current_kit_version: wiki-viva-v8-rc1@4e4ee631
     current_layout:
       memory_root: memories
       references_root: docs/references

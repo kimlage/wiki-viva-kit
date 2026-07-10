@@ -4,7 +4,7 @@ page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
 visibility: public_candidate
-updated_at: 2026-07-09
+updated_at: 2026-07-10
 stale_after_days: 365
 sources_policy: release_note
 gate: github_pr
@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`88bc01952e2cf1a30ffadee179b73905b6a3bdc7` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`4e4ee631d104637c744e6d3f2dbee107b24c2bab` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 
 ## Product boundary
