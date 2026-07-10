@@ -1214,6 +1214,26 @@ button.stripChip:hover {
   font: inherit;
   text-align: left;
   overflow-wrap: anywhere;
+  flex-wrap: wrap;
+  align-content: center;
+}
+
+.fallbackNodeTitle {
+  min-width: 0;
+  flex: 1 1 64px;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.fallbackNode .fallbackNodeState {
+  min-width: 0;
+  width: calc(100% - 30px);
+  flex: 0 0 calc(100% - 30px);
+  margin: 2px 0 0 30px;
 }
 
 .fallbackNode.groupNode {

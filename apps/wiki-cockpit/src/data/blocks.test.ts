@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anchorDeclaresBlock, anchorDeclaresQuadrants } from "./blocks";
+import { anchorDeclaresBlock, anchorDeclaresQuadrants, anchorSupportsQuadrants } from "./blocks";
 import type { AnchorRecord } from "../types";
 
 function record(origin: string, hasQuadrants = true): AnchorRecord {
@@ -31,7 +31,18 @@ describe("block stack ownership", () => {
     expect(anchorDeclaresQuadrants(record("anchor:company-clearpath-labs"))).toBe(false);
   });
 
+  it("honors an inherited quadrant block once the compiler materializes its local projection", () => {
+    const inherited = record("anchor:company-clearpath-labs");
+    inherited.derived.quadrant_assignments = { q0_core: [], q1: [], q2: [], q3: [], q4: [] };
+
+    expect(anchorDeclaresQuadrants(inherited)).toBe(false);
+    expect(anchorSupportsQuadrants(inherited)).toBe(true);
+  });
+
   it("requires the resolved interface to expose quadrants too", () => {
     expect(anchorDeclaresQuadrants(record("page", false))).toBe(false);
+    const compiledButDisabled = record("anchor:root", false);
+    compiledButDisabled.derived.quadrant_assignments = { q1: ["claim-a"] };
+    expect(anchorSupportsQuadrants(compiledButDisabled)).toBe(false);
   });
 });

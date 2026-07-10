@@ -271,7 +271,7 @@ export function SceneFallback({
               data-overlay-strong={strong ? "true" : "false"}
             >
               {node.visualGlyph && <span className="fallbackNodeGlyph" aria-hidden>{node.visualGlyph}</span>}
-              {node.title}
+              <span className="fallbackNodeTitle">{node.title}</span>
               <small className={`fallbackNodeState ring-${strong ? encoding.ring : "none"}`} aria-label={encodingAria}>
                 <b aria-hidden>{encoding.symbol}</b> {encodingText}
               </small>

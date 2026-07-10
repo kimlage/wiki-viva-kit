@@ -895,6 +895,17 @@ describe("perspective engine", () => {
     expect(layout.totals.shown + layout.totals.hidden).toBe(layout.totals.total);
   });
 
+  it("focus preserves the explicit world center while another page is selected", () => {
+    const layout = computeWorldLayout(request({
+      perspective: "focus",
+      centerId: "financeiro-p5",
+      pageId: "financeiro-p10",
+      maxNodes: 80
+    }));
+
+    expect(layout.nodes.find((item) => item.isRoot)?.id).toBe("financeiro-p5");
+  });
+
   it("keeps every page reachable in ≤4 interactions: galaxy → context → group → page", () => {
     const { nodes, edges } = fixture();
     const targets = nodes.filter((item) => item.page_type !== "root_index");

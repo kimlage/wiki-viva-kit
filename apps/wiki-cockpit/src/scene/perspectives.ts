@@ -2259,12 +2259,14 @@ function focusLayout(request: WorldRequest): WorldLayout {
     byId.set(node.id, node);
     byId.set(node.path, node);
   });
-  // Focus is page-anchored: a pageId that is NOT in this graph yields the
-  // empty/center-less layout, never a silent re-center on the wiki root (which
-  // would contradict the HTML legend still keyed to the requested page).
-  const centerId = request.pageId
-    ? byId.has(request.pageId)
-      ? byId.get(request.pageId)!.id
+  // Focus is centered on the explicit world center. A selected/read page is
+  // not allowed to steal that role. Legacy requests without centerId still
+  // accept pageId; a requested ID outside this graph yields the honest empty
+  // layout rather than silently re-centering on the wiki root.
+  const requestedCenterId = request.centerId ?? request.pageId;
+  const centerId = requestedCenterId
+    ? byId.has(requestedCenterId)
+      ? byId.get(requestedCenterId)!.id
       : null
     : rootNodeId(request.nodes);
   const center = centerId ? byId.get(centerId) ?? null : null;
@@ -2278,7 +2280,7 @@ function focusLayout(request: WorldRequest): WorldLayout {
   const emptyTotals = { total: request.nodes.length, shown: 0, hidden: request.nodes.length };
   if (!center) {
     return {
-      perspective: "focus", level: request.pageId ? 3 : 0, context: request.context, group: undefined,
+      perspective: "focus", level: requestedCenterId ? 3 : 0, context: request.context, group: undefined,
       radial: "ego", nodes: [], wedges: [], wedgeKind: "group", guides, groups: [], clusterStars: [],
       beacons: [], rInner: r1, rOuter, deadlineF: DEADLINE_F, unknownR: null, totals: emptyTotals,
       truncated: request.nodes.length

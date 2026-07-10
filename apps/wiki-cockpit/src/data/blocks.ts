@@ -29,6 +29,18 @@ export function anchorDeclaresQuadrants(record: AnchorRecord | null | undefined)
   return Boolean(record?.interface?.has_quadrants && anchorDeclaresBlock(record, "wiki.block.quadrants.v1"));
 }
 
+// A locally declared quadrant block is one way to own a quadrant world. The
+// compiler may also materialize an inherited block into authoritative,
+// anchor-relative assignments. Once that derived object exists (including an
+// explicitly empty one), the center has a real quadrant projection and must
+// not silently fall back to Focus while the navigator still says Quadrants.
+export function anchorSupportsQuadrants(record: AnchorRecord | null | undefined): boolean {
+  return Boolean(
+    record?.interface?.has_quadrants &&
+    (anchorDeclaresQuadrants(record) || record.derived?.quadrant_assignments !== undefined)
+  );
+}
+
 export function blockDef(bundle: SnapshotBundle, blockId: string): BlockDefinition | null {
   return bundle.blocks?.blocks?.[blockId] ?? null;
 }

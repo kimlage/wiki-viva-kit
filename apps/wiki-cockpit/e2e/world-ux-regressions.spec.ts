@@ -101,16 +101,23 @@ test("switching native views preserves the mounted 3D canvas and center", async 
   const workspace = page.locator(".worldWorkspace");
   const center = await workspace.getAttribute("data-world-center");
   expect(center).toBe("root-alex-rivera");
-  const canonicalNodeCount = await page.locator(".sceneShell").getAttribute("data-scene-source-node-count");
-  expect(Number(canonicalNodeCount)).toBeGreaterThan(100);
+  const scene = page.locator(".sceneShell");
+  const sourceNodeCount = await scene.getAttribute("data-scene-source-node-count");
+  const localNodeCount = await scene.getAttribute("data-scene-input-node-count");
+  expect(Number(sourceNodeCount)).toBeGreaterThan(100);
+  expect(Number(localNodeCount)).toBeGreaterThan(1);
+  // The source census remains the whole snapshot, while every view projects
+  // the same compiler-scoped local world (center + exact direct members).
+  expect(Number(localNodeCount)).toBeLessThan(Number(sourceNodeCount));
   await rememberCanvas(page);
 
   for (const view of NATIVE_VIEWS) {
     await page.locator(`[data-view-option="${view}"]`).click();
     await expect(workspace).toHaveAttribute("data-world-view", view);
     await expect(workspace).toHaveAttribute("data-world-center", center!);
-    await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-center", center!);
-    await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-input-node-count", canonicalNodeCount!);
+    await expect(scene).toHaveAttribute("data-scene-center", center!);
+    await expect(scene).toHaveAttribute("data-scene-source-node-count", sourceNodeCount!);
+    await expect(scene).toHaveAttribute("data-scene-input-node-count", localNodeCount!);
     await expectRememberedCanvas(page);
   }
 });

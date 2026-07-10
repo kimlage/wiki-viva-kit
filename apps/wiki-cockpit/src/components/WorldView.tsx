@@ -15,13 +15,14 @@ import type { PerspectiveId as ScenePerspectiveId } from "../scene/perspectives"
 import { SCENE_FACETS, nodeQuadrant, quadrantHomesFromAssignments, sceneFacetOf } from "../scene/facets";
 import type { QuadrantHomes, SceneFacet } from "../scene/facets";
 import { parseRealFamilyGroupId } from "../scene/worldState";
+import { scopeGraphToCompiledAnchor } from "../scene/worldScope";
 import { computeCondition } from "../scene/condition";
 import { rankPages } from "../scene/search";
 import { canonicalWorldUrl, hydrateWorldRoute } from "../world/state/routeHydration";
 import type { OverlayId, RuntimeEvent } from "../world/contracts";
 import type { WorldPatch, WorldRoute } from "../router";
 import type { NavigationPort, OperatorPort } from "../application/ports";
-import { anchorDeclaresQuadrants, anchorRecord, focusAnchorId } from "../data/blocks";
+import { anchorRecord, anchorSupportsQuadrants, focusAnchorId } from "../data/blocks";
 import { composeInstruments, rootAnchor } from "../data/surfaces";
 import { regionPayloadByKey } from "../data/visualPrimitives";
 import type { RuntimeConfig } from "../data/runtimeConfig";
@@ -1053,7 +1054,7 @@ export function WorldView({
     [bundle, activeQuadrantAnchorId]
   );
   const activeCenterHasQuadrants = useMemo(
-    () => anchorDeclaresQuadrants(activeQuadrantAnchor),
+    () => anchorSupportsQuadrants(activeQuadrantAnchor),
     [activeQuadrantAnchor]
   );
   const runtimePerspective = worldState.view;
@@ -1071,11 +1072,21 @@ export function WorldView({
     return quadrantHomesFromAssignments(activeQuadrantAnchor?.derived?.quadrant_assignments);
   }, [activeQuadrantAnchor]);
 
-  // Every native view receives the same canonical graph. A view is a stable
-  // spatial projection of one world, never a request to swap the data under
-  // the canvas. Compiled quadrant homes override fallback classification for
-  // known pages; the remaining pages keep deterministic page-type homes.
-  const runtimeSceneGraph = bundle.graph;
+  // Every native view receives the same graph for the ACTIVE local world. A
+  // view is a stable spatial projection, never a request to swap the data
+  // under the canvas. Once the compiler emits quadrant assignments for an
+  // anchor, that scope is authoritative: retain the center plus its exact
+  // members instead of leaking unrelated global pages back in through the
+  // page-type fallback. Legacy/bare snapshots without assignments continue to
+  // receive the complete canonical graph.
+  const runtimeSceneGraph = useMemo(
+    () => scopeGraphToCompiledAnchor(
+      bundle.graph,
+      activeQuadrantAnchorId,
+      activeQuadrantAnchor?.derived?.quadrant_assignments
+    ),
+    [activeQuadrantAnchor, activeQuadrantAnchorId, bundle.graph]
+  );
 
   // Quadrant lens: live per-quadrant home counts (+ the honest core) for the
   // active center. It is independent from the base view, so Q1–Q4 can focus
@@ -1083,14 +1094,14 @@ export function WorldView({
   const quadrantCounts = useMemo(() => {
     const counts = new Map<SceneFacet, number>(SCENE_FACETS.map((facet) => [facet, 0]));
     let core = 0;
-    bundle.graph.nodes.forEach((node) => {
+    runtimeSceneGraph.nodes.forEach((node) => {
       if (node.id === activeQuadrantAnchorId) return;
       const home = nodeQuadrant(node.id, node.page_type, quadrantHomes);
       if (home) counts.set(home, (counts.get(home) ?? 0) + 1);
       else core += 1;
     });
     return { quadrants: SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0, region: activeRegionPayloads.get(facet) })), core };
-  }, [activeQuadrantAnchor, activeQuadrantAnchorId, activeRegionPayloads, bundle.graph, quadrantHomes]);
+  }, [activeQuadrantAnchor, activeQuadrantAnchorId, activeRegionPayloads, quadrantHomes, runtimeSceneGraph]);
   const quadrantTotal = useMemo(
     () => quadrantCounts.quadrants.reduce((total, quadrant) => total + quadrant.count, quadrantCounts.core),
     [quadrantCounts]
