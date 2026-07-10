@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc1@3e5c0867
+    current_kit_version: wiki-viva-v8-rc1@fa65d5f9
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -47,7 +47,7 @@ consumers:
       owner: <redacted>
     consumer_type: private_operational_wiki
     role: first_private_pilot
-    current_kit_version: 0.1.109+untracked-public-sha
+    current_kit_version: wiki-viva-v8-rc1@fa65d5f9
     current_layout:
       memory_root: memorias
       references_root: docs/referencias
@@ -55,21 +55,21 @@ consumers:
       generated_cache_root: data/derived/wiki
       language: pt
       context_count: 7
-    current_runtime: legacy
+    current_runtime: v8
     local_operator: localhost_operator
     local_templates:
       registry: wiki.templates.yaml
-      local_override: absent
+      local_override: wiki.templates.local.yaml
       page_types: downstream_owned
       source_adapters: private
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: diverged
+      state: clean
       scope: wiki_toolkit_drift_core_prefixes
-      drift_total: 16
-      details: retained_only_in_private_preflight
-      verified_read_only_on: "2026-07-09"
+      drift_total: 0
+      details: completed_migration_report_retained_only_in_redacted_private_evidence
+      verified_on: "2026-07-10"
     upgrade_wave: pilot
-    status: candidate
-    blocker: allowlisted import, real snapshot v2 evidence and migration report are still in progress
+    status: ready
+    blocker: private human PR review and merge remain

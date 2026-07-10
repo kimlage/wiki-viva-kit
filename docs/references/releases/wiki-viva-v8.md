@@ -14,10 +14,19 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`3e5c08671fadebd3d77b76cb2f0e7c9c2ddc8c42` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`fa65d5f9eccdc910302fa236dc5e42df28c9c29b` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
-The final rendered UX payload remains `4e4ee631`; `3e5c0867` adds the
-downstream preflight safety boundary and consumer runtime-config protection.
+The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
+downstream preflight safety boundary, `5179dc5c` makes nested centers
+relation-aware and `27f3b369` refreshes the deterministic snapshots against
+that final portable contract. `206da2ca` keeps the same guide valid in both
+demo and real-operator routes; `d2ddcb5f` closes the final downstream review by
+scoping every local world to its compiler-owned members, preserving inherited
+quadrant projections, fixing Focus center ownership and refining long fallback
+labels; `487f7935` closes the last responsive review with one vertical fallback
+scrollport and no horizontal/document overflow. `fa65d5f9` closes the final
+upgrade audit by honoring wildcard-bearing portable skill allowlists, with
+synthetic block-precedence coverage.
 
 ## Product boundary
 
@@ -126,26 +135,24 @@ Desktop Chromium, mobile WebKit, forced fallback and Firefox smoke evidence are
 also release blockers. A green unit/build stack cannot override a runtime crash,
 blank world, center error, overlap, unreadable label or sample fallback.
 
-## Current blockers
+## Remaining external gate and known warnings
 
 - PR #61 still requires the human review/merge gate and a release tag.
-- The private pilot remains paused until it has a clean upgrade branch,
-  current gate receipts and a complete migration report.
 - Six explicit stale-page/operation-date warnings remain visible after the
   deterministic operational pass; they were not reclassified as release
   errors.
 
 ## Final candidate evidence
 
-- Python: 674 passed, 4 skipped; audit 0 errors with 6 known staleness/date
+- Python: 682 passed, 4 skipped; audit 0 errors with 6 known staleness/date
   warnings; methodology 22/22. Every command in the remote `audit-and-test`
   workflow passes locally, including operational-pass freshness.
 - Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
   sidecar promotion/rollback checks pass.
-- Frontend: 371 unit tests across 49 files and 15 gate tests pass; architecture reports
+- Frontend: 378 unit tests across 50 files and 15 gate tests pass; architecture reports
   0 violations and 0 legacy debt.
-- Bundle: initial JS 137.46 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
-  chunk 54.24 kB gzip, all below the committed budgets.
+- Bundle: initial JS 137.63 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
+  chunk 54.25 kB gzip, all below the committed budgets.
 - Browser matrix: the last full cross-browser rerun remains 47 passed with 2
   environment-gated real-endpoint tests. The final reader delta adds explicit
   foreground/mobile/fallback regression specs and was exercised in the in-app
@@ -153,9 +160,12 @@ blank world, center error, overlap, unreadable label or sample fallback.
 - Manual public browser QA covered four views, six overlays, four lenses,
   semantic motion, docks, reader, fallback and mobile. It preserved one canvas,
   had no document overflow, measured p95 12.1 ms on the normal world and proved
-  atomic 400 ms overlay crossfades plus reader/Guide focus restoration. The
-  redacted private read-only pass had real operator provenance, no sample
-  fallback and no new console warnings.
+  atomic 400 ms overlay crossfades plus reader/Guide focus restoration.
+- Downstream pilot: exact source `fa65d5f9`, toolkit drift 0, real snapshot v2
+  with 24 payloads and complete private/redacted-public migration reports with
+  zero validation errors. Redacted desktop, mobile and fallback evidence uses
+  real operator provenance, no sample fallback, clean console/network state
+  and exactly one fallback scroll axis across 560 real pages.
 
 ## Superseded planning surfaces
 
