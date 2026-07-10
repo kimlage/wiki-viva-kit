@@ -18,6 +18,13 @@ from wiki_core.paths import WikiPaths
 from wiki_core.web.snapshot import write_snapshot
 
 
+def _display_path(path: Path) -> str:
+    try:
+        return path.relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default="", help="Output directory for snapshot JSON files.")
@@ -57,7 +64,7 @@ def main() -> int:
         ROOT, out_dir, config, clean=args.clean, mode=args.mode, content_sidecars=args.content_sidecars
     )
     for name in sorted(written):
-        print(f"{name}: {written[name].relative_to(ROOT).as_posix()}")
+        print(f"{name}: {_display_path(written[name])}")
     return 0
 
 

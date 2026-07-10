@@ -437,6 +437,27 @@ def _is_descendant(world: BlockWorld, anchor: dict[str, Any], target: dict[str, 
     return False
 
 
+_PROJECT_MEMBER_PROJECTION: dict[str, tuple[str, str]] = {
+    "claims": ("intencao", "percepcao"),
+    "decisions": ("intencao", "intencao"),
+    "actions": ("pratica", "comportamento"),
+    "evidence_refs": ("pratica", "evidencias"),
+    "roles": ("relacoes", "pessoas"),
+    "responsibilities": ("relacoes", "cultura"),
+    "related_holons": ("relacoes", "cultura"),
+    "source_refs": ("sistemas", "fontes"),
+}
+
+
+def _project_member_role(anchor: dict[str, Any], target: dict[str, Any]) -> tuple[str, str, str] | None:
+    if anchor["page_type"] != "project":
+        return None
+    for field, (facet, sub_lens) in _PROJECT_MEMBER_PROJECTION.items():
+        if any(_page_ref_matches(ref, target) for ref in list_values(anchor["values"].get(field))):
+            return field, facet, sub_lens
+    return None
+
+
 def _scope_reaches(
     world: BlockWorld, scope: str, anchor: dict[str, Any], target: dict[str, Any]
 ) -> bool:
@@ -445,6 +466,29 @@ def _scope_reaches(
     if scope == "self":
         return False
     if _page_ref_matches(target["values"].get("subject_ref") or target["values"].get("subject"), anchor):
+        return True
+    if (
+        anchor["page_type"] == "source"
+        and not _is_descendant(world, target, anchor)
+        and any(
+            _page_ref_matches(ref, anchor)
+            for ref in [
+                *list_values(target["values"].get("source_ref")),
+                *list_values(target["values"].get("source_refs")),
+            ]
+        )
+    ):
+        return True
+    if (
+        anchor["page_type"] == "holon"
+        and not _is_descendant(world, target, anchor)
+        and any(
+            _page_ref_matches(ref, anchor)
+            for ref in list_values(target["values"].get("related_holons"))
+        )
+    ):
+        return True
+    if not _is_descendant(world, target, anchor) and _project_member_role(anchor, target):
         return True
     if scope == "children":
         return target["moc_parent"] in {anchor["path"], anchor["id"]}
@@ -877,6 +921,18 @@ def _direct_page_projections(
     explicit = _subject_role_projection(center, page)
     if explicit:
         return [explicit]
+    project_role = _project_member_role(center, page)
+    if project_role:
+        field, facet, sub_lens = project_role
+        projected = _projection_from_raw(
+            {"facet": facet, "sub_lens": sub_lens, "reason": f"project_field:{field}"},
+            page=page,
+            center=center,
+            basis="project_reference",
+            subject_center=center["id"],
+        )
+        if projected:
+            return [projected]
     facets = _page_quadrants(world, page, overrides)
     if not facets:
         edge_facet = _edge_facet(world, page, center)
@@ -1016,10 +1072,11 @@ def quadrant_assignments(
 
 def _edge_facet(world: BlockWorld, page: dict[str, Any], anchor: dict[str, Any]) -> str | None:
     """The facet implied by how `page` links to `anchor` (source_ref etc.)."""
-    node = world.graph.nodes.get(page["path"])
-    if node is None:
-        return None
-    if anchor["path"] in node.outbound_frontmatter_refs or anchor["id"] in node.outbound_frontmatter_refs:
+    source_refs = [
+        *list_values(page["values"].get("source_ref")),
+        *list_values(page["values"].get("source_refs")),
+    ]
+    if any(_page_ref_matches(ref, anchor) for ref in source_refs):
         return facet_of(page["page_type"], "source_ref")
     return facet_of(page["page_type"], None)
 

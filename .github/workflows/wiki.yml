@@ -41,5 +41,57 @@ jobs:
         run: python scripts/wiki_source_registry.py --check
       - name: Input stage freshness (root entity + channels)
         run: python scripts/wiki_input_stage.py --check
+      - name: Deterministic v8 demo artifacts
+        run: python scripts/wiki_build_demo.py --check
+      - name: Atomic v8 snapshot contract
+        run: python scripts/wiki_web_snapshot.py --check-contract
       - name: Consolidation closed (ingesting = integrating)
         run: python scripts/wiki_consolidate.py --check
+
+  cockpit-v8:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/wiki-cockpit/package-lock.json
+      - name: Install cockpit dependencies
+        working-directory: apps/wiki-cockpit
+        run: npm ci
+      - name: Frontend unit tests
+        working-directory: apps/wiki-cockpit
+        run: npm test
+      - name: Gate implementation tests
+        working-directory: apps/wiki-cockpit
+        run: npm run test:gates
+      - name: Frontend architecture boundaries
+        working-directory: apps/wiki-cockpit
+        run: npm run check:architecture
+      - name: Production build
+        working-directory: apps/wiki-cockpit
+        run: npm run build
+      - name: Bundle budgets and lazy boundaries
+        working-directory: apps/wiki-cockpit
+        run: npm run check:bundle
+
+  cockpit-visual:
+    needs: cockpit-v8
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/wiki-cockpit/package-lock.json
+      - name: Install cockpit dependencies
+        working-directory: apps/wiki-cockpit
+        run: npm ci
+      - name: Install browser engines
+        working-directory: apps/wiki-cockpit
+        run: npx playwright install --with-deps chromium webkit firefox
+      - name: Desktop, mobile, fallback and cross-browser gates
+        working-directory: apps/wiki-cockpit
+        run: npm run test:visual

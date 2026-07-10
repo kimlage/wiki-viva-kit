@@ -56,6 +56,11 @@ def test_projection_report_inventories_centers_warnings_and_multi_projection(tmp
                 "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
                 "moc_parent: memories/index.md\n---\n# Index\n"
             ),
+            "memories/region.md": (
+                "---\npage_id: region-demo\npage_type: context_hub\ntitle: Region\ncontext: demo\n"
+                "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+                "moc_parent: memories/index.md\n---\n# Region\n"
+            ),
         },
     )
 
@@ -63,8 +68,12 @@ def test_projection_report_inventories_centers_warnings_and_multi_projection(tmp
 
     assert report["schema_version"] == "wiki_quadrant_projection_report.v1"
     assert report["anchors"]["root-demo"]["nested_mode"] == "project_all"
-    assert report["anchors"]["company-acme"]["inferred_parent_projection"] is True
-    assert any(warning["kind"] == "inferred_parent_projection" for warning in report["warnings"])
+    assert report["anchors"]["company-acme"]["inferred_parent_projection"] is False
+    assert report["anchors"]["company-acme"]["parent_projection_source"] == "contract_default"
+    assert any(
+        warning["kind"] == "inferred_parent_projection" and warning["anchor"] == "region-demo"
+        for warning in report["warnings"]
+    )
     assert not any(warning["kind"] == "q0_overload" for warning in report["warnings"])
     assert "idx-demo" in report["anchors"]["root-demo"]["assignments"]["q2"]
     assert report["anchors"]["root-demo"]["assignments"]["q0_core"] == []

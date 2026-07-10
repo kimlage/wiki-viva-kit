@@ -51,6 +51,24 @@ def test_local_override_merges_on_top(tmp_path: Path) -> None:
     registry = load_template_registry(tmp_path)
     # Local override wins on the merged nested scene key...
     assert registry.resolve("meeting").scene["shape"] == "hub"
+    # ...without erasing sibling contract keys from the kit type.
+    assert registry.resolve("meeting").view["center"] == "timeline"
+    assert registry.resolve("meeting").facets["relacoes"] == ("participants", "roles")
+
+
+def test_local_override_can_promote_anchor_without_resetting_type_contract(tmp_path: Path) -> None:
+    _write(tmp_path / "wiki.templates.yaml", (KIT_ROOT / "wiki.templates.yaml").read_text())
+    _write(
+        tmp_path / "wiki.templates.local.yaml",
+        "types:\n  ontology_index:\n    can_anchor_blocks: true\n",
+    )
+
+    registry = load_template_registry(tmp_path)
+    index = registry.resolve("ontology_index")
+
+    assert index.can_anchor_blocks is True
+    assert index.creatable is False
+    assert index.view["center"] == "dashboard"
 
 
 def test_validator_flags_unknown_primitives(tmp_path: Path) -> None:

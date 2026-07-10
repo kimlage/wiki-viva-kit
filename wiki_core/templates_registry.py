@@ -120,6 +120,28 @@ def _merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _merge_named_section(
+    base: dict[str, Any] | None,
+    over: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Merge a registry section without erasing sibling contract keys.
+
+    Local registries are documented as overrides layered on top of the kit.
+    Replacing a whole named type/block/package when only one property was
+    overridden made that contract misleading (for example,
+    ``can_anchor_blocks`` silently reset ``creatable`` and ``view``).  Merge
+    each named entry with the same one-level semantics used by resolved specs.
+    """
+    merged = {str(key): dict(value) for key, value in (base or {}).items() if isinstance(value, dict)}
+    for key, value in (over or {}).items():
+        name = str(key)
+        if isinstance(value, dict) and isinstance(merged.get(name), dict):
+            merged[name] = _merge(merged[name], value)
+        elif isinstance(value, dict):
+            merged[name] = dict(value)
+    return merged
+
+
 def load_template_registry(
     root: Path,
     config: WikiConfig | None = None,
@@ -136,8 +158,7 @@ def load_template_registry(
     if local_file.exists():
         local = yaml.safe_load(local_file.read_text(encoding="utf-8")) or {}
         for section in ("bases", "types", "blocks", "packages"):
-            merged = {**(data.get(section) or {}), **(local.get(section) or {})}
-            data[section] = merged
+            data[section] = _merge_named_section(data.get(section), local.get(section))
         if isinstance(local.get("vocabulary"), dict):
             data["vocabulary"] = {**(data.get("vocabulary") or {}), **local["vocabulary"]}
     return TemplateRegistry(

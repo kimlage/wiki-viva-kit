@@ -545,3 +545,95 @@ def _leaf(page_id: str, page_type: str, *, extra: str = "") -> str:
         f"visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
         f"moc_parent: memories/index.md\n{extra}---\n# {page_id}\n"
     )
+
+
+def test_structural_moc_parent_is_not_misread_as_source_evidence(tmp_path: Path) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n---\n# Root\n"
+        ),
+        "memories/notes/structural.md": _leaf("note-structural", "context_note"),
+        "memories/notes/sourced.md": _leaf(
+            "note-sourced",
+            "context_note",
+            extra="source_refs: [root-demo]\n",
+        ),
+    }
+
+    assignments = build_block_stacks_payload(_world(_wiki(tmp_path, pages)))["anchors"]["root-demo"][
+        "derived"
+    ]["quadrant_assignments"]
+
+    assert "note-structural" in assignments["q0_core"]
+    assert "note-structural" not in assignments["q2"]
+    assert "note-sourced" in assignments["q2"]
+
+
+def test_source_and_holon_centers_include_their_typed_relations(tmp_path: Path) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n"
+            "source_refs: [source-demo]\nrelated_holons: [holon-team]\n---\n# Root\n"
+        ),
+        "memories/sources/source.md": _leaf("source-demo", "source"),
+        "memories/holons/team.md": _leaf("holon-team", "holon"),
+        "memories/projects/project.md": _leaf(
+            "project-demo",
+            "project",
+            extra=(
+                "claims: [claim-demo]\n"
+                "actions: [action-demo]\n"
+                "evidence_refs: [memories/evidence/hub.md]\n"
+                "roles: [role-demo]\n"
+                "responsibilities: [responsibility-demo]\n"
+                "related_holons: [holon-team]\n"
+                "source_refs: [source-demo]\n"
+            ),
+        ),
+        "memories/claims/claim.md": _leaf("claim-demo", "claim"),
+        "memories/evidence/hub.md": _leaf("evidence-hub", "context_hub"),
+        "memories/roles/role.md": _leaf("role-demo", "role"),
+        "memories/responsibilities/responsibility.md": _leaf("responsibility-demo", "responsibility"),
+        "memories/events/event.md": _leaf(
+            "event-demo",
+            "source_catalog",
+            extra="source_ref: source-demo\n",
+        ),
+        "memories/actions/action.md": _leaf(
+            "action-demo",
+            "action",
+            extra="related_holons: [holon-team]\n",
+        ),
+    }
+
+    anchors = build_block_stacks_payload(_world(_wiki(tmp_path, pages)))["anchors"]
+
+    assert "event-demo" in anchors["source-demo"]["derived"]["quadrant_assignments"]["q2"]
+    source_members = {
+        page_id
+        for page_ids in anchors["source-demo"]["derived"]["quadrant_assignments"].values()
+        for page_id in page_ids
+    }
+    assert "root-demo" not in source_members
+    assert "action-demo" in anchors["holon-team"]["derived"]["quadrant_assignments"]["q2"]
+    holon_members = {
+        page_id
+        for page_ids in anchors["holon-team"]["derived"]["quadrant_assignments"].values()
+        for page_id in page_ids
+    }
+    assert "root-demo" not in holon_members
+    project_assignments = anchors["project-demo"]["derived"]["quadrant_assignments"]
+    assert "claim-demo" in project_assignments["q1"]
+    assert "action-demo" in project_assignments["q2"]
+    assert "evidence-hub" in project_assignments["q2"]
+    assert "role-demo" in project_assignments["q3"]
+    assert "responsibility-demo" in project_assignments["q3"]
+    assert "holon-team" in project_assignments["q3"]
+    assert "source-demo" in project_assignments["q4"]
+    evidence_projection = anchors["project-demo"]["derived"]["quadrant_projections"]["evidence-hub"][0]
+    assert evidence_projection["basis"] == "project_reference"
+    assert evidence_projection["sub_lens"] == "evidencias"
