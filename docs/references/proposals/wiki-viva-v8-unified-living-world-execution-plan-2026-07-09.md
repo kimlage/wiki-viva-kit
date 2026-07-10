@@ -81,9 +81,10 @@ The version boundary is deliberate:
 - subsystem notes may explain implementation detail, but they cannot redefine
   the product contract or create a parallel execution plan.
 
-Planning evidence is not implementation evidence. This document has completed
-the consolidation audit; all implementation phases remain explicitly tracked
-as not started until their required code, tests and browser evidence exist.
+Planning evidence is not implementation evidence. This document completed the
+consolidation audit and now records the delivered implementation, automated
+gates and browser evidence in the execution ledger below. The human review,
+merge and release-tag gate remains deliberately separate and blocked.
 
 ## V8 Integrated Contract Map
 
@@ -281,16 +282,16 @@ Forbidden states:
 ## Branch And History Audit
 
 Audit refreshed on 2026-07-09. A final read-only `git ls-remote` check confirmed
-that live `origin/main` still points to `c5de4440`; the v8 payload branch is
-published at `70629606` in draft PR
+that live `origin/main` still points to `c5de4440`; the final v8 UX payload is
+`cb33c7c1` in draft PR
 [#61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 
 | Surface | Observed state | Treatment |
 | --- | --- | --- |
 | `origin/main` | `c5de4440` `feat(wiki): release recursive quadrant cockpit v6.9` | Public baseline. Most recent implementation branches have been absorbed here. |
 | local `main` | `71c845f` `fix(cockpit): keep active center out of quadrants`, one commit ahead of `origin/main` | Already an ancestor of the current branch. Keep it in the final integration history and do not leave `main` as the only named ref carrying the fix. |
-| current branch | `wiki/v8-unified-living-world`; reviewable payload `70629606`, seven commits ahead of `origin/main`, in draft PR #61 | Sole integration/release-candidate line. Runtime code and generated artifacts have separate commits. |
-| current worktree | The implementation payload was clean at `70629606`; this final metadata update pins that SHA and records the PR/gate evidence. | No broad WIP remains. Release metadata is a separate reviewable commit. |
+| current branch | `wiki/v8-unified-living-world`; final UX payload `cb33c7c1` is the tenth commit ahead of `origin/main`, in draft PR #61; release/status metadata follows it in the same PR. | Sole integration/release-candidate line. Runtime code, generated artifacts and release metadata remain reviewable commit boundaries. |
+| current worktree | The final UX payload is committed at `cb33c7c1`; the metadata commit pins that exact source SHA and records final local/remote gate evidence. | No broad WIP remains. Human review, merge and tag remain external gates. |
 | `wiki/plan-ops-cockpit-3d` | two commits ahead, plan-only branch | Superseded by this plan; retain as historical input. |
 | `wiki/plan-sources-templates-facets` | one commit ahead, plan-only branch | Superseded/absorbed; source/template/facet principles are consolidated here. |
 | zero-ahead local/remote branches | `wiki/cockpit-layout-fixes-2026-07-02`, `wiki/codex-missions-impl`, `wiki/codex-plan-rev2-work-briefs`, `wiki/impl-sources-templates-facets`, `wiki/one-world-cockpit-plan`, `wiki/one-world-impl`, `wiki/ops-cockpit-*`, `wiki/refine-threejs-*`, `wiki/scene-culling-*`, `wiki/template-blocks-impl`, and their matching `origin/wiki/*` branches | Already absorbed in `origin/main`; use as history/context only. Do not cherry-pick unless an audit finds a missing specific diff. |
@@ -2197,11 +2198,27 @@ advances. A phase is not `done` without evidence.
 | Phase 3 - templates/blocks/visual grammar | `done` | Registry validation, block docs and Blocks dock explanation. | Closed primitive IDs/packs/slots, required-slot validation, `VisualPrimitiveRegistry` installation and tests are live; Blocks dock exposes resolved stack, scene profile, active pack, slots and reason. |
 | Phase 4 - interaction runtime/game engine | `done` | Runtime modules, reducer, view/overlay/surface/scene registries, input controller and harness tests. | Runtime, reducer, registries/effects/input/resource/command/diagnostic modules pass; components use injected ports, architecture reports 0 violations/0 debt, operator commands use nonce + idempotent receipts, and the server rejects non-loopback binds. |
 | Phase 5 - frontend rendering | `done` | Runtime-backed views/overlays, a11y/i18n, fallback and instrumentation evidence. | Four views, six overlays, one semantic encoding resolver, 2D fallback, stable layout signature, keyed morphs, focus/inert restoration, 44px targets, safe-area handling, EN/PT controls, live legend, lazy boundaries and bounded performance evidence pass. |
-| Phase 6 - dense synthetic demo | `done` | Regression fixture matrix and dense sample data. | Seven deterministic scenario manifests generate 467 public pages; dense stress has 378 selected pages (>350 mobile threshold), every source/action state axis is covered, region `shown + hidden = total`, and temp regeneration drift is green. |
-| Phase 7 - tests/gates | `done` | Python gates, frontend tests, Playwright E2E and diff checks. | 673 Python tests pass (4 skipped), frontend 322/322, gate tests 15/15, architecture 0/0, bundle budgets green, final browser rerun 27/27 (2 real-endpoint opt-in), demo/snapshot/diff gates and Ruff on changed Python are green. The deterministic operational pass was refreshed after the first remote CI run exposed its stale committed artifact; all workflow commands then passed locally. Whole-tree Ruff is not a release gate and retains pre-existing bootstrap/style debt. |
-| Phase 8 - visual validation | `done` | QA evidence package for desktop, mobile, fallback and private read-only pass. | Automated four-engine/profile matrix plus manual in-app walk covered four views, six overlays, four lenses, docks, reader, fallback and mobile. Private-pilot read-only proved real provenance/no sample fallback/no new console warnings and left its checkout fingerprint unchanged. |
-| Phase 9 - downstream repository upgrades | `done` | Consumer inventory, upgrade package, migration reports, pilot/wave status and redacted QA evidence. | Package is pinned to `70629606`, with inventory, allow/block lists, preflight, report compiler/schema, rollback and compatibility window. Public source is candidate; private pilot is honestly paused until its own clean branch/gate receipts/import report. No private import was performed upstream. |
+| Phase 6 - dense synthetic demo | `done` | Regression fixture matrix and dense sample data. | The authored fixture retains 467 public pages. The instructional default now selects `normal_operations` (107 pages), while `dense_stress` remains an explicit 378-page snapshot and `?demo_scenario=dense_stress` route (>350 mobile threshold). Seven deterministic manifests cover every source/action state axis; region `shown + hidden = total` and regeneration drift remain green. |
+| Phase 7 - tests/gates | `done` | Python gates, frontend tests, Playwright E2E and diff checks. | Python: 674 passed, 4 skipped. Frontend: 349/349; Node gates 15/15; architecture 0 violations; bundle, demo/snapshot drift, changed-Python Ruff and diff checks green. Final Playwright matrix: 42 passed, 2 real-endpoint opt-in skipped across Chromium desktop, WebKit mobile, forced fallback and Firefox. Audit reports 0 errors and 3 explicit stale-cockpit/input warnings; deterministic operation/input compilations still match HEAD. Whole-tree Ruff is not a release gate and retains pre-existing bootstrap/style debt. |
+| Phase 8 - visual validation | `done` | QA evidence package for desktop, mobile, fallback and private read-only pass. | Manual in-app traversal proved one canvas, fixed center, the same 107 canonical inputs and zero document overflow across Quadrants, Radar, Sources and Work. Browser performance separately measured normal 107 (23 interactive, 2 lines, 14 labels, 124 particles, median 13.8 ms, p95 15 ms) and real `dense_stress` 378 (7 interactive, 3 lines, 13 labels, 137 particles, median 13.2 ms, p95 26 ms); mobile p95 was 22 ms. Visual baselines were reviewed and updated intentionally. Playwright recorded no network failures or application errors; four Chromium `ReadPixels` driver warnings remain attached as non-application evidence. Private-pilot read-only evidence remains unchanged. |
+| Phase 9 - downstream repository upgrades | `done` | Consumer inventory, upgrade package, migration reports, pilot/wave status and redacted QA evidence. | Package is pinned to `cb33c7c1`, with inventory, allow/block lists, preflight, report compiler/schema, rollback and compatibility window. Public source is candidate; private pilot is honestly paused until its own clean branch/gate receipts/import report. No private import was performed upstream. |
 | Phase 10 - documentation/release | `done` | README, cockpit README, modular-blocks, extending-the-kit, examples, diagrams and release notes. | Runtime/upgrade guides, README surfaces, extension/block guidance, command reference, release candidate, exact source SHA and PR #61 are versioned. Stable release remains the separate human merge/tag gate above. |
+
+### Post-implementation UX correction ledger - 2026-07-09
+
+This correction pass was opened from direct rendered-browser evidence after
+the initial phase ledger was green. It is part of the v8 acceptance contract,
+not a parallel plan. Each item remains independently statused until its code,
+regression test and browser proof agree.
+
+| Correction stage | Status | Required outcome | Current evidence / blocker |
+| --- | --- | --- | --- |
+| UX-R1 - rendered flow audit | `done` | Reproduce desktop overflow, mission-card compression, navigation ambiguity, quadrant drift and demo-density problems in the real browser. | The reported deep link and `/demo/world` were inspected at desktop/mobile sizes. Measurements captured document overflow, the compressed mission row, view-specific copy drift, a forced Q1 default and selection-as-center leakage before implementation. |
+| UX-R2 - viewport and next-step surface | `done` | No document scrollbar in supported desktop viewports; the left surface must remain readable and secondary actions must not compress its primary copy. | The shell now consumes the exact remaining flex height. `MissionCard` is a neutral Next steps surface with view/overlay context, full-width primary copy and a dedicated action band; mobile starts collapsed and can reopen as an overlay. Playwright covers 1600x780, 1366x768 and CTA geometry. |
+| UX-R3 - unified view/lens/overlay navigation | `done` | One visible navigator must explain and operate the three independent axes without duplicate v8 navigation. | Navigator + Guide explain four views, five lenses and six overlays; Sources and Work are native geometries. Shortcuts 1-4, Next steps, reader/docks/fallback and URLs write the same canonical `/demo/w` grammar; the canvas/center persist and all world controls are inert behind Guide, coach, docks and reader. |
+| UX-R4 - stable quadrant semantics | `done` | Items occupy deterministic 2x2 territories; selection never recenters; Q1-Q4 work in every view without moving item positions or remounting the canvas. | Quadrants uses deterministic 2x2 territories and a fixed real center; selection never recenters. Q1-Q4 work in all four views without moving positions or remounting the canvas, and every view receives the same 107-node canonical graph. Assertions cover exact totals (`shown + hidden = total`, including the 73-item stress case) and capped Source/Work samples stay distributed around their full perimeter. |
+| UX-R5 - instructional demo | `done` | First-time learning, free exploration and from-zero formation must be distinct entry paths; normal use must not start in stress-test density. | `/demo` exposes Guided (`tour=1`), Explore (`tour=0`) and Genesis. `normal_operations` is the 107-page default; `dense_stress` is an explicit 378-page universe. Scenario/tour are allowlisted, route writes preserve scenario/tour/genesis/stage/q/filter/packet, and App switches live bundles without leaving the selected demo path. |
+| UX-R6 - final regression and visual gate | `in_progress` | Full Python/frontend/gate suites, browser regression projects, demo drift, no console/network regressions and final plan/PR evidence. | All local repository/frontend/browser gates are green with the Phase 7/8 evidence above. Payload `cb33c7c1` and this metadata update still need publication to PR #61 and green CI on the new remote head before this correction stage can close. |
 
 ## Workstreams And Dependencies
 

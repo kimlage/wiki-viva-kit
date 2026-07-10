@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`7062960647ca0c619396357d73f9e03855891f8c` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`cb33c7c1876011f7c2f5b4a9c7bdee39855ef158` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 
 ## Product boundary
