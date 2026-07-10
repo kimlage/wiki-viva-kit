@@ -4923,11 +4923,11 @@ pre {
      stable semantic family handles in their own quadrant lanes so their full
      44px touch targets never compete for the same pixels. */
   .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:source"] {
-    translate: -55px -15px;
+    translate: -55px -25px;
   }
 
   .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:event"] {
-    translate: 15px 5px;
+    translate: 5px 5px;
   }
 
   .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:person"] {
@@ -4935,11 +4935,11 @@ pre {
   }
 
   .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:hub"] {
-    translate: 70px -50px;
+    translate: 80px -50px;
   }
 
   .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:content"] {
-    translate: 10px -10px;
+    translate: 10px 8px;
   }
 
   .worldWorkspace[data-world-lens="q2_pratica"] [data-world-target-kind="group"][data-world-target-id="family:source"] {
@@ -6460,6 +6460,62 @@ pre {
 
   .worldWorkspace[data-world-fallback-active="false"] .worldMissionSlim {
     bottom: calc(var(--world-command-bar-height, 130px) + 4px);
+  }
+
+  /* Short phone canvases compress the projected family territories into a
+     shallow band. Keep the group landmarks as honest 44px semantic controls
+     (glyph + count, full accessible name) instead of letting their desktop
+     captions cover one another and redirect a tap to a neighboring family. */
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .radarLabel .nodeGroupLabelSatellite.nodeCompactLabel {
+    position: relative;
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 3px;
+    justify-content: center;
+    gap: 0;
+    overflow: visible;
+    border-radius: 50%;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel strong,
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel .nodeOverlaySignal,
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel .nodeGroupStateRail,
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel .nodeGroupComposition {
+    display: none;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel .nodeVisualGlyph {
+    min-width: 28px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    .nodeGroupLabelSatellite.nodeCompactLabel em {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
+    display: inline-grid;
+    min-width: 18px;
+    height: 18px;
+    max-width: 28px;
+    place-items: center;
+    padding: 0 4px;
+    border: 1px solid rgba(127, 208, 232, 0.35);
+    background: rgba(5, 10, 14, 0.94);
+    font-size: 9px;
+    line-height: 1;
   }
 
   .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]

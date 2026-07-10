@@ -458,6 +458,92 @@ test("the mobile world guide owns the viewport and exposes all three axes", asyn
   }
 });
 
+test("short mobile quadrant overview keeps every semantic group target disjoint", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 664 });
+  await prepareCanonicalV8World(page, { view: "quadrants", lens: "all", overlay: "actions" });
+  await rememberCanvas(page);
+
+  const groups = page.locator('.sceneHtmlControl [data-world-target-kind="group"].nodeGroupLabelSatellite');
+  await expect.poll(() => groups.count(), { timeout: 10_000 }).toBeGreaterThan(4);
+
+  const geometry = await groups.evaluateAll((elements) => {
+    const visible = elements.flatMap((element) => {
+      const style = getComputedStyle(element);
+      const bounds = element.getBoundingClientRect();
+      if (style.display === "none" || style.visibility === "hidden" || bounds.width <= 0 || bounds.height <= 0) return [];
+      const hit = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+      const hitControl = hit?.closest<HTMLElement>("[data-world-node-id]") ?? null;
+      return [{
+        nodeId: (element as HTMLElement).dataset.worldNodeId ?? "",
+        id: (element as HTMLElement).dataset.worldTargetId ?? "",
+        quadrant: (element as HTMLElement).dataset.worldQuadrant ?? "",
+        label: element.getAttribute("aria-label") ?? "",
+        hitNodeId: hitControl?.dataset.worldNodeId ?? "",
+        left: bounds.left,
+        right: bounds.right,
+        top: bounds.top,
+        bottom: bounds.bottom,
+        width: bounds.width,
+        height: bounds.height
+      }];
+    });
+    const overlaps = visible.flatMap((entry, index) => visible.slice(index + 1).flatMap((candidate) => {
+      const overlapWidth = Math.min(entry.right, candidate.right) - Math.max(entry.left, candidate.left);
+      const overlapHeight = Math.min(entry.bottom, candidate.bottom) - Math.max(entry.top, candidate.top);
+      return overlapWidth > 1 && overlapHeight > 1
+        ? [{ first: `${entry.quadrant}:${entry.id}:${entry.label}`, second: `${candidate.quadrant}:${candidate.id}:${candidate.label}`, overlapWidth, overlapHeight }]
+        : [];
+    }));
+    return { visible, overlaps, viewport: { width: window.innerWidth, height: window.innerHeight } };
+  });
+
+  await testInfo.attach("short-mobile-quadrant-geometry", {
+    body: Buffer.from(JSON.stringify(geometry, null, 2)),
+    contentType: "application/json"
+  });
+
+  expect(geometry.visible.every((entry) => entry.quadrant)).toBe(true);
+  expect(geometry.visible.every((entry) => entry.label)).toBe(true);
+  expect(geometry.visible.every((entry) => entry.nodeId && entry.hitNodeId === entry.nodeId)).toBe(true);
+  // Fractional transforms can report 43.99998 CSS px for an authored 44px
+  // control. Keep a subpixel tolerance while preserving the 44px contract.
+  expect(geometry.visible.every((entry) => entry.width >= 43.9 && entry.height >= 43.9)).toBe(true);
+  expect(geometry.visible.every((entry) =>
+    entry.left >= -1 && entry.right <= geometry.viewport.width + 1 &&
+    entry.top >= -1 && entry.bottom <= geometry.viewport.height + 1
+  )).toBe(true);
+  expect(geometry.overlaps).toEqual([]);
+
+  const screenshotPath = testInfo.outputPath("short-mobile-quadrant-overview.png");
+  await page.screenshot({ path: screenshotPath });
+  await testInfo.attach("short-mobile-quadrant-overview", { path: screenshotPath, contentType: "image/png" });
+  await expectRememberedCanvas(page);
+
+  const lensByQuadrant: Record<string, NativeLens> = {
+    intencao: "q1_intencao",
+    pratica: "q2_pratica",
+    relacoes: "q3_relacoes",
+    sistemas: "q4_sistemas"
+  };
+  for (const destination of geometry.visible) {
+    const target = page.locator(`[data-world-node-id="${destination.nodeId}"]`);
+    await expect(target).toHaveCount(1);
+    await target.focus();
+    await expect(target).toBeFocused();
+    await target.click();
+    expect(new URL(page.url()).searchParams.get("group")).toBe(destination.id);
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", lensByQuadrant[destination.quadrant]);
+    await expect(page.locator(".worldBreadcrumbs")).toContainText(destination.label);
+    await expect(page.locator(`[data-world-group-summary="${destination.id}"]`)).toBeVisible();
+    await expectRememberedCanvas(page);
+
+    await page.goBack();
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+    await expect(page).not.toHaveURL(/[?&]group=/);
+    await expectRememberedCanvas(page);
+  }
+});
+
 test("the compact quadrant compass can return from a focused lens to all", async ({ page }) => {
   await prepareCanonicalV8World(page, { lens: "q2_pratica" });
   const workspace = page.locator(".worldWorkspace");
@@ -486,6 +572,41 @@ test("the compact quadrant compass can return from a focused lens to all", async
   await expect(q2).toHaveAttribute("aria-pressed", "false");
   await expect(page).toHaveURL(/[?&]lens=all(?:&|$)/);
   await expect(page.locator("canvas")).toHaveCount(1);
+});
+
+test("resolved Markdown links navigate the reader by mouse and keyboard without remounting the world", async ({ page }) => {
+  await prepareCanonicalV8World(page, { lens: "all", overlay: "actions" });
+  await rememberCanvas(page);
+
+  const search = page.locator(".commandSearch input");
+  await search.fill("Enviar proposta para Caio");
+  await search.press("Enter");
+  await expect(page.locator(".readerHead h2")).toHaveText("Enviar proposta para Caio");
+
+  const followMarkdownLink = async (activation: "mouse" | "keyboard") => {
+    const link = page.locator('.readerBody a.readerWikiLink[data-page-id="person-caio-prado"]');
+    await expect(link).toHaveCount(1);
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAccessibleName("Caio Prado");
+    if (activation === "keyboard") {
+      await link.focus();
+      await expect(link).toBeFocused();
+      await link.press("Enter");
+    } else {
+      await link.click();
+    }
+
+    await expect(page).toHaveURL(/[?&]page=person-caio-prado(?:&|$)/);
+    await expect(page.locator(".readerHead h2")).toHaveText("Caio Prado");
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+    await expectRememberedCanvas(page);
+  };
+
+  await followMarkdownLink("mouse");
+  await page.getByRole("button", { name: "Enviar proposta para Caio", exact: true }).click();
+  await expect(page.locator(".readerHead h2")).toHaveText("Enviar proposta para Caio");
+  await followMarkdownLink("keyboard");
 });
 
 test("Alex quadrant journey reaches semantic collections and real pages in two steps without remount or loops", async ({ page }) => {

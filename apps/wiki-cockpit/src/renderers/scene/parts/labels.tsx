@@ -382,6 +382,8 @@ export function NodeLabels({
           <button
             aria-label={labelTitle}
             className={bodyClass}
+            data-world-node-id={node.id}
+            data-world-quadrant={node.quadrant}
             data-world-target-id={node.groupDrill?.group ?? node.groupKey ?? node.id}
             data-world-target-kind={targetKind}
             onClick={(event) => {
@@ -402,6 +404,8 @@ export function NodeLabels({
           <button
             aria-label={labelTitle}
             className={bodyClass}
+            data-world-node-id={node.id}
+            data-world-quadrant={node.quadrant}
             data-world-target-id={node.id}
             data-world-target-kind="page"
             onClick={(event) => {
