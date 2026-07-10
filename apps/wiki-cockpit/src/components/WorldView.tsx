@@ -460,6 +460,7 @@ export function WorldView({
   const [hoverLinkId, setHoverLinkId] = useState<string | null>(null);
   const [walk, setWalk] = useState<{ ids: string[]; step: number } | null>(null);
   const [trailIds, setTrailIds] = useState<string[]>([]);
+  const primarySurfaceOpen = Boolean(worldState.dock || worldState.readerId || route.query.reader);
   const searchRef = useRef<HTMLInputElement>(null);
   const searchRouteTimerRef = useRef<number | null>(null);
   const tourOpenerRef = useRef<HTMLElement | null>(null);
@@ -468,11 +469,14 @@ export function WorldView({
     setTourOpen(true);
   }, []);
 
+  useEffect(() => {
+    if (primarySurfaceOpen && visualPanelOpen) setVisualPanelOpen(false);
+  }, [primarySurfaceOpen, visualPanelOpen]);
+
   // Primary surfaces keep the world visible for context, but the scene and
   // instruments behind them are inert until the surface closes. This is the
   // runtime surface-stack contract, not a per-dock convention.
   useEffect(() => {
-    const primarySurfaceOpen = Boolean(worldState.dock || worldState.readerId || route.query.reader);
     const targetState = new Map<HTMLElement, boolean>();
     document.querySelectorAll<HTMLElement>(".sceneCanvasFrame, .worldCommandBar").forEach((target) => {
       targetState.set(target, primarySurfaceOpen || worldNavigatorOpen);
@@ -1350,6 +1354,7 @@ export function WorldView({
       style={visualWorkspaceStyle}
       aria-label={t("world.aria")}
       data-runtime-mode={worldState.mode}
+      data-primary-surface-open={primarySurfaceOpen ? "true" : "false"}
       data-world-center={worldState.centerId}
       data-world-view={worldState.view}
       data-world-lens={worldState.lens}
@@ -1607,6 +1612,7 @@ export function WorldView({
         />
 
         {/* RIGHT: the in-world reader dock. */}
+        {readerOpen && <div className="readerDockBackdrop" aria-hidden="true" />}
         {readerOpen && selectedPage && (
           <Suspense fallback={<aside className="pageReader" role="status">{t("world.readerLoading")}</aside>}>
           <PageReader

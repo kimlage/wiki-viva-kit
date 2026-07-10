@@ -3002,10 +3002,40 @@ pre {
 
 .worldWorkspace.worldNavigatorOpen .worldMissionCard,
 .worldWorkspace.worldNavigatorOpen .worldMissionSlim,
-.worldWorkspace.worldNavigatorOpen .quadrantCompass,
-.worldWorkspace.worldNavigatorOpen .focusLegend,
 .worldWorkspace.worldNavigatorOpen .worldCommandBar {
   opacity: 0.16;
+  pointer-events: none;
+}
+
+.worldWorkspace.worldNavigatorOpen .quadrantCompass,
+.worldWorkspace.worldNavigatorOpen .focusLegend,
+.worldWorkspace[data-primary-surface-open="true"] .quadrantCompass,
+.worldWorkspace[data-primary-surface-open="true"] .focusLegend {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.worldWorkspace[data-primary-surface-open="true"] .worldMissionCard,
+.worldWorkspace[data-primary-surface-open="true"] .worldMissionSlim {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.worldWorkspace[data-primary-surface-open="true"] .worldNavigator {
+  display: none;
+}
+
+.worldWorkspace[data-primary-surface-open="true"] .visualControlPanel {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.worldWorkspace[data-primary-surface-open="true"] .sceneShell:not(.fallbackMode) .worldBreadcrumbs {
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
@@ -3326,6 +3356,7 @@ pre {
   flex-direction: column;
   gap: 6px;
   align-items: flex-end;
+  transition: opacity 140ms ease, visibility 140ms ease;
 }
 
 .quadrantCompassApprovedTextOnly .quadrantCell,
@@ -4876,20 +4907,31 @@ pre {
 }
 
 /* RIGHT: the in-world reader dock. */
+.readerDockBackdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 62;
+  pointer-events: none;
+  background: rgba(3, 7, 10, 0.24);
+  backdrop-filter: blur(0.6px);
+}
+
 .pageReader {
   position: absolute;
   top: 44px;
   right: 0;
   bottom: 46px;
-  z-index: 32;
-  width: min(38%, 460px);
-  min-width: 300px;
+  z-index: 63;
+  width: clamp(420px, 52vw, 560px);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   border-left: 1px solid #2a3944;
-  background: rgba(7, 13, 19, 0.94);
-  backdrop-filter: blur(10px);
+  background: rgba(7, 13, 19, 0.985);
+  backdrop-filter: blur(12px);
+  box-shadow: -22px 0 56px rgba(0, 0, 0, 0.5);
   outline: none;
+  overflow: hidden;
 }
 
 .fallbackMode .pageReader {
@@ -4931,15 +4973,27 @@ pre {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: 12px;
+  padding: 12px 16px 13px;
   border-bottom: 1px solid #22303a;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(107, 215, 255, 0.09), transparent 36%),
+    rgba(8, 15, 21, 0.86);
+}
+
+.readerHeading {
+  flex: 1;
+  min-width: 0;
 }
 
 .readerHead h2 {
-  margin: 0 0 6px;
-  font-size: 16px;
+  margin: 0 0 9px;
+  max-width: 32ch;
+  font-size: 19px;
+  line-height: 1.18;
+  letter-spacing: -0.015em;
   color: #eaf6fc;
+  overflow-wrap: anywhere;
 }
 
 .readerChips {
@@ -4950,6 +5004,30 @@ pre {
 
 .readerChips .pill {
   font-size: 10px;
+}
+
+.readerIdentityChips {
+  margin-bottom: 8px;
+}
+
+.readerPositionChip {
+  border-color: rgba(94, 230, 183, 0.46);
+  background: rgba(94, 230, 183, 0.08);
+  color: #b9efd9;
+}
+
+.readerStatusLine {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.readerMetaLine {
+  margin-left: 2px;
+  color: #718898;
+  font-size: 10.5px;
+  line-height: 1.35;
 }
 
 .readerClose {
@@ -4967,8 +5045,10 @@ pre {
 }
 
 .readerScroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 10px 12px 14px;
+  padding: 14px 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -4983,10 +5063,24 @@ pre {
   word-break: break-word;
 }
 
+.readerBody > div:first-child > p:first-child {
+  margin-top: 0;
+  color: #dceaf2;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 .readerBody h1,
 .readerBody h3,
 .readerBody h4 {
   color: #eaf6fc;
+}
+
+.readerBody h1 {
+  margin: 8px 0 10px;
+  font-size: 24px;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
 }
 
 .readerBody code {
@@ -5067,9 +5161,23 @@ pre {
 .readerRelations {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 9px;
   border-top: 1px solid #22303a;
   padding-top: 10px;
+}
+
+.readerRelationGroup {
+  padding: 9px 10px;
+  border: 1px solid #1f303b;
+  border-radius: 9px;
+  background: rgba(10, 18, 25, 0.72);
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.readerRelationGroup:hover,
+.readerRelationGroup:focus-within {
+  border-color: rgba(127, 208, 232, 0.4);
+  background: rgba(13, 24, 32, 0.9);
 }
 
 .readerRelationGroup header {
@@ -5092,7 +5200,28 @@ pre {
 }
 
 .readerRelationGroup .textButton small {
+  display: block;
+  margin-top: 2px;
   color: #6f8494;
+  font-size: 10.5px;
+}
+
+.readerRelationGroup .plainList {
+  margin: 7px 0 0;
+}
+
+.readerRelationGroup .textButton {
+  width: 100%;
+  text-align: left;
+  line-height: 1.3;
+}
+
+.readerRelationTitle {
+  display: block;
+  color: #d7e7f0;
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .readerGapMarker {
@@ -5117,8 +5246,79 @@ pre {
 
 .readerActions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  align-items: stretch;
+  overflow: visible;
+}
+
+.readerActions > .secondaryButton {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.readerActions > .secondaryButton span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.readerMoreActions {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.readerMoreActions > summary {
+  display: inline-flex;
+  list-style: none;
+  cursor: pointer;
+}
+
+.readerMoreActions > summary::-webkit-details-marker {
+  display: none;
+}
+
+.readerMoreMenu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 3;
+  display: flex;
+  width: max-content;
+  min-width: 190px;
+  max-width: min(300px, calc(100vw - 32px));
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px;
+  border: 1px solid #2a3c48;
+  border-radius: 9px;
+  background: rgba(8, 15, 21, 0.99);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+
+.readerMoreMenu .secondaryButton {
+  width: 100%;
+  justify-content: flex-start;
+}
+
+.readerActionBar {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border-top: 1px solid #263743;
+  background:
+    linear-gradient(180deg, rgba(14, 25, 33, 0.96), rgba(7, 13, 19, 0.99));
+  box-shadow: 0 -14px 30px rgba(0, 0, 0, 0.2);
+}
+
+.readerActionBar .secondaryButton {
+  min-height: 38px;
+  padding: 7px 10px;
+  font-size: 12.5px;
+  font-weight: 700;
 }
 
 .readerProvenance {
@@ -5387,7 +5587,7 @@ pre {
     z-index: 68;
   }
   .pageReader {
-    width: min(92vw, 460px);
+    width: clamp(400px, 58vw, 520px);
   }
 }
 
@@ -5470,6 +5670,14 @@ pre {
   overflow: visible;
 }
 
+.worldWorkspace[data-primary-surface-open="true"] .sceneShell.fallbackMode .sceneFallback {
+  display: none;
+}
+
+.worldWorkspace[data-primary-surface-open="true"] .sceneShell.fallbackMode .quadrantCompass {
+  display: none;
+}
+
 .sceneShell.fallbackMode .worldTopStrip,
 .sceneShell.fallbackMode .worldCommandBar {
   position: static;
@@ -5521,7 +5729,7 @@ pre {
 .readerBackdrop {
   position: absolute;
   inset: 0;
-  z-index: 47;
+  z-index: 62;
   background: rgba(3, 7, 10, 0.62);
 }
 
@@ -5624,12 +5832,12 @@ pre {
   bottom: 4vh;
   right: 50%;
   transform: translateX(50%);
-  width: min(780px, 94vw);
+  width: min(820px, 94vw);
   min-width: 0;
   border: 1px solid #2f4250;
   border-radius: 12px;
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.65);
-  z-index: 48;
+  z-index: 64;
 }
 
 .pageReader.expanded .readerBody {
@@ -5642,10 +5850,49 @@ pre {
   padding: 16px 28px 24px;
 }
 
+.pageReader.expanded .readerScroll > *,
+.pageReader.expanded .readerActionBar > * {
+  width: 100%;
+  max-width: 68ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 .readerHeadButtons {
   display: flex;
   gap: 4px;
   flex: none;
+}
+
+@media (max-width: 760px) {
+  .pageReader,
+  .pageReader.expanded {
+    inset: 0;
+    width: 100%;
+    min-width: 0;
+    transform: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .readerHead {
+    padding: 11px 12px 12px;
+  }
+
+  .readerScroll,
+  .pageReader.expanded .readerScroll {
+    padding: 12px 12px 18px;
+  }
+
+  .readerActionBar {
+    padding: 8px 10px;
+  }
+
+  .readerActionBar .secondaryButton {
+    gap: 5px;
+    padding: 6px;
+    font-size: 11.5px;
+  }
 }
 
 /* Mermaid diagrams inside the reader. */
@@ -7916,6 +8163,7 @@ pre {
   background: rgba(12, 20, 27, 0.85);
   font-size: 12px;
   color: #b7c9d6;
+  margin: 8px 12px 0;
 }
 .readerIdentityBand strong { color: #eaf4fa; font-size: 12.5px; }
 .readerIdentityBand span:last-child { color: #7f95a4; text-transform: capitalize; }
@@ -7947,9 +8195,120 @@ pre {
 }
 .templatePanel ul { margin: 0; padding-left: 18px; font-size: 12.5px; color: #c4d6e2; }
 .templatePanel li { margin: 2px 0; }
+
+.actionSummaryPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid rgba(94, 230, 183, 0.32);
+  border-radius: 11px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(94, 230, 183, 0.12), transparent 36%),
+    linear-gradient(145deg, rgba(17, 32, 40, 0.96), rgba(9, 17, 23, 0.96));
+  box-shadow: inset 3px 0 rgba(94, 230, 183, 0.62);
+}
+
+.actionSummaryHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.actionSummaryEyebrow,
+.actionNextStepLabel,
+.actionFactGrid dt {
+  color: #7f95a4;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.actionSummaryHead h3 {
+  margin: 2px 0 0;
+  color: #eaf6fc;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.actionNextStep {
+  padding: 9px 10px;
+  border: 1px solid rgba(127, 208, 232, 0.22);
+  border-radius: 8px;
+  background: rgba(127, 208, 232, 0.06);
+}
+
+.actionNextStepLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #87d7ed;
+}
+
+.actionNextStep p {
+  margin: 5px 0 0;
+  color: #e2eef5;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.42;
+}
+
+.actionFactGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+}
+
+.actionFactGrid > div {
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid #20313c;
+  border-radius: 7px;
+  background: rgba(5, 11, 16, 0.38);
+}
+
+.actionFactGrid dt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 3px;
+}
+
+.actionFactGrid dd {
+  margin: 0;
+  color: #d4e4ed;
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .projectionPanel {
   border-color: #2f4350;
   background: #0d151b;
+}
+
+.projectionPanel > summary {
+  display: list-item;
+  min-height: 24px;
+  color: #9fb6c6;
+  cursor: pointer;
+  font-size: 11.5px;
+  list-style-position: inside;
+}
+
+.projectionPanel > summary strong {
+  float: right;
+  margin: 1px 0 0 10px;
+  color: #b9efd9;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.projectionPanel[open] .projectionGrid {
+  margin-top: 10px;
 }
 .projectionGrid {
   display: grid;

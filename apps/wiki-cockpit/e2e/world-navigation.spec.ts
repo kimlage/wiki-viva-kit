@@ -386,6 +386,11 @@ test("visual control easter egg is local configuration, not world navigation", a
   await page.keyboard.press("Enter");
   await expect(page.locator(".visualControlPanel")).toBeVisible({ timeout: 10000 });
   await expect(page).not.toHaveURL(/god_mode|abrachaindabra/);
+
+  await page.locator(".commandSearch input").fill("Alex Rivera");
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10000 });
+  await expect(page.locator(".visualControlPanel")).toHaveCount(0);
 });
 
 test("hovering real scene objects inspects without navigating the world", async ({ page }) => {

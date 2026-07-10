@@ -123,12 +123,15 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
     await page.locator(".commandSearch input").press("Enter");
     await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10_000 });
     await expect(page.locator(".readerHead h2")).toHaveText(longTitle);
+    await expect(page.locator(".quadrantCompass")).toBeHidden();
+    await expect(page.locator(".worldNavigator")).toBeHidden();
     await expectMobileViewportBounded(page, ".pageReader");
     await expectNoMobileTextClipping(page, [
       ".worldBreadcrumbs strong",
       ".worldMeta span",
       ".readerHead h2",
       ".readerChips .pill",
+      ".readerActionBar .secondaryButton span",
       ".dockHeader strong",
       ".dockTelemetryTop small",
       ".dockTelemetryTop strong"
@@ -185,6 +188,8 @@ test("WebKit mobile keeps the same semantic route in reduced-motion fallback", a
   await expect(node).toBeVisible();
   await node.tap();
   await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".quadrantCompass")).toBeHidden();
+  expect(await page.locator(".sceneShell").evaluate((shell) => shell.scrollWidth - shell.clientWidth)).toBeLessThanOrEqual(1);
   const close = page.locator(".pageReader .readerClose").last();
   await expectTouchTarget(close);
   await close.tap();

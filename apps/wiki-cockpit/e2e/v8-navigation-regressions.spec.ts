@@ -187,6 +187,65 @@ test("global view shortcuts stay suspended under the coach, docks and reader", a
   await expectViewShortcutBlocked(page, "quadrants");
 });
 
+test("dense action reader owns the foreground and starts with decision-ready information", async ({ page }) => {
+  await page.setViewportSize({ width: 917, height: 908 });
+  await page.addInitScript(() => {
+    window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+    window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
+  });
+  await page.goto(
+    "/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions" +
+    "&page=action-region-pressure-004&reader=1&demo_scenario=dense_stress&tour=0"
+  );
+
+  const workspace = page.locator(".worldWorkspace");
+  const reader = page.locator(".pageReader");
+  const compass = page.locator(".quadrantCompass");
+  await expect(reader).toBeVisible({ timeout: 20_000 });
+  await expect(workspace).toHaveAttribute("data-primary-surface-open", "true");
+  await expect(reader).toHaveAttribute("aria-modal", "true");
+  await expect(compass).toBeHidden();
+  await expect(compass).toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator(".readerHead h2")).toHaveText(
+    "Ação que aguarda julgamento humano sobre evidência sintética de alta densidade 004"
+  );
+  await expect(page.locator(".readerBody h1")).toHaveCount(0);
+  await expect(page.locator(".actionSummaryPanel")).toContainText("Waiting for human");
+  await expect(page.locator(".actionNextStep")).toContainText(
+    "Review the linked synthetic evidence and leave a human-gated receipt."
+  );
+  await expect(page.locator(".readerActionBar")).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    const readerElement = document.querySelector<HTMLElement>(".pageReader");
+    const compassElement = document.querySelector<HTMLElement>(".quadrantCompass");
+    if (!readerElement || !compassElement) throw new Error("reader surface geometry unavailable");
+    const readerRect = readerElement.getBoundingClientRect();
+    const compassRect = compassElement.getBoundingClientRect();
+    const left = Math.max(readerRect.left, compassRect.left);
+    const right = Math.min(readerRect.right, compassRect.right);
+    const top = Math.max(readerRect.top, compassRect.top);
+    const bottom = Math.min(readerRect.bottom, compassRect.bottom);
+    const hit = left < right && top < bottom
+      ? document.elementFromPoint((left + right) / 2, (top + bottom) / 2)
+      : null;
+    return {
+      readerWidth: readerRect.width,
+      intersectionArea: Math.max(0, right - left) * Math.max(0, bottom - top),
+      compassVisibility: getComputedStyle(compassElement).visibility,
+      compassOpacity: Number(getComputedStyle(compassElement).opacity),
+      overlapOwner: hit?.closest(".pageReader, .quadrantCompass")?.classList.contains("pageReader") ?? false,
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth
+    };
+  });
+  expect(geometry.readerWidth).toBeGreaterThanOrEqual(420);
+  expect(geometry.intersectionArea).toBeGreaterThan(0);
+  expect(geometry.compassVisibility).toBe("hidden");
+  expect(geometry.compassOpacity).toBe(0);
+  expect(geometry.overlapOwner).toBe(true);
+  expect(geometry.documentOverflow).toBeLessThanOrEqual(1);
+});
+
 test("Work accepts the Freshness overlay without route normalization", async ({ page }) => {
   await prepareCanonicalV8World(page, { view: "work", overlay: "freshness" });
   const workspace = page.locator(".worldWorkspace");

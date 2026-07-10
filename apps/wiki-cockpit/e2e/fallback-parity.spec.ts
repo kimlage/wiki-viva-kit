@@ -9,6 +9,9 @@ async function openSearchResult(page: Page, title: string) {
   await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10_000 });
   await expect(page.locator(".readerHead h2")).toHaveText(title);
   await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
+  await expect(page.locator(".quadrantCompass")).toBeHidden();
+  await expect(page.locator(".worldNavigator")).toBeHidden();
+  expect(await page.locator(".sceneShell").evaluate((shell) => shell.scrollWidth - shell.clientWidth)).toBeLessThanOrEqual(1);
   await page.locator(".pageReader .readerClose").last().click();
   await expect(page.locator(".pageReader")).toHaveCount(0);
 }

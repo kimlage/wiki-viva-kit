@@ -56,6 +56,94 @@ afterEach(() => {
 });
 
 describe("PageReader", () => {
+  it("keeps one page title when the Markdown starts with the same H1", async () => {
+    contentByCase.current = {
+      ok: true,
+      body: "# alpha\n\nThe useful summary starts here.",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    const { container } = render(<PageReader {...baseProps} pageId="alpha" />);
+
+    await screen.findByText("The useful summary starts here.");
+    expect(screen.getAllByRole("heading", { name: "alpha" })).toHaveLength(1);
+    expect(container.querySelector(".readerBody h1")).toBeNull();
+    expect(screen.getByRole("dialog").getAttribute("aria-modal")).toBe("true");
+    expect(screen.getByRole("button", { name: "Comfortable reading (F)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Close reader (Esc)" })).toBeTruthy();
+  });
+
+  it("puts compiled action state and next action before prose and omits empty relation groups", async () => {
+    contentByCase.current = {
+      ok: true,
+      body: "# Human decision\n\nSupporting prose.",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    const actionPage = page("human-decision", {
+      title: "Human decision",
+      page_type: "action",
+      source_refs: []
+    });
+    const actionBundle = {
+      ...bundle,
+      actions: {
+        actions: [{
+          id: "graph-check",
+          kind: "command",
+          title: "Connections",
+          human_reason: "Inspect links",
+          risk_level: "read",
+          default_dry_run: true,
+          commands: []
+        }]
+      },
+      pages: { pages: [actionPage] },
+      workItems: {
+        schema_version: "wiki_web_work_items.v1",
+        actions: [{
+          action_id: "human-decision",
+          page_id: "human-decision",
+          state: "waiting_human",
+          due_at: "2026-06-15",
+          overdue: true,
+          next_action: "Review the evidence and leave a receipt.",
+          owner: { kind: "human", ref: "reviewer" },
+          priority: "high",
+          evidence_refs: ["artifact-1"]
+        }]
+      }
+    } as unknown as SnapshotBundle;
+    const { container } = render(
+      <PageReader {...baseProps} bundle={actionBundle} pageId="human-decision" onRunOperatorCommand={vi.fn()} />
+    );
+
+    await screen.findByText("Supporting prose.");
+    expect(screen.getByText("Waiting for human")).toBeTruthy();
+    expect(screen.getByText("Overdue action")).toBeTruthy();
+    expect(screen.getByText("Review the evidence and leave a receipt.")).toBeTruthy();
+    expect(screen.getByText("reviewer")).toBeTruthy();
+    expect(screen.getByText("High")).toBeTruthy();
+    const summary = container.querySelector(".actionSummaryPanel");
+    const body = container.querySelector(".readerBody");
+    expect(summary).toBeTruthy();
+    expect(body).toBeTruthy();
+    expect(summary!.compareDocumentPosition(body!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelector(".readerRelations")).toBeNull();
+    expect(container.querySelector(".readerActionBar")).toBeTruthy();
+
+    const dock = container.querySelector<HTMLElement>(".pageReader")!;
+    const firstControl = container.querySelector<HTMLElement>(".readerTypeChip")!;
+    const more = screen.getByText("More").closest("summary") as HTMLElement;
+    firstControl.focus();
+    fireEvent.keyDown(dock, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(more);
+    fireEvent.keyDown(dock, { key: "Tab" });
+    expect(document.activeElement).toBe(firstControl);
+  });
+
   it("sanitizes hostile markdown: scripts and event handlers never reach the DOM", async () => {
     contentByCase.current = {
       ok: true,
@@ -137,12 +225,12 @@ describe("PageReader", () => {
     expect(screen.getByText(/full text available with the local operator/)).toBeTruthy();
   });
 
-  it("shows grouped typed relations with true counts (Hierarchy counts the child)", async () => {
+  it("shows populated typed relations with true counts and omits empty groups", async () => {
     contentByCase.current = { ok: true, body: "corpo", resolved_links: [], backlinks: [], source_refs: [] };
     render(<PageReader {...baseProps} pageId="alpha" />);
     await screen.findByText("Hierarchy");
-    expect(screen.getByText("Evidence")).toBeTruthy();
-    expect(screen.getByText("Cited by")).toBeTruthy();
+    expect(screen.queryByText("Evidence")).toBeNull();
+    expect(screen.queryByText("Cited by")).toBeNull();
     // beta has moc_parent = alpha → shows under Hierarquia as "abaixo".
     expect(screen.getByRole("button", { name: /beta/ })).toBeTruthy();
   });
