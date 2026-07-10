@@ -218,7 +218,11 @@ export function WorldNavigator({
             </ol>
           </section>
 
-          <section className="worldNavigatorSection" aria-labelledby={`${resolvedPanelId}-views`}>
+          <section
+            className="worldNavigatorSection"
+            aria-labelledby={`${resolvedPanelId}-views`}
+            data-experience-section="views"
+          >
             <header>
               <h3 id={`${resolvedPanelId}-views`}>{translate(WORLD_EXPERIENCE_KEYS.viewsTitle)}</h3>
               <p>{translate(WORLD_EXPERIENCE_KEYS.viewsIntro)}</p>
@@ -248,7 +252,11 @@ export function WorldNavigator({
             </div>
           </section>
 
-          <section className="worldNavigatorSection" aria-labelledby={`${resolvedPanelId}-lenses`}>
+          <section
+            className="worldNavigatorSection"
+            aria-labelledby={`${resolvedPanelId}-lenses`}
+            data-experience-section="lenses"
+          >
             <header>
               <h3 id={`${resolvedPanelId}-lenses`}>{translate(WORLD_EXPERIENCE_KEYS.lensesTitle)}</h3>
               <p>{translate(WORLD_EXPERIENCE_KEYS.lensesIntro)}</p>
@@ -274,7 +282,11 @@ export function WorldNavigator({
             </div>
           </section>
 
-          <section className="worldNavigatorSection" aria-labelledby={`${resolvedPanelId}-overlays`}>
+          <section
+            className="worldNavigatorSection"
+            aria-labelledby={`${resolvedPanelId}-overlays`}
+            data-experience-section="overlays"
+          >
             <header>
               <h3 id={`${resolvedPanelId}-overlays`}>{translate(WORLD_EXPERIENCE_KEYS.overlaysTitle)}</h3>
               <p>{translate(WORLD_EXPERIENCE_KEYS.overlaysIntro)}</p>

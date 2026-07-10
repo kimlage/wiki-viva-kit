@@ -1091,6 +1091,10 @@ export function WorldView({
     });
     return { quadrants: SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0, region: activeRegionPayloads.get(facet) })), core };
   }, [activeQuadrantAnchor, activeQuadrantAnchorId, activeRegionPayloads, bundle.graph, quadrantHomes]);
+  const quadrantTotal = useMemo(
+    () => quadrantCounts.quadrants.reduce((total, quadrant) => total + quadrant.count, quadrantCounts.core),
+    [quadrantCounts]
+  );
 
   // The world's condition — the honest ambient readout (weather is set from it in
   // the scene). Every segment is a real count that flies to the act point.
@@ -1264,8 +1268,12 @@ export function WorldView({
     const canonicalLens = facet === "intencao" ? "q1_intencao" : facet === "pratica" ? "q2_pratica" : facet === "relacoes" ? "q3_relacoes" : "q4_sistemas";
     const active = worldState.lens === canonicalLens;
     setPreviewQuadrant(null);
-    if (!active) dispatchRuntime({ type: "setLens", lens: canonicalLens });
-    if (!active && route.demo && route.query.genesis && genesisQuadrantMatches(route.query.stage, facet)) {
+    if (active) {
+      dispatchRuntime({ type: "setLens", lens: "all" });
+      return;
+    }
+    dispatchRuntime({ type: "setLens", lens: canonicalLens });
+    if (route.demo && route.query.genesis && genesisQuadrantMatches(route.query.stage, facet)) {
       window.setTimeout(() => goStage(route.query.stage + 1), 850);
     }
   };
@@ -1644,6 +1652,7 @@ export function WorldView({
                     title={instrumentLabel}
                     type="button"
                     data-wilber-quadrant={SCENE_FACETS.indexOf(facet) + 1}
+                    aria-pressed={selectedQuadrantFacet === facet}
                     aria-label={instrumentLabel.replace(/\n/g, ". ")}
                   >
                     <span className="quadrantAreaDot" style={quadrantHealthStyle(region, count)} aria-hidden />
@@ -1672,9 +1681,22 @@ export function WorldView({
                 );
               })}
             </div>
-            {quadrantCounts.core > 0 && (
-              <span className="quadrantCore">{t("quadrant.core")} · {quadrantCounts.core}</span>
-            )}
+            <div className="quadrantCompassFooter">
+              <button
+                className={!selectedQuadrantFacet ? "quadrantAll active" : "quadrantAll"}
+                type="button"
+                aria-pressed={!selectedQuadrantFacet}
+                data-quadrant-all
+                title={t("world.experience.lens.all.description")}
+                onClick={() => dispatchRuntime({ type: "setLens", lens: "all" })}
+              >
+                <span>{t("world.experience.lens.all.label")}</span>
+                <small>{quadrantTotal}</small>
+              </button>
+              {quadrantCounts.core > 0 && (
+                <span className="quadrantCore">{t("quadrant.core")} · {quadrantCounts.core}</span>
+              )}
+            </div>
             <button
               className="quadrantSeed"
               onClick={() => navigateWorld({ dock: "create", lens: selectedQuadrantFacet, quadrant: null })}

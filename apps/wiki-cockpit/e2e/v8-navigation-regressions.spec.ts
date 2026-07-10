@@ -4,12 +4,13 @@ import { expect, test } from "./fixtures";
 const NATIVE_VIEWS = ["quadrants", "radar", "sources", "work"] as const;
 type NativeView = (typeof NATIVE_VIEWS)[number];
 type NativeOverlay = "attention" | "freshness" | "actions" | "ownership" | "evidence" | "quality";
+type NativeLens = "all" | "q1_intencao" | "q2_pratica" | "q3_relacoes" | "q4_sistemas";
 
 test.describe.configure({ timeout: 90_000 });
 
 async function prepareCanonicalV8World(
   page: Page,
-  options: { view?: NativeView; overlay?: NativeOverlay; missionCard?: "open" | "closed"; group?: string } = {}
+  options: { view?: NativeView; lens?: NativeLens; overlay?: NativeOverlay; missionCard?: "open" | "closed"; group?: string } = {}
 ) {
   await page.addInitScript(({ missionCard }) => {
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
@@ -18,12 +19,14 @@ async function prepareCanonicalV8World(
     window.localStorage.removeItem("wikiCockpitVisualControl.v2");
   }, { missionCard: options.missionCard ?? "closed" });
   const view = options.view ?? "quadrants";
+  const lens = options.lens ?? "all";
   const overlay = options.overlay ?? (view === "radar" ? "freshness" : "actions");
   const group = options.group ? `&group=${encodeURIComponent(options.group)}` : "";
-  await page.goto(`/demo/w?center=root-alex-rivera&view=${view}&lens=all&overlay=${overlay}${group}&tour=0`);
+  await page.goto(`/demo/w?center=root-alex-rivera&view=${view}&lens=${lens}&overlay=${overlay}${group}&tour=0`);
   const workspace = page.locator(".worldWorkspace");
   await expect(workspace).toHaveAttribute("data-runtime-mode", "v8", { timeout: 20_000 });
   await expect(workspace).toHaveAttribute("data-world-view", view);
+  await expect(workspace).toHaveAttribute("data-world-lens", lens);
   await expect(workspace).toHaveAttribute("data-world-overlay", overlay);
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
   await expect(page.locator(".sceneShell canvas")).toHaveCount(1, { timeout: 20_000 });
@@ -219,6 +222,79 @@ test("the world explanation makes every behind-world control inert", async ({ pa
     await expect(target).not.toHaveAttribute("aria-hidden", "true");
     expect(await target.evaluate((element) => (element as HTMLElement).inert), selector).toBe(false);
   }
+});
+
+test("the mobile world guide owns the viewport and exposes all three axes", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await prepareCanonicalV8World(page, { missionCard: "open" });
+  await page.locator(".worldNavigatorLearn").click();
+
+  const panel = page.locator(".worldNavigatorPanel");
+  const mission = page.locator(".worldMissionCard");
+  await expect(panel).toBeVisible();
+  await expect(page.locator("[data-experience-section]")).toHaveCount(3);
+  await expect(mission).toBeHidden();
+
+  const geometry = await panel.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      top: rect.top,
+      bottom: rect.bottom,
+      viewportHeight: window.innerHeight,
+      scrollable: element.scrollHeight > element.clientHeight
+    };
+  });
+  expect(geometry.top).toBeGreaterThanOrEqual(60);
+  expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
+  expect(geometry.scrollable).toBe(true);
+
+  for (const axis of ["views", "lenses", "overlays"] as const) {
+    const section = page.locator(`[data-experience-section="${axis}"]`);
+    await section.scrollIntoViewIfNeeded();
+    const hitTest = await section.evaluate((element) => {
+      const header = element.querySelector("header") ?? element;
+      const rect = header.getBoundingClientRect();
+      const x = Math.min(window.innerWidth - 1, Math.max(0, rect.left + Math.min(rect.width / 2, 40)));
+      const y = Math.min(window.innerHeight - 1, Math.max(0, rect.top + Math.min(rect.height / 2, 20)));
+      const hit = document.elementFromPoint(x, y);
+      return {
+        withinViewport: rect.top >= 0 && rect.bottom <= window.innerHeight,
+        belongsToPanel: Boolean(hit?.closest(".worldNavigatorPanel"))
+      };
+    });
+    expect(hitTest.withinViewport, axis).toBe(true);
+    expect(hitTest.belongsToPanel, axis).toBe(true);
+  }
+});
+
+test("the compact quadrant compass can return from a focused lens to all", async ({ page }) => {
+  await prepareCanonicalV8World(page, { lens: "q2_pratica" });
+  const workspace = page.locator(".worldWorkspace");
+  const all = page.locator("[data-quadrant-all]");
+  const q2 = page.locator('[data-wilber-quadrant="2"]');
+  await expect(workspace).toHaveAttribute("data-world-lens", "q2_pratica");
+  await expect(all).toHaveAttribute("aria-pressed", "false");
+  await expect(q2).toHaveAttribute("aria-pressed", "true");
+
+  await q2.click();
+
+  await expect(workspace).toHaveAttribute("data-world-lens", "all");
+  await expect(all).toHaveAttribute("aria-pressed", "true");
+  await expect(q2).toHaveAttribute("aria-pressed", "false");
+
+  await q2.click();
+
+  await expect(workspace).toHaveAttribute("data-world-lens", "q2_pratica");
+  await expect(all).toHaveAttribute("aria-pressed", "false");
+  await expect(q2).toHaveAttribute("aria-pressed", "true");
+
+  await all.click();
+
+  await expect(workspace).toHaveAttribute("data-world-lens", "all");
+  await expect(all).toHaveAttribute("aria-pressed", "true");
+  await expect(q2).toHaveAttribute("aria-pressed", "false");
+  await expect(page).toHaveURL(/[?&]lens=all(?:&|$)/);
+  await expect(page.locator("canvas")).toHaveCount(1);
 });
 
 test("global view shortcuts stay suspended under the coach, docks and reader", async ({ page }) => {

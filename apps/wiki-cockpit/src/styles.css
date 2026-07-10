@@ -2938,15 +2938,17 @@ pre {
 }
 
 .worldNavigatorPanel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
+  top: max(70px, calc(env(safe-area-inset-top) + 12px));
+  right: 14px;
+  bottom: max(14px, env(safe-area-inset-bottom));
   z-index: 90;
-  display: flex;
-  width: min(760px, calc(100vw - 32px));
-  max-height: min(720px, calc(100dvh - 176px));
-  flex-direction: column;
-  gap: 16px;
+  display: grid;
+  width: min(1080px, calc(100vw - 28px));
+  max-height: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: 14px;
   overflow: auto;
   overscroll-behavior: contain;
   padding: 18px;
@@ -2976,6 +2978,11 @@ pre {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+.worldNavigatorPanelHeader,
+.worldNavigatorMentalModel {
+  grid-column: 1 / -1;
 }
 
 .worldNavigatorPanel h2,
@@ -3076,8 +3083,10 @@ pre {
   gap: 8px;
 }
 
-.worldNavigatorOverlayCards {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.worldNavigatorViewCards,
+.worldNavigatorOverlayCards,
+.worldNavigatorLensGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .worldNavigatorCard,
@@ -3134,7 +3143,6 @@ pre {
 
 .worldNavigatorLensGrid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 7px;
 }
 
@@ -3145,7 +3153,8 @@ pre {
 .worldWorkspace.worldNavigatorOpen .worldMissionCard,
 .worldWorkspace.worldNavigatorOpen .worldMissionSlim,
 .worldWorkspace.worldNavigatorOpen .worldCommandBar {
-  opacity: 0.16;
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
@@ -3182,7 +3191,13 @@ pre {
 }
 
 .worldWorkspace.worldNavigatorOpen .worldTopStrip {
+  z-index: 96;
   overflow: visible;
+  /* backdrop-filter creates a fixed-position containing block. Disable it
+     while the guide is open so its fixed sheet is sized to the viewport,
+     rather than to the 69px top strip. */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .runtimeControl {
@@ -3218,6 +3233,16 @@ pre {
   background: #09131c;
   color: #e6f2f8;
   font: inherit;
+}
+
+@media (min-width: 761px) and (max-width: 1000px) {
+  .worldNavigatorPanel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .worldNavigatorSection[data-experience-section="overlays"] {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 760px) {
@@ -3309,12 +3334,21 @@ pre {
   }
 
   .worldNavigatorPanel {
-    top: calc(100% + 6px);
-    right: 0;
-    width: 100%;
-    max-height: calc(100dvh - 320px);
+    top: max(70px, calc(env(safe-area-inset-top) + 12px));
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 12px;
+    width: auto;
+    max-height: none;
+    grid-template-columns: 1fr;
     padding: 14px;
     border-radius: 14px;
+  }
+
+  .worldNavigatorPanelHeader,
+  .worldNavigatorMentalModel,
+  .worldNavigatorSection {
+    grid-column: 1;
   }
 
   .worldNavigatorMentalModel ol,
@@ -4291,6 +4325,49 @@ pre {
   padding-right: 4px;
 }
 
+.quadrantCompassFooter {
+  display: flex;
+  width: 320px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quadrantCompass.drillMode .quadrantCompassFooter {
+  width: 300px;
+}
+
+.quadrantCompass.familyDrillMode .quadrantCompassFooter {
+  width: 244px;
+}
+
+.quadrantAll {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1px solid rgba(127, 208, 232, 0.22);
+  border-radius: 999px;
+  background: rgba(8, 15, 21, 0.82);
+  color: #a9bfcb;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  transition: border-color var(--motion-duration-feedback) var(--motion-easing-feedback), background var(--motion-duration-feedback) var(--motion-easing-feedback), color var(--motion-duration-feedback) var(--motion-easing-feedback);
+}
+
+.quadrantAll small {
+  color: #6f8494;
+}
+
+.quadrantAll:hover,
+.quadrantAll.active {
+  border-color: rgba(127, 208, 232, 0.64);
+  background: rgba(127, 208, 232, 0.12);
+  color: #e6f2f8;
+}
+
 /* Quadrant SCOPE chip — shows in radar/districts when the AQAL selection is
    carried in, one click to clear. Top-right, same rail as the compass. */
 .quadrantScopeChip {
@@ -4385,6 +4462,16 @@ pre {
     width: min(340px, calc(100vw - 34px));
     gap: 4px;
     padding: 5px;
+  }
+
+  .quadrantCompassFooter,
+  .quadrantCompass.drillMode .quadrantCompassFooter,
+  .quadrantCompass.familyDrillMode .quadrantCompassFooter {
+    width: min(340px, calc(100vw - 34px));
+  }
+
+  .quadrantAll {
+    min-height: 44px;
   }
 
   .quadrantTextCell {

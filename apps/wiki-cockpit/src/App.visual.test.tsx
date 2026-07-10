@@ -391,6 +391,11 @@ describe("visual route contract", () => {
         demoScenario: "dense_stress"
       });
     });
+    // The loader mock resolves immediately. Wait for the route subscription and
+    // world shell to commit before simulating an in-document navigation; under
+    // the full parallel suite, dispatching on the loader call alone can race the
+    // navigation effect and turn this regression test into a timing flake.
+    expect(await screen.findByLabelText("3D knowledge world")).toBeTruthy();
 
     browserApplication.navigation.dispatch({
       type: "navigate",

@@ -88,6 +88,7 @@ describe("WorldNavigator", () => {
 
     expect(screen.getByRole("region", { name: "Understand this world" })).toBeTruthy();
     expect(container.querySelectorAll("[data-experience-axis]")).toHaveLength(3);
+    expect(container.querySelectorAll("[data-experience-section]")).toHaveLength(3);
     expect(container.querySelectorAll("[data-view-card]")).toHaveLength(4);
     expect(container.querySelectorAll("[data-overlay-card]")).toHaveLength(6);
     expect(container.querySelectorAll("[data-lens-option]")).toHaveLength(5);

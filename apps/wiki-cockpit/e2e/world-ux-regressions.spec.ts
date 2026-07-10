@@ -3,7 +3,8 @@ import { expect, test } from "./fixtures";
 
 const DESKTOP_VIEWPORTS = [
   { width: 1600, height: 780 },
-  { width: 1366, height: 768 }
+  { width: 1366, height: 768 },
+  { width: 1280, height: 720 }
 ] as const;
 
 const NATIVE_VIEWS = ["quadrants", "radar", "sources", "work"] as const;
