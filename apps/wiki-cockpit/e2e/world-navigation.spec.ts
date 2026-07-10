@@ -410,12 +410,14 @@ test("hovering real scene objects inspects without navigating the world", async 
   await expectSingleWorld(page);
 });
 
-test("quadrant lens disappears when the centered page does not declare quadrants", async ({ page }) => {
+test("selecting a page keeps the declared quadrant center and its lenses", async ({ page }) => {
   await prepareWorld(page, "/demo/w/quadrants/system/family%3Aperson/person-caio-prado?center=root-alex-rivera&lens=pratica&group=family%3Aperson");
 
   await expectSingleWorld(page);
-  await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-perspective", "focus");
-  await expect(page.locator(".quadrantCompass")).toHaveCount(0);
+  await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-perspective", "quadrants");
+  await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-center", "root-alex-rivera");
+  await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-center-has-quadrants", "true");
+  await expect(page.locator(".quadrantCompass")).toBeVisible();
   await expect(page.locator(".quadrantScopeChip")).toHaveCount(0);
   await expect(page.locator(".worldBreadcrumbs")).toContainText("Caio Prado");
 });

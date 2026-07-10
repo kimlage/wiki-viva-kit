@@ -7,6 +7,7 @@ export const VIEW_IDS = [...NATIVE_VIEWS, ...COMPAT_VIEWS] as const;
 export type ViewId = (typeof VIEW_IDS)[number];
 
 export const LENS_IDS = [
+  "all",
   "q1_intencao",
   "q2_pratica",
   "q3_relacoes",

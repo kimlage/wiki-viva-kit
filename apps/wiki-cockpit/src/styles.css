@@ -1042,7 +1042,12 @@ button.stripChip:hover {
   min-height: 280px;
   padding: 22px;
   display: grid;
-  align-content: center;
+  /* A fallback can be taller than its own scrollport. Centering an
+     overflowing grid gives the first rows a negative block offset in WebKit,
+     so the summary exists in the DOM but is clipped above the scrollport.
+     Start alignment keeps the first navigation landmark reachable at
+     scrollTop 0 on both desktop and mobile reduced-motion routes. */
+  align-content: start;
   gap: 18px;
   overflow: auto;
 }
@@ -2559,10 +2564,22 @@ pre {
    destination now, so the shell is a single full-bleed column. */
 .worldShellMode {
   grid-template-columns: minmax(0, 1fr);
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .worldShellMode .mainColumn {
-  min-height: 100vh;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.worldShellMode .topBar,
+.worldShellMode .demoBanner {
+  flex: 0 0 auto;
 }
 
 .worldWorkspace {
@@ -2572,6 +2589,9 @@ pre {
   --visual-motion: 1;
   --visual-ui-scale: 1;
   --visual-glass: 1;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 10px 14px 14px;
 }
 
@@ -2622,13 +2642,14 @@ pre {
 }
 
 .worldWorkspace .sceneShell {
-  height: calc(100vh - 96px);
-  min-height: 520px;
+  height: 100%;
+  min-height: 0;
 }
 
 .worldWorkspace .sceneShell.fallbackMode {
-  height: auto;
-  min-height: 520px;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
 }
 
 /* Narrow viewports: the nav collapses to a top row and the header stack grows,
@@ -2636,9 +2657,7 @@ pre {
    the shell flex into exactly the leftover space instead. */
 @media (max-width: 980px) {
   .worldShellMode .mainColumn {
-    display: flex;
-    flex-direction: column;
-    min-height: 100dvh;
+    min-height: 0;
   }
   .worldShellMode .worldWorkspace {
     flex: 1 1 auto;
@@ -2750,6 +2769,250 @@ pre {
   backdrop-filter: blur(10px);
 }
 
+/* One navigator, three independent axes. The compact row changes state; the
+   guide panel explains the model without replacing or rebuilding the scene. */
+.worldNavigator {
+  position: relative;
+  z-index: 72;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.worldNavigator .worldRuntimeControls {
+  margin-left: 0;
+}
+
+.worldNavigatorView,
+.worldNavigatorLearn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.worldNavigatorView svg,
+.worldNavigatorLearn svg {
+  flex: 0 0 auto;
+}
+
+.worldNavigatorOverlaySelect {
+  padding-left: 4px;
+  border-left: 1px solid rgba(127, 208, 232, 0.14);
+}
+
+.worldNavigatorLearn {
+  margin-left: 1px;
+  border-left-color: rgba(127, 208, 232, 0.18);
+  color: #bfe6f2;
+}
+
+.worldNavigatorPanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 90;
+  display: flex;
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(720px, calc(100dvh - 176px));
+  flex-direction: column;
+  gap: 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--overlay-accent, #7fd0e8) 42%, #21313c);
+  border-radius: 16px;
+  background: rgba(7, 14, 20, 0.97);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, 0.58), inset 0 1px rgba(255, 255, 255, 0.04);
+  color: #dff2fb;
+  backdrop-filter: blur(18px);
+}
+
+.worldNavigatorPanelHeader,
+.worldNavigatorSection > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.worldNavigatorPanel h2,
+.worldNavigatorPanel h3,
+.worldNavigatorPanel p {
+  margin: 0;
+}
+
+.worldNavigatorPanel h2 {
+  margin-bottom: 5px;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.worldNavigatorPanel h3 {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+.worldNavigatorPanel p,
+.worldNavigatorPanel small {
+  color: #8da5b5;
+  line-height: 1.4;
+}
+
+.worldNavigatorPanelHeader p {
+  max-width: 640px;
+  font-size: 12.5px;
+}
+
+.worldNavigatorMentalModel {
+  padding: 12px;
+  border: 1px solid rgba(127, 208, 232, 0.14);
+  border-radius: 12px;
+  background: rgba(127, 208, 232, 0.045);
+}
+
+.worldNavigatorMentalModel h3 {
+  margin-bottom: 9px;
+  color: #bfe6f2;
+}
+
+.worldNavigatorMentalModel ol {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.worldNavigatorMentalModel li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  padding: 9px;
+  border-radius: 9px;
+  background: rgba(15, 26, 34, 0.86);
+  color: #7fd0e8;
+}
+
+.worldNavigatorMentalModel li span,
+.worldNavigatorCardTitle {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.worldNavigatorMentalModel li strong {
+  color: #e6f2f8;
+  font-size: 12px;
+}
+
+.worldNavigatorMentalModel li small {
+  font-size: 10.5px;
+}
+
+.worldNavigatorSection {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.worldNavigatorSection > header {
+  display: block;
+}
+
+.worldNavigatorSection > header p {
+  margin-top: 3px;
+  font-size: 11.5px;
+}
+
+.worldNavigatorCardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.worldNavigatorOverlayCards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.worldNavigatorCard,
+.worldNavigatorLens {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px;
+  border: 1px solid #243641;
+  border-radius: 10px;
+  background: rgba(13, 23, 31, 0.86);
+  color: #dff2fb;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.worldNavigatorCard:hover,
+.worldNavigatorLens:hover {
+  border-color: rgba(127, 208, 232, 0.52);
+  background: rgba(127, 208, 232, 0.09);
+  transform: translateY(-1px);
+}
+
+.worldNavigatorCard.active,
+.worldNavigatorLens.active {
+  border-color: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 68%, #7fd0e8);
+  background: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 13%, rgba(13, 23, 31, 0.94));
+  box-shadow: inset 3px 0 var(--overlay-accent, #7fd0e8);
+}
+
+.worldNavigatorCardTitle {
+  flex-direction: row;
+  align-items: center;
+  color: #7fd0e8;
+}
+
+.worldNavigatorCardTitle strong {
+  color: #e6f2f8;
+  font-size: 12.5px;
+}
+
+.worldNavigatorCardQuestion {
+  color: #c7dce7;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.worldNavigatorCard small,
+.worldNavigatorLens small {
+  font-size: 10.5px;
+}
+
+.worldNavigatorLensGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.worldNavigatorLens strong {
+  font-size: 11.5px;
+}
+
+.worldWorkspace.worldNavigatorOpen .worldMissionCard,
+.worldWorkspace.worldNavigatorOpen .worldMissionSlim,
+.worldWorkspace.worldNavigatorOpen .quadrantCompass,
+.worldWorkspace.worldNavigatorOpen .focusLegend,
+.worldWorkspace.worldNavigatorOpen .worldCommandBar {
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+.worldWorkspace.worldNavigatorOpen .worldTopStrip {
+  overflow: visible;
+}
+
 .runtimeControl {
   min-height: 32px;
   padding: 5px 8px;
@@ -2787,15 +3050,33 @@ pre {
 
 @media (max-width: 760px) {
   .worldTopStrip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: flex-start;
-    flex-wrap: wrap;
-    max-height: 132px;
-    overflow: auto;
+    gap: 6px 8px;
+    max-height: none;
+    overflow: visible;
   }
 
   .worldBreadcrumbs {
+    grid-column: 1;
     flex-wrap: wrap;
     white-space: normal;
+  }
+
+  .conditionStrip {
+    grid-column: 2;
+    justify-content: flex-end;
+  }
+
+  .worldMeta {
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .worldMeta span:nth-child(2),
+  .worldMeta span:nth-child(3) {
+    display: none;
   }
 
   .worldBreadcrumbs span:last-child,
@@ -2808,10 +3089,82 @@ pre {
   }
 
   .worldRuntimeControls {
-    order: 3;
     width: 100%;
     justify-content: space-between;
-    overflow-x: auto;
+    overflow: visible;
+  }
+
+  .worldNavigator {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .worldNavigator .worldRuntimeControls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .worldNavigatorViewControls {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .worldNavigatorView {
+    min-width: 0;
+    padding-inline: 4px;
+    font-size: 11px;
+  }
+
+  .worldNavigatorOverlaySelect {
+    grid-column: 1;
+    justify-self: start;
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .worldNavigatorOverlaySelect select {
+    width: 138px;
+    max-width: 138px;
+  }
+
+  .worldNavigatorLearn {
+    grid-column: 2;
+    margin-left: 0;
+  }
+
+  .worldNavigatorPanel {
+    top: calc(100% + 6px);
+    right: 0;
+    width: 100%;
+    max-height: calc(100dvh - 320px);
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .worldNavigatorMentalModel ol,
+  .worldNavigatorOverlayCards {
+    grid-template-columns: 1fr;
+  }
+
+  .worldNavigatorCardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .worldNavigatorLensGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quadrantCompass,
+  .quadrantCompass.drillMode {
+    top: 168px;
+  }
+
+  .quadrantCompass.familyDrillMode {
+    top: 186px;
   }
 
   .runtimeControl {
@@ -3811,14 +4164,26 @@ pre {
   background: rgba(127, 208, 232, 0.14);
 }
 
+@media (min-width: 621px) and (max-width: 760px) {
+  .quadrantCompass,
+  .quadrantCompass.drillMode {
+    top: 168px;
+  }
+
+  .quadrantCompass.familyDrillMode {
+    top: 186px;
+  }
+}
+
 @media (max-width: 620px) {
-  .quadrantCompass {
-    top: 132px;
+  .quadrantCompass,
+  .quadrantCompass.drillMode {
+    top: 168px;
     right: 10px;
   }
 
   .quadrantCompass.familyDrillMode {
-    top: 152px;
+    top: 186px;
     right: 20px;
     opacity: 0.86;
   }
@@ -3994,7 +4359,9 @@ pre {
   top: 46px;
   left: 12px;
   z-index: 28;
-  width: min(280px, 38vw);
+  width: min(340px, calc(100% - 24px));
+  max-height: calc(100% - 116px);
+  overflow: auto;
   border: 1px solid #24333d;
   border-radius: 10px;
   background: rgba(8, 15, 21, 0.88);
@@ -4015,6 +4382,20 @@ pre {
 }
 .worldMissionCard header span {
   grid-area: hint;
+}
+
+.missionContextSummary {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.missionViewContext,
+.missionOverlayContext {
+  color: #bfe6f2;
+  font-weight: 700;
 }
 .missionCollapse {
   grid-area: collapse;
@@ -4082,10 +4463,10 @@ pre {
 }
 
 .missionRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
+  align-items: stretch;
   text-align: left;
   background: rgba(16, 26, 34, 0.9);
   border: 1px solid #24333d;
@@ -4113,18 +4494,28 @@ pre {
 
 .missionCopy {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   gap: 1px;
 }
 
 .missionCopy strong {
+  display: -webkit-box;
+  overflow: hidden;
   font-size: 12.5px;
   color: #e6f2f8;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .missionCopy small {
+  display: -webkit-box;
+  overflow: hidden;
   font-size: 11px;
   color: #7d93a3;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 
 .missionRowMain {
@@ -4132,6 +4523,7 @@ pre {
   gap: 8px;
   align-items: center;
   flex: 1;
+  width: 100%;
   min-width: 0;
   text-align: left;
   background: none;
@@ -4142,12 +4534,24 @@ pre {
   font: inherit;
 }
 
+.missionRowActions {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-left: 36px;
+}
+
 /* Secondary "resolve with Codex" action beside a mission row. */
 .missionRowAction {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   flex-shrink: 0;
+  min-height: 32px;
+  justify-content: center;
   white-space: nowrap;
   font-size: 11.5px;
   font-weight: 600;
@@ -4835,6 +5239,17 @@ pre {
   opacity: 1;
 }
 
+/* The compact disc is read-only context: only its M button is interactive.
+   Let scene labels underneath receive hover/clicks; the expanded minimap keeps
+   its full SVG navigation. */
+.worldMinimap:not(.expanded) {
+  pointer-events: none;
+}
+
+.worldMinimap:not(.expanded) .minimapToggle {
+  pointer-events: auto;
+}
+
 .worldMinimap .fallbackPlan {
   width: 100%;
   height: 100%;
@@ -4961,10 +5376,25 @@ pre {
 
 @media (max-width: 900px) {
   .worldMissionCard {
-    display: none;
+    top: auto;
+    bottom: 58px;
+    z-index: 68;
+    max-height: min(46vh, 390px);
+  }
+  .worldMissionSlim {
+    top: auto;
+    bottom: 58px;
+    z-index: 68;
   }
   .pageReader {
     width: min(92vw, 460px);
+  }
+}
+
+@media (max-width: 760px) {
+  .worldMissionCard,
+  .worldMissionSlim {
+    bottom: 174px;
   }
 }
 
@@ -5029,7 +5459,8 @@ pre {
     overflow: auto;
   }
   .worldWorkspace .sceneShell {
-    height: calc(100vh - 96px);
+    height: 100%;
+    min-height: 0;
   }
 }
 
@@ -5337,16 +5768,23 @@ pre {
 }
 
 .helpTipButton {
-  width: 16px;
-  height: 16px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 1px solid #3d5769;
   background: rgba(20, 32, 42, 0.9);
   color: #8fd0e8;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1;
   cursor: help;
   flex: none;
+}
+
+@media (max-width: 760px) {
+  .helpTipButton {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 .helpTipButton:hover,
@@ -7279,7 +7717,8 @@ pre {
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  max-width: 720px;
+  width: min(980px, 100%);
+  max-width: 980px;
   padding: 24px;
   text-align: center;
 }
@@ -7297,11 +7736,11 @@ pre {
   color: #9fb4c2;
   font-size: 13.5px;
   line-height: 1.5;
-  max-width: 520px;
+  max-width: 650px;
 }
 .demoGateDoors {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   width: 100%;
 }
@@ -7323,6 +7762,12 @@ pre {
   transform: translateY(-2px);
   border-color: #57d9a0;
 }
+.demoGateDoor.guided {
+  border-color: rgba(121, 230, 255, 0.46);
+  background: rgba(16, 31, 40, 0.94);
+  box-shadow: inset 0 3px #79e6ff;
+}
+.demoGateDoor.guided strong { color: #79e6ff; }
 .demoGateDoor.genesis strong { color: #5ee6a8; }
 .demoGateDoor.world strong { color: #79e6ff; }
 .demoGateDoor strong { font-size: 16px; }
@@ -7333,7 +7778,7 @@ pre {
   text-decoration: none;
 }
 .demoGateExit:hover { color: #dceaf2; }
-@media (max-width: 700px) {
+@media (max-width: 820px) {
   .demoGateDoors { grid-template-columns: 1fr; }
 }
 
@@ -8013,6 +8458,36 @@ pre {
   .seedPaletteGrid .spatialCard {
     min-height: 58px;
     padding: 7px 8px;
+  }
+
+  .seedPaletteGrid .spatialCardType {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-content: center;
+    column-gap: 5px;
+    row-gap: 1px;
+  }
+
+  .seedPaletteGrid .spatialCardType .spatialCardIcon {
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .seedPaletteGrid .spatialCardType strong,
+  .seedPaletteGrid .spatialCardType small {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .seedPaletteGrid .spatialCardType strong {
+    font-size: 11.5px;
+  }
+
+  .seedPaletteGrid .spatialCardType small {
+    font-size: 9.5px;
   }
 
   .seedPaletteGrid .spatialCardMinor {

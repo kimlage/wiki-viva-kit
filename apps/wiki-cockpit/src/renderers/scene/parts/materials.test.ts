@@ -79,6 +79,7 @@ const profile: ScenePerformanceProfile = {
   maxEdges: 120,
   dpr: [1, 1],
   geometrySegments: 16,
+  antialias: true,
   enableIntro: true,
   label: "test"
 };

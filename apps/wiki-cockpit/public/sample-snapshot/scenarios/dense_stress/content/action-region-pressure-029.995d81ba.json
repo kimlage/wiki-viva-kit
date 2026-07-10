@@ -1,0 +1,72 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-pressure-029",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-pressure-029.md",
+      "relation": "evidence_supports",
+      "title": "Dense evidence artifact 029"
+    }
+  ],
+  "body": "\n# Dense canonical action 029\n\nCanonical synthetic work object 029; it is not an executable operator command.\n",
+  "frontmatter": {
+    "completed_at": "2026-07-03",
+    "completion_receipt": "receipt:demo-action-done-029",
+    "context": "clientes",
+    "created_at": "2026-06-01",
+    "due_at": "2026-08-15",
+    "evidence_refs": [
+      "artifact-region-pressure-029"
+    ],
+    "moc_parent": "memories/clientes/index.md",
+    "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+    "owner_kind": "other",
+    "owner_ref": "demo-other-operator",
+    "page_id": "action-region-pressure-029",
+    "page_type": "action",
+    "parent_ref": "hub-clientes",
+    "priority": "normal",
+    "source_refs": [
+      "source-support-tickets"
+    ],
+    "stale_after_days": 30,
+    "state": "done",
+    "sub_lens": "producao",
+    "title": "Dense canonical action 029",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "action-region-pressure-029",
+    "page_type": "action",
+    "path": "memories/actions/action-region-pressure-029.md",
+    "summary": "Canonical synthetic work object 029; it is not an executable operator command.",
+    "summary_truncated": false,
+    "title": "Dense canonical action 029",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-9880a5a432432dbf",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-support-tickets",
+      "page_type": "source",
+      "path": "memories/sources/source-support-tickets.md",
+      "ref": "source-support-tickets",
+      "resolved": true,
+      "title": "Support tickets export"
+    }
+  ]
+}

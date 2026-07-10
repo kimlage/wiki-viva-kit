@@ -45,7 +45,9 @@ export function hydrateWorldRoute(input: {
   if (!kernel.views.has(requestedView)) warnings.push({ code: "invalid_view", value: requestedView, normalizedTo: view });
   if (!route.query.view && route.perspectiveExplicit) warnings.push({ code: "legacy_route", value: route.perspective, normalizedTo: view });
 
-  const rawLens = route.query.lens || route.query.quadrant || mapped.lens || kernel.views.require(view).defaultLens;
+  const viewDefinition = kernel.views.require(view);
+  const nativeQueryView = Boolean(route.query.view && kernel.views.has(route.query.view));
+  const rawLens = route.query.lens || route.query.quadrant || (nativeQueryView ? viewDefinition.defaultLens : mapped.lens) || viewDefinition.defaultLens;
   const normalizedLens = SHORT_LENSES[rawLens] ?? rawLens;
   if (route.query.quadrant) warnings.push({ code: "legacy_quadrant", value: route.query.quadrant, normalizedTo: normalizedLens });
   const lens = (LENS_IDS as readonly string[]).includes(normalizedLens)
@@ -53,8 +55,7 @@ export function hydrateWorldRoute(input: {
     : (mapped.lens || kernel.views.require(view).defaultLens);
   if (lens !== normalizedLens) warnings.push({ code: "invalid_lens", value: normalizedLens, normalizedTo: lens });
 
-  const requestedOverlay = (route.query.overlay || mapped.overlay) as OverlayId;
-  const viewDefinition = kernel.views.require(view);
+  const requestedOverlay = (route.query.overlay || (nativeQueryView ? viewDefinition.defaultOverlay : mapped.overlay)) as OverlayId;
   const overlay = viewDefinition.allowedOverlays.includes(requestedOverlay) ? requestedOverlay : viewDefinition.defaultOverlay;
   if (requestedOverlay !== overlay) warnings.push({
     code: (OVERLAY_IDS as readonly string[]).includes(requestedOverlay) ? "unsupported_overlay" : "invalid_overlay",
@@ -86,7 +87,11 @@ export function hydrateWorldRoute(input: {
   };
 }
 
-export function canonicalWorldUrl(state: WorldState, demo = false): string {
+export function canonicalWorldUrl(
+  state: WorldState,
+  demo = false,
+  carry?: WorldRoute["query"]
+): string {
   const params = new URLSearchParams();
   params.set("center", state.centerId);
   params.set("view", state.view);
@@ -98,5 +103,22 @@ export function canonicalWorldUrl(state: WorldState, demo = false): string {
   if (state.readerId) params.set("reader", "1");
   if (state.fallback) params.set("visual", "1");
   if (state.mode !== "v8") params.set("runtime", state.mode);
+  // Runtime state owns semantic world fields. The router still owns bounded
+  // workflow/demo context; carry it forward so a view/lens/overlay event never
+  // drops search, packets, Genesis stage or the selected demo universe.
+  if (carry?.q) params.set("q", carry.q);
+  if (carry?.filter) params.set("filter", carry.filter);
+  if (carry?.packet.length) params.set("packet", carry.packet.join(","));
+  if (!state.dock && !state.readerId && carry?.tray) params.set("tray", carry.tray);
+  if (state.dock && carry?.src) params.set("src", carry.src);
+  if (state.readerId && carry?.diff) params.set("diff", "1");
+  if (state.dock === "approve" && carry?.station) params.set("station", String(carry.station));
+  if (carry?.ack.length) params.set("ack", carry.ack.join(","));
+  if (carry?.genesis) {
+    params.set("genesis", "1");
+    if (carry.stage > 0) params.set("stage", String(carry.stage));
+  }
+  if (demo && carry?.demoScenario) params.set("demo_scenario", carry.demoScenario);
+  if (demo && carry?.tour) params.set("tour", carry.tour);
   return `${demo ? "/demo" : ""}/w?${params.toString()}`;
 }

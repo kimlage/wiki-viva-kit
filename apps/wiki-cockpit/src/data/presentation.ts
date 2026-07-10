@@ -328,12 +328,14 @@ export function worldGroupLabel(kind: string, labelKey: string): string {
   if (kind === "relation") return t(`relation.${labelKey}`);
   if (kind === "facet" || kind === "quadrant") return t(`facet.${labelKey}`);
   if (kind === "family" || kind === "region_family") return pageTypeLabel(`visual_group_${labelKey}`);
+  if (kind === "source_flow") return t(`source.flow.${labelKey}`);
+  if (kind === "work_queue") return t(`work.queue.${labelKey}`);
   if (kind === "core") return t("quadrant.core");
   return labelKey;
 }
 
 export function perspectiveLabel(perspective: string): { label: string; hint: string; glyph: string } {
-  const glyphs: Record<string, string> = { radar: "◎", atlas: "🜨", districts: "⬡", trails: "⇢", focus: "✦", center: "⌾", quadrants: "田" };
+  const glyphs: Record<string, string> = { radar: "◎", atlas: "🜨", districts: "⬡", trails: "⇢", focus: "✦", center: "⌾", quadrants: "田", sources: "▣", work: "✓" };
   return {
     label: t(`perspective.${perspective}`),
     hint: t(`perspective.${perspective}.hint`),

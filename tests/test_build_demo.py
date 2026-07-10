@@ -6,6 +6,7 @@ from pathlib import Path
 
 KIT_ROOT = Path(__file__).resolve().parents[1]
 SAMPLE = KIT_ROOT / "apps/wiki-cockpit/public/sample-snapshot"
+DENSE_SAMPLE = SAMPLE / "scenarios/dense_stress"
 
 
 def _demo_module():
@@ -98,7 +99,7 @@ def test_snapshot_generation_is_byte_deterministic(tmp_path: Path) -> None:
         "fixture_id": demo.DEMO_FIXTURE_ID,
         "scenario_id": "walking_skeleton",
         "scenario_ids": list(demo.REQUIRED_SCENARIOS),
-        "seed": demo.DEMO_SEED,
+        "seed": 8001,
         "source_input_sha256": demo.source_input_hash(first_fixture),
         "reference_date": demo.DEMO_REFERENCE_DATE.isoformat(),
         "genesis_stage": 1,
@@ -144,7 +145,7 @@ def test_check_mode_regenerates_in_temp_and_never_mutates_targets(
 def test_committed_stage_snapshots_are_consistent() -> None:
     """The committed artifacts (what the tutorial actually loads) must hold the
     contract: monotonic page subsets, stage arc materializing the interface,
-    final stage identical to the full demo."""
+    final stage identical to the default instructional demo."""
     stages_dir = SAMPLE / "stages"
     manifest = json.loads((stages_dir / "stages.json").read_text(encoding="utf-8"))
     final = manifest["final_stage"]
@@ -156,7 +157,7 @@ def test_committed_stage_snapshots_are_consistent() -> None:
         assert previous <= ids
         previous = ids
         assert (stage_dir / "block_stacks.json").exists()
-    # Final stage == full demo (same page set).
+    # Final stage == default normal_operations demo (same page set).
     full_pages = json.loads((SAMPLE / "pages.json").read_text(encoding="utf-8"))
     assert previous == {page["id"] for page in full_pages["pages"]}
 
@@ -197,6 +198,29 @@ def test_committed_stage_snapshots_are_consistent() -> None:
     assert "dashboard-clearpath-activation" in company_q["q2"]
     assert "role-clearpath-customer-success-lead" in company_q["q3"]
     assert "rule-clearpath-release-gate" in company_q["q4"]
+
+
+def test_committed_default_and_dense_snapshots_match_scenario_manifests() -> None:
+    demo = _demo_module()
+    manifests = demo.load_scenario_manifests()
+
+    normal_pages = json.loads((SAMPLE / "pages.json").read_text(encoding="utf-8"))
+    normal_ids = {row["id"] for row in normal_pages["pages"]}
+    normal_manifest = json.loads((SAMPLE / "manifest.json").read_text(encoding="utf-8"))
+    assert normal_ids == set(demo.scenario_page_ids("normal_operations", manifests=manifests))
+    assert len(normal_ids) == manifests["normal_operations"]["expected"]["page_count"]
+    assert not any("-region-pressure-" in page_id for page_id in normal_ids)
+    assert normal_manifest["fixture"]["scenario_id"] == "normal_operations"
+    assert normal_manifest["fixture"]["seed"] == manifests["normal_operations"]["seed"]
+
+    dense_pages = json.loads((DENSE_SAMPLE / "pages.json").read_text(encoding="utf-8"))
+    dense_ids = {row["id"] for row in dense_pages["pages"]}
+    dense_manifest = json.loads((DENSE_SAMPLE / "manifest.json").read_text(encoding="utf-8"))
+    assert dense_ids == set(demo.scenario_page_ids("dense_stress", manifests=manifests))
+    assert len(dense_ids) == manifests["dense_stress"]["expected"]["page_count"]
+    assert any(page_id.startswith("artifact-region-pressure-") for page_id in dense_ids)
+    assert dense_manifest["fixture"]["scenario_id"] == "dense_stress"
+    assert dense_manifest["fixture"]["seed"] == manifests["dense_stress"]["seed"]
 
 
 def test_committed_source_lifecycle_fixture_covers_every_contract_axis() -> None:
@@ -247,7 +271,7 @@ def test_committed_source_lifecycle_fixture_covers_every_contract_axis() -> None
 
 
 def test_committed_dense_actions_cover_canonical_work_contract() -> None:
-    payload = json.loads((SAMPLE / "work_items.json").read_text(encoding="utf-8"))
+    payload = json.loads((DENSE_SAMPLE / "work_items.json").read_text(encoding="utf-8"))
     actions = [
         row
         for row in payload["actions"]
@@ -355,38 +379,53 @@ def test_committed_relation_vocabulary_covers_families_diagnostics_and_provenanc
         "dashboard-clearpath-activation",
         "impact",
     ) in edges
-    assert (
-        "dashboard-clearpath-activation",
-        "action-region-pressure-001",
-        "evidence_supports",
-    ) in edges
+    dense_work = json.loads(
+        (DENSE_SAMPLE / "work_items.json").read_text(encoding="utf-8")
+    )
+    pressure = next(
+        row
+        for row in dense_work["actions"]
+        if row["action_id"] == "action-region-pressure-001"
+    )
+    assert pressure["evidence_refs"] == ["dashboard-clearpath-activation"]
+    assert pressure["source_refs"] == ["source-support-tickets"]
 
 
 def test_committed_snapshot_warnings_cover_structural_and_source_governance_risks() -> (
     None
 ):
-    payload = json.loads(
+    normal_payload = json.loads(
         (SAMPLE / "snapshot_warnings.json").read_text(encoding="utf-8")
     )
-    codes = {row["code"] for row in payload["warnings"]}
-    assert {
+    dense_payload = json.loads(
+        (DENSE_SAMPLE / "snapshot_warnings.json").read_text(encoding="utf-8")
+    )
+    assert {row["code"] for row in normal_payload["warnings"]} >= {
         "region_expected_missing",
-        "region_hidden_density",
-        "region_imbalance",
         "source_blocked",
-    } <= codes
+    }
+    assert {row["code"] for row in dense_payload["warnings"]} >= {
+        "region_hidden_density",
+    }
     # Bucket warnings are data-dependent: when present they must identify both
     # the canonical page and the actual derived bucket, never a CSS guess.
-    for row in payload["warnings"]:
+    for row in [*normal_payload["warnings"], *dense_payload["warnings"]]:
         if row["code"] in {"source_wrong_bucket", "governance_wrong_bucket"}:
             assert row["page_id"] and row["bucket"]
 
 
 def test_committed_graph_exercises_semantic_visual_tokens_from_real_metrics() -> None:
-    graph = json.loads((SAMPLE / "graph.json").read_text(encoding="utf-8"))
-    assert graph["overlay_metrics_version"] == "wiki_semantic_visual_tokens.v1"
+    graphs = [
+        json.loads((SAMPLE / "graph.json").read_text(encoding="utf-8")),
+        json.loads((DENSE_SAMPLE / "graph.json").read_text(encoding="utf-8")),
+    ]
+    assert all(
+        graph["overlay_metrics_version"] == "wiki_semantic_visual_tokens.v1"
+        for graph in graphs
+    )
+    nodes = [node for graph in graphs for node in graph["nodes"]]
     overlays = {
-        overlay: {node["overlay_metrics"][overlay]["state"] for node in graph["nodes"]}
+        overlay: {node["overlay_metrics"][overlay]["state"] for node in nodes}
         for overlay in (
             "attention",
             "freshness",
@@ -409,7 +448,7 @@ def test_committed_graph_exercises_semantic_visual_tokens_from_real_metrics() ->
     assert overlays["ownership"] >= {"assigned", "shared", "unassigned", "unknown"}
     assert overlays["evidence"] >= {"linked", "unrecorded"}
     assert overlays["quality"] >= {"clear", "warning", "flagged"}
-    for node in graph["nodes"]:
+    for node in nodes:
         for metric in node["overlay_metrics"].values():
             assert set(metric) == {"state", "value", "count", "reasons", "refs"}
             assert metric["count"] >= 0

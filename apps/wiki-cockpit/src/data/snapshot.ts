@@ -80,9 +80,28 @@ export function classifySnapshotManifest(manifest: SnapshotBundle["manifest"]): 
 
 export const SAMPLE_BASE = "/sample-snapshot";
 
+export const DEMO_SCENARIO_BASES = Object.freeze({
+  normal_operations: SAMPLE_BASE,
+  dense_stress: `${SAMPLE_BASE}/scenarios/dense_stress`
+} as const);
+
+export type DemoScenarioId = keyof typeof DEMO_SCENARIO_BASES;
+
 function demoModeRequested(): boolean {
   if (typeof window === "undefined") return false;
   return window.location.pathname.startsWith("/demo") || new URLSearchParams(window.location.search).get("demo") === "1";
+}
+
+export function demoSnapshotBase(
+  options: { stage?: number | null; search?: string; scenario?: string | null } = {}
+): string {
+  if (options.stage != null) return `${SAMPLE_BASE}/stages/${options.stage}`;
+  const search = options.search ?? (typeof window === "undefined" ? "" : window.location.search);
+  const requested = options.scenario || new URLSearchParams(search).get("demo_scenario");
+  if (requested && Object.prototype.hasOwnProperty.call(DEMO_SCENARIO_BASES, requested)) {
+    return DEMO_SCENARIO_BASES[requested as DemoScenarioId];
+  }
+  return DEMO_SCENARIO_BASES.normal_operations;
 }
 
 async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
@@ -203,7 +222,7 @@ async function loadFromBase(base: string, signal?: AbortSignal): Promise<Snapsho
 }
 
 export async function loadSnapshotBundle(
-  options: { demo?: boolean; stage?: number | null; signal?: AbortSignal } = {}
+  options: { demo?: boolean; stage?: number | null; demoScenario?: string | null; signal?: AbortSignal } = {}
 ): Promise<{ bundle: SnapshotBundle; source: string; runtime: RuntimeConfig }> {
   // Demo is an in-memory bundle switch: synthetic ids never resolve against
   // the real snapshot, and switching universes never reloads the document.
@@ -212,7 +231,9 @@ export async function loadSnapshotBundle(
     const demoRuntime = await loadRuntimeConfig();
     // Genesis: each tutorial stage is a REAL pre-built snapshot (stages/<k>/) —
     // the world materializes because the data changes, never by UI simulation.
-    const base = options.stage != null ? `${SAMPLE_BASE}/stages/${options.stage}` : SAMPLE_BASE;
+    // Scenario routing is deliberately an allowlist. A query value can select
+    // a committed public fixture, never become a path fragment.
+    const base = demoSnapshotBase({ stage: options.stage, scenario: options.demoScenario });
     return {
       bundle: await loadFromBase(base, options.signal),
       source: base,

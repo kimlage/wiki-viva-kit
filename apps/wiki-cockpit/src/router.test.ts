@@ -23,7 +23,9 @@ const BASE_QUERY: WorldQuery = {
   center: "",
   runtime: "",
   genesis: false,
-  stage: 0
+  stage: 0,
+  demoScenario: "",
+  tour: ""
 };
 
 const world = (
@@ -143,6 +145,57 @@ describe("router grammar", () => {
     expect(route).toMatchObject({ kind: "world", demo: true, context: "financeiro" });
     expect(buildUrl(world({ demo: true, context: "financeiro" }))).toBe("/demo/w/radar/financeiro");
     expect(parseRoute("/demo/review")).toMatchObject({ kind: "review", demo: true });
+  });
+
+  it("round-trips the complete demo workflow context across canonical route writes", () => {
+    const input =
+      "?q=source&filter=stale&packet=page-a%2Cpage-b&genesis=1&stage=4&demo_scenario=dense_stress&tour=1";
+    const parsed = parseRoute("/demo/w", input);
+    expect(parsed).toMatchObject({
+      kind: "world",
+      demo: true,
+      query: {
+        q: "source",
+        filter: "stale",
+        packet: ["page-a", "page-b"],
+        genesis: true,
+        stage: 4,
+        demoScenario: "dense_stress",
+        tour: "1"
+      }
+    });
+    if (parsed.kind !== "world") throw new Error("expected world route");
+
+    const patched = patchWorld(parsed, { view: "radar", lens: "all", overlay: "freshness" });
+    const rebuilt = buildUrl(patched);
+    const roundTrip = new URL(rebuilt, "http://local.test");
+    expect(parseRoute(roundTrip.pathname, roundTrip.search)).toMatchObject({
+      kind: "world",
+      demo: true,
+      query: {
+        q: "source",
+        filter: "stale",
+        packet: ["page-a", "page-b"],
+        view: "radar",
+        lens: "all",
+        overlay: "freshness",
+        genesis: true,
+        stage: 4,
+        demoScenario: "dense_stress",
+        tour: "1"
+      }
+    });
+  });
+
+  it("allowlists demo scenario and tour query values", () => {
+    expect(parseRoute("/demo/w", "?demo_scenario=normal_operations&tour=0")).toMatchObject({
+      kind: "world",
+      query: { demoScenario: "normal_operations", tour: "0" }
+    });
+    expect(parseRoute("/demo/w", "?demo_scenario=..%2Fprivate&tour=restart")).toMatchObject({
+      kind: "world",
+      query: { demoScenario: "", tour: "" }
+    });
   });
 
   it("patchWorld keeps grammar positional invariants", () => {

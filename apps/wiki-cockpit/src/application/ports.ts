@@ -14,7 +14,7 @@ import type {
   WorkflowRunResult
 } from "../types";
 
-export type SnapshotLoadOptions = { demo?: boolean; stage?: number | null; signal?: AbortSignal };
+export type SnapshotLoadOptions = { demo?: boolean; stage?: number | null; demoScenario?: string | null; signal?: AbortSignal };
 export type SnapshotLoadResult = { bundle: SnapshotBundle; source: string; runtime: RuntimeConfig };
 export type ContentLoadOptions = {
   demo?: boolean;

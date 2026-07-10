@@ -57,10 +57,10 @@ export function createDefaultKernel(): RegistryKernel {
   overlays.forEach((entry) => kernel.overlays.register(entry));
   const all = overlays.map((entry) => entry.id);
   [
-    { id: "quadrants", defaultLens: "q1_intencao", defaultOverlay: "actions", allowedOverlays: all },
-    { id: "radar", defaultLens: "type", defaultOverlay: "freshness", allowedOverlays: all },
-    { id: "sources", defaultLens: "source_state", defaultOverlay: "evidence", allowedOverlays: ["attention", "freshness", "actions", "ownership", "evidence", "quality"] },
-    { id: "work", defaultLens: "type", defaultOverlay: "actions", allowedOverlays: ["attention", "actions", "ownership", "evidence", "quality"] },
+    { id: "quadrants", defaultLens: "all", defaultOverlay: "actions", allowedOverlays: all },
+    { id: "radar", defaultLens: "all", defaultOverlay: "freshness", allowedOverlays: all },
+    { id: "sources", defaultLens: "all", defaultOverlay: "evidence", allowedOverlays: ["attention", "freshness", "actions", "ownership", "evidence", "quality"] },
+    { id: "work", defaultLens: "all", defaultOverlay: "actions", allowedOverlays: all },
     { id: "atlas", defaultLens: "type", defaultOverlay: "actions", allowedOverlays: all, compatibility: true },
     { id: "focus", defaultLens: "relations", defaultOverlay: "evidence", allowedOverlays: all, compatibility: true },
     { id: "districts", defaultLens: "type", defaultOverlay: "actions", allowedOverlays: all, compatibility: true },

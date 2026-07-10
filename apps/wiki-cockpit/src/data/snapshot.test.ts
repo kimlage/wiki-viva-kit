@@ -65,6 +65,23 @@ describe("snapshot loading", () => {
     }
   });
 
+  it("routes only committed demo scenarios and keeps Genesis stages authoritative", async () => {
+    const { demoSnapshotBase } = await import("./snapshot");
+    expect(demoSnapshotBase()).toBe("/sample-snapshot");
+    expect(demoSnapshotBase({ search: "?demo_scenario=normal_operations" })).toBe("/sample-snapshot");
+    expect(demoSnapshotBase({ search: "?demo_scenario=dense_stress" })).toBe(
+      "/sample-snapshot/scenarios/dense_stress"
+    );
+    expect(demoSnapshotBase({ search: "?demo_scenario=../../private" })).toBe("/sample-snapshot");
+    expect(demoSnapshotBase({ stage: 4, search: "?demo_scenario=dense_stress" })).toBe(
+      "/sample-snapshot/stages/4"
+    );
+    expect(demoSnapshotBase({ scenario: "dense_stress", search: "?demo_scenario=normal_operations" })).toBe(
+      "/sample-snapshot/scenarios/dense_stress"
+    );
+    expect(demoSnapshotBase({ scenario: "../../private" })).toBe("/sample-snapshot");
+  });
+
   it("classifies an incomplete v2 envelope as partial before rendering", async () => {
     const { validateSnapshotEnvelope } = await import("./snapshot");
     const manifest = {

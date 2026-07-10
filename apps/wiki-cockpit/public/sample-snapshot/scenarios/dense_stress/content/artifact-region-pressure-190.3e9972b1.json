@@ -1,0 +1,34 @@
+{
+  "backlinks": [],
+  "body": "\n# Dense evidence artifact 190\n\nPublic deterministic density artifact 190; source links and freshness are real fixture fields.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/product-ops/index.md",
+    "page_id": "artifact-region-pressure-190",
+    "page_type": "artifact",
+    "source_refs": [],
+    "stale_after_days": 30,
+    "sub_lens": "producao",
+    "title": "Dense evidence artifact 190",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/product-ops/index.md",
+    "page_id": "artifact-region-pressure-190",
+    "page_type": "artifact",
+    "path": "memories/artifacts/artifact-region-pressure-190.md",
+    "summary": "Public deterministic density artifact 190; source links and freshness are real fixture fields.",
+    "summary_truncated": false,
+    "title": "Dense evidence artifact 190",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-9880a5a432432dbf",
+  "source_refs": []
+}

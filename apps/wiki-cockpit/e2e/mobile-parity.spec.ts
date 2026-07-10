@@ -151,6 +151,25 @@ test("WebKit mobile keeps the same semantic route in reduced-motion fallback", a
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", /pratica|q2_pratica/);
   await expect(page.locator(".fallbackCore")).toBeInViewport();
+  const initialFallbackGeometry = await page.evaluate(() => {
+    const shell = document.querySelector<HTMLElement>(".sceneShell.fallbackMode");
+    const fallback = document.querySelector<HTMLElement>(".sceneFallback");
+    const core = document.querySelector<HTMLElement>(".fallbackCore");
+    if (!shell || !fallback || !core) throw new Error("fallback geometry is unavailable");
+    const shellRect = shell.getBoundingClientRect();
+    const fallbackRect = fallback.getBoundingClientRect();
+    const coreRect = core.getBoundingClientRect();
+    return {
+      visibleTop: Math.max(shellRect.top, fallbackRect.top),
+      visibleBottom: Math.min(shellRect.bottom, fallbackRect.bottom),
+      coreTop: coreRect.top,
+      coreBottom: coreRect.bottom,
+      fallbackScrollTop: fallback.scrollTop
+    };
+  });
+  expect(initialFallbackGeometry.fallbackScrollTop).toBe(0);
+  expect(initialFallbackGeometry.coreTop).toBeGreaterThanOrEqual(initialFallbackGeometry.visibleTop);
+  expect(initialFallbackGeometry.coreBottom).toBeLessThanOrEqual(initialFallbackGeometry.visibleBottom);
   const fallbackEvidence = await waitForRuntimePerformance(page, { minimumSamples: 0 });
   expect(fallbackEvidence.activeDevice).toBe("mobile");
   expect(fallbackEvidence.counters.fallbackReason).toBe("reduced_motion");

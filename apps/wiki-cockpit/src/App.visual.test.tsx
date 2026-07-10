@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { loadSnapshotBundle } from "./data/snapshot";
 import { browserApplication } from "./infrastructure/browserApplication";
 import type { SnapshotBundle } from "./types";
 
@@ -376,5 +377,39 @@ describe("visual route contract", () => {
     expect(alert.textContent).toMatch(/Real snapshot required/);
     expect(alert.textContent).toMatch(/Sample fallback is blocked outside \/demo/);
     expect(screen.queryByLabelText("3D knowledge world")).toBeNull();
+  });
+
+  it("reloads the demo bundle when the allowlisted scenario changes without reloading the document", async () => {
+    const loadSnapshotMock = vi.mocked(loadSnapshotBundle);
+    loadSnapshotMock.mockClear();
+    await renderRoute("/demo/world?demo_scenario=dense_stress&tour=0");
+
+    await waitFor(() => {
+      expect(loadSnapshotMock).toHaveBeenCalledWith({
+        demo: true,
+        stage: null,
+        demoScenario: "dense_stress"
+      });
+    });
+
+    browserApplication.navigation.dispatch({
+      type: "navigate",
+      target: "/demo/world?demo_scenario=normal_operations&tour=0"
+    });
+
+    await waitFor(() => {
+      expect(loadSnapshotMock).toHaveBeenCalledWith({
+        demo: true,
+        stage: null,
+        demoScenario: "normal_operations"
+      });
+    });
+    const demoCalls = loadSnapshotMock.mock.calls
+      .map(([options]) => options)
+      .filter((options) => options?.demo);
+    expect(demoCalls.map((options) => options?.demoScenario)).toEqual([
+      "dense_stress",
+      "normal_operations"
+    ]);
   });
 });

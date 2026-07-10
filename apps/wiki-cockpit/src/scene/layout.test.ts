@@ -175,6 +175,19 @@ describe("scene performance profile", () => {
     expect(profile.quality).toBe("rich");
     expect(profile.maxNodes).toBeGreaterThanOrEqual(96);
     expect(profile.dpr[1]).toBeLessThanOrEqual(1.6);
+    expect(profile.antialias).toBe(true);
+  });
+
+  it("keeps the rich tier while applying dense geometry and MSAA LOD to the 107-node reference universe", () => {
+    const profile = scenePerformanceProfile(107, { width: 1440, pixelRatio: 2, hardwareConcurrency: 10 });
+    expect(profile).toMatchObject({
+      quality: "rich",
+      maxNodes: 160,
+      geometrySegments: 18,
+      antialias: false,
+      enableIntro: true,
+      label: "rich·dense"
+    });
   });
 
   it("keeps the rich tier for large repos on strong machines", () => {
@@ -182,6 +195,7 @@ describe("scene performance profile", () => {
     const profile = scenePerformanceProfile(532, { width: 1440, pixelRatio: 2, hardwareConcurrency: 14 });
     expect(profile.quality).toBe("rich");
     expect(profile.maxNodes).toBe(160);
+    expect(profile.antialias).toBe(false);
     // Dense repos trade geometry detail, not effects.
     expect(profile.geometrySegments).toBeLessThanOrEqual(18);
   });

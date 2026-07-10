@@ -9,10 +9,14 @@ SAME `build_snapshot` any wiki uses. Run this to regenerate everything:
 
     python3 scripts/wiki_build_demo.py
 
-It writes the fixture markdown under docs/references/fixtures/demo-wiki/ (real,
-browsable, committed), copies the kit's v2 contracts next to it, and renders:
+It writes the complete authored fixture markdown under
+docs/references/fixtures/demo-wiki/ (real, browsable, committed), copies the
+kit's v2 contracts next to it, and renders:
 
-  * the FULL demo snapshot into apps/wiki-cockpit/public/sample-snapshot/
+  * the instructional normal_operations snapshot into
+    apps/wiki-cockpit/public/sample-snapshot/
+  * the explicit dense_stress load-test snapshot into
+    .../sample-snapshot/scenarios/dense_stress/
   * one snapshot PER GENESIS STAGE into .../sample-snapshot/stages/<k>/ plus a
     stages.json manifest. Stage k is literally "what the cockpit shows when the
     wiki has exactly these pages and these blocks" — the tutorial swaps bundles;
@@ -63,6 +67,9 @@ REQUIRED_SCENARIOS = (
     "accessibility",
 )
 
+DEFAULT_DEMO_SCENARIO = "normal_operations"
+EXPLICIT_SNAPSHOT_SCENARIOS = ("dense_stress",)
+
 GENERATED_FIXTURE_CONFIGS = (
     "wiki.config.yaml",
     "wiki.page-types.yaml",
@@ -77,7 +84,8 @@ OLD = "2026-05-04"
 # --- Genesis stages ----------------------------------------------------------
 # Stage k = the wiki after tutorial step k. Pages enter at their stage; the
 # ROOT's attachments grow (that is the whole point: templates ADD interface).
-# Stage 8 must equal the full demo.
+# Stage 8 must equal the default instructional demo. The complete authored cast
+# remains in the fixture and dense pressure has its own explicit snapshot.
 FINAL_STAGE = 8
 
 # page_id -> first stage where the page exists. Anything not listed enters at
@@ -1442,16 +1450,34 @@ def _stage_of(front: dict[str, Any]) -> int:
     return STAGE_BY_PAGE.get(str(front.get("page_id") or ""), FINAL_STAGE)
 
 
-def write_fixture(target: Path, stage: int = FINAL_STAGE) -> list[str]:
-    """Write the fixture-wiki for `stage` into `target`. Returns page_ids."""
+def write_fixture(
+    target: Path,
+    stage: int = FINAL_STAGE,
+    *,
+    scenario_id: str | None = None,
+) -> list[str]:
+    """Write one fixture universe into ``target`` and return its page IDs.
+
+    With no ``scenario_id`` this writes the complete authored cast. Scenario
+    snapshots filter that cast through the executable scenario manifest before
+    applying the Genesis stage boundary. Keeping those two concerns separate
+    lets the repository retain every synthetic fixture while the default demo
+    remains calm and instructional.
+    """
     memories = target / "memories"
     if memories.exists():
         shutil.rmtree(memories)
+    selected = (
+        set(scenario_page_ids(scenario_id)) if scenario_id is not None else None
+    )
     written: list[str] = []
     for rel, front, body in build_pages():
+        page_id = str(front.get("page_id") or "")
+        if selected is not None and page_id not in selected:
+            continue
         if _stage_of(front) > stage:
             continue
-        if str(front.get("page_id")) == "root-alex-rivera":
+        if page_id == "root-alex-rivera":
             front = {**front, **root_attachments(stage)}
         path = target / rel
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -1498,12 +1524,23 @@ def source_input_hash(fixture_root: Path) -> str:
     return digest.hexdigest()
 
 
-def _fixture_metadata(fixture_root: Path, *, stage: int | None = None) -> dict[str, Any]:
+def _fixture_metadata(
+    fixture_root: Path,
+    *,
+    stage: int | None = None,
+    scenario_id: str | None = None,
+) -> dict[str, Any]:
+    resolved_scenario = (
+        "walking_skeleton"
+        if stage is not None
+        else scenario_id or DEFAULT_DEMO_SCENARIO
+    )
+    scenario = load_scenario_manifests()[resolved_scenario]
     return {
         "fixture_id": DEMO_FIXTURE_ID,
-        "scenario_id": "walking_skeleton" if stage is not None else "normal_operations",
+        "scenario_id": resolved_scenario,
         "scenario_ids": list(REQUIRED_SCENARIOS),
-        "seed": DEMO_SEED,
+        "seed": int(scenario["seed"]),
         "source_input_sha256": source_input_hash(fixture_root),
         "reference_date": DEMO_REFERENCE_DATE.isoformat(),
         **({"genesis_stage": stage} if stage is not None else {}),
@@ -1515,6 +1552,7 @@ def _write_snapshot_deterministic(
     out_dir: Path,
     *,
     stage: int | None = None,
+    scenario_id: str | None = None,
 ) -> dict[str, Path]:
     """Build one frozen snapshot from a self-contained temporary fixture."""
     from wiki_core.config import load_config
@@ -1545,7 +1583,9 @@ def _write_snapshot_deterministic(
         snapshot_module._today = original_today
         snapshot_module._safe_source_entities = original_sources
 
-    payloads["manifest.json"]["fixture"] = _fixture_metadata(fixture_root, stage=stage)
+    payloads["manifest.json"]["fixture"] = _fixture_metadata(
+        fixture_root, stage=stage, scenario_id=scenario_id
+    )
     artifacts = snapshot_module.prepare_snapshot_artifacts(
         fixture_root, config, payloads, content_sidecars=True
     )
@@ -1570,7 +1610,13 @@ def build_stage_snapshots(out_root: Path | None = None) -> dict[str, Any]:
     for stage in range(FINAL_STAGE + 1):
         with tempfile.TemporaryDirectory(prefix=f"wiki-demo-stage-{stage}-") as tmp:
             tmp_root = Path(tmp)
-            page_ids = set(write_fixture(tmp_root, stage))
+            page_ids = set(
+                write_fixture(
+                    tmp_root,
+                    stage,
+                    scenario_id=DEFAULT_DEMO_SCENARIO,
+                )
+            )
             out_dir = stages_dir / str(stage)
             _write_snapshot_deterministic(tmp_root, out_dir, stage=stage)
             manifest["stages"].append(
@@ -1591,16 +1637,46 @@ def build_stage_snapshots(out_root: Path | None = None) -> dict[str, Any]:
     return manifest
 
 
+def _build_scenario_snapshot(scenario_id: str, out_dir: Path) -> dict[str, Any]:
+    """Build one manifest-selected scenario into an isolated snapshot tree."""
+    with tempfile.TemporaryDirectory(prefix=f"wiki-demo-{scenario_id}-") as tmp:
+        fixture_root = Path(tmp)
+        page_ids = write_fixture(
+            fixture_root,
+            FINAL_STAGE,
+            scenario_id=scenario_id,
+        )
+        written = _write_snapshot_deterministic(
+            fixture_root,
+            out_dir,
+            scenario_id=scenario_id,
+        )
+        return {
+            "scenario_id": scenario_id,
+            "page_count": len(page_ids),
+            "snapshot_file_count": len(written),
+            "source_input_sha256": source_input_hash(fixture_root),
+        }
+
+
 def build_demo(fixture_dir: Path, out_dir: Path) -> dict[str, Any]:
-    """Generate the complete fixture and snapshots only into caller paths."""
-    write_fixture(fixture_dir, FINAL_STAGE)
-    written = _write_snapshot_deterministic(fixture_dir, out_dir)
+    """Generate the complete authored fixture and scenario snapshots."""
+    authored_page_ids = write_fixture(fixture_dir, FINAL_STAGE)
+    default = _build_scenario_snapshot(DEFAULT_DEMO_SCENARIO, out_dir)
     stages = build_stage_snapshots(out_dir)
+    scenarios: dict[str, dict[str, Any]] = {}
+    for scenario_id in EXPLICIT_SNAPSHOT_SCENARIOS:
+        scenarios[scenario_id] = _build_scenario_snapshot(
+            scenario_id,
+            out_dir / "scenarios" / scenario_id,
+        )
     return {
-        "page_count": len(list((fixture_dir / "memories").rglob("*.md"))),
-        "snapshot_file_count": len(written),
+        "page_count": len(authored_page_ids),
+        "default_page_count": default["page_count"],
+        "snapshot_file_count": default["snapshot_file_count"],
         "stage_count": len(stages["stages"]),
         "source_input_sha256": source_input_hash(fixture_dir),
+        "scenario_snapshots": scenarios,
     }
 
 
@@ -1703,8 +1779,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         _replace_generated_fixture(generated_fixture, FIXTURE)
         _replace_tree(generated_out, OUT)
     print(
-        f"demo: {report['page_count']} pages -> {report['snapshot_file_count']} snapshot files "
+        f"demo: {report['default_page_count']} instructional pages "
+        f"({report['page_count']} authored) -> {report['snapshot_file_count']} snapshot files "
         f"in {OUT.relative_to(KIT_ROOT)} + {report['stage_count']} genesis stages "
+        f"+ {len(report['scenario_snapshots'])} explicit scenario snapshot(s) "
         f"(input {report['source_input_sha256'][:12]})"
     )
     return 0

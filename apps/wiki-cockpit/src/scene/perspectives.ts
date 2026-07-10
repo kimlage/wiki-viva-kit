@@ -28,7 +28,15 @@ import {
 } from "./layout";
 import { parseRealFamilyGroupId, realFamilyGroupId } from "./worldState";
 
-export type PerspectiveId = "radar" | "atlas" | "districts" | "trails" | "focus" | "quadrants";
+export type PerspectiveId =
+  | "radar"
+  | "atlas"
+  | "districts"
+  | "trails"
+  | "focus"
+  | "quadrants"
+  | "sources"
+  | "work";
 
 export type GroupKind =
   | "context"
@@ -41,7 +49,9 @@ export type GroupKind =
   | "quadrant"
   | "core"
   | "family"
-  | "region_family";
+  | "region_family"
+  | "source_flow"
+  | "work_queue";
 
 export type WorldGroup = {
   key: string;
@@ -338,9 +348,10 @@ function shouldAggregateFamily(members: GraphNode[]): boolean {
 }
 
 function previewLimitForGroup(memberCount: number): number {
-  if (memberCount >= 48) return 1;
-  if (memberCount >= 14) return 2;
-  return 3;
+  // The family shell and honest count carry the root overview. Real members
+  // appear one interaction deeper; keeping preview meshes beside every shell
+  // made the 107-page instructional world visually and computationally noisy.
+  return 0;
 }
 
 function visibleFamilyChildLimit(memberCount: number, budget: number): number {
@@ -385,22 +396,11 @@ function previewNodesAround(
   });
 }
 
+// The quadrant home map is a 2x2 territory board, not four slices of a ring.
+// This value is the diagonal distance from the origin to a territory's center;
+// callers project it to the canonical quadrant signs below.
 export function initialQuadrantRegionOrbit(rInner: number, rOuter: number): number {
-  return Number((rInner + (rOuter - rInner) * 0.8).toFixed(4));
-}
-
-export function initialQuadrantFamilyOffset(
-  family: string,
-  index: number,
-  total: number,
-  memberCount: number
-): { fan: number; orbit: number; outward: number } {
-  const t = (index + 0.5) / Math.max(total, 1);
-  return {
-    fan: -1.12 + t * 2.24,
-    orbit: 1.08 + Math.min(Math.log2(memberCount + 1) * 0.11, 0.52),
-    outward: 0.42 + familyRank(family) * 0.045 + (index % 2) * 0.1
-  };
+  return Number((rInner + (rOuter - rInner) * 0.55).toFixed(4));
 }
 
 function quadrantRegionPosition(facet: SceneFacet, rInner: number, rOuter: number): [number, number, number] {
@@ -410,6 +410,35 @@ function quadrantRegionPosition(facet: SceneFacet, rInner: number, rOuter: numbe
     Number((Math.cos(center) * regionOrbit).toFixed(4)),
     -0.02,
     Number((Math.sin(center) * regionOrbit).toFixed(4))
+  ];
+}
+
+function quadrantFamilyTerritoryOffset(index: number, total: number): [number, number] {
+  const columns = Math.max(1, Math.min(3, Math.ceil(Math.sqrt(Math.max(total, 1)))));
+  const rows = Math.max(1, Math.ceil(Math.max(total, 1) / columns));
+  const row = Math.floor(index / columns);
+  const rowStart = row * columns;
+  const itemsInRow = Math.min(columns, Math.max(total - rowStart, 1));
+  const columnInRow = index - rowStart;
+  const x = itemsInRow === 1 ? 0 : -1.2 + (columnInRow / (itemsInRow - 1)) * 2.4;
+  const z = rows === 1 ? 0 : -1.2 + (row / (rows - 1)) * 2.4;
+  return [Number(x.toFixed(4)), Number(z.toFixed(4))];
+}
+
+function quadrantFamilyTerritoryAnchor(
+  facet: SceneFacet,
+  list: GraphNode[],
+  index: number,
+  total: number,
+  rInner: number,
+  rOuter: number
+): [number, number, number] {
+  const center = quadrantRegionPosition(facet, rInner, rOuter);
+  const [offsetX, offsetZ] = quadrantFamilyTerritoryOffset(index, total);
+  return [
+    Number((center[0] + offsetX).toFixed(4)),
+    list.some((node) => node.approved_state === "proposal") ? 0.35 : 0,
+    Number((center[2] + offsetZ).toFixed(4))
   ];
 }
 
@@ -429,17 +458,15 @@ export function regionFamilyAnchorInCenteredRegion(
   ];
 }
 
-function pageNodesNear(
+function pageNodesInTerritory(
   members: GraphNode[],
   snapshotMs: number,
-  angle: number,
-  radius: number
+  anchor: [number, number, number]
 ): LayoutNode[] {
   return members.map((node, index) => {
-    const offset = (index - (members.length - 1) / 2) * 0.22;
-    const itemAngle = angle + offset;
+    const offset = (index - (members.length - 1) / 2) * 0.44;
     const y = node.approved_state === "proposal" ? 0.35 : 0;
-    return makeNode(node, snapshotMs, [Math.cos(itemAngle) * radius, y, Math.sin(itemAngle) * radius], nodeScale(node), {
+    return makeNode(node, snapshotMs, [anchor[0] + offset, y, anchor[2]], nodeScale(node), {
       ring: 1
     });
   });
@@ -485,156 +512,6 @@ function surroundingFamilyNodes(
       { ring: 3, faint: true }
     );
   });
-}
-
-function quadrantPageCenterLayout(
-  request: WorldRequest,
-  center: GraphNode,
-  regionMembers: Map<SceneFacet, GraphNode[]>,
-  snapshotMs: number,
-  rInner: number,
-  rOuter: number
-): WorldLayout {
-  const byId = new Map<string, GraphNode>();
-  request.nodes.forEach((node) => {
-    byId.set(node.id, node);
-    byId.set(node.path, node);
-  });
-  const relationById = new Map<
-    string,
-    {
-      node: GraphNode;
-      edges: number;
-      outbound: number;
-      inbound: number;
-      facet: SceneFacet | null;
-      strongestWeight: number;
-    }
-  >();
-  request.edges.forEach((edge) => {
-    const outbound = edge.source === center.id;
-    const inbound = edge.target === center.id;
-    if (!outbound && !inbound) return;
-    const other = byId.get(outbound ? edge.target : edge.source);
-    if (!other || other.id === center.id) return;
-    const current = relationById.get(other.id) ?? {
-      node: other,
-      edges: 0,
-      outbound: 0,
-      inbound: 0,
-      facet: null,
-      strongestWeight: 0
-    };
-    current.edges += 1;
-    current.outbound += outbound ? 1 : 0;
-    current.inbound += inbound ? 1 : 0;
-    current.strongestWeight = Math.max(current.strongestWeight, edge.weight ?? 1);
-    current.facet = current.facet ?? sceneFacetOf(other.page_type, edge.type) ?? nodeQuadrant(other.id, other.page_type, request.quadrantHomes);
-    relationById.set(other.id, current);
-  });
-
-  const related = [...relationById.values()].sort(
-    (a, b) =>
-      b.edges - a.edges ||
-      b.strongestWeight - a.strongestWeight ||
-      Number(isAttention(b.node)) - Number(isAttention(a.node)) ||
-      attentionFirst(a.node, b.node)
-  );
-  const visibleLimit = Math.min(Math.max(Math.floor(request.maxNodes * 0.08), 8), 16);
-  const visible = related.slice(0, visibleLimit);
-  const hidden = related.slice(visible.length);
-  const facetCounts = new Map<SceneFacet, number>();
-  visible.forEach((entry) => {
-    const facet = entry.facet ?? nodeQuadrant(entry.node.id, entry.node.page_type, request.quadrantHomes) ?? sceneFacetOf(entry.node.page_type, "markdown_link") ?? "relacoes";
-    facetCounts.set(facet, (facetCounts.get(facet) ?? 0) + 1);
-  });
-  const facetSeen = new Map<SceneFacet, number>();
-  const nodes: LayoutNode[] = [
-    makeNode(center, snapshotMs, [0, 0, 0], Math.max(nodeScale(center) * 1.9, 0.5), { isRoot: true, isHub: true })
-  ];
-  visible.forEach((entry, index) => {
-    const facet = entry.facet ?? nodeQuadrant(entry.node.id, entry.node.page_type, request.quadrantHomes) ?? sceneFacetOf(entry.node.page_type, "markdown_link") ?? "relacoes";
-    const count = facetCounts.get(facet) ?? 1;
-    const seen = facetSeen.get(facet) ?? 0;
-    facetSeen.set(facet, seen + 1);
-    const centerAngle = QUADRANT_CENTER_ANGLE[facet];
-    const fan = count <= 1 ? 0 : (seen - (count - 1) / 2) * Math.min(0.34, 1.1 / count);
-    const orbit = 1.42 + (index % 3) * 0.34 + Math.min(entry.edges * 0.08, 0.2);
-    const y = entry.node.approved_state === "proposal" ? 0.36 : entry.outbound && entry.inbound ? 0.18 : entry.outbound ? 0.08 : -0.02;
-    nodes.push(
-      makeNode(
-        entry.node,
-        snapshotMs,
-        [Math.cos(centerAngle + fan) * orbit, y, Math.sin(centerAngle + fan) * orbit],
-        Math.min(Math.max(nodeScale(entry.node) * 1.08, 0.18), 0.34),
-        { ring: 1 }
-      )
-    );
-  });
-
-  const groups: WorldGroup[] = [];
-  if (request.centerHasQuadrants) {
-    const groupRadius = 3.08;
-    SCENE_FACETS.forEach((facet) => {
-      const angle = QUADRANT_CENTER_ANGLE[facet];
-      const members = [...(regionMembers.get(facet) ?? [])].filter((node) => node.id !== center.id).sort(attentionFirst);
-      const visibleMemberIds = visible
-        .filter((entry) => (entry.facet ?? nodeQuadrant(entry.node.id, entry.node.page_type, request.quadrantHomes)) === facet)
-        .map((entry) => entry.node.id);
-      groups.push({
-        key: facet,
-        kind: "quadrant",
-        labelKey: facet,
-        count: members.length,
-        shown: visibleMemberIds.length,
-        anchor: [Math.cos(angle) * (groupRadius + 0.28), 0.05, Math.sin(angle) * (groupRadius + 0.28)] as [number, number, number],
-        drill: null,
-        memberIds: visibleMemberIds.sort()
-      });
-    });
-  }
-
-  const centerFacet = nodeQuadrant(center.id, center.page_type, request.quadrantHomes) ?? sceneFacetOf(center.page_type, "markdown_link");
-  const targetFacet = request.quadrant ?? centerFacet;
-  const pageGuides: WorldGuide[] = [
-    { kind: "circle", radius: 1.48, color: GUIDE_COLOR, opacity: 0.14 },
-    { kind: "circle", radius: 2.26, color: GUIDE_COLOR, opacity: 0.08 }
-  ];
-  const clusterStars: ClusterStar[] = hidden.length > 0
-    ? [
-        starFor(
-          `qstar-page-${center.id}`,
-          "relation",
-          "links",
-          hidden.map((entry) => entry.node),
-          [0, 0, 2.75],
-          null
-        )
-      ]
-    : [];
-  return {
-    perspective: "quadrants",
-    level: 3,
-    context: center.context,
-    group: request.group,
-    radial: "ego",
-    nodes,
-    wedges: [],
-    wedgeKind: "group",
-    guides: pageGuides,
-    groups,
-    clusterStars,
-    beacons: [],
-    rInner,
-    rOuter: Math.max(rOuter, 2.9),
-    deadlineF: DEADLINE_F,
-    unknownR: null,
-    totals: { total: nodes.length + hidden.length, shown: nodes.length, hidden: hidden.length },
-    truncated: hidden.length,
-    ...(targetFacet
-      ? { cameraTarget: [Math.cos(QUADRANT_CENTER_ANGLE[targetFacet]) * 2.35, 0, Math.sin(QUADRANT_CENTER_ANGLE[targetFacet]) * 2.35] as [number, number, number] }
-      : {})
-  };
 }
 
 function nodeScale(node: GraphNode): number {
@@ -691,15 +568,57 @@ function splitBudget(groups: { key: string; size: number }[], budget: number): M
   return out;
 }
 
+// A capped perimeter must still represent the whole perimeter. Taking only a
+// sorted prefix bunches every visible item into the first arc because the
+// stable positions are derived from the full list index. Keep the first/highest
+// priority item, include the tail, and sample the intervening ranks evenly.
+// The chosen nodes retain their full-list positions, so revealing more does not
+// move objects that were already visible.
+function spacedSample<T>(items: readonly T[], limit: number): T[] {
+  const count = Math.max(0, Math.min(Math.floor(limit), items.length));
+  if (count === 0) return [];
+  if (count === items.length) return [...items];
+  if (count === 1) return [items[0]!];
+  return Array.from({ length: count }, (_, index) => {
+    const sourceIndex = Math.round((index * (items.length - 1)) / (count - 1));
+    return items[sourceIndex]!;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Group keys per perspective: the URL :group segment. Deterministic and
 // derivable from the page record alone so search/wiki-links can auto-drill.
+
+const SOURCE_EMITTER_TYPES = new Set([
+  "source",
+  "source_catalog",
+  "source_config",
+  "source_registry",
+  "input_channel",
+  "input_stage"
+]);
+
+function isSourceEmitterType(pageType: string): boolean {
+  return SOURCE_EMITTER_TYPES.has(pageType);
+}
 
 export function groupKeyForPage(
   perspective: PerspectiveId,
   page: { moc_parent?: string; page_type: string; freshness_state: string; approved_state?: string; risk_flags?: string[] }
 ): string | undefined {
   if (perspective === "trails") return undefined;
+  if (perspective === "sources") {
+    return isSourceEmitterType(page.page_type) ? "source-emitters" : "unconsolidated";
+  }
+  if (perspective === "work") {
+    const flags = page.risk_flags?.join(" ").toLowerCase() ?? "";
+    if (/block|fail|error|overdue/.test(flags)) return "blocked";
+    if (page.approved_state === "proposal" || page.page_type === "proposal") return "proposal-review";
+    if (isSourceEmitterType(page.page_type) && page.freshness_state !== "fresh") return "source-sync";
+    if (pageTypeStyle(page.page_type).family === "action") return "open-actions";
+    if (page.freshness_state === "stale") return "review-needed";
+    return "supporting-context";
+  }
   if (perspective === "districts") return page.page_type || "content";
   if (perspective === "atlas") return page.moc_parent ? atlasKeyFromRef(page.moc_parent) : "sem-pai";
   const attention =
@@ -1686,30 +1605,440 @@ function trailsLayout(request: WorldRequest): WorldLayout {
 
 // ---------------------------------------------------------------------------
 
+// Sources — provenance topology. Source pages are stable emitter places, their
+// real evidence/ingestion edges fan emitted artifacts out behind them, and
+// everything without such a relation stays visible on an explicit outer
+// unconsolidated ring. Freshness remains a tone/overlay: it never changes an
+// emitter into a lifecycle state or moves a page between provenance groups.
+
+type SemanticBucket = {
+  key: string;
+  kind: GroupKind;
+  labelKey: string;
+  members: GraphNode[];
+  anchor: [number, number, number];
+};
+
+function canonicalCenter(request: WorldRequest): GraphNode | null {
+  const byKey = new Map<string, GraphNode>();
+  request.nodes.forEach((node) => {
+    byKey.set(node.id, node);
+    byKey.set(node.path, node);
+  });
+  const configured = request.centerId ? byKey.get(request.centerId) : null;
+  if (configured) return configured;
+  const rootId = rootNodeId(request.nodes);
+  return rootId ? byKey.get(rootId) ?? null : null;
+}
+
+function sourceFlowEdge(edge: GraphEdge): boolean {
+  return /source_ref|ingestion_chain|evidence|emitt/.test(edge.type.toLowerCase());
+}
+
+function sourcesLayout(request: WorldRequest): WorldLayout {
+  const snapshotMs = snapshotClock(request.nodes, request.snapshotAt);
+  const center = canonicalCenter(request);
+  const centerId = center?.id ?? "";
+  const byKey = new Map<string, GraphNode>();
+  request.nodes.forEach((node) => {
+    byKey.set(node.id, node);
+    byKey.set(node.path, node);
+  });
+
+  const allEmitters = request.nodes
+    .filter((node) => isSourceEmitterType(node.page_type))
+    .sort((a, b) => attentionFirst(a, b));
+  const emitterIds = new Set(allEmitters.map((node) => node.id));
+  const emittedBy = new Map<string, string>();
+  request.edges
+    .filter(sourceFlowEdge)
+    .sort((a, b) =>
+      a.type.localeCompare(b.type) ||
+      a.source.localeCompare(b.source) ||
+      a.target.localeCompare(b.target)
+    )
+    .forEach((edge) => {
+      const source = byKey.get(edge.source);
+      const target = byKey.get(edge.target);
+      if (!source || !target) return;
+      const sourceIsEmitter = emitterIds.has(source.id);
+      const targetIsEmitter = emitterIds.has(target.id);
+      if (sourceIsEmitter === targetIsEmitter) return;
+      const emitterId = sourceIsEmitter ? source.id : target.id;
+      const artifactId = sourceIsEmitter ? target.id : source.id;
+      const existing = emittedBy.get(artifactId);
+      if (!existing || emitterId.localeCompare(existing) < 0) emittedBy.set(artifactId, emitterId);
+    });
+
+  const emitters = allEmitters.filter((node) => node.id !== centerId);
+  const emitted = request.nodes
+    .filter((node) => node.id !== centerId && !emitterIds.has(node.id) && emittedBy.has(node.id))
+    .sort((a, b) =>
+      (emittedBy.get(a.id) ?? "").localeCompare(emittedBy.get(b.id) ?? "") ||
+      attentionFirst(a, b)
+    );
+  const unconsolidated = request.nodes
+    .filter((node) => node.id !== centerId && !emitterIds.has(node.id) && !emittedBy.has(node.id))
+    .sort(attentionFirst);
+
+  // Preserve source places before their emissions. An emitted artifact never
+  // appears without its emitter merely because the node budget is tight.
+  let remaining = Math.max(request.maxNodes - (center ? 1 : 0), 0);
+  const visibleByKey = new Map<string, GraphNode[]>();
+  [
+    ["source-emitters", emitters],
+    ["emitted-evidence", emitted],
+    ["unconsolidated", unconsolidated]
+  ].forEach(([key, members]) => {
+    const list = members as GraphNode[];
+    const visible = spacedSample(list, remaining);
+    visibleByKey.set(key as string, visible);
+    remaining -= visible.length;
+  });
+  const visibleIds = new Set<string>([
+    ...(center ? [center.id] : []),
+    ...[...visibleByKey.values()].flatMap((members) => members.map((node) => node.id))
+  ]);
+
+  const nodes: LayoutNode[] = [];
+  if (center) nodes.push(makeNode(center, snapshotMs, [0, 0, 0], 0.44, { isHub: true, isRoot: true, ring: 0 }));
+
+  const emitterAngles = new Map<string, number>();
+  emitters.forEach((node, index) => {
+    const angle = -Math.PI / 2 + (index / Math.max(emitters.length, 1)) * Math.PI * 2;
+    emitterAngles.set(node.id, angle);
+    if (!visibleIds.has(node.id)) return;
+    const radius = 2.35;
+    nodes.push(
+      makeNode(node, snapshotMs, [Math.cos(angle) * radius, node.approved_state === "proposal" ? 0.45 : 0.08, Math.sin(angle) * radius], Math.max(nodeScale(node), 0.24), {
+        isHub: true,
+        ring: 1
+      })
+    );
+  });
+
+  const emittedByEmitter = new Map<string, GraphNode[]>();
+  emitted.forEach((node) => {
+    const emitterId = emittedBy.get(node.id) ?? "";
+    const list = emittedByEmitter.get(emitterId) ?? [];
+    list.push(node);
+    emittedByEmitter.set(emitterId, list);
+  });
+  emittedByEmitter.forEach((members, emitterId) => {
+    members.forEach((node, index) => {
+      if (!visibleIds.has(node.id)) return;
+      const centeredEmitter = emitterId === centerId;
+      const baseAngle = centeredEmitter ? -Math.PI / 2 : emitterAngles.get(emitterId) ?? stableHash(emitterId) * Math.PI * 2;
+      const width = centeredEmitter ? Math.PI * 2 : Math.min(0.64, Math.PI / Math.max(emitters.length, 3));
+      const angle = centeredEmitter
+        ? baseAngle + (index / Math.max(members.length, 1)) * Math.PI * 2
+        : baseAngle + ((index + 0.5) / Math.max(members.length, 1) - 0.5) * width;
+      const radius = centeredEmitter ? 1.28 + (index % 2) * 0.28 : 3.45 + Math.floor(index / 8) * 0.42;
+      nodes.push(
+        makeNode(node, snapshotMs, [Math.cos(angle) * radius, node.approved_state === "proposal" ? 0.48 : 0, Math.sin(angle) * radius], nodeScale(node), {
+          ring: centeredEmitter ? 1 : 2
+        })
+      );
+    });
+  });
+
+  unconsolidated.forEach((node, index) => {
+    if (!visibleIds.has(node.id)) return;
+    const ring = index % 3;
+    const slot = Math.floor(index / 3);
+    const slots = Math.max(Math.ceil(unconsolidated.length / 3), 1);
+    const angle = -Math.PI / 2 + (slot / slots) * Math.PI * 2 + ring * 0.035;
+    const radius = 4.85 + ring * 0.42;
+    nodes.push(
+      makeNode(node, snapshotMs, [Math.cos(angle) * radius, node.approved_state === "proposal" ? 0.42 : -0.04, Math.sin(angle) * radius], nodeScale(node) * 0.82, {
+        ring: 3,
+        faint: true
+      })
+    );
+  });
+
+  const buckets: SemanticBucket[] = [
+    {
+      key: "source-emitters",
+      kind: "source_flow",
+      labelKey: "emitters",
+      members: [...(center && emitterIds.has(center.id) ? [center] : []), ...emitters],
+      anchor: [0, 0.05, -2.95]
+    },
+    {
+      key: "emitted-evidence",
+      kind: "source_flow",
+      labelKey: "emitted",
+      members: emitted,
+      anchor: [4.45, 0.05, 0]
+    },
+    {
+      key: "unconsolidated",
+      kind: "source_flow",
+      labelKey: "unconsolidated",
+      members: unconsolidated,
+      anchor: [0, 0.05, 5.85]
+    }
+  ];
+  const groups: WorldGroup[] = buckets.map((bucket) => {
+    const visible = bucket.members.filter((node) => visibleIds.has(node.id));
+    return {
+      key: bucket.key,
+      kind: bucket.kind,
+      labelKey: bucket.labelKey,
+      count: bucket.members.length,
+      shown: visible.length,
+      anchor: bucket.anchor,
+      drill: null,
+      memberIds: visible.map((node) => node.id)
+    };
+  });
+  const clusterStars = buckets.flatMap((bucket) => {
+    const hidden = bucket.members.filter((node) => !visibleIds.has(node.id));
+    return hidden.length > 0
+      ? [starFor(`source-star-${bucket.key}`, bucket.kind, bucket.labelKey, hidden, bucket.anchor, null)]
+      : [];
+  });
+
+  const shown = nodes.length;
+  return {
+    perspective: "sources",
+    level: 0,
+    context: request.context,
+    group: request.group,
+    radial: "orbit",
+    nodes,
+    wedges: [],
+    wedgeKind: "group",
+    guides: [
+      { kind: "circle", radius: 1.28, color: "#57d9a0", opacity: 0.16 },
+      { kind: "circle", radius: 2.35, color: "#57d9a0", opacity: 0.34 },
+      { kind: "circle", radius: 3.45, color: GUIDE_COLOR, opacity: 0.28 },
+      { kind: "circle", radius: 5.27, color: "#ffb454", opacity: 0.18, dashed: true }
+    ],
+    groups,
+    clusterStars,
+    beacons: [],
+    rInner: 1.28,
+    rOuter: 5.7,
+    deadlineF: DEADLINE_F,
+    unknownR: null,
+    totals: { total: request.nodes.length, shown, hidden: Math.max(request.nodes.length - shown, 0) },
+    truncated: Math.max(request.nodes.length - shown, 0)
+  };
+}
+
+// Work — an actionable queue around the same canonical center. Five stable
+// spokes encode kinds of human work; supporting pages remain a quiet perimeter
+// so changing view never swaps universes. Queue geometry is driven only by
+// real action/proposal/source/gate-quality signals present on the node.
+
+type WorkBucketKey = "blocked" | "proposal-review" | "source-sync" | "open-actions" | "review-needed" | "supporting-context";
+
+const WORK_BUCKETS: { key: WorkBucketKey; labelKey: string; angle: number }[] = [
+  { key: "blocked", labelKey: "blocked", angle: -Math.PI * 0.82 },
+  { key: "proposal-review", labelKey: "proposals", angle: -Math.PI * 0.48 },
+  { key: "source-sync", labelKey: "source_sync", angle: -Math.PI * 0.14 },
+  { key: "open-actions", labelKey: "actions", angle: Math.PI * 0.2 },
+  { key: "review-needed", labelKey: "review", angle: Math.PI * 0.54 },
+  { key: "supporting-context", labelKey: "context", angle: Math.PI * 0.88 }
+];
+
+function activeMetric(node: GraphNode, metric: "actions" | "quality" | "evidence"): boolean {
+  const value = node.overlay_metrics?.[metric];
+  if (!value) return false;
+  const state = value.state.toLowerCase();
+  if (metric === "actions") {
+    return value.count > 0 || (value.value ?? 0) > 0 || /open|blocked|overdue|review|pending/.test(state);
+  }
+  if (metric === "quality") {
+    return value.count > 0 || (value.value ?? 0) > 0 || /fail|error|warn|risk|missing|conflict|low/.test(state);
+  }
+  // Evidence counts are positive when coverage is good, so only an explicit
+  // gap state makes evidence a review item.
+  return /gap|missing|weak|unknown|unconsolidated|no[_ -]?source/.test(state);
+}
+
+function workBucketFor(node: GraphNode): WorkBucketKey {
+  const signals = [
+    ...node.risk_flags,
+    node.overlay_metrics?.actions.state ?? "",
+    node.overlay_metrics?.quality.state ?? ""
+  ].join(" ").toLowerCase();
+  if (/block|fail|error|overdue/.test(signals)) return "blocked";
+  if (node.approved_state === "proposal" || node.page_type === "proposal") return "proposal-review";
+  if (isSourceEmitterType(node.page_type) && node.freshness_state !== "fresh") return "source-sync";
+  if (familyOf(node) === "action" || activeMetric(node, "actions")) return "open-actions";
+  if (node.freshness_state === "stale" || node.risk_flags.length > 0 || activeMetric(node, "quality") || activeMetric(node, "evidence")) {
+    return "review-needed";
+  }
+  return "supporting-context";
+}
+
+function workSort(a: GraphNode, b: GraphNode): number {
+  const aMetric = a.overlay_metrics?.actions;
+  const bMetric = b.overlay_metrics?.actions;
+  return (
+    (bMetric?.count ?? 0) - (aMetric?.count ?? 0) ||
+    (bMetric?.value ?? 0) - (aMetric?.value ?? 0) ||
+    attentionFirst(a, b)
+  );
+}
+
+function workLayout(request: WorldRequest): WorldLayout {
+  const snapshotMs = snapshotClock(request.nodes, request.snapshotAt);
+  const center = canonicalCenter(request);
+  const centerId = center?.id ?? "";
+  const membersByKey = new Map<WorkBucketKey, GraphNode[]>(WORK_BUCKETS.map((bucket) => [bucket.key, []]));
+  request.nodes.forEach((node) => {
+    if (node.id === centerId) return;
+    membersByKey.get(workBucketFor(node))!.push(node);
+  });
+  membersByKey.forEach((members) => members.sort(workSort));
+
+  const actionableBuckets = WORK_BUCKETS.slice(0, -1);
+  const budget = Math.max(request.maxNodes - (center ? 1 : 0), 0);
+  const visibleByKey = new Map<WorkBucketKey, GraphNode[]>(WORK_BUCKETS.map((bucket) => [bucket.key, []]));
+  let remaining = budget;
+  let rank = 0;
+  const actionableLaneLimit = 12;
+  // Round-robin across actionable lanes keeps a small lane visible even when
+  // another has hundreds of items. Supporting context only uses spare budget.
+  while (remaining > 0) {
+    if (rank >= actionableLaneLimit) break;
+    let added = false;
+    actionableBuckets.forEach((bucket) => {
+      if (remaining <= 0) return;
+      const node = membersByKey.get(bucket.key)?.[rank];
+      if (!node) return;
+      visibleByKey.get(bucket.key)!.push(node);
+      remaining -= 1;
+      added = true;
+    });
+    if (!added) break;
+    rank += 1;
+  }
+  const supporting = membersByKey.get("supporting-context") ?? [];
+  // Supporting pages keep the shared world legible, but Work is an execution
+  // surface rather than a second Atlas. A bounded quiet perimeter plus an
+  // honest cluster count preserves context without burying the actionable
+  // spokes in dozens of low-priority objects and relation lines.
+  visibleByKey.set("supporting-context", spacedSample(supporting, Math.min(remaining, 12)));
+
+  const visibleIds = new Set<string>([
+    ...(center ? [center.id] : []),
+    ...[...visibleByKey.values()].flatMap((members) => members.map((node) => node.id))
+  ]);
+  const nodes: LayoutNode[] = [];
+  if (center) nodes.push(makeNode(center, snapshotMs, [0, 0, 0], 0.44, { isHub: true, isRoot: true, ring: 0 }));
+
+  actionableBuckets.forEach((bucket, bucketIndex) => {
+    const members = membersByKey.get(bucket.key) ?? [];
+    members.forEach((node, index) => {
+      if (!visibleIds.has(node.id)) return;
+      const column = index % 7;
+      const row = Math.floor(index / 7);
+      const angle = bucket.angle + ((row % 5) - 2) * 0.075;
+      const radius = 1.6 + column * 0.57 + Math.floor(row / 5) * 0.24;
+      const lift = node.approved_state === "proposal" ? 0.5 : bucketIndex === 0 ? 0.22 : 0;
+      nodes.push(makeNode(node, snapshotMs, [Math.cos(angle) * radius, lift, Math.sin(angle) * radius], nodeScale(node), { ring: bucketIndex + 1 }));
+    });
+  });
+  supporting.forEach((node, index) => {
+    if (!visibleIds.has(node.id)) return;
+    const ring = index % 3;
+    const slot = Math.floor(index / 3);
+    const slots = Math.max(Math.ceil(supporting.length / 3), 1);
+    const angle = -Math.PI / 2 + (slot / slots) * Math.PI * 2 + ring * 0.04;
+    const radius = 5.15 + ring * 0.36;
+    nodes.push(makeNode(node, snapshotMs, [Math.cos(angle) * radius, -0.05, Math.sin(angle) * radius], nodeScale(node) * 0.76, { ring: 6, faint: true }));
+  });
+
+  const buckets: SemanticBucket[] = WORK_BUCKETS.map((bucket) => ({
+    key: bucket.key,
+    kind: "work_queue",
+    labelKey: bucket.labelKey,
+    members: membersByKey.get(bucket.key) ?? [],
+    anchor: [Math.cos(bucket.angle) * 6.05, 0.05, Math.sin(bucket.angle) * 6.05]
+  }));
+  const groups: WorldGroup[] = buckets.map((bucket) => {
+    const visible = bucket.members.filter((node) => visibleIds.has(node.id));
+    return {
+      key: bucket.key,
+      kind: bucket.kind,
+      labelKey: bucket.labelKey,
+      count: bucket.members.length,
+      shown: visible.length,
+      anchor: bucket.anchor,
+      drill: null,
+      memberIds: visible.map((node) => node.id)
+    };
+  });
+  const clusterStars = buckets.flatMap((bucket) => {
+    const hidden = bucket.members.filter((node) => !visibleIds.has(node.id));
+    return hidden.length > 0
+      ? [starFor(`work-star-${bucket.key}`, bucket.kind, bucket.labelKey, hidden, bucket.anchor, null)]
+      : [];
+  });
+  const guides: WorldGuide[] = [
+    ...actionableBuckets.map((bucket) => ({
+      kind: "ray" as const,
+      angle: bucket.angle,
+      r0: 1.15,
+      r1: 5.35,
+      color: bucket.key === "blocked" ? "#ff7a8a" : bucket.key === "source-sync" ? "#57d9a0" : GUIDE_COLOR,
+      opacity: bucket.key === "blocked" ? 0.4 : 0.28
+    })),
+    { kind: "circle" as const, radius: 5.5, color: GUIDE_COLOR, opacity: 0.16, dashed: true }
+  ];
+
+  const shown = nodes.length;
+  return {
+    perspective: "work",
+    level: 0,
+    context: request.context,
+    group: request.group,
+    radial: "orbit",
+    nodes,
+    wedges: [],
+    wedgeKind: "group",
+    guides,
+    groups,
+    clusterStars,
+    beacons: [],
+    rInner: 1.15,
+    rOuter: 5.75,
+    deadlineF: DEADLINE_F,
+    unknownR: null,
+    totals: { total: request.nodes.length, shown, hidden: Math.max(request.nodes.length - shown, 0) },
+    truncated: Math.max(request.nodes.length - shown, 0)
+  };
+}
+
+// ---------------------------------------------------------------------------
+
 export function computeWorldLayout(request: WorldRequest): WorldLayout {
   if (request.perspective === "atlas") return atlasLayout(request);
   if (request.perspective === "districts") return districtsLayout(request);
   if (request.perspective === "trails") return trailsLayout(request);
   if (request.perspective === "focus") return focusLayout(request);
   if (request.perspective === "quadrants") return quadrantsLayout(request);
+  if (request.perspective === "sources") return sourcesLayout(request);
+  if (request.perspective === "work") return workLayout(request);
   return radarLayout(request);
 }
 
-// Quadrants — the AQAL home map: WHERE EVERYTHING LIVES. The plane is carved into
-// four FIXED 90° regions by each page's home quadrant (its own page_type, not a
-// neighbor edge), plus a narrow q0-core escape hatch for the active root/unknown
-// pages that honestly have no quadrant. radial="shelf": radius is family-shelf depth (freshness stays
-// on tone), never a freshness deadline — the four fixed sectors must not double-
-// encode. The frame is constant: four quadrant groups + rays always emit (an
-// empty quadrant shows a dimmed rim, count 0); the core group emits only when
-// populated (the core is not a fifth quadrant).
+// Quadrants — the AQAL home map: WHERE EVERYTHING LIVES. Four deterministic
+// 2x2 territories carry each page's compiled home quadrant (with page type only
+// as fallback), while q0-core occupies a neutral spine. radial="shelf" means
+// geometry encodes territory/family depth and freshness remains a visual tone,
+// never a second positional axis. All four groups remain present even when one
+// is honestly empty; core is structure, not a fifth quadrant.
 function quadrantsLayout(request: WorldRequest): WorldLayout {
   const snapshotMs = snapshotClock(request.nodes, request.snapshotAt);
-  const rInner = 1.7;
-  const step = 0.66;
-  const rOuter = rInner + FAMILY_ORDER.length * step;
+  const rInner = 1.1;
+  const rOuter = 6.4;
   const drillROuter = 3.6;
-  const structureR = rOuter + 1.15;
   const centerCandidate = request.centerId && request.nodes.some((node) => node.id === request.centerId)
     ? request.centerId
     : null;
@@ -1727,33 +2056,24 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
   const guides: WorldGuide[] = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((angle) => ({
     kind: "ray" as const,
     angle,
-    r0: 0.6,
+    r0: 0.72,
     r1: rOuter + 0.3,
     color: GUIDE_COLOR,
     opacity: 0.3
   }));
-  FAMILY_ORDER.forEach((_family, index) => {
-    guides.push({ kind: "circle", radius: rInner + index * step, color: GUIDE_COLOR, opacity: index % 2 === 0 ? 0.16 : 0.09 });
-  });
-  guides.push({ kind: "circle", radius: structureR, color: GUIDE_COLOR, opacity: 0.14 });
 
   const nodes: LayoutNode[] = [];
   const clusterStars: ClusterStar[] = [];
   const groups: WorldGroup[] = [];
   const activeFamilyGroup = parseRealFamilyGroupId(request.group);
   const selectedQuadrant = request.quadrant;
-  const pageCenter = request.pageId ? request.nodes.find((node) => node.id === request.pageId || node.path === request.pageId) ?? null : null;
-
-  if (pageCenter) {
-    return quadrantPageCenterLayout(request, pageCenter, regionMembers, snapshotMs, rInner, rOuter);
-  }
 
   if (activeFamilyGroup) {
-    const scopedMembers = selectedQuadrant
-      ? [...regionMembers.get(selectedQuadrant)!]
-      : [...regionMembers.values()].flat();
-    const familyMembers = scopedMembers.filter((node) => familyLabelKey(familyOf(node)) === activeFamilyGroup.family).sort(attentionFirst);
-    const familyEntries = [...groupByFamily(scopedMembers).entries()].sort((a, b) => familyRank(a[0]) - familyRank(b[0]) || a[0].localeCompare(b[0]));
+    // A quadrant selector is a lens, never a data filter. Family routes must
+    // therefore resolve the same members and positions under all four lenses.
+    const worldMembers = [...regionMembers.values()].flat();
+    const familyMembers = worldMembers.filter((node) => familyLabelKey(familyOf(node)) === activeFamilyGroup.family).sort(attentionFirst);
+    const familyEntries = [...groupByFamily(worldMembers).entries()].sort((a, b) => familyRank(a[0]) - familyRank(b[0]) || a[0].localeCompare(b[0]));
     const parentSpans = allocateWedgeSpans(familyEntries.map(([family, list]) => ({ key: family, weight: list.length })));
     const parentSpan = parentSpans.find((span) => span.key === activeFamilyGroup.family);
     const parentIndex = parentSpan ? parentSpans.findIndex((span) => span.key === activeFamilyGroup.family) : -1;
@@ -1783,7 +2103,8 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
       drill: null,
       memberIds: visible.map((node) => node.id).sort()
     });
-    const shown = nodes.length;
+    const canonicalShown = (rootNode ? 1 : 0) + visible.length;
+    const canonicalTotal = (rootNode ? 1 : 0) + familyMembers.length;
     return {
       perspective: "quadrants",
       level: 2,
@@ -1800,9 +2121,10 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
       rOuter: drillROuter,
       deadlineF: DEADLINE_F,
       unknownR: null,
-      totals: { total: shown + hidden.length, shown, hidden: hidden.length },
+      totals: { total: canonicalTotal, shown: canonicalShown, hidden: hidden.length },
       truncated: hidden.length,
-      ...(drillOrigin ? { drillOrigin } : {})
+      ...(drillOrigin ? { drillOrigin } : {}),
+      ...(selectedQuadrant ? { cameraTarget: quadrantRegionPosition(selectedQuadrant, rInner, rOuter) } : {})
     };
   }
 
@@ -1814,39 +2136,14 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
 
   SCENE_FACETS.forEach((facet) => {
     const center = QUADRANT_CENTER_ANGLE[facet];
-    const spanStart = center - Math.PI / 4 + 0.06;
-    const spanEnd = center + Math.PI / 4 - 0.06;
     const members = [...regionMembers.get(facet)!].sort(attentionFirst);
     const byFamily = groupByFamily(members);
     const families = [...byFamily.entries()].sort((a, b) => familyRank(a[0]) - familyRank(b[0]) || a[0].localeCompare(b[0]));
-    const usable = Math.max(spanEnd - spanStart - 0.08, 0.05);
-    const radialX = Math.cos(center);
-    const radialZ = Math.sin(center);
-    const tangentX = -Math.sin(center);
-    const tangentZ = Math.cos(center);
     const regionMemberIds: string[] = [];
-    const baseRegionCenter = quadrantRegionPosition(facet, rInner, rOuter);
-    const regionFocus = selectedQuadrant === facet;
-    const regionSuppressed = Boolean(selectedQuadrant && !regionFocus);
-    const regionCenter: [number, number, number] = regionFocus
-      ? [radialX * (rInner + 1.35), 0, radialZ * (rInner + 1.35)]
-      : regionSuppressed
-        ? [radialX * (rOuter + 0.9), -0.08, radialZ * (rOuter + 0.9)]
-        : baseRegionCenter;
     families.forEach(([family, list], index) => {
-      const t = (index + 0.5) / Math.max(families.length, 1);
-      const { fan, orbit, outward } = initialQuadrantFamilyOffset(family, index, families.length, list.length);
-      const angle = spanStart + 0.04 + t * usable;
-      const focusAngle = center - Math.PI * 0.55 + t * Math.PI * 1.1;
       const key = realFamilyGroupId(family);
       const visualNodeId = regionFamilyDrillKey(facet, family);
-      const familyAnchor: [number, number, number] = regionFocus
-        ? regionFamilyAnchorInCenteredRegion(list, focusAngle, index, families.length)
-        : [
-            regionCenter[0] + tangentX * Math.sin(fan) * orbit + radialX * outward,
-            list.some((node) => node.approved_state === "proposal") ? 0.35 : 0,
-            regionCenter[2] + tangentZ * Math.sin(fan) * orbit + radialZ * outward
-          ];
+      const familyAnchor = quadrantFamilyTerritoryAnchor(facet, list, index, families.length, rInner, rOuter);
       if (shouldAggregateFamily(list)) {
         const familyGroupNode = makeGroupNode(
           key,
@@ -1856,9 +2153,9 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
           rootNode?.context || "system",
           list,
           familyAnchor,
-          familyGroupScale(list.length, 0) * (regionFocus ? 1.18 : regionSuppressed ? 0.78 : 1),
+          familyGroupScale(list.length, 0),
           { group: key },
-          { ring: 1, faint: regionSuppressed, nodeId: visualNodeId }
+          { ring: 1, nodeId: visualNodeId }
         );
         nodes.push(familyGroupNode);
         const previews = previewNodesAround(
@@ -1866,23 +2163,21 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
           list,
           snapshotMs,
           familyAnchor,
-          regionFocus ? 0.4 : regionSuppressed ? 0.24 : 0.32,
-          regionSuppressed ? 2 : 3
+          0.32,
+          3
         );
         previews.forEach((node) => renderedPageIds.add(node.id));
         nodes.push(...previews);
-        regionMemberIds.push(familyGroupNode.id, ...previews.map((node) => node.id));
+        regionMemberIds.push(...previews.map((node) => node.id));
       } else {
-        const pageRadius = Math.hypot(familyAnchor[0], familyAnchor[2]);
-        const pageNodes = pageNodesNear(list, snapshotMs, angle, pageRadius);
-        if (regionSuppressed) pageNodes.forEach((node) => (node.faint = true));
+        const pageNodes = pageNodesInTerritory(list, snapshotMs, familyAnchor);
         pageNodes.forEach((node) => renderedPageIds.add(node.id));
         nodes.push(...pageNodes);
         regionMemberIds.push(...pageNodes.map((node) => node.id));
       }
     });
-    const rimRadius = regionFocus ? rInner + 1.85 : regionSuppressed ? rOuter + 1.3 : rOuter + 0.55;
-    const rim: [number, number, number] = [Math.cos(center) * rimRadius, regionSuppressed ? -0.04 : 0.05, Math.sin(center) * rimRadius];
+    const rimRadius = rOuter + 0.36;
+    const rim: [number, number, number] = [Math.cos(center) * rimRadius, 0.05, Math.sin(center) * rimRadius];
     groups.push({
       key: facet,
       kind: "quadrant",
@@ -1897,19 +2192,17 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
 
   const coreOrdered = [...coreMembers].sort((a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
   coreOrdered.slice(0, 12).forEach((node, index) => {
-    const angle = (index / Math.max(coreOrdered.length, 1)) * Math.PI * 2;
-    const ring = structureR + (index % 3) * 0.28;
-    nodes.push(makeNode(node, snapshotMs, [Math.cos(angle) * ring, -0.08, Math.sin(angle) * ring], nodeScale(node) * 0.85));
+    // q0-core owns the neutral vertical spine between the left/right
+    // territories. It stays out of every authoritative cell and never crowds
+    // the active root at the origin.
+    const side = index % 2 === 0 ? -1 : 1;
+    const distance = 1.35 + Math.floor(index / 2) * 0.62;
+    nodes.push(makeNode(node, snapshotMs, [0, -0.08, side * distance], nodeScale(node) * 0.85));
     renderedPageIds.add(node.id);
   });
-  const coreAnchorAngle = Math.PI / 2;
   if (coreOrdered.length > 12) {
     clusterStars.push(
-      starFor("qstar-core", "core", "core", coreOrdered.slice(12), [
-        Math.cos(coreAnchorAngle) * (structureR + 0.6),
-        0,
-        Math.sin(coreAnchorAngle) * (structureR + 0.6)
-      ], null)
+      starFor("qstar-core", "core", "core", coreOrdered.slice(12), [0, 0, rOuter + 0.55], null)
     );
   }
   if (coreMembers.length > 0) {
@@ -1919,17 +2212,17 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
       labelKey: "core",
       count: coreMembers.length,
       shown: Math.min(coreMembers.length, 12),
-      anchor: [Math.cos(coreAnchorAngle) * (structureR + 0.35), 0.05, Math.sin(coreAnchorAngle) * (structureR + 0.35)],
+      anchor: [0, 0.05, rOuter + 0.35],
       drill: null,
       memberIds: coreOrdered.slice(0, 12).map((node) => node.id).sort()
     });
   }
 
-  const shown = nodes.length;
   const total = (rootNode ? 1 : 0) + [...regionMembers.values()].reduce((sum, list) => sum + list.length, 0) + coreMembers.length;
-  const hidden = Math.max(total - renderedPageIds.size, 0);
+  const shown = renderedPageIds.size;
+  const hidden = Math.max(total - shown, 0);
   const cameraTarget: [number, number, number] | undefined = selectedQuadrant
-    ? [Math.cos(QUADRANT_CENTER_ANGLE[selectedQuadrant]) * (rInner + rOuter) * 0.5, 0, Math.sin(QUADRANT_CENTER_ANGLE[selectedQuadrant]) * (rInner + rOuter) * 0.5]
+    ? quadrantRegionPosition(selectedQuadrant, rInner, rOuter)
     : undefined;
 
   return {
@@ -1947,7 +2240,7 @@ function quadrantsLayout(request: WorldRequest): WorldLayout {
     rOuter,
     deadlineF: DEADLINE_F,
     unknownR: null,
-    totals: { total: shown + hidden, shown, hidden },
+    totals: { total, shown, hidden },
     truncated: hidden,
     cameraTarget
   };

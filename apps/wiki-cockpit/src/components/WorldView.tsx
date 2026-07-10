@@ -5,18 +5,19 @@
 // tray, minimap hint). The old below-the-fold panel stack is gone: every ops
 // action is reachable inside the viewport.
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { t } from "../data/i18n";
 import { contextLabel, pageTypeLabel, worldGroupLabel } from "../data/presentation";
 import { groupKeyForPage } from "../scene/perspectives";
+import type { PerspectiveId as ScenePerspectiveId } from "../scene/perspectives";
 import { SCENE_FACETS, nodeQuadrant, quadrantHomesFromAssignments, sceneFacetOf } from "../scene/facets";
 import type { QuadrantHomes, SceneFacet } from "../scene/facets";
 import { parseRealFamilyGroupId } from "../scene/worldState";
 import { computeCondition } from "../scene/condition";
 import { rankPages } from "../scene/search";
-import { canonicalWorldUrl } from "../world/state/routeHydration";
+import { canonicalWorldUrl, hydrateWorldRoute } from "../world/state/routeHydration";
 import type { RuntimeEvent } from "../world/contracts";
 import type { WorldPatch, WorldRoute } from "../router";
 import type { NavigationPort, OperatorPort } from "../application/ports";
@@ -37,6 +38,8 @@ import { GuideFallback } from "./world/GuideFallback";
 import { MissionCard, SEARCH_VISIBLE } from "./world/MissionCard";
 import type { MissionRow } from "./world/MissionCard";
 import { PacketTray } from "./world/PacketTray";
+import { WorldNavigator } from "./world/WorldNavigator";
+import { isNativeWorldViewId } from "../world/experience";
 import {
   DEFAULT_VISUAL_CONTROL_CONFIG,
   isVisualControlCommand,
@@ -118,7 +121,10 @@ function quadrantAqalText(facet: SceneFacet): { mark: string; position: string }
 }
 
 function quadrantHealthStyle(region: RegionGroupPayload | undefined, fallbackCount: number): CSSProperties {
-  const total = Math.max(region?.summary.total ?? fallbackCount, 1);
+  // Region payloads can describe only the compiler-classified slice of the
+  // current world. Percentages must still use the full on-screen quadrant
+  // count, otherwise a partial payload visually overstates its condition.
+  const total = Math.max(fallbackCount, 1);
   const stale = ((region?.summary.stale ?? 0) / total) * 100;
   const proposal = ((region?.summary.proposal ?? 0) / total) * 100;
   const risk = ((region?.summary.risk ?? 0) / total) * 100;
@@ -151,7 +157,8 @@ function quadrantInstrumentLabel(facetLabel: string, total: number, region: Regi
     ? t("quadrant.instrument.next", { action: t(region.action_hints[0].label_key, { n: region.action_hints[0].count }) })
     : "";
   return [
-    `${facetLabel}: ${t("world.pages", { n: region.summary.total })}`,
+    `${facetLabel}: ${t("world.pages", { n: total })}`,
+    region.summary.total !== total ? t("quadrant.instrument.classified", { n: region.summary.total }) : "",
     region.summary.hidden > 0 ? t("region.attention.hidden", { n: region.summary.hidden }) : "",
     t("quadrant.instrument.types", { items: typeMix }),
     t("quadrant.instrument.signals", { items: attention }),
@@ -185,6 +192,7 @@ function staleRefreshSpec(pages: PageRecord[]): BriefSpec {
 const MISSION_CARD_KEY = "wiki-cockpit.missionCard";
 function missionCardPref(): boolean {
   try {
+    if (window.matchMedia?.("(max-width: 900px)").matches) return false;
     return window.localStorage.getItem(MISSION_CARD_KEY) === "open";
   } catch {
     return false;
@@ -421,7 +429,7 @@ export function WorldView({
   const pages = bundle.pages.pages;
   const dispatchRuntime = (event: RuntimeEvent) => {
     const next = worldRuntime.dispatch(event);
-    navigation.dispatch({ type: "navigate", target: canonicalWorldUrl(next, route.demo) });
+    navigation.dispatch({ type: "navigate", target: canonicalWorldUrl(next, route.demo, route.query) });
   };
   // Always navigate from the CURRENT route: async callbacks (debounce timers,
   // scene events) must never replay a stale route and revert navigation.
@@ -432,31 +440,52 @@ export function WorldView({
   const [trayOpen, setTrayOpen] = useState(false);
   const [missionsOpen, setMissionsOpen] = useState(false);
   const [missionCardOpen, setMissionCardOpen] = useState(missionCardPref);
+  const [worldNavigatorOpen, setWorldNavigatorOpen] = useState(false);
   const [visualPanelOpen, setVisualPanelOpen] = useState(false);
   const [visualConfig, setVisualConfig] = useState<VisualControlConfig>(() =>
     loadVisualControlConfig(typeof window === "undefined" ? undefined : window.localStorage)
   );
   const [previewQuadrant, setPreviewQuadrant] = useState<SceneFacet | null>(null);
-  const [tourOpen, setTourOpen] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      new URLSearchParams(window.location.search).get("visual") !== "1" &&
+  const [tourOpen, setTourOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    const requestedTour = params.get("tour");
+    return (
+      params.get("visual") !== "1" &&
       !route.query.genesis && // the genesis IS the tour
-      !tourSeen()
-  );
+      (requestedTour === "1" || (requestedTour !== "0" && !tourSeen()))
+    );
+  });
   const [isolateRelation, setIsolateRelation] = useState<RelationGroupKey | null>(null);
   const [hoverLinkId, setHoverLinkId] = useState<string | null>(null);
   const [walk, setWalk] = useState<{ ids: string[]; step: number } | null>(null);
   const [trailIds, setTrailIds] = useState<string[]>([]);
   const searchRef = useRef<HTMLInputElement>(null);
+  const searchRouteTimerRef = useRef<number | null>(null);
+  const tourOpenerRef = useRef<HTMLElement | null>(null);
+  const openTour = useCallback(() => {
+    tourOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setTourOpen(true);
+  }, []);
 
   // Primary surfaces keep the world visible for context, but the scene and
   // instruments behind them are inert until the surface closes. This is the
   // runtime surface-stack contract, not a per-dock convention.
   useEffect(() => {
-    const active = Boolean(worldState.dock || worldState.readerId || route.query.reader);
-    const targets = [...document.querySelectorAll<HTMLElement>(".sceneCanvasFrame, .worldTopStrip, .worldCommandBar")];
-    for (const target of targets) {
+    const primarySurfaceOpen = Boolean(worldState.dock || worldState.readerId || route.query.reader);
+    const targetState = new Map<HTMLElement, boolean>();
+    document.querySelectorAll<HTMLElement>(".sceneCanvasFrame, .worldCommandBar").forEach((target) => {
+      targetState.set(target, primarySurfaceOpen || worldNavigatorOpen);
+    });
+    document.querySelectorAll<HTMLElement>(".worldTopStrip").forEach((target) => {
+      targetState.set(target, primarySurfaceOpen);
+    });
+    document.querySelectorAll<HTMLElement>(
+      ".worldBreadcrumbs, .conditionStrip, .worldMeta, .worldMissionCard, .worldMissionSlim, .quadrantCompass, .focusLegend"
+    ).forEach((target) => {
+      targetState.set(target, (targetState.get(target) ?? false) || primarySurfaceOpen || worldNavigatorOpen);
+    });
+    for (const [target, active] of targetState) {
       if (active) {
         target.inert = true;
         target.setAttribute("aria-hidden", "true");
@@ -465,18 +494,24 @@ export function WorldView({
         target.removeAttribute("aria-hidden");
       }
     }
-    return () => targets.forEach((target) => {
+    return () => [...targetState.keys()].forEach((target) => {
       target.inert = false;
       target.removeAttribute("aria-hidden");
     });
-  }, [route.query.reader, worldState.dock, worldState.readerId]);
+  }, [route.query.reader, worldNavigatorOpen, worldState.dock, worldState.readerId]);
 
   // Canonical page navigation: selecting a page ALWAYS emits the full URL
   // (context › group › page), so the positional grammar stays unambiguous and
   // off-level selections auto-drill instead of silently no-oping.
   const canonicalPatch = (patch: WorldPatch): WorldPatch => {
     const current = routeRef.current;
-    const perspective = patch.perspective ?? current.perspective;
+    const activeView = patch.view && isNativeWorldViewId(patch.view)
+      ? patch.view
+      : worldRuntime.getState().view;
+    const perspective = (patch.perspective ?? activeView ?? current.perspective) as ScenePerspectiveId;
+    if (patch.view && patch.view !== current.query.view && patch.group === undefined) {
+      patch = { ...patch, group: null, worldGroup: null };
+    }
     if (perspective === "quadrants" && typeof patch.group === "string" && patch.group.startsWith("family:")) {
       patch = { ...patch, group: null, worldGroup: patch.group };
     }
@@ -495,7 +530,26 @@ export function WorldView({
       group: isEgoPerspective(perspective) ? null : groupKeyForPage(perspective, page) ?? null
     };
   };
+  const canonicalV8Route = (base: WorldRoute, patch: WorldPatch) => {
+    const queryPatch: WorldPatch = {
+      ...patch,
+      // In native v8, selected page and family group live in query state. Keep
+      // the compatibility positional fields synchronized only as an input to
+      // hydration; the emitted URL remains the single `/w?...` grammar.
+      ...(patch.pageId !== undefined ? { page: patch.pageId } : {}),
+      ...(patch.worldGroup === undefined && patch.group !== undefined ? { worldGroup: patch.group } : {})
+    };
+    return navigation.patch(base, queryPatch);
+  };
+  const canonicalV8State = (patchedRoute: WorldRoute) => hydrateWorldRoute({
+    route: patchedRoute,
+    pages: worldRuntime.pages,
+    rootId: rootAnchor(bundle)?.id ?? worldRuntime.getState().centerId,
+    kernel: worldRuntime.kernel,
+    mode: "v8"
+  });
   const navigateWorld = (patch: WorldPatch, options: { replace?: boolean } = {}) => {
+    const resolvedPatch = canonicalPatch(patch);
     if (typeof patch.center === "string") worldRuntime.dispatch({ type: "selectCenter", entityId: patch.center });
     if (typeof patch.pageId === "string") {
       worldRuntime.dispatch({ type: "selectEntity", entityId: patch.pageId });
@@ -504,14 +558,42 @@ export function WorldView({
     if (patch.reader === false && !patch.pageId) worldRuntime.dispatch({ type: "closeSurface" });
     if (patch.dock) worldRuntime.dispatch({ type: "openSurface", dock: patch.dock });
     if (patch.dock === null) worldRuntime.dispatch({ type: "closeSurface" });
+    // Every action inside a native v8 view — not only the view buttons — uses
+    // one canonical query grammar. Selection, reader, dock, filter, packet and
+    // fallback links can therefore never reintroduce `/w/quadrants/...` while
+    // the effective view is Sources or Work.
+    const nativeView = typeof resolvedPatch.view === "string" && isNativeWorldViewId(resolvedPatch.view)
+      ? resolvedPatch.view
+      : worldRuntime.getState().view;
+    if (worldRuntime.getState().mode === "v8" && isNativeWorldViewId(nativeView)) {
+      const patchedRoute = canonicalV8Route(routeRef.current, resolvedPatch);
+      const canonicalState = canonicalV8State(patchedRoute);
+      worldRuntime.dispatch({ type: "hydrateRoute", state: canonicalState });
+      navigation.dispatch({
+        type: "navigate",
+        target: canonicalWorldUrl(canonicalState, routeRef.current.demo, patchedRoute.query),
+        replace: options.replace
+      });
+      return;
+    }
     navigation.dispatch({
       type: "patch-world",
       route: routeRef.current,
-      patch: canonicalPatch(patch),
+      patch: resolvedPatch,
       replace: options.replace
     });
   };
-  const makeHref = (patch: ScenePatch) => navigation.hrefForPatch(route, canonicalPatch(patch as WorldPatch));
+  const makeHref = (patch: ScenePatch) => {
+    const resolvedPatch = canonicalPatch(patch as WorldPatch);
+    const nativeView = typeof resolvedPatch.view === "string" && isNativeWorldViewId(resolvedPatch.view)
+      ? resolvedPatch.view
+      : worldRuntime.getState().view;
+    if (worldRuntime.getState().mode === "v8" && isNativeWorldViewId(nativeView)) {
+      const patchedRoute = canonicalV8Route(routeRef.current, resolvedPatch);
+      return canonicalWorldUrl(canonicalV8State(patchedRoute), routeRef.current.demo, patchedRoute.query);
+    }
+    return navigation.hrefForPatch(route, resolvedPatch);
+  };
   const visualWorkspaceStyle = useMemo(
     () => ({
       "--visual-glow": String(visualConfig.glow),
@@ -543,6 +625,13 @@ export function WorldView({
   // packet item, legacy alias, hand-typed URL) canonicalizes the URL to the
   // page's level — the silent no-op is banned.
   useEffect(() => {
+    // Native v8 keeps selection and reader state in the canonical query. Its
+    // `route.pageId` is deliberately hydrated from `?page=`, so treating that
+    // value as a compatibility positional page would rewrite `/w?...` back to
+    // `/w/quadrants/context/group/page`. Auto-drill remains a compat-only
+    // repair; native layouts already locate the selected page without changing
+    // their URL grammar.
+    if (worldState.mode === "v8" && route.query.view) return;
     // A trailing segment that is actually a page id (typed/legacy URLs) is
     // re-read as the locked page, never dropped.
     if (!route.pageId && route.group && !knownGroupKey(route.group)) {
@@ -561,7 +650,7 @@ export function WorldView({
       navigation.dispatch({ type: "patch-world", route, patch: { context, group: group ?? null }, replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages, route]);
+  }, [pages, route, worldState.mode]);
 
   // Selecting a page opens a new read: stale evidence-walk highlights and
   // relation isolation from the previous page never leak into this one.
@@ -602,11 +691,11 @@ export function WorldView({
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
-      if (event.key === "?") setTourOpen(true);
+      if (event.key === "?") openTour();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [openTour]);
 
   useEffect(() => {
     try {
@@ -633,7 +722,11 @@ export function WorldView({
     if (searchDraft === route.query.q) return undefined;
     if (isVisualControlCommand(searchDraft)) return undefined;
     const timer = window.setTimeout(() => navigateWorld({ q: searchDraft || null }, { replace: true }), 250);
-    return () => window.clearTimeout(timer);
+    searchRouteTimerRef.current = timer;
+    return () => {
+      window.clearTimeout(timer);
+      if (searchRouteTimerRef.current === timer) searchRouteTimerRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchDraft]);
 
@@ -644,8 +737,8 @@ export function WorldView({
   // Keyboard result navigation resets whenever the query changes.
   useEffect(() => setActiveHit(0), [route.query.q]);
   const visibleHits = searchHits.slice(0, SEARCH_VISIBLE);
-  const openHit = (page?: PageRecord) => {
-    if (page) navigateWorld({ pageId: page.id, reader: true });
+  const openHit = (page?: PageRecord, query?: string) => {
+    if (page) navigateWorld({ ...(query === undefined ? {} : { q: query || null }), pageId: page.id, reader: true });
   };
   const onSearchKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     const currentSearchValue = event.currentTarget.value;
@@ -674,7 +767,15 @@ export function WorldView({
       setActiveHit((index) => Math.max(index - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
-      openHit(keyboardHits[activeHit] ?? keyboardHits[0]);
+      // Commit search + reader as one route transition. Otherwise the pending
+      // debounced `?q=` write can land after the reader navigation and replay a
+      // route with no `reader=1`, which is especially visible in canonical v8
+      // where page state no longer has a positional-path fallback.
+      if (searchRouteTimerRef.current !== null) {
+        window.clearTimeout(searchRouteTimerRef.current);
+        searchRouteTimerRef.current = null;
+      }
+      openHit(keyboardHits[activeHit] ?? keyboardHits[0], currentSearchValue);
     } else if (event.key === "Escape") {
       event.preventDefault();
       setSearchDraft("");
@@ -792,7 +893,7 @@ export function WorldView({
       detail: t("mission.stale.detail", { n: stale }),
       help: t("mission.stale.help"),
       tone: "warn",
-      onClick: () => navigateWorld({ perspective: "radar", filter: "stale" }),
+      onClick: () => navigateWorld({ view: "radar", filter: "stale", group: null, worldGroup: null }),
       action:
         onComposeBrief && stalePages.length > 0
           ? {
@@ -809,7 +910,7 @@ export function WorldView({
       label: t("mission.clear.label"),
       detail: t("mission.clear.detail"),
       tone: "good",
-      onClick: () => navigateWorld({ perspective: "atlas", context: null, group: null })
+      onClick: () => navigateWorld({ view: "quadrants", context: null, group: null, worldGroup: null })
     });
   }
 
@@ -844,86 +945,42 @@ export function WorldView({
   }, [route.perspective, selectedPage, bundle.graph]);
 
   const activeQuadrantAnchorId = useMemo(
-    () => focusAnchorId(bundle, route.query.center || route.pageId || undefined) ?? rootAnchor(bundle)?.id ?? null,
-    [bundle, route.pageId, route.query.center]
+    () => focusAnchorId(bundle, worldState.centerId) ?? rootAnchor(bundle)?.id ?? null,
+    [bundle, worldState.centerId]
   );
   const activeQuadrantAnchor = useMemo(
     () => anchorRecord(bundle, activeQuadrantAnchorId ?? undefined),
     [bundle, activeQuadrantAnchorId]
   );
-  const activeCenterHasQuadrants = useMemo(() => {
-    if (selectedPage) return anchorDeclaresQuadrants(anchorRecord(bundle, selectedPage.id));
-    return anchorDeclaresQuadrants(activeQuadrantAnchor);
-  }, [activeQuadrantAnchor, bundle, selectedPage]);
-  const runtimePerspective = worldState.view === "sources" ? "radar" : worldState.view === "work" ? "districts" : worldState.view;
+  const activeCenterHasQuadrants = useMemo(
+    () => anchorDeclaresQuadrants(activeQuadrantAnchor),
+    [activeQuadrantAnchor]
+  );
+  const runtimePerspective = worldState.view;
   const effectivePerspective =
     runtimePerspective === "quadrants" && !activeCenterHasQuadrants ? "focus" : runtimePerspective;
-  const displayPerspective = runtimePerspective === "quadrants" && !activeCenterHasQuadrants ? "center" : runtimePerspective;
-  const activeCommandPerspective = displayPerspective === "center" ? "focus" : runtimePerspective;
+  const activeCommandPerspective = effectivePerspective;
   const activeRegionPayloads = useMemo(() => regionPayloadByKey(activeQuadrantAnchor), [activeQuadrantAnchor]);
 
   // The AUTHORITATIVE per-page quadrant classification: the compiler's derived
   // quadrant_assignments on the ACTIVE anchor, inverted into a pageId → facet
-  // map. Selecting a template/root page recenters the quadrants; the scene,
-  // compass and quadrant scoping read THIS. The static page-type map is only
-  // the fallback for pages outside the active anchor's compiled scope.
+  // map. Only the explicit center selects the active anchor; an inspected page
+  // never changes this map. The scene and compass read THIS. The static
+  // page-type map is only the fallback outside the compiled scope.
   const quadrantHomes = useMemo<QuadrantHomes | undefined>(() => {
     return quadrantHomesFromAssignments(activeQuadrantAnchor?.derived?.quadrant_assignments);
   }, [activeQuadrantAnchor]);
 
-  const quadrantSceneGraph = useMemo(() => {
-    const assignments = activeQuadrantAnchor?.derived?.quadrant_assignments;
-    if (effectivePerspective !== "quadrants" || !assignments || !activeQuadrantAnchorId) {
-      return bundle.graph;
-    }
-    const visibleIds = new Set<string>([activeQuadrantAnchorId]);
-    Object.values(assignments).forEach((ids) => ids.forEach((id) => visibleIds.add(id)));
-    const selected = route.pageId ? findPage(pages, route.pageId) : null;
-    if (selected) {
-      visibleIds.add(selected.id);
-      bundle.graph.edges.forEach((edge) => {
-        if (edge.source === selected.id) visibleIds.add(edge.target);
-        if (edge.target === selected.id) visibleIds.add(edge.source);
-      });
-    }
-    const nodes = bundle.graph.nodes.filter((node) => visibleIds.has(node.id));
-    const edges = bundle.graph.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
-    return { nodes, edges };
-  }, [activeQuadrantAnchor, activeQuadrantAnchorId, bundle.graph, effectivePerspective, pages, route.pageId]);
+  // Every native view receives the same canonical graph. A view is a stable
+  // spatial projection of one world, never a request to swap the data under
+  // the canvas. Compiled quadrant homes override fallback classification for
+  // known pages; the remaining pages keep deterministic page-type homes.
+  const runtimeSceneGraph = bundle.graph;
 
-  const runtimeSceneGraph = useMemo(() => {
-    if (worldState.view !== "sources" && worldState.view !== "work") return quadrantSceneGraph;
-    const wantedType = worldState.view === "sources" ? "source" : "action";
-    const visibleIds = new Set(
-      quadrantSceneGraph.nodes
-        .filter((node) => node.id === worldState.centerId || (wantedType === "source" ? node.page_type.startsWith("source") : node.page_type === "action"))
-        .map((node) => node.id)
-    );
-    visibleIds.add(worldState.centerId);
-    return {
-      nodes: quadrantSceneGraph.nodes.filter((node) => visibleIds.has(node.id)),
-      edges: quadrantSceneGraph.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target))
-    };
-  }, [quadrantSceneGraph, worldState.centerId, worldState.view]);
-
-  // Quadrant compass: live per-quadrant home counts (+ the honest core) for the
-  // Quadrants perspective — the 2×2 grid you fly by. Computed from the same
-  // classification the layout uses, so it never overstates.
+  // Quadrant lens: live per-quadrant home counts (+ the honest core) for the
+  // active center. It is independent from the base view, so Q1–Q4 can focus
+  // Radar, Sources and Work without silently switching the world to Quadrants.
   const quadrantCounts = useMemo(() => {
-    if (effectivePerspective !== "quadrants") return null;
-    const assignments = activeQuadrantAnchor?.derived?.quadrant_assignments;
-    if (assignments) {
-      const countWithoutCenter = (ids: string[] | undefined) =>
-        (ids ?? []).filter((id) => id !== activeQuadrantAnchorId).length;
-      return {
-        quadrants: SCENE_FACETS.map((facet) => ({
-          facet,
-          count: countWithoutCenter(assignments[facet === "intencao" ? "q1" : facet === "pratica" ? "q2" : facet === "relacoes" ? "q3" : "q4"]),
-          region: activeRegionPayloads.get(facet)
-        })),
-        core: countWithoutCenter(assignments.q0_core)
-      };
-    }
     const counts = new Map<SceneFacet, number>(SCENE_FACETS.map((facet) => [facet, 0]));
     let core = 0;
     bundle.graph.nodes.forEach((node) => {
@@ -933,7 +990,7 @@ export function WorldView({
       else core += 1;
     });
     return { quadrants: SCENE_FACETS.map((facet) => ({ facet, count: counts.get(facet) ?? 0, region: activeRegionPayloads.get(facet) })), core };
-  }, [effectivePerspective, activeQuadrantAnchor, activeQuadrantAnchorId, activeRegionPayloads, bundle.graph, quadrantHomes]);
+  }, [activeQuadrantAnchor, activeQuadrantAnchorId, activeRegionPayloads, bundle.graph, quadrantHomes]);
 
   // The world's condition — the honest ambient readout (weather is set from it in
   // the scene). Every segment is a real count that flies to the act point.
@@ -993,6 +1050,12 @@ export function WorldView({
         setVisualPanelOpen(false);
         return;
       }
+      if (worldNavigatorOpen) {
+        event.stopImmediatePropagation();
+        event.stopPropagation();
+        setWorldNavigatorOpen(false);
+        return;
+      }
       if (trayOpen || missionsOpen) {
         event.stopImmediatePropagation();
         event.stopPropagation();
@@ -1018,7 +1081,7 @@ export function WorldView({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [trayOpen, missionsOpen, visualPanelOpen]);
+  }, [trayOpen, missionsOpen, visualPanelOpen, worldNavigatorOpen]);
 
   // R8 — the trays are work surfaces too: opening a dock or the reader closes
   // them, whatever path opened it (condition strip, quest plate, guide CTA).
@@ -1101,7 +1164,6 @@ export function WorldView({
     const canonicalLens = facet === "intencao" ? "q1_intencao" : facet === "pratica" ? "q2_pratica" : facet === "relacoes" ? "q3_relacoes" : "q4_sistemas";
     const active = worldState.lens === canonicalLens;
     setPreviewQuadrant(null);
-    dispatchRuntime({ type: "setView", view: "quadrants" });
     if (!active) dispatchRuntime({ type: "setLens", lens: canonicalLens });
     if (!active && route.demo && route.query.genesis && genesisQuadrantMatches(route.query.stage, facet)) {
       window.setTimeout(() => goStage(route.query.stage + 1), 850);
@@ -1203,10 +1265,15 @@ export function WorldView({
   // platform constant: a bare entry URL normalizes to the stack's default, and
   // a deep link to a perspective this world doesn't offer falls back too.
   useEffect(() => {
-    if (effectivePerspective !== "quadrants" || route.query.lens) setPreviewQuadrant(null);
-  }, [effectivePerspective, route.query.lens]);
+    if (route.query.lens) setPreviewQuadrant(null);
+  }, [route.query.lens]);
 
   useEffect(() => {
+    // The positional perspective is only a compatibility reader once a v8
+    // query view is explicit. Rewriting it here would turn the canonical
+    // `/w?view=radar` writer back into the conflicting
+    // `/w/quadrants?view=radar` double grammar.
+    if (worldState.mode === "v8" && route.query.view) return;
     // Applies to the EMPTY world too: before any lens exists there is no
     // quadrant map — the frame materializes only when the block attaches.
     if (!instruments.perspectives.includes(route.perspective) && route.perspective !== "focus") {
@@ -1216,24 +1283,23 @@ export function WorldView({
     if (!route.perspectiveExplicit && route.perspective !== instruments.defaultPerspective) {
       navigation.dispatch({ type: "patch-world", route, patch: { perspective: instruments.defaultPerspective }, replace: true });
     }
-  }, [instruments, route]);
+  }, [instruments, route, worldState.mode]);
 
   // Breadcrumbs: URL-derived, every segment clickable, registry labels.
   const realFamilyGroup = effectivePerspective === "quadrants" ? parseRealFamilyGroupId(route.query.worldGroup) : null;
   const sceneGroup: string | undefined = effectivePerspective === "quadrants" ? realFamilyGroup?.key : route.group;
   const previewQuadrantFacet =
-    effectivePerspective === "quadrants" && SCENE_FACETS.includes(previewQuadrant as SceneFacet) ? previewQuadrant : null;
+    SCENE_FACETS.includes(previewQuadrant as SceneFacet) ? previewQuadrant : null;
   const runtimeQuadrantFacet: SceneFacet | null =
     worldState.lens === "q1_intencao" ? "intencao" :
     worldState.lens === "q2_pratica" ? "pratica" :
     worldState.lens === "q3_relacoes" ? "relacoes" :
     worldState.lens === "q4_sistemas" ? "sistemas" : null;
-  const selectedQuadrantFacet = effectivePerspective === "quadrants" ? runtimeQuadrantFacet : null;
-  const activeQuadrantFacet =
-    effectivePerspective === "quadrants" ? ((previewQuadrantFacet || selectedQuadrantFacet) as SceneFacet | null) : null;
-  const cameraQuadrantFacet = effectivePerspective === "quadrants" ? runtimeQuadrantFacet ?? undefined : undefined;
+  const selectedQuadrantFacet = runtimeQuadrantFacet;
+  const activeQuadrantFacet = (previewQuadrantFacet || selectedQuadrantFacet) as SceneFacet | null;
+  const cameraQuadrantFacet = runtimeQuadrantFacet ?? undefined;
   const centeredRealPage =
-    effectivePerspective === "quadrants" && activeQuadrantAnchorId
+    activeQuadrantAnchorId
       ? findPage(pages, activeQuadrantAnchorId)
       : undefined;
   const crumbs: { label: string; patch: WorldPatch }[] = [
@@ -1256,8 +1322,12 @@ export function WorldView({
   }
   if (selectedPage && selectedPage.id !== centeredRealPage?.id) crumbs.push({ label: selectedPage.title, patch: {} });
 
+  const navigatorView = isNativeWorldViewId(worldState.view) ? worldState.view : "quadrants";
+
   const sceneRoute = {
     perspective: effectivePerspective,
+    runtimeMode: worldState.mode,
+    view: worldState.view,
     context: route.context,
     group: sceneGroup,
     pageId: route.pageId,
@@ -1274,6 +1344,7 @@ export function WorldView({
         `visualLabels-${visualConfig.labels}`,
         visualConfig.particles ? "" : "visualParticlesOff",
         visualPanelOpen ? "visualControlOpen" : "",
+        worldNavigatorOpen ? "worldNavigatorOpen" : "",
         realFamilyGroup ? "familyDrillOpen" : ""
       ].filter(Boolean).join(" ")}
       style={visualWorkspaceStyle}
@@ -1349,29 +1420,16 @@ export function WorldView({
               </span>
             ))}
           </nav>
-          <div className="worldRuntimeControls" aria-label={t("world.runtimeControls")}>
-            <div className="worldRuntimeControlGroup" role="group" aria-label={t("world.viewControl")}>
-              {(["quadrants", "radar", "sources", "work"] as const).map((view) => (
-                <button
-                  key={view}
-                  type="button"
-                  aria-pressed={worldState.view === view}
-                  className={worldState.view === view ? "runtimeControl active" : "runtimeControl"}
-                  onClick={() => dispatchRuntime({ type: "setView", view })}
-                >
-                  {t(`world.view.${view}`)}
-                </button>
-              ))}
-            </div>
-            <label className="worldRuntimeSelect">
-              <span>{t("world.overlayControl")}</span>
-              <select value={worldState.overlay} onChange={(event) => dispatchRuntime({ type: "setOverlay", overlay: event.target.value as import("../world/contracts").OverlayId })}>
-                {(["attention", "freshness", "actions", "ownership", "evidence", "quality"] as const).map((overlay) => (
-                  <option key={overlay} value={overlay}>{t(`world.overlay.${overlay}`)}</option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <WorldNavigator
+            view={navigatorView}
+            overlay={worldState.overlay}
+            lens={worldState.lens}
+            expanded={worldNavigatorOpen}
+            onExpandedChange={setWorldNavigatorOpen}
+            onViewChange={(view) => dispatchRuntime({ type: "setView", view })}
+            onOverlayChange={(overlay) => dispatchRuntime({ type: "setOverlay", overlay })}
+            onLensChange={(lens) => dispatchRuntime({ type: "setLens", lens })}
+          />
           {/* Condition strip: the honest ambient readout — every segment a real
               count that flies to its act point. Numbers-beside-art: the scene
               weather is only allowed because these exact counts are printed.
@@ -1453,6 +1511,7 @@ export function WorldView({
             className={[
               "quadrantCompass",
               "quadrantCompassApprovedTextOnly",
+              effectivePerspective !== "quadrants" ? "crossViewMode" : "",
               selectedQuadrantFacet ? "drillMode" : "",
               realFamilyGroup ? "familyDrillMode" : ""
             ].filter(Boolean).join(" ")}
@@ -1463,7 +1522,7 @@ export function WorldView({
               {quadrantCounts.quadrants.map(({ facet, count, region }) => {
                 const facetLabel = t(`facet.${facet}`);
                 const aqalText = quadrantAqalText(facet);
-                const total = region ? region.summary.total : count;
+                const total = count;
                 const instrumentLabel = quadrantInstrumentLabel(facetLabel, total, region);
                 return (
                   <button
@@ -1493,7 +1552,8 @@ export function WorldView({
                       <span className="quadrantHoverPanel" role="tooltip">
                         <strong>{t(`facet.${facet}`)}</strong>
                         <small>
-                          {region.summary.total === 1 ? "1 page" : `${region.summary.total} pages`}
+                          {total === 1 ? "1 page" : `${total} pages`}
+                          {region.summary.total !== total ? ` · ${t("quadrant.instrument.classified", { n: region.summary.total })}` : ""}
                           {region.summary.hidden > 0 ? ` · ${region.summary.hidden} hidden` : ""}
                         </small>
                         <span>{t("quadrant.instrument.types", { items: regionTextList(region.type_mix.slice(0, 4), typeMixLabel) })}</span>
@@ -1521,29 +1581,15 @@ export function WorldView({
           </div>
         )}
 
-        {/* Quadrant SCOPE chip (radar/districts only): the AQAL map's selection
-            carries into the spatial views and mutes everything outside it; this
-            chip makes that state visible and one click to clear. */}
-        {!quadrantCounts &&
-          SCENE_FACETS.includes(route.query.lens as SceneFacet) &&
-          (route.perspective === "radar" || route.perspective === "districts") && (
-          <button
-            className="quadrantScopeChip"
-            onClick={() => navigateWorld({ lens: null, quadrant: null })}
-            title={t("world.quadrantScopeClear")}
-            type="button"
-          >
-            {t("world.quadrantScope", { facet: t(`facet.${route.query.lens}`) })} <span aria-hidden>✕</span>
-          </button>
-        )}
-
         {/* LEFT mission surface. Collapsed by choice it is a single honest
             chip (worst tone + pending count) — the world stays visible;
             expanded it is the do-now card. Search results always render:
             the keyboard search flow must never depend on the card state. */}
         <MissionCard
           rows={missionRows}
-          perspective={displayPerspective}
+          viewLabel={t(`world.view.${navigatorView}`)}
+          viewHint={t(`world.experience.view.${navigatorView}.description`)}
+          overlayLabel={t(`world.overlay.${worldState.overlay}`)}
           missionsEnabled={instruments.missionsEnabled}
           open={missionCardOpen}
           onToggle={() => {
@@ -1593,6 +1639,7 @@ export function WorldView({
           <CommandBar
           route={route}
           activePerspective={activeCommandPerspective}
+          showCompatibilityPerspectives={worldState.mode !== "v8"}
           instruments={instruments}
             condition={condition}
             changedCount={changed}
@@ -1608,7 +1655,7 @@ export function WorldView({
             onCloseTrays={closeTrays}
             onToggleTray={toggleTray}
             onToggleMissions={toggleMissions}
-            onOpenTour={() => setTourOpen(true)}
+            onOpenTour={openTour}
           />
         )}
 
@@ -1674,7 +1721,11 @@ export function WorldView({
         <FoundingFallback demo={route.demo} skipHref={route.demo ? skipHref : undefined} onFound={foundWorld} />
       )}
       {fallbackActive && guide && !founding && <GuideFallback guide={guide} />}
-      <CoachMarks open={tourOpen} onClose={() => setTourOpen(false)} />
+      <CoachMarks
+        open={tourOpen}
+        returnFocusTo={tourOpenerRef.current}
+        onClose={() => setTourOpen(false)}
+      />
     </main>
   );
 }

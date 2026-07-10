@@ -4,13 +4,11 @@ import {
   centeredQuadrantGroupScale,
   computeWorldLayout,
   groupKeyForPage,
-  initialQuadrantFamilyOffset,
-  initialQuadrantRegionOrbit,
   regionFamilyAnchorInCenteredRegion,
   worldLevel
 } from "./perspectives";
 import type { WorldRequest } from "./perspectives";
-import { homeQuadrant, nodeQuadrant, quadrantHomesFromAssignments, QUADRANT_CENTER_ANGLE } from "./facets";
+import { homeQuadrant, nodeQuadrant, quadrantHomesFromAssignments, QUADRANT_CENTER_ANGLE, SCENE_FACETS } from "./facets";
 
 const SNAPSHOT = "2026-07-01T00:00:00Z";
 
@@ -66,9 +64,17 @@ function request(over: Partial<WorldRequest> = {}): WorldRequest {
   return { perspective: "radar", nodes, edges, maxNodes: 60, snapshotAt: SNAPSHOT, ...over };
 }
 
+function positionMap(layout: ReturnType<typeof computeWorldLayout>): Record<string, [number, number, number]> {
+  return Object.fromEntries(
+    layout.nodes
+      .map((item) => [item.id, item.position] as const)
+      .sort(([left], [right]) => left.localeCompare(right))
+  );
+}
+
 describe("perspective engine", () => {
   it("is deterministic: same snapshot input, same positions, every perspective", () => {
-    (["radar", "atlas", "districts", "trails", "focus"] as const).forEach((perspective) => {
+    (["radar", "atlas", "districts", "trails", "focus", "sources", "work"] as const).forEach((perspective) => {
       const base = request({
         perspective,
         pageId: perspective === "trails" || perspective === "focus" ? "financeiro-p1" : undefined
@@ -156,6 +162,175 @@ describe("perspective engine", () => {
     expect(scoped.nodes.every((item) => item.page_type === "decision")).toBe(true);
   });
 
+  it("sources is a native provenance topology with stable emitters, emitted artifacts and an honest unconsolidated ring", () => {
+    const nodes = [
+      node("world-root", "system", { page_type: "root_entity" }),
+      node("source-a", "documentos", { page_type: "source", freshness_state: "stale" }),
+      node("source-b", "documentos", { page_type: "source", freshness_state: "fresh" }),
+      node("evidence-a", "documentos", { page_type: "evidence" }),
+      node("proposal-a", "projetos", { page_type: "proposal", approved_state: "proposal" }),
+      node("unlinked-note", "projetos", { page_type: "context_note" })
+    ];
+    const edges: GraphEdge[] = [
+      { source: "evidence-a", target: "source-a", type: "source_ref", status: "valid", weight: 1 },
+      { source: "source-b", target: "proposal-a", type: "ingestion_chain", status: "valid", weight: 1 }
+    ];
+    const sourceLayout = computeWorldLayout({
+      perspective: "sources",
+      nodes,
+      edges,
+      centerId: "world-root",
+      maxNodes: 30,
+      snapshotAt: SNAPSHOT
+    });
+    const radarLayout = computeWorldLayout({
+      perspective: "radar",
+      nodes,
+      edges,
+      centerId: "world-root",
+      maxNodes: 30,
+      snapshotAt: SNAPSHOT
+    });
+
+    expect(sourceLayout.perspective).toBe("sources");
+    expect(sourceLayout.radial).toBe("orbit");
+    expect(sourceLayout.nodes.find((item) => item.isRoot)).toMatchObject({ id: "world-root", position: [0, 0, 0] });
+    expect(sourceLayout.groups.map((group) => group.key)).toEqual([
+      "source-emitters",
+      "emitted-evidence",
+      "unconsolidated"
+    ]);
+    expect(sourceLayout.groups.map((group) => group.count)).toEqual([2, 2, 1]);
+    const sourceARadius = Math.hypot(...sourceLayout.nodes.find((item) => item.id === "source-a")!.position.filter((_, index) => index !== 1));
+    const sourceBRadius = Math.hypot(...sourceLayout.nodes.find((item) => item.id === "source-b")!.position.filter((_, index) => index !== 1));
+    expect(sourceARadius).toBeCloseTo(2.35, 2);
+    expect(sourceBRadius).toBeCloseTo(2.35, 2); // freshness changes tone, never the provenance place
+    expect(Math.hypot(sourceLayout.nodes.find((item) => item.id === "evidence-a")!.position[0], sourceLayout.nodes.find((item) => item.id === "evidence-a")!.position[2])).toBeGreaterThan(3.3);
+    expect(positionMap(sourceLayout)).not.toEqual(positionMap(radarLayout));
+    expect(sourceLayout.totals).toEqual({ total: 6, shown: 6, hidden: 0 });
+  });
+
+  it("samples a capped Sources perimeter across the full unconsolidated population", () => {
+    const emitters = [
+      node("source-a", "documentos", { page_type: "source" }),
+      node("source-b", "documentos", { page_type: "source" })
+    ];
+    const emitted = Array.from({ length: 4 }, (_, index) =>
+      node(`evidence-${String(index).padStart(2, "0")}`, "documentos", { page_type: "evidence" })
+    );
+    const unconsolidated = Array.from({ length: 30 }, (_, index) =>
+      node(`loose-${String(index).padStart(2, "0")}`, "documentos")
+    );
+    const edges: GraphEdge[] = emitted.map((item, index) => ({
+      source: item.id,
+      target: emitters[index % emitters.length]!.id,
+      type: "source_ref",
+      status: "valid",
+      weight: 1
+    }));
+    const layout = computeWorldLayout({
+      perspective: "sources",
+      nodes: [node("world-root", "system", { page_type: "root_entity" }), ...emitters, ...emitted, ...unconsolidated],
+      edges,
+      centerId: "world-root",
+      maxNodes: 12,
+      snapshotAt: SNAPSHOT
+    });
+
+    const visibleIds = layout.groups.find((group) => group.key === "unconsolidated")!.memberIds;
+    expect(visibleIds).toHaveLength(5);
+    expect(visibleIds).toContain("loose-00");
+    expect(visibleIds).toContain("loose-29");
+    const visibleNodes = layout.nodes.filter((item) => visibleIds.includes(item.id));
+    const occupiedCells = new Set(
+      visibleNodes.map((item) => `${item.position[0] >= 0 ? "+" : "-"}${item.position[2] >= 0 ? "+" : "-"}`)
+    );
+    expect(occupiedCells.size).toBeGreaterThanOrEqual(3);
+    expect(layout.totals).toEqual({ total: 37, shown: 12, hidden: 25 });
+  });
+
+  it("work is a native human-gated queue with distinct blocker, proposal, source-sync, action and review spokes", () => {
+    const nodes = [
+      node("world-root", "system", { page_type: "root_entity" }),
+      node("blocked-action", "projetos", { page_type: "action", risk_flags: ["blocked_by_gate"] }),
+      node("proposal-review", "projetos", { page_type: "proposal", approved_state: "proposal" }),
+      node("stale-source", "documentos", { page_type: "source", freshness_state: "stale" }),
+      node("open-action", "projetos", { page_type: "action" }),
+      node("stale-document", "projetos", { page_type: "context_note", freshness_state: "stale" }),
+      node("quiet-context", "casa", { page_type: "context_note" })
+    ];
+    const edges: GraphEdge[] = [];
+    const workLayout = computeWorldLayout({
+      perspective: "work",
+      nodes,
+      edges,
+      centerId: "world-root",
+      maxNodes: 30,
+      snapshotAt: SNAPSHOT
+    });
+    const districtsLayout = computeWorldLayout({
+      perspective: "districts",
+      nodes,
+      edges,
+      centerId: "world-root",
+      maxNodes: 30,
+      snapshotAt: SNAPSHOT
+    });
+
+    expect(workLayout.perspective).toBe("work");
+    expect(workLayout.nodes.find((item) => item.isRoot)).toMatchObject({ id: "world-root", position: [0, 0, 0] });
+    expect(workLayout.groups.map((group) => [group.key, group.count])).toEqual([
+      ["blocked", 1],
+      ["proposal-review", 1],
+      ["source-sync", 1],
+      ["open-actions", 1],
+      ["review-needed", 1],
+      ["supporting-context", 1]
+    ]);
+    expect(workLayout.guides.filter((guide) => guide.kind === "ray")).toHaveLength(5);
+    expect(positionMap(workLayout)).not.toEqual(positionMap(districtsLayout));
+    expect(workLayout.totals).toEqual({ total: 7, shown: 7, hidden: 0 });
+
+    const reversed = computeWorldLayout({
+      perspective: "work",
+      nodes: [...nodes].reverse(),
+      edges,
+      centerId: "world-root",
+      maxNodes: 30,
+      snapshotAt: SNAPSHOT
+    });
+    expect(positionMap(reversed)).toEqual(positionMap(workLayout));
+  });
+
+  it("samples capped Work context across the full quiet perimeter", () => {
+    const supporting = Array.from({ length: 30 }, (_, index) =>
+      node(`support-${String(index).padStart(2, "0")}`, "system")
+    );
+    const layout = computeWorldLayout({
+      perspective: "work",
+      nodes: [
+        node("world-root", "system", { page_type: "root_entity" }),
+        node("blocked-action", "system", { page_type: "action", risk_flags: ["blocked_by_gate"] }),
+        ...supporting
+      ],
+      edges: [],
+      centerId: "world-root",
+      maxNodes: 8,
+      snapshotAt: SNAPSHOT
+    });
+
+    const visibleIds = layout.groups.find((group) => group.key === "supporting-context")!.memberIds;
+    expect(visibleIds).toHaveLength(6);
+    expect(visibleIds).toContain("support-00");
+    expect(visibleIds).toContain("support-29");
+    const visibleNodes = layout.nodes.filter((item) => visibleIds.includes(item.id));
+    const occupiedCells = new Set(
+      visibleNodes.map((item) => `${item.position[0] >= 0 ? "+" : "-"}${item.position[2] >= 0 ? "+" : "-"}`)
+    );
+    expect(occupiedCells.size).toBeGreaterThanOrEqual(3);
+    expect(layout.totals).toEqual({ total: 32, shown: 8, hidden: 24 });
+  });
+
   it("trails builds the ego-graph in typed sectors with true counts", () => {
     const layout = computeWorldLayout(request({ perspective: "trails", context: "financeiro", pageId: "financeiro-p5", maxNodes: 80 }));
     const center = layout.nodes.find((item) => item.isRoot);
@@ -169,7 +344,8 @@ describe("perspective engine", () => {
   });
 
   it("quadrants: the four regions always emit, core only when populated, honest counts", () => {
-    const layout = computeWorldLayout(request({ perspective: "quadrants", maxNodes: 120 }));
+    const input = request({ perspective: "quadrants", maxNodes: 120 });
+    const layout = computeWorldLayout(input);
     expect(layout.perspective).toBe("quadrants");
     expect(layout.radial).toBe("shelf"); // radius = shelf depth, NOT freshness
     // Exactly the four quadrant groups, always, in canonical order — even empty.
@@ -186,13 +362,12 @@ describe("perspective engine", () => {
     // Four boundary rays (the axes between quadrants).
     expect(layout.guides.filter((g) => g.kind === "ray")).toHaveLength(4);
     // Honest counting invariant.
+    expect(layout.totals.total).toBe(input.nodes.length);
     expect(layout.totals.shown + layout.totals.hidden).toBe(layout.totals.total);
+    expect(layout.groups.every((group) => group.shown <= group.count)).toBe(true);
   });
 
-  it("quadrants: grouped objects sit in their facet sectors, the root alone holds the center, structure wraps outside", () => {
-    // The regression this pins: a hand-written floor-square table once put
-    // Culture/relations' square over Identity/intent nodes, and a structural swarm at the
-    // origin buried the root. Sector membership is now a geometric CONTRACT.
+  it("quadrants: every rendered object stays in its authoritative cell and core stays on the neutral spine", () => {
     const layout = computeWorldLayout(request({ perspective: "quadrants", maxNodes: 200 }));
     const root = layout.nodes.find((item) => item.isRoot);
     expect(root?.position).toEqual([0, 0, 0]);
@@ -201,18 +376,27 @@ describe("perspective engine", () => {
       const radius = Math.hypot(item.position[0], item.position[2]);
       if (item.isGroup) {
         expect(item.groupKey).toMatch(/^family:/);
+        const facet = item.id.split(":")[1] as keyof typeof QUADRANT_CENTER_ANGLE;
+        const angle = QUADRANT_CENTER_ANGLE[facet];
+        expect(Math.sign(item.position[0])).toBe(Math.sign(Math.cos(angle)));
+        expect(Math.sign(item.position[2])).toBe(Math.sign(Math.sin(angle)));
+        expect(Math.abs(item.position[0])).toBeGreaterThan(0.9);
+        expect(Math.abs(item.position[2])).toBeGreaterThan(0.9);
         expect(radius).toBeLessThanOrEqual(layout.rOuter + 0.01);
         continue;
       }
       const home = homeQuadrant(item.page_type);
       if (!home) {
-        // Structural pages live OUTSIDE the quadrants, never at the center.
-        expect(radius).toBeGreaterThan(layout.rOuter);
+        expect(item.position[0]).toBe(0);
+        expect(radius).toBeGreaterThanOrEqual(1.35);
+        expect(radius).toBeLessThanOrEqual(layout.rOuter);
         continue;
       }
       const angle = QUADRANT_CENTER_ANGLE[home];
       expect(Math.sign(item.position[0])).toBe(Math.sign(Math.cos(angle)));
       expect(Math.sign(item.position[2])).toBe(Math.sign(Math.sin(angle)));
+      expect(Math.abs(item.position[0])).toBeGreaterThan(0.9);
+      expect(Math.abs(item.position[2])).toBeGreaterThan(0.9);
       expect(radius).toBeLessThanOrEqual(layout.rOuter + 0.01);
     }
   });
@@ -231,17 +415,35 @@ describe("perspective engine", () => {
     expect(anchors.get("sistemas")![2]).toBeGreaterThan(0);
   });
 
-  it("quadrants: initial zones breathe away from the center without leaving their sectors", () => {
-    const layout = computeWorldLayout(request({ perspective: "quadrants", maxNodes: 200 }));
+  it("quadrants: family aggregates pack into a deterministic territory grid instead of a perimeter ring", () => {
+    const root = node("demo-root", "system", { page_type: "root_entity" });
+    const pageTypes = ["source", "decision", "action", "ingestion_event", "person", "operational_rule"];
+    const familyPages = pageTypes.flatMap((pageType, familyIndex) =>
+      Array.from({ length: 3 }, (_, index) =>
+        node(`family-${familyIndex}-${index}`, "system", { page_type: pageType })
+      )
+    );
+    const quadrantHomes = Object.fromEntries([
+      [root.id, null],
+      ...familyPages.map((item) => [item.id, "pratica" as const])
+    ]);
+    const layout = computeWorldLayout({
+      perspective: "quadrants",
+      nodes: [root, ...familyPages],
+      edges: [],
+      centerId: root.id,
+      quadrantHomes,
+      maxNodes: 120,
+      snapshotAt: SNAPSHOT
+    });
     const groupNodes = layout.nodes.filter((item) => item.isGroup && item.groupKind === "family");
-    const expectedOrbit = initialQuadrantRegionOrbit(layout.rInner, layout.rOuter);
 
-    expect(groupNodes.length).toBeGreaterThan(0);
-    expect(expectedOrbit).toBeGreaterThan(layout.rInner + (layout.rOuter - layout.rInner) * 0.78);
-
-    const minGroupRadius = Math.min(...groupNodes.map((item) => Math.hypot(item.position[0], item.position[2])));
-    expect(minGroupRadius).toBeGreaterThan(layout.rInner + (layout.rOuter - layout.rInner) * 0.72);
-    expect(Math.max(...groupNodes.map((item) => Math.hypot(item.position[0], item.position[2])))).toBeLessThanOrEqual(layout.rOuter + 0.01);
+    expect(groupNodes).toHaveLength(pageTypes.length);
+    expect(groupNodes.every((item) => item.position[0] > 0 && item.position[2] < 0)).toBe(true);
+    expect(new Set(groupNodes.map((item) => item.position[0])).size).toBe(3);
+    expect(new Set(groupNodes.map((item) => item.position[2])).size).toBe(2);
+    expect(new Set(groupNodes.map((item) => Math.hypot(item.position[0], item.position[2]).toFixed(2))).size).toBeGreaterThan(2);
+    expect(Math.max(...groupNodes.map((item) => Math.hypot(item.position[0], item.position[2])))).toBeLessThanOrEqual(layout.rOuter);
 
     const closestPair = groupNodes.reduce((closest, item, index) => {
       const nextClosest = groupNodes.slice(index + 1).reduce((innerClosest, other) => {
@@ -250,12 +452,7 @@ describe("perspective engine", () => {
       }, closest);
       return Math.min(closest, nextClosest);
     }, Number.POSITIVE_INFINITY);
-    expect(closestPair).toBeGreaterThan(0.98);
-
-    const first = initialQuadrantFamilyOffset("source", 0, 4, 12);
-    const last = initialQuadrantFamilyOffset("source", 3, 4, 12);
-    expect(first.fan).toBeLessThan(-0.75);
-    expect(last.fan).toBeGreaterThan(0.75);
+    expect(closestPair).toBeGreaterThan(1.08);
   });
 
   it("quadrants: compiled homes are anchor-relative, not global page homes", () => {
@@ -314,7 +511,7 @@ describe("perspective engine", () => {
     expect(layout.nodes.some((item) => item.id === "company-person")).toBe(false);
   });
 
-  it("quadrants: a locked page becomes the physical center even when it is not the active anchor", () => {
+  it("quadrants: selecting a page never replaces the configured physical center or moves the world", () => {
     const nodes = [
       node("demo-root", "system", { page_type: "root_entity", path: "memories/index.md" }),
       node("person-casey", "empresas", { page_type: "person", title: "Casey Morgan" }),
@@ -322,7 +519,7 @@ describe("perspective engine", () => {
       node("source-collaboration", "documentos", { page_type: "source", title: "Collaboration archive" }),
       node("claim-start", "documentos", { page_type: "claim", title: "Data oficial" })
     ];
-    const layout = computeWorldLayout({
+    const baseRequest: WorldRequest = {
       perspective: "quadrants",
       nodes,
       edges: [
@@ -331,29 +528,30 @@ describe("perspective engine", () => {
         { source: "person-casey", target: "source-collaboration", type: "source_ref", status: "valid", weight: 1 },
         { source: "claim-start", target: "person-casey", type: "markdown_link", status: "valid", weight: 1 }
       ],
-      pageId: "person-casey",
       centerId: "demo-root",
       quadrantHomes: {
         "demo-root": null,
+        "person-casey": "relacoes",
         "meeting-alignment": "relacoes",
         "source-collaboration": "pratica",
         "claim-start": "intencao"
       },
       maxNodes: 24,
       snapshotAt: SNAPSHOT
-    });
+    };
+    const base = computeWorldLayout(baseRequest);
+    const selected = computeWorldLayout({ ...baseRequest, pageId: "person-casey" });
 
-    const center = layout.nodes.find((item) => item.isRoot);
-    expect(layout.level).toBe(3);
-    expect(center).toMatchObject({ id: "person-casey", page_type: "person", position: [0, 0, 0] });
-    expect(layout.nodes.find((item) => item.id === "meeting-alignment")).toBeTruthy();
-    expect(layout.nodes.find((item) => item.id === "source-collaboration")).toBeTruthy();
-    expect(layout.nodes.some((item) => item.isGroup && item.groupKind === "quadrant")).toBe(false);
-    expect(layout.groups.filter((group) => group.kind === "quadrant")).toHaveLength(0);
-    expect(layout.guides.filter((guide) => guide.kind === "ray")).toHaveLength(0);
+    const center = selected.nodes.find((item) => item.isRoot);
+    expect(selected.level).toBe(0);
+    expect(center).toMatchObject({ id: "demo-root", page_type: "root_entity", position: [0, 0, 0] });
+    expect(selected.nodes.find((item) => item.id === "person-casey")?.position).not.toEqual([0, 0, 0]);
+    expect(positionMap(selected)).toEqual(positionMap(base));
+    expect(selected.groups.filter((group) => group.kind === "quadrant")).toHaveLength(4);
+    expect(selected.guides.filter((guide) => guide.kind === "ray")).toHaveLength(4);
   });
 
-  it("quadrants: a locked page with quadrant lenses exposes conceptual quadrant controls, not physical quadrant objects", () => {
+  it("quadrants: selecting the active anchor keeps the full home map and conceptual quadrant controls", () => {
     const nodes = [
       node("company-root", "clientes", { page_type: "root_entity", title: "Clearpath" }),
       node("company-intent", "clientes", { page_type: "claim", title: "Strategic intent" }),
@@ -381,7 +579,7 @@ describe("perspective engine", () => {
       snapshotAt: SNAPSHOT
     });
 
-    expect(layout.level).toBe(3);
+    expect(layout.level).toBe(0);
     expect(layout.nodes.find((item) => item.isRoot)).toMatchObject({ id: "company-root", position: [0, 0, 0] });
     expect(layout.nodes.filter((item) => item.isGroup && item.groupKind === "quadrant")).toHaveLength(0);
     expect(layout.groups.filter((group) => group.kind === "quadrant").map((group) => group.key)).toEqual([
@@ -417,6 +615,18 @@ describe("perspective engine", () => {
       maxNodes: 120,
       snapshotAt: SNAPSHOT
     });
+    const lensLayouts = SCENE_FACETS.map((quadrant) =>
+      computeWorldLayout({
+        perspective: "quadrants",
+        nodes,
+        edges,
+        centerId: "demo-root",
+        quadrantHomes,
+        quadrant,
+        maxNodes: 120,
+        snapshotAt: SNAPSHOT
+      })
+    );
     expect(top.level).toBe(0);
     expect(top.nodes.find((item) => item.isRoot)).toMatchObject({ id: "demo-root", position: [0, 0, 0] });
     expect(top.nodes.some((item) => item.isGroup && item.groupKind === "quadrant")).toBe(false);
@@ -425,6 +635,8 @@ describe("perspective engine", () => {
     });
     expect(top.cameraTarget?.[0]).toBeGreaterThan(0);
     expect(top.cameraTarget?.[2]).toBeLessThan(0);
+    lensLayouts.forEach((layout) => expect(positionMap(layout)).toEqual(positionMap(top)));
+    expect(new Set(lensLayouts.map((layout) => JSON.stringify(layout.cameraTarget))).size).toBe(4);
     const sourceGroup = top.nodes.find((item) => item.isGroup && item.groupKey === "family:source");
     expect(sourceGroup).toBeTruthy();
     expect(sourceGroup).toMatchObject({
@@ -434,7 +646,7 @@ describe("perspective engine", () => {
       groupDrill: { group: "family:source" }
     });
     expect(sourceGroup?.groupPreviewIds?.length).toBeGreaterThan(0);
-    expect(top.nodes.some((item) => sourceGroup?.groupPreviewIds?.includes(item.id))).toBe(true);
+    expect(top.nodes.some((item) => sourceGroup?.groupPreviewIds?.includes(item.id))).toBe(false);
     expect(top.nodes.some((item) => item.id === "source-a")).toBe(false);
     expect(top.nodes.some((item) => item.id === "refresh-action")).toBe(true);
   });
@@ -515,6 +727,17 @@ describe("perspective engine", () => {
       maxNodes: 120,
       snapshotAt: SNAPSHOT
     });
+    const sameFamilyThroughAnotherLens = computeWorldLayout({
+      perspective: "quadrants",
+      nodes,
+      edges: [],
+      centerId: "demo-root",
+      quadrantHomes,
+      quadrant: "intencao",
+      group: "family:source",
+      maxNodes: 120,
+      snapshotAt: SNAPSHOT
+    });
     const familyCenter = family.nodes.find((item) => item.isRoot);
     const centeredGroup = family.nodes.find((item) => item.isRoot && item.isGroup);
     const childRadii = family.nodes.filter((item) => !item.isRoot && !item.isGroup).map((item) => Math.hypot(item.position[0], item.position[2]));
@@ -527,6 +750,9 @@ describe("perspective engine", () => {
     });
     expect(familyCenter?.scale).toBeGreaterThan(0.4);
     expect(Math.min(...childRadii)).toBeGreaterThan(2);
+    expect(positionMap(sameFamilyThroughAnotherLens)).toEqual(positionMap(family));
+    expect(sameFamilyThroughAnotherLens.groups.find((group) => group.key === "family:source")?.count).toBe(8);
+    expect(sameFamilyThroughAnotherLens.cameraTarget).not.toEqual(family.cameraTarget);
   });
 
   it("quadrants: selected lenses give real family groups enough physical clearance", () => {
@@ -613,7 +839,10 @@ describe("perspective engine", () => {
     expect(sourceGroup?.groupPreviewIds).toHaveLength(3);
     expect(sourceGroup?.groupComposition).toEqual([{ family: "source", count: 72 }]);
     const visibleSourceChildren = region.nodes.filter((item) => item.id.startsWith("dense-source-"));
-    expect(visibleSourceChildren).toHaveLength(1);
+    expect(visibleSourceChildren).toHaveLength(0);
+    expect(region.totals.total).toBe(73);
+    expect(region.totals.shown + region.totals.hidden).toBe(73);
+    expect(region.groups.every((group) => group.shown <= group.count)).toBe(true);
     expect(region.totals.hidden).toBeGreaterThan(60);
 
     const family = computeWorldLayout({
@@ -634,6 +863,9 @@ describe("perspective engine", () => {
     expect(familyChildren.some((item) => item.position[2] < -0.2)).toBe(true);
     expect(familyChildren.some((item) => item.position[2] > 0.2)).toBe(true);
     expect(family.clusterStars.find((star) => star.key === "qstar-family:source")?.count).toBe(56);
+    expect(family.totals.total).toBe(73);
+    expect(family.totals.shown + family.totals.hidden).toBe(73);
+    expect(family.groups.every((group) => group.shown <= group.count)).toBe(true);
   });
 
   it("quadrants is deterministic and never emits a core group when there are no structural pages", () => {

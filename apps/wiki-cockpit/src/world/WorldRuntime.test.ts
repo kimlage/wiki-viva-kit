@@ -32,6 +32,56 @@ describe("WorldRuntime walking skeleton", () => {
     expect(runtime("/w?center=root&view=quadrants&runtime=legacy").getState().mode).toBe("legacy");
   });
 
+  it.each([
+    ["sources", "evidence"],
+    ["work", "actions"]
+  ] as const)("hydrates a bare native %s route with its registered defaults", (view, overlay) => {
+    const state = runtime(`/w?center=root&view=${view}`).getState();
+
+    expect(state).toMatchObject({
+      mode: "v8",
+      centerId: "root",
+      view,
+      lens: "all",
+      overlay,
+      warnings: []
+    });
+    expect(canonicalWorldUrl(state)).toBe(`/w?center=root&view=${view}&lens=all&overlay=${overlay}`);
+  });
+
+  it("preserves bounded demo and workflow query state when runtime state becomes canonical", () => {
+    const parsed = new URL(
+      "http://local.test/demo/w?center=root&view=quadrants&lens=all&overlay=actions&q=source&filter=stale&packet=page-a%2Cpage-b&genesis=1&stage=3&demo_scenario=dense_stress&tour=0"
+    );
+    const route = parseRoute(parsed.pathname, parsed.search);
+    if (route.kind !== "world") throw new Error("expected world route");
+    const state = hydrateWorldRoute({ route, pages, rootId: "root" });
+
+    const canonical = canonicalWorldUrl(
+      { ...state, view: "radar", overlay: "freshness" },
+      true,
+      route.query
+    );
+    const canonicalUrl = new URL(canonical, "http://local.test");
+    expect(parseRoute(canonicalUrl.pathname, canonicalUrl.search)).toMatchObject({
+      kind: "world",
+      demo: true,
+      query: {
+        center: "root",
+        view: "radar",
+        lens: "all",
+        overlay: "freshness",
+        q: "source",
+        filter: "stale",
+        packet: ["page-a", "page-b"],
+        genesis: true,
+        stage: 3,
+        demoScenario: "dense_stress",
+        tour: "0"
+      }
+    });
+  });
+
   it("keeps inspect, select, read and recenter as distinct transitions", () => {
     const world = runtime();
     world.dispatch({ type: "inspectHover", entityId: "person-bea" });

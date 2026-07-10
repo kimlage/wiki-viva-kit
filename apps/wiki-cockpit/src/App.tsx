@@ -37,7 +37,7 @@ import { configureLanguage, t } from "./data/i18n";
 import { qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel, registerContextPalette } from "./data/presentation";
 import type { RuntimeConfig } from "./data/runtimeConfig";
-import type { Route } from "./router";
+import type { Route, WorldPatch, WorldRoute } from "./router";
 import type { ApplicationPorts } from "./application/ports";
 import { groupKeyForPage } from "./scene/perspectives";
 import type { OperatorCommandCard, BriefRecord, BriefSpec, CodexCapability, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
@@ -1089,6 +1089,25 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const buildUrl = navigation.href;
   const patchWorld = navigation.patch;
   const worldFromRoute = navigation.toWorld;
+  const hrefForWorldPatch = (worldRoute: WorldRoute, patch: WorldPatch) => {
+    const nativeV8 = (!worldRoute.perspectiveExplicit || ["quadrants", "radar", "sources", "work"].includes(worldRoute.query.view)) &&
+      worldRoute.query.runtime !== "compat" && worldRoute.query.runtime !== "legacy";
+    if (!nativeV8) return buildUrl(patchWorld(worldRoute, patch));
+
+    // App-owned docks render beside RuntimeWorldView, so their callbacks do
+    // not pass through WorldView's canonical writer. Mirror the same query
+    // ownership here: page/group state lives in the v8 query and the emitted
+    // path remains exactly `/w`, while patchWorld still enforces the surface
+    // singleton and clears dock-only qualifiers.
+    const patched = patchWorld(worldRoute, {
+      ...patch,
+      ...(patch.pageId !== undefined ? { page: patch.pageId } : {}),
+      ...(patch.worldGroup === undefined && patch.group !== undefined ? { worldGroup: patch.group } : {})
+    });
+    const compatibilityHref = buildUrl(patched);
+    const queryIndex = compatibilityHref.indexOf("?");
+    return `${patched.demo ? "/demo" : ""}/w${queryIndex >= 0 ? compatibilityHref.slice(queryIndex) : ""}`;
+  };
   const {
     buildIngestionPlan,
     composeBrief,
@@ -1137,7 +1156,14 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     route.kind === "world" && route.demo && route.query.genesis
       ? Math.min(route.query.stage, GENESIS_FINAL_STAGE)
       : null;
-  const stageRef = useRef<{ target: number | null | undefined; loaded: number | null | undefined }>({
+  const desiredDemoScenario =
+    route.kind === "world" && route.demo && !route.query.genesis
+      ? route.query.demoScenario || "normal_operations"
+      : null;
+  const desiredDemoTarget = desiredStage !== null
+    ? `stage:${desiredStage}`
+    : `scenario:${desiredDemoScenario || "normal_operations"}`;
+  const stageRef = useRef<{ target: string | undefined; loaded: string | undefined }>({
     target: undefined,
     loaded: undefined
   });
@@ -1147,18 +1173,18 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const [bornPageIds, setBornPageIds] = useState<string[]>([]);
   useEffect(() => {
     if (!route.demo) return;
-    if (demoState.status === "ready" && stageRef.current.loaded === desiredStage) return;
-    if (stageRef.current.target === desiredStage && demoState.status === "loading") return;
+    if (demoState.status === "ready" && stageRef.current.loaded === desiredDemoTarget) return;
+    if (stageRef.current.target === desiredDemoTarget && demoState.status === "loading") return;
     // A failed load for THIS stage stays failed (the error panel shows) — the
     // effect must not flip error→loading→error forever. Navigating to another
     // stage (new target) retries naturally.
-    if (stageRef.current.target === desiredStage && demoState.status === "error") return;
-    stageRef.current.target = desiredStage;
+    if (stageRef.current.target === desiredDemoTarget && demoState.status === "error") return;
+    stageRef.current.target = desiredDemoTarget;
     setDemoState({ status: "loading" });
-    loadSnapshotBundle({ demo: true, stage: desiredStage })
+    loadSnapshotBundle({ demo: true, stage: desiredStage, demoScenario: desiredDemoScenario })
       .then(({ bundle, source, runtime }) => {
-        if (stageRef.current.target !== desiredStage) return; // a newer stage won
-        stageRef.current.loaded = desiredStage;
+        if (stageRef.current.target !== desiredDemoTarget) return; // a newer universe/stage won
+        stageRef.current.loaded = desiredDemoTarget;
         const ids = bundle.pages.pages.map((page) => page.id);
         const previous = lastDemoPageIdsRef.current;
         // Births are a GENESIS beat (a stage advance): entering the full world
@@ -1170,11 +1196,11 @@ export function App({ ports }: { ports: ApplicationPorts }) {
         setDemoState({ status: "ready", bundle, source, runtime });
       })
       .catch((error: Error) => {
-        if (stageRef.current.target !== desiredStage) return;
+        if (stageRef.current.target !== desiredDemoTarget) return;
         setDemoState({ status: "error", error: error.message });
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demoState.status, route.demo, desiredStage]);
+  }, [demoState.status, route.demo, desiredDemoScenario, desiredDemoTarget, desiredStage]);
 
   // The SPA router owns every internal anchor click.
   useEffect(() => navigation.attachLinkInterceptor(), [navigation]);
@@ -1204,7 +1230,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
       .finally(() => setCodexBusy(false));
   };
   const openCodexDock = () => {
-    if (route.kind === "world") navigate(buildUrl(patchWorld(route, { dock: "codex" })));
+    if (route.kind === "world") navigate(hrefForWorldPatch(route, { dock: "codex" }));
   };
 
   // The base system is English; the whole UI flips when the wiki's configured
@@ -1467,7 +1493,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
       setActiveBrief(null);
       // Land the operator on the monitoring surface: delegated work should be
       // WATCHED, not fired and forgotten.
-      navigate(buildUrl(patchWorld(worldFromRoute(route), { dock: "work" })));
+      const currentWorld = worldFromRoute(route);
+      navigate(hrefForWorldPatch(currentWorld, { dock: "work" }));
     } catch (error) {
       setNotice({
         text: t("codex.job.failed", { error: error instanceof Error ? error.message : "failed" }),
@@ -1606,7 +1633,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             capability={codexCapability}
             busy={codexBusy}
             onReverify={reverifyCodex}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
           />
         )}
         {gateDockOpen && worldRoute && loadState.status === "ready" && (
@@ -1620,7 +1647,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onComposeBrief={runBrief}
             onNotice={notify}
             onRefetch={refetchReal}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
           />
         )}
         {gatesDockOpen && worldRoute && loadState.status === "ready" && (
@@ -1631,7 +1658,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onComposeBrief={runBrief}
             onNotice={notify}
             onRefetch={refetchReal}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
           />
         )}
         {intakeDockOpen && worldRoute && loadState.status === "ready" && (
@@ -1640,9 +1667,9 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             initialSrc={worldRoute.query.src}
             intakeCopy={operator.intakeCopy}
             onComposeBrief={runBrief}
-            onOpenCreate={() => navigate(buildUrl(patchWorld(worldRoute, { dock: "create", src: null })))}
+            onOpenCreate={() => navigate(hrefForWorldPatch(worldRoute, { dock: "create", src: null }))}
             onNotice={notify}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
           />
         )}
         {workDockOpen && worldRoute && (
@@ -1654,7 +1681,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onReturn={returnJob}
             onDiagnose={openCodexDock}
             onNotice={notify}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
           />
         )}
         {sourceDockOpen && worldRoute && loadState.status === "ready" && (
@@ -1664,9 +1691,9 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onComposeBrief={runBrief}
             onRequestBrief={composeSourceBrief}
             onNotice={notify}
-            onOpenPage={(pathOrId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId: pathOrId, reader: true })))}
-            onOpenSource={(id) => navigate(buildUrl(patchWorld(worldRoute, { dock: "source", src: id || null })))}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onOpenPage={(pathOrId) => navigate(hrefForWorldPatch(worldRoute, { dock: null, pageId: pathOrId, reader: true }))}
+            onOpenSource={(id) => navigate(hrefForWorldPatch(worldRoute, { dock: "source", src: id || null }))}
+            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
           />
         )}
         {/* dock=create is answered INSIDE WorldView: the spatial seed flow in
@@ -1675,8 +1702,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
           <BlocksDock
             bundle={loadState.bundle}
             focusId={worldRoute.query.center || worldRoute.query.src || worldRoute.pageId || null}
-            onSelectAnchor={(anchorId) => navigate(buildUrl(patchWorld(worldRoute, { dock: "blocks", src: anchorId, center: anchorId })))}
-            onOpenPage={(pageId) => navigate(buildUrl(patchWorld(worldRoute, { dock: null, pageId, reader: true })))}
+            onSelectAnchor={(anchorId) => navigate(hrefForWorldPatch(worldRoute, { dock: "blocks", src: anchorId, center: anchorId }))}
+            onOpenPage={(pageId) => navigate(hrefForWorldPatch(worldRoute, { dock: null, pageId, reader: true }))}
             onAttach={(id, anchorId) => {
               // The REAL attach action. Genesis: the expected attach advances the
               // stage (the world re-renders with the block truly in the stack).
@@ -1700,7 +1727,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
                   `snapshot, and open a draft PR. Never touch main directly.`
               });
             }}
-            onClose={() => navigate(buildUrl(patchWorld(worldRoute, { dock: null })))}
+            onClose={() => navigate(hrefForWorldPatch(worldRoute, { dock: null }))}
           />
         )}
         {commandResult && (

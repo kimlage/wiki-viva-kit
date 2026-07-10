@@ -1,0 +1,48 @@
+{
+  "backlinks": [],
+  "body": "\n# Dense evidence claim 039\n\nPublic deterministic claim 039; missing evidence is intentional when source_refs is empty.\n",
+  "frontmatter": {
+    "context": "clientes",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "claim-region-pressure-039",
+    "page_type": "claim",
+    "source_refs": [
+      "source-product-analytics"
+    ],
+    "stale_after_days": 30,
+    "sub_lens": "percepcao",
+    "title": "Dense evidence claim 039",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "clientes",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/clientes/index.md",
+    "page_id": "claim-region-pressure-039",
+    "page_type": "claim",
+    "path": "memories/claims/claim-region-pressure-039.md",
+    "summary": "Public deterministic claim 039; missing evidence is intentional when source_refs is empty.",
+    "summary_truncated": false,
+    "title": "Dense evidence claim 039",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-9880a5a432432dbf",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-product-analytics",
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "ref": "source-product-analytics",
+      "resolved": true,
+      "title": "Product analytics export"
+    }
+  ]
+}

@@ -3,9 +3,10 @@
 // do-now card. Search results always render: the keyboard search flow must
 // never depend on the card state.
 
+import { useId } from "react";
 import { Sparkles } from "lucide-react";
 import { t } from "../../data/i18n";
-import { contextLabel, isRawData, perspectiveLabel } from "../../data/presentation";
+import { contextLabel, isRawData } from "../../data/presentation";
 import type { PageRecord } from "../../types";
 import { HelpTip } from "../HelpTip";
 
@@ -18,14 +19,16 @@ export type MissionRow = {
   help?: string;
   tone: "good" | "warn" | "bad";
   onClick: () => void;
-  // Optional secondary action (e.g. "resolve with Codex") rendered as a button
-  // beside the row's main click target.
+  // Optional secondary action (e.g. "resolve with Codex") rendered in the
+  // row's dedicated action band, never beside/compressing the main copy.
   action?: { label: string; title?: string; onClick: () => void };
 };
 
 export function MissionCard({
   rows,
-  perspective,
+  viewLabel,
+  viewHint,
+  overlayLabel,
   missionsEnabled,
   open,
   onToggle,
@@ -37,7 +40,9 @@ export function MissionCard({
   onOpenHit
 }: {
   rows: MissionRow[];
-  perspective: string;
+  viewLabel: string;
+  viewHint: string;
+  overlayLabel: string;
   missionsEnabled: boolean;
   open: boolean;
   onToggle: () => void;
@@ -48,6 +53,8 @@ export function MissionCard({
   onActiveHit: (index: number) => void;
   onOpenHit: (page?: PageRecord) => void;
 }) {
+  const panelId = useId();
+  const titleId = `${panelId}-title`;
   const actionable = rows.filter((row) => row.key !== "browse");
   const worstTone = actionable.some((row) => row.tone === "bad")
     ? "bad"
@@ -98,11 +105,12 @@ export function MissionCard({
           className={`worldMissionChip tone-${worstTone}`}
           onClick={onToggle}
           aria-expanded={false}
-          title={perspectiveLabel(perspective).hint}
+          aria-controls={panelId}
+          title={`${viewHint} · ${overlayLabel}`}
           type="button"
         >
           <i aria-hidden />
-          <strong>{perspectiveLabel(perspective).label}</strong>
+          <strong>{viewLabel}</strong>
           <span>
             {actionable.length > 0 ? t("world.missionCount", { n: actionable.length }) : t("world.missionClear")}
           </span>
@@ -112,33 +120,59 @@ export function MissionCard({
     );
   }
   return (
-    <div className="worldMissionCard" role="region" aria-label={t("world.missionAria")}>
+    <div className="worldMissionCard" id={panelId} role="region" aria-labelledby={titleId}>
       <header>
-        <strong>{perspectiveLabel(perspective).label}</strong>
-        <span>{perspectiveLabel(perspective).hint}</span>
-        <button className="readerClose missionCollapse" onClick={onToggle} title={t("world.missionCollapse")} type="button">
+        <strong id={titleId}>{t("world.nextSteps")}</strong>
+        <span className="missionContextSummary">
+          <span className="missionViewContext">{viewLabel}</span>
+          <span aria-hidden> · </span>
+          <span className="missionViewHint">{viewHint}</span>
+          <span aria-hidden> · </span>
+          <span className="missionOverlayContext">{overlayLabel}</span>
+        </span>
+        <button
+          className="readerClose missionCollapse"
+          onClick={onToggle}
+          aria-controls={panelId}
+          aria-expanded={true}
+          title={t("world.missionCollapse")}
+          type="button"
+        >
           –
         </button>
       </header>
       <div className="missionRows">
-        {rows.slice(0, 3).map((row, index) => (
-          <div className={`missionRow tone-${row.tone}`} key={row.key}>
-            <button className="missionRowMain" onClick={row.onClick} type="button">
-              <span className="stageIndex">{index + 1}</span>
-              <span className="missionCopy">
-                <strong>{row.label}</strong>
-                <small>{row.detail}</small>
-              </span>
-            </button>
-            {row.action && (
-              <button className="missionRowAction" onClick={row.action.onClick} title={row.action.title} type="button">
-                <Sparkles size={13} />
-                <span>{row.action.label}</span>
+        {rows.slice(0, 3).map((row, index) => {
+          const rowTitleId = `${panelId}-row-${index}-title`;
+          const rowDetailId = `${panelId}-row-${index}-detail`;
+          return (
+            <div className={`missionRow tone-${row.tone}`} key={row.key}>
+              <button className="missionRowMain" onClick={row.onClick} aria-describedby={rowDetailId} type="button">
+                <span className="stageIndex">{index + 1}</span>
+                <span className="missionCopy">
+                  <strong id={rowTitleId}>{row.label}</strong>
+                  <small id={rowDetailId}>{row.detail}</small>
+                </span>
               </button>
-            )}
-            {row.help && <HelpTip title={row.label} body={row.help} />}
-          </div>
-        ))}
+              {(row.action || row.help) && (
+                <div
+                  className="missionRowActions"
+                  role="group"
+                  aria-labelledby={rowTitleId}
+                  style={{ flexBasis: "100%", minWidth: 0 }}
+                >
+                  {row.action && (
+                    <button className="missionRowAction" onClick={row.action.onClick} title={row.action.title} type="button">
+                      <Sparkles size={13} />
+                      <span>{row.action.label}</span>
+                    </button>
+                  )}
+                  {row.help && <HelpTip title={row.label} body={row.help} />}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
       {searchBlock}
     </div>

@@ -980,7 +980,10 @@ export function groupShellProfile(node: LayoutNode, layoutLevel: number, activeG
     ghostOpacity: active ? 0.46 : deepCenter ? 0.16 : center ? 0.28 : satellite ? 0.08 : 0.18,
     detailScale: active ? 1.08 : deepCenter ? 0.88 : center ? 1 : satellite ? 0.72 : 0.9,
     beaconOpacity: active ? 0.72 : center ? 0.58 : satellite ? 0.34 : 0.48,
-    orbitParticles: !satellite && !(center && layoutLevel > 1),
+    // Root overviews can contain many family landmarks. Keep their semantic
+    // shells and status beacons, but wake the per-group orbit cloud only on
+    // hover/focus; otherwise every family runs its own continuous animation.
+    orbitParticles: !satellite && !(center && layoutLevel > 1) && (center || active || layoutLevel > 0),
     pipLimit: center ? 99 : satellite ? (peripheralQuadrant ? 2 : 4) : 7
   };
 }

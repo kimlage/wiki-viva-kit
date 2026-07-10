@@ -47,6 +47,11 @@ export type WorldQuery = {
   // inside the tutorial; `stage` picks which staged snapshot is loaded.
   genesis: boolean;
   stage: number;
+  // Demo-only, allowlisted universe and walkthrough preference. Both survive
+  // canonical v8 state writes so a view/lens change never swaps datasets or
+  // exits/restarts the requested learning flow.
+  demoScenario: "" | "normal_operations" | "dense_stress";
+  tour: "" | "0" | "1";
 };
 
 // Compatibility re-export. The canonical surface vocabulary belongs to the
@@ -107,7 +112,9 @@ const EMPTY_QUERY: WorldQuery = {
   center: "",
   runtime: "",
   genesis: false,
-  stage: 0
+  stage: 0,
+  demoScenario: "",
+  tour: ""
 };
 
 function isPerspective(value: string): value is PerspectiveId {
@@ -121,6 +128,8 @@ function asRuntimeMode(value: string | null): RuntimeMode | "" {
 function parseQuery(search: string): WorldQuery {
   const params = new URLSearchParams(search);
   const stationRaw = Number.parseInt(params.get("station") || "0", 10);
+  const requestedScenario = params.get("demo_scenario");
+  const requestedTour = params.get("tour");
   const query: WorldQuery = {
     q: params.get("q") || "",
     filter: params.get("filter") || "",
@@ -145,7 +154,12 @@ function parseQuery(search: string): WorldQuery {
     stage: (() => {
       const raw = Number.parseInt(params.get("stage") || "0", 10);
       return Number.isFinite(raw) && raw > 0 ? raw : 0;
-    })()
+    })(),
+    demoScenario:
+      requestedScenario === "normal_operations" || requestedScenario === "dense_stress"
+        ? requestedScenario
+        : "",
+    tour: requestedTour === "0" || requestedTour === "1" ? requestedTour : ""
   };
   // The surface singleton holds at parse time too: a hand-crafted URL never
   // claims a dock and the reader at once (the dock wins, matching patchWorld).
@@ -256,6 +270,8 @@ export function buildUrl(route: Route): string {
     params.set("genesis", "1");
     if (route.query.stage > 0) params.set("stage", String(route.query.stage));
   }
+  if (route.query.demoScenario) params.set("demo_scenario", route.query.demoScenario);
+  if (route.query.tour) params.set("tour", route.query.tour);
   const suffix = params.toString();
   return `${prefix}/w/${segments.join("/")}${suffix ? `?${suffix}` : ""}`;
 }
@@ -286,6 +302,8 @@ export type WorldPatch = {
   runtime?: RuntimeMode | null;
   genesis?: boolean;
   stage?: number | null;
+  demoScenario?: "normal_operations" | "dense_stress" | null;
+  tour?: "0" | "1" | null;
 };
 
 export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
@@ -320,7 +338,9 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
       center: patch.center === null ? "" : patch.center ?? route.query.center,
       runtime: patch.runtime === null ? "" : patch.runtime ?? route.query.runtime,
       genesis: patch.genesis ?? route.query.genesis,
-      stage: patch.stage === null ? 0 : patch.stage ?? route.query.stage
+      stage: patch.stage === null ? 0 : patch.stage ?? route.query.stage,
+      demoScenario: patch.demoScenario === null ? "" : patch.demoScenario ?? route.query.demoScenario,
+      tour: patch.tour === null ? "" : patch.tour ?? route.query.tour
     }
   };
   // Grammar is positional: most groups need a context, and a locked page needs

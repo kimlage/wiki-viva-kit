@@ -3,7 +3,7 @@
 // out of the way. Shows once (localStorage), reopens with "?" or the guide
 // button. No fake progress — it is a map legend in narrative form.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../data/i18n";
 
 const TOUR_DONE_KEY = "wikiCockpitTourDone.v1";
@@ -12,12 +12,12 @@ type TourStep = { key: string; anchor: string | null };
 
 const STEPS: TourStep[] = [
   { key: "welcome", anchor: null },
-  { key: "perspectives", anchor: ".perspectiveGlyphs" },
+  { key: "views", anchor: ".worldNavigatorViewControls" },
+  { key: "overlay", anchor: ".worldNavigatorOverlaySelect" },
+  { key: "lens", anchor: ".quadrantCompass" },
   { key: "drill", anchor: ".worldBreadcrumbs" },
-  { key: "mission", anchor: ".worldMissionCard" },
-  { key: "search", anchor: ".commandSearch" },
-  { key: "packet", anchor: ".trayButton" },
-  { key: "missions", anchor: ".missionsButton" }
+  { key: "mission", anchor: ".worldMissionCard, .worldMissionSlim" },
+  { key: "search", anchor: ".commandSearch" }
 ];
 
 export function tourSeen(): boolean {
@@ -36,13 +36,34 @@ function markTourSeen(): void {
   }
 }
 
-export function CoachMarks({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function CoachMarks({
+  open,
+  onClose,
+  returnFocusTo
+}: {
+  open: boolean;
+  onClose: () => void;
+  returnFocusTo?: HTMLElement | null;
+}) {
   const [step, setStep] = useState(0);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (open) setStep(0);
-  }, [open]);
+    if (open) {
+      // React commits `autoFocus` before passive effects. Reading only
+      // document.activeElement here would therefore remember the tour's own
+      // Next button instead of the control that opened it. The caller captures
+      // the opener at the interaction boundary and hands it in explicitly.
+      previousFocusRef.current = returnFocusTo ?? null;
+      setStep(0);
+      return undefined;
+    }
+    previousFocusRef.current?.focus();
+    previousFocusRef.current = null;
+    return undefined;
+  }, [open, returnFocusTo]);
 
   const current = STEPS[Math.min(step, STEPS.length - 1)];
 
@@ -67,10 +88,28 @@ export function CoachMarks({ open, onClose }: { open: boolean; onClose: () => vo
     const onKey = (event: KeyboardEvent) => {
       event.stopPropagation();
       if (event.key === "Escape") finish();
-      if (event.key === "ArrowRight" || event.key === "Enter") {
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      const enterHandledByControl =
+        event.key === "Enter" &&
+        Boolean(target?.closest("button, a, input, select, textarea, [role='button'], [role='link']"));
+      if (event.key === "ArrowRight" || (event.key === "Enter" && !enterHandledByControl)) {
         setStep((value) => (value + 1 >= STEPS.length ? (finish(), value) : value + 1));
       }
       if (event.key === "ArrowLeft") setStep((value) => Math.max(0, value - 1));
+      if (event.key === "Tab") {
+        const focusable = [...(cardRef.current?.querySelectorAll<HTMLElement>("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])") ?? [])]
+          .filter((element) => !element.hasAttribute("disabled"));
+        if (focusable.length === 0) return;
+        const first = focusable[0]!;
+        const last = focusable[focusable.length - 1]!;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
@@ -99,7 +138,7 @@ export function CoachMarks({ open, onClose }: { open: boolean; onClose: () => vo
           aria-hidden
         />
       )}
-      <div className={anchorRect ? "coachCard anchored" : "coachCard"} style={cardStyle}>
+      <div ref={cardRef} className={anchorRect ? "coachCard anchored" : "coachCard"} style={cardStyle}>
         <span className="coachProgress">{t("tour.progress", { step: step + 1, total: STEPS.length })}</span>
         <h2>{t(`tour.${current.key}.title`)}</h2>
         <p>{t(`tour.${current.key}.body`)}</p>

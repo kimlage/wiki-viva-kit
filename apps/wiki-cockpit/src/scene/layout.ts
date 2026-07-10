@@ -9,6 +9,7 @@ export type ScenePerformanceProfile = {
   maxEdges: number;
   dpr: [number, number];
   geometrySegments: number;
+  antialias: boolean;
   enableIntro: boolean;
   label: string;
 };
@@ -139,7 +140,14 @@ export function scenePerformanceProfile(
   const cores = options.hardwareConcurrency ?? 4;
   const pixelRatio = options.pixelRatio ?? 1;
   const reduced = Boolean(options.reducedMotion);
-  const dense = nodeCount > 110;
+  // The normal reference universe currently contains 107 source nodes. Its
+  // quadrant overview projects more rich group shells than the larger stress
+  // fixture (which is aggressively summarized), so waiting until >110 left
+  // the normal case on the expensive side of an arbitrary cliff. Keep the
+  // rich visual tier and effects, but use the dense geometry/MSAA LOD from 100
+  // source nodes onward. Retina DPR already supplies sub-pixel smoothing; the
+  // topology, semantic objects, motion and particles remain unchanged.
+  const dense = nodeCount >= 100;
   if (reduced || width < 640 || cores <= 4) {
     return {
       quality: "compact",
@@ -147,6 +155,7 @@ export function scenePerformanceProfile(
       maxEdges: 80,
       dpr: [1, Math.min(1.15, pixelRatio)],
       geometrySegments: 12,
+      antialias: false,
       enableIntro: false,
       label: "compact"
     };
@@ -158,8 +167,9 @@ export function scenePerformanceProfile(
       maxEdges: 200,
       dpr: [1, Math.min(1.35, pixelRatio)],
       geometrySegments: dense ? 14 : 18,
+      antialias: !dense,
       enableIntro: true,
-      label: "balanced"
+      label: dense ? "balanced·dense" : "balanced"
     };
   }
   return {
@@ -168,6 +178,7 @@ export function scenePerformanceProfile(
     maxEdges: 320,
     dpr: [1, Math.min(1.6, pixelRatio)],
     geometrySegments: dense ? 18 : 24,
+    antialias: !dense,
     enableIntro: true,
     label: dense ? "rich·dense" : "rich"
   };

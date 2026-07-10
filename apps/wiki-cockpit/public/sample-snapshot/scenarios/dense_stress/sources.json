@@ -1,0 +1,61 @@
+{
+  "schema_version": "wiki_web_sources.v1",
+  "sources": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-product-analytics",
+      "moc_children_count": 0,
+      "moc_parent": "memories/clientes/index.md",
+      "page_type": "source",
+      "path": "memories/sources/source-product-analytics.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_blocked_reason": "",
+      "source_lifecycle_state": "",
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "",
+      "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+      "summary_truncated": false,
+      "title": "Product analytics export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-support-tickets",
+      "moc_children_count": 0,
+      "moc_parent": "memories/clientes/index.md",
+      "page_type": "source",
+      "path": "memories/sources/source-support-tickets.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_blocked_reason": "",
+      "source_lifecycle_state": "",
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "",
+      "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+      "summary_truncated": false,
+      "title": "Support tickets export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    }
+  ]
+}

@@ -56,7 +56,7 @@ export function createWorldReducer(index: PageEntityIndex, kernel: RegistryKerne
       case "refreshSnapshot":
         return state;
       case "closeSurface":
-        return { ...state, dock: undefined };
+        return { ...state, dock: undefined, readerId: undefined };
       case "setFallback":
         return { ...state, fallback: event.fallback };
       case "setCameraIntent":

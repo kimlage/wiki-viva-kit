@@ -57,7 +57,7 @@ import { DEFAULT_VISUAL_CONTROL_CONFIG } from "./visualControl";
 import type { VisualControlConfig } from "./visualControl";
 import { RUNTIME_PERFORMANCE_RESET_EVENT, RuntimePerformanceTelemetry } from "../world/performance";
 import type { RuntimePerformanceEvidence } from "../world/performance";
-import type { OverlayId } from "../world/contracts";
+import type { OverlayId, RuntimeMode, ViewId } from "../world/contracts";
 
 // Moved symbols that other files import from this module (WorldView, tests,
 // the visual-test mock) stay reachable at their old path via re-exports.
@@ -73,6 +73,8 @@ export type SceneSeed = Omit<SeedSpec, "rOuter">;
 
 export type SceneRoute = {
   perspective: PerspectiveId;
+  runtimeMode?: RuntimeMode;
+  view?: ViewId;
   context?: string;
   group?: string;
   pageId?: string;
@@ -85,6 +87,7 @@ export type SceneRoute = {
 
 export type ScenePatch = {
   perspective?: PerspectiveId;
+  view?: ViewId | null;
   context?: string | null;
   group?: string | null;
   worldGroup?: string | null;
@@ -97,6 +100,29 @@ export type ScenePatch = {
 };
 
 export type RelationIsolation = "hierarquia" | "evidencia" | "links" | "citado-por";
+
+// Global scene shortcuts must never operate underneath a primary interaction
+// surface. `inert` removes DOM controls from pointer/focus navigation, but it
+// cannot suspend this window-level listener by itself. Keep in-world summary
+// plates out of this list: their Q/W/Enter shortcuts are part of the scene.
+const GLOBAL_SHORTCUT_BLOCKING_SURFACES = [
+  "[aria-modal='true']",
+  ".worldNavigatorPanel",
+  ".worldDock",
+  ".pageReader",
+  ".briefStudio",
+  ".createSheet",
+  ".visualControlPanel",
+  ".packetTray",
+  ".missionsPanel",
+  ".templateInspector",
+  ".genesisCard",
+  ".genesisVoid"
+].join(", ");
+
+function globalSceneShortcutsBlocked(): boolean {
+  return Boolean(document.querySelector(GLOBAL_SHORTCUT_BLOCKING_SURFACES));
+}
 
 function viewportSnapshot() {
   if (typeof window === "undefined") {
@@ -547,12 +573,21 @@ function SceneContent({
     return keys;
   }, [layout, selectedId]);
 
+  const perspectiveEdges = useMemo(() => {
+    if (layout.perspective === "sources") {
+      return edges.filter((edge) => /source_ref|source_emission|ingestion_chain|evidence|emitt/i.test(edge.type));
+    }
+    if (layout.perspective === "work") {
+      return edges.filter((edge) => /impact|proposal_transition|source_ref|ingestion_chain|assignment|owner/i.test(edge.type));
+    }
+    return edges;
+  }, [edges, layout.perspective]);
   const sceneEdges = useMemo(
-    () => selectSceneEdges(edges, layout, focusIds, highlightedIds, profile, isolateRelation, selectedKeys),
-    [edges, focusIds, highlightedIds, isolateRelation, layout, profile, selectedKeys]
+    () => selectSceneEdges(perspectiveEdges, layout, focusIds, highlightedIds, profile, isolateRelation, selectedKeys),
+    [focusIds, highlightedIds, isolateRelation, layout, perspectiveEdges, profile, selectedKeys]
   );
-  const relationLanes = useMemo(() => relationLanesForLayout(edges, layout), [edges, layout]);
-  const groupRelationBundles = useMemo(() => groupRelationBundlesForLayout(edges, layout), [edges, layout]);
+  const relationLanes = useMemo(() => relationLanesForLayout(perspectiveEdges, layout), [layout, perspectiveEdges]);
+  const groupRelationBundles = useMemo(() => groupRelationBundlesForLayout(perspectiveEdges, layout), [layout, perspectiveEdges]);
   const flowEdges = useMemo(() => {
     const attention = (node: LayoutNode) =>
       node.freshness_state === "stale" || node.approved_state === "proposal" || node.risk_flags.length > 0;
@@ -1040,9 +1075,9 @@ export function SystemScene({
         if (!region) return group;
         return {
           ...group,
-          count: region.summary.total,
-          shown: Math.min(group.shown, region.summary.total),
-          memberIds: region.member_ids,
+          // The region payload may cover only the compiler-classified slice of
+          // a larger canonical view. It enriches the group with evidence and
+          // actions, but can never replace the layout's honest page census.
           region
         };
       })
@@ -1309,12 +1344,29 @@ export function SystemScene({
     };
     const onKey = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return;
+      if (globalSceneShortcutsBlocked()) return;
       // Browser/system shortcuts stay untouched (Cmd/Ctrl+R, Cmd+1..9, Cmd+W).
       if (event.metaKey || event.ctrlKey) return;
       if (event.altKey && !(event.key === "ArrowLeft")) return;
-      const perspectiveKeys: Record<string, PerspectiveId> = { "1": "radar", "2": "atlas", "3": "districts", "4": "trails", "5": "quadrants" };
-      if (perspectiveKeys[event.key]) {
-        navigate({ perspective: perspectiveKeys[event.key] });
+      const nativeViewKeys: Partial<Record<string, ViewId>> = {
+        "1": "quadrants",
+        "2": "radar",
+        "3": "sources",
+        "4": "work"
+      };
+      const perspectiveKeys: Partial<Record<string, PerspectiveId>> = {
+        "1": "radar",
+        "2": "atlas",
+        "3": "districts",
+        "4": "trails",
+        "5": "quadrants"
+      };
+      const nativeView = route.runtimeMode === "v8" ? nativeViewKeys[event.key] : undefined;
+      const compatibilityPerspective = route.runtimeMode !== "v8" ? perspectiveKeys[event.key] : undefined;
+      if (nativeView || compatibilityPerspective) {
+        event.preventDefault();
+        if (nativeView) navigate({ view: nativeView });
+        else if (compatibilityPerspective) navigate({ perspective: compatibilityPerspective });
         return;
       }
       if (event.key === "/") {
@@ -1418,8 +1470,8 @@ export function SystemScene({
       if (route.pageId) {
         if (event.key === "q" || event.key === "Q") navigate({ reader: true });
         if (event.key === "w" || event.key === "W") onTogglePacket?.(route.pageId);
-        if (event.key === "e" || event.key === "E") navigate({ perspective: "trails" });
-        if (event.key === "f" || event.key === "F") navigate({ perspective: "focus" });
+        if ((event.key === "e" || event.key === "E") && route.runtimeMode !== "v8") navigate({ perspective: "trails" });
+        if ((event.key === "f" || event.key === "F") && route.runtimeMode !== "v8") navigate({ perspective: "focus" });
         if (event.key === "r" || event.key === "R") onRunRefresh?.();
       }
     };
@@ -1443,6 +1495,7 @@ export function SystemScene({
     onTogglePacket,
     route.pageId,
     route.perspective,
+    route.runtimeMode,
     route.reader,
     selectNode
   ]);
@@ -1450,7 +1503,11 @@ export function SystemScene({
   const shellCenterNode = layout.nodes.find((node) => node.isRoot && node.isGroup) ?? layout.nodes.find((node) => node.isRoot);
   const shellVisualGroup =
     shellCenterNode?.isGroup ? shellCenterNode.groupKey || shellCenterNode.groupDrill?.group || shellCenterNode.id : layout.group;
-  const shellRealCenter = route.pageId || route.centerId || "";
+  // Selection is an inspection plate, not a recenter operation. The shell
+  // contract must report the explicit world center even while another page is
+  // selected/read; otherwise diagnostics and tests reintroduce the old
+  // selection-as-center model that the layout no longer uses.
+  const shellRealCenter = route.centerId || "";
 
   // Guide beacon anchor: the step's subject if it exists in this layout, else
   // the root, else a spot in the void above the founding cards. Anchored at
@@ -1482,6 +1539,8 @@ export function SystemScene({
       data-strong-attention-count={strongAttentionCount}
       data-scene-quadrant={route.lens ?? route.quadrant ?? ""}
       data-scene-center-has-quadrants={centerHasQuadrants ? "true" : "false"}
+      data-scene-source-node-count={sourceNodeCount}
+      data-scene-input-node-count={nodes.length}
       data-visual-density={visualTuning.density.toFixed(2)}
       data-visual-spacing={visualTuning.spacing.toFixed(2)}
       data-visual-glow={visualTuning.glow.toFixed(2)}
@@ -1530,7 +1589,7 @@ export function SystemScene({
               // layout could leave the canvas committed at 0×0 (black world).
               resize={{ scroll: false, debounce: 0 }}
               gl={{
-                antialias: profile.quality !== "compact",
+                antialias: profile.antialias,
                 powerPreference: "high-performance",
                 toneMapping: THREE.ACESFilmicToneMapping,
                 toneMappingExposure: 1 + visualTuning.contrast * 0.15

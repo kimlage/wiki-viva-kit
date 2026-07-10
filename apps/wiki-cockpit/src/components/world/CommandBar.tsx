@@ -21,13 +21,13 @@ import { t } from "../../data/i18n";
 import { perspectiveLabel } from "../../data/presentation";
 import type { Instruments } from "../../data/surfaces";
 import { HelpTip } from "../HelpTip";
-import type { WorldPatch, WorldRoute } from "../../router";
+import type { PerspectiveId, WorldPatch, WorldRoute } from "../../router";
 import type { WorldCondition } from "../../scene/condition";
-import type { PerspectiveId } from "../../scene/perspectives";
 
 export function CommandBar({
   route,
   activePerspective,
+  showCompatibilityPerspectives,
   instruments,
   condition,
   changedCount,
@@ -47,6 +47,7 @@ export function CommandBar({
 }: {
   route: WorldRoute;
   activePerspective?: string;
+  showCompatibilityPerspectives: boolean;
   instruments: Instruments;
   condition: WorldCondition;
   changedCount: number;
@@ -127,6 +128,7 @@ export function CommandBar({
           </button>
         ))}
       </div>
+      {showCompatibilityPerspectives && (
       <div className="perspectiveGlyphs" role="group" aria-label={t("world.perspectives")}>
         {(["radar", "atlas", "districts", "trails", "quadrants"] as PerspectiveId[])
           .filter((perspective) => instruments.perspectives.includes(perspective))
@@ -167,6 +169,7 @@ export function CommandBar({
           );
         })()}
       </div>
+      )}
       {/* The packet tray exists only while it HAS pages — an empty
           collector is noise; the reader's "add to packet" brings it back. */}
       {(route.query.packet.length > 0 || trayOpen) && (

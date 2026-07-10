@@ -2,34 +2,6 @@
   "schema_version": "wiki_snapshot_warnings.v1",
   "warnings": [
     {
-      "anchor_id": "holon-product-ops",
-      "code": "region_imbalance",
-      "largest": 126,
-      "median": 3,
-      "severity": "warning"
-    },
-    {
-      "anchor_id": "holon-product-ops",
-      "code": "region_hidden_density",
-      "count": 86,
-      "region_id": "quadrant:pratica",
-      "severity": "info"
-    },
-    {
-      "anchor_id": "hub-clientes",
-      "code": "region_hidden_density",
-      "count": 24,
-      "region_id": "quadrant:intencao",
-      "severity": "info"
-    },
-    {
-      "anchor_id": "hub-clientes",
-      "code": "region_hidden_density",
-      "count": 154,
-      "region_id": "quadrant:pratica",
-      "severity": "info"
-    },
-    {
       "code": "source_blocked",
       "reason": "Authorization is required; no credential value is stored in the fixture.",
       "severity": "warning",

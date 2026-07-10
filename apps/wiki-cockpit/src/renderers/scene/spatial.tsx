@@ -32,6 +32,29 @@ import type { BriefSpec, TemplateSpec } from "../../types";
 
 // One Html wrapper for every spatial surface: same wrapperClass the canvas
 // pointer-missed handler excludes, high z so plates ride over labels.
+function safeScreenCenter(
+  portal: RefObject<HTMLElement | null> | undefined,
+  size: { width: number; height: number }
+): [number, number] {
+  const host = portal?.current;
+  if (!host) return [size.width / 2, size.height / 2];
+
+  const hostRect = host.getBoundingClientRect();
+  // Absolutely positioned portal children use the padding box as their
+  // origin. Account for the scene shell border so WebKit does not add a
+  // one-pixel downward/rightward drift to an otherwise exact safe-area fit.
+  const originTop = hostRect.top + host.clientTop;
+  const topStrip = host.querySelector<HTMLElement>(".worldTopStrip")?.getBoundingClientRect();
+  const commandBar = host.querySelector<HTMLElement>(".worldCommandBar")?.getBoundingClientRect();
+  const safeTop = Math.max(8, (topStrip?.bottom ?? originTop) - originTop + 8);
+  const safeBottom = Math.min(
+    host.clientHeight - 8,
+    (commandBar?.top ?? hostRect.bottom) - originTop - 8
+  );
+
+  return [host.clientWidth / 2, (safeTop + Math.max(safeTop, safeBottom)) / 2];
+}
+
 function Plate({
   position,
   className,
@@ -57,6 +80,11 @@ function Plate({
       // Drei's declaration predates nullable React refs; the runtime accepts
       // the same ref object while it is null before mount.
       portal={portal as MutableRefObject<HTMLElement> | undefined}
+      calculatePosition={
+        screenSized
+          ? (_object, _camera, size) => safeScreenCenter(portal, size)
+          : undefined
+      }
       wrapperClass={screenSized ? "sceneHtmlLabel sceneHtmlInteractive" : "sceneHtmlLabel"}
       className={className}
       zIndexRange={[z, 0]}

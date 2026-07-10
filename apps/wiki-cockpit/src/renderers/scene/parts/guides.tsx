@@ -1466,22 +1466,33 @@ const QUADRANT_SQUARES: { facet: string; sx: 1 | -1; sz: 1 | -1 }[] = SCENE_FACE
   sz: Math.sin(QUADRANT_CENTER_ANGLE[facet]) >= 0 ? 1 : -1
 }));
 
+// Reuse the cockpit's established quadrant accents. The territories need to
+// read as four places before a user opens the compass; the previous neutral
+// blue at 4.5% opacity collapsed into one indistinct floor ring.
+const QUADRANT_TERRITORY_COLORS: Record<string, string> = {
+  intencao: "#7fd0e8",
+  pratica: "#ffb454",
+  relacoes: "#c57cff",
+  sistemas: "#5ee6a8"
+};
+
 export function QuadrantPlanes({ rOuter, activeQuadrant }: { rOuter: number; activeQuadrant?: string }) {
   const size = rOuter + 0.9;
-  const gap = 0.14;
+  const gap = 0.24;
   return (
     <group position={[0, -0.42, 0]}>
       {QUADRANT_SQUARES.map(({ facet, sx, sz }) => {
         const active = activeQuadrant === facet;
+        const color = QUADRANT_TERRITORY_COLORS[facet] ?? "#7fd0e8";
         const half = (size - gap) / 2;
         return (
           <group key={facet} position={[sx * (half + gap / 2 + gap / 2), 0, sz * (half + gap / 2 + gap / 2)]}>
             <mesh rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[size - gap, size - gap]} />
               <meshBasicMaterial
-                color={active ? "#6ea6c4" : "#4a708a"}
+                color={color}
                 transparent
-                opacity={active ? 0.1 : 0.045}
+                opacity={active ? 0.15 : 0.068}
                 depthWrite={false}
                 toneMapped={false}
                 side={THREE.DoubleSide}
@@ -1491,9 +1502,9 @@ export function QuadrantPlanes({ rOuter, activeQuadrant }: { rOuter: number; act
             <lineSegments rotation={[-Math.PI / 2, 0, 0]}>
               <edgesGeometry args={[new THREE.PlaneGeometry(size - gap, size - gap)]} />
               <lineBasicMaterial
-                color={active ? "#8fc4e0" : "#3f5a6e"}
+                color={color}
                 transparent
-                opacity={active ? 0.5 : 0.22}
+                opacity={active ? 0.62 : 0.34}
                 toneMapped={false}
               />
             </lineSegments>
