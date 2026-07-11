@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`877b586b115cc654f604ebfd8ce37253f607d7e8` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`dbd158a482dca20ab823968467fec931d67ca050` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
 downstream preflight safety boundary, `5179dc5c` makes nested centers
@@ -80,6 +80,14 @@ at `390x664` and `390x844`. The regression waits for the authored spatial
 transition to settle, then proves pairwise geometry, native hit ownership,
 mouse/keyboard collection progress, breadcrumb/lens truth, no document scroll
 and one persistent canvas in the instructional and dense synthetic worlds.
+`dbd158a4` closes the final adaptive-fallback blocker surfaced only by the
+private Linux/WebKit run. Phone offsets authored for projected 3D labels are
+now explicitly disabled for the semantic 2D map, so `family:source` and
+`family:event` remain untransformed, scrollable and touchable after the measured
+`performance_budget` transition. The strengthened test preserves the scene
+shell, accepts only a one-way canvas-to-map change, waits for outgoing
+reader/collection surfaces, and revalidates every Q2 target in the active
+renderer rather than assuming the session stayed in 3D.
 
 ## Product boundary
 
@@ -233,14 +241,15 @@ blank world, center error, overlap, unreadable label or sample fallback.
   semantic motion, docks, reader, fallback and mobile. It preserved one canvas,
   had no document overflow, measured p95 12.1 ms on the normal world and proved
   atomic 400 ms overlay crossfades plus reader/Guide focus restoration.
-- Downstream pilot: portable source `877b586b`; the prior private proof at
+- Downstream pilot: portable source `dbd158a4`; the prior private proof at
   `fa65d5f9` had toolkit drift 0 and a real snapshot v2
   with 24 payloads and complete private/redacted-public migration reports with
   zero validation errors. Redacted desktop, mobile and fallback evidence uses
   real operator provenance, no sample fallback, clean console/network state
   and exactly one fallback scroll axis across 560 real pages.
-  The controlled private refresh to `877b586b` is being validated locally and
-  remains the next evidence gate
+  The controlled private refresh to `dbd158a4` passes the complete local
+  desktop/mobile/fallback/Firefox matrix against 561 real pages and remains
+  behind the remote and human evidence gates
   in PR #208; no private content is claimed by this public candidate.
 
 ## Superseded planning surfaces

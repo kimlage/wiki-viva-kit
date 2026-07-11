@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc1@877b586b
+    current_kit_version: wiki-viva-v8-rc1@dbd158a4
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -47,7 +47,7 @@ consumers:
       owner: <redacted>
     consumer_type: private_operational_wiki
     role: first_private_pilot
-    current_kit_version: wiki-viva-v8-rc1@cfa32594
+    current_kit_version: wiki-viva-v8-rc1@dbd158a4
     current_layout:
       memory_root: memorias
       references_root: docs/referencias
@@ -65,11 +65,11 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: mobile_integrity_refresh_pending
+      state: local_validation_complete
       scope: wiki_toolkit_drift_core_prefixes
       drift_total: 0
-      details: controlled cfa32594 migration evidence is retained privately; payload 877b586b is under local controlled-allowlist validation in PR 208, retaining b942735f as short-mobile history, 1d801f1c as source-hierarchy history, a483ad02 as reader-continuity history, d4a3c890 as all-phone group-geometry history and f7f95119 as atomic-search history
+      details: controlled cfa32594 migration evidence is retained privately; payload dbd158a4 passes the complete local real-data matrix in PR 208, retaining b942735f as short-mobile history, 1d801f1c as source-hierarchy history, a483ad02 as reader-continuity history, d4a3c890 as all-phone group-geometry history, f7f95119 as atomic-search history and 877b586b as desktop-group history
       verified_on: "2026-07-10"
     upgrade_wave: pilot
-    status: refresh_pending
-    blocker: controlled payload 877b586b validation against real reader/search navigation, source hierarchy and desktop/short/tall semantic-group behavior, plus private CI, Browser audit and human PR review, remain
+    status: remote_gate_pending
+    blocker: controlled payload dbd158a4 has passed local real reader/search navigation, source hierarchy and desktop/short/tall/fallback semantic-group behavior; private CI and human PR review remain
