@@ -1030,6 +1030,36 @@ button.stripChip:hover {
   line-height: 1;
 }
 
+/* The quadrant overview keeps semantic groups as full explanatory labels on
+   desktop. Give the two recurring upper territories stable horizontal lanes
+   so a second Q2 family cannot cover its neighbour (or graze Q1) when a real
+   world and the dense synthetic fixture project the same topology. */
+@media (min-width: 621px) {
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="intencao"][data-world-target-id="family:decision"] {
+    translate: -10px 0;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:hub"],
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:content"] {
+    translate: 8px 0;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:rule"],
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="pratica"][data-world-target-id="family:action"] {
+    translate: 72px 0;
+  }
+
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
+    [data-world-quadrant="sistemas"][data-world-target-id="family:content"] {
+    translate: 24px 0;
+  }
+}
+
 .radarDeadlineCaption span {
   display: inline-block;
   padding: 2px 8px;
