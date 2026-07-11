@@ -164,6 +164,30 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
     await readerClose.tap();
     await expect(page.locator(".pageReader")).toHaveCount(0);
   }
+
+  // Also exercise the branch where the 250 ms debounce commits `q` before
+  // Enter. Closing, clearing and submitting the identical title again must
+  // release the submitted-draft marker instead of suppressing future search.
+  const repeatedTitle = "Evidence shelf clarifies source-backed work";
+  const search = page.locator(".commandSearch input");
+  await search.fill(repeatedTitle);
+  await expect.poll(() => page.evaluate(() => new URLSearchParams(window.location.search).get("q"))).toBe(repeatedTitle);
+  await search.press("Enter");
+  await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10_000 });
+  await page.waitForTimeout(350);
+  await expect(page.locator(".pageReader")).toBeVisible();
+  await expect(page.locator(".readerHead h2")).toHaveText(repeatedTitle);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".pageReader")).toHaveCount(0);
+
+  await search.fill("");
+  await expect.poll(() => page.evaluate(() => new URLSearchParams(window.location.search).get("q"))).toBeNull();
+  await search.fill(repeatedTitle);
+  await expect.poll(() => page.evaluate(() => new URLSearchParams(window.location.search).get("q"))).toBe(repeatedTitle);
+  await search.press("Enter");
+  await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".readerHead h2")).toHaveText(repeatedTitle);
+  await expect(page).not.toHaveURL(/[?&]dock=/);
   await attachViewportScreenshot(page, testInfo, "webkit-mobile-touch-flow");
 });
 

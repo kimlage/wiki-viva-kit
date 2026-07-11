@@ -202,7 +202,7 @@ blank world, center error, overlap, unreadable label or sample fallback.
   workflow passes locally, including operational-pass freshness.
 - Snapshot: 24-payload v2 contract, deterministic demo drift and atomic
   sidecar promotion/rollback checks pass.
-- Frontend: 397 unit tests across 51 files and 15 gate tests pass; architecture reports
+- Frontend: 395 unit tests across 51 files and 15 gate tests pass; architecture reports
   0 violations and 0 legacy debt.
 - Bundle: initial JS 139.11 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
   chunk 53.89 kB gzip, all below the committed budgets.
