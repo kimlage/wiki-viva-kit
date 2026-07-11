@@ -5008,23 +5008,28 @@ pre {
   /* The 3D anchor projection compresses at phone aspect ratios. Keep the five
      stable semantic family handles in their own quadrant lanes so their full
      touch targets never compete for the same pixels. */
-  .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:source"] {
+  .worldWorkspace[data-world-fallback-active="false"][data-world-lens="all"]
+    [data-world-target-kind="group"][data-world-target-id="family:source"] {
     translate: -55px -25px;
   }
 
-  .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:event"] {
+  .worldWorkspace[data-world-fallback-active="false"][data-world-lens="all"]
+    [data-world-target-kind="group"][data-world-target-id="family:event"] {
     translate: 5px 5px;
   }
 
-  .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:person"] {
+  .worldWorkspace[data-world-fallback-active="false"][data-world-lens="all"]
+    [data-world-target-kind="group"][data-world-target-id="family:person"] {
     translate: 0 -15px;
   }
 
-  .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:hub"] {
+  .worldWorkspace[data-world-fallback-active="false"][data-world-lens="all"]
+    [data-world-target-kind="group"][data-world-target-id="family:hub"] {
     translate: 80px -50px;
   }
 
-  .worldWorkspace[data-world-lens="all"] [data-world-target-kind="group"][data-world-target-id="family:content"] {
+  .worldWorkspace[data-world-fallback-active="false"][data-world-lens="all"]
+    [data-world-target-kind="group"][data-world-target-id="family:content"] {
     translate: 10px 8px;
   }
 
@@ -5068,11 +5073,13 @@ pre {
     translate: 100px -50px;
   }
 
-  .worldWorkspace[data-world-lens="q2_pratica"] [data-world-target-kind="group"][data-world-target-id="family:source"] {
+  .worldWorkspace[data-world-fallback-active="false"][data-world-lens="q2_pratica"]
+    [data-world-target-kind="group"][data-world-target-id="family:source"] {
     translate: 0 8px;
   }
 
-  .worldWorkspace[data-world-lens="q2_pratica"] [data-world-target-kind="group"][data-world-target-id="family:event"] {
+  .worldWorkspace[data-world-fallback-active="false"][data-world-lens="q2_pratica"]
+    [data-world-target-kind="group"][data-world-target-id="family:event"] {
     translate: -145px 96px;
   }
 
@@ -6609,7 +6616,7 @@ pre {
     bottom: calc(var(--world-command-bar-height, 130px) + 4px);
   }
 
-  .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="q2_pratica"]
     [data-world-target-kind="group"][data-world-target-id="family:event"] {
     translate: -120px 100px;
   }
