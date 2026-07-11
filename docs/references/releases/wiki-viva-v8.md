@@ -14,7 +14,7 @@ sensitive_data_policy: no_personal_data
 # Wiki Viva v8 release candidate
 
 Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`f7f95119778246d2c420523a143909eda8575dbd` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
+`877b586b115cc654f604ebfd8ce37253f607d7e8` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
 This is reviewable release evidence, not proof of a merged/tagged stable release.
 The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
 downstream preflight safety boundary, `5179dc5c` makes nested centers
@@ -72,6 +72,14 @@ query debounce can no longer replay the pre-close Create dock over an
 Enter-opened reader. The submitted marker is bounded to the uncommitted query,
 stays active for that exact draft until a genuine edit, and is never retained
 when the query had already committed, so the same search remains reusable.
+`877b586b` closes the desktop counterpart of the semantic-group blocker found
+in the final downstream Browser audit. Stable quadrant/family lanes keep every
+full explanatory group target disjoint at `1280x900`, including repeated Q2
+families and the Q4 area/content pair, while preserving the same phone contract
+at `390x664` and `390x844`. The regression waits for the authored spatial
+transition to settle, then proves pairwise geometry, native hit ownership,
+mouse/keyboard collection progress, breadcrumb/lens truth, no document scroll
+and one persistent canvas in the instructional and dense synthetic worlds.
 
 ## Product boundary
 
@@ -205,7 +213,7 @@ blank world, center error, overlap, unreadable label or sample fallback.
 - Frontend: 395 unit tests across 51 files and 15 gate tests pass; architecture reports
   0 violations and 0 legacy debt.
 - Bundle: initial JS 139.11 kB gzip, CSS 1.73 kB gzip and largest lazy/worker
-  chunk 53.89 kB gzip, all below the committed budgets.
+  chunk 53.88 kB gzip, all below the committed budgets.
 - Browser matrix: 57 passed with 2 environment-gated real-endpoint skips across
   59 scenarios. A dedicated clean Chromium performance project passes both
   normal and dense windows under the strict 33.33 ms p95 budget. The P0 Alex
@@ -216,19 +224,22 @@ blank world, center error, overlap, unreadable label or sample fallback.
   `390x664`; the short-mobile regression additionally proves disjoint semantic
   group targets in both the instructional and dense repeated-family worlds,
   correct `elementFromPoint`, focus, route, lens, breadcrumb, collection and
-  canvas identity. The in-app Browser covered
-  `1280x900` and `390x664` with no document/shell overflow.
+  canvas identity. The final regression also measures both instructional and
+  repeated-family dense worlds at `1280x900`: every full explanatory label is
+  disjoint, hit-owned by its intended native button and inside the viewport.
+  The in-app Browser covered `1280x900`, `390x664` and `390x844` with no
+  document/shell overflow.
 - Manual public browser QA covered four views, six overlays, four lenses,
   semantic motion, docks, reader, fallback and mobile. It preserved one canvas,
   had no document overflow, measured p95 12.1 ms on the normal world and proved
   atomic 400 ms overlay crossfades plus reader/Guide focus restoration.
-- Downstream pilot: portable source `f7f95119`; the prior private proof at
+- Downstream pilot: portable source `877b586b`; the prior private proof at
   `fa65d5f9` had toolkit drift 0 and a real snapshot v2
   with 24 payloads and complete private/redacted-public migration reports with
   zero validation errors. Redacted desktop, mobile and fallback evidence uses
   real operator provenance, no sample fallback, clean console/network state
   and exactly one fallback scroll axis across 560 real pages.
-  The controlled private refresh to `f7f95119` is being validated locally and
+  The controlled private refresh to `877b586b` is being validated locally and
   remains the next evidence gate
   in PR #208; no private content is claimed by this public candidate.
 
