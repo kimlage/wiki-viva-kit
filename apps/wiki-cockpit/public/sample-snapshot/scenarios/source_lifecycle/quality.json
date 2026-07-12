@@ -486,10 +486,7 @@
       "sistema"
     ],
     "events_without_consolidated_into": [
-      "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
-      "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
       "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
-      "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
       "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md"
     ],
     "events_without_impact_closure": [],
@@ -554,7 +551,7 @@
     },
     "contexts_without_role": 4,
     "estimated_context_tokens": 0,
-    "events_without_consolidated_into": 5,
+    "events_without_consolidated_into": 2,
     "events_without_impact_closure": 0,
     "ingestion_events": 5,
     "low_information_density_pages": 30,

@@ -281,7 +281,7 @@
       "id": "claim-review-cadence",
       "metrics": {
         "inbound_links": 1,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 0
       },
       "overlay_metrics": {
@@ -351,8 +351,8 @@
       "freshness_state": "fresh",
       "id": "concept-feedback",
       "metrics": {
-        "inbound_links": 1,
-        "outbound_links": 1,
+        "inbound_links": 2,
+        "outbound_links": 3,
         "source_ref_count": 0
       },
       "overlay_metrics": {
@@ -422,8 +422,8 @@
       "freshness_state": "fresh",
       "id": "concept-retention",
       "metrics": {
-        "inbound_links": 1,
-        "outbound_links": 1,
+        "inbound_links": 2,
+        "outbound_links": 3,
         "source_ref_count": 0
       },
       "overlay_metrics": {
@@ -635,7 +635,7 @@
       "freshness_state": "fresh",
       "id": "source-learning-loops",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 4,
         "outbound_links": 1,
         "source_ref_count": 0
       },

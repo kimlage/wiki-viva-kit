@@ -551,13 +551,13 @@
           "value": null
         },
         "quality": {
-          "count": 1,
+          "count": 0,
           "reasons": [
-            "quality:events_without_consolidated_into"
+            "deterministic_flags:none"
           ],
           "refs": [],
-          "state": "warning",
-          "value": 1
+          "state": "clear",
+          "value": 0
         }
       },
       "page_type": "ingestion_event",
@@ -624,13 +624,13 @@
           "value": null
         },
         "quality": {
-          "count": 1,
+          "count": 0,
           "reasons": [
-            "quality:events_without_consolidated_into"
+            "deterministic_flags:none"
           ],
           "refs": [],
-          "state": "warning",
-          "value": 1
+          "state": "clear",
+          "value": 0
         }
       },
       "page_type": "ingestion_event",
@@ -770,13 +770,13 @@
           "value": null
         },
         "quality": {
-          "count": 1,
+          "count": 0,
           "reasons": [
-            "quality:events_without_consolidated_into"
+            "deterministic_flags:none"
           ],
           "refs": [],
-          "state": "warning",
-          "value": 1
+          "state": "clear",
+          "value": 0
         }
       },
       "page_type": "ingestion_event",

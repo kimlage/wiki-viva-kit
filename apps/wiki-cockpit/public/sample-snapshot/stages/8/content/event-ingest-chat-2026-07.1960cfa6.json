@@ -15,9 +15,11 @@
   "frontmatter": {
     "consolidated_into": [],
     "context": "sistema",
+    "event_id": "event-ingest-chat-2026-07",
     "moc_parent": "memories/sources/source-chat-export.md",
     "page_id": "event-ingest-chat-2026-07",
     "page_type": "ingestion_event",
+    "source_id": "source-chat-export",
     "source_refs": [
       "source-chat-export"
     ],
@@ -42,7 +44,7 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-f2c2cb2a9cf9a78e",
+  "snapshot_id": "wiki-viva-demo-444181dd79ba84d4",
   "source_refs": [
     {
       "approved_state": "approved",

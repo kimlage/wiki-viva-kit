@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "0bbec9df9bef974b9a889c7b1f68be2eb11142a985c101a5bb1c3104e105cac0",
+  "bundle_hash": "17548ac0750cd0f20bb5a28f3cf99e0e83355b2f2546a25f1ce1f4131a06ee83",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -74,8 +74,8 @@
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
     "actions.json": {
-      "bytes": 2716,
-      "sha256": "cf43b7c1a259039fccc54a39581f20a02cb7414462ea1edd0e494ee6f3f13d9a"
+      "bytes": 2833,
+      "sha256": "2b1bef112fba8f5fe8a730133007e40c915fff1b9c61d8c12cb5856baa8d7efd"
     },
     "block_stacks.json": {
       "bytes": 9622,
@@ -86,32 +86,32 @@
       "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
     },
     "commands.json": {
-      "bytes": 1179,
-      "sha256": "25bd6ac0d80ab8d11b0ad0b5a77e63d3dba898dbcbde23a173d7d3c762c50621"
+      "bytes": 1296,
+      "sha256": "4c1f3ce40dae5bcd930a43bf5fac30bdc50c32f25849fc5c65c4bec2ed0fa97a"
     },
     "content/action-region-clean-unsourced.b1bf976d.json": {
       "bytes": 1537,
-      "sha256": "b132a5a99ea305d0d0dc24d163d2a9ee4cadd895e88fbe1e60957c10a02bf821"
+      "sha256": "fbe9fb146a9986f57e4aa1ae1af1ec81700fff1cfaf3428168a8e6a9efec415b"
     },
     "content/artifact-dashboard-atlas.528653ec.json": {
       "bytes": 933,
-      "sha256": "66c75e8cf3b01ab7deadca44bdecc5026e3cdbdbcb9fec67309d38c11b5b0f03"
+      "sha256": "2b83fb6a3a7b776991a15d0134110a7cb2417463e2195d7337d15e658c00ecca"
     },
     "content/claim-region-grouping-needed.3562287e.json": {
       "bytes": 1197,
-      "sha256": "9bbfd1a6ffe4463fe490c893ca197530a1cfaa211fce157ab445ac9913e3733d"
+      "sha256": "c90ac2902dea3316427cf8d23fbe7a1447cd2d70d3117fa43300cb934a91be13"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "ab5ef4a0250f26f6462426fa4d5d71b7ae8787cf9c146068741b161cb3e9c2eb"
+      "sha256": "e381c315795057736cecd6d0621f966d71f709cbdc806b747a23bc875301dc9d"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2214,
-      "sha256": "51d1a554113039914b347bef85c33954edead370c2efa7ee94c63e3ce2882009"
+      "sha256": "e7ff888f965a7a4854c69859e9abc4a8d364599f23f55334f45bf6fd79dc3e39"
     },
     "content/rule-nada-publica-sem-review.63750616.json": {
       "bytes": 968,
-      "sha256": "8b04ef6f742df05ba4b86f2e92fe6e9fb8da6912ffd584271cf64b07430cb565"
+      "sha256": "f1b143a19e36c58108ae420ad61bc2cb21174c98dea4763360d19fd38171a506"
     },
     "decisions.json": {
       "bytes": 57,
@@ -130,8 +130,8 @@
       "sha256": "3ea7e8b4ed705f5196b74f7252d6d9a350d3a13b7de58d22f96d2781ee86b693"
     },
     "gates.json": {
-      "bytes": 664,
-      "sha256": "309171f121e0fcb4abf72d9042fbf72ba7c69153b2a28a4cc4f6c48b613f6da8"
+      "bytes": 796,
+      "sha256": "cb0eb8f9658ed0215eab776715ae246f4280b5c16a4409e9a81a82837572ea0d"
     },
     "git.json": {
       "bytes": 344,
@@ -150,8 +150,8 @@
       "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
     },
     "operator_commands.json": {
-      "bytes": 3260,
-      "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
+      "bytes": 3377,
+      "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
     },
     "pages.json": {
       "bytes": 6060,
@@ -214,9 +214,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-0bbec9df9bef974b",
+  "snapshot_id": "wiki-viva-demo-17548ac0750cd0f2",
   "source_commit": null,
-  "source_sha": "uncommitted:245efd9a01426c820202cb3507916948514dd6ba9bf26c9a2d4f5502a59f347c",
+  "source_sha": "uncommitted:28982156cc108977b96d5a4626d304cbe77f1805ea9b65ffed9004ff699c069d",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

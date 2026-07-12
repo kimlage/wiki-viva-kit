@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "3cb70c77b0a45fca3b9fd03bdecd07813955f5ee2bcfbb6e338d20c87346e456",
+  "bundle_hash": "5aa0aeb50f93a0e7ae0b3c1f9ca3e9db264a7b18e77b85e9c679a2fe96514751",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -82,8 +82,8 @@
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
     "actions.json": {
-      "bytes": 2740,
-      "sha256": "ba6f7d4d56fd7853341d75cd9d5d8eedbb0317d5e7ce432fb5d2b05a95d212a2"
+      "bytes": 2857,
+      "sha256": "a3e490bbe66d014fcad8e5c7e043c6bffe42ce203c587ed56e3344954a5f9871"
     },
     "block_stacks.json": {
       "bytes": 10181,
@@ -94,32 +94,32 @@
       "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
     },
     "commands.json": {
-      "bytes": 1179,
-      "sha256": "25bd6ac0d80ab8d11b0ad0b5a77e63d3dba898dbcbde23a173d7d3c762c50621"
+      "bytes": 1296,
+      "sha256": "4c1f3ce40dae5bcd930a43bf5fac30bdc50c32f25849fc5c65c4bec2ed0fa97a"
     },
     "content/claim-review-cadence.03799cb8.json": {
       "bytes": 1823,
-      "sha256": "14616d1c6fd0b8b60a098f7961ce23a3e7fbb0668c43bc131d4c9ff3bb3d9bc7"
+      "sha256": "481776ce940432d238fb0db917ad58ef233aaae94f9de1dacde1f24cb9a1c03a"
     },
     "content/concept-feedback.ebb2f061.json": {
       "bytes": 1965,
-      "sha256": "68510408a9b6cee32ac0c7b675dae0b3e5d2d4cfd0252c57c739adbd008cbeee"
+      "sha256": "4190d345fa472bcb4303fdc19019c68335f881fe55892378659077157d47c18d"
     },
     "content/concept-retention.ab0c20c0.json": {
       "bytes": 1988,
-      "sha256": "2f11542060c13ed681bea0505428f4915eec9e1b663dc27258f724ce9b608b61"
+      "sha256": "a71259f2d88c6925544c832d62790dfb592f64a8242848e7ef37556b67476328"
     },
     "content/question-next-review.c0501c50.json": {
       "bytes": 1788,
-      "sha256": "fa3985a82fbf549f8a084a520d8c2fd38759da011d575cd0b3c35c78198b3408"
+      "sha256": "917f443fe290f97ab2f367714736a6a00f5a1021a08ca485c5b200bf14ca16bc"
     },
     "content/root-study-research-showcase.ca995dfd.json": {
       "bytes": 6522,
-      "sha256": "7e27fd741f66676f66fa6a351834a35a3f26bf844cb3e3163bb9fd4e671b05f5"
+      "sha256": "4b47dadb8af1ae9accda592206a748ec006fe93336d7fb2062191bce8b83e125"
     },
     "content/source-learning-loops.ab164037.json": {
       "bytes": 1684,
-      "sha256": "0792161af83087e2c7b42258921fa630334a5b8214dd23f52ecbf519136ea650"
+      "sha256": "b9069a0813bbf97027a0f470ba47bd9cfd95e5bbb635c15b2a932ec77cd6a983"
     },
     "decisions.json": {
       "bytes": 57,
@@ -138,8 +138,8 @@
       "sha256": "43bd1102a252f9b270aa2fef4b3d53df6892da9889870faa774438169588fd7d"
     },
     "gates.json": {
-      "bytes": 664,
-      "sha256": "309171f121e0fcb4abf72d9042fbf72ba7c69153b2a28a4cc4f6c48b613f6da8"
+      "bytes": 796,
+      "sha256": "cb0eb8f9658ed0215eab776715ae246f4280b5c16a4409e9a81a82837572ea0d"
     },
     "git.json": {
       "bytes": 344,
@@ -147,7 +147,7 @@
     },
     "graph.json": {
       "bytes": 17062,
-      "sha256": "d5962413d4d3e5fa59e347b35b65f8ff07f34770c1d78b6647f61a79ddd6deec"
+      "sha256": "4f683d39a0fd53ade5498cb25a6d8f35f92d436439c9b2e0165e77498d8444d7"
     },
     "ingestion.json": {
       "bytes": 527,
@@ -158,16 +158,16 @@
       "sha256": "147fc1d627670bd3f3ab2e6e6b885d5eca8a720a803f993de0e36b55351116e4"
     },
     "operator_commands.json": {
-      "bytes": 3260,
-      "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
+      "bytes": 3377,
+      "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
     },
     "pages.json": {
       "bytes": 6059,
       "sha256": "07ff30615cfcee68a6424664c23df2e28e685aed144e8bd797178b553b82461c"
     },
     "quality.json": {
-      "bytes": 3811,
-      "sha256": "4a980554f9b760ca9ebe3666910a296be62709a63018d7421e7d4f8ec66fb7d3"
+      "bytes": 3810,
+      "sha256": "e186441c83df6d020c9168356e9f140e0ffd0f9b1faead8480e17ffe698991f6"
     },
     "region_groups.json": {
       "bytes": 6041,
@@ -222,9 +222,9 @@
   },
   "root_page_id": "root-study-research-showcase",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-study-research-showcase-3cb70c77b0a45fca",
+  "snapshot_id": "wiki-viva-demo-study-research-showcase-5aa0aeb50f93a0e7",
   "source_commit": null,
-  "source_sha": "uncommitted:7dda297f3648c6e31ae4f1b4bf678643797f326050e5462c929ea0fa5c589ab8",
+  "source_sha": "uncommitted:fb87d1907245d751b35845193d7e89670d19e54e936cd8390a497459b801f504",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

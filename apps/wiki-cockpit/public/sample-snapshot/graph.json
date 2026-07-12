@@ -2442,7 +2442,7 @@
       "id": "action-enviar-proposta",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 2,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -2522,7 +2522,7 @@
       "id": "action-region-clean-unsourced",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -2604,7 +2604,7 @@
       "id": "action-region-review-evidence",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -2686,7 +2686,7 @@
       "id": "action-region-sync-support",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -2982,7 +2982,7 @@
       "id": "artifact-region-map-01",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -3057,7 +3057,7 @@
       "id": "artifact-region-map-02",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -3132,7 +3132,7 @@
       "id": "artifact-region-map-03",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -3209,7 +3209,7 @@
       "id": "artifact-region-map-04",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -3284,7 +3284,7 @@
       "id": "artifact-region-map-05",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -3361,7 +3361,7 @@
       "id": "artifact-region-map-06",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -3436,7 +3436,7 @@
       "id": "artifact-region-map-07",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -3511,7 +3511,7 @@
       "id": "artifact-region-map-08",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -3587,8 +3587,8 @@
       "freshness_state": "fresh",
       "id": "artifact-relatorio-recon",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -3873,8 +3873,8 @@
       "freshness_state": "fresh",
       "id": "claim-custos-sobem",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -4018,7 +4018,7 @@
       "id": "claim-region-evidence-ready",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -4453,7 +4453,7 @@
       "freshness_state": "fresh",
       "id": "dashboard-clearpath-activation",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 2,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -4738,7 +4738,7 @@
       "id": "event-ingest-agenda-2026-07",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -4786,13 +4786,13 @@
           "value": null
         },
         "quality": {
-          "count": 1,
+          "count": 0,
           "reasons": [
-            "quality:events_without_consolidated_into"
+            "deterministic_flags:none"
           ],
           "refs": [],
-          "state": "warning",
-          "value": 1
+          "state": "clear",
+          "value": 0
         }
       },
       "page_type": "ingestion_event",
@@ -4811,7 +4811,7 @@
       "id": "event-ingest-banco-2026-05",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -4859,13 +4859,13 @@
           "value": null
         },
         "quality": {
-          "count": 1,
+          "count": 0,
           "reasons": [
-            "quality:events_without_consolidated_into"
+            "deterministic_flags:none"
           ],
           "refs": [],
-          "state": "warning",
-          "value": 1
+          "state": "clear",
+          "value": 0
         }
       },
       "page_type": "ingestion_event",
@@ -4957,7 +4957,7 @@
       "id": "event-ingest-product-analytics-2026-07",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -5005,13 +5005,13 @@
           "value": null
         },
         "quality": {
-          "count": 1,
+          "count": 0,
           "reasons": [
-            "quality:events_without_consolidated_into"
+            "deterministic_flags:none"
           ],
           "refs": [],
-          "state": "warning",
-          "value": 1
+          "state": "clear",
+          "value": 0
         }
       },
       "page_type": "ingestion_event",
@@ -5902,7 +5902,7 @@
       "freshness_state": "fresh",
       "id": "meeting-weekly-sync",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 2,
         "source_ref_count": 0
       },
@@ -7183,7 +7183,7 @@
       "id": "proposal-ingest-product-analytics-2026-07",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -7899,7 +7899,7 @@
       "freshness_state": "fresh",
       "id": "source-agenda",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 2,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -7978,7 +7978,7 @@
       "freshness_state": "stale",
       "id": "source-banco-export",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 3,
         "outbound_links": 2,
         "source_ref_count": 0
       },
@@ -8341,7 +8341,7 @@
       "freshness_state": "fresh",
       "id": "source-clearpath-customer-interviews",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -9295,7 +9295,7 @@
       "freshness_state": "fresh",
       "id": "source-product-analytics",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 9,
         "outbound_links": 2,
         "source_ref_count": 0
       },
@@ -9816,7 +9816,7 @@
       "freshness_state": "fresh",
       "id": "source-support-tickets",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 5,
         "outbound_links": 2,
         "source_ref_count": 0
       },

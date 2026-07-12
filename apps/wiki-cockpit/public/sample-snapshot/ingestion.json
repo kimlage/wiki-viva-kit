@@ -8,13 +8,17 @@
       },
       "candidate_total": 0,
       "candidate_units_per_target": 0.0,
-      "closed": false,
-      "consolidated_into": [],
-      "consolidated_targets_count": 0,
+      "closed": true,
+      "consolidated_into": [
+        "meeting-weekly-sync"
+      ],
+      "consolidated_targets_count": 1,
       "event_id": "event-ingest-agenda-2026-07",
       "page_type": "ingestion_event",
       "path": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
-      "source_refs": []
+      "source_refs": [
+        "source-agenda"
+      ]
     },
     {
       "candidate_counts": {
@@ -24,13 +28,18 @@
       },
       "candidate_total": 0,
       "candidate_units_per_target": 0.0,
-      "closed": false,
-      "consolidated_into": [],
-      "consolidated_targets_count": 0,
+      "closed": true,
+      "consolidated_into": [
+        "artifact-relatorio-recon",
+        "claim-custos-sobem"
+      ],
+      "consolidated_targets_count": 2,
       "event_id": "event-ingest-banco-2026-05",
       "page_type": "ingestion_event",
       "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
-      "source_refs": []
+      "source_refs": [
+        "source-banco-export"
+      ]
     },
     {
       "candidate_counts": {
@@ -46,7 +55,9 @@
       "event_id": "event-ingest-chat-2026-07",
       "page_type": "ingestion_event",
       "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
-      "source_refs": []
+      "source_refs": [
+        "source-chat-export"
+      ]
     },
     {
       "candidate_counts": {
@@ -56,13 +67,17 @@
       },
       "candidate_total": 0,
       "candidate_units_per_target": 0.0,
-      "closed": false,
-      "consolidated_into": [],
-      "consolidated_targets_count": 0,
+      "closed": true,
+      "consolidated_into": [
+        "dashboard-clearpath-activation"
+      ],
+      "consolidated_targets_count": 1,
       "event_id": "event-ingest-product-analytics-2026-07",
       "page_type": "ingestion_event",
       "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
-      "source_refs": []
+      "source_refs": [
+        "source-product-analytics"
+      ]
     },
     {
       "candidate_counts": {
@@ -78,16 +93,15 @@
       "event_id": "event-ingest-support-tickets-2026-06",
       "page_type": "ingestion_event",
       "path": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md",
-      "source_refs": []
+      "source_refs": [
+        "source-support-tickets"
+      ]
     }
   ],
   "ingested_sources": [],
   "quality_flags": {
     "events_without_consolidated_into": [
-      "memories/system/ingestion/events/event-ingest-agenda-2026-07.md",
-      "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
       "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
-      "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
       "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md"
     ],
     "ingested_sources_without_closed_event": []
@@ -100,10 +114,10 @@
     "candidate_decisions": 0,
     "candidate_total": 0,
     "candidate_units_per_target": 0.0,
-    "consolidated_targets": 0,
-    "events_closed": 0,
+    "consolidated_targets": 4,
+    "events_closed": 3,
     "events_total": 5,
-    "events_without_consolidated_into": 5,
+    "events_without_consolidated_into": 2,
     "ingested_sources": 0,
     "ingested_sources_without_closed_event": 0
   }

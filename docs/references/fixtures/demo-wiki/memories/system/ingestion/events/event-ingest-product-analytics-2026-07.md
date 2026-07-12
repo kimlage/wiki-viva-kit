@@ -1,12 +1,14 @@
 ---
 visibility: private_self
 stale_after_days: '365'
+event_id: event-ingest-product-analytics-2026-07
 page_id: event-ingest-product-analytics-2026-07
 page_type: ingestion_event
 title: 'Ingestão: product analytics'
 context: sistema
 updated_at: '2026-07-03'
 moc_parent: memories/sources/source-product-analytics.md
+source_id: source-product-analytics
 source_refs:
 - source-product-analytics
 consolidated_into:

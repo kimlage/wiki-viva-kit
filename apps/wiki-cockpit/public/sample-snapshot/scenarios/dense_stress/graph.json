@@ -10105,7 +10105,7 @@
       "id": "action-region-clean-unsourced",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -10187,7 +10187,7 @@
       "id": "action-region-pressure-001",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -10270,7 +10270,7 @@
       "id": "action-region-pressure-002",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -10353,7 +10353,7 @@
       "id": "action-region-pressure-003",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -10438,7 +10438,7 @@
       "id": "action-region-pressure-004",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -10524,7 +10524,7 @@
       "id": "action-region-pressure-005",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -10603,7 +10603,7 @@
       "id": "action-region-pressure-006",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -10684,7 +10684,7 @@
       "id": "action-region-pressure-007",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -10767,7 +10767,7 @@
       "id": "action-region-pressure-008",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -10853,7 +10853,7 @@
       "id": "action-region-pressure-009",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -10938,7 +10938,7 @@
       "id": "action-region-pressure-010",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11019,7 +11019,7 @@
       "id": "action-region-pressure-011",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11100,7 +11100,7 @@
       "id": "action-region-pressure-012",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11183,7 +11183,7 @@
       "id": "action-region-pressure-013",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11266,7 +11266,7 @@
       "id": "action-region-pressure-014",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11349,7 +11349,7 @@
       "id": "action-region-pressure-015",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11432,7 +11432,7 @@
       "id": "action-region-pressure-016",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11518,7 +11518,7 @@
       "id": "action-region-pressure-017",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11599,7 +11599,7 @@
       "id": "action-region-pressure-018",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11680,7 +11680,7 @@
       "id": "action-region-pressure-019",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11763,7 +11763,7 @@
       "id": "action-region-pressure-020",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11847,7 +11847,7 @@
       "id": "action-region-pressure-021",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -11932,7 +11932,7 @@
       "id": "action-region-pressure-022",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12015,7 +12015,7 @@
       "id": "action-region-pressure-023",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12096,7 +12096,7 @@
       "id": "action-region-pressure-024",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12179,7 +12179,7 @@
       "id": "action-region-pressure-025",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12260,7 +12260,7 @@
       "id": "action-region-pressure-026",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12343,7 +12343,7 @@
       "id": "action-region-pressure-027",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12428,7 +12428,7 @@
       "id": "action-region-pressure-028",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12514,7 +12514,7 @@
       "id": "action-region-pressure-029",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12595,7 +12595,7 @@
       "id": "action-region-pressure-030",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12674,7 +12674,7 @@
       "id": "action-region-pressure-031",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12757,7 +12757,7 @@
       "id": "action-region-pressure-032",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12843,7 +12843,7 @@
       "id": "action-region-pressure-033",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -12928,7 +12928,7 @@
       "id": "action-region-pressure-034",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13011,7 +13011,7 @@
       "id": "action-region-pressure-035",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13090,7 +13090,7 @@
       "id": "action-region-pressure-036",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13173,7 +13173,7 @@
       "id": "action-region-pressure-037",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13256,7 +13256,7 @@
       "id": "action-region-pressure-038",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13339,7 +13339,7 @@
       "id": "action-region-pressure-039",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13424,7 +13424,7 @@
       "id": "action-region-pressure-040",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13508,7 +13508,7 @@
       "id": "action-region-pressure-041",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13589,7 +13589,7 @@
       "id": "action-region-pressure-042",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13670,7 +13670,7 @@
       "id": "action-region-pressure-043",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13753,7 +13753,7 @@
       "id": "action-region-pressure-044",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13839,7 +13839,7 @@
       "id": "action-region-pressure-045",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -13922,7 +13922,7 @@
       "id": "action-region-pressure-046",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14005,7 +14005,7 @@
       "id": "action-region-pressure-047",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14086,7 +14086,7 @@
       "id": "action-region-pressure-048",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14169,7 +14169,7 @@
       "id": "action-region-pressure-049",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14252,7 +14252,7 @@
       "id": "action-region-pressure-050",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14333,7 +14333,7 @@
       "id": "action-region-pressure-051",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14418,7 +14418,7 @@
       "id": "action-region-pressure-052",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14504,7 +14504,7 @@
       "id": "action-region-pressure-053",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14585,7 +14585,7 @@
       "id": "action-region-pressure-054",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14666,7 +14666,7 @@
       "id": "action-region-pressure-055",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14747,7 +14747,7 @@
       "id": "action-region-pressure-056",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14833,7 +14833,7 @@
       "id": "action-region-pressure-057",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -14918,7 +14918,7 @@
       "id": "action-region-pressure-058",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15001,7 +15001,7 @@
       "id": "action-region-pressure-059",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15082,7 +15082,7 @@
       "id": "action-region-pressure-060",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15163,7 +15163,7 @@
       "id": "action-region-review-evidence",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15245,7 +15245,7 @@
       "id": "action-region-sync-support",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15328,7 +15328,7 @@
       "id": "artifact-region-map-01",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15403,7 +15403,7 @@
       "id": "artifact-region-map-02",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15478,7 +15478,7 @@
       "id": "artifact-region-map-03",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15555,7 +15555,7 @@
       "id": "artifact-region-map-04",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15603,16 +15603,15 @@
           "value": null
         },
         "quality": {
-          "count": 4,
+          "count": 3,
           "reasons": [
             "quality:bad_repetition_blocks",
             "quality:low_information_density_pages",
-            "quality:repeated_blocks",
-            "quality:thin_link_pages"
+            "quality:repeated_blocks"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 4
+          "value": 3
         }
       },
       "page_type": "artifact",
@@ -15631,7 +15630,7 @@
       "id": "artifact-region-map-05",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15681,16 +15680,15 @@
           "value": null
         },
         "quality": {
-          "count": 4,
+          "count": 3,
           "reasons": [
             "quality:bad_repetition_blocks",
             "quality:low_information_density_pages",
-            "quality:repeated_blocks",
-            "quality:thin_link_pages"
+            "quality:repeated_blocks"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 4
+          "value": 3
         }
       },
       "page_type": "artifact",
@@ -15785,7 +15783,7 @@
       "id": "artifact-region-map-07",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15833,16 +15831,15 @@
           "value": null
         },
         "quality": {
-          "count": 4,
+          "count": 3,
           "reasons": [
             "quality:bad_repetition_blocks",
             "quality:low_information_density_pages",
-            "quality:repeated_blocks",
-            "quality:thin_link_pages"
+            "quality:repeated_blocks"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 4
+          "value": 3
         }
       },
       "page_type": "artifact",
@@ -15861,7 +15858,7 @@
       "id": "artifact-region-map-08",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -15911,16 +15908,15 @@
           "value": null
         },
         "quality": {
-          "count": 4,
+          "count": 3,
           "reasons": [
             "quality:bad_repetition_blocks",
             "quality:low_information_density_pages",
-            "quality:repeated_blocks",
-            "quality:thin_link_pages"
+            "quality:repeated_blocks"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 4
+          "value": 3
         }
       },
       "page_type": "artifact",
@@ -15939,7 +15935,7 @@
       "id": "artifact-region-pressure-001",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -16011,8 +16007,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-002",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -16070,14 +16066,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -16095,8 +16090,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-003",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -16179,8 +16174,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-004",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -16240,14 +16235,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -16265,7 +16259,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-005",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -16343,8 +16337,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-006",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -16399,14 +16393,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -16424,8 +16417,8 @@
       "freshness_state": "stale",
       "id": "artifact-region-pressure-007",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -16508,8 +16501,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-008",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -16569,14 +16562,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -16594,8 +16586,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-009",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -16678,7 +16670,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-010",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 0,
         "source_ref_count": 0
       },
@@ -16759,8 +16751,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-011",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -16840,8 +16832,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-012",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -16896,14 +16888,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -16921,8 +16912,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-013",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -17004,8 +16995,8 @@
       "freshness_state": "stale",
       "id": "artifact-region-pressure-014",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -17064,14 +17055,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -17089,7 +17079,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-015",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -17171,8 +17161,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-016",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -17232,14 +17222,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -17257,8 +17246,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-017",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -17338,8 +17327,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-018",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -17394,14 +17383,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -17419,8 +17407,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-019",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -17502,7 +17490,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-020",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 0,
         "source_ref_count": 0
       },
@@ -17585,8 +17573,8 @@
       "freshness_state": "stale",
       "id": "artifact-region-pressure-021",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -17670,8 +17658,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-022",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -17729,14 +17717,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -17754,8 +17741,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-023",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -17835,8 +17822,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-024",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -17891,14 +17878,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -17916,7 +17902,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-025",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -17996,8 +17982,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-026",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -18055,14 +18041,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -18080,8 +18065,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-027",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -18164,8 +18149,8 @@
       "freshness_state": "stale",
       "id": "artifact-region-pressure-028",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -18226,14 +18211,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -18251,8 +18235,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-029",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -18332,7 +18316,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-030",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 0,
         "source_ref_count": 0
       },
@@ -18411,8 +18395,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-031",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -18494,8 +18478,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-032",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -18555,14 +18539,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -18580,8 +18563,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-033",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -18664,8 +18647,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-034",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -18723,14 +18706,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -18748,7 +18730,7 @@
       "freshness_state": "stale",
       "id": "artifact-region-pressure-035",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -18828,8 +18810,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-036",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -18884,14 +18866,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -18909,8 +18890,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-037",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -18992,8 +18973,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-038",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -19051,14 +19032,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -19076,8 +19056,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-039",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -19160,7 +19140,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-040",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 0,
         "source_ref_count": 0
       },
@@ -19243,8 +19223,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-041",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -19324,8 +19304,8 @@
       "freshness_state": "stale",
       "id": "artifact-region-pressure-042",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -19382,14 +19362,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -19407,8 +19386,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-043",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -19490,8 +19469,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-044",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -19551,14 +19530,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -19576,7 +19554,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-045",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -19658,8 +19636,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-046",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -19717,14 +19695,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -19742,8 +19719,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-047",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -19823,8 +19800,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-048",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -19879,14 +19856,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -19904,8 +19880,8 @@
       "freshness_state": "stale",
       "id": "artifact-region-pressure-049",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -19988,7 +19964,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-050",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 0,
         "source_ref_count": 0
       },
@@ -20069,8 +20045,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-051",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -20153,8 +20129,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-052",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -20214,14 +20190,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -20239,8 +20214,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-053",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -20320,8 +20295,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-054",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -20376,14 +20351,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -20401,7 +20375,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-055",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -20481,8 +20455,8 @@
       "freshness_state": "stale",
       "id": "artifact-region-pressure-056",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -20543,14 +20517,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -20568,8 +20541,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-057",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -20652,8 +20625,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-058",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 0,
+        "inbound_links": 1,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -20711,14 +20684,13 @@
           "value": 1
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -20736,8 +20708,8 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-059",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -20817,7 +20789,7 @@
       "freshness_state": "fresh",
       "id": "artifact-region-pressure-060",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 0,
         "source_ref_count": 0
       },
@@ -20897,7 +20869,7 @@
       "id": "artifact-region-pressure-061",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -20970,7 +20942,7 @@
       "id": "artifact-region-pressure-062",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21018,14 +20990,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -21044,7 +21015,7 @@
       "id": "artifact-region-pressure-063",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21119,7 +21090,7 @@
       "id": "artifact-region-pressure-064",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21167,14 +21138,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -21264,7 +21234,7 @@
       "id": "artifact-region-pressure-066",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21312,14 +21282,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -21338,7 +21307,7 @@
       "id": "artifact-region-pressure-067",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21411,7 +21380,7 @@
       "id": "artifact-region-pressure-068",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21459,14 +21428,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -21485,7 +21453,7 @@
       "id": "artifact-region-pressure-069",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21632,7 +21600,7 @@
       "id": "artifact-region-pressure-071",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21705,7 +21673,7 @@
       "id": "artifact-region-pressure-072",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21753,14 +21721,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -21779,7 +21746,7 @@
       "id": "artifact-region-pressure-073",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21852,7 +21819,7 @@
       "id": "artifact-region-pressure-074",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -21900,14 +21867,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -21997,7 +21963,7 @@
       "id": "artifact-region-pressure-076",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22045,14 +22011,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -22071,7 +22036,7 @@
       "id": "artifact-region-pressure-077",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22146,7 +22111,7 @@
       "id": "artifact-region-pressure-078",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22194,14 +22159,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -22220,7 +22184,7 @@
       "id": "artifact-region-pressure-079",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22365,7 +22329,7 @@
       "id": "artifact-region-pressure-081",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22438,7 +22402,7 @@
       "id": "artifact-region-pressure-082",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22486,14 +22450,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -22512,7 +22475,7 @@
       "id": "artifact-region-pressure-083",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22585,7 +22548,7 @@
       "id": "artifact-region-pressure-084",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22635,14 +22598,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -22732,7 +22694,7 @@
       "id": "artifact-region-pressure-086",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22780,14 +22742,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -22806,7 +22767,7 @@
       "id": "artifact-region-pressure-087",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22879,7 +22840,7 @@
       "id": "artifact-region-pressure-088",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -22927,14 +22888,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -22953,7 +22913,7 @@
       "id": "artifact-region-pressure-089",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23098,7 +23058,7 @@
       "id": "artifact-region-pressure-091",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23173,7 +23133,7 @@
       "id": "artifact-region-pressure-092",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23221,14 +23181,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -23247,7 +23206,7 @@
       "id": "artifact-region-pressure-093",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23320,7 +23279,7 @@
       "id": "artifact-region-pressure-094",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23368,14 +23327,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -23465,7 +23423,7 @@
       "id": "artifact-region-pressure-096",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23513,14 +23471,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -23539,7 +23496,7 @@
       "id": "artifact-region-pressure-097",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23612,7 +23569,7 @@
       "id": "artifact-region-pressure-098",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23662,14 +23619,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -23688,7 +23644,7 @@
       "id": "artifact-region-pressure-099",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23833,7 +23789,7 @@
       "id": "artifact-region-pressure-101",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23906,7 +23862,7 @@
       "id": "artifact-region-pressure-102",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -23954,14 +23910,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -23980,7 +23935,7 @@
       "id": "artifact-region-pressure-103",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24053,7 +24008,7 @@
       "id": "artifact-region-pressure-104",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24101,14 +24056,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -24200,7 +24154,7 @@
       "id": "artifact-region-pressure-106",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24248,14 +24202,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -24274,7 +24227,7 @@
       "id": "artifact-region-pressure-107",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24347,7 +24300,7 @@
       "id": "artifact-region-pressure-108",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24395,14 +24348,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -24421,7 +24373,7 @@
       "id": "artifact-region-pressure-109",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24566,7 +24518,7 @@
       "id": "artifact-region-pressure-111",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24639,7 +24591,7 @@
       "id": "artifact-region-pressure-112",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24689,14 +24641,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -24715,7 +24666,7 @@
       "id": "artifact-region-pressure-113",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24788,7 +24739,7 @@
       "id": "artifact-region-pressure-114",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24836,14 +24787,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -24933,7 +24883,7 @@
       "id": "artifact-region-pressure-116",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -24981,14 +24931,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -25007,7 +24956,7 @@
       "id": "artifact-region-pressure-117",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -25080,7 +25029,7 @@
       "id": "artifact-region-pressure-118",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -25128,14 +25077,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -25154,7 +25102,7 @@
       "id": "artifact-region-pressure-119",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -25301,7 +25249,7 @@
       "id": "artifact-region-pressure-121",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -25374,7 +25322,7 @@
       "id": "artifact-region-pressure-122",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -25422,14 +25370,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -25448,7 +25395,7 @@
       "id": "artifact-region-pressure-123",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -25521,7 +25468,7 @@
       "id": "artifact-region-pressure-124",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -25569,14 +25516,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -25666,7 +25612,7 @@
       "id": "artifact-region-pressure-126",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -25716,14 +25662,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -25742,7 +25687,7 @@
       "id": "artifact-region-pressure-127",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -25815,7 +25760,7 @@
       "id": "artifact-region-pressure-128",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -25863,14 +25808,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -25889,7 +25833,7 @@
       "id": "artifact-region-pressure-129",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26034,7 +25978,7 @@
       "id": "artifact-region-pressure-131",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26107,7 +26051,7 @@
       "id": "artifact-region-pressure-132",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26155,14 +26099,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -26181,7 +26124,7 @@
       "id": "artifact-region-pressure-133",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26256,7 +26199,7 @@
       "id": "artifact-region-pressure-134",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26304,14 +26247,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -26401,7 +26343,7 @@
       "id": "artifact-region-pressure-136",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26449,14 +26391,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -26475,7 +26416,7 @@
       "id": "artifact-region-pressure-137",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26548,7 +26489,7 @@
       "id": "artifact-region-pressure-138",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26596,14 +26537,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -26622,7 +26562,7 @@
       "id": "artifact-region-pressure-139",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26769,7 +26709,7 @@
       "id": "artifact-region-pressure-141",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26842,7 +26782,7 @@
       "id": "artifact-region-pressure-142",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26890,14 +26830,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -26916,7 +26855,7 @@
       "id": "artifact-region-pressure-143",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -26989,7 +26928,7 @@
       "id": "artifact-region-pressure-144",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -27037,14 +26976,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -27134,7 +27072,7 @@
       "id": "artifact-region-pressure-146",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -27182,14 +27120,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -27208,7 +27145,7 @@
       "id": "artifact-region-pressure-147",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -27283,7 +27220,7 @@
       "id": "artifact-region-pressure-148",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -27331,14 +27268,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -27357,7 +27293,7 @@
       "id": "artifact-region-pressure-149",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -27502,7 +27438,7 @@
       "id": "artifact-region-pressure-151",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -27575,7 +27511,7 @@
       "id": "artifact-region-pressure-152",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -27623,14 +27559,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -27649,7 +27584,7 @@
       "id": "artifact-region-pressure-153",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -27722,7 +27657,7 @@
       "id": "artifact-region-pressure-154",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -27772,14 +27707,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -27869,7 +27803,7 @@
       "id": "artifact-region-pressure-156",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -27917,14 +27851,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -27943,7 +27876,7 @@
       "id": "artifact-region-pressure-157",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28016,7 +27949,7 @@
       "id": "artifact-region-pressure-158",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28064,14 +27997,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -28090,7 +28022,7 @@
       "id": "artifact-region-pressure-159",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28235,7 +28167,7 @@
       "id": "artifact-region-pressure-161",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28310,7 +28242,7 @@
       "id": "artifact-region-pressure-162",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28358,14 +28290,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -28384,7 +28315,7 @@
       "id": "artifact-region-pressure-163",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28457,7 +28388,7 @@
       "id": "artifact-region-pressure-164",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28505,14 +28436,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -28602,7 +28532,7 @@
       "id": "artifact-region-pressure-166",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28650,14 +28580,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -28676,7 +28605,7 @@
       "id": "artifact-region-pressure-167",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28749,7 +28678,7 @@
       "id": "artifact-region-pressure-168",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28799,14 +28728,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -28825,7 +28753,7 @@
       "id": "artifact-region-pressure-169",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -28970,7 +28898,7 @@
       "id": "artifact-region-pressure-171",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29043,7 +28971,7 @@
       "id": "artifact-region-pressure-172",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29091,14 +29019,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -29117,7 +29044,7 @@
       "id": "artifact-region-pressure-173",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29190,7 +29117,7 @@
       "id": "artifact-region-pressure-174",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29238,14 +29165,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -29337,7 +29263,7 @@
       "id": "artifact-region-pressure-176",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29385,14 +29311,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -29411,7 +29336,7 @@
       "id": "artifact-region-pressure-177",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29484,7 +29409,7 @@
       "id": "artifact-region-pressure-178",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29532,14 +29457,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -29558,7 +29482,7 @@
       "id": "artifact-region-pressure-179",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29703,7 +29627,7 @@
       "id": "artifact-region-pressure-181",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29776,7 +29700,7 @@
       "id": "artifact-region-pressure-182",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29826,14 +29750,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -29852,7 +29775,7 @@
       "id": "artifact-region-pressure-183",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29925,7 +29848,7 @@
       "id": "artifact-region-pressure-184",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -29973,14 +29896,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -30070,7 +29992,7 @@
       "id": "artifact-region-pressure-186",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -30118,14 +30040,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -30144,7 +30065,7 @@
       "id": "artifact-region-pressure-187",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -30217,7 +30138,7 @@
       "id": "artifact-region-pressure-188",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -30265,14 +30186,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -30291,7 +30211,7 @@
       "id": "artifact-region-pressure-189",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -30438,7 +30358,7 @@
       "id": "artifact-region-pressure-191",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -30511,7 +30431,7 @@
       "id": "artifact-region-pressure-192",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -30559,14 +30479,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -30585,7 +30504,7 @@
       "id": "artifact-region-pressure-193",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -30658,7 +30577,7 @@
       "id": "artifact-region-pressure-194",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -30706,14 +30625,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -30803,7 +30721,7 @@
       "id": "artifact-region-pressure-196",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -30853,14 +30771,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -30879,7 +30796,7 @@
       "id": "artifact-region-pressure-197",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -30952,7 +30869,7 @@
       "id": "artifact-region-pressure-198",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31000,14 +30917,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -31026,7 +30942,7 @@
       "id": "artifact-region-pressure-199",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31171,7 +31087,7 @@
       "id": "artifact-region-pressure-201",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31244,7 +31160,7 @@
       "id": "artifact-region-pressure-202",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31292,14 +31208,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -31318,7 +31233,7 @@
       "id": "artifact-region-pressure-203",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31393,7 +31308,7 @@
       "id": "artifact-region-pressure-204",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31441,14 +31356,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -31538,7 +31452,7 @@
       "id": "artifact-region-pressure-206",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31586,14 +31500,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -31612,7 +31525,7 @@
       "id": "artifact-region-pressure-207",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31685,7 +31598,7 @@
       "id": "artifact-region-pressure-208",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31733,14 +31646,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -31759,7 +31671,7 @@
       "id": "artifact-region-pressure-209",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31906,7 +31818,7 @@
       "id": "artifact-region-pressure-211",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -31979,7 +31891,7 @@
       "id": "artifact-region-pressure-212",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32027,14 +31939,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -32053,7 +31964,7 @@
       "id": "artifact-region-pressure-213",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32126,7 +32037,7 @@
       "id": "artifact-region-pressure-214",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32174,14 +32085,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -32271,7 +32181,7 @@
       "id": "artifact-region-pressure-216",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32319,14 +32229,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -32345,7 +32254,7 @@
       "id": "artifact-region-pressure-217",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32420,7 +32329,7 @@
       "id": "artifact-region-pressure-218",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32468,14 +32377,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -32494,7 +32402,7 @@
       "id": "artifact-region-pressure-219",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32639,7 +32547,7 @@
       "id": "artifact-region-pressure-221",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32712,7 +32620,7 @@
       "id": "artifact-region-pressure-222",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32760,14 +32668,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -32786,7 +32693,7 @@
       "id": "artifact-region-pressure-223",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32859,7 +32766,7 @@
       "id": "artifact-region-pressure-224",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -32909,14 +32816,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -33006,7 +32912,7 @@
       "id": "artifact-region-pressure-226",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33054,14 +32960,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -33080,7 +32985,7 @@
       "id": "artifact-region-pressure-227",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33153,7 +33058,7 @@
       "id": "artifact-region-pressure-228",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33201,14 +33106,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -33227,7 +33131,7 @@
       "id": "artifact-region-pressure-229",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33372,7 +33276,7 @@
       "id": "artifact-region-pressure-231",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33447,7 +33351,7 @@
       "id": "artifact-region-pressure-232",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33495,14 +33399,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -33521,7 +33424,7 @@
       "id": "artifact-region-pressure-233",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33594,7 +33497,7 @@
       "id": "artifact-region-pressure-234",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33642,14 +33545,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -33739,7 +33641,7 @@
       "id": "artifact-region-pressure-236",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33787,14 +33689,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -33813,7 +33714,7 @@
       "id": "artifact-region-pressure-237",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33886,7 +33787,7 @@
       "id": "artifact-region-pressure-238",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -33936,14 +33837,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:thin_link_pages"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "artifact",
@@ -33962,7 +33862,7 @@
       "id": "artifact-region-pressure-239",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -34107,7 +34007,7 @@
       "id": "claim-region-evidence-ready",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 0,
+        "outbound_links": 1,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -34155,16 +34055,15 @@
           "value": null
         },
         "quality": {
-          "count": 4,
+          "count": 3,
           "reasons": [
             "quality:bad_repetition_blocks",
             "quality:low_information_density_pages",
-            "quality:repeated_blocks",
-            "quality:thin_link_pages"
+            "quality:repeated_blocks"
           ],
           "refs": [],
           "state": "flagged",
-          "value": 4
+          "value": 3
         }
       },
       "page_type": "claim",
@@ -34331,7 +34230,7 @@
       "id": "claim-region-pressure-001",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -34404,7 +34303,7 @@
       "id": "claim-region-pressure-002",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -34477,7 +34376,7 @@
       "id": "claim-region-pressure-003",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -34621,7 +34520,7 @@
       "id": "claim-region-pressure-005",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -34694,7 +34593,7 @@
       "id": "claim-region-pressure-006",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -34769,7 +34668,7 @@
       "id": "claim-region-pressure-007",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -34913,7 +34812,7 @@
       "id": "claim-region-pressure-009",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -34986,7 +34885,7 @@
       "id": "claim-region-pressure-010",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -35059,7 +34958,7 @@
       "id": "claim-region-pressure-011",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -35205,7 +35104,7 @@
       "id": "claim-region-pressure-013",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -35278,7 +35177,7 @@
       "id": "claim-region-pressure-014",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -35351,7 +35250,7 @@
       "id": "claim-region-pressure-015",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -35495,7 +35394,7 @@
       "id": "claim-region-pressure-017",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -35568,7 +35467,7 @@
       "id": "claim-region-pressure-018",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -35643,7 +35542,7 @@
       "id": "claim-region-pressure-019",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -35787,7 +35686,7 @@
       "id": "claim-region-pressure-021",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -35860,7 +35759,7 @@
       "id": "claim-region-pressure-022",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -35933,7 +35832,7 @@
       "id": "claim-region-pressure-023",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -36079,7 +35978,7 @@
       "id": "claim-region-pressure-025",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -36152,7 +36051,7 @@
       "id": "claim-region-pressure-026",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -36225,7 +36124,7 @@
       "id": "claim-region-pressure-027",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -36369,7 +36268,7 @@
       "id": "claim-region-pressure-029",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -36442,7 +36341,7 @@
       "id": "claim-region-pressure-030",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -36517,7 +36416,7 @@
       "id": "claim-region-pressure-031",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -36661,7 +36560,7 @@
       "id": "claim-region-pressure-033",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -36734,7 +36633,7 @@
       "id": "claim-region-pressure-034",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -36807,7 +36706,7 @@
       "id": "claim-region-pressure-035",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -36953,7 +36852,7 @@
       "id": "claim-region-pressure-037",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37026,7 +36925,7 @@
       "id": "claim-region-pressure-038",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37099,7 +36998,7 @@
       "id": "claim-region-pressure-039",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37243,7 +37142,7 @@
       "id": "claim-region-pressure-041",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37316,7 +37215,7 @@
       "id": "claim-region-pressure-042",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37391,7 +37290,7 @@
       "id": "claim-region-pressure-043",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37535,7 +37434,7 @@
       "id": "claim-region-pressure-045",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37608,7 +37507,7 @@
       "id": "claim-region-pressure-046",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37681,7 +37580,7 @@
       "id": "claim-region-pressure-047",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37827,7 +37726,7 @@
       "id": "claim-region-pressure-049",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37900,7 +37799,7 @@
       "id": "claim-region-pressure-050",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -37973,7 +37872,7 @@
       "id": "claim-region-pressure-051",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -38117,7 +38016,7 @@
       "id": "claim-region-pressure-053",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -38190,7 +38089,7 @@
       "id": "claim-region-pressure-054",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -38265,7 +38164,7 @@
       "id": "claim-region-pressure-055",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -38409,7 +38308,7 @@
       "id": "claim-region-pressure-057",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -38482,7 +38381,7 @@
       "id": "claim-region-pressure-058",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -38555,7 +38454,7 @@
       "id": "claim-region-pressure-059",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -39105,7 +39004,7 @@
       "freshness_state": "fresh",
       "id": "source-product-analytics",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 180,
         "outbound_links": 2,
         "source_ref_count": 0
       },
@@ -39190,7 +39089,7 @@
       "freshness_state": "fresh",
       "id": "source-support-tickets",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 128,
         "outbound_links": 2,
         "source_ref_count": 0
       },

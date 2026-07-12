@@ -18,9 +18,11 @@
       "artifact-relatorio-recon"
     ],
     "context": "sistema",
+    "event_id": "event-ingest-banco-2026-05",
     "moc_parent": "memories/sources/source-banco-export.md",
     "page_id": "event-ingest-banco-2026-05",
     "page_type": "ingestion_event",
+    "source_id": "source-banco-export",
     "source_refs": [
       "source-banco-export"
     ],
@@ -45,7 +47,7 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-5a1bed9d910e97b9",
+  "snapshot_id": "wiki-viva-demo-e50e77fb8c20be6c",
   "source_refs": [
     {
       "approved_state": "approved",

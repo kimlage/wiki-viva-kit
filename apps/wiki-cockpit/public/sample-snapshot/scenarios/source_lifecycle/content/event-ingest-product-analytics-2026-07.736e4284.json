@@ -27,6 +27,7 @@
       "dashboard-clearpath-activation"
     ],
     "context": "sistema",
+    "event_id": "event-ingest-product-analytics-2026-07",
     "moc_parent": "memories/sources/source-product-analytics.md",
     "page_id": "event-ingest-product-analytics-2026-07",
     "page_type": "ingestion_event",
@@ -36,6 +37,7 @@
     "proposal_ids": [
       "proposal-ingest-product-analytics-2026-07"
     ],
+    "source_id": "source-product-analytics",
     "source_refs": [
       "source-product-analytics"
     ],
@@ -60,7 +62,7 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-5a1bed9d910e97b9",
+  "snapshot_id": "wiki-viva-demo-e50e77fb8c20be6c",
   "source_refs": [
     {
       "approved_state": "approved",

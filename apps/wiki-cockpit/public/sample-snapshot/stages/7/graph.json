@@ -376,8 +376,8 @@
       "freshness_state": "fresh",
       "id": "artifact-relatorio-recon",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -520,8 +520,8 @@
       "freshness_state": "fresh",
       "id": "claim-custos-sobem",
       "metrics": {
-        "inbound_links": 0,
-        "outbound_links": 1,
+        "inbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -594,7 +594,7 @@
       "id": "event-ingest-banco-2026-05",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -642,13 +642,13 @@
           "value": null
         },
         "quality": {
-          "count": 1,
+          "count": 0,
           "reasons": [
-            "quality:events_without_consolidated_into"
+            "deterministic_flags:none"
           ],
           "refs": [],
-          "state": "warning",
-          "value": 1
+          "state": "clear",
+          "value": 0
         }
       },
       "page_type": "ingestion_event",
@@ -1591,7 +1591,7 @@
       "freshness_state": "stale",
       "id": "source-banco-export",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 3,
         "outbound_links": 2,
         "source_ref_count": 0
       },

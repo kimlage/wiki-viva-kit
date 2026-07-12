@@ -136,7 +136,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "fdfc5e63a620c9c9f76d0af3c3aab15343bdc52d6d1211441067ba2951fd03ae",
+      "source_input_sha256": "7ca886c59a85ac143a70d110f676eafb61ef73649744d6446ea354e270d2411c",
       "stage": 6
     },
     {
@@ -172,7 +172,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "d97f950819f29bf7f83362b703985ffe9b9a3a1cac484bce914ee09f0cafcbaa",
+      "source_input_sha256": "0f7323e72eb6f6beeb9ba34d65a66c1a803b786fee2360cc1ad52910ac352ec6",
       "stage": 7
     },
     {
@@ -298,7 +298,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "7de143f197dd4f0888a2566f1f2787afb88c388fa180845f1ef04068dbf9cc0d",
+      "source_input_sha256": "b86696bc9928cf71b30d44336922e6f8d816e2d0321efd1b2fbc3be5e975444a",
       "stage": 8
     }
   ]

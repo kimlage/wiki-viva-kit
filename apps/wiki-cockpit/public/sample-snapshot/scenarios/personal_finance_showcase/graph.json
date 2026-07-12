@@ -696,7 +696,7 @@
       "freshness_state": "fresh",
       "id": "finance-account-main",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 4,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -767,7 +767,7 @@
       "freshness_state": "fresh",
       "id": "finance-category-housing",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 3,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -838,7 +838,7 @@
       "freshness_state": "fresh",
       "id": "finance-category-income",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 2,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -910,7 +910,7 @@
       "id": "finance-closing-july",
       "metrics": {
         "inbound_links": 1,
-        "outbound_links": 1,
+        "outbound_links": 4,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -983,7 +983,7 @@
       "id": "finance-obligation-rent",
       "metrics": {
         "inbound_links": 1,
-        "outbound_links": 1,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -1055,8 +1055,8 @@
       "freshness_state": "fresh",
       "id": "finance-reconciliation-july",
       "metrics": {
-        "inbound_links": 1,
-        "outbound_links": 1,
+        "inbound_links": 2,
+        "outbound_links": 3,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -1128,7 +1128,7 @@
       "freshness_state": "fresh",
       "id": "finance-review-july",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 2,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -1199,7 +1199,7 @@
       "freshness_state": "fresh",
       "id": "finance-source-july",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 6,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -1271,7 +1271,7 @@
       "id": "finance-transaction-housing",
       "metrics": {
         "inbound_links": 1,
-        "outbound_links": 1,
+        "outbound_links": 4,
         "source_ref_count": 1
       },
       "overlay_metrics": {
@@ -1344,7 +1344,7 @@
       "id": "finance-transaction-income",
       "metrics": {
         "inbound_links": 1,
-        "outbound_links": 1,
+        "outbound_links": 4,
         "source_ref_count": 1
       },
       "overlay_metrics": {

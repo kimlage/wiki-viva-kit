@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "a70e091482048dc427d2bcada975400f3fdf923edafa239cee880c186a5890b5",
+  "bundle_hash": "19ff55f05ed438f49085b89382d0af3bde6061a63963b81586fce630a6eb3985",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -72,8 +72,8 @@
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
     "actions.json": {
-      "bytes": 2716,
-      "sha256": "cf43b7c1a259039fccc54a39581f20a02cb7414462ea1edd0e494ee6f3f13d9a"
+      "bytes": 2833,
+      "sha256": "2b1bef112fba8f5fe8a730133007e40c915fff1b9c61d8c12cb5856baa8d7efd"
     },
     "block_stacks.json": {
       "bytes": 34209,
@@ -84,24 +84,24 @@
       "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
     },
     "commands.json": {
-      "bytes": 1179,
-      "sha256": "25bd6ac0d80ab8d11b0ad0b5a77e63d3dba898dbcbde23a173d7d3c762c50621"
+      "bytes": 1296,
+      "sha256": "4c1f3ce40dae5bcd930a43bf5fac30bdc50c32f25849fc5c65c4bec2ed0fa97a"
     },
     "content/holon-product-ops.744a6fbe.json": {
       "bytes": 1540,
-      "sha256": "ccf3adbab50e18fc731253554412b85b33c72fa586f81cd82c2c1daa8e5e13d1"
+      "sha256": "db845c40dbe011304eade8f189c07b1ce674fc88de2b14398e354ddd8470c5fa"
     },
     "content/library-ai-safety.bea650b2.json": {
       "bytes": 1691,
-      "sha256": "cab1f4b00798f7c2baa06a9c1bd861fd54c85b4a480f9e044a51ec1a61302fd2"
+      "sha256": "b573d8d212eec12335f4ce813046ca7743859f43e5f4ba53400decc7adfddb77"
     },
     "content/project-atlas-launch.26b6f390.json": {
       "bytes": 1234,
-      "sha256": "3f4fd7c6f624ce60cd7e496898fe9dc90137d0fd7a0e8158b9ae2aa64044262b"
+      "sha256": "ed06ca57565c841b7cd15f0f98afcd6b81eed4759fd105e83938851c34dd592d"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1991,
-      "sha256": "a002eb94f31df900ae8870df7e5b30dff889ef63db7e9173b1b592f28e2f00c4"
+      "sha256": "0ec94f37ec3d1aa3f04ee879d50d06b68cc5e1ce2d0622f19f997390c306a8e7"
     },
     "decisions.json": {
       "bytes": 57,
@@ -120,8 +120,8 @@
       "sha256": "4b1bc57eb073086bd4c6b78289c6a878c67894d0a8e9fd25d53d7fe124dac328"
     },
     "gates.json": {
-      "bytes": 664,
-      "sha256": "309171f121e0fcb4abf72d9042fbf72ba7c69153b2a28a4cc4f6c48b613f6da8"
+      "bytes": 796,
+      "sha256": "cb0eb8f9658ed0215eab776715ae246f4280b5c16a4409e9a81a82837572ea0d"
     },
     "git.json": {
       "bytes": 344,
@@ -140,8 +140,8 @@
       "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
     },
     "operator_commands.json": {
-      "bytes": 3260,
-      "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
+      "bytes": 3377,
+      "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
     },
     "pages.json": {
       "bytes": 3702,
@@ -204,9 +204,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-a70e091482048dc4",
+  "snapshot_id": "wiki-viva-demo-19ff55f05ed438f4",
   "source_commit": null,
-  "source_sha": "uncommitted:46975f814ecbc07668e1014a37cee7e049981c1e4cbdb7b99c4ea9fbc88a260a",
+  "source_sha": "uncommitted:8645e66427abb62806b8747c51369d56710731a53d9ea577ac464ddda04ba2b5",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",

@@ -123,6 +123,15 @@
           ],
           "label": "wiki input stage",
           "writes": false
+        },
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_semantic_inventory.py",
+            "--check"
+          ],
+          "label": "wiki semantic inventory",
+          "writes": false
         }
       ],
       "default_dry_run": false,
