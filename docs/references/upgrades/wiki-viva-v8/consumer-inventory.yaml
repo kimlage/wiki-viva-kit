@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc3@f0936539
+    current_kit_version: wiki-viva-v8-rc4@f7c9d0ad
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -47,7 +47,7 @@ consumers:
       owner: <redacted>
     consumer_type: private_operational_wiki
     role: first_private_pilot
-    current_kit_version: wiki-viva-v8-rc2@b781882a+bfbc8bf6-demo-delta
+    current_kit_version: wiki-viva-v8-rc3@f0936539
     current_layout:
       memory_root: memorias
       references_root: docs/referencias
@@ -68,8 +68,8 @@ consumers:
       state: upgrade_in_progress
       scope: wiki_toolkit_drift_core_prefixes
       drift_total: 0
-      details: exact rc2 payload b781882a and the bfbc8bf6 demo portability delta are imported; final rc3 payload f0936539 and its downstream evidence are not yet attested
+      details: exact rc3 payload f0936539 is imported with zero portable drift; the three-file rc4 delta and its downstream evidence are not yet attested
       verified_on: "2026-07-12"
     upgrade_wave: pilot
     status: upgrade_in_progress
-    blocker: import exact rc3 payload f0936539, reconcile protected contracts, activate the Finance pack, regenerate artifacts and repeat the non-skippable real-data browser matrix
+    blocker: import exact rc4 payload f7c9d0ad, reconcile protected contracts, activate the Finance pack, regenerate artifacts and repeat the non-skippable real-data browser matrix

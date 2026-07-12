@@ -14,6 +14,28 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-12] System | V8 rc4 closes real parser and live-to-demo boundaries
+
+- Final public pressure payload `S4` is
+  `f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb`; package
+  `wiki-viva-v8-rc4` pins that exact subject.
+- A real downstream audit proved that the action writer's valid default YAML
+  was outside the flat frontmatter parser's accepted subset. Intermediate
+  `S3=8904d69d...` introduced indented sequences and unwrapped long scalars;
+  exact replay of four legacy terminal actions then produced zero flat-parser
+  and transition diagnostics.
+- The exact `S3` browser run was rejected at 101/102 when one live manifest
+  completed between `popstate` and the demo render. `S4` moves abort to the
+  navigation notification and retains effect cleanup as an idempotent guard.
+- Exact `S4` passed 1,356/1,356 Python tests, 489/489 frontend tests, 106/106
+  Node gates and 102/102 browser cells on the first attempt with 0
+  skips/retries in 5.9 minutes. Audit is 0 errors / 6 date-driven warnings;
+  methodology, operation, input stage, 26-payload snapshot, demo, packs,
+  build, architecture, assets and bundle are green.
+- The private pilot already holds exact rc3 with zero portable drift. Its next
+  boundary is the reviewed three-file rc4 import, Finance pack installation,
+  regenerated real artifacts and the non-skippable downstream browser proof.
+
 ## [2026-07-12] System | V8 rc3 pressure payload proven
 
 - Public pressure payload `S2` is

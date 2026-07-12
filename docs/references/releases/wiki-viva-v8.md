@@ -26,7 +26,7 @@ with 0 skips and 0 retries in 5.8 minutes**. The retained run result is
 `public-mrha530b-79ce7ec4-2880-4244-a30e-6e9b429627fd/run-result.json` under the
 local release-run evidence directory.
 
-The current downstream-pressure payload is
+The previous downstream-pressure payload is
 `S2=f0936539ca44c34ff5eacf5817b22ff9451b9cef`, pinned by package
 `wiki-viva-v8-rc3`. It adds portable/config-driven docs and skills, acyclic
 source consolidation rules, a one-time content-bound adoption receipt for
@@ -36,7 +36,21 @@ frontend tests**, **106/106 Node gates** and **102/102 first-attempt browser
 cells with 0 skips / 0 retries in 6.4 minutes**. The retained browser result is
 `public-mrhf7c6i-d57c7e0c-dfde-43bf-925c-576ce411ff9a/run-result.json`.
 
-The same clean subject passed **1,339/1,339 Python tests, 0 skips, in 355.06
+Real downstream pressure then exposed a final parser and navigation boundary.
+`S3=8904d69daab1803043a89e553d78b95b57d2022f` made action YAML readable by
+both the structured and flat frontmatter parsers and passed 1,356 Python tests,
+but its exact browser run was rejected at **101/102**: a real operator manifest
+could finish between a direct `popstate` and React's later demo-render cleanup.
+The current payload is
+`S4=f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb`, pinned by package
+`wiki-viva-v8-rc4`. It aborts the live read on the navigation notification
+itself and requires same-turn abort for external history writers. Exact `S4`
+passed **1,356/1,356 Python**, **489/489 frontend**, **106/106 Node** and
+**102/102 first-attempt browser cells with 0 skips / 0 retries in 5.9
+minutes**. Its retained browser result is
+`public-mrhi2oel-b9899085-eb90-4b27-b9fd-4f265fee8fcd/run-result.json`.
+
+Historical exact `S` passed **1,339/1,339 Python tests, 0 skips, in 355.06
 seconds**, with two multiprocessing-fork deprecation warnings. It also passed
 **489/489 frontend tests across 62 files**, **106/106 Node gate tests**, the
 production build, architecture, asset, snapshot, pack, demo, bundle and matrix
@@ -47,7 +61,7 @@ midnight, not privacy or contract failures.
 This evidence promotes only the public portable payload. Browser closure is
 not a full-release receipt and does not self-attest Python, private data,
 product approval or E5. The next mandatory proof is an allowlisted three-commit
-adoption of this exact payload by the private pilot, including real operator
+adoption of exact `S4` by the private pilot, including real operator
 identity, non-empty Chronoscope, Finance pack composition, theme, mobile and
 fallback navigation. [Draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61)
 still requires human review and merge; no tag is authorized yet.
@@ -81,6 +95,14 @@ records 102 public cells and 2 mandatory downstream cells, but the latter must
 still run on the adopted private subject.
 
 ### Exact public subject evidence
+
+The active rc4 overlay is exact `S4`: **1,356 Python**, **489 frontend**,
+**106 Node** and **102/102 browser** controls passed; the browser result has
+zero skip/retry and the normal audit reports **0 errors / 6 date-driven
+freshness warnings**. Methodology, operation, input stage, deterministic demo,
+the 26-payload snapshot, pack validation, production build, architecture,
+assets and bundle gates are green. The historical counts below remain attached
+to their original subjects and are not rewritten.
 
 - Frontend unit/component suite: **489/489 passed across 62 files**.
 - Playwright collection: **102 public cells in 17 specs** plus **2 downstream

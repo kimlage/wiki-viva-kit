@@ -58,7 +58,7 @@ The reviewed public v8 baseline and the private downstream pilot are **not yet
 ready to merge or release as one semantically complete pair**. Historical
 payload `S=b781882a11e8bbac3ae9684d199979a1f4ee1bf7` remains immutable evidence for
 the original v8 closure. The current downstream-pressure candidate is
-`S2=f0936539ca44c34ff5eacf5817b22ff9451b9cef`; private adoption, human review
+`S4=f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb`; private adoption, human review
 and external E5 authority remain mandatory.
 
 The implementation is substantial and the underlying philosophy is visible in
@@ -107,7 +107,8 @@ first attempt, 0 skips, 0 retries, in 5.8 minutes**; **1,339/1,339 Python tests
 with zero skips in 355.06 seconds**; **489/489 Vitest tests**; and **106/106
 Node gate tests**. The production build, architecture, 42-asset, 26-snapshot,
 pack, demo, bundle and matrix gates also pass; initial JavaScript is 162.38 kB
-gzip. Nothing has yet been applied to the private consumer. RT-35, RT-132 and
+gzip. At that historical checkpoint nothing had yet been applied to the private
+consumer. RT-35, RT-132 and
 RT-133 are closed at the public P0/P1 boundary; the causal cycle/time-direction
 and future-pagination attestations remain explicit P2. The package and this
 plan form metadata envelope `M`, pinning the exact `S`; complete release truth
@@ -127,6 +128,22 @@ build, architecture, assets and bundle remain deterministic and green. Package
 `wiki-viva-v8-rc3` pins `S2`; historical `S` receipts remain valid evidence for
 their exact subject and are not rewritten.
 
+The first real private audit then exposed a cross-parser boundary absent from
+the synthetic consumer: the canonical action writer emitted YAML that PyYAML
+accepted but the load-bearing flat frontmatter auditor rejected. Exact
+`S3=8904d69daab1803043a89e553d78b95b57d2022f` fixed sequence indentation and
+scalar wrapping and passed **1,356/1,356 Python tests**, but its clean browser
+run was correctly blocked at **101/102** when one live operator manifest could
+finish between a direct `popstate` and React's demo render. The boundary was
+moved to the navigation event itself in exact
+`S4=f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb`. `S4` passed **1,356/1,356
+Python tests**, **489/489 Vitest tests**, **106/106 Node gates** and **102/102
+public browser cells on the first attempt with 0 skips and 0 retries in 5.9
+minutes**. Audit remains **0 errors / 6 date-driven freshness warnings**;
+methodology, operation, input stage, 26-payload snapshot, demo, packs, build,
+architecture, assets and bundle are green. Package `wiki-viva-v8-rc4` pins
+`S4`; `S3` remains rejected intermediate evidence, not a release candidate.
+
 ## Consolidated implementation ledger — active pass
 
 This section is the current execution surface; earlier counts and defect
@@ -137,8 +154,8 @@ attempts to contain its own SHA and no private state becomes upstream proof.
 
 | Wave | Current implementation state | Acceptance boundary before advancement |
 | --- | --- | --- |
-| 0 — release truth | Exact matrix is written/current at 102+2; the 102 public cells pass on exact `S2`, first attempt, with zero retry/skip. Immutable evidence and browser-only receipt v1 are implemented. | Public browser closure complete; 2 mandatory downstream cells, human review and E5 remain separate. |
-| 1 — public P0/P1 | Genesis 0, keyboard focus, action state, output containment, public projection, source vocabulary, stale operator, route identity and evidence integrity have synthetic regressions. | Exact `S2` passed 1,355 Python, 489 frontend, 106 Node and 102 browser controls; no unowned waiver or hidden skip. |
+| 0 — release truth | Exact matrix is written/current at 102+2; the 102 public cells pass on exact `S4`, first attempt, with zero retry/skip. Immutable evidence and browser-only receipt v1 are implemented. | Public browser closure complete; 2 mandatory downstream cells, human review and E5 remain separate. |
+| 1 — public P0/P1 | Genesis 0, keyboard focus, action state, output containment, public projection, source vocabulary, stale operator, route identity and evidence integrity have synthetic regressions. | Exact `S4` passed 1,356 Python, 489 frontend, 106 Node and 102 browser controls; no unowned waiver or hidden skip. |
 | 2 — navigation/mobile/atomicity | One runtime grammar, surface singleton, mobile/fallback geometry, atomic content/snapshot activation, strict ports and primary-surface focus are implemented. | Desktop/mobile/WebKit/forced-fallback release cells and conceptual review. |
 | 3 — source/event truth | Typed source lifecycle and a multi-clock temporal graph replace the false equivalence between activity feed and semantic history. | Public fixtures valid; later `P` must measure real private events and keep private identifiers out of public evidence. |
 | 4 — executable demos | Seven isolated base scenarios, nine Genesis stages (0–8) and the Study/Research plus Personal Finance showcases are built by deterministic fixture repositories. Their manifests bind 22 claims to 12 canonical routes. | `wiki_build_demo.py --check`, complete sidecars, empty contract errors and route-level browser journeys. |
@@ -146,7 +163,7 @@ attempts to contain its own SHA and no private state becomes upstream proof.
 | 6 — temporal kernel | `wiki_temporal_event.v1`, `wiki_temporal_graph.v1` and lazy 2D Chronoscope are implemented with strict semantic/occurred/recorded modes, lanes, ranges, deep links and a complete inspector. | Integrity/torn/partial/unsupported/stale states fail visibly; `P` proves real scale and clocks. |
 | 7 — experience-pack kernel | Registry, manifest, exact asset tree, lock, receipts, dependency/slot composition, POSIX operation lock, CAS, rollback and review-branch lifecycle are implemented. | Adversarial concurrency, orphan, drift, SVG, traversal, symlink, privacy and localized-memory-root tests pass; packs cannot execute arbitrary code or weaken gates. |
 | 8 — starter packs | Study/Research conformance and Personal Finance vertical ship page types, templates, blocks, views, commands, operations, temporal descriptors, EN/PT-BR copy and public synthetic fixtures. A generic lazy `pack_view` makes canonical pages readable now. | Dedicated operation renderers/executors remain disabled until a separately versioned, human-gated adapter exists; the UI must never imply execution. |
-| 9 — private adoption | Exact public `S2` is proven and rc3 metadata pins it; final import has not started. | Import only allowlisted blobs into the private `wiki/*` branch, preserve config/memory/pack lock, install Finance dry-run first, regenerate, test real API/UI/Timeline/packs/themes/mobile/fallback and bind private receipt `P`. |
+| 9 — private adoption | Exact public `S4` is proven and rc4 metadata pins it. The private pilot already imported exact `S2` with zero portable drift; the three-file `S2→S4` delta, generated artifacts and final evidence remain pending. | Import only allowlisted blobs into the private `wiki/*` branch, preserve config/memory/pack lock, install Finance after its green dry-run, regenerate, test real API/UI/Timeline/packs/themes/mobile/fallback and bind private receipt `P`. |
 
 ### Current architecture of the extensible kit
 
@@ -201,7 +218,9 @@ memory rather than one fixed dashboard:
 | --- | --- | --- | --- | --- |
 | Public baseline | Public feature branch at `31b94d81`; exact PR metadata stays in the Git review surface | Remote checks green; Python, frontend and most browser tests green | Confirmed P0/P1 failures at that revision; no human review decision | Block merge and release |
 | Public payload `S` | Exact subject `b781882a11e8bbac3ae9684d199979a1f4ee1bf7` | 1,339 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; matrix remains 102+2 | Global adversarial verdict has no open public P0/P1; human review and E5 remain | Public release candidate; do not tag until `P`, E5 and human gates converge |
-| Public pressure payload `S2` | Exact subject `f0936539ca44c34ff5eacf5817b22ff9451b9cef` | 1,355 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; demo and audit remain deterministic | Portability, historical-action adoption, rollback truth and demo-link closure are executable contracts | Current rc3 candidate; adopt this exact subject on `P` |
+| Public pressure payload `S2` | Exact subject `f0936539ca44c34ff5eacf5817b22ff9451b9cef` | 1,355 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; demo and audit remain deterministic | Portability, historical-action adoption, rollback truth and demo-link closure are executable contracts | Historical rc3 candidate; imported by the private pilot before the final pressure pass |
+| Public renderer payload `S3` | Exact subject `8904d69daab1803043a89e553d78b95b57d2022f` | 1,356 Python pass; clean browser run blocks at 101/102 on a live→demo request race | Both action parsers accept canonical output, but browser closure is incomplete | Rejected intermediate; never promote or adopt as the final candidate |
+| Public pressure payload `S4` | Exact subject `f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb` | 1,356 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; 26-payload snapshot, demo, packs, build and audit are deterministic | The real downstream renderer defect and the same-turn demo abort boundary are executable contracts | Current rc4 candidate; adopt this exact subject on `P` |
 | Private pilot | Sanitized downstream checkpoint; exact branch, HEAD and PR remain in the private release receipt | Downstream automated suites were green at the checkpoint | Real-data philosophy is viable, but provenance, event typing, timeline and evidence receipts are incomplete | Block semantic approval |
 | Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | 22 claims bind test IDs; 12 canonical routes are collected; generation is deterministic and exact browser cells pass | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Exact public candidate complete; repeat with private composition on `P` |
 | Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | 489 frontend tests pass; PT-BR WebGL/fallback and long-copy browser cells run; 42/42 asset controls pass | Updated desktop/reader/mobile baselines were visually compared; VoiceOver remains a human gate | Automated candidate complete; run final human accessibility gate |
@@ -719,6 +738,8 @@ reproduction.
 | RT-133 | P1 | A rejected action/source history row could still advance the adapter's causal pointer, so the next accepted event emitted `caused_by` to an event that never entered the graph; state-preserving receipts could also be mislabeled as transitions or accepted without canonical receipt identity | E2 rejected-middle-row sequences, same-state kind controls, canonical receipt-ID probes and contract-integrity review | Advance causal state only after accepted emission; require canonical receipt IDs and truthful state-preserving kinds; validate every causal target against the complete graph before any static slice/pagination |
 | RT-134 | P2 | Full-graph validation now rejects unresolved causal targets but does not yet reject self-reference, causal cycles or causes that occur after their effects | E1 causal validator scope after RT-133 closure | Add self/cycle detection and explicit clock-direction policy without weakening uncertainty/recorded-time semantics |
 | RT-135 | P2 | Static payload generation validates causality against the full result before slicing, but a future paginated temporal API has no signed full-graph attestation contract | E1 static full-result validator and pagination roadmap | Require a full-graph fingerprint/attestation for future page cursors; do not infer global causal validity from one page |
+| RT-136 | P1 | The action writer serialized valid PyYAML with indentless sequences and wrapped long scalars, while the load-bearing flat frontmatter parser requires indented list items and one-line scalars; real terminal-action repair therefore created pages the auditor could not read | E2 four exact legacy terminal actions regenerated from their Git baseline: the structured parser accepted them but the private audit produced 53 derived diagnostics | `S3` uses an audit-compatible safe dumper with indented sequences and a wide scalar boundary; focused real-page replay reports zero flat-parser and transition diagnostics, and `S4` retains the same 1,356-test closure |
+| RT-137 | P1 | A direct history writer could enter `/demo` and dispatch `popstate` while a legitimate real snapshot confirmation was in flight; React's later effect cleanup sometimes lost the race, allowing one operator manifest response to finish under the synthetic route | E3 exact `S3` browser run blocked at 101/102 with one finished `/operator/snapshot/manifest.json`; screenshot, video, trace and request timing were retained in the blocked run | `S4` subscribes the abort boundary directly to navigation notifications, keeps effect cleanup as an idempotent second guard and strengthens the unit test to require same-turn abort for external history writers; exact browser closure is 102/102 with zero retry/skip |
 
 ### Exact-public-subject closure overlay
 
