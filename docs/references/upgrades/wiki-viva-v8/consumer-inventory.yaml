@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc11@e0a45609
+    current_kit_version: wiki-viva-v8-rc12@3fed97fa
     current_layout:
       memory_root: memories
       references_root: docs/references

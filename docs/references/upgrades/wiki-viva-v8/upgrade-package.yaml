@@ -1,13 +1,17 @@
 schema_version: wiki_viva_upgrade_package.v2
 
 release:
-  id: wiki-viva-v8-rc11
+  id: wiki-viva-v8-rc12
   status: release_candidate
-  source_sha: e0a456097850865a98a5d728e8161ffd7159a3a9
+  source_sha: 3fed97fa52fa1efd27d651cbd97c3ab67a4f5cfa
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc11
+    source_sha: e0a456097850865a98a5d728e8161ffd7159a3a9
+    status: historical_release_candidate
+    note: S12 passed 1,372 Python, 512 frontend and 107 Node checks, but its only public browser run closed 101/102; the retained failure exposed stale mixed-pointer/keyboard search selection and rc12 fixes that product state without retrying rc11
   - id: wiki-viva-v8-rc10
     source_sha: 83a98e5a7c79babfcfa4b0326e663cfd6e4477f6
     status: historical_release_candidate
@@ -218,11 +222,12 @@ privacy:
     - private_console_or_network_payloads
 
 known_limitations:
-  - The package pins exact post-S9 public payload S12; exact clean validation and matching private replay are in progress, while PR 61 human review/merge, VoiceOver, external E5 and a release tag remain separate authorities.
+  - The package pins exact post-S9 public payload S13; exact clean validation and matching private replay are in progress, while PR 61 human review/merge, VoiceOver, external E5 and a release tag remain separate authorities.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; exact S12 must be imported in three new ordered reviewable boundaries and rerun before this package is promoted.
-  - The historical private S9 read-only preflight remains attached to S9; S12 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; exact S13 must be imported in three new ordered reviewable boundaries and rerun before this package is promoted.
+  - The historical private S9 read-only preflight remains attached to S9; S13 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.
