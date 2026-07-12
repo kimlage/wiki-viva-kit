@@ -28,6 +28,7 @@ local_overrides_kept:
   - wiki.page-types.yaml
   - wiki.templates.yaml
   - requirements.txt
+  - tests/
   - wiki.packs.lock.yaml
   - wiki.adapter-manifest.json
   - wiki.page-types.local.yaml

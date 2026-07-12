@@ -35,7 +35,6 @@ portable_import:
     - wiki_core/**
     - scripts/wiki_*.py
     - scripts/_git_subject.py
-    - tests/**
     - apps/wiki-cockpit/**
     - .skills/wiki-*/**
     - packs/**
@@ -55,6 +54,7 @@ portable_import:
     - docs/references/releases/wiki-viva-v8.md
     - docs/references/upgrades/wiki-viva-v8/**
     - .github/workflows/**
+    - tests/**
     - requirements.txt
     - wiki.page-types.yaml
     - wiki.templates.yaml
@@ -184,4 +184,5 @@ known_limitations:
   - Causal self/cycle/time-direction validation and full-graph attestation for future paginated temporal APIs remain explicit P2 follow-ups.
   - CI workflows are consumer-owned deployment policy and are intentionally excluded from portable import; downstreams must keep their own gates at least as strict.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
+  - Downstream test suites are consumer-owned integration policy and are not copied by the portable importer; the public core suite is proven on the pinned public subject, while each consumer must run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.

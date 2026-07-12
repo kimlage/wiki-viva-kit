@@ -908,9 +908,11 @@ private capability without weakening the public contract:
 
 1. public package v2 treats `.github/workflows/**` as consumer-owned deployment
    policy and never overwrites it;
-2. private-only tests and scripts move under the already blocked `private/**`
-   extension boundary and remain collected explicitly by the private test
-   configuration;
+2. the complete downstream test suite remains consumer-owned and blocked from
+   import. Public core tests stay proven on exact `S`; the private suite must
+   prove real data, locale and adapter behavior on exact `P`. Only a private
+   executable script that currently occupies the portable `scripts/` surface
+   moves under `private/**`;
 3. `requirements.txt`, `wiki.templates.yaml` and `wiki.page-types.yaml` remain
    consumer-owned merge surfaces. The migration preserves private extensions,
    adds every public minimum dependency/contract and proves the merged result;

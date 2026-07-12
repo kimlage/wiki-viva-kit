@@ -48,6 +48,12 @@ Append-only record of changes in the [memories/](../index.md) layer.
   are now protected consumer-owned merge surfaces: preserve local extensions,
   add public minimums and prove the merged result instead of claiming a
   nonexistent overlay capability.
+- A second semantic check found that one upstream test intentionally assumes
+  the public English fixture while the private suite correctly exercises its
+  Portuguese configuration. Package v2 therefore protects the complete
+  downstream test suite as consumer-owned integration policy. Public core tests
+  remain proven on exact `S`; the private suite remains mandatory on exact `P`
+  without byte-copying incompatible test policy between repositories.
 
 ## [2026-07-11] System | V8 release readiness reopened
 
