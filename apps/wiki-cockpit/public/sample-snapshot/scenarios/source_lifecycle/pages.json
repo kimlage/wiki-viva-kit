@@ -1057,6 +1057,7 @@
       "collection_refs": [],
       "content_sha256": "98d1369ee6b0cab0276c725cef0634d8e0d7817a29ab47c959012342f948aefe",
       "context": "sistema",
+      "event_id": "event-ingest-agenda-2026-07",
       "freshness_state": "fresh",
       "id": "event-ingest-agenda-2026-07",
       "moc_children_count": 0,
@@ -1075,6 +1076,7 @@
         "relation_cases": []
       },
       "risk_flags": [],
+      "source_id": "source-agenda",
       "source_refs": [
         "source-agenda"
       ],
@@ -1093,6 +1095,7 @@
       "collection_refs": [],
       "content_sha256": "374de5b3f316ea3221d16729baac02a4ff4a3f7de80b7bc6e7c7532b4b55c836",
       "context": "sistema",
+      "event_id": "event-ingest-chat-2026-07",
       "freshness_state": "fresh",
       "id": "event-ingest-chat-2026-07",
       "moc_children_count": 0,
@@ -1109,6 +1112,7 @@
         "relation_cases": []
       },
       "risk_flags": [],
+      "source_id": "source-chat-export",
       "source_refs": [
         "source-chat-export"
       ],
@@ -1127,6 +1131,7 @@
       "collection_refs": [],
       "content_sha256": "333f4db7f36fe0c08da4c25f374aebad704fb9adbb4bc7ae809c6176079f3e5d",
       "context": "sistema",
+      "event_id": "event-ingest-banco-2026-05",
       "freshness_state": "fresh",
       "id": "event-ingest-banco-2026-05",
       "moc_children_count": 0,
@@ -1146,6 +1151,7 @@
         "relation_cases": []
       },
       "risk_flags": [],
+      "source_id": "source-banco-export",
       "source_refs": [
         "source-banco-export"
       ],
@@ -1164,6 +1170,7 @@
       "collection_refs": [],
       "content_sha256": "00c742923a4d2bdecb520f8e44cc6b1cdfc17d66536d47f6c316a4008148dcf7",
       "context": "sistema",
+      "event_id": "event-ingest-product-analytics-2026-07",
       "freshness_state": "fresh",
       "id": "event-ingest-product-analytics-2026-07",
       "moc_children_count": 0,
@@ -1186,6 +1193,7 @@
         "relation_cases": []
       },
       "risk_flags": [],
+      "source_id": "source-product-analytics",
       "source_refs": [
         "source-product-analytics"
       ],
@@ -1204,6 +1212,7 @@
       "collection_refs": [],
       "content_sha256": "e821bfbd0eb026b501587159c93a9d8dfddab6f0124e9cfb92c97d23943936d9",
       "context": "sistema",
+      "event_id": "event-ingest-support-tickets-2026-06",
       "freshness_state": "fresh",
       "id": "event-ingest-support-tickets-2026-06",
       "moc_children_count": 0,
@@ -1220,6 +1229,7 @@
         "relation_cases": []
       },
       "risk_flags": [],
+      "source_id": "source-support-tickets",
       "source_refs": [
         "source-support-tickets"
       ],

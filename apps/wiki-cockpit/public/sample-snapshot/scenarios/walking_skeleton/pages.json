@@ -279,6 +279,7 @@
       "collection_refs": [],
       "content_sha256": "333f4db7f36fe0c08da4c25f374aebad704fb9adbb4bc7ae809c6176079f3e5d",
       "context": "sistema",
+      "event_id": "event-ingest-banco-2026-05",
       "freshness_state": "fresh",
       "id": "event-ingest-banco-2026-05",
       "moc_children_count": 0,
@@ -298,6 +299,7 @@
         "relation_cases": []
       },
       "risk_flags": [],
+      "source_id": "source-banco-export",
       "source_refs": [
         "source-banco-export"
       ],

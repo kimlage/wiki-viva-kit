@@ -9859,38 +9859,6 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "e84b00c9e02f3066abbe",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "evidence_refs",
-        "page_id": "action-region-clean-unsourced",
-        "path": "memories/actions/action-region-clean-unsourced.md"
-      },
-      "source": "source-product-analytics",
-      "status": "valid",
-      "target": "action-region-clean-unsourced",
-      "type": "evidence_supports",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "677abe56f39759511834",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "evidence_refs",
-        "page_id": "action-region-review-evidence",
-        "path": "memories/actions/action-region-review-evidence.md"
-      },
-      "source": "source-product-analytics",
-      "status": "valid",
-      "target": "action-region-review-evidence",
-      "type": "evidence_supports",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
       "id": "e204d0fa8c0e0639de1c",
       "observed_at": "2026-07-03",
       "provenance": {
@@ -10063,22 +10031,6 @@
       "target": "action-region-pressure-057",
       "type": "dependency",
       "weight": 1
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "97cb3727bdee17d026ce",
-      "observed_at": "2026-05-04",
-      "provenance": {
-        "field": "evidence_refs",
-        "page_id": "action-region-sync-support",
-        "path": "memories/actions/action-region-sync-support.md"
-      },
-      "source": "source-support-tickets",
-      "status": "valid",
-      "target": "action-region-sync-support",
-      "type": "evidence_supports",
-      "weight": 2
     },
     {
       "basis": "frontmatter",

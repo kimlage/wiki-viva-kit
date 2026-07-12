@@ -1,16 +1,5 @@
 {
-  "backlinks": [
-    {
-      "approved_state": "approved",
-      "context": "pessoal",
-      "freshness_state": "fresh",
-      "page_id": "source-agenda",
-      "page_type": "source",
-      "path": "memories/sources/source-agenda.md",
-      "relation": "evidence_supports",
-      "title": "Agenda"
-    }
-  ],
+  "backlinks": [],
   "body": "\n# Enviar proposta para Caio\n\nProposal promised to [Caio Prado](../people/person-caio-prado.md).\n",
   "frontmatter": {
     "action_state": "open",
@@ -84,7 +73,7 @@
     }
   ],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-444181dd79ba84d4",
+  "snapshot_id": "wiki-viva-demo-cedf4a78ad4d4978",
   "source_refs": [
     {
       "approved_state": "approved",

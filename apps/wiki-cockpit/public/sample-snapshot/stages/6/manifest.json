@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "a1b1d58bbf0efbbe70979704e15f18560187cd808eff0372fa734b5ee85e01de",
+  "bundle_hash": "c43fca1e1b9384df20bf011bd5a51c169ed2b7e23d45d45b6d1f15ecba46fe57",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -93,31 +93,31 @@
     },
     "content/artifact-relatorio-recon.8b3a520f.json": {
       "bytes": 1494,
-      "sha256": "0fb866e7889c608f8641155d5975186472bca956dd8fb0b38e43720c449e5a46"
+      "sha256": "829cddcb3a7962ca215e5657c676a060fec17b262d5c6c06259cb7ced78fb790"
     },
     "content/claim-custos-sobem.0be31ee0.json": {
       "bytes": 1462,
-      "sha256": "8d4af853302d8c03c1c7eaef38f38ff3ba58d1f94832efdad676efb1ccd5d12b"
+      "sha256": "df945995171b6a958b29072753c7506d977482a5d91ba82904a592a8a7ec7c30"
     },
     "content/event-ingest-banco-2026-05.60d41f0b.json": {
       "bytes": 1968,
-      "sha256": "1842b8b446d346ad3480b242ef91bae1d2c119d95f1ef558d4184ab9a9e20f49"
+      "sha256": "1fd6e313fa9479d45b082c0d582481cb648790fd9a7a24614ce70a928fec7c59"
     },
     "content/hub-financeiro.405d007d.json": {
       "bytes": 1979,
-      "sha256": "ce11ae60056815611efc844dabb0885822616c9f4bc9f1ca724e333f7ebafae2"
+      "sha256": "117ebb5f0ce9c022b20b2ad44af2f36704f80102faf7b3b69c0714a7a0ed7549"
     },
     "content/person-marina-costa.3db0e184.json": {
       "bytes": 1215,
-      "sha256": "5d35e139206dfe77ddd0c2a246350641e792b5d8a78cbfea25160b7221a4dde3"
+      "sha256": "18591f5c87710612a391c60b52ae2ebe7fbdd41d6d6538a4c4806bb7674c9993"
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 2270,
-      "sha256": "743ac8ba6b631c35b25a52b74776f99b00522f27055ad8a91273afeaf7ebc9bb"
+      "sha256": "05541bf9bb3bde3241e7891321205f2ff220c5fb26dc0ab5852b2c0848bc4e7a"
     },
     "content/source-banco-export.21d8fe1f.json": {
       "bytes": 2978,
-      "sha256": "689189e2e9c2c314ac7732fddec53a78630009471f6aa4400bcb89770573147a"
+      "sha256": "989e2d9fda7bbb792cbbde9351e5919d4de7e49c52b92f47cccb20d946f63728"
     },
     "decisions.json": {
       "bytes": 57,
@@ -160,8 +160,8 @@
       "sha256": "096d235ce908bbf0d36f8e6bbee5451deea33b7fa3f8eae099dd0e37bc95d7e7"
     },
     "pages.json": {
-      "bytes": 6436,
-      "sha256": "d8253ed8013e7a9b860768c31170e1279e5eb37e71c031ae617f56857d908177"
+      "bytes": 6510,
+      "sha256": "645a15bc63e0f9e18988c31f94358fd5520ce2713252e453a97b9721ec2473dc"
     },
     "quality.json": {
       "bytes": 3634,
@@ -220,9 +220,9 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-a1b1d58bbf0efbbe",
+  "snapshot_id": "wiki-viva-demo-c43fca1e1b9384df",
   "source_commit": null,
-  "source_sha": "uncommitted:c7d99b32eb9fe0dfa1efff476261d6d0a1cc16766e5c8fd86f01f6b84421ef79",
+  "source_sha": "uncommitted:79b8e705a61a67ff025d278a1884fd57e00fee00c50454513aaaa3976ca8cc95",
   "versions": {
     "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",
