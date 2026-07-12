@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc12@3fed97fa
+    current_kit_version: wiki-viva-v8-rc13@ffaec5dc
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,12 +32,13 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: self
+      state: public_validation_pending
       drift_total: 0
-      worktree: exact_payload_frozen_validation_in_progress
+      compared_against: wiki-viva-v8-rc13@ffaec5dc
+      worktree: exact_payload_frozen_validation_pending
     upgrade_wave: public_kit
-    status: candidate
-    blocker: complete PR 61 human conceptual, privacy and VoiceOver review, merge, external E5 authority and release tag
+    status: validation_pending
+    blocker: complete exact 1,372 Python, 107 Node and 102/102 first-attempt browser gates plus current visual QA; then complete PR 61 human conceptual, privacy and VoiceOver review, merge, external E5 authority and release tag
 
   - id: private-pilot-01
     repository:
@@ -65,11 +66,14 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: upgrade_in_progress
+      state: blocked_on_public_validation
       scope: wiki_toolkit_drift_core_prefixes
       drift_total: 0
-      details: exact S9 payload b45378d3 and the Finance pack are present with protected downstream adaptations; the complete public matrix and private deterministic stack pass, including 2/2 mandatory downstream browser cells on the first attempt with zero skip or retry; official upgrade preflight is ready with drift zero, zero blockers and one expected local-overrides warning
+      compared_against: wiki-viva-v8-rc8@b45378d3
+      target_version: wiki-viva-v8-rc13@ffaec5dc
+      target_drift_total: 885
+      details: exact S9 payload b45378d3 and the Finance pack remain the installed historical subject with protected downstream adaptations; rc13 has 885 reviewed portable deltas but cannot be imported while its public status is validation_pending
       verified_on: "2026-07-12"
     upgrade_wave: pilot
-    status: upgrade_in_progress
-    blocker: retain exact receipts and redacted aggregates; complete RT-09/10/29/33/36/47/48 consumer-semantic evidence, human conceptual/privacy/VoiceOver review, merge and external E5
+    status: blocked_on_public_validation
+    blocker: first close rc13 public 1,372/107/102 and current visual QA; then retain exact receipts and redacted aggregates and complete RT-09/10/29/33/36/47/48 consumer-semantic evidence, human conceptual/privacy/VoiceOver review, merge and external E5

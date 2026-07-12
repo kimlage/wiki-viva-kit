@@ -331,8 +331,11 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     assert validate_upgrade_package(pkg) == []
     assert validate_consumer_inventory(inventory) == []
     assert inventory["schema_version"] == CONSUMER_INVENTORY_SCHEMA_VERSION
-    assert package_is_pinned(pkg) is True
-    assert pkg["release"]["status"] == "release_candidate"
+    assert package_is_pinned(pkg) is False
+    assert pkg["release"]["status"] == "validation_pending"
+    releasable = copy.deepcopy(pkg)
+    releasable["release"]["status"] = "release_candidate"
+    assert package_is_pinned(releasable) is True
     source_sha = pkg["release"]["source_sha"]
     assert subprocess.run(
         ["git", "cat-file", "-e", f"{source_sha}^{{commit}}"],

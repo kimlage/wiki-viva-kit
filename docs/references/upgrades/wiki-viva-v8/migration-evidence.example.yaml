@@ -7,7 +7,7 @@ evidence_context:
   validator_version: wiki_viva_upgrade_validator.v3
   captured_consumer_head: REPLACE_WITH_FINAL_MIGRATION_SHA
 source:
-  release: wiki-viva-v8-rc12
+  release: wiki-viva-v8-rc13
   sha: REPLACE_WITH_PINNED_PUBLIC_SHA
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 consumer_before:
