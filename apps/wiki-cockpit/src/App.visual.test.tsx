@@ -780,9 +780,12 @@ describe("visual route contract", () => {
       await waitFor(() => expect(realSignal).toBeTruthy());
       expect(realSignal!.aborted).toBe(false);
 
-      browserApplication.navigation.dispatch({ type: "navigate", target: "/demo/world?tour=0" });
-
-      await waitFor(() => expect(realSignal!.aborted).toBe(true));
+      // A foreign history writer is part of the supported router boundary.
+      // The real request must be aborted in the same popstate task, before
+      // React commits the demo render and before an operator response wins.
+      window.history.pushState({}, "", "/demo/world?tour=0");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      expect(realSignal!.aborted).toBe(true);
       expect(await screen.findByText(/Read-only demo with synthetic data/)).toBeTruthy();
       expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === false)).toHaveLength(1);
       expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === true)).toHaveLength(1);

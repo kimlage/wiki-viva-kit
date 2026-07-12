@@ -1201,6 +1201,18 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const previousDemoRef = useRef(route.demo);
   const realRevalidationNoticeRef = useRef<string | null>(null);
   const codexProbeControllerRef = useRef<AbortController | null>(null);
+  // React may commit the route render one task after history changes. Abort the
+  // real read on the navigation notification itself, before an operator
+  // response can finish under a newly-entered demo URL. The loading effect
+  // below keeps the same guard as a second, idempotent boundary.
+  useEffect(
+    () => navigation.subscribe(() => {
+      if (!navigation.parseUrl(navigation.getSnapshot()).demo) return;
+      realLoadControllerRef.current?.abort();
+      realLoadControllerRef.current = null;
+    }),
+    [navigation]
+  );
   const markRealSnapshotSuccess = useCallback(() => {
     const failedNotice = realRevalidationNoticeRef.current;
     lastRealSuccessAtRef.current = Date.now();
