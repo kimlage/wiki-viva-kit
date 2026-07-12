@@ -1090,24 +1090,28 @@ test("dense action reader owns the foreground and starts with decision-ready inf
     "world-search-results-option-15"
   );
   const activeResultGeometry = await page.evaluate(() => {
-    const list = document.querySelector<HTMLElement>("#world-search-results");
+    const viewport = document.querySelector<HTMLElement>(".missionSearchResults");
     const active = document.querySelector<HTMLElement>(
       '#world-search-results [role="option"][aria-selected="true"]'
     );
-    if (!list || !active) throw new Error("active search result geometry unavailable");
-    const listRect = list.getBoundingClientRect();
+    if (!viewport || !active) throw new Error("active search result geometry unavailable");
+    const viewportRect = viewport.getBoundingClientRect();
     const activeRect = active.getBoundingClientRect();
+    const viewportTop = viewportRect.top + viewport.clientTop;
+    const viewportBottom = viewportTop + viewport.clientHeight;
     return {
       selectedCount: document.querySelectorAll(
         '#world-search-results [role="option"][aria-selected="true"]'
       ).length,
-      topGap: activeRect.top - listRect.top,
-      bottomGap: listRect.bottom - activeRect.bottom
+      topGap: activeRect.top - viewportTop,
+      bottomGap: viewportBottom - activeRect.bottom,
+      scrollTop: viewport.scrollTop
     };
   });
   expect(activeResultGeometry.selectedCount).toBe(1);
   expect(activeResultGeometry.topGap).toBeGreaterThanOrEqual(-1);
   expect(activeResultGeometry.bottomGap).toBeGreaterThanOrEqual(-1);
+  expect(activeResultGeometry.scrollTop).toBeGreaterThan(0);
 
   await page.goBack();
   await expect(resultOptions).toHaveCount(10);
@@ -1116,7 +1120,7 @@ test("dense action reader owns the foreground and starts with decision-ready inf
     "aria-activedescendant",
     "world-search-results-option-0"
   );
-  await expect(resultOptions.locator('[aria-selected="true"]')).toHaveCount(1);
+  await expect(listbox.locator('[role="option"][aria-selected="true"]')).toHaveCount(1);
   await expect(resultOptions.first()).toHaveAttribute("aria-selected", "true");
 
   await page.getByRole("combobox", { name: /Scope|Escopo/ }).selectOption("world");
