@@ -1,10 +1,10 @@
-schema_version: wiki_viva_upgrade_package.v1
+schema_version: wiki_viva_upgrade_package.v2
 
 release:
-  id: wiki-viva-v8-rc1
+  id: wiki-viva-v8-rc2
   status: release_candidate
-  source_sha: dbd158a482dca20ab823968467fec931d67ca050
-  plan: docs/references/proposals/wiki-viva-v8-unified-living-world-execution-plan-2026-07-09.md
+  source_sha: b781882a11e8bbac3ae9684d199979a1f4ee1bf7
+  plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 contract_versions:
@@ -13,22 +13,35 @@ contract_versions:
   snapshot_envelope: wiki_web_snapshot.v2
   blocks: wiki_templates.v2+wiki_web_block_stacks.v1
   visual_grammar: wiki_visual_grammar.v8
+  semantic_visual_tokens: wiki_semantic_visual_tokens.v1
+  appearance: wiki_cockpit_appearance.v1
   runtime: wiki_world_runtime.v8
   source_lifecycle: wiki_source_lifecycle.v2
   freshness: wiki_web_freshness.v1
+  server: wiki_web_server.v6
+  activity_timeline: activity_timeline.v1
+  temporal_event: wiki_temporal_event.v1
+  temporal_graph: wiki_temporal_graph.v1
+  experience_pack: wiki_experience_pack.v1
+  experience_pack_registry: wiki_experience_pack_registry.v1
+  experience_pack_lock: wiki_experience_pack_lock.v1
+  experience_pack_composition: wiki_experience_pack_composition.v1
+  asset_manifest: wiki_cockpit_asset_manifest.v1
+  downstream_adapter_manifest: wiki_downstream_adapter_manifest.v1
 
 portable_import:
   # Block rules win over allow rules. Paths are always repository-relative.
   allow:
     - wiki_core/**
     - scripts/wiki_*.py
+    - scripts/_git_subject.py
     - tests/**
     - apps/wiki-cockpit/**
     - .skills/wiki-*/**
     - .github/workflows/**
+    - packs/**
     - docs/references/guides/**
-    - docs/references/releases/wiki-viva-v8.md
-    - docs/references/upgrades/wiki-viva-v8/**
+    - docs/references/schemas/**
     - docs/references/fixtures/demo-wiki/**
     - wiki.page-types.yaml
     - wiki.templates.yaml
@@ -40,7 +53,13 @@ portable_import:
     - wiki.targets.yaml
     - wiki.templates.local.yaml
     - wiki.page-types.local.yaml
+    - wiki.packs.lock.yaml
+    - wiki.adapter-manifest.json
+    - .wiki-viva/**
+    - docs/references/releases/wiki-viva-v8.md
+    - docs/references/upgrades/wiki-viva-v8/**
     - apps/wiki-cockpit/public/wiki-cockpit.config.json
+    - apps/wiki-cockpit/tmp/**
     - data/raw/**
     - data/derived/**
     - private/**
@@ -67,6 +86,7 @@ preflight:
   required_gates:
     - toolkit_drift
     - audit
+    - public_export_audit
     - input_stage
     - pytest
     - diff_check
@@ -79,13 +99,20 @@ migration:
   required_gates:
     - toolkit_drift
     - audit
+    - public_export_audit
     - methodology_coverage
     - operation_compile
     - input_stage
     - pytest
+    - frontend
+    - node_gates
     - snapshot_contract
+    - pack_validation
     - architecture
+    - assets
     - bundle
+    - release_matrix_inventory
+    - browser_required
     - demo_drift
     - diff_check
   visual_profiles:
@@ -151,6 +178,8 @@ privacy:
     - private_console_or_network_payloads
 
 known_limitations:
-  - The payload is pinned to the reviewed branch SHA, but PR 61 still requires the human merge gate and a release tag.
-  - The private pilot completed the controlled cfa32594 collection/action-state refresh and remains behind remote and human PR gates; payload dbd158a4, including the historical b942735f short-mobile regressions, the 1d801f1c canonical source-parent integrity fix, a483ad02 reader continuity, d4a3c890 all-phone group geometry, f7f95119 atomic search-reader routing, 877b586b desktop group geometry and adaptive fallback reachability, passes the complete local real-data matrix in PR 208 without publishing private content here.
+  - The payload is pinned to the exact public browser-closure subject, but PR 61 still requires human review, merge and a release tag.
+  - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
+  - The private pilot must import this exact payload in three reviewable boundaries and repeat the real-data operator, Chronoscope, pack, theme, mobile and fallback matrix before adoption can be claimed.
+  - Causal self/cycle/time-direction validation and full-graph attestation for future paginated temporal APIs remain explicit P2 follow-ups.
   - Consumer-specific core failures must first become synthetic public fixtures.

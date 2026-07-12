@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-07-11
+updated_at: 2026-07-12
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,31 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-07-12] System | V8 exact public payload proven; private adoption next
+
+- Portable payload `S` is
+  `b781882a11e8bbac3ae9684d199979a1f4ee1bf7`. Its first 102-cell browser
+  attempt was rejected at 84 passed / 18 failed; the failure exposed a real
+  compatibility-route write bug, stale browser expectations and measurable
+  short/tall-phone occlusion.
+- After the corrections, exact `S` passed 102/102 public browser cells on the
+  first attempt with 0 skips/retries in 5.8 minutes, 1,339/1,339 Python tests
+  with 0 skips in 355.06 seconds, 489/489 frontend tests and 106/106 Node gates.
+  Build, architecture, assets, snapshot, packs, demo, bundle and matrix gates
+  are green; browser closure remains deliberately narrower than full release.
+- Upgrade package v2 and the current release-truth plan now pin exact `S` and
+  declare the temporal, appearance, asset, experience-pack and downstream
+  adapter contracts. Consumer-owned config, memory, pack lock, adapter manifest
+  and runtime config remain blocked from portable import.
+- Eight process/filesystem checks found no newer Claude-authored project plan,
+  repository edit, test result or screenshot. The detached Claude worktree is
+  historical July 1 material; only previously recovered and independently
+  reproduced observations were consolidated.
+- The next required boundary is the private pilot: read-only preflight, Finance
+  dry-run, three reviewable commits, real operator identity, non-empty
+  Chronoscope, themes, desktop/mobile/fallback and the two mandatory downstream
+  browser cells. Human merge/tag and external E5 authority remain pending.
 
 ## [2026-07-11] System | V8 release readiness reopened
 

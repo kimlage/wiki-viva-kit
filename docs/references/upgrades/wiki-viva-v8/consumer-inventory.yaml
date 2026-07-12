@@ -1,5 +1,5 @@
 schema_version: wiki_viva_consumer_inventory.v1
-verified_on: "2026-07-10"
+verified_on: "2026-07-12"
 
 publication_policy:
   private_paths: redact
@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc1@dbd158a4
+    current_kit_version: wiki-viva-v8-rc2@b781882a
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -34,10 +34,10 @@ consumers:
     drift_status:
       state: self
       drift_total: 0
-      worktree: payload_source_pinned
+      worktree: exact_subject_proven
     upgrade_wave: public_kit
     status: candidate
-    blocker: PR 61 human review, merge and release tag remain
+    blocker: PR 61 human review, merge, external E5 authority and release tag remain
 
   - id: private-pilot-01
     repository:
@@ -65,11 +65,11 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: local_validation_complete
+      state: upgrade_pending
       scope: wiki_toolkit_drift_core_prefixes
       drift_total: 0
-      details: controlled cfa32594 migration evidence is retained privately; payload dbd158a4 passes the complete local real-data matrix in PR 208, retaining b942735f as short-mobile history, 1d801f1c as source-hierarchy history, a483ad02 as reader-continuity history, d4a3c890 as all-phone group-geometry history, f7f95119 as atomic-search history and 877b586b as desktop-group history
-      verified_on: "2026-07-10"
+      details: the previous rc1 real-data validation remains private evidence; exact rc2 payload b781882a has not yet been imported or attested by the private pilot
+      verified_on: "2026-07-12"
     upgrade_wave: pilot
-    status: remote_gate_pending
-    blocker: controlled payload dbd158a4 has passed local real reader/search navigation, source hierarchy and desktop/short/tall/fallback semantic-group behavior; private CI and human PR review remain
+    status: upgrade_pending
+    blocker: import exact rc2 payload b781882a, regenerate private artifacts and repeat the non-skippable real-data browser matrix before private review

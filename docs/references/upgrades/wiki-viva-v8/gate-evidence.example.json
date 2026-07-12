@@ -14,6 +14,11 @@
       "status": "pass"
     },
     {
+      "id": "public_export_audit",
+      "command": "python3 scripts/wiki_audit.py --public-export --check",
+      "status": "pass"
+    },
+    {
       "id": "input_stage",
       "command": "python3 scripts/wiki_input_stage.py --check",
       "status": "pass"

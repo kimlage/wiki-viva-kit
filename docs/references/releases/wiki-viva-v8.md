@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 release-candidate history - review blocked"
+title: "Wiki Viva v8 public payload candidate - downstream pending"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,27 +11,38 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 release-candidate history - review blocked
+# Wiki Viva v8 public payload candidate - downstream pending
 
-Status on 2026-07-12: **review blocked; not a current release candidate**.
-The exact-head browser-closure receipt, final zero-retry public browser matrix,
-mandatory downstream matrix, current human product/privacy gates and external
-signed E5 authority have not all converged on one reviewed commit. Receipt v1
-is deliberately browser-evidence-only: it does not bind Python audits,
-snapshot/pack/demo gates, Vitest, assets, architecture, bundle, private
-adoption, human review or E5. The open worktree cannot claim release readiness
-even if its local gates become green.
+Status on 2026-07-12: **the public payload is an exact-subject release
+candidate; the complete release is still blocked by private adoption, human
+review and external E5 authority**.
 
-The material below is the historical candidate checkpoint pinned to
-`dbd158a482dca20ab823968467fec931d67ca050` and proposed in
-[draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61). Its counts,
-SHAs, screenshots and downstream statements must not be read as evidence for
-the current worktree. They remain useful lineage until a new release note is
-generated from exact-subject browser and deterministic-gate manifests on the
-final public and downstream subjects, followed by a separately verifiable
-promotion attestation.
+Portable payload `S` is pinned to
+`b781882a11e8bbac3ae9684d199979a1f4ee1bf7`. The first clean-subject browser
+attempt exposed 18 genuine and test-contract regressions (**84/102 passed**).
+After the route-authority, browser-contract and mobile-geometry corrections
+were committed, the exact public wrapper passed **102/102 on the first attempt,
+with 0 skips and 0 retries in 5.8 minutes**. The retained run result is
+`public-mrha530b-79ce7ec4-2880-4244-a30e-6e9b429627fd/run-result.json` under the
+local release-run evidence directory.
 
-## Current correction lineage — unreleased
+The same clean subject passed **1,339/1,339 Python tests, 0 skips, in 355.06
+seconds**, with two multiprocessing-fork deprecation warnings. It also passed
+**489/489 frontend tests across 62 files**, **106/106 Node gate tests**, the
+production build, architecture, asset, snapshot, pack, demo, bundle and matrix
+checks. Initial JavaScript is **162.38 kB gzip**. Normal and public-export audits
+report **0 errors and 6 freshness warnings** caused by the date crossing
+midnight, not privacy or contract failures.
+
+This evidence promotes only the public portable payload. Browser closure is
+not a full-release receipt and does not self-attest Python, private data,
+product approval or E5. The next mandatory proof is an allowlisted three-commit
+adoption of this exact payload by the private pilot, including real operator
+identity, non-empty Chronoscope, Finance pack composition, theme, mobile and
+fallback navigation. [Draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61)
+still requires human review and merge; no tag is authorized yet.
+
+## Current correction lineage — public payload candidate
 
 The active correction contract is the
 [release truth, temporal world and experience packs plan](../proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md).
@@ -44,39 +55,33 @@ not treated as project progress. The eighth check also confirmed that a clean,
 detached Claude worktree contained only historical July 1 material, not a
 hidden July 11 implementation.
 
-The current worktree adds an exact public/downstream Playwright collection,
+The public payload adds an exact public/downstream Playwright collection,
 hash-bound toolchain and worktree subjects, a browser-only receipt, fail-closed
 demo/transport and atomic snapshot activation controls. Adversarial rereview
-has repeatedly reopened those two slices on asynchronous GET, responsive
-layout, revision-inventory, cleanup/durability and evidence-ownership
-boundaries, so they remain review candidates only. An earlier 68-cell hardened
-browser checkpoint completed with zero skip/retry after two failed attempts
-exposed port-ownership and conflated-journey defects. The worktree has since
-grown: the reviewed matrix is now written/current at 102 public cells and 2
-mandatory downstream cells, and the Node gate suite is 106/106. The global
-adversarial freeze verdict has no open P0/P1 in the public payload. Matrix
-identity and collection still are not an executed clean-`S` browser run. None
-of these results can replace clean reviewed subjects, private adoption, human
-review or external promotion authority.
+reopened asynchronous GET, responsive layout, revision inventory,
+cleanup/durability and evidence-ownership boundaries before the final freeze.
+The global adversarial verdict has no open public P0/P1. The checked-in matrix
+records 102 public cells and 2 mandatory downstream cells, but the latter must
+still run on the adopted private subject.
 
-### Current worktree evidence snapshot — not a receipt
+### Exact public subject evidence
 
-- Frontend unit/component suite: **488/488 passed across 62 files** in the
-  latest complete local run.
+- Frontend unit/component suite: **489/489 passed across 62 files**.
 - Playwright collection: **102 public cells in 17 specs** plus **2 downstream
   cells in 1 spec**. The checked-in matrix exactly records that frozen
-  inventory; **106/106 Node gate tests** pass.
+  inventory; the exact public wrapper passed 102/102 with zero skip/retry and
+  **106/106 Node gate tests** pass.
 - Executable public demos: **7 isolated base scenarios**, **22 bound claims**
   and **12 canonical `/demo/w` routes**, plus all 9 Genesis stages (0–8).
 - Pack showcases: Study/Research has **6 pages, 11 events and 4 pack-owned event
   kinds**; Personal Finance has **11 pages, 19 events and 5 pack-owned event
   kinds**. Both temporal payloads report zero diagnostics.
 - Final frozen deterministic evidence: **1,339/1,339 Python tests**, **0 skips**
-  in **355.43 s**, with 2 fork deprecation warnings; **488/488 frontend**;
+  in **355.06 s**, with 2 fork deprecation warnings; **489/489 frontend**;
   **70** action lifecycle, **65** action audit, **6** action endpoint and **113**
   snapshot/demo controls; **165** focused RT-133 reviewer controls; **42/42**
   assets; **26** snapshot payloads. Production build and bundle pass with
-  initial JS at **162.31 kB gzip**. Normal/public audits report **0 errors / 6
+  initial JS at **162.38 kB gzip**. Normal/public audits report **0 errors / 6
   freshness warnings** after the date crossed midnight.
 
 RT-35 is closed at the P0/P1 implementation-review boundary: external

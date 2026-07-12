@@ -3,9 +3,9 @@
 # contain real private paths, SHAs, routes or screenshots.
 schema_version: wiki_viva_migration_evidence.v1
 source:
-  release: wiki-viva-v8-rc
+  release: wiki-viva-v8-rc2
   sha: REPLACE_WITH_PINNED_PUBLIC_SHA
-  plan: docs/references/proposals/wiki-viva-v8-unified-living-world-execution-plan-2026-07-09.md
+  plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 consumer_before:
   repository: consumer-id
   branch: wiki/upgrade-v8
@@ -19,21 +19,34 @@ consumer_after:
   adaptation_commit_sha: null
 files_imported:
   - wiki_core/upgrade.py
+  - scripts/_git_subject.py
+  - packs/personal-finance/pack.yaml
+  - docs/references/schemas/wiki-temporal-graph-v1.schema.json
 local_overrides_kept:
   - wiki.config.yaml
   - wiki.targets.yaml
+  - wiki.packs.lock.yaml
+  - wiki.adapter-manifest.json
+  - apps/wiki-cockpit/public/wiki-cockpit.config.json
 warnings: []
 fixtures_added: []
 gates:
   - {id: toolkit_drift, command: "record exact command", status: pass}
   - {id: audit, command: "record exact command", status: pass}
+  - {id: public_export_audit, command: "record exact command", status: pass}
   - {id: methodology_coverage, command: "record exact command", status: pass}
   - {id: operation_compile, command: "record exact command", status: pass}
   - {id: input_stage, command: "record exact command", status: pass}
   - {id: pytest, command: "record exact command", status: pass}
+  - {id: frontend, command: "record exact command", status: pass}
+  - {id: node_gates, command: "record exact command", status: pass}
   - {id: snapshot_contract, command: "record exact command", status: pass}
+  - {id: pack_validation, command: "record exact command", status: pass}
   - {id: architecture, command: "record exact command", status: pass}
+  - {id: assets, command: "record exact command", status: pass}
   - {id: bundle, command: "record exact command", status: pass}
+  - {id: release_matrix_inventory, command: "record exact command", status: pass}
+  - {id: browser_required, command: "record exact command", status: pass}
   - {id: demo_drift, command: "record exact command", status: pass}
   - {id: diff_check, command: "record exact command", status: pass}
 visual_qa_evidence:

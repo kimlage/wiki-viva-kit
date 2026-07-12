@@ -54,10 +54,11 @@ Updated on: 2026-07-12.
 
 ## Executive Decision
 
-The reviewed public v8 baseline and the private downstream pilot are **not
-ready to merge or release as semantically complete**. The current public
-worktree contains uncommitted closure candidates; it is not itself a release
-receipt or an approved revision.
+The reviewed public v8 baseline and the private downstream pilot are **not yet
+ready to merge or release as one semantically complete pair**. The public
+portable payload is now an exact-subject candidate pinned to
+`b781882a11e8bbac3ae9684d199979a1f4ee1bf7`; private adoption, human review and
+external E5 authority remain mandatory.
 
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
@@ -95,19 +96,21 @@ but the rule still governs claims: none of the expansion is released until the
 P0/P1 stabilization boundary, exact-subject evidence and downstream adoption
 are complete.
 
-Implementation update from the same review day: Waves 0–8 are present as
-uncommitted candidates and the global adversarial freeze review reports **no
-open P0/P1 in the public payload**. The frozen-worktree checkpoint includes
-1,339/1,339 Python tests with zero skips, 488/488 Vitest tests, a written and
-current 102-public/2-downstream Playwright contract, 106/106 Node gate tests,
-seven executable demo worlds with 22 bound claims/12 canonical routes, nine
-Genesis stages (0–8), native Chronoscope, and the Study/Research and Personal
-Finance showcases. Nothing has been applied to the private consumer. RT-35,
-RT-132 and RT-133 are closure candidates; the remaining temporal causal
-cycle/time-direction and future pagination attestations are explicitly P2.
-The release remains blocked until this frozen payload is committed as `S` and
-proven on that clean subject, `M` is created and proven after `S`, the exact
-payload is adopted downstream as `P`, and external E5/human gates run.
+Implementation update after the clean-subject rerun: Waves 0–8 are committed
+as public payload `S`, and the global adversarial freeze reports **no open
+P0/P1 in the public payload**. The first exact browser attempt was deliberately
+not waved through: **84/102 passed and 18 failed**. Route authority, browser
+contracts and measured phone geometry were corrected in a second payload
+commit. The final exact `S` then passed **102/102 public browser cells on the
+first attempt, 0 skips, 0 retries, in 5.8 minutes**; **1,339/1,339 Python tests
+with zero skips in 355.06 seconds**; **489/489 Vitest tests**; and **106/106
+Node gate tests**. The production build, architecture, 42-asset, 26-snapshot,
+pack, demo, bundle and matrix gates also pass; initial JavaScript is 162.38 kB
+gzip. Nothing has yet been applied to the private consumer. RT-35, RT-132 and
+RT-133 are closed at the public P0/P1 boundary; the causal cycle/time-direction
+and future-pagination attestations remain explicit P2. The package and this
+plan form metadata envelope `M`, pinning the exact `S`; complete release truth
+still requires exact private adoption `P`, external E5 and human gates.
 
 ## Consolidated implementation ledger — active pass
 
@@ -119,8 +122,8 @@ attempts to contain its own SHA and no private state becomes upstream proof.
 
 | Wave | Current implementation state | Acceptance boundary before advancement |
 | --- | --- | --- |
-| 0 — release truth | Exact public/downstream Playwright matrix is written/current at 102+2; unique no-reuse server, zero retry/skip/flaky policy, immutable run evidence and browser-only receipt v1 are implemented. | Commit `S`, run the frozen wrapper on the clean exact subject and generate only a `browser_closure`; deterministic gates and E5 remain separate. |
-| 1 — public P0/P1 | Genesis 0, keyboard focus, action state, output containment, public projection, source vocabulary, stale operator, route identity and evidence integrity have synthetic regressions. | Full Python/Node/browser suite on `S`; no unowned waiver or hidden skip. |
+| 0 — release truth | Exact matrix is written/current at 102+2; the 102 public cells pass on exact `S`, first attempt, with zero retry/skip. Immutable evidence and browser-only receipt v1 are implemented. | Public browser closure complete; 2 mandatory downstream cells, human review and E5 remain separate. |
+| 1 — public P0/P1 | Genesis 0, keyboard focus, action state, output containment, public projection, source vocabulary, stale operator, route identity and evidence integrity have synthetic regressions. | Exact `S` passed 1,339 Python, 489 frontend, 106 Node and 102 browser controls; no unowned waiver or hidden skip. |
 | 2 — navigation/mobile/atomicity | One runtime grammar, surface singleton, mobile/fallback geometry, atomic content/snapshot activation, strict ports and primary-surface focus are implemented. | Desktop/mobile/WebKit/forced-fallback release cells and conceptual review. |
 | 3 — source/event truth | Typed source lifecycle and a multi-clock temporal graph replace the false equivalence between activity feed and semantic history. | Public fixtures valid; later `P` must measure real private events and keep private identifiers out of public evidence. |
 | 4 — executable demos | Seven isolated base scenarios, nine Genesis stages (0–8) and the Study/Research plus Personal Finance showcases are built by deterministic fixture repositories. Their manifests bind 22 claims to 12 canonical routes. | `wiki_build_demo.py --check`, complete sidecars, empty contract errors and route-level browser journeys. |
@@ -128,7 +131,7 @@ attempts to contain its own SHA and no private state becomes upstream proof.
 | 6 — temporal kernel | `wiki_temporal_event.v1`, `wiki_temporal_graph.v1` and lazy 2D Chronoscope are implemented with strict semantic/occurred/recorded modes, lanes, ranges, deep links and a complete inspector. | Integrity/torn/partial/unsupported/stale states fail visibly; `P` proves real scale and clocks. |
 | 7 — experience-pack kernel | Registry, manifest, exact asset tree, lock, receipts, dependency/slot composition, POSIX operation lock, CAS, rollback and review-branch lifecycle are implemented. | Adversarial concurrency, orphan, drift, SVG, traversal, symlink, privacy and localized-memory-root tests pass; packs cannot execute arbitrary code or weaken gates. |
 | 8 — starter packs | Study/Research conformance and Personal Finance vertical ship page types, templates, blocks, views, commands, operations, temporal descriptors, EN/PT-BR copy and public synthetic fixtures. A generic lazy `pack_view` makes canonical pages readable now. | Dedicated operation renderers/executors remain disabled until a separately versioned, human-gated adapter exists; the UI must never imply execution. |
-| 9 — private adoption | Not started in this public worktree. | Create `S`, then metadata `M` pointing to it; import only allowlisted blobs into the private `wiki/*` branch, preserve config/memory/pack lock, install Finance dry-run first, regenerate, test real API/UI/Timeline/packs/themes/mobile/fallback and bind private receipt `P`. |
+| 9 — private adoption | Exact public `S` is proven and metadata `M` pins it; import has not started. | Import only allowlisted blobs into the private `wiki/*` branch, preserve config/memory/pack lock, install Finance dry-run first, regenerate, test real API/UI/Timeline/packs/themes/mobile/fallback and bind private receipt `P`. |
 
 ### Current architecture of the extensible kit
 
@@ -182,10 +185,10 @@ memory rather than one fixed dashboard:
 | Surface | Reviewed baseline | Automated state | Human/product state | Decision |
 | --- | --- | --- | --- | --- |
 | Public baseline | Public feature branch at `31b94d81`; exact PR metadata stays in the Git review surface | Remote checks green; Python, frontend and most browser tests green | Confirmed P0/P1 failures at that revision; no human review decision | Block merge and release |
-| Public worktree | Frozen uncommitted Waves 0–8 derived from the baseline | 1,339 Python, 488 Vitest and 106 Node gate tests pass; written matrix is current at 102 public + 2 downstream | Global adversarial verdict has no open public P0/P1; exact clean-`S` browser run and human review remain | Create `S`, rerun exact-subject gates and review the conceptual diff |
+| Public payload `S` | Exact subject `b781882a11e8bbac3ae9684d199979a1f4ee1bf7` | 1,339 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; matrix remains 102+2 | Global adversarial verdict has no open public P0/P1; human review and E5 remain | Public release candidate; do not tag until `P`, E5 and human gates converge |
 | Private pilot | Sanitized downstream checkpoint; exact branch, HEAD and PR remain in the private release receipt | Downstream automated suites were green at the checkpoint | Real-data philosophy is viable, but provenance, event typing, timeline and evidence receipts are incomplete | Block semantic approval |
-| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | 22 claims bind test IDs; 12 canonical routes are collected; generation is deterministic | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete; exact clean-`S` browser run remains | Candidate complete; prove on `S` |
-| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | 488 frontend tests pass; PT-BR WebGL/fallback and long-copy browser cells are collected; 42/42 asset controls pass | VoiceOver and final exact-subject visual acceptance remain human gates | Candidate complete; run final accessibility gate |
+| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | 22 claims bind test IDs; 12 canonical routes are collected; generation is deterministic and exact browser cells pass | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Exact public candidate complete; repeat with private composition on `P` |
+| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | 489 frontend tests pass; PT-BR WebGL/fallback and long-copy browser cells run; 42/42 asset controls pass | Updated desktop/reader/mobile baselines were visually compared; VoiceOver remains a human gate | Automated candidate complete; run final human accessibility gate |
 
 The public baseline PR changes 1,461 files with roughly 275k additions and
 7.9k deletions across 68 commits from `origin/main`. The private pilot is also
@@ -671,43 +674,44 @@ reproduction.
 | RT-134 | P2 | Full-graph validation now rejects unresolved causal targets but does not yet reject self-reference, causal cycles or causes that occur after their effects | E1 causal validator scope after RT-133 closure | Add self/cycle detection and explicit clock-direction policy without weakening uncertainty/recorded-time semantics |
 | RT-135 | P2 | Static payload generation validates causality against the full result before slicing, but a future paginated temporal API has no signed full-graph attestation contract | E1 static full-result validator and pagination roadmap | Require a full-graph fingerprint/attestation for future page cursors; do not infer global causal validity from one page |
 
-### Current-worktree closure overlay
+### Exact-public-subject closure overlay
 
 The baseline ledger above remains immutable reproduction history. This overlay
-records what the current uncommitted worktree actually changes; “candidate”
-means implemented plus focused evidence, never an exact-subject receipt.
+records the accepted public `S` and the boundaries still owned by `P`, human
+review or E5. Public closure never promotes the browser-only receipt to a full
+release authority.
 
 | Finding | Current disposition | Evidence now present | Gate still required |
 | --- | --- | --- | --- |
 | RT-21 | **Partial — P2 open** | The new v8 world, visual-control, Timeline and pack surfaces use parity-checked EN/PT namespaces; the PT-BR WebGL/fallback/long-copy browser cells pass. Static inspection still finds legacy visible copy in `App`, `ErrorBoundary`, `PacketTray` and renderer/HUD paths, so this is not global i18n closure | Keep the tested v8 surfaces green, inventory the remaining legacy literals by owning surface, migrate them without changing semantics, and add a fail-closed visible-copy gate before claiming whole-cockpit parity |
-| RT-32 | Closure candidate | One canonical POSIX repo-relative parser rejects empty/dot/`..`, absolute, Windows-separator/drive and case-folded sensitive names before glob matching; all 14 adversarial spellings passed in the current focused run | Full upgrade suite and downstream import preflight on `S`/`P` |
-| RT-33 | Closure candidate | Migration boundaries must be distinct, repository-present and ancestry ordered; rollback IDs are cross-bound; Markdown renders the same warnings, owner, removal window and rollback data as JSON | Produce the real three-commit private migration report after public `S`/`M` |
-| RT-35 | **P0/P1 closure candidate** | External HEAD/refs/index, dirty paths, config/wiki/pack/derived fingerprints, linked worktrees and same-size/restored-mtime rewrites participate in request-time freshness. Two clients receive typed snapshot conflicts; focus/demo-return/failure and removed-page paths revalidate without preserving an invalid reader. The server/job slice is 68/68 | Full server/browser matrix on exact `S`; optional proactive focus/poll remains RT-127 P2 |
-| RT-36 | Closure candidate | Field provenance survives graph compilation, so hierarchy, authored source evidence and reciprocal related links keep distinct typed meanings; ID/path normalization controls passed | Full snapshot/graph suite on `S`, then real downstream relation inventory |
-| RT-38 | Closure candidate | Dedicated PT-BR browser specs cover functional WebGL, explicit topology-equivalent fallback, long guidance, reader, approval warning and mobile controls. Motion is frozen and particles disabled for two reviewed, versioned macOS Chromium pixel baselines; other platforms keep semantic GPU/fallback evidence instead of copied rasters | Run those collected cells in the exact 102-cell wrapper and retain the platform-specific reviewed baselines plus cross-platform semantic attachments |
-| RT-40 | Closure candidate | `AmbientDriver` captures semantic root/material baselines, animates relatively, adopts external baseline changes and restores values on disable/cleanup; its focused tests participate in 488/488 Vitest | Exact WebGL browser run plus reduced-motion visual acceptance on `S` |
-| RT-41 | Closure candidate | Top-level POST boundary converts unexpected exceptions into sanitized replayable 500 receipts, closes `in_flight` attempts and invalidates after dispatch; focused exception/replay test passes | Full server suite and exact operator journey on `S` |
-| RT-43 | Closure candidate | Git batch parsing recognizes object-level `missing`/error headers, drains later records and bounds process exit; the focused missing-blob control passes | Full upgrade suite on `S` and one downstream pinned-tree read |
-| RT-44 | Closure candidate | Privacy resolution is most-restrictive-wins; explicit `false` cannot opt a private/unknown consumer out of redaction; focused positive/negative controls pass | Inspect the public migration artifact generated from `P` for zero private scalar leakage |
-| RT-45 | Closure candidate | Collection and relation-cycle diagnostics carry actionable paths/edges and respect only explicit vocabulary permission; collection and snapshot blocking controls pass | Full graph/snapshot gate on `S`; retain migration guidance in `M` |
-| RT-55 | Closure candidate | Atomic publication covers activation failure, archive/recovery failure, invalid staged inventory and `../` artifact refusal; prior bytes/external paths are preserved where recovery is possible | Full snapshot suite on `S` and conceptual review of recovery UX |
-| RT-110 | Closure candidate | README and release prose now use query-owned canonical `/demo/w` routes, distinguish compatibility aliases, document five native views/themes/densities/Timeline/packs and describe overlay-vs-context visual channels | Documentation/link gates and exact matrix write after freeze |
-| RT-111 | Closure candidate | Pack receipt v2 binds a canonical next-lock projection, digest and identity; current/historical/removed receipts are revalidated and v1 fails closed. Install/upgrade/disable/remove, tamper and rollback controls pass | Full experience-pack suite and downstream Finance install on `S`/`P` |
-| RT-112 | Closure candidate | Active attempt owners never expire/evict; completed receipts alone yield capacity and an all-active store returns `attempt_capacity_exhausted` with HTTP 503. Current server/job slice is 68/68 | Exact operator release journey on `S` |
-| RT-113 / RT-114 / RT-115 / RT-122 / RT-123 | Closure candidate | Temporal parser preserves UTC microseconds across Python/JS, uses exact integer/`BigInt` comparisons, rejects unsupported precision/non-finite/non-interoperable values and opacifies every rejected/colliding authored subject. Current temporal slice is 69/69 | Full temporal/snapshot suite and private real-history pressure on `S`/`P` |
-| RT-116 | Closure candidate | Recipe secret scan happens before diagnostics; sensitive recipes project no fields and cannot compose a brief; exception surfaces are code-only. Source/audit/snapshot/server focused suites pass | Full public snapshot/audit and one private source preflight on `S`/`P` |
-| RT-117 | Closure candidate | Reader frontmatter rejects non-finite values with a stable error and all content sidecar JSON uses `allow_nan=false`; `.nan`/`±.inf` controls prove zero promotion | Full content/snapshot suite on `S` |
-| RT-118 | Closure candidate | Active app docks own z=140 above top-bar z=130; `elementFromPoint` proves both close controls own their pixels and four full route/overlay/dock journeys pass | Exact Chromium cell in the clean public wrapper |
-| RT-119 | Closure candidate | Historical package v1 is restored to its exact old contracts/SHA; validator now distinguishes legacy v1 from full v2 requirements. No new capability is attributed to `dbd158…` | Create `M` only after `S`, pin v2 to `S`, validate every allowlisted blob and use that exact package for `P` |
-| RT-120 | **Closure candidate; exact `S` pending** | Release launchers reject semantic `.env`/Vite/proxy/Node variables, build in a fixed environment, disable Vite env directories and bind normalized inputs plus platform/architecture/native Node executable identity to the manifest. Focused Node/Python controls and generic production build pass | Re-run manifest tamper, bundle and exact public runner on clean `S`; RT-131 records the non-blocking executable-hash residual |
-| RT-121 | Closure candidate | Malformed recipe shapes emit bounded structural codes, never erase a valid sibling and cannot compose a source brief; current source-recipe/source-payload slices pass | Full source/snapshot/audit gates on `S` and one private source preflight on `P` |
-| RT-124 | Closure candidate | `_send_json` serializes strict JSON before headers/receipt commitment; set/NaN failures become sanitized replayable 500 results and only active attempts are finished | Full server/job suite and exact operator journey on `S` |
-| RT-125 | Closure candidate | Drift ignore patterns no longer filter drift; matches are reported, and patterns covering core, scripts, cockpit, tests or workflows block preflight. Upgrade slice is 60/60 | Exact `S` upgrade suite plus private read-only preflight on `P` |
-| RT-126 | **P1 closed in focused review** | Conservative SVG/CSS/entity scanner blocks active/remote/data references; manifest binds asset/license hash and SPDX metadata. Asset tests are 42/42 and the canonical asset gate plus adversarial Chromium recheck are green | Re-run canonical asset/bundle gates on `S`; formal XML parser hardening remains generic P2 defense in depth, not a P1 blocker |
-| RT-128 / RT-51 / RT-93 / RT-132 | **Closure candidate** | Action receipt v2 keeps v1 compatibility, governs `blocked_by`/`completed_at`, clears incompatible fields, binds exact monotonic terminal time and identity across tracked moves/deletes, treats malformed base records as governed, and hides stale terminal next-action copy. Final focused evidence: 70 lifecycle, 65 audit, 6 endpoint and 113 snapshot/demo tests; full Python is green | Re-run exact-subject gates on `S`; future typed gate/blocker/waiver fields remain explicitly out of v8 scope |
-| RT-129 | Closure candidate for scope truth only | `browser_closure` replaces the overbroad name and receipt semantics say browser evidence only. Release-receipt slice is 90/90 | Build a broader release manifest or use external E5; never infer full release from this receipt |
-| RT-130 | Closure candidate | Registry-owned canonical writer emits `/w?view=...`; positional routes are compatibility reads; malformed escapes fail closed; packet/missions tray is URL-owned under one primary-surface reducer. Focused route/tray Vitest and browser cells pass | Exact route/back-forward/share/focus cells in the 102-cell clean-`S` run |
-| RT-133 | **Closure candidate** | Rejected action/source rows do not advance causal pointers; state-preserving receipts emit truthful canonical kinds; receipt IDs are canonical; causal targets validate against the full 141-event graph. Regeneration reports zero dangling references and zero false same-state transitions; the focused reviewer slice is 165/165 | Re-run exact-subject gates on `S`; RT-134/135 retain the non-blocking causal-cycle/time-direction and future-pagination work |
+| RT-32 | Public `S` closed; `P` pending | One canonical POSIX repo-relative parser rejects empty/dot/`..`, absolute, Windows-separator/drive and case-folded sensitive names before glob matching; the exact upgrade suite passed | Run the downstream import preflight against the pinned `S` tree |
+| RT-33 | Metadata `M` prepared; `P` pending | Migration boundaries must be distinct, repository-present and ancestry ordered; rollback IDs are cross-bound; Markdown renders the same warnings, owner, removal window and rollback data as JSON | Produce the real three-commit private migration report |
+| RT-35 | **Public P0/P1 closed** | External HEAD/refs/index, dirty paths, config/wiki/pack/derived fingerprints, linked worktrees and same-size/restored-mtime rewrites participate in request-time freshness. Two clients receive typed snapshot conflicts; focus/demo-return/failure and removed-page paths revalidate without preserving an invalid reader. Exact Python/browser gates pass | Optional proactive idle polling remains RT-127 P2 |
+| RT-36 | Public `S` closed; `P` pending | Field provenance survives graph compilation, so hierarchy, authored source evidence and reciprocal related links keep distinct typed meanings; exact snapshot/graph gates passed | Inventory real downstream relations after adoption |
+| RT-38 | Public `S` closed; human gate remains | Dedicated PT-BR browser specs cover functional WebGL, explicit topology-equivalent fallback, long guidance, reader, approval warning and mobile controls. Exact browser cells and reviewed macOS baselines pass | Retain platform-specific rasters, cross-platform semantic attachments and human VoiceOver review |
+| RT-40 | Public `S` closed | `AmbientDriver` captures semantic root/material baselines, animates relatively, adopts external baseline changes and restores values on disable/cleanup; its focused tests participate in 489/489 Vitest | Exact WebGL, reduced-motion and visual-baseline controls pass on `S` |
+| RT-41 | Exact `S` closed | Top-level POST boundary converts unexpected exceptions into sanitized replayable 500 receipts, closes `in_flight` attempts and invalidates after dispatch; exact server/operator controls pass | Repeat with the private operator identity on `P` |
+| RT-43 | Public `S` closed; `P` pending | Git batch parsing recognizes object-level `missing`/error headers, drains later records and bounds process exit; exact upgrade gates pass | Prove one downstream pinned-tree read during preflight |
+| RT-44 | Public `S` closed; privacy review on `P` pending | Privacy resolution is most-restrictive-wins; explicit `false` cannot opt a private/unknown consumer out of redaction | Inspect the public migration artifact generated from `P` for zero private scalar leakage |
+| RT-45 | Exact `S` closed | Collection and relation-cycle diagnostics carry actionable paths/edges and respect only explicit vocabulary permission; exact graph/snapshot gates pass | Preserve migration guidance in `M` |
+| RT-55 | Exact `S` closed | Atomic publication covers activation failure, archive/recovery failure, invalid staged inventory and `../` artifact refusal; exact snapshot gates preserve prior bytes/external paths | Human recovery-language review remains non-blocking product polish |
+| RT-110 | Exact `S` closed | README and release prose use query-owned canonical `/demo/w` routes, distinguish compatibility aliases, document five native views/themes/densities/Timeline/packs and describe overlay-vs-context channels | Keep documentation/link gates green through private adoption |
+| RT-111 | Public `S` closed; `P` pending | Pack receipt v2 binds canonical next-lock projection, digest and identity; current/historical/removed receipts are revalidated and v1 fails closed. Exact pack gates pass | Run downstream Finance dry-run/install/disable/rollback lifecycle |
+| RT-112 | Exact `S` closed | Active attempt owners never expire/evict; completed receipts alone yield capacity and an all-active store returns HTTP 503. Exact server/operator controls pass | Repeat exact operator journey after private adoption |
+| RT-113 / RT-114 / RT-115 / RT-122 / RT-123 | Public `S` closed; `P` pressure pending | Temporal parser preserves UTC microseconds across Python/JS, uses integer/`BigInt` comparisons, rejects unsupported/non-finite values and opacifies rejected/colliding authored subjects. Exact temporal/snapshot gates pass | Pressure-test real private history without publishing identifiers |
+| RT-116 | Public `S` closed; `P` preflight pending | Recipe secret scan happens before diagnostics; sensitive recipes project no fields and cannot compose a brief; exact public audit/snapshot gates pass | Run one private source preflight |
+| RT-117 | Exact `S` closed | Reader frontmatter rejects non-finite values and content sidecars use `allow_nan=false`; exact content/snapshot gates pass | None at public P0/P1 boundary |
+| RT-118 | Exact `S` closed | Active app docks own their hit pixels; exact Chromium route/overlay/dock cells pass | Repeat on private composition |
+| RT-119 | Metadata `M` prepared; `P` pending | Historical package v1 remained truthful through `S`; package v2 now declares the full temporal/pack/asset/adapter contracts and pins exact payload `b781882a…` without attributing them to `dbd158…` | Validate `M`, then use its allowlist and exact `S` tree for the three-boundary private adoption |
+| RT-120 | **Exact `S` closed** | Release launchers reject semantic `.env`/Vite/proxy/Node variables, build in a fixed environment and bind normalized inputs plus platform/architecture/native Node identity. Exact build, bundle and public runner pass | RT-131 retains the non-blocking executable-hash residual |
+| RT-121 | Public `S` closed; `P` preflight pending | Malformed recipe shapes emit bounded structural codes, never erase a valid sibling and cannot compose a source brief; exact source/snapshot/audit gates pass | Run one private source preflight |
+| RT-124 | Exact `S` closed | `_send_json` serializes strict JSON before headers/receipt commitment; set/NaN failures become sanitized replayable 500 results. Exact server/job controls pass | Repeat private operator journey |
+| RT-125 | Public `S` closed; `P` preflight pending | Drift ignore patterns no longer filter drift; unsafe core ignore patterns block preflight. Exact 60-test upgrade slice passes | Run private read-only preflight |
+| RT-126 | **Exact `S` closed** | Conservative SVG/CSS/entity scanner blocks active/remote/data references; manifest binds asset/license hash and SPDX metadata. Exact 42/42 asset and bundle gates pass | Formal XML parser hardening remains generic P2 defense in depth |
+| RT-128 / RT-51 / RT-93 / RT-132 | **Exact `S` closed** | Action receipt v2 keeps v1 compatibility, governs terminal fields, binds exact monotonic time/identity across tracked moves/deletes and treats malformed base records as governed. Exact full Python and browser suites pass | Typed gate/blocker/waiver fields remain explicitly future work |
+| RT-129 | Public scope truth closed; E5 pending | `browser_closure` is browser-only; exact 102/102 proof does not self-promote to release | Build a broader external release manifest or use E5 |
+| RT-130 | Exact `S` closed | Registry-owned writer emits canonical `/w?view=...`; positional routes are compatibility reads; malformed escapes fail closed; one URL-owned tray obeys primary-surface precedence. Exact route/back-forward/share/focus cells pass | Repeat with private composition |
+| RT-133 | **Exact `S` closed** | Rejected rows cannot advance causal pointers; state-preserving receipts emit truthful kinds; IDs are canonical; the full 141-event graph has zero dangling/false same-state transitions. Exact full suite passes | RT-134/135 retain causal-cycle/time-direction and future-pagination P2 work |
 
 ### Complete P0/P1 control matrix
 
@@ -715,135 +719,137 @@ This is the release-blocker index for the **entire** ledger. It prevents later
 rows from falling outside a historical “RT-01 through RT-56” checklist. Slice
 codes are: `S` public portable payload and exact-subject proof; `M` metadata
 commit created only after `S`; `P` exact private adoption; `E5` external signed
-promotion/human authority. “Candidate” never means released: it means focused
-worktree evidence exists and the named exact-subject gate is still required.
+promotion/human authority. The disposition column is current after the exact
+`S` rerun. For rows whose proof cell still describes the earlier focused gate,
+the exact-`S` overlay is authoritative: 1,339 Python, 489 frontend, 106 Node and
+102/102 public browser controls passed with zero required skip/retry. “Closed
+at `S`” never means released; downstream, E5 and human gates remain independent.
 
 | Finding | Sev | Owner role | Target slice | Current disposition | Closure proof or pending gate |
 | --- | --- | --- | --- | --- | --- |
-| RT-01 | P0 | Runtime owner | S | Candidate | Empty-world contract plus Genesis cells; exact 102-cell run on `S` pending |
-| RT-02 | P0 | Accessibility owner | S | Candidate | Native Tab/focus restoration controls; full keyboard matrix on `S` pending |
-| RT-03 | P0 | Privacy owner | S | Candidate | Safe fail-closed projection and audits; exact public artifact inspection pending |
-| RT-04 | P0 | Action owner | S | Closure candidate | Shared resolver plus receipt-v2 lifecycle/audit suites pass; exact clean-`S` proof pending |
-| RT-05 | P1 | Mobile UX owner | S | Candidate | Five no-retry WebKit repeats green; final supported-device matrix pending |
-| RT-06 | P1 | Route owner | S | Candidate | Reducer/route transition controls; full share-refresh matrix pending |
-| RT-07 | P1 | Route owner | S | Candidate | Absolute Galaxy reset contract; exact history/back-forward journey pending |
-| RT-08 | P1 | Snapshot owner | S | Candidate | Immutable revision activation and reader stress controls; exact `S` suite pending |
+| RT-01 | P0 | Runtime owner | S | Exact `S` closed | Empty-world contract plus Genesis cells. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-02 | P0 | Accessibility owner | S | Exact `S` closed | Native Tab/focus restoration controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-03 | P0 | Privacy owner | S | Exact `S` closed | Safe fail-closed projection and audits. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-04 | P0 | Action owner | S | Exact `S` closed | Shared resolver plus receipt-v2 lifecycle/audit suites pass. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-05 | P1 | Mobile UX owner | S | Exact `S` closed | Five no-retry WebKit repeats green. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-06 | P1 | Route owner | S | Exact `S` closed | Reducer/route transition controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-07 | P1 | Route owner | S | Exact `S` closed | Absolute Galaxy reset contract. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-08 | P1 | Snapshot owner | S | Exact `S` closed | Immutable revision activation and reader stress controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 | RT-09 | P1 | Downstream migration owner | P | Open | Migrate/compat-track real legacy events and prove equality gate on `P` |
-| RT-10 | P1 | Source ontology owner | S→P | Candidate | Canonical event generator/template/demo; downstream compatibility inventory pending |
-| RT-11 | P1 | Demo owner | S | Candidate | Seven worlds, 22 claims and 12 routes exist; exact browser execution pending |
+| RT-10 | P1 | Source ontology owner | S→P | Public `S` closed; `P` pending | Canonical event generator/template/demo; downstream compatibility inventory pending |
+| RT-11 | P1 | Demo owner | S | Exact `S` closed | Seven worlds, 22 claims and 12 routes exist. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 | RT-12 | P1 | Downstream release owner | P→E5 | Open | Current private receipt bound to exact public/private subjects is pending |
-| RT-13 | P1 | Temporal owner | S→P | Candidate | Static completeness contract exists; real private scale proof pending |
-| RT-14 | P1 | Temporal/provenance owner | S | Candidate | Reader uses emitted graph provenance; exact snapshot/browser proof pending |
-| RT-15 | P1 | Release owner | S | Candidate | Zero-retry/skip policy implemented; frozen 102+2 execution pending |
-| RT-23 | P1 | Release owner | S→E5 | Candidate | Reviewed base/ancestor required; exact clean browser closure and external authority pending |
-| RT-26 | P1 | Demo security owner | S | Candidate | Demo mutation/read isolation controls; zero `/api/**` exact browser cell pending |
-| RT-27 | P1 | Fallback UX owner | S | Open | Semantic fallback exists; final parity, single-scroll and visual acceptance pending |
-| RT-28 | P1 | Navigation UX owner | S | Candidate | Ancestry/state-rail route controls; exact nested-center journey pending |
+| RT-13 | P1 | Temporal owner | S→P | Public `S` closed; `P` pending | Static completeness contract exists; real private scale proof pending |
+| RT-14 | P1 | Temporal/provenance owner | S | Exact `S` closed | Reader uses emitted graph provenance. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-15 | P1 | Release owner | S | Exact `S` closed | Zero-retry/skip policy implemented. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-23 | P1 | Release owner | S→E5 | Public `S` closed; `E5` pending | Reviewed base/ancestor required; exact clean browser closure and external authority pending |
+| RT-26 | P1 | Demo security owner | S | Exact `S` closed | Demo mutation/read isolation controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-27 | P1 | Fallback UX owner | S | Exact `S` closed | Semantic fallback exists. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-28 | P1 | Navigation UX owner | S | Exact `S` closed | Ancestry/state-rail route controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 | RT-29 | P1 | Search UX owner | P | Open | Real-data ranking/filter/bounded-results acceptance on adopted private build pending |
-| RT-32 | P1 | Upgrade owner | S→P | Candidate | Upgrade 60/60 freeze checkpoint; exact `S` suite and private preflight pending |
-| RT-33 | P1 | Migration owner | M→P | Candidate | Commit-boundary/report checks exist; real three-commit migration report pending |
-| RT-34 | P0 | Snapshot owner | S | Candidate | Revision-bound body/hash and 409 controls; exact concurrent `S` proof pending |
-| RT-35 | P1 | Operator freshness owner | S | P0/P1 closed candidate | External/linked/same-size/two-client/focus/demo/failure/removed-page controls; exact `S` gate pending |
-| RT-36 | P1 | Graph owner | S→P | Candidate | Typed field provenance controls; full snapshot and downstream relation inventory pending |
+| RT-32 | P1 | Upgrade owner | S→P | Public `S` closed; `P` pending | Exact 60/60 upgrade suite passes; private read-only preflight pending |
+| RT-33 | P1 | Migration owner | M→P | `M` pinned; `P` pending | Commit-boundary/report checks exist; real three-commit migration report pending |
+| RT-34 | P0 | Snapshot owner | S | Exact `S` closed | Revision-bound body/hash and 409 controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-35 | P1 | Operator freshness owner | S | Exact `S` closed | External/linked/same-size/two-client/focus/demo/failure/removed-page controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-36 | P1 | Graph owner | S→P | Public `S` closed; `P` pending | Typed field provenance controls; full snapshot and downstream relation inventory pending |
 | RT-37 | P1 | Downstream operator owner | P | Open | Mandatory real repo/operator API+UI job on exact `P`; no optional skip |
-| RT-39 | P1 | Route/view owner | S | Candidate | Registry identity drives URL/HUD/a11y; full registered-view matrix pending |
-| RT-42 | P0 | Output-safety owner | S | Candidate | Containment/ownership/symlink preservation tests; exact full suite pending |
-| RT-46 | P1 | Operator security owner | S | Candidate | Default-deny CORS and same-origin controls; exact cold-start browser journey pending |
-| RT-47 | P1 | Source lifecycle owner | S→P | Candidate | Shared vocabulary/fail-close audits; downstream authoring replay pending |
-| RT-48 | P1 | Operator security owner | S→P | Candidate | Versioned stale-server rejection; restart E2E and downstream docs pending |
-| RT-49 | P1 | Publication owner | S | Candidate | Pre-promotion boundary validation/count-only refusal; exact deploy suite pending |
-| RT-51 | P1 | Action owner | S | Closure candidate | Receipt-v2 support-field, monotonic-time and tracked-path controls pass; exact `S` proof pending |
-| RT-53 | P1 | Test-infra owner | S | Candidate | Hypothesis is mandatory; clean exact dependency/collection proof pending |
-| RT-57 | P0 | Browser release owner | S | Candidate | Public testMatch isolation exists; frozen 102-cell collection gate pending |
-| RT-58 | P0 | Release authority owner | S→E5 | Candidate, intentionally bounded | Receipt is browser-only; external full-release/E5 authority remains pending |
+| RT-39 | P1 | Route/view owner | S | Exact `S` closed | Registry identity drives URL/HUD/a11y. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-42 | P0 | Output-safety owner | S | Exact `S` closed | Containment/ownership/symlink preservation tests. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-46 | P1 | Operator security owner | S | Exact `S` closed | Default-deny CORS and same-origin controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-47 | P1 | Source lifecycle owner | S→P | Public `S` closed; `P` pending | Shared vocabulary/fail-close audits; downstream authoring replay pending |
+| RT-48 | P1 | Operator security owner | S→P | Public `S` closed; `P` pending | Versioned stale-server rejection; restart E2E and downstream docs pending |
+| RT-49 | P1 | Publication owner | S | Exact `S` closed | Pre-promotion boundary validation/count-only refusal. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-51 | P1 | Action owner | S | Exact `S` closed | Receipt-v2 support-field, monotonic-time and tracked-path controls pass. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-53 | P1 | Test-infra owner | S | Exact `S` closed | Hypothesis is mandatory. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-57 | P0 | Browser release owner | S | Exact `S` closed | Public testMatch isolation exists. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-58 | P0 | Release authority owner | S→E5 | Public `S` closed; `E5` pending | Receipt is browser-only; external full-release/E5 authority remains pending |
 | RT-59 | P1 | Downstream release owner | P | Candidate | Source/public/adapter identities validated synthetically; exact `P` receipt pending |
-| RT-60 | P1 | Release integrity owner | S | Candidate | Index flags/runtime inputs are checked; exact before/after subject proof pending |
-| RT-61 | P1 | Release integrity owner | S | Candidate | Raw Playwright report is reparsed against canonical cells; exact run pending |
-| RT-62 | P1 | Release integrity owner | S | Candidate | Unique create-once run lifecycle exists; failure-path exact wrapper proof pending |
-| RT-63 | P0 | Publication/privacy owner | S | Candidate | Closed artifact registry and byte scanning; exact public evidence inspection pending |
-| RT-65 | P1 | Cross-platform safety owner | S→E5 | Candidate | POSIX descriptor safety and Windows fail-close policy exist; supported-runner proof pending |
-| RT-67 | P1 | Release integrity owner | S→E5 | Candidate | Toolchain/input manifest is bound; exact runner plus external authority pending |
-| RT-68 | P1 | Genesis UX owner | S | Candidate | Pointer/touch/keyboard stages repaired; exact no-write 0→8 cells pending |
-| RT-69 | P1 | Demo transport owner | S | Candidate | Async boundary revalidation/abort controls; exact network-negative cell pending |
-| RT-70 | P1 | Demo transport owner | S | Candidate | Demo bypasses live snapshot; exact zero-API load cell pending |
-| RT-71 | P0 | Evidence-path owner | S | Candidate | Canonical owned ignored roots/no tracked deletion; exact race/sentinel proof pending |
-| RT-72 | P0 | Snapshot owner | S | Candidate | Publication lease spans prune; multiprocess exact suite pending |
-| RT-73 | P1 | Snapshot owner | S | Candidate | Descriptor/no-follow lease directory; full symlink suite pending |
-| RT-74 | P1 | Snapshot owner | S | Candidate | Only owned contract-valid revisions prune; exact preservation proof pending |
-| RT-75 | P1 | Snapshot owner | S | Candidate | Directory/manifest/recomputed hash equality enforced; full suite pending |
-| RT-76 | P1 | Operator snapshot owner | S | Candidate | API serves pinned active bundle and boot aggregate; exact operator run pending |
-| RT-77 | P1 | Snapshot owner | S | Candidate | Post-commit cleanup failure returns committed warning; exact recovery suite pending |
-| RT-82 | P1 | Snapshot owner | S | Candidate | Exact regular inventory/repo identity/no links; full adversarial suite pending |
-| RT-83 | P1 | Durability owner | S | Candidate | Both affected directories are fsynced and claims narrowed; exact injected-failure suite pending |
+| RT-60 | P1 | Release integrity owner | S | Exact `S` closed | Index flags/runtime inputs are checked. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-61 | P1 | Release integrity owner | S | Exact `S` closed | Raw Playwright report is reparsed against canonical cells. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-62 | P1 | Release integrity owner | S | Exact `S` closed | Unique create-once run lifecycle exists. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-63 | P0 | Publication/privacy owner | S | Exact `S` closed | Closed artifact registry and byte scanning. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-65 | P1 | Cross-platform safety owner | S→E5 | Public `S` closed; `E5` pending | POSIX descriptor safety and Windows fail-close policy exist; supported-runner proof pending |
+| RT-67 | P1 | Release integrity owner | S→E5 | Public `S` closed; `E5` pending | Toolchain/input manifest is bound; exact runner plus external authority pending |
+| RT-68 | P1 | Genesis UX owner | S | Exact `S` closed | Pointer/touch/keyboard stages repaired. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-69 | P1 | Demo transport owner | S | Exact `S` closed | Async boundary revalidation/abort controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-70 | P1 | Demo transport owner | S | Exact `S` closed | Demo bypasses live snapshot. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-71 | P0 | Evidence-path owner | S | Exact `S` closed | Canonical owned ignored roots/no tracked deletion. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-72 | P0 | Snapshot owner | S | Exact `S` closed | Publication lease spans prune. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-73 | P1 | Snapshot owner | S | Exact `S` closed | Descriptor/no-follow lease directory. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-74 | P1 | Snapshot owner | S | Exact `S` closed | Only owned contract-valid revisions prune. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-75 | P1 | Snapshot owner | S | Exact `S` closed | Directory/manifest/recomputed hash equality enforced. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-76 | P1 | Operator snapshot owner | S | Exact `S` closed | API serves pinned active bundle and boot aggregate. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-77 | P1 | Snapshot owner | S | Exact `S` closed | Post-commit cleanup failure returns committed warning. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-82 | P1 | Snapshot owner | S | Exact `S` closed | Exact regular inventory/repo identity/no links. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-83 | P1 | Durability owner | S | Exact `S` closed | Both affected directories are fsynced and claims narrowed. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 | RT-85 | P1 | Release authority owner | P→E5 | Candidate | Separate public/private subject receipts exist; actual pair and external combination pending |
-| RT-86 | P1 | Demo/graph owner | S | Candidate | Source-owned event projections/routes repaired; exact 102-cell execution pending |
-| RT-87 | P1 | Snapshot owner | S | Candidate | First activation no-clobber/CAS; exact non-cooperating race proof pending |
-| RT-88 | P1 | Snapshot owner | S | Candidate | Descriptor-relative quarantine deletion; exact race proof pending |
-| RT-89 | P1 | Snapshot owner | S | Candidate | Cleanup receipt binds inode/type; reconciliation race proof pending |
+| RT-86 | P1 | Demo/graph owner | S | Exact `S` closed | Source-owned event projections/routes repaired. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-87 | P1 | Snapshot owner | S | Exact `S` closed | First activation no-clobber/CAS. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-88 | P1 | Snapshot owner | S | Exact `S` closed | Descriptor-relative quarantine deletion. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-89 | P1 | Snapshot owner | S | Exact `S` closed | Cleanup receipt binds inode/type. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 | RT-91 | P0 | Downstream release owner | P | Candidate | Consumer/snapshot subject cross-binding is tested; exact private receipt pending |
-| RT-92 | P1 | Visual evidence owner | S→E5 | Candidate | Bounded PNG decode/hash/metadata checks exist; exact visual manifest and human privacy gate pending |
-| RT-93 | P1 | Action owner | S | Closure candidate | Page identity remains governed across tracked move/delete and malformed-base cases; exact `S` proof pending |
-| RT-94 | P0 | Browser release owner | S | Closure candidate | Canonical tracked matrix is written/current at 102+2 and 106/106 Node gates pass; exact browser execution pending |
-| RT-95 | P1 | Toolchain owner | S→E5 | Candidate | Runtime versions/platform/arch/native Node identity checked; exact runner and E5 pending |
-| RT-96 | P1 | Release integrity owner | S | Candidate | Run/receipt chronology windows enforced; exact wrapper proof pending |
-| RT-97 | P0 | Publication/privacy owner | S | Candidate | Every public bound byte gets secret+PII scan; exact receipt inspection pending |
-| RT-98 | P1 | Snapshot/release owner | S | Candidate | Canonical owned snapshot validation reused; exact artifact mutation suite pending |
-| RT-99 | P1 | Browser release owner | S | Candidate | Release server is unique/no-reuse; stale-listener control on exact runner pending |
-| RT-100 | P1 | Evidence-path owner | S | Candidate | Create-once/no-replace outputs; exact occupied-path race proof pending |
-| RT-101 | P1 | Graph owner | S | Candidate | Relation field provenance preserves semantics; full snapshot gate pending |
-| RT-102 | P1 | Browser release owner | S | Candidate | Helpers derive run origin; literal-default-origin gate and exact wrapper pending |
-| RT-103 | P0 | Browser release owner | S | Candidate | Disposable and immutable evidence roots are disjoint; exact cleanup proof pending |
-| RT-105 | P1 | Temporal/privacy owner | S | Candidate | Only trusted core event IDs are opaque; authored controls and exact public snapshot pending |
-| RT-106 | P1 | Temporal/action owner | S→P | Candidate | Canonical action history maps into Chronoscope; exact `S` plus real `P` proof pending |
+| RT-92 | P1 | Visual evidence owner | S→E5 | Public `S` closed; `E5` pending | Bounded PNG decode/hash/metadata checks exist; exact visual manifest and human privacy gate pending |
+| RT-93 | P1 | Action owner | S | Exact `S` closed | Page identity remains governed across tracked move/delete and malformed-base cases. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-94 | P0 | Browser release owner | S | Exact `S` closed | Canonical tracked matrix is written/current at 102+2 and 106/106 Node gates pass. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-95 | P1 | Toolchain owner | S→E5 | Public `S` closed; `E5` pending | Runtime versions/platform/arch/native Node identity checked; exact runner and E5 pending |
+| RT-96 | P1 | Release integrity owner | S | Exact `S` closed | Run/receipt chronology windows enforced. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-97 | P0 | Publication/privacy owner | S | Exact `S` closed | Every public bound byte gets secret+PII scan. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-98 | P1 | Snapshot/release owner | S | Exact `S` closed | Canonical owned snapshot validation reused. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-99 | P1 | Browser release owner | S | Exact `S` closed | Release server is unique/no-reuse. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-100 | P1 | Evidence-path owner | S | Exact `S` closed | Create-once/no-replace outputs. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-101 | P1 | Graph owner | S | Exact `S` closed | Relation field provenance preserves semantics. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-102 | P1 | Browser release owner | S | Exact `S` closed | Helpers derive run origin. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-103 | P0 | Browser release owner | S | Exact `S` closed | Disposable and immutable evidence roots are disjoint. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-105 | P1 | Temporal/privacy owner | S | Exact `S` closed | Only trusted core event IDs are opaque. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-106 | P1 | Temporal/action owner | S→P | Public `S` closed; `P` pending | Canonical action history maps into Chronoscope on exact `S`; real `P` proof pending |
 | RT-107 | P1 | Downstream adapter owner | P | Candidate | Closed tracked adapter manifest exists; exact private bridge hash/receipt pending |
-| RT-108 | P1 | Temporal owner | S→P | Candidate | Static totals/truncation/cursor invariants enforced; exact public/private proof pending |
-| RT-109 | P1 | Pack owner | S→P | Candidate | Composition semantics independently validated; exact Finance adoption pending |
-| RT-111 | P1 | Pack owner | S→P | Candidate | Receipt v2 binds next-lock projection; full pack suite and Finance lifecycle pending |
-| RT-112 | P1 | Operator owner | S | Candidate | Active attempts never expire/evict; exact capacity/replay journey pending |
-| RT-113 | P1 | Temporal owner | S | Candidate | UTC microseconds preserved; exact full temporal/snapshot suite pending |
-| RT-114 | P1 | Temporal owner | S | Candidate | Non-finite values rejected with strict JSON; exact artifact suite pending |
-| RT-115 | P0 | Temporal/privacy owner | S | Candidate | Rejected subjects are opacified; exact public snapshot scan pending |
-| RT-116 | P0 | Source/privacy owner | S→P | Candidate | Unsafe recipe projects nothing/brief blocked; exact public and private preflight pending |
-| RT-117 | P1 | Content owner | S | Candidate | Non-finite frontmatter typed refusal/no promotion; exact full suite pending |
-| RT-118 | P1 | Surface UX owner | S | Candidate | Dock hit ownership and journeys pass focused; exact Chromium cell pending |
-| RT-119 | P0 | Upgrade/release owner | M→P | Open by sequence | Historical v1 is truthful; create v2 only in `M` pinned to exact `S`, then use for `P` |
-| RT-120 | P1 | Build/release owner | S | Candidate | Fixed env/native Node-bound build passes focused; exact clean build/runner pending |
-| RT-121 | P1 | Source owner | S→P | Candidate | Structural code-only errors/preserved siblings; exact source suite and private preflight pending |
-| RT-122 | P1 | Temporal cross-runtime owner | S | Candidate | Integer/BigInt microsecond/far-year controls pass; exact full validator suite pending |
-| RT-123 | P0 | Temporal/privacy owner | S | Candidate | Internal opaque provenance plus authored rehash controls; exact public artifact scan pending |
-| RT-124 | P1 | Operator owner | S | Candidate | Strict precommit serialization/replayable 500; exact full server suite pending |
-| RT-125 | P0 | Upgrade/release owner | S→P | Candidate | Ignore patterns cannot remove drift; exact upgrade suite/private preflight pending |
-| RT-126 | P1 | Asset/security owner | S | Closed in focused review | 42/42 plus canonical gate and Chromium recheck; exact `S` asset/bundle gates pending |
-| RT-128 | P1 | Action owner | S | Closure candidate | Contradictory terminal fields and exact transition identity/time repaired; exact `S` proof pending |
-| RT-129 | P1 | Release semantics owner | S→E5 | Candidate for scope truth | `browser_closure` is browser-only; broader manifest and E5 intentionally pending |
-| RT-130 | P1 | Route/surface owner | S | Candidate | Canonical writer, URL tray and singleton precedence; exact route matrix pending |
-| RT-132 | P1 | Action owner | S | Closure candidate | 70 lifecycle, 65 audit, 6 endpoint and 113 snapshot/demo controls pass; exact `S` proof pending |
-| RT-133 | P1 | Temporal owner | S | Closure candidate | 165 focused controls plus regenerated 141-event graph with zero dangling/false same-state events; exact `S` proof pending |
+| RT-108 | P1 | Temporal owner | S→P | Public `S` closed; `P` pending | Static totals/truncation/cursor invariants enforced; exact public/private proof pending |
+| RT-109 | P1 | Pack owner | S→P | Public `S` closed; `P` pending | Composition semantics independently validated; exact Finance adoption pending |
+| RT-111 | P1 | Pack owner | S→P | Public `S` closed; `P` pending | Receipt v2 binds next-lock projection; full pack suite and Finance lifecycle pending |
+| RT-112 | P1 | Operator owner | S | Exact `S` closed | Active attempts never expire/evict. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-113 | P1 | Temporal owner | S | Exact `S` closed | UTC microseconds preserved. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-114 | P1 | Temporal owner | S | Exact `S` closed | Non-finite values rejected with strict JSON. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-115 | P0 | Temporal/privacy owner | S | Exact `S` closed | Rejected subjects are opacified. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-116 | P0 | Source/privacy owner | S→P | Public `S` closed; `P` pending | Unsafe recipe projects nothing/brief blocked; exact public and private preflight pending |
+| RT-117 | P1 | Content owner | S | Exact `S` closed | Non-finite frontmatter typed refusal/no promotion. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-118 | P1 | Surface UX owner | S | Exact `S` closed | Dock hit ownership and journeys pass focused. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-119 | P0 | Upgrade/release owner | M→P | `M` pinned; `P` pending | Package v2 pins exact `S`; validate its allowlist from the pinned Git tree, then use it for `P` |
+| RT-120 | P1 | Build/release owner | S | Exact `S` closed | Fixed env/native Node-bound build passes focused. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-121 | P1 | Source owner | S→P | Public `S` closed; `P` pending | Structural code-only errors/preserved siblings; exact source suite and private preflight pending |
+| RT-122 | P1 | Temporal cross-runtime owner | S | Exact `S` closed | Integer/BigInt microsecond/far-year controls pass. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-123 | P0 | Temporal/privacy owner | S | Exact `S` closed | Internal opaque provenance plus authored rehash controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-124 | P1 | Operator owner | S | Exact `S` closed | Strict precommit serialization/replayable 500. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-125 | P0 | Upgrade/release owner | S→P | Public `S` closed; `P` pending | Ignore patterns cannot remove drift; exact upgrade suite/private preflight pending |
+| RT-126 | P1 | Asset/security owner | S | Exact `S` closed | 42/42 plus canonical gate and Chromium recheck. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-128 | P1 | Action owner | S | Exact `S` closed | Contradictory terminal fields and exact transition identity/time repaired. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-129 | P1 | Release semantics owner | S→E5 | Public `S` closed; `E5` pending | `browser_closure` is browser-only; broader manifest and E5 intentionally pending |
+| RT-130 | P1 | Route/surface owner | S | Exact `S` closed | Canonical writer, URL tray and singleton precedence. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-132 | P1 | Action owner | S | Exact `S` closed | 70 lifecycle, 65 audit, 6 endpoint and 113 snapshot/demo controls pass. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
+| RT-133 | P1 | Temporal owner | S | Exact `S` closed | 165 focused controls plus regenerated 141-event graph with zero dangling/false same-state events. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 
 ## Evidence Checkpoints — Historical Plus Current, Never E5
 
-This table intentionally separates the last complete historical checkpoints
-from newer focused worktree evidence. Two hardened browser failures exposed
-RT-102/RT-104 and the then-current 68-cell wrapper later passed; subsequent
-features expanded collection to 102 public + 2 downstream cells. That larger
-collection is now written into the tracked matrix and its 106 Node gate tests
-pass. It has not yet been executed on clean `S`, so no older browser full-run
-count is promoted as current release proof. Counts below are the final frozen
-worktree checkpoint and must be repeated on the committed exact subject where
-the release sequence requires it.
+This table separates historical checkpoints, the failed first exact-subject
+attempt and the accepted final `S`. Two earlier hardened browser failures
+exposed RT-102/RT-104 before a 68-cell wrapper passed. The expanded 102-cell
+contract then failed its first clean-subject attempt at 84/102; the failed run
+is retained because it found a real compatibility-route defect, stale test
+assumptions and measurable mobile occlusion. Only the corrected 102/102 run on
+`b781882a11e8bbac3ae9684d199979a1f4ee1bf7` is promoted as current public
+browser proof.
 
 ### Public kit
 
 | Gate | Result | Interpretation |
 | --- | --- | --- |
 | Python methodology and snapshot gates | Pass; 26 snapshot payloads | Core deterministic contracts and expanded temporal/pack payload family work |
-| Final full Pytest freeze checkpoint | 1,339 passed, 0 skipped in 355.43s; 2 fork deprecation warnings | Complete post-RT-132/133 run; exact clean-`S` repetition still belongs to the release subject |
+| Exact `S` full Pytest | 1,339 passed, 0 skipped in 355.06s; 2 fork deprecation warnings | Clean immutable public subject; warnings are Python multiprocessing fork deprecations, not test skips |
 | Focused closure evidence | Action: 70 lifecycle, 65 audit, 6 endpoint, 113 snapshot/demo; RT-133 reviewer: 165; upgrade 60; server/jobs 68; release receipt 90; asset 42 | Direct evidence for final action/temporal adversarial closure plus portable import, freshness and browser-receipt truth |
-| Frontend Vitest | 488/488 across 62 files | Current complete component/runtime result, including route/tray ownership, invalid-page recovery, action reading, i18n, pack presentation, Timeline and ambient semantic-baseline ownership |
+| Frontend Vitest | 489/489 across 62 files | Exact component/runtime result, including canonical compatibility-route writes, route/tray ownership, invalid-page recovery, action reading, i18n, pack presentation, Timeline and ambient semantic-baseline ownership |
 | Node/release controls | 106/106 gate tests; asset 42/42; canonical asset gate green; production build green | Tracked 102+2 contract is current; browser receipt still never substitutes for the other gates |
 | Architecture gate | 0 reported violations/debt | Import/capability rules pass; complexity is not covered |
 | Current hotspot sizes | `styles.css` 10,202; `perspectives.ts` 2,378; `SystemScene.tsx` 2,191; `WorldView.tsx` 2,132 lines | RT-16 remains open despite architecture-gate green |
-| Bundle | Pass; initial JS 162.31 kB gzip | Final frozen build is inside the explicit budgets |
+| Bundle | Pass; initial JS 162.38 kB gzip | Exact `S` build is inside the explicit budgets |
 | Wiki audit | Normal and public: 0 errors, 6 freshness warnings after the date crossed midnight | Publication safety passes; warnings remain visible rather than being rewritten as errors or hidden |
 | Methodology/operation/input stage | Coverage complete; operation compile and input stage deterministic | Generated method surfaces match the worktree |
 | Deterministic demo | 7 executable base scenarios, 22 bound claims, 12 canonical routes, 9 Genesis stages (0–8) and 2 pack showcases | Study: 6 pages/11 events/4 pack kinds; Finance: 11 pages/19 events/5 pack kinds; both temporal payloads have zero diagnostics |
@@ -851,12 +857,40 @@ the release sequence requires it.
 | Operator direct-CORS matrix | Default direct 5173 origin blocked; an explicitly configured 5173 origin completed handshake and authenticated `list_proposals` POST with 200 | Backend default-deny/explicit-opt-in contract works |
 | Vite proxy CORS matrix | WebKit origin 5174 could not read proxy 5173 (`TypeError`); same-origin 5173 read `/api/health` with 200 | Vite's permissive loopback default is disabled; stale operator handshake still required a version bump |
 | Historical Playwright release checkpoint | Hardened attempt 1: 65/68 exposed RT-102; attempt 2: 67/68 exposed RT-104; post-fix wrapper: 68/68 in 4.7 min, first attempt, 0 skipped, 0 retries | Useful defect history, but superseded as the complete matrix by later views/themes/locales/packs/demos |
-| Current Playwright contract | Written/current: 102 public cells in 17 specs + 2 downstream cells in 1 spec; 106/106 Node gate tests | Run the exact frozen matrix on clean `S`; a current contract/list is still not browser execution |
+| First exact `S`-sequence attempt | 84/102 passed; 18 failed | Rejected as release evidence; exposed the stale positional-route contract, locale/inert/diagnostic expectations and real short/tall-phone geometry defects |
+| Final exact `S` public wrapper | 102/102 passed in 5.8 min; first attempt after correction; 0 skipped, 0 retries | Accepted browser-closure proof for `b781882a…`; run result `public-mrha530b-79ce7ec4-2880-4244-a30e-6e9b429627fd` |
+| Current Playwright contract | Written/current: 102 public cells in 17 specs + 2 downstream cells in 1 spec; 106/106 Node gate tests | Public side executed exactly; the 2 mandatory downstream cells remain for exact private `P` |
 | Snapshot contract and atomic publication | Real contract: 26 payloads; full Python suite green | Reciprocal related pages no longer fake provenance; descriptor-pinned deletion, CAS activation, ctime invalidation and recovery paths remain covered |
 | WebKit affected case repeated 5x without retry | 5 passed in 39.1s after rebuilding `dist` | Global 45 px baseline plus targeted 47 px Q2-center rule closes RT-05; a rejected 50 px global attempt caused overlaps |
 | Quadrant report | 4 anchors, 49 pages, 0 warnings | Synthetic AQAL contract passes |
 | OKF | 49 concepts, 471 edges, 7 broken internal links | Structural result useful; release link gate insufficient |
 | Git whitespace check | Clean | Patch formatting clean |
+
+### Exact `S` visual and mobile closure
+
+The four primary spatial baselines and the reader baseline were updated only
+after the old expected image and new actual image were inspected side by side
+at the same viewport/state. The accepted files then passed twice with
+`retries=0`, no console errors, no failed network requests and no document
+overflow.
+
+| Baseline | Exact SHA-256 | Review disposition |
+| --- | --- | --- |
+| Radar | `9be1d47b0a642d457216933ce28aa8e04e0ad5464801e7d6476e81368603c3d2` | Intentional v8 world-density change; accepted |
+| Atlas | `bcbd5c7072e917d531e5329e977d9ca52ca3446b2981130f21f053effc7cdefa` | Intentional v8 hierarchy/visual-grammar change; accepted |
+| Districts | `51d838cd4d66a0225e00fbfdfeefe00977e7df48da659918509b635a380e8c6e` | Intentional semantic-collection change; accepted |
+| Sources | `5ea489c00a3b89973d13bb6ecfc0b9fe11780bd0abd73705ba4f0f689a48d8a2` | Intentional source-lifecycle presentation change; accepted |
+| Reader | `dbbcef8b61c0a0dfe3f4f5fbe08b453c51ac028cdccf1c8bd5b26d608e61d69f` | Reader foreground/continuity correction; accepted |
+
+The failed 84/102 run also produced measurable mobile evidence rather than an
+aesthetic guess. At `390x664`, usable world canvas height rose from **7 px to
+48 px**; at `390x844`, from **74 px to 118 px**. The mobile navigator shrank
+from 136 px to 100 px and the compass from 102 px to 54 px while retaining five
+disjoint 44 px controls. The mission/filter surfaces no longer overlap, the
+guide begins at y=130 with a 9 px gap below the 121 px top bar, Q2 landmarks own
+their hit pixels and the forced-fallback core remains inside the viewport.
+Focused proof passed 9/9 route cells, 7/7 WebKit mobile-parity cells, 2/2 guide
+and six-viewport geometry controls, plus 5/5 visual baselines repeated twice.
 
 ### Historical private downstream pilot checkpoint
 
@@ -2725,30 +2759,33 @@ downstream, human or still-open engineering work.
 
 ## Immediate Execution Queue
 
-The implementation work has moved from construction to release sequencing:
+The implementation work has moved from public construction to downstream
+adoption sequencing:
 
-1. retain the global adversarial verdict of no open public P0/P1; keep only
-   RT-127, RT-131, RT-134 and RT-135 as explicit P2 follow-ups;
-2. treat the written 102-public/2-downstream matrix and 106/106 Node gate result
-   as the exact frozen contract; do not hand-edit it after the payload commit;
-3. create portable payload commit `S` without repinning
-   `upgrade-package.yaml` or asking the commit to contain its own SHA;
-4. on clean `S`, repeat every Python/Node gate and run the exact 102-cell public
-   wrapper with zero required skip/retry/flake; generate only the
-   `browser_closure` status the evidence supports, never full-release/E5;
-5. create metadata commit `M` that pins `source_sha=S`, refreshes package,
-   inventory, plan and release-note truth, then revalidate `M`;
-6. import only allowlisted blobs from `S` into the private `wiki/*` branch in
-   three reviewable commits, preserving private config, memory, adapters and
-   pack lock; run Finance dry-run before activation;
-7. regenerate the private snapshot and prove real operator API/UI, non-empty
-   Chronoscope, pack composition, themes, mobile and fallback on exact private
-   subject `P`, with no private scalar entering public evidence;
-8. bind the public and private closure hashes through the separate signed E5
-   authority, then obtain human merge/release approval before tagging;
-9. schedule the residual declarative registry surface as
-    `wiki_runtime_extension.v1`; do not advertise a plugin ABI before its
-    consumer, capability, fallback, upgrade and rollback contracts exist.
+1. keep `S=b781882a11e8bbac3ae9684d199979a1f4ee1bf7` immutable and retain its failed
+   84/102 attempt alongside the accepted 102/102, zero-skip/retry evidence;
+2. validate and commit metadata envelope `M`: package v2, consumer inventory,
+   release note, this plan and the compact operation log must all pin `S` and
+   must not claim private/E5 authority;
+3. run the v2 upgrade unit slice, audits, matrix, build/asset/bundle and
+   deterministic wiki gates on `M`; any metadata-only failure reopens `M`, not
+   the already frozen payload;
+4. run the private read-only preflight against the pinned `S` tree, inventory
+   local overrides, execute Finance install/composition dry-runs and refuse any
+   consumer-owned lock, adapter or runtime-config overwrite;
+5. import only allowlisted blobs from `S` into the private `wiki/*` branch in
+   three reviewable commits: faithful toolkit import, regenerated artifacts,
+   then downstream adaptations;
+6. regenerate the private snapshot and prove real operator API/UI identity,
+   non-empty Chronoscope, Finance composition, theme/density, desktop, short and
+   tall mobile, plus forced fallback on exact private subject `P`;
+7. record only aggregate/redacted private evidence publicly; keep page titles,
+   values, routes, authenticated URLs, screenshots and raw payloads private;
+8. bind public `S` and private `P` through the separate signed E5 authority,
+   then obtain human merge/release approval before tagging;
+9. schedule RT-127, RT-131, RT-134, RT-135 and the residual declarative registry
+   surface as P2; do not advertise `wiki_runtime_extension.v1` until its
+   consumer, capability, fallback, upgrade and rollback contracts exist.
 
 ## Evidence Manifest For This Review
 
@@ -2840,10 +2877,11 @@ The `claude-round` labels above are local review aliases only; any promoted
 public-synthetic evidence receives a neutral evidence ID and a reviewed visual
 manifest rather than preserving agent/session naming.
 
-### Current-worktree implementation anchors
+### Exact `S` implementation anchors
 
-These anchors identify the uncommitted closure candidates; they must be
-re-resolved against the reviewed commit before entering a receipt:
+These symbol/line anchors identify the accepted payload at `b781882a…`.
+Cryptographic receipts bind files rather than line numbers; reviewers should
+re-resolve the named symbols if later metadata changes shift navigation lines:
 
 - canonical action vocabulary/resolver:
   `wiki_core/action_state.py:25,159-236`;
@@ -2863,8 +2901,8 @@ re-resolved against the reviewed commit before entering a receipt:
 
 ### Baseline defect anchors at `31b94d81`
 
-These anchors explain the original reproductions. Line numbers have moved in
-the uncommitted worktree and must not be cited as current implementation proof.
+These anchors explain the original reproductions. Line numbers moved in `S`
+and must not be cited as current implementation proof.
 
 - `apps/wiki-cockpit/src/components/RuntimeWorldView.tsx:30`
 - `apps/wiki-cockpit/src/world/WorldRuntime.ts:24-28`
