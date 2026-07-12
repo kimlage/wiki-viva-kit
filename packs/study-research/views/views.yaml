@@ -1,0 +1,15 @@
+schema_version: wiki_experience_pack_views.v1
+pack: study-research
+views:
+  study-research.concept-graph:
+    slot: view.knowledge
+    fallback: linked-list
+    empty_state: create-concept
+  study-research.evidence-matrix:
+    slot: view.evidence
+    fallback: evidence-table
+    empty_state: capture-source
+  study-research.reading-queue:
+    slot: view.queue
+    fallback: ordered-list
+    empty_state: add-reading

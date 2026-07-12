@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "ae7c83a9e585131b6eaa344f4248df5024e1911157140fc589a97527eef15ebf",
+  "bundle_hash": "8cd58b61da606000c6f896f64e9cdc57672f1b503e5de927c4f0ba7d089c569a",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -14,6 +14,8 @@
     "visual_grammar",
     "semantic_visual_tokens",
     "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
     "empty_world_compat",
     "content_sidecars"
   ],
@@ -33,6 +35,8 @@
     "gates.json",
     "git.json",
     "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
     "diff.json",
     "ingestion.json",
     "quality.json",
@@ -61,7 +65,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "7ddcaa3b1723b057c1aadddca9f43dd120a7f3db62dc73700e1a165c6c207917"
+    "source_input_sha256": "ad867bf4b7b0a58341362e309e1c6b8a9214a35454e7fb1a702c823d74bf01fb"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -89,6 +93,10 @@
       "bytes": 367,
       "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
     },
+    "experience_packs.json": {
+      "bytes": 334,
+      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+    },
     "freshness.json": {
       "bytes": 119,
       "sha256": "de9ef44ab7bbe6658bcd2372fea1f26a818d7f443a6ec9aebd2e557b80c4f813"
@@ -102,8 +110,8 @@
       "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
     },
     "graph.json": {
-      "bytes": 4607,
-      "sha256": "0b0b4e437f303c1cdbfa31398a8df3f90b8fda7f88f0fa323afff233113f27b2"
+      "bytes": 4975,
+      "sha256": "844a4f9769e85edf1b44ab0d229ed70ba11f8a88f123491049fad5f428b90585"
     },
     "ingestion.json": {
       "bytes": 503,
@@ -153,9 +161,13 @@
       "bytes": 23927,
       "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
     },
+    "temporal_graph.json": {
+      "bytes": 1858,
+      "sha256": "d87cf382b911808338a62ea8bd14a8388644da96cf710769200676e379618469"
+    },
     "timeline.json": {
-      "bytes": 509,
-      "sha256": "56edabfc4bbb059ee1dd3e543edf8b7649026009fafa927fd1b2ac2cb0f46bbd"
+      "bytes": 768,
+      "sha256": "abce9abcf59825ff9c30a97450745b8430a9518326a3b9c730e5d2f6aa0d7d87"
     },
     "work_items.json": {
       "bytes": 52,
@@ -172,14 +184,16 @@
     "memory_root": "memories",
     "repo_id": "wiki-viva-demo"
   },
-  "root_page_id": "",
+  "root_page_id": null,
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-ae7c83a9e585131b",
+  "snapshot_id": "wiki-viva-demo-8cd58b61da606000",
   "source_commit": null,
-  "source_sha": "uncommitted:ae7c83a9e585131b6eaa344f4248df5024e1911157140fc589a97527eef15ebf",
+  "source_sha": "uncommitted:8cd58b61da606000c6f896f64e9cdc57672f1b503e5de927c4f0ba7d089c569a",
   "versions": {
+    "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",
     "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
     "registry_module_api": "wiki_registry_module_api.v1",
     "relation_vocabulary": "wiki_relation_types.v1",
     "runtime_contract": "wiki_world_runtime.v8",
@@ -188,6 +202,8 @@
     "source_freshness": "wiki_source_freshness.v1",
     "source_last_attempt": "wiki_source_last_attempt.v1",
     "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
     "visual_grammar": "wiki_visual_grammar.v8"
   }
 }

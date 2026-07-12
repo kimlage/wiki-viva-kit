@@ -9,6 +9,9 @@ against the configured memory root — the reader never gets a file outside it.
 
 from __future__ import annotations
 
+import hashlib
+import json
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -64,7 +67,11 @@ def _json_safe(value: Any) -> Any:
         return [_json_safe(item) for item in value]
     if isinstance(value, dict):
         return {str(key): _json_safe(item) for key, item in value.items()}
-    if value is None or isinstance(value, (str, int, float, bool)):
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("frontmatter contains a non-finite number")
+        return value
+    if value is None or isinstance(value, (str, int, bool)):
         return value
     return str(value)
 
@@ -160,20 +167,60 @@ def build_page_content(
     memory_root = str(config.paths["memory_root"]).rstrip("/")
     target = (root / rel).resolve()
     memory_base = (root / memory_root).resolve()
-    if not str(target).startswith(str(memory_base) + "/") and target != memory_base:
+    try:
+        target.relative_to(memory_base)
+    except ValueError:
         return {"ok": False, "error": "page outside memory root", "page_id": page_id}
     if not target.is_file():
         return {"ok": False, "error": "page file missing", "page_id": page_id}
-    values, body = parse_frontmatter(target)
+    try:
+        raw = target.read_bytes()
+    except OSError:
+        return {"ok": False, "error": "page file missing", "page_id": page_id}
+    expected_content_sha = str(page.get("content_sha256") or "")
+    actual_content_sha = hashlib.sha256(raw).hexdigest()
+    snapshot_id = str(snapshot.get("manifest.json", {}).get("snapshot_id") or "")
+    if not expected_content_sha:
+        return {
+            "ok": False,
+            "error": "snapshot has no immutable content hash; refresh required",
+            "error_code": "snapshot_content_hash_missing",
+            "page_id": page_id,
+            "snapshot_id": snapshot_id,
+        }
+    if actual_content_sha != expected_content_sha:
+        # Never combine cached metadata from revision A with a body from B.
+        # The dynamic server turns this into HTTP 409 and invalidates its
+        # snapshot cache; static sidecar generation fails before promotion.
+        return {
+            "ok": False,
+            "error": "page changed since snapshot; refresh required",
+            "error_code": "snapshot_revision_mismatch",
+            "page_id": page_id,
+            "snapshot_id": snapshot_id,
+            "expected_content_sha256": expected_content_sha,
+            "actual_content_sha256": actual_content_sha,
+        }
+    values, body = parse_frontmatter(raw.decode("utf-8", errors="replace"))
+    try:
+        safe_frontmatter = _json_safe(values)
+    except ValueError:
+        return {
+            "ok": False,
+            "error": "page frontmatter contains a non-finite number",
+            "error_code": "content_frontmatter_non_finite",
+            "page_id": page_id,
+            "snapshot_id": snapshot_id,
+        }
     return {
         "ok": True,
         "schema_version": PAGE_CONTENT_SCHEMA_VERSION,
-        "snapshot_id": str(snapshot.get("manifest.json", {}).get("snapshot_id") or ""),
+        "snapshot_id": snapshot_id,
         "page": {**_page_brief(page), "summary": str(page.get("summary") or ""),
                  "summary_truncated": bool(page.get("summary_truncated")),
                  "updated_at": str(page.get("updated_at") or ""),
                  "moc_parent": str(page.get("moc_parent") or "")},
-        "frontmatter": _json_safe(values),
+        "frontmatter": safe_frontmatter,
         "body": body,
         "resolved_links": _resolved_links(root, rel, body, index),
         "backlinks": _backlinks(page, graph, index),
@@ -188,8 +235,6 @@ def write_content_sidecars(
     out_dir: Path,
 ) -> dict[str, Path]:
     """Write one deterministic ``content/{slug}.{hash}.json`` per page."""
-    import json
-
     content_dir = out_dir / "content"
     content_dir.mkdir(parents=True, exist_ok=True)
     written: dict[str, Path] = {}
@@ -198,7 +243,15 @@ def write_content_sidecars(
         if not page_id:
             continue
         payload = build_page_content(root, config, page_id, snapshot)
+        if not payload.get("ok"):
+            raise ValueError(
+                f"cannot write content sidecar for {page_id!r}: "
+                f"{payload.get('error') or 'unknown content error'}"
+            )
         target = content_dir / sidecar_name(page_id)
-        target.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        target.write_text(
+            json.dumps(payload, allow_nan=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         written[page_id] = target
     return written

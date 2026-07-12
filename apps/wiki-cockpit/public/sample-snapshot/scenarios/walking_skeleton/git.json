@@ -1,0 +1,24 @@
+{
+  "available": false,
+  "branch_prefix": "wiki/",
+  "current_branch": "",
+  "default_branch": "main",
+  "proposal": {
+    "draft_pr_url": null,
+    "human_gate_state": "blocked",
+    "is_proposal_branch": false,
+    "theme": ""
+  },
+  "schema_version": "wiki_web_git.v1",
+  "upstream": {
+    "ahead": 0,
+    "behind": 0,
+    "last_fetch_at": null,
+    "name": "",
+    "remote": ""
+  },
+  "worktree": {
+    "changed_files": [],
+    "clean": true
+  }
+}

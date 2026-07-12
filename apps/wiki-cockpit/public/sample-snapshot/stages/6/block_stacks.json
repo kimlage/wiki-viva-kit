@@ -610,13 +610,19 @@
     "root-alex-rivera": {
       "derived": {
         "empty_quadrants": [
-          "q1"
+          "q1",
+          "q2"
         ],
         "missions": [
           {
             "anchor": "root-alex-rivera",
             "provider": "quadrant_absence",
             "quadrant": "q1"
+          },
+          {
+            "anchor": "root-alex-rivera",
+            "provider": "quadrant_absence",
+            "quadrant": "q2"
           },
           {
             "anchor": "root-alex-rivera",
@@ -627,9 +633,7 @@
         "quadrant_assignments": {
           "q0_core": [],
           "q1": [],
-          "q2": [
-            "event-ingest-banco-2026-05"
-          ],
+          "q2": [],
           "q3": [
             "person-marina-costa"
           ],
@@ -639,22 +643,6 @@
         },
         "quadrant_nested_mode": "summarize",
         "quadrant_projections": {
-          "event-ingest-banco-2026-05": [
-            {
-              "basis": "page_semantics",
-              "center": "root-alex-rivera",
-              "facet": "pratica",
-              "local_facet_under_subject": "pratica",
-              "local_quadrant_under_subject": "q2",
-              "local_sub_lens_under_subject": "evidencias",
-              "page": "event-ingest-banco-2026-05",
-              "quadrant": "q2",
-              "reason": "",
-              "sub_lens": "evidencias",
-              "subject_center": "root-alex-rivera",
-              "through_center": ""
-            }
-          ],
           "hub-financeiro": [
             {
               "basis": "page_semantics",
@@ -690,11 +678,7 @@
         },
         "quadrant_sub_lens": {
           "q1": {},
-          "q2": {
-            "evidencias": [
-              "event-ingest-banco-2026-05"
-            ]
-          },
+          "q2": {},
           "q3": {
             "pessoas": [
               "person-marina-costa"
@@ -750,57 +734,36 @@
               "visual_role": "quadrant"
             },
             {
-              "action_hints": [
-                {
-                  "count": 1,
-                  "kind": "inspect_sources",
-                  "label_key": "region.action.inspectSources"
-                }
-              ],
-              "attention_hints": [
-                {
-                  "count": 1,
-                  "kind": "raw"
-                }
-              ],
+              "action_hints": [],
+              "attention_hints": [],
               "id": "quadrant:pratica",
               "kind": "quadrant",
               "label_key": "pratica",
-              "member_ids": [
-                "event-ingest-banco-2026-05"
-              ],
+              "member_ids": [],
               "purpose": "navigate",
               "summary": {
                 "hidden": 0,
                 "open_actions": 0,
                 "proposal": 0,
-                "raw": 1,
+                "raw": 0,
                 "risk": 0,
-                "shown": 1,
-                "source_backed": 1,
+                "shown": 0,
+                "source_backed": 0,
                 "stale": 0,
-                "total": 1,
+                "total": 0,
                 "unsourced": 0
               },
-              "type_mix": [
-                {
-                  "count": 1,
-                  "family": "event",
-                  "page_type": "ingestion_event"
-                }
-              ],
+              "type_mix": [],
               "visual": {
                 "emphasis": [
                   "healthy"
                 ],
                 "grammar_id": "wiki.visual_grammar.v1",
-                "pack_id": "evidence_first",
+                "pack_id": "region_operations",
                 "slots": {
                   "cluster.tooltip": "hidden_histogram",
-                  "dock.action": "action_lane",
                   "fallback.card": "region_work_card",
                   "legend.entry": "legend_key",
-                  "reader.badge": "source_badge",
                   "region.card": "region_card",
                   "region.empty": "empty_region_affordance",
                   "region.marker": "action_lane",

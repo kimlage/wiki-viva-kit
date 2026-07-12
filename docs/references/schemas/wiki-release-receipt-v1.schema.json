@@ -1,0 +1,503 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.example/schemas/wiki-release-receipt-v1.schema.json",
+  "title": "Wiki Viva release receipt v1 (browser-closure only)",
+  "description": "A local browser-gate evidence receipt. v1 does not bind the complete release gate set and cannot claim full release closure or E5 without broader, external signed authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_kind",
+    "publication_boundary",
+    "release_id",
+    "created_at",
+    "evidence_scope",
+    "overall_status",
+    "reason_codes",
+    "semantic_validator",
+    "subject",
+    "artifacts",
+    "test_scopes",
+    "waivers",
+    "review",
+    "promotion"
+  ],
+  "properties": {
+    "schema_version": { "const": "wiki_release_receipt.v1" },
+    "receipt_kind": { "enum": ["public_release", "private_adoption"] },
+    "publication_boundary": { "enum": ["public_safe", "private_internal"] },
+    "release_id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "evidence_scope": { "enum": ["local_uncommitted_closure", "local_evidence", "browser_closure"] },
+    "overall_status": { "enum": ["passed", "blocked"] },
+    "reason_codes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9_-]+$" }
+    },
+    "semantic_validator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "implementation_sha256", "implementation_files", "runtime", "promotion_policy", "gate_policy"],
+      "properties": {
+        "id": { "const": "wiki_release_receipt_semantic_validator.v1" },
+        "implementation_sha256": { "$ref": "#/$defs/sha256" },
+        "implementation_files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256", "bytes"],
+            "properties": {
+              "path": { "$ref": "#/$defs/portablePath" },
+              "sha256": { "$ref": "#/$defs/sha256" },
+              "bytes": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["python_implementation", "python_version", "pyyaml_version"],
+          "properties": {
+            "python_implementation": { "type": "string", "minLength": 1 },
+            "python_version": { "type": "string", "minLength": 1 },
+            "pyyaml_version": { "type": "string", "minLength": 1 }
+          }
+        },
+        "promotion_policy": { "const": "closure_only_external_authority_required" },
+        "gate_policy": { "const": "wiki_release_gate_policy.v1" }
+      }
+    },
+    "subject": { "$ref": "#/$defs/subject" },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "test_scopes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["public_required", "downstream_required"],
+      "properties": {
+        "public_required": {
+          "allOf": [
+            { "$ref": "#/$defs/testScope" },
+            {
+              "properties": {
+                "gates": {
+                  "items": {
+                    "properties": {
+                      "id": { "const": "playwright-public" },
+                      "scope": { "const": "public_required" },
+                      "command_id": { "const": "playwright_public_release_v1" },
+                      "supporting_evidence": {
+                        "allOf": [
+                          { "contains": { "properties": { "id": { "const": "release-matrix-contract" } }, "required": ["id"] } },
+                          { "contains": { "properties": { "id": { "const": "release-toolchain-manifest" } }, "required": ["id"] } }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "downstream_required": {
+          "allOf": [
+            { "$ref": "#/$defs/testScope" },
+            {
+              "properties": {
+                "gates": {
+                  "items": {
+                    "properties": {
+                      "id": { "const": "playwright-downstream" },
+                      "scope": { "const": "downstream_required" },
+                      "command_id": { "const": "playwright_downstream_release_v1" },
+                      "supporting_evidence": {
+                        "allOf": [
+                          { "contains": { "properties": { "id": { "const": "release-matrix-contract" } }, "required": ["id"] } },
+                          { "contains": { "properties": { "id": { "const": "release-toolchain-manifest" } }, "required": ["id"] } },
+                          { "contains": { "properties": { "id": { "const": "downstream-preflight" } }, "required": ["id"] } }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "waivers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/waiver" }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["human_product_gate", "human_privacy_gate"],
+      "properties": {
+        "human_product_gate": { "enum": ["passed", "pending", "rejected"] },
+        "human_privacy_gate": { "enum": ["passed", "pending", "rejected"] }
+      }
+    },
+    "promotion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested", "eligible", "status"],
+      "properties": {
+        "requested": { "enum": ["evidence_only", "E5"] },
+        "eligible": { "const": false },
+        "status": { "enum": ["not_requested", "blocked"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "requested": { "const": "evidence_only" } }, "required": ["requested"] },
+          "then": { "properties": { "status": { "const": "not_requested" } } }
+        },
+        {
+          "if": { "properties": { "requested": { "const": "E5" } }, "required": ["requested"] },
+          "then": { "properties": { "status": { "const": "blocked" } } }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "receipt_kind": { "const": "public_release" } }, "required": ["receipt_kind"] },
+      "then": {
+        "properties": {
+          "publication_boundary": { "const": "public_safe" },
+          "artifacts": { "items": { "properties": { "safety_scan": { "const": "secret_and_pii" } } } },
+          "test_scopes": {
+            "properties": {
+              "public_required": {
+                "properties": {
+                  "attestation": { "const": "subject_bound" },
+                  "status": { "enum": ["passed", "blocked"] }
+                }
+              },
+              "downstream_required": { "$ref": "#/$defs/notApplicableScope" }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "publication_boundary": { "const": "private_internal" },
+          "artifacts": { "items": { "properties": { "safety_scan": { "const": "secret" } } } },
+          "test_scopes": {
+            "properties": {
+              "public_required": { "$ref": "#/$defs/notApplicableScope" },
+              "downstream_required": {
+                "properties": {
+                  "attestation": { "const": "subject_bound" },
+                  "status": { "enum": ["passed", "blocked"] }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "subject": { "properties": { "dirty": { "const": true } }, "required": ["dirty"] } }, "required": ["subject"] },
+      "then": {
+        "properties": {
+          "evidence_scope": { "const": "local_uncommitted_closure" },
+          "reason_codes": { "contains": { "const": "dirty_worktree" } },
+          "subject": { "properties": { "dirty_entry_count": { "minimum": 1 } } }
+        }
+      },
+      "else": {
+        "properties": {
+          "subject": { "properties": { "dirty_entry_count": { "const": 0 } } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "subject": {
+            "properties": {
+              "dirty": { "const": false },
+              "base_sha": { "$ref": "#/$defs/sha1" },
+              "base_is_ancestor": { "const": true }
+            },
+            "required": ["dirty", "base_sha", "base_is_ancestor"]
+          }
+        },
+        "required": ["subject"]
+      },
+      "then": { "properties": { "evidence_scope": { "const": "browser_closure" } } }
+    },
+    {
+      "if": {
+        "properties": {
+          "subject": {
+            "properties": { "dirty": { "const": false }, "base_sha": { "type": "null" } },
+            "required": ["dirty", "base_sha"]
+          }
+        },
+        "required": ["subject"]
+      },
+      "then": {
+        "properties": {
+          "evidence_scope": { "const": "local_evidence" },
+          "reason_codes": { "contains": { "const": "base_sha_missing" } }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "subject": {
+            "properties": {
+              "dirty": { "const": false },
+              "base_sha": { "$ref": "#/$defs/sha1" },
+              "base_is_ancestor": { "const": false }
+            },
+            "required": ["dirty", "base_sha", "base_is_ancestor"]
+          }
+        },
+        "required": ["subject"]
+      },
+      "then": {
+        "properties": {
+          "evidence_scope": { "const": "local_evidence" },
+          "reason_codes": { "contains": { "const": "base_sha_not_ancestor" } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "reason_codes": { "maxItems": 0 } }, "required": ["reason_codes"] },
+      "then": { "properties": { "overall_status": { "const": "passed" } } },
+      "else": { "properties": { "overall_status": { "const": "blocked" } } }
+    },
+    {
+      "if": { "properties": { "promotion": { "properties": { "requested": { "const": "E5" } }, "required": ["requested"] } }, "required": ["promotion"] },
+      "then": { "properties": { "reason_codes": { "contains": { "const": "e5_external_authority_required" } } } }
+    }
+  ],
+  "$defs": {
+    "sha1": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "portablePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)(?!.*//)[^\\u0000]+$"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "source_sha",
+        "tree_hash",
+        "dirty",
+        "dirty_entry_count",
+        "worktree_fingerprint_version",
+        "worktree_fingerprint",
+        "staged_patch_sha256",
+        "unstaged_patch_sha256",
+        "untracked_state_sha256",
+        "untracked_entry_count",
+        "submodule_state_sha256",
+        "base_sha",
+        "base_tree_hash",
+        "base_is_ancestor"
+      ],
+      "properties": {
+        "repository": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "source_sha": { "$ref": "#/$defs/sha1" },
+        "tree_hash": { "$ref": "#/$defs/sha1" },
+        "dirty": { "type": "boolean" },
+        "dirty_entry_count": { "type": "integer", "minimum": 0 },
+        "worktree_fingerprint_version": { "const": "wiki_git_worktree_fingerprint.v1" },
+        "worktree_fingerprint": { "$ref": "#/$defs/sha256" },
+        "staged_patch_sha256": { "$ref": "#/$defs/sha256" },
+        "unstaged_patch_sha256": { "$ref": "#/$defs/sha256" },
+        "untracked_state_sha256": { "$ref": "#/$defs/sha256" },
+        "untracked_entry_count": { "type": "integer", "minimum": 0 },
+        "submodule_state_sha256": { "$ref": "#/$defs/sha256" },
+        "base_sha": { "oneOf": [{ "$ref": "#/$defs/sha1" }, { "type": "null" }] },
+        "base_tree_hash": { "oneOf": [{ "$ref": "#/$defs/sha1" }, { "type": "null" }] },
+        "base_is_ancestor": { "type": ["boolean", "null"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "base_sha": { "type": "null" } }, "required": ["base_sha"] },
+          "then": {
+            "properties": {
+              "base_tree_hash": { "type": "null" },
+              "base_is_ancestor": { "type": "null" }
+            }
+          },
+          "else": {
+            "properties": {
+              "base_tree_hash": { "$ref": "#/$defs/sha1" },
+              "base_is_ancestor": { "type": "boolean" }
+            }
+          }
+        }
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "artifact_schema", "path", "sha256", "bytes", "content_encoding", "safety_scan"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+        "kind": { "enum": ["release_note", "visual_evidence_manifest"] },
+        "artifact_schema": { "enum": ["wiki_release_note.markdown.v1", "wiki_visual_evidence_manifest.v1"] },
+        "path": { "$ref": "#/$defs/portablePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "content_encoding": { "const": "utf-8" },
+        "safety_scan": { "enum": ["secret", "secret_and_pii"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "release_note" } }, "required": ["kind"] },
+          "then": { "properties": { "artifact_schema": { "const": "wiki_release_note.markdown.v1" }, "path": { "pattern": "\\.md$" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "visual_evidence_manifest" } }, "required": ["kind"] },
+          "then": { "properties": { "artifact_schema": { "const": "wiki_visual_evidence_manifest.v1" }, "path": { "pattern": "\\.json$" } } }
+        }
+      ]
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "scope", "command_id", "gate_policy_version", "run_id", "started_at", "finished_at", "status",
+        "passed", "failed", "skipped", "flaky", "retries",
+        "subject_sha", "tree_hash", "worktree_fingerprint_version",
+        "worktree_fingerprint", "dirty", "dirty_entry_count",
+        "staged_patch_sha256", "unstaged_patch_sha256", "untracked_state_sha256",
+        "untracked_entry_count", "submodule_state_sha256",
+        "result_path", "result_sha256", "result_bytes",
+        "run_result_path", "run_result_sha256", "run_result_bytes",
+        "evidence_path", "evidence_sha256", "evidence_bytes",
+        "supporting_evidence", "files", "test_cell_count", "test_cells_sha256"
+      ],
+      "properties": {
+        "id": { "enum": ["playwright-public", "playwright-downstream"] },
+        "scope": { "enum": ["public_required", "downstream_required"] },
+        "command_id": { "enum": ["playwright_public_release_v1", "playwright_downstream_release_v1"] },
+        "gate_policy_version": { "const": "wiki_release_gate_policy.v1" },
+        "run_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{7,127}$" },
+        "started_at": { "type": "string", "format": "date-time" },
+        "finished_at": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["passed", "failed", "blocked"] },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "flaky": { "type": "integer", "minimum": 0 },
+        "retries": { "type": "integer", "minimum": 0 },
+        "subject_sha": { "$ref": "#/$defs/sha1" },
+        "tree_hash": { "$ref": "#/$defs/sha1" },
+        "worktree_fingerprint_version": { "const": "wiki_git_worktree_fingerprint.v1" },
+        "worktree_fingerprint": { "$ref": "#/$defs/sha256" },
+        "dirty": { "type": "boolean" },
+        "dirty_entry_count": { "type": "integer", "minimum": 0 },
+        "staged_patch_sha256": { "$ref": "#/$defs/sha256" },
+        "unstaged_patch_sha256": { "$ref": "#/$defs/sha256" },
+        "untracked_state_sha256": { "$ref": "#/$defs/sha256" },
+        "untracked_entry_count": { "type": "integer", "minimum": 0 },
+        "submodule_state_sha256": { "$ref": "#/$defs/sha256" },
+        "result_path": { "$ref": "#/$defs/portablePath" },
+        "result_sha256": { "$ref": "#/$defs/sha256" },
+        "result_bytes": { "type": "integer", "minimum": 0 },
+        "run_result_path": { "$ref": "#/$defs/portablePath" },
+        "run_result_sha256": { "$ref": "#/$defs/sha256" },
+        "run_result_bytes": { "type": "integer", "minimum": 0 },
+        "evidence_path": { "$ref": "#/$defs/portablePath" },
+        "evidence_sha256": { "$ref": "#/$defs/sha256" },
+        "evidence_bytes": { "type": "integer", "minimum": 0 },
+        "supporting_evidence": { "type": "array", "items": { "$ref": "#/$defs/supportingEvidence" } },
+        "files": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/portablePath" } },
+        "test_cell_count": { "type": "integer", "minimum": 1 },
+        "test_cells_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "id": { "const": "playwright-public" },
+            "scope": { "const": "public_required" },
+            "command_id": { "const": "playwright_public_release_v1" }
+          }
+        },
+        {
+          "properties": {
+            "id": { "const": "playwright-downstream" },
+            "scope": { "const": "downstream_required" },
+            "command_id": { "const": "playwright_downstream_release_v1" }
+          }
+        }
+      ]
+    },
+    "supportingEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "sha256", "bytes"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+        "schema_version": { "type": "string", "minLength": 1 },
+        "path": { "$ref": "#/$defs/portablePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "testScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "attestation", "passed", "failed", "skipped", "flaky", "retries", "gates"],
+      "properties": {
+        "status": { "enum": ["passed", "blocked", "not_applicable"] },
+        "attestation": { "enum": ["subject_bound", "separate_receipt_required"] },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "flaky": { "type": "integer", "minimum": 0 },
+        "retries": { "type": "integer", "minimum": 0 },
+        "gates": { "type": "array", "maxItems": 1, "items": { "$ref": "#/$defs/gate" } }
+      }
+    },
+    "notApplicableScope": {
+      "allOf": [
+        { "$ref": "#/$defs/testScope" },
+        {
+          "properties": {
+            "status": { "const": "not_applicable" },
+            "attestation": { "const": "separate_receipt_required" },
+            "passed": { "const": 0 },
+            "failed": { "const": 0 },
+            "skipped": { "const": 0 },
+            "flaky": { "const": 0 },
+            "retries": { "const": 0 },
+            "gates": { "maxItems": 0 }
+          }
+        }
+      ]
+    },
+    "waiver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "reason_code", "issue_ref", "owner_role", "expires_on"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
+        "reason_code": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
+        "issue_ref": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
+        "owner_role": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" },
+        "expires_on": { "type": "string", "format": "date" }
+      }
+    }
+  }
+}

@@ -21,25 +21,83 @@ composition:
 expected:
   page_count: 6
   page_id_sha256: 80b6bd557cb597378be7433221e4614f88ea293fc57b9c02c349e4c5a85189ba
-  required_capabilities: [keyboard_navigation, reduced_motion, non_color_state, touch_targets, semantic_fallback]
+  required_artifact_capabilities: [semantic_visual_tokens, validated_runtime_boundary]
 versions:
   snapshot: wiki_web_snapshot.v2
   runtime: wiki_world_runtime.v8
   blocks: wiki_blocks.v2
 canonical_routes:
-  - /demo/w?center=root-alex-rivera&view=quadrants&overlay=actions
+  - /demo/w?demo_scenario=accessibility&center=root-alex-rivera&view=quadrants&overlay=actions
 legacy_routes: []
 interactions: [tab_all_controls, activate_with_keyboard, enable_reduced_motion, inspect_without_color, use_touch]
 automated_assertions:
-  - focus order follows visible semantic order
-  - dialogs trap and restore focus
-  - reduced motion removes nonessential animation without removing state
-  - fallback exposes the same inspect select read and recenter actions
+  - claim_id: keyboard_order_matches_visible_semantics
+    statement: Keyboard focus follows visible semantic order with activation and focus evidence.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome"
+      - "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::appearance is operable by Tab, Shift+Tab, Enter and Space with visible focus"
+      - "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+      - "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows"
+    covers:
+      interactions: [tab_all_controls, activate_with_keyboard]
+      visual_steps: [keyboard_walk]
+      visual_viewports: [1440x960, 390x844]
+      browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+      expected_warnings: []
+      expected_failures: []
+  - claim_id: dialogs_trap_and_restore_focus
+    statement: Dialog-like explanations expose close semantics and restore focus to their opener.
+    test_ids:
+      - "apps/wiki-cockpit/src/components/world/WorldNavigator.test.tsx::supports controlled explanation state, reports explicit close and restores focus"
+    covers:
+      interactions: []
+      visual_steps: [screen_reader_fallback]
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: []
+  - claim_id: reduced_motion_preserves_semantic_state
+    statement: Reduced motion removes nonessential animation without removing route state.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::reduced motion removes appearance animation while preserving the semantic route"
+    covers:
+      interactions: [enable_reduced_motion]
+      visual_steps: [reduced_motion_walk]
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: []
+  - claim_id: non_color_touch_and_fallback_parity
+    statement: Forced-color, touch and 2D fallback paths expose the same inspect, select, read and recenter capabilities.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::forced colors preserves selected state, system color adjustment and visible focus"
+      - "apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::mobile appearance keeps both themes, all densities and 44px controls inside the viewport"
+      - "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+    covers:
+      interactions: [inspect_without_color, use_touch]
+      visual_steps: [grayscale_state_check, touch_target_check]
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: []
+test_capabilities:
+  - capability: keyboard_navigation
+    test_id: apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::appearance is operable by Tab, Shift+Tab, Enter and Space with visible focus
+  - capability: non_color_state
+    test_id: apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::forced colors preserves selected state, system color adjustment and visible focus
+  - capability: reduced_motion
+    test_id: apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::reduced motion removes appearance animation while preserving the semantic route
+  - capability: semantic_fallback
+    test_id: apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity
+  - capability: touch_targets
+    test_id: apps/wiki-cockpit/e2e/appearance-accessibility.spec.ts::mobile appearance keeps both themes, all densities and 44px controls inside the viewport
 visual:
+  matrix_semantics: representative_shell_evidence_not_route_cross_product
   viewports: [1440x960, 390x844]
   browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
   steps: [keyboard_walk, reduced_motion_walk, grayscale_state_check, touch_target_check, screen_reader_fallback]
 expected_warnings: []
+artifact_warning_codes: []
 expected_failures: []
-generated_files: [apps/wiki-cockpit/public/sample-snapshot]
+generated_files: [apps/wiki-cockpit/public/sample-snapshot/scenarios/accessibility]
 regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

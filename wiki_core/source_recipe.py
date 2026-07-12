@@ -13,13 +13,30 @@ only gives it a clean, checked contract to read.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from typing import Any
 
 import yaml
 
+from wiki_core.detectors import scan_text
+
 SOURCE_RECIPE_SCHEMA_VERSION = "wiki_source_recipe.v1"
+SOURCE_RECIPE_SAFETY_ERROR_CODE = "source_recipe_secret_detected"
+SOURCE_RECIPE_STRUCTURE_ERROR_CODES = frozenset(
+    {
+        "source_recipe_auth_invalid",
+        "source_recipe_auth_scopes_invalid",
+        "source_recipe_ingest_invalid",
+        "source_recipe_ingest_argv_invalid",
+        "source_recipe_pipelines_invalid",
+        "source_recipe_schedule_invalid",
+        "source_recipe_stream_filters_invalid",
+        "source_recipe_stream_target_pages_invalid",
+        "source_recipe_streams_invalid",
+    }
+)
 
 # Typed pipeline kinds (independently cadenced) — OpenMetadata pipelineType
 # analogue, scoped to what this wiki actually runs.
@@ -87,6 +104,7 @@ class SourceRecipe:
     mcp_hint: str
     auth: AuthPointer | None = None
     schedule: SyncSchedule | None = None
+    structural_error_codes: tuple[str, ...] = ()
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
 
     def to_json(self) -> dict[str, Any]:
@@ -166,38 +184,95 @@ def _coerce_int(value: Any) -> int:
 def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
     """Parse a recipe mapping into the typed contract (lenient; validation is
     a separate pass so the cockpit can still SHOW a malformed recipe)."""
+    structural_errors: set[str] = set()
+    pipelines_raw = mapping.get("pipelines")
+    if pipelines_raw is None:
+        pipelines_raw = []
+    elif not isinstance(pipelines_raw, list):
+        structural_errors.add("source_recipe_pipelines_invalid")
+        pipelines_raw = []
+    elif any(not isinstance(item, dict) for item in pipelines_raw):
+        structural_errors.add("source_recipe_pipelines_invalid")
     pipelines = tuple(
         Pipeline(kind=str(p.get("kind") or ""), cadence_days=_coerce_int(p.get("cadence_days")))
-        for p in (mapping.get("pipelines") or [])
+        for p in pipelines_raw
         if isinstance(p, dict)
     )
-    streams = tuple(
-        Stream(
-            id=str(s.get("id") or ""),
-            label=str(s.get("label") or s.get("id") or ""),
-            selected=_as_bool(s.get("selected"), default=True),
-            filters=dict(s.get("filters") or {}),
-            privacy=str(s.get("privacy") or "private_self"),
-            target_pages=tuple(str(t) for t in (s.get("target_pages") or [])),
-            skip_reason=str(s.get("skip_reason") or ""),
-            cadence_days=_coerce_int(s.get("cadence_days")),
+    streams_raw = mapping.get("streams")
+    if streams_raw is None:
+        streams_raw = []
+    elif not isinstance(streams_raw, list):
+        structural_errors.add("source_recipe_streams_invalid")
+        streams_raw = []
+    elif any(not isinstance(item, dict) for item in streams_raw):
+        structural_errors.add("source_recipe_streams_invalid")
+    streams_out: list[Stream] = []
+    for stream_raw in streams_raw:
+        if not isinstance(stream_raw, dict):
+            continue
+        filters_raw = stream_raw.get("filters")
+        if filters_raw is None:
+            filters: dict[str, Any] = {}
+        elif isinstance(filters_raw, dict):
+            filters = dict(filters_raw)
+        else:
+            structural_errors.add("source_recipe_stream_filters_invalid")
+            filters = {}
+        targets_raw = stream_raw.get("target_pages")
+        if targets_raw is None:
+            targets_raw = []
+        elif not isinstance(targets_raw, list):
+            structural_errors.add("source_recipe_stream_target_pages_invalid")
+            targets_raw = []
+        streams_out.append(
+            Stream(
+                id=str(stream_raw.get("id") or ""),
+                label=str(stream_raw.get("label") or stream_raw.get("id") or ""),
+                selected=_as_bool(stream_raw.get("selected"), default=True),
+                filters=filters,
+                privacy=str(stream_raw.get("privacy") or "private_self"),
+                target_pages=tuple(str(target) for target in targets_raw),
+                skip_reason=str(stream_raw.get("skip_reason") or ""),
+                cadence_days=_coerce_int(stream_raw.get("cadence_days")),
+            )
         )
-        for s in (mapping.get("streams") or [])
-        if isinstance(s, dict)
-    )
-    ingest = mapping.get("ingest") or {}
+    streams = tuple(streams_out)
+    ingest_raw = mapping.get("ingest")
+    if ingest_raw is None:
+        ingest: dict[str, Any] = {}
+    elif isinstance(ingest_raw, dict):
+        ingest = ingest_raw
+    else:
+        structural_errors.add("source_recipe_ingest_invalid")
+        ingest = {}
+    ingest_argv_raw = ingest.get("argv")
+    if ingest_argv_raw is None:
+        ingest_argv_raw = []
+    elif not isinstance(ingest_argv_raw, list):
+        structural_errors.add("source_recipe_ingest_argv_invalid")
+        ingest_argv_raw = []
     auth_raw = mapping.get("auth")
+    if auth_raw is not None and not isinstance(auth_raw, dict):
+        structural_errors.add("source_recipe_auth_invalid")
+    auth_scopes_raw = auth_raw.get("scopes") if isinstance(auth_raw, dict) else None
+    if auth_scopes_raw is None:
+        auth_scopes_raw = []
+    elif not isinstance(auth_scopes_raw, list):
+        structural_errors.add("source_recipe_auth_scopes_invalid")
+        auth_scopes_raw = []
     auth = (
         AuthPointer(
             method=str(auth_raw.get("method") or "none"),
             ref=str(auth_raw.get("ref") or ""),
-            scopes=tuple(str(x) for x in (auth_raw.get("scopes") or [])),
+            scopes=tuple(str(x) for x in auth_scopes_raw),
             note=str(auth_raw.get("note") or ""),
         )
         if isinstance(auth_raw, dict)
         else None
     )
     schedule_raw = mapping.get("schedule")
+    if schedule_raw is not None and not isinstance(schedule_raw, dict):
+        structural_errors.add("source_recipe_schedule_invalid")
     schedule = (
         SyncSchedule(
             mode=str(schedule_raw.get("mode") or "on_demand"),
@@ -214,10 +289,11 @@ def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
         pipelines=pipelines,
         streams=streams,
         how_to_export=str(mapping.get("how_to_export") or ""),
-        ingest_argv=tuple(str(a) for a in (ingest.get("argv") or [])),
+        ingest_argv=tuple(str(a) for a in ingest_argv_raw),
         mcp_hint=str(ingest.get("mcp_hint") or "") if ingest.get("mcp_hint") else "",
         auth=auth,
         schedule=schedule,
+        structural_error_codes=tuple(sorted(structural_errors)),
         raw=dict(mapping),
     )
 
@@ -225,7 +301,15 @@ def parse_recipe(mapping: dict[str, Any]) -> SourceRecipe:
 def validate_recipe(recipe: SourceRecipe) -> list[str]:
     """Structural + safety checks. CRITICAL: reject any credential-looking key —
     recipes are structural metadata, never secrets."""
-    errors: list[str] = []
+    # Scan the unprojected source mapping before producing any field-specific
+    # diagnostic. A token pasted into ``platform`` (for example) must never be
+    # echoed by the otherwise-useful "unknown platform `<value>`" message.
+    # Secret-bearing recipes therefore have exactly one stable, code-only
+    # diagnostic; callers can fail closed without retaining any recipe value.
+    if _recipe_contains_secret(recipe.raw):
+        return [SOURCE_RECIPE_SAFETY_ERROR_CODE]
+
+    errors: list[str] = list(recipe.structural_error_codes)
     if recipe.platform and recipe.platform not in PLATFORMS:
         errors.append(f"unknown platform `{recipe.platform}` (use {sorted(PLATFORMS)})")
     if not recipe.locator:
@@ -266,20 +350,16 @@ def validate_recipe(recipe: SourceRecipe) -> list[str]:
             errors.append(f"unknown schedule.mode `{recipe.schedule.mode}` (use {sorted(SCHEDULE_MODES)})")
         if recipe.schedule.mode == "recurring" and recipe.schedule.cadence_days <= 0:
             errors.append("a recurring schedule needs a positive cadence_days")
-    # Secret smell: a recipe must never carry tokens/passwords/keys — neither as
-    # a KEY name nor as a VALUE. Structural metadata only.
-    for key in _flatten_keys(recipe.raw):
-        if _SECRET_KEYS.search(key):
-            errors.append(f"recipe must not contain credentials (found key `{key}`)")
-    for value in _flatten_values(recipe.raw):
-        if _SECRET_VALUE.search(value):
-            errors.append("recipe must not contain a credential-looking value (redacted)")
-            break  # one report is enough; never echo the secret
     return errors
 
 
 # Key names that smell of secrets.
 _SECRET_KEYS = re.compile(r"(token|secret|password|passwd|api[_-]?key|bearer|credential)", re.I)
+# ``auth`` is a valid top-level pointer contract, but an ``auth`` value hidden
+# inside free-form stream filters is executable credential material, not a
+# selector. Treat the whole nested slot as secret even when its value has no
+# provider-specific token shape.
+_FILTER_SECRET_PATH = re.compile(r"(?:^|\.)filters\.auth(?:\.|$)", re.I)
 # Shape guards for auth pointers (a ref must be a POINTER, not an inlined secret).
 _ENV_REF_RE = re.compile(r"[A-Z][A-Z0-9_]*")
 _URLish_RE = re.compile(r"(https?://|[A-Za-z0-9+/]{40,})")
@@ -297,12 +377,42 @@ _SECRET_VALUE = re.compile(
 )
 
 
+def _recipe_contains_secret(value: Any) -> bool:
+    """Return only a boolean so secret scans cannot accidentally echo input."""
+
+    # The repository-wide detector is the canonical credential taxonomy. Scan
+    # one deterministic serialization of the complete, unprojected mapping so
+    # provider additions (GitHub, Anthropic, Stripe, connection URIs, etc.)
+    # automatically protect recipes too. Any unserializable/non-finite value is
+    # refused here rather than allowed into a downstream payload by accident.
+    try:
+        serialized = json.dumps(
+            value,
+            allow_nan=False,
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+    except (TypeError, ValueError):
+        return True
+    if any(finding.category == "secret" for finding in scan_text(serialized)):
+        return True
+
+    # Recipe-specific structural guards remain stricter than generic secret
+    # detection: a credential-shaped key or a nested filters.auth slot is never
+    # valid structural metadata, even when its placeholder value has low entropy.
+    return any(
+        _SECRET_KEYS.search(key) or _FILTER_SECRET_PATH.search(key)
+        for key in _flatten_keys(value)
+    ) or any(_SECRET_VALUE.search(item) for item in _flatten_values(value))
+
+
 def _flatten_keys(value: Any, prefix: str = "") -> list[str]:
     keys: list[str] = []
     if isinstance(value, dict):
         for k, v in value.items():
-            keys.append(str(k))
-            keys.extend(_flatten_keys(v, str(k)))
+            path = f"{prefix}.{k}" if prefix else str(k)
+            keys.append(path)
+            keys.extend(_flatten_keys(v, path))
     elif isinstance(value, list):
         for item in value:
             keys.extend(_flatten_keys(item, prefix))

@@ -6,7 +6,7 @@ page_type: ingestion_event
 title: 'Ingestão: support tickets'
 context: sistema
 updated_at: '2026-05-04'
-moc_parent: memories/index.md
+moc_parent: memories/sources/source-support-tickets.md
 source_refs:
 - source-support-tickets
 consolidated_into: []

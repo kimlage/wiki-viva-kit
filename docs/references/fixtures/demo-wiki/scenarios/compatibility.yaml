@@ -19,25 +19,70 @@ composition:
 expected:
   page_count: 4
   page_id_sha256: 40df0f19cc08535198031c5a8e2e249be10a1b2279f9d3a9255b5709fd326fc4
-  required_capabilities: [legacy_route_normalization, schema_version_negotiation, canonical_link_writer]
+  required_artifact_capabilities: [validated_runtime_boundary]
 versions:
   snapshot: wiki_web_snapshot.v2
   runtime: wiki_world_runtime.v8
   blocks: wiki_blocks.v2
 canonical_routes:
-  - /demo/w?center=root-alex-rivera&view=quadrants&overlay=actions
-  - /demo/w?center=library-ai-safety&view=quadrants&overlay=evidence
+  - /demo/w?demo_scenario=compatibility&center=root-alex-rivera&view=quadrants&overlay=actions
+  - /demo/w?demo_scenario=compatibility&center=library-ai-safety&view=quadrants&overlay=evidence
 legacy_routes: [/demo/w/quadrants, /demo/w/radar, /demo/w/districts, /demo/w/trails/project-atlas-launch]
 interactions: [hydrate_legacy_route, copy_canonical_link, open_old_snapshot, inspect_warning]
 automated_assertions:
-  - legacy routes preserve their documented question
-  - canonical writers never emit legacy route state
-  - unsupported versions fail visibly
+  - claim_id: legacy_routes_preserve_their_question
+    statement: Legacy routes normalize into the documented world question without losing context.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome"
+      - "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+      - "apps/wiki-cockpit/e2e/firefox-smoke.spec.ts::Firefox keeps center, source reader and Back/Forward semantics across 3D or automatic fallback"
+      - "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows"
+      - "apps/wiki-cockpit/src/router.test.ts::aliases /ops to the default (quadrants) world and keeps /pages/:id as a redirectable alias"
+      - "apps/wiki-cockpit/src/world/WorldRuntime.test.ts::normalizes legacy route state and writes the canonical grammar"
+    covers:
+      interactions: [hydrate_legacy_route, open_old_snapshot]
+      visual_steps: [open_each_legacy_route, compare_canonical_state]
+      visual_viewports: [1440x960, 390x844]
+      browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback, firefox-smoke]
+      expected_warnings: [legacy_route_normalized]
+      expected_failures: []
+  - claim_id: canonical_writers_never_emit_legacy_state
+    statement: Canonical link writers emit query-owned /w?view state; positional routes remain read-only compatibility inputs.
+    test_ids:
+      - "apps/wiki-cockpit/src/router.test.ts::round-trips URLs through buildUrl using only the canonical query-owned grammar"
+      - "apps/wiki-cockpit/src/router.test.ts::keeps positional routes as readable inputs but normalizes every writer back to /w?view"
+    covers:
+      interactions: [copy_canonical_link]
+      visual_steps: []
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: []
+  - claim_id: unsupported_versions_fail_visibly
+    statement: Unsupported snapshot versions fail visibly instead of rendering ambiguous data.
+    test_ids:
+      - "apps/wiki-cockpit/src/data/snapshot.test.ts::distinguishes current, previous and unsupported snapshot contracts"
+    covers:
+      interactions: [inspect_warning]
+      visual_steps: [inspect_deprecation_warning]
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: [old_snapshot_version]
+      expected_failures: [unsupported_snapshot_version]
+test_capabilities:
+  - capability: canonical_link_writer
+    test_id: apps/wiki-cockpit/src/router.test.ts::round-trips URLs through buildUrl using only the canonical query-owned grammar
+  - capability: legacy_route_normalization
+    test_id: apps/wiki-cockpit/src/router.test.ts::aliases /ops to the default (quadrants) world and keeps /pages/:id as a redirectable alias
+  - capability: schema_version_negotiation
+    test_id: apps/wiki-cockpit/src/data/snapshot.test.ts::distinguishes current, previous and unsupported snapshot contracts
 visual:
+  matrix_semantics: representative_shell_evidence_not_route_cross_product
   viewports: [1440x960, 390x844]
   browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback, firefox-smoke]
   steps: [open_each_legacy_route, compare_canonical_state, inspect_deprecation_warning]
 expected_warnings: [legacy_route_normalized, old_snapshot_version]
+artifact_warning_codes: []
 expected_failures: [unsupported_snapshot_version]
-generated_files: [apps/wiki-cockpit/public/sample-snapshot/manifest.json]
+generated_files: [apps/wiki-cockpit/public/sample-snapshot/scenarios/compatibility]
 regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

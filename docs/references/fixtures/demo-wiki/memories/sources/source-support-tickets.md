@@ -31,4 +31,4 @@ source_lifecycle:
 
 # Support tickets export
 
-A live source. Its content is born by ingestion — manual creation under it is off. (The bank export is intentionally overdue.)
+A live Helpdesk source. Its content is born by ingestion — manual creation under it is off. This fixture demonstrates lifecycle `proposed`, freshness `stale` and last attempt `ok`.

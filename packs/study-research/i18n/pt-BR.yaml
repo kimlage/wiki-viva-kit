@@ -1,0 +1,32 @@
+schema_version: wiki_experience_pack_i18n.v1
+locale: pt-BR
+pack: study-research
+copy:
+  title: Estudos e Pesquisa
+  source: Fonte de estudo
+  note: Nota de pesquisa
+  concept: Conceito
+  question: Pergunta de pesquisa
+  claim: Alegação
+  citation: Citação
+  synthesis: Síntese
+  capture: Capturar fonte
+  annotate: Anotar fonte
+  connect: Conectar conhecimento
+  review: Revisar evidências
+  synthesize: Sintetizar tema
+  capture_source: Capturar fonte
+  review_evidence: Revisar evidências
+  synthesize_topic: Sintetizar tema
+  concept_graph: Grafo de conceitos
+  reading_queue: Fila de leitura
+  evidence_matrix: Matriz de evidências
+  learning_history: Histórico de aprendizagem
+  spaced_review: Revisão espaçada
+  claim_evolution: Evolução da alegação
+  learning_captured: Aprendizado capturado
+  learning_reviewed: Aprendizado revisado
+  spaced_review_due: Revisão espaçada pendente
+  claim_recorded: Alegação registrada
+  claim_verified: Alegação verificada
+  claim_superseded: Alegação substituída

@@ -34,4 +34,4 @@ source_lifecycle:
 
 # Extrato do Banco
 
-A live source. Its content is born by ingestion — manual creation under it is off. (The bank export is intentionally overdue.)
+A live Banco source. Its content is born by ingestion — manual creation under it is off. This fixture demonstrates lifecycle `consolidated`, freshness `stale` and last attempt `ok`. The bank export is intentionally overdue so the refresh mission has real evidence.

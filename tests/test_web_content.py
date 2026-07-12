@@ -4,11 +4,14 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from wiki_core.config import WikiConfig
 from wiki_core.web.content import build_page_content, sidecar_name, write_content_sidecars
 from wiki_core.web.snapshot import (
     _summary,
     build_snapshot,
+    prepare_snapshot_artifacts,
     snapshot_contract_errors,
     write_snapshot,
 )
@@ -138,6 +141,60 @@ def test_build_page_content_resolves_links_backlinks_and_sources(tmp_path: Path)
     assert missing["ok"] is False
 
 
+def test_page_content_rejects_body_from_newer_filesystem_revision(
+    tmp_path: Path,
+) -> None:
+    config = _sample_repo(tmp_path)
+    snapshot = build_snapshot(
+        tmp_path, config, generated_at="2026-07-01T00:00:00Z"
+    )
+    old_snapshot_id = snapshot["manifest.json"]["snapshot_id"]
+    page_path = tmp_path / "memories/example/index.md"
+    page_path.write_text(
+        page_path.read_text(encoding="utf-8")
+        + "\nThis body exists only in revision B.\n",
+        encoding="utf-8",
+    )
+
+    payload = build_page_content(tmp_path, config, "example-hub", snapshot)
+    expected_content_sha = next(
+        page["content_sha256"]
+        for page in snapshot["pages.json"]["pages"]
+        if page["id"] == "example-hub"
+    )
+
+    assert payload == {
+        "ok": False,
+        "error": "page changed since snapshot; refresh required",
+        "error_code": "snapshot_revision_mismatch",
+        "page_id": "example-hub",
+        "snapshot_id": old_snapshot_id,
+        "expected_content_sha256": expected_content_sha,
+        "actual_content_sha256": payload["actual_content_sha256"],
+    }
+    assert "body" not in payload
+
+
+def test_sidecar_freeze_fails_if_page_changes_after_snapshot(tmp_path: Path) -> None:
+    config = _sample_repo(tmp_path)
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-01T00:00:00Z",
+        content_sidecars=True,
+    )
+    page_path = tmp_path / "memories/example/index.md"
+    page_path.write_text(
+        page_path.read_text(encoding="utf-8") + "\nConcurrent edit.\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="page changed since snapshot"):
+        prepare_snapshot_artifacts(
+            tmp_path, config, snapshot, content_sidecars=True
+        )
+
+
 def test_content_sidecars_written_behind_flag(tmp_path: Path) -> None:
     config = _sample_repo(tmp_path)
     out_dir = tmp_path / "out"
@@ -180,3 +237,46 @@ def test_write_content_sidecars_is_deterministic(tmp_path: Path) -> None:
     second = write_content_sidecars(tmp_path, config, snapshot, tmp_path / "b")
     for page_id, path in first.items():
         assert path.read_text(encoding="utf-8") == second[page_id].read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("literal", [".nan", ".inf", "-.inf"])
+def test_non_finite_frontmatter_never_reaches_a_content_sidecar_or_promotion(
+    tmp_path: Path,
+    literal: str,
+) -> None:
+    config = _sample_repo(tmp_path)
+    page = tmp_path / "memories/example/index.md"
+    page.write_text(
+        page.read_text(encoding="utf-8").replace(
+            "stale_after_days: 30\n",
+            f"stale_after_days: 30\nnon_finite_probe: {literal}\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-01T00:00:00Z",
+        content_sidecars=True,
+    )
+
+    payload = build_page_content(tmp_path, config, "example-hub", snapshot)
+    assert payload == {
+        "ok": False,
+        "error": "page frontmatter contains a non-finite number",
+        "error_code": "content_frontmatter_non_finite",
+        "page_id": "example-hub",
+        "snapshot_id": snapshot["manifest.json"]["snapshot_id"],
+    }
+
+    target = tmp_path / "published"
+    with pytest.raises(ValueError, match="non-finite number"):
+        write_snapshot(
+            tmp_path,
+            target,
+            config,
+            clean=True,
+            content_sidecars=True,
+        )
+    assert not target.exists()

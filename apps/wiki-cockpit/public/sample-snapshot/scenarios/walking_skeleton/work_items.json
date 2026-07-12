@@ -1,0 +1,36 @@
+{
+  "actions": [
+    {
+      "action_id": "action-enviar-proposta",
+      "attention_basis": "A promised client follow-up is still open.",
+      "blocked_by": [],
+      "blocker_reason": "",
+      "cancellation_receipt": "",
+      "completed_at": "",
+      "completion_receipt": "",
+      "contract_warnings": [],
+      "created_at": "2026-07-03",
+      "due_at": "",
+      "evidence_refs": [
+        "source-agenda"
+      ],
+      "next_action": "Send the promised proposal and record the delivery receipt.",
+      "overdue": false,
+      "owner": {
+        "kind": "unassigned",
+        "ref": ""
+      },
+      "page_id": "action-enviar-proposta",
+      "parent_ref": "memories/clientes/index.md",
+      "priority": "normal",
+      "source_refs": [
+        "source-agenda"
+      ],
+      "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
+      "title": "Enviar proposta para Caio"
+    }
+  ],
+  "schema_version": "wiki_work_items.v1"
+}

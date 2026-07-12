@@ -15,6 +15,10 @@ const mockSnapshotState = vi.hoisted(() => ({
 const bundle: SnapshotBundle = {
   manifest: {
     schema_version: "wiki_web_snapshot.v1",
+    compatibility: {
+      state: "stale_version",
+      warnings: ["Previous snapshot version loaded in compatibility mode"]
+    },
     generated_at: "2026-07-01T00:00:00Z",
     mode: "local_operator",
     content_sidecars: false,
@@ -152,6 +156,24 @@ const bundle: SnapshotBundle = {
     bands: { last_7_days: 1, last_30_days: 0, older: 0 },
     events: []
   },
+  temporalGraph: {
+    schema_version: "wiki_temporal_graph.v1",
+    event_schema_version: "wiki_temporal_event.v1",
+    repo_id: "visual-fixture",
+    revision: "visual-fixture",
+    generated_at: "2026-07-01T00:00:00Z",
+    event_count: 0,
+    total_count: 0,
+    returned_count: 0,
+    truncated: false,
+    next_cursor: null,
+    page: { offset: 0, limit: 0, remaining_count: 0, fingerprint: "visual-fixture-empty" },
+    range: { from: null, to: null, from_precision: null, to_precision: null, event_count: 0, dated_count: 0, undated_count: 0, basis: "full_result" },
+    returned_range: { from: null, to: null, from_precision: null, to_precision: null, event_count: 0, dated_count: 0, undated_count: 0, basis: "returned_page" },
+    summary: { scope: "full_result", event_count: 0, by_kind: {}, by_context: {}, conflict_count: 0, imprecise_count: 0, diagnostic_count: 0 },
+    diagnostics: [],
+    events: []
+  },
   diff: {
     schema_version: "wiki_web_diff.v1",
     repo_id: "visual-fixture",
@@ -268,6 +290,9 @@ vi.mock("./data/snapshot", () => ({
     backlinks: [],
     source_refs: []
   })),
+  loadTemporalGraphForBundle: vi.fn(async () => {
+    throw Object.assign(new Error("temporal graph unavailable in v1 fixture"), { code: "partial" });
+  }),
   sidecarName: (id: string) => `${id}.json`,
   runOperatorCommand: vi.fn(),
   runGitWorkflow: vi.fn(),
@@ -324,6 +349,7 @@ describe("visual route contract", () => {
     // The packet collector only exists while it HAS pages — empty is invisible.
     expect(screen.queryByRole("button", { name: /Packet/ })).toBeNull();
     expect(screen.getByTestId("scene-fallback")).toBeTruthy();
+    expect(screen.getByText(/Previous snapshot contract|Contrato de snapshot anterior/)).toBeTruthy();
     cleanup();
 
     await renderRoute("/review");
@@ -342,15 +368,18 @@ describe("visual route contract", () => {
     cleanup();
 
     await renderRoute("/demo/w/radar");
-    expect(await screen.findByText(/Interface demo with synthetic sample data/)).toBeTruthy();
+    expect(await screen.findByText(/Read-only demo with synthetic data/)).toBeTruthy();
   });
 
   it("redirects legacy /pages/:id bookmarks into the world with the reader open", async () => {
     await renderRoute("/pages/root");
     await waitFor(() => {
-      expect(window.location.pathname).toBe("/w/atlas/system/sem-pai/root");
+      expect(window.location.pathname).toBe("/w");
     });
+    expect(window.location.search).toContain("view=atlas");
+    expect(window.location.search).toContain("page=root");
     expect(window.location.search).toContain("reader=1");
+    expect(window.location.search).toContain("runtime=compat");
     expect(await screen.findByLabelText("Reader: Root")).toBeTruthy();
     // Full markdown body rendered inside the world shell — no truncation.
     expect(await screen.findByText(/Corpo completo da página/)).toBeTruthy();
@@ -365,8 +394,9 @@ describe("visual route contract", () => {
     const hit = screen.getByRole("button", { name: /Source Fixture/ });
     fireEvent.click(hit);
     await waitFor(() => {
-      expect(window.location.pathname).toContain("/w/radar/system/");
-      expect(window.location.pathname).toContain("source-fixture");
+      expect(window.location.pathname).toBe("/w");
+      expect(window.location.search).toContain("view=radar");
+      expect(window.location.search).toContain("page=source-fixture");
     });
     expect(window.location.search).toContain("reader=1");
   });
@@ -418,9 +448,346 @@ describe("visual route contract", () => {
     const demoCalls = loadSnapshotMock.mock.calls
       .map(([options]) => options)
       .filter((options) => options?.demo);
+    expect(loadSnapshotMock.mock.calls.some(([options]) => options?.demo === false)).toBe(false);
     expect(demoCalls.map((options) => options?.demoScenario)).toEqual([
       "dense_stress",
       "normal_operations"
     ]);
+  });
+
+  it("silently adopts a newer real snapshot on focus without losing URL, reader, or focus", async () => {
+    const loadSnapshotMock = vi.mocked(loadSnapshotBundle);
+    const defaultImplementation = loadSnapshotMock.getMockImplementation();
+    expect(defaultImplementation).toBeTruthy();
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const bundleA = {
+      ...bundle,
+      manifest: { ...bundle.manifest, snapshot_id: "fixture-A", bundle_hash: "bundle-A" }
+    } as SnapshotBundle;
+    const bundleB = {
+      ...bundle,
+      manifest: {
+        ...bundle.manifest,
+        // Same snapshot id with a different bundle hash is still a different
+        // immutable revision and must be adopted.
+        snapshot_id: "fixture-A",
+        bundle_hash: "bundle-B",
+        repo: { ...bundle.manifest.repo, repo_id: "visual-fixture-refreshed" }
+      },
+      pages: {
+        pages: bundle.pages.pages.map((page) =>
+          page.id === "root" ? { ...page, title: "Root refreshed" } : page
+        )
+      }
+    } as SnapshotBundle;
+    let realCalls = 0;
+    loadSnapshotMock.mockClear();
+    loadSnapshotMock.mockImplementation(async (options) => {
+      const loaded = await defaultImplementation!(options);
+      if (options?.demo) return loaded;
+      realCalls += 1;
+      return { ...loaded, bundle: realCalls === 1 ? bundleA : bundleB };
+    });
+
+    try {
+      await renderRoute("/w?view=atlas&page=root&reader=1&runtime=compat");
+      const dialog = await screen.findByLabelText("Reader: Root");
+      expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === false)).toHaveLength(1);
+      dialog.focus();
+      expect(document.activeElement).toBe(dialog);
+      const routeBefore = `${window.location.pathname}${window.location.search}`;
+
+      now.mockReturnValue(6_001);
+      window.dispatchEvent(new Event("focus"));
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === false)).toHaveLength(2);
+
+      const refreshedDialog = await screen.findByLabelText("Reader: Root refreshed");
+      expect(await screen.findByText(/visual-fixture-refreshed/)).toBeTruthy();
+      expect(`${window.location.pathname}${window.location.search}`).toBe(routeBefore);
+      expect(refreshedDialog).toBe(dialog);
+      expect(document.activeElement).toBe(refreshedDialog);
+      expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === false)).toHaveLength(2);
+
+      // A further visibility signal after completion is also throttled, so a
+      // noisy browser cannot turn revalidation into a request loop.
+      document.dispatchEvent(new Event("visibilitychange"));
+      await Promise.resolve();
+      expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === false)).toHaveLength(2);
+    } finally {
+      now.mockRestore();
+      loadSnapshotMock.mockImplementation(defaultImplementation!);
+    }
+  });
+
+  it("revalidates once, without throttle or loading flash, when returning from demo to a changed real wiki", async () => {
+    const loadSnapshotMock = vi.mocked(loadSnapshotBundle);
+    const defaultImplementation = loadSnapshotMock.getMockImplementation();
+    expect(defaultImplementation).toBeTruthy();
+    const bundleBeforeDemo = {
+      ...bundle,
+      manifest: {
+        ...bundle.manifest,
+        snapshot_id: "real-before-demo",
+        bundle_hash: "bundle-before-demo",
+        repo: { ...bundle.manifest.repo, repo_id: "repo-before-demo" }
+      }
+    } as SnapshotBundle;
+    const bundleAfterDemo = {
+      ...bundle,
+      manifest: {
+        ...bundle.manifest,
+        snapshot_id: "real-after-demo",
+        bundle_hash: "bundle-after-demo",
+        repo: { ...bundle.manifest.repo, repo_id: "repo-after-demo" }
+      }
+    } as SnapshotBundle;
+    let realCalls = 0;
+    let resolveReturn: (() => void) | undefined;
+    loadSnapshotMock.mockClear();
+    loadSnapshotMock.mockImplementation(async (options) => {
+      const loaded = await defaultImplementation!(options);
+      if (options?.demo) return loaded;
+      realCalls += 1;
+      if (realCalls === 1) return { ...loaded, bundle: bundleBeforeDemo };
+      return new Promise((resolve) => {
+        resolveReturn = () => resolve({ ...loaded, bundle: bundleAfterDemo });
+      });
+    });
+
+    try {
+      await renderRoute("/w?view=radar");
+      expect(await screen.findByText(/repo-before-demo/)).toBeTruthy();
+
+      browserApplication.navigation.dispatch({
+        type: "navigate",
+        target: "/demo/w?view=radar&demo_scenario=normal_operations&tour=0"
+      });
+      expect(await screen.findByText(/Read-only demo with synthetic data/)).toBeTruthy();
+
+      // The real repository changes while the synthetic universe is open.
+      // Returning must read immediately even though the previous real load is
+      // much newer than the normal focus throttle.
+      browserApplication.navigation.dispatch({ type: "navigate", target: "/w?view=radar" });
+      await waitFor(() => expect(resolveReturn).toBeTruthy());
+      expect(screen.getByText(/repo-before-demo/)).toBeTruthy();
+      expect(screen.queryByText(/Loading world/)).toBeNull();
+      window.dispatchEvent(new Event("focus"));
+      expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === false)).toHaveLength(2);
+
+      resolveReturn!();
+      expect(await screen.findByText(/repo-after-demo/)).toBeTruthy();
+      expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === false)).toHaveLength(2);
+    } finally {
+      loadSnapshotMock.mockImplementation(defaultImplementation!);
+    }
+  });
+
+  it("keeps old real data but exposes a bounded failed-refresh signal with the last success time", async () => {
+    const loadSnapshotMock = vi.mocked(loadSnapshotBundle);
+    const defaultImplementation = loadSnapshotMock.getMockImplementation();
+    expect(defaultImplementation).toBeTruthy();
+    const verifiedAt = Date.parse("2026-07-11T12:00:00Z");
+    const now = vi.spyOn(Date, "now").mockReturnValue(verifiedAt);
+    const bundleA = {
+      ...bundle,
+      manifest: {
+        ...bundle.manifest,
+        snapshot_id: "failure-A",
+        bundle_hash: "failure-bundle-A",
+        repo: { ...bundle.manifest.repo, repo_id: "failure-fixture-A" }
+      }
+    } as SnapshotBundle;
+    const bundleB = {
+      ...bundle,
+      manifest: {
+        ...bundle.manifest,
+        snapshot_id: "failure-B",
+        bundle_hash: "failure-bundle-B",
+        repo: { ...bundle.manifest.repo, repo_id: "failure-fixture-B" }
+      }
+    } as SnapshotBundle;
+    let realCalls = 0;
+    loadSnapshotMock.mockClear();
+    loadSnapshotMock.mockImplementation(async (options) => {
+      const loaded = await defaultImplementation!(options);
+      if (options?.demo) return loaded;
+      realCalls += 1;
+      if (realCalls === 1) return { ...loaded, bundle: bundleA };
+      if (realCalls === 2) throw new Error("bounded synthetic refresh failure");
+      return { ...loaded, bundle: bundleB };
+    });
+
+    try {
+      await renderRoute("/w?view=radar");
+      expect(await screen.findByText(/failure-fixture-A/)).toBeTruthy();
+      const routeBefore = `${window.location.pathname}${window.location.search}`;
+
+      now.mockReturnValue(verifiedAt + 5_001);
+      window.dispatchEvent(new Event("focus"));
+      expect(await screen.findByText(/Live snapshot refresh failed/)).toBeTruthy();
+      expect(screen.getByText(/Refresh failed · verified 2026-07-11T12:00:00Z/)).toBeTruthy();
+      expect(screen.getByText(/failure-fixture-A/)).toBeTruthy();
+      expect(`${window.location.pathname}${window.location.search}`).toBe(routeBefore);
+
+      // A later successful focus bounds the warning lifecycle and replaces the
+      // retained old data with the now-verified revision.
+      now.mockReturnValue(verifiedAt + 10_002);
+      window.dispatchEvent(new Event("focus"));
+      expect(await screen.findByText(/failure-fixture-B/)).toBeTruthy();
+      await waitFor(() => {
+        expect(screen.queryByText(/Refresh failed · verified/)).toBeNull();
+        expect(screen.queryByText(/Live snapshot refresh failed/)).toBeNull();
+      });
+    } finally {
+      now.mockRestore();
+      loadSnapshotMock.mockImplementation(defaultImplementation!);
+    }
+  });
+
+  it("never installs live focus revalidation inside the synthetic demo universe", async () => {
+    const loadSnapshotMock = vi.mocked(loadSnapshotBundle);
+    loadSnapshotMock.mockClear();
+    await renderRoute("/demo/world?demo_scenario=normal_operations&tour=0");
+    expect(
+      await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
+    ).toBeTruthy();
+
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    await Promise.resolve();
+
+    expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === false)).toHaveLength(0);
+    expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === true)).toHaveLength(1);
+  });
+
+  it("replace-normalizes a bad reader deep link and leaves mouse and keyboard navigation operable", async () => {
+    window.history.pushState({}, "", "/w?view=radar&page=does-not-exist&reader=1");
+    const historyLength = window.history.length;
+    render(<App ports={browserApplication} />);
+
+    expect(
+      await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
+    ).toBeTruthy();
+    await waitFor(() => {
+      const params = new URLSearchParams(window.location.search);
+      expect(params.has("page")).toBe(false);
+      expect(params.has("reader")).toBe(false);
+    });
+    expect(window.history.length).toBe(historyLength);
+    expect(screen.queryByRole("dialog", { name: /Reader:/ })).toBeNull();
+
+    const search = screen.getByLabelText("Search content");
+    const commandBar = search.closest<HTMLElement>(".worldCommandBar");
+    expect(commandBar?.inert).toBe(false);
+    const sourcesView = document.querySelector<HTMLButtonElement>('[data-view-option="sources"]');
+    expect(sourcesView).toBeTruthy();
+    fireEvent.click(sourcesView!);
+    await waitFor(() => expect(window.location.search).toContain("view=sources"));
+    search.focus();
+    expect(document.activeElement).toBe(search);
+    fireEvent.change(search, { target: { value: "Root" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+    await waitFor(() => {
+      expect(window.location.search).toContain("page=root");
+      expect(window.location.search).toContain("reader=1");
+    });
+    expect(await screen.findByLabelText("Reader: Root")).toBeTruthy();
+  });
+
+  it("recovers mouse and keyboard control when a focused reader page disappears on refresh", async () => {
+    const loadSnapshotMock = vi.mocked(loadSnapshotBundle);
+    const defaultImplementation = loadSnapshotMock.getMockImplementation();
+    expect(defaultImplementation).toBeTruthy();
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const bundleA = {
+      ...bundle,
+      manifest: { ...bundle.manifest, snapshot_id: "delete-A", bundle_hash: "delete-bundle-A" }
+    } as SnapshotBundle;
+    const bundleB = {
+      ...bundle,
+      manifest: { ...bundle.manifest, snapshot_id: "delete-B", bundle_hash: "delete-bundle-B" },
+      pages: { pages: bundle.pages.pages.filter((page) => page.id !== "source-fixture") }
+    } as SnapshotBundle;
+    let realCalls = 0;
+    loadSnapshotMock.mockClear();
+    loadSnapshotMock.mockImplementation(async (options) => {
+      const loaded = await defaultImplementation!(options);
+      if (options?.demo) return loaded;
+      realCalls += 1;
+      return { ...loaded, bundle: realCalls === 1 ? bundleA : bundleB };
+    });
+
+    try {
+      await renderRoute("/w?view=radar&page=source-fixture&reader=1");
+      const reader = await screen.findByLabelText("Reader: Source Fixture");
+      reader.focus();
+      expect(document.activeElement).toBe(reader);
+
+      now.mockReturnValue(6_001);
+      window.dispatchEvent(new Event("focus"));
+      await waitFor(() => {
+        const params = new URLSearchParams(window.location.search);
+        expect(params.has("page")).toBe(false);
+        expect(params.has("reader")).toBe(false);
+      });
+
+      // Finish the visual exit deterministically; the same event is emitted by
+      // the production CSS animation, with a timeout fallback for hidden tabs.
+      const closingReader = document.querySelector<HTMLElement>(".readerSurfacePresence.closing");
+      expect(closingReader).toBeTruthy();
+      fireEvent.animationEnd(closingReader!);
+      await waitFor(() => expect(screen.queryByLabelText("Reader: Source Fixture")).toBeNull());
+
+      const search = screen.getByLabelText("Search content");
+      const commandBar = search.closest<HTMLElement>(".worldCommandBar");
+      expect(commandBar?.inert).toBe(false);
+      const sourcesView = document.querySelector<HTMLButtonElement>('[data-view-option="sources"]');
+      expect(sourcesView).toBeTruthy();
+      fireEvent.click(sourcesView!);
+      await waitFor(() => expect(window.location.search).toContain("view=sources"));
+      search.focus();
+      expect(document.activeElement).toBe(search);
+      fireEvent.change(search, { target: { value: "Root" } });
+      fireEvent.keyDown(search, { key: "Enter" });
+      expect(await screen.findByLabelText("Reader: Root")).toBeTruthy();
+    } finally {
+      now.mockRestore();
+      loadSnapshotMock.mockImplementation(defaultImplementation!);
+    }
+  });
+
+  it("aborts a pending real snapshot when navigation crosses into demo", async () => {
+    const loadSnapshotMock = vi.mocked(loadSnapshotBundle);
+    const defaultImplementation = loadSnapshotMock.getMockImplementation();
+    expect(defaultImplementation).toBeTruthy();
+    let realSignal: AbortSignal | undefined;
+    loadSnapshotMock.mockClear();
+    loadSnapshotMock.mockImplementation((options) => {
+      if (options?.demo) return defaultImplementation!(options);
+      return new Promise((_, reject) => {
+        realSignal = options?.signal;
+        realSignal?.addEventListener(
+          "abort",
+          () => reject(new DOMException("aborted", "AbortError")),
+          { once: true }
+        );
+      });
+    });
+
+    try {
+      await renderRoute("/w/radar");
+      await waitFor(() => expect(realSignal).toBeTruthy());
+      expect(realSignal!.aborted).toBe(false);
+
+      browserApplication.navigation.dispatch({ type: "navigate", target: "/demo/world?tour=0" });
+
+      await waitFor(() => expect(realSignal!.aborted).toBe(true));
+      expect(await screen.findByText(/Read-only demo with synthetic data/)).toBeTruthy();
+      expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === false)).toHaveLength(1);
+      expect(loadSnapshotMock.mock.calls.filter(([options]) => options?.demo === true)).toHaveLength(1);
+    } finally {
+      loadSnapshotMock.mockImplementation(defaultImplementation!);
+    }
   });
 });

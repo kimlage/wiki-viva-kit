@@ -65,9 +65,13 @@ export function freshnessLabel(state: string): string {
 }
 
 export function workspaceLabel(git: GitState): string {
-  if (git.proposal.is_proposal_branch) return git.proposal.theme ? `review: ${git.proposal.theme}` : "review workspace";
-  if (git.current_branch === git.default_branch) return "approved workspace";
-  return "current workspace";
+  if (git.proposal.is_proposal_branch) {
+    return git.proposal.theme
+      ? t("scene.workspace.reviewNamed", { theme: git.proposal.theme })
+      : t("scene.workspace.review");
+  }
+  if (git.current_branch === git.default_branch) return t("scene.workspace.approved");
+  return t("scene.workspace.current");
 }
 
 export type TrustKey = "fresh" | "stale" | "unknown" | "proposal";
@@ -79,12 +83,11 @@ export function nodeTrustKey(node: Pick<LayoutNode, "approved_state" | "freshnes
   return "unknown";
 }
 
-// State → material treatment. Since the re-encoding, the node BODY hue is the
-// context identity (per-instance colors, see InstancedNodeMesh); this table
-// keeps what per-instance attributes cannot express: per-state emissive
-// (attention glows — amber heat for stale, purple for drafts), opacity (the
-// unknown veil) and the glow-sprite gate. Salience inversion survives: fresh
-// bodies sit in a calm lightness band with no emissive; problems radiate.
+// State → auxiliary material treatment. Node BODY hue/ring is owned by the
+// active overlay token (per-instance colors, see InstancedNodeMesh); context
+// remains position/label/keyline. This table keeps what per-instance
+// attributes cannot express: trust emissive/opacity and the glow-sprite gate.
+// Salience inversion survives: healthy bodies stay calm; problems radiate.
 export const TRUST_MATERIALS: Record<TrustKey | "root", { emissiveIntensity: number; opacity: number; glows: boolean }> = {
   fresh: { emissiveIntensity: 0.05, opacity: 1, glows: false },
   stale: { emissiveIntensity: 1.1, opacity: 1, glows: true },

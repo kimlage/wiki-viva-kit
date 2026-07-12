@@ -1,0 +1,36 @@
+{
+  "actions": [
+    {
+      "action_id": "action-region-clean-unsourced",
+      "attention_basis": "Unsourced claims weaken evidence quality.",
+      "blocked_by": [],
+      "blocker_reason": "",
+      "cancellation_receipt": "",
+      "completed_at": "",
+      "completion_receipt": "",
+      "contract_warnings": [],
+      "created_at": "2026-07-03",
+      "due_at": "",
+      "evidence_refs": [
+        "source-product-analytics"
+      ],
+      "next_action": "Link each unsourced claim or mark it for removal.",
+      "overdue": false,
+      "owner": {
+        "kind": "unassigned",
+        "ref": ""
+      },
+      "page_id": "action-region-clean-unsourced",
+      "parent_ref": "memories/clientes/index.md",
+      "priority": "normal",
+      "source_refs": [
+        "source-product-analytics"
+      ],
+      "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
+      "title": "Clean unsourced region claims"
+    }
+  ],
+  "schema_version": "wiki_work_items.v1"
+}

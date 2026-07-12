@@ -18,10 +18,9 @@ source_refs:
 - source-support-tickets
 evidence_refs:
 - artifact-region-pressure-035
-next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: normal
 attention_basis: Its lifecycle and evidence state require review.
-completed_at: '2026-07-03'
+completed_at: '2026-07-03T12:00:00Z'
 completion_receipt: receipt:demo-action-done-035
 ---
 

@@ -1,6 +1,7 @@
 """Tests for the consolidation layer (the integration half of ingestion):
 aggregate from llm-cache, event generation, integration packet, pending check,
 the audit_consolidation gate and wiki-page indexing."""
+# ruff: noqa: E402 - standalone execution bootstraps the repository import path
 
 from __future__ import annotations
 
@@ -25,7 +26,7 @@ from wiki_core.consolidate import (
     pending_consolidations,
 )
 from wiki_core.chunking import chunk_text
-from wiki_core.index import PAGE_SOURCE_PREFIX, build_index, index_pages, index_source, prune_index
+from wiki_core.index import PAGE_SOURCE_PREFIX, build_index, index_pages, prune_index
 from wiki_core.index.sqlite import search
 from wiki_core.paths import WikiPaths
 
@@ -112,6 +113,8 @@ def test_event_markdown_is_specific_never_placeholder(repo, language, forbidden)
     )
     assert forbidden not in md
     assert "Ana wants the migration" in md          # real content from the cache
+    assert "page_type: ingestion_event" in md       # distinct provenance family
+    assert "page_type: source_catalog" not in md
     assert f"source_id: {SOURCE_ID}" in md           # gate hook
     assert "consolidated_into: []" in md             # integration to close
     assert "affected_pages: {must_update: [], should_review: []}" in md

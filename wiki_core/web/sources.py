@@ -20,22 +20,17 @@ from typing import Any
 from wiki_core.config import WikiConfig
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.paths import WikiPaths
-from wiki_core.source_recipe import extract_recipe_mapping, parse_recipe, validate_recipe
+from wiki_core.source_recipe import (
+    SOURCE_RECIPE_SAFETY_ERROR_CODE,
+    extract_recipe_mapping,
+    parse_recipe,
+    validate_recipe,
+)
+from wiki_core.source_lifecycle import SOURCE_SYNC_STATES, resolve_source_lifecycle
 from wiki_core.source_state import read_state, stream_cursor
 
 SOURCE_ENTITIES_SCHEMA_VERSION = "wiki_web_source_entities.v1"
-
-_SYNC_STATES = {
-    "ok",
-    "partial",
-    "failed",
-    "needs_auth",
-    "parser_error",
-    "secret_blocked",
-    "running",
-    "queued",
-    "never",
-}
+SOURCE_RECIPE_INVALID_ERROR_CODE = "source_recipe_invalid"
 
 
 def _iso_days_ago(value: str, today: dt.date) -> int | None:
@@ -141,6 +136,7 @@ def _source_record(
     # Recipe (from the config page it points to, or a co-located config).
     recipe_json: dict[str, Any] = {}
     recipe_errors: list[str] = []
+    unsafe_recipe = False
     config_ref = str(values.get("config_ref") or "").strip()
     config_path = _contained(root, config_ref) if config_ref else None
     if config_path is not None and config_path.is_file():
@@ -148,7 +144,12 @@ def _source_record(
         if mapping is not None:
             recipe = parse_recipe(mapping)
             recipe_errors = validate_recipe(recipe)
-            recipe_json = recipe.to_json()
+            unsafe_recipe = SOURCE_RECIPE_SAFETY_ERROR_CODE in recipe_errors
+            # A secret poisons the whole recipe projection. Do not try to redact
+            # individual fields: nested filters, manuals and future schema
+            # additions would make that boundary incomplete.
+            if not unsafe_recipe:
+                recipe_json = recipe.to_json()
 
     state = read_state(paths.source_state, source_id)
     pipelines = recipe_json.get("pipelines") or []
@@ -187,7 +188,7 @@ def _source_record(
     fresh = sum(1 for s in streams_out if s.get("selected", True) and not s.get("breached"))
 
     last_status = str(sync.get("last_status") or "never")
-    if last_status not in _SYNC_STATES:
+    if last_status not in SOURCE_SYNC_STATES:
         last_status = "never"
     last_run_at = str(sync.get("last_run_at") or "")
     last_event_ref = str(sync.get("last_event_ref") or "")
@@ -203,24 +204,31 @@ def _source_record(
             sync_derived = True
 
     event_closure = dict((events_index or {}).get(source_id) or {})
-    lifecycle_values = values.get("source_lifecycle") if isinstance(values.get("source_lifecycle"), dict) else {}
-    pipeline_timestamps = lifecycle_values.get("pipeline_stage_timestamps")
+    lifecycle_resolution = resolve_source_lifecycle(values)
+    lifecycle_values = lifecycle_resolution.values
+    authored_lifecycle = (
+        values.get("source_lifecycle")
+        if isinstance(values.get("source_lifecycle"), dict)
+        else {}
+    )
+    pipeline_timestamps = authored_lifecycle.get("pipeline_stage_timestamps")
     if not isinstance(pipeline_timestamps, dict):
         pipeline_timestamps = {}
-
-    def lifecycle_value(key: str, fallback: Any = "") -> Any:
-        direct = values.get(f"source_{key}")
-        if direct not in (None, "", []):
-            return direct
-        return lifecycle_values.get(key, fallback)
 
     return {
         "source_id": source_id,
         "path": rel,
         "title": str(values.get("title") or source_id),
         "context": str(values.get("context") or ""),
-        "platform": str(values.get("platform") or recipe_json.get("platform") or ""),
-        "locator": str(values.get("source_locator") or recipe_json.get("locator") or ""),
+        # Hide even duplicated source-page identity while a referenced recipe is
+        # secret-bearing. This keeps the fail-closed record independent of which
+        # field happened to contain the credential.
+        "platform": ""
+        if unsafe_recipe
+        else str(values.get("platform") or recipe_json.get("platform") or ""),
+        "locator": ""
+        if unsafe_recipe
+        else str(values.get("source_locator") or recipe_json.get("locator") or ""),
         "owner": str(values.get("owner") or ""),
         "stewards": [s for s in stewards if isinstance(s, dict)],
         "config_ref": config_ref,
@@ -242,22 +250,40 @@ def _source_record(
             },
         },
         "lifecycle": {
-            "state": str(lifecycle_values.get("state") or lifecycle_value("lifecycle_state") or values.get("lifecycle_state") or ""),
-            "freshness_state": str(lifecycle_value("freshness_state") or ""),
-            "last_attempt_state": str(lifecycle_value("last_attempt_state") or ""),
-            "pipeline_stage": str(lifecycle_value("pipeline_stage") or ""),
+            "state": str(lifecycle_values.get("lifecycle_state") or ""),
+            "freshness_state": str(lifecycle_values.get("freshness_state") or ""),
+            "last_attempt_state": str(lifecycle_values.get("last_attempt_state") or ""),
+            "pipeline_stage": str(lifecycle_values.get("pipeline_stage") or ""),
             "pipeline_stage_timestamps": {str(k): str(v) for k, v in pipeline_timestamps.items()},
-            "adoption_state": str(lifecycle_value("adoption_state") or values.get("ingestion_state") or ""),
-            "last_sync_success_at": str(lifecycle_value("last_sync_success_at") or ""),
-            "last_ingested_at": str(lifecycle_value("last_ingested_at") or values.get("last_ingested_at") or ""),
-            "last_attempt_at": str(lifecycle_value("last_attempt_at") or ""),
-            "emitted_page_ids": list_values(lifecycle_value("emitted_page_ids", [])),
-            "emitted_action_ids": list_values(lifecycle_value("emitted_action_ids", [])),
-            "proposal_ids": list_values(lifecycle_value("proposal_ids", [])),
-            "raw_artifact_count": _int_or_zero(lifecycle_value("raw_artifact_count", 0)),
-            "secret_safe_log_refs": list_values(lifecycle_value("secret_safe_log_refs", [])),
-            "reviewed_no_change_receipt": str(lifecycle_value("reviewed_no_change_receipt") or ""),
-            "accepted_ref": str(lifecycle_value("accepted_ref") or ""),
+            "adoption_state": str(
+                lifecycle_values.get("adoption_state")
+                or values.get("ingestion_state")
+                or ""
+            ),
+            "last_sync_success_at": str(lifecycle_values.get("last_sync_success_at") or ""),
+            "last_ingested_at": str(
+                lifecycle_values.get("last_ingested_at")
+                or values.get("last_ingested_at")
+                or ""
+            ),
+            "last_attempt_at": str(lifecycle_values.get("last_attempt_at") or ""),
+            "emitted_page_ids": list_values(lifecycle_values.get("emitted_page_ids", [])),
+            "emitted_action_ids": list_values(lifecycle_values.get("emitted_action_ids", [])),
+            "proposal_ids": list_values(lifecycle_values.get("proposal_ids", [])),
+            "raw_artifact_count": _int_or_zero(lifecycle_values.get("raw_artifact_count", 0)),
+            "secret_safe_log_refs": list_values(lifecycle_values.get("secret_safe_log_refs", [])),
+            "reviewed_no_change_receipt": str(lifecycle_values.get("reviewed_no_change_receipt") or ""),
+            "accepted_ref": str(lifecycle_values.get("accepted_ref") or ""),
+            "blocked_reason": str(lifecycle_values.get("blocked_reason") or ""),
+            # Codes only: messages may mention authoring details and belong in
+            # the local audit, while the snapshot must stay public-safe.
+            "authoring_error_codes": sorted(
+                {
+                    diagnostic.code
+                    for diagnostic in lifecycle_resolution.diagnostics
+                    if diagnostic.severity == "error"
+                }
+            ),
         },
         "recipe_ok": bool(recipe_json) and not recipe_errors,
         "recipe_errors": recipe_errors,
@@ -319,6 +345,13 @@ def compose_source_brief_spec(
     source = next((s for s in payload["sources"] if s["source_id"] == source_id), None)
     if source is None:
         return {"ok": False, "error": f"unknown source `{source_id}`"}
+    if not source.get("recipe_ok"):
+        error_code = (
+            SOURCE_RECIPE_SAFETY_ERROR_CODE
+            if SOURCE_RECIPE_SAFETY_ERROR_CODE in source.get("recipe_errors", [])
+            else SOURCE_RECIPE_INVALID_ERROR_CODE
+        )
+        return {"ok": False, "error": error_code, "error_code": error_code}
     stale = [s for s in source["streams"] if s.get("selected", True) and s.get("breached")]
     targets = sorted({t for s in stale for t in (s.get("target_pages") or [])})
     channels = ", ".join(s["id"] for s in stale) or "all selected streams"

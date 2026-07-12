@@ -21,7 +21,7 @@ export type MissionRow = {
   onClick: () => void;
   // Optional secondary action (e.g. "resolve with Codex") rendered in the
   // row's dedicated action band, never beside/compressing the main copy.
-  action?: { label: string; title?: string; onClick: () => void };
+  action?: { label: string; title?: string; disabled?: boolean; onClick?: () => void };
 };
 
 export function MissionCard({
@@ -167,7 +167,14 @@ export function MissionCard({
                   style={{ flexBasis: "100%", minWidth: 0 }}
                 >
                   {row.action && (
-                    <button className="missionRowAction" onClick={row.action.onClick} title={row.action.title} type="button">
+                    <button
+                      className="missionRowAction"
+                      onClick={row.action.disabled ? undefined : row.action.onClick}
+                      title={row.action.title}
+                      disabled={row.action.disabled}
+                      aria-label={row.action.disabled ? `${row.action.label} — ${row.action.title || t("demo.readOnlyControl")}` : undefined}
+                      type="button"
+                    >
                       <Sparkles size={13} />
                       <span>{row.action.label}</span>
                     </button>

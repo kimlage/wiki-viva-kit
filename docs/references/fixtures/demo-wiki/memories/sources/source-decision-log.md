@@ -31,4 +31,4 @@ source_lifecycle:
 
 # Decision log export
 
-A live source. Its content is born by ingestion — manual creation under it is off. (The bank export is intentionally overdue.)
+A live Decision ledger source. Its content is born by ingestion — manual creation under it is off. This fixture demonstrates lifecycle `ingested`, freshness `fresh` and last attempt `ok`.

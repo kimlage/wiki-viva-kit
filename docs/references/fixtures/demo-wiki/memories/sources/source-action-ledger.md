@@ -30,4 +30,4 @@ source_lifecycle:
 
 # Action ledger export
 
-A live source. Its content is born by ingestion — manual creation under it is off. (The bank export is intentionally overdue.)
+A live Action tracker source. Its content is born by ingestion — manual creation under it is off. This fixture demonstrates lifecycle `configured`, freshness `never_synced` and last attempt `never`.

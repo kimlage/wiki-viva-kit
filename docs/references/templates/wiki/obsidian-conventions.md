@@ -134,6 +134,14 @@ Rules:
   `collection_refs` is reported as incomplete and stays on descendant scope.
 - Missing member/index references remain visible as collection diagnostics;
   they are never silently discarded.
+- `collection_member` is acyclic. An explicit self-reference is invalid, and a
+  multi-page cycle is reported with every edge's declaration basis and origin.
+  A typed selector still excludes its own anchor, even when `member_types`
+  contains the anchor's page type; that exclusion is not a hidden self-loop.
+- To migrate a forbidden cycle, remove the indicated `collection_refs` or
+  `collection.members` entry, or narrow the indicated `member_types` selector
+  with `contexts`. Do not repair a collection cycle by changing `moc_parent`:
+  canonical hierarchy and collection membership are separate relations.
 - The compiled graph emits `collection_member` from the member to the real
   index page. Reader hierarchy shows both directions (`member of this
   collection` / `in collection`) without calling the relation a citation.

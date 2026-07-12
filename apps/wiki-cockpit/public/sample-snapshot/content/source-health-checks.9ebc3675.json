@@ -11,7 +11,7 @@
       "title": "Error trace export"
     }
   ],
-  "body": "\n# Health checks output\n\nA live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)\n",
+  "body": "\n# Health checks output\n\nA live Checks source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `blocked`, freshness `stale` and last attempt `failed`.\n",
   "frontmatter": {
     "context": "sistema",
     "moc_parent": "memories/index.md",
@@ -63,13 +63,13 @@
     "page_id": "source-health-checks",
     "page_type": "source",
     "path": "memories/sources/source-health-checks.md",
-    "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+    "summary": "A live Checks source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle blocked, freshness stale and last attempt failed.",
     "summary_truncated": false,
     "title": "Health checks output",
     "updated_at": "2026-07-03"
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-3a7e59e1808bc23d",
+  "snapshot_id": "wiki-viva-demo-b60b6d02b5e77999",
   "source_refs": []
 }

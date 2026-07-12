@@ -9,6 +9,7 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { t } from "../data/i18n";
+import { experiencePackView } from "../data/experiencePacks";
 import { contextLabel, pageTypeLabel, pageTypeStyle, perspectiveLabel, worldGroupDescription, worldGroupLabel } from "../data/presentation";
 import { groupKeyForPage, isSourceEmitterType } from "../scene/perspectives";
 import type { PerspectiveId as ScenePerspectiveId } from "../scene/perspectives";
@@ -65,6 +66,8 @@ import {
 
 const SystemScene = lazy(() => import("./SystemScene").then((module) => ({ default: module.SystemScene })));
 const PageReader = lazy(() => import("./PageReader").then((module) => ({ default: module.PageReader })));
+const TimelineView = lazy(() => import("./TimelineView").then((module) => ({ default: module.TimelineView })));
+const PackWorkbench = lazy(() => import("./PackWorkbench").then((module) => ({ default: module.PackWorkbench })));
 
 function MeasuredWorldTopStrip({ children, ariaLabel }: { children: ReactNode; ariaLabel: string }) {
   const stripRef = useRef<HTMLDivElement>(null);
@@ -298,7 +301,7 @@ function VisualControlPanel({
       setPayloadDirty(false);
       setPayloadError("");
     } catch {
-      setPayloadError("JSON invalido");
+      setPayloadError(t("visualControl.json.invalid"));
     }
   };
   const copyPayload = async () => {
@@ -319,18 +322,18 @@ function VisualControlPanel({
       setCopiedSnippet(false);
     }
   };
-  const sliders: { key: keyof Pick<VisualControlConfig, "glow" | "contrast" | "density" | "spacing" | "motion" | "uiScale" | "glass">; label: string; min: number; max: number; step: number }[] = [
-    { key: "glow", label: "Glow", min: 0.55, max: 1.8, step: 0.05 },
-    { key: "contrast", label: "Contrast", min: 0.8, max: 1.35, step: 0.05 },
-    { key: "density", label: "Density", min: 0.7, max: 1.35, step: 0.05 },
-    { key: "spacing", label: "Spacing", min: 0.72, max: 1.85, step: 0.05 },
-    { key: "motion", label: "Motion", min: 0, max: 1.4, step: 0.05 },
-    { key: "uiScale", label: "UI scale", min: 0.9, max: 1.12, step: 0.01 },
-    { key: "glass", label: "Glass", min: 0.55, max: 1.15, step: 0.05 }
+  const sliders: { key: keyof Pick<VisualControlConfig, "glow" | "contrast" | "density" | "spacing" | "motion" | "uiScale" | "glass">; min: number; max: number; step: number }[] = [
+    { key: "glow", min: 0.55, max: 1.8, step: 0.05 },
+    { key: "contrast", min: 0.8, max: 1.35, step: 0.05 },
+    { key: "density", min: 0.7, max: 1.35, step: 0.05 },
+    { key: "spacing", min: 0.72, max: 1.85, step: 0.05 },
+    { key: "motion", min: 0, max: 1.4, step: 0.05 },
+    { key: "uiScale", min: 0.9, max: 1.12, step: 0.01 },
+    { key: "glass", min: 0.55, max: 1.15, step: 0.05 }
   ];
 
   return (
-    <aside className="visualControlPanel" role="dialog" aria-label="God mode visual controls">
+    <aside className="visualControlPanel" role="dialog" aria-label={t("visualControl.aria")}>
       <span className="visualControlMotes" aria-hidden>
         <i />
         <i />
@@ -342,17 +345,17 @@ function VisualControlPanel({
       <header className="visualControlHeader">
         <span className="visualControlIcon" aria-hidden><SlidersHorizontal size={15} /></span>
         <div>
-          <strong>God mode</strong>
-          <small>Live world tuning</small>
+          <strong>{t("visualControl.title")}</strong>
+          <small>{t("visualControl.subtitle")}</small>
         </div>
-        <button className="readerClose" onClick={onClose} title="Close visual controls" type="button">
+        <button className="readerClose" aria-label={t("visualControl.close")} onClick={onClose} title={t("visualControl.close")} type="button">
           <X size={14} />
         </button>
       </header>
-      <div className="visualControlPresetGrid" role="group" aria-label="Visual presets">
+      <div className="visualControlPresetGrid" role="group" aria-label={t("visualControl.presets.aria")}>
         {Object.entries(VISUAL_CONTROL_PRESETS).map(([name, preset]) => (
           <button key={name} onClick={() => applyConfig(preset)} type="button">
-            {name}
+            {t(`visualControl.preset.${name}`)}
           </button>
         ))}
       </div>
@@ -360,7 +363,7 @@ function VisualControlPanel({
         {sliders.map((slider) => (
           <label className="visualControlSlider" key={slider.key}>
             <span>
-              <b>{slider.label}</b>
+              <b>{t(`visualControl.slider.${slider.key}`)}</b>
               <small>{config[slider.key].toFixed(slider.step < 0.05 ? 2 : 1)}×</small>
             </span>
             <input
@@ -374,7 +377,7 @@ function VisualControlPanel({
           </label>
         ))}
       </div>
-      <div className="visualControlModes" role="group" aria-label="Label density">
+      <div className="visualControlModes" role="group" aria-label={t("visualControl.labels.aria")}>
         {(["quiet", "balanced", "dense"] as VisualLabelMode[]).map((mode) => (
           <button
             key={mode}
@@ -382,7 +385,7 @@ function VisualControlPanel({
             onClick={() => setLabels(mode)}
             type="button"
           >
-            {mode}
+            {t(`visualControl.labels.${mode}`)}
           </button>
         ))}
       </div>
@@ -392,12 +395,12 @@ function VisualControlPanel({
           checked={config.particles}
           onChange={(event) => applyConfig({ ...config, particles: event.target.checked })}
         />
-        <span>Particle overlays</span>
+        <span>{t("visualControl.particles")}</span>
       </label>
       <textarea
         className={payloadError ? "visualControlOutput invalid" : "visualControlOutput"}
         value={draftPayload}
-        aria-label="Visual config JSON"
+        aria-label={t("visualControl.json.aria")}
         spellCheck={false}
         onChange={(event) => {
           setDraftPayload(event.target.value);
@@ -406,16 +409,16 @@ function VisualControlPanel({
         }}
       />
       <div className="visualControlPayloadHint" role={payloadError ? "alert" : undefined}>
-        {payloadError || "Cole um payload salvo aqui para reaplicar; copie o JSON quando quiser promover como default."}
+        {payloadError || t("visualControl.json.hint")}
       </div>
       <label className="visualControlSnippet">
         <span>
-          <b>Default snippet</b>
-          <small>reviewed code candidate</small>
+          <b>{t("visualControl.snippet.title")}</b>
+          <small>{t("visualControl.snippet.subtitle")}</small>
         </span>
         <textarea
           value={defaultSnippet}
-          aria-label="Default visual config snippet"
+          aria-label={t("visualControl.snippet.aria")}
           readOnly
           spellCheck={false}
         />
@@ -426,16 +429,16 @@ function VisualControlPanel({
           setPayloadDirty(false);
           setPayloadError("");
         }} type="button">
-          <RotateCcw size={13} /> Reset
+          <RotateCcw size={13} /> {t("visualControl.action.reset")}
         </button>
         <button className="textButton" disabled={!payloadDirty} onClick={applyDraftPayload} type="button">
-          Aplicar JSON
+          {t("visualControl.action.apply")}
         </button>
         <button className="textButton" onClick={copySnippet} type="button">
-          <Copy size={13} /> {copiedSnippet ? "Snippet copied" : "Copy default"}
+          <Copy size={13} /> {copiedSnippet ? t("visualControl.action.snippetCopied") : t("visualControl.action.copyDefault")}
         </button>
         <button className="primaryButton compact" onClick={copyPayload} type="button">
-          <Copy size={13} /> {copied ? "Copied" : "Copy JSON"}
+          <Copy size={13} /> {copied ? t("visualControl.action.copied") : t("visualControl.action.copyJson")}
         </button>
       </div>
     </aside>
@@ -452,6 +455,8 @@ export function WorldView({
   onComposeBrief,
   navigation,
   loadPageContent,
+  loadTemporalGraph,
+  onSnapshotMismatch,
   worldRuntime,
   worldState
 }: {
@@ -466,28 +471,114 @@ export function WorldView({
   onComposeBrief?: (spec: BriefSpec) => void;
   navigation: NavigationPort;
   loadPageContent: OperatorPort["loadPageContent"];
+  loadTemporalGraph: OperatorPort["loadTemporalGraph"];
+  onSnapshotMismatch?: () => void;
   worldRuntime: import("../world/WorldRuntime").WorldRuntime;
   worldState: import("../world/contracts").WorldState;
 }) {
   const pages = bundle.pages.pages;
+  const packSurfaceActive = Boolean(route.query.packView);
+  const activePackView = experiencePackView(bundle.experiencePacks, route.query.packView);
+  const temporalViewActive = worldState.view === "timeline" && !packSurfaceActive;
+  const temporalGraphAvailable = bundle.manifest.capabilities?.includes("temporal_graph") ?? false;
+  const temporalSnapshotId = bundle.manifest.snapshot_id || bundle.manifest.source_commit || bundle.manifest.generated_at;
+  const temporalRequestRef = useRef(0);
+  const [temporalResource, setTemporalResource] = useState<{
+    snapshotId: string;
+    payload: SnapshotBundle["temporalGraph"];
+    error: string;
+    code: string;
+  }>(() => ({ snapshotId: temporalSnapshotId, payload: undefined, error: "", code: "" }));
+  const temporalGraph = temporalResource.snapshotId === temporalSnapshotId
+    ? temporalResource.payload
+    : undefined;
+  const temporalGraphError = temporalResource.snapshotId === temporalSnapshotId
+    ? temporalResource.error
+    : "";
+  const temporalGraphErrorCode = temporalResource.snapshotId === temporalSnapshotId
+    ? temporalResource.code
+    : "";
+  useEffect(() => {
+    if (!temporalViewActive || !temporalGraphAvailable || temporalGraph || temporalGraphError) return undefined;
+    const controller = new AbortController();
+    const requestId = temporalRequestRef.current + 1;
+    temporalRequestRef.current = requestId;
+    loadTemporalGraph(bundle, { signal: controller.signal })
+      .then((payload) => {
+        if (controller.signal.aborted || temporalRequestRef.current !== requestId) return;
+        setTemporalResource({ snapshotId: temporalSnapshotId, payload, error: "", code: "" });
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted || temporalRequestRef.current !== requestId) return;
+        setTemporalResource({
+          snapshotId: temporalSnapshotId,
+          payload: undefined,
+          error: error instanceof Error ? error.message : String(error),
+          code: typeof error === "object" && error && "code" in error && typeof error.code === "string"
+            ? error.code
+            : "network"
+        });
+      });
+    return () => {
+      controller.abort();
+      if (temporalRequestRef.current === requestId) temporalRequestRef.current += 1;
+    };
+  }, [bundle, loadTemporalGraph, temporalGraph, temporalGraphAvailable, temporalGraphError, temporalSnapshotId, temporalViewActive]);
   const selectedPage = findPage(pages, route.pageId);
   const readerOpen = Boolean(route.pageId && route.query.reader && selectedPage);
   const readerPresence = useSurfacePresence(readerOpen);
   const [lastReaderPage, setLastReaderPage] = useState<PageRecord | undefined>(selectedPage);
   if (selectedPage && selectedPage !== lastReaderPage) setLastReaderPage(selectedPage);
   const readerPage = selectedPage ?? lastReaderPage;
+  // The URL remains authoritative, while these refs form a one-commit
+  // transaction buffer. They let two input events in the same browser task
+  // accumulate instead of both projecting from the last React render.
+  const routeRef = useRef(route);
+  const pendingRouteRef = useRef(route);
+  const pendingWorldStateRef = useRef(worldState);
+  routeRef.current = route;
+  useEffect(() => {
+    pendingRouteRef.current = route;
+  }, [route]);
+  useEffect(() => {
+    pendingWorldStateRef.current = worldState;
+  }, [worldState]);
+  useEffect(() => {
+    // A manually composed/shared URL can predate the singleton contract and
+    // name several primary surfaces. parseQuery has already selected the
+    // deterministic winner; replace the address with that same truth so copy,
+    // refresh and the accessibility tree cannot disagree.
+    const currentUrl = navigation.getSnapshot();
+    const query = new URLSearchParams(currentUrl.includes("?") ? currentUrl.slice(currentUrl.indexOf("?") + 1) : "");
+    const requestedSurfaceCount = Number(Boolean(query.get("dock"))) +
+      Number(query.get("reader") === "1") + Number(Boolean(query.get("tray")));
+    if (requestedSurfaceCount <= 1) return;
+    navigation.dispatch({
+      type: "navigate",
+      target: canonicalWorldUrl(worldState, route.demo, route.query),
+      replace: true
+    });
+  }, [navigation, route.demo, route.query, worldState]);
   const dispatchRuntime = (event: RuntimeEvent) => {
-    const next = worldRuntime.dispatch(event);
-    navigation.dispatch({ type: "navigate", target: canonicalWorldUrl(next, route.demo, route.query) });
+    // Shareable state is route-owned. Project through the exact runtime
+    // reducer, write one canonical URL, then let RuntimeWorldView hydrate that
+    // route. Mutating here as well created two competing transition writers.
+    const currentRoute = pendingRouteRef.current;
+    const next = worldRuntime.project(event, pendingWorldStateRef.current);
+    const target = canonicalWorldUrl(next, currentRoute.demo, currentRoute.query);
+    pendingWorldStateRef.current = next;
+    pendingRouteRef.current = navigation.toWorld(navigation.parseUrl(target));
+    navigation.dispatch({ type: "navigate", target });
   };
   // Always navigate from the CURRENT route: async callbacks (debounce timers,
   // scene events) must never replay a stale route and revert navigation.
-  const routeRef = useRef(route);
-  routeRef.current = route;
   const [searchDraft, setSearchDraft] = useState(route.query.q);
   const [activeHit, setActiveHit] = useState(0);
-  const [trayOpen, setTrayOpen] = useState(false);
-  const [missionsOpen, setMissionsOpen] = useState(false);
+  // Trays are primary surfaces and therefore shareable route state, not local
+  // component toggles. This makes a deep link, refresh and Back/Forward hydrate
+  // exactly the same visible surface.
+  const trayOpen = route.query.tray === "packet";
+  const missionsOpen = route.query.tray === "missions";
   const [missionCardOpen, setMissionCardOpen] = useState(missionCardPref);
   const [worldNavigatorOpen, setWorldNavigatorOpen] = useState(false);
   const [visualPanelOpen, setVisualPanelOpen] = useState(false);
@@ -515,16 +606,20 @@ export function WorldView({
   const primarySurfaceOpen = Boolean(
     worldState.dock ||
     worldState.readerId ||
-    route.query.reader ||
     readerPresence.mounted ||
     trayOpen ||
     missionsOpen
   );
   const searchRef = useRef<HTMLInputElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
-  const readerWasOpenRef = useRef(readerOpen);
+  const readerWasMountedRef = useRef(readerPresence.mounted);
+  const readerOpenerRef = useRef<HTMLElement | null>(null);
   const dockOpenerRef = useRef<HTMLElement | null>(null);
+  const dockFocusRestoreRef = useRef<number | null>(null);
   const previousDockRef = useRef(route.query.dock);
+  const trayOpenerRef = useRef<HTMLElement | null>(null);
+  const trayFocusTimerRef = useRef<number | null>(null);
+  const previousTrayRef = useRef<typeof route.query.tray>("");
   const searchRouteTimerRef = useRef<number | null>(null);
   // Enter commits query + reader atomically. React may flush the draft effect
   // after the key handler, so remember the submitted value as well as clearing
@@ -545,65 +640,165 @@ export function WorldView({
   // instruments behind them are inert until the surface closes. This is the
   // runtime surface-stack contract, not a per-dock convention.
   useEffect(() => {
-    const targetState = new Map<HTMLElement, boolean>();
-    document.querySelectorAll<HTMLElement>(".sceneCanvasFrame, .worldCommandBar").forEach((target) => {
-      targetState.set(target, primarySurfaceOpen || worldNavigatorOpen);
-    });
-    document.querySelectorAll<HTMLElement>(".worldTopStrip").forEach((target) => {
-      targetState.set(target, primarySurfaceOpen);
-    });
-    document.querySelectorAll<HTMLElement>(
-      ".worldBreadcrumbs, .conditionStrip, .worldMeta, .worldMissionCard, .worldMissionSlim, .quadrantCompass, .focusLegend"
-    ).forEach((target) => {
-      targetState.set(target, (targetState.get(target) ?? false) || primarySurfaceOpen || worldNavigatorOpen);
-    });
-    for (const [target, active] of targetState) {
-      if (active) {
-        target.inert = true;
-        target.setAttribute("aria-hidden", "true");
-      } else {
-        target.inert = false;
-        target.removeAttribute("aria-hidden");
+    const touched = new Set<HTMLElement>();
+    const applySurfaceState = () => {
+      const root = workspaceRef.current;
+      if (!root) return;
+      const targetState = new Map<HTMLElement, boolean>();
+      root.querySelectorAll<HTMLElement>(".sceneCanvasFrame, .sceneFallback, .radarStatusStrip, .worldMinimap").forEach((target) => {
+        targetState.set(target, primarySurfaceOpen || worldNavigatorOpen || temporalViewActive || packSurfaceActive);
+      });
+      root.querySelectorAll<HTMLElement>(".worldCommandBar").forEach((target) => {
+        targetState.set(target, primarySurfaceOpen || worldNavigatorOpen);
+      });
+      root.querySelectorAll<HTMLElement>(".worldTopStrip").forEach((target) => {
+        targetState.set(target, primarySurfaceOpen);
+      });
+      root.querySelectorAll<HTMLElement>(
+        ".worldBreadcrumbs, .conditionStrip, .worldMeta, .worldMissionCard, .worldMissionSlim, .quadrantCompass, .focusLegend"
+      ).forEach((target) => {
+        targetState.set(target, (targetState.get(target) ?? false) || primarySurfaceOpen || worldNavigatorOpen || temporalViewActive || packSurfaceActive);
+      });
+      root.querySelectorAll<HTMLElement>(".timelineSurface, .packWorkbenchSurface").forEach((target) => {
+        targetState.set(target, primarySurfaceOpen || worldNavigatorOpen);
+      });
+      for (const [target, active] of targetState) {
+        touched.add(target);
+        if (active) {
+          target.inert = true;
+          target.setAttribute("aria-hidden", "true");
+        } else {
+          target.inert = false;
+          target.removeAttribute("aria-hidden");
+        }
       }
-    }
-    return () => [...targetState.keys()].forEach((target) => {
+    };
+    applySurfaceState();
+    const observer = typeof MutationObserver === "undefined" ? null : new MutationObserver(applySurfaceState);
+    if (observer && workspaceRef.current) observer.observe(workspaceRef.current, { childList: true, subtree: true });
+    return () => {
+      observer?.disconnect();
+      touched.forEach((target) => {
       target.inert = false;
       target.removeAttribute("aria-hidden");
-    });
-  }, [primarySurfaceOpen, worldNavigatorOpen]);
+      });
+    };
+  }, [packSurfaceActive, primarySurfaceOpen, temporalViewActive, worldNavigatorOpen]);
 
   useEffect(() => {
-    if (readerWasOpenRef.current && !readerOpen) {
-      workspaceRef.current?.focus({ preventScroll: true });
+    if (readerWasMountedRef.current && !readerPresence.mounted) {
+      const restoreFocus = () => {
+        const opener = readerOpenerRef.current;
+        if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
+        else searchRef.current?.focus({ preventScroll: true });
+        readerOpenerRef.current = null;
+      };
+      // Presence keeps the closing reader mounted and the background inert
+      // through its exit animation. Restore only after that surface is truly
+      // gone, then wait one frame for the same commit to reactivate the HUD.
+      if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(restoreFocus);
+      else window.setTimeout(restoreFocus, 0);
     }
-    readerWasOpenRef.current = readerOpen;
-  }, [readerOpen]);
+    readerWasMountedRef.current = readerPresence.mounted;
+  }, [readerPresence.mounted]);
 
   useEffect(() => {
+    const pendingRestore = dockFocusRestoreRef.current;
+    if (pendingRestore !== null) {
+      window.cancelAnimationFrame?.(pendingRestore);
+      window.clearTimeout(pendingRestore);
+      dockFocusRestoreRef.current = null;
+    }
+
     const previousDock = previousDockRef.current;
     const currentDock = route.query.dock;
     if (currentDock && !previousDock) {
       dockOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     } else if (!currentDock && previousDock) {
       const restoreFocus = () => {
+        dockFocusRestoreRef.current = null;
+        // A guided flow can open the next dock before this deferred restore
+        // runs. Never steal focus back from that newly opened surface.
+        if (routeRef.current.query.dock) return;
         const opener = dockOpenerRef.current;
         if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
         else searchRef.current?.focus({ preventScroll: true });
+        dockOpenerRef.current = null;
       };
-      if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(restoreFocus);
-      else window.setTimeout(restoreFocus, 0);
+      dockFocusRestoreRef.current = typeof window.requestAnimationFrame === "function"
+        ? window.requestAnimationFrame(restoreFocus)
+        : window.setTimeout(restoreFocus, 0);
     }
     previousDockRef.current = currentDock;
+
+    return () => {
+      const restore = dockFocusRestoreRef.current;
+      if (restore === null) return;
+      window.cancelAnimationFrame?.(restore);
+      window.clearTimeout(restore);
+      dockFocusRestoreRef.current = null;
+    };
   }, [route.query.dock]);
 
-  // Canonical page navigation: selecting a page ALWAYS emits the full URL
-  // (context › group › page), so the positional grammar stays unambiguous and
-  // off-level selections auto-drill instead of silently no-oping.
+  useEffect(() => {
+    const pendingFocus = trayFocusTimerRef.current;
+    if (pendingFocus !== null) {
+      window.cancelAnimationFrame?.(pendingFocus);
+      window.clearTimeout(pendingFocus);
+      trayFocusTimerRef.current = null;
+    }
+
+    const previousTray = previousTrayRef.current;
+    const currentTray = route.query.tray;
+    if (currentTray && currentTray !== previousTray) {
+      if (!previousTray) {
+        const activeElement = document.activeElement;
+        trayOpenerRef.current = activeElement instanceof HTMLElement && activeElement !== document.body
+          ? activeElement
+          : null;
+      }
+      const focusSurface = () => {
+        trayFocusTimerRef.current = null;
+        if (routeRef.current.query.tray !== currentTray) return;
+        workspaceRef.current
+          ?.querySelector<HTMLElement>(".packetTray .readerClose, .missionsPanel .readerClose")
+          ?.focus({ preventScroll: true });
+      };
+      trayFocusTimerRef.current = typeof window.requestAnimationFrame === "function"
+        ? window.requestAnimationFrame(focusSurface)
+        : window.setTimeout(focusSurface, 0);
+    } else if (!currentTray && previousTray) {
+      const restoreFocus = () => {
+        trayFocusTimerRef.current = null;
+        const current = routeRef.current.query;
+        if (current.tray || current.dock || current.reader) return;
+        const opener = trayOpenerRef.current;
+        if (opener?.isConnected && !opener.closest("[inert]")) opener.focus({ preventScroll: true });
+        else searchRef.current?.focus({ preventScroll: true });
+        trayOpenerRef.current = null;
+      };
+      trayFocusTimerRef.current = typeof window.requestAnimationFrame === "function"
+        ? window.requestAnimationFrame(restoreFocus)
+        : window.setTimeout(restoreFocus, 0);
+    }
+    previousTrayRef.current = currentTray;
+
+    return () => {
+      const pending = trayFocusTimerRef.current;
+      if (pending === null) return;
+      window.cancelAnimationFrame?.(pending);
+      window.clearTimeout(pending);
+      trayFocusTimerRef.current = null;
+    };
+  }, [route.query.tray]);
+
+  // Canonical page navigation: selecting a page emits query-owned state, while
+  // compatibility inputs still retain enough positional context to normalize.
   const canonicalPatch = (patch: WorldPatch): WorldPatch => {
-    const current = routeRef.current;
+    const current = pendingRouteRef.current;
     const activeView = patch.view && isNativeWorldViewId(patch.view)
       ? patch.view
-      : worldRuntime.getState().view;
+      : pendingWorldStateRef.current.view;
     const perspective = (patch.perspective ?? activeView ?? current.perspective) as ScenePerspectiveId;
     if (patch.view && patch.view !== current.query.view && patch.group === undefined) {
       patch = { ...patch, group: null, worldGroup: null };
@@ -647,42 +842,50 @@ export function WorldView({
   const canonicalV8State = (patchedRoute: WorldRoute) => hydrateWorldRoute({
     route: patchedRoute,
     pages: worldRuntime.pages,
-    rootId: rootAnchor(bundle)?.id ?? worldRuntime.getState().centerId,
+    rootId: rootAnchor(bundle)?.id ?? pendingWorldStateRef.current.centerId,
+    emptyWorld: pendingWorldStateRef.current.emptyWorld,
     kernel: worldRuntime.kernel,
     mode: "v8"
   });
   const navigateWorld = (patch: WorldPatch, options: { replace?: boolean } = {}) => {
     const resolvedPatch = canonicalPatch(patch);
-    if (typeof patch.center === "string") worldRuntime.dispatch({ type: "selectCenter", entityId: patch.center });
-    if (typeof patch.pageId === "string") {
-      worldRuntime.dispatch({ type: "selectEntity", entityId: patch.pageId });
-      if (patch.reader) worldRuntime.dispatch({ type: "readEntity", entityId: patch.pageId });
+    const currentRoute = pendingRouteRef.current;
+    if (resolvedPatch.reader === true && !currentRoute.query.reader) {
+      readerOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     }
-    if (patch.reader === false && !patch.pageId) worldRuntime.dispatch({ type: "closeSurface" });
-    if (patch.dock) worldRuntime.dispatch({ type: "openSurface", dock: patch.dock });
-    if (patch.dock === null) worldRuntime.dispatch({ type: "closeSurface" });
     // Every action inside a native v8 view — not only the view buttons — uses
     // one canonical query grammar. Selection, reader, dock, filter, packet and
     // fallback links can therefore never reintroduce `/w/quadrants/...` while
     // the effective view is Sources or Work.
     const nativeView = typeof resolvedPatch.view === "string" && isNativeWorldViewId(resolvedPatch.view)
       ? resolvedPatch.view
-      : worldRuntime.getState().view;
-    if (worldRuntime.getState().mode === "v8" && isNativeWorldViewId(nativeView)) {
-      const patchedRoute = canonicalV8Route(routeRef.current, resolvedPatch);
+      : pendingWorldStateRef.current.view;
+    if (pendingWorldStateRef.current.mode === "v8" && isNativeWorldViewId(nativeView)) {
+      const patchedRoute = canonicalV8Route(currentRoute, resolvedPatch);
       const canonicalState = canonicalV8State(patchedRoute);
-      worldRuntime.dispatch({ type: "hydrateRoute", state: canonicalState });
+      const target = canonicalWorldUrl(canonicalState, currentRoute.demo, patchedRoute.query);
+      pendingWorldStateRef.current = canonicalState;
+      pendingRouteRef.current = navigation.toWorld(navigation.parseUrl(target));
       navigation.dispatch({
         type: "navigate",
-        target: canonicalWorldUrl(canonicalState, routeRef.current.demo, patchedRoute.query),
+        target,
         replace: options.replace
       });
       return;
     }
+    const patchedRoute = navigation.patch(currentRoute, resolvedPatch);
+    pendingRouteRef.current = patchedRoute;
+    pendingWorldStateRef.current = hydrateWorldRoute({
+      route: patchedRoute,
+      pages: worldRuntime.pages,
+      rootId: rootAnchor(bundle)?.id ?? pendingWorldStateRef.current.centerId,
+      emptyWorld: pendingWorldStateRef.current.emptyWorld,
+      kernel: worldRuntime.kernel,
+      mode: pendingWorldStateRef.current.mode
+    });
     navigation.dispatch({
-      type: "patch-world",
-      route: routeRef.current,
-      patch: resolvedPatch,
+      type: "navigate",
+      target: navigation.href(patchedRoute),
       replace: options.replace
     });
   };
@@ -690,12 +893,13 @@ export function WorldView({
     const resolvedPatch = canonicalPatch(patch as WorldPatch);
     const nativeView = typeof resolvedPatch.view === "string" && isNativeWorldViewId(resolvedPatch.view)
       ? resolvedPatch.view
-      : worldRuntime.getState().view;
-    if (worldRuntime.getState().mode === "v8" && isNativeWorldViewId(nativeView)) {
-      const patchedRoute = canonicalV8Route(routeRef.current, resolvedPatch);
-      return canonicalWorldUrl(canonicalV8State(patchedRoute), routeRef.current.demo, patchedRoute.query);
+      : pendingWorldStateRef.current.view;
+    const currentRoute = pendingRouteRef.current;
+    if (pendingWorldStateRef.current.mode === "v8" && isNativeWorldViewId(nativeView)) {
+      const patchedRoute = canonicalV8Route(currentRoute, resolvedPatch);
+      return canonicalWorldUrl(canonicalV8State(patchedRoute), currentRoute.demo, patchedRoute.query);
     }
-    return navigation.hrefForPatch(route, resolvedPatch);
+    return navigation.hrefForPatch(currentRoute, resolvedPatch);
   };
   const visualWorkspaceStyle = useMemo(
     () => ({
@@ -787,13 +991,12 @@ export function WorldView({
   // packet item, legacy alias, hand-typed URL) canonicalizes the URL to the
   // page's level — the silent no-op is banned.
   useEffect(() => {
-    // Native v8 keeps selection and reader state in the canonical query. Its
-    // `route.pageId` is deliberately hydrated from `?page=`, so treating that
-    // value as a compatibility positional page would rewrite `/w?...` back to
-    // `/w/quadrants/context/group/page`. Auto-drill remains a compat-only
-    // repair; native layouts already locate the selected page without changing
-    // their URL grammar.
-    if (worldState.mode === "v8" && route.query.view) return;
+    // Every query-owned route keeps selection and reader state in `?page=` —
+    // including an explicit `runtime=compat` normalization of an old link.
+    // Auto-drill repairs only positional inputs; applying it to a canonical
+    // query would recreate context/group fields the writer intentionally no
+    // longer emits and could loop on every hydration.
+    if (route.query.view) return;
     // A trailing segment that is actually a page id (typed/legacy URLs) is
     // re-read as the locked page, never dropped.
     if (!route.pageId && route.group && !knownGroupKey(route.group)) {
@@ -822,19 +1025,28 @@ export function WorldView({
     setHoverLinkId(null);
   }, [route.pageId, route.query.reader]);
 
-  // A pageId that does not exist in THIS universe (demo id in the real world
-  // or vice versa) is announced instead of silently ignored.
+  // A pageId that does not exist in THIS universe (demo id in the real world,
+  // a deleted page after refresh, or a hand-authored bad deep link) cannot own
+  // a reader surface. Announce it once, then replace-normalize both page and
+  // reader state. `replace` avoids a poisoned Back entry; dropping the raw
+  // reader bit from primarySurfaceOpen above keeps the HUD operable even in
+  // the single frame before this effect commits.
   const missingNoticeRef = useRef("");
   useEffect(() => {
-    if (!route.pageId) {
+    const missingPage = Boolean(route.pageId && !selectedPage);
+    const orphanReader = Boolean(route.query.reader && !selectedPage);
+    if (!missingPage && !orphanReader) {
       missingNoticeRef.current = "";
       return;
     }
-    if (findPage(pages, route.pageId) || missingNoticeRef.current === route.pageId) return;
-    missingNoticeRef.current = route.pageId;
-    onNotice?.(t("world.missingInUniverse"));
+    const missingKey = route.pageId || "reader-without-page";
+    if (missingPage && missingNoticeRef.current !== missingKey) {
+      missingNoticeRef.current = missingKey;
+      onNotice?.(t("world.missingInUniverse"));
+    }
+    navigateWorld({ pageId: null, reader: false }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pages, route.pageId]);
+  }, [pages, route.pageId, route.query.reader, selectedPage]);
 
   // Reading trail: last hops while moving between pages (jump-trail chips).
   useEffect(() => {
@@ -873,11 +1085,9 @@ export function WorldView({
   }, [route.query.q]);
   useEffect(() => {
     if (!isVisualControlCommand(searchDraft)) return;
-    setTrayOpen(false);
-    setMissionsOpen(false);
     setVisualPanelOpen(true);
     setSearchDraft("");
-    navigateWorld({ q: null }, { replace: true });
+    navigateWorld({ q: null, tray: null }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchDraft]);
   useEffect(() => {
@@ -931,11 +1141,9 @@ export function WorldView({
     const currentSearchValue = event.currentTarget.value;
     if (event.key === "Enter" && isVisualControlCommand(currentSearchValue)) {
       event.preventDefault();
-      setTrayOpen(false);
-      setMissionsOpen(false);
       setVisualPanelOpen(true);
       setSearchDraft("");
-      navigateWorld({ q: null }, { replace: true });
+      navigateWorld({ q: null, tray: null }, { replace: true });
       return;
     }
     const keyboardHits =
@@ -1012,26 +1220,11 @@ export function WorldView({
   };
 
   // Command-bar handlers (the bar itself is a dumb component in world/).
-  const closeTrays = () => {
-    setTrayOpen(false);
-    setMissionsOpen(false);
-  };
   const toggleTray = () => {
-    const opening = !trayOpen;
-    setTrayOpen(opening);
-    setMissionsOpen(false);
-    // One work surface at a time: opening the tray closes dock/reader.
-    if (opening && (routeRef.current.query.dock || routeRef.current.query.reader)) {
-      navigateWorld({ dock: null, reader: false });
-    }
+    navigateWorld({ tray: trayOpen ? null : "packet" });
   };
   const toggleMissions = () => {
-    const opening = !missionsOpen;
-    setMissionsOpen(opening);
-    setTrayOpen(false);
-    if (opening && (routeRef.current.query.dock || routeRef.current.query.reader)) {
-      navigateWorld({ dock: null, reader: false });
-    }
+    navigateWorld({ tray: missionsOpen ? null : "missions" });
   };
 
   const refreshAction =
@@ -1089,8 +1282,9 @@ export function WorldView({
         onComposeBrief && stalePages.length > 0
           ? {
               label: t("mission.stale.fix"),
-              title: t("mission.stale.fixTitle"),
-              onClick: () => onComposeBrief(staleRefreshSpec(stalePages))
+              title: route.demo ? t("demo.readOnlyControl") : t("mission.stale.fixTitle"),
+              disabled: route.demo,
+              onClick: route.demo ? undefined : () => onComposeBrief(staleRefreshSpec(stalePages))
             }
           : undefined
     });
@@ -1134,7 +1328,7 @@ export function WorldView({
   }, [route.perspective, selectedPage, bundle.graph]);
 
   const activeQuadrantAnchorId = useMemo(
-    () => focusAnchorId(bundle, worldState.centerId) ?? rootAnchor(bundle)?.id ?? null,
+    () => focusAnchorId(bundle, worldState.centerId ?? undefined) ?? rootAnchor(bundle)?.id ?? null,
     [bundle, worldState.centerId]
   );
   const activeQuadrantAnchor = useMemo(
@@ -1146,8 +1340,14 @@ export function WorldView({
     [activeQuadrantAnchor]
   );
   const runtimePerspective = worldState.view;
-  const effectivePerspective =
-    runtimePerspective === "quadrants" && !activeCenterHasQuadrants ? "focus" : runtimePerspective;
+  // Timeline is a registered 2D semantic-time view. Keep the existing world
+  // mounted underneath for identity/continuity, but never pretend the spatial
+  // layout engine owns a temporal geometry it does not implement.
+  const spatialPerspective: ScenePerspectiveId = runtimePerspective === "timeline"
+    ? "quadrants"
+    : runtimePerspective;
+  const effectivePerspective: ScenePerspectiveId =
+    spatialPerspective === "quadrants" && !activeCenterHasQuadrants ? "focus" : spatialPerspective;
   const activeCommandPerspective = effectivePerspective;
   const activeRegionPayloads = useMemo(() => regionPayloadByKey(activeQuadrantAnchor), [activeQuadrantAnchor]);
 
@@ -1224,6 +1424,18 @@ export function WorldView({
   // Templates add interface: no gamification package → no missions, no weather;
   // no quadrants block → no quadrant map; empty world → no instruments at all.
   const instruments = useMemo(() => composeInstruments(bundle), [bundle]);
+  useEffect(() => {
+    if (route.query.tray !== "missions" || instruments.missionsEnabled) return;
+    // A route cannot manufacture a surface that the active block stack did
+    // not install. Normalize stale/shared links rather than rendering a hidden
+    // or empty local state that disagrees with the command bar.
+    navigation.dispatch({
+      type: "patch-world",
+      route,
+      patch: { tray: null },
+      replace: true
+    });
+  }, [instruments.missionsEnabled, navigation, route]);
 
   // Spatial-first routing: the founding rite and the seed flow live IN the
   // canvas; the 2D twins (DOM cards, the bottom sheet) are the declared
@@ -1232,17 +1444,28 @@ export function WorldView({
   // or the two branches disagree and no surface renders at all.
   const [environmentFallbackActive, setEnvironmentFallbackActive] = useState(sceneFallbackPreferred);
   const [performanceFallbackActive, setPerformanceFallbackActive] = useState(runtimePerformanceFallbackLatched);
+  const [compactViewport, setCompactViewport] = useState(
+    () => typeof window !== "undefined" && window.matchMedia?.("(max-width: 620px)").matches === true
+  );
   const fallbackActive = environmentFallbackActive || performanceFallbackActive;
+  // The three spatial founding cards need desktop camera room. On a compact
+  // viewport the equivalent DOM rite is the primary responsive presentation,
+  // preserving one action and one truth without overlapping hit regions.
+  const foundingFallbackActive = fallbackActive || (instruments.worldEmpty && compactViewport);
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
     const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    const compact = window.matchMedia?.("(max-width: 620px)");
     const updateEnvironment = () => setEnvironmentFallbackActive(sceneFallbackPreferred());
+    const updateCompact = () => setCompactViewport(compact?.matches === true);
     const activatePerformanceFallback = () => setPerformanceFallbackActive(true);
     media?.addEventListener?.("change", updateEnvironment);
+    compact?.addEventListener?.("change", updateCompact);
     window.addEventListener(RUNTIME_PERFORMANCE_FALLBACK_EVENT, activatePerformanceFallback);
     window.addEventListener("popstate", updateEnvironment);
     return () => {
       media?.removeEventListener?.("change", updateEnvironment);
+      compact?.removeEventListener?.("change", updateCompact);
       window.removeEventListener(RUNTIME_PERFORMANCE_FALLBACK_EVENT, activatePerformanceFallback);
       window.removeEventListener("popstate", updateEnvironment);
     };
@@ -1275,8 +1498,11 @@ export function WorldView({
       if (trayOpen || missionsOpen) {
         event.stopImmediatePropagation();
         event.stopPropagation();
-        setTrayOpen(false);
-        setMissionsOpen(false);
+        navigation.dispatch({
+          type: "patch-world",
+          route: routeRef.current,
+          patch: { tray: null }
+        });
         return;
       }
       const current = routeRef.current;
@@ -1308,15 +1534,6 @@ export function WorldView({
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [trayOpen, missionsOpen, visualPanelOpen, worldNavigatorOpen]);
-
-  // R8 — the trays are work surfaces too: opening a dock or the reader closes
-  // them, whatever path opened it (condition strip, quest plate, guide CTA).
-  useEffect(() => {
-    if (route.query.dock || route.query.reader) {
-      setTrayOpen(false);
-      setMissionsOpen(false);
-    }
-  }, [route.query.dock, route.query.reader]);
 
   // An EMPTY world has exactly one interface: the founding rite. A dock in the
   // URL there (deep link, stale history) would open a surface over nothing.
@@ -1373,6 +1590,7 @@ export function WorldView({
           catalog: instruments.createCatalog,
           contexts,
           genesis: route.query.genesis,
+          readOnly: route.demo && !route.query.genesis,
           initialType: route.query.src || undefined,
           onSeed: (spec) => onComposeBrief?.(spec),
           onCancel: () => navigateWorld({ dock: null, src: null, lens: null, quadrant: null }),
@@ -1625,7 +1843,7 @@ export function WorldView({
     context: route.context,
     group: sceneGroup,
     pageId: route.pageId,
-    centerId: activeQuadrantAnchorId ?? undefined,
+    centerId: activeQuadrantAnchorId ?? worldState.centerId ?? undefined,
     reader: route.query.reader,
     filter: route.query.filter,
     lens: cameraQuadrantFacet
@@ -1646,11 +1864,14 @@ export function WorldView({
       style={visualWorkspaceStyle}
       aria-label={t("world.aria")}
       data-runtime-mode={worldState.mode}
+      data-world-empty={worldState.emptyWorld ? "true" : "false"}
       data-primary-surface-open={primarySurfaceOpen ? "true" : "false"}
-      data-world-center={worldState.centerId}
+      data-world-center={worldState.centerId ?? undefined}
       data-world-view={worldState.view}
+      data-world-page-count={pages.length}
       data-world-lens={worldState.lens}
       data-world-overlay={worldState.overlay}
+      data-pack-view={route.query.packView || undefined}
       data-world-fallback-active={fallbackActive ? "true" : "false"}
       data-visual-motion={visualConfig.motion.toFixed(2)}
       data-runtime-warnings={worldState.warnings.map((warning) => warning.code).join(",")}
@@ -1671,6 +1892,7 @@ export function WorldView({
         snapshotAt={bundle.manifest.generated_at}
         activityLevel={bundle.timeline.bands.last_7_days || 0}
         weather={instruments.conditionEnabled ? condition.weather : "clear"}
+        suspended={temporalViewActive || packSurfaceActive}
         visualTuning={visualConfig}
         bornPageIds={bornPageIds}
         missionMarkers={missionMarkers}
@@ -1680,11 +1902,11 @@ export function WorldView({
         centerHasQuadrants={activeCenterHasQuadrants}
         centerableIds={centerableIds}
         quadrantHomes={quadrantHomes}
-        founding={fallbackActive ? null : founding}
+        founding={foundingFallbackActive ? null : founding}
         seed={fallbackActive ? null : seed}
         guide={fallbackActive ? null : guide}
         onMarkerResolve={
-          onComposeBrief
+          !route.demo && onComposeBrief
             ? (pageId) => {
                 const mission = missions.find((entry) => entry.pageId === pageId);
                 const spec = mission ? missionBriefSpec(mission) : null;
@@ -1698,7 +1920,7 @@ export function WorldView({
         onHistoryBack={() => navigation.dispatch({ type: "history-back" })}
         onFocusSearch={() => searchRef.current?.focus()}
         onTogglePacket={togglePacket}
-        onRunRefresh={() => refreshAction && onRun(refreshAction)}
+        onRunRefresh={route.demo ? undefined : () => refreshAction && onRun(refreshAction)}
         makeHref={makeHref}
       >
         {/* TOP strip: breadcrumb trail + snapshot age + mode + true total.
@@ -1721,17 +1943,33 @@ export function WorldView({
             ))}
           </nav>
           <WorldNavigator
+            registryKernel={worldRuntime.kernel}
             view={navigatorView}
             compatibilityView={compatibilityNavigatorView}
             overlay={worldState.overlay}
             overlayResolving={overlayResolving}
             lens={worldState.lens}
+            unavailableViews={temporalGraphAvailable ? [] : ["timeline"]}
+            lensAvailable={!temporalViewActive && !packSurfaceActive}
+            overlayAvailable={!temporalViewActive && !packSurfaceActive}
+            experiencePacks={bundle.experiencePacks}
+            activePackView={route.query.packView}
             expanded={worldNavigatorOpen}
             onExpandedChange={setWorldNavigatorOpen}
-            onViewChange={(view) => dispatchRuntime({ type: "setView", view })}
+            onViewChange={(view) => navigateWorld({ view, packView: null })}
             onOverlayChange={changeOverlay}
             onLensChange={(lens) => dispatchRuntime({ type: "setLens", lens })}
+            onPackViewChange={(contribution) => {
+              setWorldNavigatorOpen(false);
+              navigateWorld({ packView: contribution, dock: null, reader: false });
+            }}
           />
+          {bundle.manifest.compatibility?.state !== "current" && (
+            <aside className="snapshotCompatibilityNotice" role="alert">
+              <strong>{t("snapshot.compatibility.title")}</strong>
+              <span>{t("snapshot.compatibility.body")}</span>
+            </aside>
+          )}
           {/* Condition strip: the honest ambient readout — every segment a real
               count that flies to its act point. Numbers-beside-art: the scene
               weather is only allowed because these exact counts are printed.
@@ -1772,7 +2010,7 @@ export function WorldView({
         </MeasuredWorldTopStrip>
         )}
 
-        {semanticCollection && (
+        {semanticCollection && !temporalViewActive && (
           <aside
             className="familyCollectionPanel"
             data-world-group-summary={semanticCollection.key}
@@ -1813,7 +2051,7 @@ export function WorldView({
         {/* FOCUS legend: the four lenses with live counts. An empty lens is an
             honest absence — labelled "no X lens registered" with an offer to
             fill it (agent adds a real relation only if one exists). */}
-        {focusFacets && selectedPage && (
+        {focusFacets && selectedPage && !temporalViewActive && !packSurfaceActive && (
           <div className="focusLegend" role="region" aria-label={t("focus.legend")}>
             <span className="focusLegendTitle">{t("focus.legend")}</span>
             {focusFacets.map(({ facet, count }) => {
@@ -1822,7 +2060,7 @@ export function WorldView({
                 <div key={facet} className={count === 0 ? "focusLens empty" : "focusLens"}>
                   <strong>{label}</strong>
                   {count === 0 ? (
-                    onComposeBrief ? (
+                    !route.demo && onComposeBrief ? (
                       <button
                         className="textButton focusFillButton"
                         onClick={() => onComposeBrief(focusFillSpec(selectedPage, facet, label))}
@@ -1849,7 +2087,7 @@ export function WorldView({
             the keyboard search flow must never depend on the card state.
             It precedes the compass so the fallback flow has the same semantic
             order as the layered HUD: context, mission, then navigation. */}
-        <MissionCard
+        {!temporalViewActive && !packSurfaceActive && <MissionCard
           rows={missionRows}
           viewLabel={activeViewLabel}
           viewHint={activeViewHint}
@@ -1869,12 +2107,79 @@ export function WorldView({
           activeHit={activeHit}
           onActiveHit={setActiveHit}
           onOpenHit={openHit}
-        />
+        />}
+
+        {packSurfaceActive && (
+          <Suspense fallback={<div className="timelineLoading" role="status">{t("world.loading")}</div>}>
+            <PackWorkbench
+              composition={bundle.experiencePacks}
+              requestedView={route.query.packView}
+              activeView={activePackView}
+              pages={pages}
+              inactive={primarySurfaceOpen || worldNavigatorOpen}
+              onSelectView={(contribution) => navigateWorld({ packView: contribution })}
+              onOpenPage={(pageId) => navigateWorld({ pageId, page: pageId, reader: true })}
+              onOpenTimeline={() => navigateWorld({ packView: null, view: "timeline", timeCursor: null })}
+              onClose={() => navigateWorld({ packView: null })}
+            />
+          </Suspense>
+        )}
+
+        {temporalViewActive && temporalGraph && (
+          <Suspense fallback={<div className="timelineLoading" role="status">{t("world.loading")}</div>}>
+            <TimelineView
+              payload={temporalGraph}
+              pages={pages}
+              query={route.query}
+              experiencePacks={bundle.experiencePacks}
+              packTimelineProfiles={bundle.experiencePacks?.slots.timelines}
+              inactive={primarySurfaceOpen || worldNavigatorOpen}
+              onQueryChange={(patch) => navigateWorld(patch)}
+              onOpenPage={(pageId) => navigateWorld({ pageId, page: pageId, reader: true })}
+            />
+          </Suspense>
+        )}
+        {temporalViewActive && temporalGraphAvailable && !temporalGraph && !temporalGraphError && (
+          <div className="timelineLoading" role="status">{t("timeline.loading")}</div>
+        )}
+        {temporalViewActive && temporalGraphError && (
+          <section
+            className="timelineSurface timelineUnavailable"
+            role="alert"
+            aria-labelledby="timeline-load-error-heading"
+            data-temporal-error-code={temporalGraphErrorCode}
+          >
+            <div>
+              <span className="timelineEyebrow">{t("timeline.eyebrow")}</span>
+              <h2 id="timeline-load-error-heading">{t("timeline.loadError.title")}</h2>
+              <p>{t("timeline.loadError.body")}</p>
+              <span className="timelineErrorCode">{t(`timeline.loadError.code.${temporalGraphErrorCode || "unknown"}`)}</span>
+              <code>{temporalGraphError}</code>
+              {temporalGraphErrorCode !== "unsupported" && (
+                <button
+                  type="button"
+                  onClick={() => setTemporalResource({ snapshotId: temporalSnapshotId, payload: undefined, error: "", code: "" })}
+                >
+                  <RotateCcw size={15} aria-hidden="true" /> {t("timeline.loadError.retry")}
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+        {temporalViewActive && !temporalGraphAvailable && (
+          <section className="timelineSurface timelineUnavailable" role="alert" aria-labelledby="timeline-unavailable-heading">
+            <div>
+              <span className="timelineEyebrow">{t("timeline.eyebrow")}</span>
+              <h2 id="timeline-unavailable-heading">{t("timeline.unavailable.title")}</h2>
+              <p>{t("timeline.unavailable.body")}</p>
+            </div>
+          </section>
+        )}
 
         {/* QUADRANT compass: each cell selects a conceptual lens and moves the
             camera inside the same 3D world. Counts are honest home-quadrant
             totals + core; no quadrant cell is a replacement center object. */}
-        {quadrantCounts && activeCenterHasQuadrants && (
+        {quadrantCounts && activeCenterHasQuadrants && !temporalViewActive && (
           <div
             className={[
               "quadrantCompass",
@@ -2000,6 +2305,7 @@ export function WorldView({
             onHoverLink={setHoverLinkId}
             onIsolateRelation={setIsolateRelation}
             onEvidenceStep={(ids, step) => setWalk({ ids, step })}
+            onSnapshotMismatch={onSnapshotMismatch}
           />
           </Suspense>
           </div>
@@ -2026,7 +2332,6 @@ export function WorldView({
             onSearchDraft={setSearchDraft}
             onSearchKeyDown={onSearchKeyDown}
             onNavigateWorld={navigateWorld}
-            onCloseTrays={closeTrays}
             onToggleTray={toggleTray}
             onToggleMissions={toggleMissions}
             onOpenTour={openTour}
@@ -2040,30 +2345,30 @@ export function WorldView({
             reviewCommand={reviewCommand}
             gateCommand={gateCommand}
             prCommand={prCommand}
+            demo={route.demo}
             onRun={onRun}
             onOpenPage={(id) => navigateWorld({ pageId: id, reader: true })}
             onTogglePacket={togglePacket}
             onClearPacket={() => navigateWorld({ packet: [] }, { replace: true })}
-            onClose={() => setTrayOpen(false)}
+            onClose={() => navigateWorld({ tray: null })}
           />
         )}
-        {missionsOpen && (
+        {missionsOpen && instruments.missionsEnabled && (
           <MissionsPanel
             bundle={bundle}
             demo={route.demo}
             onOpenPage={(id) => {
-              setMissionsOpen(false);
-              navigateWorld({ pageId: id, reader: true });
+              navigateWorld({ tray: null, pageId: id, reader: true });
             }}
             onComposeBrief={
               onComposeBrief
                 ? (spec) => {
-                    setMissionsOpen(false);
+                    navigateWorld({ tray: null });
                     onComposeBrief(spec);
                   }
                 : undefined
             }
-            onClose={() => setMissionsOpen(false)}
+            onClose={() => navigateWorld({ tray: null })}
           />
         )}
         {visualPanelOpen && (
@@ -2084,6 +2389,7 @@ export function WorldView({
           bundle={bundle}
           initialType={route.query.src}
           initialQuadrant={route.query.lens || route.query.quadrant}
+          demo={route.demo}
           genesis={route.query.genesis}
           onComposeBrief={(spec) => onComposeBrief?.(spec)}
           onHighlightQuadrant={(facet) => navigateWorld({ lens: facet, quadrant: null }, { replace: true })}
@@ -2091,7 +2397,7 @@ export function WorldView({
         />
       )}
       {/* 2D twins of the founding rite and the guide beacon (fallback mode). */}
-      {fallbackActive && founding && (
+      {foundingFallbackActive && founding && (
         <FoundingFallback demo={route.demo} skipHref={route.demo ? skipHref : undefined} onFound={foundWorld} />
       )}
       {fallbackActive && guide && !founding && <GuideFallback guide={guide} />}

@@ -1,0 +1,181 @@
+{
+  "operator_commands": [
+    {
+      "capability": "operator.git-status",
+      "commands": [
+        {
+          "argv": [
+            "git",
+            "status",
+            "--short",
+            "--branch"
+          ],
+          "label": "git status --short --branch",
+          "writes": false
+        }
+      ],
+      "human_reason": "Shows where you are working, what changed and whether local edits are clean.",
+      "idempotency_scope": "snapshot_and_command",
+      "operator_command_id": "git-status",
+      "preview_required": false,
+      "risk": "read",
+      "title": "Check workspace"
+    },
+    {
+      "capability": "operator.review-local-changes",
+      "commands": [
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--stat"
+          ],
+          "label": "git diff --stat",
+          "writes": false
+        },
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--name-status"
+          ],
+          "label": "git diff --name-status",
+          "writes": false
+        }
+      ],
+      "human_reason": "Shows changed content before saving a version or preparing approval.",
+      "idempotency_scope": "snapshot_and_command",
+      "operator_command_id": "review-local-changes",
+      "preview_required": false,
+      "risk": "read",
+      "title": "Review content changes"
+    },
+    {
+      "capability": "operator.refresh-cockpit-check",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_operation_compile.py",
+            "--check"
+          ],
+          "label": "wiki operation compile",
+          "writes": false
+        }
+      ],
+      "human_reason": "Verifies whether the operational home view matches a deterministic refresh.",
+      "idempotency_scope": "snapshot_and_command",
+      "operator_command_id": "refresh-cockpit-check",
+      "preview_required": false,
+      "risk": "read",
+      "title": "Check home view"
+    },
+    {
+      "capability": "operator.refresh-cockpit-write",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_operation_compile.py",
+            "--write"
+          ],
+          "label": "wiki operation compile",
+          "writes": true
+        }
+      ],
+      "human_reason": "Refreshes the operations page as a reviewable change.",
+      "idempotency_scope": "snapshot_and_command",
+      "operator_command_id": "refresh-cockpit-write",
+      "preview_required": true,
+      "risk": "derive",
+      "title": "Refresh home view"
+    },
+    {
+      "capability": "operator.run-honesty-gates",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_audit.py",
+            "--check"
+          ],
+          "label": "wiki audit",
+          "writes": false
+        },
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_check_methodology_coverage.py",
+            "--check"
+          ],
+          "label": "wiki check methodology coverage",
+          "writes": false
+        },
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_operation_compile.py",
+            "--check"
+          ],
+          "label": "wiki operation compile",
+          "writes": false
+        },
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_input_stage.py",
+            "--check"
+          ],
+          "label": "wiki input stage",
+          "writes": false
+        }
+      ],
+      "human_reason": "Runs the deterministic checks that should be green before human approval.",
+      "idempotency_scope": "snapshot_and_command",
+      "operator_command_id": "run-honesty-gates",
+      "preview_required": false,
+      "risk": "read",
+      "title": "Run approval checks"
+    },
+    {
+      "capability": "operator.pr-summary",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_pr_summary.py"
+          ],
+          "label": "wiki pr summary",
+          "writes": false
+        }
+      ],
+      "human_reason": "Builds a human review packet from changed content, affected areas and privacy hints.",
+      "idempotency_scope": "snapshot_and_command",
+      "operator_command_id": "pr-summary",
+      "preview_required": false,
+      "risk": "read",
+      "title": "Build review packet"
+    },
+    {
+      "capability": "operator.graph-check",
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_page_graph.py",
+            "--check"
+          ],
+          "label": "wiki page graph",
+          "writes": false
+        }
+      ],
+      "human_reason": "Verifies relationship and impact constraints before approval.",
+      "idempotency_scope": "snapshot_and_command",
+      "operator_command_id": "graph-check",
+      "preview_required": false,
+      "risk": "read",
+      "title": "Check content map"
+    }
+  ],
+  "schema_version": "wiki_operator_commands.v1"
+}

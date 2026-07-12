@@ -1,0 +1,37 @@
+{
+  "by_context": {
+    "clientes": {
+      "fresh": 3,
+      "stale": 0,
+      "unknown": 0
+    },
+    "estudio": {
+      "fresh": 0,
+      "stale": 1,
+      "unknown": 0
+    },
+    "pessoal": {
+      "fresh": 1,
+      "stale": 0,
+      "unknown": 0
+    },
+    "sistema": {
+      "fresh": 1,
+      "stale": 0,
+      "unknown": 0
+    }
+  },
+  "schema_version": "wiki_web_freshness.v1",
+  "stale_pages": [
+    {
+      "context": "estudio",
+      "path": "memories/people/person-marina-costa.md",
+      "title": "Marina Costa"
+    }
+  ],
+  "summary": {
+    "fresh": 5,
+    "stale": 1,
+    "unknown": 0
+  }
+}

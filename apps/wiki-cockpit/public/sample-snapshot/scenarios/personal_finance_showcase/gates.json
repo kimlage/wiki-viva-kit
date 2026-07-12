@@ -1,0 +1,57 @@
+{
+  "gates": [
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_audit.py",
+        "--check"
+      ],
+      "finished_at": null,
+      "id": "wiki_audit",
+      "status": "not_run"
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_check_methodology_coverage.py",
+        "--check"
+      ],
+      "finished_at": null,
+      "id": "methodology_coverage",
+      "status": "not_run"
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_operation_compile.py",
+        "--check"
+      ],
+      "finished_at": null,
+      "id": "operation_compile",
+      "status": "not_run"
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_input_stage.py",
+        "--check"
+      ],
+      "finished_at": null,
+      "id": "input_stage",
+      "status": "not_run"
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "pytest",
+        "tests/"
+      ],
+      "finished_at": null,
+      "id": "pytest",
+      "status": "not_run"
+    }
+  ],
+  "schema_version": "wiki_web_gates.v1",
+  "status": "not_run"
+}

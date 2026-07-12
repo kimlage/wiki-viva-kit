@@ -219,15 +219,15 @@
     {
       "body_links": 0,
       "context": "financeiro",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 55,
+      "information_density_per_1000_words": 23.26,
+      "link_density_per_1000_words": 46.51,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-banco-export.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 43
     },
     {
       "body_links": 0,

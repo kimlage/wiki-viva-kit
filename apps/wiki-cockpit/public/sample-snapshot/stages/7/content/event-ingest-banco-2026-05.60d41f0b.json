@@ -18,7 +18,7 @@
       "artifact-relatorio-recon"
     ],
     "context": "sistema",
-    "moc_parent": "memories/index.md",
+    "moc_parent": "memories/sources/source-banco-export.md",
     "page_id": "event-ingest-banco-2026-05",
     "page_type": "ingestion_event",
     "source_refs": [
@@ -34,7 +34,7 @@
     "approved_state": "approved",
     "context": "sistema",
     "freshness_state": "fresh",
-    "moc_parent": "memories/index.md",
+    "moc_parent": "memories/sources/source-banco-export.md",
     "page_id": "event-ingest-banco-2026-05",
     "page_type": "ingestion_event",
     "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
@@ -45,7 +45,7 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-9753d1e8773b43d1",
+  "snapshot_id": "wiki-viva-demo-162c5d033d38db2f",
   "source_refs": [
     {
       "approved_state": "approved",

@@ -52,76 +52,6 @@ function freshnessLabel(state: string): string {
   return t("trust.notChecked");
 }
 
-// A rendered mermaid diagram, shrunk to fit the reader column, is unreadable for
-// anything wide. Make each one open a full-screen lightbox on click, where it
-// renders at natural size, pans (scroll/drag) and zooms (+/−/wheel). Pure DOM +
-// CSS classes so it works inside the imperatively-built reader content.
-function makeDiagramZoomable(figure: HTMLElement): void {
-  figure.setAttribute("role", "button");
-  figure.setAttribute("tabindex", "0");
-  figure.title = t("reader.diagramExpand");
-  const hint = document.createElement("span");
-  hint.className = "readerDiagramHint";
-  hint.textContent = t("reader.diagramExpand");
-  figure.appendChild(hint);
-
-  const open = () => {
-    const overlay = document.createElement("div");
-    overlay.className = "diagramLightbox";
-    const stage = document.createElement("div");
-    stage.className = "diagramStage";
-    const svg = figure.querySelector("svg");
-    if (svg) stage.appendChild(svg.cloneNode(true));
-    let scale = 1;
-    const applyScale = () => {
-      const inner = stage.firstElementChild as HTMLElement | null;
-      if (inner) inner.style.transform = `scale(${scale})`;
-    };
-    const bar = document.createElement("div");
-    bar.className = "diagramLightboxBar";
-    const mkBtn = (label: string, on: () => void) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = label;
-      b.addEventListener("click", (e) => { e.stopPropagation(); on(); });
-      return b;
-    };
-    const close = () => { overlay.remove(); document.removeEventListener("keydown", onKey, true); };
-    bar.appendChild(mkBtn("−", () => { scale = Math.max(0.4, scale - 0.25); applyScale(); }));
-    bar.appendChild(mkBtn("+", () => { scale = Math.min(6, scale + 0.25); applyScale(); }));
-    bar.appendChild(mkBtn("⤢", () => { scale = 1; applyScale(); })).title = t("reader.diagramReset");
-    const closeBtn = mkBtn("✕", close);
-    closeBtn.className = "diagramLightboxClose";
-    bar.appendChild(closeBtn);
-    stage.addEventListener("wheel", (e) => {
-      if (!e.ctrlKey && !e.metaKey) return; // only zoom on ctrl/⌘+wheel; plain wheel pans
-      e.preventDefault();
-      scale = Math.min(6, Math.max(0.4, scale + (e.deltaY < 0 ? 0.15 : -0.15)));
-      applyScale();
-    }, { passive: false });
-    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        // The lightbox is the TOP layer: Esc closes it and only it — the
-        // reader's own Esc handler (and the world ladder) must not also fire.
-        e.stopImmediatePropagation();
-        e.stopPropagation();
-        close();
-      }
-      else if (e.key === "+" || e.key === "=") { scale = Math.min(6, scale + 0.25); applyScale(); }
-      else if (e.key === "-") { scale = Math.max(0.4, scale - 0.25); applyScale(); }
-    };
-    // Capture phase: runs before the reader dock's bubbling Esc handler.
-    document.addEventListener("keydown", onKey, true);
-    overlay.append(bar, stage);
-    document.body.appendChild(overlay);
-  };
-  figure.addEventListener("click", open);
-  figure.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
-  });
-}
-
 // Mermaid source remains readable and safe in the core reader. Specialized
 // diagram rendering is an optional v8 capability: bundling every parser made
 // the default reader carry several oversized modules even when no diagram was
@@ -177,11 +107,16 @@ function actionOverviewForPage(bundle: SnapshotBundle, page: PageRecord): Action
     ? record.owner as Record<string, unknown>
     : null;
   const evidenceRefs = Array.isArray(record.evidence_refs) ? record.evidence_refs : page.source_refs;
+  const state = typeof record.state === "string" ? record.state : "open";
   return {
-    state: typeof record.state === "string" ? record.state : "open",
+    state,
     dueAt: typeof record.due_at === "string" ? record.due_at : "",
     overdue: record.overdue === true,
-    nextAction: typeof record.next_action === "string" ? record.next_action : "",
+    // Defense in depth for a stale or pre-contract snapshot: terminal work is
+    // a historical fact and must never be presented as still actionable.
+    nextAction: !["done", "cancelled"].includes(state) && typeof record.next_action === "string"
+      ? record.next_action
+      : "",
     owner: typeof ownerRecord?.ref === "string"
       ? ownerRecord.ref
       : typeof record.owner_ref === "string" ? record.owner_ref : "",
@@ -569,7 +504,8 @@ export function PageReader({
   onComposeBrief,
   onHoverLink,
   onIsolateRelation,
-  onEvidenceStep
+  onEvidenceStep,
+  onSnapshotMismatch
 }: {
   bundle: SnapshotBundle;
   pageId: string;
@@ -588,6 +524,7 @@ export function PageReader({
   onHoverLink?: (id: string | null) => void;
   onIsolateRelation?: (relation: RelationGroupKey | null) => void;
   onEvidenceStep?: (ids: string[], step: number) => void;
+  onSnapshotMismatch?: () => void;
 }) {
   const page = pageByKey(bundle, pageId);
   const [content, setContent] = useState<PageContent | null>(null);
@@ -599,6 +536,9 @@ export function PageReader({
   const dockRef = useRef<HTMLElement>(null);
   const readerScrollRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+  const snapshotMismatchRef = useRef(onSnapshotMismatch);
+  const recoveredSnapshotRef = useRef<string | null>(null);
+  snapshotMismatchRef.current = onSnapshotMismatch;
 
   // The reader is one persistent surface while its page changes. Reset its
   // own scrollport before paint so a registry -> source -> event journey never
@@ -643,6 +583,13 @@ export function PageReader({
       if (!active) return;
       setContent(payload);
       setLoading(false);
+      if (
+        payload.error_code === "snapshot_revision_mismatch"
+        && recoveredSnapshotRef.current !== bundle.manifest?.snapshot_id
+      ) {
+        recoveredSnapshotRef.current = bundle.manifest?.snapshot_id || "unknown";
+        snapshotMismatchRef.current?.();
+      }
     });
     return () => {
       active = false;
@@ -767,6 +714,7 @@ export function PageReader({
     ? t(projectionMarkKey)
     : projection?.quadrant.toUpperCase();
   const showDecision = page.risk_flags.length > 0 || page.freshness_state !== "stale";
+  const revisionMismatch = content?.error_code === "snapshot_revision_mismatch";
 
   return (
     <>
@@ -867,7 +815,7 @@ export function PageReader({
               page={page}
               status={pinnedFieldStatus(templateSpec(bundle, page.page_type), content)}
               facetsOrder={facetsOrder(bundle)}
-              onComposeBrief={onComposeBrief}
+              onComposeBrief={demo ? undefined : onComposeBrief}
               onClose={() => setTemplateOpen(false)}
             />
           )}
@@ -899,7 +847,14 @@ export function PageReader({
             onHoverLink={(id) => onHoverLink?.(id)}
           />
         )}
-        {!loading && !content?.ok && (
+        {!loading && !content?.ok && revisionMismatch && (
+          <div className="readerFallback readerRevisionChanged" role="status">
+            <strong>{t("reader.revisionChanged")}</strong>
+            <p>{page.summary || t("reader.noSummary")}</p>
+            <p className="readerNotice">{t("reader.revisionRecovering")}</p>
+          </div>
+        )}
+        {!loading && !content?.ok && !revisionMismatch && (
           <div className="readerFallback">
             <p>{page.summary || t("reader.noSummary")}</p>
             {page.summary_truncated && <span className="pill pill-warn">{t("reader.partial")}</span>}
@@ -1000,6 +955,9 @@ export function PageReader({
                   grounding: { page_ids: [page.id] }
                 })
               }
+              disabled={demo}
+              aria-label={demo ? `${t("reader.brief")} — ${t("demo.readOnlyControl")}` : undefined}
+              title={demo ? t("demo.readOnlyControl") : undefined}
               type="button"
             >
               <Sparkles size={15} />
@@ -1014,19 +972,40 @@ export function PageReader({
               </summary>
               <div className="readerMoreMenu">
                 {graphCommand && (
-                  <button className="secondaryButton" onClick={() => onRunOperatorCommand(graphCommand)} type="button">
+                  <button
+                    className="secondaryButton"
+                    onClick={() => onRunOperatorCommand(graphCommand)}
+                    disabled={demo}
+                    aria-label={demo ? `${t("reader.connections")} — ${t("demo.readOnlyControl")}` : undefined}
+                    title={demo ? t("demo.readOnlyControl") : undefined}
+                    type="button"
+                  >
                     <Search size={15} />
                     <span>{t("reader.connections")}</span>
                   </button>
                 )}
                 {reviewCommand && (
-                  <button className="secondaryButton" onClick={() => onRunOperatorCommand(reviewCommand)} type="button">
+                  <button
+                    className="secondaryButton"
+                    onClick={() => onRunOperatorCommand(reviewCommand)}
+                    disabled={demo}
+                    aria-label={demo ? `${t("reader.inspectChanges")} — ${t("demo.readOnlyControl")}` : undefined}
+                    title={demo ? t("demo.readOnlyControl") : undefined}
+                    type="button"
+                  >
                     <GitBranch size={15} />
                     <span>{t("reader.inspectChanges")}</span>
                   </button>
                 )}
                 {prCommand && (
-                  <button className="secondaryButton" onClick={() => onRunOperatorCommand(prCommand)} type="button">
+                  <button
+                    className="secondaryButton"
+                    onClick={() => onRunOperatorCommand(prCommand)}
+                    disabled={demo}
+                    aria-label={demo ? `${t("reader.prepareApproval")} — ${t("demo.readOnlyControl")}` : undefined}
+                    title={demo ? t("demo.readOnlyControl") : undefined}
+                    type="button"
+                  >
                     <ListChecks size={15} />
                     <span>{t("reader.prepareApproval")}</span>
                   </button>

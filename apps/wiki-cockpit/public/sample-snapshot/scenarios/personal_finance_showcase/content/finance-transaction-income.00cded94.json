@@ -1,0 +1,83 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "root-personal-finance-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "relation": "markdown_link",
+      "title": "Personal Finance Mission Control"
+    }
+  ],
+  "body": "\n# Synthetic income transaction\n\nPublic fixture record with source and reviewed classification.\n\n## Demo navigation\n\n[Back to pack showcase](../../../index.md)\n",
+  "frontmatter": {
+    "account_ref": "finance-account-main",
+    "amount": 5200,
+    "category_ref": "finance-category-income",
+    "classification_state": "reviewed",
+    "context": "showcase",
+    "description": "Synthetic monthly income",
+    "direction": "income",
+    "moc_parent": "memories/index.md",
+    "occurred_at": "2026-07-02",
+    "page_id": "finance-transaction-income",
+    "page_type": "personal_finance_transaction",
+    "related_pages": [
+      "finance-account-main",
+      "finance-category-income"
+    ],
+    "source_ref": "finance-source-july",
+    "source_refs": [
+      "finance-source-july"
+    ],
+    "stale_after_days": "3650",
+    "title": "Synthetic income transaction",
+    "updated_at": "2026-07-09",
+    "visibility": "public"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "showcase",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "finance-transaction-income",
+    "page_type": "personal_finance_transaction",
+    "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md",
+    "summary": "Public fixture record with source and reviewed classification. Back to pack showcase",
+    "summary_truncated": false,
+    "title": "Synthetic income transaction",
+    "updated_at": "2026-07-09"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "../../../index.md",
+      "kind": "page",
+      "page_id": "root-personal-finance-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "text": "Back to pack showcase",
+      "title": "Personal Finance Mission Control"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-personal-finance-showcase-5c3906ccbb05a353",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "finance-source-july",
+      "page_type": "artifact",
+      "path": "memories/showcases/personal_finance_showcase/support/finance-source-july.md",
+      "ref": "finance-source-july",
+      "resolved": true,
+      "title": "Synthetic July statement"
+    }
+  ]
+}

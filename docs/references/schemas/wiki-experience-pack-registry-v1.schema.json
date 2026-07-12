@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-experience-pack-registry-v1.schema.json",
+  "title": "Wiki Viva experience pack registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "packs"],
+  "properties": {
+    "schema_version": {"const": "wiki_experience_pack_registry.v1"},
+    "packs": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"},
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["default_version", "versions"],
+        "properties": {
+          "default_version": {"$ref": "#/$defs/semver"},
+          "versions": {
+            "type": "object", "minProperties": 1, "propertyNames": {"pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+            "additionalProperties": {
+              "type": "object", "additionalProperties": false, "required": ["path", "manifest_sha256", "tree_sha256"],
+              "properties": {"path": {"type": "string", "minLength": 1}, "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "tree_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {"semver": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"}}
+}

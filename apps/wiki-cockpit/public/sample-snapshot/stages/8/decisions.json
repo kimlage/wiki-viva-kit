@@ -5,6 +5,7 @@
       "collection": {},
       "collection_members_count": 0,
       "collection_refs": [],
+      "content_sha256": "e2063672b906e67c1e9e9ffb50674e2c91f0ff646be5bbd7df9d05c0eede892b",
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "decision-clearpath-enter-midmarket",
@@ -14,9 +15,11 @@
       "path": "memories/empresas/clearpath/decision-clearpath-enter-midmarket.md",
       "relation_refs": {
         "consolidated_into": [],
+        "evidence_refs": [],
         "participants": [],
         "previous_refs": [],
         "proposal_ids": [],
+        "related_pages": [],
         "relation_cases": []
       },
       "risk_flags": [],
@@ -34,6 +37,7 @@
       "collection": {},
       "collection_members_count": 0,
       "collection_refs": [],
+      "content_sha256": "d0720ed0af62544e5ac8ffc05722a8c776313253aa61302e78598e399600ffef",
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "decision-onboarding",
@@ -43,9 +47,11 @@
       "path": "memories/decisions/decision-onboarding.md",
       "relation_refs": {
         "consolidated_into": [],
+        "evidence_refs": [],
         "participants": [],
         "previous_refs": [],
         "proposal_ids": [],
+        "related_pages": [],
         "relation_cases": []
       },
       "risk_flags": [],
@@ -63,6 +69,7 @@
       "collection": {},
       "collection_members_count": 0,
       "collection_refs": [],
+      "content_sha256": "0b0dfa6c37a59df1eb5fbfcab8dadd2665a682b2eaec4926709147052f06e18c",
       "context": "clientes",
       "freshness_state": "fresh",
       "id": "decision-precos",
@@ -72,9 +79,11 @@
       "path": "memories/decisions/decision-precos.md",
       "relation_refs": {
         "consolidated_into": [],
+        "evidence_refs": [],
         "participants": [],
         "previous_refs": [],
         "proposal_ids": [],
+        "related_pages": [],
         "relation_cases": []
       },
       "risk_flags": [],

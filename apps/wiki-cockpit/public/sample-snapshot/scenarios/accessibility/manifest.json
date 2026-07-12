@@ -1,0 +1,237 @@
+{
+  "bundle_hash": "0bbec9df9bef974b9a889c7b1f68be2eb11142a985c101a5bb1c3104e105cac0",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
+    "content_sidecars"
+  ],
+  "content_sidecars": true,
+  "contract_errors": [],
+  "files": [
+    "manifest.json",
+    "operations.json",
+    "graph.json",
+    "pages.json",
+    "sources.json",
+    "source_entities.json",
+    "templates.json",
+    "actions.json",
+    "decisions.json",
+    "freshness.json",
+    "gates.json",
+    "git.json",
+    "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
+    "diff.json",
+    "ingestion.json",
+    "quality.json",
+    "commands.json",
+    "score.json",
+    "blocks.json",
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json",
+    "content/action-region-clean-unsourced.b1bf976d.json",
+    "content/artifact-dashboard-atlas.528653ec.json",
+    "content/claim-region-grouping-needed.3562287e.json",
+    "content/person-marina-costa.3db0e184.json",
+    "content/root-alex-rivera.f4a10886.json",
+    "content/rule-nada-publica-sem-review.63750616.json"
+  ],
+  "fixture": {
+    "fixture_id": "wiki-viva-demo-v8",
+    "reference_date": "2026-07-09",
+    "scenario_id": "accessibility",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8007,
+    "source_input_sha256": "ab2838afbc026f46f4eedad88ba72d5cdf4d5111dd933c52911bab3405f60aea"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2716,
+      "sha256": "cf43b7c1a259039fccc54a39581f20a02cb7414462ea1edd0e494ee6f3f13d9a"
+    },
+    "block_stacks.json": {
+      "bytes": 9622,
+      "sha256": "56e46e16df927acbc2cbff684844c03944ce3ea06501ca5c28493e3dc8399608"
+    },
+    "blocks.json": {
+      "bytes": 9051,
+      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+    },
+    "commands.json": {
+      "bytes": 1179,
+      "sha256": "25bd6ac0d80ab8d11b0ad0b5a77e63d3dba898dbcbde23a173d7d3c762c50621"
+    },
+    "content/action-region-clean-unsourced.b1bf976d.json": {
+      "bytes": 1537,
+      "sha256": "b132a5a99ea305d0d0dc24d163d2a9ee4cadd895e88fbe1e60957c10a02bf821"
+    },
+    "content/artifact-dashboard-atlas.528653ec.json": {
+      "bytes": 933,
+      "sha256": "66c75e8cf3b01ab7deadca44bdecc5026e3cdbdbcb9fec67309d38c11b5b0f03"
+    },
+    "content/claim-region-grouping-needed.3562287e.json": {
+      "bytes": 1197,
+      "sha256": "9bbfd1a6ffe4463fe490c893ca197530a1cfaa211fce157ab445ac9913e3733d"
+    },
+    "content/person-marina-costa.3db0e184.json": {
+      "bytes": 1215,
+      "sha256": "ab5ef4a0250f26f6462426fa4d5d71b7ae8787cf9c146068741b161cb3e9c2eb"
+    },
+    "content/root-alex-rivera.f4a10886.json": {
+      "bytes": 2214,
+      "sha256": "51d1a554113039914b347bef85c33954edead370c2efa7ee94c63e3ce2882009"
+    },
+    "content/rule-nada-publica-sem-review.63750616.json": {
+      "bytes": 968,
+      "sha256": "8b04ef6f742df05ba4b86f2e92fe6e9fb8da6912ffd584271cf64b07430cb565"
+    },
+    "decisions.json": {
+      "bytes": 57,
+      "sha256": "7a6de588120478326c5782d735734ac49649b6a59a8b8dce6c755d8eede95720"
+    },
+    "diff.json": {
+      "bytes": 367,
+      "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "experience_packs.json": {
+      "bytes": 334,
+      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+    },
+    "freshness.json": {
+      "bytes": 387,
+      "sha256": "3ea7e8b4ed705f5196b74f7252d6d9a350d3a13b7de58d22f96d2781ee86b693"
+    },
+    "gates.json": {
+      "bytes": 664,
+      "sha256": "309171f121e0fcb4abf72d9042fbf72ba7c69153b2a28a4cc4f6c48b613f6da8"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 11633,
+      "sha256": "3ff8186c32308028583354e6b4bb410d49d305fccbd280a2e1d270e7ff8aea31"
+    },
+    "ingestion.json": {
+      "bytes": 503,
+      "sha256": "6e2b6b6d55ef730a164499db71adc30c8ead0a760effe3fdc07a7ebf9b358c74"
+    },
+    "operations.json": {
+      "bytes": 203,
+      "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
+    },
+    "operator_commands.json": {
+      "bytes": 3260,
+      "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
+    },
+    "pages.json": {
+      "bytes": 6060,
+      "sha256": "36cfa6d4fa9d322c9a39ab6f52ed2a5b264039567c915f7f65b2cbb0bb0f7873"
+    },
+    "quality.json": {
+      "bytes": 3916,
+      "sha256": "266526d81300e1529da2459d40bc557ed97c6cd82d13b7bfa255e537d5c88391"
+    },
+    "region_groups.json": {
+      "bytes": 4604,
+      "sha256": "de10e553459638f1a7e1bc72d3e10d194621a08894ab1b5d9812ea7eb52419c3"
+    },
+    "score.json": {
+      "bytes": 1753,
+      "sha256": "24739c3e9f9ebe7908645df61f3a3b9169de429475b025b1707678416d14041b"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 60,
+      "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
+    },
+    "source_entities.json": {
+      "bytes": 111,
+      "sha256": "f4292ccacefb82edba29fb9eef0b7e1ccc7cccdfaa76324e5b61dd427d874137"
+    },
+    "source_lifecycle.json": {
+      "bytes": 58,
+      "sha256": "fae2169dc386a6fc7caaaa74d1990c34433b478868cb06deaa288d176fe214ff"
+    },
+    "sources.json": {
+      "bytes": 53,
+      "sha256": "3e06d1354853a719039a50edcbbbd52504c3cceca302f82f4c84b276d8a7fb75"
+    },
+    "templates.json": {
+      "bytes": 23927,
+      "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
+    },
+    "temporal_graph.json": {
+      "bytes": 7132,
+      "sha256": "4afc820d021b2528eb5a23c52459aea8892b006b3fcb511b2ab693f719691371"
+    },
+    "timeline.json": {
+      "bytes": 2270,
+      "sha256": "2cac495d6e87c56d824b40b0cc1b2856c156e38a77864ca345eb69de131838b5"
+    },
+    "work_items.json": {
+      "bytes": 750,
+      "sha256": "f011a9bbb746aa20feaade50e3fd21880a0c6f6f2ea777211d1c8ab009434820"
+    }
+  },
+  "mode": "static",
+  "repo": {
+    "branch_prefix": "wiki/",
+    "default_branch": "main",
+    "default_context": "pessoal",
+    "karma_enabled": true,
+    "language": "en",
+    "memory_root": "memories",
+    "repo_id": "wiki-viva-demo"
+  },
+  "root_page_id": "root-alex-rivera",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-0bbec9df9bef974b",
+  "source_commit": null,
+  "source_sha": "uncommitted:245efd9a01426c820202cb3507916948514dd6ba9bf26c9a2d4f5502a59f347c",
+  "versions": {
+    "activity_timeline": "activity_timeline.v1",
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
+}

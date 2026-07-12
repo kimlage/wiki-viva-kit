@@ -15,7 +15,7 @@ except ModuleNotFoundError:
 
 from wiki_core.config import load_config
 from wiki_core.paths import WikiPaths
-from wiki_core.web.snapshot import write_snapshot
+from wiki_core.web.snapshot import validate_snapshot_output_location, write_snapshot
 
 
 def _display_path(path: Path) -> str:
@@ -28,12 +28,35 @@ def _display_path(path: Path) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", default="", help="Output directory for snapshot JSON files.")
-    parser.add_argument("--clean", action="store_true", help="Remove existing *.json files first.")
+    parser.add_argument(
+        "--clean",
+        action="store_true",
+        help=(
+            "Compatibility flag. A complete validated immutable revision is always "
+            "activated; stale active artifacts are never retained."
+        ),
+    )
+    parser.add_argument(
+        "--force-unowned-output",
+        action="store_true",
+        help=(
+            "Explicitly adopt a non-empty unmarked output directory inside the repo. "
+            "Review its contents first; external paths remain forbidden."
+        ),
+    )
     parser.add_argument("--mode", default="static", choices=["static", "local_operator", "github_connected"])
     parser.add_argument(
         "--content-sidecars",
         action="store_true",
         help="Also write content/{page}.json sidecars so the static reader can show full pages.",
+    )
+    parser.add_argument(
+        "--flat-build",
+        action="store_true",
+        help=(
+            "Write a flat offline/static build artifact. Never mutate this target "
+            "while it is being served; the host must activate the build atomically."
+        ),
     )
     parser.add_argument(
         "--check-contract",
@@ -60,11 +83,33 @@ def main() -> int:
             return 1
         print(f"snapshot contract ok: {manifest['snapshot_id']} ({len(manifest['integrity'])} payloads)")
         return 0
+    # Reject escaped or unrecognized symlink targets before walking/building the
+    # repository. Output trust errors must not be masked by unrelated content
+    # diagnostics from an expensive snapshot build.
+    validate_snapshot_output_location(ROOT, out_dir, repo_id=config.repo_id)
     written = write_snapshot(
-        ROOT, out_dir, config, clean=args.clean, mode=args.mode, content_sidecars=args.content_sidecars
+        ROOT,
+        out_dir,
+        config,
+        clean=args.clean,
+        mode=args.mode,
+        content_sidecars=args.content_sidecars,
+        force_unowned_output=args.force_unowned_output,
+        publication="flat_build" if args.flat_build else "auto",
     )
     for name in sorted(written):
         print(f"{name}: {_display_path(written[name])}")
+    if hasattr(written, "active_revision"):
+        print(
+            "activation: committed "
+            f"snapshot={written.snapshot_id} revision={written.active_revision}"
+        )
+        for warning in written.cleanup_warnings:
+            print(f"cleanup warning: {warning}", file=sys.stderr)
+        for recovery in written.recovery_paths:
+            print(f"recovery: {_display_path(recovery)}", file=sys.stderr)
+    else:
+        print("activation: flat build (host/offline atomic activation required)")
     return 0
 
 

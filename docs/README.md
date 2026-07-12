@@ -1,6 +1,6 @@
 # Docs
 
-Updated on: 2026-07-07
+Updated on: 2026-07-11
 
 `docs/` holds only perennial references, snapshots, decisions and templates. The
 starting point for persistent context is `memories/`.
@@ -17,8 +17,14 @@ starting point for persistent context is `memories/`.
   [wiki-viva-v6.3-quality-cost-control-2026-06-12.md](references/proposals/wiki-viva-v6.3-quality-cost-control-2026-06-12.md),
   plus the v6.8 root-entity/input-stage refactor in
   [integral-root-entity-and-input-stage-refactor-2026-06-25.md](references/proposals/integral-root-entity-and-input-stage-refactor-2026-06-25.md).
+  The current cross-repo release review, temporal-world architecture and
+  experience-pack execution contract is
+  [wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md](references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md).
 - `docs/references/fixtures/`: synthetic sources used to test methodology
   behavior before applying it to private data.
+- `docs/references/visual-inspiration/`: primary-source visual precedents with
+  explicit borrow/reject, license and evidence rules, starting at
+  [visual-inspiration/index.md](references/visual-inspiration/index.md).
 - `docs/references/guides/`: adoption and migration guides, including the
   default open-source process guide in
   [default-open-source-process.md](references/guides/default-open-source-process.md),

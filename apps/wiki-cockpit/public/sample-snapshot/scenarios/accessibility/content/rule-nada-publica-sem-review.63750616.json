@@ -1,0 +1,34 @@
+{
+  "backlinks": [],
+  "body": "\n# Nada publica sem review humano\n\nContent that lands in its quadrant interior.\n",
+  "frontmatter": {
+    "context": "sistema",
+    "home_quadrant": "sistemas",
+    "moc_parent": "memories/sistema/index.md",
+    "page_id": "rule-nada-publica-sem-review",
+    "page_type": "operational_rule",
+    "stale_after_days": 30,
+    "sub_lens": "governanca",
+    "title": "Nada publica sem review humano",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/sistema/index.md",
+    "page_id": "rule-nada-publica-sem-review",
+    "page_type": "operational_rule",
+    "path": "memories/rules/rule-nada-publica-sem-review.md",
+    "summary": "Content that lands in its quadrant interior.",
+    "summary_truncated": false,
+    "title": "Nada publica sem review humano",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-0bbec9df9bef974b",
+  "source_refs": []
+}

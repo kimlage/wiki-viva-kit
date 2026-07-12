@@ -24,6 +24,27 @@ refresh_policy: archival
 refresh_cadence_days: 180
 refresh_trigger: "review only when the methodology proposal or implementation contract changes"
 config_ref: memories/sources/config/wiki-viva-methodology-v5.md
+source_lifecycle:
+  state: ingested
+  freshness_state: fresh
+  last_attempt_state: ok
+  pipeline_stage: complete
+  pipeline_stage_timestamps:
+    complete: "2026-06-25T00:00:00Z"
+  adoption_state: accepted
+  last_sync_success_at: "2026-06-25T00:00:00Z"
+  last_ingested_at: "2026-06-25"
+  last_attempt_at: "2026-06-25T00:00:00Z"
+  emitted_page_ids:
+    - system-ingestion-readme
+  emitted_action_ids: []
+  proposal_ids: []
+  raw_artifact_count: 0
+  secret_safe_log_refs:
+    - memories/system/ingestion/events/2026-06-09-example.md
+  reviewed_no_change_receipt: ""
+  accepted_ref: memories/system/ingestion/events/2026-06-09-example.md
+  blocked_reason: ""
 sources_policy: fonte_metodologica
 gate: github_pr
 sensitive_data_policy: private_sensitive_allowed

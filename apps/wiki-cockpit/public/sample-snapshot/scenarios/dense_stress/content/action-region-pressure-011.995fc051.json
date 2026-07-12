@@ -15,7 +15,7 @@
   "frontmatter": {
     "action_state": "done",
     "attention_basis": "Its lifecycle and evidence state require review.",
-    "completed_at": "2026-07-03",
+    "completed_at": "2026-07-03T12:00:00Z",
     "completion_receipt": "receipt:demo-action-done-011",
     "context": "clientes",
     "created_at": "2026-06-01",
@@ -24,7 +24,6 @@
       "artifact-region-pressure-011"
     ],
     "moc_parent": "memories/clientes/index.md",
-    "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
     "owner_kind": "human",
     "owner_ref": "person-marina-costa",
     "page_id": "action-region-pressure-011",
@@ -56,7 +55,7 @@
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-9db0006466c24e71",
+  "snapshot_id": "wiki-viva-demo-6bf4d63d40ccbac6",
   "source_refs": [
     {
       "approved_state": "approved",

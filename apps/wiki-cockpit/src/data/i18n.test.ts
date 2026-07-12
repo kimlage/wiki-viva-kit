@@ -29,6 +29,19 @@ describe("i18n", () => {
     configureLanguage("pt-BR");
     expect(t("scene.fallback.performance.title")).toBe("Mapa seguro para este dispositivo");
     expect(t("scene.fallback.performance.body")).toContain("mesmas páginas, grupos e navegação");
+    expect(t("scene.fallback.aria")).toBe("Mapa de conteúdo");
+    expect(t("scene.workspace.approved")).toBe("Espaço aprovado");
+  });
+
+  it("localizes every hidden visual-lab surface instead of leaking mixed UI copy", () => {
+    configureLanguage("en");
+    expect(t("visualControl.aria")).toBe("God mode visual controls");
+    expect(t("visualControl.slider.motion")).toBe("Motion");
+    expect(t("visualControl.json.invalid")).toBe("Invalid JSON");
+    configureLanguage("pt-BR");
+    expect(t("visualControl.aria")).toBe("Controles visuais do modo mestre");
+    expect(t("visualControl.slider.motion")).toBe("Movimento");
+    expect(t("visualControl.json.invalid")).toBe("JSON inválido");
   });
 
   it("keeps the shared tour wording valid outside demo routes", () => {

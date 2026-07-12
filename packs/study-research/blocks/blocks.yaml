@@ -1,0 +1,12 @@
+schema_version: wiki_experience_pack_blocks.v1
+pack: study-research
+core_packages: [quadrant_lenses, gamification]
+blocks:
+  study-research.evidence-matrix:
+    kind: interpretation
+    purpose: Compare supporting, conflicting and missing evidence without changing source truth.
+    core_adapter: wiki.block.perspective_bundle.v1
+  study-research.reading-queue:
+    kind: interface
+    purpose: Prioritize unread, review-due and synthesis-ready sources.
+    core_adapter: wiki.block.ui_missions.v1

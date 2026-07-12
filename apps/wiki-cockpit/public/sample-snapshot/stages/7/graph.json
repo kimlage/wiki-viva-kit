@@ -3,7 +3,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "76118c1eab47ed760f5f",
+      "id": "1ccfa82f4582321f8661",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -14,12 +14,28 @@
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "2af2bafbbc4d259ea68b",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-relatorio-recon",
+        "path": "memories/artifacts/artifact-relatorio-recon.md"
+      },
+      "source": "artifact-relatorio-recon",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "382da3e83e70070de68c",
+      "id": "2b52f70b6866d3515bf3",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -30,12 +46,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "1aa13dfc22932394ea5f",
+      "id": "6b0cae73a6bdb57eb410",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -46,6 +62,22 @@
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "f5011f4312f64aff53d3",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "claim-custos-sobem",
+        "path": "memories/claims/claim-custos-sobem.md"
+      },
+      "source": "claim-custos-sobem",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "source_ref",
       "weight": 2
     },
     {
@@ -83,7 +115,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "9524c46b31f134a5d6ea",
+      "id": "fd2cf0490e0b3173a0d7",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -92,14 +124,30 @@
       },
       "source": "event-ingest-banco-2026-05",
       "status": "valid",
-      "target": "root-alex-rivera",
+      "target": "source-banco-export",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "a9d7521f042c23305f17",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-banco-2026-05",
+        "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+      },
+      "source": "event-ingest-banco-2026-05",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "37f309248b6fc45ecc41",
+      "id": "fe5cab1c56d415d34e56",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -110,12 +158,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "4e7ed44de1633444b622",
+      "id": "9c3addddac91dd426da6",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -126,12 +174,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "2f0fc6beacdea4474b79",
+      "id": "d9b12f2e5b156f713aa7",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -142,12 +190,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "137a3c8626a7a5c6381b",
+      "id": "7428d2033797683bbfd3",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -158,12 +206,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "1e46f0c7816a4e6aa1e9",
+      "id": "4f4ca28c579b8fd3edcb",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -174,12 +222,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "faaa34c12c1b86627f4e",
+      "id": "a20ab0af5f0e894dd23a",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -190,12 +238,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "f126a434aeff669d8b81",
+      "id": "fe6c357237bc7b308942",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -206,12 +254,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "f5c36b8109e497181583",
+      "id": "96fc4bf9752cd96f0193",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -222,12 +270,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "272d6ee2fa14404fb464",
+      "id": "a85496c8930bdc14cd90",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -238,12 +286,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "eccbeed06f123654236b",
+      "id": "dce148208f490d5a6cb5",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -254,12 +302,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "b5ea37c24e63b34a4d1a",
+      "id": "46696d3b76c1eb58d164",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -270,12 +318,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "db93414fe08bba9de1dd",
+      "id": "b95bec196bd42ea08735",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -286,7 +334,7 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
@@ -307,7 +355,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "3873bf4414c0bcb00f3c",
+      "id": "f9e3109821e8da826994",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -318,22 +366,6 @@
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "9f7622669a2dc1e7d5b5",
-      "observed_at": "2026-05-04",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-banco-export",
-        "path": "memories/sources/source-banco-export.md"
-      },
-      "source": "source-banco-export",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     }
   ],
@@ -1275,7 +1307,7 @@
       "freshness_state": "fresh",
       "id": "root-alex-rivera",
       "metrics": {
-        "inbound_links": 5,
+        "inbound_links": 4,
         "outbound_links": 0,
         "source_ref_count": 0
       },
@@ -1559,7 +1591,7 @@
       "freshness_state": "stale",
       "id": "source-banco-export",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 2,
         "source_ref_count": 0
       },
@@ -1800,6 +1832,25 @@
       "traversal": "provenance",
       "version": "wiki_relation_types.v1",
       "visual_line_intent": "ingest event to review proposal"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "related page row",
+      "family": "association",
+      "id": "related_page",
+      "label": "related page",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored related-page association"
     },
     {
       "allows_cycles": false,

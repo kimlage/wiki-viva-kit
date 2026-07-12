@@ -36,6 +36,7 @@ export type GitState = {
 export type TimelineEvent = {
   id: string;
   kind: string;
+  lane?: "source" | "action" | "decision" | "receipt" | "page" | "system" | "other";
   timestamp: string;
   label: string;
   context: string;
@@ -43,6 +44,123 @@ export type TimelineEvent = {
   status: string;
   weight: number;
   commit: string;
+};
+
+export type TemporalPrecision = "year" | "month" | "day" | "instant";
+export type TemporalConfidence = "confirmed" | "inferred" | "uncertain" | "conflicting";
+
+export type TemporalEvent = {
+  schema_version: "wiki_temporal_event.v1" | string;
+  event_id: string;
+  kind: string;
+  lane?: "source" | "action" | "decision" | "receipt" | "page" | "system" | "other";
+  subject_refs: string[];
+  context_refs: string[];
+  occurred_at: string | null;
+  recorded_at: string | null;
+  valid_from: string | null;
+  valid_to: string | null;
+  created_at: string | null;
+  due_at: string | null;
+  completed_at: string | null;
+  verified_at: string | null;
+  ingested_at: string | null;
+  superseded_at: string | null;
+  precision: Partial<Record<
+    | "occurred_at"
+    | "recorded_at"
+    | "valid_from"
+    | "valid_to"
+    | "created_at"
+    | "due_at"
+    | "completed_at"
+    | "verified_at"
+    | "ingested_at"
+    | "superseded_at",
+    TemporalPrecision
+  >>;
+  actor: { kind: "human" | "agent" | "system" | "unknown"; ref: string } | null;
+  source_refs: string[];
+  evidence_refs: string[];
+  caused_by: string[];
+  supersedes: string[];
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  confidence: TemporalConfidence;
+  visibility: "public" | "private";
+  origin: { adapter: string; legacy_kind?: string };
+  temporal_conflicts: string[];
+  anchor: { field: string; value: string; precision: TemporalPrecision } | null;
+};
+
+export type TemporalGraphPayload = {
+  schema_version: "wiki_temporal_graph.v1" | string;
+  event_schema_version: "wiki_temporal_event.v1" | string;
+  repo_id: string;
+  revision: string;
+  generated_at: string;
+  event_count: number;
+  total_count: number;
+  returned_count: number;
+  truncated: boolean;
+  next_cursor: string | null;
+  page: {
+    offset: number;
+    limit: number;
+    remaining_count: number;
+    fingerprint: string;
+  };
+  range: TemporalGraphRange;
+  returned_range: TemporalGraphRange;
+  summary: {
+    scope: "full_result" | string;
+    event_count: number;
+    by_kind: Record<string, number>;
+    by_context: Record<string, number>;
+    conflict_count: number;
+    imprecise_count: number;
+    diagnostic_count: number;
+  };
+  diagnostics: Record<string, unknown>[];
+  events: TemporalEvent[];
+};
+
+export type TemporalGraphRange = {
+  from: string | null;
+  to: string | null;
+  from_precision: TemporalPrecision | null;
+  to_precision: TemporalPrecision | null;
+  event_count: number;
+  dated_count: number;
+  undated_count: number;
+  basis: "full_result" | "returned_page" | string;
+};
+
+export type ExperiencePackSlot = {
+  pack: string;
+  slot: string;
+  contribution: string;
+  mode: "append" | "exclusive" | string;
+};
+
+export type ExperiencePackPresentation = {
+  default_locale: "en" | string;
+  locales: Record<string, Record<string, string>>;
+};
+
+export type ExperiencePackComposition = {
+  schema_version: "wiki_experience_pack_composition.v1" | string;
+  core_version: string;
+  packs: { id: string; version: string }[];
+  block_packages: string[];
+  slots: {
+    views: ExperiencePackSlot[];
+    commands: ExperiencePackSlot[];
+    operations: ExperiencePackSlot[];
+    timelines: ExperiencePackSlot[];
+  };
+  presentation: ExperiencePackPresentation;
+  composition_sha256: string;
 };
 
 export type DiffFile = {
@@ -109,8 +227,11 @@ export type ResolvedSourceRef =
 export type PageContent = {
   ok: boolean;
   error?: string;
+  error_code?: string;
+  page_id?: string;
   schema_version?: string;
   snapshot_id?: string;
+  expected_snapshot_id?: string;
   page?: PageBrief & {
     summary: string;
     summary_truncated: boolean;
@@ -213,7 +334,12 @@ export type SnapshotBundle = {
   manifest: {
     schema_version: string;
     snapshot_id?: string;
-    root_page_id?: string;
+    root_page_id?: string | null;
+    fixture?: {
+      fixture_id?: string;
+      scenario_id?: string;
+      genesis_stage?: number;
+    };
     bundle_hash?: string;
     capabilities?: string[];
     versions?: Record<string, string>;
@@ -332,6 +458,11 @@ export type SnapshotBundle = {
   regionGroups?: { schema_version: string; groups: RegionGroupPayload[] };
   sourceLifecycle?: { schema_version: string; sources: Record<string, unknown>[] };
   snapshotWarnings?: { schema_version: string; warnings: Record<string, unknown>[] };
+  // Capability-gated payloads: old v1/v2 snapshots remain readable without
+  // fabricating empty history or an empty pack registry.
+  temporalGraph?: TemporalGraphPayload;
+  temporalGraphSource?: { base: string; operatorBoundary: boolean };
+  experiencePacks?: ExperiencePackComposition;
 };
 
 // --- Modular template blocks (v2) ---
@@ -668,12 +799,14 @@ export type OperatorHealth = {
   server_version?: string;
   schema_capabilities?: string[];
   operator_security?: {
-    version: "wiki_operator_security.v1" | string;
+    version: "wiki_operator_security.v2" | string;
     nonce_header: string;
     nonce: string;
     attempt_header: string;
     max_body_bytes: number;
     mutations: "post_only" | string;
+    browser_origin_default?: "deny" | string;
+    cors_opt_in?: "exact_loopback_allowlist" | string;
   };
   codex?: CodexCapability;
 };

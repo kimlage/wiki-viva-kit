@@ -46,7 +46,11 @@ the check must fail. The app also blocks `sample_fallback` outside `/demo`, so a
 private cockpit cannot silently impersonate the bundled demo snapshot.
 
 Static snapshots include operational JSON files such as `manifest.json`,
-`operations.json`, `git.json`, `timeline.json` and `diff.json`. Treat
+`operations.json`, `git.json`, `timeline.json`, `temporal_graph.json`,
+`experience_packs.json` and `diff.json`. The experience-pack composition is a
+mandatory integrity-covered payload, including when its pack and slot lists are
+empty; invalid active pack state blocks the build instead of degrading to an
+empty composition. Treat
 `diff.json` as review evidence: public deployments should use synthetic/open
 snapshots, while private implementations should keep real branch diffs behind
 their private deployment boundary.
@@ -74,6 +78,11 @@ The command writes:
 
 The output stays under `data/derived/` by default. Copy it into a host-specific
 build only after reviewing the data boundary for that implementation.
+The snapshot inside this deploy bundle is intentionally flat and offline. Do
+not regenerate the directory while a web server is reading it; build a new
+bundle elsewhere and let the host atomically switch releases. The live
+Darwin/Linux revision-pointer protocol is for filesystem publication, while
+Windows static builds use this flat host-owned activation path.
 
 ## Vercel Static Review
 

@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-07
+updated_at: 2026-07-11
 stale_after_days: 30
 sources_policy: root_entity_contract
 gate: github_pr
@@ -52,15 +52,17 @@ decisions: []
 actions: []
 evidence_refs:
   - docs/references/proposals/integral-root-entity-and-input-stage-refactor-2026-06-25.md
+  - docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 related_pages:
   - memories/system/wiki/index.md
   - memories/system/input-stage.md
   - memories/system/source-registry.md
+  - docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 ---
 
 # Wiki Viva Kit
 
-Updated on: 2026-07-07.
+Updated on: 2026-07-11.
 
 This is the root entity of the open-source Wiki Viva Kit itself. It is the
 semantic entry page for the product/method, while [memories/index.md](../index.md)
@@ -154,6 +156,7 @@ flowchart TD
 | Project/initiative | Objective | State | Inputs |
 | --- | --- | --- | --- |
 | Integral root entity + input stage | Make initial wiki setup and source routing root-driven. | Implementing in open-source kit first. | This root page and [input-stage.md](input-stage.md) |
+| V8 release truth, temporal world and experience packs | Stabilize the unified living world, make time first-class and support complete installable use-case experiences. | Review-blocked; execute P0/P1 stabilization before extension work. | [Evidence-backed execution plan](../../docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md) |
 
 ## Perspective Bundle
 

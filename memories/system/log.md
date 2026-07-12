@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-07-10
+updated_at: 2026-07-11
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,203 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-07-11] System | V8 release readiness reopened
+
+- A current-HEAD public code review, real-browser navigation/UX pass and
+  sanitized private-downstream validation reproduced release-blocking gaps
+  that the prior green ledger did not cover.
+- The v8 implementation remains the architectural foundation, but its release
+  status is blocked until privacy projection, canonical action state, Genesis,
+  keyboard focus, route transitions, mobile target stability, snapshot
+  atomicity and ingestion-event truth pass current closure tests.
+- The single active correction and extension contract is the
+  [release truth, temporal world and experience packs plan](../../docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md).
+- The plan sequences stabilization before a temporal kernel, clearer visual
+  themes and complete installable experience packs. Public synthetic fixtures
+  remain the proving ground; private data is used only as sanitized downstream
+  pressure.
+- A second-agent checkpoint was recovered and adjudicated rather than treated
+  as evidence by volume. Independent reproduction confirmed Genesis 0 and
+  Galaxy, refuted the alleged native-Enter and out-of-viewport mobile failures,
+  and found a Sources-URL/Quadrants-runtime identity split.
+- The adversarial pass also elevated revision-mixed dynamic reader content and
+  destructive unowned snapshot output to P0, and independently confirmed that
+  the former default loopback CORS trust exposed the nonce/mutation surface to
+  another local browser app. The public worktree now uses default-deny direct
+  CORS, a same-origin Vite proxy and a versioned security handshake that rejects
+  stale operator processes before mutation.
+- Public closure candidates now cover fail-closed export projection, explicit
+  Genesis empty-world state, native keyboard traversal, canonical/legacy action
+  state parity, revision-bound content, owned output promotion, deploy-boundary
+  preflight, WebKit target geometry and actionable source-lifecycle authoring.
+  They remain uncommitted review candidates, not release evidence.
+- The post-review non-browser ledger is now 787 Python tests with zero skips,
+  402 frontend tests, 15 static gates, clean build/bundle, deterministic
+  methodology/operation/input/demo checks and normal/public audit with zero
+  errors. Hypothesis is required so frontmatter collection fails loudly, while
+  tests for downstream-only finance scripts remain with their downstream
+  owner. The final browser rerun, mandatory real-operator cells and human gate
+  remain blocked work rather than being hidden as skips or retries.
+- A second read found no newer parallel-agent artifact. Its coordinator state
+  is complete but its task cards are stale, so only independently reproduced
+  findings and the current repository ledger are used as release truth.
+- A third live check again found no newer Claude transcript, workflow result or
+  repository write. A fresh adversarial review instead reopened the release
+  machinery itself: project-level Playwright config leaked downstream tests,
+  minimal hand-authored JSON could fabricate E5, dirty receipts did not bind
+  bytes, and stale snapshots/reports could be recarimbados as current.
+- A fourth process/filesystem check found the Claude worker and preview still
+  alive but sleeping. No project artifact changed; the only recent local
+  session write was runtime plugin inventory metadata, not analysis. The
+  canonical plan therefore records another verified no-delta and does not use
+  process liveness as evidence of completed parallel work.
+- A fifth live check at 16:40 BRT found no Claude project-store write in the
+  preceding 30 minutes. The same long-sleeping worker and public/private Vite
+  previews were still alive. A 16:41 refresh touched only the small local
+  plugin-inventory manifest whose listed plugin record still dated from
+  2026-07-09; it added no project analysis. No new plan, code edit, verifier
+  output or evidence manifest existed to merge, so the already adjudicated
+  Claude set remains the complete parallel input for this round.
+- A sixth live check at 17:51 BRT extended the negative-delta window to 90
+  minutes: no Claude project-store or repository artifact changed, while the
+  worker remained alive but sleeping. The only fresh local-session file was the
+  runtime plugin inventory, whose listed plugin record still dated from
+  2026-07-09. It is not project analysis, so there is still no second plan,
+  code patch, verifier result or visual manifest to merge.
+- `wiki_release_receipt.v1` is now explicitly closure-only. It binds staged,
+  unstaged, untracked and clean-submodule state; requires raw gate evidence and
+  allowlisted command IDs; uses one-read/no-follow evidence hashing and atomic
+  readback; distinguishes public-safe from private-internal output; and always
+  blocks local E5 until an external signed CI/reviewer authority exists.
+- The canonical plan now records these reproductions as RT-57 through RT-67.
+  None is hidden behind the historical v8 release note or a coordinator label.
+- Exact release cells are now a receipt invariant: gate files and
+  `project::spec::title` cells must equal the versioned Playwright matrix, and
+  the normalized receipt records their count and digest. A nondeterministic
+  public-scan false positive discovered during the full slice is tracked as
+  RT-78: opaque cryptographic digests are excluded from prose PII matching,
+  while the same Luhn-valid digits remain blocked in human-controlled IDs.
+- Independent follow-up review then reopened two apparently green slices.
+  Browser-evidence helper arguments also exposed an in-repo tracked-file
+  deletion path (RT-71). Demo read-only tests had missed a Genesis guide intercept, a live-to-demo
+  POST race and a real-snapshot GET in the background (RT-68 through RT-70).
+  Atomic snapshot tests had missed active-prune deletion, lease symlink escape,
+  unowned revision removal, wrong-hash reuse and false post-commit failure
+  semantics (RT-72 through RT-77). These findings remain blockers until their
+  minimized repros turn green; earlier focused pass counts do not override them.
+- The corrected demo slice now completes Genesis 0 through 8 by touch and
+  keyboard, keeps every mutation surface inert, aborts live reads when crossing
+  into demo and rejects any `/api/**` request. Its focused ledger is 411/411
+  Vitest tests, 4/4 no-retry browser cells, a 3/3 keyboard repeat and an exact
+  unchanged release collection of 66 public plus 2 downstream cells. This is a
+  closure candidate only; the independent adversarial rereview and full public
+  browser matrix still govern acceptance.
+- That independent rereview then reopened RT-69: the mutation POST was blocked,
+  but a delayed runtime-config lookup could still start the operator health GET
+  after the browser URL had already crossed into demo. The accepted contract is
+  zero new operator GET/OPTIONS/POST after that boundary; the earlier 4/4 and
+  411/411 results are retained as historical controls, not closure proof.
+- The same rereview added RT-79 and RT-80. At 390x844 the stage-2 Create
+  surface avoids the guide but compresses its template overview into an
+  unreadably narrow column and gives the disabled CTA insufficient visual
+  distinction. The full Genesis keyboard helper also focuses targets directly;
+  it proves Enter activation, not native Tab order or focus visibility. Both
+  need dedicated responsive and accessibility evidence.
+- RT-81 keeps platform evidence honest: the flat Windows branch has a local
+  monkeypatched control, while current CI is Ubuntu-only. A real
+  `windows-latest` flat-build/path-safety job remains required; live revision
+  publication stays explicitly Darwin/Linux-only.
+- A new `snapshot-flat-windows` workflow candidate now runs four narrow
+  flat-build/path-safety controls on `windows-latest`; its YAML and the same four
+  tests are green locally. RT-81 closes only after the real Windows runner is
+  green on the reviewed commit.
+- The independent RT-08 rereview confirmed the original prune/lease/hash/server
+  and post-commit repros green, then opened RT-82 through RT-84. Strict revision
+  validation still missed symlink/extra-file inventory and manifest-repo versus
+  owner identity, the durability claim
+  exceeded the fsync trace for rename/exchange source directories, and
+  activation cleanup could remove its marker before a failed `rmdir`, leaving
+  an unreconcilable empty orphan. These remain blockers despite the preceding
+  119-test green slice.
+- A final RT-08 pathname-race review kept 15 focused controls green but opened
+  RT-87 through RT-90 with four minimized reproductions: an external file could
+  appear after activation validation and be clobbered by `os.replace`; a prune
+  victim could be replaced after leased validation and the replacement deleted
+  by pathname; a cleanup receipt minted before rename could authenticate a
+  pre-existing empty collision for later deletion; and the one-second health
+  cache could false-green same-size corruption when mtime was restored because
+  ctime was absent. These are release blockers until the no-clobber/CAS,
+  quarantine/revalidation, rename-before-receipt and ctime controls pass.
+- Post-fix hooks reopened RT-88/89 one layer deeper. Swapping the random prune
+  quarantine inside `shutil.rmtree` still deleted the replacement, and swapping
+  cleanup after receipt fsync let an external empty inode inherit the
+  name-bound receipt. Closure now requires descriptor-relative deletion and a
+  cleanup receipt bound to dev/inode/type, not another pathname recheck.
+- Independent rereview of the receipt handoff then opened RT-91 and RT-92.
+  Python accepted a private-adoption preflight whose consumer/snapshot source
+  SHAs differed from the gate subject after all repository-authored hashes were
+  refreshed, and the required visual manifest could point to a nonexistent
+  image because only its metadata strings were validated. Private consumer
+  identity must be cross-bound in Python, and every referenced visual must be
+  safely opened and hash/size/signature checked before closure can pass.
+- The same rereview opened RT-93: changing only an existing action's `page_id`
+  produced no transition diagnostic because history bound lifecycle/support but
+  not identity. Receipt v1 now needs immutable existing action IDs and
+  page-ID-bound transition entries before the action gate is complete.
+- The receipt rereview then opened RT-94 and RT-95. Python accepted a fabricated
+  one-public/one-downstream-cell matrix from a derived path instead of binding
+  the tracked 68+2 contract, and coherent `99.99.99` runtime-version claims
+  passed because file hashes were checked but runtime/browser identity was not.
+  The canonical matrix must be an exact tracked dependency, and executable
+  runtime/browser versions must be cross-checked or remain release blockers.
+- RT-96 records the same provenance review's stale-run replay: a coherent gate
+  and terminal dated in 2000 still validated inside a receipt created in 2026.
+  Release closure now needs bounded run duration and an internal
+  terminal-finish-to-receipt window without making historical receipts expire
+  against the current wall clock.
+- RT-97 through RT-99 extend that rereview: public raw/support/terminal evidence
+  was secret-scanned but not PII-scanned; a five-field invented snapshot
+  manifest passed without binding a bundle; and local release Playwright could
+  reuse a stale server on port 4173 after building the current subject. Public
+  evidence scanning must be scope-aware, the open snapshot artifact kind must
+  be removed or fully closed, and release runs must own their server/port.
+- RT-100 applies the same no-clobber rule to release evidence itself: Node and
+  Python still mutated by pathname after a precheck. Unique run artifacts and
+  receipts must be immutable create-once outputs; an occupied or raced path
+  blocks without unlinking, truncating or replacing external bytes.
+- RT-101 was discovered by the final public snapshot gate: the graph compiler
+  had flattened all frontmatter links and mislabeled reciprocal
+  `related_pages` as `source_ref`, inventing three provenance cycles in real
+  methodology/perception pages. Relation compilation now preserves field
+  semantics so only authored `source_refs` carry source provenance, while
+  reciprocal related-page navigation stays legal without weakening the
+  no-cycle source gate.
+- RT-102 was exposed only by the first complete 68-cell hardened wrapper:
+  three nested contexts and a snapshot intercept still hard-coded port 4173,
+  contradicting the new unique-port server contract. They now inherit the
+  actual Playwright project/request origin; five affected cells pass on a
+  dedicated non-default port.
+- RT-103 records a second evidence-ownership conflict: ad-hoc Playwright cleared
+  the parent `test-results` directory and deleted earlier immutable
+  `release-runs`. Disposable local artifacts now live in a disjoint child, and
+  the Node gate proves that child cannot contain the release root.
+- RT-104 separates concerns in the browser matrix. The local-only/zero-write
+  Genesis proof no longer duplicates a direct keyboard-like journey that
+  failed once under the full GPU sequence; native Tab/Enter remains mandatory
+  in dedicated Chromium/WebKit cells, while the zero-write cell uses a
+  deterministic pointer path. The isolated control passed 10/10 before this
+  separation and the focused post-fix set is green without retries.
+- The next complete public wrapper then passed all 68 canonical cells in 4.7
+  minutes on first attempt, with zero skip and zero retry across Chromium
+  performance/desktop, WebKit keyboard/mobile, forced fallback and Firefox.
+  This is current-worktree E2 evidence only: the dirty subject still cannot
+  mint E5, and the private 2-cell adoption matrix plus human review remain
+  independent gates.
+- Primary-source visual precedents are governed by the new
+  [visual inspiration register](../../docs/references/visual-inspiration/index.md),
+  with explicit borrow/reject, license and evidence status rather than an
+  untracked mood board.
 
 ## [2026-07-10] System | Canonical action-state authoring
 

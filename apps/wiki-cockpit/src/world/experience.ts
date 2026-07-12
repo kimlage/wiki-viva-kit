@@ -1,5 +1,6 @@
 import { NATIVE_VIEWS, OVERLAY_IDS } from "./contracts";
 import type { LensId, OverlayId } from "./contracts";
+import type { RegistryKernel } from "./registries/RegistryKernel";
 
 export type NativeWorldViewId = (typeof NATIVE_VIEWS)[number];
 
@@ -22,6 +23,7 @@ export type ExperienceIconId =
   | "radar"
   | "sources"
   | "work"
+  | "timeline"
   | "attention"
   | "freshness"
   | "actions"
@@ -132,6 +134,13 @@ export const WORLD_VIEW_EXPERIENCES = [
     labelKey: "world.view.work",
     questionKey: "world.experience.view.work.question",
     descriptionKey: "world.experience.view.work.description"
+  },
+  {
+    id: "timeline",
+    icon: "timeline",
+    labelKey: "world.view.timeline",
+    questionKey: "world.experience.view.timeline.question",
+    descriptionKey: "world.experience.view.timeline.description"
   }
 ] as const satisfies readonly ViewExperience[];
 
@@ -179,6 +188,25 @@ export const WORLD_OVERLAY_EXPERIENCES = [
     descriptionKey: "world.experience.overlay.quality.description"
   }
 ] as const satisfies readonly OverlayExperience[];
+
+/**
+ * Runtime availability comes from the operational registry. Presentation
+ * metadata remains typed and localized here, but a view/overlay that was not
+ * installed in the active kernel cannot leak into the navigator.
+ */
+export function registeredWorldViewExperiences(
+  kernel: Pick<RegistryKernel, "views">
+): readonly ViewExperience[] {
+  const registered = new Set(kernel.views.values().map((entry) => entry.id));
+  return WORLD_VIEW_EXPERIENCES.filter((entry) => registered.has(entry.id));
+}
+
+export function registeredWorldOverlayExperiences(
+  kernel: Pick<RegistryKernel, "overlays">
+): readonly OverlayExperience[] {
+  const registered = new Set(kernel.overlays.values().map((entry) => entry.id));
+  return WORLD_OVERLAY_EXPERIENCES.filter((entry) => registered.has(entry.id));
+}
 
 export const WORLD_QUADRANT_LENS_EXPERIENCES = [
   {

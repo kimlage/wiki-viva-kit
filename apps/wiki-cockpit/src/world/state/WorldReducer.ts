@@ -3,6 +3,12 @@ import type { RegistryKernel } from "../registries/RegistryKernel";
 
 export function createWorldReducer(index: PageEntityIndex, kernel: RegistryKernel) {
   return (state: WorldState, event: RuntimeEvent): WorldState => {
+    // Genesis 0 has no semantic world objects or operational surfaces. Only
+    // renderer-local adaptations may change before a new stage rehydrates the
+    // runtime from a snapshot that contains a real root.
+    if (state.emptyWorld && !["hydrateRoute", "setFallback", "setCameraIntent", "setSafeArea"].includes(event.type)) {
+      return state;
+    }
     switch (event.type) {
       case "hydrateRoute":
         return kernel.validateState(event.state).length === 0 ? event.state : state;

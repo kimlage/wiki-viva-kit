@@ -27,6 +27,8 @@
         "source-product-analytics"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Clean unsourced region claims"
     },
     {
@@ -56,6 +58,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 001"
     },
     {
@@ -85,6 +89,8 @@
         "source-support-tickets"
       ],
       "state": "in_progress",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 002"
     },
     {
@@ -116,6 +122,8 @@
         "source-support-tickets"
       ],
       "state": "blocked",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 003"
     },
     {
@@ -145,6 +153,8 @@
         "source-support-tickets"
       ],
       "state": "waiting_human",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 004"
     },
     {
@@ -153,7 +163,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
-      "completed_at": "2026-07-03",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "receipt:demo-action-done-005",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -161,7 +171,7 @@
       "evidence_refs": [
         "artifact-region-pressure-005"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "unassigned",
@@ -174,6 +184,8 @@
         "source-support-tickets"
       ],
       "state": "done",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 005"
     },
     {
@@ -182,7 +194,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-006",
-      "completed_at": "",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -190,7 +202,7 @@
       "evidence_refs": [
         "artifact-region-pressure-006"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "human",
@@ -203,6 +215,8 @@
         "source-support-tickets"
       ],
       "state": "cancelled",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 006"
     },
     {
@@ -232,6 +246,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 007"
     },
     {
@@ -261,6 +277,8 @@
         "source-support-tickets"
       ],
       "state": "in_progress",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 008"
     },
     {
@@ -292,6 +310,8 @@
         "source-support-tickets"
       ],
       "state": "blocked",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 009"
     },
     {
@@ -321,6 +341,8 @@
         "source-support-tickets"
       ],
       "state": "waiting_human",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 010"
     },
     {
@@ -329,7 +351,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
-      "completed_at": "2026-07-03",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "receipt:demo-action-done-011",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -337,7 +359,7 @@
       "evidence_refs": [
         "artifact-region-pressure-011"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "human",
@@ -350,6 +372,8 @@
         "source-support-tickets"
       ],
       "state": "done",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 011"
     },
     {
@@ -358,7 +382,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-012",
-      "completed_at": "",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -366,7 +390,7 @@
       "evidence_refs": [
         "artifact-region-pressure-012"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "agent",
@@ -379,6 +403,8 @@
         "source-support-tickets"
       ],
       "state": "cancelled",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 012"
     },
     {
@@ -408,6 +434,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 013"
     },
     {
@@ -437,6 +465,8 @@
         "source-support-tickets"
       ],
       "state": "in_progress",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 014"
     },
     {
@@ -468,6 +498,8 @@
         "source-support-tickets"
       ],
       "state": "blocked",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 015"
     },
     {
@@ -497,6 +529,8 @@
         "source-support-tickets"
       ],
       "state": "waiting_human",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 016"
     },
     {
@@ -505,7 +539,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
-      "completed_at": "2026-07-03",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "receipt:demo-action-done-017",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -513,7 +547,7 @@
       "evidence_refs": [
         "artifact-region-pressure-017"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "agent",
@@ -526,6 +560,8 @@
         "source-support-tickets"
       ],
       "state": "done",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 017"
     },
     {
@@ -534,7 +570,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-018",
-      "completed_at": "",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -542,7 +578,7 @@
       "evidence_refs": [
         "artifact-region-pressure-018"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "system",
@@ -555,6 +591,8 @@
         "source-support-tickets"
       ],
       "state": "cancelled",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 018"
     },
     {
@@ -584,6 +622,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 019"
     },
     {
@@ -613,6 +653,8 @@
         "source-support-tickets"
       ],
       "state": "in_progress",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 020"
     },
     {
@@ -644,6 +686,8 @@
         "source-support-tickets"
       ],
       "state": "blocked",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 021"
     },
     {
@@ -673,6 +717,8 @@
         "source-support-tickets"
       ],
       "state": "waiting_human",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 022"
     },
     {
@@ -681,7 +727,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
-      "completed_at": "2026-07-03",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "receipt:demo-action-done-023",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -689,7 +735,7 @@
       "evidence_refs": [
         "artifact-region-pressure-023"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "system",
@@ -702,6 +748,8 @@
         "source-support-tickets"
       ],
       "state": "done",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 023"
     },
     {
@@ -710,7 +758,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-024",
-      "completed_at": "",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -718,7 +766,7 @@
       "evidence_refs": [
         "artifact-region-pressure-024"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "other",
@@ -731,6 +779,8 @@
         "source-support-tickets"
       ],
       "state": "cancelled",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 024"
     },
     {
@@ -760,6 +810,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 025"
     },
     {
@@ -789,6 +841,8 @@
         "source-support-tickets"
       ],
       "state": "in_progress",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 026"
     },
     {
@@ -820,6 +874,8 @@
         "source-support-tickets"
       ],
       "state": "blocked",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 027"
     },
     {
@@ -849,6 +905,8 @@
         "source-support-tickets"
       ],
       "state": "waiting_human",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 028"
     },
     {
@@ -857,7 +915,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
-      "completed_at": "2026-07-03",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "receipt:demo-action-done-029",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -865,7 +923,7 @@
       "evidence_refs": [
         "artifact-region-pressure-029"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "other",
@@ -878,6 +936,8 @@
         "source-support-tickets"
       ],
       "state": "done",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 029"
     },
     {
@@ -886,7 +946,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-030",
-      "completed_at": "",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -894,7 +954,7 @@
       "evidence_refs": [
         "artifact-region-pressure-030"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "unassigned",
@@ -907,6 +967,8 @@
         "source-support-tickets"
       ],
       "state": "cancelled",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 030"
     },
     {
@@ -936,6 +998,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 031"
     },
     {
@@ -965,6 +1029,8 @@
         "source-support-tickets"
       ],
       "state": "in_progress",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 032"
     },
     {
@@ -996,6 +1062,8 @@
         "source-support-tickets"
       ],
       "state": "blocked",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 033"
     },
     {
@@ -1025,6 +1093,8 @@
         "source-support-tickets"
       ],
       "state": "waiting_human",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 034"
     },
     {
@@ -1033,7 +1103,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
-      "completed_at": "2026-07-03",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "receipt:demo-action-done-035",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -1041,7 +1111,7 @@
       "evidence_refs": [
         "artifact-region-pressure-035"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "unassigned",
@@ -1054,6 +1124,8 @@
         "source-support-tickets"
       ],
       "state": "done",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 035"
     },
     {
@@ -1062,7 +1134,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-036",
-      "completed_at": "",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -1070,7 +1142,7 @@
       "evidence_refs": [
         "artifact-region-pressure-036"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "human",
@@ -1083,6 +1155,8 @@
         "source-support-tickets"
       ],
       "state": "cancelled",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 036"
     },
     {
@@ -1112,6 +1186,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 037"
     },
     {
@@ -1141,6 +1217,8 @@
         "source-support-tickets"
       ],
       "state": "in_progress",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 038"
     },
     {
@@ -1172,6 +1250,8 @@
         "source-support-tickets"
       ],
       "state": "blocked",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 039"
     },
     {
@@ -1201,6 +1281,8 @@
         "source-support-tickets"
       ],
       "state": "waiting_human",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 040"
     },
     {
@@ -1209,7 +1291,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
-      "completed_at": "2026-07-03",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "receipt:demo-action-done-041",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -1217,7 +1299,7 @@
       "evidence_refs": [
         "artifact-region-pressure-041"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "human",
@@ -1230,6 +1312,8 @@
         "source-support-tickets"
       ],
       "state": "done",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 041"
     },
     {
@@ -1238,7 +1322,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-042",
-      "completed_at": "",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -1246,7 +1330,7 @@
       "evidence_refs": [
         "artifact-region-pressure-042"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "agent",
@@ -1259,6 +1343,8 @@
         "source-support-tickets"
       ],
       "state": "cancelled",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 042"
     },
     {
@@ -1288,6 +1374,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 043"
     },
     {
@@ -1317,6 +1405,8 @@
         "source-support-tickets"
       ],
       "state": "in_progress",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 044"
     },
     {
@@ -1348,6 +1438,8 @@
         "source-support-tickets"
       ],
       "state": "blocked",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 045"
     },
     {
@@ -1377,6 +1469,8 @@
         "source-support-tickets"
       ],
       "state": "waiting_human",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 046"
     },
     {
@@ -1385,7 +1479,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
-      "completed_at": "2026-07-03",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "receipt:demo-action-done-047",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -1393,7 +1487,7 @@
       "evidence_refs": [
         "artifact-region-pressure-047"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "agent",
@@ -1406,6 +1500,8 @@
         "source-support-tickets"
       ],
       "state": "done",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 047"
     },
     {
@@ -1414,7 +1510,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-048",
-      "completed_at": "",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -1422,7 +1518,7 @@
       "evidence_refs": [
         "artifact-region-pressure-048"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "system",
@@ -1435,6 +1531,8 @@
         "source-support-tickets"
       ],
       "state": "cancelled",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 048"
     },
     {
@@ -1464,6 +1562,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 049"
     },
     {
@@ -1493,6 +1593,8 @@
         "source-support-tickets"
       ],
       "state": "in_progress",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 050"
     },
     {
@@ -1524,6 +1626,8 @@
         "source-support-tickets"
       ],
       "state": "blocked",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 051"
     },
     {
@@ -1553,6 +1657,8 @@
         "source-support-tickets"
       ],
       "state": "waiting_human",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 052"
     },
     {
@@ -1561,7 +1667,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
-      "completed_at": "2026-07-03",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "receipt:demo-action-done-053",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -1569,7 +1675,7 @@
       "evidence_refs": [
         "artifact-region-pressure-053"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "system",
@@ -1582,6 +1688,8 @@
         "source-support-tickets"
       ],
       "state": "done",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 053"
     },
     {
@@ -1590,7 +1698,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-054",
-      "completed_at": "",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -1598,7 +1706,7 @@
       "evidence_refs": [
         "artifact-region-pressure-054"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "other",
@@ -1611,6 +1719,8 @@
         "source-support-tickets"
       ],
       "state": "cancelled",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 054"
     },
     {
@@ -1640,6 +1750,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 055"
     },
     {
@@ -1669,6 +1781,8 @@
         "source-support-tickets"
       ],
       "state": "in_progress",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 056"
     },
     {
@@ -1700,6 +1814,8 @@
         "source-support-tickets"
       ],
       "state": "blocked",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 057"
     },
     {
@@ -1729,6 +1845,8 @@
         "source-support-tickets"
       ],
       "state": "waiting_human",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "A\u00e7\u00e3o que aguarda julgamento humano sobre evid\u00eancia sint\u00e9tica de alta densidade 058"
     },
     {
@@ -1737,7 +1855,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "",
-      "completed_at": "2026-07-03",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "receipt:demo-action-done-059",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -1745,7 +1863,7 @@
       "evidence_refs": [
         "artifact-region-pressure-059"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "other",
@@ -1758,6 +1876,8 @@
         "source-support-tickets"
       ],
       "state": "done",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 059"
     },
     {
@@ -1766,7 +1886,7 @@
       "blocked_by": [],
       "blocker_reason": "",
       "cancellation_receipt": "receipt:demo-action-cancelled-060",
-      "completed_at": "",
+      "completed_at": "2026-07-03T12:00:00Z",
       "completion_receipt": "",
       "contract_warnings": [],
       "created_at": "2026-06-01",
@@ -1774,7 +1894,7 @@
       "evidence_refs": [
         "artifact-region-pressure-060"
       ],
-      "next_action": "Review the linked synthetic evidence and leave a human-gated receipt.",
+      "next_action": "",
       "overdue": false,
       "owner": {
         "kind": "unassigned",
@@ -1787,6 +1907,8 @@
         "source-support-tickets"
       ],
       "state": "cancelled",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Dense canonical action 060"
     },
     {
@@ -1816,6 +1938,8 @@
         "source-product-analytics"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Review region evidence"
     },
     {
@@ -1845,6 +1969,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Refresh support ticket source"
     }
   ],

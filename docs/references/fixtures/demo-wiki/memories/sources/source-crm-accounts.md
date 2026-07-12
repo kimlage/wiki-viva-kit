@@ -34,4 +34,4 @@ source_lifecycle:
 
 # CRM accounts export
 
-A live source. Its content is born by ingestion — manual creation under it is off. (The bank export is intentionally overdue.)
+A live CRM source. Its content is born by ingestion — manual creation under it is off. This fixture demonstrates lifecycle `blocked`, freshness `never_synced` and last attempt `needs_auth`.

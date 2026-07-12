@@ -35,4 +35,4 @@ source_lifecycle:
 
 # Agenda
 
-A live source. Its content is born by ingestion — manual creation under it is off. (The bank export is intentionally overdue.)
+A live Google Calendar source. Its content is born by ingestion — manual creation under it is off. This fixture demonstrates lifecycle `ingested`, freshness `fresh` and last attempt `ok`.

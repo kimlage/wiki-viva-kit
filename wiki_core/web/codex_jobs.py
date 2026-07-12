@@ -28,7 +28,7 @@ import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from wiki_core.config import WikiConfig
 from wiki_core.paths import WikiPaths
@@ -88,6 +88,7 @@ class JobRunner:
         codex_cmd: list[str] | None = None,
         timeout_seconds: int = _DEFAULT_JOB_TIMEOUT,
         autostart: bool = True,
+        on_change: Callable[[], None] | None = None,
     ) -> None:
         self.root = root
         self.config = config
@@ -96,6 +97,7 @@ class JobRunner:
         # codex_cmd lets tests point at a shim; production uses [binary].
         self.codex_cmd = list(codex_cmd) if codex_cmd else [binary]
         self.timeout_seconds = timeout_seconds
+        self._on_change = on_change
         self.dir = WikiPaths(root, config).derived_root / "codex-jobs"
         self.briefs = BriefStore(root, config)
         self._queue: "queue.Queue[str]" = queue.Queue()
@@ -142,6 +144,11 @@ class JobRunner:
         self._record_path(record["job_id"]).write_text(
             json.dumps(record, indent=2, sort_keys=True), encoding="utf-8"
         )
+        if self._on_change is not None:
+            try:
+                self._on_change()
+            except Exception:  # noqa: BLE001 - cache notification cannot fail a job
+                pass
         return record
 
     def get(self, job_id: str) -> dict[str, Any] | None:

@@ -4899,45 +4899,32 @@
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-product-analytics.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-support-tickets.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     }
   ],
   "quality_flags": {
     "bad_repetition_blocks": [
-      {
-        "contexts": [
-          "clientes"
-        ],
-        "page_types": [
-          "source"
-        ],
-        "pages": [
-          "memories/sources/source-product-analytics.md",
-          "memories/sources/source-support-tickets.md"
-        ],
-        "text_preview": "a live source. its content is born by ingestion \u2014 manual creation under it is off. (the bank export is intentionally overdue.)"
-      },
       {
         "contexts": [
           "clientes"
@@ -5446,19 +5433,6 @@
           "clientes"
         ],
         "page_types": [
-          "source"
-        ],
-        "pages": [
-          "memories/sources/source-product-analytics.md",
-          "memories/sources/source-support-tickets.md"
-        ],
-        "text_preview": "a live source. its content is born by ingestion \u2014 manual creation under it is off. (the bank export is intentionally overdue.)"
-      },
-      {
-        "contexts": [
-          "clientes"
-        ],
-        "page_types": [
           "action",
           "artifact",
           "claim"
@@ -5617,7 +5591,7 @@
   "repo_id": "wiki-viva-demo",
   "schema_version": "wiki_quality_report.v1",
   "summary": {
-    "bad_repetition_blocks": 4,
+    "bad_repetition_blocks": 3,
     "cache_reuse_rate": 0.0,
     "cached_calls": 0,
     "chunk_sources": 0,
@@ -5646,7 +5620,7 @@
     "quality_exempt_pages": 0,
     "quality_exemption_missing_reason": 0,
     "relation_pages_without_parent": 0,
-    "repeated_blocks": 2,
+    "repeated_blocks": 1,
     "responsibilities_without_action": 0,
     "role_responsibility_edge_mismatch": 0,
     "thin_link_pages": 127

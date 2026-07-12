@@ -4,6 +4,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],

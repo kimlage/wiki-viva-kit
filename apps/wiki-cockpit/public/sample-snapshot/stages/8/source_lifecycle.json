@@ -4,6 +4,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -31,6 +32,7 @@
     {
       "accepted_ref": "demo-sha:agenda-accepted",
       "adoption_state": "accepted",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -64,6 +66,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -98,6 +101,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -125,6 +129,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -152,6 +157,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -183,6 +189,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -210,6 +217,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -237,6 +245,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -264,6 +273,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -291,6 +301,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "Authorization is required; no credential value is stored in the fixture.",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -320,6 +331,7 @@
     {
       "accepted_ref": "demo-sha:decision-log-no-change",
       "adoption_state": "reviewed_no_change",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -349,6 +361,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "The synthetic trace export is malformed.",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -378,6 +391,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -405,6 +419,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -432,6 +447,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "The synthetic health endpoint returned an operational failure.",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -461,6 +477,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -488,6 +505,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -515,6 +533,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -542,6 +561,7 @@
     {
       "accepted_ref": "demo-sha:product-analytics-accepted",
       "adoption_state": "accepted",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -575,6 +595,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "Secret scanning blocked the synthetic attempt before publication.",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -604,6 +625,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -631,6 +653,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -658,6 +681,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -685,6 +709,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -718,6 +743,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -745,6 +771,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -776,6 +803,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -803,6 +831,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],

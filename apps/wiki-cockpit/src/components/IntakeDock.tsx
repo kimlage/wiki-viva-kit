@@ -18,6 +18,7 @@ import type { OperatorPort } from "../application/ports";
 export function IntakeDock({
   bundle,
   initialSrc,
+  demo = false,
   intakeCopy,
   onComposeBrief,
   onOpenCreate,
@@ -26,6 +27,7 @@ export function IntakeDock({
 }: {
   bundle: SnapshotBundle;
   initialSrc?: string;
+  demo?: boolean;
   intakeCopy: OperatorPort["intakeCopy"];
   onComposeBrief?: (spec: BriefSpec) => void;
   onOpenCreate?: () => void;
@@ -41,7 +43,7 @@ export function IntakeDock({
   const [added, setAdded] = useState<{ path: string; context: string } | null>(null);
 
   const add = async () => {
-    if (!src.trim() || busy) return;
+    if (demo || !src.trim() || busy) return;
     setBusy(true);
     setAdded(null);
     try {
@@ -68,6 +70,7 @@ export function IntakeDock({
           </button>
         </header>
         <p className="dockIntro">{t("intake.intro")}</p>
+        {demo && <p className="dockIntro" role="note">{t("intake.demoReadOnly")}</p>}
         <DockTelemetryRail label={t("intake.telemetry.aria")} items={telemetry} />
 
         <label className="intakeField">
@@ -91,7 +94,14 @@ export function IntakeDock({
         </label>
 
         <div className="dockActions">
-          <button className="primaryButton" onClick={add} disabled={!src.trim() || busy} type="button">
+          <button
+            className="primaryButton"
+            onClick={add}
+            disabled={demo || !src.trim() || busy}
+            aria-label={demo ? `${t("intake.add")} — ${t("demo.readOnlyControl")}` : undefined}
+            title={demo ? t("demo.readOnlyControl") : undefined}
+            type="button"
+          >
             <FilePlus size={14} />
             <span>{busy ? t("intake.adding") : t("intake.add")}</span>
           </button>

@@ -1,0 +1,929 @@
+{
+  "diagnostics": [],
+  "event_count": 19,
+  "event_schema_version": "wiki_temporal_event.v1",
+  "events": [
+    {
+      "actor": null,
+      "after": {
+        "recurrence": "monthly",
+        "status": "scheduled"
+      },
+      "anchor": {
+        "field": "due_at",
+        "precision": "day",
+        "value": "2026-08-10"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": "2026-08-10",
+      "event_id": "evt_personal_finance_obligation_due_cf094424d539fcf7c4c92cd9",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "personal-finance.obligation-due",
+      "lane": "page",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "experience_pack.personal-finance.obligation-due.v1"
+      },
+      "precision": {
+        "due_at": "day"
+      },
+      "recorded_at": null,
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-obligation-rent"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {},
+      "anchor": {
+        "field": "occurred_at",
+        "precision": "day",
+        "value": "2026-08-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_decision_made_3ad25e213163c4320679c9ec",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "decision_made",
+      "occurred_at": "2026-08-03",
+      "origin": {
+        "adapter": "decision.v1"
+      },
+      "precision": {
+        "occurred_at": "day",
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:finance-review-july"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "close_state": "reviewed"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-08-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_personal_finance_monthly_closed_5d6446d0d251c54cf40d0b4e",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "personal-finance.monthly-closed",
+      "lane": "page",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "experience_pack.personal-finance.monthly-closed.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-08-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-closing-july"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "artifact"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-08-01"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_09f3cab914f8f8359e72fdbe",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-08-01",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:finance-source-july"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "decision"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_06d5fc806e1a47958a777018",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:finance-review-july"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "personal_finance_account"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_0f14040de309f8eb63f060a1",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:finance-account-main"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "personal_finance_reconciliation"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_43af5fcee8f39395143983e2",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-reconciliation-july"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "personal_finance_obligation"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_54c0f386ce94c3f7859525f1",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-obligation-rent"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "personal_finance_category"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_77d8359a5930a4b6f7705fd6",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:finance-category-income"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "root_entity"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_7b2c2662f1bda52b4fb42cd8",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:root-personal-finance-showcase"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "personal_finance_monthly_closing"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_83a5f1f7de59a393dbec9a1d",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-closing-july"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "personal_finance_transaction"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_d60710ee1c2bca8997ced7b4",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-transaction-income"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "personal_finance_category"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_ea28048209acafa47a8f2bc5",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:finance-category-housing"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "personal_finance_transaction"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-09"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_f214964fae115d732cc1539a",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-09",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-transaction-housing"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "status": "blocked"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "instant",
+        "value": "2026-07-09T00:00:00Z"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:system"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_snapshot_recorded_a3af43d15361d0f03a17e157",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "snapshot_recorded",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "activity_timeline.v1",
+        "legacy_kind": "snapshot"
+      },
+      "precision": {
+        "recorded_at": "instant"
+      },
+      "recorded_at": "2026-07-09T00:00:00Z",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "system:snapshot-generated"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "classification_state": "reviewed",
+        "direction": "expense"
+      },
+      "anchor": {
+        "field": "occurred_at",
+        "precision": "day",
+        "value": "2026-07-05"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_personal_finance_transaction_occurred_6142ba2dd25c199eb76f4c8e",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "personal-finance.transaction-occurred",
+      "lane": "page",
+      "occurred_at": "2026-07-05",
+      "origin": {
+        "adapter": "experience_pack.personal-finance.transaction-occurred.v1"
+      },
+      "precision": {
+        "occurred_at": "day"
+      },
+      "recorded_at": null,
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-transaction-housing"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "classification_state": "reviewed",
+        "direction": "income"
+      },
+      "anchor": {
+        "field": "occurred_at",
+        "precision": "day",
+        "value": "2026-07-02"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_personal_finance_transaction_occurred_faaa3a2b5f84ef692fb9f77b",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "personal-finance.transaction-occurred",
+      "lane": "page",
+      "occurred_at": "2026-07-02",
+      "origin": {
+        "adapter": "experience_pack.personal-finance.transaction-occurred.v1"
+      },
+      "precision": {
+        "occurred_at": "day"
+      },
+      "recorded_at": null,
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-transaction-income"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "close_state": "reviewed"
+      },
+      "anchor": {
+        "field": "occurred_at",
+        "precision": "month",
+        "value": "2026-07"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_personal_finance_monthly_period_3536153e1937b34fc307bfab",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "personal-finance.monthly-period",
+      "lane": "page",
+      "occurred_at": "2026-07",
+      "origin": {
+        "adapter": "experience_pack.personal-finance.monthly-period.v1"
+      },
+      "precision": {
+        "occurred_at": "month"
+      },
+      "recorded_at": null,
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-closing-july"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    },
+    {
+      "actor": null,
+      "after": {
+        "reconciliation_state": "reconciled"
+      },
+      "anchor": {
+        "field": "occurred_at",
+        "precision": "month",
+        "value": "2026-07"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:showcase"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_personal_finance_reconciliation_recorded_b0842d93a236f13bd8a783c7",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "personal-finance.reconciliation-recorded",
+      "lane": "page",
+      "occurred_at": "2026-07",
+      "origin": {
+        "adapter": "experience_pack.personal-finance.reconciliation-period.v1"
+      },
+      "precision": {
+        "occurred_at": "month"
+      },
+      "recorded_at": null,
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:finance-source-july"
+      ],
+      "subject_refs": [
+        "page:finance-reconciliation-july"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "public"
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
+  "page": {
+    "fingerprint": "515207b1affa3a3efa44c30b7006eee155e5851ba95cb0a24a6d31f7d61d6a10",
+    "limit": 19,
+    "offset": 0,
+    "remaining_count": 0
+  },
+  "range": {
+    "basis": "full_result",
+    "dated_count": 19,
+    "event_count": 19,
+    "from": "2026-07",
+    "from_precision": "month",
+    "to": "2026-08-10",
+    "to_precision": "day",
+    "undated_count": 0
+  },
+  "repo_id": "wiki-viva-demo-personal-finance-showcase",
+  "returned_count": 19,
+  "returned_range": {
+    "basis": "returned_page",
+    "dated_count": 19,
+    "event_count": 19,
+    "from": "2026-07",
+    "from_precision": "month",
+    "to": "2026-08-10",
+    "to_precision": "day",
+    "undated_count": 0
+  },
+  "revision": "sha256:515207b1affa3a3efa44c30b7006eee155e5851ba95cb0a24a6d31f7d61d6a10",
+  "schema_version": "wiki_temporal_graph.v1",
+  "summary": {
+    "by_context": {
+      "context:showcase": 18,
+      "context:system": 1
+    },
+    "by_kind": {
+      "decision_made": 1,
+      "page_updated": 11,
+      "personal-finance.monthly-closed": 1,
+      "personal-finance.monthly-period": 1,
+      "personal-finance.obligation-due": 1,
+      "personal-finance.reconciliation-recorded": 1,
+      "personal-finance.transaction-occurred": 2,
+      "snapshot_recorded": 1
+    },
+    "conflict_count": 0,
+    "diagnostic_count": 0,
+    "event_count": 19,
+    "imprecise_count": 2,
+    "scope": "full_result"
+  },
+  "total_count": 19,
+  "truncated": false
+}

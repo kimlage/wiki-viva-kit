@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-experience-pack-composition-v1.schema.json",
+  "title": "Wiki Viva deterministic experience pack composition v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "core_version",
+    "packs",
+    "block_packages",
+    "slots",
+    "presentation",
+    "composition_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_experience_pack_composition.v1"},
+    "core_version": {"const": "8.0.0"},
+    "packs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version"],
+        "properties": {
+          "id": {"$ref": "#/$defs/pack_id"},
+          "version": {"$ref": "#/$defs/semver"}
+        }
+      }
+    },
+    "block_packages": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/capability"}
+    },
+    "slots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["views", "commands", "operations", "timelines"],
+      "properties": {
+        "views": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/view_slot"}
+        },
+        "commands": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/command_slot"}
+        },
+        "operations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/operation_slot"}
+        },
+        "timelines": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/timeline_slot"}
+        }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default_locale", "locales"],
+      "properties": {
+        "default_locale": {"const": "en"},
+        "locales": {
+          "type": "object",
+          "required": ["en", "pt-BR"],
+          "minProperties": 2,
+          "propertyNames": {"pattern": "^[a-z]{2}(?:-[A-Z]{2})?$"},
+          "additionalProperties": {
+            "type": "object",
+            "propertyNames": {"$ref": "#/$defs/capability"},
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 96,
+              "pattern": "^[^\\u0000-\\u001F\\u007F]+$"
+            }
+          }
+        }
+      }
+    },
+    "composition_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "pack_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"
+    },
+    "capability": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "slot_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pack", "slot", "contribution", "mode"],
+      "properties": {
+        "pack": {"$ref": "#/$defs/pack_id"},
+        "slot": {"$ref": "#/$defs/capability"},
+        "contribution": {"$ref": "#/$defs/capability"},
+        "mode": {"enum": ["append", "exclusive"]}
+      }
+    },
+    "view_slot": {
+      "allOf": [
+        {"$ref": "#/$defs/slot_base"},
+        {"properties": {"slot": {"pattern": "^view\\.[a-z0-9_.-]+$"}}}
+      ]
+    },
+    "command_slot": {
+      "allOf": [
+        {"$ref": "#/$defs/slot_base"},
+        {"properties": {"slot": {"pattern": "^command\\.[a-z0-9_.-]+$"}}}
+      ]
+    },
+    "operation_slot": {
+      "allOf": [
+        {"$ref": "#/$defs/slot_base"},
+        {"properties": {"slot": {"pattern": "^operation\\.[a-z0-9_.-]+$"}}}
+      ]
+    },
+    "timeline_slot": {
+      "allOf": [
+        {"$ref": "#/$defs/slot_base"},
+        {"properties": {"slot": {"pattern": "^timeline\\.[a-z0-9_.-]+$"}}}
+      ]
+    }
+  }
+}

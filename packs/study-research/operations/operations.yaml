@@ -1,0 +1,44 @@
+schema_version: wiki_experience_pack_operations.v1
+pack: study-research
+write_policy: proposal_branch_only
+permissions:
+  study-research.propose-study-changes:
+    scope: pack-owned-page-types
+    mode: proposal_only
+skills:
+  human: []
+  agent:
+    - id: study-research.prepare-study-proposal
+      permissions: [study-research.propose-study-changes]
+      responsibility: Prepare evidence-linked study changes for human review.
+operations:
+  study-research.capture-source:
+    slot: operation.intake
+    command: study-research.capture
+    inputs: [title, source_kind]
+    outputs: [study_research_source]
+    permissions: [study-research.propose-study-changes]
+    dry_run: true
+    human_gate: required
+    policies:
+      source_policy: require-provenance
+  study-research.review-evidence:
+    slot: operation.review
+    command: study-research.review
+    inputs: [question_ref, evidence_refs]
+    outputs: [study_research_claim]
+    permissions: [study-research.propose-study-changes]
+    dry_run: true
+    human_gate: required
+    policies:
+      ambiguity_policy: preserve-conflicts
+  study-research.synthesize-topic:
+    slot: operation.synthesis
+    command: study-research.synthesize
+    inputs: [question_refs, claim_refs]
+    outputs: [study_research_synthesis]
+    permissions: [study-research.propose-study-changes]
+    dry_run: true
+    human_gate: required
+    policies:
+      evidence_policy: cite-claims

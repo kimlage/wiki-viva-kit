@@ -1,0 +1,666 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.invalid/schemas/wiki-temporal-graph-v1.schema.json",
+  "title": "Wiki Viva paginated temporal graph v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_schema_version",
+    "repo_id",
+    "revision",
+    "generated_at",
+    "event_count",
+    "total_count",
+    "returned_count",
+    "truncated",
+    "next_cursor",
+    "page",
+    "range",
+    "returned_range",
+    "summary",
+    "diagnostics",
+    "events"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki_temporal_graph.v1"
+    },
+    "event_schema_version": {
+      "const": "wiki_temporal_event.v1"
+    },
+    "repo_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "event_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "returned_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "truncated": {
+      "type": "boolean"
+    },
+    "next_cursor": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 512
+        }
+      ]
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "offset",
+        "limit",
+        "remaining_count",
+        "fingerprint"
+      ],
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "remaining_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "range": {
+      "$ref": "#/$defs/range"
+    },
+    "returned_range": {
+      "$ref": "#/$defs/returned_range"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scope",
+        "event_count",
+        "by_kind",
+        "by_context",
+        "conflict_count",
+        "imprecise_count",
+        "diagnostic_count"
+      ],
+      "properties": {
+        "scope": {
+          "const": "full_result"
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_kind": {
+          "$ref": "#/$defs/count_map"
+        },
+        "by_context": {
+          "$ref": "#/$defs/count_map"
+        },
+        "conflict_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "imprecise_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "diagnostic_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "adapter",
+          "subject_ref",
+          "error_codes"
+        ],
+        "properties": {
+          "code": {
+            "enum": [
+              "temporal_adapter_rejected",
+              "temporal_event_id_collision"
+            ]
+          },
+          "adapter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "subject_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,31}:[A-Za-z0-9][A-Za-z0-9._/:-]{0,255}$"
+          },
+          "error_codes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/temporal_event"
+      }
+    }
+  },
+  "$defs": {
+    "nullable_temporal_value": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 40
+        }
+      ]
+    },
+    "nullable_precision": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "enum": [
+            "year",
+            "month",
+            "day",
+            "instant"
+          ]
+        }
+      ]
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "from_precision",
+        "to_precision",
+        "event_count",
+        "dated_count",
+        "undated_count",
+        "basis"
+      ],
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/nullable_temporal_value"
+        },
+        "to": {
+          "$ref": "#/$defs/nullable_temporal_value"
+        },
+        "from_precision": {
+          "$ref": "#/$defs/nullable_precision"
+        },
+        "to_precision": {
+          "$ref": "#/$defs/nullable_precision"
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dated_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "undated_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "basis": {
+          "const": "full_result"
+        }
+      }
+    },
+    "returned_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "from_precision",
+        "to_precision",
+        "event_count",
+        "dated_count",
+        "undated_count",
+        "basis"
+      ],
+      "properties": {
+        "from": {
+          "$ref": "#/$defs/nullable_temporal_value"
+        },
+        "to": {
+          "$ref": "#/$defs/nullable_temporal_value"
+        },
+        "from_precision": {
+          "$ref": "#/$defs/nullable_precision"
+        },
+        "to_precision": {
+          "$ref": "#/$defs/nullable_precision"
+        },
+        "event_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dated_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "undated_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "basis": {
+          "const": "returned_page"
+        }
+      }
+    },
+    "count_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "temporal_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "event_id",
+        "kind",
+        "subject_refs",
+        "context_refs",
+        "occurred_at",
+        "recorded_at",
+        "valid_from",
+        "valid_to",
+        "created_at",
+        "due_at",
+        "completed_at",
+        "verified_at",
+        "ingested_at",
+        "superseded_at",
+        "precision",
+        "actor",
+        "source_refs",
+        "evidence_refs",
+        "caused_by",
+        "supersedes",
+        "before",
+        "after",
+        "confidence",
+        "visibility",
+        "origin",
+        "temporal_conflicts",
+        "anchor"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wiki_temporal_event.v1"
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9._-]{2,159}$"
+        },
+        "kind": {
+          "oneOf": [
+            {
+              "enum": [
+                "activity_recorded",
+                "snapshot_recorded",
+                "git_commit_recorded",
+                "page_updated",
+                "source_configured",
+                "source_ingested",
+                "source_refreshed",
+                "source_refresh_due",
+                "source_pipeline_advanced",
+                "ingestion_recorded",
+                "action_created",
+                "action_due",
+                "action_completed",
+                "action_cancelled",
+                "action_state_changed",
+                "action_state_canonicalized",
+                "action_contract_updated",
+                "decision_recorded",
+                "decision_made",
+                "receipt_recorded"
+              ]
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*){1,5}$",
+              "maxLength": 80
+            }
+          ]
+        },
+        "lane": {
+          "enum": [
+            "source",
+            "action",
+            "decision",
+            "receipt",
+            "page",
+            "system",
+            "other"
+          ]
+        },
+        "subject_refs": {
+          "$ref": "#/$defs/temporal_event/$defs/non_empty_refs"
+        },
+        "context_refs": {
+          "$ref": "#/$defs/temporal_event/$defs/non_empty_refs"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/temporal_event/$defs/nullable_temporal_value"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/temporal_event/$defs/nullable_temporal_value"
+        },
+        "valid_from": {
+          "$ref": "#/$defs/temporal_event/$defs/nullable_temporal_value"
+        },
+        "valid_to": {
+          "$ref": "#/$defs/temporal_event/$defs/nullable_temporal_value"
+        },
+        "created_at": {
+          "$ref": "#/$defs/temporal_event/$defs/nullable_temporal_value"
+        },
+        "due_at": {
+          "$ref": "#/$defs/temporal_event/$defs/nullable_temporal_value"
+        },
+        "completed_at": {
+          "$ref": "#/$defs/temporal_event/$defs/nullable_temporal_value"
+        },
+        "verified_at": {
+          "$ref": "#/$defs/temporal_event/$defs/nullable_temporal_value"
+        },
+        "ingested_at": {
+          "$ref": "#/$defs/temporal_event/$defs/nullable_temporal_value"
+        },
+        "superseded_at": {
+          "$ref": "#/$defs/temporal_event/$defs/nullable_temporal_value"
+        },
+        "precision": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "occurred_at": {
+              "$ref": "#/$defs/temporal_event/$defs/precision"
+            },
+            "recorded_at": {
+              "$ref": "#/$defs/temporal_event/$defs/precision"
+            },
+            "valid_from": {
+              "$ref": "#/$defs/temporal_event/$defs/precision"
+            },
+            "valid_to": {
+              "$ref": "#/$defs/temporal_event/$defs/precision"
+            },
+            "created_at": {
+              "$ref": "#/$defs/temporal_event/$defs/precision"
+            },
+            "due_at": {
+              "$ref": "#/$defs/temporal_event/$defs/precision"
+            },
+            "completed_at": {
+              "$ref": "#/$defs/temporal_event/$defs/precision"
+            },
+            "verified_at": {
+              "$ref": "#/$defs/temporal_event/$defs/precision"
+            },
+            "ingested_at": {
+              "$ref": "#/$defs/temporal_event/$defs/precision"
+            },
+            "superseded_at": {
+              "$ref": "#/$defs/temporal_event/$defs/precision"
+            }
+          }
+        },
+        "actor": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "ref"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "human",
+                    "agent",
+                    "system",
+                    "unknown"
+                  ]
+                },
+                "ref": {
+                  "$ref": "#/$defs/temporal_event/$defs/ref"
+                }
+              }
+            }
+          ]
+        },
+        "source_refs": {
+          "$ref": "#/$defs/temporal_event/$defs/refs"
+        },
+        "evidence_refs": {
+          "$ref": "#/$defs/temporal_event/$defs/refs"
+        },
+        "caused_by": {
+          "$ref": "#/$defs/temporal_event/$defs/refs"
+        },
+        "supersedes": {
+          "$ref": "#/$defs/temporal_event/$defs/refs"
+        },
+        "before": {
+          "type": "object",
+          "maxProperties": 128
+        },
+        "after": {
+          "type": "object",
+          "maxProperties": 128
+        },
+        "confidence": {
+          "enum": [
+            "confirmed",
+            "inferred",
+            "uncertain",
+            "conflicting"
+          ]
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "private"
+          ]
+        },
+        "origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "adapter"
+          ],
+          "properties": {
+            "adapter": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "legacy_kind": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
+          }
+        },
+        "temporal_conflicts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "valid_to_before_valid_from",
+              "due_at_before_created_at",
+              "completed_at_before_created_at",
+              "superseded_at_before_valid_from"
+            ]
+          }
+        },
+        "anchor": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "field",
+                "value",
+                "precision"
+              ],
+              "properties": {
+                "field": {
+                  "enum": [
+                    "occurred_at",
+                    "recorded_at",
+                    "valid_from",
+                    "valid_to",
+                    "created_at",
+                    "due_at",
+                    "completed_at",
+                    "verified_at",
+                    "ingested_at",
+                    "superseded_at"
+                  ]
+                },
+                "value": {
+                  "$ref": "#/$defs/temporal_event/$defs/temporal_value"
+                },
+                "precision": {
+                  "$ref": "#/$defs/temporal_event/$defs/precision"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "$defs": {
+        "ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{0,31}:[A-Za-z0-9][A-Za-z0-9._/:-]{0,255}$"
+        },
+        "refs": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/temporal_event/$defs/ref"
+          }
+        },
+        "non_empty_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/temporal_event/$defs/ref"
+          }
+        },
+        "precision": {
+          "enum": [
+            "year",
+            "month",
+            "day",
+            "instant"
+          ]
+        },
+        "temporal_value": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}$"
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])$"
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[0-1])$"
+            },
+            {
+              "type": "string",
+              "format": "date-time"
+            }
+          ]
+        },
+        "nullable_temporal_value": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/temporal_event/$defs/temporal_value"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

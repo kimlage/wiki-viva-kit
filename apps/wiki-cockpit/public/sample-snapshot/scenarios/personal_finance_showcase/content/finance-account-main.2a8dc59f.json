@@ -1,0 +1,92 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "root-personal-finance-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "relation": "markdown_link",
+      "title": "Personal Finance Mission Control"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "finance-reconciliation-july",
+      "page_type": "personal_finance_reconciliation",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/reconciliation-july.md",
+      "relation": "related_page",
+      "title": "Synthetic July reconciliation"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "finance-transaction-housing",
+      "page_type": "personal_finance_transaction",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-housing.md",
+      "relation": "related_page",
+      "title": "Synthetic housing transaction"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "finance-transaction-income",
+      "page_type": "personal_finance_transaction",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md",
+      "relation": "related_page",
+      "title": "Synthetic income transaction"
+    }
+  ],
+  "body": "\n# Synthetic operating account\n\nFixture-only account used for a complete monthly flow.\n\n## Demo navigation\n\n[Back to pack showcase](../../../index.md)\n",
+  "frontmatter": {
+    "account_kind": "checking",
+    "context": "showcase",
+    "currency": "BRL",
+    "institution_label": "Synthetic institution",
+    "moc_parent": "memories/index.md",
+    "opening_balance": 3000,
+    "page_id": "finance-account-main",
+    "page_type": "personal_finance_account",
+    "source_refs": [],
+    "stale_after_days": "3650",
+    "status": "active",
+    "title": "Synthetic operating account",
+    "updated_at": "2026-07-09",
+    "visibility": "public"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "showcase",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "finance-account-main",
+    "page_type": "personal_finance_account",
+    "path": "memories/showcases/personal_finance_showcase/personal-finance/account-main.md",
+    "summary": "Fixture-only account used for a complete monthly flow. Back to pack showcase",
+    "summary_truncated": false,
+    "title": "Synthetic operating account",
+    "updated_at": "2026-07-09"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "../../../index.md",
+      "kind": "page",
+      "page_id": "root-personal-finance-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "text": "Back to pack showcase",
+      "title": "Personal Finance Mission Control"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-personal-finance-showcase-5c3906ccbb05a353",
+  "source_refs": []
+}

@@ -130,7 +130,10 @@ The blocklist wins over the allowlist. In particular, the default import never
 includes memory roots, `wiki.config.yaml`, targets, local templates, raw/cache
 data, private snapshots, `.env` files, credentials, downstream evidence or the
 consumer-owned `apps/wiki-cockpit/public/wiki-cockpit.config.json` runtime
-configuration.
+configuration or `wiki.adapter-manifest.json` adapter identity. It also never
+copies `wiki.packs.lock.yaml` or `.wiki-viva/`:
+the public registry and pack sources are portable, while installed-pack state,
+receipts and immutable bundles belong to the consumer.
 
 Use a reviewed file-transfer/diff workflow and stage only paths accepted by
 `portable_import`. Keep three commit boundaries:
@@ -149,6 +152,22 @@ Allowed local specialization includes display labels, i18n, enabled block
 stacks, local template/page-type extensions, source-adapter references, density
 policies inside public budgets and localhost operator capability configuration.
 
+Compile those consumer-owned files into the tracked adapter identity, commit
+the manifest/config/adapters together, and verify the clean subject before the
+browser gate:
+
+```sh
+python3 scripts/wiki_adapter_manifest.py build --file <tracked-adapter> [--file <tracked-adapter> ...]
+git add wiki.adapter-manifest.json <tracked-adapter> apps/wiki-cockpit/public/wiki-cockpit.config.json
+git commit -m "adapt: bind downstream adapter identity"
+python3 scripts/wiki_adapter_manifest.py check
+```
+
+The runtime config must publish both
+`adapter_manifest: "wiki.adapter-manifest.json"` and the compiled
+`adapter_hash`. See the
+[adapter manifest contract](downstream-adapter-manifest.md).
+
 Local overrides must not weaken route grammar, turn quadrants/regions into
 entities, bypass `WorldRuntime`, disable secret scanning, allow sample fallback
 on a real route, relax operator security or cross the public/private boundary.
@@ -158,7 +177,17 @@ on a real route, relax operator security or cross the public/private boundary.
 The exact commands are listed in `migration.required_gates` in the package.
 At minimum, record drift, audit, methodology coverage, operation/input-stage
 compilers, Python tests, snapshot contract, architecture, bundle, demo drift and
-`git diff --check`.
+`git diff --check`. The v8 package additionally requires the public-export
+privacy boundary, `wiki_pack.py validate --all`, asset provenance, exact
+release-matrix contract and the subject-bound downstream browser gate.
+
+The downstream preflight/browser attestation must match the snapshot's exact
+temporal-event, temporal-graph and experience-pack-composition versions, the
+composition semantic hash and the explicit active-pack set. An empty set is a
+valid declared state; omission is not. A private Finance pilot begins with
+`install personal-finance --dry-run`, review of the conceptual diff and an
+explicit mutation on the existing `wiki/*` branch. It never begins by copying
+the public kit's empty lock.
 
 Downstream visual evidence covers desktop, mobile and forced fallback. Each
 entry records route/center reference, viewport, browser, screenshot, console,
@@ -180,6 +209,7 @@ Compile and validate it:
 ```sh
 /opt/anaconda3/bin/python scripts/wiki_upgrade_report.py \
   --evidence /path/to/consumer/wiki-v8-migration-evidence.yaml \
+  --consumer-root /path/to/consumer \
   --json-out /path/to/consumer/wiki-v8-migration-report.json \
   --markdown-out /path/to/consumer/wiki-v8-migration-report.md \
   --check
@@ -189,9 +219,11 @@ Add `--public-export` only after routes/evidence are redacted. That mode blocks
 PII, access-secret patterns, absolute local paths, URL query strings and raw
 route/center identifiers.
 
-The report cannot be `complete` without exact before/import SHAs, allowlisted
-files, preserved overrides, warnings with removal windows, all gates, three
-visual profiles and a reviewable rollback command.
+The checked report cannot be `complete` without distinct, ancestry-ordered
+before/import/artifact/adaptation commits that exist in `--consumer-root`,
+allowlisted files, preserved overrides, warnings with owner and removal window,
+all gates, three visual profiles and a reviewable rollback command. Compilation
+without `--check` remains useful for drafting, but it is not release evidence.
 
 ## 9. Roll back per repository
 

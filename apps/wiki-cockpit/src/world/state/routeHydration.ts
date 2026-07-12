@@ -9,15 +9,6 @@ const SHORT_LENSES: Record<string, LensId> = {
   sistemas: "q4_sistemas"
 };
 
-const LEGACY_VIEW: Record<string, { view: ViewId; lens?: LensId; overlay: OverlayId }> = {
-  quadrants: { view: "quadrants", overlay: "actions" },
-  radar: { view: "radar", overlay: "freshness" },
-  districts: { view: "districts", lens: "type", overlay: "actions" },
-  trails: { view: "trails", lens: "relations", overlay: "evidence" },
-  atlas: { view: "atlas", lens: "type", overlay: "actions" },
-  focus: { view: "focus", lens: "relations", overlay: "evidence" }
-};
-
 function familyGroup(value: string): FamilyGroupId | undefined {
   return value.startsWith("family:") ? (value as FamilyGroupId) : undefined;
 }
@@ -25,37 +16,47 @@ function familyGroup(value: string): FamilyGroupId | undefined {
 export function hydrateWorldRoute(input: {
   route: WorldRoute;
   pages: PageEntityIndex;
-  rootId: string;
+  rootId: string | null;
+  emptyWorld?: boolean;
   kernel?: RegistryKernel;
   mode?: WorldState["mode"];
 }): WorldState {
   const { route, pages, rootId } = input;
   const kernel = input.kernel ?? createDefaultKernel();
   const warnings: RouteWarning[] = [];
+  const emptyWorld = input.emptyWorld === true && pages.size === 0 && rootId === null;
   const requestedRuntime = route.query.runtime;
   const inferredMode: WorldState["mode"] = !route.query.view && route.perspectiveExplicit ? "compat" : "v8";
   const mode = input.mode ?? (requestedRuntime || inferredMode);
   const requestedCenter = route.query.center || rootId;
-  const centerId = pages.has(requestedCenter) ? requestedCenter : rootId;
-  if (requestedCenter !== centerId) warnings.push({ code: "invalid_center", value: requestedCenter, normalizedTo: rootId });
+  const centerId = emptyWorld
+    ? null
+    : requestedCenter && pages.has(requestedCenter)
+      ? requestedCenter
+      : rootId;
+  if (requestedCenter !== centerId && requestedCenter) {
+    warnings.push({
+      code: "invalid_center",
+      value: requestedCenter,
+      ...(rootId ? { normalizedTo: rootId } : {})
+    });
+  }
 
   const requestedView = (route.query.view || route.perspective) as ViewId;
-  const mapped = LEGACY_VIEW[requestedView] ?? LEGACY_VIEW.quadrants;
-  const view = kernel.views.has(requestedView) ? requestedView : mapped.view;
+  const view = kernel.views.has(requestedView) ? requestedView : "quadrants";
   if (!kernel.views.has(requestedView)) warnings.push({ code: "invalid_view", value: requestedView, normalizedTo: view });
   if (!route.query.view && route.perspectiveExplicit) warnings.push({ code: "legacy_route", value: route.perspective, normalizedTo: view });
 
   const viewDefinition = kernel.views.require(view);
-  const nativeQueryView = Boolean(route.query.view && kernel.views.has(route.query.view));
-  const rawLens = route.query.lens || route.query.quadrant || (nativeQueryView ? viewDefinition.defaultLens : mapped.lens) || viewDefinition.defaultLens;
+  const rawLens = route.query.lens || route.query.quadrant || viewDefinition.defaultLens;
   const normalizedLens = SHORT_LENSES[rawLens] ?? rawLens;
   if (route.query.quadrant) warnings.push({ code: "legacy_quadrant", value: route.query.quadrant, normalizedTo: normalizedLens });
   const lens = (LENS_IDS as readonly string[]).includes(normalizedLens)
     ? normalizedLens as LensId
-    : (mapped.lens || kernel.views.require(view).defaultLens);
+    : viewDefinition.defaultLens;
   if (lens !== normalizedLens) warnings.push({ code: "invalid_lens", value: normalizedLens, normalizedTo: lens });
 
-  const requestedOverlay = (route.query.overlay || (nativeQueryView ? viewDefinition.defaultOverlay : mapped.overlay)) as OverlayId;
+  const requestedOverlay = (route.query.overlay || viewDefinition.defaultOverlay) as OverlayId;
   const overlay = viewDefinition.allowedOverlays.includes(requestedOverlay) ? requestedOverlay : viewDefinition.defaultOverlay;
   if (requestedOverlay !== overlay) warnings.push({
     code: (OVERLAY_IDS as readonly string[]).includes(requestedOverlay) ? "unsupported_overlay" : "invalid_overlay",
@@ -73,13 +74,14 @@ export function hydrateWorldRoute(input: {
   return {
     mode,
     centerId,
+    emptyWorld,
     view,
     lens,
     overlay,
-    group,
-    selectedId,
-    readerId: route.query.reader ? selectedId : undefined,
-    dock: route.query.dock || undefined,
+    group: emptyWorld ? undefined : group,
+    selectedId: emptyWorld ? undefined : selectedId,
+    readerId: emptyWorld ? undefined : route.query.reader ? selectedId : undefined,
+    dock: emptyWorld ? undefined : route.query.dock || undefined,
     fallback: route.query.visual,
     cameraIntent: { kind: "preserve" },
     safeArea: { top: 0, right: 0, bottom: 0, left: 0, width: 0, height: 0 },
@@ -93,7 +95,7 @@ export function canonicalWorldUrl(
   carry?: WorldRoute["query"]
 ): string {
   const params = new URLSearchParams();
-  params.set("center", state.centerId);
+  if (state.centerId) params.set("center", state.centerId);
   params.set("view", state.view);
   params.set("lens", state.lens);
   params.set("overlay", state.overlay);
@@ -103,6 +105,7 @@ export function canonicalWorldUrl(
   if (state.readerId) params.set("reader", "1");
   if (state.fallback) params.set("visual", "1");
   if (state.mode !== "v8") params.set("runtime", state.mode);
+  if (state.mode !== "v8" && carry?.compatContext) params.set("compat_context", carry.compatContext);
   // Runtime state owns semantic world fields. The router still owns bounded
   // workflow/demo context; carry it forward so a view/lens/overlay event never
   // drops search, packets, Genesis stage or the selected demo universe.
@@ -120,5 +123,12 @@ export function canonicalWorldUrl(
   }
   if (demo && carry?.demoScenario) params.set("demo_scenario", carry.demoScenario);
   if (demo && carry?.tour) params.set("tour", carry.tour);
+  if (carry?.timeFrom) params.set("time_from", carry.timeFrom);
+  if (carry?.timeTo) params.set("time_to", carry.timeTo);
+  if (carry?.timeCursor) params.set("time_cursor", carry.timeCursor);
+  if (carry?.timeMode) params.set("time_mode", carry.timeMode);
+  if (carry?.timeLanes.length) params.set("time_lanes", carry.timeLanes.join(","));
+  if (carry?.compareRevision) params.set("compare", carry.compareRevision);
+  if (carry?.packView) params.set("pack_view", carry.packView);
   return `${demo ? "/demo" : ""}/w?${params.toString()}`;
 }

@@ -16,7 +16,6 @@ page_types:
       - action_state
       - owner_kind
       - created_at
-      - next_action
       - priority
       - attention_basis
     field_types:
@@ -36,11 +35,12 @@ page_types:
         decisions: list
         actions: list
       action_state: enum:open,in_progress,blocked,waiting_human,done,cancelled
+      action_state_history: list
       owner_kind: enum:human,agent,system,other,unassigned
       owner_ref: string
       created_at: date
       due_at: date
-      completed_at: date
+      completed_at: date_or_instant
       blocked_by: list
       blocker_reason: string
       next_action: string
@@ -316,6 +316,13 @@ page_types:
     field_types:
       <<: *relation_field_types
       source_type: string
+      source_lifecycle: object
+      source_lifecycle_state: string
+      source_freshness_state: string
+      source_last_attempt_state: string
+      source_pipeline_stage: string
+      source_adoption_state: string
+      source_blocked_reason: string
   source_catalog:
     template: none
     template_none_reason: "Catalog pages are navigation or generated registries with local structure."

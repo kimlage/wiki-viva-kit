@@ -3,7 +3,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "76118c1eab47ed760f5f",
+      "id": "1ccfa82f4582321f8661",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -14,12 +14,12 @@
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "1aa13dfc22932394ea5f",
+      "id": "6b0cae73a6bdb57eb410",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -30,12 +30,12 @@
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "37f309248b6fc45ecc41",
+      "id": "fe5cab1c56d415d34e56",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -46,12 +46,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "2f0fc6beacdea4474b79",
+      "id": "d9b12f2e5b156f713aa7",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -62,7 +62,7 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     }
   ],
   "nodes": [
@@ -601,6 +601,25 @@
       "traversal": "provenance",
       "version": "wiki_relation_types.v1",
       "visual_line_intent": "ingest event to review proposal"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "related page row",
+      "family": "association",
+      "id": "related_page",
+      "label": "related page",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored related-page association"
     },
     {
       "allows_cycles": false,

@@ -151,7 +151,7 @@
       "absence_state": "not_empty",
       "action_hints": [
         {
-          "count": 63,
+          "count": 43,
           "kind": "review",
           "label_key": "region.action.review"
         },
@@ -385,7 +385,7 @@
       "purpose": "act",
       "summary": {
         "hidden": 148,
-        "open_actions": 63,
+        "open_actions": 43,
         "proposal": 0,
         "raw": 2,
         "risk": 0,
@@ -1241,7 +1241,7 @@
       "absence_state": "not_empty",
       "action_hints": [
         {
-          "count": 61,
+          "count": 41,
           "kind": "review",
           "label_key": "region.action.review"
         },
@@ -1406,7 +1406,7 @@
       "purpose": "act",
       "summary": {
         "hidden": 88,
-        "open_actions": 61,
+        "open_actions": 41,
         "proposal": 0,
         "raw": 0,
         "risk": 0,

@@ -1,7 +1,7 @@
 export const DOCK_IDS = ["approve", "intake", "gates", "codex", "work", "source", "create", "blocks"] as const;
 export type DockId = "" | (typeof DOCK_IDS)[number];
 
-export const NATIVE_VIEWS = ["quadrants", "radar", "sources", "work"] as const;
+export const NATIVE_VIEWS = ["quadrants", "radar", "sources", "work", "timeline"] as const;
 export const COMPAT_VIEWS = ["atlas", "focus", "districts", "trails"] as const;
 export const VIEW_IDS = [...NATIVE_VIEWS, ...COMPAT_VIEWS] as const;
 export type ViewId = (typeof VIEW_IDS)[number];
@@ -44,7 +44,10 @@ export type RouteWarning = { code: RouteWarningCode; value?: string; normalizedT
 
 export type WorldState = {
   mode: RuntimeMode;
-  centerId: string;
+  // Genesis 0 is a declared pre-world state, not a page with a fabricated id.
+  // Every regular world still owns a real page center.
+  centerId: string | null;
+  emptyWorld: boolean;
   view: ViewId;
   lens: LensId;
   overlay: OverlayId;

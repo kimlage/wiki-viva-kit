@@ -1,0 +1,31 @@
+schema_version: wiki_experience_pack_i18n.v1
+locale: en
+pack: personal-finance
+copy:
+  title: Personal Finance
+  account: Account
+  transaction: Transaction
+  obligation: Obligation
+  category: Category
+  reconciliation: Reconciliation
+  monthly_closing: Monthly closing
+  import: Import transactions
+  classify: Classify transaction
+  reconcile: Reconcile account
+  monthly_close: Close month
+  forecast: Forecast cashflow
+  import_transactions: Import transactions
+  classify_transaction: Classify transaction
+  reconcile_account: Reconcile account
+  forecast_cashflow: Forecast cashflow
+  cashflow: Cashflow
+  category_variance: Category variance
+  monthly_closing_tape: Monthly closing tape
+  financial_calendar: Financial calendar
+  due_horizon: Due horizon
+  month_comparison: Month comparison
+  transaction_occurred: Transaction occurred
+  obligation_due: Obligation due
+  reconciliation_recorded: Reconciliation recorded
+  monthly_period: Monthly period
+  monthly_closed: Month closed

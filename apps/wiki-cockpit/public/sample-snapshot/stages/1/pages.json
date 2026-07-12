@@ -5,6 +5,7 @@
       "collection": {},
       "collection_members_count": 0,
       "collection_refs": [],
+      "content_sha256": "e7c73f646ba6fa6e3f3faf5ea6f73b0c07c22a589cd8352f93ded1c75a2a1b4c",
       "context": "pessoal",
       "freshness_state": "fresh",
       "id": "root-alex-rivera",
@@ -14,9 +15,11 @@
       "path": "memories/index.md",
       "relation_refs": {
         "consolidated_into": [],
+        "evidence_refs": [],
         "participants": [],
         "previous_refs": [],
         "proposal_ids": [],
+        "related_pages": [],
         "relation_cases": []
       },
       "risk_flags": [],

@@ -31,7 +31,7 @@ memory without a human-reviewed PR.
 | 5. Connect the graph | Make memory navigable | [wiki_page_graph.py](../../../scripts/wiki_page_graph.py) reports zero errors, and outbound-link warnings are triaged with body links or frontmatter refs such as `moc_parent` and `related_pages`. |
 | 6. Close local artifacts | Keep clones and GitHub readable | Non-versioned artifacts are published with [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py) or replaced with stable external links. |
 | 7. Close ingestion impact | Make ingestion mean integration | Events with `affected_pages.must_update` also close `impact_closure`. |
-| 8. Validate and PR | Let the owner review the migration | `wiki_audit.py --check`, `wiki_page_graph.py --check --impact`, `wiki_pr_summary.py` and `git diff --check` pass. |
+| 8. Validate and PR | Let the owner review the migration | `wiki_audit.py --check`, `wiki_page_graph.py --check --impact --base <reviewed-base-sha>`, `wiki_pr_summary.py` and `git diff --check` pass. |
 
 ## Inventory command
 
@@ -84,12 +84,19 @@ inside frontmatter churn.
 ## Validation commands
 
 ```sh
+BASE_SHA="<reviewed-base-commit-sha>"
 python3 scripts/wiki_migration_inventory.py
 python3 scripts/wiki_audit.py --check
-python3 scripts/wiki_page_graph.py --check --impact
+python3 scripts/wiki_page_graph.py --check --impact --base "$BASE_SHA"
 python3 scripts/wiki_pr_summary.py
 git diff --check
 ```
+
+Impact validation requires this explicit reviewed base, verifies that it is an
+ancestor of `HEAD` and reports both full commit SHAs in one parseable JSON
+object. The inventory includes untracked pages and removed pages; removals
+propagate through backlinks resolved from the exact base graph. It never falls
+back to an inferred upstream, `origin/main` or local `main`.
 
 If a repo has localized paths, do not rename files just to match the kit's
 English defaults. Pin the localized layout in [wiki.config.yaml](../../../wiki.config.yaml)

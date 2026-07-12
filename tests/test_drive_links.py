@@ -1,7 +1,8 @@
 """General rule: non-versioned artifact -> content on Drive, link in the wiki.
 
-Covers the drive_aware_md_link helper, the .env parser and the idempotence of
-the monthly page generator (demarcated section). No network.
+Covers the drive_aware_md_link helper, the .env parser and the generic Drive
+publication helper. Per-repository finance scripts are tested downstream. No
+network.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import wiki_core.drive_links as dl
+import wiki_core.drive_links as dl  # noqa: E402
 
 
 def _load(path_rel: str, name: str):
@@ -271,92 +272,3 @@ def test_publish_saves_manifest_after_each_file(tmp_path, monkeypatch):
     saved = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert saved["files"]["a.csv"]["drive_file_id"] == "id-a.csv"
     assert "b.csv" not in saved["files"]
-
-
-@pytest.mark.skipif(
-    not (ROOT / "scripts" / "build_finance_month_pages.py").exists(),
-    reason="per-repo script (personal repo only); not part of the generic kit",
-)
-def test_month_pages_upsert_idempotent(tmp_path, monkeypatch):
-    bmp = _load("scripts/build_finance_month_pages.py", "bmp_test")
-    table = bmp.month_table([
-        {"Data": "01/05/2026", "Descricao": "X", "Valor": -10, "Conta Corrente": True,
-         "Tipo": "Saída", "Categoria_final": "C", "Subcategoria_final": "S",
-         "Meta_Source": "", "Tag_Source": "", "OrigemArquivo": "extrato.txt"}
-    ])
-    page = "---\nfm: x\n---\n\n# Mes\n\nProsa curada.\n"
-    once = bmp.upsert_section(page, table)
-    twice = bmp.upsert_section(once, table)
-    assert once == twice  # idempotent
-    assert "Prosa curada." in once  # preserves manual content
-    assert once.count(bmp.BEGIN) == 1
-
-
-@pytest.mark.skipif(
-    not (ROOT / "scripts" / "build_finance_month_pages.py").exists(),
-    reason="per-repo script (personal repo only); not part of the generic kit",
-)
-def test_month_pages_esc_normalizes_newlines():
-    bmp = _load("scripts/build_finance_month_pages.py", "bmp_esc")
-    assert bmp.esc("line1\nline2") == "line1 line2"
-    assert bmp.esc("a\r\nb") == "a b"  # CRLF collapses to ONE space
-    assert bmp.esc("a\rb\nc") == "a b c"
-    assert bmp.esc("a|b\nc") == "a\\|b c"  # pipe escaping still applies
-    assert bmp.esc(None) == ""
-
-
-@pytest.mark.skipif(
-    not (ROOT / "scripts" / "build_finance_month_pages.py").exists(),
-    reason="per-repo script (personal repo only); not part of the generic kit",
-)
-def test_month_pages_explicit_empty_month_warns_and_skips(tmp_path, monkeypatch, capsys):
-    bmp = _load("scripts/build_finance_month_pages.py", "bmp_skip")
-    cache = tmp_path / "cache.json"
-    cache.write_text(
-        json.dumps([{"Mes": "2026-04", "Data": "01/04/2026", "Descricao": "X", "Valor": -1}]),
-        encoding="utf-8",
-    )
-    months_dir = tmp_path / "meses"
-    months_dir.mkdir()
-    existing = "# Mes\n\n" + bmp.BEGIN + "\n| tabela existente |\n" + bmp.END + "\n"
-    page_may = months_dir / "2026-05.md"
-    page_may.write_text(existing, encoding="utf-8")
-    page_apr = months_dir / "2026-04.md"
-    page_apr.write_text("# Abril\n", encoding="utf-8")
-    monkeypatch.setattr(bmp, "CACHE", cache)
-    monkeypatch.setattr(bmp, "MONTHS_DIR", months_dir)
-    monkeypatch.setattr(bmp, "MANIFEST", tmp_path / "missing-manifest.json")
-
-    # explicit month with 0 transactions in the cache: warn and DO NOT touch the page
-    assert bmp.main(["--month", "2026-05"]) == 0
-    assert page_may.read_text(encoding="utf-8") == existing
-    err = capsys.readouterr().err
-    assert "2026-05" in err
-
-    # control: a month WITH rows still gets its table written
-    assert bmp.main(["--month", "2026-04"]) == 0
-    assert bmp.BEGIN in page_apr.read_text(encoding="utf-8")
-
-
-@pytest.mark.skipif(
-    not (ROOT / "scripts" / "refresh_finance_2026_sheet_cache.py").exists(),
-    reason="per-repo script (personal repo only); not part of the generic kit",
-)
-def test_refresh_cache_decimal_guard_and_open_range(monkeypatch, capsys):
-    from decimal import Decimal
-
-    clients_mod = types.ModuleType("common.google_clients")
-    clients_mod.SHEETS_SCOPE_READONLY = "ro"
-    clients_mod.build_service = lambda *a, **k: None
-    common_pkg = types.ModuleType("common")
-    common_pkg.google_clients = clients_mod
-    monkeypatch.setitem(sys.modules, "common", common_pkg)
-    monkeypatch.setitem(sys.modules, "common.google_clients", clients_mod)
-    mod = _load("scripts/refresh_finance_2026_sheet_cache.py", "rfsc_test")
-
-    assert mod.decimal_value("12.5") == Decimal("12.5")
-    assert mod.decimal_value(None) == Decimal("0")
-    assert mod.decimal_value(True) == Decimal("0")
-    assert mod.decimal_value("garbage") == Decimal("0")  # no crash on bad cells
-    assert "WARNING" in capsys.readouterr().err
-    assert mod.SHEET_RANGE == "Transacoes!A:R"  # open-ended, no row ceiling

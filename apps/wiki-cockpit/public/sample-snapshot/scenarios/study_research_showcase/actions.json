@@ -1,0 +1,175 @@
+{
+  "actions": [
+    {
+      "commands": [
+        {
+          "argv": [
+            "git",
+            "status",
+            "--short",
+            "--branch"
+          ],
+          "label": "git status --short --branch",
+          "writes": false
+        }
+      ],
+      "default_dry_run": false,
+      "human_reason": "Shows where you are working, what changed and whether local edits are clean.",
+      "id": "git-status",
+      "kind": "review",
+      "risk_level": "read",
+      "title": "Check workspace"
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--stat"
+          ],
+          "label": "git diff --stat",
+          "writes": false
+        },
+        {
+          "argv": [
+            "git",
+            "diff",
+            "--name-status"
+          ],
+          "label": "git diff --name-status",
+          "writes": false
+        }
+      ],
+      "default_dry_run": false,
+      "human_reason": "Shows changed content before saving a version or preparing approval.",
+      "id": "review-local-changes",
+      "kind": "review",
+      "risk_level": "read",
+      "title": "Review content changes"
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_operation_compile.py",
+            "--check"
+          ],
+          "label": "wiki operation compile",
+          "writes": false
+        }
+      ],
+      "default_dry_run": false,
+      "human_reason": "Verifies whether the operational home view matches a deterministic refresh.",
+      "id": "refresh-cockpit-check",
+      "kind": "refresh",
+      "risk_level": "read",
+      "title": "Check home view"
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_operation_compile.py",
+            "--write"
+          ],
+          "label": "wiki operation compile",
+          "writes": true
+        }
+      ],
+      "default_dry_run": true,
+      "human_reason": "Refreshes the operations page as a reviewable change.",
+      "id": "refresh-cockpit-write",
+      "kind": "refresh",
+      "risk_level": "derive",
+      "title": "Refresh home view"
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_audit.py",
+            "--check"
+          ],
+          "label": "wiki audit",
+          "writes": false
+        },
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_check_methodology_coverage.py",
+            "--check"
+          ],
+          "label": "wiki check methodology coverage",
+          "writes": false
+        },
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_operation_compile.py",
+            "--check"
+          ],
+          "label": "wiki operation compile",
+          "writes": false
+        },
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_input_stage.py",
+            "--check"
+          ],
+          "label": "wiki input stage",
+          "writes": false
+        }
+      ],
+      "default_dry_run": false,
+      "human_reason": "Runs the deterministic checks that should be green before human approval.",
+      "id": "run-honesty-gates",
+      "kind": "review",
+      "risk_level": "read",
+      "title": "Run approval checks"
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_pr_summary.py"
+          ],
+          "label": "wiki pr summary",
+          "writes": false
+        }
+      ],
+      "default_dry_run": false,
+      "human_reason": "Builds a human review packet from changed content, affected areas and privacy hints.",
+      "id": "pr-summary",
+      "kind": "approve",
+      "risk_level": "read",
+      "title": "Build review packet"
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "python3",
+            "scripts/wiki_page_graph.py",
+            "--check"
+          ],
+          "label": "wiki page graph",
+          "writes": false
+        }
+      ],
+      "default_dry_run": false,
+      "human_reason": "Verifies relationship and impact constraints before approval.",
+      "id": "graph-check",
+      "kind": "review",
+      "risk_level": "read",
+      "title": "Check content map"
+    }
+  ],
+  "repo_id": "wiki-viva-demo-study-research-showcase",
+  "schema_version": "wiki_web_actions.v1"
+}

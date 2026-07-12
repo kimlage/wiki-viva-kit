@@ -3,8 +3,8 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "fb978e885e2ec3f33246",
-      "observed_at": "2026-07-03",
+      "id": "6cc1fce1d81bc2a1928f",
+      "observed_at": "2026-07-11",
       "provenance": {
         "field": "moc_parent",
         "page_id": "action-enviar-proposta",
@@ -14,13 +14,13 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "markdown_body",
       "direction": "directed",
       "id": "31b9f365e70fd728cd00",
-      "observed_at": "2026-07-03",
+      "observed_at": "2026-07-11",
       "provenance": {
         "field": "body",
         "page_id": "action-enviar-proposta",
@@ -35,7 +35,23 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "5e86af553d4c995c99c4",
+      "id": "9ea5f3d16ca533838312",
+      "observed_at": "2026-07-11",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "action-enviar-proposta",
+        "path": "memories/actions/action-enviar-proposta.md"
+      },
+      "source": "action-enviar-proposta",
+      "status": "valid",
+      "target": "source-agenda",
+      "type": "source_ref",
+      "weight": 2
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "0b673ad02edf4274febc",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -46,12 +62,28 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "25de5fdb1b2f5e943a4f",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "action-region-clean-unsourced",
+        "path": "memories/actions/action-region-clean-unsourced.md"
+      },
+      "source": "action-region-clean-unsourced",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "7e1ec1502f05b7172880",
+      "id": "51526cf3c278390630b7",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -62,12 +94,28 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "f73628e4ff3d28861bfc",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "action-region-review-evidence",
+        "path": "memories/actions/action-region-review-evidence.md"
+      },
+      "source": "action-region-review-evidence",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "42b88f26210c1d6e53e4",
+      "id": "df5e563cf646e66a0af3",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -78,12 +126,28 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "d787bc79f626486de8c0",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "action-region-sync-support",
+        "path": "memories/actions/action-region-sync-support.md"
+      },
+      "source": "action-region-sync-support",
+      "status": "valid",
+      "target": "source-support-tickets",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c1d46917027fed878047",
+      "id": "4fb15a9423460d1b1d03",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -94,12 +158,12 @@
       "status": "valid",
       "target": "library-ai-safety",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "075947a96ba8599efaf8",
+      "id": "3468f7933eeb16aa4a2c",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -110,12 +174,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "48afce16c38c6a8b8c86",
+      "id": "f629311c0d6bab8f2486",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -126,12 +190,12 @@
       "status": "valid",
       "target": "project-atlas-launch",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "9659638e87670f7d0bf4",
+      "id": "835ca024427f7c82c680",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -142,12 +206,28 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "d5d5d27d417c15fc3595",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-region-map-01",
+        "path": "memories/artifacts/artifact-region-map-01.md"
+      },
+      "source": "artifact-region-map-01",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c743b4128fd1720286bc",
+      "id": "bc13dd51a6bd4acbf687",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -158,12 +238,28 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "ab00fb3384ea9def5109",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-region-map-02",
+        "path": "memories/artifacts/artifact-region-map-02.md"
+      },
+      "source": "artifact-region-map-02",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "b260de0941236c97b91c",
+      "id": "21f3670b6da8da20f7d0",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -174,12 +270,28 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "bfce31238864a429ef46",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-region-map-03",
+        "path": "memories/artifacts/artifact-region-map-03.md"
+      },
+      "source": "artifact-region-map-03",
+      "status": "valid",
+      "target": "source-support-tickets",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "974f5b5b4845f13628bd",
+      "id": "df9bb4f9f01c13cdad6d",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -190,12 +302,28 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "65b5c64ccffd4aaa07d1",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-region-map-04",
+        "path": "memories/artifacts/artifact-region-map-04.md"
+      },
+      "source": "artifact-region-map-04",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "ad63a2658377b57d7170",
+      "id": "44b6ca9dde1c8b2394ae",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -206,12 +334,28 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "604c6c4a1c64fa59ef91",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-region-map-05",
+        "path": "memories/artifacts/artifact-region-map-05.md"
+      },
+      "source": "artifact-region-map-05",
+      "status": "valid",
+      "target": "source-support-tickets",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "6c7587f739dabab48dd1",
+      "id": "6c045de34f9565cf4f9a",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -222,12 +366,28 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "d672460ed8a612692f92",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-region-map-06",
+        "path": "memories/artifacts/artifact-region-map-06.md"
+      },
+      "source": "artifact-region-map-06",
+      "status": "valid",
+      "target": "source-clearpath-customer-interviews",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "e350f521bd855009034b",
+      "id": "244db6aaf978f9f0ad22",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -238,12 +398,28 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "f85d06c015498420a127",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-region-map-07",
+        "path": "memories/artifacts/artifact-region-map-07.md"
+      },
+      "source": "artifact-region-map-07",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "2fc6a90f08e30d2d9ae7",
+      "id": "746fe9e6d17e7aae2492",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -254,12 +430,28 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "f93093ba93aad9222aa4",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-region-map-08",
+        "path": "memories/artifacts/artifact-region-map-08.md"
+      },
+      "source": "artifact-region-map-08",
+      "status": "valid",
+      "target": "source-support-tickets",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "76118c1eab47ed760f5f",
+      "id": "1ccfa82f4582321f8661",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -270,12 +462,28 @@
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "2af2bafbbc4d259ea68b",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "artifact-relatorio-recon",
+        "path": "memories/artifacts/artifact-relatorio-recon.md"
+      },
+      "source": "artifact-relatorio-recon",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "93968e597e4b20a88ffe",
+      "id": "ff0a2f200fb5326539d2",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -286,12 +494,12 @@
       "status": "valid",
       "target": "block-library-lens",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "382da3e83e70070de68c",
+      "id": "2b52f70b6866d3515bf3",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -302,12 +510,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "db5baacbdea68bc690ac",
+      "id": "a84ad61ab738861bfd27",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -318,12 +526,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "1aa13dfc22932394ea5f",
+      "id": "6b0cae73a6bdb57eb410",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -334,12 +542,28 @@
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "f5011f4312f64aff53d3",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "claim-custos-sobem",
+        "path": "memories/claims/claim-custos-sobem.md"
+      },
+      "source": "claim-custos-sobem",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "1582457cb80863335b34",
+      "id": "94680e4d22b03ba0a4fd",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -350,12 +574,12 @@
       "status": "valid",
       "target": "product-clearpath-pulse",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "f949c568e0ec7cd03fc5",
+      "id": "0d117369df358e25758a",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -366,12 +590,28 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "1a568bb17628a04daa50",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "claim-region-evidence-ready",
+        "path": "memories/claims/claim-region-evidence-ready.md"
+      },
+      "source": "claim-region-evidence-ready",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "27eafbbe811e0e309a60",
+      "id": "bfbb2c9868f6d5aba4f0",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -382,12 +622,12 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "40f0507755a882d37052",
+      "id": "52615d7a8e977f652c5f",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -398,12 +638,12 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c233ab1bab714eaa2df9",
+      "id": "735f8527b2a1f92fc1ca",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -414,12 +654,12 @@
       "status": "valid",
       "target": "library-ai-safety",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "184180c1210ebe2c620e",
+      "id": "d309f003b619da304893",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -430,12 +670,12 @@
       "status": "valid",
       "target": "block-library-lens",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c3164771b445547bcf38",
+      "id": "2d25f5d9b1866f422272",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -446,12 +686,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "ae94e591b8484a93ab04",
+      "id": "03965b9238893c7e0bb8",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -462,12 +702,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c337a1a205dde10de64f",
+      "id": "98a14f410a6427171314",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -478,7 +718,7 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "collection.member_types",
@@ -500,7 +740,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "44ae9dc6f86016b945e5",
+      "id": "23759f4a3d6e11514bdf",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -511,7 +751,7 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "collection.member_types",
@@ -533,7 +773,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "d5d4b3674d56d21203d8",
+      "id": "0ad953d0fd2305a550be",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -544,7 +784,7 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "collection.member_types",
@@ -598,7 +838,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "b70c539dd7d24ed3f24a",
+      "id": "1f6f4001a5ce5371f3b4",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -607,8 +847,24 @@
       },
       "source": "event-ingest-agenda-2026-07",
       "status": "valid",
-      "target": "root-alex-rivera",
+      "target": "source-agenda",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "7fc8d5b94a848fa1cb14",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-agenda-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-agenda-2026-07.md"
+      },
+      "source": "event-ingest-agenda-2026-07",
+      "status": "valid",
+      "target": "source-agenda",
+      "type": "source_ref",
       "weight": 2
     },
     {
@@ -646,7 +902,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "9524c46b31f134a5d6ea",
+      "id": "fd2cf0490e0b3173a0d7",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -655,14 +911,30 @@
       },
       "source": "event-ingest-banco-2026-05",
       "status": "valid",
-      "target": "root-alex-rivera",
+      "target": "source-banco-export",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "a9d7521f042c23305f17",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-banco-2026-05",
+        "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md"
+      },
+      "source": "event-ingest-banco-2026-05",
+      "status": "valid",
+      "target": "source-banco-export",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "ffab1e39b504a1d13cbe",
+      "id": "066e0c6259d537894715",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -671,8 +943,24 @@
       },
       "source": "event-ingest-chat-2026-07",
       "status": "valid",
-      "target": "root-alex-rivera",
+      "target": "source-chat-export",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "65f06ed5b6b6848e3936",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-chat-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md"
+      },
+      "source": "event-ingest-chat-2026-07",
+      "status": "valid",
+      "target": "source-chat-export",
+      "type": "source_ref",
       "weight": 2
     },
     {
@@ -710,7 +998,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "5140d8efa2bd022bdfc7",
+      "id": "693411c9f5343a3f6b2f",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -719,14 +1007,30 @@
       },
       "source": "event-ingest-product-analytics-2026-07",
       "status": "valid",
-      "target": "root-alex-rivera",
+      "target": "source-product-analytics",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "ffba0e89def35e40e47e",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-product-analytics-2026-07",
+        "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md"
+      },
+      "source": "event-ingest-product-analytics-2026-07",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c250a9a97ff0001d410b",
+      "id": "a9943effcde5edeac2b5",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -735,14 +1039,30 @@
       },
       "source": "event-ingest-support-tickets-2026-06",
       "status": "valid",
-      "target": "root-alex-rivera",
+      "target": "source-support-tickets",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "565d2ce4fe6a527a33a7",
+      "observed_at": "2026-05-04",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "event-ingest-support-tickets-2026-06",
+        "path": "memories/system/ingestion/events/event-ingest-support-tickets-2026-06.md"
+      },
+      "source": "event-ingest-support-tickets-2026-06",
+      "status": "valid",
+      "target": "source-support-tickets",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "be7638217f4c6665a57b",
+      "id": "7503ba5601c056417942",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -753,12 +1073,12 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "4efca11e001b5172864f",
+      "id": "aef96eedb1c723fa8b22",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -769,12 +1089,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "2dcb06985382671703d2",
+      "id": "6e3da0b900c516e1b56d",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -785,12 +1105,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "37f309248b6fc45ecc41",
+      "id": "fe5cab1c56d415d34e56",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -801,12 +1121,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "4e7ed44de1633444b622",
+      "id": "9c3addddac91dd426da6",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -817,12 +1137,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "16b329bf5fadf7dd9142",
+      "id": "5f47c1b8a76b5d34e340",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -833,12 +1153,12 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "a67023367eea0aca01c8",
+      "id": "b98fb47081b371c70b6f",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -849,12 +1169,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c6a095f663bd788dbe9c",
+      "id": "b1607e60420558faa120",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -865,7 +1185,7 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "markdown_body",
@@ -886,7 +1206,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "951589df50b05c079881",
+      "id": "97e85965374b7c1798ac",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -897,12 +1217,12 @@
       "status": "valid",
       "target": "hub-estudio",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "3ecfb514658f76dbb116",
+      "id": "d0d34413a018240395f6",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -913,12 +1233,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "2e76587e0de536d15fda",
+      "id": "31a2a5cc28945223bdc8",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -929,12 +1249,12 @@
       "status": "valid",
       "target": "block-library-lens",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "2b024cc875b197ed4bd4",
+      "id": "b1b52c6b96bacad37bd4",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -945,12 +1265,12 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "f8c45f47fd205f2ff8ee",
+      "id": "8522080ff61afb4f341c",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -961,12 +1281,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "038a5ea38b7fab70961e",
+      "id": "5bab89ade5f9a6e90b7a",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -977,12 +1297,12 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "3d0b77adc15a546114cf",
+      "id": "f6c94d0410a0ae4b637c",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -993,7 +1313,7 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
@@ -1014,7 +1334,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "ee855e59dac06d30e663",
+      "id": "a6058fd4c003f989bad7",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1025,12 +1345,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "2f0fc6beacdea4474b79",
+      "id": "d9b12f2e5b156f713aa7",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -1041,12 +1361,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "856ade6562da3bf2184d",
+      "id": "15350ba62efced828e8c",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1057,12 +1377,12 @@
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "137a3c8626a7a5c6381b",
+      "id": "7428d2033797683bbfd3",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1073,12 +1393,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "1e46f0c7816a4e6aa1e9",
+      "id": "4f4ca28c579b8fd3edcb",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1089,12 +1409,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "faaa34c12c1b86627f4e",
+      "id": "a20ab0af5f0e894dd23a",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1105,12 +1425,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "f126a434aeff669d8b81",
+      "id": "fe6c357237bc7b308942",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1121,12 +1441,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "f5c36b8109e497181583",
+      "id": "96fc4bf9752cd96f0193",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1137,12 +1457,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "272d6ee2fa14404fb464",
+      "id": "a85496c8930bdc14cd90",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1153,12 +1473,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "ff9091f810c00896c818",
+      "id": "a944637213c9c8485a14",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1169,12 +1489,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c8f43b34c9d353b11e46",
+      "id": "e4a6c3db8b58e6276fc1",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1185,12 +1505,12 @@
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "86a91ace301668880209",
+      "id": "d89fc14622fe3037a1d6",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1201,12 +1521,12 @@
       "status": "valid",
       "target": "block-library-lens",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "3f7c0fe267642e39f7f3",
+      "id": "f425da18fa3320889467",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1217,12 +1537,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "ce4e63a4cfaafc2e5f52",
+      "id": "a089ac6523fd4dc5cfff",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1233,7 +1553,7 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
@@ -1254,7 +1574,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "09c7660a7a99a075dba4",
+      "id": "af9d51451134b93d093b",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1265,12 +1585,28 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "d2bda421be73385682e9",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "source_refs",
+        "page_id": "proposal-ingest-product-analytics-2026-07",
+        "path": "memories/system/ingestion/proposals/proposal-ingest-product-analytics-2026-07.md"
+      },
+      "source": "proposal-ingest-product-analytics-2026-07",
+      "status": "valid",
+      "target": "source-product-analytics",
+      "type": "source_ref",
       "weight": 2
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "cc8c39819eec07464238",
+      "id": "255574fd481d4d1fd7ff",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1281,12 +1617,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "151c56c76f926eea455f",
+      "id": "0d722a49ebf6742b56f8",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1297,12 +1633,12 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "0dc791dc14e0c279091e",
+      "id": "f24ee109861e2466bffe",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1313,12 +1649,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "1138919a794244fef839",
+      "id": "a2563e25eef7c21456e2",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1329,12 +1665,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "eccbeed06f123654236b",
+      "id": "dce148208f490d5a6cb5",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1345,12 +1681,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "b5ea37c24e63b34a4d1a",
+      "id": "46696d3b76c1eb58d164",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1361,12 +1697,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "db93414fe08bba9de1dd",
+      "id": "b95bec196bd42ea08735",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1377,12 +1713,12 @@
       "status": "valid",
       "target": "hub-sistema",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "795f716791336d314441",
+      "id": "cdd3922ac9cf21fc871d",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1393,13 +1729,13 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
       "id": "61ee5f7eb3ccd8aaf122",
-      "observed_at": "2026-07-03",
+      "observed_at": "2026-07-11",
       "provenance": {
         "field": "evidence_refs",
         "page_id": "action-enviar-proposta",
@@ -1430,7 +1766,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "9a3112a7dfcc75f049f5",
+      "id": "daa001fecf5bbd24e0d1",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1441,7 +1777,7 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
@@ -1462,7 +1798,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "3873bf4414c0bcb00f3c",
+      "id": "f9e3109821e8da826994",
       "observed_at": "2026-05-04",
       "provenance": {
         "field": "moc_parent",
@@ -1473,28 +1809,12 @@
       "status": "valid",
       "target": "hub-financeiro",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "9f7622669a2dc1e7d5b5",
-      "observed_at": "2026-05-04",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-banco-export",
-        "path": "memories/sources/source-banco-export.md"
-      },
-      "source": "source-banco-export",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "88b165d7e08e9e128f86",
+      "id": "2bae28b190942f5fafad",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1505,12 +1825,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "785a8459487ffc971168",
+      "id": "347cb4af35f9961ec777",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1521,22 +1841,6 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "064e6dda01d89a4f72ee",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-call-recordings",
-        "path": "memories/sources/source-call-recordings.md"
-      },
-      "source": "source-call-recordings",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
@@ -1558,7 +1862,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "8efc6bff2f45b8d4a388",
+      "id": "5481d12e942f42a88cae",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1569,28 +1873,12 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "f562e8d79cedfba6cefc",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-chat-export",
-        "path": "memories/sources/source-chat-export.md"
-      },
-      "source": "source-chat-export",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "f5488d29c0b00af94eef",
+      "id": "229e2f4cfd9df1b51f22",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1601,28 +1889,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "6a1c495fa22e412c8998",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-clearpath-billing",
-        "path": "memories/sources/source-clearpath-billing.md"
-      },
-      "source": "source-clearpath-billing",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "2e4c3695ba1da0335f2c",
+      "id": "36092c3000ab8fb82652",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1633,12 +1905,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "41c80d0c0fc1b7c4bf8c",
+      "id": "f1d21b6fd9fb539227bc",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1649,28 +1921,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "44c15803eacd989469f7",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-clearpath-risk-log",
-        "path": "memories/sources/source-clearpath-risk-log.md"
-      },
-      "source": "source-clearpath-risk-log",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "6414197db62878aa46c8",
+      "id": "4b21ce2020cfe3d660ca",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1681,28 +1937,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "22c77429043a9f9576b9",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-clearpath-roadmap",
-        "path": "memories/sources/source-clearpath-roadmap.md"
-      },
-      "source": "source-clearpath-roadmap",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "d51c5290408911a66842",
+      "id": "879048c5783748a9bf83",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1713,28 +1953,12 @@
       "status": "valid",
       "target": "company-clearpath-labs",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "5916347b213a20a77951",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-clearpath-support",
-        "path": "memories/sources/source-clearpath-support.md"
-      },
-      "source": "source-clearpath-support",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c5bc3a4f49a8a01d58f2",
+      "id": "00c59703c0efdb1cdaea",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1745,28 +1969,12 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "5b97cb2f2dd0fdc25d04",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-crm-accounts",
-        "path": "memories/sources/source-crm-accounts.md"
-      },
-      "source": "source-crm-accounts",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "f9a17f9d28eff786aede",
+      "id": "258671757b38e4d3f4f7",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1777,12 +1985,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "869bb3dd00e51d24fb86",
+      "id": "15e6186e5bb2f44f993b",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1793,22 +2001,6 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "ee4ff51773f942544974",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-error-traces",
-        "path": "memories/sources/source-error-traces.md"
-      },
-      "source": "source-error-traces",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
@@ -1829,7 +2021,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "28fdaf895cd61ad74488",
+      "id": "33673edfc1429b5a290d",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1840,12 +2032,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "bec29418b3234c230e59",
+      "id": "99521232db8fe650f433",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1856,28 +2048,12 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "ea3da0a889c87b5e4deb",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-feature-flags",
-        "path": "memories/sources/source-feature-flags.md"
-      },
-      "source": "source-feature-flags",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "3bb402a9ba1453e7b6e4",
+      "id": "e434c3b761580b9a5233",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1888,7 +2064,7 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "synthetic_allowed_cycle",
@@ -1908,7 +2084,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "29c9fc55191febb829cf",
+      "id": "2e746f0e6649842de98c",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1919,12 +2095,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c1862006ef781b8e5ec9",
+      "id": "bed18084d6b407458350",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1935,12 +2111,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "ac3a468443449d149721",
+      "id": "2b47c256aa975de70d26",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -1951,22 +2127,6 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "0192f20d85cf012b26b3",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-nps-surveys",
-        "path": "memories/sources/source-nps-surveys.md"
-      },
-      "source": "source-nps-surveys",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
@@ -2020,7 +2180,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "fbc8bfea5c9d2cf54281",
+      "id": "e204d0fa8c0e0639de1c",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2031,28 +2191,12 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "b4191ecd3bea4b248e44",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-product-analytics",
-        "path": "memories/sources/source-product-analytics.md"
-      },
-      "source": "source-product-analytics",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "be7edf821420bc223681",
+      "id": "467602db009239ba1681",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2063,12 +2207,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "2eb976a31c56fe467600",
+      "id": "e591dd5679551e602d1f",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2079,12 +2223,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "bbadb5fc619555f54f48",
+      "id": "c74b0b7bb1894500395b",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2095,12 +2239,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "de09055e3c3fae6edd05",
+      "id": "2bfdc84dc0092e4c8b1b",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2111,12 +2255,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "9f1ffcd8dbd45414fa6b",
+      "id": "a4cf6f8b102818d71876",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2127,28 +2271,12 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "65b63defcadd55e514f8",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-release-notes",
-        "path": "memories/sources/source-release-notes.md"
-      },
-      "source": "source-release-notes",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "cd34322b112b23373b7d",
+      "id": "4a11061932e1d7228565",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2159,22 +2287,6 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "ea76aa07f28387ae7245",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-sales-pipeline",
-        "path": "memories/sources/source-sales-pipeline.md"
-      },
-      "source": "source-sales-pipeline",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
@@ -2212,7 +2324,7 @@
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "a7c1debb8a5a2272faef",
+      "id": "f459ac40b9714c787d92",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2223,28 +2335,12 @@
       "status": "valid",
       "target": "hub-clientes",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "15a33d077da61b6c4138",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-support-tickets",
-        "path": "memories/sources/source-support-tickets.md"
-      },
-      "source": "source-support-tickets",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "c2630f2ccd09213c49dc",
+      "id": "fb8a475a4aef84d9e181",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2255,12 +2351,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "90d73857d62551e0de93",
+      "id": "58444daa9611e32a31ba",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2271,28 +2367,12 @@
       "status": "valid",
       "target": "holon-product-ops",
       "type": "moc_parent",
-      "weight": 2
-    },
-    {
-      "basis": "frontmatter",
-      "direction": "directed",
-      "id": "19e47056cf1f83f2d2ec",
-      "observed_at": "2026-07-03",
-      "provenance": {
-        "field": "source_ref",
-        "page_id": "source-usage-warehouse",
-        "path": "memories/sources/source-usage-warehouse.md"
-      },
-      "source": "source-usage-warehouse",
-      "status": "valid",
-      "target": "root-alex-rivera",
-      "type": "source_ref",
       "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "ca8f457c00ffafc6cbc1",
+      "id": "4a8924c7e000f702bc40",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2303,12 +2383,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "d0d46da519a3e71bf874",
+      "id": "d8858031848d59683f2e",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2319,12 +2399,12 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     },
     {
       "basis": "frontmatter",
       "direction": "directed",
-      "id": "81bc117242a5bb901ff3",
+      "id": "0fa0493f6585d0feea4d",
       "observed_at": "2026-07-03",
       "provenance": {
         "field": "moc_parent",
@@ -2335,7 +2415,7 @@
       "status": "valid",
       "target": "root-alex-rivera",
       "type": "moc_parent",
-      "weight": 2
+      "weight": 1
     }
   ],
   "nodes": [
@@ -2416,7 +2496,7 @@
       "stale_after_days": "30",
       "status": "open",
       "title": "Enviar proposta para Caio",
-      "updated_at": "2026-07-03",
+      "updated_at": "2026-07-11",
       "visibility": "private_self"
     },
     {
@@ -7301,7 +7381,7 @@
       "freshness_state": "fresh",
       "id": "root-alex-rivera",
       "metrics": {
-        "inbound_links": 47,
+        "inbound_links": 42,
         "outbound_links": 0,
         "source_ref_count": 0
       },
@@ -7779,15 +7859,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -7805,7 +7883,7 @@
       "freshness_state": "fresh",
       "id": "source-agenda",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -7860,15 +7938,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -7886,7 +7962,7 @@
       "freshness_state": "stale",
       "id": "source-banco-export",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 2,
         "source_ref_count": 0
       },
@@ -7935,14 +8011,13 @@
           "value": null
         },
         "quality": {
-          "count": 2,
+          "count": 1,
           "reasons": [
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 2
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8009,15 +8084,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8084,15 +8157,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8110,7 +8181,7 @@
       "freshness_state": "fresh",
       "id": "source-chat-export",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 2,
         "source_ref_count": 0
       },
@@ -8157,15 +8228,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8232,15 +8301,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8378,15 +8445,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8453,15 +8518,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8528,15 +8591,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8606,15 +8667,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8679,15 +8738,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8757,15 +8814,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8832,15 +8887,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8907,15 +8960,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -8985,15 +9036,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9060,15 +9109,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9135,15 +9182,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9210,15 +9255,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9236,7 +9279,7 @@
       "freshness_state": "fresh",
       "id": "source-product-analytics",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 2,
         "source_ref_count": 0
       },
@@ -9294,15 +9337,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9372,15 +9413,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9447,15 +9486,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9522,15 +9559,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9597,15 +9632,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9670,15 +9703,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9745,15 +9776,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9771,7 +9800,7 @@
       "freshness_state": "fresh",
       "id": "source-support-tickets",
       "metrics": {
-        "inbound_links": 0,
+        "inbound_links": 1,
         "outbound_links": 2,
         "source_ref_count": 0
       },
@@ -9827,15 +9856,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9902,15 +9929,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -9977,15 +10002,13 @@
           "value": null
         },
         "quality": {
-          "count": 3,
+          "count": 1,
           "reasons": [
-            "quality:bad_repetition_blocks",
-            "quality:low_information_density_pages",
-            "quality:repeated_blocks"
+            "quality:low_information_density_pages"
           ],
           "refs": [],
-          "state": "flagged",
-          "value": 3
+          "state": "warning",
+          "value": 1
         }
       },
       "page_type": "source",
@@ -10407,6 +10430,25 @@
       "traversal": "provenance",
       "version": "wiki_relation_types.v1",
       "visual_line_intent": "ingest event to review proposal"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "related page row",
+      "family": "association",
+      "id": "related_page",
+      "label": "related page",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored related-page association"
     },
     {
       "allows_cycles": false,

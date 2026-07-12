@@ -1,0 +1,16 @@
+schema_version: wiki_experience_pack_registry.v1
+packs:
+  personal-finance:
+    default_version: 0.1.0
+    versions:
+      0.1.0:
+        path: personal-finance
+        manifest_sha256: d357c182e0c702f6e880f01da2b9811e0158ca66f1cea512a7d2d31ff8624162
+        tree_sha256: 491281ba1327572b4b922bc75dba014dd82023a2758d9e7613327f254479d26d
+  study-research:
+    default_version: 0.1.0
+    versions:
+      0.1.0:
+        path: study-research
+        manifest_sha256: 3737eea5d2e43f0601c862a9ee08147724d7e5f311d95e6284aef98bd021eeb7
+        tree_sha256: d125b25a3205bda98307daa149e2c5e10e3e943cfe4e64326faba1f9724bfe31

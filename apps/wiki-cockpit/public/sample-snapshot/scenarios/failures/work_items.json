@@ -1,0 +1,36 @@
+{
+  "actions": [
+    {
+      "action_id": "action-region-sync-support",
+      "attention_basis": "The supporting source is outside its freshness window.",
+      "blocked_by": [],
+      "blocker_reason": "",
+      "cancellation_receipt": "",
+      "completed_at": "",
+      "completion_receipt": "",
+      "contract_warnings": [],
+      "created_at": "2026-07-03",
+      "due_at": "",
+      "evidence_refs": [
+        "source-support-tickets"
+      ],
+      "next_action": "Refresh the support-ticket source and verify its receipt.",
+      "overdue": false,
+      "owner": {
+        "kind": "unassigned",
+        "ref": ""
+      },
+      "page_id": "action-region-sync-support",
+      "parent_ref": "memories/clientes/index.md",
+      "priority": "high",
+      "source_refs": [
+        "source-support-tickets"
+      ],
+      "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
+      "title": "Refresh support ticket source"
+    }
+  ],
+  "schema_version": "wiki_work_items.v1"
+}

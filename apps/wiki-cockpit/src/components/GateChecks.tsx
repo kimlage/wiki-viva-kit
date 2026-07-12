@@ -138,7 +138,14 @@ export function GateChecks({
                 </span>
                 <span className="gateRowName">{gateName(gate.id)}</span>
                 <span className={`pill pill-${pillTone}`}>{pillLabel}</span>
-                <button className="textButton gateRunBtn" onClick={() => run(gate.id)} disabled={rowBusy || Boolean(busy)} type="button">
+                <button
+                  className="textButton gateRunBtn"
+                  onClick={() => run(gate.id)}
+                  disabled={Boolean(demo) || rowBusy || Boolean(busy)}
+                  aria-label={demo ? `${t("gate.run")} ${gateName(gate.id)} — ${t("demo.readOnlyControl")}` : undefined}
+                  title={demo ? t("demo.readOnlyControl") : undefined}
+                  type="button"
+                >
                   <Play size={12} />
                   <span>{t("gate.run")}</span>
                 </button>
@@ -161,6 +168,9 @@ export function GateChecks({
                     <button
                       className="textButton gateFixButton"
                       onClick={() => onComposeBrief(gateFixSpec(gate, output || undefined))}
+                      disabled={Boolean(demo)}
+                      aria-label={demo ? `${t("gate.fix")} — ${t("demo.readOnlyControl")}` : undefined}
+                      title={demo ? t("demo.readOnlyControl") : undefined}
                       type="button"
                     >
                       <Sparkles size={12} />
@@ -178,7 +188,14 @@ export function GateChecks({
         })}
       </ul>
       <div className="gateChecksActions">
-        <button className="secondaryButton" onClick={runAll} disabled={running !== null || Boolean(busy)} type="button">
+        <button
+          className="secondaryButton"
+          onClick={runAll}
+          disabled={Boolean(demo) || running !== null || Boolean(busy)}
+          aria-label={demo ? `${t("gate.runGates")} — ${t("demo.readOnlyControl")}` : undefined}
+          title={demo ? t("demo.readOnlyControl") : undefined}
+          type="button"
+        >
           <Play size={14} />
           <span>{running === "*" ? t("gate.running") : t("gate.runGates")}</span>
         </button>

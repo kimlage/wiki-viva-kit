@@ -3075,7 +3075,7 @@
       "absence_state": "not_empty",
       "action_hints": [
         {
-          "count": 18,
+          "count": 13,
           "kind": "inspect_sources",
           "label_key": "region.action.inspectSources"
         }
@@ -3083,7 +3083,7 @@
       "anchor_id": "root-alex-rivera",
       "attention_hints": [
         {
-          "count": 18,
+          "count": 13,
           "kind": "raw"
         }
       ],
@@ -3098,11 +3098,6 @@
       "kind": "quadrant",
       "label_key": "pratica",
       "member_ids": [
-        "event-ingest-agenda-2026-07",
-        "event-ingest-banco-2026-05",
-        "event-ingest-chat-2026-07",
-        "event-ingest-product-analytics-2026-07",
-        "event-ingest-support-tickets-2026-06",
         "source-action-ledger",
         "source-agenda",
         "source-calendar-archive",
@@ -3123,12 +3118,12 @@
         "hidden": 0,
         "open_actions": 0,
         "proposal": 0,
-        "raw": 18,
+        "raw": 13,
         "risk": 0,
-        "shown": 18,
-        "source_backed": 5,
+        "shown": 13,
+        "source_backed": 0,
         "stale": 0,
-        "total": 18,
+        "total": 13,
         "unsourced": 0
       },
       "type_mix": [
@@ -3136,11 +3131,6 @@
           "count": 13,
           "family": "source",
           "page_type": "source"
-        },
-        {
-          "count": 5,
-          "family": "event",
-          "page_type": "ingestion_event"
         }
       ],
       "visual": {

@@ -135,6 +135,26 @@ describe("MissionCard", () => {
     expect(onAction).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps a read-only secondary CTA visible but natively inert", () => {
+    const onAction = vi.fn();
+    const demoRows = rows(vi.fn(), onAction);
+    demoRows[1] = {
+      ...demoRows[1],
+      action: {
+        ...demoRows[1].action!,
+        disabled: true,
+        title: "Read-only demo: this control is disabled and sends nothing to the local operator."
+      }
+    };
+    render(<MissionCard {...baseProps} rows={demoRows} />);
+
+    const action = screen.getByRole("button", { name: /Refresh with Codex.*Read-only demo/i });
+    expect((action as HTMLButtonElement).disabled).toBe(true);
+    expect(action.getAttribute("title")).toMatch(/sends nothing/i);
+    fireEvent.click(action);
+    expect(onAction).not.toHaveBeenCalled();
+  });
+
   it("collapses to the current view plus actionable pending count", () => {
     const onToggle = vi.fn();
     render(<MissionCard {...baseProps} rows={rows()} open={false} onToggle={onToggle} />);

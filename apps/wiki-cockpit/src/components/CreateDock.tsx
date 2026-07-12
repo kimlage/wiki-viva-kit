@@ -24,6 +24,7 @@ export function CreateDock({
   bundle,
   initialType,
   initialQuadrant,
+  demo = false,
   genesis = false,
   onComposeBrief,
   onHighlightQuadrant,
@@ -32,6 +33,7 @@ export function CreateDock({
   bundle: SnapshotBundle;
   initialType?: string;
   initialQuadrant?: string;
+  demo?: boolean;
   // Tutorial mode: creating rebuilds the world instantly (the honest footnote
   // changes — no Codex/PR language when nothing of the sort will happen).
   genesis?: boolean;
@@ -41,9 +43,9 @@ export function CreateDock({
   onHighlightQuadrant?: (facet: string | null) => void;
   onClose: () => void;
 }) {
+  const readOnly = demo && !genesis;
   // Narrow screens get a TWO-STEP flow: pick a type → the sheet flips to the
   // mold with a back button (side-by-side needs ~760px).
-  const [mobileForm, setMobileForm] = useState(false);
   const types = bundle.templates?.types ?? {};
   const overrides = useMemo(() => registryHomeOverrides(types), [types]);
   const contexts = contextsOf(bundle);
@@ -82,6 +84,10 @@ export function CreateDock({
 
   const firstIn = (b: Bucket) => buckets[b][0];
   const creatableInitial = initialType && types[initialType] && [...palette.primary, ...palette.rest].includes(initialType);
+  // A guided/deep-linked type is already a deliberate selection. On narrow
+  // screens enter its form directly; otherwise a type that lives behind
+  // “more…” can leave the tutorial showing neither its row nor its fields.
+  const [mobileForm, setMobileForm] = useState(Boolean(creatableInitial));
   const defaultType =
     (creatableInitial ? initialType : "") ||
     (initialQuadrant && SCENE_FACETS.includes(initialQuadrant as SceneFacet) ? firstIn(initialQuadrant as SceneFacet) : "") ||
@@ -130,6 +136,7 @@ export function CreateDock({
       className={pt === type ? "createTypeRow active" : "createTypeRow"}
       onClick={() => pick(pt)}
       title={typeDescription(pt)}
+      tabIndex={0}
       type="button"
     >
       <span className="createTypeIcon" aria-hidden>{typeIcon(pt)}</span>
@@ -146,7 +153,7 @@ export function CreateDock({
         <Sprout size={15} aria-hidden />
         <strong>{t("create.title")}</strong>
         <span className="createSheetIntro">{t("create.intro")}</span>
-          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} type="button">
+          <button className="readerClose" onClick={onClose} title={t("surface.close")} aria-label={t("surface.close")} tabIndex={0} type="button">
           <X size={16} />
         </button>
       </header>
@@ -170,6 +177,7 @@ export function CreateDock({
                   onChange={(e) => setFilter(e.target.value)}
                   placeholder={t("create.searchTypes")}
                   aria-label={t("create.searchTypes")}
+                  tabIndex={0}
                 />
               </label>
             )}
@@ -184,12 +192,12 @@ export function CreateDock({
                 )
               : orderedTypes.map(renderRow)}
             {!expanded && palette.rest.length > 0 && (
-              <button className="createMoreTypes" onClick={() => setExpanded(true)} type="button">
+              <button className="createMoreTypes" onClick={() => setExpanded(true)} tabIndex={0} type="button">
                 {t("seed.more", { n: palette.rest.length })}
               </button>
             )}
             {expanded && palette.primary.length > 0 && (
-              <button className="createMoreTypes" onClick={() => { setExpanded(false); setFilter(""); }} type="button">
+              <button className="createMoreTypes" onClick={() => { setExpanded(false); setFilter(""); }} tabIndex={0} type="button">
                 <ChevronLeft size={12} aria-hidden /> {t("seed.less")}
               </button>
             )}
@@ -199,7 +207,7 @@ export function CreateDock({
           {spec && (
             <div className="createForm">
               <div className="createFormHead">
-                <button className="createBackToTypes" onClick={() => setMobileForm(false)} type="button">
+                <button className="createBackToTypes" onClick={() => setMobileForm(false)} tabIndex={0} type="button">
                   ‹ {t("create.backToTypes")}
                 </button>
                 <span className="createTypeIcon big" aria-hidden>{typeIcon(type)}</span>
@@ -222,12 +230,13 @@ export function CreateDock({
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder={typeNameExample(type)}
                     autoFocus
+                    tabIndex={0}
                   />
                 </label>
                 {contexts.length > 0 && (
                   <label className="intakeField">
                     <span>{t("intake.context")}</span>
-                    <select value={context} onChange={(e) => setContext(e.target.value)}>
+                    <select value={context} onChange={(e) => setContext(e.target.value)} tabIndex={0}>
                       {contexts.map((ctx) => (
                         <option key={ctx} value={ctx}>
                           {contextLabel(ctx)}
@@ -248,6 +257,7 @@ export function CreateDock({
                         onChange={(e) => setField(key, e.target.value)}
                         placeholder={t("create.fieldPlaceholder")}
                         spellCheck={false}
+                        tabIndex={0}
                       />
                     </label>
                   ))
@@ -255,11 +265,19 @@ export function CreateDock({
               </div>
 
               <div className="createFormFoot">
-                <button className="btn btn--primary" disabled={!title.trim()} onClick={seed} type="button">
+                <button
+                  className="btn btn--primary"
+                  disabled={readOnly || !title.trim()}
+                  onClick={seed}
+                  aria-label={readOnly ? `${t("create.seedDemo")} — ${t("demo.readOnlyControl")}` : undefined}
+                  title={readOnly ? t("demo.readOnlyControl") : undefined}
+                  tabIndex={0}
+                  type="button"
+                >
                   <Sprout size={14} />
-                  <span>{t("create.seed")}</span>
+                  <span>{t(genesis ? "create.seedHere" : readOnly ? "create.seedDemo" : "create.seed")}</span>
                 </button>
-                <small className="createGateNote">{t(genesis ? "create.gateNoteGenesis" : "create.gateNote")}</small>
+                <small className="createGateNote">{t(genesis ? "create.gateNoteGenesis" : readOnly ? "create.gateNoteDemo" : "create.gateNote")}</small>
               </div>
             </div>
           )}

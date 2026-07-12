@@ -320,6 +320,63 @@ test("v8 keyboard shortcuts 1-4 update one canonical view grammar", async ({ pag
   }
 });
 
+test("URL-owned Missions tray hydrates deep links, resolves singleton conflicts and follows Back/Forward with focus", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+    window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
+  });
+  const world = "/demo/w?view=quadrants&center=root-alex-rivera&lens=all&overlay=actions&tour=0";
+  await page.goto(`${world}&tray=missions`);
+
+  const missions = page.locator(".missionsPanel");
+  const close = missions.locator(".readerClose");
+  const missionButton = page.locator(".missionsButton");
+  const search = page.locator(".commandSearch input");
+  await expect(missions).toBeVisible({ timeout: 20_000 });
+  await expect(page).toHaveURL(/[?&]tray=missions(?:&|$)/);
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-primary-surface-open", "true");
+  await expect(close).toBeFocused();
+
+  await close.click();
+  await expect(missions).toHaveCount(0);
+  await expect(page).not.toHaveURL(/[?&]tray=/);
+  await expect(search).toBeFocused();
+
+  await page.goBack();
+  await expect(missions).toBeVisible();
+  await expect(page).toHaveURL(/[?&]tray=missions(?:&|$)/);
+  await expect(close).toBeFocused();
+
+  await page.goForward();
+  await expect(missions).toHaveCount(0);
+  await expect(page).not.toHaveURL(/[?&]tray=/);
+  await expect(search).toBeFocused();
+
+  await missionButton.click();
+  await expect(missions).toBeVisible();
+  await expect(page).toHaveURL(/[?&]tray=missions(?:&|$)/);
+  await expect(close).toBeFocused();
+  await close.click();
+  await expect(missions).toHaveCount(0);
+  await expect(missionButton).toBeFocused();
+
+  // A hand-written conflict has no event ordering. The parser's documented
+  // dock > reader > tray precedence is immediately reflected back into the
+  // address, so the visible surface and the shareable URL stay identical.
+  await page.goto(`${world}&dock=gates&tray=missions`);
+  await expect(page.locator(".gatesDock")).toBeVisible({ timeout: 20_000 });
+  await expect(missions).toHaveCount(0);
+  await expect(page).toHaveURL(/[?&]dock=gates(?:&|$)/);
+  await expect(page).not.toHaveURL(/[?&]tray=/);
+
+  // URL ownership does not bypass block-stack ownership: Genesis stage 0 has
+  // no gamification/Missions capability, so a stale deep link closes itself.
+  await page.goto("/demo/genesis?stage=0&tray=missions&tour=0");
+  await expect(page.getByRole("button", { name: /A person|Uma pessoa/i })).toBeVisible({ timeout: 20_000 });
+  await expect(missions).toHaveCount(0);
+  await expect(page).not.toHaveURL(/[?&]tray=/);
+});
+
 test("semantic motion distinguishes a world morph from an overlay resolve", async ({ page }) => {
   await prepareCanonicalV8World(page, { view: "quadrants", overlay: "actions" });
   const workspace = page.locator(".worldWorkspace");
@@ -476,7 +533,10 @@ test("quadrant overview keeps every semantic group target disjoint at reviewed p
     sistemas: "q4_sistemas"
   };
   const cases = [
-    { id: "instructional", center: "root-alex-rivera", minimumGroups: 5, scenario: undefined },
+    // The five ingestion events live below their source anchors. With the
+    // root's canonical nested_mode=summarize, the overview therefore owns four
+    // root-level families; events appear only after entering a source world.
+    { id: "instructional", center: "root-alex-rivera", minimumGroups: 4, scenario: undefined },
     { id: "dense-repeated-families", center: "hub-clientes", minimumGroups: 4, scenario: "dense_stress" as const }
   ];
   const viewports = [
@@ -665,8 +725,7 @@ test("Alex quadrant journey reaches semantic collections and real pages in two s
       lens: "q2_pratica" as const,
       facet: "Outputs & evidence",
       groups: [
-        { label: "sources & evidence", id: "family:source", count: 13 },
-        { label: "ingestion events", id: "family:event", count: 5 }
+        { label: "sources & evidence", id: "family:source", count: 13 }
       ]
     },
     {
@@ -864,6 +923,41 @@ test("Alex quadrant journey reaches semantic collections and real pages in two s
     await expect(page).toHaveURL(new RegExp(`[?&]page=${sourceId}(?:&|$)`));
   }
   await expectRememberedCanvas(page);
+
+  if (sourceDestinationCenter !== "root-alex-rivera") {
+    await page.goBack();
+  } else {
+    await page.locator(".pageReader .readerClose").last().click();
+  }
+  await expect(originsSummary).toBeVisible();
+  await page.locator(".worldNavigatorView").filter({ hasText: /^Quadrants$/ }).click();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-view", "quadrants");
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
+
+  // Canonical source hierarchy: an event is not a sibling of its source in
+  // Alex's root map. Traverse the source collection, enter Agenda as a real
+  // center, then reach its normalized event inside that source's Q2 world.
+  await page.locator('[data-wilber-quadrant="2"]').click();
+  await page.getByRole("button", { name: "sources & evidence", exact: true }).press("Enter");
+  const sourceSummary = page.locator('[data-world-group-summary="family:source"]');
+  const agendaMember = sourceSummary.locator('[data-world-member-id="source-agenda"]');
+  await expect(agendaMember).toHaveCount(1);
+  await agendaMember.press("Enter");
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "source-agenda");
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+  await expectRememberedCanvas(page);
+
+  await page.locator('[data-wilber-quadrant="2"]').click();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "q2_pratica");
+  await expect(page.locator('[data-world-target-id="family:event"]')).toHaveCount(0);
+  const ingestionEvent = page.locator(
+    '[data-world-target-kind="page"][data-world-target-id="event-ingest-agenda-2026-07"]'
+  );
+  await expect(ingestionEvent).toHaveCount(1);
+  await ingestionEvent.press("Enter");
+  await expect(page.locator(".pageReader")).toBeVisible();
+  await expect(page.locator(".readerHead h2")).toHaveText("Ingestão: agenda");
+  await expectRememberedCanvas(page);
 });
 
 test("global view shortcuts stay suspended under the coach, docks and reader", async ({ page }) => {
@@ -1008,7 +1102,17 @@ test(`${scenario.view} keeps page, reader and dock navigation on one canonical w
   await expectCanonicalNativeRoute(page, scenario.view);
   await expectSurfaceBackground(page, true);
 
-  await page.locator(`${scenario.surface} .readerClose`).first().click();
+  const dockClose = page.locator(`${scenario.surface} .readerClose`).first();
+  await expect(dockClose).toBeVisible();
+  expect(await dockClose.evaluate((button) => {
+    const rect = button.getBoundingClientRect();
+    const topmost = document.elementFromPoint(
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2
+    );
+    return topmost === button || Boolean(topmost && button.contains(topmost));
+  }), "the primary dock must own its close-button pixels above shell controls").toBe(true);
+  await dockClose.click();
   await expect(page.locator(scenario.surface)).toHaveCount(0);
   await expect(page).not.toHaveURL(/[?&]dock=/);
   await expectCanonicalNativeRoute(page, scenario.view);

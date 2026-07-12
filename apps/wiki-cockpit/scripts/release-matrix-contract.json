@@ -1,0 +1,676 @@
+{
+  "schema_version": "wiki_playwright_release_matrix.v1",
+  "contract_version": 2,
+  "playwright_version": "1.61.1",
+  "public_required": {
+    "config_file": "playwright.config.ts",
+    "test_dir": "e2e",
+    "expected_tests": 102,
+    "required_specs": [
+      "e2e/appearance-accessibility.spec.ts",
+      "e2e/demo-scenarios.spec.ts",
+      "e2e/desktop-matrix.spec.ts",
+      "e2e/fallback-parity.spec.ts",
+      "e2e/firefox-smoke.spec.ts",
+      "e2e/keyboard-genesis-journey.spec.ts",
+      "e2e/keyboard-genesis.spec.ts",
+      "e2e/locale-renderer-evidence.spec.ts",
+      "e2e/mobile-parity.spec.ts",
+      "e2e/pack-temporal-showcases.spec.ts",
+      "e2e/runtime-performance.spec.ts",
+      "e2e/snapshot-origin.spec.ts",
+      "e2e/v8-navigation-regressions.spec.ts",
+      "e2e/visual-regression.spec.ts",
+      "e2e/world-navigation.spec.ts",
+      "e2e/world-safe-area.spec.ts",
+      "e2e/world-ux-regressions.spec.ts"
+    ],
+    "required_projects": [
+      "chromium-desktop",
+      "chromium-fallback",
+      "chromium-performance",
+      "firefox-smoke",
+      "webkit-keyboard",
+      "webkit-mobile"
+    ],
+    "cells": [
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › appearance is operable by Tab, Shift+Tab, Enter and Space with visible focus",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › appearance is operable by Tab, Shift+Tab, Enter and Space with visible focus"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › appearance luminous-observatory × balanced preserves world state, information and hit targets",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › appearance luminous-observatory × balanced preserves world state, information and hit targets"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › appearance luminous-observatory × command preserves world state, information and hit targets",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › appearance luminous-observatory × command preserves world state, information and hit targets"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › appearance luminous-observatory × focus preserves world state, information and hit targets",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › appearance luminous-observatory × focus preserves world state, information and hit targets"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › appearance night-mission-control × balanced preserves world state, information and hit targets",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › appearance night-mission-control × balanced preserves world state, information and hit targets"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › appearance night-mission-control × command preserves world state, information and hit targets",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › appearance night-mission-control × command preserves world state, information and hit targets"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › appearance night-mission-control × focus preserves world state, information and hit targets",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › appearance night-mission-control × focus preserves world state, information and hit targets"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › appearance survives a deterministic 200% effective zoom viewport without clipping or state loss",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › appearance survives a deterministic 200% effective zoom viewport without clipping or state loss"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › demo gate and validation gallery honor both themes on desktop and mobile with rendered contrast",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › demo gate and validation gallery honor both themes on desktop and mobile with rendered contrast"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › forced colors preserves selected state, system color adjustment and visible focus",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › forced colors preserves selected state, system color adjustment and visible focus"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › mobile appearance keeps both themes, all densities and 44px controls inside the viewport",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › mobile appearance keeps both themes, all densities and 44px controls inside the viewport"
+      },
+      {
+        "id": "chromium-desktop::e2e/appearance-accessibility.spec.ts::appearance-accessibility.spec.ts › reduced motion removes appearance animation while preserving the semantic route",
+        "file": "e2e/appearance-accessibility.spec.ts",
+        "project": "chromium-desktop",
+        "title": "appearance-accessibility.spec.ts › reduced motion removes appearance animation while preserving the semantic route"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route accessibility 1/1 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route accessibility 1/1 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route compatibility 1/2 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route compatibility 1/2 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route compatibility 2/2 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route compatibility 2/2 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route dense_stress 1/1 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route dense_stress 1/1 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route failures 1/1 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route failures 1/1 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route normal_operations 1/3 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route normal_operations 1/3 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route normal_operations 2/3 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route normal_operations 2/3 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route normal_operations 3/3 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route normal_operations 3/3 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route source_lifecycle 1/2 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route source_lifecycle 1/2 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route source_lifecycle 2/2 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route source_lifecycle 2/2 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route walking_skeleton 1/2 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route walking_skeleton 1/2 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/demo-scenarios.spec.ts::demo-scenarios.spec.ts › core demo canonical route walking_skeleton 2/2 executes its manifest contract",
+        "file": "e2e/demo-scenarios.spec.ts",
+        "project": "chromium-desktop",
+        "title": "demo-scenarios.spec.ts › core demo canonical route walking_skeleton 2/2 executes its manifest contract"
+      },
+      {
+        "id": "chromium-desktop::e2e/desktop-matrix.spec.ts::desktop-matrix.spec.ts › Chromium desktop applies all six semantic overlays without relayout",
+        "file": "e2e/desktop-matrix.spec.ts",
+        "project": "chromium-desktop",
+        "title": "desktop-matrix.spec.ts › Chromium desktop applies all six semantic overlays without relayout"
+      },
+      {
+        "id": "chromium-desktop::e2e/desktop-matrix.spec.ts::desktop-matrix.spec.ts › Chromium desktop covers the required v8 viewports without clipping the world chrome",
+        "file": "e2e/desktop-matrix.spec.ts",
+        "project": "chromium-desktop",
+        "title": "desktop-matrix.spec.ts › Chromium desktop covers the required v8 viewports without clipping the world chrome"
+      },
+      {
+        "id": "chromium-desktop::e2e/desktop-matrix.spec.ts::desktop-matrix.spec.ts › Chromium desktop keeps every curated Create card inside the world safe area",
+        "file": "e2e/desktop-matrix.spec.ts",
+        "project": "chromium-desktop",
+        "title": "desktop-matrix.spec.ts › Chromium desktop keeps every curated Create card inside the world safe area"
+      },
+      {
+        "id": "chromium-desktop::e2e/keyboard-genesis-journey.spec.ts::keyboard-genesis-journey.spec.ts › Genesis 0→8 is operable by native Tab and Shift+Tab without focus traps or operator traffic",
+        "file": "e2e/keyboard-genesis-journey.spec.ts",
+        "project": "chromium-desktop",
+        "title": "keyboard-genesis-journey.spec.ts › Genesis 0→8 is operable by native Tab and Shift+Tab without focus traps or operator traffic"
+      },
+      {
+        "id": "chromium-desktop::e2e/keyboard-genesis.spec.ts::keyboard-genesis.spec.ts › Genesis 0 is a real centerless world and one founding action advances exactly one stage",
+        "file": "e2e/keyboard-genesis.spec.ts",
+        "project": "chromium-desktop",
+        "title": "keyboard-genesis.spec.ts › Genesis 0 is a real centerless world and one founding action advances exactly one stage"
+      },
+      {
+        "id": "chromium-desktop::e2e/keyboard-genesis.spec.ts::keyboard-genesis.spec.ts › native Tab crosses scene, world controls and search, then reader Escape restores its invoker",
+        "file": "e2e/keyboard-genesis.spec.ts",
+        "project": "chromium-desktop",
+        "title": "keyboard-genesis.spec.ts › native Tab crosses scene, world controls and search, then reader Escape restores its invoker"
+      },
+      {
+        "id": "chromium-desktop::e2e/locale-renderer-evidence.spec.ts::locale-renderer-evidence.spec.ts › pt-BR browser journey keeps long guidance, reader, approval warning and mobile controls localized",
+        "file": "e2e/locale-renderer-evidence.spec.ts",
+        "project": "chromium-desktop",
+        "title": "locale-renderer-evidence.spec.ts › pt-BR browser journey keeps long guidance, reader, approval warning and mobile controls localized"
+      },
+      {
+        "id": "chromium-desktop::e2e/locale-renderer-evidence.spec.ts::locale-renderer-evidence.spec.ts › pt-BR proves one functional WebGL world and its explicit topology-equivalent fallback",
+        "file": "e2e/locale-renderer-evidence.spec.ts",
+        "project": "chromium-desktop",
+        "title": "locale-renderer-evidence.spec.ts › pt-BR proves one functional WebGL world and its explicit topology-equivalent fallback"
+      },
+      {
+        "id": "chromium-desktop::e2e/pack-temporal-showcases.spec.ts::pack-temporal-showcases.spec.ts › personal_finance_showcase Chronoscope renders every declared pack event on its explicit lane",
+        "file": "e2e/pack-temporal-showcases.spec.ts",
+        "project": "chromium-desktop",
+        "title": "pack-temporal-showcases.spec.ts › personal_finance_showcase Chronoscope renders every declared pack event on its explicit lane"
+      },
+      {
+        "id": "chromium-desktop::e2e/pack-temporal-showcases.spec.ts::pack-temporal-showcases.spec.ts › study_research_showcase Chronoscope renders every declared pack event on its explicit lane",
+        "file": "e2e/pack-temporal-showcases.spec.ts",
+        "project": "chromium-desktop",
+        "title": "pack-temporal-showcases.spec.ts › study_research_showcase Chronoscope renders every declared pack event on its explicit lane"
+      },
+      {
+        "id": "chromium-desktop::e2e/snapshot-origin.spec.ts::snapshot-origin.spec.ts › Genesis still advances locally while emitting zero write requests",
+        "file": "e2e/snapshot-origin.spec.ts",
+        "project": "chromium-desktop",
+        "title": "snapshot-origin.spec.ts › Genesis still advances locally while emitting zero write requests"
+      },
+      {
+        "id": "chromium-desktop::e2e/snapshot-origin.spec.ts::snapshot-origin.spec.ts › demo cockpit can still render the bundled sample universe",
+        "file": "e2e/snapshot-origin.spec.ts",
+        "project": "chromium-desktop",
+        "title": "snapshot-origin.spec.ts › demo cockpit can still render the bundled sample universe"
+      },
+      {
+        "id": "chromium-desktop::e2e/snapshot-origin.spec.ts::snapshot-origin.spec.ts › demo mutation surfaces are visibly disabled and emit zero write requests",
+        "file": "e2e/snapshot-origin.spec.ts",
+        "project": "chromium-desktop",
+        "title": "snapshot-origin.spec.ts › demo mutation surfaces are visibly disabled and emit zero write requests"
+      },
+      {
+        "id": "chromium-desktop::e2e/snapshot-origin.spec.ts::snapshot-origin.spec.ts › non-demo cockpit blocks missing operator instead of rendering sample data",
+        "file": "e2e/snapshot-origin.spec.ts",
+        "project": "chromium-desktop",
+        "title": "snapshot-origin.spec.ts › non-demo cockpit blocks missing operator instead of rendering sample data"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › Alex quadrant journey reaches semantic collections and real pages in two steps without remount or loops",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › Alex quadrant journey reaches semantic collections and real pages in two steps without remount or loops"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › URL-owned Missions tray hydrates deep links, resolves singleton conflicts and follows Back/Forward with focus",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › URL-owned Missions tray hydrates deep links, resolves singleton conflicts and follows Back/Forward with focus"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › Work accepts the Freshness overlay without route normalization",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › Work accepts the Freshness overlay without route normalization"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › dense action reader owns the foreground and starts with decision-ready information",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › dense action reader owns the foreground and starts with decision-ready information"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › explicit legacy atlas deep link preserves its registered compatibility projection",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › explicit legacy atlas deep link preserves its registered compatibility projection"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › explicit legacy districts deep link preserves its registered compatibility projection",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › explicit legacy districts deep link preserves its registered compatibility projection"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › explicit legacy radar deep link preserves its registered compatibility projection",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › explicit legacy radar deep link preserves its registered compatibility projection"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › fallback HUD flows mission status between context and quadrant navigation",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › fallback HUD flows mission status between context and quadrant navigation"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › global view shortcuts stay suspended under the coach, docks and reader",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › global view shortcuts stay suspended under the coach, docks and reader"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › one semantic transaction sequences quadrant retreat and return travel on the persistent canvas",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › one semantic transaction sequences quadrant retreat and return travel on the persistent canvas"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › quadrant fallback renders the active collection as a summary, never a same-route link",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › quadrant fallback renders the active collection as a summary, never a same-route link"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › quadrant overview keeps every semantic group target disjoint at reviewed phone and desktop sizes",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › quadrant overview keeps every semantic group target disjoint at reviewed phone and desktop sizes"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › resolved Markdown links navigate the reader by mouse and keyboard without remounting the world",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › resolved Markdown links navigate the reader by mouse and keyboard without remounting the world"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › semantic motion distinguishes a world morph from an overlay resolve",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › semantic motion distinguishes a world morph from an overlay resolve"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › sources fallback node hrefs use the canonical deep-link grammar",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › sources fallback node hrefs use the canonical deep-link grammar"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › sources keeps page, reader and dock navigation on one canonical world route",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › sources keeps page, reader and dock navigation on one canonical world route"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › the compact quadrant compass can return from a focused lens to all",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › the compact quadrant compass can return from a focused lens to all"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › the mobile world guide owns the viewport and exposes all three axes",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › the mobile world guide owns the viewport and exposes all three axes"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › the stale next step switches the canonical view to Radar",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › the stale next step switches the canonical view to Radar"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › the world explanation makes every behind-world control inert",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › the world explanation makes every behind-world control inert"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › v8 keyboard shortcuts 1-4 update one canonical view grammar",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › v8 keyboard shortcuts 1-4 update one canonical view grammar"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › work fallback node hrefs use the canonical deep-link grammar",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › work fallback node hrefs use the canonical deep-link grammar"
+      },
+      {
+        "id": "chromium-desktop::e2e/v8-navigation-regressions.spec.ts::v8-navigation-regressions.spec.ts › work keeps page, reader and dock navigation on one canonical world route",
+        "file": "e2e/v8-navigation-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "v8-navigation-regressions.spec.ts › work keeps page, reader and dock navigation on one canonical world route"
+      },
+      {
+        "id": "chromium-desktop::e2e/visual-regression.spec.ts::visual-regression.spec.ts › health-demo visual baseline",
+        "file": "e2e/visual-regression.spec.ts",
+        "project": "chromium-desktop",
+        "title": "visual-regression.spec.ts › health-demo visual baseline"
+      },
+      {
+        "id": "chromium-desktop::e2e/visual-regression.spec.ts::visual-regression.spec.ts › keyboard loop: drill → lock → read → retreat over the same URLs",
+        "file": "e2e/visual-regression.spec.ts",
+        "project": "chromium-desktop",
+        "title": "visual-regression.spec.ts › keyboard loop: drill → lock → read → retreat over the same URLs"
+      },
+      {
+        "id": "chromium-desktop::e2e/visual-regression.spec.ts::visual-regression.spec.ts › legacy /pages/:id bookmark lands in the world with the reader open",
+        "file": "e2e/visual-regression.spec.ts",
+        "project": "chromium-desktop",
+        "title": "visual-regression.spec.ts › legacy /pages/:id bookmark lands in the world with the reader open"
+      },
+      {
+        "id": "chromium-desktop::e2e/visual-regression.spec.ts::visual-regression.spec.ts › review-demo visual baseline",
+        "file": "e2e/visual-regression.spec.ts",
+        "project": "chromium-desktop",
+        "title": "visual-regression.spec.ts › review-demo visual baseline"
+      },
+      {
+        "id": "chromium-desktop::e2e/visual-regression.spec.ts::visual-regression.spec.ts › sources-demo visual baseline",
+        "file": "e2e/visual-regression.spec.ts",
+        "project": "chromium-desktop",
+        "title": "visual-regression.spec.ts › sources-demo visual baseline"
+      },
+      {
+        "id": "chromium-desktop::e2e/visual-regression.spec.ts::visual-regression.spec.ts › world-atlas-demo visual baseline",
+        "file": "e2e/visual-regression.spec.ts",
+        "project": "chromium-desktop",
+        "title": "visual-regression.spec.ts › world-atlas-demo visual baseline"
+      },
+      {
+        "id": "chromium-desktop::e2e/visual-regression.spec.ts::visual-regression.spec.ts › world-districts-demo visual baseline",
+        "file": "e2e/visual-regression.spec.ts",
+        "project": "chromium-desktop",
+        "title": "visual-regression.spec.ts › world-districts-demo visual baseline"
+      },
+      {
+        "id": "chromium-desktop::e2e/visual-regression.spec.ts::visual-regression.spec.ts › world-radar-demo visual baseline",
+        "file": "e2e/visual-regression.spec.ts",
+        "project": "chromium-desktop",
+        "title": "visual-regression.spec.ts › world-radar-demo visual baseline"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-navigation.spec.ts::world-navigation.spec.ts › desktop cockpit modules keep one semantic world while navigating",
+        "file": "e2e/world-navigation.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-navigation.spec.ts › desktop cockpit modules keep one semantic world while navigating"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-navigation.spec.ts::world-navigation.spec.ts › hovering real scene objects inspects without navigating the world",
+        "file": "e2e/world-navigation.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-navigation.spec.ts › hovering real scene objects inspects without navigating the world"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-navigation.spec.ts::world-navigation.spec.ts › real group drill-down keeps the real page parent and exposes a semantic local collection",
+        "file": "e2e/world-navigation.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-navigation.spec.ts › real group drill-down keeps the real page parent and exposes a semantic local collection"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-navigation.spec.ts::world-navigation.spec.ts › selecting a page keeps the declared quadrant center and its lenses",
+        "file": "e2e/world-navigation.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-navigation.spec.ts › selecting a page keeps the declared quadrant center and its lenses"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-navigation.spec.ts::world-navigation.spec.ts › visual control easter egg is local configuration, not world navigation",
+        "file": "e2e/world-navigation.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-navigation.spec.ts › visual control easter egg is local configuration, not world navigation"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-safe-area.spec.ts::world-safe-area.spec.ts › 3D quadrant drill keeps diegetic labels legible and out of fixed HUD safe areas",
+        "file": "e2e/world-safe-area.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-safe-area.spec.ts › 3D quadrant drill keeps diegetic labels legible and out of fixed HUD safe areas"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-ux-regressions.spec.ts::world-ux-regressions.spec.ts › MissionCard keeps the secondary CTA below a full-width readable mission",
+        "file": "e2e/world-ux-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-ux-regressions.spec.ts › MissionCard keeps the secondary CTA below a full-width readable mission"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-ux-regressions.spec.ts::world-ux-regressions.spec.ts › Personal Finance mobile pack view round-trips, reads canonical pages and hands temporal profiles to Chronoscope",
+        "file": "e2e/world-ux-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-ux-regressions.spec.ts › Personal Finance mobile pack view round-trips, reads canonical pages and hands temporal profiles to Chronoscope"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-ux-regressions.spec.ts::world-ux-regressions.spec.ts › Study & Research pack view round-trips, reads canonical pages and hands temporal profiles to Chronoscope",
+        "file": "e2e/world-ux-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-ux-regressions.spec.ts › Study & Research pack view round-trips, reads canonical pages and hands temporal profiles to Chronoscope"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-ux-regressions.spec.ts::world-ux-regressions.spec.ts › Timeline is a shareable native 2D view over the same mounted world",
+        "file": "e2e/world-ux-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-ux-regressions.spec.ts › Timeline is a shareable native 2D view over the same mounted world"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-ux-regressions.spec.ts::world-ux-regressions.spec.ts › Timeline keeps one scroll model and 44px controls on mobile and fallback",
+        "file": "e2e/world-ux-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-ux-regressions.spec.ts › Timeline keeps one scroll model and 44px controls on mobile and fallback"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-ux-regressions.spec.ts::world-ux-regressions.spec.ts › Timeline keeps stale cursors explicit and provides one keyboard path to the inspector",
+        "file": "e2e/world-ux-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-ux-regressions.spec.ts › Timeline keeps stale cursors explicit and provides one keyboard path to the inspector"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-ux-regressions.spec.ts::world-ux-regressions.spec.ts › all four quadrant lenses work in every spatial native view without changing center",
+        "file": "e2e/world-ux-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-ux-regressions.spec.ts › all four quadrant lenses work in every spatial native view without changing center"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-ux-regressions.spec.ts::world-ux-regressions.spec.ts › demo gate offers guided tour, free exploration and from-zero entry paths",
+        "file": "e2e/world-ux-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-ux-regressions.spec.ts › demo gate offers guided tour, free exploration and from-zero entry paths"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-ux-regressions.spec.ts::world-ux-regressions.spec.ts › desktop shell and open navigator panel never create document scrollbars",
+        "file": "e2e/world-ux-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-ux-regressions.spec.ts › desktop shell and open navigator panel never create document scrollbars"
+      },
+      {
+        "id": "chromium-desktop::e2e/world-ux-regressions.spec.ts::world-ux-regressions.spec.ts › switching native views preserves the mounted 3D canvas and center",
+        "file": "e2e/world-ux-regressions.spec.ts",
+        "project": "chromium-desktop",
+        "title": "world-ux-regressions.spec.ts › switching native views preserves the mounted 3D canvas and center"
+      },
+      {
+        "id": "chromium-fallback::e2e/fallback-parity.spec.ts::fallback-parity.spec.ts › forced fallback exposes all semantic overlay tokens without moving nodes",
+        "file": "e2e/fallback-parity.spec.ts",
+        "project": "chromium-fallback",
+        "title": "fallback-parity.spec.ts › forced fallback exposes all semantic overlay tokens without moving nodes"
+      },
+      {
+        "id": "chromium-fallback::e2e/fallback-parity.spec.ts::fallback-parity.spec.ts › forced fallback preserves route, first viewport and source/action/person/reader/dock parity",
+        "file": "e2e/fallback-parity.spec.ts",
+        "project": "chromium-fallback",
+        "title": "fallback-parity.spec.ts › forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+      },
+      {
+        "id": "chromium-performance::e2e/runtime-performance.spec.ts::runtime-performance.spec.ts › Chromium desktop publishes bounded real render counters for dense_stress",
+        "file": "e2e/runtime-performance.spec.ts",
+        "project": "chromium-performance",
+        "title": "runtime-performance.spec.ts › Chromium desktop publishes bounded real render counters for dense_stress"
+      },
+      {
+        "id": "chromium-performance::e2e/runtime-performance.spec.ts::runtime-performance.spec.ts › Chromium desktop publishes bounded real render counters for normal_operations",
+        "file": "e2e/runtime-performance.spec.ts",
+        "project": "chromium-performance",
+        "title": "runtime-performance.spec.ts › Chromium desktop publishes bounded real render counters for normal_operations"
+      },
+      {
+        "id": "firefox-smoke::e2e/firefox-smoke.spec.ts::firefox-smoke.spec.ts › Firefox keeps center, source reader and Back/Forward semantics across 3D or automatic fallback",
+        "file": "e2e/firefox-smoke.spec.ts",
+        "project": "firefox-smoke",
+        "title": "firefox-smoke.spec.ts › Firefox keeps center, source reader and Back/Forward semantics across 3D or automatic fallback"
+      },
+      {
+        "id": "firefox-smoke::e2e/keyboard-genesis.spec.ts::keyboard-genesis.spec.ts › Genesis 0 is a real centerless world and one founding action advances exactly one stage",
+        "file": "e2e/keyboard-genesis.spec.ts",
+        "project": "firefox-smoke",
+        "title": "keyboard-genesis.spec.ts › Genesis 0 is a real centerless world and one founding action advances exactly one stage"
+      },
+      {
+        "id": "firefox-smoke::e2e/keyboard-genesis.spec.ts::keyboard-genesis.spec.ts › native Tab crosses scene, world controls and search, then reader Escape restores its invoker",
+        "file": "e2e/keyboard-genesis.spec.ts",
+        "project": "firefox-smoke",
+        "title": "keyboard-genesis.spec.ts › native Tab crosses scene, world controls and search, then reader Escape restores its invoker"
+      },
+      {
+        "id": "webkit-keyboard::e2e/keyboard-genesis-journey.spec.ts::keyboard-genesis-journey.spec.ts › Genesis 0→8 is operable by native Tab and Shift+Tab without focus traps or operator traffic",
+        "file": "e2e/keyboard-genesis-journey.spec.ts",
+        "project": "webkit-keyboard",
+        "title": "keyboard-genesis-journey.spec.ts › Genesis 0→8 is operable by native Tab and Shift+Tab without focus traps or operator traffic"
+      },
+      {
+        "id": "webkit-keyboard::e2e/keyboard-genesis.spec.ts::keyboard-genesis.spec.ts › Genesis 0 is a real centerless world and one founding action advances exactly one stage",
+        "file": "e2e/keyboard-genesis.spec.ts",
+        "project": "webkit-keyboard",
+        "title": "keyboard-genesis.spec.ts › Genesis 0 is a real centerless world and one founding action advances exactly one stage"
+      },
+      {
+        "id": "webkit-keyboard::e2e/keyboard-genesis.spec.ts::keyboard-genesis.spec.ts › native Tab crosses scene, world controls and search, then reader Escape restores its invoker",
+        "file": "e2e/keyboard-genesis.spec.ts",
+        "project": "webkit-keyboard",
+        "title": "keyboard-genesis.spec.ts › native Tab crosses scene, world controls and search, then reader Escape restores its invoker"
+      },
+      {
+        "id": "webkit-mobile::e2e/mobile-parity.spec.ts::mobile-parity.spec.ts › WebKit mobile Genesis 0 uses one stable responsive founding surface",
+        "file": "e2e/mobile-parity.spec.ts",
+        "project": "webkit-mobile",
+        "title": "mobile-parity.spec.ts › WebKit mobile Genesis 0 uses one stable responsive founding surface"
+      },
+      {
+        "id": "webkit-mobile::e2e/mobile-parity.spec.ts::mobile-parity.spec.ts › WebKit mobile either passes the sustained frame budget or switches to the explicit 2D map",
+        "file": "e2e/mobile-parity.spec.ts",
+        "project": "webkit-mobile",
+        "title": "mobile-parity.spec.ts › WebKit mobile either passes the sustained frame budget or switches to the explicit 2D map"
+      },
+      {
+        "id": "webkit-mobile::e2e/mobile-parity.spec.ts::mobile-parity.spec.ts › WebKit mobile keeps semantic overlay tokens and geometry stable",
+        "file": "e2e/mobile-parity.spec.ts",
+        "project": "webkit-mobile",
+        "title": "mobile-parity.spec.ts › WebKit mobile keeps semantic overlay tokens and geometry stable"
+      },
+      {
+        "id": "webkit-mobile::e2e/mobile-parity.spec.ts::mobile-parity.spec.ts › WebKit mobile keeps the same semantic route in reduced-motion fallback",
+        "file": "e2e/mobile-parity.spec.ts",
+        "project": "webkit-mobile",
+        "title": "mobile-parity.spec.ts › WebKit mobile keeps the same semantic route in reduced-motion fallback"
+      },
+      {
+        "id": "webkit-mobile::e2e/mobile-parity.spec.ts::mobile-parity.spec.ts › WebKit mobile keeps the visible mission, quadrant controls and real Q2 targets pointer-safe",
+        "file": "e2e/mobile-parity.spec.ts",
+        "project": "webkit-mobile",
+        "title": "mobile-parity.spec.ts › WebKit mobile keeps the visible mission, quadrant controls and real Q2 targets pointer-safe"
+      },
+      {
+        "id": "webkit-mobile::e2e/mobile-parity.spec.ts::mobile-parity.spec.ts › WebKit mobile opens a semantic quadrant collection and reaches a real center in two taps",
+        "file": "e2e/mobile-parity.spec.ts",
+        "project": "webkit-mobile",
+        "title": "mobile-parity.spec.ts › WebKit mobile opens a semantic quadrant collection and reaches a real center in two taps"
+      },
+      {
+        "id": "webkit-mobile::e2e/mobile-parity.spec.ts::mobile-parity.spec.ts › WebKit mobile uses real touch for lens, view, dock and long-label reader flows",
+        "file": "e2e/mobile-parity.spec.ts",
+        "project": "webkit-mobile",
+        "title": "mobile-parity.spec.ts › WebKit mobile uses real touch for lens, view, dock and long-label reader flows"
+      }
+    ]
+  },
+  "downstream_required": {
+    "config_file": "playwright.downstream.config.ts",
+    "test_dir": "e2e/downstream",
+    "expected_tests": 2,
+    "required_specs": [
+      "e2e/downstream/operator-origin.spec.ts"
+    ],
+    "required_projects": [
+      "chromium-downstream-required"
+    ],
+    "cells": [
+      {
+        "id": "chromium-downstream-required::e2e/downstream/operator-origin.spec.ts::operator-origin.spec.ts › exact downstream UI renders the attested repo instead of a sample fallback",
+        "file": "e2e/downstream/operator-origin.spec.ts",
+        "project": "chromium-downstream-required",
+        "title": "operator-origin.spec.ts › exact downstream UI renders the attested repo instead of a sample fallback"
+      },
+      {
+        "id": "chromium-downstream-required::e2e/downstream/operator-origin.spec.ts::operator-origin.spec.ts › exact downstream operator serves the attested repo, revision, hash and capabilities",
+        "file": "e2e/downstream/operator-origin.spec.ts",
+        "project": "chromium-downstream-required",
+        "title": "operator-origin.spec.ts › exact downstream operator serves the attested repo, revision, hash and capabilities"
+      }
+    ]
+  }
+}

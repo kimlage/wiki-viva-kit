@@ -12,7 +12,7 @@
       "page_count": 0,
       "page_id_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "root_attachments": {},
-      "source_input_sha256": "7ddcaa3b1723b057c1aadddca9f43dd120a7f3db62dc73700e1a165c6c207917",
+      "source_input_sha256": "ad867bf4b7b0a58341362e309e1c6b8a9214a35454e7fb1a702c823d74bf01fb",
       "stage": 0
     },
     {
@@ -24,7 +24,7 @@
       "page_count": 1,
       "page_id_sha256": "9157a76f27bdc0cbd3fa6b8df504b883e4922ce8c36ae8f11591462161f6e55b",
       "root_attachments": {},
-      "source_input_sha256": "e7dcfc532897724bdda7da7cd54e9cedfe1fc76998f6257e21d392c1a5f6adc5",
+      "source_input_sha256": "4557d799a3a76ae5078f97b5aa2961215efc41e886813bb46b887533d26ff21b",
       "stage": 1
     },
     {
@@ -41,7 +41,7 @@
           }
         ]
       },
-      "source_input_sha256": "3964d8c4b8f59b5848d03df614e17dc8e3e998e802ac2dea89bfae45842ffed5",
+      "source_input_sha256": "2b0c8aa9f31d3f50713f513885253a44ecd0a4c36ed0019662b40819a8775793",
       "stage": 2
     },
     {
@@ -62,7 +62,7 @@
           }
         ]
       },
-      "source_input_sha256": "5564fe01258b5d41a007fc901658e308e630c688667dbcaf56cad98ca0b0cb93",
+      "source_input_sha256": "51296f119747d5bed0cf3d51833fd6be7844b88c1b7951670e071988f66679d1",
       "stage": 3
     },
     {
@@ -85,7 +85,7 @@
           }
         ]
       },
-      "source_input_sha256": "ace8cfe94dd750a5fb177452e76ff6559c36c6f484d8f09005a062df144ae33f",
+      "source_input_sha256": "d07fd00e2101746e48ffabdcf5ef2ea4d75db78d9004a09ea14b9ca7549eceea",
       "stage": 4
     },
     {
@@ -109,7 +109,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "e9f4a4d251f5e6909b01d9a8793145a96de85e325dab4aa04c5f9dc85fc3c86c",
+      "source_input_sha256": "d4e7d6e06306eadf0613c27602009bb017fc9df017dc134ee17a21b9de1d28aa",
       "stage": 5
     },
     {
@@ -136,7 +136,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "dc5650de0db9965bbc8c5e21c6b8978d5064efaff8569ad0e8265457c2a95984",
+      "source_input_sha256": "fdfc5e63a620c9c9f76d0af3c3aab15343bdc52d6d1211441067ba2951fd03ae",
       "stage": 6
     },
     {
@@ -172,7 +172,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "849f87c5605d094ff47f22ed9e5f3c775b834654880c4bf8f8761a1546b31a34",
+      "source_input_sha256": "d97f950819f29bf7f83362b703985ffe9b9a3a1cac484bce914ee09f0cafcbaa",
       "stage": 7
     },
     {
@@ -298,7 +298,7 @@
           "gamification"
         ]
       },
-      "source_input_sha256": "2e9d38b4462a822981dea246ffb2d686ec427c45373c684f4f17882392909af2",
+      "source_input_sha256": "235c7d670f33f368b563b5760a60278dbe8f7299da2e2bf99daac965c4384cca",
       "stage": 8
     }
   ]

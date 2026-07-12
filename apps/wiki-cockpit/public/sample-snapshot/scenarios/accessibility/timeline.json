@@ -1,0 +1,116 @@
+{
+  "bands": {
+    "last_30_days": 0,
+    "last_7_days": 6,
+    "older": 1,
+    "undated": 0
+  },
+  "compatibility": {
+    "legacy_event_kinds_preserved": true,
+    "legacy_schema_version": "wiki_web_timeline.v1",
+    "replacement_payload": "temporal_graph.json"
+  },
+  "contract_version": "activity_timeline.v1",
+  "event_count": 7,
+  "events": [
+    {
+      "commit": "",
+      "context": "system",
+      "id": "snapshot-generated",
+      "kind": "snapshot",
+      "label": "Snapshot generated",
+      "path": "",
+      "status": "blocked",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "sistema",
+      "id": "page-rule-nada-publica-sem-review",
+      "kind": "page_updated",
+      "label": "Nada publica sem review humano",
+      "path": "memories/rules/rule-nada-publica-sem-review.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "pessoal",
+      "id": "page-root-alex-rivera",
+      "kind": "page_updated",
+      "label": "Alex Rivera",
+      "path": "memories/index.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-claim-region-grouping-needed",
+      "kind": "page_updated",
+      "label": "Dense regions need summaries",
+      "path": "memories/claims/claim-region-grouping-needed.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-artifact-dashboard-atlas",
+      "kind": "page_updated",
+      "label": "Dashboard do Atlas",
+      "path": "memories/artifacts/artifact-dashboard-atlas.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-action-region-clean-unsourced",
+      "kind": "page_updated",
+      "label": "Clean unsourced region claims",
+      "path": "memories/actions/action-region-clean-unsourced.md",
+      "status": "fresh",
+      "timestamp": "2026-07-03T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "estudio",
+      "id": "page-person-marina-costa",
+      "kind": "page_updated",
+      "label": "Marina Costa",
+      "path": "memories/people/person-marina-costa.md",
+      "status": "stale",
+      "timestamp": "2026-05-04T00:00:00Z",
+      "weight": 1
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
+  "repo_id": "wiki-viva-demo",
+  "returned_count": 7,
+  "schema_version": "wiki_web_timeline.v1",
+  "summary": {
+    "by_context": {
+      "clientes": 3,
+      "estudio": 1,
+      "pessoal": 1,
+      "sistema": 1,
+      "system": 1
+    },
+    "by_kind": {
+      "page_updated": 6,
+      "snapshot": 1
+    },
+    "event_count": 7,
+    "first_at": "2026-05-04T00:00:00Z",
+    "last_at": "2026-07-09T00:00:00Z"
+  },
+  "truncated": false
+}

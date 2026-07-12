@@ -18,9 +18,9 @@ source_refs:
 - source-support-tickets
 evidence_refs:
 - artifact-region-pressure-044
-next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: normal
 attention_basis: The synthetic action is overdue.
+next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 ---
 
 # Dense canonical action 044

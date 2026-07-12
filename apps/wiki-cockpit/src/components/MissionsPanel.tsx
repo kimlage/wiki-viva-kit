@@ -268,6 +268,9 @@ export function MissionsPanel({
                 grounding: { state_report: { scope: "missions", limit: 6 } }
               })
             }
+            disabled={demo}
+            aria-label={demo ? `${t("missions.brief.top")} — ${t("demo.readOnlyControl")}` : undefined}
+            title={demo ? t("demo.readOnlyControl") : undefined}
             type="button"
           >
             <Sparkles size={14} />
@@ -318,6 +321,9 @@ export function MissionsPanel({
                       const spec = missionBriefSpec(mission);
                       if (spec) onComposeBrief(spec);
                     }}
+                    disabled={demo}
+                    aria-label={demo ? `${t("missions.brief.generate")} — ${t("demo.readOnlyControl")}` : undefined}
+                    title={demo ? t("demo.readOnlyControl") : undefined}
                     type="button"
                   >
                     {t("missions.brief.generate")}

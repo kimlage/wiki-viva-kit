@@ -183,6 +183,8 @@ const GLOBAL_SHORTCUT_BLOCKING_SURFACES = [
   ".visualControlPanel",
   ".packetTray",
   ".missionsPanel",
+  ".timelineSurface",
+  ".packWorkbenchSurface",
   ".templateInspector",
   ".genesisCard",
   ".genesisVoid"
@@ -1128,6 +1130,11 @@ const WEATHER_SKY: Record<string, string> = {
   blocked: "#0d0708"
 };
 
+export function sceneFrameloop(suspended: boolean, visualMotion: boolean): "never" | "always" | "demand" {
+  if (suspended) return "never";
+  return visualMotion ? "always" : "demand";
+}
+
 export function SystemScene({
   nodes,
   overlay = "attention",
@@ -1143,6 +1150,7 @@ export function SystemScene({
   snapshotAt,
   activityLevel = 0,
   weather = "clear",
+  suspended = false,
   visualTuning: visualTuningInput,
   bornPageIds,
   missionMarkers,
@@ -1180,6 +1188,7 @@ export function SystemScene({
   snapshotAt?: string;
   activityLevel?: number;
   weather?: string;
+  suspended?: boolean;
   visualTuning?: VisualControlConfig;
   bornPageIds?: string[];
   missionMarkers?: MissionMarker[];
@@ -1811,8 +1820,33 @@ export function SystemScene({
       return Boolean(element.isContentEditable || element.closest?.(".pageReader"));
     };
     const onKey = (event: KeyboardEvent) => {
-      if (isTypingTarget(event.target)) return;
       if (globalSceneShortcutsBlocked()) return;
+      if (event.key === "Tab") {
+        // Safari/WebKit does not include every button/link in native Tab order
+        // unless the OS full-keyboard-access preference is enabled. Keep the
+        // product contract browser-independent: move synchronously to the next
+        // real visible control, never to an internal pseudo-focus. The ends do
+        // not wrap, so native focus can leave the world without a trap.
+        const shell = sceneShellRef.current;
+        const active = document.activeElement as HTMLElement | null;
+        if (!shell || (active !== document.body && active && !shell.contains(active))) return;
+        const focusables = [...shell.querySelectorAll<HTMLElement>(
+          "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"
+        )].filter((element) => {
+          if (element.closest("[hidden], [aria-hidden='true'], [inert]")) return false;
+          const style = element.ownerDocument.defaultView?.getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return style?.display !== "none" && style?.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+        });
+        if (focusables.length === 0) return;
+        const index = active === document.body ? (event.shiftKey ? focusables.length : -1) : focusables.indexOf(active!);
+        const next = focusables[index + (event.shiftKey ? -1 : 1)];
+        if (!next) return;
+        event.preventDefault();
+        next.focus({ preventScroll: true });
+        return;
+      }
+      if (isTypingTarget(event.target)) return;
       // Browser/system shortcuts stay untouched (Cmd/Ctrl+R, Cmd+1..9, Cmd+W).
       if (event.metaKey || event.ctrlKey) return;
       if (event.altKey && !(event.key === "ArrowLeft")) return;
@@ -1866,24 +1900,6 @@ export function SystemScene({
       }
       if (event.key === "m" || event.key === "M") {
         setMinimapExpanded((value) => !value);
-        return;
-      }
-      if (event.key === "Tab") {
-        // Group cycling only owns Tab while the scene itself has focus —
-        // HUD buttons, the reader and the 2D fallback keep native tab order.
-        const activeElement = document.activeElement as HTMLElement | null;
-        const inDom =
-          activeElement &&
-          activeElement !== document.body &&
-          !activeElement.closest?.(".sceneCanvasFrame");
-        if (fallback || inDom || layout.groups.length === 0) return;
-        event.preventDefault();
-        const direction = event.shiftKey ? -1 : 1;
-        const next = (focusedGroupIndex + direction + layout.groups.length) % layout.groups.length;
-        setFocusedGroupIndex(next);
-        setFocusedNodeIndex(-1);
-        const group = layout.groups[next];
-        announce(t("scene.groupFocus", { label: worldGroupLabel(group.kind, group.labelKey), n: group.count, shown: group.shown }));
         return;
       }
       if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
@@ -1975,7 +1991,7 @@ export function SystemScene({
   // contract must report the explicit world center even while another page is
   // selected/read; otherwise diagnostics and tests reintroduce the old
   // selection-as-center model that the layout no longer uses.
-  const shellRealCenter = route.centerId || "";
+  const shellRealCenter = route.centerId;
 
   // Guide beacon anchor: the step's subject if it exists in this layout, else
   // the root, else a spot in the void above the founding cards. Anchored at
@@ -2011,6 +2027,7 @@ export function SystemScene({
       data-scene-input-node-count={nodes.length}
       data-scene-performance-profile={profile.label}
       data-scene-fallback-reason={fallbackReason ?? ""}
+      data-scene-suspended={suspended ? "true" : "false"}
       data-visual-density={visualTuning.density.toFixed(2)}
       data-visual-spacing={visualTuning.spacing.toFixed(2)}
       data-visual-glow={visualTuning.glow.toFixed(2)}
@@ -2059,7 +2076,7 @@ export function SystemScene({
             <Canvas
               camera={{ position: [0, 5.2, 8.6], fov: 40 }}
               dpr={profile.dpr}
-              frameloop={visualMotion ? "always" : "demand"}
+              frameloop={sceneFrameloop(suspended, visualMotion)}
               // Zero-debounce measuring: shrink the window where a late CSS
               // layout could leave the canvas committed at 0×0 (black world).
               resize={{ scroll: false, debounce: 0 }}

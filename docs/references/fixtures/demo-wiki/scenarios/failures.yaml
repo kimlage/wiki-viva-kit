@@ -20,24 +20,72 @@ composition:
 expected:
   page_count: 4
   page_id_sha256: 31360e1f7e2eeecd7cb34c7cc9bc0d17f82351ecdf4dfad49a55fb71d4ec16eb
-  required_capabilities: [offline_banner, partial_snapshot, fallback_2d, inert_static_effects]
+  required_artifact_capabilities: [content_sidecars, validated_runtime_boundary]
 versions:
   snapshot: wiki_web_snapshot.v2
   runtime: wiki_world_runtime.v8
   blocks: wiki_blocks.v2
 canonical_routes:
-  - /demo/w?center=root-alex-rivera&view=radar&overlay=attention
+  - /demo/w?demo_scenario=failures&center=root-alex-rivera&view=radar&overlay=attention
 legacy_routes: []
 interactions: [disconnect_api, load_partial_snapshot, request_missing_content, lose_webgl, preview_effect]
 automated_assertions:
-  - real routes never swap to sample data when sampleFallback is false
-  - missing content preserves current center and exposes retry
-  - static demo rejects execution without fabricated success
+  - claim_id: real_routes_never_impersonate_sample_data
+    statement: Real routes never swap to sample data when the operator is unavailable.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/desktop-matrix.spec.ts::Chromium desktop covers the required v8 viewports without clipping the world chrome"
+      - "apps/wiki-cockpit/e2e/fallback-parity.spec.ts::forced fallback preserves route, first viewport and source/action/person/reader/dock parity"
+      - "apps/wiki-cockpit/e2e/mobile-parity.spec.ts::WebKit mobile uses real touch for lens, view, dock and long-label reader flows"
+      - "apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::non-demo cockpit blocks missing operator instead of rendering sample data"
+      - "apps/wiki-cockpit/src/data/snapshot.test.ts::distinguishes current, previous and unsupported snapshot contracts"
+    covers:
+      interactions: [disconnect_api]
+      visual_steps: [verify_offline_banner]
+      visual_viewports: [1440x960, 390x844]
+      browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
+      expected_warnings: [old_snapshot]
+      expected_failures: [api_offline]
+  - claim_id: partial_or_missing_content_degrades_honestly
+    statement: Partial snapshots and missing content preserve context and expose an honest recovery state.
+    test_ids:
+      - "apps/wiki-cockpit/src/components/PageReader.test.tsx::degrades honestly when content is unavailable: summary + operator notice, no dead end"
+      - "apps/wiki-cockpit/src/data/snapshot.test.ts::classifies an incomplete v2 envelope as partial before rendering"
+    covers:
+      interactions: [load_partial_snapshot, request_missing_content]
+      visual_steps: [verify_partial_data, verify_missing_reader]
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: [partial_snapshot, missing_content]
+      expected_failures: [corrupt_snapshot, torn_snapshot]
+  - claim_id: renderer_and_effect_failures_remain_explicit
+    statement: WebGL and effect failures use explicit fallbacks while the static demo rejects fabricated execution.
+    test_ids:
+      - "apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::demo mutation surfaces are visibly disabled and emit zero write requests"
+      - "apps/wiki-cockpit/src/components/SystemScene.test.tsx::uses the 2D fallback with the same topology, URLs and measurable fallback reason"
+      - "apps/wiki-cockpit/src/world/effects/effects.test.ts::aborts stale reads when a new route requests the same resource"
+    covers:
+      interactions: [lose_webgl, preview_effect]
+      visual_steps: [verify_webgl_fallback]
+      visual_viewports: []
+      browser_projects: []
+      expected_warnings: []
+      expected_failures: [webgl_loss, effect_timeout]
+test_capabilities:
+  - capability: fallback_2d
+    test_id: apps/wiki-cockpit/src/components/SystemScene.test.tsx::uses the 2D fallback with the same topology, URLs and measurable fallback reason
+  - capability: inert_static_effects
+    test_id: apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::demo mutation surfaces are visibly disabled and emit zero write requests
+  - capability: offline_banner
+    test_id: apps/wiki-cockpit/e2e/snapshot-origin.spec.ts::non-demo cockpit blocks missing operator instead of rendering sample data
+  - capability: partial_snapshot
+    test_id: apps/wiki-cockpit/src/data/snapshot.test.ts::classifies an incomplete v2 envelope as partial before rendering
 visual:
+  matrix_semantics: representative_shell_evidence_not_route_cross_product
   viewports: [1440x960, 390x844]
   browser_projects: [chromium-desktop, webkit-mobile, chromium-fallback]
   steps: [verify_offline_banner, verify_partial_data, verify_missing_reader, verify_webgl_fallback]
 expected_warnings: [old_snapshot, partial_snapshot, missing_content]
+artifact_warning_codes: [source_blocked]
 expected_failures: [api_offline, corrupt_snapshot, torn_snapshot, webgl_loss, effect_timeout]
-generated_files: [apps/wiki-cockpit/public/sample-snapshot/snapshot_warnings.json]
+generated_files: [apps/wiki-cockpit/public/sample-snapshot/scenarios/failures]
 regeneration_command: /opt/anaconda3/bin/python scripts/wiki_build_demo.py

@@ -27,13 +27,13 @@ export function FoundingFallback({
           <>
             <div className="foundingFallbackCards">
               {options.map((option) => (
-                <button className="foundingFallbackCard" key={option} onClick={() => setRootType(option)} type="button">
+                <button className="foundingFallbackCard" key={option} onClick={() => setRootType(option)} tabIndex={0} type="button">
                   <strong>{t(`genesis.founding.type.${option}`)}</strong>
                   <small>{t(`genesis.founding.desc.${option}`)}</small>
                 </button>
               ))}
             </div>
-            <button className="genesisGhost" onClick={() => setOthers((value) => !value)} type="button">
+            <button className="genesisGhost" onClick={() => setOthers((value) => !value)} tabIndex={0} type="button">
               {others ? t("genesis.back") : t("genesis.founding.other")}
             </button>
           </>
@@ -46,17 +46,19 @@ export function FoundingFallback({
                 onChange={(event) => setName(event.target.value)}
                 placeholder={t(`genesis.founding.eg.${rootType}`)}
                 autoFocus
+                tabIndex={0}
               />
             </label>
             <p>{demo ? t("genesis.founding.note") : t("genesis.founding.noteReal")}</p>
             <div className="genesisActions">
-              <button className="genesisGhost" onClick={() => setRootType("")} type="button">
+              <button className="genesisGhost" onClick={() => setRootType("")} tabIndex={0} type="button">
                 {t("genesis.back")}
               </button>
               <button
                 className="genesisCta"
                 disabled={!name.trim()}
                 onClick={() => onFound(rootType, name.trim())}
+                tabIndex={0}
                 type="button"
               >
                 {t("genesis.founding.confirm")}
@@ -65,7 +67,7 @@ export function FoundingFallback({
           </>
         )}
         {skipHref && (
-          <a className="genesisSkip" href={skipHref}>
+          <a className="genesisSkip" href={skipHref} tabIndex={0}>
             {t("genesis.skip")}
           </a>
         )}

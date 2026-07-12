@@ -72,6 +72,7 @@ function sourceTelemetry(sources: SourceEntity[]): DockTelemetryItem[] {
 export function SourceDock({
   bundle,
   sourceId,
+  demo = false,
   onComposeBrief,
   onRequestBrief,
   onNotice,
@@ -81,6 +82,7 @@ export function SourceDock({
 }: {
   bundle: SnapshotBundle;
   sourceId: string;
+  demo?: boolean;
   onComposeBrief?: (spec: BriefSpec) => void;
   onRequestBrief?: (sourceId: string) => Promise<{ ok: boolean; spec?: BriefSpec; error?: string }>;
   onNotice: (text: string) => void;
@@ -171,7 +173,7 @@ export function SourceDock({
   const selected = source.streams.filter((s) => s.selected);
 
   const composeBrief = async () => {
-    if (!onComposeBrief || !onRequestBrief) return;
+    if (demo || !onComposeBrief || !onRequestBrief) return;
     // Compose from the server so the recipe grounding + stale-stream targeting
     // stay authoritative (mirrors the honest gate-fix flow).
     const result = await onRequestBrief(source.source_id);
@@ -300,8 +302,9 @@ export function SourceDock({
             <button
               className="btn btn--run"
               onClick={composeBrief}
-              disabled={source.pending_streams === 0}
-              title={source.pending_streams === 0 ? t("source.brief.upToDate") : t("source.sync.tip")}
+              disabled={demo || source.pending_streams === 0}
+              aria-label={demo ? `${t("source.sync.action", { n: source.pending_streams })} — ${t("demo.readOnlyControl")}` : undefined}
+              title={demo ? t("demo.readOnlyControl") : source.pending_streams === 0 ? t("source.brief.upToDate") : t("source.sync.tip")}
               type="button"
             >
               <RefreshCw size={14} />

@@ -5,7 +5,25 @@
     "older": 9,
     "undated": 0
   },
+  "compatibility": {
+    "legacy_event_kinds_preserved": true,
+    "legacy_schema_version": "wiki_web_timeline.v1",
+    "replacement_payload": "temporal_graph.json"
+  },
+  "contract_version": "activity_timeline.v1",
+  "event_count": 108,
   "events": [
+    {
+      "commit": "",
+      "context": "clientes",
+      "id": "page-action-enviar-proposta",
+      "kind": "page_updated",
+      "label": "Enviar proposta para Caio",
+      "path": "memories/actions/action-enviar-proposta.md",
+      "status": "fresh",
+      "timestamp": "2026-07-11T00:00:00Z",
+      "weight": 2
+    },
     {
       "commit": "",
       "context": "system",
@@ -1086,17 +1104,6 @@
     },
     {
       "commit": "",
-      "context": "clientes",
-      "id": "page-action-enviar-proposta",
-      "kind": "page_updated",
-      "label": "Enviar proposta para Caio",
-      "path": "memories/actions/action-enviar-proposta.md",
-      "status": "fresh",
-      "timestamp": "2026-07-03T00:00:00Z",
-      "weight": 2
-    },
-    {
-      "commit": "",
       "context": "financeiro",
       "id": "page-source-banco-export",
       "kind": "page_updated",
@@ -1196,7 +1203,9 @@
     }
   ],
   "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
   "repo_id": "wiki-viva-demo",
+  "returned_count": 108,
   "schema_version": "wiki_web_timeline.v1",
   "summary": {
     "by_context": {
@@ -1213,6 +1222,7 @@
     },
     "event_count": 108,
     "first_at": "2026-05-04T00:00:00Z",
-    "last_at": "2026-07-09T00:00:00Z"
-  }
+    "last_at": "2026-07-11T00:00:00Z"
+  },
+  "truncated": false
 }

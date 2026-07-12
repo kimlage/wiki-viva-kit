@@ -19,7 +19,7 @@ export type VisualControlConfig = {
 export const VISUAL_CONTROL_STORAGE_KEY = "wikiCockpitVisualControl.v2";
 export const LEGACY_VISUAL_CONTROL_STORAGE_KEY = "wikiCockpitVisualControl.v1";
 export const VISUAL_CONTROL_SCHEMA = "wiki_cockpit_visual_config.v1";
-export const VISUAL_CONTROL_COCKPIT_VERSION = "0.1.109";
+export const VISUAL_CONTROL_COCKPIT_VERSION = "0.2.0";
 export const VISUAL_CONTROL_COMMANDS = ["/god_mode", "/abrachaindabra"] as const;
 
 export const DEFAULT_VISUAL_CONTROL_CONFIG: VisualControlConfig = {

@@ -1,0 +1,143 @@
+schema_version: wiki_experience_pack.v1
+id: personal-finance
+name: Personal Finance
+description: A synthetic operational vertical for private financial records, reconciliation, closing and forecasting.
+version: 0.1.0
+license: MIT
+compatible_core: ">=8.0 <9"
+capabilities:
+  page_types:
+    - personal_finance_account
+    - personal_finance_transaction
+    - personal_finance_obligation
+    - personal_finance_category
+    - personal_finance_reconciliation
+    - personal_finance_monthly_closing
+  blocks:
+    - personal-finance.cashflow-period
+    - personal-finance.category-variance
+  block_packages:
+    - quadrant_lenses
+    - gamification
+  views:
+    - personal-finance.cashflow
+    - personal-finance.category-variance
+    - personal-finance.reconciliation
+    - personal-finance.monthly-closing-tape
+  commands:
+    - personal-finance.import
+    - personal-finance.classify
+    - personal-finance.reconcile
+    - personal-finance.monthly-close
+    - personal-finance.forecast
+  operations:
+    - personal-finance.import-transactions
+    - personal-finance.classify-transaction
+    - personal-finance.reconcile-account
+    - personal-finance.monthly-close
+    - personal-finance.forecast-cashflow
+  temporal_profiles:
+    - personal-finance.financial-calendar
+    - personal-finance.due-horizon
+    - personal-finance.month-comparison
+dependencies: []
+conflicts: []
+privacy:
+  default_visibility: private
+  public_fixture_only: true
+  access_secrets: block
+  pii_public_export: block
+assets:
+  manifest: assets/manifest.yaml
+  allow_remote: false
+fixtures:
+  - fixtures/mini-genesis
+  - fixtures/minimal
+  - fixtures/normal
+  - fixtures/dense
+  - fixtures/failure-missing-source
+  - fixtures/failure-duplicate-transaction
+  - fixtures/failure-late-close
+  - fixtures/failure-public-export
+tests:
+  contracts:
+    - pack_contract
+    - privacy_boundary
+    - lifecycle
+    - composition
+    - temporal_profile
+    - migration
+    - public_export
+    - keyboard_navigation
+    - mobile_journey
+artifacts:
+  page_types: page-types.yaml
+  templates: templates
+  blocks: blocks/blocks.yaml
+  views: views/views.yaml
+  commands: commands/commands.yaml
+  operations: operations/operations.yaml
+  temporal: temporal/profiles.yaml
+  i18n: i18n
+migrations:
+  install: migrations/0001-install.yaml
+  upgrades: migrations/upgrades
+slots:
+  views:
+    - slot: view.cashflow
+      contribution: personal-finance.cashflow
+      mode: append
+    - slot: view.analysis
+      contribution: personal-finance.category-variance
+      mode: append
+    - slot: view.reconciliation
+      contribution: personal-finance.reconciliation
+      mode: append
+    - slot: view.tape
+      contribution: personal-finance.monthly-closing-tape
+      mode: append
+  commands:
+    - slot: command.import
+      contribution: personal-finance.import
+      mode: append
+    - slot: command.classify
+      contribution: personal-finance.classify
+      mode: append
+    - slot: command.reconcile
+      contribution: personal-finance.reconcile
+      mode: append
+    - slot: command.monthly-close
+      contribution: personal-finance.monthly-close
+      mode: append
+    - slot: command.forecast
+      contribution: personal-finance.forecast
+      mode: append
+  operations:
+    - slot: operation.import
+      contribution: personal-finance.import-transactions
+      mode: append
+    - slot: operation.classify
+      contribution: personal-finance.classify-transaction
+      mode: append
+    - slot: operation.reconcile
+      contribution: personal-finance.reconcile-account
+      mode: append
+    - slot: operation.monthly-close
+      contribution: personal-finance.monthly-close
+      mode: append
+    - slot: operation.forecast
+      contribution: personal-finance.forecast-cashflow
+      mode: append
+  timelines:
+    - slot: timeline.calendar
+      contribution: personal-finance.financial-calendar
+      mode: append
+    - slot: timeline.horizon
+      contribution: personal-finance.due-horizon
+      mode: append
+    - slot: timeline.comparison
+      contribution: personal-finance.month-comparison
+      mode: append
+i18n:
+  locales: [en, pt-BR]
+  default_locale: en

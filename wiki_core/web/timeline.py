@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from wiki_core.config import WikiConfig
+from wiki_core.temporal import (
+    ACTIVITY_TIMELINE_CONTRACT_VERSION,
+    ACTIVITY_TIMELINE_LEGACY_SCHEMA_VERSION,
+)
 from wiki_core.web.schemas import WEB_TIMELINE_SCHEMA_VERSION
 
 
@@ -164,8 +168,18 @@ def build_timeline_payload(
 
     return {
         "schema_version": WEB_TIMELINE_SCHEMA_VERSION,
+        "contract_version": ACTIVITY_TIMELINE_CONTRACT_VERSION,
+        "compatibility": {
+            "legacy_schema_version": ACTIVITY_TIMELINE_LEGACY_SCHEMA_VERSION,
+            "legacy_event_kinds_preserved": True,
+            "replacement_payload": "temporal_graph.json",
+        },
         "repo_id": config.repo_id,
         "generated_at": generated_at,
+        "event_count": len(events),
+        "returned_count": len(events),
+        "truncated": False,
+        "next_cursor": None,
         "summary": {
             "event_count": len(events),
             "first_at": min(timestamps) if timestamps else "",
@@ -174,5 +188,8 @@ def build_timeline_payload(
             "by_context": dict(sorted(by_context.items())),
         },
         "bands": _band_counts(events, generated_at),
-        "events": events[:160],
+        # Compatibility reads are intentionally complete.  Semantic pagination
+        # lives in temporal_graph.json; the old activity feed must not retain
+        # its historical silent 160-event cut.
+        "events": events,
     }

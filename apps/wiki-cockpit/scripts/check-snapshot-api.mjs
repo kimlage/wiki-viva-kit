@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const url = process.env.WIKI_COCKPIT_SNAPSHOT_URL || "http://127.0.0.1:5174/api/snapshot/pages.json";
+const url = process.env.WIKI_COCKPIT_SNAPSHOT_URL || "http://127.0.0.1:5173/api/snapshot/pages.json";
 const expectedRepo = process.env.WIKI_COCKPIT_EXPECT_REPO_ID || "";
 const minPages = Number(process.env.WIKI_COCKPIT_MIN_PAGES || "1");
 

@@ -21,20 +21,26 @@ export class WorldRuntime {
     this.#reduce = createWorldReducer(this.pages, this.kernel);
     const errors = this.kernel.validateState(this.#state);
     if (errors.length) throw new Error(`Invalid initial world state: ${errors.join("; ")}`);
-    // The legacy genesis tutorial has one pre-world stage with zero pages.
-    // Compatibility mode may represent that void; native v8 snapshots must
-    // always hydrate a real root page.
-    if (this.pages.size === 0 && this.#state.mode !== "v8") return;
-    if (!this.pages.has(this.#state.centerId)) throw new Error(`Invalid center '${this.#state.centerId}'`);
+    if (this.#state.emptyWorld) {
+      if (this.pages.size !== 0) throw new Error("Invalid empty world: pages must be empty");
+      return;
+    }
+    if (!this.#state.centerId || !this.pages.has(this.#state.centerId)) {
+      throw new Error(`Invalid center '${this.#state.centerId ?? "<none>"}'`);
+    }
   }
 
   getState(): WorldState {
     return this.#state;
   }
 
-  dispatch(event: RuntimeEvent): WorldState {
+  project(event: RuntimeEvent, from: WorldState = this.#state): WorldState {
     if (!this.kernel.interactions.has(event.type)) throw new Error(`Unregistered runtime interaction '${event.type}'`);
-    const next = this.#reduce(this.#state, event);
+    return this.#reduce(from, event);
+  }
+
+  dispatch(event: RuntimeEvent): WorldState {
+    const next = this.project(event);
     this.diagnostics.record(event, next);
     if (next !== this.#state) {
       this.#state = next;

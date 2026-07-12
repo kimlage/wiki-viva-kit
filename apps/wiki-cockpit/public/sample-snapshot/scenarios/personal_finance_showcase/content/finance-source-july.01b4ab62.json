@@ -1,0 +1,109 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "root-personal-finance-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "relation": "markdown_link",
+      "title": "Personal Finance Mission Control"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "finance-obligation-rent",
+      "page_type": "personal_finance_obligation",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/obligation-rent.md",
+      "relation": "source_ref",
+      "title": "Synthetic August rent obligation"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "finance-closing-july",
+      "page_type": "personal_finance_monthly_closing",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/closing-july.md",
+      "relation": "source_ref",
+      "title": "Synthetic July closing"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "finance-reconciliation-july",
+      "page_type": "personal_finance_reconciliation",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/reconciliation-july.md",
+      "relation": "source_ref",
+      "title": "Synthetic July reconciliation"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "finance-transaction-housing",
+      "page_type": "personal_finance_transaction",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-housing.md",
+      "relation": "source_ref",
+      "title": "Synthetic housing transaction"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "finance-transaction-income",
+      "page_type": "personal_finance_transaction",
+      "path": "memories/showcases/personal_finance_showcase/personal-finance/transaction-income.md",
+      "relation": "source_ref",
+      "title": "Synthetic income transaction"
+    }
+  ],
+  "body": "\n# Synthetic July statement\n\nFixture-only evidence anchor for the transactions and reconciliation in the\npublic finance showcase. It contains no account number, counterparty, person or\nexternal access link.\n\n## Demo navigation\n\n[Back to pack showcase](../../../index.md)\n",
+  "frontmatter": {
+    "artifact_type": "synthetic_statement",
+    "context": "showcase",
+    "moc_parent": "memories/index.md",
+    "page_id": "finance-source-july",
+    "page_type": "artifact",
+    "recorded_at": "2026-08-01",
+    "source_refs": [],
+    "stale_after_days": "3650",
+    "title": "Synthetic July statement",
+    "updated_at": "2026-07-09",
+    "visibility": "public"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "showcase",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "finance-source-july",
+    "page_type": "artifact",
+    "path": "memories/showcases/personal_finance_showcase/support/finance-source-july.md",
+    "summary": "Fixture-only evidence anchor for the transactions and reconciliation in the public finance showcase. It contains no account number, counterparty, person or external access link. Back to pack showcase",
+    "summary_truncated": false,
+    "title": "Synthetic July statement",
+    "updated_at": "2026-07-09"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "../../../index.md",
+      "kind": "page",
+      "page_id": "root-personal-finance-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "text": "Back to pack showcase",
+      "title": "Personal Finance Mission Control"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-personal-finance-showcase-5c3906ccbb05a353",
+  "source_refs": []
+}

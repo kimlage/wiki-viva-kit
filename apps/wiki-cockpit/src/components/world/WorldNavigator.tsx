@@ -5,6 +5,7 @@ import {
   Database,
   Eye,
   Grid2X2,
+  History,
   Info,
   Layers3,
   Link2,
@@ -19,7 +20,9 @@ import type { LucideIcon } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { t } from "../../data/i18n";
+import { humanizePackIdentifier } from "../../data/experiencePacks";
 import type { LensId, OverlayId } from "../../world/contracts";
+import type { ExperiencePackComposition, ExperiencePackSlot } from "../../types";
 import {
   WORLD_EXPERIENCE_AXES,
   WORLD_EXPERIENCE_KEYS,
@@ -27,13 +30,16 @@ import {
   WORLD_QUADRANT_LENS_EXPERIENCES,
   WORLD_VIEW_EXPERIENCES,
   activeQuadrantLensOption,
-  isWorldOverlayId
+  isWorldOverlayId,
+  registeredWorldOverlayExperiences,
+  registeredWorldViewExperiences
 } from "../../world/experience";
 import type {
   ExperienceIconId,
   NativeWorldViewId,
   QuadrantLensSelection
 } from "../../world/experience";
+import type { RegistryKernel } from "../../world/registries/RegistryKernel";
 import { useSurfacePresence } from "./useSurfacePresence";
 
 export type WorldExperienceTranslate = (key: string) => string;
@@ -50,6 +56,12 @@ export type WorldNavigatorProps = {
   overlay: OverlayId;
   lens?: LensId | null;
   overlayResolving?: boolean;
+  unavailableViews?: readonly NativeWorldViewId[];
+  lensAvailable?: boolean;
+  overlayAvailable?: boolean;
+  registryKernel?: Pick<RegistryKernel, "views" | "overlays">;
+  experiencePacks?: ExperiencePackComposition;
+  activePackView?: string;
   expanded?: boolean;
   defaultExpanded?: boolean;
   panelId?: string;
@@ -58,6 +70,7 @@ export type WorldNavigatorProps = {
   onViewChange: (view: NativeWorldViewId) => void;
   onOverlayChange: (overlay: OverlayId) => void;
   onLensChange: (lens: QuadrantLensSelection) => void;
+  onPackViewChange?: (contribution: string) => void;
 };
 
 const ICONS: Readonly<Record<ExperienceIconId, LucideIcon>> = {
@@ -68,6 +81,7 @@ const ICONS: Readonly<Record<ExperienceIconId, LucideIcon>> = {
   radar: Radar,
   sources: Database,
   work: ListTodo,
+  timeline: History,
   attention: CircleDot,
   freshness: Clock3,
   actions: ListChecks,
@@ -87,6 +101,12 @@ export function WorldNavigator({
   overlay,
   lens,
   overlayResolving = false,
+  unavailableViews = [],
+  lensAvailable = true,
+  overlayAvailable = true,
+  registryKernel,
+  experiencePacks,
+  activePackView,
   expanded,
   defaultExpanded = false,
   panelId,
@@ -94,11 +114,13 @@ export function WorldNavigator({
   onExpandedChange,
   onViewChange,
   onOverlayChange,
-  onLensChange
+  onLensChange,
+  onPackViewChange
 }: WorldNavigatorProps) {
   const generatedId = useId().replaceAll(":", "");
   const resolvedPanelId = panelId || `world-experience-${generatedId}`;
   const panelHeadingId = `${resolvedPanelId}-title`;
+  const unavailableViewsId = `${resolvedPanelId}-unavailable-views`;
   const learnButtonRef = useRef<HTMLButtonElement>(null);
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
   const isExpanded = expanded ?? internalExpanded;
@@ -107,6 +129,50 @@ export function WorldNavigator({
   const activeCompatibilityView = view ? undefined : compatibilityView;
   const compatibilityBadge = translate(WORLD_EXPERIENCE_KEYS.compatibilityBadge);
   const compatibilitySwitchHint = translate(WORLD_EXPERIENCE_KEYS.compatibilitySwitchHint);
+  const unavailableViewSet = new Set(unavailableViews);
+  const activePackCount = experiencePacks?.packs.length ?? 0;
+  const viewExperiences = registryKernel
+    ? registeredWorldViewExperiences(registryKernel)
+    : WORLD_VIEW_EXPERIENCES;
+  const overlayExperiences = registryKernel
+    ? registeredWorldOverlayExperiences(registryKernel)
+    : WORLD_OVERLAY_EXPERIENCES;
+
+  const packSlotGroup = (kind: keyof ExperiencePackComposition["slots"], rows: ExperiencePackSlot[]) => (
+    <section className="worldNavigatorPackSlot" data-pack-slot-kind={kind}>
+      <h4>{translate(`world.experience.packs.slot.${kind}`)}</h4>
+      {rows.length ? (
+        <ul>
+          {rows.map((row) => {
+            const interactiveView = kind === "views" && Boolean(onPackViewChange);
+            const humanLabel = humanizePackIdentifier(row.contribution, row.pack);
+            const content = (
+              <>
+                <strong>{humanLabel}</strong>
+                <code>{row.contribution}</code>
+                <small>{row.slot} · {row.mode}</small>
+              </>
+            );
+            return (
+              <li key={`${kind}-${row.pack}-${row.slot}-${row.contribution}`}>
+                {interactiveView ? (
+                  <button
+                    type="button"
+                    aria-pressed={activePackView === row.contribution}
+                    aria-label={`${translate("world.experience.packs.openView")} ${humanLabel}`}
+                    data-pack-view-card={row.contribution}
+                    onClick={() => onPackViewChange?.(row.contribution)}
+                  >
+                    {content}
+                  </button>
+                ) : content}
+              </li>
+            );
+          })}
+        </ul>
+      ) : <p>{translate("world.experience.packs.slot.empty")}</p>}
+    </section>
+  );
 
   const changeExpanded = (next: boolean) => {
     if (expanded === undefined) setInternalExpanded(next);
@@ -150,14 +216,17 @@ export function WorldNavigator({
           role="group"
           aria-label={translate(WORLD_EXPERIENCE_KEYS.viewGroupAria)}
         >
-          {WORLD_VIEW_EXPERIENCES.map((option) => (
+          {viewExperiences.map((option) => (
             <button
               key={option.id}
               type="button"
               className={view === option.id ? "runtimeControl worldNavigatorView active" : "runtimeControl worldNavigatorView"}
               aria-pressed={view === option.id}
               aria-label={translate(option.labelKey)}
+              aria-describedby={unavailableViewSet.has(option.id) ? unavailableViewsId : undefined}
               data-view-option={option.id}
+              disabled={unavailableViewSet.has(option.id)}
+              title={unavailableViewSet.has(option.id) ? translate("world.experience.capability.timelineUnavailable") : undefined}
               onClick={() => onViewChange(option.id)}
             >
               <ExperienceIcon id={option.icon} />
@@ -165,6 +234,11 @@ export function WorldNavigator({
             </button>
           ))}
         </div>
+        {unavailableViews.length > 0 && (
+          <span id={unavailableViewsId} className="worldNavigatorUnavailableNote" role="note">
+            {translate("world.experience.capability.timelineUnavailable")}
+          </span>
+        )}
 
         <label className="worldRuntimeSelect worldNavigatorOverlaySelect">
           <span>{translate(WORLD_EXPERIENCE_KEYS.overlaySelectLabel)}</span>
@@ -172,12 +246,13 @@ export function WorldNavigator({
             value={overlay}
             aria-label={translate(WORLD_EXPERIENCE_KEYS.overlaySelectLabel)}
             aria-busy={overlayResolving || undefined}
-            disabled={overlayResolving}
+            disabled={overlayResolving || !overlayAvailable}
+            title={!overlayAvailable ? translate("world.experience.capability.spatialOnly") : undefined}
             onChange={(event) => {
               if (isWorldOverlayId(event.target.value)) onOverlayChange(event.target.value);
             }}
           >
-            {WORLD_OVERLAY_EXPERIENCES.map((option) => (
+            {overlayExperiences.map((option) => (
               <option key={option.id} value={option.id}>
                 {translate(option.labelKey)}
               </option>
@@ -196,6 +271,18 @@ export function WorldNavigator({
           <Info size={16} aria-hidden="true" focusable="false" />
           <span>{translate(WORLD_EXPERIENCE_KEYS.learn)}</span>
         </button>
+        {experiencePacks && (
+          <button
+            type="button"
+            className="worldNavigatorPackBadge"
+            data-active-pack-count={activePackCount}
+            aria-pressed={Boolean(activePackView)}
+            title={translate(activePackCount ? "world.experience.packs.active" : "world.experience.packs.coreOnly")}
+            onClick={() => changeExpanded(true)}
+          >
+            {translate("world.experience.packs.short")} · {activePackCount}
+          </button>
+        )}
       </div>
 
       {panelPresence.mounted && (
@@ -244,6 +331,13 @@ export function WorldNavigator({
             </aside>
           )}
 
+          {(!lensAvailable || !overlayAvailable) && (
+            <aside className="worldNavigatorCapabilityNotice" role="note">
+              <Info size={17} aria-hidden="true" />
+              <span>{translate("world.experience.capability.spatialOnly")}</span>
+            </aside>
+          )}
+
           <section className="worldNavigatorMentalModel" aria-labelledby={`${resolvedPanelId}-mental-model`}>
             <h3 id={`${resolvedPanelId}-mental-model`}>{translate(WORLD_EXPERIENCE_KEYS.mentalModelTitle)}</h3>
             <ol>
@@ -269,7 +363,7 @@ export function WorldNavigator({
               <p>{translate(WORLD_EXPERIENCE_KEYS.viewsIntro)}</p>
             </header>
             <div className="worldNavigatorCardGrid worldNavigatorViewCards">
-              {WORLD_VIEW_EXPERIENCES.map((option) => {
+              {viewExperiences.map((option) => {
                 const descriptionId = `${resolvedPanelId}-view-${option.id}`;
                 return (
                   <button
@@ -277,8 +371,10 @@ export function WorldNavigator({
                     className={view === option.id ? "worldNavigatorCard active" : "worldNavigatorCard"}
                     type="button"
                     aria-pressed={view === option.id}
-                    aria-describedby={descriptionId}
+                    aria-describedby={unavailableViewSet.has(option.id) ? `${descriptionId} ${unavailableViewsId}` : descriptionId}
                     data-view-card={option.id}
+                    disabled={unavailableViewSet.has(option.id)}
+                    title={unavailableViewSet.has(option.id) ? translate("world.experience.capability.timelineUnavailable") : undefined}
                     onClick={() => onViewChange(option.id)}
                   >
                     <span className="worldNavigatorCardTitle">
@@ -292,6 +388,36 @@ export function WorldNavigator({
               })}
             </div>
           </section>
+
+          {experiencePacks && (
+            <section className="worldNavigatorSection worldNavigatorPackCatalog" data-experience-section="packs">
+              <header>
+                <h3>{translate("world.experience.packs.title")}</h3>
+                <p>{translate("world.experience.packs.intro")}</p>
+              </header>
+              {experiencePacks.packs.length ? (
+                <div className="worldNavigatorPackList">
+                  {experiencePacks.packs.map((pack) => (
+                    <span key={pack.id} data-pack-id={pack.id}>
+                      <strong>{pack.id}</strong><small>v{pack.version}</small>
+                    </span>
+                  ))}
+                </div>
+              ) : <p className="worldNavigatorPackEmpty">{translate("world.experience.packs.coreOnly")}</p>}
+              {experiencePacks.block_packages.length > 0 && (
+                <div className="worldNavigatorBlockPackages" aria-label={translate("world.experience.packs.blockPackages")}>
+                  <strong>{translate("world.experience.packs.blockPackages")}</strong>
+                  {experiencePacks.block_packages.map((blockPackage) => <code key={blockPackage}>{blockPackage}</code>)}
+                </div>
+              )}
+              <div className="worldNavigatorPackSlots">
+                {packSlotGroup("views", experiencePacks.slots.views)}
+                {packSlotGroup("commands", experiencePacks.slots.commands)}
+                {packSlotGroup("operations", experiencePacks.slots.operations)}
+                {packSlotGroup("timelines", experiencePacks.slots.timelines)}
+              </div>
+            </section>
+          )}
 
           <section
             className="worldNavigatorSection"
@@ -313,6 +439,7 @@ export function WorldNavigator({
                     aria-pressed={selectedLens === option.id}
                     aria-describedby={descriptionId}
                     data-lens-option={option.id}
+                    disabled={!lensAvailable}
                     onClick={() => onLensChange(option.value)}
                   >
                     <strong>{translate(option.labelKey)}</strong>
@@ -333,7 +460,7 @@ export function WorldNavigator({
               <p>{translate(WORLD_EXPERIENCE_KEYS.overlaysIntro)}</p>
             </header>
             <div className="worldNavigatorCardGrid worldNavigatorOverlayCards">
-              {WORLD_OVERLAY_EXPERIENCES.map((option) => {
+              {overlayExperiences.map((option) => {
                 const descriptionId = `${resolvedPanelId}-overlay-${option.id}`;
                 return (
                   <button
@@ -343,7 +470,7 @@ export function WorldNavigator({
                     aria-pressed={overlay === option.id}
                     aria-describedby={descriptionId}
                     data-overlay-card={option.id}
-                    disabled={overlayResolving}
+                    disabled={overlayResolving || !overlayAvailable}
                     onClick={() => onOverlayChange(option.id)}
                   >
                     <span className="worldNavigatorCardTitle">

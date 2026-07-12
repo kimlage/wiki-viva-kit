@@ -14,8 +14,22 @@ import type {
 } from "../types";
 import { CODEX_UNAVAILABLE } from "../types";
 import type { RuntimeConfig } from "./runtimeConfig";
-import { apiUrl, loadRuntimeConfig } from "./runtimeConfig";
-import { fetchOperatorHealth, operatorPost } from "../world/clients/operatorClient";
+import { loadRuntimeConfig } from "./runtimeConfig";
+import { isDemoScenarioId } from "./demoScenarios";
+import type { DemoScenarioId } from "./demoScenarios";
+import {
+  asTemporalGraphPayload,
+  experiencePackContractErrors,
+  temporalGraphContractErrors
+} from "./snapshotContracts";
+import {
+  assertOperatorRoute,
+  demoRouteRequested,
+  fetchOperatorHealth,
+  operatorPost,
+  operatorRequest,
+  operatorRequestUrl
+} from "../world/clients/operatorClient";
 
 const CORE_FILES = {
   operations: "operations.json",
@@ -42,6 +56,10 @@ const V2_FILES = {
   regionGroups: "region_groups.json",
   sourceLifecycle: "source_lifecycle.json",
   snapshotWarnings: "snapshot_warnings.json"
+} as const;
+
+const CAPABILITY_FILES = {
+  experience_packs: ["experiencePacks", "experience_packs.json"]
 } as const;
 
 const SUPPORTED_SNAPSHOT_VERSIONS = new Set(["wiki_web_snapshot.v1", "wiki_web_snapshot.v2"]);
@@ -81,16 +99,16 @@ export function classifySnapshotManifest(manifest: SnapshotBundle["manifest"]): 
 export const SAMPLE_BASE = "/sample-snapshot";
 
 export const DEMO_SCENARIO_BASES = Object.freeze({
+  walking_skeleton: `${SAMPLE_BASE}/scenarios/walking_skeleton`,
   normal_operations: SAMPLE_BASE,
-  dense_stress: `${SAMPLE_BASE}/scenarios/dense_stress`
-} as const);
-
-export type DemoScenarioId = keyof typeof DEMO_SCENARIO_BASES;
-
-function demoModeRequested(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.location.pathname.startsWith("/demo") || new URLSearchParams(window.location.search).get("demo") === "1";
-}
+  dense_stress: `${SAMPLE_BASE}/scenarios/dense_stress`,
+  source_lifecycle: `${SAMPLE_BASE}/scenarios/source_lifecycle`,
+  failures: `${SAMPLE_BASE}/scenarios/failures`,
+  compatibility: `${SAMPLE_BASE}/scenarios/compatibility`,
+  accessibility: `${SAMPLE_BASE}/scenarios/accessibility`,
+  study_research_showcase: `${SAMPLE_BASE}/scenarios/study_research_showcase`,
+  personal_finance_showcase: `${SAMPLE_BASE}/scenarios/personal_finance_showcase`
+} as const satisfies Record<DemoScenarioId, string>);
 
 export function demoSnapshotBase(
   options: { stage?: number | null; search?: string; scenario?: string | null } = {}
@@ -98,14 +116,17 @@ export function demoSnapshotBase(
   if (options.stage != null) return `${SAMPLE_BASE}/stages/${options.stage}`;
   const search = options.search ?? (typeof window === "undefined" ? "" : window.location.search);
   const requested = options.scenario || new URLSearchParams(search).get("demo_scenario");
-  if (requested && Object.prototype.hasOwnProperty.call(DEMO_SCENARIO_BASES, requested)) {
-    return DEMO_SCENARIO_BASES[requested as DemoScenarioId];
+  if (isDemoScenarioId(requested)) {
+    return DEMO_SCENARIO_BASES[requested];
   }
   return DEMO_SCENARIO_BASES.normal_operations;
 }
 
-async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(url, { headers: { accept: "application/json" }, signal });
+async function fetchJson<T>(url: string, signal?: AbortSignal, operatorBoundary = false): Promise<T> {
+  const init = { headers: { accept: "application/json" }, signal };
+  const response = operatorBoundary
+    ? await operatorRequestUrl(url, init)
+    : await fetch(url, init);
   const contentType = response.headers.get("content-type") || "";
   if (!response.ok) {
     throw new Error(`${response.status} ${response.statusText}`);
@@ -137,6 +158,18 @@ function canonicalJson(value: unknown): string {
   return JSON.stringify(value);
 }
 
+export function isDeclaredGenesisEmptyWorld(
+  manifest: SnapshotBundle["manifest"],
+  pages: SnapshotBundle["pages"]["pages"]
+): boolean {
+  return Boolean(
+    manifest.capabilities?.includes("empty_world_compat") &&
+    manifest.fixture?.genesis_stage === 0 &&
+    pages.length === 0 &&
+    !manifest.root_page_id
+  );
+}
+
 async function sha256(value: unknown): Promise<string> {
   if (!globalThis.crypto?.subtle) throw new Error("Snapshot integrity verification is unavailable in this browser");
   const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonicalJson(value)));
@@ -154,6 +187,12 @@ export async function validateSnapshotEnvelope(
     throw new SnapshotLoadError("partial", "Snapshot v2 envelope is incomplete");
   }
   const missingRequired = [...REQUIRED_V2_PAYLOADS].filter((name) => !(name in manifest.integrity!));
+  if (manifest.capabilities?.includes("temporal_graph") && !("temporal_graph.json" in manifest.integrity)) {
+    missingRequired.push("temporal_graph.json");
+  }
+  if (manifest.capabilities?.includes("experience_packs") && !("experience_packs.json" in manifest.integrity)) {
+    missingRequired.push("experience_packs.json");
+  }
   if (missingRequired.length) {
     throw new SnapshotLoadError("partial", `Snapshot ${manifest.snapshot_id} is partial; missing integrity entries: ${missingRequired.join(", ")}`);
   }
@@ -161,11 +200,38 @@ export async function validateSnapshotEnvelope(
     // Content sidecars are integrity-checked when the reader fetches them; the
     // initial world load must not eagerly download every page body.
     if (name.startsWith("content/")) continue;
+    // Chronoscope is a capability chunk: verify it at the moment the view is
+    // opened so normal world boot does not download 150–600KB of temporal data.
+    if (name === "temporal_graph.json" && manifest.capabilities?.includes("temporal_graph") && !(name in payloads)) continue;
     if (!(name in payloads)) throw new SnapshotLoadError("partial", `Snapshot ${manifest.snapshot_id} is missing required payload ${name}`);
     const actual = await sha256(payloads[name]);
     if (actual !== expected.sha256) throw new SnapshotLoadError("integrity", `Snapshot ${manifest.snapshot_id} failed integrity for ${name}`);
   }
+  if (manifest.capabilities?.includes("experience_packs")) {
+    const composition = payloads["experience_packs.json"];
+    const errors = experiencePackContractErrors(composition, manifest.versions);
+    if (errors.length) {
+      const code: SnapshotLoadErrorCode = errors.some((error) => error.includes("unsupported")) ? "unsupported" : "integrity";
+      throw new SnapshotLoadError(code, `Experience pack composition contract failed: ${errors.join("; ")}`);
+    }
+    const typed = composition as NonNullable<SnapshotBundle["experiencePacks"]>;
+    const compositionSha = await sha256({
+      packs: typed.packs,
+      block_packages: typed.block_packages,
+      slots: typed.slots,
+      presentation: typed.presentation
+    });
+    if (compositionSha !== typed.composition_sha256) {
+      throw new SnapshotLoadError("integrity", "Experience pack composition semantic hash mismatch");
+    }
+  }
   const pages = (payloads["pages.json"] as SnapshotBundle["pages"] | undefined)?.pages ?? [];
+  if (emptyCompat && !isDeclaredGenesisEmptyWorld(manifest, pages)) {
+    throw new SnapshotLoadError(
+      "integrity",
+      `Snapshot ${manifest.snapshot_id} claims empty-world compatibility outside a declared Genesis stage 0 fixture`
+    );
+  }
   const ids = new Set<string>();
   for (const page of pages) {
     if (!page.id || ids.has(page.id)) throw new SnapshotLoadError("integrity", `Snapshot ${manifest.snapshot_id} contains a duplicate or empty page id: ${page.id}`);
@@ -175,14 +241,19 @@ export async function validateSnapshotEnvelope(
   if (manifest.contract_errors?.length) throw new SnapshotLoadError("integrity", `Snapshot ${manifest.snapshot_id} contract errors: ${manifest.contract_errors.join("; ")}`);
 }
 
-async function loadFromBase(base: string, signal?: AbortSignal): Promise<SnapshotBundle> {
-  const manifest = await fetchJson<SnapshotBundle["manifest"]>(`${base}/manifest.json`, signal);
+async function loadFromBase(base: string, signal?: AbortSignal, operatorBoundary = false): Promise<SnapshotBundle> {
+  const manifest = await fetchJson<SnapshotBundle["manifest"]>(`${base}/manifest.json`, signal, operatorBoundary);
   manifest.compatibility = classifySnapshotManifest(manifest);
   const coreEntries = await Promise.all(
-    Object.entries(CORE_FILES).map(async ([key, file]) => [key, await fetchJson(`${base}/${file}`, signal), file] as const)
+    Object.entries(CORE_FILES).map(async ([key, file]) => [key, await fetchJson(`${base}/${file}`, signal, operatorBoundary), file] as const)
   );
   const v2Entries = manifest.schema_version === "wiki_web_snapshot.v2"
-    ? await Promise.all(Object.entries(V2_FILES).map(async ([key, file]) => [key, await fetchJson(`${base}/${file}`, signal), file] as const))
+    ? await Promise.all([
+        ...Object.entries(V2_FILES),
+        ...Object.entries(CAPABILITY_FILES)
+          .filter(([capability]) => manifest.capabilities?.includes(capability))
+          .map(([, [key, file]]) => [key, file] as const)
+      ].map(async ([key, file]) => [key, await fetchJson(`${base}/${file}`, signal, operatorBoundary), file] as const))
     : [
         ["operatorCommands", { schema_version: "wiki_operator_commands.v1", operator_commands: [] }, "operator_commands.json"],
         ["workItems", { schema_version: "wiki_work_items.v1", actions: [] }, "work_items.json"],
@@ -192,33 +263,139 @@ async function loadFromBase(base: string, signal?: AbortSignal): Promise<Snapsho
       ] as const;
   const entries = [...coreEntries, ...v2Entries];
   const bundle = Object.fromEntries([["manifest", manifest], ...entries.map(([key, value]) => [key, value])]) as SnapshotBundle;
+  if (manifest.capabilities?.includes("temporal_graph")) {
+    bundle.temporalGraphSource = { base, operatorBoundary };
+  }
   const payloads: Record<string, unknown> = Object.fromEntries(entries.map(([, value, file]) => [file, value]));
   // Optional read models keep old snapshots loadable.
-  bundle.score = await fetchJson(`${base}/score.json`, signal).catch(() => EMPTY_SCORE) as SnapshotBundle["score"];
+  bundle.score = await fetchJson(`${base}/score.json`, signal, operatorBoundary).catch(() => EMPTY_SCORE) as SnapshotBundle["score"];
   payloads["score.json"] = bundle.score;
-  bundle.sourceEntities = await fetchJson(`${base}/source_entities.json`, signal).catch(
+  bundle.sourceEntities = await fetchJson(`${base}/source_entities.json`, signal, operatorBoundary).catch(
     () => ({ schema_version: "wiki_web_source_entities.v1", sources: [] })
   ) as SnapshotBundle["sourceEntities"];
   payloads["source_entities.json"] = bundle.sourceEntities;
-  bundle.templates = await fetchJson(`${base}/templates.json`, signal).catch(
+  bundle.templates = await fetchJson(`${base}/templates.json`, signal, operatorBoundary).catch(
     () => ({ schema_version: "wiki_templates.v1", facets_order: [], types: {} })
   ) as SnapshotBundle["templates"];
   payloads["templates.json"] = bundle.templates;
   // v2 blocks — optional, so pre-v2 snapshots keep loading.
-  bundle.blocks = await fetchJson(`${base}/blocks.json`, signal).catch(
+  bundle.blocks = await fetchJson(`${base}/blocks.json`, signal, operatorBoundary).catch(
     () => ({ schema_version: "wiki_web_blocks.v1", blocks: {}, vocabulary: {}, warnings: [] })
   ) as SnapshotBundle["blocks"];
   payloads["blocks.json"] = bundle.blocks;
-  bundle.blockStacks = await fetchJson(`${base}/block_stacks.json`, signal).catch(
+  bundle.blockStacks = await fetchJson(`${base}/block_stacks.json`, signal, operatorBoundary).catch(
     () => ({ schema_version: "wiki_web_block_stacks.v1", anchors: {} })
   ) as SnapshotBundle["blockStacks"];
   payloads["block_stacks.json"] = bundle.blockStacks;
   await validateSnapshotEnvelope(bundle.manifest, payloads);
-  const confirmation = await fetchJson<SnapshotBundle["manifest"]>(`${base}/manifest.json`, signal);
+  const confirmation = await fetchJson<SnapshotBundle["manifest"]>(`${base}/manifest.json`, signal, operatorBoundary);
   if (bundle.manifest.snapshot_id && confirmation.snapshot_id !== bundle.manifest.snapshot_id) {
     throw new SnapshotLoadError("torn", `Snapshot changed while loading (${bundle.manifest.snapshot_id} -> ${confirmation.snapshot_id || "unknown"})`);
   }
   return bundle;
+}
+
+async function loadFromOperatorAggregate(base: string, signal?: AbortSignal): Promise<SnapshotBundle> {
+  const aggregate = await fetchJson<Record<string, unknown>>(`${base}/boot`, signal, true);
+  if (!aggregate || Array.isArray(aggregate) || typeof aggregate !== "object") {
+    throw new SnapshotLoadError("partial", "Operator snapshot boot payload is not an object");
+  }
+  const required = <T>(name: string): T => {
+    if (!(name in aggregate)) {
+      throw new SnapshotLoadError("partial", `Operator snapshot boot payload is missing ${name}`);
+    }
+    return aggregate[name] as T;
+  };
+  const manifest = required<SnapshotBundle["manifest"]>("manifest.json");
+  manifest.compatibility = classifySnapshotManifest(manifest);
+  const coreEntries = Object.entries(CORE_FILES).map(
+    ([key, file]) => [key, required(file), file] as const
+  );
+  const v2Entries = manifest.schema_version === "wiki_web_snapshot.v2"
+    ? [
+        ...Object.entries(V2_FILES),
+        ...Object.entries(CAPABILITY_FILES)
+          .filter(([capability]) => manifest.capabilities?.includes(capability))
+          .map(([, [key, file]]) => [key, file] as const)
+      ].map(([key, file]) => [key, required(file), file] as const)
+    : [
+        ["operatorCommands", { schema_version: "wiki_operator_commands.v1", operator_commands: [] }, "operator_commands.json"],
+        ["workItems", { schema_version: "wiki_work_items.v1", actions: [] }, "work_items.json"],
+        ["regionGroups", { schema_version: "wiki_region_groups.v2", groups: [] }, "region_groups.json"],
+        ["sourceLifecycle", { schema_version: "wiki_source_lifecycle.v2", sources: [] }, "source_lifecycle.json"],
+        ["snapshotWarnings", { schema_version: "wiki_snapshot_warnings.v1", warnings: [] }, "snapshot_warnings.json"]
+      ] as const;
+  const entries = [...coreEntries, ...v2Entries];
+  const bundle = Object.fromEntries([
+    ["manifest", manifest],
+    ...entries.map(([key, value]) => [key, value])
+  ]) as SnapshotBundle;
+  bundle.score = (aggregate["score.json"] ?? EMPTY_SCORE) as SnapshotBundle["score"];
+  bundle.sourceEntities = (aggregate["source_entities.json"] ?? {
+    schema_version: "wiki_web_source_entities.v1",
+    sources: []
+  }) as SnapshotBundle["sourceEntities"];
+  bundle.templates = (aggregate["templates.json"] ?? {
+    schema_version: "wiki_templates.v1",
+    facets_order: [],
+    types: {}
+  }) as SnapshotBundle["templates"];
+  bundle.blocks = (aggregate["blocks.json"] ?? {
+    schema_version: "wiki_web_blocks.v1",
+    blocks: {},
+    vocabulary: {},
+    warnings: []
+  }) as SnapshotBundle["blocks"];
+  bundle.blockStacks = (aggregate["block_stacks.json"] ?? {
+    schema_version: "wiki_web_block_stacks.v1",
+    anchors: {}
+  }) as SnapshotBundle["blockStacks"];
+  if (manifest.capabilities?.includes("temporal_graph")) {
+    bundle.temporalGraphSource = { base, operatorBoundary: true };
+  }
+  const payloads = { ...aggregate };
+  delete payloads["manifest.json"];
+  await validateSnapshotEnvelope(bundle.manifest, payloads);
+  return bundle;
+}
+
+export async function loadTemporalGraphForBundle(
+  bundle: SnapshotBundle,
+  signal?: AbortSignal
+): Promise<NonNullable<SnapshotBundle["temporalGraph"]>> {
+  const source = bundle.temporalGraphSource;
+  if (!bundle.manifest.capabilities?.includes("temporal_graph")) {
+    throw new SnapshotLoadError("partial", "This snapshot does not advertise the temporal_graph capability");
+  }
+  const payload: unknown = bundle.temporalGraph ?? await (async () => {
+    if (!source) throw new SnapshotLoadError("partial", "Temporal graph source is missing");
+    return fetchJson<unknown>(`${source.base}/temporal_graph.json`, signal, source.operatorBoundary);
+  })();
+  const contractErrors = temporalGraphContractErrors(payload, bundle.manifest.versions);
+  if (contractErrors.length) {
+    const code: SnapshotLoadErrorCode = contractErrors.some((error) => error.includes("unsupported")) ? "unsupported" : "integrity";
+    throw new SnapshotLoadError(code, `Temporal graph contract failed: ${contractErrors.join("; ")}`);
+  }
+  const expected = bundle.manifest.integrity?.["temporal_graph.json"];
+  if (!expected) throw new SnapshotLoadError("partial", "Temporal graph integrity entry is missing");
+  const actual = await sha256(payload);
+  if (actual !== expected.sha256) {
+    throw new SnapshotLoadError("integrity", `Snapshot ${bundle.manifest.snapshot_id || "unknown"} failed integrity for temporal_graph.json`);
+  }
+  if (source) {
+    const confirmation = await fetchJson<SnapshotBundle["manifest"]>(
+      `${source.base}/manifest.json`,
+      signal,
+      source.operatorBoundary
+    );
+    if (bundle.manifest.snapshot_id && confirmation.snapshot_id !== bundle.manifest.snapshot_id) {
+      throw new SnapshotLoadError(
+        "torn",
+        `Snapshot changed while loading temporal_graph.json (${bundle.manifest.snapshot_id} -> ${confirmation.snapshot_id || "unknown"})`
+      );
+    }
+  }
+  return asTemporalGraphPayload(payload);
 }
 
 export async function loadSnapshotBundle(
@@ -226,7 +403,7 @@ export async function loadSnapshotBundle(
 ): Promise<{ bundle: SnapshotBundle; source: string; runtime: RuntimeConfig }> {
   // Demo is an in-memory bundle switch: synthetic ids never resolve against
   // the real snapshot, and switching universes never reloads the document.
-  if (options.demo ?? demoModeRequested()) {
+  if (options.demo ?? demoRouteRequested()) {
     // Load the runtime config anyway so presentation overrides still apply to demo data.
     const demoRuntime = await loadRuntimeConfig();
     // Genesis: each tutorial stage is a REAL pre-built snapshot (stages/<k>/) —
@@ -240,12 +417,15 @@ export async function loadSnapshotBundle(
       runtime: { ...demoRuntime, apiBase: "", snapshotBase: base, repoLabel: "wiki-viva-kit demo", mode: "static_demo" }
     };
   }
-  const configured = import.meta.env.VITE_WIKI_SNAPSHOT_BASE as string | undefined;
+  assertOperatorRoute();
   const runtime = await loadRuntimeConfig();
+  // Runtime configuration is asynchronous and can reveal a custom operator
+  // origin/base. Revalidate the universe before resolving or fetching any of
+  // its live snapshot candidates.
+  assertOperatorRoute();
   const runtimeBase = runtime.snapshotBase || "";
   const apiBase = `${runtime.apiBase}/snapshot`;
   const candidates = [
-    { base: configured, sampleFallback: false },
     { base: runtimeBase, sampleFallback: false },
     { base: apiBase, sampleFallback: false }
   ].filter((candidate): candidate is { base: string; sampleFallback: boolean } => Boolean(candidate.base));
@@ -255,7 +435,20 @@ export async function loadSnapshotBundle(
     if (seen.has(`${base}:${sampleFallback ? "fallback" : "configured"}`)) continue;
     seen.add(`${base}:${sampleFallback ? "fallback" : "configured"}`);
     try {
-      const bundle = await loadFromBase(base, options.signal);
+      let bundle: SnapshotBundle;
+      if (base === apiBase) {
+        try {
+          bundle = await loadFromOperatorAggregate(base, options.signal);
+        } catch (error) {
+          // Compatibility for an already-running v6 operator process that
+          // predates the aggregate boot route. Only endpoint absence falls
+          // back; malformed/incoherent aggregate data must fail visibly.
+          if (!(error instanceof Error) || !/^404\b/.test(error.message)) throw error;
+          bundle = await loadFromBase(base, options.signal, true);
+        }
+      } else {
+        bundle = await loadFromBase(base, options.signal, true);
+      }
       return { bundle, source: base, runtime };
     } catch (error) {
       lastError = error;
@@ -300,7 +493,10 @@ export async function loadPageContent(
     attempts.push(() => fetchJson<PageContent>(`${options.snapshotSource || SAMPLE_BASE}/content/${sidecarName(pageId)}`, options.signal));
   } else {
     attempts.push(async () => {
-      const response = await fetch(await apiUrl(`/pages/${encodeURIComponent(pageId)}/content`), {
+      const revisionQuery = options.snapshotId
+        ? `?snapshot_id=${encodeURIComponent(options.snapshotId)}`
+        : "";
+      const response = await operatorRequest(`/pages/${encodeURIComponent(pageId)}/content${revisionQuery}`, {
         headers: { accept: "application/json" },
         signal: options.signal
       });
@@ -310,10 +506,11 @@ export async function loadPageContent(
     });
     const base = options.snapshotSource;
     if (base && !base.endsWith("/api/snapshot")) {
-      attempts.push(() => fetchJson<PageContent>(`${base}/content/${sidecarName(pageId)}`, options.signal));
+      attempts.push(() => fetchJson<PageContent>(`${base}/content/${sidecarName(pageId)}`, options.signal, true));
     }
   }
   let lastError: unknown = null;
+  let lastFailure: PageContent | null = null;
   for (const attempt of attempts) {
     try {
       const payload = await attempt();
@@ -331,11 +528,16 @@ export async function loadPageContent(
         }
         return payload;
       }
-      if (payload && payload.error) lastError = new Error(payload.error);
+      if (payload && payload.error) {
+        if (payload.error_code === "snapshot_revision_mismatch") return payload;
+        lastFailure = payload;
+        lastError = new Error(payload.error);
+      }
     } catch (error) {
       lastError = error;
     }
   }
+  if (lastFailure) return lastFailure;
   return {
     ok: false,
     error: lastError instanceof Error ? lastError.message : "conteúdo indisponível neste modo"
@@ -345,8 +547,8 @@ export async function loadPageContent(
 // The operator handshake. Old operators (process older than the code on disk)
 // omit server_version/schema_capabilities entirely, which is how we detect
 // staleness and show the honest "restart the operator" state everywhere.
-export async function loadHealth(): Promise<OperatorHealth | null> {
-  return fetchOperatorHealth();
+export async function loadHealth(options: { signal?: AbortSignal } = {}): Promise<OperatorHealth | null> {
+  return fetchOperatorHealth(options);
 }
 
 // Live Codex capability, read from /api/health (one fetch — the health payload
@@ -354,7 +556,10 @@ export async function loadHealth(): Promise<OperatorHealth | null> {
 // Codex, so demo/static mode never fetches. A stale operator (no `codex`
 // capability) is reported as operator_outdated, NOT as "not installed" — the
 // old code lied about a machine where codex is installed and authed.
-export async function loadCodexCapability(runtime: RuntimeConfig): Promise<CodexCapability> {
+export async function loadCodexCapability(
+  runtime: RuntimeConfig,
+  options: { signal?: AbortSignal } = {}
+): Promise<CodexCapability> {
   if (runtime.mode === "static_demo" || !runtime.codexEnabled) {
     return {
       ...CODEX_UNAVAILABLE,
@@ -364,7 +569,7 @@ export async function loadCodexCapability(runtime: RuntimeConfig): Promise<Codex
         : "Codex is turned off for this wiki."
     };
   }
-  const health = await loadHealth();
+  const health = await loadHealth(options);
   if (health === null) {
     return { ...CODEX_UNAVAILABLE, reason: "operator not reachable" };
   }
@@ -394,16 +599,17 @@ export async function composeBrief(spec: BriefSpec): Promise<BriefRecord> {
   return result;
 }
 
-export async function listBriefs(): Promise<BriefRecord[]> {
-  const response = await fetch(await apiUrl("/briefs"), { headers: { accept: "application/json" } });
+export async function listBriefs(options: { signal?: AbortSignal } = {}): Promise<BriefRecord[]> {
+  const response = await operatorRequest("/briefs", { headers: { accept: "application/json" }, signal: options.signal });
   if (!response.ok) return [];
   const result = (await response.json()) as { ok: boolean; briefs: BriefRecord[] };
   return result.briefs || [];
 }
 
-export async function getBrief(briefId: string): Promise<BriefRecord | null> {
-  const response = await fetch(await apiUrl(`/briefs/${encodeURIComponent(briefId)}`), {
-    headers: { accept: "application/json" }
+export async function getBrief(briefId: string, options: { signal?: AbortSignal } = {}): Promise<BriefRecord | null> {
+  const response = await operatorRequest(`/briefs/${encodeURIComponent(briefId)}`, {
+    headers: { accept: "application/json" },
+    signal: options.signal
   });
   if (!response.ok) return null;
   return (await response.json()) as BriefRecord;
@@ -450,24 +656,26 @@ export async function spawnCodexJob(
   return result;
 }
 
-export async function listCodexJobs(): Promise<CodexJobRecord[]> {
-  const response = await fetch(await apiUrl("/codex/jobs"), { headers: { accept: "application/json" } });
+export async function listCodexJobs(options: { signal?: AbortSignal } = {}): Promise<CodexJobRecord[]> {
+  const response = await operatorRequest("/codex/jobs", { headers: { accept: "application/json" }, signal: options.signal });
   if (!response.ok) return [];
   const result = (await response.json()) as { ok: boolean; jobs: CodexJobRecord[] };
   return result.jobs || [];
 }
 
-export async function pollCodexJob(jobId: string): Promise<CodexJobRecord | null> {
-  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}`), {
-    headers: { accept: "application/json" }
+export async function pollCodexJob(jobId: string, options: { signal?: AbortSignal } = {}): Promise<CodexJobRecord | null> {
+  const response = await operatorRequest(`/codex/jobs/${encodeURIComponent(jobId)}`, {
+    headers: { accept: "application/json" },
+    signal: options.signal
   });
   if (!response.ok) return null;
   return (await response.json()) as CodexJobRecord;
 }
 
-export async function streamCodexLog(jobId: string): Promise<string> {
-  const response = await fetch(await apiUrl(`/codex/jobs/${encodeURIComponent(jobId)}/log`), {
-    headers: { accept: "application/json" }
+export async function streamCodexLog(jobId: string, options: { signal?: AbortSignal } = {}): Promise<string> {
+  const response = await operatorRequest(`/codex/jobs/${encodeURIComponent(jobId)}/log`, {
+    headers: { accept: "application/json" },
+    signal: options.signal
   });
   if (!response.ok) return "";
   const result = (await response.json()) as { ok: boolean; log: string };
@@ -494,11 +702,13 @@ export async function cancelCodexJob(jobId: string): Promise<CodexJobRecord | nu
 // Full per-file diff for the Gate dock / reader Diff tab (secret-redacted
 // server-side; untracked files diff against /dev/null).
 export async function loadFileDiff(
-  path: string
+  path: string,
+  options: { signal?: AbortSignal } = {}
 ): Promise<{ ok: boolean; path?: string; tracked?: boolean; truncated?: boolean; diff?: string[]; error?: string }> {
   try {
-    const response = await fetch(await apiUrl(`/diff/file?path=${encodeURIComponent(path)}`), {
-      headers: { accept: "application/json" }
+    const response = await operatorRequest(`/diff/file?path=${encodeURIComponent(path)}`, {
+      headers: { accept: "application/json" },
+      signal: options.signal
     });
     return (await response.json()) as { ok: boolean; diff?: string[] };
   } catch (error) {

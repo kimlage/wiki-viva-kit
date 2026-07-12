@@ -19,9 +19,9 @@ source_refs:
 - source-support-tickets
 evidence_refs:
 - artifact-region-pressure-022
-next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: normal
 attention_basis: Its lifecycle and evidence state require review.
+next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 ---
 
 # Ação que aguarda julgamento humano sobre evidência sintética de alta densidade 022

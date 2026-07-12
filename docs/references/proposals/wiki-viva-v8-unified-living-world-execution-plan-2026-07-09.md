@@ -17,17 +17,18 @@ tags:
   - wiki/templates
   - wiki/sources
   - wiki/agents
-  - status/release-candidate
+  - status/blocked
 date: "2026-07-09"
-status: release_candidate
+status: blocked
 context: system
 visibility: public_reference
-updated_at: 2026-07-10
+updated_at: 2026-07-11
 stale_after_days: 45
 sources_policy: "local_branch_audit_plus_private_brainstorm_synthesis"
 gate: github_pr
 sensitive_data_policy: public_synthetic_only
 related_pages:
+  - ../../../docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   - ../../../docs/references/proposals/sources-templates-facets-plan-2026-07-03.md
   - ../../../docs/references/proposals/one-world-cockpit-plan-2026-07-02.md
   - ../../../docs/references/proposals/codex-agentic-missions-plan-2026-07-02.md
@@ -55,7 +56,14 @@ scope: "Single operational source of truth for consolidating the accumulated bra
 
 # Plan - Wiki Viva v8 Unified Living World Execution
 
-Updated on: 2026-07-10.
+Updated on: 2026-07-11.
+
+> **Current review status:** release readiness was reopened on 2026-07-11
+> after current-run public, browser and sanitized private-downstream validation
+> reproduced P0/P1 gaps that the prior green ledger did not cover. The
+> delivered v8 contracts below remain the implementation foundation. The
+> active correction and extension contract is
+> [Wiki Viva release truth, temporal world and experience packs](wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md).
 
 ## V8 Consolidation Decision
 

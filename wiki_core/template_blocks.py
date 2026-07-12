@@ -28,8 +28,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from wiki_core.action_state import (
+    legacy_action_state_from_body,
+    resolve_action_state,
+)
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.collections import (
+    collection_cycle_diagnostics,
     collection_spec,
     collection_reference_diagnostics,
     collection_membership_basis,
@@ -331,7 +336,7 @@ def _page_records(root: Path, config: WikiConfig, today: dt.date) -> list[dict[s
         return records
     for path in sorted(p for p in memory_root.rglob("*.md") if p.is_file()):
         rel = path.relative_to(root).as_posix()
-        values, _body = parse_frontmatter(path)
+        values, body = parse_frontmatter(path)
         page_id = str(values.get("page_id") or rel).strip()
         records.append(
             {
@@ -344,6 +349,9 @@ def _page_records(root: Path, config: WikiConfig, today: dt.date) -> list[dict[s
                 "moc_parent": str(values.get("moc_parent") or ""),
                 "updated_at": str(values.get("updated_at") or ""),
                 "values": values,
+                # Internal-only input for the legacy action adapter. Derived
+                # payloads select explicit fields and never publish this body.
+                "body": body,
             }
         )
     return records
@@ -1524,8 +1532,10 @@ def _page_has_risk(page: dict[str, Any]) -> bool:
 def _page_is_open_action(page: dict[str, Any]) -> bool:
     if page["page_type"] != "action":
         return False
-    status = str(page["values"].get("status") or "").strip().lower()
-    return status not in {"done", "closed", "complete", "completed", "cancelled", "canceled"}
+    return not resolve_action_state(
+        page["values"],
+        legacy_state=legacy_action_state_from_body(str(page.get("body") or "")),
+    ).terminal
 
 
 REGION_PREVIEW_LIMIT = 40
@@ -1796,6 +1806,21 @@ def validate_blocks(world: BlockWorld) -> list[str]:
         errors.append(
             f"page `{diagnostic['page_id']}`: {diagnostic['field']} references "
             f"missing page `{diagnostic['ref']}`"
+        )
+    for diagnostic in collection_cycle_diagnostics(
+        world.pages,
+        defaults_by_type=collection_defaults,
+        allows_cycles=False,
+    ):
+        edge_details = "; ".join(
+            f"{edge['member']} -> {edge['collection']} via {edge['basis']} "
+            f"declared by {edge['declaration_page']} ({edge['origin']})"
+            for edge in diagnostic["cycle_edges"]
+        )
+        errors.append(
+            "collection cycle is forbidden: "
+            f"{diagnostic['cycle_path_text']}; remove or narrow one declared "
+            f"membership edge: {edge_details}"
         )
     for page in world.pages:
         for problem in validate_collection_declaration(page):

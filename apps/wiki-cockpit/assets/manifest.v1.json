@@ -1,0 +1,69 @@
+{
+  "schema_version": "wiki_cockpit_asset_manifest.v1",
+  "policy": {
+    "allowed_asset_roots": [
+      "public",
+      "src/assets"
+    ],
+    "allowed_spdx": [
+      "Apache-2.0",
+      "BSD-3-Clause",
+      "CC-BY-4.0",
+      "CC0-1.0",
+      "ISC",
+      "MIT",
+      "OFL-1.1"
+    ],
+    "hotlinks": "forbidden",
+    "inline_data_assets": "forbidden",
+    "budgets": {
+      "max_asset_count": 64,
+      "max_total_bytes": 2097152,
+      "max_single_asset_bytes": 524288
+    }
+  },
+  "external_assets": {
+    "state": "none",
+    "declared_count": 0
+  },
+  "icon_dependencies": [
+    {
+      "package": "lucide-react",
+      "version": "0.468.0",
+      "classification": "runtime_component_dependency",
+      "vendored": false,
+      "lock_integrity": "sha512-6koYRhnM2N0GGZIdXzSeiNwguv1gt/FAjZOiPl76roBi3xKEXa4WmfpxgQwTTL4KipXjefrnf3oV4IsYhi4JFA==",
+      "license": {
+        "spdx": "ISC",
+        "file": "assets/THIRD_PARTY_NOTICES.md",
+        "sha256": "5b2dd7f3a080884f5aa5364818858d2928fdaed45f970744665cc8749672a52c"
+      }
+    }
+  ],
+  "assets": [
+    {
+      "id": "cockpit-favicon",
+      "path": "public/favicon.svg",
+      "kind": "image",
+      "origin": "first_party",
+      "license": {
+        "spdx": "MIT",
+        "file": "../../LICENSE",
+        "sha256": "3960f834c06ae2e7870e7fd8957b28804333ee9a1bba663897cabad70c409642"
+      },
+      "integrity": {
+        "algorithm": "sha256",
+        "value": "6c80a9590bbded44a62a21ae7f32a3bb8470d90ae5cb3ee97dd5c95aad98073a",
+        "bytes": 380
+      },
+      "budget": {
+        "max_bytes": 4096
+      },
+      "provenance": {
+        "source": "repository",
+        "upstream_url": null,
+        "attribution": "Wiki Viva Kit contributors"
+      }
+    }
+  ]
+}

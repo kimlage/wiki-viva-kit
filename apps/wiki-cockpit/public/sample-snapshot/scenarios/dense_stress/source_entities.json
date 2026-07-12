@@ -9,6 +9,8 @@
       "lifecycle": {
         "accepted_ref": "demo-sha:product-analytics-accepted",
         "adoption_state": "accepted",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [
           "dashboard-clearpath-activation"
@@ -68,6 +70,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "stale",

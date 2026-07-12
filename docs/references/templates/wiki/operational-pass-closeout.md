@@ -66,7 +66,7 @@ back. Convert it into an explicit action, decision or blocked source row.
 | Evidence | Result |
 | --- | --- |
 | [wiki_audit.py](../../../../scripts/wiki_audit.py) with `--check` |  |
-| [wiki_page_graph.py](../../../../scripts/wiki_page_graph.py) with `--check --impact` |  |
+| [wiki_page_graph.py](../../../../scripts/wiki_page_graph.py) with `--check --impact --base <reviewed-base-sha>` |  |
 | [wiki_quality_report.py](../../../../scripts/wiki_quality_report.py) with `--check` |  |
 | [wiki_consolidate.py](../../../../scripts/wiki_consolidate.py) with `--check` |  |
 | [wiki_operational_pass.py](../../../../scripts/wiki_operational_pass.py) with `--check` |  |

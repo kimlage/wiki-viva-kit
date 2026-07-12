@@ -19,8 +19,9 @@ import {
   TerminalSquare
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BlocksDock } from "./components/BlocksDock";
+import { AppearanceControl } from "./components/AppearanceControl";
 // CreateDock and the genesis guide render inside WorldView now — the create
 // flow is spatial-first, the tutorial voice is an in-world beacon.
 import { BriefStudio } from "./components/BriefStudio";
@@ -39,6 +40,7 @@ import { qualityFlagCount, reviewChecklist } from "./data/model";
 import { contextLabel, pageTypeLabel, registerContextPalette } from "./data/presentation";
 import type { RuntimeConfig } from "./data/runtimeConfig";
 import type { Route, WorldPatch, WorldRoute } from "./router";
+import { isNativeWorldViewId } from "./world/experience";
 import type { ApplicationPorts } from "./application/ports";
 import { groupKeyForPage } from "./scene/perspectives";
 import type { OperatorCommandCard, BriefRecord, BriefSpec, CodexCapability, CommandResultEntry, CommandRunResult, DiffFile, IngestionPlan, IngestionStage, PageRecord, SnapshotBundle, SourceFinding, SourceTriageResult } from "./types";
@@ -51,6 +53,24 @@ type LoadState =
   | { status: "loading" }
   | { status: "error"; error: string }
   | { status: "ready"; bundle: SnapshotBundle; source: string; runtime: RuntimeConfig };
+
+// Returning to a tab is a useful, low-noise freshness signal for a local
+// cockpit. Keep the guard long enough to collapse the paired `focus` +
+// `visibilitychange` events browsers commonly emit for the same return.
+const REAL_SNAPSHOT_REVALIDATION_INTERVAL_MS = 5_000;
+
+function snapshotRevisionKey(bundle: SnapshotBundle): string {
+  const manifest = bundle.manifest;
+  if (manifest.snapshot_id || manifest.bundle_hash) {
+    return `snapshot:${manifest.snapshot_id || ""}|bundle:${manifest.bundle_hash || ""}`;
+  }
+  return `source:${manifest.source_sha || manifest.source_commit || manifest.generated_at}`;
+}
+
+function snapshotVerifiedAtLabel(timestamp: number | null): string {
+  if (timestamp === null) return t("snapshot.revalidationNeverVerified");
+  return new Date(timestamp).toISOString().replace(".000Z", "Z");
+}
 
 function StatusPill({ tone, children }: { tone: "good" | "warn" | "bad" | "info" | "muted"; children: ReactNode }) {
   return <span className={`pill pill-${tone}`}>{children}</span>;
@@ -158,16 +178,16 @@ function Nav({
   // demo prefix through patchWorld), so no legacy-redirect flash.
   const prefix = demo ? "/demo" : "";
   const items = [
-    { href: `${prefix}/w/radar`, id: "world", label: t("nav.home"), icon: <Activity size={17} /> },
+    { href: `${prefix}/w?view=radar`, id: "world", label: t("nav.home"), icon: <Activity size={17} /> },
     { href: dockHref("approve"), id: "review", label: t("nav.approve"), icon: <GitPullRequest size={17} /> },
     { href: dockHref("intake"), id: "sources", label: t("nav.add"), icon: <Inbox size={17} /> },
     { href: dockHref("create"), id: "create", label: t("nav.create"), icon: <Sprout size={17} /> },
     { href: dockHref("source"), id: "fontes", label: t("nav.sources"), icon: <Database size={17} /> },
     { href: dockHref("gates"), id: "health", label: t("nav.health"), icon: <ShieldCheck size={17} /> },
-    { href: `${prefix}/w/atlas`, id: "content", label: t("nav.content"), icon: <FileText size={17} /> },
+    { href: `${prefix}/w?view=atlas&runtime=compat`, id: "content", label: t("nav.content"), icon: <FileText size={17} /> },
     demo
-      ? { href: "/w/radar", id: "demo", label: t("nav.exitDemo"), icon: <Sparkles size={17} /> }
-      : { href: "/demo/w/radar", id: "demo", label: t("nav.demo"), icon: <Sparkles size={17} /> }
+      ? { href: "/w?view=radar", id: "demo", label: t("nav.exitDemo"), icon: <Sparkles size={17} /> }
+      : { href: "/demo/w?view=radar", id: "demo", label: t("nav.demo"), icon: <Sparkles size={17} /> }
   ];
   return (
     <nav className="navRail" aria-label="Cockpit views">
@@ -1131,7 +1151,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const patchWorld = navigation.patch;
   const worldFromRoute = navigation.toWorld;
   const hrefForWorldPatch = (worldRoute: WorldRoute, patch: WorldPatch) => {
-    const nativeV8 = (!worldRoute.perspectiveExplicit || ["quadrants", "radar", "sources", "work"].includes(worldRoute.query.view)) &&
+    const nativeV8 = (!worldRoute.perspectiveExplicit || isNativeWorldViewId(worldRoute.query.view)) &&
       worldRoute.query.runtime !== "compat" && worldRoute.query.runtime !== "legacy";
     if (!nativeV8) return buildUrl(patchWorld(worldRoute, patch));
 
@@ -1173,21 +1193,151 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   const [briefBusy, setBriefBusy] = useState(false);
   const [codexCapability, setCodexCapability] = useState<CodexCapability>(CODEX_UNAVAILABLE);
   const [codexBusy, setCodexBusy] = useState(false);
-
-  // One snapshot bundle per universe, loaded once per session — it survives
-  // all navigation. Demo is an in-memory switch, never a document reload.
-  useEffect(() => {
-    loadSnapshotBundle({ demo: false })
-      .then(({ bundle, source, runtime }) => setRealState({ status: "ready", bundle, source, runtime }))
-      .catch((error: Error) => setRealState({ status: "error", error: error.message }));
+  const [realRevalidationFailure, setRealRevalidationFailure] = useState<{ lastSuccessAt: number | null } | null>(null);
+  const realLoadControllerRef = useRef<AbortController | null>(null);
+  const realBundleLoadedRef = useRef(false);
+  const lastRealLoadStartedAtRef = useRef(0);
+  const lastRealSuccessAtRef = useRef<number | null>(null);
+  const previousDemoRef = useRef(route.demo);
+  const realRevalidationNoticeRef = useRef<string | null>(null);
+  const codexProbeControllerRef = useRef<AbortController | null>(null);
+  const markRealSnapshotSuccess = useCallback(() => {
+    const failedNotice = realRevalidationNoticeRef.current;
+    lastRealSuccessAtRef.current = Date.now();
+    setRealRevalidationFailure(null);
+    setNotice((current) => current?.text === failedNotice ? null : current);
+    realRevalidationNoticeRef.current = null;
   }, []);
+  const markRealRevalidationFailure = useCallback(() => {
+    const failure = { lastSuccessAt: lastRealSuccessAtRef.current };
+    const text = t("snapshot.revalidationFailed", { when: snapshotVerifiedAtLabel(failure.lastSuccessAt) });
+    setRealRevalidationFailure(failure);
+    realRevalidationNoticeRef.current = text;
+    setNotice({ text, tone: "warn", showResult: false });
+  }, []);
+
+  // One mounted snapshot universe survives all navigation. A session that
+  // starts in /demo must never probe the real operator; crossing into /demo
+  // aborts an in-flight real snapshot before the synthetic universe starts.
+  // The live universe is revalidated conservatively below without remounting.
+  useEffect(() => {
+    const returningFromDemo = previousDemoRef.current && !route.demo;
+    previousDemoRef.current = route.demo;
+    if (route.demo) {
+      realLoadControllerRef.current?.abort();
+      realLoadControllerRef.current = null;
+      return undefined;
+    }
+    if (realBundleLoadedRef.current && !returningFromDemo) return undefined;
+
+    // When a previously loaded real world returns from demo, keep that world
+    // mounted while one unthrottled/coalesced read checks what changed during
+    // the synthetic visit. A first-ever real load still owns the loading UI.
+    const silent = realBundleLoadedRef.current;
+    const controller = new AbortController();
+    realLoadControllerRef.current?.abort();
+    realLoadControllerRef.current = controller;
+    lastRealLoadStartedAtRef.current = Date.now();
+    if (!silent) setRealState({ status: "loading" });
+    loadSnapshotBundle({ demo: false, signal: controller.signal })
+      .then(({ bundle, source, runtime }) => {
+        if (controller.signal.aborted) return;
+        realBundleLoadedRef.current = true;
+        markRealSnapshotSuccess();
+        if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+        setRealState((current) => {
+          if (silent && current.status === "ready" && snapshotRevisionKey(current.bundle) === snapshotRevisionKey(bundle)) {
+            return current;
+          }
+          return { status: "ready", bundle, source, runtime };
+        });
+      })
+      .catch((error: Error) => {
+        if (controller.signal.aborted) return;
+        if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+        if (silent) markRealRevalidationFailure();
+        else setRealState({ status: "error", error: error.message });
+      });
+    return () => {
+      if (realLoadControllerRef.current !== controller) return;
+      controller.abort();
+      realLoadControllerRef.current = null;
+    };
+  }, [loadSnapshotBundle, markRealRevalidationFailure, markRealSnapshotSuccess, route.demo]);
   // Refetch the real bundle after a mutating action (e.g. running gates writes
   // receipts) so the world reacts. Keeps the same runtime/source.
   const refetchReal = () => {
-    loadSnapshotBundle({ demo: false })
-      .then(({ bundle, source, runtime }) => setRealState({ status: "ready", bundle, source, runtime }))
-      .catch(() => undefined);
+    if (route.demo) return;
+    const controller = new AbortController();
+    realLoadControllerRef.current?.abort();
+    realLoadControllerRef.current = controller;
+    lastRealLoadStartedAtRef.current = Date.now();
+    loadSnapshotBundle({ demo: false, signal: controller.signal })
+      .then(({ bundle, source, runtime }) => {
+        if (controller.signal.aborted) return;
+        realBundleLoadedRef.current = true;
+        markRealSnapshotSuccess();
+        if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+        setRealState({ status: "ready", bundle, source, runtime });
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+        markRealRevalidationFailure();
+      });
   };
+
+  // A live wiki can change while its cockpit tab is in the background. On a
+  // return to the tab, silently load one coherent real bundle and swap it only
+  // when its immutable revision changed. URL-owned page/dock state and the
+  // mounted world stay intact, so dialogs and keyboard focus are preserved.
+  // Demo routes never install these listeners and can never cross this read
+  // boundary. The shared controller + interval guard prevent overlap and the
+  // usual focus/visibility event pair from becoming a request storm.
+  useEffect(() => {
+    if (route.demo) return undefined;
+
+    const revalidate = () => {
+      // The URL store can advance one render before this effect is removed.
+      // Re-read its current snapshot so a same-turn live -> demo navigation
+      // cannot even invoke the real loader (which also fails closed itself).
+      if (navigation.parseUrl(navigation.getSnapshot()).demo) return;
+      if (document.visibilityState === "hidden") return;
+      if (!realBundleLoadedRef.current || realLoadControllerRef.current) return;
+      const now = Date.now();
+      if (now - lastRealLoadStartedAtRef.current < REAL_SNAPSHOT_REVALIDATION_INTERVAL_MS) return;
+
+      const controller = new AbortController();
+      realLoadControllerRef.current = controller;
+      lastRealLoadStartedAtRef.current = now;
+      loadSnapshotBundle({ demo: false, signal: controller.signal })
+        .then(({ bundle, source, runtime }) => {
+          if (controller.signal.aborted) return;
+          markRealSnapshotSuccess();
+          if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+          setRealState((current) => {
+            if (current.status === "ready" && snapshotRevisionKey(current.bundle) === snapshotRevisionKey(bundle)) {
+              return current;
+            }
+            return { status: "ready", bundle, source, runtime };
+          });
+        })
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          if (realLoadControllerRef.current === controller) realLoadControllerRef.current = null;
+          markRealRevalidationFailure();
+        });
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") revalidate();
+    };
+    window.addEventListener("focus", revalidate);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", revalidate);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [loadSnapshotBundle, markRealRevalidationFailure, markRealSnapshotSuccess, navigation, route.demo]);
   // Demo universe, stage-aware: the genesis tutorial loads stages/<k>/ (a real
   // pre-built snapshot per stage); the full demo loads the base sample. A stage
   // ref guards against stale fetches when the player advances quickly.
@@ -1246,16 +1396,36 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   // The SPA router owns every internal anchor click.
   useEffect(() => navigation.attachLinkInterceptor(), [navigation]);
 
-  const loadState = route.demo ? demoState : realState;
+  // A route change is observable one render before the loading effect above
+  // commits. Do not expose the previous stage's bundle under the next stage's
+  // guide during that frame: a fast keyboard user could start a form that is
+  // then remounted and lose their input when the requested snapshot arrives.
+  const visibleDemoState: LoadState =
+    demoState.status === "ready" && stageRef.current.loaded !== desiredDemoTarget
+      ? { status: "loading" }
+      : demoState;
+  const loadState = route.demo ? visibleDemoState : realState;
   const blockedSampleFallback = isBlockedSampleFallback(route, loadState);
 
   // Live Codex capability: only meaningful with the local operator, so it is
   // probed once the real bundle is ready and never in the demo. It fails closed.
   useEffect(() => {
-    if (loadState.status !== "ready") return;
-    loadCodexCapability(loadState.runtime)
-      .then(setCodexCapability)
-      .catch(() => setCodexCapability(CODEX_UNAVAILABLE));
+    codexProbeControllerRef.current?.abort();
+    codexProbeControllerRef.current = null;
+    if (loadState.status !== "ready" || route.demo) return undefined;
+    const controller = new AbortController();
+    codexProbeControllerRef.current = controller;
+    loadCodexCapability(loadState.runtime, { signal: controller.signal })
+      .then((capability) => {
+        if (!controller.signal.aborted) setCodexCapability(capability);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setCodexCapability(CODEX_UNAVAILABLE);
+      });
+    return () => {
+      controller.abort();
+      if (codexProbeControllerRef.current === controller) codexProbeControllerRef.current = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadState.status, route.demo]);
 
@@ -1263,12 +1433,22 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   // moment the owner reinstalls / logs in / restarts the operator, the ladder
   // flips without a page reload.
   const reverifyCodex = () => {
-    if (loadState.status !== "ready" || codexBusy) return;
+    if (loadState.status !== "ready" || route.demo || codexBusy) return;
+    codexProbeControllerRef.current?.abort();
+    const controller = new AbortController();
+    codexProbeControllerRef.current = controller;
     setCodexBusy(true);
-    loadCodexCapability(loadState.runtime)
-      .then(setCodexCapability)
-      .catch(() => setCodexCapability(CODEX_UNAVAILABLE))
-      .finally(() => setCodexBusy(false));
+    loadCodexCapability(loadState.runtime, { signal: controller.signal })
+      .then((capability) => {
+        if (!controller.signal.aborted) setCodexCapability(capability);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setCodexCapability(CODEX_UNAVAILABLE);
+      })
+      .finally(() => {
+        if (codexProbeControllerRef.current === controller) codexProbeControllerRef.current = null;
+        setCodexBusy(false);
+      });
   };
   const openCodexDock = () => {
     if (route.kind === "world") navigate(hrefForWorldPatch(route, { dock: "codex" }));
@@ -1302,18 +1482,29 @@ export function App({ ports }: { ports: ApplicationPorts }) {
     }
   }, [route.kind]);
 
-  // Legacy alias: /pages/:id lands on the same page in the new world
-  // (/w/atlas/:context/:group/:id?reader=1). /pages lists become the atlas.
+  // Legacy alias: /pages/:id lands on the same page in the query-owned world
+  // (`/w?view=atlas&page=...&reader=1&runtime=compat`). /pages lists become
+  // the Atlas compatibility projection without re-emitting its old path.
   useEffect(() => {
     if (route.kind !== "pageAlias" || loadState.status !== "ready") return;
     const world = worldFromRoute(route);
     if (!route.pageId) {
-      navigate(buildUrl({ ...world, perspective: "atlas" }), { replace: true });
+      navigate(buildUrl({
+        ...world,
+        perspective: "atlas",
+        perspectiveExplicit: true,
+        query: { ...world.query, view: "atlas", runtime: "compat" }
+      }), { replace: true });
       return;
     }
     const page = loadState.bundle.pages.pages.find((item) => item.id === route.pageId || item.path === route.pageId);
     if (!page) {
-      navigate(buildUrl({ ...world, perspective: "atlas" }), { replace: true });
+      navigate(buildUrl({
+        ...world,
+        perspective: "atlas",
+        perspectiveExplicit: true,
+        query: { ...world.query, view: "atlas", runtime: "compat" }
+      }), { replace: true });
       return;
     }
     navigate(
@@ -1323,7 +1514,15 @@ export function App({ ports }: { ports: ApplicationPorts }) {
         context: page.context || "system",
         group: groupKeyForPage("atlas", page),
         pageId: page.id,
-        query: { ...world.query, reader: true }
+        perspectiveExplicit: true,
+        query: {
+          ...world.query,
+          view: "atlas",
+          worldGroup: groupKeyForPage("atlas", page) || "",
+          page: page.id,
+          reader: true,
+          runtime: "compat"
+        }
       }),
       { replace: true }
     );
@@ -1359,7 +1558,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   // Nav points straight at the dock on the CURRENT world (no redirect hop),
   // preserving the operator's perspective/context.
   const navWorld = worldFromRoute(route);
-  const dockHref = (dock: "approve" | "intake" | "gates" | "source" | "create") => buildUrl(patchWorld(navWorld, { dock }));
+  const dockHref = (dock: "approve" | "intake" | "gates" | "source" | "create") =>
+    hrefForWorldPatch(navWorld, { dock });
 
   const executeOperatorCommand = async (action: OperatorCommandCard) => {
     if (busyAction) return;
@@ -1576,7 +1776,14 @@ export function App({ ports }: { ports: ApplicationPorts }) {
   // The demo TITLE SCREEN: /demo asks how you want to enter — found a world
   // from zero (genesis tutorial) or explore the full one. No bundle needed.
   if (route.kind === "demoGate") {
-    return <DemoGate />;
+    return (
+      <div className="demoGateShell">
+        <div className="demoGateAppearance">
+          <AppearanceControl />
+        </div>
+        <DemoGate />
+      </div>
+    );
   }
 
   const content = (() => {
@@ -1625,6 +1832,8 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             onComposeBrief={runBrief}
             navigation={navigation}
             loadPageContent={operator.loadPageContent}
+            loadTemporalGraph={operator.loadTemporalGraph}
+            onSnapshotMismatch={worldRoute.demo ? undefined : refetchReal}
           />
           </Suspense>
         </>
@@ -1662,26 +1871,40 @@ export function App({ ports }: { ports: ApplicationPorts }) {
               Approve mission. Being on a long-lived proposal branch (the private
               cockpit worktree always is) is NOT "pending approval"; an always-on
               git label was noise. Nothing to approve → no pill. */}
-          {loadState.status === "ready" &&
-            !route.demo &&
-            loadState.bundle.git.worktree.changed_files.length > 0 && (
-              <a href={dockHref("approve")} className="topBarPillLink">
-                <StatusPill tone="warn">
-                  <span title={t("git.pendingApprovalTitle")}>
-                    {t("git.pendingApprovalN", { n: loadState.bundle.git.worktree.changed_files.length })}
-                  </span>
-                </StatusPill>
-              </a>
+          <div className="topBarActions">
+            {realRevalidationFailure && !route.demo && (
+              <StatusPill tone="warn">
+                <span title={t("snapshot.revalidationFailed", {
+                  when: snapshotVerifiedAtLabel(realRevalidationFailure.lastSuccessAt)
+                })}>
+                  {t("snapshot.revalidationFailedShort", {
+                    when: snapshotVerifiedAtLabel(realRevalidationFailure.lastSuccessAt)
+                  })}
+                </span>
+              </StatusPill>
             )}
+            {loadState.status === "ready" &&
+              !route.demo &&
+              loadState.bundle.git.worktree.changed_files.length > 0 && (
+                <a href={dockHref("approve")} className="topBarPillLink">
+                  <StatusPill tone="warn">
+                    <span title={t("git.pendingApprovalTitle")}>
+                      {t("git.pendingApprovalN", { n: loadState.bundle.git.worktree.changed_files.length })}
+                    </span>
+                  </StatusPill>
+                </a>
+              )}
+            <AppearanceControl />
+          </div>
         </header>
         {route.demo && (
           <div className="demoBanner" role="note">
             <Sparkles size={15} />
-            <span>{t("demo.banner")}</span>
+            <span>{t(worldRoute?.query.genesis ? "demo.bannerGenesis" : "demo.banner")}</span>
           </div>
         )}
         {content}
-        {activeBrief && (
+        {activeBrief && !route.demo && (
           <BriefStudio
             brief={activeBrief}
             capability={codexCapability}
@@ -1744,6 +1967,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
           <IntakeDock
             bundle={loadState.bundle}
             initialSrc={worldRoute.query.src}
+            demo={route.demo}
             intakeCopy={operator.intakeCopy}
             onComposeBrief={runBrief}
             onOpenCreate={() => navigate(hrefForWorldPatch(worldRoute, { dock: "create", src: null }))}
@@ -1767,6 +1991,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
           <SourceDock
             bundle={loadState.bundle}
             sourceId={worldRoute.query.src}
+            demo={route.demo}
             onComposeBrief={runBrief}
             onRequestBrief={composeSourceBrief}
             onNotice={notify}
@@ -1781,6 +2006,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
           <BlocksDock
             bundle={loadState.bundle}
             focusId={worldRoute.query.center || worldRoute.query.src || worldRoute.pageId || null}
+            readOnly={route.demo && !worldRoute.query.genesis}
             onSelectAnchor={(anchorId) => navigate(hrefForWorldPatch(worldRoute, { dock: "blocks", src: anchorId, center: anchorId }))}
             onOpenPage={(pageId) => navigate(hrefForWorldPatch(worldRoute, { dock: null, pageId, reader: true }))}
             onAttach={(id, anchorId) => {
@@ -1827,7 +2053,7 @@ export function App({ ports }: { ports: ApplicationPorts }) {
             <span>{t("toast.running", { title: busyAction })}</span>
           </div>
         )}
-        {!busyAction && notice && (
+        {!busyAction && notice && !(route.demo && notice.text === realRevalidationNoticeRef.current) && (
           <div className={`actionToast tone-${notice.tone}`} role="status">
             <span>{notice.text}</span>
             {notice.showResult && (

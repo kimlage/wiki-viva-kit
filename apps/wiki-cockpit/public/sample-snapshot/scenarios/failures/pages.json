@@ -1,0 +1,210 @@
+{
+  "pages": [
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "63054d4d7d8b713f1d325bc4e324f821b5d936166b1938b95a98f3e69da43cb7",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "id": "source-error-traces",
+      "moc_children_count": 0,
+      "moc_parent": "memories/clientes/product-ops/index.md",
+      "page_type": "source",
+      "path": "memories/sources/source-error-traces.md",
+      "region_expectations": {
+        "intencao": {
+          "basis": "No template or operator rule has decided whether error traces should project intent.",
+          "next_interaction": "openDock:blocks",
+          "state": "unknown"
+        }
+      },
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": [
+          {
+            "basis": "synthetic_allowed_cycle",
+            "direction": "directed",
+            "provenance": {
+              "field": "relation_cases",
+              "fixture": "failures"
+            },
+            "target": "source-health-checks",
+            "type": "markdown_link"
+          },
+          {
+            "direction": "directed",
+            "target": "missing-demo-page",
+            "type": "unknown_demo_relation"
+          },
+          {
+            "direction": "reverse",
+            "target": "source-health-checks",
+            "type": "source_ref"
+          }
+        ]
+      },
+      "risk_flags": [],
+      "source_blocked_reason": "The synthetic trace export is malformed.",
+      "source_lifecycle_state": "",
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "",
+      "summary": "A live Observability source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle blocked, freshness stale and last attempt parser_error.",
+      "summary_truncated": false,
+      "title": "Error trace export",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "67f53809d87dd88099396a0caec1580b020ffb3272108e4409e0bbc4434ea462",
+      "context": "clientes",
+      "freshness_state": "stale",
+      "id": "action-region-sync-support",
+      "moc_children_count": 0,
+      "moc_parent": "memories/clientes/index.md",
+      "page_type": "action",
+      "path": "memories/actions/action-region-sync-support.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [
+        "source-support-tickets"
+      ],
+      "stale_after_days": "30",
+      "status": "open",
+      "summary": "Synthetic stress content for the region-grouping cockpit plan. Its only job is to make dense regions, stale evidence, open actions and unsourced conclusions visible in the public demo.",
+      "summary_truncated": false,
+      "temporal": {
+        "action_state_history": [],
+        "adapter_fields": {},
+        "dates": {
+          "created_at": "2026-07-03"
+        },
+        "precision": {}
+      },
+      "title": "Refresh support ticket source",
+      "updated_at": "2026-05-04",
+      "visibility": "private_self",
+      "work": {
+        "attention_basis": "The supporting source is outside its freshness window.",
+        "blocked_by": [],
+        "blocker_reason": "",
+        "cancellation_receipt": "",
+        "completed_at": "",
+        "completion_receipt": "",
+        "created_at": "2026-07-03",
+        "due_at": "",
+        "evidence_refs": [
+          "source-support-tickets"
+        ],
+        "next_action": "Refresh the support-ticket source and verify its receipt.",
+        "owner_kind": "unassigned",
+        "owner_ref": "",
+        "parent_ref": "memories/clientes/index.md",
+        "priority": "high",
+        "state": "open",
+        "state_compatibility": false,
+        "state_raw": "open",
+        "state_source": "action_state",
+        "state_warnings": []
+      }
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "f8c3d4615e01e3fa0f28dbe1dfc66627c4b35cbd71ef3f28685e517e961b8b41",
+      "context": "pessoal",
+      "freshness_state": "fresh",
+      "id": "root-alex-rivera",
+      "moc_children_count": 1,
+      "moc_parent": "",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": []
+      },
+      "risk_flags": [],
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "",
+      "summary": "Independent consultant. This root attaches the quadrants, the relations module and the privacy boundary to everything below \u2014 so every area and every ingested source is read through the same combined lenses. Design and AI-safety consulting for small teams.",
+      "summary_truncated": true,
+      "title": "Alex Rivera",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    },
+    {
+      "approved_state": "approved",
+      "collection": {},
+      "collection_members_count": 0,
+      "collection_refs": [],
+      "content_sha256": "aebb9bdb21ee9a278ea92a5dc9d0f5768138ec011f29f43c3ac90729d13906bb",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "id": "source-health-checks",
+      "moc_children_count": 0,
+      "moc_parent": "memories/index.md",
+      "page_type": "source",
+      "path": "memories/sources/source-health-checks.md",
+      "relation_refs": {
+        "consolidated_into": [],
+        "evidence_refs": [],
+        "participants": [],
+        "previous_refs": [],
+        "proposal_ids": [],
+        "related_pages": [],
+        "relation_cases": [
+          {
+            "basis": "synthetic_allowed_cycle",
+            "direction": "directed",
+            "provenance": {
+              "field": "relation_cases",
+              "fixture": "failures"
+            },
+            "target": "source-error-traces",
+            "type": "markdown_link"
+          }
+        ]
+      },
+      "risk_flags": [],
+      "source_blocked_reason": "The synthetic health endpoint returned an operational failure.",
+      "source_lifecycle_state": "",
+      "source_refs": [],
+      "stale_after_days": "30",
+      "status": "",
+      "summary": "A live Checks source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle blocked, freshness stale and last attempt failed.",
+      "summary_truncated": false,
+      "title": "Health checks output",
+      "updated_at": "2026-07-03",
+      "visibility": "private_self"
+    }
+  ],
+  "repo_id": "wiki-viva-demo",
+  "schema_version": "wiki_web_pages.v1"
+}

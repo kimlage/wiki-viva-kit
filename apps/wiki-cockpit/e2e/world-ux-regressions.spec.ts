@@ -7,7 +7,7 @@ const DESKTOP_VIEWPORTS = [
   { width: 1280, height: 720 }
 ] as const;
 
-const NATIVE_VIEWS = ["quadrants", "radar", "sources", "work"] as const;
+const SPATIAL_NATIVE_VIEWS = ["quadrants", "radar", "sources", "work"] as const;
 const QUADRANT_LENSES = [
   { quadrant: "1", lens: "q1_intencao", sceneFacet: "intencao" },
   { quadrant: "2", lens: "q2_pratica", sceneFacet: "pratica" },
@@ -57,6 +57,70 @@ async function expectRememberedCanvas(page: Page) {
     return document.querySelector<HTMLCanvasElement>(".sceneShell canvas") === testWindow.__wikiUxRegressionCanvas;
   });
   expect(sameCanvas).toBe(true);
+}
+
+async function workbenchContrast(page: Page) {
+  return page.evaluate(() => {
+    type Rgba = { r: number; g: number; b: number; a: number };
+    const parse = (value: string): Rgba => {
+      const text = value.trim();
+      const rgb = text.match(/^rgba?\(\s*([\d.]+)[, ]+\s*([\d.]+)[, ]+\s*([\d.]+)(?:\s*[,/]\s*([\d.]+))?\s*\)$/i);
+      if (rgb) return { r: +rgb[1], g: +rgb[2], b: +rgb[3], a: rgb[4] === undefined ? 1 : +rgb[4] };
+      const srgb = text.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)$/i);
+      if (srgb) return { r: +srgb[1] * 255, g: +srgb[2] * 255, b: +srgb[3] * 255, a: srgb[4] === undefined ? 1 : +srgb[4] };
+      const hex = text.match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
+      if (hex) return {
+        r: parseInt(hex[1].slice(0, 2), 16),
+        g: parseInt(hex[1].slice(2, 4), 16),
+        b: parseInt(hex[1].slice(4, 6), 16),
+        a: hex[2] ? parseInt(hex[2], 16) / 255 : 1
+      };
+      throw new Error(`unsupported color ${value}`);
+    };
+    const composite = (foreground: Rgba, background: Rgba): Rgba => {
+      const a = foreground.a + background.a * (1 - foreground.a);
+      return {
+        r: (foreground.r * foreground.a + background.r * background.a * (1 - foreground.a)) / a,
+        g: (foreground.g * foreground.a + background.g * background.a * (1 - foreground.a)) / a,
+        b: (foreground.b * foreground.a + background.b * background.a * (1 - foreground.a)) / a,
+        a
+      };
+    };
+    const luminance = ({ r, g, b }: Rgba) => {
+      const channel = (value: number) => {
+        const n = value / 255;
+        return n <= 0.04045 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
+      };
+      return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+    };
+    const effectiveBackground = (element: Element) => {
+      let color = parse(getComputedStyle(document.documentElement).getPropertyValue("--wiki-bg"));
+      const ancestors: Element[] = [];
+      for (let current: Element | null = element; current; current = current.parentElement) ancestors.unshift(current);
+      for (const current of ancestors) {
+        const layer = parse(getComputedStyle(current).backgroundColor);
+        if (layer.a > 0) color = composite(layer, color);
+      }
+      return color;
+    };
+    const targets = [
+      ["title", ".packWorkbenchHeader h2"],
+      ["intro", ".packWorkbenchHeader p"],
+      ["page title", ".packWorkbenchPageTitle strong"],
+      ["page summary", ".packWorkbenchPageSummary"],
+      ["inventory intro", ".packWorkbenchInventory header p"],
+      ["adapter notice", ".packWorkbenchAdapterNotice"]
+    ] as const;
+    return targets.map(([label, selector]) => {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element) throw new Error(`missing workbench contrast target ${selector}`);
+      const foreground = parse(getComputedStyle(element).color);
+      const background = effectiveBackground(element);
+      const light = Math.max(luminance(foreground), luminance(background));
+      const dark = Math.min(luminance(foreground), luminance(background));
+      return { label, ratio: Number(((light + 0.05) / (dark + 0.05)).toFixed(3)) };
+    });
+  });
 }
 
 test("desktop shell and open navigator panel never create document scrollbars", async ({ page }) => {
@@ -111,7 +175,7 @@ test("switching native views preserves the mounted 3D canvas and center", async 
   expect(Number(localNodeCount)).toBeLessThan(Number(sourceNodeCount));
   await rememberCanvas(page);
 
-  for (const view of NATIVE_VIEWS) {
+  for (const view of SPATIAL_NATIVE_VIEWS) {
     await page.locator(`[data-view-option="${view}"]`).click();
     await expect(workspace).toHaveAttribute("data-world-view", view);
     await expect(workspace).toHaveAttribute("data-world-center", center!);
@@ -122,7 +186,7 @@ test("switching native views preserves the mounted 3D canvas and center", async 
   }
 });
 
-test("all four quadrant lenses work in every native view without changing center", async ({ page }) => {
+test("all four quadrant lenses work in every spatial native view without changing center", async ({ page }) => {
   await prepareWorld(page);
   const workspace = page.locator(".worldWorkspace");
   const scene = page.locator(".sceneShell");
@@ -130,7 +194,7 @@ test("all four quadrant lenses work in every native view without changing center
   expect(center).toBe("root-alex-rivera");
   await rememberCanvas(page);
 
-  for (const view of NATIVE_VIEWS) {
+  for (const view of SPATIAL_NATIVE_VIEWS) {
     await page.locator(`[data-view-option="${view}"]`).click();
     await expect(workspace).toHaveAttribute("data-world-view", view);
     await expect(page.locator(".quadrantCompass")).toBeVisible();
@@ -148,15 +212,324 @@ test("all four quadrant lenses work in every native view without changing center
   }
 });
 
+test("Timeline is a shareable native 2D view over the same mounted world", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  const temporalRequests: string[] = [];
+  page.on("request", (request) => {
+    if (request.url().includes("/temporal_graph.json")) temporalRequests.push(request.url());
+  });
+  await prepareWorld(page);
+  expect(temporalRequests).toHaveLength(0);
+  await rememberCanvas(page);
+  const workspace = page.locator(".worldWorkspace");
+  const timeline = page.locator(".timelineSurface");
+
+  await page.locator('[data-view-option="timeline"]').click();
+  await expect(workspace).toHaveAttribute("data-world-view", "timeline");
+  await expect(page).toHaveURL(/[?&]view=timeline(?:&|$)/);
+  await expect(timeline).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Chronoscope|Cronoscópio/ })).toBeVisible();
+  await expect.poll(() => temporalRequests.length).toBe(1);
+  await expect(page.locator(".timelineEvent").first()).toBeVisible();
+  await expect(page.locator(".timelineContractWarning")).toHaveCount(0);
+  await expect(page.locator(".timelineDiagnosticWarning")).toContainText("temporal_adapter_rejected");
+  await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-suspended", "true");
+  await expect(page.getByRole("combobox", { name: /Overlay|Sobreposição/ })).toBeDisabled();
+  await expect(page.locator(".worldBreadcrumbs")).toBeHidden();
+  const list = page.locator(".timelineEventList");
+  const initialScroll = await list.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+    overflowY: getComputedStyle(element).overflowY
+  }));
+  expect(initialScroll.clientHeight).toBeGreaterThan(0);
+  expect(initialScroll.scrollHeight).toBeGreaterThan(initialScroll.clientHeight);
+  expect(initialScroll.overflowY).toMatch(/auto|scroll/);
+  const showMore = page.locator(".timelineShowMore");
+  await showMore.scrollIntoViewIfNeeded();
+  await expect(showMore).toBeVisible();
+  const beforeExpansion = await page.locator(".timelineEvent").count();
+  await showMore.click();
+  await expect.poll(() => page.locator(".timelineEvent").count()).toBeGreaterThan(beforeExpansion);
+  await expect(page.locator(".sceneCanvasFrame")).toHaveAttribute("aria-hidden", "true");
+  expect(await page.locator(".sceneCanvasFrame").evaluate((element) => (element as HTMLElement).inert)).toBe(true);
+  await expectRememberedCanvas(page);
+
+  await page.getByRole("button", { name: /When it was recorded|Quando foi registrado/ }).click();
+  await expect(page).toHaveURL(/[?&]time_mode=recorded(?:&|$)/);
+  await page.locator(".timelineLaneControls button").filter({ hasText: /Actions|Ações/ }).click();
+  await expect(page).toHaveURL(/[?&]time_lanes=action(?:&|$)/);
+  await expectRememberedCanvas(page);
+
+  await page.goBack();
+  await expect(page).not.toHaveURL(/[?&]time_lanes=action(?:&|$)/);
+  await page.goBack();
+  await expect(page).not.toHaveURL(/[?&]time_mode=recorded(?:&|$)/);
+  await expect(page.getByRole("button", { name: /Semantic event time|Tempo semântico do evento/ })).toHaveAttribute("aria-pressed", "true");
+  await page.goForward();
+  await expect(page).toHaveURL(/[?&]time_mode=recorded(?:&|$)/);
+  await page.goForward();
+  await expect(page).toHaveURL(/[?&]time_lanes=action(?:&|$)/);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: /Chronoscope|Cronoscópio/ })).toBeVisible();
+  await expect(page).toHaveURL(/[?&]time_mode=recorded(?:&|$)/);
+  // A full document reload creates a new WebGL host by definition; remember
+  // that new host and keep proving continuity for the interactions after it.
+  await rememberCanvas(page);
+
+  const firstEvent = page.locator(".timelineEvent").first();
+  await firstEvent.click();
+  await expect(page).toHaveURL(/[?&]time_cursor=[^&]+/);
+  const openPage = page.getByRole("button", { name: /Open canonical page|Abrir página canônica/ });
+  if (await openPage.count()) {
+    await openPage.click();
+    await expect(page.locator(".pageReader")).toBeVisible();
+    await expect(timeline).toHaveAttribute("aria-hidden", "true");
+    expect(await timeline.evaluate((element) => (element as HTMLElement).inert)).toBe(true);
+    await page.getByRole("button", { name: /Close reader|Fechar leitor/ }).click();
+    await expect(timeline).not.toHaveAttribute("aria-hidden", "true");
+  }
+  await expectRememberedCanvas(page);
+});
+
+test("Timeline keeps stale cursors explicit and provides one keyboard path to the inspector", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 780 });
+  await page.addInitScript(() => {
+    window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+    window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
+  });
+  await page.goto("/demo/w?center=root-alex-rivera&view=timeline&time_cursor=evt-missing&tour=0");
+  await expect(page.getByText(/shared event is outside|evento compartilhado está fora/i)).toBeVisible();
+  await expect(page.locator('.timelineEvent[aria-current="true"]')).toHaveCount(0);
+
+  const events = page.locator(".timelineEvent");
+  await expect(events.first()).toBeVisible();
+  await expect(page.locator('.timelineEvent[tabindex="0"]')).toHaveCount(1);
+  await events.first().focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page).toHaveURL(/[?&]time_cursor=[^&]+/);
+  await expect(page.locator('.timelineEvent[aria-current="true"]')).toHaveCount(1);
+  await expect(page.locator('.timelineEvent[tabindex="0"]')).toHaveCount(1);
+
+  await page.locator(".timelineLaneControls button").filter({ hasText: /Actions|Ações/ }).click();
+  await expect(page).not.toHaveURL(/[?&]time_cursor=/);
+});
+
+test("Timeline keeps one scroll model and 44px controls on mobile and fallback", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+    window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
+  });
+  await page.goto("/demo/w?center=root-alex-rivera&view=timeline&lens=all&overlay=evidence&visual=1&tour=0");
+  const timeline = page.locator(".timelineSurface");
+  await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/, { timeout: 20_000 });
+  await expect(timeline).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator(".sceneFallback")).toHaveAttribute("aria-hidden", "true");
+
+  const geometry = await timeline.evaluate((surface) => {
+    const controls = [...surface.querySelectorAll<HTMLElement>("button, input")].filter((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+    });
+    const rect = surface.getBoundingClientRect();
+    return {
+      minWidth: Math.min(...controls.map((element) => element.getBoundingClientRect().width)),
+      minHeight: Math.min(...controls.map((element) => element.getBoundingClientRect().height)),
+      surface: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      documentOverflow: Math.max(
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        document.body.scrollWidth - document.documentElement.clientWidth
+      )
+    };
+  });
+  expect.soft(geometry.minWidth).toBeGreaterThanOrEqual(44);
+  expect.soft(geometry.minHeight).toBeGreaterThanOrEqual(44);
+  expect.soft(geometry.surface.left).toBeGreaterThanOrEqual(0);
+  expect.soft(geometry.surface.right).toBeLessThanOrEqual(geometry.viewport.width + 1);
+  expect.soft(geometry.surface.top).toBeGreaterThanOrEqual(0);
+  expect.soft(geometry.surface.bottom).toBeLessThanOrEqual(geometry.viewport.height + 1);
+  expect.soft(geometry.documentOverflow).toBeLessThanOrEqual(1);
+
+  const firstEvent = page.locator(".timelineEvent").first();
+  await firstEvent.scrollIntoViewIfNeeded();
+  await firstEvent.click();
+  const inspectorHeading = page.locator(".timelineInspector h3");
+  await expect(inspectorHeading).toBeVisible();
+  await expect.poll(() => inspectorHeading.evaluate((element) => document.activeElement === element)).toBe(true);
+  const inspectorRect = await inspectorHeading.boundingBox();
+  expect(inspectorRect).not.toBeNull();
+  expect(inspectorRect!.y).toBeGreaterThanOrEqual(0);
+  expect(inspectorRect!.y + inspectorRect!.height).toBeLessThanOrEqual(845);
+});
+
 test("demo gate offers guided tour, free exploration and from-zero entry paths", async ({ page }) => {
   await page.goto("/demo");
 
   const doors = page.locator(".demoGateDoor");
-  await expect(doors).toHaveCount(3);
+  await expect(doors).toHaveCount(5);
   await expect(page.locator('.demoGateDoor.guided[href="/demo/world?tour=1"]')).toContainText(/Visita guiada|Guided tour/);
   await expect(page.locator('.demoGateDoor.world[href="/demo/world?tour=0"]')).toContainText(/Explorar livremente|Explore freely/);
   await expect(page.locator('.demoGateDoor.genesis[href="/demo/genesis"]')).toContainText(/Começar do zero|Start from zero/);
+  await expect(page.locator('.demoGateDoor.study[href*="demo_scenario=study_research_showcase"]')).toContainText(/Estudos e Pesquisa|Study & Research/);
+  await expect(page.locator('.demoGateDoor.finance[href*="demo_scenario=personal_finance_showcase"]')).toContainText(/Finanças Pessoais|Personal Finance/);
+  const labs = page.locator(".demoValidationLabs");
+  await expect(labs.locator("summary")).toContainText(/Laboratórios de validação|Validation labs/);
+  await labs.locator("summary").click();
+  await expect(labs.locator(".demoValidationLab")).toHaveCount(7);
 });
+
+for (const fixture of [
+  {
+    label: "Study & Research",
+    scenario: "study_research_showcase",
+    root: "root-study-research-showcase",
+    pack: "study-research",
+    view: "study-research.evidence-matrix",
+    viewport: { width: 1280, height: 780 },
+    appearance: { theme: "luminous-observatory", density: "balanced" }
+  },
+  {
+    label: "Personal Finance mobile",
+    scenario: "personal_finance_showcase",
+    root: "root-personal-finance-showcase",
+    pack: "personal-finance",
+    view: "personal-finance.category-variance",
+    viewport: { width: 390, height: 844 },
+    appearance: { theme: "night-mission-control", density: "command" }
+  }
+] as const) {
+  test(`${fixture.label} pack view round-trips, reads canonical pages and hands temporal profiles to Chronoscope`, async ({ page }) => {
+    await page.setViewportSize(fixture.viewport);
+    await page.addInitScript(({ appearance }) => {
+      window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
+      window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
+      window.localStorage.setItem("wikiCockpitAppearance.v1", JSON.stringify(appearance));
+    }, { appearance: fixture.appearance });
+    await page.goto(
+      `/demo/w?demo_scenario=${fixture.scenario}&center=${fixture.root}&view=quadrants&overlay=evidence&tour=0`
+    );
+    await expect(page.locator(".worldNavigator")).toBeVisible({ timeout: 20_000 });
+    await rememberCanvas(page);
+
+    const extensionButton = page.locator('.worldNavigatorPackBadge[data-active-pack-count="1"]');
+    await expect(extensionButton).toBeVisible();
+    await extensionButton.click();
+    const packView = page.locator(`[data-pack-view-card="${fixture.view}"]`);
+    await expect(packView).toBeVisible();
+    await packView.click();
+
+    const workbench = page.locator(`.packWorkbenchSurface[data-pack-id="${fixture.pack}"]`);
+    await expect(workbench).toBeVisible();
+    await expect(workbench).toHaveAttribute("data-pack-view", fixture.view);
+    await expect.poll(() => new URL(page.url()).searchParams.get("pack_view")).toBe(fixture.view);
+    await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-suspended", "true");
+    await expect(page.locator(".sceneCanvasFrame")).toHaveAttribute("aria-hidden", "true");
+    await expectRememberedCanvas(page);
+    await expect(page.locator("html")).toHaveAttribute("data-wiki-theme", fixture.appearance.theme);
+    await expect(page.locator("html")).toHaveAttribute("data-wiki-density", fixture.appearance.density);
+    for (const row of await workbenchContrast(page)) {
+      expect.soft(row.ratio, `${fixture.label}: ${row.label} contrast`).toBeGreaterThanOrEqual(4.5);
+    }
+
+    const protectedRoute = page.url();
+    const protectedWorld = await page.locator(".worldWorkspace").evaluate((workspace) => ({
+      center: workspace.dataset.worldCenter,
+      view: workspace.dataset.worldView
+    }));
+    for (const key of ["2", "q", "w", "Enter", "/"]) {
+      await page.keyboard.press(key);
+      expect(page.url(), `${fixture.label}: global ${key} shortcut stayed blocked`).toBe(protectedRoute);
+      await expect(page.locator(".pageReader")).toHaveCount(0);
+      await expect(page.locator(".packWorkbenchSurface")).toBeVisible();
+    }
+    const backgroundFocusLeaks = await page.evaluate(() => {
+      const selectors = [
+        ".worldCommandBar button",
+        ".quadrantCompass button",
+        ".focusLegend button",
+        ".worldMinimap button",
+        ".radarStatusStrip button",
+        ".sceneShell [tabindex='0']"
+      ];
+      return selectors.flatMap((selector) => [...document.querySelectorAll<HTMLElement>(selector)])
+        .filter((element) => {
+          const style = getComputedStyle(element);
+          const rect = element.getBoundingClientRect();
+          return element.tabIndex >= 0 && !element.inert && style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
+        })
+        .map((element) => element.className || element.tagName);
+    });
+    expect(backgroundFocusLeaks).toEqual([]);
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator(".packWorkbenchSurface")).toHaveCount(0);
+    await expect.poll(() => new URL(page.url()).searchParams.get("pack_view")).toBeNull();
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", protectedWorld.center!);
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-view", protectedWorld.view!);
+    await page.goto(protectedRoute);
+    await expect(page.locator(`.packWorkbenchSurface[data-pack-id="${fixture.pack}"]`)).toBeVisible({ timeout: 20_000 });
+
+    await expect(workbench.locator(".packWorkbenchBlockPackages code")).toHaveCount(2);
+    await expect(workbench.locator(".packWorkbenchAdapterNotice")).toBeVisible();
+    await expect.poll(() => workbench.locator(".packWorkbenchInventoryGroup button:disabled").count()).toBeGreaterThan(0);
+    await expect.poll(() => workbench.locator("[data-pack-page-id]").count()).toBeGreaterThan(0);
+
+    const pageButtons = workbench.locator(".packWorkbenchPageGrid article > button");
+    const firstPage = pageButtons.first();
+    await firstPage.focus();
+    if (await pageButtons.count() > 1) {
+      await page.keyboard.press("ArrowDown");
+      await expect.poll(() => pageButtons.nth(1).evaluate((element) => document.activeElement === element)).toBe(true);
+    }
+    await page.keyboard.press("Enter");
+    const reader = page.locator(".pageReader");
+    await expect(reader).toBeVisible();
+    await expect(workbench).toHaveAttribute("aria-hidden", "true");
+    expect(await workbench.evaluate((element) => (element as HTMLElement).inert)).toBe(true);
+    await page.getByRole("button", { name: /Close reader|Fechar leitor/ }).click();
+    await expect(workbench).not.toHaveAttribute("aria-hidden", "true");
+    await expect.poll(() => new URL(page.url()).searchParams.get("pack_view")).toBe(fixture.view);
+
+    if (fixture.viewport.width <= 640) {
+      const geometry = await workbench.evaluate((surface) => {
+        const rect = surface.getBoundingClientRect();
+        const controls = [...surface.querySelectorAll<HTMLElement>("button:not(:disabled), input")].filter((element) => {
+          const box = element.getBoundingClientRect();
+          const style = getComputedStyle(element);
+          return box.width > 0 && box.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+        });
+        return {
+          left: rect.left,
+          right: rect.right,
+          viewportWidth: window.innerWidth,
+          minControlHeight: Math.min(...controls.map((element) => element.getBoundingClientRect().height)),
+          documentOverflow: Math.max(
+            document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            document.body.scrollWidth - document.documentElement.clientWidth
+          )
+        };
+      });
+      expect.soft(geometry.left).toBeGreaterThanOrEqual(0);
+      expect.soft(geometry.right).toBeLessThanOrEqual(geometry.viewportWidth + 1);
+      expect.soft(geometry.minControlHeight).toBeGreaterThanOrEqual(44);
+      expect.soft(geometry.documentOverflow).toBeLessThanOrEqual(1);
+    }
+
+    await page.reload();
+    await expect(page.locator(`.packWorkbenchSurface[data-pack-id="${fixture.pack}"]`)).toBeVisible({ timeout: 20_000 });
+    await expect.poll(() => new URL(page.url()).searchParams.get("pack_view")).toBe(fixture.view);
+    const timelineProfile = page.locator(".packWorkbenchTimelineProfiles button").first();
+    await expect(timelineProfile).toBeVisible();
+    await timelineProfile.click();
+    await expect.poll(() => new URL(page.url()).searchParams.get("pack_view")).toBeNull();
+    await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("timeline");
+    await expect(page.getByRole("heading", { name: /Chronoscope|Cronoscópio/ })).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator(".timelinePackProfiles")).toBeVisible();
+  });
+}
 
 test("MissionCard keeps the secondary CTA below a full-width readable mission", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });

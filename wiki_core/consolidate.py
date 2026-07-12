@@ -307,11 +307,11 @@ def build_event_markdown(
         "---",
         f"event_id: evt-{name}",
         f"page_id: evento-{name}" if config.language == "pt" else f"page_id: event-{name}",
-        "page_type: source_catalog",
+        "page_type: ingestion_event",
         f"context: {context}",
         "visibility: private_self",
         f"updated_at: {date.isoformat()}",
-        f"stale_after_days: {freshness_for(context, 'source_catalog', config)}",
+        f"stale_after_days: {freshness_for(context, 'ingestion_event', config)}",
         "sources_policy: evento_normalizado_com_quadrantes",
     ]
     canonical_source_parent = source_page or source_ref

@@ -35,6 +35,11 @@ export class RegistryKernel {
 
   validateState(state: WorldState): string[] {
     const errors: string[] = [];
+    if (state.emptyWorld && state.centerId !== null) errors.push("empty world must not have a center");
+    if (!state.emptyWorld && !state.centerId) errors.push("non-empty world requires a center");
+    if (state.emptyWorld && (state.group || state.selectedId || state.readerId || state.dock)) {
+      errors.push("empty world cannot expose group, selection, reader or dock state");
+    }
     const view = this.views.get(state.view);
     if (!view) errors.push(`unknown view: ${state.view}`);
     if (!this.overlays.has(state.overlay)) errors.push(`unknown overlay: ${state.overlay}`);
@@ -61,6 +66,7 @@ export function createDefaultKernel(): RegistryKernel {
     { id: "radar", defaultLens: "all", defaultOverlay: "freshness", allowedOverlays: all },
     { id: "sources", defaultLens: "all", defaultOverlay: "evidence", allowedOverlays: ["attention", "freshness", "actions", "ownership", "evidence", "quality"] },
     { id: "work", defaultLens: "all", defaultOverlay: "actions", allowedOverlays: all },
+    { id: "timeline", defaultLens: "all", defaultOverlay: "evidence", allowedOverlays: all },
     { id: "atlas", defaultLens: "type", defaultOverlay: "actions", allowedOverlays: all, compatibility: true },
     { id: "focus", defaultLens: "relations", defaultOverlay: "evidence", allowedOverlays: all, compatibility: true },
     { id: "districts", defaultLens: "type", defaultOverlay: "actions", allowedOverlays: all, compatibility: true },

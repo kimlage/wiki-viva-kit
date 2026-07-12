@@ -1,0 +1,42 @@
+{
+  "by_context": {
+    "clientes": {
+      "fresh": 16,
+      "stale": 0,
+      "unknown": 0
+    },
+    "estudio": {
+      "fresh": 2,
+      "stale": 0,
+      "unknown": 0
+    },
+    "financeiro": {
+      "fresh": 0,
+      "stale": 1,
+      "unknown": 0
+    },
+    "pessoal": {
+      "fresh": 6,
+      "stale": 0,
+      "unknown": 0
+    },
+    "sistema": {
+      "fresh": 11,
+      "stale": 0,
+      "unknown": 0
+    }
+  },
+  "schema_version": "wiki_web_freshness.v1",
+  "stale_pages": [
+    {
+      "context": "financeiro",
+      "path": "memories/sources/source-banco-export.md",
+      "title": "Extrato do Banco"
+    }
+  ],
+  "summary": {
+    "fresh": 35,
+    "stale": 1,
+    "unknown": 0
+  }
+}

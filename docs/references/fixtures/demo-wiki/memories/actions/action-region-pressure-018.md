@@ -18,9 +18,9 @@ source_refs:
 - source-support-tickets
 evidence_refs:
 - artifact-region-pressure-018
-next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: high
 attention_basis: Its lifecycle and evidence state require review.
+completed_at: '2026-07-03T12:00:00Z'
 cancellation_receipt: receipt:demo-action-cancelled-018
 ---
 

@@ -785,6 +785,115 @@ def test_operational_pass_treats_dated_closed_action_as_closed(tmp_path: Path):
     assert "No prioritized pending actions." in page
 
 
+def test_operational_pass_uses_canonical_action_state_over_status_and_body(
+    tmp_path: Path,
+):
+    mem = tmp_path / "memories"
+    _write(mem / "fin" / "index.md", _hub("fin"))
+    _write(
+        mem / "actions" / "done.md",
+        (
+            "---\npage_id: action-done\npage_type: action\ncontext: fin\n"
+            "action_state: done\nstatus: blocked\ncompletion_receipt: receipt:test\n"
+            "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 30\n"
+            "sources_policy: x\ngate: github_pr\n---\n\n"
+            "# Action - Canonical done\n\nState: `pending`.\n"
+        ),
+    )
+    _write(
+        mem / "actions" / "open.md",
+        (
+            "---\npage_id: action-open\npage_type: action\ncontext: fin\n"
+            "action_state: open\nstatus: completed\n"
+            "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 30\n"
+            "sources_policy: x\ngate: github_pr\n---\n\n"
+            "# Action - Canonical open\n\nState: `done`.\n"
+        ),
+    )
+    _write(
+        mem / "actions" / "pending.md",
+        (
+            "---\npage_id: pending\npage_type: ontology_index\ncontext: system\n"
+            "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 30\n"
+            "sources_policy: x\ngate: github_pr\n---\n\n# Pending\n\n"
+            "- `action-done`\n- `action-open`\n"
+        ),
+    )
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("fin",))
+    report = build_operational_pass_report(
+        tmp_path, config, as_of=dt.date(2026, 6, 12)
+    )
+    payload = report_to_dict(report)
+
+    assert report.context_rows[0].next_steps == ("Canonical open (open)",)
+    states = {row["page_id"]: row for row in payload["actions"]}
+    assert {
+        key: states["action-done"][key]
+        for key in (
+            "action_state",
+            "action_state_raw",
+            "action_state_source",
+            "action_state_compatibility",
+        )
+    } == {
+        "action_state": "done",
+        "action_state_raw": "done",
+        "action_state_source": "action_state",
+        "action_state_compatibility": False,
+    }
+    assert states["action-open"]["action_state"] == "open"
+    assert states["action-open"]["action_state_raw"] == "open"
+
+
+def test_operational_pass_preserves_body_only_action_resolution(tmp_path: Path):
+    mem = tmp_path / "memories"
+    _write(mem / "fin" / "index.md", _hub("fin"))
+    _write(
+        mem / "actions" / "body-only.md",
+        (
+            "---\npage_id: action-body-only\npage_type: action\ncontext: fin\n"
+            "completion_receipt: receipt:body-only\n"
+            "visibility: private_self\nupdated_at: 2026-06-12\nstale_after_days: 30\n"
+            "sources_policy: x\ngate: github_pr\n---\n\n"
+            "# Action - Body only\n\nState: `completed`.\n"
+        ),
+    )
+
+    config = WikiConfig(repo_id="acme", owner_label="Owner", contexts=("fin",))
+    report = build_operational_pass_report(
+        tmp_path, config, as_of=dt.date(2026, 6, 12)
+    )
+    payload = report_to_dict(report)
+    row = next(
+        item for item in payload["actions"] if item["page_id"] == "action-body-only"
+    )
+
+    assert {
+        key: row[key]
+        for key in (
+            "status",
+            "action_state",
+            "action_state_raw",
+            "action_state_source",
+            "action_state_compatibility",
+            "action_state_warnings",
+        )
+    } == {
+        "status": "completed",
+        "action_state": "done",
+        "action_state_raw": "completed",
+        "action_state_source": "body_state",
+        "action_state_compatibility": True,
+        "action_state_warnings": ["legacy_action_state"],
+    }
+    assert report.context_rows[0].next_steps == ()
+    page = build_operational_pass_page(
+        tmp_path, config, updated_at="2026-06-12"
+    )
+    assert "| [Body only](../actions/body-only.md) | fin | `completed` |" in page
+
+
 def test_operational_model_marks_preventive_and_roleless(tmp_path: Path):
     mem = tmp_path / "memories"
     _write(mem / "fin" / "index.md", _hub("fin"))

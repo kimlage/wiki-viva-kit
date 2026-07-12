@@ -32,4 +32,4 @@ source_lifecycle:
 
 # Release notes archive
 
-A live source. Its content is born by ingestion — manual creation under it is off. (The bank export is intentionally overdue.)
+A live Docs source. Its content is born by ingestion — manual creation under it is off. This fixture demonstrates lifecycle `syncing`, freshness `fresh` and last attempt `ok`.

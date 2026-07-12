@@ -86,6 +86,45 @@ describe("compiled anchor world scope", () => {
     ]);
   });
 
+  it("enters a source before exposing the ingestion events owned by that source", () => {
+    const sourceHierarchy = {
+      nodes: [
+        node("root", "root_entity"),
+        node("source-agenda", "source"),
+        node("event-ingest-agenda", "ingestion_event")
+      ],
+      edges: [
+        { source: "source-agenda", target: "root", type: "moc_parent", status: "valid", weight: 2 },
+        { source: "event-ingest-agenda", target: "source-agenda", type: "moc_parent", status: "valid", weight: 2 }
+      ] satisfies GraphEdge[]
+    };
+
+    const rootWorld = scopeGraphToCompiledAnchor(sourceHierarchy, "root", {
+      q0_core: [],
+      q1: [],
+      q2: ["source-agenda"],
+      q3: [],
+      q4: []
+    });
+    expect(rootWorld.nodes.map((item) => item.id)).toEqual(["root", "source-agenda"]);
+    expect(rootWorld.nodes.some((item) => item.id === "event-ingest-agenda")).toBe(false);
+
+    const sourceWorld = scopeGraphToCompiledAnchor(sourceHierarchy, "source-agenda", {
+      q0_core: [],
+      q1: [],
+      q2: ["event-ingest-agenda"],
+      q3: [],
+      q4: []
+    });
+    expect(sourceWorld.nodes.map((item) => item.id)).toEqual([
+      "source-agenda",
+      "event-ingest-agenda"
+    ]);
+    expect(sourceWorld.edges).toEqual([
+      { source: "event-ingest-agenda", target: "source-agenda", type: "moc_parent", status: "valid", weight: 2 }
+    ]);
+  });
+
   it("matches assignments by canonical node id, never by a coincidental path", () => {
     const scoped = scopeGraphToCompiledAnchor(graph, "claims-index", {
       q1: ["memories/claim-a.md"]

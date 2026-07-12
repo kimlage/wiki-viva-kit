@@ -47,6 +47,9 @@ another) via skills — there is no embedded LLM client.
   source_manifest).
 - [scripts/](scripts/README.md) — `wiki_*` CLIs (ingest, audit, coverage, cockpit, gate,
   score, insight job, LLM pass).
+- [packs/](packs/registry.yaml) — versioned declarative experience packs and
+  public synthetic conformance fixtures; consumer installation state stays in
+  its own `wiki.packs.lock.yaml`/`.wiki-viva/` boundary.
 - [.skills/](.skills/README.md) — portable `wiki-*` skills for the agent.
 - [docs/references/templates/wiki/](docs/references/templates/wiki/README.md) — page
   contracts and templates.
@@ -57,10 +60,19 @@ another) via skills — there is no embedded LLM client.
 
 ```sh
 python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_audit.py --public-export --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_web_snapshot.py --check-contract
+python3 scripts/wiki_pack.py validate --all
 python3 -m pytest tests/
+npm --prefix apps/wiki-cockpit test
+npm --prefix apps/wiki-cockpit run test:gates
+npm --prefix apps/wiki-cockpit run check:architecture
+npm --prefix apps/wiki-cockpit run check:assets
+npm --prefix apps/wiki-cockpit run check:bundle
+npm --prefix apps/wiki-cockpit run check:release-matrix
 ```
 
 - Audit: frontmatter, clickable links, secrets, PII at the public boundary,

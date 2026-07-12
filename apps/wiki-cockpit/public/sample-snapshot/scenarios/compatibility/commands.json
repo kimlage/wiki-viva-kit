@@ -1,0 +1,104 @@
+{
+  "commands": [
+    {
+      "argv": [
+        "git",
+        "status",
+        "--short",
+        "--branch"
+      ],
+      "label": "git status --short --branch",
+      "writes": false
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--stat"
+      ],
+      "label": "git diff --stat",
+      "writes": false
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--name-status"
+      ],
+      "label": "git diff --name-status",
+      "writes": false
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_operation_compile.py",
+        "--check"
+      ],
+      "label": "wiki operation compile",
+      "writes": false
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_operation_compile.py",
+        "--write"
+      ],
+      "label": "wiki operation compile",
+      "writes": true
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_audit.py",
+        "--check"
+      ],
+      "label": "wiki audit",
+      "writes": false
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_check_methodology_coverage.py",
+        "--check"
+      ],
+      "label": "wiki check methodology coverage",
+      "writes": false
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_operation_compile.py",
+        "--check"
+      ],
+      "label": "wiki operation compile",
+      "writes": false
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_input_stage.py",
+        "--check"
+      ],
+      "label": "wiki input stage",
+      "writes": false
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_pr_summary.py"
+      ],
+      "label": "wiki pr summary",
+      "writes": false
+    },
+    {
+      "argv": [
+        "python3",
+        "scripts/wiki_page_graph.py",
+        "--check"
+      ],
+      "label": "wiki page graph",
+      "writes": false
+    }
+  ],
+  "schema_version": "wiki_web_commands.v1"
+}

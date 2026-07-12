@@ -144,6 +144,45 @@ describe("PageReader", () => {
     expect(document.activeElement).toBe(firstControl);
   });
 
+  it("never renders a stale next action for terminal work", async () => {
+    contentByCase.current = {
+      ok: true,
+      body: "# Closed action\n\nThe completion evidence is retained.",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    const actionPage = page("closed-action", {
+      title: "Closed action",
+      page_type: "action",
+      work: {
+        state: "done",
+        next_action: "This stale instruction must never be shown."
+      }
+    });
+    const actionBundle = {
+      ...bundle,
+      pages: { pages: [actionPage] },
+      workItems: {
+        schema_version: "wiki_web_work_items.v1",
+        actions: [{
+          action_id: "closed-action",
+          page_id: "closed-action",
+          state: "done",
+          next_action: "This stale instruction must never be shown.",
+          evidence_refs: []
+        }]
+      }
+    } as unknown as SnapshotBundle;
+
+    render(<PageReader {...baseProps} bundle={actionBundle} pageId="closed-action" />);
+
+    await screen.findByText("The completion evidence is retained.");
+    expect(screen.getByText("Done")).toBeTruthy();
+    expect(screen.queryByText("This stale instruction must never be shown.")).toBeNull();
+    expect(screen.queryByText("Next action")).toBeNull();
+  });
+
   it("sanitizes hostile markdown: scripts and event handlers never reach the DOM", async () => {
     contentByCase.current = {
       ok: true,
@@ -270,6 +309,75 @@ describe("PageReader", () => {
     expect(await screen.findByText(/resumo parcial da página/)).toBeTruthy();
     expect(screen.getByText("partial summary")).toBeTruthy();
     expect(screen.getByText(/full text available with the local operator/)).toBeTruthy();
+  });
+
+  it("recovers an A-to-B wiki change without closing the page or losing focus", async () => {
+    let nextContent: PageContent = {
+      ok: false,
+      error: "page changed since snapshot; refresh required",
+      error_code: "snapshot_revision_mismatch",
+      snapshot_id: "fixture-B",
+      expected_snapshot_id: "fixture-A",
+      page_id: "alpha"
+    };
+    const loadPageContent = vi.fn(async () => nextContent);
+    const onSnapshotMismatch = vi.fn();
+    const bundleA = {
+      ...bundle,
+      manifest: { snapshot_id: "fixture-A", integrity: {} }
+    } as unknown as SnapshotBundle;
+    const bundleB = {
+      ...bundle,
+      manifest: { snapshot_id: "fixture-B", integrity: {} }
+    } as unknown as SnapshotBundle;
+    const { rerender } = render(
+      <PageReader
+        {...baseProps}
+        bundle={bundleA}
+        pageId="alpha"
+        loadPageContent={loadPageContent}
+        onSnapshotMismatch={onSnapshotMismatch}
+      />
+    );
+
+    expect(await screen.findByText("Wiki changed while this page was open.")).toBeTruthy();
+    expect(screen.getByText("Refreshing the world and reopening this page…")).toBeTruthy();
+    expect(onSnapshotMismatch).toHaveBeenCalledTimes(1);
+    expect(loadPageContent).toHaveBeenLastCalledWith(
+      "alpha",
+      expect.objectContaining({ snapshotId: "fixture-A" })
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(document.activeElement).toBe(dialog);
+    expect(baseProps.onClose).not.toHaveBeenCalled();
+    expect(baseProps.onNavigatePage).not.toHaveBeenCalled();
+
+    nextContent = {
+      ok: true,
+      snapshot_id: "fixture-B",
+      body: "# alpha\n\nRecovered B content.",
+      resolved_links: [],
+      backlinks: [],
+      source_refs: []
+    };
+    rerender(
+      <PageReader
+        {...baseProps}
+        bundle={bundleB}
+        pageId="alpha"
+        loadPageContent={loadPageContent}
+        onSnapshotMismatch={onSnapshotMismatch}
+      />
+    );
+
+    expect(await screen.findByText("Recovered B content.")).toBeTruthy();
+    expect(loadPageContent).toHaveBeenLastCalledWith(
+      "alpha",
+      expect.objectContaining({ snapshotId: "fixture-B" })
+    );
+    expect(onSnapshotMismatch).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog")).toBe(dialog);
+    expect(document.activeElement).toBe(dialog);
   });
 
   it("shows populated typed relations with true counts and omits empty groups", async () => {

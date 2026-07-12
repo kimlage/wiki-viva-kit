@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-09
+updated_at: 2026-07-11
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Command reference
 
-Last updated: 2026-07-09.
+Last updated: 2026-07-11.
 
 This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/README.md) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
 
@@ -52,6 +52,8 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_upgrade_inventory.py](../../../scripts/wiki_upgrade_inventory.py) | Validates the public-safe v8 consumer inventory | Review pilot/wave/paused status before downstream preflight |
 | [wiki_upgrade_preflight.py](../../../scripts/wiki_upgrade_preflight.py) | Compiles a read-only downstream upgrade preflight | Prove release pin, branch, gates, drift, snapshot, overrides and privacy before import |
 | [wiki_upgrade_report.py](../../../scripts/wiki_upgrade_report.py) | Validates evidence and compiles v8 migration reports | Close a downstream upgrade with SHAs, allowlisted files, gates, QA and rollback |
+| [wiki_adapter_manifest.py](../../../scripts/wiki_adapter_manifest.py) | Builds or verifies the downstream adapter identity manifest | Bind a private consumer's explicit adapter files to tracked, no-follow hashes without importing private content into the kit |
+| [wiki_pack.py](../../../scripts/wiki_pack.py) | Operates versioned experience packs through a review-first lifecycle | Inspect/preview/dry-run/install/validate/upgrade/disable/remove a declarative use-case experience |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Living gate: lists, transitions, rebases | Move proposals between states and supersede old ones |
 | [wiki_score.py](../../../scripts/wiki_score.py) | Operational karma and vitality | Record/view append-only scoring |
 | [wiki_insight_job.py](../../../scripts/wiki_insight_job.py) | Closes the Information -> Insight cycle | Gather signals about a theme for an insight proposal |
@@ -68,6 +70,8 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audits the wiki contract | Validate contract/links/secrets at commit and in CI |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Checks the presence AND content of methodology v5 | Ensure the methodology is in fact implemented |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarizes the PR diff by context/entity | Generate the PR review summary |
+| [wiki_git_subject.py](../../../scripts/wiki_git_subject.py) | Emits a stable path-safe Git/worktree fingerprint | Bind Python and Node release evidence to the same exact staged, unstaged, untracked and submodule state |
+| [wiki_release_receipt.py](../../../scripts/wiki_release_receipt.py) | Binds release evidence to an exact Git/worktree subject | Generate/check public + downstream closure hashes; v1 blocks local E5 until external signed authority exists |
 | [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) | Generates the web cockpit snapshot | Produce JSON read models for static/local cockpit execution |
 | [wiki_web_deploy_bundle.py](../../../scripts/wiki_web_deploy_bundle.py) | Prepares web cockpit deployment inputs | Write runtime config, snapshot JSON and deploy proof for one implementation |
 | [wiki_web_server.py](../../../scripts/wiki_web_server.py) | Runs the local web cockpit operator API | Serve snapshots and allowlisted actions on localhost |
@@ -164,6 +168,7 @@ python3 scripts/wiki_upgrade_preflight.py \
 python3 scripts/wiki_upgrade_report.py --template > wiki-v8-migration-evidence.yaml
 python3 scripts/wiki_upgrade_report.py \
   --evidence wiki-v8-migration-evidence.yaml \
+  --consumer-root /path/to/consumer \
   --json-out wiki-v8-migration-report.json \
   --markdown-out wiki-v8-migration-report.md \
   --check
@@ -173,6 +178,45 @@ Add `--redact` to preflight evidence that may leave a private repo and
 `--public-export` to a migration report only after route, center, paths and
 screenshots are public-safe. Both commands fail while the public release SHA is
 unpinned or required evidence is incomplete.
+
+### [wiki_adapter_manifest.py](../../../scripts/wiki_adapter_manifest.py) - downstream adapter identity
+
+Builds the tracked `wiki.adapter-manifest.json` only from repository-relative
+adapter files named explicitly with repeated `--file` arguments. The writer is
+POSIX no-follow, atomic and fsynced; `check` requires the manifest and every
+listed file to be tracked and clean, then recomputes their hashes. The manifest
+is consumer-owned release evidence and is intentionally blocked from the
+portable toolkit import surface.
+
+```sh
+python3 scripts/wiki_adapter_manifest.py --root /path/to/consumer build \
+  --file wiki_core/web/private_adapter.py \
+  --file tests/test_private_adapter.py
+python3 scripts/wiki_adapter_manifest.py --root /path/to/consumer check
+```
+
+### [wiki_pack.py](../../../scripts/wiki_pack.py) - experience-pack lifecycle
+
+Validates the versioned pack registry and manifest before any mutation. It
+blocks executable or remote pack content, secrets and public-boundary PII,
+checks dependencies/capability/slot conflicts, pins installed bytes in
+`wiki.packs.lock.yaml` and emits a deterministic conceptual diff plus receipt.
+Real mutations are accepted only from an already checked-out `wiki/*` branch.
+Disable/remove never delete user-authored wiki pages.
+
+```sh
+python3 scripts/wiki_pack.py list
+python3 scripts/wiki_pack.py inspect study-research
+python3 scripts/wiki_pack.py preview study-research
+python3 scripts/wiki_pack.py install study-research --dry-run
+python3 scripts/wiki_pack.py validate study-research
+python3 scripts/wiki_pack.py disable study-research --dry-run
+python3 scripts/wiki_pack.py remove study-research --dry-run
+```
+
+The manifest, registry and lock schemas plus the authoring/compatibility policy
+are documented in the
+[experience-pack authoring guide](../../../docs/references/guides/experience-pack-authoring.md).
 
 ### [wiki_migrate_templates.py](../../../scripts/wiki_migrate_templates.py) - assisted source + template migration
 
@@ -285,13 +329,18 @@ the root MOC and impact caused by the current diff.
 
 - `--write`: writes [data/](../../../data/README.md) under `derived/wiki/page-graph/page-graph.json`.
 - `--check`: exits non-zero when graph invariants fail.
-- `--impact`: prints changed memory pages and pages affected by them.
-- `--base`: optional Git base for impact; defaults to upstream, `origin/main` or `main`.
+- `--impact`: emits one parseable `wiki_page_graph_impact.v1` JSON object with
+  tracked, staged, unstaged and untracked changes, removed memory pages, their
+  exact-base backlinks, affected pages and graph diagnostics.
+- `--base`: required for impact. The ref is frozen to its full commit SHA and
+  must be an ancestor of `HEAD`; a divergent base or any Git read failure stops
+  the command instead of silently reducing the impact set.
 
 ```sh
 python3 scripts/wiki_page_graph.py --write
 python3 scripts/wiki_page_graph.py --check
-python3 scripts/wiki_page_graph.py --impact --base origin/main
+BASE_SHA="<reviewed-base-commit-sha>"
+python3 scripts/wiki_page_graph.py --check --impact --base "$BASE_SHA"
 ```
 
 ### [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) - quality and cost telemetry
@@ -630,6 +679,48 @@ runtime. `api_base`, `snapshot_base`, `repo_label` and `mode` let the same build
 run as localhost operator, static read-only review or future controlled operator
 adapter without recompiling.
 
+### [wiki_git_subject.py](../../../scripts/wiki_git_subject.py) - cross-runtime exact subject
+
+Uses only the Python standard library so Node-only cockpit CI can call it
+without installing the toolkit dependencies. It resolves the exact repository
+root twice and outputs only commit/tree identifiers, counts and hashes for the
+staged patch, unstaged patch, untracked paths/bytes and initialized clean
+submodules. It never emits dirty file names or contents and fails closed if the
+repository changes during collection.
+
+```sh
+python3 scripts/wiki_git_subject.py --root . [--base-sha "$BASE_SHA"]
+```
+
+### [wiki_release_receipt.py](../../../scripts/wiki_release_receipt.py) - exact-subject release receipt
+
+Consumes a JSON evidence manifest that references normalized
+`wiki_test_gate_result.v1` files under the two required scopes
+(`public_required` and `downstream_required`) plus repo-local release artifacts.
+It hashes every referenced file and records HEAD SHA, HEAD tree plus exact
+staged, unstaged, untracked and submodule state under
+[wiki_release_receipt.v1](../../../docs/references/schemas/wiki-release-receipt-v1.schema.json).
+Browser gate results must include a hashed release-matrix contract; the
+downstream scope must also include its hashed same-origin operator preflight.
+
+- `--evidence PATH`: evidence manifest used to generate the receipt.
+- `--out PATH`: ignored receipt output; defaults to
+  [data/derived/wiki/release-receipt.json](../../../data/README.md).
+- `--base-sha SHA`: exact release base, recorded and checked as an ancestor.
+- `--promote-e5`: request E5. Version 1 always exits `2` with
+  `e5_external_authority_required`; the output remains closure evidence because
+  only an external signed CI/reviewer authority can promote E5.
+- `--check [--require-e5]`: re-hash evidence and compare the receipt to the
+  current repository subject.
+
+```sh
+python3 scripts/wiki_release_receipt.py \
+  --evidence data/derived/wiki/release-evidence.json \
+  --base-sha "$BASE_SHA" \
+  --promote-e5
+python3 scripts/wiki_release_receipt.py --check --base-sha "$BASE_SHA"
+```
+
 ### [wiki_web_snapshot.py](../../../scripts/wiki_web_snapshot.py) - web snapshot
 
 Generates the JSON read model consumed by the Vite/React + Three.js cockpit:
@@ -639,10 +730,60 @@ The manifest repo block includes `memory_root`, `default_context` and
 `karma_enabled`, so downstream/localized repos can avoid
 [memories/](../../index.md) or `system` assumptions in the frontend.
 
+Successful writes install a validated immutable revision in a managed sibling
+store and atomically replace one relative active pointer. Files remain readable
+at `<out>/<artifact>` for compatibility, but a multi-file filesystem consumer
+must resolve and pin the pointer once; reopening the active path per file can
+cross an activation boundary and therefore is not the supported atomic read
+contract. The pinned reader rejects every symlink, non-regular or undeclared
+entry before reading payloads, then reads manifest/owner/artifacts through
+descriptor-relative no-follow opens. Owner repo, manifest repo, directory SHA,
+manifest SHA and recomputed SHA must agree. A cross-process sibling lock
+serializes first-store bootstrap and later activation/pruning. Automatic cleanup
+keeps the active revision plus two recent **owned, validated** inactive
+revisions and defers any leased revision until a later publish or explicit
+prune. Invalid/unowned SHA-like directories remain visible for review but never
+consume a retention slot. A committed write may return cleanup warnings/recovery
+paths; this means activation succeeded and housekeeping remains, not that the
+old revision was lost. Cleanup first fsyncs a parent-side receipt in the owned
+revision store, binding repo/kind/activation/cleanup names to a random ID and
+SHA-256, then renames the empty activation container to `.cleanup-*`. A failure
+between marker removal and `rmdir` therefore remains recognizable. Prefix alone
+never authorizes deletion: an arbitrary empty `.cleanup-*` directory is
+preserved, while a valid orphan receipt is retired on a later serialized pass.
+Revision install/archive also use Darwin `RENAME_EXCL` or Linux
+`RENAME_NOREPLACE`, so broken or external-target SHA symlinks are preserved
+rather than overwritten.
+
 - `--out`: output directory; defaults to
   [data/derived/wiki/web-snapshot](../../../data/README.md).
-- `--clean`: removes existing `*.json` in the output directory before writing.
+- `--clean`: compatibility flag; full-revision activation always excludes stale
+  artifacts, so no per-file destructive cleanup is performed.
 - `--mode static|local_operator|github_connected`: marks the snapshot mode.
+- `--flat-build`: emit an offline flat artifact whose host must activate the
+  whole build atomically; never update its target while serving it.
+
+Live revision publication requires Darwin/Linux POSIX leases, per-file and
+directory `fsync`, and migration of an existing directory additionally requires
+Darwin `RENAME_SWAP` or Linux `RENAME_EXCHANGE`. Windows `static/auto` and
+explicit `--flat-build` use the offline flat path; Windows local-operator/live
+mode fails before creating a pointer/store.
+
+The local operator health separates these surfaces:
+`snapshot_publication` describes the filesystem output, while
+`api_snapshot_serving.source=live_repository_build_cache` and
+`uses_published_snapshot_pointer=false` describe `/api/snapshot` honestly.
+Filesystem publication health validates under the same shared revision lease as
+a reader. Its cold path performs full inventory/owner/repo/SHA validation; a
+successful result is cached for at most one second, but every warm hit still
+rechecks the complete no-follow metadata fingerprint. The response exposes
+`cache_hit`, `artifact_count`, `duration_ms`, a 100 ms diagnostic budget and
+`within_budget`, plus separate activation/empty-cleanup/owned-cleanup/ambiguous
+cleanup/orphan-receipt/invalid-receipt recovery counts. The duration budget is
+observational rather than a destructive timeout.
+Filesystem reads retry at most eight times with bounded exponential wait; the
+publisher has no automatic byte quota, and lease tombstones plus preserved
+invalid/recovery trees can outlive the three-revision default until reviewed.
 
 ```sh
 python3 scripts/wiki_web_snapshot.py --out data/derived/wiki/web-snapshot --clean

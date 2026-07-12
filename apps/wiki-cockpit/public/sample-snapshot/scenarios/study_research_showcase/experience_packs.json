@@ -1,0 +1,174 @@
+{
+  "block_packages": [
+    "gamification",
+    "quadrant_lenses"
+  ],
+  "composition_sha256": "25789fe2e4d132a405e46ffa31760b2ad4946a5f1990ff0bdd94510f785893b9",
+  "core_version": "8.0.0",
+  "packs": [
+    {
+      "id": "study-research",
+      "version": "0.1.0"
+    }
+  ],
+  "presentation": {
+    "default_locale": "en",
+    "locales": {
+      "en": {
+        "study-research": "Study and Research",
+        "study-research.annotate": "Annotate source",
+        "study-research.capture": "Capture source",
+        "study-research.capture-source": "Capture source",
+        "study-research.claim-evolution": "Claim evolution",
+        "study-research.claim-recorded": "Claim recorded",
+        "study-research.claim-superseded": "Claim superseded",
+        "study-research.claim-verified": "Claim verified",
+        "study-research.concept-graph": "Concept graph",
+        "study-research.connect": "Connect knowledge",
+        "study-research.evidence-matrix": "Evidence matrix",
+        "study-research.learning-captured": "Learning captured",
+        "study-research.learning-history": "Learning history",
+        "study-research.learning-reviewed": "Learning reviewed",
+        "study-research.reading-queue": "Reading queue",
+        "study-research.review": "Review evidence",
+        "study-research.review-evidence": "Review evidence",
+        "study-research.spaced-review": "Spaced review",
+        "study-research.spaced-review-due": "Spaced review due",
+        "study-research.synthesize": "Synthesize topic",
+        "study-research.synthesize-topic": "Synthesize topic",
+        "study_research_citation": "Citation",
+        "study_research_claim": "Claim",
+        "study_research_concept": "Concept",
+        "study_research_note": "Research note",
+        "study_research_question": "Research question",
+        "study_research_source": "Study source",
+        "study_research_synthesis": "Synthesis"
+      },
+      "pt-BR": {
+        "study-research": "Estudos e Pesquisa",
+        "study-research.annotate": "Anotar fonte",
+        "study-research.capture": "Capturar fonte",
+        "study-research.capture-source": "Capturar fonte",
+        "study-research.claim-evolution": "Evolu\u00e7\u00e3o da alega\u00e7\u00e3o",
+        "study-research.claim-recorded": "Alega\u00e7\u00e3o registrada",
+        "study-research.claim-superseded": "Alega\u00e7\u00e3o substitu\u00edda",
+        "study-research.claim-verified": "Alega\u00e7\u00e3o verificada",
+        "study-research.concept-graph": "Grafo de conceitos",
+        "study-research.connect": "Conectar conhecimento",
+        "study-research.evidence-matrix": "Matriz de evid\u00eancias",
+        "study-research.learning-captured": "Aprendizado capturado",
+        "study-research.learning-history": "Hist\u00f3rico de aprendizagem",
+        "study-research.learning-reviewed": "Aprendizado revisado",
+        "study-research.reading-queue": "Fila de leitura",
+        "study-research.review": "Revisar evid\u00eancias",
+        "study-research.review-evidence": "Revisar evid\u00eancias",
+        "study-research.spaced-review": "Revis\u00e3o espa\u00e7ada",
+        "study-research.spaced-review-due": "Revis\u00e3o espa\u00e7ada pendente",
+        "study-research.synthesize": "Sintetizar tema",
+        "study-research.synthesize-topic": "Sintetizar tema",
+        "study_research_citation": "Cita\u00e7\u00e3o",
+        "study_research_claim": "Alega\u00e7\u00e3o",
+        "study_research_concept": "Conceito",
+        "study_research_note": "Nota de pesquisa",
+        "study_research_question": "Pergunta de pesquisa",
+        "study_research_source": "Fonte de estudo",
+        "study_research_synthesis": "S\u00edntese"
+      }
+    }
+  },
+  "schema_version": "wiki_experience_pack_composition.v1",
+  "slots": {
+    "commands": [
+      {
+        "contribution": "study-research.annotate",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "command.annotate"
+      },
+      {
+        "contribution": "study-research.capture",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "command.capture"
+      },
+      {
+        "contribution": "study-research.connect",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "command.connect"
+      },
+      {
+        "contribution": "study-research.review",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "command.review"
+      },
+      {
+        "contribution": "study-research.synthesize",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "command.synthesize"
+      }
+    ],
+    "operations": [
+      {
+        "contribution": "study-research.capture-source",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "operation.intake"
+      },
+      {
+        "contribution": "study-research.review-evidence",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "operation.review"
+      },
+      {
+        "contribution": "study-research.synthesize-topic",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "operation.synthesis"
+      }
+    ],
+    "timelines": [
+      {
+        "contribution": "study-research.claim-evolution",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "timeline.evolution"
+      },
+      {
+        "contribution": "study-research.learning-history",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "timeline.history"
+      },
+      {
+        "contribution": "study-research.spaced-review",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "timeline.review"
+      }
+    ],
+    "views": [
+      {
+        "contribution": "study-research.evidence-matrix",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "view.evidence"
+      },
+      {
+        "contribution": "study-research.concept-graph",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "view.knowledge"
+      },
+      {
+        "contribution": "study-research.reading-queue",
+        "mode": "append",
+        "pack": "study-research",
+        "slot": "view.queue"
+      }
+    ]
+  }
+}

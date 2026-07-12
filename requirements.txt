@@ -13,3 +13,5 @@ python-docx>=1.1     # .docx document extraction
 
 # Dev/test
 pytest>=8.0
+hypothesis>=6.0     # property-based parser parity; required so CI cannot skip the module
+jsonschema>=4.21    # executable contract checks for published JSON schemas

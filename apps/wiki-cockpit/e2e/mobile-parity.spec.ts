@@ -91,6 +91,33 @@ async function expectMobileViewportBounded(page: Page, selector: string) {
   expect.soft(bounds.documentOverflow, `${selector} document overflow`).toBeLessThanOrEqual(1);
 }
 
+test("WebKit mobile Genesis 0 uses one stable responsive founding surface", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await prepareMobileWorld(page, "/demo/genesis");
+
+  const workspace = page.locator(".worldWorkspace");
+  await expect(workspace).toHaveAttribute("data-world-empty", "true");
+  await expect(workspace).not.toHaveAttribute("data-world-center", /.+/);
+  const founding = page.locator(".genesisVoid");
+  await expect(founding).toBeVisible();
+  await expectMobileViewportBounded(page, ".genesisVoidCard");
+
+  const personChoice = page.getByRole("button", { name: /A person|Uma pessoa/i });
+  await expectTouchTarget(personChoice);
+  await personChoice.tap();
+  const nameInput = founding.locator("input");
+  await nameInput.fill("Mobile Genesis root");
+  const confirm = page.getByRole("button", { name: /Found the root|Fundar a raiz/i });
+  await expectTouchTarget(confirm);
+  await confirm.tap();
+
+  await expect(page).toHaveURL(/[?&]stage=1(?:&|$)/);
+  await expect(workspace).toHaveAttribute("data-world-empty", "false");
+  await expect(workspace).toHaveAttribute("data-world-center", "root-alex-rivera");
+  expect(pageErrors).toEqual([]);
+});
+
 test("WebKit mobile uses real touch for lens, view, dock and long-label reader flows", async ({ page }, testInfo) => {
   await prepareMobileWorld(page);
 
@@ -299,10 +326,7 @@ test("WebKit mobile keeps the visible mission, quadrant controls and real Q2 tar
 
   const targetIds = [
     "root-alex-rivera",
-    "source-action-ledger",
-    "event-ingest-agenda-2026-07",
-    "family:source",
-    "family:event"
+    "family:source"
   ] as const;
   for (const id of targetIds) {
     const target = page.locator(`[data-world-target-id="${id}"]`);
@@ -365,38 +389,46 @@ test("WebKit mobile keeps the visible mission, quadrant controls and real Q2 tar
     await target.tap();
   };
 
-  const returnToQ2 = async () => {
-    await page.goBack();
-    await expect(page).not.toHaveURL(/[?&](?:page|reader|group)=/);
-    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
-    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "q2_pratica");
-    await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-group", "");
-    await expect(page.locator(".pageReader")).toHaveCount(0);
-    await expect(page.locator("[data-world-group-summary]")).toHaveCount(0);
-    await expect(page.locator(".worldMissionSlim")).toBeVisible();
-    await expectRendererContinuity();
-  };
+  await tapTarget("family:source");
+  const sourceSummary = page.locator('[data-world-group-summary="family:source"]');
+  await expect(sourceSummary).toBeVisible();
 
-  await tapTarget("source-action-ledger");
+  // The root groups sources, while each source owns its ingestion events.
+  // Exercise both an empty source and a synced source through the collection
+  // instead of depending on whichever source the spatial layout previews.
+  const actionLedger = sourceSummary.locator('[data-world-member-id="source-action-ledger"]');
+  await expect(actionLedger).toHaveCount(1);
+  await expectTouchTarget(actionLedger);
+  await actionLedger.tap();
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "source-action-ledger");
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
-  await returnToQ2();
+  await expectRendererContinuity();
 
-  await tapTarget("event-ingest-agenda-2026-07");
+  await page.goBack();
+  await expect(sourceSummary).toBeVisible();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "q2_pratica");
+  await expectRendererContinuity();
+
+  const agenda = sourceSummary.locator('[data-world-member-id="source-agenda"]');
+  await expect(agenda).toHaveCount(1);
+  await expectTouchTarget(agenda);
+  await agenda.tap();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "source-agenda");
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+  await expectRendererContinuity();
+
+  const q2 = page.locator('[data-wilber-quadrant="2"]');
+  await expectTouchTarget(q2);
+  await q2.tap();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "q2_pratica");
+  await expect(page.locator('[data-world-target-id="family:event"]')).toHaveCount(0);
+  const event = page.locator('[data-world-target-id="event-ingest-agenda-2026-07"]');
+  await expect(event).toHaveCount(1);
+  await expectTouchTarget(event);
+  await event.tap();
   await expect(page.locator(".pageReader")).toBeVisible();
   await expect(page).toHaveURL(/[?&]page=event-ingest-agenda-2026-07(?:&|$)/);
-  await returnToQ2();
-
-  await tapTarget("family:source");
-  await expect(page.locator('[data-world-group-summary="family:source"]')).toBeVisible();
-  await returnToQ2();
-
-  await tapTarget("family:event");
-  await expect(page.locator('[data-world-group-summary="family:event"]')).toBeVisible();
-  await returnToQ2();
-
-  await tapTarget("root-alex-rivera");
-  await expect(page.locator(".pageReader")).toBeVisible();
   await expectRendererContinuity();
 });
 
@@ -439,24 +471,37 @@ test("WebKit mobile keeps the same semantic route in reduced-motion fallback", a
   expect(fallbackEvidence.counters.particles).toBe(0);
   expect(fallbackEvidence.evaluations.mobile?.normal.status).toBe("fallback");
 
-  for (const family of ["family:source", "family:event"] as const) {
-    const group = page.locator(`[data-world-target-id="${family}"]`);
-    await expect(group).toHaveCount(1);
-    await group.scrollIntoViewIfNeeded();
-    await expect(group).toBeInViewport();
-    await expect.poll(() => group.evaluate((element) => getComputedStyle(element).translate)).toBe("none");
-    await expectTouchTarget(group);
-    await group.tap();
-    await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
-    await expect(page.locator(`[data-world-group-summary="${family}"]`)).toBeVisible();
-    await page.goBack();
-    await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
-    await expect(page.locator("[data-world-group-summary]")).toHaveCount(0);
-  }
+  const sourceGroup = page.locator('[data-world-target-id="family:source"]');
+  await expect(sourceGroup).toHaveCount(1);
+  await sourceGroup.scrollIntoViewIfNeeded();
+  await expect(sourceGroup).toBeInViewport();
+  await expect.poll(() => sourceGroup.evaluate((element) => getComputedStyle(element).translate)).toBe("none");
+  await expectTouchTarget(sourceGroup);
+  await sourceGroup.tap();
+  await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
 
-  const node = page.locator(".fallbackNode:not(.groupNode)").first();
-  await expect(node).toBeVisible();
-  await node.tap();
+  const sourceSummary = page.locator('[data-world-group-summary="family:source"]');
+  await expect(sourceSummary).toBeVisible();
+  const agenda = sourceSummary.locator('[data-world-member-id="source-agenda"]');
+  await expect(agenda).toHaveCount(1);
+  await expectTouchTarget(agenda);
+  await agenda.tap();
+  await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/);
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "source-agenda");
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
+
+  const q2 = page.locator('[data-wilber-quadrant="2"]');
+  await expectTouchTarget(q2);
+  await q2.tap();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "q2_pratica");
+  await expect(page.locator('[data-world-target-id="family:event"]')).toHaveCount(0);
+  const event = page.locator('[data-world-target-id="event-ingest-agenda-2026-07"]');
+  await expect(event).toHaveCount(1);
+  await event.scrollIntoViewIfNeeded();
+  await expect(event).toBeInViewport();
+  await expect.poll(() => event.evaluate((element) => getComputedStyle(element).translate)).toBe("none");
+  await expectTouchTarget(event);
+  await event.tap();
   await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10_000 });
   await expect(page.locator(".quadrantCompass")).toBeHidden();
   const horizontalScrollContract = await page.locator(".sceneShell").evaluate((shell) => ({

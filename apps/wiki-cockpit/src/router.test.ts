@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CORE_DEMO_SCENARIO_IDS } from "./data/demoScenarios";
 import { buildUrl, parseRoute, patchWorld, retreat } from "./router";
 import type { WorldQuery, WorldRoute } from "./router";
 
@@ -19,13 +20,21 @@ const BASE_QUERY: WorldQuery = {
   overlay: "",
   page: "",
   worldGroup: "",
+  compatContext: "",
   quadrant: "",
   center: "",
   runtime: "",
   genesis: false,
   stage: 0,
   demoScenario: "",
-  tour: ""
+  tour: "",
+  timeFrom: "",
+  timeTo: "",
+  timeCursor: "",
+  timeMode: "",
+  timeLanes: [],
+  compareRevision: "",
+  packView: ""
 };
 
 const world = (
@@ -67,7 +76,7 @@ describe("router grammar", () => {
     });
   });
 
-  it("round-trips URLs through buildUrl", () => {
+  it("round-trips URLs through buildUrl using only the canonical query-owned grammar", () => {
     const route = world({
       perspective: "districts",
       context: "financeiro",
@@ -76,15 +85,46 @@ describe("router grammar", () => {
       query: { q: "", filter: "stale", packet: ["a", "b"], reader: true, visual: false }
     });
     const url = buildUrl(route);
-    expect(url).toBe("/w/districts/financeiro/decision/abc?filter=stale&packet=a%2Cb&reader=1");
+    expect(url).toBe(
+      "/w?view=districts&group=decision&page=abc&compat_context=financeiro&filter=stale&packet=a%2Cb&reader=1&runtime=compat"
+    );
     const [pathname, search] = url.split("?");
     expect(parseRoute(pathname, `?${search}`)).toMatchObject({
       perspective: "districts",
       context: "financeiro",
-      group: "decision",
       pageId: "abc",
-      query: { filter: "stale", packet: ["a", "b"], reader: true }
+      query: {
+        view: "districts",
+        worldGroup: "decision",
+        compatContext: "financeiro",
+        page: "abc",
+        filter: "stale",
+        packet: ["a", "b"],
+        reader: true,
+        runtime: "compat"
+      }
     });
+  });
+
+  it("keeps positional routes as readable inputs but normalizes every writer back to /w?view", () => {
+    const legacy = parseRoute("/demo/w/atlas/financeiro/faturas/custo-starlink", "?reader=1&q=star");
+    expect(legacy).toMatchObject({
+      kind: "world",
+      perspective: "atlas",
+      context: "financeiro",
+      group: "faturas",
+      pageId: "custo-starlink"
+    });
+    if (legacy.kind !== "world") throw new Error("expected world route");
+    expect(buildUrl(legacy)).toBe(
+      "/demo/w?view=atlas&group=faturas&page=custo-starlink&compat_context=financeiro&q=star&reader=1&runtime=compat"
+    );
+    expect(buildUrl(patchWorld(legacy, { perspective: "districts" }))).toContain(
+      "view=districts"
+    );
+    expect(buildUrl(patchWorld(legacy, { perspective: "districts" }))).toContain(
+      "runtime=compat"
+    );
   });
 
   it("round-trips a conceptual lens without drilling into a group route", () => {
@@ -93,7 +133,7 @@ describe("router grammar", () => {
       query: { lens: "pratica" }
     });
     const url = buildUrl(route);
-    expect(url).toBe("/w/quadrants?lens=pratica");
+    expect(url).toBe("/w?view=quadrants&lens=pratica");
     const parsed = parseRoute("/w/quadrants", "?lens=pratica");
     expect(parsed).toMatchObject({
       kind: "world",
@@ -116,7 +156,7 @@ describe("router grammar", () => {
       query: { center: "root-alex-rivera", lens: "pratica", worldGroup: "family:source" }
     });
     const url = buildUrl(route);
-    expect(url).toBe("/w/quadrants?lens=pratica&group=family%3Asource&center=root-alex-rivera");
+    expect(url).toBe("/w?view=quadrants&center=root-alex-rivera&lens=pratica&group=family%3Asource");
     const parsed = parseRoute("/w/quadrants", "?center=root-alex-rivera&lens=pratica&group=family%3Asource");
     expect(parsed).toMatchObject({
       kind: "world",
@@ -143,7 +183,9 @@ describe("router grammar", () => {
   it("seals the demo universe: /demo prefixes parse and generate demo URLs", () => {
     const route = parseRoute("/demo/w/radar/financeiro");
     expect(route).toMatchObject({ kind: "world", demo: true, context: "financeiro" });
-    expect(buildUrl(world({ demo: true, context: "financeiro" }))).toBe("/demo/w/radar/financeiro");
+    expect(buildUrl(world({ demo: true, context: "financeiro" }))).toBe(
+      "/demo/w?view=radar&compat_context=financeiro&runtime=compat"
+    );
     expect(parseRoute("/demo/review")).toMatchObject({ kind: "review", demo: true });
   });
 
@@ -188,13 +230,84 @@ describe("router grammar", () => {
   });
 
   it("allowlists demo scenario and tour query values", () => {
-    expect(parseRoute("/demo/w", "?demo_scenario=normal_operations&tour=0")).toMatchObject({
-      kind: "world",
-      query: { demoScenario: "normal_operations", tour: "0" }
-    });
+    for (const scenario of CORE_DEMO_SCENARIO_IDS) {
+      expect(parseRoute("/demo/w", `?demo_scenario=${scenario}&tour=0`)).toMatchObject({
+        kind: "world",
+        query: { demoScenario: scenario, tour: "0" }
+      });
+    }
     expect(parseRoute("/demo/w", "?demo_scenario=..%2Fprivate&tour=restart")).toMatchObject({
       kind: "world",
       query: { demoScenario: "", tour: "" }
+    });
+    expect(parseRoute("/demo/w", "?demo_scenario=study_research_showcase&tour=0")).toMatchObject({
+      query: { demoScenario: "study_research_showcase", tour: "0" }
+    });
+    expect(parseRoute("/demo/w", "?demo_scenario=personal_finance_showcase&tour=0")).toMatchObject({
+      query: { demoScenario: "personal_finance_showcase", tour: "0" }
+    });
+  });
+
+  it("round-trips bounded Chronoscope state for refresh, sharing and history", () => {
+    const input =
+      "?view=timeline&time_from=2025-01-01&time_to=2026-07-11&time_cursor=evt-review-4" +
+      "&time_mode=event&time_lanes=source,decision,pack%3Astudy&compare=31b94d81";
+    const parsed = parseRoute("/w", input);
+    expect(parsed).toMatchObject({
+      kind: "world",
+      query: {
+        view: "timeline",
+        timeFrom: "2025-01-01",
+        timeTo: "2026-07-11",
+        timeCursor: "evt-review-4",
+        timeMode: "event",
+        timeLanes: ["source", "decision"],
+        compareRevision: "31b94d81"
+      }
+    });
+    if (parsed.kind !== "world") throw new Error("expected world route");
+
+    const changed = patchWorld(parsed, {
+      timeCursor: "evt-review-5",
+      timeMode: "recorded",
+      timeLanes: ["action"]
+    });
+    const roundTrip = new URL(buildUrl(changed), "http://local.test");
+    expect(parseRoute(roundTrip.pathname, roundTrip.search)).toMatchObject({
+      query: {
+        timeFrom: "2025-01-01",
+        timeTo: "2026-07-11",
+        timeCursor: "evt-review-5",
+        timeMode: "recorded",
+        timeLanes: ["action"],
+        compareRevision: "31b94d81"
+      }
+    });
+  });
+
+  it("fails closed for unknown temporal modes and malformed lane identifiers", () => {
+    expect(parseRoute("/w", "?time_mode=playback&time_lanes=source,../../private,pack%3Astudy,has%20space")).toMatchObject({
+      query: { timeMode: "", timeLanes: ["source"] }
+    });
+  });
+
+  it("round-trips a bounded namespaced experience-pack view without changing the native geometry", () => {
+    const parsed = parseRoute("/w", "?view=quadrants&pack_view=example-pack.reference-map&center=root");
+    expect(parsed).toMatchObject({
+      kind: "world",
+      query: { view: "quadrants", packView: "example-pack.reference-map", center: "root" }
+    });
+    if (parsed.kind !== "world") throw new Error("expected world route");
+    expect(buildUrl(patchWorld(parsed, { packView: "example-pack.review-queue" }))).toContain(
+      "pack_view=example-pack.review-queue"
+    );
+    expect(parseRoute("/w", "?pack_view=../../private%20page")).toMatchObject({ query: { packView: "" } });
+  });
+
+  it("rejects invalid dates, reversed-looking tokens and overlong temporal cursors", () => {
+    const cursor = `evt-${"x".repeat(170)}`;
+    expect(parseRoute("/w", `?time_from=2026-02-30&time_to=tomorrow&time_cursor=${cursor}&compare=bad%20revision`)).toMatchObject({
+      query: { timeFrom: "", timeTo: "", timeCursor: "", compareRevision: "" }
     });
   });
 
@@ -209,22 +322,33 @@ describe("router grammar", () => {
     expect(switched).toMatchObject({ perspective: "districts", context: "financeiro", pageId: "x", group: undefined });
   });
 
-  it("parses and round-trips the one-world grammar (dock/src/diff/station/ack/tray)", () => {
+  it("parses conflicting hand-written surfaces with dock > reader > tray precedence", () => {
     const route = parseRoute("/w/radar", "?dock=approve&station=3&ack=scope,risk&diff=1&reader=1&tray=work&src=data%2Fraw%2Fx.pdf");
     // diff needs a locked page, so with no pageId the parse still records diff
     // (the invariant only applies in patchWorld); dock/station/ack survive.
     expect(route).toMatchObject({
       kind: "world",
-      query: { dock: "approve", station: 3, ack: ["scope", "risk"], tray: "work", src: "data/raw/x.pdf" }
+      query: { dock: "approve", station: 3, ack: ["scope", "risk"], reader: false, tray: "", src: "data/raw/x.pdf" }
     });
-    const built = world({ query: { dock: "gates", tray: "missions", ack: ["a"], src: "u" } });
+    const readerWinsTray = parseRoute("/w", "?view=quadrants&page=root&reader=1&tray=missions");
+    expect(readerWinsTray).toMatchObject({ query: { reader: true, tray: "" } });
+
+    const canonicalWrite = new URL(buildUrl(world({
+      query: { dock: "gates", reader: true, tray: "missions" }
+    })), "http://local.test");
+    expect(canonicalWrite.searchParams.get("dock")).toBe("gates");
+    expect(canonicalWrite.searchParams.has("reader")).toBe(false);
+    expect(canonicalWrite.searchParams.has("tray")).toBe(false);
+  });
+
+  it("round-trips one canonical URL-owned tray without a simultaneous dock", () => {
+    const built = patchWorld(world({ query: { ack: ["a"] } }), { tray: "missions" });
     const url = buildUrl(built);
-    expect(url).toContain("dock=gates");
     expect(url).toContain("tray=missions");
     expect(url).toContain("ack=a");
     const [pathname, search] = url.split("?");
     expect(parseRoute(pathname, `?${search}`)).toMatchObject({
-      query: { dock: "gates", tray: "missions", ack: ["a"], src: "u" }
+      query: { dock: "", reader: false, tray: "missions", ack: ["a"] }
     });
   });
 
@@ -234,11 +358,34 @@ describe("router grammar", () => {
     expect((route as WorldRoute).query).toMatchObject({ dock: "", tray: "" });
   });
 
+  it("fails closed on malformed percent escapes instead of throwing from route parsing", () => {
+    expect(() => parseRoute("/pages/%")).not.toThrow();
+    const invalidAlias = parseRoute("/pages/%");
+    expect(invalidAlias).toMatchObject({ kind: "pageAlias" });
+    expect("pageId" in invalidAlias).toBe(false);
+
+    expect(() => parseRoute("/w/radar/%", "?q=safe")).not.toThrow();
+    const invalidWorld = parseRoute("/w/radar/%", "?q=safe");
+    expect(invalidWorld).toMatchObject({
+      kind: "world",
+      perspective: "radar",
+      perspectiveExplicit: true,
+      query: { q: "safe" }
+    });
+    expect("context" in invalidWorld).toBe(false);
+    expect("group" in invalidWorld).toBe(false);
+    expect("pageId" in invalidWorld).toBe(false);
+  });
+
   it("patchWorld: dock and tray are mutually exclusive", () => {
-    const withTray = world({ query: { tray: "work" } });
+    const withTray = world({ query: { tray: "missions" } });
     expect(patchWorld(withTray, { dock: "approve" }).query).toMatchObject({ dock: "approve", tray: "" });
     const withDock = world({ query: { dock: "approve" } });
-    expect(patchWorld(withDock, { tray: "missions" }).query).toMatchObject({ tray: "missions", dock: "" });
+    expect(patchWorld(withDock, { tray: "missions" }).query).toMatchObject({ tray: "missions", dock: "", reader: false });
+    const withReader = world({ context: "system", pageId: "root", query: { reader: true } });
+    expect(patchWorld(withReader, { tray: "missions" }).query).toMatchObject({ tray: "missions", dock: "", reader: false });
+    const trayOnPage = world({ context: "system", pageId: "root", query: { tray: "missions" } });
+    expect(patchWorld(trayOnPage, { reader: true }).query).toMatchObject({ tray: "", dock: "", reader: true });
   });
 
   it("keeps an explicit recursive quadrant center while the reader changes pages", () => {
@@ -277,6 +424,11 @@ describe("router grammar", () => {
     expect((route as WorldRoute).query.dock).toBe("work");
     const url = buildUrl(patchWorld(world(), { dock: "work" }));
     expect(url).toContain("dock=work");
+
+    const legacyTray = parseRoute("/w", "?view=work&tray=work");
+    expect(legacyTray).toMatchObject({ query: { dock: "work", tray: "" } });
+    expect(buildUrl(legacyTray)).toContain("dock=work");
+    expect(buildUrl(legacyTray)).not.toContain("tray=work");
   });
 
   it("patchWorld: diff needs a locked page; station needs the approve dock", () => {

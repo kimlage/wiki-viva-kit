@@ -26,4 +26,4 @@ source_lifecycle:
 
 # Reference folder mirror
 
-A live source. Its content is born by ingestion — manual creation under it is off. (The bank export is intentionally overdue.)
+A live Drive folder source. Its content is born by ingestion — manual creation under it is off. This fixture demonstrates lifecycle `ready`, freshness `never_synced` and last attempt `never`.

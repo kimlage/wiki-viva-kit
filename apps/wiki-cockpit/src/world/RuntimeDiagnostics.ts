@@ -1,6 +1,6 @@
 import type { RuntimeEvent, WorldState } from "./contracts";
 
-export type DiagnosticRecord = { at: string; event: RuntimeEvent["type"]; centerId: string; view: string; detail: string };
+export type DiagnosticRecord = { at: string; event: RuntimeEvent["type"]; centerId: string | null; view: string; detail: string };
 
 const SECRET = /(token|password|cookie|authorization|api[_-]?key)\s*[:=]\s*[^\s,;]+/gi;
 

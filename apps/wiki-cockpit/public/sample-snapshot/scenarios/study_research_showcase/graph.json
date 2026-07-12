@@ -1,0 +1,959 @@
+{
+  "edges": [
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "1acd4e082bdad8ad9bc7",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "claim-review-cadence",
+        "path": "memories/showcases/study_research_showcase/study-research/claim-review-cadence.md"
+      },
+      "source": "claim-review-cadence",
+      "status": "valid",
+      "target": "root-study-research-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "23f12b55945cca928644",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "claim-review-cadence",
+        "path": "memories/showcases/study_research_showcase/study-research/claim-review-cadence.md"
+      },
+      "source": "claim-review-cadence",
+      "status": "valid",
+      "target": "root-study-research-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "58365cf5257f3b7a6655",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "related_pages",
+        "page_id": "concept-feedback",
+        "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md"
+      },
+      "source": "concept-feedback",
+      "status": "valid",
+      "target": "concept-retention",
+      "type": "related_page",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "0f31c96ffa60fce1cd91",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "concept-feedback",
+        "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md"
+      },
+      "source": "concept-feedback",
+      "status": "valid",
+      "target": "root-study-research-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "b58a2018d10796c1688f",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "concept-feedback",
+        "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md"
+      },
+      "source": "concept-feedback",
+      "status": "valid",
+      "target": "root-study-research-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "8799ec14d90466cd57ab",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "related_pages",
+        "page_id": "concept-retention",
+        "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md"
+      },
+      "source": "concept-retention",
+      "status": "valid",
+      "target": "concept-feedback",
+      "type": "related_page",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "c8b600fc44f960e936ca",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "concept-retention",
+        "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md"
+      },
+      "source": "concept-retention",
+      "status": "valid",
+      "target": "root-study-research-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "b188f9a024f08a1aec23",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "concept-retention",
+        "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md"
+      },
+      "source": "concept-retention",
+      "status": "valid",
+      "target": "root-study-research-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "201450648632731b848e",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "question-next-review",
+        "path": "memories/showcases/study_research_showcase/study-research/question-next-review.md"
+      },
+      "source": "question-next-review",
+      "status": "valid",
+      "target": "root-study-research-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "6b5cc5edd05c1192e24a",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "question-next-review",
+        "path": "memories/showcases/study_research_showcase/study-research/question-next-review.md"
+      },
+      "source": "question-next-review",
+      "status": "valid",
+      "target": "root-study-research-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "7dbfaf8685d87f7ebb43",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-study-research-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-study-research-showcase",
+      "status": "valid",
+      "target": "claim-review-cadence",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "de8340a0b529c287388d",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-study-research-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-study-research-showcase",
+      "status": "valid",
+      "target": "concept-feedback",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "6c5fcaed9b35bb946545",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-study-research-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-study-research-showcase",
+      "status": "valid",
+      "target": "concept-retention",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "4d23babbd835a1e9515e",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-study-research-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-study-research-showcase",
+      "status": "valid",
+      "target": "question-next-review",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "666acea031fb29b0aa98",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "root-study-research-showcase",
+        "path": "memories/index.md"
+      },
+      "source": "root-study-research-showcase",
+      "status": "valid",
+      "target": "source-learning-loops",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "e5fb4e58c3d540b1a1ba",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "body",
+        "page_id": "source-learning-loops",
+        "path": "memories/showcases/study_research_showcase/study-research/source-learning-loops.md"
+      },
+      "source": "source-learning-loops",
+      "status": "valid",
+      "target": "root-study-research-showcase",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
+      "basis": "frontmatter",
+      "direction": "directed",
+      "id": "ac238ca23942f10c0930",
+      "observed_at": "2026-07-09",
+      "provenance": {
+        "field": "moc_parent",
+        "page_id": "source-learning-loops",
+        "path": "memories/showcases/study_research_showcase/study-research/source-learning-loops.md"
+      },
+      "source": "source-learning-loops",
+      "status": "valid",
+      "target": "root-study-research-showcase",
+      "type": "moc_parent",
+      "weight": 1
+    }
+  ],
+  "nodes": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "claim-review-cadence",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "study_research_claim",
+      "path": "memories/showcases/study_research_showcase/study-research/claim-review-cadence.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Review cadence claim",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "concept-feedback",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Feedback",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "concept-retention",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "study_research_concept",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Retention",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "question-next-review",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "study_research_question",
+      "path": "memories/showcases/study_research_showcase/study-research/question-next-review.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "When should the review cadence be checked again?",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "root-study-research-showcase",
+      "metrics": {
+        "inbound_links": 5,
+        "outbound_links": 5,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 0,
+          "reasons": [
+            "deterministic_flags:none"
+          ],
+          "refs": [],
+          "state": "clear",
+          "value": 0
+        }
+      },
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "",
+      "title": "Study and Research Observatory",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    },
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "id": "source-learning-loops",
+      "metrics": {
+        "inbound_links": 1,
+        "outbound_links": 1,
+        "source_ref_count": 0
+      },
+      "overlay_metrics": {
+        "actions": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "none",
+          "value": 0
+        },
+        "attention": {
+          "count": 0,
+          "reasons": [],
+          "refs": [],
+          "state": "quiet",
+          "value": 0
+        },
+        "evidence": {
+          "count": 0,
+          "reasons": [
+            "evidence:not_recorded"
+          ],
+          "refs": [],
+          "state": "unrecorded",
+          "value": 0
+        },
+        "freshness": {
+          "count": 1,
+          "reasons": [
+            "freshness:fresh"
+          ],
+          "refs": [],
+          "state": "fresh",
+          "value": 1
+        },
+        "ownership": {
+          "count": 0,
+          "reasons": [
+            "owner:not_applicable"
+          ],
+          "refs": [],
+          "state": "unknown",
+          "value": null
+        },
+        "quality": {
+          "count": 1,
+          "reasons": [
+            "quality:low_information_density_pages"
+          ],
+          "refs": [],
+          "state": "warning",
+          "value": 1
+        }
+      },
+      "page_type": "study_research_source",
+      "path": "memories/showcases/study_research_showcase/study-research/source-learning-loops.md",
+      "risk_flags": [],
+      "stale_after_days": "3650",
+      "status": "reviewed",
+      "title": "Learning loops reference",
+      "updated_at": "2026-07-09",
+      "visibility": "public"
+    }
+  ],
+  "overlay_metrics_version": "wiki_semantic_visual_tokens.v1",
+  "relation_diagnostics": [],
+  "relation_types": [
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "collection membership row",
+      "family": "collection",
+      "id": "collection_member",
+      "label": "collection member",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "member to collection index"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "blocked-by row",
+      "family": "dependency",
+      "id": "dependency",
+      "label": "dependency",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "blocker to dependent work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "supporting evidence row",
+      "family": "evidence",
+      "id": "evidence_supports",
+      "label": "evidence supports",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence to supported work"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "affected page row",
+      "family": "impact",
+      "id": "impact",
+      "label": "impact",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest/proposal to canonical change"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "linked page row",
+      "family": "citation",
+      "id": "markdown_link",
+      "label": "markdown link",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored citation"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "parent/child row",
+      "family": "hierarchy",
+      "id": "moc_parent",
+      "label": "moc parent",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "structural parent"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "owner row",
+      "family": "ownership",
+      "id": "ownership",
+      "label": "ownership",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "owner to owned object"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "participant row",
+      "family": "participation",
+      "id": "participation",
+      "label": "participation",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "participant to event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "proposal transition row",
+      "family": "impact",
+      "id": "proposal_transition",
+      "label": "proposal transition",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "ingest event to review proposal"
+    },
+    {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "related page row",
+      "family": "association",
+      "id": "related_page",
+      "label": "related page",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored related-page association"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "emitted event row",
+      "family": "source_emission",
+      "id": "source_emission",
+      "label": "source emission",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "source to ingest event"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "source reference row",
+      "family": "evidence",
+      "id": "source_ref",
+      "label": "source ref",
+      "provenance_bearing": true,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "provenance",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "evidence reference"
+    },
+    {
+      "allows_cycles": false,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "previous/next row",
+      "family": "temporal",
+      "id": "temporal_sequence",
+      "label": "temporal sequence",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "earlier to later event"
+    }
+  ],
+  "relation_vocabulary_version": "wiki_relation_types.v1",
+  "repo_id": "wiki-viva-demo-study-research-showcase",
+  "schema_version": "wiki_web_graph.v2",
+  "wanted_pages": {}
+}

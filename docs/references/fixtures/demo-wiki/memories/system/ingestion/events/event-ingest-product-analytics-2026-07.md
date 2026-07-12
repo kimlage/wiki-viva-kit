@@ -6,7 +6,7 @@ page_type: ingestion_event
 title: 'Ingestão: product analytics'
 context: sistema
 updated_at: '2026-07-03'
-moc_parent: memories/index.md
+moc_parent: memories/sources/source-product-analytics.md
 source_refs:
 - source-product-analytics
 consolidated_into:

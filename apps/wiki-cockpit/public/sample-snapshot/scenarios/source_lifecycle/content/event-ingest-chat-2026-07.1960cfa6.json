@@ -1,0 +1,59 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-chat-export",
+      "page_type": "source",
+      "path": "memories/sources/source-chat-export.md",
+      "relation": "source_emission",
+      "title": "Export do Chat"
+    }
+  ],
+  "body": "\n# Ingest\u00e3o: export do chat\n\nNormalized import of the client chat export \u2014 the proposal is still awaiting consolidation.\n\n## Source\n\n- Source: `source-chat-export`\n- Normalized event: this page IS the record of the sync.\n",
+  "frontmatter": {
+    "consolidated_into": [],
+    "context": "sistema",
+    "moc_parent": "memories/sources/source-chat-export.md",
+    "page_id": "event-ingest-chat-2026-07",
+    "page_type": "ingestion_event",
+    "source_refs": [
+      "source-chat-export"
+    ],
+    "stale_after_days": "365",
+    "title": "Ingest\u00e3o: export do chat",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/sources/source-chat-export.md",
+    "page_id": "event-ingest-chat-2026-07",
+    "page_type": "ingestion_event",
+    "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
+    "summary": "Normalized import of the client chat export \u2014 the proposal is still awaiting consolidation. Source: source-chat-export Normalized event: this page IS the record of the sync.",
+    "summary_truncated": false,
+    "title": "Ingest\u00e3o: export do chat",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-5a1bed9d910e97b9",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "source-chat-export",
+      "page_type": "source",
+      "path": "memories/sources/source-chat-export.md",
+      "ref": "source-chat-export",
+      "resolved": true,
+      "title": "Export do Chat"
+    }
+  ]
+}

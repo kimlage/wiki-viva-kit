@@ -1,6 +1,6 @@
 {
   "backlinks": [],
-  "body": "\n# Clearpath roadmap archive\n\nA live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)\n",
+  "body": "\n# Clearpath roadmap archive\n\nA live Roadmap source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `ready`, freshness `never_synced` and last attempt `never`.\n",
   "frontmatter": {
     "context": "clientes",
     "moc_parent": "memories/empresas/clearpath-labs.md",
@@ -30,13 +30,13 @@
     "page_id": "source-clearpath-roadmap",
     "page_type": "source",
     "path": "memories/sources/source-clearpath-roadmap.md",
-    "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+    "summary": "A live Roadmap source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle ready, freshness never_synced and last attempt never.",
     "summary_truncated": false,
     "title": "Clearpath roadmap archive",
     "updated_at": "2026-07-03"
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-3a7e59e1808bc23d",
+  "snapshot_id": "wiki-viva-demo-b60b6d02b5e77999",
   "source_refs": []
 }

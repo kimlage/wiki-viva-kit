@@ -1,0 +1,36 @@
+schema_version: wiki_experience_pack_fixture.v1
+id: study-conflicting-evidence
+story: Surface two synthetic claims that disagree and require human review before synthesis.
+expected_state: review_blocked
+public_synthetic: true
+failure_code: conflicting_evidence_requires_review
+compiler:
+  schema_version: wiki_experience_pack_fixture_compiler.v1
+  mode: failure
+  seed: 8401
+  reference_date: "2026-07-09"
+  base_fixture: fixtures/normal
+  type_counts: {}
+  mutations:
+    - operation: set_field
+      page_id: claim-review-cadence
+      field: conflict_group
+      value: review-cadence
+    - operation: clone_page
+      page_id: claim-review-cadence
+      new_page_id: claim-review-cadence-challenged
+    - operation: set_field
+      page_id: claim-review-cadence-challenged
+      field: claim_state
+      value: challenged
+  checks:
+    - kind: conflicting_values
+      page_type: study_research_claim
+      key_fields: [conflict_group]
+      value_field: claim_state
+      code: conflicting_evidence_requires_review
+  expected_diagnostic_codes: [conflicting_evidence_requires_review]
+assertions:
+  - synthesis_operation_is_blocked
+  - conflicting_claims_remain_visible
+  - no_evidence_is_silently_discarded

@@ -24,6 +24,7 @@ const KIND_TONE: Record<string, "good" | "warn" | "muted" | "bad"> = {
 export function BlocksDock({
   bundle,
   focusId,
+  readOnly = false,
   onSelectAnchor,
   onOpenPage,
   onAttach,
@@ -31,6 +32,7 @@ export function BlocksDock({
 }: {
   bundle: SnapshotBundle;
   focusId: string | null;
+  readOnly?: boolean;
   onSelectAnchor: (anchorId: string) => void;
   onOpenPage: (pageId: string) => void;
   // The REAL attach action (the first Setup Studio muscle). In a live wiki it
@@ -111,6 +113,7 @@ export function BlocksDock({
                     bundle={bundle}
                     anchorId={activeId}
                     record={record}
+                    readOnly={readOnly}
                     onAttach={(id) => onAttach(id, activeId)}
                   />
                 )}
@@ -451,11 +454,13 @@ function AttachSection({
   bundle,
   anchorId,
   record,
+  readOnly,
   onAttach
 }: {
   bundle: SnapshotBundle;
   anchorId: string;
   record: NonNullable<ReturnType<typeof anchorRecord>>;
+  readOnly: boolean;
   onAttach: (id: string) => void;
 }) {
   const inStack = new Set(record.stack.map((entry) => entry.id));
@@ -475,7 +480,7 @@ function AttachSection({
   return (
     <section className="blocksSection blocksAttach">
       <h4>{t("blocks.attach")}</h4>
-      <p className="blocksLabel">{t("blocks.attachHint")}</p>
+      <p className="blocksLabel">{t(readOnly ? "blocks.attachHintDemo" : "blocks.attachHint")}</p>
       <ul className="blockStackList">
         {packages.map(([id, pkg]) => {
           const description = blockDescription(`package.${id}`, pkg.summary);
@@ -488,7 +493,15 @@ function AttachSection({
                   <small>{description}</small>
                 </span>
               </span>
-              <button className="attachButton" onClick={() => onAttach(id)} title={description} type="button">
+              <button
+                className="attachButton"
+                onClick={() => onAttach(id)}
+                disabled={readOnly}
+                aria-label={readOnly ? `${t("blocks.attachCta")} — ${t("demo.readOnlyControl")}` : undefined}
+                title={readOnly ? t("demo.readOnlyControl") : description}
+                tabIndex={0}
+                type="button"
+              >
                 {t("blocks.attachCta")}
               </button>
             </li>
@@ -505,7 +518,15 @@ function AttachSection({
                   <small>{description}</small>
                 </span>
               </span>
-              <button className="attachButton" onClick={() => onAttach(id)} title={description} type="button">
+              <button
+                className="attachButton"
+                onClick={() => onAttach(id)}
+                disabled={readOnly}
+                aria-label={readOnly ? `${t("blocks.attachCta")} — ${t("demo.readOnlyControl")}` : undefined}
+                title={readOnly ? t("demo.readOnlyControl") : description}
+                tabIndex={0}
+                type="button"
+              >
                 {t("blocks.attachCta")}
               </button>
             </li>

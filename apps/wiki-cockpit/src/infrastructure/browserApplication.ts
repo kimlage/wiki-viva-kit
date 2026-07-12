@@ -12,6 +12,7 @@ import {
   loadFileDiff,
   loadPageContent,
   loadSnapshotBundle,
+  loadTemporalGraphForBundle,
   returnCodexJob,
   runOperatorCommand,
   runGate,
@@ -37,6 +38,7 @@ import type { ApplicationPorts, NavigationPort, OperatorPort } from "../applicat
 const operator: OperatorPort = {
   loadSnapshotBundle,
   loadPageContent,
+  loadTemporalGraph: (bundle, options) => loadTemporalGraphForBundle(bundle, options?.signal),
   loadCodexCapability,
   composeBrief,
   listBriefs,

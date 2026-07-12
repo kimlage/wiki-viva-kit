@@ -32,11 +32,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from wiki_core.action_state import (
+    legacy_action_state_from_body,
+    resolve_action_state,
+)
 from wiki_core.closure import build_ingestion_closure_report
 from wiki_core.consolidate import pending_consolidations
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.freshness import age_days
-from wiki_core.frontmatter import parse_frontmatter_flat as parse_frontmatter
+from wiki_core.frontmatter import (
+    parse_frontmatter as parse_structured_frontmatter,
+    parse_frontmatter_flat as parse_frontmatter,
+)
 from wiki_core.paths import WikiPaths
 from wiki_core.score import compute_karma, load_events, record_event, resolve_events_path
 
@@ -45,8 +52,6 @@ from wiki_core.score import compute_karma, load_events, record_event, resolve_ev
 CONTEXT_HUB_TYPE = "context_hub"
 
 H1_RE = re.compile(r"^#\s+(.*\S)\s*$")
-# Bilingual: action pages may carry "Estado:" (pt) or "State:" (en) lines.
-STATE_PREFIX_RE = re.compile(r"^(?:Estado|State):\s*(.+?)\s*$")
 # Bilingual: H1 titles may carry "Decisao - " / "Decision - " / "Acao - " /
 # "Action - " prefixes; the cockpit tables list the bare title.
 TITLE_PREFIX_RE = re.compile(r"^(?:Decisao|Decision|Acao|Action)\s*-\s*")
@@ -283,19 +288,12 @@ def first_h1(text: str) -> str:
 
 
 def first_state(text: str) -> str:
-    for line in text.splitlines():
-        match = STATE_PREFIX_RE.match(line.strip())
-        if match:
-            raw = match.group(1).strip()
-            if raw.startswith("`"):
-                end = raw.find("`", 1)
-                if end > 1:
-                    return raw[1:end].strip()
-            for sep in (" — ", " -- "):
-                if sep in raw:
-                    raw = raw.split(sep, 1)[0].strip()
-            return raw.rstrip(".").strip()
-    return ""
+    return legacy_action_state_from_body(text)
+
+
+def _action_body_state(text: str) -> str:
+    _values, body = parse_structured_frontmatter(text)
+    return legacy_action_state_from_body(body)
 
 
 def _clean_title(title: str) -> str:
@@ -377,42 +375,6 @@ NON_PENDING_DECISION_STATUS_PREFIXES = (
     "resolvido_at_",
     "resolvido_em_",
 )
-CLOSED_ACTION_STATUS_SLUGS = frozenset(
-    {
-        "closed",
-        "complete",
-        "completed",
-        "concluida",
-        "concluido",
-        "concluded",
-        "done",
-        "resolved",
-        "resolvida",
-        "resolvido",
-    }
-)
-CLOSED_ACTION_STATUS_PREFIXES = (
-    "closed_at_",
-    "closed_em_",
-    "completed_at_",
-    "completed_em_",
-    "concluida_at_",
-    "concluida_em_",
-    "concluido_at_",
-    "concluido_em_",
-    "concluded_at_",
-    "concluded_em_",
-    "done_at_",
-    "done_em_",
-    "resolved_at_",
-    "resolved_em_",
-    "resolvida_at_",
-    "resolvida_em_",
-    "resolvido_at_",
-    "resolvido_em_",
-)
-
-
 def _status_slug(status: str) -> str:
     normalized = unicodedata.normalize("NFKD", status)
     ascii_status = normalized.encode("ascii", "ignore").decode("ascii")
@@ -426,18 +388,6 @@ def _decision_is_pending(values: dict[str, str], text: str) -> bool:
     slug = _status_slug(status)
     return slug not in NON_PENDING_DECISION_STATUS_SLUGS and not any(
         slug.startswith(prefix) for prefix in NON_PENDING_DECISION_STATUS_PREFIXES
-    )
-
-
-def _action_is_closed(values: dict[str, str], text: str) -> bool:
-    status = str(
-        values.get("status") or values.get("state") or first_state(text) or ""
-    ).strip()
-    if not status:
-        return False
-    slug = _status_slug(status)
-    return slug in CLOSED_ACTION_STATUS_SLUGS or any(
-        slug.startswith(prefix) for prefix in CLOSED_ACTION_STATUS_PREFIXES
     )
 
 
@@ -490,17 +440,24 @@ def collect_actions(paths: WikiPaths) -> list[Action]:
         fm = parse_frontmatter(text)
         if fm.get("page_type") != "action":
             continue
-        if _action_is_closed(fm, text):
+        resolution = resolve_action_state(fm, legacy_state=_action_body_state(text))
+        if resolution.terminal:
             continue
         title = _clean_title(first_h1(text)) or path.stem
+        display_state = (
+            resolution.state
+            if resolution.source == "action_state"
+            else resolution.raw
+        )
         actions.append(
             Action(
                 page_id=fm.get("page_id", path.stem),
                 title=title,
                 context=fm.get("context", paths.config.default_context),
-                # Empty when the page has no Estado/State line; build_page renders
-                # the language-table fallback (COCKPIT_STRINGS["no_state"]).
-                state=first_state(text),
+                # Canonical pages display their machine state. Legacy pages keep
+                # their old wording; a truly missing state still renders the
+                # language-table fallback.
+                state=display_state,
                 rel_link=_rel_to_page_dir(path, page_dir),
             )
         )

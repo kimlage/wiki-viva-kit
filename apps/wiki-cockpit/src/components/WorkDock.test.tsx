@@ -128,4 +128,41 @@ describe("WorkDock", () => {
     render(<WorkDock capability={cap} demo={false} operator={operator} onResumeBrief={noop} onNotice={noop} onClose={noop} />);
     await waitFor(() => expect(screen.getByRole("dialog", { name: /briefs and jobs/i })).toBeTruthy());
   });
+
+  it("aborts list and live-log reads when the same open dock crosses into demo", async () => {
+    const listSignals: AbortSignal[] = [];
+    const logSignals: AbortSignal[] = [];
+    const crossingOperator = {
+      ...operator,
+      listCodexJobs: vi.fn(async (options?: { signal?: AbortSignal }) => {
+        if (options?.signal) listSignals.push(options.signal);
+        return [job({ status: "running" })];
+      }),
+      listBriefs: vi.fn(async (options?: { signal?: AbortSignal }) => {
+        if (options?.signal) listSignals.push(options.signal);
+        return [];
+      }),
+      streamCodexLog: vi.fn(async (_jobId: string, options?: { signal?: AbortSignal }) => {
+        if (options?.signal) logSignals.push(options.signal);
+        return new Promise<string>(() => undefined);
+      })
+    };
+    const view = render(
+      <WorkDock capability={cap} demo={false} operator={crossingOperator} onResumeBrief={noop} onNotice={noop} onClose={noop} />
+    );
+
+    await waitFor(() => expect(screen.getByText("running")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /Show log/i }));
+    await waitFor(() => expect(logSignals).toHaveLength(1));
+    expect(listSignals.every((signal) => !signal.aborted)).toBe(true);
+    expect(logSignals[0].aborted).toBe(false);
+
+    view.rerender(
+      <WorkDock capability={cap} demo operator={crossingOperator} onResumeBrief={noop} onNotice={noop} onClose={noop} />
+    );
+
+    await waitFor(() => expect(listSignals.every((signal) => signal.aborted)).toBe(true));
+    expect(logSignals[0].aborted).toBe(true);
+    expect(screen.getByText(/demo/i)).toBeTruthy();
+  });
 });

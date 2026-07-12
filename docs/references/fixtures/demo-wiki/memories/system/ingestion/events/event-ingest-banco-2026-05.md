@@ -6,7 +6,7 @@ page_type: ingestion_event
 title: 'Ingestão: extrato do banco (maio)'
 context: sistema
 updated_at: '2026-05-04'
-moc_parent: memories/index.md
+moc_parent: memories/sources/source-banco-export.md
 source_refs:
 - source-banco-export
 consolidated_into:

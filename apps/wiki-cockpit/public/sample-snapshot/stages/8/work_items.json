@@ -27,6 +27,8 @@
         "source-agenda"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Enviar proposta para Caio"
     },
     {
@@ -56,6 +58,8 @@
         "source-product-analytics"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Clean unsourced region claims"
     },
     {
@@ -85,6 +89,8 @@
         "source-product-analytics"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Review region evidence"
     },
     {
@@ -114,6 +120,8 @@
         "source-support-tickets"
       ],
       "state": "open",
+      "state_compatibility": false,
+      "state_source": "action_state",
       "title": "Refresh support ticket source"
     }
   ],

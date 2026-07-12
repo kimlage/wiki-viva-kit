@@ -20,14 +20,21 @@ beforeEach(() => {
           status: 200,
           json: async () => ({
             ok: true,
-            schema_capabilities: ["operator_security_v1"],
+            server_version: "wiki_web_server.v6",
+            schema_capabilities: [
+              "operator_security_v2",
+              "cors_default_deny_v1",
+              "action_state_transitions_v1"
+            ],
             operator_security: {
-              version: "wiki_operator_security.v1",
+              version: "wiki_operator_security.v2",
               nonce_header: "X-Wiki-Operator-Nonce",
               nonce: "test-nonce",
               attempt_header: "X-Wiki-Attempt-Key",
               max_body_bytes: 1_048_576,
-              mutations: "post_only"
+              mutations: "post_only",
+              browser_origin_default: "deny",
+              cors_opt_in: "exact_loopback_allowlist"
             }
           })
         };

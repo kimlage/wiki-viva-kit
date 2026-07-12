@@ -6,45 +6,47 @@ bound to the URL and reading happens inside the world.
 
 ## The navigable world
 
-URL grammar: `/w/:perspective/:context?/:group?/:pageId?` — browser back,
-breadcrumbs and deep links are the same thing. Six deterministic,
-worker-computed perspectives re-arrange the same node identities (MORPH keeps
-identity on switch, keys `1–5` + `F`):
+The canonical share grammar is one real center plus registered query state:
+`/w?view=<view>&center=<page>&lens=<lens>&overlay=<metric>`. Browser history,
+breadcrumbs and deep links restore the same semantic question. Legacy
+positional `/w/:perspective/:context?/:group?/:pageId?` links remain readable,
+but canonical writers normalize them into query-owned state rather than
+extending that old grammar. When an old projection still needs its positional
+context to preserve meaning, normalization carries it only as
+`compat_context=...` together with `runtime=compat`; native v8 routes never
+author that compatibility field.
 
-- **Quadrants** (`/w/quadrants`, key `5`, the default landing view) — the AQAL
-  home map for the active recursive center. Four fixed 90° regions come from
-  that center's compiled `quadrant_assignments`; the center page sits at the
-  crossing of the axes, and structural pages that honestly have no quadrant
-  remain in q0-core. The same page can project differently under different
-  centers, with the reason stored in `quadrant_projections`. `?center=<anchor>`
-  preserves an explicit root/company/project/source/template center separately
-  from the reader page; without it, the selected page's nearest anchor is used
-  for old links. A selected quadrant scopes the quadrant-aware views
-  (quadrants/radar/districts). Bare `/`, `/ops` and `/w` normalize to the
-  STACK's home view — the default view is a template decision (`ui_views`), not
-  a platform constant.
-- **Radar** (`/w/radar`, key `1`) — verification: what needs attention now.
-- **Atlas** (`/w/atlas`, key `2`) — hierarchy navigation over `moc_parent`
-  orbits; replaces the retired `/pages` list (old `/pages/:id` bookmarks
-  redirect into the world with the reader open).
-- **Distritos** (`/w/districts`, key `3`) — identification: the world shelved
-  by content kind.
-- **Trilhas** (`/w/trails`, key `4`) — context exploration: the locked page's
-  ego-graph in typed relation sectors (Hierarquia / Evidência / Links /
-  Citado por).
-- **Focus** (`/w/focus`, key `F`, needs a locked page) — one page through the
-  four AQAL lenses, empty lenses shown as honest absences.
+The five native v8 views preserve the same page identities and runtime:
 
-Drill levels: galaxy → context (WARP) → group → page (target-lock + reader).
-Every level caps rendering at ~160 nodes while cluster-stars carry the TRUE
-hidden counts (click = drill or reveal). **Esc is the universal exit, one
-layer at a time**: an open tray/panel closes first, then any open dock, then
-the reader, then the page lock, then Esc retreats exactly one level up the
-drill — always the exact reverse of the path that got you there. Horizon
-beacons jump laterally between contexts; `M` toggles the minimap; a
-radial quick-action ring (`Q/W/E/R` — Ler / Pacote / Conexões / Atualizar)
-surrounds the locked node. Keyboard-only traversal covers the full loop (Tab
-groups, arrows siblings, Enter drill/lock) with aria-live announcements.
+- **Quadrants** — the AQAL map around the current real center.
+- **Radar** — what needs attention and why.
+- **Sources** — evidence, source lifecycle and ingestion reachability.
+- **Work** — decisions, actions and human-gated operational state.
+- **Timeline / Chronoscope** — a 2D temporal workbench over typed semantic
+  events. It switches strictly between semantic-anchor, occurrence and
+  recording time; missing clocks stay missing. It supports date/lane filters,
+  deep-linked event cursors, keyboard roving focus and a full provenance/state
+  inspector while suspending the WebGL scene.
+
+**Atlas**, **Focus**, **Districts** and **Trails** are explicit compatibility
+views. They keep old bookmarks meaningful with a visible warning, but they are
+not presented as native v8 destinations. Old `/pages/:id` links enter the same
+world with the reader open.
+
+The URL also carries real family group, selected page, reader/dock,
+`tray=packet|missions`, temporal filters and optional `pack_view`. Hover, camera coordinates, focus rings,
+safe-area measurements and performance tiers remain ephemeral. A center change
+clears stale group/reader state; opening a reader, tray or dock preserves the
+single-primary-surface contract. A hand-written conflict normalizes with the
+fixed precedence `dock > reader > tray`; toggles, close, refresh and
+Back/Forward all read and write that same route state while returning keyboard
+focus to the opener. `Esc` closes one layer at a time and then
+retreats through page → group → context → world.
+
+Large worlds cap the spatial draw set while exposing true totals and an
+equivalent semantic 2D fallback. Timeline uses a bounded visible window over
+the complete integrity-checked static event set; selected deep links do not
+silently truncate or fabricate a prefix.
 
 ## The interface materializes from the block stack
 
@@ -68,7 +70,10 @@ Reading is in-world: the PageReader dock renders the full markdown
 camera instead of leaving the app, grouped uncapped relation lists and an
 evidence walk (`n`/`N`). Press `F` (or the expand button) for the comfortable
 reading modal — a centered column with larger type. Fenced ```mermaid blocks
-render as real diagrams (lazy-loaded, strict security). Raw-data records
+remain readable source with an explicit optional-renderer notice; the core v8
+reader does not claim to execute or render them. A future diagram experience
+pack must supply a lazy renderer, strict SVG sanitization, zoom and its own
+bundle/accessibility evidence before changing that capability claim. Raw-data records
 (sources, intake pages, ingestion events) are tagged distinctly everywhere —
 ◆ chips in the reader, tags in search results, and a dedicated map filter —
 so untreated inputs never read as conclusions. Without content the reader
@@ -99,6 +104,25 @@ Portuguese — content language stays free. Individual strings can be overridden
 via `strings: { "key": "..." }` in the runtime config, same pattern as the
 presentation registry.
 
+## Appearance and information density
+
+The appearance control is a product setting, not a visual-debug switch. It
+persists one of two contrast-checked themes — light `luminous-observatory` or
+dark `night-mission-control` — and one of three density contracts:
+
+- **Focus**: wider spacing and a calmer reading surface;
+- **Balanced**: the default mixed navigation/reading mode;
+- **Command**: denser operational scanning without shrinking touch targets.
+
+Themes change semantic tokens, not the data grammar: overlay hue still means
+the active metric, shapes still mean kind and lines still mean typed
+relations. Both themes, all densities, reduced motion, mobile geometry and the
+2D fallback are versioned test surfaces. Visible image/icon assets must be
+licensed and hash-declared in the asset manifest. The UI's Lucide dependency
+is pinned to an exact package/lock integrity, ISC identifier and versioned
+third-party notice; the gate fails on version, tarball, license or notice drift.
+The UI does not manufacture placeholder SVG/CSS artwork.
+
 ## The freshness radar
 
 The radar perspective centers on a full-bleed 3D "freshness radar" where every
@@ -113,15 +137,16 @@ coordinate is operational data:
   on a discrete labeled "sem dados" band — radius never fakes a date.
 - **Height** = approval state: draft changes float above the disc on visible
   stems; approved content stays on the plane.
-- **Hue** = area (context): every page keeps its area's color everywhere —
-  wedge rims, group pills, beacons and node bodies all agree. **State** shows
-  as aging, never as hue: up-to-date pages sit vivid and quiet, overdue pages
-  darken and radiate amber heat (emissive pulse + rising embers), never-checked
-  pages wash out behind a gray veil, and drafts bleach toward white while
-  floating on stems. Salience stays inverted: healthy is calm, problems glow.
-  **Shape** = kind (crystal = evidence source, faceted hub = navigation,
-  sphere = content). **Lines** = typed relations (navigation, evidence, review
-  impact, ingestion chains); hovering a node reveals its full neighborhood.
+- **Body hue/ring** = the selected overlay's state. Radar normally uses the
+  freshness overlay, so fresh/stale/unknown tokens answer that question
+  directly; switching to evidence, actions, ownership, attention or quality
+  changes the color meaning visibly and atomically. **Context** stays in
+  position, wedge/keyline accents, labels, group pills and beacons — never as a
+  competing body-color channel. **Shape** = kind (crystal = evidence source,
+  faceted hub = navigation, sphere = content). **Lines** = typed relations
+  (navigation, evidence, review impact, ingestion chains); hovering a node
+  reveals its full neighborhood. Salience stays inverted: healthy is calm,
+  problems gain stronger rings/emissive treatment.
 - The attention set (risk flags, overdue pages, drafts, review items, hubs)
   carries always-on labels with annotations such as `8d overdue` or
   `draft change`, so the map answers "what needs attention" without a click.
@@ -156,20 +181,47 @@ npm run dev
 The operational routes fail closed when no real snapshot is available; they
 never substitute the bundled sample universe. Open `/demo` to opt into the
 bundled sample snapshot even when a local operator API is available — it is a
-**title screen** with two doors:
+**title screen** with five primary doors plus seven executable validation labs:
 
 - `/demo/genesis` — **start from zero**: the genesis tutorial. The world
   starts EMPTY (the founding rite is the only interface) and each step is a
-  real pre-built snapshot under `sample-snapshot/stages/<k>/` — found the
-  root, attach the quadrant lenses, seed an area, a person, the gamification
-  package, a source. The tutorial swaps bundles; it never simulates state
+  real pre-built snapshot under `sample-snapshot/stages/<k>/`. Across nine
+  stages numbered 0–8, found the root, attach the quadrant lenses, seed an area
+  and a person, then attach the gamification package and a source. The tutorial
+  swaps bundles; it never simulates state
   client-side, so the interface materializing between stages is the real
   stack gating.
-- `/demo/world` — the **full world** straight away (stage 8 equals it).
+- `/demo/w?center=root-alex-rivera&view=quadrants&tour=0` — the canonical
+  **full world** route straight away (stage 8 equals it). `/demo/world` remains
+  the deliberate title-screen shortcut that normalizes into this world.
+- `/demo/w?demo_scenario=study_research_showcase&center=root-study-research-showcase&view=quadrants&overlay=evidence&tour=0`
+  — the installed **Study/Research** conformance pack: 6 public synthetic
+  pages, 11 temporal events, 4 pack-owned event kinds and a generic pack
+  workbench.
+- `/demo/w?demo_scenario=personal_finance_showcase&center=finance-transaction-income&view=timeline&time_mode=event&tour=0`
+  — the installed **Personal Finance** vertical: 11 public synthetic pages,
+  19 temporal events, 5 pack-owned event kinds and recurring operation
+  descriptors. It is a product fixture, not a live ledger or financial advice.
+- The guided-tour and free-exploration doors both enter the full world; their
+  different `tour` values are deliberate, shareable state.
+
+The expandable validation gallery is not decorative documentation. Its seven
+isolated fixture repositories compile walking-skeleton, normal, dense,
+source-lifecycle, governed-failure, compatibility and accessibility worlds.
+Together their executable manifests bind 22 claims to 12 canonical `/demo/w`
+routes; each claim names concrete test IDs and expected warning/failure states.
 
 The demo universe is sealed: every generated URL is prefixed with `/demo`,
 synthetic ids never resolve against the real snapshot, and mutating actions
 are disabled.
+
+Installed pack contributions are read from the integrity-covered
+`experience_packs.json` composition. The catalog exposes its version, slots,
+block packages and declared commands/operations. Registered `pack_view`
+contributions open a generic, keyboard-accessible workbench over canonical
+pack pages and can hand off to the reader or Chronoscope. The static demo never
+pretends that a declared operation ran: execution remains disabled until a
+pack-specific, human-gated operator adapter exists.
 
 ### Demo data vs your wiki
 
@@ -206,13 +258,29 @@ npm run dev:proxy
 to `http://127.0.0.1:8765`. This prevents real data from being mislabeled as
 demo data while leaving the static `/demo` build unchanged. The Python server
 refuses non-loopback binds; it is a local operator, not a remotely exposed
-service. It exposes:
+service. The proxy removes the browser `Origin` before forwarding; the operator
+does not grant direct CORS access by default. Vite dev and preview also disable
+their permissive loopback CORS default, so only the page's same origin can read
+the proxy or static private snapshot. If a separate loopback frontend
+must call the operator directly, explicitly set an exact trusted origin such as
+`WIKI_COCKPIT_CORS_ORIGINS=http://127.0.0.1:5173` before starting the Python
+server. Wildcards, remote hosts and URL credentials/path/query/fragment values
+are rejected. The `/api/health` handshake advertises `wiki_web_server.v6`,
+`operator_security_v2`, `cors_default_deny_v1`,
+`action_state_transitions_v1` and
+`wiki_operator_security.v2`; the cockpit refuses writes through a still-running
+v1 process and asks for a restart. Origin-less same-origin proxy and CLI clients
+continue to work, and explicitly allowlisted loopback origins retain direct
+browser access. It exposes:
 
 - `/api/snapshot/*.json` for the deterministic read model;
 - `/api/pages/{id}/content` for the in-world reader: typed frontmatter, full
   markdown body, server-resolved internal links, backlinks and source refs
   (path-validated against the memory root);
 - `/api/actions/run` for allowlisted fixed checks and derived writes;
+- `/api/actions/transition` for a content-hash-bound, receipt-producing
+  transition of a canonical `page_type: action` object; this is distinct from
+  executing an operator command card;
 - `/api/git/workflow` for proposal-branch workflows and draft PR
   open/update handoff, dry-run by default;
 - `/api/sources/triage` for local source pre-triage before ingestion.
@@ -224,21 +292,142 @@ to proposal branches and the Pull Request handoff remains the human gate.
 The ingestion wizard executes read/dry-run steps directly, while write steps
 stay behind an explicit UI toggle and proposal-branch checks.
 
+## Required release matrices
+
+The public browser matrix and the real downstream operator matrix are separate
+contracts. `npm run test:e2e:release` runs only public/demo specifications with
+`retries=0`, then rejects the JSON report if any required test skipped, retried,
+flaked or failed. The public Playwright configuration ignores
+`e2e/downstream/`, so missing private infrastructure can never appear as a
+harmless public-CI skip.
+
+Current worktree collection enumerates **102 public cells in 17 specifications**
+and **2 mandatory downstream cells in 1 specification**. This is collection
+evidence, not a completed release run: the tracked matrix contract still
+contains the earlier 84+2 inventory and must be rewritten only by the release
+owner after the global test freeze and review of the exact `playwright --list`
+diff. Until then, `check:release-matrix` is expected to report drift rather than
+silently blessing the larger collection.
+
+The downstream repository must start its exact local operator and same-origin
+cockpit, then provide every attestation below — there are no defaults:
+
+```sh
+export WIKI_COCKPIT_SNAPSHOT_URL=http://127.0.0.1:5173/api/snapshot/pages.json
+export WIKI_COCKPIT_REAL_BASE_URL=http://127.0.0.1:5173
+export WIKI_COCKPIT_EXPECT_REPO_ID=<exact-repo-id>
+export WIKI_COCKPIT_EXPECT_SNAPSHOT_REVISION=<exact-manifest-snapshot-id>
+export WIKI_COCKPIT_EXPECT_SNAPSHOT_HASH=<exact-64-char-manifest-bundle-hash>
+export WIKI_COCKPIT_EXPECT_CONSUMER_HEAD=<exact-clean-40-char-consumer-HEAD>
+export WIKI_COCKPIT_EXPECT_PUBLIC_RELEASE_SHA=<exact-adopted-public-release-SHA>
+export WIKI_COCKPIT_EXPECT_ADAPTER_HASH=<exact-64-char-downstream-adapter-hash>
+export WIKI_COCKPIT_EXPECT_SNAPSHOT_VERSION=wiki_web_snapshot.v2
+export WIKI_COCKPIT_EXPECT_RUNTIME_VERSION=wiki_world_runtime.v8
+export WIKI_COCKPIT_EXPECT_SERVER_VERSION=wiki_web_server.v6
+export WIKI_COCKPIT_EXPECT_TEMPORAL_GRAPH_VERSION=wiki_temporal_graph.v1
+export WIKI_COCKPIT_EXPECT_TEMPORAL_EVENT_VERSION=wiki_temporal_event.v1
+export WIKI_COCKPIT_EXPECT_EXPERIENCE_PACK_COMPOSITION_VERSION=wiki_experience_pack_composition.v1
+export WIKI_COCKPIT_EXPECT_COMPOSITION_SHA256=<exact-64-char-experience-packs-composition-sha256>
+# Explicit JSON is required. [] is valid when this consumer has no active pack.
+export WIKI_COCKPIT_EXPECT_ACTIVE_PACKS='[{"id":"personal-finance","version":"0.1.0"}]'
+export WIKI_COCKPIT_EXPECT_CAPABILITIES=operator_security_v2,cors_default_deny_v1
+export WIKI_COCKPIT_MIN_PAGES=<explicit-positive-minimum>
+npm run test:e2e:operator
+```
+
+Run that command from the consumer checkout itself: the checker requires the
+preflight consumer HEAD, clean snapshot `source_commit` and pre/post tested Git
+subject to be the same commit.
+
+The same-origin `/wiki-cockpit.config.json` served by that UI must independently
+publish the adoption identity; expected environment values are comparisons, not
+the source of truth:
+
+```json
+{
+  "adoption": {
+    "public_release_sha": "<40-char-public-release-SHA>",
+    "adapter_manifest": "wiki.adapter-manifest.json",
+    "adapter_hash": "<64-char-consumer-adapter-SHA-256>"
+  }
+}
+```
+
+Build and commit that identity with
+[`wiki_adapter_manifest.py`](../../scripts/wiki_adapter_manifest.py) before the
+browser gate; the complete workflow is in the
+[downstream adapter manifest guide](../../docs/references/guides/downstream-adapter-manifest.md).
+If the consumer has not implemented that runtime boundary, preflight stops at
+`adoption_identity_unavailable`; it does not infer or echo an identity.
+
+The preflight fetches pages, manifest, `temporal_graph.json`,
+`experience_packs.json` and `/api/health` before launching the browser. A
+missing variable, remote/non-loopback endpoint, repo/revision/hash
+mismatch, dirty/old snapshot source commit, schema/runtime/operator version
+drift, absent/mismatched public-release identity, missing/untracked/dirty
+adapter manifest, adapter file hash/size drift, runtime/manifest/environment
+adapter-hash disagreement, non-empty
+`contract_errors`, missing security or required snapshot capability, wrong
+temporal event/graph or experience-pack composition version, payload-integrity
+drift, semantic composition-hash drift, active-pack mismatch, empty real-data
+Timeline, cross-origin
+snapshot/UI pair, oversized/slow JSON response or insufficient page count fails
+closed. Active packs are an exact, canonically ordered JSON array of
+`{"id","version"}` objects; `[]` is an explicit valid core-only state, never an
+omitted assumption. The rendered-UI test observes the exact
+`pages.json` and `manifest.json` responses used by the page and rechecks the
+attested revision/hash, opens the real lazy-loaded Chronoscope, and opens the
+generic pack workbench only when a pack is explicitly expected. Pack commands
+and operations remain visible but disabled, and the journey asserts that it did
+not send a mutation. One 390x844 forced-fallback passage with one non-default
+theme/density pair is included as a bounded integration proof; the exhaustive
+appearance, viewport and fallback cross-product remains owned by the public
+matrix. Matching only `repo_id` is insufficient. The two
+exact-repository tests cannot skip. Their normalized `downstream_required` gate
+result hashes both the preflight record and the versioned exact
+spec/project/test-cell matrix, the exact Playwright config/checkers and the
+stable pre/post Git worktree fingerprint. The matrix contract is regenerated
+only after reviewing the exact `playwright --list` diff; ordinary checks use
+`npm run check:release-matrix`. Each required invocation creates a unique
+`run_id` directory. Its report, subject, preflight and passing gate never reuse
+a fixed path; every exit writes an atomic `run-result.json` with start/finish
+times, the pre/post Git subjects and either a hashed passing gate or an explicit
+blocked stage. Thus an early build, Playwright or checker failure remains durable
+blocked evidence rather than leaving an older green file at the current run
+location. The passing gate can be consumed by
+[wiki_release_receipt.py](../../scripts/wiki_release_receipt.py); the public and
+downstream gates are closed in their own repository receipts, while only a
+future external authority may combine them into E5.
+
+Release evidence is deliberately confined to the explicitly ignored,
+tool-owned roots `apps/wiki-cockpit/test-results/**` and
+`data/derived/wiki/release/**`. Every caller-controlled report, preflight,
+subject, output and clear target must be a canonical repo-relative POSIX path
+under its expected root, must remain untracked, and must not cross a symbolic
+link in either the ancestor chain or target. Hard-linked targets are refused as
+well, so an ignored alias cannot truncate a tracked file. Validation happens before any
+mutation; cleanup unlinks regular evidence files only and never recursively
+removes a caller-selected path.
+
 ## Build
 
 ```sh
 npm test
 npm run build
-npm run test:visual
+npm run test:e2e:release
 ```
 
-`npm run test:visual` builds the static app, serves it with Vite preview and
-compares screenshot baselines for the world perspectives (`/demo/w/radar`,
-`/demo/w/atlas`, `/demo/w/districts`), the 2D routes (`/demo/review`,
-`/demo/sources`, `/demo/health`), the legacy `/pages/:id` redirect and a
-keyboard-only drill → lock → read → retreat loop, all over the bundled sample
-data. Use `npm run test:visual:update` only when intentionally accepting
-visual changes.
+`npm run test:e2e:release` builds the static app, serves it with Vite preview
+and executes the exact versioned release matrix. That matrix covers the five
+native world views (including Timeline / Chronoscope), the explicit
+compatibility routes, normal/dense/Genesis demo worlds, installed Study and
+Personal Finance pack showcases, both appearance themes and all three density
+modes, desktop/mobile/keyboard/forced-fallback journeys, safe-area and
+performance budgets, visual baselines, legacy normalization and the
+drill → lock → read → retreat loop. It then enforces zero required skips,
+flaky results and retries. Use `npm run test:visual:update` only when
+intentionally accepting reviewed visual changes, and regenerate the exact
+release-matrix contract only after reviewing the collected-cell diff.
 
 ## Deployment inputs
 
@@ -274,6 +463,14 @@ The app loads `/wiki-cockpit.config.json` at runtime:
 - `mode`: display/runtime mode label such as `static`, `local_operator` or
   `github_connected`.
 
+Production builds are deliberately generic. `npm run build` disables Vite
+`.env` loading and fails closed when an app-local `.env*`, any `VITE_*`,
+`WIKI_COCKPIT_PROXY_API` or caller-provided `NODE_ENV` is present. Deployment
+and operator differences belong in `wiki-cockpit.config.json`, which is fetched
+at runtime. Required release runs record those fixed effective inputs alongside
+the exact `dist/` inventory in `wiki_release_build_manifest.v2`; the independent
+Python receipt validator reopens both contracts.
+
 ## Presentation config (per-implementation customization)
 
 Every implementation can restyle page types, contexts and trust colors without
@@ -299,8 +496,9 @@ presentation overrides consumed by `src/data/presentation.ts`:
   3D map), `shape` (one of `sphere`, `hub`, `crystal`, `diamond`, `comet`,
   `slab`, `spark`), `family` (legend grouping) and `accent`.
 - `contexts.<name>`: override the display `label` and the area `accent` color
-  (node bodies, wedge rims, group pills, legend). Without an override, sorted
-  context names get distinct slots from the built-in 12-color palette. Avoid
+  (wedge/keyline, group pills, beacons, labels and contextual legend — not
+  node bodies). Without an override, sorted context names get distinct slots
+  from the built-in 12-color palette. Avoid
   the reserved state accents (amber `#ffb454`, purple `#c57cff`, risk red
   `#ff7a8a`) — an area must never impersonate a state.
 - `trust_colors`: override the state-accent palette used by annotations —
@@ -309,11 +507,11 @@ presentation overrides consumed by `src/data/presentation.ts`:
 
 Unknown page types fall back to a readable default (underscores become spaces,
 sphere shape), so localized repos with custom `wiki.page-types.yaml` entries
-work without any frontend change. In the 3D map, **hue always means the page's
-area, tone/aging always means state, shape always means content kind, and
-lines always mean typed relations** (`moc_parent` navigation, `source_ref`
-evidence, links, PR impact, ingestion chains) — overrides restyle those
-encodings but must not repurpose them.
+work without any frontend change. In the world, **node body hue/ring always
+means the active overlay state, context means position/label/keyline, shape
+means content kind, and lines mean typed relations** (`moc_parent` navigation,
+`source_ref` evidence, links, PR impact, ingestion chains) — overrides restyle
+those encodings but must not repurpose them.
 
 The static build can be hosted later with a configured snapshot URL or bundled
 sample/open data. Vercel should be treated as static/read-only unless a separate

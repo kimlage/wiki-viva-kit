@@ -8,7 +8,7 @@ from pathlib import Path
 KIT_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_web_snapshot_cli_accepts_absolute_output_outside_repo(tmp_path: Path) -> None:
+def test_web_snapshot_cli_rejects_absolute_output_outside_repo(tmp_path: Path) -> None:
     out = tmp_path / "snapshot"
     result = subprocess.run(
         [
@@ -24,6 +24,6 @@ def test_web_snapshot_cli_accepts_absolute_output_outside_repo(tmp_path: Path) -
         check=False,
     )
 
-    assert result.returncode == 0, result.stderr
-    assert (out / "manifest.json").exists()
-    assert str(out) in result.stdout
+    assert result.returncode != 0
+    assert "inside repository root" in result.stderr
+    assert not (out / "manifest.json").exists()

@@ -1,0 +1,508 @@
+{
+  "diagnostics": [],
+  "event_count": 10,
+  "event_schema_version": "wiki_temporal_event.v1",
+  "events": [
+    {
+      "actor": null,
+      "after": {
+        "status": "blocked"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "instant",
+        "value": "2026-07-09T00:00:00Z"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:system"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_snapshot_recorded_a3af43d15361d0f03a17e157",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "snapshot_recorded",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "activity_timeline.v1",
+        "legacy_kind": "snapshot"
+      },
+      "precision": {
+        "recorded_at": "instant"
+      },
+      "recorded_at": "2026-07-09T00:00:00Z",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "system:snapshot-generated"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "root_entity"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:pessoal"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_06555020f9d575e82e51c8bf",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:root-alex-rivera"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "claim"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:financeiro"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_227a6514d26a688832111e14",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:source-banco-export"
+      ],
+      "subject_refs": [
+        "page:claim-custos-sobem"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "artifact"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:financeiro"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_c4b10b7f4bd0dd1763a39cc3",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:source-banco-export"
+      ],
+      "subject_refs": [
+        "page:artifact-relatorio-recon"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "context_hub"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:financeiro"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_f21d853dcd29f335b7aaeb7e",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:hub-financeiro"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {},
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-05-04"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:sistema"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_ingestion_recorded_e723587ad9f12e50e853866b",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "ingestion_recorded",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "ingestion_event.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-05-04",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:source-banco-export"
+      ],
+      "subject_refs": [
+        "page:event-ingest-banco-2026-05"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "source"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-05-04"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:financeiro"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_2d1e88e19ca0a71af846b1c1",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-05-04",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:source-banco-export"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "person"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-05-04"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:estudio"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_cb19da7b44c3a766435b1ee6",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-05-04",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:person-marina-costa"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "ingestion_event"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-05-04"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:sistema"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_d3276661a253f115da8c0832",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-05-04",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:source-banco-export"
+      ],
+      "subject_refs": [
+        "page:event-ingest-banco-2026-05"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "last_attempt_state": "ok"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-05-04"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:financeiro"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_source_refreshed_2d1e88e19ca0a71af846b1c1",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "source_refreshed",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "source_lifecycle.v2"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-05-04",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "source:source-banco-export"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
+  "page": {
+    "fingerprint": "febcf3011489925ad49a20684bdbb4e0a894f9c68e772bdc60321c03c1ae5f55",
+    "limit": 10,
+    "offset": 0,
+    "remaining_count": 0
+  },
+  "range": {
+    "basis": "full_result",
+    "dated_count": 10,
+    "event_count": 10,
+    "from": "2026-05-04",
+    "from_precision": "day",
+    "to": "2026-07-09T00:00:00Z",
+    "to_precision": "instant",
+    "undated_count": 0
+  },
+  "repo_id": "wiki-viva-demo",
+  "returned_count": 10,
+  "returned_range": {
+    "basis": "returned_page",
+    "dated_count": 10,
+    "event_count": 10,
+    "from": "2026-05-04",
+    "from_precision": "day",
+    "to": "2026-07-09T00:00:00Z",
+    "to_precision": "instant",
+    "undated_count": 0
+  },
+  "revision": "sha256:febcf3011489925ad49a20684bdbb4e0a894f9c68e772bdc60321c03c1ae5f55",
+  "schema_version": "wiki_temporal_graph.v1",
+  "summary": {
+    "by_context": {
+      "context:estudio": 1,
+      "context:financeiro": 5,
+      "context:pessoal": 1,
+      "context:sistema": 2,
+      "context:system": 1
+    },
+    "by_kind": {
+      "ingestion_recorded": 1,
+      "page_updated": 7,
+      "snapshot_recorded": 1,
+      "source_refreshed": 1
+    },
+    "conflict_count": 0,
+    "diagnostic_count": 0,
+    "event_count": 10,
+    "imprecise_count": 0,
+    "scope": "full_result"
+  },
+  "total_count": 10,
+  "truncated": false
+}

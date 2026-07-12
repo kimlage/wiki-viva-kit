@@ -1,0 +1,32 @@
+schema_version: wiki_demo_pack_showcase.v1
+fixture_id: wiki-viva-demo-v8
+scenario_id: personal_finance_showcase
+seed: 8012
+title: Personal Finance Mission Control
+public_synthetic: true
+packs:
+  - id: personal-finance
+    fixture: fixtures/normal
+support_pages:
+  - support/personal-finance/finance-source-july.md
+  - support/personal-finance/finance-review-july.md
+expected:
+  page_count: 11
+  page_id_sha256: 01e3df2ac1ecff1bd81cb0caac60bca3322ba1dfa1f62398b4ab5a8a35793e27
+  active_pack_ids: [personal-finance]
+  minimum_temporal_events: 10
+  required_temporal_event_kinds:
+    - personal-finance.monthly-closed
+    - personal-finance.monthly-period
+    - personal-finance.obligation-due
+    - personal-finance.reconciliation-recorded
+    - personal-finance.transaction-occurred
+  expected_temporal_diagnostic_codes: []
+canonical_routes:
+  - /demo/w?demo_scenario=personal_finance_showcase&center=root-personal-finance-showcase&view=quadrants&overlay=evidence&tour=0
+  - /demo/w?demo_scenario=personal_finance_showcase&center=finance-transaction-income&view=timeline&time_mode=event&tour=0
+generated_dir: scenarios/personal_finance_showcase
+limitations:
+  - Every amount, institution and event is synthetic; this showcase is not financial advice or a live ledger.
+  - The two support anchors make fixture source and human-review references navigable without changing the reusable pack.
+  - Pack operations remain dry-run and human-Git-gated; the static demo never mutates financial data.

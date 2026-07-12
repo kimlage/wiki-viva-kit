@@ -146,9 +146,9 @@ export function SceneFallback({
   const fallbackNodeKeys = layoutNodeInstanceKeys(fallbackNodes);
   const currentCenterId = layout.nodes.find((node) => node.isRoot)?.id;
   return (
-    <div className="sceneFallback" aria-label="Content map" data-fallback-reason={fallbackReason}>
+    <div className="sceneFallback" aria-label={t("scene.fallback.aria")} data-fallback-reason={fallbackReason}>
       <div className="fallbackCore">
-        <strong>{git.proposal.is_proposal_branch ? "Draft change" : "Approved content"}</strong>
+        <strong>{git.proposal.is_proposal_branch ? t("scene.fallback.draft") : t("scene.fallback.approved")}</strong>
         <span>{workspaceLabel(git)}</span>
       </div>
       {fallbackReason === "performance_budget" && (
@@ -178,7 +178,7 @@ export function SceneFallback({
         ))}
         {census.hidden > 0 && <span>{t("scene.hiddenTotal", { hidden: census.hidden, total: census.total })}</span>}
       </div>
-      <nav className="fallbackGroups" aria-label="Grupos deste nível">
+      <nav className="fallbackGroups" aria-label={t("scene.fallback.groups")}>
         {layout.groups.map((group) => {
           // An empty facet lens is an honest absence, not a clickable group —
           // mirror the 3D rim pill ("no <facet> lens registered", non-interactive).

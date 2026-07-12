@@ -94,14 +94,15 @@ button {
 }
 
 .topBar {
-  min-height: 58px;
-  padding: 12px 22px;
-  border-bottom: 1px solid #253038;
+  min-height: calc(58px * var(--wiki-density-pad));
+  padding: calc(12px * var(--wiki-density-pad)) calc(22px * var(--wiki-density-pad));
+  border-bottom: 1px solid var(--wiki-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: rgba(12, 17, 19, 0.92);
+  background: var(--wiki-glass);
+  color: var(--wiki-text);
   position: sticky;
   top: 0;
   z-index: 4;
@@ -116,8 +117,8 @@ button {
 }
 
 .topBar span {
-  color: #9aa7b4;
-  font-size: 13px;
+  color: var(--wiki-text-muted);
+  font-size: calc(13px * var(--wiki-density-type));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -228,10 +229,10 @@ button {
   gap: 8px;
   margin: 14px 22px -6px;
   padding: 8px 12px;
-  border: 1px dashed #4b3f63;
+  border: 1px dashed color-mix(in srgb, var(--wiki-focus) 56%, var(--wiki-border));
   border-radius: 8px;
-  background: rgba(92, 62, 133, 0.16);
-  color: #cdbfe8;
+  background: color-mix(in srgb, var(--wiki-focus) 10%, var(--wiki-surface-raised));
+  color: var(--wiki-text);
   font-size: 13px;
 }
 
@@ -1568,6 +1569,13 @@ button.stripChip:hover {
   cursor: default;
 }
 
+/* Keyboard and switch navigation must always leave a visible trace. Keep the
+   ring outside the component so it does not collapse dense internal layouts. */
+:is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid #79e6ff !important;
+  outline-offset: 2px;
+}
+
 .btn--primary {
   background: #6bd7ff;
   color: #041016;
@@ -2396,6 +2404,12 @@ button.stripChip:hover {
   color: #6bd7ff;
 }
 
+.textButton:disabled {
+  color: #70838e;
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .diffFilmstrip {
   display: grid;
   gap: 14px;
@@ -2708,6 +2722,12 @@ pre {
     white-space: nowrap;
   }
 
+  .snapshotCompatibilityNotice {
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
 
 
   /* Command bar: search takes the first full row, controls wrap below; the
@@ -2925,9 +2945,32 @@ pre {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   padding: 8px 12px;
   background: linear-gradient(180deg, rgba(6, 12, 18, 0.92), rgba(6, 12, 18, 0.55) 80%, transparent);
   font-size: 12px;
+}
+
+.snapshotCompatibilityNotice {
+  display: flex;
+  min-height: 40px;
+  flex: 1 1 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid rgba(216, 174, 92, 0.34);
+  border-radius: 9px;
+  background: rgba(216, 174, 92, 0.09);
+  color: #f4e4c1;
+}
+
+.snapshotCompatibilityNotice strong {
+  white-space: nowrap;
+}
+
+.snapshotCompatibilityNotice span {
+  color: #d9c9a9;
+  font-size: 10.5px;
 }
 
 .worldBreadcrumbs {
@@ -2986,9 +3029,10 @@ pre {
 .worldRuntimeControls {
   margin-left: auto;
   padding: 3px;
-  border: 1px solid color-mix(in srgb, var(--overlay-accent, #7fd0e8) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--wiki-accent) 28%, var(--wiki-border));
   border-radius: 10px;
-  background: rgba(5, 11, 17, 0.76);
+  background: color-mix(in srgb, var(--wiki-surface) 94%, transparent);
+  color: var(--wiki-text);
   backdrop-filter: blur(10px);
 }
 
@@ -3013,9 +3057,9 @@ pre {
   gap: 2px 7px;
   align-items: center;
   padding: 4px 7px;
-  border: 1px solid rgba(216, 174, 92, 0.34);
+  border: 1px solid color-mix(in srgb, var(--wiki-focus) 40%, var(--wiki-border));
   border-radius: 8px;
-  background: rgba(216, 174, 92, 0.08);
+  background: color-mix(in srgb, var(--wiki-focus) 9%, var(--wiki-surface));
 }
 
 .worldNavigatorCompatibility > span,
@@ -3024,10 +3068,10 @@ pre {
   display: inline-flex;
   width: max-content;
   padding: 2px 6px;
-  border: 1px solid rgba(216, 174, 92, 0.38);
+  border: 1px solid color-mix(in srgb, var(--wiki-focus) 44%, var(--wiki-border));
   border-radius: 999px;
-  background: rgba(216, 174, 92, 0.1);
-  color: #f0ce87;
+  background: color-mix(in srgb, var(--wiki-focus) 11%, var(--wiki-surface));
+  color: var(--wiki-focus);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.045em;
@@ -3038,7 +3082,7 @@ pre {
 .worldNavigatorCompatibility > strong {
   min-width: 0;
   overflow: hidden;
-  color: #f4e4c1;
+  color: var(--wiki-text);
   font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3048,7 +3092,7 @@ pre {
   grid-column: 1 / -1;
   min-width: 0;
   overflow: hidden;
-  color: #a9956f;
+  color: var(--wiki-text-muted);
   font-size: 9.5px;
   line-height: 1.2;
   text-overflow: ellipsis;
@@ -3071,13 +3115,13 @@ pre {
 
 .worldNavigatorOverlaySelect {
   padding-left: 4px;
-  border-left: 1px solid rgba(127, 208, 232, 0.14);
+  border-left: 1px solid color-mix(in srgb, var(--wiki-accent) 24%, var(--wiki-border));
 }
 
 .worldNavigatorLearn {
   margin-left: 1px;
-  border-left-color: rgba(127, 208, 232, 0.18);
-  color: #bfe6f2;
+  border-left-color: color-mix(in srgb, var(--wiki-accent) 28%, var(--wiki-border));
+  color: var(--wiki-accent-strong);
 }
 
 .worldNavigatorPanel {
@@ -3187,6 +3231,52 @@ pre {
   font-size: 10.5px;
 }
 
+.worldNavigatorCapabilityNotice {
+  display: flex;
+  grid-column: 1 / -1;
+  min-height: 44px;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border: 1px solid rgba(127, 208, 232, 0.25);
+  border-radius: 10px;
+  background: rgba(127, 208, 232, 0.055);
+  color: #bfe6f2;
+  font-size: 11.5px;
+}
+
+.worldNavigatorPackBadge {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  padding: 0 8px;
+  border: 1px solid rgba(127, 208, 232, 0.22);
+  border-radius: 999px;
+  color: #bfe6f2;
+  font-size: 9.5px;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+button.worldNavigatorPackBadge {
+  cursor: pointer;
+}
+
+button.worldNavigatorPackBadge[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 58%, #243641);
+  background: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 12%, transparent);
+}
+
+.worldNavigatorUnavailableNote {
+  max-width: 300px;
+  padding: 4px 7px;
+  border: 1px solid rgba(216, 174, 92, 0.28);
+  border-radius: 7px;
+  color: #d9c9a9;
+  font-size: 9px;
+  line-height: 1.25;
+}
+
 .worldNavigatorMentalModel {
   padding: 12px;
   border: 1px solid rgba(127, 208, 232, 0.14);
@@ -3251,6 +3341,131 @@ pre {
   font-size: 11.5px;
 }
 
+.worldNavigatorPackCatalog {
+  padding: 11px;
+  border: 1px solid rgba(127, 208, 232, 0.17);
+  border-radius: 12px;
+  background: rgba(127, 208, 232, 0.035);
+}
+
+.worldNavigatorPackList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.worldNavigatorPackList > span {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border: 1px solid rgba(127, 208, 232, 0.24);
+  border-radius: 8px;
+  background: rgba(15, 26, 34, 0.86);
+}
+
+.worldNavigatorPackList strong {
+  color: #dff2fb;
+  font-size: 11.5px;
+}
+
+.worldNavigatorPackList small,
+.worldNavigatorPackEmpty {
+  color: #8da5b5;
+  font-size: 10.5px;
+}
+
+.worldNavigatorBlockPackages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: #8da5b5;
+  font-size: 9.5px;
+}
+
+.worldNavigatorBlockPackages code {
+  padding: 3px 6px;
+  border: 1px solid #243641;
+  border-radius: 6px;
+  color: #bfe6f2;
+}
+
+.worldNavigatorPackSlots {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.worldNavigatorPackSlot {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid #243641;
+  border-radius: 9px;
+  background: rgba(13, 23, 31, 0.72);
+}
+
+.worldNavigatorPackSlot h4 {
+  margin: 0 0 6px;
+  color: #bfe6f2;
+  font-size: 10.5px;
+}
+
+.worldNavigatorPackSlot ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.worldNavigatorPackSlot li {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.worldNavigatorPackSlot li > button {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+  gap: 2px;
+  padding: 7px;
+  border: 1px solid #2a3d49;
+  border-radius: 7px;
+  background: rgba(127, 208, 232, 0.035);
+  color: inherit;
+  text-align: left;
+}
+
+.worldNavigatorPackSlot li > button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 58%, #2a3d49);
+  background: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 10%, transparent);
+}
+
+.worldNavigatorPackSlot strong {
+  overflow-wrap: anywhere;
+  color: #dff2fb;
+  font-size: 10px;
+}
+
+.worldNavigatorPackSlot code {
+  overflow-wrap: anywhere;
+  color: #dff2fb;
+  font-size: 9.5px;
+}
+
+.worldNavigatorPackSlot small,
+.worldNavigatorPackSlot p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #8da5b5;
+  font-size: 9px;
+}
+
 .worldNavigatorCardGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3270,10 +3485,10 @@ pre {
   flex-direction: column;
   gap: 5px;
   padding: 11px;
-  border: 1px solid #243641;
+  border: 1px solid var(--wiki-border);
   border-radius: 10px;
-  background: rgba(13, 23, 31, 0.86);
-  color: #dff2fb;
+  background: var(--wiki-surface);
+  color: var(--wiki-text);
   text-align: left;
   cursor: pointer;
   transition: border-color var(--motion-duration-feedback) var(--motion-easing-feedback), background var(--motion-duration-feedback) var(--motion-easing-feedback), transform var(--motion-duration-feedback) var(--motion-easing-feedback);
@@ -3281,31 +3496,46 @@ pre {
 
 .worldNavigatorCard:hover,
 .worldNavigatorLens:hover {
-  border-color: rgba(127, 208, 232, 0.52);
-  background: rgba(127, 208, 232, 0.09);
+  border-color: color-mix(in srgb, var(--wiki-accent) 58%, var(--wiki-border));
+  background: color-mix(in srgb, var(--wiki-accent) 9%, var(--wiki-surface-raised));
   transform: translateY(-1px);
+}
+
+.worldNavigatorCard:disabled,
+.worldNavigatorLens:disabled,
+.worldNavigatorView:disabled,
+.worldNavigatorOverlaySelect select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.worldNavigatorCard:disabled:hover,
+.worldNavigatorLens:disabled:hover {
+  border-color: var(--wiki-border);
+  background: var(--wiki-surface);
+  transform: none;
 }
 
 .worldNavigatorCard.active,
 .worldNavigatorLens.active {
-  border-color: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 68%, #7fd0e8);
-  background: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 13%, rgba(13, 23, 31, 0.94));
-  box-shadow: inset 3px 0 var(--overlay-accent, #7fd0e8);
+  border-color: color-mix(in srgb, var(--wiki-accent) 68%, var(--wiki-border));
+  background: color-mix(in srgb, var(--wiki-accent) 13%, var(--wiki-surface-raised));
+  box-shadow: inset 3px 0 var(--wiki-accent);
 }
 
 .worldNavigatorCardTitle {
   flex-direction: row;
   align-items: center;
-  color: #7fd0e8;
+  color: var(--wiki-accent);
 }
 
 .worldNavigatorCardTitle strong {
-  color: #e6f2f8;
+  color: var(--wiki-text);
   font-size: 12.5px;
 }
 
 .worldNavigatorCardQuestion {
-  color: #c7dce7;
+  color: var(--wiki-text);
   font-size: 11.5px;
   font-weight: 600;
 }
@@ -3380,32 +3610,32 @@ pre {
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
-  color: #9fb6c6;
+  color: var(--wiki-text-muted);
   font: inherit;
   cursor: pointer;
 }
 
 .runtimeControl.active,
 .runtimeControl[aria-pressed="true"] {
-  color: #f4fbff;
-  border-color: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 52%, transparent);
-  background: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 16%, transparent);
+  color: var(--wiki-accent-strong);
+  border-color: color-mix(in srgb, var(--wiki-accent) 62%, var(--wiki-border));
+  background: color-mix(in srgb, var(--wiki-accent) 14%, var(--wiki-surface-raised));
 }
 
 .worldRuntimeSelect {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #8fa5b4;
+  color: var(--wiki-text-muted);
 }
 
 .worldRuntimeSelect select {
   min-height: 32px;
   max-width: 112px;
-  border: 1px solid rgba(127, 208, 232, 0.3);
+  border: 1px solid var(--wiki-border);
   border-radius: 7px;
-  background: #09131c;
-  color: #e6f2f8;
+  background: var(--wiki-surface-raised);
+  color: var(--wiki-text);
   font: inherit;
 }
 
@@ -3487,7 +3717,7 @@ pre {
   .worldNavigatorViewControls {
     display: grid;
     grid-column: 1 / -1;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     width: 100%;
   }
 
@@ -3512,6 +3742,16 @@ pre {
   .worldNavigatorLearn {
     grid-column: 2;
     margin-left: 0;
+  }
+
+  .worldNavigatorPackBadge {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .worldNavigatorUnavailableNote {
+    grid-column: 1 / -1;
+    max-width: none;
   }
 
   .worldNavigatorPanel {
@@ -3554,6 +3794,10 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .worldNavigatorPackSlots {
+    grid-template-columns: 1fr;
+  }
+
   .worldNavigatorLensGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3590,11 +3834,23 @@ pre {
     min-width: 44px;
     min-height: 44px;
   }
+
+  /* The navigator enters from scale(.985). Keep the close target at least
+     44 CSS px even during that short transform, not only once it settles. */
+  .worldNavigatorClose {
+    width: 45px;
+    height: 45px;
+    min-width: 45px;
+    min-height: 45px;
+  }
 }
 
 @media (pointer: coarse) {
   .radarLabel button.nodeLabelBody {
     min-width: 44px;
+    /* Drei's distanceFactor applies a small perspective transform after CSS
+       layout. Keep a one-pixel baseline margin here; the active Q2 center,
+       which sits at a deeper camera plane, receives its own larger margin. */
     min-height: 45px;
   }
 }
@@ -5090,6 +5346,7 @@ pre {
      rail as disjoint pointer-safe surfaces. */
   .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
     .radarLabel button.nodeLabelBody:not(.nodeCompactLabel):not(.nodeGroupLabel) {
+    min-height: 47px;
     translate: 90px 0;
   }
 }
@@ -5333,9 +5590,17 @@ pre {
   transition: background var(--motion-duration-feedback) var(--motion-easing-feedback), border-color var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 
-.missionRowAction:hover {
+.missionRowAction:hover:not(:disabled) {
   background: rgba(127, 208, 232, 0.18);
   border-color: #7fd0e8;
+}
+
+.missionRowAction:disabled {
+  border-color: #40505b;
+  background: #18232b;
+  color: #83939d;
+  cursor: not-allowed;
+  opacity: 1;
 }
 
 .missionRowAction svg {
@@ -6619,6 +6884,14 @@ pre {
   .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="q2_pratica"]
     [data-world-target-kind="group"][data-world-target-id="family:event"] {
     translate: -120px 100px;
+  }
+
+  /* In a summarized root world Q2 has the source collection, not a sibling
+     event collection. Move that real collection into the left lane on short
+     phones so it clears both the center label and the compass above. */
+  .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="q2_pratica"]
+    [data-world-target-kind="group"][data-world-target-id="family:source"] {
+    translate: -30px 8px;
   }
 
   .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
@@ -8054,6 +8327,15 @@ pre {
   animation: dockSlide var(--motion-duration-surfaceEnter) var(--motion-easing-surfaceEnter) both;
 }
 
+/* App-level docks start at the viewport edge and therefore share the top-right
+   pixels with shell controls. While open, the primary surface owns that
+   region; otherwise the shell Appearance details can sit above and intercept
+   the dock's 44px close target. The closing wrapper deliberately drops back
+   below the shell once it is inert. */
+.appDockPresence:not(.closing) .worldDock {
+  z-index: 140;
+}
+
 .appDockPresence.closing {
   position: relative;
   z-index: 100;
@@ -9008,7 +9290,7 @@ pre {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(ellipse at 50% 35%, #0d1a24 0%, #060b10 65%, #04070a 100%);
+  background: radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--wiki-accent) 12%, var(--wiki-bg-elevated)) 0%, var(--wiki-bg) 68%);
 }
 .demoGateInner {
   display: flex;
@@ -9024,14 +9306,14 @@ pre {
   margin: 0;
   font-size: 30px;
   letter-spacing: 0.02em;
-  color: #eaf4fa;
+  color: var(--wiki-text);
 }
 .demoGateBrand {
-  color: #79e6ff;
+  color: var(--wiki-accent-strong);
 }
 .demoGateSubtitle {
   margin: 0;
-  color: #9fb4c2;
+  color: var(--wiki-text-muted);
   font-size: 13.5px;
   line-height: 1.5;
   max-width: 650px;
@@ -9049,33 +9331,43 @@ pre {
   gap: 8px;
   padding: 18px 18px 16px;
   border-radius: 12px;
-  border: 1px solid #2a3944;
-  background: rgba(12, 20, 27, 0.9);
-  color: #dceaf2;
+  border: 1px solid var(--wiki-border);
+  background: color-mix(in srgb, var(--wiki-surface) 94%, transparent);
+  color: var(--wiki-text);
   text-decoration: none;
   text-align: left;
   transition: transform var(--motion-duration-feedback) var(--motion-easing-feedback), border-color var(--motion-duration-feedback) var(--motion-easing-feedback);
 }
 .demoGateDoor:hover {
   transform: translateY(-2px);
-  border-color: #57d9a0;
+  border-color: var(--wiki-accent);
+  background: var(--wiki-surface-raised);
 }
 .demoGateDoor.guided {
-  border-color: rgba(121, 230, 255, 0.46);
-  background: rgba(16, 31, 40, 0.94);
-  box-shadow: inset 0 3px #79e6ff;
+  border-color: color-mix(in srgb, var(--wiki-accent) 58%, var(--wiki-border));
+  background: color-mix(in srgb, var(--wiki-accent) 9%, var(--wiki-surface));
+  box-shadow: inset 0 3px var(--wiki-accent);
 }
-.demoGateDoor.guided strong { color: #79e6ff; }
-.demoGateDoor.genesis strong { color: #5ee6a8; }
-.demoGateDoor.world strong { color: #79e6ff; }
+.demoGateDoor.guided strong { color: var(--wiki-accent-strong); }
+.demoGateDoor.genesis strong { color: var(--wiki-state-good); }
+.demoGateDoor.world strong { color: var(--wiki-accent-strong); }
+.demoGateDoor.pack { border-color: color-mix(in srgb, var(--wiki-focus) 46%, var(--wiki-border)); background: color-mix(in srgb, var(--wiki-focus) 7%, var(--wiki-surface)); }
+.demoGateDoor.pack strong { color: var(--wiki-focus); }
+.demoGateDoor.pack.finance { border-color: color-mix(in srgb, var(--wiki-state-good) 46%, var(--wiki-border)); }
+.demoGateDoor.pack.finance strong { color: var(--wiki-state-good); }
 .demoGateDoor strong { font-size: 16px; }
-.demoGateDoor span { font-size: 12px; color: #9fb4c2; line-height: 1.45; }
+.demoGateDoor span { font-size: 12px; color: var(--wiki-text-muted); line-height: 1.45; }
 .demoGateExit {
-  color: #7f95a4;
+  color: var(--wiki-text-muted);
   font-size: 12px;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 6px 10px;
 }
-.demoGateExit:hover { color: #dceaf2; }
+.demoGateExit:hover { color: var(--wiki-text); }
 @media (max-width: 820px) {
   .demoGateDoors { grid-template-columns: 1fr; }
 }
@@ -9127,6 +9419,18 @@ pre {
   backdrop-filter: blur(10px);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
+/* While a tutorial action surface is open, the guide becomes a compact
+   instruction card in the free upper-left region. It must never cover the
+   full-width Create sheet or the right-hand Blocks dock. */
+.genesisCard--actionOpen {
+  top: 84px;
+  left: 16px;
+  bottom: auto;
+  width: min(420px, calc(52vw - 32px));
+  max-height: calc(100vh - 190px);
+  transform: none;
+  overflow-y: auto;
+}
 .genesisCard header {
   display: flex;
   align-items: center;
@@ -9143,6 +9447,23 @@ pre {
   font-size: 12.5px;
   color: #b7c9d6;
   line-height: 1.5;
+}
+@media (max-width: 980px) {
+  .genesisCard--actionOpen {
+    top: 8px;
+    left: 10px;
+    width: calc(100vw - 20px);
+    max-height: 150px;
+    padding: 9px 12px;
+  }
+  /* The compact guide owns the strip above an action dock on touch widths;
+     move the dock below it instead of stacking two hit regions. */
+  body:has(.genesisCard--actionOpen) .worldDock {
+    top: 168px;
+  }
+  body:has(.genesisCard--actionOpen) .createSheet {
+    max-height: calc(100vh - 230px);
+  }
 }
 .genesisProgress {
   font-size: 10.5px;
@@ -9201,6 +9522,26 @@ pre {
   text-decoration: none;
 }
 .genesisSkip:hover { color: #dceaf2; }
+
+@media (max-width: 620px), (pointer: coarse) {
+  .genesisVoidCard {
+    width: min(100%, 390px);
+    max-height: 100dvh;
+    overflow-y: auto;
+    padding: 20px 16px;
+  }
+  .genesisVoid .genesisCta,
+  .genesisVoid .genesisGhost,
+  .genesisVoid .genesisSkip,
+  .genesisVoid input {
+    min-height: 44px;
+  }
+  .genesisVoid .genesisSkip {
+    display: inline-flex;
+    align-items: center;
+    padding-inline: 8px;
+  }
+}
 
 /* --- Reader identity band + template panels ------------------------------- */
 .readerIdentityBand {
@@ -9422,7 +9763,14 @@ pre {
   cursor: pointer;
   white-space: nowrap;
 }
-.attachButton:hover { background: rgba(46, 160, 110, 0.32); }
+.attachButton:hover:not(:disabled) { background: rgba(46, 160, 110, 0.32); }
+.attachButton:disabled {
+  border-color: #34454f;
+  background: rgba(52, 69, 79, 0.2);
+  color: #70838e;
+  cursor: not-allowed;
+  opacity: 0.62;
+}
 
 /* --- Create sheet: a bottom surface INTEGRATED with the world -------------- */
 .createSheet {
@@ -9584,6 +9932,14 @@ pre {
   padding-top: 8px;
 }
 .createGateNote { font-size: 10.5px; color: #7f95a4; line-height: 1.35; }
+.createFormFoot .btn:disabled {
+  border-color: #40505b;
+  background: #18232b;
+  color: #83939d;
+  cursor: not-allowed;
+  opacity: 1;
+  filter: saturate(0.35);
+}
 @media (max-width: 760px) {
   .createSheetBody { grid-template-columns: 1fr; }
   .createForm { display: none; }
@@ -9702,6 +10058,58 @@ pre {
   .createSheetBody .createForm { display: none; }
   .createSheetBody.showForm .createForm { display: flex; }
   .createSheetBody.showForm .createTypeList { display: none; }
+  .createSheetBody.showForm .createForm {
+    padding: 9px 10px 10px;
+  }
+  /* Stack the utility, identity and home rows deliberately. Keeping the pill
+     in the same flex line squeezed the actual description into ~50px at
+     360px, even though the sheet itself still had useful width. */
+  .createFormHead {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 7px 9px;
+    width: 100%;
+  }
+  .createFormHead .createBackToTypes {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .createFormHead > .createTypeIcon {
+    grid-column: 1;
+  }
+  .createFormHead > div {
+    grid-column: 2;
+    width: 100%;
+  }
+  .createFormHead > div small {
+    line-height: 1.35;
+    white-space: normal;
+  }
+  .createHomePill {
+    grid-column: 1 / -1;
+    justify-self: start;
+    max-width: 100%;
+    white-space: normal;
+    line-height: 1.3;
+  }
+  .createFormFields {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+  .createFormFoot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 7px;
+  }
+  .createFormFoot .btn {
+    width: 100%;
+    min-height: 45px;
+  }
+  .createGateNote {
+    margin: 0;
+  }
   .createBackToTypes {
     display: inline-flex;
     align-items: center;
@@ -10175,4 +10583,216 @@ pre {
 @media (prefers-reduced-motion: reduce) {
   .spatialCard, .questionPlateBody, .worldPlate, .guideBeacon, .seedPickBody, .seedTitle { animation: none; }
   .spatialCard:hover { transform: none; }
+}
+
+/* -------------------------------------------------------------------------
+   Theme + density bridge. Shell tokens are declared in shell.css so the same
+   first-party appearance contract reaches loading, demo, fallback and world
+   surfaces. These selectors change presentation only: no element is removed. */
+
+.worldWorkspace {
+  padding: calc(10px * var(--wiki-density-pad)) calc(14px * var(--wiki-density-pad)) calc(14px * var(--wiki-density-pad));
+  color: var(--wiki-text);
+  background:
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--wiki-accent) 11%, transparent), transparent 34rem),
+    var(--wiki-bg);
+}
+
+.worldMissionCard,
+.worldMissionChip,
+.packetTray,
+.missionsPanel,
+.pageReader,
+.worldDock,
+.worldNavigatorPanel,
+.familyCollectionPanel {
+  border-color: var(--wiki-border);
+  background: var(--wiki-glass);
+  color: var(--wiki-text);
+  box-shadow: var(--wiki-shadow);
+}
+
+.worldMissionCard {
+  width: min(calc(340px * var(--wiki-density-type)), calc(100% - 24px));
+  padding: calc(10px * var(--wiki-density-pad));
+}
+
+.worldMissionCard header,
+.worldMissionCard header strong,
+.worldMissionChip,
+.packetTray header,
+.missionsPanel header,
+.dockHeader,
+.pageReader {
+  color: var(--wiki-text);
+}
+
+.worldMissionCard header span,
+.worldMissionChip span,
+.packetTray header span,
+.missionsIntro,
+.worldMeta,
+.worldBreadcrumbs,
+.commandHint {
+  color: var(--wiki-text-muted);
+}
+
+.worldTopStrip {
+  gap: calc(12px * var(--wiki-density-gap));
+  padding: calc(8px * var(--wiki-density-pad)) calc(12px * var(--wiki-density-pad));
+}
+
+.worldCommandBar {
+  gap: calc(10px * var(--wiki-density-gap));
+  row-gap: calc(8px * var(--wiki-density-gap));
+  padding: calc(7px * var(--wiki-density-pad)) calc(12px * var(--wiki-density-pad));
+}
+
+.packetTray,
+.missionsPanel {
+  padding: calc(12px * var(--wiki-density-pad));
+}
+
+.worldDock {
+  gap: calc(10px * var(--wiki-density-gap));
+  padding: calc(14px * var(--wiki-density-pad)) calc(16px * var(--wiki-density-pad)) calc(16px * var(--wiki-density-pad));
+}
+
+html[data-wiki-density="focus"] .worldDock,
+html[data-wiki-density="focus"] .pageReader {
+  width: min(62%, 680px);
+}
+
+html[data-wiki-density="command"] .worldDock,
+html[data-wiki-density="command"] .pageReader {
+  width: min(44%, 520px);
+}
+
+html[data-wiki-density="focus"] .commandSearch,
+html[data-wiki-density="focus"] .dockButton,
+html[data-wiki-density="focus"] .glyphButton,
+html[data-wiki-density="focus"] .trayButton {
+  min-height: 48px;
+}
+
+html[data-wiki-density="balanced"] .commandSearch,
+html[data-wiki-density="balanced"] .dockButton,
+html[data-wiki-density="balanced"] .glyphButton,
+html[data-wiki-density="balanced"] .trayButton,
+html[data-wiki-density="command"] .commandSearch,
+html[data-wiki-density="command"] .dockButton,
+html[data-wiki-density="command"] .glyphButton,
+html[data-wiki-density="command"] .trayButton {
+  min-height: 44px;
+}
+
+html[data-wiki-density="command"] .worldMissionCard,
+html[data-wiki-density="command"] .worldMissionChip,
+html[data-wiki-density="command"] .worldCommandBar,
+html[data-wiki-density="command"] .worldTopStrip {
+  font-size: 94%;
+}
+
+html[data-wiki-theme="night-mission-control"] .worldTopStrip {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wiki-bg) 96%, transparent), color-mix(in srgb, var(--wiki-bg) 58%, transparent) 82%, transparent);
+}
+
+html[data-wiki-theme="night-mission-control"] .worldCommandBar {
+  background: linear-gradient(0deg, color-mix(in srgb, var(--wiki-bg) 97%, transparent), color-mix(in srgb, var(--wiki-bg) 62%, transparent) 84%, transparent);
+}
+
+html[data-wiki-theme="luminous-observatory"] .worldWorkspace {
+  background:
+    radial-gradient(circle at 50% 12%, rgba(61, 157, 187, 0.2), transparent 36rem),
+    linear-gradient(145deg, #d9e9ee, #eef6f8 54%, #dcebef);
+}
+
+html[data-wiki-theme="luminous-observatory"] .worldTopStrip {
+  background: linear-gradient(180deg, rgba(248, 252, 253, 0.97), rgba(232, 241, 244, 0.82) 82%, transparent);
+}
+
+html[data-wiki-theme="luminous-observatory"] .worldCommandBar {
+  background: linear-gradient(0deg, rgba(248, 252, 253, 0.98), rgba(232, 241, 244, 0.86) 84%, transparent);
+}
+
+html[data-wiki-theme="luminous-observatory"] .worldBreadcrumbs strong,
+html[data-wiki-theme="luminous-observatory"] .missionViewContext,
+html[data-wiki-theme="luminous-observatory"] .missionOverlayContext,
+html[data-wiki-theme="luminous-observatory"] .worldMissionCard header strong,
+html[data-wiki-theme="luminous-observatory"] .packetTray header,
+html[data-wiki-theme="luminous-observatory"] .missionsPanel header,
+html[data-wiki-theme="luminous-observatory"] .dockHeader,
+html[data-wiki-theme="luminous-observatory"] .readerHead,
+html[data-wiki-theme="luminous-observatory"] .readerBody,
+html[data-wiki-theme="luminous-observatory"] .templatePanel,
+html[data-wiki-theme="luminous-observatory"] .actionSummaryPanel {
+  color: var(--wiki-text);
+}
+
+html[data-wiki-theme="luminous-observatory"] .crumbButton,
+html[data-wiki-theme="luminous-observatory"] .textButton,
+html[data-wiki-theme="luminous-observatory"] .intakeCrossLink a {
+  color: var(--wiki-accent);
+}
+
+html[data-wiki-theme="luminous-observatory"] .worldRuntimeControls,
+html[data-wiki-theme="luminous-observatory"] .commandSearch,
+html[data-wiki-theme="luminous-observatory"] .dockButton,
+html[data-wiki-theme="luminous-observatory"] .glyphButton,
+html[data-wiki-theme="luminous-observatory"] .trayButton,
+html[data-wiki-theme="luminous-observatory"] .quadrantGrid {
+  border-color: var(--wiki-border);
+  background: color-mix(in srgb, var(--wiki-surface) 94%, transparent);
+  color: var(--wiki-text);
+}
+
+html[data-wiki-theme="luminous-observatory"] .commandSearch input,
+html[data-wiki-theme="luminous-observatory"] .dockButton:hover,
+html[data-wiki-theme="luminous-observatory"] .dockButton.active,
+html[data-wiki-theme="luminous-observatory"] .glyphButton.active,
+html[data-wiki-theme="luminous-observatory"] .trayButton.active {
+  color: var(--wiki-text);
+}
+
+html[data-wiki-theme="luminous-observatory"] .dockButton,
+html[data-wiki-theme="luminous-observatory"] .glyphButton,
+html[data-wiki-theme="luminous-observatory"] .trayButton,
+html[data-wiki-theme="luminous-observatory"] .commandSearch,
+html[data-wiki-theme="luminous-observatory"] .worldMeta,
+html[data-wiki-theme="luminous-observatory"] .worldBreadcrumbs {
+  color: var(--wiki-text-muted);
+}
+
+html[data-wiki-theme="luminous-observatory"] .dockBackdrop,
+html[data-wiki-theme="luminous-observatory"] .readerDockBackdrop {
+  background: rgba(44, 77, 88, 0.18);
+}
+
+@media (forced-colors: active) {
+  .worldMissionCard,
+  .worldMissionChip,
+  .packetTray,
+  .missionsPanel,
+  .pageReader,
+  .worldDock,
+  .worldRuntimeControls,
+  .commandSearch,
+  .dockButton,
+  .glyphButton,
+  .trayButton,
+  .quadrantGrid {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+    forced-color-adjust: auto;
+  }
+
+  .dockButton.active,
+  .glyphButton.active,
+  .trayButton.active {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+  }
 }

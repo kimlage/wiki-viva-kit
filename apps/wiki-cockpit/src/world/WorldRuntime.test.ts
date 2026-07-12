@@ -20,6 +20,40 @@ function runtime(url = "/w/quadrants?center=root") {
 }
 
 describe("WorldRuntime walking skeleton", () => {
+  it("accepts only an explicit empty-world state with a null center", () => {
+    const route = parseRoute("/demo/genesis", "");
+    if (route.kind !== "world") throw new Error("expected world route");
+    const emptyPages: PageEntityIndex = new Map();
+    const state = hydrateWorldRoute({ route, pages: emptyPages, rootId: null, emptyWorld: true });
+
+    expect(state).toMatchObject({
+      mode: "v8",
+      centerId: null,
+      emptyWorld: true,
+      group: undefined,
+      selectedId: undefined,
+      readerId: undefined,
+      dock: undefined
+    });
+    const world = new WorldRuntime({ state, pages: emptyPages });
+    expect(world.getState().centerId).toBeNull();
+    world.dispatch({ type: "openSurface", dock: "create" });
+    expect(world.getState().dock).toBeUndefined();
+
+    const canonical = new URL(canonicalWorldUrl(state, true, route.query), "http://local.test");
+    expect(canonical.searchParams.has("center")).toBe(false);
+    expect(canonical.searchParams.get("genesis")).toBe("1");
+  });
+
+  it("rejects a zero-page runtime when Genesis empty-world mode was not declared", () => {
+    const route = parseRoute("/demo/w", "?view=quadrants");
+    if (route.kind !== "world") throw new Error("expected world route");
+    const emptyPages: PageEntityIndex = new Map();
+    const state = hydrateWorldRoute({ route, pages: emptyPages, rootId: null });
+
+    expect(() => new WorldRuntime({ state, pages: emptyPages })).toThrow("non-empty world requires a center");
+  });
+
   it("normalizes legacy route state and writes the canonical grammar", () => {
     const world = runtime("/w/radar/example/family:source/source-mail?lens=relacoes&reader=1");
     expect(world.getState()).toMatchObject({ centerId: "root", view: "radar", lens: "q3_relacoes", overlay: "freshness", selectedId: "source-mail", readerId: "source-mail" });
@@ -51,7 +85,7 @@ describe("WorldRuntime walking skeleton", () => {
 
   it("preserves bounded demo and workflow query state when runtime state becomes canonical", () => {
     const parsed = new URL(
-      "http://local.test/demo/w?center=root&view=quadrants&lens=all&overlay=actions&q=source&filter=stale&packet=page-a%2Cpage-b&genesis=1&stage=3&demo_scenario=dense_stress&tour=0"
+      "http://local.test/demo/w?center=root&view=quadrants&lens=all&overlay=actions&q=source&filter=stale&packet=page-a%2Cpage-b&genesis=1&stage=3&demo_scenario=dense_stress&tour=0&time_from=2025-01-01&time_to=2026-07-11&time_cursor=evt-review&time_mode=occurred&time_lanes=source%2Cdecision&compare=31b94d81&pack_view=example-pack.reference-map"
     );
     const route = parseRoute(parsed.pathname, parsed.search);
     if (route.kind !== "world") throw new Error("expected world route");
@@ -77,7 +111,14 @@ describe("WorldRuntime walking skeleton", () => {
         genesis: true,
         stage: 3,
         demoScenario: "dense_stress",
-        tour: "0"
+        tour: "0",
+        timeFrom: "2025-01-01",
+        timeTo: "2026-07-11",
+        timeCursor: "evt-review",
+        timeMode: "occurred",
+        timeLanes: ["source", "decision"],
+        compareRevision: "31b94d81",
+        packView: "example-pack.reference-map"
       }
     });
   });
@@ -92,6 +133,22 @@ describe("WorldRuntime walking skeleton", () => {
     expect(world.getState()).toMatchObject({ centerId: "root", readerId: "person-bea" });
     world.dispatch({ type: "selectCenter", entityId: "person-bea" });
     expect(world.getState()).toMatchObject({ centerId: "person-bea", selectedId: undefined, readerId: undefined });
+  });
+
+  it("projects a shareable transition without becoming a second route authority", () => {
+    const world = runtime();
+
+    const projected = world.project({ type: "setLens", lens: "q3_relacoes" });
+    const accumulated = world.project(
+      { type: "setOverlay", overlay: "evidence" },
+      projected
+    );
+
+    expect(accumulated).toMatchObject({ lens: "q3_relacoes", overlay: "evidence" });
+    expect(projected.overlay).toBe("actions");
+    expect(world.getState().overlay).toBe("actions");
+    expect(world.getState().lens).toBe("all");
+    expect(world.diagnostics.records()).toEqual([]);
   });
 
   it("resets lens, group and reading state when a real page becomes the center", () => {

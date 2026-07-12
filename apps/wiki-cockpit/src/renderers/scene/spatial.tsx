@@ -132,6 +132,8 @@ function QuestionPlate({
   onContext,
   onConfirm,
   onBack,
+  confirmDisabled = false,
+  confirmTitle,
   portal
 }: {
   position: [number, number, number];
@@ -145,6 +147,8 @@ function QuestionPlate({
   onContext?: (context: string) => void;
   onConfirm: (value: string) => void;
   onBack: () => void;
+  confirmDisabled?: boolean;
+  confirmTitle?: string;
   portal?: RefObject<HTMLElement | null>;
 }) {
   const [value, setValue] = useState("");
@@ -157,7 +161,7 @@ function QuestionPlate({
             value={value}
             onChange={(event) => setValue(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && value.trim()) onConfirm(value.trim());
+              if (event.key === "Enter" && value.trim() && !confirmDisabled) onConfirm(value.trim());
             }}
             placeholder={placeholder}
             autoFocus
@@ -180,7 +184,14 @@ function QuestionPlate({
           <button className="plateGhost" onClick={onBack} type="button">
             <ChevronLeft size={13} /> {backLabel}
           </button>
-          <button className="plateCta" disabled={!value.trim()} onClick={() => onConfirm(value.trim())} type="button">
+          <button
+            className="plateCta"
+            disabled={confirmDisabled || !value.trim()}
+            onClick={() => onConfirm(value.trim())}
+            aria-label={confirmDisabled ? `${confirmLabel} — ${t("demo.readOnlyControl")}` : undefined}
+            title={confirmTitle}
+            type="button"
+          >
             <Sprout size={13} /> {confirmLabel}
           </button>
         </div>
@@ -287,6 +298,7 @@ export type SeedSpec = {
   contexts: string[];
   rOuter: number;
   genesis: boolean;
+  readOnly?: boolean;
   initialType?: string;
   onSeed: (spec: BriefSpec) => void;
   onCancel: () => void;
@@ -310,6 +322,7 @@ export function SeedFlow({
   contexts,
   rOuter,
   genesis,
+  readOnly = false,
   initialType,
   onSeed,
   onCancel,
@@ -350,8 +363,10 @@ export function SeedFlow({
           position={[ghostAt[0], ghostAt[1] + 0.42, ghostAt[2]]}
           prompt={typeNamePrompt(type)}
           placeholder={typeNameExample(type)}
-          note={t(genesis ? "create.gateNoteGenesis" : "create.gateNote")}
-          confirmLabel={t("create.seed")}
+          note={t(genesis ? "create.gateNoteGenesis" : readOnly ? "create.gateNoteDemo" : "create.gateNote")}
+          confirmLabel={t(genesis ? "create.seedHere" : readOnly ? "create.seedDemo" : "create.seed")}
+          confirmDisabled={readOnly}
+          confirmTitle={readOnly ? t("demo.readOnlyControl") : undefined}
           backLabel={t("genesis.back")}
           contexts={contexts}
           context={context}

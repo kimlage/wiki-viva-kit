@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { canUseWebGL, sceneMotionDurationSeconds, sceneMotionIntent, SystemScene } from "./SystemScene";
+import { canUseWebGL, sceneFrameloop, sceneMotionDurationSeconds, sceneMotionIntent, SystemScene } from "./SystemScene";
 import type { SceneMotionSnapshot } from "./SystemScene";
 import type { GitState, GraphNode } from "../types";
 import {
@@ -96,6 +96,12 @@ describe("scene semantic motion transaction", () => {
     expect(sceneMotionDurationSeconds("overlay", 0.2)).toBe(0.4);
     expect(sceneMotionDurationSeconds("overlay", 1.4)).toBe(0.3);
     expect(sceneMotionDurationSeconds("overlay", 0.78, true)).toBe(0);
+  });
+
+  it("stops the render loop while a semantic 2D view owns the workspace", () => {
+    expect(sceneFrameloop(true, true)).toBe("never");
+    expect(sceneFrameloop(false, true)).toBe("always");
+    expect(sceneFrameloop(false, false)).toBe("demand");
   });
 });
 

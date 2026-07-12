@@ -74,11 +74,22 @@ function approvalTelemetry(view: ReturnType<typeof deriveApproval>): DockTelemet
   ];
 }
 
-function FileRow({ file, page, loadFileDiff }: { file: DiffFile; page?: PageRecord; loadFileDiff: OperatorPort["loadFileDiff"] }) {
+function FileRow({
+  file,
+  page,
+  demo,
+  loadFileDiff
+}: {
+  file: DiffFile;
+  page?: PageRecord;
+  demo?: boolean;
+  loadFileDiff: OperatorPort["loadFileDiff"];
+}) {
   const [open, setOpen] = useState(false);
   const [lines, setLines] = useState<string[] | null>(null);
   const [busy, setBusy] = useState(false);
   const toggle = async () => {
+    if (demo) return;
     if (open) {
       setOpen(false);
       return;
@@ -109,7 +120,14 @@ function FileRow({ file, page, loadFileDiff }: { file: DiffFile; page?: PageReco
           +{file.additions} −{file.deletions}
         </small>
         {file.risk_hints.length > 0 && <small className="gateFileHints">{file.risk_hints.join(" · ")}</small>}
-        <button className="textButton" onClick={toggle} type="button">
+        <button
+          className="textButton"
+          onClick={toggle}
+          disabled={Boolean(demo)}
+          aria-label={demo ? `${t("gate.viewDiff")} — ${t("demo.readOnlyControl")}` : undefined}
+          title={demo ? t("demo.readOnlyControl") : undefined}
+          type="button"
+        >
           {open ? t("gate.hideDiff") : t("gate.viewDiff")}
         </button>
       </div>
@@ -202,7 +220,7 @@ export function GateDock({
             </h4>
             <p className="dockIntro">{t("gate.privacy.hint")}</p>
             {view.privacyFiles.map((file) => (
-              <FileRow key={file.path} file={file} page={pagesByPath.get(file.path)} loadFileDiff={loadFileDiff} />
+              <FileRow key={file.path} file={file} page={pagesByPath.get(file.path)} demo={demo} loadFileDiff={loadFileDiff} />
             ))}
           </div>
         )}
@@ -211,7 +229,7 @@ export function GateDock({
           <h4>{t("gate.content", { n: view.contentFiles.length })}</h4>
           {view.contentFiles.length === 0 && <p className="dockIntro">{t("gate.noContent")}</p>}
           {view.contentFiles.map((file) => (
-            <FileRow key={file.path} file={file} page={pagesByPath.get(file.path)} loadFileDiff={loadFileDiff} />
+            <FileRow key={file.path} file={file} page={pagesByPath.get(file.path)} demo={demo} loadFileDiff={loadFileDiff} />
           ))}
         </div>
 
@@ -222,7 +240,7 @@ export function GateDock({
             </summary>
             <p className="dockIntro">{t("gate.crate.hint")}</p>
             {view.codeFiles.map((file) => (
-              <FileRow key={file.path} file={file} loadFileDiff={loadFileDiff} />
+              <FileRow key={file.path} file={file} demo={demo} loadFileDiff={loadFileDiff} />
             ))}
           </details>
         )}
@@ -252,7 +270,9 @@ export function GateDock({
             <button
               className="primaryButton"
               onClick={() => onWorkflow("open_draft_pr", {}, false)}
-              disabled={busy || !view.isProposalBranch}
+              disabled={Boolean(demo) || busy || !view.isProposalBranch}
+              aria-label={demo ? `${t("gate.pr.prepare")} — ${t("demo.readOnlyControl")}` : undefined}
+              title={demo ? t("demo.readOnlyControl") : undefined}
               type="button"
             >
               <GitPullRequest size={14} />

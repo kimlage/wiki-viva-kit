@@ -25,6 +25,7 @@ export function PacketTray({
   reviewCommand,
   gateCommand,
   prCommand,
+  demo = false,
   onRun,
   onOpenPage,
   onTogglePacket,
@@ -35,6 +36,7 @@ export function PacketTray({
   reviewCommand?: OperatorCommandCard;
   gateCommand?: OperatorCommandCard;
   prCommand?: OperatorCommandCard;
+  demo?: boolean;
   onRun: (action: OperatorCommandCard) => void;
   onOpenPage: (id: string) => void;
   onTogglePacket: (id: string) => void;
@@ -73,19 +75,40 @@ export function PacketTray({
       </div>
       <div className="packetActions">
         {reviewCommand && (
-          <button className="secondaryButton" onClick={() => onRun(reviewCommand)} type="button">
+          <button
+            className="secondaryButton"
+            onClick={() => onRun(reviewCommand)}
+            disabled={demo}
+            aria-label={demo ? `${operatorCommandTitle(reviewCommand)} — ${t("demo.readOnlyControl")}` : undefined}
+            title={demo ? t("demo.readOnlyControl") : undefined}
+            type="button"
+          >
             <Play size={14} />
             <span>{operatorCommandTitle(reviewCommand)}</span>
           </button>
         )}
         {gateCommand && (
-          <button className="secondaryButton" onClick={() => onRun(gateCommand)} type="button">
+          <button
+            className="secondaryButton"
+            onClick={() => onRun(gateCommand)}
+            disabled={demo}
+            aria-label={demo ? `${operatorCommandTitle(gateCommand)} — ${t("demo.readOnlyControl")}` : undefined}
+            title={demo ? t("demo.readOnlyControl") : undefined}
+            type="button"
+          >
             <Play size={14} />
             <span>{operatorCommandTitle(gateCommand)}</span>
           </button>
         )}
         {prCommand && (
-          <button className="secondaryButton" onClick={() => onRun(prCommand)} type="button">
+          <button
+            className="secondaryButton"
+            onClick={() => onRun(prCommand)}
+            disabled={demo}
+            aria-label={demo ? `${operatorCommandTitle(prCommand)} — ${t("demo.readOnlyControl")}` : undefined}
+            title={demo ? t("demo.readOnlyControl") : undefined}
+            type="button"
+          >
             <GitPullRequest size={14} />
             <span>{operatorCommandTitle(prCommand)}</span>
           </button>

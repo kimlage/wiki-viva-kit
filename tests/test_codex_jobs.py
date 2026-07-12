@@ -57,7 +57,37 @@ def _saved_brief(root: Path, config: WikiConfig):
 
 
 def _runner(root: Path, config: WikiConfig, *, autostart: bool = False, **env) -> JobRunner:
-    return JobRunner(root, config, codex_cmd=["python3", SHIM], timeout_seconds=30, autostart=autostart)
+    return JobRunner(
+        root,
+        config,
+        codex_cmd=["python3", SHIM],
+        timeout_seconds=30,
+        autostart=autostart,
+        **env,
+    )
+
+
+def test_job_state_writes_notify_the_snapshot_cache_owner(tmp_path: Path) -> None:
+    config = _repo(tmp_path)
+    brief = _saved_brief(tmp_path, config)
+    notifications: list[str] = []
+    runner = _runner(
+        tmp_path,
+        config,
+        on_change=lambda: notifications.append("changed"),
+    )
+
+    result = runner.submit(
+        brief_id=brief["brief_id"],
+        brief_sha=brief["brief_sha"],
+        dry_run=True,
+    )
+    assert result["ok"] is True
+    submitted_notifications = len(notifications)
+    assert submitted_notifications >= 1
+    runner.run_job(result["job_id"])
+    assert len(notifications) > submitted_notifications
+    assert runner.get(result["job_id"])["status"] == "delivered"
 
 
 def test_build_argv_is_sandboxed_and_never_yolo() -> None:

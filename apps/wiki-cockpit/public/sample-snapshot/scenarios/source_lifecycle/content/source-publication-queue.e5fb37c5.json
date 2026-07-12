@@ -1,0 +1,52 @@
+{
+  "backlinks": [],
+  "body": "\n# Publication queue\n\nA live Review queue source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `blocked`, freshness `never_synced` and last attempt `secret_blocked`.\n",
+  "frontmatter": {
+    "context": "sistema",
+    "moc_parent": "memories/index.md",
+    "owner": "root-alex-rivera",
+    "page_id": "source-publication-queue",
+    "page_type": "source",
+    "platform": "Review queue",
+    "source_blocked_reason": "Secret scanning blocked the synthetic attempt before publication.",
+    "source_lifecycle": {
+      "adoption_state": "pending",
+      "freshness_state": "never_synced",
+      "last_attempt_at": "2026-07-03",
+      "last_attempt_state": "secret_blocked",
+      "pipeline_stage": "extracted",
+      "secret_safe_log_refs": [
+        "logs/demo/source-publication-queue-secret-block"
+      ],
+      "state": "blocked"
+    },
+    "source_type": "live",
+    "stale_after_days": 30,
+    "sync": {
+      "last_event_ref": "",
+      "last_run_at": "2026-07-03",
+      "last_status": "secret_blocked"
+    },
+    "title": "Publication queue",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "sistema",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "source-publication-queue",
+    "page_type": "source",
+    "path": "memories/sources/source-publication-queue.md",
+    "summary": "A live Review queue source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle blocked, freshness never_synced and last attempt secret_blocked.",
+    "summary_truncated": false,
+    "title": "Publication queue",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-5a1bed9d910e97b9",
+  "source_refs": []
+}

@@ -236,10 +236,10 @@ export function trustColor(state: keyof TrustColors): string {
 }
 
 // ---------------------------------------------------------------------------
-// Aging: hue = WHO a node is (context); tone = HOW it is (state). The state
-// tones are normalized to fixed OKLCH lightness bands so "darker = staler"
-// holds ACROSS contexts (a fresh purple must never be as dark as a stale
-// cyan) — the one channel color-blind users can always trust. Ordering:
+// Compatibility/reference utility for context-accent aging outside node-body
+// encoding. Native v8 node bodies are owned by the active overlay token;
+// context stays in position, labels and keylines. These fixed OKLCH bands keep
+// older/auxiliary surfaces deterministic while they migrate. Ordering:
 // proposal-bleach (≈0.82) > fresh-calm (≈0.58) > stale-aged (≈0.46) >
 // unknown-veil (≈0.35). Stale BRIGHTNESS comes from the amber emissive/glow
 // annotation, not the body. Invariants pinned in presentation.test.ts.

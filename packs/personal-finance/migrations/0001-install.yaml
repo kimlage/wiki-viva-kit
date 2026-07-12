@@ -1,0 +1,8 @@
+schema_version: wiki_experience_pack_migration.v1
+pack: personal-finance
+from_version: null
+to_version: 0.1.0
+data_policy: preserve_user_content
+steps:
+  - action: activate_pack_bundle
+  - action: register_capabilities

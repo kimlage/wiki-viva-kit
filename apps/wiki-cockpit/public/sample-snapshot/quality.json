@@ -505,15 +505,15 @@
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 20,
-      "information_density_per_1000_words": 62.5,
-      "link_density_per_1000_words": 62.5,
+      "estimated_tokens": 35,
+      "information_density_per_1000_words": 37.04,
+      "link_density_per_1000_words": 37.04,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/empresas/clearpath/source-customer-interviews.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 16
+      "words": 27
     },
     {
       "body_links": 0,
@@ -908,379 +908,379 @@
     {
       "body_links": 0,
       "context": "sistema",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 41.67,
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 32.26,
+      "link_density_per_1000_words": 32.26,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-action-ledger.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 31
     },
     {
       "body_links": 0,
       "context": "pessoal",
-      "estimated_tokens": 28,
-      "information_density_per_1000_words": 45.45,
-      "link_density_per_1000_words": 45.45,
+      "estimated_tokens": 37,
+      "information_density_per_1000_words": 34.48,
+      "link_density_per_1000_words": 34.48,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-agenda.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 22
+      "words": 29
     },
     {
       "body_links": 0,
       "context": "financeiro",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 55,
+      "information_density_per_1000_words": 23.26,
+      "link_density_per_1000_words": 46.51,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-banco-export.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 43
     },
     {
       "body_links": 0,
       "context": "pessoal",
-      "estimated_tokens": 29,
-      "information_density_per_1000_words": 43.48,
-      "link_density_per_1000_words": 43.48,
+      "estimated_tokens": 37,
+      "information_density_per_1000_words": 34.48,
+      "link_density_per_1000_words": 34.48,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-calendar-archive.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 23
+      "words": 29
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 32.26,
+      "link_density_per_1000_words": 64.52,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-call-recordings.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 31
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-chat-export.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-clearpath-billing.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 32.26,
+      "link_density_per_1000_words": 64.52,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-clearpath-risk-log.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 31
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-clearpath-roadmap.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-clearpath-support.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-crm-accounts.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "sistema",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 41.67,
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 32.26,
+      "link_density_per_1000_words": 32.26,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-decision-log.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 31
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-error-traces.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "sistema",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 41.67,
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 32.26,
+      "link_density_per_1000_words": 32.26,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-evidence-ledger.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 31
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 32.26,
+      "link_density_per_1000_words": 64.52,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-feature-flags.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 31
     },
     {
       "body_links": 0,
       "context": "sistema",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 41.67,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 33.33,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-health-checks.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "pessoal",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 41.67,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 33.33,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-inbox-capture.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "pessoal",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 41.67,
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 32.26,
+      "link_density_per_1000_words": 32.26,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-notes-vault.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 31
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 32.26,
+      "link_density_per_1000_words": 64.52,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-nps-surveys.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 31
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-product-analytics.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "sistema",
-      "estimated_tokens": 29,
-      "information_density_per_1000_words": 43.48,
-      "link_density_per_1000_words": 43.48,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 33.33,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-publication-queue.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 23
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "estudio",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 41.67,
+      "estimated_tokens": 41,
+      "information_density_per_1000_words": 31.25,
+      "link_density_per_1000_words": 31.25,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-reading-queue.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 32
     },
     {
       "body_links": 0,
       "context": "estudio",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 41.67,
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 32.26,
+      "link_density_per_1000_words": 32.26,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-reference-folder.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 31
     },
     {
       "body_links": 0,
       "context": "pessoal",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 41.67,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 33.33,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-relation-cadence.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-release-notes.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-sales-pipeline.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-support-tickets.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
       "context": "sistema",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 41.67,
+      "estimated_tokens": 40,
+      "information_density_per_1000_words": 32.26,
+      "link_density_per_1000_words": 32.26,
       "outbound_links": 1,
       "page_type": "source",
       "path": "memories/sources/source-template-registry.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 31
     },
     {
       "body_links": 0,
       "context": "clientes",
-      "estimated_tokens": 31,
-      "information_density_per_1000_words": 41.67,
-      "link_density_per_1000_words": 83.33,
+      "estimated_tokens": 39,
+      "information_density_per_1000_words": 33.33,
+      "link_density_per_1000_words": 66.67,
       "outbound_links": 2,
       "page_type": "source",
       "path": "memories/sources/source-usage-warehouse.md",
       "quality_exempt": [],
       "useful_lines": 1,
-      "words": 24
+      "words": 30
     },
     {
       "body_links": 0,
@@ -1402,78 +1402,6 @@
   ],
   "quality_flags": {
     "bad_repetition_blocks": [
-      {
-        "contexts": [
-          "clientes"
-        ],
-        "page_types": [
-          "source"
-        ],
-        "pages": [
-          "memories/sources/source-call-recordings.md",
-          "memories/sources/source-chat-export.md",
-          "memories/sources/source-clearpath-billing.md",
-          "memories/sources/source-clearpath-risk-log.md",
-          "memories/sources/source-clearpath-roadmap.md",
-          "memories/sources/source-clearpath-support.md",
-          "memories/sources/source-crm-accounts.md",
-          "memories/sources/source-error-traces.md",
-          "memories/sources/source-feature-flags.md",
-          "memories/sources/source-nps-surveys.md",
-          "memories/sources/source-product-analytics.md",
-          "memories/sources/source-release-notes.md",
-          "memories/sources/source-sales-pipeline.md",
-          "memories/sources/source-support-tickets.md",
-          "memories/sources/source-usage-warehouse.md"
-        ],
-        "text_preview": "a live source. its content is born by ingestion \u2014 manual creation under it is off. (the bank export is intentionally overdue.)"
-      },
-      {
-        "contexts": [
-          "estudio"
-        ],
-        "page_types": [
-          "source"
-        ],
-        "pages": [
-          "memories/sources/source-reading-queue.md",
-          "memories/sources/source-reference-folder.md"
-        ],
-        "text_preview": "a live source. its content is born by ingestion \u2014 manual creation under it is off. (the bank export is intentionally overdue.)"
-      },
-      {
-        "contexts": [
-          "pessoal"
-        ],
-        "page_types": [
-          "source"
-        ],
-        "pages": [
-          "memories/sources/source-agenda.md",
-          "memories/sources/source-calendar-archive.md",
-          "memories/sources/source-inbox-capture.md",
-          "memories/sources/source-notes-vault.md",
-          "memories/sources/source-relation-cadence.md"
-        ],
-        "text_preview": "a live source. its content is born by ingestion \u2014 manual creation under it is off. (the bank export is intentionally overdue.)"
-      },
-      {
-        "contexts": [
-          "sistema"
-        ],
-        "page_types": [
-          "source"
-        ],
-        "pages": [
-          "memories/sources/source-action-ledger.md",
-          "memories/sources/source-decision-log.md",
-          "memories/sources/source-evidence-ledger.md",
-          "memories/sources/source-health-checks.md",
-          "memories/sources/source-publication-queue.md",
-          "memories/sources/source-template-registry.md"
-        ],
-        "text_preview": "a live source. its content is born by ingestion \u2014 manual creation under it is off. (the bank export is intentionally overdue.)"
-      },
       {
         "contexts": [
           "clientes"
@@ -1629,50 +1557,6 @@
     "repeated_blocks": [
       {
         "contexts": [
-          "clientes",
-          "estudio",
-          "financeiro",
-          "pessoal",
-          "sistema"
-        ],
-        "page_types": [
-          "source"
-        ],
-        "pages": [
-          "memories/sources/source-action-ledger.md",
-          "memories/sources/source-agenda.md",
-          "memories/sources/source-banco-export.md",
-          "memories/sources/source-calendar-archive.md",
-          "memories/sources/source-call-recordings.md",
-          "memories/sources/source-chat-export.md",
-          "memories/sources/source-clearpath-billing.md",
-          "memories/sources/source-clearpath-risk-log.md",
-          "memories/sources/source-clearpath-roadmap.md",
-          "memories/sources/source-clearpath-support.md",
-          "memories/sources/source-crm-accounts.md",
-          "memories/sources/source-decision-log.md",
-          "memories/sources/source-error-traces.md",
-          "memories/sources/source-evidence-ledger.md",
-          "memories/sources/source-feature-flags.md",
-          "memories/sources/source-health-checks.md",
-          "memories/sources/source-inbox-capture.md",
-          "memories/sources/source-notes-vault.md",
-          "memories/sources/source-nps-surveys.md",
-          "memories/sources/source-product-analytics.md",
-          "memories/sources/source-publication-queue.md",
-          "memories/sources/source-reading-queue.md",
-          "memories/sources/source-reference-folder.md",
-          "memories/sources/source-relation-cadence.md",
-          "memories/sources/source-release-notes.md",
-          "memories/sources/source-sales-pipeline.md",
-          "memories/sources/source-support-tickets.md",
-          "memories/sources/source-template-registry.md",
-          "memories/sources/source-usage-warehouse.md"
-        ],
-        "text_preview": "a live source. its content is born by ingestion \u2014 manual creation under it is off. (the bank export is intentionally overdue.)"
-      },
-      {
-        "contexts": [
           "clientes"
         ],
         "page_types": [
@@ -1708,7 +1592,7 @@
   "repo_id": "wiki-viva-demo",
   "schema_version": "wiki_quality_report.v1",
   "summary": {
-    "bad_repetition_blocks": 7,
+    "bad_repetition_blocks": 3,
     "cache_reuse_rate": 0.0,
     "cached_calls": 0,
     "chunk_sources": 0,
@@ -1758,7 +1642,7 @@
     "quality_exempt_pages": 0,
     "quality_exemption_missing_reason": 0,
     "relation_pages_without_parent": 0,
-    "repeated_blocks": 2,
+    "repeated_blocks": 1,
     "responsibilities_without_action": 0,
     "role_responsibility_edge_mismatch": 0,
     "thin_link_pages": 1

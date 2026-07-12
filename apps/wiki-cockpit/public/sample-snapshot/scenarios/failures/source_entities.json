@@ -1,0 +1,124 @@
+{
+  "schema_version": "wiki_web_source_entities.v1",
+  "sources": [
+    {
+      "auth": null,
+      "config_ref": "",
+      "context": "clientes",
+      "how_to_export": "",
+      "lifecycle": {
+        "accepted_ref": "",
+        "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "The synthetic trace export is malformed.",
+        "emitted_action_ids": [],
+        "emitted_page_ids": [],
+        "freshness_state": "stale",
+        "last_attempt_at": "2026-07-03",
+        "last_attempt_state": "parser_error",
+        "last_ingested_at": "",
+        "last_sync_success_at": "",
+        "pipeline_stage": "extracted",
+        "pipeline_stage_timestamps": {},
+        "proposal_ids": [],
+        "raw_artifact_count": 1,
+        "reviewed_no_change_receipt": "",
+        "secret_safe_log_refs": [
+          "logs/demo/source-error-traces-parser"
+        ],
+        "state": "blocked"
+      },
+      "locator": "",
+      "next_due_days": null,
+      "owner": "root-alex-rivera",
+      "path": "memories/sources/source-error-traces.md",
+      "pending_streams": 0,
+      "pipelines": [],
+      "platform": "Observability",
+      "recipe_errors": [],
+      "recipe_ok": false,
+      "schedule": null,
+      "source_id": "source-error-traces",
+      "stewards": [],
+      "streams": [],
+      "sync": {
+        "derived_from_event": false,
+        "event_closure": {
+          "consolidated_into": [],
+          "gate_state": "",
+          "no_change": [],
+          "reviewed_no_change": false
+        },
+        "last_event_ref": "",
+        "last_run_at": "2026-07-03",
+        "last_status": "parser_error",
+        "streams_fresh": 0,
+        "streams_total": 0
+      },
+      "title": "Error trace export",
+      "updated_at": "2026-07-03"
+    },
+    {
+      "auth": null,
+      "config_ref": "",
+      "context": "sistema",
+      "how_to_export": "",
+      "lifecycle": {
+        "accepted_ref": "",
+        "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "The synthetic health endpoint returned an operational failure.",
+        "emitted_action_ids": [],
+        "emitted_page_ids": [],
+        "freshness_state": "stale",
+        "last_attempt_at": "2026-07-03",
+        "last_attempt_state": "failed",
+        "last_ingested_at": "",
+        "last_sync_success_at": "",
+        "pipeline_stage": "manifested",
+        "pipeline_stage_timestamps": {},
+        "proposal_ids": [],
+        "raw_artifact_count": 0,
+        "reviewed_no_change_receipt": "",
+        "secret_safe_log_refs": [
+          "logs/demo/source-health-checks-failed"
+        ],
+        "state": "blocked"
+      },
+      "locator": "",
+      "next_due_days": null,
+      "owner": "root-alex-rivera",
+      "path": "memories/sources/source-health-checks.md",
+      "pending_streams": 0,
+      "pipelines": [],
+      "platform": "Checks",
+      "recipe_errors": [],
+      "recipe_ok": false,
+      "schedule": null,
+      "source_id": "source-health-checks",
+      "stewards": [],
+      "streams": [],
+      "sync": {
+        "derived_from_event": false,
+        "event_closure": {
+          "consolidated_into": [],
+          "gate_state": "",
+          "no_change": [],
+          "reviewed_no_change": false
+        },
+        "last_event_ref": "",
+        "last_run_at": "2026-07-03",
+        "last_status": "failed",
+        "streams_fresh": 0,
+        "streams_total": 0
+      },
+      "title": "Health checks output",
+      "updated_at": "2026-07-03"
+    }
+  ],
+  "summary": {
+    "pending": 0,
+    "total": 2,
+    "with_recipe": 0
+  }
+}

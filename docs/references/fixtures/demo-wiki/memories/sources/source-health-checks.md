@@ -36,4 +36,4 @@ source_lifecycle:
 
 # Health checks output
 
-A live source. Its content is born by ingestion — manual creation under it is off. (The bank export is intentionally overdue.)
+A live Checks source. Its content is born by ingestion — manual creation under it is off. This fixture demonstrates lifecycle `blocked`, freshness `stale` and last attempt `failed`.

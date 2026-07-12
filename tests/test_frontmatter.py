@@ -200,10 +200,9 @@ def test_list_values_cases(value, expected):
 
 
 # ---------------------------------------------------------------------------
-# Property-based parity with yaml.safe_load (hypothesis if available)
+# Property-based parity with yaml.safe_load (required in the test environment)
 # ---------------------------------------------------------------------------
 
-hypothesis = pytest.importorskip("hypothesis")
 from hypothesis import given, settings  # noqa: E402
 from hypothesis import strategies as st  # noqa: E402
 

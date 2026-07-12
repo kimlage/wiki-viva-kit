@@ -1,37 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { applyRuntimeEnv } from "./runtimeConfig";
-import type { RuntimeConfig } from "./runtimeConfig";
+import { normalizeRuntimeConfig } from "./runtimeConfig";
 
-const staticDemo: RuntimeConfig = {
-  apiBase: "",
-  snapshotBase: "/sample-snapshot",
-  repoLabel: "Wiki Viva Kit demo",
-  mode: "static_demo",
-  language: "",
-  strings: {},
-  presentation: {},
-  codexEnabled: false
-};
-
-describe("runtime config environment boundary", () => {
-  it("lets dev:proxy replace every demo provenance field without changing capabilities", () => {
+describe("runtime config boundary", () => {
+  it("normalizes the runtime file without consulting build-time environment", () => {
     expect(
-      applyRuntimeEnv(staticDemo, {
-        VITE_WIKI_API_BASE: "/api/",
-        VITE_WIKI_SNAPSHOT_BASE: "/api/snapshot/",
-        VITE_WIKI_REPO_LABEL: "",
-        VITE_WIKI_RUNTIME_MODE: "local_operator"
+      normalizeRuntimeConfig({
+        api_base: "/api/",
+        snapshot_base: "/api/snapshot/",
+        repo_label: " Operator ",
+        mode: "local_operator",
+        codex: { enabled: true }
       })
     ).toEqual({
-      ...staticDemo,
       apiBase: "/api",
       snapshotBase: "/api/snapshot",
-      repoLabel: "",
-      mode: "local_operator"
+      repoLabel: "Operator",
+      mode: "local_operator",
+      language: "",
+      strings: {},
+      presentation: { page_types: {}, contexts: {}, trust_colors: {} },
+      codexEnabled: true
     });
   });
 
-  it("keeps the runtime file authoritative when no build override exists", () => {
-    expect(applyRuntimeEnv(staticDemo, {})).toEqual(staticDemo);
+  it("keeps an explicit empty API base authoritative", () => {
+    expect(normalizeRuntimeConfig({ api_base: "", snapshot_base: "/sample/" })).toMatchObject({
+      apiBase: "",
+      snapshotBase: "/sample"
+    });
   });
 });

@@ -1,0 +1,113 @@
+{
+  "bands": {
+    "last_30_days": 0,
+    "last_7_days": 7,
+    "older": 0,
+    "undated": 0
+  },
+  "compatibility": {
+    "legacy_event_kinds_preserved": true,
+    "legacy_schema_version": "wiki_web_timeline.v1",
+    "replacement_payload": "temporal_graph.json"
+  },
+  "contract_version": "activity_timeline.v1",
+  "event_count": 7,
+  "events": [
+    {
+      "commit": "",
+      "context": "system",
+      "id": "snapshot-generated",
+      "kind": "snapshot",
+      "label": "Snapshot generated",
+      "path": "",
+      "status": "blocked",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 1
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-source-learning-loops",
+      "kind": "page_updated",
+      "label": "Learning loops reference",
+      "path": "memories/showcases/study_research_showcase/study-research/source-learning-loops.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-root-study-research-showcase",
+      "kind": "page_updated",
+      "label": "Study and Research Observatory",
+      "path": "memories/index.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-question-next-review",
+      "kind": "page_updated",
+      "label": "When should the review cadence be checked again?",
+      "path": "memories/showcases/study_research_showcase/study-research/question-next-review.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-concept-retention",
+      "kind": "page_updated",
+      "label": "Retention",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-retention.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-concept-feedback",
+      "kind": "page_updated",
+      "label": "Feedback",
+      "path": "memories/showcases/study_research_showcase/study-research/concept-feedback.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    },
+    {
+      "commit": "",
+      "context": "showcase",
+      "id": "page-claim-review-cadence",
+      "kind": "page_updated",
+      "label": "Review cadence claim",
+      "path": "memories/showcases/study_research_showcase/study-research/claim-review-cadence.md",
+      "status": "fresh",
+      "timestamp": "2026-07-09T00:00:00Z",
+      "weight": 2
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
+  "repo_id": "wiki-viva-demo-study-research-showcase",
+  "returned_count": 7,
+  "schema_version": "wiki_web_timeline.v1",
+  "summary": {
+    "by_context": {
+      "showcase": 6,
+      "system": 1
+    },
+    "by_kind": {
+      "page_updated": 6,
+      "snapshot": 1
+    },
+    "event_count": 7,
+    "first_at": "2026-07-09T00:00:00Z",
+    "last_at": "2026-07-09T00:00:00Z"
+  },
+  "truncated": false
+}

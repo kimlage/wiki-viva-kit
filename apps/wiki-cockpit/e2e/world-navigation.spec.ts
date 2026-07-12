@@ -327,11 +327,12 @@ test("desktop cockpit modules keep one semantic world while navigating", async (
   await prepareWorld(page);
 
   await page.locator(".glyphButton", { hasText: "Atlas" }).click();
-  await expect(page).toHaveURL(/\/demo\/w\/atlas(?:\?|$)/);
+  await expect(page).toHaveURL(/\/demo\/w\?.*\bview=atlas(?:&|$)/);
+  await expect(page).toHaveURL(/[?&]runtime=compat(?:&|$)/);
   await expectNavigableWorld(page);
 
   await page.locator(".glyphButton", { hasText: "Quadrants" }).click();
-  await expect(page).toHaveURL(/\/demo\/w\/quadrants(?:\?|$)/);
+  await expect(page).toHaveURL(/\/demo\/w\?.*\bview=quadrants(?:&|$)/);
   await expect(page.locator(".quadrantCompass")).toBeVisible();
   await expectCanonicalWilberGrid(page);
   await expectNavigableWorld(page);
@@ -482,7 +483,7 @@ test("visual control easter egg is local configuration, not world navigation", a
   const visualJson = page.getByRole("textbox", { name: "Visual config JSON" });
   const visualDefaultSnippet = page.getByRole("textbox", { name: "Default visual config snippet" });
   await expect(visualJson).toContainText("wiki_cockpit_visual_config.v1");
-  await expect(visualJson).toContainText("0.1.109");
+  await expect(visualJson).toContainText("0.2.0");
   await expect(page.locator(".visualControlPresetGrid button")).toHaveCount(4);
   await expect(visualJson).toContainText("DEFAULT_VISUAL_CONTROL_CONFIG");
   await expect(visualDefaultSnippet).toContainText("DEFAULT_VISUAL_CONTROL_CONFIG");

@@ -13,14 +13,15 @@ import json
 import re
 import subprocess
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 import yaml
 
 from wiki_core.detectors import scan_text
 
 
-UPGRADE_PACKAGE_SCHEMA_VERSION = "wiki_viva_upgrade_package.v1"
+UPGRADE_PACKAGE_SCHEMA_VERSION = "wiki_viva_upgrade_package.v2"
+LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION = "wiki_viva_upgrade_package.v1"
 CONSUMER_INVENTORY_SCHEMA_VERSION = "wiki_viva_consumer_inventory.v1"
 PREFLIGHT_SCHEMA_VERSION = "wiki_viva_upgrade_preflight.v1"
 GATE_EVIDENCE_SCHEMA_VERSION = "wiki_viva_gate_evidence.v1"
@@ -56,6 +57,57 @@ UPGRADE_WAVES = {"public_kit", "pilot", "wave_1", "wave_2", "paused", "blocked"}
 
 _SHA_RE = re.compile(r"[0-9a-f]{40,64}")
 _DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_PUBLIC_LOCAL_PATH_RE = re.compile(
+    r"(?:/Users/|/home/|(?:^|[\s\"'=(:])/(?!/)[^\s\"',;]+|"
+    r"[A-Za-z]:\\|file://|(?<![\w.-])~[/\\]|\\\\[^\\\s]+\\[^\\\s]+)"
+)
+_PUBLIC_PARENT_TRAVERSAL_RE = re.compile(r"(?:^|[\s\"'/:\\])\.\.(?:[/\\]|$)")
+_PUBLIC_URL_QUERY_RE = re.compile(r"https?://[^\s\"']+\?[^\s\"']+")
+_PUBLIC_CREDENTIAL_ASSIGNMENT_RE = re.compile(
+    r"(?i)(?:api[_-]?key|secret|token|password|passwd|pwd|senha|authorization|"
+    r"cookie|client[_-]?secret|refresh[_-]?token|access[_-]?token)"
+    r"\s*[:=]\s*[^\s,;]+"
+)
+_WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:")
+_SENSITIVE_PORTABLE_BASENAMES = {
+    "access_token",
+    "client_secret",
+    "cookie",
+    "cookies",
+    "credential",
+    "credentials",
+    "id_dsa",
+    "id_ecdsa",
+    "id_ed25519",
+    "id_rsa",
+    "password",
+    "passwords",
+    "private_key",
+    "secret",
+    "secrets",
+    "token",
+    "tokens",
+}
+_CONSUMER_OWNED_PORTABLE_PATHS = {"wiki.adapter-manifest.json"}
+_PORTABLE_ROOT_FILES = {
+    "requirements.txt",
+    "wiki.page-types.yaml",
+    "wiki.templates.yaml",
+}
+_PORTABLE_ROOT_PREFIXES = (
+    "wiki_core/",
+    "scripts/",
+    "tests/",
+    "apps/wiki-cockpit/",
+    ".github/workflows/",
+    "packs/",
+    "docs/references/guides/",
+    "docs/references/releases/",
+    "docs/references/schemas/",
+    "docs/references/upgrades/wiki-viva-v8/",
+    "docs/references/fixtures/demo-wiki/",
+)
+_PUBLIC_REDACTED_VALUE = "<redacted-public-value>"
 _UNPINNED = {
     "",
     "head",
@@ -116,8 +168,15 @@ def _require_list(value: Any, name: str, errors: list[str]) -> list[Any]:
 
 def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     errors: list[str] = []
-    if package.get("schema_version") != UPGRADE_PACKAGE_SCHEMA_VERSION:
-        errors.append(f"schema_version must be {UPGRADE_PACKAGE_SCHEMA_VERSION}")
+    schema_version = package.get("schema_version")
+    if schema_version not in {
+        LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION,
+        UPGRADE_PACKAGE_SCHEMA_VERSION,
+    }:
+        errors.append(
+            "schema_version must be "
+            f"{LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION} or {UPGRADE_PACKAGE_SCHEMA_VERSION}"
+        )
     release = _require_mapping(package.get("release"), "release", errors)
     for field in ("id", "status", "source_sha", "plan"):
         if field not in release:
@@ -137,6 +196,9 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
                 not isinstance(value, str)
                 or not value.strip()
                 or value.startswith("/")
+                or value.startswith(("./", "~"))
+                or "\\" in value
+                or _WINDOWS_DRIVE_RE.match(value)
                 or ".." in Path(value).parts
             ):
                 errors.append(
@@ -145,13 +207,36 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     schemas = _require_mapping(
         package.get("contract_versions"), "contract_versions", errors
     )
-    for field in (
+    legacy_contracts = (
+        "route",
         "snapshot",
+        "snapshot_envelope",
         "blocks",
         "visual_grammar",
         "runtime",
         "source_lifecycle",
-    ):
+        "freshness",
+    )
+    v2_contracts = (
+        "semantic_visual_tokens",
+        "appearance",
+        "server",
+        "activity_timeline",
+        "temporal_event",
+        "temporal_graph",
+        "experience_pack",
+        "experience_pack_registry",
+        "experience_pack_lock",
+        "experience_pack_composition",
+        "asset_manifest",
+        "downstream_adapter_manifest",
+    )
+    required_contracts = (
+        (*legacy_contracts, *v2_contracts)
+        if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION
+        else legacy_contracts
+    )
+    for field in required_contracts:
         if not str(schemas.get(field) or "").strip():
             errors.append(f"contract_versions.{field} is required")
     compatibility = _require_list(package.get("compatibility"), "compatibility", errors)
@@ -252,8 +337,8 @@ def consumer_from_inventory(
 
 
 def _matches(path: str, pattern: str) -> bool:
-    normalized = path.lstrip("./")
-    candidate = pattern.lstrip("./")
+    normalized = path
+    candidate = pattern
     if candidate.endswith("/**"):
         prefix = candidate[:-3].rstrip("/")
         # ``foo/**`` is a directory contract, so it includes both ``foo`` and
@@ -268,13 +353,60 @@ def _matches(path: str, pattern: str) -> bool:
     return normalized == candidate or fnmatch.fnmatchcase(normalized, candidate)
 
 
+def _canonical_portable_path(path: str) -> tuple[str | None, str]:
+    """Require one canonical repository-relative POSIX path.
+
+    Matching is deliberately downstream of this parser.  Globs must never be
+    allowed to normalize traversal, platform separators or absolute paths into
+    an allowlisted spelling.
+    """
+
+    raw = str(path)
+    if not raw or raw != raw.strip() or "\x00" in raw:
+        return None, "unsafe non-canonical path"
+    if (
+        raw.startswith(("/", "./", "~"))
+        or "\\" in raw
+        or _WINDOWS_DRIVE_RE.match(raw)
+    ):
+        return None, "unsafe non-canonical path"
+    parts = raw.split("/")
+    if any(not part or part in {".", ".."} for part in parts):
+        return None, "unsafe non-canonical path"
+    return "/".join(parts), ""
+
+
+def _portable_path_has_sensitive_name(path: str) -> bool:
+    for part in path.split("/"):
+        folded = part.casefold()
+        if folded == ".env" or folded.startswith(".env."):
+            return True
+        basename = folded.lstrip(".").split(".", 1)[0]
+        if basename in _SENSITIVE_PORTABLE_BASENAMES:
+            return True
+    return False
+
+
 def portable_path_status(path: str, package: dict[str, Any]) -> tuple[bool, str]:
+    normalized, error = _canonical_portable_path(path)
+    if normalized is None:
+        return False, error
+    if _portable_path_has_sensitive_name(normalized):
+        return False, "blocked by global sensitive-name policy"
+    if normalized in _CONSUMER_OWNED_PORTABLE_PATHS:
+        return False, "blocked by global consumer-owned manifest policy"
+    if not (
+        normalized in _PORTABLE_ROOT_FILES
+        or normalized.startswith(_PORTABLE_ROOT_PREFIXES)
+        or normalized.startswith(".skills/wiki-")
+    ):
+        return False, "blocked by global portable-surface policy"
     portable = package.get("portable_import") or {}
     for pattern in portable.get("block") or []:
-        if _matches(path, str(pattern)):
+        if _matches(normalized, str(pattern)):
             return False, f"blocked by {pattern}"
     for pattern in portable.get("allow") or []:
-        if _matches(path, str(pattern)):
+        if _matches(normalized, str(pattern)):
             return True, f"allowed by {pattern}"
     return False, "not in portable allowlist"
 
@@ -304,6 +436,36 @@ def _ignore_patterns(root: Path) -> list[str]:
     )
 
 
+def _unsafe_ignore_patterns(patterns: Sequence[str]) -> list[str]:
+    """Refuse ignore intent aimed at portable executable/verification surfaces."""
+
+    critical_prefixes = (
+        ".github/workflows",
+        "apps/wiki-cockpit",
+        "scripts",
+        "tests",
+        "wiki_core",
+    )
+    critical_files = {"requirements.txt", "wiki.page-types.yaml", "wiki.templates.yaml"}
+    unsafe: list[str] = []
+    for raw in patterns:
+        pattern = raw.replace("\\", "/").lstrip("./")
+        literal_head = re.split(r"[*?[]", pattern, maxsplit=1)[0].rstrip("/")
+        if (
+            pattern in {"*", "**", "**/*"}
+            or pattern in critical_files
+            or any(
+                literal_head == prefix
+                or literal_head.startswith(f"{prefix}/")
+                or prefix.startswith(f"{literal_head}/")
+                for prefix in critical_prefixes
+                if literal_head
+            )
+        ):
+            unsafe.append(raw)
+    return sorted(set(unsafe))
+
+
 def compare_portable_files(
     kit_root: Path,
     consumer_root: Path,
@@ -326,7 +488,6 @@ def compare_portable_files(
             rel
             for rel in _iter_files(root)
             if portable_path_status(rel, package)[0]
-            and not any(_matches(rel, pattern) for pattern in ignored_patterns)
         }
 
     source_blobs: dict[str, str] = {}
@@ -336,7 +497,6 @@ def compare_portable_files(
             rel
             for rel in source_blobs
             if portable_path_status(rel, package)[0]
-            and not any(_matches(rel, pattern) for pattern in ignored_patterns)
         }
     else:
         kit_files = selected(kit_root)
@@ -362,6 +522,12 @@ def compare_portable_files(
         "only_in_consumer": sorted(consumer_files - kit_files),
         "content_differs": differing,
         "ignored_per_repo": ignored_patterns,
+        "ignored_matches": sorted(
+            rel
+            for rel in kit_files | consumer_files
+            if any(_matches(rel, pattern) for pattern in ignored_patterns)
+        ),
+        "unsafe_ignore_patterns": _unsafe_ignore_patterns(ignored_patterns),
         "source_mode": "pinned_git_tree" if source_sha else "working_tree",
         "source_sha": source_sha or "",
     }
@@ -431,23 +597,59 @@ def _git_blob_payloads(root: Path, object_ids: set[str]) -> dict[str, bytes]:
     process.stdin.write("".join(f"{oid}\n" for oid in ordered).encode("ascii"))
     process.stdin.close()
     payloads: dict[str, bytes] = {}
+    batch_errors: list[str] = []
+    fatal_error = ""
     try:
         for requested in ordered:
             header = process.stdout.readline().decode("ascii", errors="replace").strip()
             parts = header.split()
-            if len(parts) != 3 or parts[1] != "blob":
-                raise ValueError(f"could not read release blob {requested}: {header}")
-            size = int(parts[2])
+            if len(parts) == 2 and parts[1] in {
+                "missing",
+                "ambiguous",
+                "dangling",
+                "loop",
+                "notdir",
+            }:
+                # ``git cat-file --batch`` reports object-level failures on
+                # stdout and may continue writing later records.  Drain the
+                # complete batch before raising so a later large blob cannot
+                # fill the pipe and deadlock the reader during process exit.
+                batch_errors.append(f"{requested}:{parts[1]}")
+                continue
+            if len(parts) != 3:
+                fatal_error = f"invalid batch header for {requested}"
+                break
+            try:
+                size = int(parts[2])
+            except ValueError:
+                fatal_error = f"invalid batch size for {requested}"
+                break
             payload = process.stdout.read(size)
             terminator = process.stdout.read(1)
             if len(payload) != size or terminator != b"\n":
-                raise ValueError(f"truncated release blob {requested}")
+                fatal_error = f"truncated release blob {requested}"
+                break
+            if parts[1] != "blob":
+                batch_errors.append(f"{requested}:unexpected-{parts[1]}")
+                continue
             payloads[requested] = payload
     finally:
+        if fatal_error:
+            process.terminate()
+        try:
+            return_code = process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            return_code = process.wait(timeout=5)
         stderr = process.stderr.read().decode("utf-8", errors="replace").strip()
-        return_code = process.wait()
+    if fatal_error:
+        raise ValueError(f"could not read release blobs: {fatal_error}")
     if return_code != 0:
         raise ValueError(f"could not read release blobs: {stderr or return_code}")
+    if batch_errors:
+        raise ValueError(
+            "could not read release blobs: " + ", ".join(sorted(batch_errors))
+        )
     return payloads
 
 
@@ -662,6 +864,10 @@ def build_preflight_report(
             "only_in_consumer": [],
             "content_differs": [],
             "ignored_per_repo": _ignore_patterns(consumer_root),
+            "ignored_matches": [],
+            "unsafe_ignore_patterns": _unsafe_ignore_patterns(
+                _ignore_patterns(consumer_root)
+            ),
             "drift_total": 0,
             "source_mode": "pinned_git_tree",
             "source_sha": release_sha,
@@ -725,6 +931,32 @@ def build_preflight_report(
     drift_evidence_status = str(
         (gate_summary.get("statuses") or {}).get("toolkit_drift") or ""
     )
+    unsafe_ignore_patterns = list(drift.get("unsafe_ignore_patterns") or [])
+    if unsafe_ignore_patterns:
+        checks.append(
+            _check(
+                "toolkit_ignore_policy",
+                "fail",
+                "ignore patterns target portable core/tooling verification surfaces",
+            )
+        )
+    elif drift.get("ignored_per_repo"):
+        checks.append(
+            _check(
+                "toolkit_ignore_policy",
+                "warn",
+                "ignore patterns are inventory hints only; exact drift remains counted",
+                blocking=False,
+            )
+        )
+    else:
+        checks.append(
+            _check(
+                "toolkit_ignore_policy",
+                "pass",
+                "no per-repository drift ignore patterns",
+            )
+        )
     if not release_source_available:
         checks.append(
             _check(
@@ -780,8 +1012,11 @@ def build_preflight_report(
             )
         )
     privacy_risk = str(consumer.get("privacy_risk") or "unknown")
-    redaction_required = bool(
-        consumer.get("evidence_redaction_required", privacy_risk != "public_safe")
+    # Most restrictive wins.  A consumer may request redaction even when its
+    # coarse risk class is public-safe, but it may never opt a private or
+    # unknown class out of the publication boundary with an explicit false.
+    redaction_required = privacy_risk != "public_safe" or bool(
+        consumer.get("evidence_redaction_required", False)
     )
     privacy_ok = privacy_risk not in {"unknown", "secret_adjacent"} and (
         not redaction_required or redact
@@ -949,7 +1184,12 @@ def _valid_sha(value: Any) -> bool:
 
 
 def validate_migration_evidence(
-    evidence: dict[str, Any], package: dict[str, Any], *, public_export: bool = False
+    evidence: dict[str, Any],
+    package: dict[str, Any],
+    *,
+    public_export: bool = False,
+    consumer_root: Path | None = None,
+    require_git_commits: bool = False,
 ) -> list[str]:
     errors: list[str] = []
     if not package_is_pinned(package):
@@ -990,22 +1230,69 @@ def validate_migration_evidence(
         if after.get(field) not in (None, "") and not _valid_sha(after.get(field)):
             errors.append(f"consumer_after.{field} must be null or an exact Git SHA")
 
+    commit_boundaries = [
+        ("consumer_before.head_sha", str(before.get("head_sha") or "")),
+        (
+            "consumer_after.import_commit_sha",
+            str(after.get("import_commit_sha") or ""),
+        ),
+        *[
+            (f"consumer_after.{field}", str(after.get(field) or ""))
+            for field in ("artifact_commit_sha", "adaptation_commit_sha")
+            if after.get(field) not in (None, "")
+        ],
+    ]
+    valid_boundary_shas = [sha for _label, sha in commit_boundaries if _valid_sha(sha)]
+    if len(valid_boundary_shas) != len(set(valid_boundary_shas)):
+        errors.append("migration commit boundaries must be distinct")
+    if require_git_commits and consumer_root is None:
+        errors.append("consumer Git verification root is required for a checked report")
+    if consumer_root is not None:
+        root = consumer_root.resolve()
+        if not _git(root, "rev-parse", "--is-inside-work-tree"):
+            errors.append("consumer Git verification root is not a repository")
+        else:
+            for label, sha in commit_boundaries:
+                if _valid_sha(sha) and not _git_commit_available(root, sha):
+                    errors.append(f"{label} is not available in the consumer repository")
+            for (left_label, left), (right_label, right) in zip(
+                commit_boundaries,
+                commit_boundaries[1:],
+                strict=False,
+            ):
+                if not (_valid_sha(left) and _valid_sha(right)):
+                    continue
+                ancestry = subprocess.run(
+                    ["git", "merge-base", "--is-ancestor", left, right],
+                    cwd=root,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+                if ancestry.returncode != 0:
+                    errors.append(
+                        f"migration commit order is invalid: {left_label} must precede {right_label}"
+                    )
+
     imported = _require_list(evidence.get("files_imported"), "files_imported", errors)
     if not imported:
         errors.append("files_imported cannot be empty")
-    for rel in imported:
+    for index, rel in enumerate(imported):
         if str(rel).endswith("/"):
-            errors.append(f"files_imported must list files, not directories: {rel!r}")
-        allowed, reason = portable_path_status(str(rel), package)
-        if not allowed:
             errors.append(
-                f"files_imported contains non-portable path {rel!r}: {reason}"
+                f"files_imported[{index}] must list a file, not a directory"
             )
+        allowed, _reason = portable_path_status(str(rel), package)
+        if not allowed:
+            # Do not echo a rejected path. This error is included in public
+            # reports, where the rejected value itself may contain a private
+            # path, PII or an access secret.
+            errors.append(f"files_imported[{index}] contains a non-portable path")
     _require_list(evidence.get("local_overrides_kept"), "local_overrides_kept", errors)
     warnings = _require_list(evidence.get("warnings"), "warnings", errors)
     for index, value in enumerate(warnings):
         warning = _require_mapping(value, f"warnings[{index}]", errors)
-        for field in ("code", "message", "removal_window"):
+        for field in ("code", "message", "owner", "removal_window"):
             if not str(warning.get(field) or "").strip():
                 errors.append(f"warnings[{index}].{field} is required")
     _require_list(evidence.get("fixtures_added"), "fixtures_added", errors)
@@ -1081,14 +1368,16 @@ def validate_migration_evidence(
             errors.append(
                 f"migration evidence contains access-secret pattern: {finding.kind}"
             )
-        if public_export and finding.category == "pii":
+        if public_export and finding.category in {"pii", "entity"}:
             errors.append(
-                f"public migration evidence contains PII pattern: {finding.kind}"
+                f"public migration evidence contains personal-data pattern: {finding.kind}"
             )
     if public_export:
-        if re.search(r"(?:/Users/|/home/|[A-Za-z]:\\)", serialized):
+        if _PUBLIC_LOCAL_PATH_RE.search(serialized):
             errors.append("public migration evidence contains an absolute local path")
-        if re.search(r"https?://[^\s\"']+\?[^\s\"']+", serialized):
+        if _PUBLIC_PARENT_TRAVERSAL_RE.search(serialized):
+            errors.append("public migration evidence contains parent-path traversal")
+        if _PUBLIC_URL_QUERY_RE.search(serialized):
             errors.append(
                 "public migration evidence contains a URL with query parameters"
             )
@@ -1113,65 +1402,286 @@ def validate_migration_evidence(
     return sorted(set(errors))
 
 
-def compile_migration_report(
-    evidence: dict[str, Any], package: dict[str, Any], *, public_export: bool = False
-) -> dict[str, Any]:
-    errors = validate_migration_evidence(evidence, package, public_export=public_export)
-    before = json.loads(json.dumps(evidence.get("consumer_before") or {}))
-    after = json.loads(json.dumps(evidence.get("consumer_after") or {}))
-    rollback = json.loads(json.dumps(evidence.get("rollback") or {}))
-    if public_export:
-        replacements: dict[str, str] = {}
-        before_sha = str(before.get("head_sha") or "")
-        if before_sha:
-            replacements[before_sha] = _redacted_identifier("consumer-head", before_sha)
-            before["head_sha"] = replacements[before_sha]
-        for field in (
-            "import_commit_sha",
-            "artifact_commit_sha",
-            "adaptation_commit_sha",
-        ):
-            value = str(after.get(field) or "")
-            if value:
-                replacements[value] = _redacted_identifier(
-                    f"consumer-{field.removesuffix('_sha')}", value
-                )
-                after[field] = replacements[value]
-        for field in ("previous_sha", "import_commit_sha"):
-            value = str(rollback.get(field) or "")
-            if value:
-                redacted = replacements.get(value) or _redacted_identifier(
-                    f"rollback-{field.removesuffix('_sha')}", value
-                )
-                replacements[value] = redacted
-                rollback[field] = redacted
-        command = str(rollback.get("command") or "")
-        for raw, redacted in replacements.items():
-            command = command.replace(raw, redacted)
-        rollback["command"] = command
+def _public_value_is_safe(value: str) -> bool:
+    """Return whether one scalar may cross the public report boundary.
 
-    payload = {
+    This intentionally treats informational entities such as email addresses
+    as personal data at the export boundary. Relative repository paths remain
+    allowed; absolute/home/traversal paths and URLs carrying query parameters
+    do not.
+    """
+
+    if any(
+        finding.category in {"secret", "pii", "entity"}
+        for finding in scan_text(value)
+    ):
+        return False
+    return not (
+        _PUBLIC_LOCAL_PATH_RE.search(value)
+        or _PUBLIC_PARENT_TRAVERSAL_RE.search(value)
+        or _PUBLIC_URL_QUERY_RE.search(value)
+        or _PUBLIC_CREDENTIAL_ASSIGNMENT_RE.search(value)
+    )
+
+
+def _public_text(value: Any) -> str:
+    text = str(value or "")
+    return text if _public_value_is_safe(text) else _PUBLIC_REDACTED_VALUE
+
+
+def _public_commit_id(kind: str, value: Any) -> str | None:
+    """Project a private commit identity without hashing arbitrary secrets."""
+
+    if value in (None, ""):
+        return None
+    text = str(value)
+    if not _valid_sha(text):
+        return _PUBLIC_REDACTED_VALUE
+    return _redacted_identifier(kind, text)
+
+
+def _public_string_list(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    return sorted(set(_public_text(value) for value in values))
+
+
+def _public_portable_files(values: Any, package: dict[str, Any]) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    projected: set[str] = set()
+    for value in values:
+        text = str(value)
+        allowed, _reason = portable_path_status(text, package)
+        if allowed and not text.endswith("/") and _public_value_is_safe(text):
+            projected.add(text)
+        else:
+            projected.add(_PUBLIC_REDACTED_VALUE)
+    return sorted(projected)
+
+
+def _public_migration_projection(
+    evidence: dict[str, Any],
+    package: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any]:
+    """Build the only migration-report shape allowed to cross publicly.
+
+    The projection is schema-aware and never copies arbitrary mappings from
+    evidence. Every scalar is checked before inclusion; rejected portable paths
+    are represented by a constant marker rather than echoed. A final whole-
+    payload scan below provides a fail-closed backstop for cross-field detector
+    shapes.
+    """
+
+    source = evidence.get("source") if isinstance(evidence.get("source"), dict) else {}
+    before = (
+        evidence.get("consumer_before")
+        if isinstance(evidence.get("consumer_before"), dict)
+        else {}
+    )
+    after = (
+        evidence.get("consumer_after")
+        if isinstance(evidence.get("consumer_after"), dict)
+        else {}
+    )
+    rollback = evidence.get("rollback") if isinstance(evidence.get("rollback"), dict) else {}
+
+    before_sha = str(before.get("head_sha") or "")
+    projected_before_sha = _public_commit_id("consumer-head", before_sha)
+    projected_after_shas: dict[str, str | None] = {}
+    replacements: dict[str, str] = {}
+    if before_sha and projected_before_sha:
+        replacements[before_sha] = projected_before_sha
+    for field in ("import_commit_sha", "artifact_commit_sha", "adaptation_commit_sha"):
+        raw = str(after.get(field) or "")
+        projected = _public_commit_id(
+            f"consumer-{field.removesuffix('_sha')}", raw
+        )
+        projected_after_shas[field] = projected
+        if raw and projected:
+            replacements[raw] = projected
+
+    projected_warnings: list[dict[str, str]] = []
+    for value in evidence.get("warnings") or []:
+        if not isinstance(value, dict):
+            continue
+        projected_warnings.append(
+            {
+                "code": _public_text(value.get("code")),
+                "message": _public_text(value.get("message")),
+                "owner": _public_text(value.get("owner")),
+                "removal_window": _public_text(value.get("removal_window")),
+            }
+        )
+
+    projected_gates: list[dict[str, str]] = []
+    for value in evidence.get("gates") or []:
+        if not isinstance(value, dict):
+            continue
+        projected_gates.append(
+            {
+                "id": _public_text(value.get("id")),
+                "command": _public_text(value.get("command")),
+                "status": _public_text(value.get("status")),
+            }
+        )
+
+    projected_visual: list[dict[str, Any]] = []
+    for value in evidence.get("visual_qa_evidence") or []:
+        if not isinstance(value, dict):
+            continue
+        route = str(value.get("route_ref") or "")
+        center = str(value.get("center_ref") or "")
+        projected_visual.append(
+            {
+                "profile": _public_text(value.get("profile")),
+                "route_ref": (
+                    _public_text(route)
+                    if route.startswith(("public-fixture:", "route:sha256:"))
+                    else _PUBLIC_REDACTED_VALUE
+                ),
+                "center_ref": (
+                    _public_text(center)
+                    if center.startswith(("public-fixture:", "center:sha256:"))
+                    else _PUBLIC_REDACTED_VALUE
+                ),
+                "viewport": _public_text(value.get("viewport")),
+                "browser": _public_text(value.get("browser")),
+                "screenshot_ref": _public_text(value.get("screenshot_ref")),
+                "console_status": _public_text(value.get("console_status")),
+                "network_status": _public_text(value.get("network_status")),
+                "sample_fallback": (
+                    value.get("sample_fallback")
+                    if isinstance(value.get("sample_fallback"), bool)
+                    else None
+                ),
+            }
+        )
+
+    rollback_previous = str(rollback.get("previous_sha") or "")
+    rollback_import = str(rollback.get("import_commit_sha") or "")
+    projected_previous = replacements.get(rollback_previous) or _public_commit_id(
+        "rollback-previous", rollback_previous
+    )
+    projected_import = replacements.get(rollback_import) or _public_commit_id(
+        "rollback-import-commit", rollback_import
+    )
+    command = str(rollback.get("command") or "")
+    for raw, projected in replacements.items():
+        command = command.replace(raw, projected)
+
+    payload: dict[str, Any] = {
         "schema_version": MIGRATION_REPORT_SCHEMA_VERSION,
         "status": "complete" if not errors else "blocked",
-        "public_export": public_export,
-        "source": evidence.get("source") or {},
-        "consumer_before": before,
-        "consumer_after": after,
-        "files_imported": sorted(
-            set(str(value) for value in evidence.get("files_imported") or [])
+        "public_export": True,
+        "source": {
+            "release": _public_text(source.get("release")),
+            "sha": _public_text(source.get("sha")),
+            "plan": _public_text(source.get("plan")),
+        },
+        "consumer_before": {
+            "repository": _public_text(before.get("repository")),
+            "branch": _public_text(before.get("branch")),
+            "head_sha": projected_before_sha,
+            "kit_version": _public_text(before.get("kit_version")),
+            "gate_status": _public_text(before.get("gate_status")),
+        },
+        "consumer_after": {
+            "branch": _public_text(after.get("branch")),
+            **projected_after_shas,
+        },
+        "files_imported": _public_portable_files(
+            evidence.get("files_imported"), package
         ),
-        "local_overrides_kept": sorted(
-            set(str(value) for value in evidence.get("local_overrides_kept") or [])
+        "local_overrides_kept": _public_string_list(
+            evidence.get("local_overrides_kept")
         ),
-        "warnings": evidence.get("warnings") or [],
-        "fixtures_added": sorted(
-            set(str(value) for value in evidence.get("fixtures_added") or [])
-        ),
-        "gates": evidence.get("gates") or [],
-        "visual_qa_evidence": evidence.get("visual_qa_evidence") or [],
-        "rollback": rollback,
-        "validation_errors": errors,
+        "warnings": projected_warnings,
+        "fixtures_added": _public_string_list(evidence.get("fixtures_added")),
+        "gates": projected_gates,
+        "visual_qa_evidence": projected_visual,
+        "rollback": {
+            "previous_sha": projected_previous,
+            "import_commit_sha": projected_import,
+            "command": _public_text(command),
+            "preserves_local_paths": _public_string_list(
+                rollback.get("preserves_local_paths")
+            ),
+        },
+        "validation_errors": sorted(set(_public_text(error) for error in errors)),
     }
+
+    serialized = canonical_json(payload)
+    if not _public_value_is_safe(serialized):
+        # A whole-object detector can see credential shapes that per-field
+        # scans cannot. Return the required report schema with no evidence
+        # values instead of risking a partially sanitized public artifact.
+        payload = {
+            "schema_version": MIGRATION_REPORT_SCHEMA_VERSION,
+            "status": "blocked",
+            "public_export": True,
+            "source": {},
+            "consumer_before": {},
+            "consumer_after": {},
+            "files_imported": [],
+            "local_overrides_kept": [],
+            "warnings": [],
+            "fixtures_added": [],
+            "gates": [],
+            "visual_qa_evidence": [],
+            "rollback": {},
+            "validation_errors": [
+                "public export projection remained unsafe after sanitization"
+            ],
+        }
+    return payload
+
+
+def compile_migration_report(
+    evidence: dict[str, Any],
+    package: dict[str, Any],
+    *,
+    public_export: bool = False,
+    consumer_root: Path | None = None,
+    require_git_commits: bool = False,
+) -> dict[str, Any]:
+    errors = validate_migration_evidence(
+        evidence,
+        package,
+        public_export=public_export,
+        consumer_root=consumer_root,
+        require_git_commits=require_git_commits,
+    )
+    if public_export:
+        payload = _public_migration_projection(evidence, package, errors)
+    else:
+        payload = {
+            "schema_version": MIGRATION_REPORT_SCHEMA_VERSION,
+            "status": "complete" if not errors else "blocked",
+            "public_export": False,
+            "source": evidence.get("source") or {},
+            "consumer_before": json.loads(
+                json.dumps(evidence.get("consumer_before") or {})
+            ),
+            "consumer_after": json.loads(
+                json.dumps(evidence.get("consumer_after") or {})
+            ),
+            "files_imported": sorted(
+                set(str(value) for value in evidence.get("files_imported") or [])
+            ),
+            "local_overrides_kept": sorted(
+                set(str(value) for value in evidence.get("local_overrides_kept") or [])
+            ),
+            "warnings": evidence.get("warnings") or [],
+            "fixtures_added": sorted(
+                set(str(value) for value in evidence.get("fixtures_added") or [])
+            ),
+            "gates": evidence.get("gates") or [],
+            "visual_qa_evidence": evidence.get("visual_qa_evidence") or [],
+            "rollback": json.loads(json.dumps(evidence.get("rollback") or {})),
+            "validation_errors": errors,
+        }
     payload["report_id"] = deterministic_id("migration", payload)
     return payload
 
@@ -1225,6 +1735,24 @@ def render_migration_report_markdown(report: dict[str, Any]) -> str:
     lines.extend(
         f"- `{_md(value)}`" for value in report.get("local_overrides_kept") or ["None"]
     )
+    lines.extend(
+        [
+            "",
+            "## Warnings",
+            "",
+            "| Code | Message | Owner | Removal window |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    warnings = report.get("warnings") or []
+    if warnings:
+        for warning in warnings:
+            lines.append(
+                f"| `{_md(warning.get('code'))}` | {_md(warning.get('message'))} | "
+                f"`{_md(warning.get('owner'))}` | `{_md(warning.get('removal_window'))}` |"
+            )
+    else:
+        lines.append("| `none` | No migration warnings recorded. | `—` | `—` |")
     lines.extend(
         ["", "## Gates", "", "| Gate | Status | Command |", "| --- | --- | --- |"]
     )

@@ -1,0 +1,227 @@
+{
+  "bundle_hash": "a70e091482048dc427d2bcada975400f3fdf923edafa239cee880c186a5890b5",
+  "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
+  "capabilities": [
+    "atomic_envelope",
+    "integrity_sha256",
+    "stable_page_ids",
+    "validated_runtime_boundary",
+    "source_lifecycle",
+    "region_groups",
+    "work_items",
+    "operator_commands",
+    "relation_vocabulary",
+    "visual_grammar",
+    "semantic_visual_tokens",
+    "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
+    "content_sidecars"
+  ],
+  "content_sidecars": true,
+  "contract_errors": [],
+  "files": [
+    "manifest.json",
+    "operations.json",
+    "graph.json",
+    "pages.json",
+    "sources.json",
+    "source_entities.json",
+    "templates.json",
+    "actions.json",
+    "decisions.json",
+    "freshness.json",
+    "gates.json",
+    "git.json",
+    "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
+    "diff.json",
+    "ingestion.json",
+    "quality.json",
+    "commands.json",
+    "score.json",
+    "blocks.json",
+    "block_stacks.json",
+    "operator_commands.json",
+    "work_items.json",
+    "region_groups.json",
+    "source_lifecycle.json",
+    "snapshot_warnings.json",
+    "content/holon-product-ops.744a6fbe.json",
+    "content/library-ai-safety.bea650b2.json",
+    "content/project-atlas-launch.26b6f390.json",
+    "content/root-alex-rivera.f4a10886.json"
+  ],
+  "fixture": {
+    "fixture_id": "wiki-viva-demo-v8",
+    "reference_date": "2026-07-09",
+    "scenario_id": "compatibility",
+    "scenario_ids": [
+      "walking_skeleton",
+      "normal_operations",
+      "dense_stress",
+      "source_lifecycle",
+      "failures",
+      "compatibility",
+      "accessibility"
+    ],
+    "seed": 8006,
+    "source_input_sha256": "4a4cc0a8babbc439b218ce89ece943e8b54a5bf3dbdadf121569459e273e6064"
+  },
+  "generated_at": "2026-07-09T00:00:00Z",
+  "integrity": {
+    "actions.json": {
+      "bytes": 2716,
+      "sha256": "cf43b7c1a259039fccc54a39581f20a02cb7414462ea1edd0e494ee6f3f13d9a"
+    },
+    "block_stacks.json": {
+      "bytes": 34209,
+      "sha256": "dad99dfbd87d656e20d2abc3de3fb8c5d07b4fba1c90447c1736953f4f2f47ea"
+    },
+    "blocks.json": {
+      "bytes": 9051,
+      "sha256": "3877dd0a2ff768ab8a5d4b6e8dec407b89d7998fbb6868eb047f3bf9e29e7bd2"
+    },
+    "commands.json": {
+      "bytes": 1179,
+      "sha256": "25bd6ac0d80ab8d11b0ad0b5a77e63d3dba898dbcbde23a173d7d3c762c50621"
+    },
+    "content/holon-product-ops.744a6fbe.json": {
+      "bytes": 1540,
+      "sha256": "ccf3adbab50e18fc731253554412b85b33c72fa586f81cd82c2c1daa8e5e13d1"
+    },
+    "content/library-ai-safety.bea650b2.json": {
+      "bytes": 1691,
+      "sha256": "cab1f4b00798f7c2baa06a9c1bd861fd54c85b4a480f9e044a51ec1a61302fd2"
+    },
+    "content/project-atlas-launch.26b6f390.json": {
+      "bytes": 1234,
+      "sha256": "3f4fd7c6f624ce60cd7e496898fe9dc90137d0fd7a0e8158b9ae2aa64044262b"
+    },
+    "content/root-alex-rivera.f4a10886.json": {
+      "bytes": 1991,
+      "sha256": "a002eb94f31df900ae8870df7e5b30dff889ef63db7e9173b1b592f28e2f00c4"
+    },
+    "decisions.json": {
+      "bytes": 57,
+      "sha256": "7a6de588120478326c5782d735734ac49649b6a59a8b8dce6c755d8eede95720"
+    },
+    "diff.json": {
+      "bytes": 367,
+      "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "experience_packs.json": {
+      "bytes": 334,
+      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
+    },
+    "freshness.json": {
+      "bytes": 251,
+      "sha256": "4b1bc57eb073086bd4c6b78289c6a878c67894d0a8e9fd25d53d7fe124dac328"
+    },
+    "gates.json": {
+      "bytes": 664,
+      "sha256": "309171f121e0fcb4abf72d9042fbf72ba7c69153b2a28a4cc4f6c48b613f6da8"
+    },
+    "git.json": {
+      "bytes": 344,
+      "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
+    },
+    "graph.json": {
+      "bytes": 9228,
+      "sha256": "d64715d7d617ea3763506b8fc702e9d33939c63ba2689f30e120b15576126170"
+    },
+    "ingestion.json": {
+      "bytes": 503,
+      "sha256": "6e2b6b6d55ef730a164499db71adc30c8ead0a760effe3fdc07a7ebf9b358c74"
+    },
+    "operations.json": {
+      "bytes": 203,
+      "sha256": "85954a9fd1ead8919100df80429d578a36c3a3ad9f619bcb4e4100153fd3fa1b"
+    },
+    "operator_commands.json": {
+      "bytes": 3260,
+      "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
+    },
+    "pages.json": {
+      "bytes": 3702,
+      "sha256": "33791a19766e60f31456a5727f9cdaaca85ccea89e35f4dac1def8e81abd2720"
+    },
+    "quality.json": {
+      "bytes": 2699,
+      "sha256": "17ab10380d40b0acf29d3ec4a98ddfd658c4d273db2c4286625b46f41f05ee86"
+    },
+    "region_groups.json": {
+      "bytes": 17915,
+      "sha256": "1ff0141446f443813d77c95c34b10fa1eb4d1816590e9dfcdb2911c8325660a9"
+    },
+    "score.json": {
+      "bytes": 1392,
+      "sha256": "ae45a9ad3f841ec9ac7aa441a81b16afebc3e718e2f4e417656a30073780dcb7"
+    },
+    "snapshot_warnings.json": {
+      "bytes": 60,
+      "sha256": "4ffd4ea4ce323a18ee82ed97344dbb103de8be25d86681b06f3f9ce859bf0c5f"
+    },
+    "source_entities.json": {
+      "bytes": 111,
+      "sha256": "f4292ccacefb82edba29fb9eef0b7e1ccc7cccdfaa76324e5b61dd427d874137"
+    },
+    "source_lifecycle.json": {
+      "bytes": 58,
+      "sha256": "fae2169dc386a6fc7caaaa74d1990c34433b478868cb06deaa288d176fe214ff"
+    },
+    "sources.json": {
+      "bytes": 53,
+      "sha256": "3e06d1354853a719039a50edcbbbd52504c3cceca302f82f4c84b276d8a7fb75"
+    },
+    "templates.json": {
+      "bytes": 23927,
+      "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
+    },
+    "temporal_graph.json": {
+      "bytes": 4806,
+      "sha256": "8674e4b8e82069c1fdcc381b98d43c88cef772a28f934439eea7abb06a3c23a7"
+    },
+    "timeline.json": {
+      "bytes": 1717,
+      "sha256": "f9e8d560c05de52e6e2ed3fa62f017d82b4bceb02a84981f665657cd7dbcfbd9"
+    },
+    "work_items.json": {
+      "bytes": 52,
+      "sha256": "17bed50b6bb4ca952dd73d966240c34a7a4e0cc4225edabf56fac829fa2066a5"
+    }
+  },
+  "mode": "static",
+  "repo": {
+    "branch_prefix": "wiki/",
+    "default_branch": "main",
+    "default_context": "pessoal",
+    "karma_enabled": true,
+    "language": "en",
+    "memory_root": "memories",
+    "repo_id": "wiki-viva-demo"
+  },
+  "root_page_id": "root-alex-rivera",
+  "schema_version": "wiki_web_snapshot.v2",
+  "snapshot_id": "wiki-viva-demo-a70e091482048dc4",
+  "source_commit": null,
+  "source_sha": "uncommitted:46975f814ecbc07668e1014a37cee7e049981c1e4cbdb7b99c4ea9fbc88a260a",
+  "versions": {
+    "activity_timeline": "activity_timeline.v1",
+    "block_vocabulary": "wiki_blocks.v2",
+    "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
+    "registry_module_api": "wiki_registry_module_api.v1",
+    "relation_vocabulary": "wiki_relation_types.v1",
+    "runtime_contract": "wiki_world_runtime.v8",
+    "semantic_visual_tokens": "wiki_semantic_visual_tokens.v1",
+    "snapshot": "wiki_web_snapshot.v2",
+    "source_freshness": "wiki_source_freshness.v1",
+    "source_last_attempt": "wiki_source_last_attempt.v1",
+    "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
+    "visual_grammar": "wiki_visual_grammar.v8"
+  }
+}

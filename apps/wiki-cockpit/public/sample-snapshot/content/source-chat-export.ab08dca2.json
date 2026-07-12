@@ -1,6 +1,27 @@
 {
-  "backlinks": [],
-  "body": "\n# Export do Chat\n\nA live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)\n",
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "event-ingest-chat-2026-07",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
+      "relation": "moc_parent",
+      "title": "Ingest\u00e3o: export do chat"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "event-ingest-chat-2026-07",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-chat-2026-07.md",
+      "relation": "source_ref",
+      "title": "Ingest\u00e3o: export do chat"
+    }
+  ],
+  "body": "\n# Export do Chat\n\nA live WhatsApp source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `proposed`, freshness `fresh` and last attempt `ok`.\n",
   "frontmatter": {
     "context": "clientes",
     "moc_parent": "memories/clientes/index.md",
@@ -44,13 +65,13 @@
     "page_id": "source-chat-export",
     "page_type": "source",
     "path": "memories/sources/source-chat-export.md",
-    "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+    "summary": "A live WhatsApp source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle proposed, freshness fresh and last attempt ok.",
     "summary_truncated": false,
     "title": "Export do Chat",
     "updated_at": "2026-07-03"
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-3a7e59e1808bc23d",
+  "snapshot_id": "wiki-viva-demo-b60b6d02b5e77999",
   "source_refs": []
 }

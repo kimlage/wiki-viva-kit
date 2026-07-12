@@ -1,6 +1,47 @@
 {
-  "backlinks": [],
-  "body": "\n# Extrato do Banco\n\nA live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)\n",
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "event-ingest-banco-2026-05",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "relation": "moc_parent",
+      "title": "Ingest\u00e3o: extrato do banco (maio)"
+    },
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "fresh",
+      "page_id": "claim-custos-sobem",
+      "page_type": "claim",
+      "path": "memories/claims/claim-custos-sobem.md",
+      "relation": "source_ref",
+      "title": "Custos de nuvem subiram 18%"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "event-ingest-banco-2026-05",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-banco-2026-05.md",
+      "relation": "source_ref",
+      "title": "Ingest\u00e3o: extrato do banco (maio)"
+    },
+    {
+      "approved_state": "approved",
+      "context": "financeiro",
+      "freshness_state": "fresh",
+      "page_id": "artifact-relatorio-recon",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-relatorio-recon.md",
+      "relation": "source_ref",
+      "title": "Relat\u00f3rio de reconcilia\u00e7\u00e3o"
+    }
+  ],
+  "body": "\n# Extrato do Banco\n\nA live Banco source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `consolidated`, freshness `stale` and last attempt `ok`. The bank export is intentionally overdue so the refresh mission has real evidence.\n",
   "frontmatter": {
     "context": "financeiro",
     "moc_parent": "memories/financeiro/index.md",
@@ -48,13 +89,13 @@
     "page_id": "source-banco-export",
     "page_type": "source",
     "path": "memories/sources/source-banco-export.md",
-    "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+    "summary": "A live Banco source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle consolidated, freshness stale and last attempt ok. The bank export is intentionally overdue so the refresh mission has real evidence.",
     "summary_truncated": false,
     "title": "Extrato do Banco",
     "updated_at": "2026-05-04"
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-9753d1e8773b43d1",
+  "snapshot_id": "wiki-viva-demo-162c5d033d38db2f",
   "source_refs": []
 }

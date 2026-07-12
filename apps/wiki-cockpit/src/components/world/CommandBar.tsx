@@ -57,7 +57,6 @@ export function CommandBar({
   onSearchDraft,
   onSearchKeyDown,
   onNavigateWorld,
-  onCloseTrays,
   onToggleTray,
   onToggleMissions,
   onOpenTour
@@ -77,7 +76,6 @@ export function CommandBar({
   onSearchDraft: (value: string) => void;
   onSearchKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
   onNavigateWorld: (patch: WorldPatch) => void;
-  onCloseTrays: () => void;
   onToggleTray: () => void;
   onToggleMissions: () => void;
   onOpenTour: () => void;
@@ -160,7 +158,6 @@ export function CommandBar({
             key={item.dock}
             className={route.query.dock === item.dock ? "dockButton active" : "dockButton"}
             onClick={() => {
-              onCloseTrays();
               onNavigateWorld({ dock: route.query.dock === item.dock ? null : item.dock });
             }}
             title={item.count > 0 ? `${t(`dock.mission.${item.dock}`)} — ${t("dock.waiting", { n: item.count })}` : t(`dock.mission.${item.dock}`)}
@@ -259,7 +256,6 @@ export function CommandBar({
             // The Work surface is a DOCK (deep-linkable URL state), not a
             // local tray: monitoring delegated jobs must survive reloads
             // and be shareable. patchWorld closes any open tray for us.
-            onCloseTrays();
             onNavigateWorld({ dock: route.query.dock === "work" ? null : "work" });
           }}
           type="button"

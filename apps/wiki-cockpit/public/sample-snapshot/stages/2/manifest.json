@@ -1,5 +1,5 @@
 {
-  "bundle_hash": "6b5655c429512f26771d20bb75bba5a336443cf5c837aad55887c5a18e9da927",
+  "bundle_hash": "0c0120074c0a7740013033133730e0c6bc07e35a536a009bff396801f6136c31",
   "bundle_hash_basis": "normalized_artifacts_without_embedded_snapshot_id.v1",
   "capabilities": [
     "atomic_envelope",
@@ -14,6 +14,8 @@
     "visual_grammar",
     "semantic_visual_tokens",
     "snapshot_warnings",
+    "temporal_graph",
+    "experience_packs",
     "content_sidecars"
   ],
   "content_sidecars": true,
@@ -32,6 +34,8 @@
     "gates.json",
     "git.json",
     "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
     "diff.json",
     "ingestion.json",
     "quality.json",
@@ -61,7 +65,7 @@
       "accessibility"
     ],
     "seed": 8001,
-    "source_input_sha256": "3964d8c4b8f59b5848d03df614e17dc8e3e998e802ac2dea89bfae45842ffed5"
+    "source_input_sha256": "2b0c8aa9f31d3f50713f513885253a44ecd0a4c36ed0019662b40819a8775793"
   },
   "generated_at": "2026-07-09T00:00:00Z",
   "integrity": {
@@ -83,7 +87,7 @@
     },
     "content/root-alex-rivera.f4a10886.json": {
       "bytes": 1749,
-      "sha256": "6a3cf2d38544943fbdb85d894134c8b0798e6d3a61e23c5f374430d57d802790"
+      "sha256": "3c9080f80ecbff379bc436561b84903b2836758ffebef99471269c916573fdad"
     },
     "decisions.json": {
       "bytes": 57,
@@ -92,6 +96,10 @@
     "diff.json": {
       "bytes": 367,
       "sha256": "5af190149a07c147a820cba60803bddf4d362ba49a32d945e5c7948acc21b1b8"
+    },
+    "experience_packs.json": {
+      "bytes": 334,
+      "sha256": "00f5425ca0f7b1ba472bda1ded32109f7484bf06c277021cdddc8fae81612321"
     },
     "freshness.json": {
       "bytes": 162,
@@ -106,8 +114,8 @@
       "sha256": "e770d9869ceb686d35b0a220ec2624badd702d7f6419254f34467b33c9b6a0e4"
     },
     "graph.json": {
-      "bytes": 5508,
-      "sha256": "ba7e25ecf15dafd8727a5e97a774bb8a74f669fa31fbee8267712d872a1f4453"
+      "bytes": 5876,
+      "sha256": "db56478793e19b8ea8b1462aafa58d568ceb138c27524a1db5960b59120ad730"
     },
     "ingestion.json": {
       "bytes": 503,
@@ -122,8 +130,8 @@
       "sha256": "8e39d38d7e6d3c95ecafc1b9102da52591794fe7a5cef1dd9170be41e4c539cc"
     },
     "pages.json": {
-      "bytes": 890,
-      "sha256": "cc67e226dea88246ff53c743a3e632ab4b0781c63c465151ffd97619c1b9ce90"
+      "bytes": 1012,
+      "sha256": "b71c48265d094c11c23cfbacd39226c2450f85c6fbbccff14e160ad8b5b07bdf"
     },
     "quality.json": {
       "bytes": 1659,
@@ -157,9 +165,13 @@
       "bytes": 23927,
       "sha256": "b8b8ec5dbb05ce92d27762b135be99e1e22088ca67392a449171f88b8b973416"
     },
+    "temporal_graph.json": {
+      "bytes": 2592,
+      "sha256": "ffd9ac6efac86606441abbf15631dfdfcc279ce70fc4dd7cacd51fa82c581b4f"
+    },
     "timeline.json": {
-      "bytes": 735,
-      "sha256": "7d60868907918cec9e72e68200f7fd6ee88934cde70805fbaa53125e3c3899a9"
+      "bytes": 994,
+      "sha256": "e13a4470b15db78bd1c9a2f8943b64a34343f35726543c6234160ccb9c96ac3f"
     },
     "work_items.json": {
       "bytes": 52,
@@ -178,12 +190,14 @@
   },
   "root_page_id": "root-alex-rivera",
   "schema_version": "wiki_web_snapshot.v2",
-  "snapshot_id": "wiki-viva-demo-6b5655c429512f26",
+  "snapshot_id": "wiki-viva-demo-0c0120074c0a7740",
   "source_commit": null,
-  "source_sha": "uncommitted:367baf996e03c0d337c97fa0dff48a8d5bbe564bdfdb9ec754b7b6f2e24021ba",
+  "source_sha": "uncommitted:6eecf69fb1d43285688755e5e7ebabcf96f7db0d3cc79a4a3822af519a80d204",
   "versions": {
+    "activity_timeline": "activity_timeline.v1",
     "block_vocabulary": "wiki_blocks.v2",
     "canonical_route": "wiki_world_route.v8",
+    "experience_pack_composition": "wiki_experience_pack_composition.v1",
     "registry_module_api": "wiki_registry_module_api.v1",
     "relation_vocabulary": "wiki_relation_types.v1",
     "runtime_contract": "wiki_world_runtime.v8",
@@ -192,6 +206,8 @@
     "source_freshness": "wiki_source_freshness.v1",
     "source_last_attempt": "wiki_source_last_attempt.v1",
     "source_lifecycle": "wiki_source_lifecycle.v2",
+    "temporal_event": "wiki_temporal_event.v1",
+    "temporal_graph": "wiki_temporal_graph.v1",
     "visual_grammar": "wiki_visual_grammar.v8"
   }
 }

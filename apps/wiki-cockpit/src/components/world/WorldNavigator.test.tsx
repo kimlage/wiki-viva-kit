@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorldNavigator } from "./WorldNavigator";
 import type { CompatibilityViewContext } from "./WorldNavigator";
 import type { NativeWorldViewId } from "../../world/experience";
+import type { ExperiencePackComposition } from "../../types";
 
 const COPY: Record<string, string> = {
   "world.experience.compactAria": "World view controls",
@@ -27,6 +28,7 @@ const COPY: Record<string, string> = {
   "world.view.radar": "Radar",
   "world.view.sources": "Sources",
   "world.view.work": "Work",
+  "world.view.timeline": "Timeline",
   "world.overlay.attention": "Attention",
   "world.overlay.freshness": "Freshness",
   "world.overlay.actions": "Actions",
@@ -37,7 +39,54 @@ const COPY: Record<string, string> = {
   "world.experience.lens.q1.label": "Q1 · Intention",
   "world.experience.lens.q2.label": "Q2 · Practice",
   "world.experience.lens.q3.label": "Q3 · Relations",
-  "world.experience.lens.q4.label": "Q4 · Systems"
+  "world.experience.lens.q4.label": "Q4 · Systems",
+  "world.experience.capability.spatialOnly": "Spatial controls are paused.",
+  "world.experience.capability.timelineUnavailable": "Timeline unavailable.",
+  "world.experience.packs.short": "Extensions",
+  "world.experience.packs.title": "Experience packs",
+  "world.experience.packs.intro": "Composed slots.",
+  "world.experience.packs.active": "Active packs",
+  "world.experience.packs.coreOnly": "Core only",
+  "world.experience.packs.slot.views": "Views",
+  "world.experience.packs.slot.commands": "Commands",
+  "world.experience.packs.slot.operations": "Operations",
+  "world.experience.packs.slot.timelines": "Temporal profiles",
+  "world.experience.packs.slot.empty": "No contribution",
+  "world.experience.packs.blockPackages": "Composed block packages",
+  "world.experience.packs.openView": "Open extension view"
+};
+
+const experiencePacks: ExperiencePackComposition = {
+  schema_version: "wiki_experience_pack_composition.v1",
+  core_version: "8.0.0",
+  packs: [{ id: "study-research", version: "0.1.0" }],
+  block_packages: ["quadrant_lenses"],
+  slots: {
+    views: [{ pack: "study-research", slot: "view.knowledge", contribution: "study-research.concept-graph", mode: "append" }],
+    commands: [{ pack: "study-research", slot: "command.capture", contribution: "study-research.capture", mode: "append" }],
+    operations: [{ pack: "study-research", slot: "operation.review", contribution: "study-research.review-evidence", mode: "append" }],
+    timelines: [{ pack: "study-research", slot: "timeline.history", contribution: "study-research.learning-history", mode: "append" }]
+  },
+  presentation: {
+    default_locale: "en",
+    locales: {
+      en: {
+        "study-research": "Study and Research",
+        "study-research.capture": "Capture",
+        "study-research.concept-graph": "Concept graph",
+        "study-research.learning-history": "Learning history",
+        "study-research.review-evidence": "Review evidence"
+      },
+      "pt-BR": {
+        "study-research": "Estudos e pesquisa",
+        "study-research.capture": "Capturar",
+        "study-research.concept-graph": "Grafo de conceitos",
+        "study-research.learning-history": "Histórico de aprendizagem",
+        "study-research.review-evidence": "Revisar evidências"
+      }
+    }
+  },
+  composition_sha256: "0".repeat(64)
 };
 
 function translate(key: string): string {
@@ -49,17 +98,24 @@ function setup(options: {
   lens?: "q1_intencao" | "q2_pratica" | "q3_relacoes" | "q4_sistemas" | "type" | null;
   view?: NativeWorldViewId | null;
   compatibilityView?: CompatibilityViewContext;
+  experiencePacks?: ExperiencePackComposition;
+  temporalUnavailable?: boolean;
 } = {}) {
   const callbacks = {
     onExpandedChange: vi.fn(),
     onViewChange: vi.fn(),
     onOverlayChange: vi.fn(),
-    onLensChange: vi.fn()
+    onLensChange: vi.fn(),
+    onPackViewChange: vi.fn()
   };
   const result = render(
     <WorldNavigator
       view={options.view === undefined ? "radar" : options.view}
       compatibilityView={options.compatibilityView}
+      experiencePacks={options.experiencePacks}
+      unavailableViews={options.temporalUnavailable ? ["timeline"] : []}
+      lensAvailable={!options.temporalUnavailable}
+      overlayAvailable={!options.temporalUnavailable}
       overlay="freshness"
       lens={options.lens ?? "type"}
       expanded={options.expanded}
@@ -74,10 +130,10 @@ function setup(options: {
 afterEach(cleanup);
 
 describe("WorldNavigator", () => {
-  it("renders a compact four-view control, six-option overlay select and learn button", () => {
+  it("renders a compact five-view control, six-option overlay select and learn button", () => {
     const { container, onViewChange, onOverlayChange } = setup();
 
-    expect(container.querySelectorAll("[data-view-option]")).toHaveLength(4);
+    expect(container.querySelectorAll("[data-view-option]")).toHaveLength(5);
     expect(screen.getByRole("group", { name: "Arrange the same pages" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Radar" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("combobox", { name: "Overlay" }).querySelectorAll("option")).toHaveLength(6);
@@ -119,7 +175,7 @@ describe("WorldNavigator", () => {
     expect(screen.getByRole("region", { name: "Understand this world" })).toBeTruthy();
     expect(container.querySelectorAll("[data-experience-axis]")).toHaveLength(3);
     expect(container.querySelectorAll("[data-experience-section]")).toHaveLength(3);
-    expect(container.querySelectorAll("[data-view-card]")).toHaveLength(4);
+    expect(container.querySelectorAll("[data-view-card]")).toHaveLength(5);
     expect(container.querySelectorAll("[data-overlay-card]")).toHaveLength(6);
     expect(container.querySelectorAll("[data-lens-option]")).toHaveLength(5);
     expect(container.querySelector('[data-lens-option="q2_pratica"]')?.getAttribute("aria-pressed")).toBe("true");
@@ -168,6 +224,30 @@ describe("WorldNavigator", () => {
     expect(container.querySelectorAll<HTMLButtonElement>("[data-overlay-card]:disabled")).toHaveLength(6);
     fireEvent.click(container.querySelector('[data-overlay-card="quality"]')!);
     expect(callbacks.onOverlayChange).not.toHaveBeenCalled();
+  });
+
+  it("disables unavailable or spatial-only controls without leaving false affordances", () => {
+    const { container } = setup({ temporalUnavailable: true, expanded: true });
+    expect((container.querySelector('[data-view-option="timeline"]') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("combobox", { name: "Overlay" }) as HTMLSelectElement).disabled).toBe(true);
+    expect(container.querySelectorAll<HTMLButtonElement>("[data-lens-option]:disabled")).toHaveLength(5);
+    expect(screen.getAllByRole("note").some((note) => note.textContent?.includes("Spatial controls are paused"))).toBe(true);
+    expect(container.querySelector('[data-view-option="timeline"]')?.getAttribute("aria-describedby")).toContain("unavailable-views");
+  });
+
+  it("renders installed packs and every composed slot as an honest catalog", () => {
+    const { container, onPackViewChange } = setup({ expanded: true, experiencePacks });
+    expect(container.querySelector('[data-active-pack-count="1"]')).toBeTruthy();
+    expect(container.querySelector('[data-pack-id="study-research"]')).toBeTruthy();
+    expect(container.querySelectorAll("[data-pack-slot-kind]")).toHaveLength(4);
+    expect(screen.getByLabelText("Composed block packages").textContent).toContain("quadrant_lenses");
+    expect(screen.getByText("study-research.concept-graph")).toBeTruthy();
+    expect(screen.getByText("study-research.review-evidence")).toBeTruthy();
+    expect(screen.getByText("study-research.learning-history")).toBeTruthy();
+    const packView = container.querySelector<HTMLButtonElement>('[data-pack-view-card="study-research.concept-graph"]')!;
+    expect(packView.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(packView);
+    expect(onPackViewChange).toHaveBeenCalledWith("study-research.concept-graph");
   });
 
   it("supports controlled explanation state, reports explicit close and restores focus", async () => {

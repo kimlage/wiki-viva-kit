@@ -19,9 +19,9 @@ source_refs:
 - source-support-tickets
 evidence_refs:
 - artifact-region-pressure-016
-next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 priority: normal
 attention_basis: The synthetic action is overdue.
+next_action: Review the linked synthetic evidence and leave a human-gated receipt.
 ---
 
 # Ação que aguarda julgamento humano sobre evidência sintética de alta densidade 016

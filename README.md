@@ -15,11 +15,14 @@ must be backed by snapshot data and a declared purpose.
 ```mermaid
 flowchart LR
     Source["Sources + canonical Markdown"] --> Snapshot["Atomic validated snapshot"]
+    Packs["Versioned experience packs"] --> Snapshot
+    Temporal["Typed multi-clock events"] --> Snapshot
     Route["Canonical / legacy route"] --> Runtime["WorldRuntime"]
     Snapshot --> Runtime
     Blocks["Resolved block stacks"] --> Registry["RegistryKernel"]
     Registry --> Runtime
     Runtime --> World["3D world / equivalent 2D fallback"]
+    Runtime --> Chronoscope["2D Chronoscope / timelines"]
     Runtime --> Surfaces["Registered reader, docks and effects"]
 ```
 
@@ -27,8 +30,9 @@ The bundled demo uses synthetic sample data — no account, no
 tokens: `npm --prefix apps/wiki-cockpit install && npm --prefix
 apps/wiki-cockpit run dev`, then open `http://localhost:5173/demo` — a title
 screen offers **start from zero** (the genesis tutorial: found a world in an
-empty void and watch the interface materialize block by block) or the **full
-world.
+empty void and watch the interface materialize block by block), the **full
+world**, or complete **Study/Research** and **Personal Finance** pack
+showcases.
 
 The unified v8 runtime is currently a blocked release candidate, not a published
 consumer release. See the
@@ -38,18 +42,22 @@ pinned in the upgrade package.
 
 ## Registered views, one world
 
-The native v8 views are **Quadrants**, **Radar**, **Sources** and **Work**.
+The native v8 views are **Quadrants**, **Radar**, **Sources**, **Work** and
+**Timeline/Chronoscope**.
 They preserve the same real center and keyed entity identities while changing
-only registered geometry/encoding behavior. **Atlas**, **Focus**,
+only registered geometry/encoding behavior. Chronoscope is a real 2D temporal
+view over typed clocks; it never substitutes Git activity for semantic event
+time. **Atlas**, **Focus**,
 **Districts** and **Trails** remain compatibility views while their documented
 questions migrate into the unified runtime; legacy links normalize with visible
 warnings and canonical writers never emit deprecated route forms.
 
 The URL carries shareable semantic state (`center`, `view`, `lens`, `overlay`,
-optional real family group/page/reader/dock). Hover, camera vectors, safe-area
+optional real family group/page/reader/dock and `tray=packet|missions`). Hover, camera vectors, safe-area
 rectangles and density tiers remain ephemeral/derived and do not pollute links.
-Back, refresh and share therefore restore meaning rather than component-local
-state.
+Reader, dock and tray form one primary-surface slot; a hand-written conflict
+normalizes with `dock > reader > tray` precedence. Back, refresh and share
+therefore restore meaning rather than component-local state.
 
 The interface lives **in** the world and is selected by the template block
 stack through registered modules (see
@@ -82,6 +90,18 @@ in [wiki.config.yaml](wiki.config.yaml) (`language: en|pt`).
   + Three.js interface over generated snapshot JSON and a localhost-only
   allowlisted operator API. Static/sample mode needs no GitHub token or cloud
   account; mutating workflows remain proposal/PR-oriented.
+- **Temporal kernel + Chronoscope**: `temporal_graph.json` keeps occurrence,
+  recording, validity, due, completion, verification, ingestion and
+  supersession clocks distinct, with explicit precision, conflicts and
+  provenance. The browser loads it lazily and integrity-checks it before use.
+- **Experience-pack kit**: declarative, versioned packages add namespaced page
+  types, templates, blocks, views, commands, operations, temporal profiles,
+  EN/PT-BR copy and synthetic demos without patching or weakening the core.
+  The first conformance pack is Study/Research; Personal Finance proves a
+  denser, recurring-time vertical using public synthetic data.
+- **Adaptive visual system**: a light `luminous-observatory` and dark
+  `night-mission-control` theme plus focus, balanced and command density modes
+  keep the same information grammar across desktop, mobile and fallback.
 - **Hierarchical navigation**: root MOC -> context/domain hub -> typed
   relation/evidence pages, with `moc_parent` checked by the quality report.
 - **OKF interoperability**: export the rich Wiki Viva memory tree as an Open
@@ -124,8 +144,11 @@ python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_web_snapshot.py --check-contract
+python3 scripts/wiki_pack.py validate --all
 npm --prefix apps/wiki-cockpit run check:architecture
+npm --prefix apps/wiki-cockpit run check:assets
 npm --prefix apps/wiki-cockpit run check:bundle
+npm --prefix apps/wiki-cockpit run check:release-matrix
 
 # 4. Compile the daily cockpit
 python3 scripts/wiki_operation_compile.py --write
@@ -155,6 +178,23 @@ proxy (`npm run dev:proxy`, equivalent to `WIKI_COCKPIT_PROXY_API=1 vite`) so
 The app blocks sample fallback outside `/demo`; `check:snapshot-api` must return
 JSON before any visual validation is trusted.
 
+The proxy is also the default browser trust boundary: the operator sends no
+`Access-Control-Allow-Origin` header by default, and `dev:proxy` forwards its
+same-origin requests without a browser `Origin`. Vite itself has CORS disabled
+for both dev and preview, so an unrelated app on another loopback port cannot
+read the proxy or a private preview snapshot. Only a deliberately trusted
+direct browser client should opt in before starting the server, for example
+`WIKI_COCKPIT_CORS_ORIGINS=http://127.0.0.1:5173 python3
+scripts/wiki_web_server.py`. Entries are exact comma-separated `http(s)`
+loopback origins. Wildcards, remote hosts, credentials, paths, queries and
+fragments fail closed at startup. A configured origin can read the operator
+nonce and submit mutations, so granting one is a security decision.
+`GET /api/health` makes that boundary machine-readable as
+`wiki_web_server.v6`, `operator_security_v2`, `cors_default_deny_v1` and
+`wiki_operator_security.v2`. The cockpit refuses mutations against the older
+v1 contract and asks the operator to be restarted; origin-less local clients
+such as `curl` and the same-origin proxy remain supported.
+
 The deep reading itself is performed by the agent that runs the repo: the
 pipeline emits a `*-llm-context-request.json` package; the agent records results
 back with `scripts/wiki_llm_context_pass.py --record-result` (provenance is
@@ -178,6 +218,9 @@ is the context that explains how the wiki itself works:
 | [Default open-source process](docs/references/guides/default-open-source-process.md) | Complete default model: entities, ingestion, gates and PR flow |
 | [Web cockpit deployment adapters](docs/references/guides/web-cockpit-deployment.md) | Runtime config plus Vercel read-only and GCP controlled-operator examples |
 | [v8 runtime architecture](docs/references/guides/wiki-viva-v8-runtime-architecture.md) | World grammar, state/effects, registries, snapshot, budgets and security |
+| [Temporal kernel](docs/references/guides/temporal-kernel.md) | Multi-clock event contract, precision, pagination, adapters and privacy |
+| [Experience-pack authoring](docs/references/guides/experience-pack-authoring.md) | Pack schema, lifecycle, composition, gates and runtime boundary |
+| [Pack showcase demos](docs/references/guides/experience-pack-showcase-demos.md) | Deterministic Study/Research and Personal Finance demo worlds |
 | [Registry-first extensions](docs/references/guides/extending-the-kit.md) | Add blocks, sources, primitives, people, surfaces and interactions |
 | [v8 downstream upgrade](docs/references/guides/wiki-viva-v8-downstream-upgrade.md) | Inventory, preflight, allowlisted import, reports, waves and rollback |
 | [v8 release candidate](docs/references/releases/wiki-viva-v8.md) | Version matrix, breaking changes, compatibility and current blockers |
@@ -237,6 +280,11 @@ list. Localized repos pin their own names there (e.g. a Portuguese repo sets
 8. **One runtime grammar** — real pages are entities; view, lens, overlay,
    region and surfaces remain registered projections/controls around a real
    center, with equivalent 3D and 2D fallback semantics.
+9. **Time without invention** — occurrence, recording, validity and workflow
+   clocks remain separate; missing time stays visibly missing.
+10. **Extensions by contract** — packs compose through versioned namespaces,
+    slots and immutable receipts; they never gain arbitrary execution or a way
+    around privacy, secret, asset or human-review gates.
 
 ## License & contributing
 

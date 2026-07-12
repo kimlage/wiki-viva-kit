@@ -4,6 +4,7 @@
     {
       "accepted_ref": "demo-sha:product-analytics-accepted",
       "adoption_state": "accepted",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],
@@ -37,6 +38,7 @@
     {
       "accepted_ref": "",
       "adoption_state": "pending",
+      "authoring_error_codes": [],
       "blocked_reason": "",
       "contract_warnings": [],
       "emitted_action_ids": [],

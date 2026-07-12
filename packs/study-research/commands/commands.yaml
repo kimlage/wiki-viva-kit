@@ -1,0 +1,43 @@
+schema_version: wiki_experience_pack_commands.v1
+pack: study-research
+commands:
+  study-research.capture:
+    slot: command.capture
+    inputs: [title, source_kind]
+    outputs: [study_research_source]
+    permissions: [study-research.propose-study-changes]
+    mode: proposal_only
+    dry_run: true
+    human_gate: required
+  study-research.annotate:
+    slot: command.annotate
+    inputs: [source_ref, note]
+    outputs: [study_research_note]
+    permissions: [study-research.propose-study-changes]
+    mode: proposal_only
+    dry_run: true
+    human_gate: required
+  study-research.connect:
+    slot: command.connect
+    inputs: [page_refs]
+    outputs: [study_research_concept]
+    permissions: [study-research.propose-study-changes]
+    mode: proposal_only
+    dry_run: true
+    human_gate: required
+  study-research.review:
+    slot: command.review
+    inputs: [question_ref, evidence_refs]
+    outputs: [study_research_claim]
+    permissions: [study-research.propose-study-changes]
+    mode: proposal_only
+    dry_run: true
+    human_gate: required
+  study-research.synthesize:
+    slot: command.synthesize
+    inputs: [question_refs, claim_refs]
+    outputs: [study_research_synthesis]
+    permissions: [study-research.propose-study-changes]
+    mode: proposal_only
+    dry_run: true
+    human_gate: required

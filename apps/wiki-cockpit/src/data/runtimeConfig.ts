@@ -42,7 +42,7 @@ function cleanBase(value: string | undefined): string {
   return (value || "").trim().replace(/\/+$/, "");
 }
 
-function normalize(raw: RawRuntimeConfig): RuntimeConfig {
+export function normalizeRuntimeConfig(raw: RawRuntimeConfig): RuntimeConfig {
   const hasApiBase = Object.prototype.hasOwnProperty.call(raw, "api_base");
   return {
     apiBase: hasApiBase ? cleanBase(raw.api_base) : DEFAULT_CONFIG.apiBase,
@@ -60,41 +60,17 @@ function normalize(raw: RawRuntimeConfig): RuntimeConfig {
   };
 }
 
-export function applyRuntimeEnv(
-  config: RuntimeConfig,
-  env: Record<string, unknown>
-): RuntimeConfig {
-  const value = (key: string): string | undefined =>
-    typeof env[key] === "string" ? String(env[key]) : undefined;
-  const apiBase = value("VITE_WIKI_API_BASE");
-  const snapshotBase = value("VITE_WIKI_SNAPSHOT_BASE");
-  const repoLabel = value("VITE_WIKI_REPO_LABEL");
-  const mode = value("VITE_WIKI_RUNTIME_MODE");
-  return {
-    ...config,
-    apiBase: apiBase === undefined ? config.apiBase : cleanBase(apiBase),
-    snapshotBase:
-      snapshotBase === undefined ? config.snapshotBase : cleanBase(snapshotBase),
-    repoLabel: repoLabel === undefined ? config.repoLabel : repoLabel.trim(),
-    mode:
-      mode === undefined
-        ? config.mode
-        : mode.trim() || DEFAULT_CONFIG.mode
-  };
-}
-
 export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
   if (!runtimeConfigPromise) {
     runtimeConfigPromise = fetch("/wiki-cockpit.config.json", { cache: "no-store", headers: { accept: "application/json" } })
       .then(async (response) => {
         if (!response.ok) return DEFAULT_CONFIG;
-        return normalize((await response.json()) as RawRuntimeConfig);
+        return normalizeRuntimeConfig((await response.json()) as RawRuntimeConfig);
       })
       .catch(() => DEFAULT_CONFIG)
       .then((config) => {
-        const resolved = applyRuntimeEnv(config, import.meta.env);
-        configurePresentation(resolved.presentation);
-        return resolved;
+        configurePresentation(config.presentation);
+        return config;
       });
   }
   return runtimeConfigPromise;

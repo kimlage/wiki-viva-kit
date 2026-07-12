@@ -27,6 +27,11 @@ import type { FlowEdgeInput, GroupPullInput } from "../../../scene/particles";
 import type { WorldLayout } from "../../../scene/perspectives";
 import { edgeControlPoint } from "./materials";
 import type { SceneEdge } from "./materials";
+import {
+  applyAmbientDriverFrame,
+  createAmbientDriverState,
+  restoreAmbientDriverState
+} from "./ambient-driver";
 
 function ParticleCloud<P>({
   particles,
@@ -236,20 +241,29 @@ export function AmbientDriver({
   motionScale?: number;
   glow?: number;
 }) {
+  const ambientStateRef = useRef<ReturnType<typeof createAmbientDriverState> | null>(null);
+  const ambientState = ambientStateRef.current ?? createAmbientDriverState();
+  ambientStateRef.current = ambientState;
   useFrame((state) => {
-    if (!enabled || motionScale <= 0.01) return;
-    const t = state.clock.elapsedTime * motionScale;
-    if (rootRef.current) {
-      const breath = 1 + Math.sin(t * Math.PI * 0.5) * (0.02 + 0.015 * glow);
-      rootRef.current.scale.setScalar(0.5 * breath);
+    if (!enabled || motionScale <= 0.01) {
+      restoreAmbientDriverState(ambientState);
+      return;
     }
-    // Pulse AROUND the static 0.5 base (never below the no-motion floor).
-    const stalePulse = 0.5 + 0.12 * glow * Math.sin((t * Math.PI * 2) / 2.4);
-    for (const material of pulses.current?.stale ?? []) material.opacity = stalePulse;
-    const staleEmissive = 0.9 + 0.35 * glow * Math.sin((t * Math.PI * 2) / 2.4);
-    for (const material of pulses.current?.staleMaterials ?? []) material.emissiveIntensity = staleEmissive;
-    const highlightPulse = 0.5 + 0.18 * glow * Math.sin((t * Math.PI * 2) / 1.5);
-    for (const material of pulses.current?.highlight ?? []) material.opacity = highlightPulse;
+    const t = state.clock.elapsedTime * motionScale;
+    applyAmbientDriverFrame(
+      ambientState,
+      rootRef.current,
+      pulses.current ?? { stale: [], highlight: [], staleMaterials: [] },
+      t,
+      glow
+    );
   });
+  // useFrame owns no timer or DOM listener, and R3F unsubscribes it with the
+  // component. This cleanup additionally restores semantic material/layout
+  // values both when motion is disabled and when the scene unmounts.
+  useEffect(() => {
+    if (!enabled || motionScale <= 0.01) restoreAmbientDriverState(ambientState);
+    return () => restoreAmbientDriverState(ambientState);
+  }, [ambientState, enabled, motionScale]);
   return null;
 }

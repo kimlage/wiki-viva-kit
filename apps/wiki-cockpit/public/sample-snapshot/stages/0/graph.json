@@ -176,6 +176,25 @@
       "visual_line_intent": "ingest event to review proposal"
     },
     {
+      "allows_cycles": true,
+      "allows_multiple": true,
+      "direction": "directed",
+      "fallback": "related page row",
+      "family": "association",
+      "id": "related_page",
+      "label": "related page",
+      "provenance_bearing": false,
+      "source_entity_kinds": [
+        "page"
+      ],
+      "target_entity_kinds": [
+        "page"
+      ],
+      "traversal": "context",
+      "version": "wiki_relation_types.v1",
+      "visual_line_intent": "authored related-page association"
+    },
+    {
       "allows_cycles": false,
       "allows_multiple": true,
       "direction": "directed",

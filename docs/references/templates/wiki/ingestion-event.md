@@ -4,7 +4,7 @@
 ---
 event_id: evt-YYYY-MM-DD-slug
 page_id: event-YYYY-MM-DD-slug
-page_type: source_catalog
+page_type: ingestion_event
 title: "Event - title"
 aliases:
   - Event topic
@@ -30,7 +30,7 @@ requires_gate: true
 target_pages: []
 purpose: "Why this event exists."
 owner: {{owner_id}}
-moc_parent: memories/system/ingestion/events/
+moc_parent: memories/sources/source-example.md
 related_pages: []
 backlinks_expected: []
 source_counts:

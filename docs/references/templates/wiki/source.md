@@ -28,8 +28,25 @@ config_ref: ""          # the source_config page that carries this source's `rec
 # writes a receipt (the recipe's streams + schedule live in config_ref, never here).
 sync:
   last_run_at: ""       # ISO datetime of the last sync attempt (empty until the first run)
-  last_status: never    # never | ok | partial | failed | running | queued
+  last_status: never    # never | ok | partial | failed | needs_auth | parser_error | secret_blocked | running | queued
   last_event_ref: ""    # link to the ingestion_event that recorded the last run
+# Canonical v8 projection used by the cockpit. The audit rejects unknown values
+# here before snapshot publication; flattened source_<field> inputs remain
+# readable only for compatibility with early v8 pages.
+source_lifecycle:
+  state: configured
+  freshness_state: never_synced
+  last_attempt_state: never  # never | ok | failed | needs_auth | parser_error | secret_blocked
+  pipeline_stage: configured # configured | manifested | extracted | indexed | deep_read | proposal_ready | integrating | gate_pending | complete
+  pipeline_stage_timestamps: {}
+  adoption_state: pending    # pending | accepted | reviewed_no_change
+  blocked_reason: ""         # required and secret-safe when state=blocked
+  emitted_page_ids: []       # required non-empty closure when adoption_state=accepted
+  emitted_action_ids: []
+  proposal_ids: []
+  accepted_ref: ""           # required for accepted/reviewed_no_change
+  reviewed_no_change_receipt: "" # required for reviewed_no_change
+  secret_safe_log_refs: []
 stewards: []            # [{id: person-..., role: owner|curator}] -- who owns/curates this source
 # Legacy ingestion hints, still read by wiki_source_registry.py / the audit gate.
 # source_type feeds the registry's Type column; the recipe's schedule supersedes refresh_policy.
@@ -102,6 +119,32 @@ stream declares its own `cadence_days`, and the cockpit compares it to the strea
 cursor. The `sync:` block above only records the last *run* (status + timestamp);
 "Sincronizar com Codex" advances the cursors and writes the receipt it points to.
 (`refresh_policy`/`refresh_cadence_days` remain for the legacy registry only.)
+
+Use the nested `source_lifecycle` block for authored v8 telemetry. Legacy
+`source_last_attempt_state` values `partial`, `running` and `queued` are still
+accepted and normalized to `failed`, `ok` and `ok`, respectively, with an audit
+warning. Unknown or translated values are never guessed: the audit names the
+field and allowed alternatives, and the final snapshot contract remains
+fail-closed. If a flattened compatibility field and its nested equivalent are
+both present, their normalized values must agree.
+
+Acceptance is evidence-bound: `accepted` requires `accepted_ref` plus at least
+one `emitted_page_ids` closure; `reviewed_no_change` requires `accepted_ref` plus
+`reviewed_no_change_receipt`; and `state: ingested` requires one of those two
+adoption states. A blocked source requires a secret-safe `blocked_reason`, a
+failure-shaped last attempt and pending adoption.
+
+Lifecycle, pipeline and adoption edges follow the explicit transition tables
+in `wiki_core/source_lifecycle.py`. The pipeline advances one proven stage at a
+time, permits only the declared integration/gate retry edges and starts a new
+cycle through `complete -> configured`. This release intentionally has no
+Markdown writer for those transitions yet. Changes to an existing source's
+lifecycle, pipeline, adoption or last-attempt state therefore fail closed at
+the Git-base audit with a receipt-required diagnostic. New sources have no
+prior transition and remain valid when their complete initial declaration
+passes this contract. The next wave must add an atomic writer with append-only,
+content-bound attempt/history receipts before those existing-page edits can be
+accepted.
 
 | Date | Event | State |
 | --- | --- | --- |

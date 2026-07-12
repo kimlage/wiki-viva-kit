@@ -1,21 +1,112 @@
 ---
-title: "Wiki Viva v8 release candidate"
+title: "Wiki Viva v8 release-candidate history - review blocked"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
 visibility: public_candidate
-updated_at: 2026-07-10
+updated_at: 2026-07-12
 stale_after_days: 365
 sources_policy: release_note
 gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 release candidate
+# Wiki Viva v8 release-candidate history - review blocked
 
-Status: **release candidate / human gate pending**. The v8 payload is pinned to
-`dbd158a482dca20ab823968467fec931d67ca050` and proposed in [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61).
-This is reviewable release evidence, not proof of a merged/tagged stable release.
+Status on 2026-07-12: **review blocked; not a current release candidate**.
+The exact-head browser-closure receipt, final zero-retry public browser matrix,
+mandatory downstream matrix, current human product/privacy gates and external
+signed E5 authority have not all converged on one reviewed commit. Receipt v1
+is deliberately browser-evidence-only: it does not bind Python audits,
+snapshot/pack/demo gates, Vitest, assets, architecture, bundle, private
+adoption, human review or E5. The open worktree cannot claim release readiness
+even if its local gates become green.
+
+The material below is the historical candidate checkpoint pinned to
+`dbd158a482dca20ab823968467fec931d67ca050` and proposed in
+[draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61). Its counts,
+SHAs, screenshots and downstream statements must not be read as evidence for
+the current worktree. They remain useful lineage until a new release note is
+generated from exact-subject browser and deterministic-gate manifests on the
+final public and downstream subjects, followed by a separately verifiable
+promotion attestation.
+
+## Current correction lineage — unreleased
+
+The active correction contract is the
+[release truth, temporal world and experience packs plan](../proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md).
+It consolidates the independently reproduced parts of the interrupted parallel
+Claude review, but not its raw local transcripts, stale task cards or
+coordinator label. Eight live process/filesystem checks found no newer
+Claude-authored plan,
+repository write or completed verifier set; a still-running worker/preview is
+not treated as project progress. The eighth check also confirmed that a clean,
+detached Claude worktree contained only historical July 1 material, not a
+hidden July 11 implementation.
+
+The current worktree adds an exact public/downstream Playwright collection,
+hash-bound toolchain and worktree subjects, a browser-only receipt, fail-closed
+demo/transport and atomic snapshot activation controls. Adversarial rereview
+has repeatedly reopened those two slices on asynchronous GET, responsive
+layout, revision-inventory, cleanup/durability and evidence-ownership
+boundaries, so they remain review candidates only. An earlier 68-cell hardened
+browser checkpoint completed with zero skip/retry after two failed attempts
+exposed port-ownership and conflated-journey defects. The worktree has since
+grown: the reviewed matrix is now written/current at 102 public cells and 2
+mandatory downstream cells, and the Node gate suite is 106/106. The global
+adversarial freeze verdict has no open P0/P1 in the public payload. Matrix
+identity and collection still are not an executed clean-`S` browser run. None
+of these results can replace clean reviewed subjects, private adoption, human
+review or external promotion authority.
+
+### Current worktree evidence snapshot — not a receipt
+
+- Frontend unit/component suite: **488/488 passed across 62 files** in the
+  latest complete local run.
+- Playwright collection: **102 public cells in 17 specs** plus **2 downstream
+  cells in 1 spec**. The checked-in matrix exactly records that frozen
+  inventory; **106/106 Node gate tests** pass.
+- Executable public demos: **7 isolated base scenarios**, **22 bound claims**
+  and **12 canonical `/demo/w` routes**, plus all 9 Genesis stages (0–8).
+- Pack showcases: Study/Research has **6 pages, 11 events and 4 pack-owned event
+  kinds**; Personal Finance has **11 pages, 19 events and 5 pack-owned event
+  kinds**. Both temporal payloads report zero diagnostics.
+- Final frozen deterministic evidence: **1,339/1,339 Python tests**, **0 skips**
+  in **355.43 s**, with 2 fork deprecation warnings; **488/488 frontend**;
+  **70** action lifecycle, **65** action audit, **6** action endpoint and **113**
+  snapshot/demo controls; **165** focused RT-133 reviewer controls; **42/42**
+  assets; **26** snapshot payloads. Production build and bundle pass with
+  initial JS at **162.31 kB gzip**. Normal/public audits report **0 errors / 6
+  freshness warnings** after the date crossed midnight.
+
+RT-35 is closed at the P0/P1 implementation-review boundary: external
+HEAD/ref/index and dirty/config/wiki/pack fingerprints, linked worktrees,
+same-size rewrites, two-client conflicts, focus/demo-return, failure and
+removed-page behavior have deterministic controls. Focus/visibility refresh is
+implemented; continuous idle polling remains P2. Action state truth is a
+closure candidate: receipt v2 binds exact monotonic transitions and terminal
+time across tracked moves/deletes, clears incompatible fields, governs
+malformed base records and remains compatible with v1. Typed `gate_type`,
+`blocker_type`, `unblock_condition` and terminal waivers are future contract
+work, not v8 claims. RT-133 is also a closure candidate: rejected history rows
+cannot advance causal state, state-preserving receipts use truthful kinds and
+canonical receipt IDs, and the regenerated 141-event graph has zero dangling
+references and zero false same-state transitions. Causal self/cycle/time-
+direction checks and a future paginated API full-graph attestation remain
+explicit P2 work.
+
+The architecture extracted from Claude's interrupted review has been
+independently replayed: collection compilation is shared, graph deduplication is
+indexed, demo construction no longer monkeypatches private snapshot functions,
+and one runtime route writer owns shareable state. The remaining extension
+boundary is deliberately honest: `sceneSystems`, `relationTypes`,
+`operatorCommands` and `effects` are declarative descriptions, not a supported
+plugin ABI. A future versioned `wiki_runtime_extension.v1` contract must bind
+ownership, consumers, capabilities, accessible fallbacks and rollback before
+those registries can be advertised as installable runtime extensions.
+
+## Historical candidate checkpoint
+
 The major rendered review payload is `4e4ee631`; `3e5c0867` adds the
 downstream preflight safety boundary, `5179dc5c` makes nested centers
 relation-aware and `27f3b369` refreshes the deterministic snapshots against
@@ -99,8 +190,10 @@ v8 consolidates the cockpit into one center-relative living world:
 - registered interactions distinguish inspect, select, read, recenter and
   operator execution;
 - an atomic, integrity-checked snapshot envelope prevents mixed revisions;
-- registries own views, overlays, surfaces, scene systems, visual primitives,
-  effects, commands and typed relations;
+- runtime registries actively own interactions, views, overlays, surfaces and
+  visual primitives; scene-system/effect/command/relation entries remain
+  declarative-only descriptors, while renderer modules, injected operator
+  ports and the backend relation vocabulary are the current executable owners;
 - source lifecycle, freshness and last attempt remain separate;
 - collections add typed `collection_member` edges and linked sub-worlds while
   keeping `moc_parent` as the canonical location contract;
@@ -121,6 +214,33 @@ v8 consolidates the cockpit into one center-relative living world:
 The architecture contract is documented in
 [wiki-viva-v8-runtime-architecture.md](../guides/wiki-viva-v8-runtime-architecture.md).
 
+## Source lifecycle authoring
+
+Source pages author v8 telemetry in the nested `source_lifecycle` block. The
+flattened `source_last_attempt_state` and `source_pipeline_stage` fields remain
+readable for early-v8 compatibility. When both shapes are present their
+normalized values must agree; a conflict is a publication error rather than a
+precedence rule that can hide contradictory source truth.
+
+`last_attempt_state` accepts `never`, `ok`, `failed`, `needs_auth`,
+`parser_error` and `secret_blocked`. When reused in an authored last-attempt
+field, the legacy sync values `partial`, `running` and `queued` normalize to
+`failed`, `ok` and `ok`, respectively, and produce a non-blocking authoring
+warning. `pipeline_stage` accepts `configured`,
+`manifested`, `extracted`, `indexed`, `deep_read`, `proposal_ready`,
+`integrating`, `gate_pending` and `complete`.
+
+Unknown values are not translated or replaced with a healthy default. The
+frontmatter audit reports the safe field and alternatives without echoing a
+secret/PII-shaped value; the snapshot contract repeats the validation and still
+refuses atomic publication if the authoring audit was bypassed. Accepted and
+reviewed-no-change states require their evidence closures and
+`state: ingested`; blocked sources require a failure attempt, pending adoption
+and a safe reason. Lifecycle, pipeline and adoption use explicit transition
+tables. Existing-source changes remain fail-closed until the next wave adds an
+atomic append-only receipt writer; first canonical adoption and new sources
+remain valid when the complete declaration passes.
+
 ## Versioned contracts
 
 | Contract | v8 version |
@@ -139,6 +259,17 @@ The authoritative machine list is
 [upgrade-package.yaml](../upgrades/wiki-viva-v8/upgrade-package.yaml).
 
 ## Route migration
+
+Every canonical writer emits `/w?view=<view>...` (or `/demo/w?view=<view>...`).
+The positional forms below are compatibility inputs only: parsing remains
+supported, while the next canonical write normalizes them and records
+`runtime=compat` where needed. A positional context that is still required by
+the compatibility projection moves to bounded `compat_context=...`; it is not
+dropped and native v8 routes do not author it. Malformed percent escapes fail
+closed to the nearest safe world/alias instead of throwing. Packet and Missions trays are URL-owned as
+`tray=packet|missions`; reader, dock and tray share one primary-surface slot,
+with deterministic `dock > reader > tray` precedence for hand-written
+conflicts.
 
 | Legacy input | Canonical v8 state | Compatibility |
 | --- | --- | --- |
@@ -159,6 +290,9 @@ The authoritative machine list is
   versions before committing state.
 - Optional reader/diagram/operator/specialized capabilities must be genuinely
   lazy and respect public bundle budgets.
+- The current core reader exposes fenced Mermaid as source only. Diagram
+  execution/rendering remains an uninstalled experience-pack capability, not a
+  release claim.
 - Local/private overrides extend public contracts but cannot weaken semantic,
   privacy, secret, operator or sample-fallback invariants.
 - Downstream imports require an inventory, read-only preflight, portable
@@ -187,31 +321,46 @@ The release owner must record one exact source SHA and pass:
 
 ```sh
 /opt/anaconda3/bin/python scripts/wiki_audit.py --check
+/opt/anaconda3/bin/python scripts/wiki_audit.py --public-export --check
 /opt/anaconda3/bin/python scripts/wiki_check_methodology_coverage.py --check
 /opt/anaconda3/bin/python scripts/wiki_operation_compile.py --check
 /opt/anaconda3/bin/python scripts/wiki_input_stage.py --check
 /opt/anaconda3/bin/python scripts/wiki_build_demo.py --check
 /opt/anaconda3/bin/python scripts/wiki_web_snapshot.py --check-contract
+/opt/anaconda3/bin/python scripts/wiki_pack.py validate --all
 /opt/anaconda3/bin/python -m pytest tests/
 npm --prefix apps/wiki-cockpit run test
+npm --prefix apps/wiki-cockpit run test:gates
 npm --prefix apps/wiki-cockpit run build
 npm --prefix apps/wiki-cockpit run check:architecture
+npm --prefix apps/wiki-cockpit run check:assets
 npm --prefix apps/wiki-cockpit run check:bundle
+npm --prefix apps/wiki-cockpit run check:release-matrix
 git diff --check
 ```
 
 Desktop Chromium, mobile WebKit, forced fallback and Firefox smoke evidence are
 also release blockers. A green unit/build stack cannot override a runtime crash,
 blank world, center error, overlap, unreadable label or sample fallback.
+Conversely, a passed `browser_closure` receipt binds only that browser evidence;
+the commands above require their own exact-`S` results and broader manifest.
 
-## Remaining external gate and known warnings
+## Remaining external gates
 
-- PR #61 still requires the human review/merge gate and a release tag.
-- Three explicit stale-page warnings remain visible after the
-  deterministic operational pass; they were not reclassified as release
-  errors.
+- Execute the now-written exact 102+2 matrix on clean public `S` with zero
+  required skip, retry or flake; 106/106 matrix/gate tests already pass on the
+  frozen worktree, but contract identity is not browser execution.
+- Create metadata commit `M` only after `S`, without asking a commit to contain
+  its own SHA; do not repin the current upgrade package before that boundary.
+- Adopt the exact public payload downstream, run the real operator/UI/temporal/
+  pack matrix and bind private `P` without exporting private content.
+- Obtain human review/merge and the separate signed E5 promotion authority
+  before creating a release tag.
 
-## Final candidate evidence
+## Historical final candidate evidence (`dbd158a4`)
+
+Every count in this section belongs to the historical checkpoint introduced at
+the top of this note. It is retained as lineage, not current-worktree proof.
 
 - Python: 706 passed, 4 skipped; audit 0 errors with 3 known staleness
   warnings; methodology 22/22. Every command in the remote `audit-and-test`

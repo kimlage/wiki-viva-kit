@@ -11,7 +11,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-10
+updated_at: 2026-07-11
 stale_after_days: 180
 sources_policy: append_only_impact_dispensas
 gate: github_pr
@@ -60,3 +60,4 @@ only to the current diff; it is not a permanent exemption.
 - 2026-07-10 | changed: [memories/system/input-stage.md](../input-stage.md) | affected: [memories/system/input-channels/methodology-reference.md](../input-channels/methodology-reference.md) | reason: release-candidate regeneration only refreshes the deterministic input-stage freshness date; channel inventory, routing and quadrant scope are unchanged.
 - 2026-07-10 | changed: [memories/system/input-stage.md](../input-stage.md) | affected: [memories/system/processes/wiki-methodology-maintenance.md](../processes/wiki-methodology-maintenance.md) | reason: timestamp-only input-stage regeneration; the maintenance process, cadence and gates remain unchanged.
 - 2026-07-10 | changed: [memories/system/input-stage.md](../input-stage.md) | affected: [memories/system/wiki-viva-kit.md](../wiki-viva-kit.md) | reason: timestamp-only input-stage regeneration; the root entity, source routing, channels and perspective bundle remain unchanged.
+- 2026-07-11 | changed: [memories/system/wiki-viva-kit.md](../wiki-viva-kit.md) | affected: [memories/sources/config/wiki-viva-methodology-v5.md](../../sources/config/wiki-viva-methodology-v5.md) | reason: the root only records the current v8 review-blocked initiative and links its evidence-backed execution plan; the methodology source configuration keeps the same source, channel, refresh and perspective routing.

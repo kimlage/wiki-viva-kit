@@ -1,0 +1,49 @@
+{
+  "backlinks": [],
+  "body": "\n# Reference folder mirror\n\nA live Drive folder source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `ready`, freshness `never_synced` and last attempt `never`.\n",
+  "frontmatter": {
+    "context": "estudio",
+    "moc_parent": "memories/index.md",
+    "owner": "root-alex-rivera",
+    "page_id": "source-reference-folder",
+    "page_type": "source",
+    "platform": "Drive folder",
+    "region_expectations": {
+      "intencao": {
+        "basis": "The reference folder may be evidence-only; an empty intent lens is explicitly healthy.",
+        "next_interaction": "openDock:source",
+        "state": "optional"
+      }
+    },
+    "source_lifecycle": {
+      "adoption_state": "pending",
+      "freshness_state": "never_synced",
+      "last_attempt_state": "never",
+      "pipeline_stage": "configured",
+      "state": "ready"
+    },
+    "source_type": "live",
+    "stale_after_days": 30,
+    "title": "Reference folder mirror",
+    "updated_at": "2026-07-03",
+    "visibility": "private_self"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "estudio",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "source-reference-folder",
+    "page_type": "source",
+    "path": "memories/sources/source-reference-folder.md",
+    "summary": "A live Drive folder source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle ready, freshness never_synced and last attempt never.",
+    "summary_truncated": false,
+    "title": "Reference folder mirror",
+    "updated_at": "2026-07-03"
+  },
+  "resolved_links": [],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-5a1bed9d910e97b9",
+  "source_refs": []
+}

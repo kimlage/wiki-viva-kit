@@ -10,6 +10,11 @@ from typing import Any, Callable
 
 import yaml
 
+from .action_state import (
+    TERMINAL_ACTION_STATES,
+    legacy_action_state_from_body,
+    resolve_action_state,
+)
 from .config import WikiConfig, freshness_for
 from .freshness import is_stale, parse_updated_date
 from .paths import WikiPaths
@@ -134,6 +139,11 @@ class PageRecord:
     updated_at: str
     stale_after_days: str
     status: str
+    action_state: str = ""
+    action_state_raw: str = ""
+    action_state_source: str = ""
+    action_state_compatibility: bool = False
+    action_state_warnings: tuple[str, ...] = ()
     source_refs: tuple[str, ...] = ()
     claims: tuple[str, ...] = ()
     decisions: tuple[str, ...] = ()
@@ -258,6 +268,14 @@ def read_markdown_page(path: Path, root: Path, default_context: str) -> PageReco
     title = _clean_title(str(frontmatter.get("title") or first_h1(body) or path.stem))
     context = str(frontmatter.get("context") or default_context)
     status = str(frontmatter.get("status") or first_state(body) or "").strip()
+    action_resolution = (
+        resolve_action_state(
+            frontmatter,
+            legacy_state=legacy_action_state_from_body(body),
+        )
+        if page_type == "action"
+        else None
+    )
     return PageRecord(
         path=path,
         rel=rel,
@@ -268,6 +286,15 @@ def read_markdown_page(path: Path, root: Path, default_context: str) -> PageReco
         updated_at=_date_text(frontmatter.get("updated_at")),
         stale_after_days=str(frontmatter.get("stale_after_days") or ""),
         status=status,
+        action_state=action_resolution.state if action_resolution else "",
+        action_state_raw=action_resolution.raw if action_resolution else "",
+        action_state_source=action_resolution.source if action_resolution else "",
+        action_state_compatibility=(
+            action_resolution.compatibility if action_resolution else False
+        ),
+        action_state_warnings=(
+            action_resolution.warnings if action_resolution else ()
+        ),
         source_refs=_string_tuple(frontmatter.get("source_refs")),
         claims=_string_tuple(frontmatter.get("claims")),
         decisions=_string_tuple(frontmatter.get("decisions")),
@@ -501,7 +528,7 @@ def build_operational_pass_page(
             sources = ", ".join(f"`{r}`" for r in action.source_refs) if action.source_refs else s["none"]
             lines.append(
                 f"| {_page_link(action, page_dir)} | {_escape(action.context)} | "
-                f"`{_escape(action.status or s['unknown'])}` | {_escape(action.updated_at or s['none'])} | "
+                f"`{_escape(_action_display_state(action) or s['unknown'])}` | {_escape(action.updated_at or s['none'])} | "
                 f"{sources} | {_escape(_attention_reason(action) or s['ok'])} |"
             )
     else:
@@ -524,7 +551,11 @@ def build_operational_pass_page(
         for blocker in report.decision_action_blockers:
             action_link = _page_link(blocker.action, page_dir) if blocker.action else f"`{_escape(blocker.action_id)}`"
             action_context = blocker.action.context if blocker.action else blocker.decision.context
-            action_status = blocker.action.status if blocker.action else s["missing_action"]
+            action_status = (
+                _action_display_state(blocker.action)
+                if blocker.action
+                else s["missing_action"]
+            )
             lines.append(
                 f"| {_page_link(blocker.decision, page_dir)} | {action_link} | {_escape(action_context)} | "
                 f"`{_escape(blocker.decision.status or s['unknown'])}` | "
@@ -588,7 +619,7 @@ def _render_short_term_memory(
     selected_actions = _balanced_page_rows(report, action_candidates, SHORT_TERM_LIMIT)
     action_items = [
         f"- **{_escape(action.context)}:** {_page_link(action, page_dir)} "
-        f"({_escape(action.status or s['unknown'])})"
+        f"({_escape(_action_display_state(action) or s['unknown'])})"
         for action in selected_actions
     ]
     lines.extend(_short_block(s["short_actions"], action_items, s["short_no_actions"]))
@@ -739,7 +770,7 @@ def _render_operational_model(
                 for action in resp_node.open_actions:
                     lines.append(
                         f"    - {s['action_label']}: {_page_link(action, page_dir)} "
-                        f"`{_escape(action.status or s['unknown'])}`"
+                        f"`{_escape(_action_display_state(action) or s['unknown'])}`"
                     )
                     for step in parse_next_steps(action.body):
                         if step.done:
@@ -805,6 +836,11 @@ def report_to_dict(report: OperationalPassReport) -> dict[str, Any]:
                 "path": a.rel,
                 "context": a.context,
                 "status": a.status,
+                "action_state": a.action_state,
+                "action_state_raw": a.action_state_raw,
+                "action_state_source": a.action_state_source,
+                "action_state_compatibility": a.action_state_compatibility,
+                "action_state_warnings": list(a.action_state_warnings),
                 "source_refs": list(a.source_refs),
             }
             for a in report.actions
@@ -827,7 +863,7 @@ def report_to_dict(report: OperationalPassReport) -> dict[str, Any]:
                 "action_page_id": b.action.page_id if b.action else "",
                 "action_path": b.action.rel if b.action else "",
                 "action_id": b.action_id,
-                "action_status": b.action.status if b.action else "",
+                "action_status": _action_display_state(b.action) if b.action else "",
             }
             for b in report.decision_action_blockers
         ],
@@ -851,7 +887,20 @@ def report_to_dict(report: OperationalPassReport) -> dict[str, Any]:
                                 "path": resp.page.rel,
                                 "health": resp.health,
                                 "open_actions": [
-                                    {"page_id": a.page_id, "path": a.rel, "status": a.status}
+                                    {
+                                        "page_id": a.page_id,
+                                        "path": a.rel,
+                                        "status": a.status,
+                                        "action_state": a.action_state,
+                                        "action_state_raw": a.action_state_raw,
+                                        "action_state_source": a.action_state_source,
+                                        "action_state_compatibility": (
+                                            a.action_state_compatibility
+                                        ),
+                                        "action_state_warnings": list(
+                                            a.action_state_warnings
+                                        ),
+                                    }
                                     for a in resp.open_actions
                                 ],
                                 "next_steps": [
@@ -958,7 +1007,13 @@ def parse_next_steps(body: str) -> tuple[NextStep, ...]:
 
 
 def _action_is_closed(page: PageRecord) -> bool:
-    return _status_is_closed(page.status)
+    return page.action_state in TERMINAL_ACTION_STATES
+
+
+def _action_display_state(page: PageRecord) -> str:
+    if page.action_state_source == "action_state":
+        return page.action_state
+    return page.action_state_raw or page.action_state
 
 
 def _status_is_closed(status: str) -> bool:
@@ -1143,7 +1198,9 @@ def _source_needs_attention(row: SourceRow) -> bool:
 
 
 def _page_needs_attention(page: PageRecord) -> bool:
-    haystack = " ".join((page.title, page.status, page.body[:2000]))
+    haystack = " ".join(
+        (page.title, page.action_state, page.status, page.body[:2000])
+    )
     return bool(ATTENTION_RE.search(haystack))
 
 
@@ -1223,6 +1280,8 @@ def _attention_rows(
 
 def _attention_reason(page: PageRecord) -> str:
     if _page_needs_attention(page):
+        if page.page_type == "action" and page.action_state:
+            return f"Action state: `{_action_display_state(page)}`."
         if page.status:
             return f"Status: `{page.status}`."
         return "Attention keyword detected; see linked page."
@@ -1310,12 +1369,16 @@ def _next_steps(
     for action_id in pending_ids:
         action = by_id.get(action_id)
         if action and action.context == context and not _action_is_closed(action):
-            steps.append(f"{action.title} ({action.status or 'state unknown'})")
+            steps.append(
+                f"{action.title} ({_action_display_state(action) or 'state unknown'})"
+            )
         if len(steps) >= 3:
             return tuple(steps)
     for action in actions:
         if action.page_id not in pending_ids and _action_needs_attention(action):
-            steps.append(f"{action.title} ({action.status or 'state unknown'})")
+            steps.append(
+                f"{action.title} ({_action_display_state(action) or 'state unknown'})"
+            )
         if len(steps) >= 3:
             return tuple(steps)
     for source in sources:
@@ -1340,7 +1403,7 @@ def _render_context_next_steps(
     for step in row.next_steps:
         linked = ""
         for action in context_actions:
-            status = action.status or "state unknown"
+            status = _action_display_state(action) or "state unknown"
             if step == f"{action.title} ({status})":
                 linked = f"{_page_link(action, page_dir)} ({_escape(status)})"
                 break

@@ -1,0 +1,417 @@
+{
+  "diagnostics": [],
+  "event_count": 8,
+  "event_schema_version": "wiki_temporal_event.v1",
+  "events": [
+    {
+      "actor": null,
+      "after": {
+        "status": "blocked"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "instant",
+        "value": "2026-07-09T00:00:00Z"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:system"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_snapshot_recorded_a3af43d15361d0f03a17e157",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "snapshot_recorded",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "activity_timeline.v1",
+        "legacy_kind": "snapshot"
+      },
+      "precision": {
+        "recorded_at": "instant"
+      },
+      "recorded_at": "2026-07-09T00:00:00Z",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "system:snapshot-generated"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "state": "open"
+      },
+      "anchor": {
+        "field": "created_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:clientes"
+      ],
+      "created_at": "2026-07-03",
+      "due_at": null,
+      "event_id": "evt_action_created_a0334809481ffc55a9623d71",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "action_created",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "action.v1"
+      },
+      "precision": {
+        "created_at": "day"
+      },
+      "recorded_at": null,
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:source-product-analytics"
+      ],
+      "subject_refs": [
+        "page:action-region-clean-unsourced"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "root_entity"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:pessoal"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_06555020f9d575e82e51c8bf",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:root-alex-rivera"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "action"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:clientes"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_065f160668ad465325cb49fd",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [
+        "source:source-product-analytics"
+      ],
+      "subject_refs": [
+        "page:action-region-clean-unsourced"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "claim"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:clientes"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_291cae490afc03f55aacedf8",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:claim-region-grouping-needed"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "operational_rule"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:sistema"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_2a4ac877ab94dd2f74ee6f5e",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:rule-nada-publica-sem-review"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "artifact"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-07-03"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:clientes"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_e21dc6d4e09503c7f0cd1abb",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-07-03",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:artifact-dashboard-atlas"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    },
+    {
+      "actor": null,
+      "after": {
+        "page_type": "person"
+      },
+      "anchor": {
+        "field": "recorded_at",
+        "precision": "day",
+        "value": "2026-05-04"
+      },
+      "before": {},
+      "caused_by": [],
+      "completed_at": null,
+      "confidence": "confirmed",
+      "context_refs": [
+        "context:estudio"
+      ],
+      "created_at": null,
+      "due_at": null,
+      "event_id": "evt_page_updated_cb19da7b44c3a766435b1ee6",
+      "evidence_refs": [],
+      "ingested_at": null,
+      "kind": "page_updated",
+      "occurred_at": null,
+      "origin": {
+        "adapter": "page.v1"
+      },
+      "precision": {
+        "recorded_at": "day"
+      },
+      "recorded_at": "2026-05-04",
+      "schema_version": "wiki_temporal_event.v1",
+      "source_refs": [],
+      "subject_refs": [
+        "page:person-marina-costa"
+      ],
+      "superseded_at": null,
+      "supersedes": [],
+      "temporal_conflicts": [],
+      "valid_from": null,
+      "valid_to": null,
+      "verified_at": null,
+      "visibility": "private"
+    }
+  ],
+  "generated_at": "2026-07-09T00:00:00Z",
+  "next_cursor": null,
+  "page": {
+    "fingerprint": "9b4fb97517e19025e5def14d90c06c5eb72b95395fffc44ecccb55ebd75d846e",
+    "limit": 8,
+    "offset": 0,
+    "remaining_count": 0
+  },
+  "range": {
+    "basis": "full_result",
+    "dated_count": 8,
+    "event_count": 8,
+    "from": "2026-05-04",
+    "from_precision": "day",
+    "to": "2026-07-09T00:00:00Z",
+    "to_precision": "instant",
+    "undated_count": 0
+  },
+  "repo_id": "wiki-viva-demo",
+  "returned_count": 8,
+  "returned_range": {
+    "basis": "returned_page",
+    "dated_count": 8,
+    "event_count": 8,
+    "from": "2026-05-04",
+    "from_precision": "day",
+    "to": "2026-07-09T00:00:00Z",
+    "to_precision": "instant",
+    "undated_count": 0
+  },
+  "revision": "sha256:9b4fb97517e19025e5def14d90c06c5eb72b95395fffc44ecccb55ebd75d846e",
+  "schema_version": "wiki_temporal_graph.v1",
+  "summary": {
+    "by_context": {
+      "context:clientes": 4,
+      "context:estudio": 1,
+      "context:pessoal": 1,
+      "context:sistema": 1,
+      "context:system": 1
+    },
+    "by_kind": {
+      "action_created": 1,
+      "page_updated": 6,
+      "snapshot_recorded": 1
+    },
+    "conflict_count": 0,
+    "diagnostic_count": 0,
+    "event_count": 8,
+    "imprecise_count": 0,
+    "scope": "full_result"
+  },
+  "total_count": 8,
+  "truncated": false
+}

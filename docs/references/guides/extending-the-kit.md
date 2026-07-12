@@ -4,7 +4,7 @@ page_id: guide-extending-wiki-viva-kit
 page_type: reference_guide
 context: system
 visibility: public_candidate
-updated_at: 2026-07-09
+updated_at: 2026-07-11
 stale_after_days: 90
 sources_policy: extension_contract
 gate: github_pr
@@ -22,6 +22,16 @@ The public v8 package is still a blocked release candidate. Treat the registry
 contract below as the acceptance boundary: missing module metadata or generic
 hosts must be implemented and tested in the kit before downstream authors rely
 on them.
+
+Current support is deliberately asymmetric. Authors can compose validated page
+types, templates, blocks and experience packs, and can select runtime modules
+already shipped by the trusted core. They cannot install arbitrary runtime code.
+In particular, `sceneSystems`, `relationTypes`, `operatorCommands` and `effects`
+are declarative-only descriptors today: adding an entry does not activate a
+renderer, relation validator, command or effect. The future installable boundary
+is the not-yet-shipped `wiki_runtime_extension.v1`; until it has ownership,
+capability, consumer, fallback, lifecycle and rollback contracts, it is not a
+plugin ABI.
 
 ```mermaid
 flowchart TD
@@ -54,9 +64,10 @@ flowchart TD
 The full model is in
 [wiki-viva-v8-runtime-architecture.md](wiki-viva-v8-runtime-architecture.md).
 
-## Registry module contract
+## Future runtime module contract — not a v8 plugin ABI
 
-When new runtime behavior is genuinely required, its registration declares:
+When new runtime behavior is genuinely required, the public core change must
+eventually satisfy this contract before it can become an installable extension:
 
 | Field | Required meaning |
 | --- | --- |
@@ -175,9 +186,11 @@ If a type cannot be created honestly through `wiki_new.py`, mark it
 `creatable: false`. Generated/system types and ingestion events are never
 offered as human-seeded content.
 
-## Add a surface or interaction
+## Add a surface or interaction to the public core
 
-The v8 extension point is registry-first. Do not follow the pre-v8 recipe of
+The v8 implementation pattern is registry-first, but a new surface/interaction
+is still a reviewed public-core contribution rather than a downstream plugin.
+Do not follow the pre-v8 recipe of
 adding one ID to the router, one branch to the app shell and another button to a
 command bar.
 
@@ -201,7 +214,8 @@ For an interaction:
 
 If adding one extension still requires unrelated manual branches, the registry
 host is incomplete; fix the public architecture instead of documenting the
-coupling as an extension API.
+coupling as an extension API. Do not advertise downstream installation until
+`wiki_runtime_extension.v1` has an end-to-end consumer and rollback proof.
 
 ## Public/private adapter decision
 

@@ -1,6 +1,107 @@
 {
-  "backlinks": [],
-  "body": "\n# Product analytics export\n\nA live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)\n",
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "event-ingest-product-analytics-2026-07",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+      "relation": "moc_parent",
+      "title": "Ingest\u00e3o: product analytics"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-clean-unsourced",
+      "page_type": "action",
+      "path": "memories/actions/action-region-clean-unsourced.md",
+      "relation": "source_ref",
+      "title": "Clean unsourced region claims"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "claim-region-evidence-ready",
+      "page_type": "claim",
+      "path": "memories/claims/claim-region-evidence-ready.md",
+      "relation": "source_ref",
+      "title": "Evidence shelf clarifies source-backed work"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "event-ingest-product-analytics-2026-07",
+      "page_type": "ingestion_event",
+      "path": "memories/system/ingestion/events/event-ingest-product-analytics-2026-07.md",
+      "relation": "source_ref",
+      "title": "Ingest\u00e3o: product analytics"
+    },
+    {
+      "approved_state": "approved",
+      "context": "sistema",
+      "freshness_state": "fresh",
+      "page_id": "proposal-ingest-product-analytics-2026-07",
+      "page_type": "proposal",
+      "path": "memories/system/ingestion/proposals/proposal-ingest-product-analytics-2026-07.md",
+      "relation": "source_ref",
+      "title": "Proposal: integrate product analytics evidence"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-01",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-01.md",
+      "relation": "source_ref",
+      "title": "Region map sketch 01"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-02",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-02.md",
+      "relation": "source_ref",
+      "title": "Region map sketch 02"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-04",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-04.md",
+      "relation": "source_ref",
+      "title": "Region map sketch 04"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "artifact-region-map-07",
+      "page_type": "artifact",
+      "path": "memories/artifacts/artifact-region-map-07.md",
+      "relation": "source_ref",
+      "title": "Region map sketch 07"
+    },
+    {
+      "approved_state": "approved",
+      "context": "clientes",
+      "freshness_state": "fresh",
+      "page_id": "action-region-review-evidence",
+      "page_type": "action",
+      "path": "memories/actions/action-region-review-evidence.md",
+      "relation": "source_ref",
+      "title": "Review region evidence"
+    }
+  ],
+  "body": "\n# Product analytics export\n\nA live Analytics source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `ingested`, freshness `fresh` and last attempt `ok`.\n",
   "frontmatter": {
     "context": "clientes",
     "moc_parent": "memories/clientes/index.md",
@@ -49,13 +150,13 @@
     "page_id": "source-product-analytics",
     "page_type": "source",
     "path": "memories/sources/source-product-analytics.md",
-    "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+    "summary": "A live Analytics source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle ingested, freshness fresh and last attempt ok.",
     "summary_truncated": false,
     "title": "Product analytics export",
     "updated_at": "2026-07-03"
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-3a7e59e1808bc23d",
+  "snapshot_id": "wiki-viva-demo-b60b6d02b5e77999",
   "source_refs": []
 }

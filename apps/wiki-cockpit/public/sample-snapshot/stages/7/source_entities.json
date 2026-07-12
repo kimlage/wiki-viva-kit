@@ -9,6 +9,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [
           "claim-custos-sobem",

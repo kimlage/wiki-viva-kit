@@ -39,12 +39,20 @@ one canonical page, and every other page links to it.
 Run the normal gates after a merge:
 
 ```sh
+BASE_SHA="<reviewed-base-commit-sha>"
 python3 scripts/wiki_audit.py --check
-python3 scripts/wiki_page_graph.py --check --impact
+python3 scripts/wiki_page_graph.py --check --impact --base "$BASE_SHA"
 python3 scripts/wiki_quality_report.py --check
 python3 scripts/wiki_pr_summary.py
 git diff --check
 ```
+
+Replace the placeholder with the exact reviewed commit SHA. Impact mode does
+not infer an upstream branch: it requires the resolved base to be an ancestor
+of `HEAD`, fails closed on Git errors and emits one parseable JSON receipt with
+`base_sha`, `head_sha`, untracked paths, removed pages, exact-base backlinks and
+graph diagnostics. CI derives this SHA from the pull request base or the push's
+`before` commit; a local reviewer should copy the same immutable commit.
 
 [wiki_audit.py](../../../scripts/wiki_audit.py) fails when two linkable entity
 pages expose the same canonical name through `title:`, `aliases:` or their first

@@ -1,0 +1,32 @@
+{
+  "by_context": {
+    "clientes": {
+      "fresh": 1,
+      "stale": 1,
+      "unknown": 0
+    },
+    "pessoal": {
+      "fresh": 1,
+      "stale": 0,
+      "unknown": 0
+    },
+    "sistema": {
+      "fresh": 1,
+      "stale": 0,
+      "unknown": 0
+    }
+  },
+  "schema_version": "wiki_web_freshness.v1",
+  "stale_pages": [
+    {
+      "context": "clientes",
+      "path": "memories/actions/action-region-sync-support.md",
+      "title": "Refresh support ticket source"
+    }
+  ],
+  "summary": {
+    "fresh": 3,
+    "stale": 1,
+    "unknown": 0
+  }
+}

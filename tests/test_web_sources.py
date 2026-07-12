@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import subprocess
 from pathlib import Path
 
+import pytest
+import yaml
+
 from wiki_core.config import WikiConfig, load_config
 from wiki_core.paths import WikiPaths
+from wiki_core.source_recipe import SOURCE_RECIPE_SAFETY_ERROR_CODE
 from wiki_core.source_state import write_stream_cursor
+from wiki_core.web.snapshot import build_snapshot
 from wiki_core.web.sources import build_sources_payload, compose_source_brief_spec
 
 TODAY = dt.date(2026, 7, 3)
@@ -96,6 +102,28 @@ def test_payload_rolls_up_identity_recipe_and_freshness(tmp_path: Path) -> None:
     assert source["sync"]["last_status"] == "partial"
 
 
+def test_lifecycle_read_model_uses_the_same_flattened_over_nested_precedence(
+    tmp_path: Path,
+) -> None:
+    config = _repo(tmp_path)
+    source_path = tmp_path / "memories/sources/slack-fin.md"
+    text = source_path.read_text(encoding="utf-8")
+    text = text.replace(
+        "---\n\n# Slack finance source",
+        "source_last_attempt_state: ok\n"
+        "source_lifecycle:\n"
+        "  last_attempt_state: retrying\n"
+        "  pipeline_stage: indexed\n"
+        "---\n\n# Slack finance source",
+    )
+    _write(source_path, text)
+
+    source = build_sources_payload(tmp_path, config, today=TODAY)["sources"][0]
+
+    assert source["lifecycle"]["last_attempt_state"] == "ok"
+    assert source["lifecycle"]["pipeline_stage"] == "indexed"
+
+
 def test_compose_brief_targets_only_stale_streams(tmp_path: Path) -> None:
     config = _repo(tmp_path)
     paths = WikiPaths(tmp_path, config)
@@ -128,6 +156,182 @@ def test_malformed_recipe_surfaces_errors_not_crash(tmp_path: Path) -> None:
     source = payload["sources"][0]
     assert source["recipe_ok"] is False
     assert any("platform" in e for e in source["recipe_errors"])
+    assert "telepathy" in " ".join(source["recipe_errors"])
+    brief = compose_source_brief_spec(tmp_path, config, "source-slack-fin", today=TODAY)
+    assert brief == {
+        "ok": False,
+        "error": "source_recipe_invalid",
+        "error_code": "source_recipe_invalid",
+    }
+
+
+def test_one_malformed_recipe_does_not_erase_other_valid_sources(
+    tmp_path: Path,
+) -> None:
+    config = _repo(tmp_path)
+    _write(
+        tmp_path / "memories/sources/broken.md",
+        "---\npage_id: source-broken\npage_type: source\ntitle: Broken\n"
+        "context: system\nconfig_ref: memories/sources/config/broken.md\n---\n",
+    )
+    _write(
+        tmp_path / "memories/sources/config/broken.md",
+        "---\npage_id: source-config-broken\npage_type: source_config\n---\n\n"
+        "```yaml\nrecipe:\n  platform: slack\n  locator: broken\n"
+        "  pipelines:\n    - {kind: content, cadence_days: 7}\n"
+        "  streams:\n    - id: broken\n      filters: [not, a, mapping]\n"
+        "  ingest: not-a-mapping\n```\n",
+    )
+
+    payload = build_sources_payload(tmp_path, config, today=TODAY)
+    by_id = {source["source_id"]: source for source in payload["sources"]}
+
+    assert set(by_id) == {"source-slack-fin", "source-broken"}
+    assert by_id["source-slack-fin"]["recipe_ok"] is True
+    assert by_id["source-broken"]["recipe_ok"] is False
+    assert by_id["source-broken"]["recipe_errors"] == [
+        "source_recipe_ingest_invalid",
+        "source_recipe_stream_filters_invalid",
+    ]
+
+
+@pytest.mark.parametrize("secret_location", ["locator", "platform", "nested_filter_auth"])
+def test_secret_recipe_is_code_only_and_never_projected_or_composed(
+    tmp_path: Path,
+    secret_location: str,
+) -> None:
+    config = _repo(tmp_path)
+    secret = (
+        "opaque-filter-auth-value-not-for-output"
+        if secret_location == "nested_filter_auth"
+        else "sk-" + "S" * 24
+    )
+    recipe: dict[str, object] = {
+        "schema_version": "wiki_source_recipe.v1",
+        "platform": "slack",
+        "locator": "T024/finance",
+        "pipelines": [{"kind": "content", "cadence_days": 7}],
+        "streams": [
+            {
+                "id": "#financeiro",
+                "selected": True,
+                "filters": {"channel": "financeiro"},
+                "target_pages": ["memories/financeiro/index.md"],
+            }
+        ],
+        "how_to_export": "Use the approved local export.",
+    }
+    if secret_location in {"locator", "platform"}:
+        recipe[secret_location] = secret
+    else:
+        streams = recipe["streams"]
+        assert isinstance(streams, list) and isinstance(streams[0], dict)
+        streams[0]["filters"] = {"auth": f"Authorization: Bearer {secret}"}
+
+    rendered_recipe = yaml.safe_dump({"recipe": recipe}, sort_keys=False)
+    _write(
+        tmp_path / "memories/sources/config/slack-fin.md",
+        "---\npage_id: source-config-slack-fin\npage_type: source_config\n"
+        "context: system\n---\n\n# config\n\n```yaml\n"
+        f"{rendered_recipe}```\n",
+    )
+
+    payload = build_sources_payload(tmp_path, config, today=TODAY)
+    source = payload["sources"][0]
+    assert source["recipe_ok"] is False
+    assert source["recipe_errors"] == [SOURCE_RECIPE_SAFETY_ERROR_CODE]
+    assert source["platform"] == ""
+    assert source["locator"] == ""
+    assert source["how_to_export"] == ""
+    assert source["pipelines"] == []
+    assert source["streams"] == []
+    assert source["auth"] is None
+    assert source["schedule"] is None
+    assert secret not in json.dumps(payload, sort_keys=True)
+
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-03T00:00:00Z",
+    )
+    assert secret not in json.dumps(snapshot, sort_keys=True)
+    assert snapshot["source_entities.json"]["sources"][0]["recipe_errors"] == [
+        SOURCE_RECIPE_SAFETY_ERROR_CODE
+    ]
+
+    brief = compose_source_brief_spec(
+        tmp_path,
+        config,
+        "source-slack-fin",
+        today=TODAY,
+    )
+    assert brief == {
+        "ok": False,
+        "error": SOURCE_RECIPE_SAFETY_ERROR_CODE,
+        "error_code": SOURCE_RECIPE_SAFETY_ERROR_CODE,
+    }
+    assert secret not in json.dumps(brief, sort_keys=True)
+
+
+@pytest.mark.parametrize(
+    "secret",
+    [
+        "github_" + "pat_" + "A" * 30,
+        "sk-" + "ant-" + "A" * 30,
+        "sk_" + "live_" + "A" * 20,
+        "postgresql" + "://alice:SuperSecret42@db.example",
+    ],
+)
+def test_canonical_recipe_secrets_never_reach_payload_snapshot_or_brief(
+    tmp_path: Path,
+    secret: str,
+) -> None:
+    config = _repo(tmp_path)
+    recipe = {
+        "schema_version": "wiki_source_recipe.v1",
+        "platform": "slack",
+        "locator": secret,
+        "pipelines": [{"kind": "content", "cadence_days": 7}],
+        "streams": [{"id": "#financeiro", "selected": True}],
+        "how_to_export": "Use the approved local export.",
+    }
+    rendered_recipe = yaml.safe_dump({"recipe": recipe}, sort_keys=False)
+    _write(
+        tmp_path / "memories/sources/config/slack-fin.md",
+        "---\npage_id: source-config-slack-fin\npage_type: source_config\n"
+        "context: system\n---\n\n# config\n\n```yaml\n"
+        f"{rendered_recipe}```\n",
+    )
+
+    payload = build_sources_payload(tmp_path, config, today=TODAY)
+    source = payload["sources"][0]
+    assert source["recipe_ok"] is False
+    assert source["recipe_errors"] == [SOURCE_RECIPE_SAFETY_ERROR_CODE]
+    assert source["platform"] == ""
+    assert source["locator"] == ""
+    assert source["pipelines"] == []
+    assert source["streams"] == []
+    assert secret not in json.dumps(payload, sort_keys=True)
+
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-03T00:00:00Z",
+    )
+    assert secret not in json.dumps(snapshot, sort_keys=True)
+
+    brief = compose_source_brief_spec(
+        tmp_path,
+        config,
+        "source-slack-fin",
+        today=TODAY,
+    )
+    assert brief == {
+        "ok": False,
+        "error": SOURCE_RECIPE_SAFETY_ERROR_CODE,
+        "error_code": SOURCE_RECIPE_SAFETY_ERROR_CODE,
+    }
+    assert secret not in json.dumps(brief, sort_keys=True)
 
 
 def test_config_ref_escaping_the_repo_reads_no_recipe(tmp_path: Path) -> None:

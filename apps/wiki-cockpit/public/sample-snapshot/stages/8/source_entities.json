@@ -9,6 +9,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -62,6 +64,8 @@
       "lifecycle": {
         "accepted_ref": "demo-sha:agenda-accepted",
         "adoption_state": "accepted",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [
           "meeting-weekly-sync"
@@ -123,6 +127,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [
           "claim-custos-sobem",
@@ -186,6 +192,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -239,6 +247,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -292,6 +302,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "fresh",
@@ -349,6 +361,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -402,6 +416,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -455,6 +471,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -508,6 +526,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -561,6 +581,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "Authorization is required; no credential value is stored in the fixture.",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -616,6 +638,8 @@
       "lifecycle": {
         "accepted_ref": "demo-sha:decision-log-no-change",
         "adoption_state": "reviewed_no_change",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "fresh",
@@ -671,6 +695,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "The synthetic trace export is malformed.",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "stale",
@@ -726,6 +752,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -779,6 +807,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -832,6 +862,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "The synthetic health endpoint returned an operational failure.",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "stale",
@@ -887,6 +919,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -940,6 +974,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -993,6 +1029,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -1046,6 +1084,8 @@
       "lifecycle": {
         "accepted_ref": "demo-sha:product-analytics-accepted",
         "adoption_state": "accepted",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [
           "dashboard-clearpath-activation"
@@ -1107,6 +1147,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "Secret scanning blocked the synthetic attempt before publication.",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -1162,6 +1204,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -1215,6 +1259,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -1268,6 +1314,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -1321,6 +1369,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "fresh",
@@ -1380,6 +1430,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -1433,6 +1485,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "stale",
@@ -1490,6 +1544,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",
@@ -1543,6 +1599,8 @@
       "lifecycle": {
         "accepted_ref": "",
         "adoption_state": "pending",
+        "authoring_error_codes": [],
+        "blocked_reason": "",
         "emitted_action_ids": [],
         "emitted_page_ids": [],
         "freshness_state": "never_synced",

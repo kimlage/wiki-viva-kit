@@ -1,6 +1,6 @@
 {
   "backlinks": [],
-  "body": "\n# Publication queue\n\nA live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)\n",
+  "body": "\n# Publication queue\n\nA live Review queue source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle `blocked`, freshness `never_synced` and last attempt `secret_blocked`.\n",
   "frontmatter": {
     "context": "sistema",
     "moc_parent": "memories/index.md",
@@ -40,13 +40,13 @@
     "page_id": "source-publication-queue",
     "page_type": "source",
     "path": "memories/sources/source-publication-queue.md",
-    "summary": "A live source. Its content is born by ingestion \u2014 manual creation under it is off. (The bank export is intentionally overdue.)",
+    "summary": "A live Review queue source. Its content is born by ingestion \u2014 manual creation under it is off. This fixture demonstrates lifecycle blocked, freshness never_synced and last attempt secret_blocked.",
     "summary_truncated": false,
     "title": "Publication queue",
     "updated_at": "2026-07-03"
   },
   "resolved_links": [],
   "schema_version": "wiki_web_page_content.v1",
-  "snapshot_id": "wiki-viva-demo-3a7e59e1808bc23d",
+  "snapshot_id": "wiki-viva-demo-b60b6d02b5e77999",
   "source_refs": []
 }

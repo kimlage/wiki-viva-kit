@@ -32,6 +32,25 @@ def _write(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _invalid_report_message(*, public_export: bool, error: Exception) -> str:
+    # OSError/ValueError messages often contain the input filename or rejected
+    # value. A public-export failure must itself be safe to publish.
+    message = (
+        "public export input could not be validated"
+        if public_export
+        else str(error)
+    )
+    return json.dumps(
+        {
+            "schema_version": "wiki_viva_migration_report.v1",
+            "status": "invalid",
+            "errors": [message],
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--package", type=Path, default=PACKAGE)
@@ -49,6 +68,14 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--markdown-out", type=Path)
+    parser.add_argument(
+        "--consumer-root",
+        type=Path,
+        help=(
+            "consumer Git checkout used to prove every migration boundary exists "
+            "and follows the declared ancestry"
+        ),
+    )
     parser.add_argument(
         "--check", action="store_true", help="exit 1 unless the report is complete"
     )
@@ -71,30 +98,28 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         evidence = load_mapping(args.evidence)
         report = compile_migration_report(
-            evidence, package, public_export=args.public_export
+            evidence,
+            package,
+            public_export=args.public_export,
+            consumer_root=args.consumer_root,
+            require_git_commits=args.check,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        print(
-            json.dumps(
-                {
-                    "schema_version": "wiki_viva_migration_report.v1",
-                    "status": "invalid",
-                    "errors": [str(exc)],
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-        )
+        print(_invalid_report_message(public_export=args.public_export, error=exc))
         return 2
 
-    json_output = (
-        json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    )
-    markdown_output = render_migration_report_markdown(report)
-    if args.json_out:
-        _write(args.json_out, json_output)
-    if args.markdown_out:
-        _write(args.markdown_out, markdown_output)
+    try:
+        json_output = (
+            json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        )
+        markdown_output = render_migration_report_markdown(report)
+        if args.json_out:
+            _write(args.json_out, json_output)
+        if args.markdown_out:
+            _write(args.markdown_out, markdown_output)
+    except (OSError, ValueError, TypeError) as exc:
+        print(_invalid_report_message(public_export=args.public_export, error=exc))
+        return 2
     if not args.json_out and not args.markdown_out:
         print(json_output, end="")
     return 1 if args.check and report["status"] != "complete" else 0

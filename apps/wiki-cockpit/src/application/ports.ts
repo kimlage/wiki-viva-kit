@@ -15,6 +15,8 @@ import type {
 } from "../types";
 
 export type SnapshotLoadOptions = { demo?: boolean; stage?: number | null; demoScenario?: string | null; signal?: AbortSignal };
+export type OperatorReadOptions = { signal?: AbortSignal };
+export type TemporalGraphReadOptions = { signal?: AbortSignal };
 export type SnapshotLoadResult = { bundle: SnapshotBundle; source: string; runtime: RuntimeConfig };
 export type ContentLoadOptions = {
   demo?: boolean;
@@ -47,10 +49,14 @@ export type SourceBriefResult = { ok: boolean; spec?: BriefSpec; pending?: numbe
 export interface OperatorPort {
   loadSnapshotBundle(options?: SnapshotLoadOptions): Promise<SnapshotLoadResult>;
   loadPageContent(pageId: string, options?: ContentLoadOptions): Promise<PageContent>;
-  loadCodexCapability(runtime: RuntimeConfig): Promise<CodexCapability>;
+  loadTemporalGraph(
+    bundle: SnapshotBundle,
+    options?: TemporalGraphReadOptions
+  ): Promise<NonNullable<SnapshotBundle["temporalGraph"]>>;
+  loadCodexCapability(runtime: RuntimeConfig, options?: OperatorReadOptions): Promise<CodexCapability>;
   composeBrief(spec: BriefSpec): Promise<BriefRecord>;
-  listBriefs(): Promise<BriefRecord[]>;
-  getBrief(briefId: string): Promise<BriefRecord | null>;
+  listBriefs(options?: OperatorReadOptions): Promise<BriefRecord[]>;
+  getBrief(briefId: string, options?: OperatorReadOptions): Promise<BriefRecord | null>;
   saveBriefText(briefId: string, text: string): Promise<BriefRecord>;
   discardBrief(briefId: string): Promise<BriefRecord>;
   spawnCodexJob(
@@ -58,11 +64,11 @@ export interface OperatorPort {
     briefSha: string,
     options?: { dryRun?: boolean; force?: boolean; parentJobId?: string }
   ): Promise<CodexJobRecord>;
-  listCodexJobs(): Promise<CodexJobRecord[]>;
-  streamCodexLog(jobId: string): Promise<string>;
+  listCodexJobs(options?: OperatorReadOptions): Promise<CodexJobRecord[]>;
+  streamCodexLog(jobId: string, options?: OperatorReadOptions): Promise<string>;
   returnCodexJob(jobId: string, feedback: string): Promise<BriefRecord>;
   cancelCodexJob(jobId: string): Promise<CodexJobRecord | null>;
-  loadFileDiff(path: string): Promise<DiffLoadResult>;
+  loadFileDiff(path: string, options?: OperatorReadOptions): Promise<DiffLoadResult>;
   intakeCopy(sourcePath: string, context: string): Promise<IntakeCopyResult>;
   runGate(gateId: string): Promise<GateRunResult>;
   runOperatorCommand(actionId: string, dryRun?: boolean): Promise<OperatorCommandRunResult>;

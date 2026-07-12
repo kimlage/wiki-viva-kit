@@ -1,0 +1,125 @@
+schema_version: wiki_experience_pack.v1
+id: study-research
+name: Study and Research
+description: A synthetic conformance experience for evidence-led learning, review and synthesis.
+version: 0.1.0
+license: MIT
+compatible_core: ">=8.0 <9"
+capabilities:
+  page_types:
+    - study_research_source
+    - study_research_note
+    - study_research_concept
+    - study_research_question
+    - study_research_claim
+    - study_research_citation
+    - study_research_synthesis
+  blocks:
+    - study-research.evidence-matrix
+    - study-research.reading-queue
+  block_packages:
+    - quadrant_lenses
+    - gamification
+  views:
+    - study-research.concept-graph
+    - study-research.evidence-matrix
+    - study-research.reading-queue
+  commands:
+    - study-research.capture
+    - study-research.annotate
+    - study-research.connect
+    - study-research.review
+    - study-research.synthesize
+  operations:
+    - study-research.capture-source
+    - study-research.review-evidence
+    - study-research.synthesize-topic
+  temporal_profiles:
+    - study-research.learning-history
+    - study-research.spaced-review
+    - study-research.claim-evolution
+dependencies: []
+conflicts: []
+privacy:
+  default_visibility: private
+  public_fixture_only: true
+  access_secrets: block
+  pii_public_export: block
+assets:
+  manifest: assets/manifest.yaml
+  allow_remote: false
+fixtures:
+  - fixtures/minimal
+  - fixtures/normal
+  - fixtures/dense
+  - fixtures/failure
+tests:
+  contracts:
+    - pack_contract
+    - privacy_boundary
+    - lifecycle
+    - composition
+    - keyboard_navigation
+    - mobile_journey
+artifacts:
+  page_types: page-types.yaml
+  templates: templates
+  blocks: blocks/blocks.yaml
+  views: views/views.yaml
+  commands: commands/commands.yaml
+  operations: operations/operations.yaml
+  temporal: temporal/profiles.yaml
+  i18n: i18n
+migrations:
+  install: migrations/0001-install.yaml
+  upgrades: migrations/upgrades
+slots:
+  views:
+    - slot: view.knowledge
+      contribution: study-research.concept-graph
+      mode: append
+    - slot: view.evidence
+      contribution: study-research.evidence-matrix
+      mode: append
+    - slot: view.queue
+      contribution: study-research.reading-queue
+      mode: append
+  commands:
+    - slot: command.capture
+      contribution: study-research.capture
+      mode: append
+    - slot: command.annotate
+      contribution: study-research.annotate
+      mode: append
+    - slot: command.connect
+      contribution: study-research.connect
+      mode: append
+    - slot: command.review
+      contribution: study-research.review
+      mode: append
+    - slot: command.synthesize
+      contribution: study-research.synthesize
+      mode: append
+  operations:
+    - slot: operation.intake
+      contribution: study-research.capture-source
+      mode: append
+    - slot: operation.review
+      contribution: study-research.review-evidence
+      mode: append
+    - slot: operation.synthesis
+      contribution: study-research.synthesize-topic
+      mode: append
+  timelines:
+    - slot: timeline.history
+      contribution: study-research.learning-history
+      mode: append
+    - slot: timeline.review
+      contribution: study-research.spaced-review
+      mode: append
+    - slot: timeline.evolution
+      contribution: study-research.claim-evolution
+      mode: append
+i18n:
+  locales: [en, pt-BR]
+  default_locale: en

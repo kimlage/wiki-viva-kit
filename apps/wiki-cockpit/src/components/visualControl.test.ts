@@ -47,7 +47,7 @@ describe("visual control command", () => {
   it("exports a versioned payload that can be promoted to defaults", () => {
     const payload = visualControlPayload({ ...DEFAULT_VISUAL_CONTROL_CONFIG, labels: "dense" }, VISUAL_CONTROL_COCKPIT_VERSION);
     expect(payload.schema_version).toBe("wiki_cockpit_visual_config.v1");
-    expect(payload.cockpit_version).toBe("0.1.109");
+    expect(payload.cockpit_version).toBe("0.2.0");
     expect(payload.search_commands).toEqual(["/god_mode", "/abrachaindabra"]);
     expect(payload.promote_to_default.export).toBe("DEFAULT_VISUAL_CONTROL_CONFIG");
     expect(payload.promote_to_default.snippet).toContain("DEFAULT_VISUAL_CONTROL_CONFIG");

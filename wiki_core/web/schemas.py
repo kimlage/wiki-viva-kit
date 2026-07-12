@@ -1,5 +1,13 @@
 from __future__ import annotations
 
+from wiki_core.experience_packs import COMPOSITION_SCHEMA_VERSION
+from wiki_core.temporal import (
+    ACTIVITY_TIMELINE_CONTRACT_VERSION,
+    ACTIVITY_TIMELINE_LEGACY_SCHEMA_VERSION,
+    TEMPORAL_EVENT_SCHEMA_VERSION,
+    TEMPORAL_GRAPH_SCHEMA_VERSION,
+)
+
 WEB_SNAPSHOT_SCHEMA_VERSION = "wiki_web_snapshot.v2"
 WEB_RUNTIME_CONTRACT_VERSION = "wiki_world_runtime.v8"
 WEB_BLOCK_VOCABULARY_VERSION = "wiki_blocks.v2"
@@ -14,7 +22,11 @@ WEB_RELATION_VOCABULARY_VERSION = "wiki_relation_types.v1"
 WEB_GIT_SCHEMA_VERSION = "wiki_web_git.v1"
 WEB_ACTION_SCHEMA_VERSION = "wiki_web_actions.v1"
 WEB_GATE_SCHEMA_VERSION = "wiki_web_gates.v1"
-WEB_TIMELINE_SCHEMA_VERSION = "wiki_web_timeline.v1"
+WEB_TIMELINE_SCHEMA_VERSION = ACTIVITY_TIMELINE_LEGACY_SCHEMA_VERSION
+WEB_ACTIVITY_TIMELINE_VERSION = ACTIVITY_TIMELINE_CONTRACT_VERSION
+WEB_TEMPORAL_EVENT_VERSION = TEMPORAL_EVENT_SCHEMA_VERSION
+WEB_TEMPORAL_GRAPH_VERSION = TEMPORAL_GRAPH_SCHEMA_VERSION
+WEB_EXPERIENCE_PACK_COMPOSITION_VERSION = COMPOSITION_SCHEMA_VERSION
 WEB_DIFF_SCHEMA_VERSION = "wiki_web_diff.v1"
 
 # Operator handshake. server_version bumps when the served API surface changes;
@@ -22,12 +34,22 @@ WEB_DIFF_SCHEMA_VERSION = "wiki_web_diff.v1"
 # cockpit can detect a stale operator (old process, newer code on disk) and show
 # an honest "operador desatualizado — reinicie" state instead of a raw 404. Add
 # a capability string here the moment its endpoint ships.
-WEB_SERVER_VERSION = "wiki_web_server.v4"
+WEB_SERVER_VERSION = "wiki_web_server.v6"
+WEB_OPERATOR_SECURITY_VERSION = "wiki_operator_security.v2"
+OPERATOR_SECURITY_CAPABILITY = "operator_security_v2"
+CORS_DEFAULT_DENY_CAPABILITY = "cors_default_deny_v1"
+ACTION_STATE_TRANSITION_CAPABILITY = "action_state_transitions_v1"
+SNAPSHOT_PUBLICATION_CAPABILITY = "filesystem_snapshot_publication_v1"
+SNAPSHOT_EXTERNAL_FRESHNESS_CAPABILITY = "snapshot_external_freshness_v1"
 SCHEMA_CAPABILITIES = (
-    "operator_security_v1",  # nonce + Host/Origin + bounded/idempotent POST contract
+    OPERATOR_SECURITY_CAPABILITY,  # nonce + bounded/idempotent POST + browser-origin policy
+    CORS_DEFAULT_DENY_CAPABILITY,  # no browser CORS trust unless exact loopback origins opt in
     "codex",  # /api/codex/capability + /api/codex/jobs
     "briefs",  # /api/briefs
     "gates",  # /api/gates/run (persisted receipts)
+    ACTION_STATE_TRANSITION_CAPABILITY,  # /api/actions/transition (domain action pages)
+    SNAPSHOT_PUBLICATION_CAPABILITY,  # immutable filesystem revisions + active pointer
+    SNAPSHOT_EXTERNAL_FRESHNESS_CAPABILITY,  # live cache observes external writers
     "diff",  # /api/diff/file (per-file full diff)
     "intake",  # /api/intake/copy (add an external file into data/raw)
     "sources",  # /api/sources (entities) + /api/sources/{id}/brief
@@ -47,6 +69,8 @@ SNAPSHOT_FILES = (
     "gates.json",
     "git.json",
     "timeline.json",
+    "temporal_graph.json",
+    "experience_packs.json",
     "diff.json",
     "ingestion.json",
     "quality.json",

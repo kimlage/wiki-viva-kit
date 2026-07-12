@@ -158,6 +158,79 @@ def test_region_groups_and_visual_grammar_are_resolved_from_templates(tmp_path: 
     assert "region_operations" in vocab["visual_primitive_packs"]
 
 
+def test_region_open_action_summary_uses_canonical_state_not_editorial_status(
+    tmp_path: Path,
+) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n---\n# Root\n"
+        ),
+        "memories/actions/done.md": _leaf(
+            "act-done",
+            "action",
+            extra=(
+                "action_state: done\n"
+                "status: open\n"
+                "completion_receipt: receipt:test\n"
+            ),
+        )
+        + "\nState: `pending`.\n",
+        "memories/actions/open.md": _leaf(
+            "act-open",
+            "action",
+            extra="action_state: open\nstatus: completed\n",
+        )
+        + "\nState: `done`.\n",
+    }
+
+    record = build_block_stacks_payload(_world(_wiki(tmp_path, pages)))["anchors"][
+        "root-demo"
+    ]
+    practice = next(
+        group
+        for group in record["derived"]["region_groups"]["groups"]
+        if group["label_key"] == "pratica"
+    )
+
+    assert practice["summary"]["open_actions"] == 1
+
+
+def test_region_open_action_summary_reads_body_only_legacy_state(
+    tmp_path: Path,
+) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "blocks:\n  - id: wiki.block.quadrants.v1\n---\n# Root\n"
+        ),
+        "memories/actions/body-completed.md": _leaf(
+            "act-body-completed",
+            "action",
+            extra="completion_receipt: receipt:test\n",
+        )
+        + "\nState: `completed`.\n",
+        "memories/actions/body-blocked.md": _leaf(
+            "act-body-blocked",
+            "action",
+        )
+        + "\nState: `blocked`.\n",
+    }
+
+    record = build_block_stacks_payload(_world(_wiki(tmp_path, pages)))["anchors"][
+        "root-demo"
+    ]
+    practice = next(
+        group
+        for group in record["derived"]["region_groups"]["groups"]
+        if group["label_key"] == "pratica"
+    )
+
+    assert practice["summary"]["open_actions"] == 1
+
+
 def test_explicit_quadrant_frontmatter_wins_over_page_type_default(tmp_path: Path) -> None:
     pages = {
         "memories/index.md": (
@@ -827,6 +900,34 @@ def test_collection_scope_marker_must_be_boolean(tmp_path: Path) -> None:
     }
     warnings = validate_blocks(_world(_wiki(tmp_path, pages)))
     assert any("collection_scope must be boolean" in warning for warning in warnings)
+
+
+def test_validation_reports_actionable_collection_cycle_path(tmp_path: Path) -> None:
+    pages = {
+        "memories/index.md": (
+            "---\npage_id: root-demo\npage_type: root_entity\ntitle: Root\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n---\n# Root\n"
+        ),
+        "memories/a.md": (
+            "---\npage_id: collection-a\npage_type: ontology_index\ntitle: A\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/index.md\ncollection_refs: [memories/b.md]\n---\n# A\n"
+        ),
+        "memories/b.md": (
+            "---\npage_id: collection-b\npage_type: ontology_index\ntitle: B\ncontext: demo\n"
+            "visibility: private_self\nupdated_at: 2026-06-01\nstale_after_days: 30\n"
+            "moc_parent: memories/index.md\ncollection_ref: collection-a\n---\n# B\n"
+        ),
+    }
+
+    warnings = validate_blocks(_world(_wiki(tmp_path, pages)))
+
+    warning = next(
+        item for item in warnings if item.startswith("collection cycle is forbidden:")
+    )
+    assert "collection-a -> collection-b -> collection-a" in warning
+    assert "member.collection_refs" in warning
+    assert "declared by collection-a (member)" in warning
 
 
 def test_contexts_only_collection_is_incomplete_and_does_not_activate_linked_scope(

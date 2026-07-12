@@ -1,0 +1,82 @@
+{
+  "backlinks": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "root-personal-finance-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "relation": "markdown_link",
+      "title": "Personal Finance Mission Control"
+    }
+  ],
+  "body": "\n# Synthetic July closing\n\nComplete fixture close with explicit source, reconciliation and review links.\n\n## Demo navigation\n\n[Back to pack showcase](../../../index.md)\n",
+  "frontmatter": {
+    "close_state": "reviewed",
+    "closed_at": "2026-08-03",
+    "context": "showcase",
+    "moc_parent": "memories/index.md",
+    "page_id": "finance-closing-july",
+    "page_type": "personal_finance_monthly_closing",
+    "period": "2026-07",
+    "reconciliation_refs": [
+      "finance-reconciliation-july"
+    ],
+    "related_pages": [
+      "finance-review-july",
+      "finance-reconciliation-july"
+    ],
+    "review_ref": "finance-review-july",
+    "source_refs": [
+      "finance-source-july"
+    ],
+    "stale_after_days": "3650",
+    "title": "Synthetic July closing",
+    "updated_at": "2026-07-09",
+    "visibility": "public"
+  },
+  "ok": true,
+  "page": {
+    "approved_state": "approved",
+    "context": "showcase",
+    "freshness_state": "fresh",
+    "moc_parent": "memories/index.md",
+    "page_id": "finance-closing-july",
+    "page_type": "personal_finance_monthly_closing",
+    "path": "memories/showcases/personal_finance_showcase/personal-finance/closing-july.md",
+    "summary": "Complete fixture close with explicit source, reconciliation and review links. Back to pack showcase",
+    "summary_truncated": false,
+    "title": "Synthetic July closing",
+    "updated_at": "2026-07-09"
+  },
+  "resolved_links": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "href": "../../../index.md",
+      "kind": "page",
+      "page_id": "root-personal-finance-showcase",
+      "page_type": "root_entity",
+      "path": "memories/index.md",
+      "text": "Back to pack showcase",
+      "title": "Personal Finance Mission Control"
+    }
+  ],
+  "schema_version": "wiki_web_page_content.v1",
+  "snapshot_id": "wiki-viva-demo-personal-finance-showcase-5c3906ccbb05a353",
+  "source_refs": [
+    {
+      "approved_state": "approved",
+      "context": "showcase",
+      "freshness_state": "fresh",
+      "page_id": "finance-source-july",
+      "page_type": "artifact",
+      "path": "memories/showcases/personal_finance_showcase/support/finance-source-july.md",
+      "ref": "finance-source-july",
+      "resolved": true,
+      "title": "Synthetic July statement"
+    }
+  ]
+}

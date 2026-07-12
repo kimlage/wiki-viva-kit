@@ -278,6 +278,68 @@ def test_build_page_excludes_closed_actions_from_owner_table(
     assert "Nao reabrir item resolvido" not in page
 
 
+def test_canonical_action_state_controls_inclusion_despite_editorial_status(
+    compile_mod, config, minimal_repo
+):
+    _write(
+        minimal_repo / "memories" / "actions" / "canonical-done.md",
+        (
+            "---\npage_id: action-canonical-done\npage_type: action\ncontext: sistema\n"
+            "action_state: done\nstatus: open\ncompletion_receipt: receipt:test\n"
+            "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 30\n"
+            "sources_policy: contrato\ngate: github_pr\n"
+            "sensitive_data_policy: private_sensitive_allowed\n---\n\n"
+            "# Action - Canonical done\n\nState: `pending`.\n"
+        ),
+    )
+    _write(
+        minimal_repo / "memories" / "actions" / "canonical-open.md",
+        (
+            "---\npage_id: action-canonical-open\npage_type: action\ncontext: sistema\n"
+            "action_state: open\nstatus: completed\n"
+            "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 30\n"
+            "sources_policy: contrato\ngate: github_pr\n"
+            "sensitive_data_policy: private_sensitive_allowed\n---\n\n"
+            "# Action - Canonical open\n\nState: `done`.\n"
+        ),
+    )
+
+    page = compile_mod.build_page(minimal_repo, config)
+
+    assert "Canonical done" not in page
+    assert "| [Canonical open](actions/canonical-open.md) | sistema | open |" in page
+
+
+def test_body_only_legacy_action_state_controls_inclusion_and_display(
+    compile_mod, config, minimal_repo
+):
+    _write(
+        minimal_repo / "memories" / "actions" / "body-blocked.md",
+        (
+            "---\npage_id: action-body-blocked\npage_type: action\ncontext: sistema\n"
+            "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 30\n"
+            "sources_policy: contrato\ngate: github_pr\n"
+            "sensitive_data_policy: private_sensitive_allowed\n---\n\n"
+            "# Action - Body blocked\n\nState: `blocked`.\n"
+        ),
+    )
+    _write(
+        minimal_repo / "memories" / "actions" / "body-completed.md",
+        (
+            "---\npage_id: action-body-completed\npage_type: action\ncontext: sistema\n"
+            "visibility: private_self\nupdated_at: 2026-06-08\nstale_after_days: 30\n"
+            "sources_policy: contrato\ngate: github_pr\n"
+            "sensitive_data_policy: private_sensitive_allowed\n---\n\n"
+            "# Action - Body completed\n\nState: `completed`.\n"
+        ),
+    )
+
+    page = compile_mod.build_page(minimal_repo, config)
+
+    assert "| [Body blocked](actions/body-blocked.md) | sistema | blocked |" in page
+    assert "Body completed" not in page
+
+
 def test_build_page_extracts_state_before_inline_detail(compile_mod, config, minimal_repo):
     _write(
         minimal_repo / "memories" / "actions" / "terceira.md",
@@ -611,7 +673,7 @@ def test_action_without_state_uses_language_fallback(compile_mod, config, minima
 
 def test_state_parser_accepts_estado_and_state(compile_mod, config, minimal_repo):
     # English-authored action pages ("State: `...`") are parsed like Portuguese
-    # ones ("Estado: `...`"); the bilingual STATE_RE covers both.
+    # ones ("Estado: `...`"); the shared legacy action adapter covers both.
     _write(
         minimal_repo / "memories" / "actions" / "english.md",
         "---\npage_id: acao-english\npage_type: action\ncontext: sistema\n"

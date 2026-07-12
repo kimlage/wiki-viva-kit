@@ -4,29 +4,97 @@ import type { OperatorHealth } from "../../types";
 type OperatorSecurity = NonNullable<OperatorHealth["operator_security"]>;
 type SecurityCache = { healthUrl: string; security: OperatorSecurity };
 
+const REQUIRED_SERVER_VERSION = "wiki_web_server.v6";
+const REQUIRED_SECURITY_CAPABILITY = "operator_security_v2";
+const REQUIRED_CORS_CAPABILITY = "cors_default_deny_v1";
+const REQUIRED_ACTION_TRANSITION_CAPABILITY = "action_state_transitions_v1";
+const REQUIRED_SECURITY_VERSION = "wiki_operator_security.v2";
+
 let securityCache: SecurityCache | null = null;
 let securityRequest: Promise<SecurityCache> | null = null;
 let fallbackAttemptCounter = 0;
 
-function validSecurity(health: OperatorHealth): health is OperatorHealth & { operator_security: OperatorSecurity } {
-  const security = health.operator_security;
-  return Boolean(
-    health.schema_capabilities?.includes("operator_security_v1") &&
-      security?.version === "wiki_operator_security.v1" &&
-      security.nonce &&
-      security.nonce_header &&
-      security.attempt_header &&
-      security.mutations === "post_only"
+export function demoRouteRequested(): boolean {
+  const pathname = globalThis.location?.pathname ?? "";
+  const search = globalThis.location?.search ?? "";
+  return (
+    pathname === "/demo" ||
+    pathname.startsWith("/demo/") ||
+    new URLSearchParams(search).get("demo") === "1"
   );
 }
 
-async function requestHealth(): Promise<{ healthUrl: string; health: OperatorHealth }> {
-  const healthUrl = await apiUrl("/health");
-  const response = await fetch(healthUrl, {
+export function assertOperatorRoute(): void {
+  if (demoRouteRequested()) {
+    throw new Error("read-only demo blocked a local-operator request");
+  }
+}
+
+function assertSignal(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+  throw signal.reason instanceof Error
+    ? signal.reason
+    : new DOMException("The operation was aborted", "AbortError");
+}
+
+// The single transport boundary for every local-operator read and mutation.
+// Route/config resolution can yield, so check both before and after apiUrl(),
+// then once more at the exact point fetch (and any browser OPTIONS preflight)
+// can leave the page.
+export async function operatorRequest(path: string, init: RequestInit = {}): Promise<Response> {
+  const signal = init.signal ?? undefined;
+  assertOperatorRoute();
+  assertSignal(signal);
+  const url = await apiUrl(path);
+  assertOperatorRoute();
+  assertSignal(signal);
+  return operatorRequestUrl(url, init);
+}
+
+// Live snapshot/static-sidecar reads can already have a fully resolved URL.
+// They still cross the same route boundary immediately before transport.
+export function operatorRequestUrl(url: string, init: RequestInit = {}): Promise<Response> {
+  const signal = init.signal ?? undefined;
+  assertOperatorRoute();
+  assertSignal(signal);
+  return fetch(url, init);
+}
+
+function validSecurity(health: OperatorHealth): health is OperatorHealth & { operator_security: OperatorSecurity } {
+  const security = health.operator_security;
+  return Boolean(
+    health.server_version === REQUIRED_SERVER_VERSION &&
+      health.schema_capabilities?.includes(REQUIRED_SECURITY_CAPABILITY) &&
+      health.schema_capabilities?.includes(REQUIRED_CORS_CAPABILITY) &&
+      health.schema_capabilities?.includes(REQUIRED_ACTION_TRANSITION_CAPABILITY) &&
+      security?.version === REQUIRED_SECURITY_VERSION &&
+      security.nonce &&
+      security.nonce_header &&
+      security.attempt_header &&
+      security.mutations === "post_only" &&
+      security.browser_origin_default === "deny" &&
+      security.cors_opt_in === "exact_loopback_allowlist"
+  );
+}
+
+function staleOperatorError(health: OperatorHealth): Error {
+  const advertised =
+    [health.server_version, health.operator_security?.version].filter(Boolean).join(" / ") || "unknown version";
+  return new Error(
+    `local operator is outdated (${advertised}); restart it to activate the required ${REQUIRED_SECURITY_VERSION} CORS-default-deny mutation contract`
+  );
+}
+
+async function requestHealth(signal?: AbortSignal): Promise<{ healthUrl: string; health: OperatorHealth }> {
+  const response = await operatorRequest("/health", {
     method: "GET",
     headers: { accept: "application/json" },
-    cache: "no-store"
+    cache: "no-store",
+    signal
   });
+  const healthUrl = response.url || await apiUrl("/health");
+  assertOperatorRoute();
+  assertSignal(signal);
   if (!response.ok) throw new Error(`operator handshake failed: ${response.status}`);
   const health = (await response.json()) as OperatorHealth;
   if (!health.ok) throw new Error("operator handshake returned an unhealthy operator");
@@ -34,17 +102,22 @@ async function requestHealth(): Promise<{ healthUrl: string; health: OperatorHea
   return { healthUrl, health };
 }
 
-async function securityForMutation(force = false): Promise<SecurityCache> {
-  const healthUrl = await apiUrl("/health");
-  if (!force && securityCache?.healthUrl === healthUrl) return securityCache;
-  if (!force && securityRequest) return securityRequest;
-  const request = requestHealth().then(({ healthUrl: resolvedUrl, health }) => {
+async function securityForMutation(force = false, signal?: AbortSignal): Promise<SecurityCache> {
+  assertOperatorRoute();
+  assertSignal(signal);
+  if (!force && securityCache) return securityCache;
+  // A caller-owned signal must never cancel another caller's shared
+  // handshake. Only unsignalled requests share the in-flight probe.
+  if (!force && !signal && securityRequest) return securityRequest;
+  const request = requestHealth(signal).then(({ healthUrl: resolvedUrl, health }) => {
+    assertOperatorRoute();
+    assertSignal(signal);
     if (!validSecurity(health)) {
-      throw new Error("operator does not advertise the required operator_security.v1 mutation contract");
+      throw staleOperatorError(health);
     }
     return { healthUrl: resolvedUrl, security: health.operator_security };
   });
-  securityRequest = request;
+  if (!signal) securityRequest = request;
   try {
     return await request;
   } finally {
@@ -68,7 +141,7 @@ async function send(
   if (new TextEncoder().encode(body).byteLength > security.max_body_bytes) {
     throw new Error(`operator request exceeds the advertised ${security.max_body_bytes} byte limit`);
   }
-  return fetch(await apiUrl(path), {
+  return operatorRequest(path, {
     method: "POST",
     headers: {
       accept: "application/json",
@@ -89,20 +162,34 @@ export async function operatorPost(
   payload: unknown,
   options: { signal?: AbortSignal } = {}
 ): Promise<Response> {
+  // The UI disables every write affordance under /demo, but this boundary is
+  // the final fail-closed guarantee: a missed handler, synthetic click or new
+  // surface still cannot even handshake with the local operator, let alone
+  // emit a POST. Genesis advances via staged browser-local snapshots only.
+  assertOperatorRoute();
+  assertSignal(options.signal);
   const body = JSON.stringify(payload ?? {});
   const key = attemptKey();
-  let security = await securityForMutation();
+  let security = await securityForMutation(false, options.signal);
+  assertOperatorRoute();
+  assertSignal(options.signal);
   let response = await send(path, body, key, security.security, options.signal);
   if (response.status !== 403) return response;
   securityCache = null;
-  security = await securityForMutation(true);
+  // Do not even re-handshake after the first attempt if navigation crossed the
+  // read-only boundary while that request was in flight.
+  assertOperatorRoute();
+  assertSignal(options.signal);
+  security = await securityForMutation(true, options.signal);
+  assertOperatorRoute();
+  assertSignal(options.signal);
   response = await send(path, body, key, security.security, options.signal);
   return response;
 }
 
-export async function fetchOperatorHealth(): Promise<OperatorHealth | null> {
+export async function fetchOperatorHealth(options: { signal?: AbortSignal } = {}): Promise<OperatorHealth | null> {
   try {
-    return (await requestHealth()).health;
+    return (await requestHealth(options.signal)).health;
   } catch {
     return null;
   }

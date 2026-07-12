@@ -6,7 +6,7 @@ page_type: ingestion_event
 title: 'Ingestão: export do chat'
 context: sistema
 updated_at: '2026-07-03'
-moc_parent: memories/index.md
+moc_parent: memories/sources/source-chat-export.md
 source_refs:
 - source-chat-export
 consolidated_into: []

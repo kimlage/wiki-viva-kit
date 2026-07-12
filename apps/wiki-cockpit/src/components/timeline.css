@@ -1,0 +1,952 @@
+.timelineSurface {
+  position: absolute;
+  z-index: 29;
+  top: calc(var(--world-top-strip-height, 46px) + 8px);
+  right: 8px;
+  bottom: calc(var(--world-command-bar-height, 68px) + 8px);
+  left: 8px;
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  gap: calc(10px * var(--wiki-density-gap));
+  padding: calc(16px * var(--wiki-density-pad));
+  overflow: hidden;
+  border: 1px solid var(--wiki-border);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--wiki-surface) 98%, transparent), color-mix(in srgb, var(--wiki-bg-elevated) 94%, transparent));
+  box-shadow: var(--wiki-shadow);
+  color: var(--wiki-text);
+  backdrop-filter: blur(22px) saturate(1.08);
+}
+
+.timelineLoading {
+  position: absolute;
+  z-index: 29;
+  top: calc(var(--world-top-strip-height, 46px) + 8px);
+  right: 8px;
+  bottom: calc(var(--world-command-bar-height, 68px) + 8px);
+  left: 8px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--wiki-border);
+  border-radius: 18px;
+  background: var(--wiki-surface);
+  color: var(--wiki-text-muted);
+}
+
+.timelineUnavailable {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  text-align: center;
+}
+
+.timelineUnavailable > div {
+  max-width: 620px;
+}
+
+.timelineUnavailable h2 {
+  margin: 7px 0;
+  color: var(--wiki-text);
+  font-size: clamp(22px, 3vw, 36px);
+}
+
+.timelineUnavailable p {
+  margin: 0;
+  color: var(--wiki-text-muted);
+  line-height: 1.55;
+}
+
+.timelineUnavailable code {
+  display: block;
+  max-width: 100%;
+  margin-top: 12px;
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--wiki-border);
+  border-radius: 8px;
+  color: var(--wiki-focus);
+  font-size: 10.5px;
+  text-align: left;
+}
+
+.timelineErrorCode {
+  display: inline-flex;
+  margin-top: 10px;
+  padding: 4px 7px;
+  border: 1px solid var(--wiki-focus);
+  border-radius: 999px;
+  color: var(--wiki-focus);
+  font-size: 10px;
+  font-weight: 720;
+}
+
+.timelineUnavailable button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 0 13px;
+  border: 1px solid var(--wiki-accent);
+  border-radius: 8px;
+  background: var(--wiki-surface-raised);
+  color: var(--wiki-accent-strong);
+  cursor: pointer;
+}
+
+.worldWorkspace[data-world-view="timeline"] .sceneCanvasFrame,
+.worldWorkspace[data-world-view="timeline"] .sceneFallback,
+.worldWorkspace[data-world-view="timeline"] .radarStatusStrip,
+.worldWorkspace[data-world-view="timeline"] .worldMinimap,
+.worldWorkspace[data-world-view="timeline"] .radarTooltip {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Spatial readouts are inert while Chronoscope owns the workspace. Keep the
+   navigator and command bar operable, but never leave visible dead controls. */
+.worldWorkspace[data-world-view="timeline"] .worldBreadcrumbs,
+.worldWorkspace[data-world-view="timeline"] .conditionStrip,
+.worldWorkspace[data-world-view="timeline"] .worldMeta,
+.worldWorkspace[data-world-view="timeline"] .worldMissionCard,
+.worldWorkspace[data-world-view="timeline"] .worldMissionSlim,
+.worldWorkspace[data-world-view="timeline"] .quadrantCompass,
+.worldWorkspace[data-world-view="timeline"] .focusLegend,
+.worldWorkspace[data-world-view="timeline"] .worldCommandBar .commandHint {
+  display: none !important;
+}
+
+.worldWorkspace[data-primary-surface-open="true"] .timelineSurface {
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.timelineHeader {
+  grid-row: 1;
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.timelineNotices {
+  display: grid;
+  min-height: 0;
+  grid-row: 2;
+  gap: 7px;
+  max-height: 190px;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+
+.timelineHeader > div:first-child {
+  min-width: 0;
+}
+
+.timelineEyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--wiki-accent);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.timelineHeader h2,
+.timelineHeader p,
+.timelineEventList h3,
+.timelineInspector h3,
+.timelineInspector p,
+.timelineStatePanel h4,
+.timelineReferences h4 {
+  margin: 0;
+}
+
+.timelineHeader h2 {
+  margin-top: 3px;
+  color: var(--wiki-text);
+  font-size: clamp(22px, 2.3vw, 34px);
+  line-height: 1.06;
+  letter-spacing: -0.025em;
+}
+
+.timelineHeader p {
+  max-width: 72ch;
+  margin-top: 6px;
+  color: var(--wiki-text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.timelineSummary {
+  display: grid;
+  min-width: min(520px, 50%);
+  grid-template-columns: repeat(5, minmax(68px, 1fr));
+  gap: 7px;
+  margin: 0;
+}
+
+.timelineSummary > div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--wiki-surface-raised) 78%, transparent);
+}
+
+.timelineSummary dt,
+.timelineFact dt,
+.timelineTechnical dt,
+.timelineStatePanel dt {
+  color: var(--wiki-text-muted);
+  font-size: 9.5px;
+  font-weight: 730;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.timelineSummary dd {
+  margin: 0;
+  color: var(--wiki-text);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+}
+
+.timelineContractWarning,
+.timelineComparisonNotice,
+.timelineDiagnosticWarning {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 9px;
+  color: var(--wiki-text);
+  font-size: 12px;
+}
+
+.timelineDiagnosticWarning {
+  display: block;
+  border-inline-start: 3px solid var(--wiki-focus);
+  background: color-mix(in srgb, var(--wiki-focus) 11%, var(--wiki-surface));
+}
+
+.timelineDiagnosticWarning summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  font-weight: 720;
+}
+
+.timelineDiagnosticWarning p {
+  margin: 0 0 7px;
+  color: var(--wiki-text-muted);
+  font-size: 11px;
+}
+
+.timelineDiagnosticWarning ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0 0 2px;
+  list-style: none;
+}
+
+.timelineDiagnosticWarning li {
+  display: grid;
+  grid-template-columns: minmax(130px, auto) minmax(0, 1fr);
+  gap: 2px 9px;
+  padding-top: 5px;
+  border-top: 1px solid var(--wiki-border);
+  font-size: 10.5px;
+}
+
+.timelineDiagnosticWarning li code,
+.timelineDiagnosticWarning li small {
+  overflow-wrap: anywhere;
+}
+
+.timelinePackProfiles {
+  padding: 0 11px 8px;
+  border: 1px solid var(--wiki-border);
+  border-inline-start: 3px solid var(--wiki-accent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--wiki-accent) 7%, var(--wiki-surface));
+  color: var(--wiki-text);
+  font-size: 11px;
+}
+
+.timelinePackProfiles summary {
+  min-height: 44px;
+  cursor: pointer;
+  font-weight: 720;
+  line-height: 44px;
+}
+
+.timelinePackProfiles p {
+  margin: 0 0 7px;
+  color: var(--wiki-text-muted);
+}
+
+.timelinePackProfiles ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timelinePackProfiles li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 7px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 7px;
+}
+
+.timelinePackProfiles small {
+  color: var(--wiki-text-muted);
+}
+
+.timelineDiagnosticWarning li small {
+  grid-column: 2;
+  color: var(--wiki-text-muted);
+}
+
+.timelineContractWarning {
+  border-inline-start: 3px solid var(--wiki-focus);
+  background: color-mix(in srgb, var(--wiki-focus) 11%, var(--wiki-surface));
+}
+
+.timelineComparisonNotice {
+  border-inline-start: 3px solid var(--wiki-accent);
+  background: color-mix(in srgb, var(--wiki-accent) 8%, var(--wiki-surface));
+}
+
+.timelineControls,
+.timelineLaneControls {
+  display: flex;
+  min-width: 0;
+  align-items: end;
+  gap: 7px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.timelineControls {
+  grid-row: 3;
+}
+
+.timelineLaneControls {
+  grid-row: 4;
+}
+
+.timelineModeControl {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 10px;
+  background: var(--wiki-surface);
+}
+
+.timelineModeControl button,
+.timelineClear,
+.timelineLaneControls button,
+.timelineShowMore,
+.timelineInspector header button,
+.timelineReferences button {
+  min-height: 44px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 8px;
+  background: var(--wiki-surface);
+  color: var(--wiki-text-muted);
+  cursor: pointer;
+}
+
+.timelineModeControl button {
+  min-width: 92px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.timelineModeControl button.active,
+.timelineLaneControls button.active {
+  border-color: var(--wiki-accent);
+  background: color-mix(in srgb, var(--wiki-accent) 11%, var(--wiki-surface-raised));
+  color: var(--wiki-accent-strong);
+}
+
+.timelineControls > label {
+  display: grid;
+  min-width: 142px;
+  gap: 3px;
+  color: var(--wiki-text-muted);
+  font-size: 9.5px;
+  font-weight: 720;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.timelineControls input {
+  min-height: 44px;
+  padding: 6px 9px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 8px;
+  background: var(--wiki-surface);
+  color: var(--wiki-text);
+  color-scheme: inherit;
+  font: inherit;
+  font-size: 12px;
+}
+
+.timelineClear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.timelineLaneControls button {
+  display: inline-grid;
+  min-width: max-content;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 10.5px;
+}
+
+.timelineLaneControls strong {
+  min-width: 22px;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--wiki-text) 8%, transparent);
+  color: var(--wiki-text);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.timelineBody {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.8fr);
+  gap: calc(10px * var(--wiki-density-gap));
+  grid-row: 5;
+}
+
+.timelineEventList,
+.timelineInspector {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--wiki-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--wiki-surface) 88%, transparent);
+  scrollbar-width: thin;
+}
+
+.timelineEventList {
+  scroll-padding-top: 62px;
+}
+
+.timelineEventList > header {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--wiki-border);
+  background: color-mix(in srgb, var(--wiki-surface) 96%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.timelineEventList h3 {
+  color: var(--wiki-text);
+  font-size: 13px;
+}
+
+.timelineEventList header p,
+.timelineEventList header > span {
+  margin: 2px 0 0;
+  color: var(--wiki-text-muted);
+  font-size: 10.5px;
+}
+
+.timelineWindowNotice {
+  margin: 0;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--wiki-border);
+  background: color-mix(in srgb, var(--wiki-accent) 7%, transparent);
+  color: var(--wiki-text-muted);
+  font-size: 10.5px;
+}
+
+.timelineEventList ol {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timelineEventList li {
+  position: relative;
+  min-width: 0;
+  padding-inline-start: 17px;
+}
+
+.timelineEventList li::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 22px;
+  width: 1px;
+  background: var(--wiki-border);
+  content: "";
+}
+
+.timelineEvent {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 58px;
+  grid-template-columns: 30px minmax(112px, 0.48fr) minmax(180px, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px 7px 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--wiki-border) 68%, transparent);
+  background: transparent;
+  color: var(--wiki-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.timelineEvent:hover,
+.timelineEvent.active {
+  background: color-mix(in srgb, var(--wiki-accent) 7%, transparent);
+}
+
+.timelineEvent.active {
+  box-shadow: inset 3px 0 0 var(--wiki-accent);
+}
+
+.timelineEventMark {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 1px solid var(--wiki-border);
+  border-radius: 50%;
+  background: var(--wiki-surface-raised);
+  color: var(--wiki-accent);
+}
+
+.timelineEventTime {
+  color: var(--wiki-text-muted);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.timelineEventCopy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.timelineEventCopy strong {
+  overflow: hidden;
+  color: var(--wiki-text);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timelineEventCopy small {
+  overflow: hidden;
+  color: var(--wiki-text-muted);
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timelineConfidence {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 999px;
+  color: var(--wiki-text-muted);
+  font-size: 9.5px;
+  white-space: nowrap;
+}
+
+.confidence-confirmed {
+  border-color: var(--wiki-state-good);
+  color: var(--wiki-state-good);
+}
+
+.confidence-conflicting,
+.confidence-uncertain {
+  border-color: var(--wiki-focus);
+  color: var(--wiki-focus);
+}
+
+.timelineShowMore {
+  width: calc(100% - 24px);
+  margin: 10px 12px 12px;
+  scroll-margin-top: 62px;
+  color: var(--wiki-accent-strong);
+}
+
+.timelineEmpty,
+.timelineInspectorEmpty {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  align-content: center;
+  gap: 7px;
+  padding: 20px;
+  color: var(--wiki-text-muted);
+  text-align: center;
+}
+
+.timelineEmpty strong,
+.timelineInspectorEmpty strong {
+  color: var(--wiki-text);
+}
+
+.timelineEmpty p {
+  max-width: 48ch;
+  margin: 0;
+  font-size: 12px;
+}
+
+.timelineInspectorEmpty p {
+  max-width: 42ch;
+  margin: 0;
+  font-size: 12px;
+}
+
+.timelineInspector {
+  padding: calc(14px * var(--wiki-density-pad));
+  scroll-margin-top: 8px;
+}
+
+.timelineInspector > header {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--wiki-border);
+}
+
+.timelineInspector > header > span {
+  color: var(--wiki-accent);
+  font-size: 9.5px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.timelineInspector h3 {
+  color: var(--wiki-text);
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.timelineInspector > header p {
+  color: var(--wiki-text-muted);
+  font-size: 11px;
+}
+
+.timelineInspector header button,
+.timelineReferences button {
+  display: inline-flex;
+  width: max-content;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  color: var(--wiki-accent-strong);
+}
+
+.timelineFacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin: 12px 0 0;
+}
+
+.timelineFact {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--wiki-surface-raised) 52%, transparent);
+}
+
+.timelineFact dd {
+  margin: 0;
+  color: var(--wiki-text);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.timelineFact.missing {
+  opacity: 0.7;
+}
+
+.timelineStateComparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.timelineStatePanel {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 9px;
+}
+
+.timelineStatePanel h4,
+.timelineReferences h4 {
+  margin-bottom: 7px;
+  color: var(--wiki-text);
+  font-size: 11px;
+}
+
+.timelineStatePanel dl,
+.timelineTechnical dl {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.timelineStatePanel dl > div,
+.timelineTechnical dl > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(72px, 0.55fr) minmax(0, 1fr);
+  gap: 7px;
+}
+
+.timelineStatePanel dd,
+.timelineTechnical dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--wiki-text);
+  font-size: 10.5px;
+}
+
+.timelineStatePanel p {
+  color: var(--wiki-text-muted);
+  font-size: 10.5px;
+}
+
+.timelineReferences {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.timelineReferences h4 {
+  width: 100%;
+}
+
+.timelineReferences code {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 4px 7px;
+  border: 1px solid var(--wiki-border);
+  border-radius: 6px;
+  color: var(--wiki-text-muted);
+  font-size: 9.5px;
+}
+
+.timelineTechnical {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--wiki-border);
+}
+
+.timelineTechnical summary {
+  min-height: 44px;
+  color: var(--wiki-text-muted);
+  cursor: pointer;
+  font-size: 10.5px;
+  line-height: 44px;
+}
+
+.timelineTechnical ul {
+  color: var(--wiki-focus);
+  font-size: 10.5px;
+}
+
+.timelineSurface button:focus-visible,
+.timelineSurface input:focus-visible,
+.timelineSurface summary:focus-visible {
+  outline: 2px solid var(--wiki-focus);
+  outline-offset: 2px;
+}
+
+html[data-wiki-density="focus"] .timelineBody {
+  grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.9fr);
+}
+
+html[data-wiki-density="command"] .timelineSurface {
+  border-radius: 12px;
+}
+
+@media (max-width: 980px) {
+  .timelineSurface {
+    overflow: auto;
+  }
+
+  .timelineNotices {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .timelineHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .timelineSummary {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .timelineBody {
+    min-height: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .timelineEventList,
+  .timelineInspector {
+    overflow: visible;
+  }
+
+  .timelineEventList {
+    max-height: none;
+  }
+
+}
+
+@media (max-width: 620px) {
+  .timelineSurface {
+    right: 4px;
+    left: 4px;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .timelineSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .timelineEvent {
+    min-height: 72px;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+  }
+
+  .timelineEventTime {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+
+  .timelineEventCopy {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .timelineConfidence {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .timelineFacts,
+  .timelineStateComparison {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timelineSurface,
+  .timelineSurface * {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .timelineSurface,
+  .timelineSummary > div,
+  .timelineModeControl,
+  .timelineModeControl button,
+  .timelineControls input,
+  .timelineClear,
+  .timelineLaneControls button,
+  .timelineEventList,
+  .timelineInspector,
+  .timelineEventMark,
+  .timelineFact,
+  .timelineStatePanel,
+  .timelineReferences button,
+  .timelineReferences code,
+  .timelineContractWarning,
+  .timelineComparisonNotice,
+  .timelineDiagnosticWarning,
+  .timelinePackProfiles {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    box-shadow: none;
+    forced-color-adjust: auto;
+  }
+
+  .timelineModeControl button.active,
+  .timelineLaneControls button.active,
+  .timelineEvent.active {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: 1px;
+  }
+}
