@@ -422,11 +422,11 @@ describe("visual route contract", () => {
     expect(screen.getByRole("option", { name: /Source Fixture/ })).toBeTruthy();
   });
 
-  it("does not carry a pointer-hovered result into an immediate keyboard query", async () => {
+  it("keeps pointer and keyboard search selection coherent across result-window changes", async () => {
     const loadSnapshotMock = vi.mocked(loadSnapshotBundle);
     const defaultImplementation = loadSnapshotMock.getMockImplementation();
     expect(defaultImplementation).toBeTruthy();
-    const densePages = Array.from({ length: 8 }, (_, index) => {
+    const densePages = Array.from({ length: 18 }, (_, index) => {
       const ordinal = String(index + 1).padStart(3, "0");
       return {
         ...bundle.pages.pages[0],
@@ -459,14 +459,51 @@ describe("visual route contract", () => {
       };
     });
 
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollIntoView"
+    );
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView
+    });
+
     try {
       await renderRoute("/w?view=radar&q=dense-canonical%20action");
       expect(
         await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
       ).toBeTruthy();
       const search = screen.getByRole("combobox", { name: "Search content" });
-      const options = await screen.findAllByRole("option", { name: /Dense canonical action/ });
-      expect(options).toHaveLength(8);
+      let options = await screen.findAllByRole("option", { name: /Dense canonical action/ });
+      expect(options).toHaveLength(10);
+
+      fireEvent.click(screen.getByRole("button", { name: /Show 8 more/ }));
+      await waitFor(() => {
+        expect(screen.getAllByRole("option", { name: /Dense canonical action/ })).toHaveLength(18);
+      });
+      options = screen.getAllByRole("option", { name: /Dense canonical action/ });
+      fireEvent.pointerMove(options[15]);
+      expect(search.getAttribute("aria-activedescendant")).toBe("world-search-results-option-15");
+
+      // Back/route hydration can shrink the visible window while preserving
+      // the full result set. The selected option disappeared, so all ARIA and
+      // keyboard state must reset to the first real visible option.
+      window.history.pushState({}, "", "/w?view=radar&q=dense-canonical%20action");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      await waitFor(() => {
+        expect(screen.getAllByRole("option", { name: /Dense canonical action/ })).toHaveLength(10);
+        expect(search.getAttribute("aria-activedescendant")).toBe("world-search-results-option-0");
+      });
+      options = screen.getAllByRole("option", { name: /Dense canonical action/ });
+      expect(options.filter((option) => option.getAttribute("aria-selected") === "true")).toEqual([
+        options[0]
+      ]);
+
+      // Merely moving/reflowing an option under a stationary cursor must not
+      // claim keyboard selection; a real pointer move still may.
+      fireEvent.mouseEnter(options[6]);
+      expect(search.getAttribute("aria-activedescendant")).toBe("world-search-results-option-0");
 
       fireEvent.pointerMove(options[6]);
       expect(search.getAttribute("aria-activedescendant")).toBe("world-search-results-option-6");
@@ -484,8 +521,14 @@ describe("visual route contract", () => {
         expect(new URLSearchParams(window.location.search).get("page")).toBe("dense-action-002");
         expect(new URLSearchParams(window.location.search).get("reader")).toBe("1");
       });
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
     } finally {
       loadSnapshotMock.mockImplementation(defaultImplementation!);
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScrollIntoView);
+      } else {
+        delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+      }
     }
   });
 

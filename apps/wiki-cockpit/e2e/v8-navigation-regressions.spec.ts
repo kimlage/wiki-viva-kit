@@ -1084,6 +1084,41 @@ test("dense action reader owns the foreground and starts with decision-ready inf
   await expect(resultOptions).toHaveCount(20);
   await expect.poll(() => new URL(page.url()).searchParams.get("search_limit")).toBe("20");
 
+  for (let index = 0; index < 15; index += 1) await search.press("ArrowDown");
+  await expect(search).toHaveAttribute(
+    "aria-activedescendant",
+    "world-search-results-option-15"
+  );
+  const activeResultGeometry = await page.evaluate(() => {
+    const list = document.querySelector<HTMLElement>("#world-search-results");
+    const active = document.querySelector<HTMLElement>(
+      '#world-search-results [role="option"][aria-selected="true"]'
+    );
+    if (!list || !active) throw new Error("active search result geometry unavailable");
+    const listRect = list.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    return {
+      selectedCount: document.querySelectorAll(
+        '#world-search-results [role="option"][aria-selected="true"]'
+      ).length,
+      topGap: activeRect.top - listRect.top,
+      bottomGap: listRect.bottom - activeRect.bottom
+    };
+  });
+  expect(activeResultGeometry.selectedCount).toBe(1);
+  expect(activeResultGeometry.topGap).toBeGreaterThanOrEqual(-1);
+  expect(activeResultGeometry.bottomGap).toBeGreaterThanOrEqual(-1);
+
+  await page.goBack();
+  await expect(resultOptions).toHaveCount(10);
+  await expect.poll(() => new URL(page.url()).searchParams.has("search_limit")).toBe(false);
+  await expect(search).toHaveAttribute(
+    "aria-activedescendant",
+    "world-search-results-option-0"
+  );
+  await expect(resultOptions.locator('[aria-selected="true"]')).toHaveCount(1);
+  await expect(resultOptions.first()).toHaveAttribute("aria-selected", "true");
+
   await page.getByRole("combobox", { name: /Scope|Escopo/ }).selectOption("world");
   await expect.poll(() => new URL(page.url()).searchParams.get("search_scope")).toBe("world");
   expect(await resultOptions.count()).toBeLessThanOrEqual(20);

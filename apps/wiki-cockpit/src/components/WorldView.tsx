@@ -584,8 +584,10 @@ export function WorldView({
   // ref as well, so a pointer-hovered result from the previous draft cannot
   // leak into an immediate edit -> ArrowDown -> Enter sequence.
   const activeHitRef = useRef(0);
-  const updateActiveHit = useCallback((index: number) => {
+  const activeHitIdRef = useRef<string | null>(null);
+  const updateActiveHit = useCallback((index: number, id: string | null = null) => {
     activeHitRef.current = index;
+    activeHitIdRef.current = id;
     setActiveHit(index);
   }, []);
   // Trays are primary surfaces and therefore shareable route state, not local
@@ -1167,7 +1169,7 @@ export function WorldView({
   );
   const searchHits = searchResult.hits;
   // Keyboard result navigation resets whenever the query changes.
-  useEffect(() => updateActiveHit(0), [
+  useEffect(() => updateActiveHit(0, null), [
     searchDraft,
     route.query.searchContext,
     route.query.searchScope,
@@ -1175,6 +1177,51 @@ export function WorldView({
     updateActiveHit
   ]);
   const visibleHits = searchHits.slice(0, route.query.searchLimit);
+  const visibleHitSignature = visibleHits.map((page) => page.id).join("\u001f");
+  const effectiveActiveHit = (() => {
+    if (!visibleHits.length) return 0;
+    const selectedId = activeHitIdRef.current;
+    if (selectedId) {
+      const selectedIndex = visibleHits.findIndex((page) => page.id === selectedId);
+      return selectedIndex >= 0 ? selectedIndex : 0;
+    }
+    return Math.min(activeHit, visibleHits.length - 1);
+  })();
+  const selectHitAt = (hits: PageRecord[], requestedIndex: number, scroll = false) => {
+    if (!hits.length) {
+      updateActiveHit(0, null);
+      return;
+    }
+    const index = Math.max(0, Math.min(requestedIndex, hits.length - 1));
+    updateActiveHit(index, hits[index].id);
+    if (scroll) {
+      const option = document.getElementById(searchResultOptionId(index));
+      option?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    }
+  };
+  // Preserve the same selected page when a snapshot or center reorders the
+  // result list. If a limit/filter removes it, reset to the first visible hit
+  // so aria-activedescendant, aria-selected and Enter share one real option.
+  useEffect(() => {
+    if (!visibleHits.length) {
+      if (activeHitRef.current !== 0 || activeHitIdRef.current !== null) {
+        updateActiveHit(0, null);
+      }
+      return;
+    }
+    const selectedId = activeHitIdRef.current;
+    const selectedIndex = selectedId
+      ? visibleHits.findIndex((page) => page.id === selectedId)
+      : 0;
+    const nextIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    const nextId = visibleHits[nextIndex].id;
+    if (activeHitRef.current !== nextIndex || activeHitIdRef.current !== nextId) {
+      updateActiveHit(nextIndex, nextId);
+    }
+    // The signature is the identity/order contract; depending on the array
+    // itself would rerun on every render because slice() returns a new value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleHitSignature, updateActiveHit]);
   const openHit = (page?: PageRecord, query?: string) => {
     if (page) {
       // Search is a direct read intent and therefore owns the primary-surface
@@ -1209,12 +1256,19 @@ export function WorldView({
       if (event.key === "Escape") setSearchDraft("");
       return;
     }
+    const selectedId = activeHitIdRef.current;
+    const selectedIndex = selectedId
+      ? keyboardHits.findIndex((page) => page.id === selectedId)
+      : Math.min(activeHitRef.current, keyboardHits.length - 1);
+    // A selected ID that disappeared after Back/filter/snapshot refresh must
+    // not fall through to a stale numeric index in the new result list.
+    const keyboardActiveIndex = selectedIndex >= 0 ? selectedIndex : 0;
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      updateActiveHit(Math.min(activeHitRef.current + 1, keyboardHits.length - 1));
+      selectHitAt(keyboardHits, keyboardActiveIndex + 1, true);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      updateActiveHit(Math.max(activeHitRef.current - 1, 0));
+      selectHitAt(keyboardHits, keyboardActiveIndex - 1, true);
     } else if (event.key === "Enter") {
       event.preventDefault();
       // Commit search + reader as one route transition. Otherwise the pending
@@ -1230,7 +1284,7 @@ export function WorldView({
       // query after the reader closes.
       if (currentSearchValue !== route.query.q) submittedSearchRef.current = currentSearchValue;
       openHit(
-        keyboardHits[Math.min(activeHitRef.current, keyboardHits.length - 1)] ?? keyboardHits[0],
+        keyboardHits[keyboardActiveIndex] ?? keyboardHits[0],
         currentSearchValue
       );
     } else if (event.key === "Escape") {
@@ -2162,13 +2216,13 @@ export function WorldView({
           query={searchDraft}
           searchHits={searchHits}
           visibleHits={visibleHits}
-          activeHit={activeHit}
+          activeHit={effectiveActiveHit}
           searchType={route.query.searchType}
           searchContext={route.query.searchContext}
           searchScope={route.query.searchScope}
           searchPageTypes={searchResult.pageTypes}
           searchContexts={searchResult.contexts}
-          onActiveHit={updateActiveHit}
+          onActiveHit={(index) => selectHitAt(visibleHits, index)}
           onOpenHit={openHit}
           onSearchFilter={(patch) => navigateWorld({ ...patch, searchLimit: null })}
           onShowMore={() => navigateWorld({ searchLimit: Math.min(1000, route.query.searchLimit + SEARCH_VISIBLE) })}
@@ -2396,13 +2450,13 @@ export function WorldView({
             searchDraft={searchDraft}
             searchExpanded={Boolean(searchDraft)}
             searchResultsId={SEARCH_RESULTS_ID}
-            searchActiveDescendant={visibleHits.length > 0 ? searchResultOptionId(Math.min(activeHit, visibleHits.length - 1)) : undefined}
+            searchActiveDescendant={visibleHits.length > 0 ? searchResultOptionId(effectiveActiveHit) : undefined}
             onSearchDraft={(value) => {
               // Reset synchronously. The result list can sit under the pointer
               // and update activeHit through hover while filters reshape it;
               // waiting for the draft effect would make an immediate keyboard
               // submission inherit that stale pointer position.
-              updateActiveHit(0);
+              updateActiveHit(0, null);
               setSearchDraft(value);
             }}
             onSearchKeyDown={onSearchKeyDown}
