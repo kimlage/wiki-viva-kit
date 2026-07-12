@@ -788,6 +788,39 @@ def test_preflight_can_be_ready_with_clean_explicitly_reviewed_upgrade_drift(
     assert "toolkit_drift" in report["warnings"]
 
 
+def test_validation_pending_preflight_blocks_promotion_but_keeps_real_drift(
+    tmp_path: Path,
+) -> None:
+    kit, target, _ = make_matching_repos(tmp_path)
+    (target / "wiki_core/core.py").write_text("VALUE = 9\n", encoding="utf-8")
+    head = commit_all(target, "consumer drift")
+    evidence = gate_evidence(head)
+    next(gate for gate in evidence["gates"] if gate["id"] == "toolkit_drift")[
+        "status"
+    ] = "reviewed"
+    pending = package(source_sha=repo_head(kit))
+    pending["release"]["status"] = "validation_pending"
+
+    report = build_preflight_report(
+        kit_root=kit,
+        consumer_root=target,
+        package=pending,
+        consumer=consumer(),
+        gate_evidence=evidence,
+        checked_on="2026-07-12",
+    )
+    checks = {item["id"]: item for item in report["checks"]}
+
+    assert report["status"] == "blocked"
+    assert report["blockers"] == ["release_pinned"]
+    assert report["drift"]["drift_total"] == 1
+    assert checks["release_pinned"]["evidence"] == (
+        "release status is not releasable: validation_pending"
+    )
+    assert checks["release_source_available"]["status"] == "pass"
+    assert checks["toolkit_drift"]["status"] == "warn"
+
+
 def test_preflight_accepts_only_bounded_semantic_review_for_third_boundary(
     tmp_path: Path,
 ) -> None:

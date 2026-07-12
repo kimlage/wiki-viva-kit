@@ -985,7 +985,13 @@ def build_preflight_report(
     overrides = discover_local_overrides(consumer_root)
     release_pinned = package_is_pinned(package)
     release_sha = str((package.get("release") or {}).get("source_sha") or "")
-    release_source_available = release_pinned and _git_commit_available(
+    release_status = str(
+        (package.get("release") or {}).get("status") or ""
+    ).strip().lower()
+    # Promotion state and source-tree availability are separate facts. A
+    # validation-pending candidate must still expose its real drift while the
+    # release_pinned check keeps migration/promotion blocked.
+    release_source_available = _valid_sha(release_sha) and _git_commit_available(
         kit_root, release_sha
     )
     if release_source_available:
@@ -1029,7 +1035,11 @@ def build_preflight_report(
             "pass" if release_pinned else "fail",
             "exact public release and SHA"
             if release_pinned
-            else "release source_sha is not pinned",
+            else (
+                f"release status is not releasable: {release_status or 'missing'}"
+                if _valid_sha(release_sha)
+                else "release source_sha is not pinned"
+            ),
         )
     )
     checks.append(
