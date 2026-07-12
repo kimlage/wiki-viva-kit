@@ -1,13 +1,17 @@
 schema_version: wiki_viva_upgrade_package.v2
 
 release:
-  id: wiki-viva-v8-rc8
+  id: wiki-viva-v8-rc9
   status: release_candidate
-  source_sha: b45378d37e96eed04fb355392d10bd8471c5fda7
+  source_sha: 2bf99150b2e1a5a305743144e10a9a939b4e01e1
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc8
+    source_sha: b45378d37e96eed04fb355392d10bd8471c5fda7
+    status: historical_release_candidate
+    note: exact S9 mobile-control payload and paired downstream pilot; retained with its own evidence and never promoted as post-S9 proof
   - id: wiki-viva-v8-rc4
     source_sha: f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb
     status: historical_release_candidate
@@ -199,11 +203,11 @@ privacy:
     - private_console_or_network_payloads
 
 known_limitations:
-  - The package pins the current exact public payload subject; its complete public browser and deterministic validation pass, while PR 61 still requires human review, merge, VoiceOver, external E5 and a release tag.
+  - The package pins exact post-S9 public payload S10; its complete public browser and deterministic validation pass, while the matching private replay, PR 61 human review/merge, VoiceOver, external E5 and a release tag still remain.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
-  - Exact S9 passes the complete public browser, Python, frontend, Node and deterministic release matrix; S6 and S8 results remain attached to those historical subjects and are never relabeled as S9 evidence.
-  - The private pilot imported exact S9 in reviewable boundaries and passes 2/2 mandatory downstream cells first attempt plus the complete private deterministic stack; human review, merge, VoiceOver and E5 still remain.
-  - The official private read-only upgrade preflight is ready with toolkit drift zero, zero blockers, all five required current-gate receipts passing and one expected local-overrides warning; its redacted report hash is recorded in the release plan while raw evidence stays private.
+  - Exact S10 passes 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells plus the deterministic release matrix; all S9 and earlier results remain attached to their historical subjects and are never relabeled as S10 evidence.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; exact S10 must be imported in three new ordered reviewable boundaries and rerun before this package is promoted.
+  - The historical private S9 read-only preflight remains attached to S9; S10 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.
