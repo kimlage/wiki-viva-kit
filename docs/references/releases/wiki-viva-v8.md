@@ -17,7 +17,7 @@ Status on 2026-07-12: **the public payload is an exact-subject release
 candidate; the complete release is still blocked by private adoption, human
 review and external E5 authority**.
 
-Portable payload `S` is pinned to
+Historical payload `S` remains pinned to
 `b781882a11e8bbac3ae9684d199979a1f4ee1bf7`. The first clean-subject browser
 attempt exposed 18 genuine and test-contract regressions (**84/102 passed**).
 After the route-authority, browser-contract and mobile-geometry corrections
@@ -25,6 +25,16 @@ were committed, the exact public wrapper passed **102/102 on the first attempt,
 with 0 skips and 0 retries in 5.8 minutes**. The retained run result is
 `public-mrha530b-79ce7ec4-2880-4244-a30e-6e9b429627fd/run-result.json` under the
 local release-run evidence directory.
+
+The current downstream-pressure payload is
+`S2=f0936539ca44c34ff5eacf5817b22ff9451b9cef`, pinned by package
+`wiki-viva-v8-rc3`. It adds portable/config-driven docs and skills, acyclic
+source consolidation rules, a one-time content-bound adoption receipt for
+pre-gate action history, exact rollback execution/report parity and a resolved
+demo person link. Exact `S2` passed **1,355/1,355 Python tests**, **489/489
+frontend tests**, **106/106 Node gates** and **102/102 first-attempt browser
+cells with 0 skips / 0 retries in 6.4 minutes**. The retained browser result is
+`public-mrhf7c6i-d57c7e0c-dfde-43bf-925c-576ce411ff9a/run-result.json`.
 
 The same clean subject passed **1,339/1,339 Python tests, 0 skips, in 355.06
 seconds**, with two multiprocessing-fork deprecation warnings. It also passed
@@ -48,12 +58,18 @@ The active correction contract is the
 [release truth, temporal world and experience packs plan](../proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md).
 It consolidates the independently reproduced parts of the interrupted parallel
 Claude review, but not its raw local transcripts, stale task cards or
-coordinator label. Eight live process/filesystem checks found no newer
+coordinator label. Nine live process/filesystem checks found no newer
 Claude-authored plan,
 repository write or completed verifier set; a still-running worker/preview is
 not treated as project progress. The eighth check also confirmed that a clean,
 detached Claude worktree contained only historical July 1 material, not a
 hidden July 11 implementation.
+
+The ninth checkpoint recovered the already-completed structured workflow
+behind the visibly rate-limited Claude session. Revalidation produced two real
+residuals, both closed in `S2`: canonical rollback must bind and execute exact
+reverse-order migration SHAs, and Markdown must expose the same regression
+fixtures as JSON. No Claude write was merged mechanically.
 
 The public payload adds an exact public/downstream Playwright collection,
 hash-bound toolchain and worktree subjects, a browser-only receipt, fail-closed

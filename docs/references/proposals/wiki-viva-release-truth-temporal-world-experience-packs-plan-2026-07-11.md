@@ -55,10 +55,11 @@ Updated on: 2026-07-12.
 ## Executive Decision
 
 The reviewed public v8 baseline and the private downstream pilot are **not yet
-ready to merge or release as one semantically complete pair**. The public
-portable payload is now an exact-subject candidate pinned to
-`b781882a11e8bbac3ae9684d199979a1f4ee1bf7`; private adoption, human review and
-external E5 authority remain mandatory.
+ready to merge or release as one semantically complete pair**. Historical
+payload `S=b781882a11e8bbac3ae9684d199979a1f4ee1bf7` remains immutable evidence for
+the original v8 closure. The current downstream-pressure candidate is
+`S2=f0936539ca44c34ff5eacf5817b22ff9451b9cef`; private adoption, human review
+and external E5 authority remain mandatory.
 
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
@@ -112,6 +113,20 @@ and future-pagination attestations remain explicit P2. The package and this
 plan form metadata envelope `M`, pinning the exact `S`; complete release truth
 still requires exact private adoption `P`, external E5 and human gates.
 
+Downstream pressure then exposed portability and release-truth gaps that were
+not represented by the original exact `S`: synthetic demo contracts leaked
+into localized consumers, portable guides linked to consumer-owned paths,
+source integration guidance encouraged cyclic provenance, historical action
+state had no non-fictional adoption path, migration rollback accepted arbitrary
+text, and one demo person link resolved as missing. Those corrections form
+exact payload `S2`. On its clean subject, `S2` passed **1,355/1,355 Python
+tests**, **489/489 Vitest tests**, **106/106 Node gates** and **102/102 public
+browser cells on the first attempt with 0 skips and 0 retries in 6.4 minutes**.
+Normal audit reports **0 errors / 6 date-driven freshness warnings**; demo,
+build, architecture, assets and bundle remain deterministic and green. Package
+`wiki-viva-v8-rc3` pins `S2`; historical `S` receipts remain valid evidence for
+their exact subject and are not rewritten.
+
 ## Consolidated implementation ledger — active pass
 
 This section is the current execution surface; earlier counts and defect
@@ -122,8 +137,8 @@ attempts to contain its own SHA and no private state becomes upstream proof.
 
 | Wave | Current implementation state | Acceptance boundary before advancement |
 | --- | --- | --- |
-| 0 — release truth | Exact matrix is written/current at 102+2; the 102 public cells pass on exact `S`, first attempt, with zero retry/skip. Immutable evidence and browser-only receipt v1 are implemented. | Public browser closure complete; 2 mandatory downstream cells, human review and E5 remain separate. |
-| 1 — public P0/P1 | Genesis 0, keyboard focus, action state, output containment, public projection, source vocabulary, stale operator, route identity and evidence integrity have synthetic regressions. | Exact `S` passed 1,339 Python, 489 frontend, 106 Node and 102 browser controls; no unowned waiver or hidden skip. |
+| 0 — release truth | Exact matrix is written/current at 102+2; the 102 public cells pass on exact `S2`, first attempt, with zero retry/skip. Immutable evidence and browser-only receipt v1 are implemented. | Public browser closure complete; 2 mandatory downstream cells, human review and E5 remain separate. |
+| 1 — public P0/P1 | Genesis 0, keyboard focus, action state, output containment, public projection, source vocabulary, stale operator, route identity and evidence integrity have synthetic regressions. | Exact `S2` passed 1,355 Python, 489 frontend, 106 Node and 102 browser controls; no unowned waiver or hidden skip. |
 | 2 — navigation/mobile/atomicity | One runtime grammar, surface singleton, mobile/fallback geometry, atomic content/snapshot activation, strict ports and primary-surface focus are implemented. | Desktop/mobile/WebKit/forced-fallback release cells and conceptual review. |
 | 3 — source/event truth | Typed source lifecycle and a multi-clock temporal graph replace the false equivalence between activity feed and semantic history. | Public fixtures valid; later `P` must measure real private events and keep private identifiers out of public evidence. |
 | 4 — executable demos | Seven isolated base scenarios, nine Genesis stages (0–8) and the Study/Research plus Personal Finance showcases are built by deterministic fixture repositories. Their manifests bind 22 claims to 12 canonical routes. | `wiki_build_demo.py --check`, complete sidecars, empty contract errors and route-level browser journeys. |
@@ -131,7 +146,7 @@ attempts to contain its own SHA and no private state becomes upstream proof.
 | 6 — temporal kernel | `wiki_temporal_event.v1`, `wiki_temporal_graph.v1` and lazy 2D Chronoscope are implemented with strict semantic/occurred/recorded modes, lanes, ranges, deep links and a complete inspector. | Integrity/torn/partial/unsupported/stale states fail visibly; `P` proves real scale and clocks. |
 | 7 — experience-pack kernel | Registry, manifest, exact asset tree, lock, receipts, dependency/slot composition, POSIX operation lock, CAS, rollback and review-branch lifecycle are implemented. | Adversarial concurrency, orphan, drift, SVG, traversal, symlink, privacy and localized-memory-root tests pass; packs cannot execute arbitrary code or weaken gates. |
 | 8 — starter packs | Study/Research conformance and Personal Finance vertical ship page types, templates, blocks, views, commands, operations, temporal descriptors, EN/PT-BR copy and public synthetic fixtures. A generic lazy `pack_view` makes canonical pages readable now. | Dedicated operation renderers/executors remain disabled until a separately versioned, human-gated adapter exists; the UI must never imply execution. |
-| 9 — private adoption | Exact public `S` is proven and metadata `M` pins it; import has not started. | Import only allowlisted blobs into the private `wiki/*` branch, preserve config/memory/pack lock, install Finance dry-run first, regenerate, test real API/UI/Timeline/packs/themes/mobile/fallback and bind private receipt `P`. |
+| 9 — private adoption | Exact public `S2` is proven and rc3 metadata pins it; final import has not started. | Import only allowlisted blobs into the private `wiki/*` branch, preserve config/memory/pack lock, install Finance dry-run first, regenerate, test real API/UI/Timeline/packs/themes/mobile/fallback and bind private receipt `P`. |
 
 ### Current architecture of the extensible kit
 
@@ -186,6 +201,7 @@ memory rather than one fixed dashboard:
 | --- | --- | --- | --- | --- |
 | Public baseline | Public feature branch at `31b94d81`; exact PR metadata stays in the Git review surface | Remote checks green; Python, frontend and most browser tests green | Confirmed P0/P1 failures at that revision; no human review decision | Block merge and release |
 | Public payload `S` | Exact subject `b781882a11e8bbac3ae9684d199979a1f4ee1bf7` | 1,339 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; matrix remains 102+2 | Global adversarial verdict has no open public P0/P1; human review and E5 remain | Public release candidate; do not tag until `P`, E5 and human gates converge |
+| Public pressure payload `S2` | Exact subject `f0936539ca44c34ff5eacf5817b22ff9451b9cef` | 1,355 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; demo and audit remain deterministic | Portability, historical-action adoption, rollback truth and demo-link closure are executable contracts | Current rc3 candidate; adopt this exact subject on `P` |
 | Private pilot | Sanitized downstream checkpoint; exact branch, HEAD and PR remain in the private release receipt | Downstream automated suites were green at the checkpoint | Real-data philosophy is viable, but provenance, event typing, timeline and evidence receipts are incomplete | Block semantic approval |
 | Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | 22 claims bind test IDs; 12 canonical routes are collected; generation is deterministic and exact browser cells pass | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Exact public candidate complete; repeat with private composition on `P` |
 | Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | 489 frontend tests pass; PT-BR WebGL/fallback and long-copy browser cells run; 42/42 asset controls pass | Updated desktop/reader/mobile baselines were visually compared; VoiceOver remains a human gate | Automated candidate complete; run final human accessibility gate |
@@ -350,6 +366,21 @@ repository edit, screenshot, test result or new finding existed to merge. This
 is an eighth verified no-delta checkpoint, not evidence that the parallel task
 completed.
 
+A ninth read-only checkpoint at 03:24 BRT on 2026-07-12 resolved the apparent
+contradiction. The visible Claude session stopped at its rate limit, but its
+structured multi-agent workflow had completed seconds earlier and retained the
+full 115-agent result set: 22 confirmed findings plus three vision blocks for
+packs, timelines and design. It still produced no repository `Write`/`Edit`, no
+second plan and no newer project-store delta. Revalidation against current code
+found one material residual: migration rollback was accepted by string prefix
+instead of exact commit identity, and the Markdown migration report omitted
+`fixtures_added` that existed in JSON. Exact `S2` now requires every non-null
+migration SHA in reverse boundary order with `git revert --no-commit`, executes
+that command in a disposable consumer repository, proves return to the previous
+tree while preserving consumer config, and renders regression fixtures in both
+report formats. Local workflow paths, process IDs and hashes remain private
+review evidence and are intentionally absent here.
+
 The seven recovered long-form outputs were consolidated, not copied:
 
 | Recovered output | Canonical destination in this plan |
@@ -361,6 +392,21 @@ The seven recovered long-form outputs were consolidated, not copied:
 | Experience-pack assessment | Pack schema, lifecycle and starter verticals |
 | Timeline assessment | Temporal kernel, chronoscope and life/provenance views |
 | Design research | Visual system, asset register and dense-futurist direction |
+
+Four additional Claude ideas remain valuable but deliberately sit beyond the
+rc3 release boundary:
+
+- **Setup Studio** — evolve the existing Blocks dock into a visual composer for
+  blocks and packs, showing dependencies, conflicts, diff preview and a single
+  brief-to-PR output path;
+- **contract interview** — expose `interview_spec()` as a pack-extensible
+  conversational wizard that previews the exact contract before any write;
+- **Knowledge Garden / Quiet Reference Library** — add a calm pack for notes,
+  journals, inbox and low-pressure references, distinct from Study/Research;
+- **Module Orbit + bento docks** — explore an optional spatial map of installed
+  modules, while the accessible 2D counterpart uses compact bento cards,
+  tabular numerals and progressive disclosure. This is a P3 experiment, not a
+  replacement for current docks or tokens.
 
 The valuable output is therefore an input set that this plan adjudicates:
 
@@ -685,7 +731,7 @@ release authority.
 | --- | --- | --- | --- |
 | RT-21 | **Partial — P2 open** | The new v8 world, visual-control, Timeline and pack surfaces use parity-checked EN/PT namespaces; the PT-BR WebGL/fallback/long-copy browser cells pass. Static inspection still finds legacy visible copy in `App`, `ErrorBoundary`, `PacketTray` and renderer/HUD paths, so this is not global i18n closure | Keep the tested v8 surfaces green, inventory the remaining legacy literals by owning surface, migrate them without changing semantics, and add a fail-closed visible-copy gate before claiming whole-cockpit parity |
 | RT-32 | Public `S` closed; `P` pending | One canonical POSIX repo-relative parser rejects empty/dot/`..`, absolute, Windows-separator/drive and case-folded sensitive names before glob matching; the exact upgrade suite passed | Run the downstream import preflight against the pinned `S` tree |
-| RT-33 | Metadata `M` prepared; `P` pending | Migration boundaries must be distinct, repository-present and ancestry ordered; rollback IDs are cross-bound; Markdown renders the same warnings, owner, removal window and rollback data as JSON | Produce the real three-commit private migration report |
+| RT-33 | Exact `S2` closed; `P` pending | Migration boundaries must be distinct, repository-present and ancestry ordered; rollback now names every non-null SHA in reverse order, runs in a disposable consumer, preserves consumer config, and Markdown renders warnings plus regression fixtures consistently with JSON | Produce the real three-commit private migration report |
 | RT-35 | **Public P0/P1 closed** | External HEAD/refs/index, dirty paths, config/wiki/pack/derived fingerprints, linked worktrees and same-size/restored-mtime rewrites participate in request-time freshness. Two clients receive typed snapshot conflicts; focus/demo-return/failure and removed-page paths revalidate without preserving an invalid reader. Exact Python/browser gates pass | Optional proactive idle polling remains RT-127 P2 |
 | RT-36 | Public `S` closed; `P` pending | Field provenance survives graph compilation, so hierarchy, authored source evidence and reciprocal related links keep distinct typed meanings; exact snapshot/graph gates passed | Inventory real downstream relations after adoption |
 | RT-38 | Public `S` closed; human gate remains | Dedicated PT-BR browser specs cover functional WebGL, explicit topology-equivalent fallback, long guidance, reader, approval warning and mobile controls. Exact browser cells and reviewed macOS baselines pass | Retain platform-specific rasters, cross-platform semantic attachments and human VoiceOver review |
@@ -748,7 +794,7 @@ at `S`” never means released; downstream, E5 and human gates remain independen
 | RT-28 | P1 | Navigation UX owner | S | Exact `S` closed | Ancestry/state-rail route controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 | RT-29 | P1 | Search UX owner | P | Open | Real-data ranking/filter/bounded-results acceptance on adopted private build pending |
 | RT-32 | P1 | Upgrade owner | S→P | Public `S` closed; `P` pending | Exact 60/60 upgrade suite passes; private read-only preflight pending |
-| RT-33 | P1 | Migration owner | M→P | `M` pinned; `P` pending | Commit-boundary/report checks exist; real three-commit migration report pending |
+| RT-33 | P1 | Migration owner | S2→P | Exact `S2` closed; `P` pending | Canonical rollback is executed synthetically and report parity is closed; real three-commit migration report pending |
 | RT-34 | P0 | Snapshot owner | S | Exact `S` closed | Revision-bound body/hash and 409 controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 | RT-35 | P1 | Operator freshness owner | S | Exact `S` closed | External/linked/same-size/two-client/focus/demo/failure/removed-page controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 | RT-36 | P1 | Graph owner | S→P | Public `S` closed; `P` pending | Typed field provenance controls; full snapshot and downstream relation inventory pending |

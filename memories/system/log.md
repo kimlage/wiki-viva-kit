@@ -14,6 +14,26 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-12] System | V8 rc3 pressure payload proven
+
+- Public pressure payload `S2` is
+  `f0936539ca44c34ff5eacf5817b22ff9451b9cef`; historical `S=b781882a...`
+  remains immutable evidence for its exact subject.
+- Exact `S2` passed 1,355/1,355 Python tests, 489/489 frontend tests, 106/106
+  Node gates and 102/102 public browser cells on the first attempt with 0
+  skips/retries in 6.4 minutes. Normal audit remains 0 errors / 6 date-driven
+  freshness warnings; demo, build, architecture, assets and bundle are green.
+- The delta closes config-driven portable links, acyclic source integration,
+  content-bound pre-gate action adoption, exact reverse-order rollback with a
+  disposable Git proof, JSON/Markdown fixture parity and one broken demo link.
+- A ninth read-only Claude checkpoint recovered the completed structured
+  workflow behind the visible rate-limit stop. It produced the rollback/report
+  residuals above and four future design directions, but no repository write or
+  second plan.
+- Upgrade package `wiki-viva-v8-rc3` pins `S2`. The next gate is faithful
+  private import, Finance pack activation, real-data audit/operator/browser
+  proof and a redacted three-boundary migration report.
+
 ## [2026-07-12] System | V8 exact public payload proven; private adoption next
 
 - Portable payload `S` is
