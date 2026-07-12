@@ -91,6 +91,7 @@ _SENSITIVE_PORTABLE_BASENAMES = {
 _CONSUMER_OWNED_PORTABLE_PATHS = {"wiki.adapter-manifest.json"}
 _PORTABLE_ROOT_FILES = {
     "requirements.txt",
+    "scripts/README.md",
     "wiki.page-types.yaml",
     "wiki.templates.yaml",
 }
@@ -104,6 +105,7 @@ _PORTABLE_ROOT_PREFIXES = (
     "docs/references/guides/",
     "docs/references/releases/",
     "docs/references/schemas/",
+    "docs/references/templates/deploy/",
     "docs/references/upgrades/wiki-viva-v8/",
     "docs/references/fixtures/demo-wiki/",
 )
@@ -1168,7 +1170,9 @@ def migration_evidence_template(package: dict[str, Any]) -> dict[str, Any]:
         "rollback": {
             "previous_sha": "REPLACE_WITH_PREVIOUS_CONSUMER_SHA",
             "import_commit_sha": "REPLACE_WITH_IMPORT_COMMIT_SHA",
-            "command": "git revert <adaptation> <artifacts> <import>",
+            "command": (
+                "git revert --no-commit <adaptation> <artifacts> <import>"
+            ),
             "preserves_local_paths": [
                 "wiki.config.yaml",
                 "wiki.targets.yaml",
@@ -1353,8 +1357,21 @@ def validate_migration_evidence(
             "rollback.import_commit_sha must match consumer_after.import_commit_sha"
         )
     command = str(rollback.get("command") or "")
-    if not command.startswith("git revert "):
-        errors.append("rollback.command must use a reviewable git revert command")
+    rollback_targets = [
+        str(after.get(field) or "")
+        for field in (
+            "adaptation_commit_sha",
+            "artifact_commit_sha",
+            "import_commit_sha",
+        )
+        if after.get(field) not in (None, "")
+    ]
+    expected_command = "git revert --no-commit " + " ".join(rollback_targets)
+    if command != expected_command:
+        errors.append(
+            "rollback.command must exactly revert every non-null migration "
+            "commit SHA in reverse boundary order with --no-commit"
+        )
     preserved = _require_list(
         rollback.get("preserves_local_paths"), "rollback.preserves_local_paths", errors
     )
@@ -1734,6 +1751,10 @@ def render_migration_report_markdown(report: dict[str, Any]) -> str:
     lines.extend(["", "## Local overrides kept", ""])
     lines.extend(
         f"- `{_md(value)}`" for value in report.get("local_overrides_kept") or ["None"]
+    )
+    lines.extend(["", "## Synthetic regression fixtures", ""])
+    lines.extend(
+        f"- `{_md(value)}`" for value in report.get("fixtures_added") or ["None"]
     )
     lines.extend(
         [

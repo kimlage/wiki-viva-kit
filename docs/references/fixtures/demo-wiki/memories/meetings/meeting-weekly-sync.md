@@ -14,4 +14,4 @@ sub_lens: encontros
 
 # Weekly sync — Product Ops
 
-Sync with [João Mendes](../../people/person-joao-mendes.md). Decisions and follow-ups below.
+Sync with [João Mendes](../people/person-joao-mendes.md). Decisions and follow-ups below.

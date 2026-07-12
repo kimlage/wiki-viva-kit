@@ -38,7 +38,9 @@ portable_import:
     - apps/wiki-cockpit/**
     - .skills/wiki-*/**
     - packs/**
+    - scripts/README.md
     - docs/references/guides/**
+    - docs/references/templates/deploy/**
     - docs/references/schemas/**
     - docs/references/fixtures/demo-wiki/**
   block:

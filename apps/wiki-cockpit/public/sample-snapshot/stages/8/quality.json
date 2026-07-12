@@ -607,12 +607,12 @@
       "words": 18
     },
     {
-      "body_links": 0,
+      "body_links": 1,
       "context": "clientes",
       "estimated_tokens": 23,
       "information_density_per_1000_words": 55.56,
-      "link_density_per_1000_words": 55.56,
-      "outbound_links": 1,
+      "link_density_per_1000_words": 111.11,
+      "outbound_links": 2,
       "page_type": "meeting",
       "path": "memories/meetings/meeting-weekly-sync.md",
       "quality_exempt": [],

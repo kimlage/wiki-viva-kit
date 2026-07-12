@@ -14,5 +14,7 @@ description: Compile or review the living-wiki operation cockpit with current Gi
 4. Review the top "Short-term memory" section first: review-now items, primary actions and latest updates are the resume surface.
 5. Review decisions, actions, stale contexts, source queues, sources needing attention, input-stage warnings and problems/uncertainties.
 6. Run the relevant compilers with `--write` when the compiled pages are correct.
-7. Confirm [memories/operations.md](../../memories/operations.md), [memories/system/input-stage.md](../../memories/system/input-stage.md) and the operational pass have the intended `stale_after_days`.
-8. Record relevant memory changes in [memories/system/log.md](../../memories/system/log.md).
+7. Confirm the pages resolved by `WikiPaths.operation_page`,
+   `WikiPaths.input_stage_page` and `WikiPaths.operational_pass_page` have the
+   intended `stale_after_days`.
+8. Record relevant memory changes in the configured `WikiPaths.log_page`.

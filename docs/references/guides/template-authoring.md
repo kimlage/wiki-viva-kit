@@ -162,8 +162,8 @@ health, per-stream freshness vs cadence, and an "ingest N channels" brief.
 - **Migrate** legacy sources into the contract:
   `python3 scripts/wiki_migrate_templates.py` (dry-run) →  `--apply`. It is
   additive-only and never invents data; unknown values become `TODO`
-  placeholders you complete before merge. See the
-  [command reference](../../../memories/system/wiki/command-reference.md).
+  placeholders you complete before merge. See the consumer's configured
+  `paths.command_reference_page`.
 - **Verify** in the cockpit: open a page of the new type, click the type chip to
   see the template inspector (mold + facet field-map), and press `F` to center it
   through the four lenses.

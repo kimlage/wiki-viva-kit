@@ -50,8 +50,8 @@ list and defaults. The essentials:
 
 Create one top page that says what this wiki is about. For a personal wiki it
 is the person page; for a team it is the team page; for a company it is the
-company page; for this kit it is
-[wiki-viva-kit.md](../../../memories/system/wiki-viva-kit.md). Configure it in
+company page; for this kit it is the page declared by `root_entity.page`.
+Configure it in
 [wiki.config.yaml](../../../wiki.config.yaml):
 
 ```yaml

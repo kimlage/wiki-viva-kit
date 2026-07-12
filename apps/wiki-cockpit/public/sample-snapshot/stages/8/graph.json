@@ -1268,6 +1268,22 @@
       "weight": 1
     },
     {
+      "basis": "markdown_body",
+      "direction": "directed",
+      "id": "f6554bc9f062d0e1cb15",
+      "observed_at": "2026-07-03",
+      "provenance": {
+        "field": "body",
+        "page_id": "meeting-weekly-sync",
+        "path": "memories/meetings/meeting-weekly-sync.md"
+      },
+      "source": "meeting-weekly-sync",
+      "status": "valid",
+      "target": "person-joao-mendes",
+      "type": "markdown_link",
+      "weight": 1
+    },
+    {
       "basis": "frontmatter",
       "direction": "directed",
       "id": "8522080ff61afb4f341c",
@@ -5887,7 +5903,7 @@
       "id": "meeting-weekly-sync",
       "metrics": {
         "inbound_links": 0,
-        "outbound_links": 1,
+        "outbound_links": 2,
         "source_ref_count": 0
       },
       "overlay_metrics": {
@@ -6099,7 +6115,7 @@
       "freshness_state": "fresh",
       "id": "person-joao-mendes",
       "metrics": {
-        "inbound_links": 1,
+        "inbound_links": 2,
         "outbound_links": 1,
         "source_ref_count": 0
       },
@@ -10511,9 +10527,5 @@
   "relation_vocabulary_version": "wiki_relation_types.v1",
   "repo_id": "wiki-viva-demo",
   "schema_version": "wiki_web_graph.v2",
-  "wanted_pages": {
-    "people/person-joao-mendes.md": [
-      "memories/meetings/meeting-weekly-sync.md"
-    ]
-  }
+  "wanted_pages": {}
 }

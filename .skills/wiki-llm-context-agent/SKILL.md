@@ -72,8 +72,9 @@ ingesting = integrating.
    detail needs its own page and give each one a `moc_parent` hub (with the conflict
    fields `supersedes`/`superseded_by`/`conflicts_with`/`conflict_resolution`
    when claims collide); resolve or record EVERY conflict and ambiguity; fill in
-   the event's `consolidated_into` (each target page must reference the source
-   in `source_refs`). Close with the gates green:
+   the event's `consolidated_into` (each non-source target must reference the
+   source in `source_refs`; source identity targets use event/lifecycle closure
+   and never self-reference). Close with the gates green:
    ```bash
    python3 scripts/wiki_audit.py --check
    python3 scripts/wiki_consolidate.py --check

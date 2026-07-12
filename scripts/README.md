@@ -132,7 +132,7 @@ The v8 downstream release flow is read-only by default:
   evidence and compiles deterministic JSON/Markdown migration reports with
   gates, visual QA and rollback.
 
-The package and runbook live under
-[docs/references/upgrades/wiki-viva-v8](../docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml)
-and
+Release-owned package metadata remains under
+`docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml` in the public source
+tree. The portable consumer runbook is
 [wiki-viva-v8-downstream-upgrade.md](../docs/references/guides/wiki-viva-v8-downstream-upgrade.md).

@@ -17,19 +17,21 @@ description: Convert a new source into deterministic manifest, extracted text/ch
    (`--emit-request`, deep read by the agent, `--record-result`).
 6. Consolidate with [scripts/wiki_consolidate.py](../../scripts/wiki_consolidate.py):
    `--source <source_id> --emit-event --packet` generates the normalized event
-   in [memories/system/ingestion/events/](../../memories/system/ingestion/events/README.md)
+   in the ingestion-events directory resolved from `wiki.config.yaml` by
+   `WikiPaths.ingest_events_dir`
    from the recorded deep read (quadrants filled, claims/decisions/actions
    candidates, `consolidated_into: []` to close) plus the gitignored integration
-   packet; [docs/references/templates/wiki/ingestion-event.md](../../docs/references/templates/wiki/ingestion-event.md)
-   stays as the manual fallback.
+   packet; the consumer's configured ingestion-event template stays as the
+   manual fallback.
 7. INTEGRATE — ingesting = integrating, the work does not end at the recorded
    result: guided by the packet, update the target hubs/concepts incrementally
    before creating parallel relation pages;
    create/update load-bearing claim pages (conflict fields `supersedes`/
    `superseded_by`/`conflicts_with`/`conflict_resolution` when claims collide);
    resolve or record every conflict and ambiguity; fill the event's
-   `consolidated_into` (each target page references the source in
-   `source_refs`); every new action/claim/decision/meeting/person/project/source
+   `consolidated_into` (each non-source target page references the source in
+   `source_refs`; source identity targets use the event/lifecycle closure and
+   never self-reference); every new action/claim/decision/meeting/person/project/source
    page declares the hub it belongs under in `moc_parent`; keep its
    quadrant placement relative to the page's active center (`subject_ref`,
    `subject_role`, `parent_projection` for nested roots/templates, and

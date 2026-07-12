@@ -17,10 +17,9 @@ Use this runbook to upgrade a repository that consumes Wiki Viva Kit. It is a
 review-first migration: the public kit supplies contracts and read-only checks;
 the consumer owns its content, configuration, private evidence and PR.
 
-The machine-readable package is
-[upgrade-package.yaml](../upgrades/wiki-viva-v8/upgrade-package.yaml). Do not
-start a downstream import while its `release.status` is blocked or its
-`source_sha` is not an exact public commit.
+The machine-readable package lives in the public kit checkout under the v8
+upgrade metadata directory. Do not start a downstream import while its
+`release.status` is blocked or its `source_sha` is not an exact public commit.
 
 ```mermaid
 flowchart LR
@@ -41,11 +40,11 @@ flowchart LR
 
 | Artifact | Purpose | Publication boundary |
 | --- | --- | --- |
-| [upgrade-package.yaml](../upgrades/wiki-viva-v8/upgrade-package.yaml) | Release pin, contract versions, allowlist, blocklist, gates and compatibility window. | Public. |
-| [consumer-inventory.yaml](../upgrades/wiki-viva-v8/consumer-inventory.yaml) | Public-safe wave/status inventory. | Private paths, remotes, SHAs and drift filenames stay redacted. |
-| [gate-evidence.example.json](../upgrades/wiki-viva-v8/gate-evidence.example.json) | Exact current-gate receipts consumed by preflight. | Store the filled copy in the consumer branch or local evidence directory. |
-| [migration-evidence.example.yaml](../upgrades/wiki-viva-v8/migration-evidence.example.yaml) | Required post-import evidence. | Public export requires hashed/generic routes and no private content. |
-| [migration-report.schema.json](../upgrades/wiki-viva-v8/migration-report.schema.json) | Stable output contract for CI/PR tooling. | Public. |
+| `upgrade-package.yaml` | Release pin, contract versions, allowlist, blocklist, gates and compatibility window. | Public kit checkout. |
+| `consumer-inventory.yaml` | Public-safe wave/status inventory. | Private paths, remotes, SHAs and drift filenames stay redacted. |
+| `gate-evidence.example.json` | Exact current-gate receipts consumed by preflight. | Store the filled copy in the consumer branch or local evidence directory. |
+| `migration-evidence.example.yaml` | Required post-import evidence. | Public export requires hashed/generic routes and no private content. |
+| `migration-report.schema.json` | Stable output contract for CI/PR tooling. | Public kit checkout. |
 
 The Python tools are read-only unless an explicit output path is supplied. They
 never copy toolkit files and never change the consumer checkout.
@@ -222,7 +221,8 @@ route/center identifiers.
 The checked report cannot be `complete` without distinct, ancestry-ordered
 before/import/artifact/adaptation commits that exist in `--consumer-root`,
 allowlisted files, preserved overrides, warnings with owner and removal window,
-all gates, three visual profiles and a reviewable rollback command. Compilation
+all gates, three visual profiles and a canonical rollback command containing
+every non-null migration SHA in reverse boundary order. Compilation
 without `--check` remains useful for drafting, but it is not release evidence.
 
 ## 9. Roll back per repository

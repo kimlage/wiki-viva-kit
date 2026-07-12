@@ -258,6 +258,46 @@ def test_audit_consolidation_bites_and_passes(tmp_path, monkeypatch):
     audit.audit_consolidation(errors, warnings, cfg)
     assert any("does not reference the source back" in e for e in errors)
 
+    # A source identity page can be listed as a touched target without
+    # source-referring to itself. The event/lifecycle carries that closure;
+    # forcing a reverse edge would create a forbidden provenance cycle.
+    target.write_text(
+        "---\npage_id: source-test\npage_type: source\nsource_refs: []\n---\n",
+        encoding="utf-8",
+    )
+    (events / "e1.md").write_text(
+        _event_text(
+            "consolidated_into:\n"
+            "  - memories/index.md\n"
+            "sem_claim: source identity refreshed"
+        ),
+        encoding="utf-8",
+    )
+    audit.parse_frontmatter.cache_clear()
+    errors, warnings = [], []
+    audit.audit_consolidation(errors, warnings, cfg)
+    assert any("[source_only_consolidation]" in error for error in errors)
+
+    source_target = tmp_path / "memories/source.md"
+    source_target.write_text(target.read_text(encoding="utf-8"), encoding="utf-8")
+    target.write_text(
+        "---\npage_id: memories-index\nsource_refs:\n  - source-test\n---\n",
+        encoding="utf-8",
+    )
+    (events / "e1.md").write_text(
+        _event_text(
+            "consolidated_into:\n"
+            "  - memories/source.md\n"
+            "  - memories/index.md\n"
+            "sem_claim: synthesis merged into hub"
+        ),
+        encoding="utf-8",
+    )
+    audit.parse_frontmatter.cache_clear()
+    errors, warnings = [], []
+    audit.audit_consolidation(errors, warnings, cfg)
+    assert errors == []
+
     # 4) legacy event (no source_id) -> warning only
     (events / "e1.md").write_text("---\npage_id: old\n---\n## Quadrantes\n", encoding="utf-8")
     audit.parse_frontmatter.cache_clear()

@@ -68,6 +68,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_quadrant_contract.py](../../../scripts/wiki_quadrant_contract.py) | Prints the canonical Wilber/AQAL quadrant contract | Give external consumers the authoritative `q1/q2/q3/q4` mapping without scraping prose |
 | [wiki_quadrant_projection_report.py](../../../scripts/wiki_quadrant_projection_report.py) | Inventories anchor-relative quadrant projections | Review nested centers, `parent_projection`, `subject_ref` and ambiguous/Q0-heavy scopes before migrating pages |
 | [wiki_audit.py](../../../scripts/wiki_audit.py) | Audits the wiki contract | Validate contract/links/secrets at commit and in CI |
+| [wiki_action_adopt.py](../../../scripts/wiki_action_adopt.py) | Compiles a one-time pre-gate action baseline receipt | Adopt an exact downstream action tree without backdating fictional transition history |
 | [wiki_check_methodology_coverage.py](../../../scripts/wiki_check_methodology_coverage.py) | Checks the presence AND content of methodology v5 | Ensure the methodology is in fact implemented |
 | [wiki_pr_summary.py](../../../scripts/wiki_pr_summary.py) | Summarizes the PR diff by context/entity | Generate the PR review summary |
 | [wiki_git_subject.py](../../../scripts/wiki_git_subject.py) | Emits a stable path-safe Git/worktree fingerprint | Bind Python and Node release evidence to the same exact staged, unstaged, untracked and submodule state |
@@ -632,6 +633,28 @@ python3 scripts/wiki_quadrant_projection_report.py --out data/derived/wiki/quadr
 ## Audit, coverage and PR review
 
 These three typically run at commit and in CI; the complete semantics of gates are in [gates-and-audit.md](gates-and-audit.md).
+
+### [wiki_action_adopt.py](../../../scripts/wiki_action_adopt.py) - pre-gate action baseline adoption
+
+Compiles one consumer-owned `wiki.action-transition-adoption.yaml` receipt for
+an exact action tree that immediately predates introduction of the v8 action
+transition gate. It verifies that the baseline is the gate commit's first
+parent, that the marker is absent before and present after that commit, that the
+gate is in `HEAD`, and that the inventory count/hash covers every canonical
+action under configured `paths.memory_root`. The receipt is singular and
+immutable; it only substitutes the action audit base during the first adoption
+PR. Any later lifecycle/support delta still requires the ordinary central
+writer receipt.
+
+```sh
+python3 scripts/wiki_action_adopt.py \
+  --audit-base origin/main \
+  --baseline <pre-gate-commit> \
+  --gate-introduced <gate-commit> \
+  --recorded-at 2026-07-11T18:00:00Z \
+  --reason "Adopt the exact pre-gate downstream action tree." \
+  --write
+```
 
 ### [wiki_audit.py](../../../scripts/wiki_audit.py) - contract auditor
 

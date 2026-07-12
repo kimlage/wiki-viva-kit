@@ -1900,7 +1900,7 @@ keeping a calm calendar.
         # Make the weekly sync link João (drives his last_interaction) and the
         # journal too — so the relations module reads real interactions.
         if lid == "meeting-weekly-sync":
-            body += "Sync with [João Mendes](../../people/person-joao-mendes.md). Decisions and follow-ups below."
+            body += "Sync with [João Mendes](../people/person-joao-mendes.md). Decisions and follow-ups below."
         elif lid == "journal-2026-07-02":
             body += "Quick sync with [João Mendes](../people/person-joao-mendes.md); nothing blocking."
         elif lid == "action-enviar-proposta":

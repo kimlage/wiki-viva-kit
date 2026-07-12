@@ -63,7 +63,7 @@ visual_qa_evidence:
 rollback:
   previous_sha: REPLACE_WITH_PREVIOUS_CONSUMER_SHA
   import_commit_sha: REPLACE_WITH_IMPORT_COMMIT_SHA
-  command: git revert <adaptation> <artifacts> <import>
+  command: git revert --no-commit <adaptation> <artifacts> <import>
   preserves_local_paths:
     - wiki.config.yaml
     - wiki.targets.yaml

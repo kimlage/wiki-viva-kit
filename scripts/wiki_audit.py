@@ -19,11 +19,17 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+import yaml
+
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from wiki_core.config import WikiConfig, load_config
+from wiki_core.action_adoption import (
+    ACTION_ADOPTION_RECEIPT_PATH,
+    verify_action_adoption_git_contract,
+)
 from wiki_core.action_transition import action_transition_diagnostics
 from wiki_core.detectors import scan_file
 from wiki_core.experience_packs import PackError
@@ -318,8 +324,7 @@ def _text_at_audit_base(rel: str) -> str | None:
     return run_git(["show", f"{base}:{rel}"])
 
 
-@functools.lru_cache(maxsize=1)
-def _base_action_candidate_texts_by_path() -> dict[str, str]:
+def _action_candidate_texts_by_path_at_ref(base: str) -> dict[str, str]:
     """Read every base action candidate without trusting one textual spelling.
 
     Valid YAML may carry comments or flow style, while malformed action
@@ -327,13 +332,13 @@ def _base_action_candidate_texts_by_path() -> dict[str, str]:
     base Markdown tree avoids turning either case into apparent new content.
     """
 
-    base = _audit_base_ref()
     if not base:
         return {}
+    canonical_prefix = memory_prefix(load_config(ROOT))
     tree_paths = {
         rel
         for rel in run_git(["ls-tree", "-r", "--name-only", base]).splitlines()
-        if rel.endswith(".md")
+        if rel.endswith(".md") and rel.startswith(canonical_prefix)
     }
     matched_paths: set[str] = set()
     prefix = f"{base}:"
@@ -341,7 +346,7 @@ def _base_action_candidate_texts_by_path() -> dict[str, str]:
         ["grep", "-l", "-E", r"page_type[[:space:]]*:", base]
     ).splitlines():
         rel = matched[len(prefix) :] if matched.startswith(prefix) else matched
-        if rel.endswith(".md"):
+        if rel.endswith(".md") and rel.startswith(canonical_prefix):
             matched_paths.add(rel)
     action_directory_paths = {
         rel
@@ -367,11 +372,16 @@ def _base_action_candidate_texts_by_path() -> dict[str, str]:
 
 
 @functools.lru_cache(maxsize=1)
-def _base_action_texts_by_page_id() -> dict[str, tuple[tuple[str, str], ...]]:
-    """Index valid base action identity so renames cannot bypass the gate."""
+def _base_action_candidate_texts_by_path() -> dict[str, str]:
+    base = _audit_base_ref()
+    return _action_candidate_texts_by_path_at_ref(base) if base else {}
 
+
+def _action_texts_by_page_id_from_candidates(
+    candidates_by_path: dict[str, str],
+) -> dict[str, tuple[tuple[str, str], ...]]:
     grouped: dict[str, list[tuple[str, str]]] = {}
-    for rel, text in _base_action_candidate_texts_by_path().items():
+    for rel, text in candidates_by_path.items():
         values, _body = canonical_parse_frontmatter(text)
         if str(values.get("page_type") or "") != "action":
             continue
@@ -385,18 +395,41 @@ def _base_action_texts_by_page_id() -> dict[str, tuple[tuple[str, str], ...]]:
 
 
 @functools.lru_cache(maxsize=1)
-def _malformed_base_actions() -> dict[str, str]:
-    """Base action candidates that cannot establish canonical identity."""
+def _base_action_texts_by_page_id() -> dict[str, tuple[tuple[str, str], ...]]:
+    """Index valid base action identity so renames cannot bypass the gate."""
 
+    return _action_texts_by_page_id_from_candidates(
+        _base_action_candidate_texts_by_path()
+    )
+
+
+def _malformed_actions_from_candidates(
+    candidates_by_path: dict[str, str],
+) -> dict[str, str]:
     malformed: dict[str, str] = {}
-    for rel, text in _base_action_candidate_texts_by_path().items():
+    for rel, text in candidates_by_path.items():
         values, _body = canonical_parse_frontmatter(text)
         page_id = str(values.get("page_id") or "").strip()
         if str(values.get("page_type") or "") == "action" and page_id:
             continue
         flat_values, _errors = parse_frontmatter_flat_with_errors(text)
+        # Action directories also contain explicit indexes/queues. A valid
+        # non-action page there is not a malformed action and must not acquire
+        # a fictional lifecycle merely because of its parent directory.
+        flat_page_type = str(flat_values.get("page_type") or "").strip()
+        if flat_page_type and flat_page_type != "action":
+            continue
         malformed[rel] = str(flat_values.get("page_id") or "").strip()
     return malformed
+
+
+@functools.lru_cache(maxsize=1)
+def _malformed_base_actions() -> dict[str, str]:
+    """Base action candidates that cannot establish canonical identity."""
+
+    return _malformed_actions_from_candidates(
+        _base_action_candidate_texts_by_path()
+    )
 
 
 @functools.lru_cache(maxsize=1)
@@ -406,6 +439,7 @@ def _base_source_texts_by_page_id() -> dict[str, tuple[tuple[str, str], ...]]:
     base = _audit_base_ref()
     if not base:
         return {}
+    canonical_prefix = memory_prefix(load_config(ROOT))
     grouped: dict[str, list[tuple[str, str]]] = {}
     matches = run_git(
         [
@@ -421,7 +455,7 @@ def _base_source_texts_by_page_id() -> dict[str, tuple[tuple[str, str], ...]]:
     prefix = f"{base}:"
     for matched in matches.splitlines():
         rel = matched[len(prefix) :] if matched.startswith(prefix) else matched
-        if not rel.endswith(".md"):
+        if not rel.endswith(".md") or not rel.startswith(canonical_prefix):
             continue
         text = _text_at_audit_base(rel)
         if text is None:
@@ -484,6 +518,65 @@ def _impact_relevant_changed_paths() -> set[str]:
     }
 
 
+def _action_adoption_baseline(
+    errors: list[str], config: WikiConfig
+) -> tuple[str | None, bool]:
+    """Return a one-PR pre-gate action base, or an invalid-receipt flag.
+
+    A receipt already present at the PR base is inert and immutable: normal
+    action auditing resumes against that PR base. Only a newly added, fully
+    verified receipt can substitute its exact pre-gate baseline once.
+    """
+
+    rel = ACTION_ADOPTION_RECEIPT_PATH
+    path = ROOT / rel
+    previous_text = _text_at_audit_base(rel)
+    if previous_text is not None:
+        if not path.is_file():
+            errors.append(
+                f"{rel}: action adoption receipt cannot be deleted "
+                "[action_adoption_receipt_deleted]"
+            )
+            return None, True
+        current_text = path.read_text(encoding="utf-8", errors="replace")
+        if current_text != previous_text:
+            errors.append(
+                f"{rel}: action adoption receipt is immutable "
+                "[action_adoption_receipt_rewritten]"
+            )
+            return None, True
+        return None, False
+    if not path.is_file():
+        return None, False
+
+    try:
+        receipt = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        receipt = {}
+    if not isinstance(receipt, dict):
+        errors.append(
+            f"{rel}: action adoption receipt must be a mapping "
+            "[invalid_action_adoption_receipt]"
+        )
+        return None, True
+    base_ref = _audit_base_ref()
+    audit_base_commit = run_git(["rev-parse", base_ref]) if base_ref else ""
+    findings = verify_action_adoption_git_contract(
+        ROOT,
+        receipt,
+        repo_id=config.repo_id,
+        memory_root=str(config.paths["memory_root"]),
+        audit_base_commit=audit_base_commit,
+    )
+    if findings:
+        for finding in findings:
+            errors.append(
+                f"{rel}: {finding} [invalid_action_adoption_receipt]"
+            )
+        return None, True
+    return str(receipt.get("baseline_commit") or ""), False
+
+
 def audit_action_state_transitions(errors: list[str]) -> None:
     """Reject unaudited lifecycle edits to existing action pages.
 
@@ -494,8 +587,17 @@ def audit_action_state_transitions(errors: list[str]) -> None:
     migration no-op and is not blocked.
     """
 
-    base_by_page_id = _base_action_texts_by_page_id()
-    malformed_base_actions = _malformed_base_actions()
+    config = load_config(ROOT)
+    adoption_base, adoption_invalid = _action_adoption_baseline(errors, config)
+    if adoption_invalid:
+        return
+    if adoption_base:
+        base_candidates = _action_candidate_texts_by_path_at_ref(adoption_base)
+        base_by_page_id = _action_texts_by_page_id_from_candidates(base_candidates)
+        malformed_base_actions = _malformed_actions_from_candidates(base_candidates)
+    else:
+        base_by_page_id = _base_action_texts_by_page_id()
+        malformed_base_actions = _malformed_base_actions()
     base_by_path = {
         base_rel: text
         for candidates in base_by_page_id.values()
@@ -506,10 +608,19 @@ def audit_action_state_transitions(errors: list[str]) -> None:
         for page_id, candidates in base_by_page_id.items()
         for base_rel, _text in candidates
     }
-    changed = changed_paths_for_audit()
+    # Portable documentation and synthetic fixtures may contain authored
+    # action examples. The lifecycle writer governs only canonical pages under
+    # the consumer's configured memory root.
+    canonical_prefix = memory_prefix(config)
+    changed = {
+        rel
+        for rel in changed_paths_for_audit()
+        if rel.startswith(canonical_prefix)
+    }
     untracked = set(
         run_git(["ls-files", "--others", "--exclude-standard"]).splitlines()
     )
+    untracked = {rel for rel in untracked if rel.startswith(canonical_prefix)}
     current_action_locations: dict[str, set[str]] = {}
     for rel in sorted(changed | untracked):
         if not rel.endswith(".md") or not (ROOT / rel).is_file():
@@ -873,7 +984,7 @@ def audit_freshness_budget(errors: list[str], warnings: list[str], config: WikiC
 def audit_command_reference(errors: list[str], config: WikiConfig) -> None:
     """Doc-code gate of the meta-wiki (P2): the command reference must not drift.
 
-    Every tracked `scripts/wiki_*.py` CLI must be cited in the configured
+    Every tracked `wiki_*.py` CLI anywhere in the repo must be cited in the configured
     command-reference page, and every `wiki_*.py` cited there must exist in the
     repo. Cheap to maintain (one row in the table) and kills silent doc-code drift.
     """
@@ -882,7 +993,7 @@ def audit_command_reference(errors: list[str], config: WikiConfig) -> None:
     tracked_clis = {
         Path(rel).name
         for rel in tracked_files()
-        if rel.startswith("scripts/wiki_") and rel.endswith(".py")
+        if Path(rel).name.startswith("wiki_") and rel.endswith(".py")
     }
     if not ref_path.exists():
         # FAIL LOUD: with wiki CLIs tracked, a missing reference page means the
@@ -1624,19 +1735,34 @@ def audit_consolidation(errors: list[str], warnings: list[str], config: WikiConf
         source_ref = str(values.get("source_ref") or "").strip()
         if source_ref:
             source_refs.add(source_ref)
+        non_source_targets = 0
         for target in consolidated:
             target_path = ROOT / target
             if not target_path.exists():
                 errors.append(f"{rel}: consolidated_into path does not exist: `{target}`")
                 continue
+            target_values, _ = parse_frontmatter(target_path)
+            # A source page is provenance identity, not a derivative of
+            # itself or of every peer named by a multi-source event.
+            # Requiring source_refs here creates the exact cycles the
+            # snapshot contract correctly rejects. The event plus the
+            # source lifecycle closure remain the auditable connection.
+            if str(target_values.get("page_type") or "") == "source":
+                continue
+            non_source_targets += 1
             if source_refs:
-                target_values, _ = parse_frontmatter(target_path)
                 target_refs = set(list_values(target_values, "source_refs"))
                 if not (target_refs & source_refs):
                     errors.append(
                         f"{rel}: consolidated_into `{target}` does not reference the "
                         f"source back (source_refs missing any of: {', '.join(sorted(source_refs))})"
                     )
+        if consolidated and non_source_targets == 0:
+            errors.append(
+                f"{rel}: consolidated_into contains only source identity pages; "
+                "integration requires at least one non-source target "
+                "[source_only_consolidation]"
+            )
         bullets = _claims_section_bullets(event.read_text(encoding="utf-8", errors="replace"))
         claims_linked = list_values(values, "claims")
         no_claim_reason = str(values.get("sem_claim") or values.get("no_claim") or "").strip()

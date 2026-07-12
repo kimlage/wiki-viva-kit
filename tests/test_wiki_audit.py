@@ -1115,6 +1115,37 @@ def test_pt_pinned_layout_keeps_localized_repo_working(tmp_path, audit, monkeypa
     )
 
 
+def test_command_reference_discovers_repo_local_wiki_clis(
+    tmp_path, audit, monkeypatch
+):
+    reference = tmp_path / "memories/system/command-reference.md"
+    reference.parent.mkdir(parents=True)
+    reference.write_text(
+        "# Commands\n\n- `wiki_public.py`\n- `wiki_private.py`\n",
+        encoding="utf-8",
+    )
+    config = WikiConfig(
+        paths={
+            **WikiConfig().paths,
+            "command_reference_page": "memories/system/command-reference.md",
+        }
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "tracked_files",
+        lambda: [
+            "scripts/wiki_public.py",
+            "private/scripts/wiki_private.py",
+        ],
+    )
+    errors: list[str] = []
+
+    audit.audit_command_reference(errors, config)
+
+    assert errors == []
+
+
 # ---------------------------------------------------------------------------
 # Existing action lifecycle changes require a receipt chain
 # ---------------------------------------------------------------------------
@@ -1292,6 +1323,95 @@ def test_action_transition_audit_accepts_central_writer_receipt(
     assert errors == []
 
 
+def test_action_transition_audit_uses_verified_one_time_adoption_baseline(
+    tmp_path, monkeypatch, audit
+):
+    rel = "memories/actions/action-audit-synthetic.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    adopted = _action_document("waiting_human")
+    path.write_text(adopted, encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "_action_adoption_baseline",
+        lambda errors, config: ("baseline-commit", False),
+    )
+    monkeypatch.setattr(
+        audit,
+        "_action_candidate_texts_by_path_at_ref",
+        lambda ref: {rel: adopted},
+    )
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "run_git", lambda args: "")
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == []
+
+
+def test_action_adoption_receipt_is_byte_immutable_after_the_first_pr(
+    tmp_path, monkeypatch, audit
+):
+    rel = audit.ACTION_ADOPTION_RECEIPT_PATH
+    path = tmp_path / rel
+    path.write_text("schema_version: wiki_action_transition_adoption.v1\n", encoding="utf-8")
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        audit,
+        "_text_at_audit_base",
+        lambda candidate: (
+            "schema_version: wiki_action_transition_adoption.v1"
+            if candidate == rel
+            else None
+        ),
+    )
+    errors: list[str] = []
+
+    baseline, invalid = audit._action_adoption_baseline(errors, WikiConfig())
+
+    assert baseline is None and invalid is True
+    assert errors == [
+        f"{rel}: action adoption receipt is immutable "
+        "[action_adoption_receipt_rewritten]"
+    ]
+
+
+def test_new_action_adoption_receipt_exposes_only_a_verified_baseline(
+    tmp_path, monkeypatch, audit
+):
+    rel = audit.ACTION_ADOPTION_RECEIPT_PATH
+    path = tmp_path / rel
+    path.write_text(
+        "schema_version: wiki_action_transition_adoption.v1\n"
+        "baseline_commit: " + "b" * 40 + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "_text_at_audit_base", lambda candidate: None)
+    monkeypatch.setattr(audit, "_audit_base_ref", lambda: "origin/main")
+    monkeypatch.setattr(
+        audit,
+        "run_git",
+        lambda args: "a" * 40 if args[:1] == ["rev-parse"] else "",
+    )
+    verified: list[tuple[str, str]] = []
+
+    def verify(root, receipt, **kwargs):
+        verified.append((str(receipt["baseline_commit"]), kwargs["audit_base_commit"]))
+        return []
+
+    monkeypatch.setattr(audit, "verify_action_adoption_git_contract", verify)
+    errors: list[str] = []
+
+    baseline, invalid = audit._action_adoption_baseline(errors, WikiConfig())
+
+    assert baseline == "b" * 40 and invalid is False
+    assert errors == []
+    assert verified == [("b" * 40, "a" * 40)]
+
+
 def test_action_transition_audit_checks_untracked_half_of_identity_move(
     tmp_path, monkeypatch, audit
 ):
@@ -1389,6 +1509,73 @@ def test_action_transition_audit_rejects_history_on_new_untracked_action(
     ]
 
 
+def test_action_transition_audit_ignores_portable_fixture_actions(
+    tmp_path, monkeypatch, audit
+):
+    rel = "docs/references/fixtures/demo-wiki/memories/actions/action-new.md"
+    path = tmp_path / rel
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        _action_document("open").replace(
+            "next_action: Review synthetic evidence.\n",
+            "action_state_history:\n"
+            "- schema_version: wiki_action_transition_receipt.v2\n"
+            "  from: done\n"
+            "  to: open\n"
+            "next_action: Review synthetic evidence.\n",
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    monkeypatch.setattr(audit, "changed_paths_for_audit", lambda: {rel})
+    monkeypatch.setattr(audit, "_base_action_texts_by_page_id", lambda: {})
+    monkeypatch.setattr(audit, "_malformed_base_actions", lambda: {})
+    monkeypatch.setattr(
+        audit,
+        "run_git",
+        lambda args: rel
+        if args[:3] == ["ls-files", "--others", "--exclude-standard"]
+        else "",
+    )
+    errors: list[str] = []
+
+    audit.audit_action_state_transitions(errors)
+
+    assert errors == []
+
+
+def test_base_action_index_ignores_explicit_non_action_pages_in_action_directory(
+    monkeypatch, audit
+):
+    index = (
+        "---\n"
+        "page_id: actions-index\n"
+        "page_type: ontology_index\n"
+        "---\n\n"
+        "# Actions\n"
+    )
+    malformed = (
+        "---\n"
+        "page_id: action-broken\n"
+        "page_type: action\n"
+        "broken: [\n"
+        "---\n"
+    )
+    monkeypatch.setattr(
+        audit,
+        "_base_action_candidate_texts_by_path",
+        lambda: {
+            "memories/actions/index.md": index,
+            "memories/actions/broken.md": malformed,
+        },
+    )
+    audit._malformed_base_actions.cache_clear()
+
+    assert audit._malformed_base_actions() == {
+        "memories/actions/broken.md": "action-broken"
+    }
+
+
 def test_base_action_index_discovers_nested_commented_yaml_in_real_git_repo(
     tmp_path, monkeypatch, audit
 ):
@@ -1454,6 +1641,62 @@ def test_base_action_index_discovers_nested_commented_yaml_in_real_git_repo(
         audit._malformed_base_actions,
     ):
         cached.cache_clear()
+
+
+def test_base_action_index_excludes_fixture_page_id_collisions(
+    tmp_path, monkeypatch, audit
+):
+    canonical_rel = "memories/actions/action.md"
+    fixture_rel = "docs/references/fixtures/demo-wiki/memories/actions/action.md"
+    for rel in (canonical_rel, fixture_rel):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(_action_document("open"), encoding="utf-8")
+    subprocess.run(
+        ["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True
+    )
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "add",
+            ".",
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-m",
+            "canonical and fixture actions",
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+    )
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    for cached in (
+        audit._audit_base_ref,
+        audit._text_at_audit_base,
+        audit._base_action_candidate_texts_by_path,
+        audit._base_action_texts_by_page_id,
+        audit._malformed_base_actions,
+    ):
+        cached.cache_clear()
+
+    candidates = audit._base_action_texts_by_page_id()["action-audit-synthetic"]
+
+    assert [rel for rel, _text in candidates] == [canonical_rel]
 
 
 def _source_audit_document(

@@ -135,9 +135,8 @@ lower-right/exterior-collective. See [Four Quadrants](https://integrallife.com/f
 [The Four Quadrants: A Guided Tour](https://integrallife.com/the-four-quadrants-a-guided-tour/),
 [What Is Integral Approach?](https://integrallife.com/what-is-integral-approach/)
 and [The Five Elements of AQAL](https://integrallife.com/five-elements-aqal/).
-The local audit report
-[AQAL quadrant alignment check](../reports/aqal-quadrant-alignment-2026-06-25.md)
-records how those sources map into the kit's operational tests.
+The kit's local AQAL alignment audit records how those sources map into the
+operational tests; downstream consumers do not need that release-time report.
 
 The compiler emits two compatible outputs:
 

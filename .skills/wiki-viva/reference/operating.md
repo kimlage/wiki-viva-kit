@@ -94,8 +94,10 @@ Then **you integrate**, guided by the packet:
   (`supersedes` / `superseded_by` / `conflicts_with` / `conflict_resolution`)
   when claims collide, and declare the target hub in `moc_parent`;
 - resolve or record **every** conflict and ambiguity the packet surfaces;
-- fill the event's `consolidated_into` — each target page must reference the
-  source back in `source_refs`.
+- fill the event's `consolidated_into` — each non-source target page must
+  reference the source back in `source_refs`; source identity targets use the
+  event/lifecycle closure and never self-reference. At least one non-source
+  target is required, because cataloging a source is not integration.
 
 Close the loop with the gates:
 

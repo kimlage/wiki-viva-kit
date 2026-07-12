@@ -14,7 +14,7 @@ Run them before every PR.
 | Cockpit freshness | The cockpit page equals a recompile at HEAD (deterministic view) | [wiki_operation_compile.py](../../../scripts/wiki_operation_compile.py) `--check` |
 | Input stage freshness | The generated root/channel/source staging page equals a recompile at HEAD | [wiki_input_stage.py](../../../scripts/wiki_input_stage.py) `--check` |
 | Source registry freshness | Canonical source registry equals source page frontmatter | [wiki_source_registry.py](../../../scripts/wiki_source_registry.py) `--check` |
-| Consolidation closed | Ingesting = integrating: a deep-read-complete source needs its event, the event needs `consolidated_into`, each target references the source back, and candidate claims are linked or explicitly waived (`sem_claim`) | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` + [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` |
+| Consolidation closed | Ingesting = integrating: a deep-read-complete source needs its event and at least one non-source `consolidated_into` target; each non-source target references the source back, source identity targets stay acyclic, and candidate claims are linked or explicitly waived (`sem_claim`) | [wiki_consolidate.py](../../../scripts/wiki_consolidate.py) `--check` + [wiki_audit.py](../../../scripts/wiki_audit.py) `--check` |
 | Quality and hierarchy | Dense pages, low repetition, closed events, operational coverage and relation pages routed through `moc_parent`/parent hubs when configured | [wiki_quality_report.py](../../../scripts/wiki_quality_report.py) `--check` |
 | Tests | The deterministic core behaves | `python3 -m pytest tests/` |
 

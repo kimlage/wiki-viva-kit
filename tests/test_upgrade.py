@@ -4,6 +4,8 @@ import copy
 import hashlib
 import io
 import json
+import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -247,7 +249,10 @@ def migration_evidence(pkg: dict) -> dict:
         "rollback": {
             "previous_sha": sha("consumer-before"),
             "import_commit_sha": sha("import"),
-            "command": "git revert adaptation artifacts import",
+            "command": (
+                f"git revert --no-commit {sha('adaptation')} "
+                f"{sha('artifact')} {sha('import')}"
+            ),
             "preserves_local_paths": ["wiki.config.yaml", "memories/"],
         },
     }
@@ -432,6 +437,87 @@ def test_portable_wildcard_directory_glob_honors_block_precedence() -> None:
         False,
         "blocked by .skills/wiki-private*/**",
     )
+
+
+def test_portable_skills_resolve_consumer_owned_paths_from_config() -> None:
+    pkg = yaml.safe_load(
+        (
+            ROOT
+            / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    skill_files = sorted((ROOT / ".skills").glob("wiki-*/**/*.md"))
+    hardcoded_consumer_links: list[str] = []
+    for path in skill_files:
+        text = path.read_text(encoding="utf-8")
+        for line_number, line in enumerate(text.splitlines(), 1):
+            for href in re.findall(r"\]\(([^)#]+)(?:#[^)]*)?\)", line):
+                if "://" in href or href.startswith("mailto:"):
+                    continue
+                resolved = (path.parent / href).resolve()
+                try:
+                    rel = resolved.relative_to(ROOT).as_posix()
+                except ValueError:
+                    continue
+                configurable = rel.startswith(
+                    ("memories/", "docs/references/", "data/raw/", "data/derived/")
+                )
+                if configurable and not portable_path_status(rel, pkg)[0]:
+                    hardcoded_consumer_links.append(
+                        f"{path.relative_to(ROOT)}:{line_number}->{rel}"
+                    )
+
+    assert hardcoded_consumer_links == []
+
+
+def test_portable_markdown_links_close_over_the_upgrade_package() -> None:
+    pkg = yaml.safe_load(
+        (
+            ROOT
+            / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    tracked = subprocess.check_output(
+        ["git", "ls-files", "*.md"], cwd=ROOT, text=True
+    ).splitlines()
+    stable_consumer_files = {
+        "README.md",
+        "AGENTS.md",
+        "wiki.config.yaml",
+        "wiki.page-types.yaml",
+        "wiki.templates.yaml",
+        "wiki.targets.yaml",
+        ".github/workflows/wiki.yml",
+    }
+    broken: list[str] = []
+    for rel in tracked:
+        if not portable_path_status(rel, pkg)[0]:
+            continue
+        path = ROOT / rel
+        for line_number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), 1
+        ):
+            for href in re.findall(r"\]\(([^)#]+)(?:#[^)]*)?\)", line):
+                if "://" in href or href.startswith("mailto:"):
+                    continue
+                target = (path.parent / href).resolve()
+                try:
+                    target_rel = target.relative_to(ROOT).as_posix()
+                except ValueError:
+                    continue
+                if not target.is_file():
+                    broken.append(f"{rel}:{line_number}->missing:{target_rel}")
+                    continue
+                consumer_stable = (
+                    target_rel in stable_consumer_files
+                    or target_rel.startswith("tests/")
+                )
+                if not portable_path_status(target_rel, pkg)[0] and not consumer_stable:
+                    broken.append(
+                        f"{rel}:{line_number}->nonportable:{target_rel}"
+                    )
+
+    assert broken == []
 
 
 def test_portable_literal_globstar_keeps_directory_semantics() -> None:
@@ -738,6 +824,8 @@ def test_migration_report_is_complete_deterministic_and_renderable() -> None:
     assert "## Warnings" in markdown
     assert "consumer-maintainer" in markdown
     assert "v9 stable" in markdown
+    assert "## Synthetic regression fixtures" in markdown
+    assert "tests/fixtures/core-bug.yaml" in markdown
     assert "## Rollback" in markdown
     assert first["report_id"] in markdown
 
@@ -766,9 +854,12 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         {
             "previous_sha": before_sha,
             "import_commit_sha": commits[0],
-            "command": f"git revert {commits[2]} {commits[1]} {commits[0]}",
+            "command": (
+                f"git revert --no-commit {commits[2]} {commits[1]} {commits[0]}"
+            ),
         }
     )
+    preserved_config = (target / "wiki.config.yaml").read_bytes()
 
     assert validate_migration_evidence(
         evidence,
@@ -776,6 +867,37 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         consumer_root=target,
         require_git_commits=True,
     ) == []
+
+    rollback_run = subprocess.run(
+        shlex.split(evidence["rollback"]["command"]),
+        cwd=target,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert rollback_run.returncode == 0, rollback_run.stderr + rollback_run.stdout
+    assert subprocess.run(
+        ["git", "diff", "--quiet", before_sha, "--", "."],
+        cwd=target,
+        check=False,
+    ).returncode == 0
+    assert (target / "wiki.config.yaml").read_bytes() == preserved_config
+
+    wrong_rollback = copy.deepcopy(evidence)
+    wrong_rollback["rollback"]["command"] = (
+        f"git revert --no-commit {commits[0]} {commits[1]} {commits[2]}"
+    )
+    assert any(
+        "exactly revert every non-null migration commit SHA" in error
+        for error in validate_migration_evidence(wrong_rollback, pkg)
+    )
+
+    injected_rollback = copy.deepcopy(evidence)
+    injected_rollback["rollback"]["command"] += " && echo bypass"
+    assert any(
+        "exactly revert every non-null migration commit SHA" in error
+        for error in validate_migration_evidence(injected_rollback, pkg)
+    )
 
     duplicate = copy.deepcopy(evidence)
     duplicate["consumer_after"]["artifact_commit_sha"] = commits[0]
@@ -1089,7 +1211,7 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
             "previous_sha": head,
             "import_commit_sha": migration_commits[0],
             "command": (
-                f"git revert {migration_commits[2]} {migration_commits[1]} "
+                f"git revert --no-commit {migration_commits[2]} {migration_commits[1]} "
                 f"{migration_commits[0]}"
             ),
         }
