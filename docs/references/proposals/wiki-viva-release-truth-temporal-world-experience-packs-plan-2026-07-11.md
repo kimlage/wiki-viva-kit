@@ -892,6 +892,37 @@ their hit pixels and the forced-fallback core remains inside the viewport.
 Focused proof passed 9/9 route cells, 7/7 WebKit mobile-parity cells, 2/2 guide
 and six-viewport geometry controls, plus 5/5 visual baselines repeated twice.
 
+### First private-adoption preflight — blocked usefully
+
+The first redacted, read-only preflight against the clean private pilot did not
+authorize import. It passed the pinned-source, branch, clean-worktree, real
+snapshot and privacy checks, then reported the expected pre-upgrade delta:
+**490 files only in `S`, 971 differing portable files and 25 consumer-only
+portable files (1,486 total)**. Required gate evidence had not yet been recorded,
+so that check also remained blocked by design.
+
+More importantly, the new fail-closed policy rejected the historical
+`.toolkit-drift-ignore`: it named core `tests/`, `scripts/` and the CI workflow,
+which can no longer disappear from drift accounting. The resolution preserves
+private capability without weakening the public contract:
+
+1. public package v2 treats `.github/workflows/**` as consumer-owned deployment
+   policy and never overwrites it;
+2. private-only tests and scripts move under the already blocked `private/**`
+   extension boundary and remain collected explicitly by the private test
+   configuration;
+3. the public base `wiki.templates.yaml`, `wiki.page-types.yaml` and
+   `requirements.txt` become byte-identical to `S`, while private deltas move to
+   `wiki.templates.local.yaml`, `wiki.page-types.local.yaml` and
+   `requirements.private.txt`;
+4. the unsafe ignore file is removed; final migration evidence may say
+   `toolkit_drift=pass` only at literal zero.
+
+This is a real package-boundary improvement discovered by downstream pressure,
+not a waiver. The public payload SHA remains unchanged because the correction
+is metadata/import policy in `M`; the private structural moves belong to the
+downstream adaptation boundary.
+
 ### Historical private downstream pilot checkpoint
 
 All counts in this subsection predate the exact public `S` adoption and are

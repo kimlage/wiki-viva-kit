@@ -38,6 +38,13 @@ Append-only record of changes in the [memories/](../index.md) layer.
   dry-run, three reviewable commits, real operator identity, non-empty
   Chronoscope, themes, desktop/mobile/fallback and the two mandatory downstream
   browser cells. Human merge/tag and external E5 authority remain pending.
+- The first redacted private preflight correctly blocked blind import: the
+  branch, pinned source, real snapshot and privacy checks passed, while 1,486
+  portable differences and unsafe historical drift-ignore patterns remained.
+  Package v2 now treats CI workflows as consumer-owned policy. Private-only
+  tests/scripts must move under the already blocked private extension surface,
+  and local requirements/templates/page types must use downstream overlays
+  before toolkit drift can reach zero.
 
 ## [2026-07-11] System | V8 release readiness reopened
 

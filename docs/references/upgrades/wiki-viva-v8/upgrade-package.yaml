@@ -38,7 +38,6 @@ portable_import:
     - tests/**
     - apps/wiki-cockpit/**
     - .skills/wiki-*/**
-    - .github/workflows/**
     - packs/**
     - docs/references/guides/**
     - docs/references/schemas/**
@@ -58,6 +57,7 @@ portable_import:
     - .wiki-viva/**
     - docs/references/releases/wiki-viva-v8.md
     - docs/references/upgrades/wiki-viva-v8/**
+    - .github/workflows/**
     - apps/wiki-cockpit/public/wiki-cockpit.config.json
     - apps/wiki-cockpit/tmp/**
     - data/raw/**
@@ -182,4 +182,5 @@ known_limitations:
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - The private pilot must import this exact payload in three reviewable boundaries and repeat the real-data operator, Chronoscope, pack, theme, mobile and fallback matrix before adoption can be claimed.
   - Causal self/cycle/time-direction validation and full-graph attestation for future paginated temporal APIs remain explicit P2 follow-ups.
+  - CI workflows are consumer-owned deployment policy and are intentionally excluded from portable import; downstreams must keep their own gates at least as strict.
   - Consumer-specific core failures must first become synthetic public fixtures.

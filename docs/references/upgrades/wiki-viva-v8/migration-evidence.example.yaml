@@ -27,6 +27,10 @@ local_overrides_kept:
   - wiki.targets.yaml
   - wiki.packs.lock.yaml
   - wiki.adapter-manifest.json
+  - wiki.page-types.local.yaml
+  - wiki.templates.local.yaml
+  - requirements.private.txt
+  - .github/workflows/wiki.yml
   - apps/wiki-cockpit/public/wiki-cockpit.config.json
 warnings: []
 fixtures_added: []
