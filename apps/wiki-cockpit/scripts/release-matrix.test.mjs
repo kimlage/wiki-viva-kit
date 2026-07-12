@@ -388,6 +388,10 @@ function validManifest(overrides = {}) {
     },
     capabilities: ["temporal_graph", "experience_packs"],
     integrity: {
+      "pages.json": {
+        sha256: sha256CanonicalJson(validPages()),
+        bytes: Buffer.byteLength(JSON.stringify(validPages()))
+      },
       "temporal_graph.json": {
         sha256: sha256CanonicalJson(TEMPORAL_GRAPH),
         bytes: Buffer.byteLength(JSON.stringify(TEMPORAL_GRAPH))
@@ -405,6 +409,7 @@ function validManifest(overrides = {}) {
 function manifestForPayloads(temporalGraph, experiencePacks, overrides = {}) {
   return validManifest({
     integrity: {
+      ...validManifest().integrity,
       "temporal_graph.json": {
         sha256: sha256CanonicalJson(temporalGraph),
         bytes: Buffer.byteLength(JSON.stringify(temporalGraph))
@@ -421,7 +426,6 @@ function manifestForPayloads(temporalGraph, experiencePacks, overrides = {}) {
 function validPages() {
   return {
     repo_id: "private-pilot",
-    snapshot_id: "private-pilot-aaaaaaaaaaaaaaaa",
     pages: Array.from({ length: 42 }, () => ({}))
   };
 }
@@ -651,6 +655,19 @@ test("downstream preflight verifies repo, revision, hash, temporal graph, empty 
   assert.ok(evidence.snapshot_capabilities.includes("experience_packs"));
   assert.deepEqual(evidence.contract_errors, []);
   assert.equal(evaluateDownstreamPreflightRecord(evidence, VALID_ENV).ok, true);
+
+  // These core-owned kinds are emitted only when a downstream has historical
+  // action migrations, so the public demo alone cannot exercise them. Keep
+  // the independent release validator aligned with the runtime/UI contract.
+  for (const kind of ["action_state_canonicalized", "action_contract_updated"]) {
+    const temporalGraph = temporalFixture({ events: [temporalEventFixture({ kind })] });
+    await assert.doesNotReject(
+      () => runDownstreamPreflight(VALID_ENV, fixtureFetch({
+        manifest: manifestForPayloads(temporalGraph, EMPTY_COMPOSITION),
+        temporalGraph
+      }))
+    );
+  }
 });
 
 test("downstream preflight accepts one explicitly attested active pack and records it exactly", async () => {

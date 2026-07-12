@@ -339,7 +339,8 @@ const TEMPORAL_EVENT_KINDS = new Set([
   "activity_recorded", "snapshot_recorded", "git_commit_recorded", "page_updated",
   "source_configured", "source_ingested", "source_refreshed", "source_refresh_due",
   "source_pipeline_advanced", "ingestion_recorded", "action_created", "action_due",
-  "action_completed", "action_cancelled", "action_state_changed", "decision_recorded",
+  "action_completed", "action_cancelled", "action_state_changed",
+  "action_state_canonicalized", "action_contract_updated", "decision_recorded",
   "decision_made", "receipt_recorded"
 ]);
 const TEMPORAL_NAMESPACED_KIND_PATTERN = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*){1,5}$/;
@@ -1177,7 +1178,6 @@ export async function runDownstreamPreflight(
   ]);
 
   const pageCount = Array.isArray(pages.pages) ? pages.pages.length : 0;
-  const pagesRevision = String(pages.snapshot_id || "");
   const pagesRepo = String(pages.repo_id || pages.repo?.repo_id || "");
   const manifestRepo = String(manifest.repo?.repo_id || "");
   const healthRepo = String(health.repo || "");
@@ -1235,9 +1235,6 @@ export async function runDownstreamPreflight(
   }
   if (revision !== expected.expectedRevision) {
     failures.push(`snapshot revision ${revision || "(missing)"} != ${expected.expectedRevision}`);
-  }
-  if (pagesRevision !== expected.expectedRevision) {
-    failures.push(`pages snapshot revision ${pagesRevision || "(missing)"} != ${expected.expectedRevision}`);
   }
   if (bundleHash !== expected.expectedHash) {
     failures.push(`snapshot hash ${bundleHash || "(missing)"} != ${expected.expectedHash}`);
@@ -1309,6 +1306,7 @@ export async function runDownstreamPreflight(
     failures.push("experience pack active packs do not exactly match WIKI_COCKPIT_EXPECT_ACTIVE_PACKS");
   }
   for (const [file, payload] of [
+    ["pages.json", pages],
     ["temporal_graph.json", temporalGraph],
     ["experience_packs.json", experiencePacks]
   ]) {

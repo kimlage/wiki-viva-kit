@@ -127,7 +127,6 @@ test("exact downstream operator serves the attested repo, revision, hash and cap
 
   expect(pages.repo_id || pages.repo?.repo_id).toBe(expectedRepo);
   expect(Array.isArray(pages.pages) ? pages.pages.length : 0).toBeGreaterThanOrEqual(minPages);
-  expect(pages.snapshot_id).toBe(expectedRevision);
   expect(manifest.repo?.repo_id).toBe(expectedRepo);
   expect(manifest.snapshot_id).toBe(expectedRevision);
   expect(String(manifest.bundle_hash || "").toLowerCase()).toBe(expectedHash);
@@ -159,6 +158,7 @@ test("exact downstream operator serves the attested repo, revision, hash and cap
     slots: experiencePacks.slots,
     presentation: experiencePacks.presentation
   }).sha256).toBe(expectedCompositionSha256);
+  expect(canonicalEvidence(pages)).toEqual(manifest.integrity?.["pages.json"]);
   expect(canonicalEvidence(temporal)).toEqual(manifest.integrity?.["temporal_graph.json"]);
   expect(canonicalEvidence(experiencePacks)).toEqual(manifest.integrity?.["experience_packs.json"]);
   expect(manifest.contract_errors).toEqual([]);
