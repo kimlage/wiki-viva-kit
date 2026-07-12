@@ -297,6 +297,7 @@ for (const theme of THEMES) {
       await attachViewportScreenshot(page, testInfo, `appearance-${theme.id}-${density}`);
 
       await page.reload();
+      await expect(page.locator(".worldWorkspace")).toBeVisible({ timeout: 20_000 });
       await expect(page.locator("html")).toHaveAttribute("data-wiki-theme", theme.id);
       await expect(page.locator("html")).toHaveAttribute("data-wiki-density", density);
       expect(page.url()).toBe(routeBefore);
