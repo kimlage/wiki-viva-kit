@@ -411,6 +411,28 @@ def test_genesis_stage_zero_emits_a_declared_null_root_empty_world(tmp_path: Pat
     assert manifest["contract_errors"] == []
 
 
+def test_demo_contracts_ignore_downstream_root_registry_overrides(
+    tmp_path: Path, monkeypatch
+) -> None:
+    demo = _demo_module()
+    consumer_root = tmp_path / "consumer"
+    consumer_root.mkdir()
+    for name in ("wiki.page-types.yaml", "wiki.templates.yaml"):
+        (consumer_root / name).write_text(
+            f"consumer-only: {name}\n", encoding="utf-8"
+        )
+
+    monkeypatch.setattr(demo, "KIT_ROOT", consumer_root)
+    fixture = tmp_path / "fixture"
+    demo.write_fixture(fixture, stage=0)
+
+    for name in ("wiki.page-types.yaml", "wiki.templates.yaml"):
+        assert (fixture / name).read_bytes() == (
+            demo.DEMO_CONTRACTS_ROOT / name
+        ).read_bytes()
+        assert (fixture / name).read_bytes() != (consumer_root / name).read_bytes()
+
+
 def test_check_mode_regenerates_in_temp_and_never_mutates_targets(
     tmp_path: Path, monkeypatch
 ) -> None:

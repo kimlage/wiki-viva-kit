@@ -53,6 +53,10 @@ from wiki_core.frontmatter import parse_frontmatter  # noqa: E402
 
 FIXTURE = KIT_ROOT / "docs/references/fixtures/demo-wiki"
 OUT = KIT_ROOT / "apps/wiki-cockpit/public/sample-snapshot"
+# The synthetic demo owns its executable contracts. Downstream consumers may
+# localize or extend their root registries, but those adapters must never
+# rewrite the public fixture or make `--check` report consumer-only drift.
+DEMO_CONTRACTS_ROOT = FIXTURE
 SCENARIOS_DIR = FIXTURE / "scenarios"
 PACK_SHOWCASES_DIR = SCENARIOS_DIR / "pack-showcases"
 
@@ -2289,10 +2293,20 @@ def _write_fixture_contracts(
     contexts: Sequence[str] = ("pessoal", "financeiro", "clientes", "estudio", "sistema"),
     root_entity_type: str = "person",
 ) -> None:
-    """Write the shared v2 registries and a deterministic fixture config."""
+    """Write demo-owned v2 registries and a deterministic fixture config.
+
+    The committed fixture contracts are the synthetic world's source of truth.
+    Reading ``KIT_ROOT/wiki.*`` here made an installed downstream consumer's
+    local registry silently redefine the public demo.
+    """
 
     for name in ("wiki.templates.yaml", "wiki.page-types.yaml"):
-        shutil.copy(KIT_ROOT / name, target / name)
+        source = DEMO_CONTRACTS_ROOT / name
+        destination = target / name
+        if not source.is_file():
+            raise FileNotFoundError(f"missing demo contract: {source}")
+        if source.resolve() != destination.resolve():
+            shutil.copy2(source, destination)
     context_list = ", ".join(contexts)
     (target / "wiki.config.yaml").write_text(
         f"repo_id: {repo_id}\n"
