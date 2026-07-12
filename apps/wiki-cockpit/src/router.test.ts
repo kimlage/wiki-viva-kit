@@ -127,6 +127,47 @@ describe("router grammar", () => {
     );
   });
 
+  it("keeps canonical compat page and group query state synchronized after normalization", () => {
+    const normalized = parseRoute(
+      "/demo/w",
+      "?view=atlas&group=old-group&page=old-page&compat_context=clientes&reader=1&runtime=compat"
+    );
+    if (normalized.kind !== "world") throw new Error("expected world route");
+
+    const nextPage = patchWorld(normalized, {
+      context: "clientes",
+      group: "new-group",
+      pageId: "new-page",
+      reader: true
+    });
+    expect(buildUrl(nextPage)).toBe(
+      "/demo/w?view=atlas&group=new-group&page=new-page&compat_context=clientes&reader=1&runtime=compat"
+    );
+
+    const nextPageUrl = new URL(buildUrl(nextPage), "http://local.test");
+    const reparsed = parseRoute(nextPageUrl.pathname, nextPageUrl.search);
+    if (reparsed.kind !== "world") throw new Error("expected round-tripped world route");
+    expect(buildUrl(patchWorld(reparsed, { reader: false }))).toContain("group=new-group");
+
+    const withoutPage = retreat(reparsed);
+    expect(buildUrl(withoutPage)).toBe(
+      "/demo/w?view=atlas&group=new-group&compat_context=clientes&runtime=compat"
+    );
+    const withoutPageUrl = new URL(buildUrl(withoutPage), "http://local.test");
+    const reparsedWithoutPage = parseRoute(withoutPageUrl.pathname, withoutPageUrl.search);
+    if (reparsedWithoutPage.kind !== "world") throw new Error("expected round-tripped world route");
+    const withoutGroup = retreat(reparsedWithoutPage);
+    expect(buildUrl(withoutGroup)).toBe(
+      "/demo/w?view=atlas&compat_context=clientes&runtime=compat"
+    );
+    const withoutGroupUrl = new URL(buildUrl(withoutGroup), "http://local.test");
+    const reparsedWithoutGroup = parseRoute(withoutGroupUrl.pathname, withoutGroupUrl.search);
+    if (reparsedWithoutGroup.kind !== "world") throw new Error("expected round-tripped world route");
+    expect(buildUrl(retreat(reparsedWithoutGroup))).toBe(
+      "/demo/w?view=atlas&runtime=compat"
+    );
+  });
+
   it("round-trips a conceptual lens without drilling into a group route", () => {
     const route = world({
       perspective: "quadrants",

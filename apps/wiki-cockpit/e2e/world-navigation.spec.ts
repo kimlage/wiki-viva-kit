@@ -494,7 +494,7 @@ test("visual control easter egg is local configuration, not world navigation", a
   await expect(visualDefaultSnippet).toContainText('"labels": "dense"');
 
   await visualJson.fill('{"config":{"glow":1.2,"contrast":1.1,"density":0.9,"motion":0.4,"uiScale":1,"glass":0.8,"labels":"quiet","particles":false}}');
-  await page.locator(".visualControlActions button", { hasText: "Aplicar JSON" }).click();
+  await page.locator(".visualControlActions button").filter({ hasText: /Apply JSON|Aplicar JSON/ }).click();
   await expect(visualJson).toContainText('"particles": false');
   await expect(visualDefaultSnippet).toContainText('"particles": false');
 

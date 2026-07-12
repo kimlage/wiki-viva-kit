@@ -237,6 +237,8 @@ describe("WorldNavigator", () => {
 
   it("renders installed packs and every composed slot as an honest catalog", () => {
     const { container, onPackViewChange } = setup({ expanded: true, experiencePacks });
+    expect(container.querySelectorAll("[data-experience-section]")).toHaveLength(4);
+    expect(container.querySelector('[data-experience-section="packs"]')).toBeTruthy();
     expect(container.querySelector('[data-active-pack-count="1"]')).toBeTruthy();
     expect(container.querySelector('[data-pack-id="study-research"]')).toBeTruthy();
     expect(container.querySelectorAll("[data-pack-slot-kind]")).toHaveLength(4);

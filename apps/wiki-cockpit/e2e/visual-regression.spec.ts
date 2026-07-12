@@ -67,7 +67,15 @@ for (const route of routes) {
 
 test("legacy /pages/:id bookmark lands in the world with the reader open", async ({ page }, testInfo) => {
   await page.goto("/demo/pages/root-alex-rivera?visual=1");
-  await page.waitForURL(/\/demo\/w\/atlas(?:\/|\?|$)/);
+  await expect.poll(() => {
+    const url = new URL(page.url());
+    return {
+      pathname: url.pathname,
+      view: url.searchParams.get("view"),
+      page: url.searchParams.get("page"),
+      reader: url.searchParams.get("reader")
+    };
+  }).toEqual({ pathname: "/demo/w", view: "atlas", page: "root-alex-rivera", reader: "1" });
   await expect(page.locator(".worldRouteLoading, .sceneLoading")).toHaveCount(0, { timeout: 20000 });
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
   await expect(page.locator(".pageReader")).toBeVisible();
@@ -80,7 +88,14 @@ test("keyboard loop: drill \u2192 lock \u2192 read \u2192 retreat over the same 
   await expect(page.getByText("Galaxy")).toBeVisible();
   // Drill into a context via the fallback group links (same URL grammar).
   await page.locator(".fallbackGroupLink").first().click();
-  await page.waitForURL(/\/demo\/w\/atlas\/[^/?]+/);
+  await expect.poll(() => {
+    const url = new URL(page.url());
+    return {
+      pathname: url.pathname,
+      view: url.searchParams.get("view"),
+      hasContext: Boolean(url.searchParams.get("compat_context"))
+    };
+  }).toEqual({ pathname: "/demo/w", view: "atlas", hasContext: true });
   // Lock a page (opens the reader and pins ?reader=1 in the URL).
   await page.locator(".fallbackNode").first().click();
   await page.waitForURL(/reader=1/);
@@ -98,5 +113,22 @@ test("keyboard loop: drill \u2192 lock \u2192 read \u2192 retreat over the same 
     // sending the next key in the ladder.
     await page.waitForTimeout(100);
   }
-  await expect(page).toHaveURL(/\/demo\/w\/atlas(\?|$)/);
+  await expect.poll(() => {
+    const url = new URL(page.url());
+    return {
+      pathname: url.pathname,
+      view: url.searchParams.get("view"),
+      context: url.searchParams.get("compat_context"),
+      group: url.searchParams.get("group"),
+      page: url.searchParams.get("page"),
+      reader: url.searchParams.get("reader")
+    };
+  }).toEqual({
+    pathname: "/demo/w",
+    view: "atlas",
+    context: null,
+    group: null,
+    page: null,
+    reader: null
+  });
 });

@@ -490,19 +490,33 @@ test("the mobile world guide owns the viewport and exposes all three axes", asyn
   const panel = page.locator(".worldNavigatorPanel");
   const mission = page.locator(".worldMissionCard");
   await expect(panel).toBeVisible();
-  await expect(page.locator("[data-experience-section]")).toHaveCount(3);
+  // View, lens and overlay remain the three independent axes. A composed
+  // bundle also exposes its extension-pack catalog as a fourth, explicitly
+  // named section instead of hiding installed capabilities from the guide.
+  await expect(page.locator("[data-experience-section]")).toHaveCount(4);
+  for (const section of ["views", "packs", "lenses", "overlays"] as const) {
+    await expect(page.locator(`[data-experience-section="${section}"]`)).toHaveCount(1);
+  }
   await expect(mission).toBeHidden();
+  await panel.evaluate(async (element) => {
+    const finite = element
+      .getAnimations({ subtree: true })
+      .filter((animation) => animation.effect?.getTiming().iterations !== Infinity);
+    await Promise.all(finite.map((animation) => animation.finished.catch(() => undefined)));
+  });
 
   const geometry = await panel.evaluate((element) => {
     const rect = element.getBoundingClientRect();
+    const topBar = document.querySelector<HTMLElement>(".topBar")?.getBoundingClientRect();
     return {
       top: rect.top,
       bottom: rect.bottom,
+      topBarBottom: topBar?.bottom ?? 0,
       viewportHeight: window.innerHeight,
       scrollable: element.scrollHeight > element.clientHeight
     };
   });
-  expect(geometry.top).toBeGreaterThanOrEqual(60);
+  expect(geometry.top).toBeGreaterThanOrEqual(geometry.topBarBottom + 8);
   expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight);
   expect(geometry.scrollable).toBe(true);
 

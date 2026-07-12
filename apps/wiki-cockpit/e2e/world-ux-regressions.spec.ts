@@ -232,7 +232,10 @@ test("Timeline is a shareable native 2D view over the same mounted world", async
   await expect.poll(() => temporalRequests.length).toBe(1);
   await expect(page.locator(".timelineEvent").first()).toBeVisible();
   await expect(page.locator(".timelineContractWarning")).toHaveCount(0);
-  await expect(page.locator(".timelineDiagnosticWarning")).toContainText("temporal_adapter_rejected");
+  // The committed public graph is clean. Rejected-adapter rendering remains a
+  // component contract, while this release flow proves the real snapshot does
+  // not invent a warning that is absent from its diagnostic_count.
+  await expect(page.locator(".timelineDiagnosticWarning")).toHaveCount(0);
   await expect(page.locator(".sceneShell")).toHaveAttribute("data-scene-suspended", "true");
   await expect(page.getByRole("combobox", { name: /Overlay|Sobreposição/ })).toBeDisabled();
   await expect(page.locator(".worldBreadcrumbs")).toBeHidden();
@@ -299,7 +302,9 @@ test("Timeline keeps stale cursors explicit and provides one keyboard path to th
     window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
   });
   await page.goto("/demo/w?center=root-alex-rivera&view=timeline&time_cursor=evt-missing&tour=0");
-  await expect(page.getByText(/shared event is outside|evento compartilhado está fora/i)).toBeVisible();
+  await expect(page.locator(".timelineInspector strong").filter({
+    hasText: /shared event is outside|evento compartilhado está fora/i
+  })).toBeVisible();
   await expect(page.locator('.timelineEvent[aria-current="true"]')).toHaveCount(0);
 
   const events = page.locator(".timelineEvent");
@@ -452,13 +457,19 @@ for (const fixture of [
         ".focusLegend button",
         ".worldMinimap button",
         ".radarStatusStrip button",
-        ".sceneShell [tabindex='0']"
+        ".sceneCanvasFrame [tabindex='0']",
+        ".sceneFallback [tabindex='0']"
       ];
       return selectors.flatMap((selector) => [...document.querySelectorAll<HTMLElement>(selector)])
         .filter((element) => {
           const style = getComputedStyle(element);
           const rect = element.getBoundingClientRect();
-          return element.tabIndex >= 0 && !element.inert && style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
+          return element.tabIndex >= 0 &&
+            !element.closest("[inert], [aria-hidden='true']") &&
+            style.visibility !== "hidden" &&
+            style.display !== "none" &&
+            rect.width > 0 &&
+            rect.height > 0;
         })
         .map((element) => element.className || element.tagName);
     });
@@ -472,7 +483,7 @@ for (const fixture of [
     await page.goto(protectedRoute);
     await expect(page.locator(`.packWorkbenchSurface[data-pack-id="${fixture.pack}"]`)).toBeVisible({ timeout: 20_000 });
 
-    await expect(workbench.locator(".packWorkbenchBlockPackages code")).toHaveCount(2);
+    await expect(workbench.locator(".packWorkbenchBlockPackages li")).toHaveCount(2);
     await expect(workbench.locator(".packWorkbenchAdapterNotice")).toBeVisible();
     await expect.poll(() => workbench.locator(".packWorkbenchInventoryGroup button:disabled").count()).toBeGreaterThan(0);
     await expect.poll(() => workbench.locator("[data-pack-page-id]").count()).toBeGreaterThan(0);

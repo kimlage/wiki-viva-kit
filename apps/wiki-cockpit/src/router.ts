@@ -437,6 +437,23 @@ export type WorldPatch = {
 
 export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
   const centerChanged = typeof patch.center === "string" && patch.center !== route.query.center;
+  // Once a legacy positional input has been normalized, `?page=` and
+  // `?group=` are the canonical selection fields even while runtime=compat.
+  // Keep those query fields synchronized with the compatibility aliases on
+  // every later patch. Otherwise a second selection can update `pageId` while
+  // the older `query.page` keeps winning in buildUrl(), reopening the previous
+  // reader (and retreat can never actually release that stale selection).
+  const queryOwned = Boolean(route.query.view);
+  const canonicalPagePatch = patch.page !== undefined
+    ? patch.page
+    : queryOwned && patch.pageId !== undefined
+      ? patch.pageId
+      : undefined;
+  const canonicalGroupPatch = patch.worldGroup !== undefined
+    ? patch.worldGroup
+    : queryOwned && patch.group !== undefined
+      ? patch.group
+      : undefined;
   const normalizesLegacyPerspective = Boolean(
     patch.perspective && !route.query.view && route.perspectiveExplicit && patch.runtime === undefined
   );
@@ -469,8 +486,8 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
         ? ""
         : patch.view ?? (patch.perspective ? patch.perspective : route.query.view),
       overlay: patch.overlay === null ? "" : patch.overlay ?? route.query.overlay,
-      page: patch.page === null ? "" : patch.page ?? route.query.page,
-      worldGroup: patch.worldGroup === null ? "" : patch.worldGroup ?? route.query.worldGroup,
+      page: canonicalPagePatch === null ? "" : canonicalPagePatch ?? route.query.page,
+      worldGroup: canonicalGroupPatch === null ? "" : canonicalGroupPatch ?? route.query.worldGroup,
       compatContext: compatibilityRoute
         ? patch.context === null ? "" : (patch.context ?? route.query.compatContext) || route.context || ""
         : route.query.compatContext,
@@ -512,10 +529,16 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
   if (!next.context) {
     next.pageId = undefined;
   }
-  if (patch.perspective && patch.perspective !== route.perspective && patch.group === undefined) {
-    // Perspective switch preserves context/page but group keys are
-    // perspective-specific, so drop the group unless explicitly kept.
+  const projectionChanged = Boolean(
+    (patch.perspective && patch.perspective !== route.perspective) ||
+    (patch.view && patch.view !== route.query.view)
+  );
+  if (projectionChanged && patch.group === undefined && patch.worldGroup === undefined) {
+    // View/perspective switches preserve context/page but group keys are
+    // projection-specific, so drop both compatibility and canonical aliases
+    // unless the caller explicitly supplied the next group.
     next.group = undefined;
+    next.query.worldGroup = "";
   }
   if (!next.pageId) {
     next.query.reader = false;
@@ -554,16 +577,15 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
     next.query.lens = "";
     next.query.quadrant = "";
   }
-  if (next.perspective !== "quadrants") next.query.worldGroup = "";
   return next;
 }
 
 // One level up: page lock → group → context → galaxy. Used by Esc/RETREAT
 // and by breadcrumbs; always the exact reverse of the drill that got us here.
 export function retreat(route: WorldRoute): WorldRoute {
-  if (route.pageId) return patchWorld(route, { pageId: null, reader: false });
-  if (route.group) return patchWorld(route, { group: null });
-  if (route.context) return patchWorld(route, { context: null });
+  if (route.query.page || route.pageId) return patchWorld(route, { pageId: null, page: null, reader: false });
+  if (route.query.worldGroup || route.group) return patchWorld(route, { group: null, worldGroup: null });
+  if (route.query.compatContext || route.context) return patchWorld(route, { context: null });
   return route;
 }
 

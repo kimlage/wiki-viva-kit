@@ -3702,7 +3702,10 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 
   .worldNavigator .worldRuntimeControls {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* The extension catalog is part of the same compact control row as the
+       overlay and guide. Giving it a third column keeps every control visible
+       without spending a map-height row on phones. */
+    grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 4px;
     width: 100%;
   }
@@ -3745,8 +3748,8 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   }
 
   .worldNavigatorPackBadge {
-    grid-column: 1 / -1;
-    justify-self: start;
+    grid-column: 3;
+    justify-self: end;
   }
 
   .worldNavigatorUnavailableNote {
@@ -3755,7 +3758,10 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   }
 
   .worldNavigatorPanel {
-    top: max(70px, calc(env(safe-area-inset-top) + 12px));
+    /* The global phone header is a two-row 120px surface. Start the guide
+       below it so its title and close control are never painted underneath
+       Appearance while the explanation owns the remaining viewport. */
+    top: max(130px, calc(env(safe-area-inset-top) + 12px));
     right: 12px;
     bottom: max(12px, env(safe-area-inset-bottom));
     left: 12px;
@@ -5020,7 +5026,10 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   .quadrantTextGrid,
   .quadrantCompass.drillMode .quadrantTextGrid,
   .quadrantCompass.familyDrillMode .quadrantTextGrid {
-    grid-column: 1 / -1;
+    /* Four honest 44px lens targets and the explicit All target share one
+       instrument row. This preserves the full lens information while freeing
+       a complete row for the semantic map below. */
+    grid-column: 1;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     width: 100%;
     gap: 4px;
@@ -5030,7 +5039,7 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   .quadrantCompassFooter,
   .quadrantCompass.drillMode .quadrantCompassFooter,
   .quadrantCompass.familyDrillMode .quadrantCompassFooter {
-    grid-column: 1;
+    grid-column: 2;
     width: auto;
   }
 
@@ -5175,11 +5184,9 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   }
 
   .quadrantSeed {
-    grid-column: 2;
-    min-height: 44px;
-    margin: 0;
-    padding: 4px 9px;
-    font-size: 11px;
+    /* Create remains an explicit 44px command-bar destination. The compass
+       copy is duplicate navigation and would force a third HUD row. */
+    display: none;
   }
 
   .worldWorkspace.familyDrillOpen .quadrantCompass {
@@ -5266,7 +5273,7 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
      touch targets never compete for the same pixels. */
   .worldWorkspace[data-world-fallback-active="false"][data-world-lens="all"]
     [data-world-target-kind="group"][data-world-target-id="family:source"] {
-    translate: -55px -25px;
+    translate: -136px 9px;
   }
 
   .worldWorkspace[data-world-fallback-active="false"][data-world-lens="all"]
@@ -5276,7 +5283,7 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 
   .worldWorkspace[data-world-fallback-active="false"][data-world-lens="all"]
     [data-world-target-kind="group"][data-world-target-id="family:person"] {
-    translate: 0 -15px;
+    translate: -16px -3px;
   }
 
   .worldWorkspace[data-world-fallback-active="false"][data-world-lens="all"]
@@ -5286,7 +5293,7 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 
   .worldWorkspace[data-world-fallback-active="false"][data-world-lens="all"]
     [data-world-target-kind="group"][data-world-target-id="family:content"] {
-    translate: 10px 8px;
+    translate: -3px -9px;
   }
 
   /* Real downstream worlds can repeat one semantic family in several
@@ -5296,7 +5303,7 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
     [data-world-quadrant="intencao"][data-world-target-id="family:hub"],
   .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
     [data-world-quadrant="intencao"][data-world-target-id="family:decision"] {
-    translate: -50px 25px;
+    translate: -29px 9px;
   }
 
   .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
@@ -5311,12 +5318,12 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 
   .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
     [data-world-quadrant="pratica"][data-world-target-id="family:content"] {
-    translate: 70px 30px;
+    translate: 70px 10px;
   }
 
   .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
     [data-world-quadrant="pratica"][data-world-target-id="family:action"] {
-    translate: 0 -15px;
+    translate: -3px 11px;
   }
 
   .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
@@ -5326,7 +5333,7 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 
   .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="all"]
     [data-world-quadrant="sistemas"][data-world-target-id="family:hub"] {
-    translate: 100px -50px;
+    translate: 74px -9px;
   }
 
   .worldWorkspace[data-world-fallback-active="false"][data-world-lens="q2_pratica"]
@@ -6811,7 +6818,7 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   }
   .worldWorkspace .radarShell:not(.fallbackMode) .radarStatusStrip {
     position: absolute;
-    bottom: 184px;
+    bottom: calc(var(--world-command-bar-height, 68px) + 8px);
     right: 12px;
     left: auto;
     width: max-content;
@@ -6840,9 +6847,9 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 @media (max-width: 620px) {
   .worldWorkspace .sceneShell:not(.fallbackMode) .sceneCanvasFrame {
     inset:
-      calc(var(--world-top-strip-height, 148px) + 102px)
+      calc(var(--world-top-strip-height, 148px) + 62px)
       0
-      calc(var(--world-command-bar-height, 174px) + 8px);
+      calc(var(--world-command-bar-height, 174px) + 40px);
     min-width: 0;
     min-height: 0;
     height: auto;
@@ -6855,6 +6862,14 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
       calc(var(--world-command-bar-height, 174px) + 8px);
     overflow: hidden;
   }
+
+  /* Mission and filter are complementary compact status chips. Share the
+     pointer-safe row immediately above the measured command bar, leaving the
+     semantic map between that row and the measured one-row compass. */
+  .worldWorkspace[data-world-fallback-active="false"] .worldMissionSlim,
+  .worldWorkspace .radarShell:not(.fallbackMode) .radarStatusStrip {
+    bottom: calc(var(--world-command-bar-height, 174px) + 4px);
+  }
 }
 
 /* Short phone viewports cannot afford three stacked HUD rows above and below
@@ -6864,7 +6879,6 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 @media (max-width: 620px) and (max-height: 720px) {
   .worldWorkspace[data-world-fallback-active="false"] .conditionStrip,
   .worldWorkspace[data-world-fallback-active="false"] .worldMeta,
-  .worldWorkspace[data-world-fallback-active="false"] .quadrantCompassFooter,
   .worldWorkspace[data-world-fallback-active="false"] .quadrantSeed,
   .worldWorkspace[data-world-fallback-active="false"] .worldCommandBar .commandDocks {
     display: none;
@@ -6874,7 +6888,7 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
     inset:
       calc(var(--world-top-strip-height, 120px) + 62px)
       0
-      calc(var(--world-command-bar-height, 130px) + 45px);
+      calc(var(--world-command-bar-height, 130px) + 40px);
   }
 
   .worldWorkspace[data-world-fallback-active="false"] .worldMissionSlim {
@@ -6891,7 +6905,7 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
      phones so it clears both the center label and the compass above. */
   .worldWorkspace[data-world-fallback-active="false"][data-world-view="quadrants"][data-world-lens="q2_pratica"]
     [data-world-target-kind="group"][data-world-target-id="family:source"] {
-    translate: -30px 8px;
+    translate: -30px 15px;
   }
 
   .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
@@ -6909,7 +6923,7 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 
   .worldWorkspace[data-world-view="quadrants"][data-world-lens="q2_pratica"]
     .radarLabel button.nodeLabelBody:not(.nodeCompactLabel):not(.nodeGroupLabel) {
-    translate: 116px -27px;
+    translate: 116px 0;
   }
 }
 

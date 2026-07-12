@@ -141,7 +141,10 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", originalCenter ?? "root-alex-rivera");
 
   await page.locator(".glyphButton").filter({ hasText: /Atlas/ }).tap();
-  await expect(page).toHaveURL(/\/demo\/w\/atlas(?:\?|$)/);
+  await expect.poll(() => {
+    const url = new URL(page.url());
+    return { pathname: url.pathname, view: url.searchParams.get("view") };
+  }).toEqual({ pathname: "/demo/w", view: "atlas" });
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", originalCenter ?? "root-alex-rivera");
 
   await page.locator(".dockButton").filter({ hasText: /Sources|Fontes/ }).tap();
