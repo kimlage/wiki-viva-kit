@@ -3336,6 +3336,31 @@ This is the only active queue; earlier S9/S10 queues are historical snapshots:
 10. complete conceptual/privacy/VoiceOver review, E5, governed public-first
     merge and tag separately; keep residual P2 items out of the release claim.
 
+## S19/rc16 First-Attempt Public Stack Evidence (2026-07-12)
+
+Queue steps 1-2 executed on the exact pinned subject, one attempt per gate,
+zero skip, zero retry, worktree clean before and after:
+
+- Subject: `6ca0dba8b2772c970e0c6e5e20e18eb9ed742055` (`chore: pin rc16
+  validation boundary`); source S19 `198471c3…` = P0 closure
+  (`e7ecc3aa` code/contracts + `198471c3` docs).
+- Window: 16:27:10-16:42:40 local, 2026-07-12.
+- Gates (exit=0, duration): audit 14s; public-export audit 14s; methodology
+  0s; quality 0s; operation compile 0s; source registry 0s; input stage 0s;
+  semantic inventory 31s; snapshot contract 31s; pack validation 0s; demo
+  drift 13s; pytest 418s (1,409 passed); frontend 4s (513 passed, re-verified
+  with counts at 6.91s); build 2s (re-verified: vite completes in 855ms);
+  node gates 13s; architecture 1s; assets 0s; bundle 1s; release matrix 1s;
+  Playwright release 387s; diff check 0s.
+- Private pilot drift recomputed read-only against S19: 887 total
+  (7 only-in-kit, 880 content-differs, 0 only-in-consumer); partition
+  51 authorial + 836 generated.
+- Still open: queue step 3 (current E3 visual matrix with human screenshot
+  comparison), step 4 (releasable status flip on this same subject) and
+  steps 5-10 (downstream private import, receipts and rollback) — the private
+  pilot worktree currently carries unrelated uncommitted authoring work and
+  must be resolved by its owner before a fresh preflight can bind.
+
 ## Evidence Manifest For This Review
 
 ### Historical worktree UX artifacts
