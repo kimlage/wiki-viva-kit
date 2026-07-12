@@ -3385,9 +3385,11 @@ manifest rather than preserving agent/session naming.
 
 ### Exact `S` implementation anchors
 
-These symbol/line anchors identify the accepted payload at `b781882a…`.
-Cryptographic receipts bind files rather than line numbers; reviewers should
-re-resolve the named symbols if later metadata changes shift navigation lines:
+These symbol/line anchors identify the historical Wave 1 payload at
+`b781882a…`, not the current adoption target. The post-S9 target is pinned
+below. Cryptographic receipts bind files rather than line numbers; reviewers
+should re-resolve the named symbols if later metadata changes shift navigation
+lines:
 
 - canonical action vocabulary/resolver:
   `wiki_core/action_state.py:25,159-236`;
@@ -3454,6 +3456,284 @@ Before any release:
    reproduction or code/test corroboration;
 8. remove any transient private reader payload after its owning parallel
    session ends; never promote it to Git, CI artifacts or public evidence.
+
+## Post-S9 Public-to-Private Closure Wave — RC12 / S13
+
+This checkpoint, recorded on **2026-07-12**, supersedes every earlier sentence
+that presents rc8/S9 as the current adoption target. Those checkpoints remain
+valid historical evidence; they are not rewritten as proof for the new
+payload.
+
+### Current authority and freeze
+
+| Surface | Exact state | Authority consequence |
+|---|---|---|
+| Public source payload | `3fed97fa52fa1efd27d651cbd97c3ab67a4f5cfa` (`fix: synchronize search keyboard selection`) | This is the only source SHA rc12 may import |
+| Public metadata envelope | local commit `14b66ccd` (`wiki-viva-v8-rc12`) | Package metadata is local, unpushed and unmerged; it does not become human acceptance |
+| Public branch | `wiki/v8-unified-living-world`, ahead locally | No push, PR mutation, merge or tag was authorized in this wave |
+| Private baseline | clean isolated branch/worktree at `191b2a4d…` | Private import must start from this subject unless the concurrent private authoring session commits first |
+| Concurrent private authoring | 12 modified plus 2 new files in the live worktree | Preserved completely; never staged, overwritten or copied into the isolated migration |
+| Private preflight | `status=ready`, report `preflight:ffe2931cc4d1a57c0af6` | Preparation is valid, but import remains frozen until the public browser gate can execute |
+
+The current package digest before any later private-status wording is
+`d4d77388b98592cbde5e9ad635c3322d9d15c2138a67a49b8a893c525b249b16`;
+the raw YAML SHA-256 is
+`0f88c342b108f106ec96d2ad462cf414e2a86df4043dea39eb8696ffe877fceb`.
+Migration evidence must recompute and bind the **canonical** digest after the
+package text is finally frozen. It must never bind this provisional value by
+memory.
+
+### Evidence timeline
+
+```mermaid
+timeline
+    title Post-S9 release-truth sequence
+    S10 rc9 : 1367 Python pass
+             : 512 frontend and 107 Node pass
+             : 102 of 102 public browser cells pass
+    Private pressure : 134 real authored events expose legacy graph inequality
+                     : 10 structured references require bounded downstream adaptation
+    S11 rc10 : public core closes event and relation parity
+             : browser 101 of 102; appearance hydration race retained as blocked
+    S12 rc11 : 1372 Python, 512 frontend and 107 Node pass
+             : browser 101 of 102; stale mixed pointer and keyboard index retained as blocked
+    S13 rc12 : synchronous search selection and pointer-intent fix
+             : 513 frontend pass plus deterministic gates pass
+             : full socket and browser gates denied by sandbox authorization
+    Private rc12 preflight : 885 reviewed portable deltas
+                           : zero blockers and three expected warnings
+                           : import waits for public terminal gate
+```
+
+### Public attempts: negative evidence stays attached to its subject
+
+| Subject | Exact result | Finding and disposition |
+|---|---|---|
+| S10 / rc9, `2bf99150…` | 1,367 Python; 512 frontend; 107 Node; Playwright 102/102, first attempt, 0 skips/retries; run `public-mrhqo5lz-dc785928-668a-4420-8900-89d284d218a0` | Historical clean proof. Real private data later exposed semantic contracts outside this subject, so it is not the adoption target |
+| S11 / rc10, `83a98e5a…` | Playwright 101/102, 0 retries; run `public-mrhs4900-641636ed-7b05-40b8-8eee-67ea6822440a` | Appearance persistence reloaded into a blank, not-yet-hydrated app. Readiness now waits for `.worldWorkspace`; the persisted-theme assertion was not weakened |
+| S12 / rc11, `e0a45609…` | 1,372 Python pass, 0 skips; 512 frontend; 107 Node; deterministic gates pass; Playwright 101/102, 0 retries; run `public-mrht1s3j-f7c7ef48-0bc6-4867-9fe7-61c4265cc99d` | Dense search opened result 007 where immediate edit → ArrowDown → Enter requires result 002. Screenshot, URL, console and network proved a stale selection index, not ranking drift |
+| S13 / rc12, `3fed97fa…` | Focused regression: 513/513 frontend; build; focused failed E2E now passes in 4.4 s | `activeHit` is synchronously mirrored, every edit resets it before keyboard navigation, Enter consumes the current ref, and result hover now requires real pointer movement rather than layout motion |
+
+No failed attempt above may be relabeled as green after a later fix. Every fix
+creates a new subject and requires new exact-subject evidence.
+
+### S13 evidence that is currently valid
+
+The following checks exercised the exact tree
+`22fbc539dac79cbd224d42be5239a9e620317440` and are valid:
+
+| Gate | S13 result |
+|---|---|
+| Audit | normal and public-export: 0 errors, 6 date/freshness warnings each |
+| Methodology | 22/22 |
+| Quality | 49 pages; 1 closed event; zero thin, low-density, repetition, orphan or invalid-exemption findings; one expected example context without role |
+| Semantic inventory | authored/closure/temporal/graph = 1/1/1/1; 106 expected = 106 actual relations; zero unresolved, missing, extra or identity mismatch |
+| Demo | `wiki-viva-demo-v8`, seed 8008, no drift |
+| Snapshot contract | 26 payloads; snapshot `wiki-viva-kit-fa517b8a27ccdabe` |
+| Packs | two registered public sources valid; no installed public pack; composition `91278d9654bc92e5a7af1075c67297eb751beb6feef3bd06cee92210e5d667c4` |
+| Frontend | 513/513 across 64 files; 0 skips |
+| Build/architecture/assets/bundle | 2,603 modules; 0 architecture violations/debt; one 380-byte first-party asset and zero external assets; initial JS 163.32/300 kB gzip; largest lazy/worker 54.78/300 kB |
+| Matrix inventory | 102 public plus 2 mandatory downstream cells |
+| Portable package contract | 157/157 upgrade/release tests passed on the metadata envelope before the restricted exact-subject rerun |
+
+### S13 evidence that is explicitly not yet valid
+
+The managed sandbox denies loopback socket binding and independent browser
+process verification. The exact-subject Python attempt therefore ended with
+`1247 passed, 89 failed, 36 errors`: every error/failure was grouped under
+`PermissionError: [Errno 1] Operation not permitted` from either
+`127.0.0.1:0` server setup or the release-receipt Playwright verifier. The Node
+gate similarly ended `105/107`, with both remaining cells failing at
+`listen EPERM 127.0.0.1`. These are environment-blocked executions, not green
+tests and not product regressions.
+
+Two explicit requests to execute outside the sandbox — full Python and the
+102-cell release Playwright runner — were refused. Therefore:
+
+- no 102/102 S13 release receipt exists;
+- no first-attempt browser claim is made for rc12;
+- Python/Node full-suite closure remains unproven on the exact S13 SHA despite
+  all non-socket gates passing;
+- the private bump is frozen; preparation is allowed, adoption is not;
+- PR review, merge, tag, VoiceOver and E5 remain separate human/external
+  authorities.
+
+The next authorized public execution must run, alone and without retry:
+
+```sh
+/opt/anaconda3/bin/python -m pytest tests/
+npm --prefix apps/wiki-cockpit run test:gates
+npm --prefix apps/wiki-cockpit run test:e2e:release
+```
+
+Acceptance requires the expected 1,372 Python tests, 107 Node gates and 102
+public browser cells to pass with zero skip/retry on `3fed97fa…`, or a new fix
+and new subject if a real failure appears.
+
+### Real-data pressure converted into generic public contracts
+
+The clean private baseline contains 134 authored ingestion events: 19 under
+the canonical event directory and 115 under a legacy-compatible directory.
+Before the public correction, closure and temporal surfaces saw all 134 while
+the graph saw only 19. Expected/actual relation totals were 2,399/2,282, with
+122 missing source-emission edges, five false evidence edges and ten unresolved
+structured references.
+
+The public synthetic repair now guarantees:
+
+1. canonical and configured legacy event directories share one resolver;
+2. temporal compilation receives the configured directory instead of guessing
+   a canonical sibling;
+3. page records preserve event and source identity;
+4. a source-only action reference is not silently promoted to evidence;
+5. only explicit evidence relations emit `evidence_supports`;
+6. migration visual profiles come from the package and include the fourth
+   two-step quadrant collection profile;
+7. a bounded semantic preflight review may defer at most 64 findings to the
+   declared downstream-adaptation boundary, while final migration still
+   requires semantic pass.
+
+Replaying the fixed public core against the clean private authored tree yields
+134/134 events on closure, closed-event, temporal and graph surfaces and
+2,399/2,399 relations. The remaining ten references are not waived: nine point
+to existing documentation artifacts that should remain ordinary Markdown links
+rather than structured page/evidence edges; one points to an absent memory page
+and must be removed without inventing content.
+
+### Private preflight for rc12
+
+The redacted preflight was generated from a real v2 snapshot with content
+sidecars, against the clean isolated private baseline. It reports:
+
+| Check | Result |
+|---|---|
+| Status | `ready`; zero blockers |
+| Release pin | `wiki-viva-v8-rc12@3fed97fa…` available locally |
+| Portable drift | 885 total: 6 only in kit, 879 content differences, 0 only in consumer |
+| Semantic adaptation | reviewed count 10; opaque fingerprint `512d74ceb37d40cf5bf52c2205f0291a7c23dda1ff057a509bf36cdbf9c1e2aa` |
+| Current snapshot | real, `wiki_web_snapshot.v2` |
+| Privacy | financial/personal boundary; redacted report; no secret-adjacent file |
+| Warnings | expected `semantic_inventory_adaptation`, `toolkit_drift`, `local_overrides` |
+
+`ready` means the consumer can be migrated **after** the public terminal gate;
+it does not overrule the public freeze above.
+
+### Concurrent private authoring checkpoint and Claude consolidation
+
+A later Claude session, distinct from the earlier no-write review checkpoint,
+created a coherent but uncommitted private research/provenance slice across 14
+paths. It must not rewrite the earlier checkpoint or be merged implicitly into
+the isolated migration.
+
+Its strongest reusable product model is:
+
+```text
+reference library
+  -> methodological foundation
+    -> dimensions and factors
+      -> operational platform
+        -> AI-supported synthesis or recommendation
+          -> explicit evidence limit and human review
+```
+
+The material correctly separates empirical evidence, complementary literature,
+method interpretation and generated text; distinguishes file count from unique
+works; and requires traceability `reference → factor → recommendation` before
+making a source-specific claim.
+
+It also reveals an honesty blocker: one new source is simultaneously shown as
+`gate_pending`/pending in its authorial page and as ingested/integrated in
+generated registry/input surfaces. The cockpit reports 39 closed events for 40
+sources. Therefore:
+
+```text
+content read or emitted
+  != event closed
+  != human gate accepted
+  != adoption completed
+```
+
+This evidence keeps **RT-47 open**. The live worktree must be committed and its
+source event closed before it can become the new private migration baseline.
+If that happens before import, rebuild the isolated branch from the new commit,
+repeat preflight, semantic counts and rollback evidence, and regenerate cockpit,
+input stage and source registry only after authorial content, public import and
+private adaptations are combined.
+
+For a future Study/Research profile, this pressure suggests one extension of
+the existing Timeline + graph grammar rather than a new visual language:
+
+- an evidence-strength matrix;
+- provenance state (`cited`, `considered`, `inferred`, `generated`);
+- file-count versus unique-work count;
+- a lineage braid from publication/origin through methodological adoption,
+  implementation, generation and human review;
+- dense search facets for evidence type, factor, provenance state and update;
+- an explicit visual boundary between evidence, interpretation and
+  recommendation.
+
+This is future pack material. It must use a synthetic public fixture and does
+not expand the current release-closing wave.
+
+### Exact private migration once the public terminal gate is authorized
+
+The migration keeps exactly three reviewable commits:
+
+1. **faithful public import** — apply all 49 authorial portable paths at the
+   pinned source state, including the four search-selection files;
+2. **regenerated artifacts** — apply/regenerate the 836 demo/snapshot artifacts
+   as a separate mechanical boundary;
+3. **downstream adaptations** — update the private runtime release pin; remove
+   exactly ten invalid structured references while preserving nine valid body
+   links; document the semantic-inventory command; regenerate only the private
+   deterministic surfaces required by the final gates.
+
+The union remains 885 portable files. Consumer-owned configuration, memories,
+tests, workflows, local template registry, pack lock and adapter manifest stay
+outside faithful import. No live private worktree file is used as a patch
+source.
+
+After the three commits, required proof is:
+
+- toolkit drift = 0 against `3fed97fa…`;
+- private semantic inventory = 134 events on all four surfaces, 2,399/2,399
+  relations and zero unresolved references;
+- audit, methodology, operation, input, full private Python, 513 frontend, 107
+  Node, snapshot, packs, architecture, assets, bundle, matrix, demo and diff
+  gates green;
+- a first-attempt 2/2 mandatory downstream browser receipt with zero
+  skip/retry;
+- live v6/security-v2/default-deny operator handshake, normal restart with a
+  changed nonce hash and no raw nonce, and exact action-state capabilities;
+- one idempotent mutation replay only in a disposable clone, proving one write
+  for one attempt key without mutating canonical private memory;
+- current in-app-browser QA on real data at desktop and 390×844 mobile, plus
+  fallback and package-owned two-step quadrant collection captures;
+- dense search, Timeline, Finance view, reader ownership, keyboard/ARIA,
+  show-more, URL facets and overflow checks;
+- four private PNGs with dimensions, bytes and SHA-256 in ignored evidence;
+- private and public-redacted JSON/Markdown migration reports with parity;
+- executed reverse-order rollback that reproduces the exact previous tree.
+
+Only after those proofs may this table change:
+
+| Control | Current rc12 status | Closure condition |
+|---|---|---|
+| RT-09 / RT-10 | public core closed; private adoption pending | 134-event compatibility/equality on final private HEAD |
+| RT-29 | focused public search fix closed; real private acceptance pending | ranking, filters, bounded results and keyboard path on final real snapshot |
+| RT-33 | synthetic report/rollback closed; private pending | three-commit private report plus verified rollback |
+| RT-36 | public relation core closed; private pending | 2,399/2,399 and zero unresolved on final private HEAD |
+| RT-47 | open | close the 40th source event and replay authoring diagnostics/gates |
+| RT-48 | public synthetic core closed; private pending | live current-operator restart/security proof and downstream documentation replay |
+
+### Operational decision
+
+The correct decision at this checkpoint is **continue, do not promote**. rc12
+contains the right fixes and its migration preflight is ready, but the current
+environment has not authorized the terminal public release execution. A clean
+Git tree, green deterministic gates, focused E2E and ready private preflight are
+necessary evidence; they are not substitutes for 1,372/107/102 exact-subject
+closure.
 
 ## Final Recommendation
 
