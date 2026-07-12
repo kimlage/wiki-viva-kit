@@ -30,6 +30,7 @@ function watchDemoNetwork(
   const afterMark = new Map<import("@playwright/test").Request, {
     url: string;
     routeAtStart: string;
+    routeAtFinish: string;
     state: "pending" | "finished" | "failed";
     failure: string;
   }>();
@@ -54,6 +55,7 @@ function watchDemoNetwork(
         afterMark.set(request, {
           url: request.url(),
           routeAtStart: page.url(),
+          routeAtFinish: "",
           state: "pending",
           failure: ""
         });
@@ -69,11 +71,15 @@ function watchDemoNetwork(
   });
   page.on("requestfinished", (request) => {
     const observed = afterMark.get(request);
-    if (observed) observed.state = "finished";
+    if (observed) {
+      observed.routeAtFinish = page.url();
+      observed.state = "finished";
+    }
   });
   page.on("requestfailed", (request) => {
     const observed = afterMark.get(request);
     if (!observed) return;
+    observed.routeAtFinish = page.url();
     observed.state = "failed";
     observed.failure = request.failure()?.errorText ?? "unknown failure";
   });
@@ -89,16 +95,33 @@ function watchDemoNetwork(
       operatorBoundaryMarked = true;
       afterMark.clear();
     },
+    async waitForRealOperatorCompletionAfterMark() {
+      await expect.poll(
+        () => [...afterMark.values()].some((request) =>
+          request.state === "finished" &&
+          !request.routeAtStart.includes("/demo") &&
+          !request.routeAtFinish.includes("/demo")
+        ),
+        { timeout: 5_000 }
+      ).toBe(true);
+    },
     async assertNoOperatorAfterMark() {
       await expect.poll(
         () => [...afterMark.values()].every((request) => request.state !== "pending"),
         { timeout: 5_000 }
       ).toBe(true);
-      const violations = [...afterMark.values()].filter((request) =>
-        request.routeAtStart.includes("/demo") ||
-        request.state === "finished" ||
-        (request.state === "failed" && !/aborted/i.test(request.failure))
-      );
+      const violations = [...afterMark.values()].filter((request) => {
+        // The Node-side mark and the browser-side history write are separated
+        // by one Playwright transport hop. A live poll that both starts and
+        // finishes under the real route in that gap is not post-boundary
+        // traffic. A request started in demo is always invalid; an in-flight
+        // real request is invalid only when it completes under the demo route
+        // instead of being aborted by the synchronous navigation guard.
+        if (request.routeAtStart.includes("/demo")) return true;
+        if (!request.routeAtFinish.includes("/demo")) return false;
+        return request.state === "finished" ||
+          (request.state === "failed" && !/aborted/i.test(request.failure));
+      });
       expect(violations).toEqual([]);
     }
   };
@@ -430,6 +453,10 @@ test("demo cockpit can still render the bundled sample universe", async ({ page 
   await expect(work.locator(".workLog")).toContainText("safe live tail");
 
   network.markOperatorBoundary();
+  // Force one legitimate live poll to finish while the route is still real.
+  // This makes the Playwright-transport gap explicit: only the subsequent
+  // history transition is the privacy boundary.
+  await network.waitForRealOperatorCompletionAfterMark();
   await page.evaluate(() => {
     window.history.pushState({}, "", "/demo/w?center=root-alex-rivera&view=work&dock=work&visual=1&tour=0");
     window.dispatchEvent(new PopStateEvent("popstate"));
