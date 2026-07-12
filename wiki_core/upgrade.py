@@ -988,6 +988,9 @@ def build_preflight_report(
     release_status = str(
         (package.get("release") or {}).get("status") or ""
     ).strip().lower()
+    release_id = (
+        str((package.get("release") or {}).get("id") or "").strip().lower()
+    )
     # Promotion state and source-tree availability are separate facts. A
     # validation-pending candidate must still expose its real drift while the
     # release_pinned check keeps migration/promotion blocked.
@@ -1036,9 +1039,13 @@ def build_preflight_report(
             "exact public release and SHA"
             if release_pinned
             else (
-                f"release status is not releasable: {release_status or 'missing'}"
-                if _valid_sha(release_sha)
-                else "release source_sha is not pinned"
+                "release source_sha is not pinned"
+                if not _valid_sha(release_sha)
+                else (
+                    f"release id is not pinned: {release_id or 'missing'}"
+                    if release_id in _UNPINNED
+                    else f"release status is not releasable: {release_status or 'missing'}"
+                )
             ),
         )
     )

@@ -820,6 +820,24 @@ def test_validation_pending_preflight_blocks_promotion_but_keeps_real_drift(
     assert checks["release_source_available"]["status"] == "pass"
     assert checks["toolkit_drift"]["status"] == "warn"
 
+    unpinned_id = copy.deepcopy(pending)
+    unpinned_id["release"]["id"] = "main"
+    unpinned_id["release"]["status"] = "release_candidate"
+    id_report = build_preflight_report(
+        kit_root=kit,
+        consumer_root=target,
+        package=unpinned_id,
+        consumer=consumer(),
+        gate_evidence=evidence,
+        checked_on="2026-07-12",
+    )
+    id_checks = {item["id"]: item for item in id_report["checks"]}
+    assert id_report["blockers"] == ["release_pinned"]
+    assert id_checks["release_pinned"]["evidence"] == (
+        "release id is not pinned: main"
+    )
+    assert id_checks["release_source_available"]["status"] == "pass"
+
 
 def test_preflight_accepts_only_bounded_semantic_review_for_third_boundary(
     tmp_path: Path,
