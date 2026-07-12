@@ -927,6 +927,17 @@ portable core remains byte-identical. The public payload SHA remains unchanged
 because the correction is metadata/import policy in `M`; private structural
 moves and semantic merges belong to the downstream adaptation boundary.
 
+The same read-only pass corrected two gate-scope errors before any import:
+
+- `wiki_audit.py --public-export` is intentionally hostile to private PII and
+  cannot be required against the whole private repository. Preflight now uses
+  the normal private audit; public-boundary proof is the separately redacted
+  migration report validated with `wiki_upgrade_report.py --public-export`;
+- the legacy `wiki_toolkit_drift.py` compares hard-coded prefixes and does not
+  understand package-owned versus consumer-owned surfaces. RC2 evidence uses
+  `compare_portable_files` against the package's exact `source_sha`, requiring
+  literal zero after import. No ignore entry can convert drift into a pass.
+
 ### Historical private downstream pilot checkpoint
 
 All counts in this subsection predate the exact public `S` adoption and are

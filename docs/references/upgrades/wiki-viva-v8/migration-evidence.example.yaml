@@ -38,9 +38,9 @@ local_overrides_kept:
 warnings: []
 fixtures_added: []
 gates:
-  - {id: toolkit_drift, command: "record exact command", status: pass}
+  - {id: toolkit_drift, command: "package-aware compare_portable_files against pinned source_sha; require drift_total=0", status: pass}
   - {id: audit, command: "record exact command", status: pass}
-  - {id: public_export_audit, command: "record exact command", status: pass}
+  - {id: public_evidence_redaction, command: "python3 scripts/wiki_upgrade_report.py --public-export --check with redacted route/evidence refs", status: pass}
   - {id: methodology_coverage, command: "record exact command", status: pass}
   - {id: operation_compile, command: "record exact command", status: pass}
   - {id: input_stage, command: "record exact command", status: pass}

@@ -54,6 +54,12 @@ Append-only record of changes in the [memories/](../index.md) layer.
   downstream test suite as consumer-owned integration policy. Public core tests
   remain proven on exact `S`; the private suite remains mandatory on exact `P`
   without byte-copying incompatible test policy between repositories.
+- The private audit also proved that `wiki_audit.py --public-export` is not a
+  valid whole-repository preflight for a private PII-bearing wiki: it correctly
+  blocks private pages when forced through the public boundary. Package v2 now
+  requires normal private audit before import and reserves public-boundary proof
+  for the redacted migration report. Toolkit drift evidence is likewise the
+  package-aware pinned-tree comparison, not the legacy prefix-only script.
 
 ## [2026-07-11] System | V8 release readiness reopened
 

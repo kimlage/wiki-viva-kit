@@ -86,7 +86,6 @@ preflight:
   required_gates:
     - toolkit_drift
     - audit
-    - public_export_audit
     - input_stage
     - pytest
     - diff_check
@@ -99,7 +98,7 @@ migration:
   required_gates:
     - toolkit_drift
     - audit
-    - public_export_audit
+    - public_evidence_redaction
     - methodology_coverage
     - operation_compile
     - input_stage

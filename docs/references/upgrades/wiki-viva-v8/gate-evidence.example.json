@@ -4,18 +4,13 @@
   "gates": [
     {
       "id": "toolkit_drift",
-      "command": "python3 scripts/wiki_toolkit_drift.py --ref-path /path/to/wiki-viva-kit --check",
+      "command": "package-aware compare_portable_files against the pinned source_sha; require drift_total=0",
       "status": "reviewed",
       "note": "Use pass only for zero drift; use reviewed when the exact drift is the planned upgrade/import delta."
     },
     {
       "id": "audit",
       "command": "python3 scripts/wiki_audit.py --check",
-      "status": "pass"
-    },
-    {
-      "id": "public_export_audit",
-      "command": "python3 scripts/wiki_audit.py --public-export --check",
       "status": "pass"
     },
     {
