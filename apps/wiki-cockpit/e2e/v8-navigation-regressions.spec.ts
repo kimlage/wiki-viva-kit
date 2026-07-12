@@ -1122,6 +1122,23 @@ test("dense action reader owns the foreground and starts with decision-ready inf
   );
   await expect(listbox.locator('[role="option"][aria-selected="true"]')).toHaveCount(1);
   await expect(resultOptions.first()).toHaveAttribute("aria-selected", "true");
+  const resetResultGeometry = await page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>(".missionSearchResults");
+    const active = document.querySelector<HTMLElement>(
+      '#world-search-results [role="option"][aria-selected="true"]'
+    );
+    if (!viewport || !active) throw new Error("reset search result geometry unavailable");
+    const viewportRect = viewport.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const viewportTop = viewportRect.top + viewport.clientTop;
+    const viewportBottom = viewportTop + viewport.clientHeight;
+    return {
+      topGap: activeRect.top - viewportTop,
+      bottomGap: viewportBottom - activeRect.bottom
+    };
+  });
+  expect(resetResultGeometry.topGap).toBeGreaterThanOrEqual(-1);
+  expect(resetResultGeometry.bottomGap).toBeGreaterThanOrEqual(-1);
 
   await page.getByRole("combobox", { name: /Scope|Escopo/ }).selectOption("world");
   await expect.poll(() => new URL(page.url()).searchParams.get("search_scope")).toBe("world");

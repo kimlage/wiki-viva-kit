@@ -499,6 +499,8 @@ describe("visual route contract", () => {
       expect(options.filter((option) => option.getAttribute("aria-selected") === "true")).toEqual([
         options[0]
       ]);
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
+      scrollIntoView.mockClear();
 
       // Merely moving/reflowing an option under a stationary cursor must not
       // claim keyboard selection; a real pointer move still may.
@@ -520,7 +522,13 @@ describe("visual route contract", () => {
       await waitFor(() => {
         expect(new URLSearchParams(window.location.search).get("page")).toBe("dense-action-002");
         expect(new URLSearchParams(window.location.search).get("reader")).toBe("1");
+        expect(search.getAttribute("aria-activedescendant")).toBe("world-search-results-option-1");
       });
+      const searchListbox = document.getElementById("world-search-results");
+      expect(searchListbox).toBeTruthy();
+      expect([
+        ...searchListbox!.querySelectorAll('[role="option"][aria-selected="true"]')
+      ]).toEqual([document.getElementById("world-search-results-option-1")]);
       expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
     } finally {
       loadSnapshotMock.mockImplementation(defaultImplementation!);
