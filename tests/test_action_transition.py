@@ -16,7 +16,7 @@ from wiki_core.action_transition import (
     action_transition_diagnostics,
     transition_action_page,
 )
-from wiki_core.frontmatter import parse_frontmatter
+from wiki_core.frontmatter import parse_frontmatter, parse_frontmatter_flat_with_errors
 import wiki_core.action_transition as transition_module
 
 
@@ -97,6 +97,43 @@ def _values(path: Path) -> dict[str, object]:
 
 def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_writer_output_is_compatible_with_structured_and_flat_frontmatter_parsers(
+    tmp_path: Path,
+) -> None:
+    long_attention = " ".join(["Synthetic downstream pressure"] * 20) + "."
+    path = _write_action(
+        tmp_path,
+        extra={
+            "attention_basis": long_attention,
+            "related_holons": ["holon-synthetic-one", "holon-synthetic-two"],
+        },
+    )
+
+    transition_action_page(
+        tmp_path,
+        path,
+        "in_progress",
+        reason="Exercise the canonical writer under long localized content.",
+        recorded_at=FIXED_AT,
+    )
+
+    rendered = path.read_text(encoding="utf-8")
+    structured, _body = parse_frontmatter(rendered)
+    flat, errors = parse_frontmatter_flat_with_errors(rendered)
+
+    assert errors == []
+    assert structured["attention_basis"] == long_attention
+    assert structured["related_holons"] == [
+        "holon-synthetic-one",
+        "holon-synthetic-two",
+    ]
+    assert flat["related_holons"] == [
+        "holon-synthetic-one",
+        "holon-synthetic-two",
+    ]
+    assert "\n  Synthetic downstream pressure" not in rendered
 
 
 def test_valid_transition_is_atomic_receipted_and_auditable(tmp_path: Path) -> None:

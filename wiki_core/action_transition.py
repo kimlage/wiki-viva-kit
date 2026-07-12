@@ -211,12 +211,30 @@ def _parse_document(text: str) -> tuple[dict[str, Any], str]:
     return dict(loaded), text[match.end() :]
 
 
+class _AuditCompatibleSafeDumper(yaml.SafeDumper):
+    """Emit canonical YAML that both frontmatter parsers can consume.
+
+    PyYAML's default indentless sequences are valid YAML, but the wiki's
+    load-bearing flat parser intentionally accepts only indented list items.
+    Likewise, automatic scalar wrapping creates continuation lines that the
+    flat parser cannot assign to a key. The action writer must remain inside
+    the intersection of both contracts because every written page is audited
+    immediately afterward.
+    """
+
+    def increase_indent(self, flow: bool = False, indentless: bool = False):
+        return super().increase_indent(flow, indentless=False)
+
+
 def _render_document(frontmatter: Mapping[str, Any], body: str) -> str:
-    dumped = yaml.safe_dump(
+    dumped = yaml.dump(
         dict(frontmatter),
+        Dumper=_AuditCompatibleSafeDumper,
         sort_keys=False,
         allow_unicode=True,
         default_flow_style=False,
+        indent=2,
+        width=1_000_000,
     )
     return f"---\n{dumped}---\n{body}"
 
