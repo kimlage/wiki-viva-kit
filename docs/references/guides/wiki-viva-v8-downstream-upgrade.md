@@ -44,7 +44,7 @@ flowchart LR
 | `consumer-inventory.yaml` | Public-safe wave/status inventory. | Private paths, remotes, SHAs and drift filenames stay redacted. |
 | `gate-evidence.example.json` | Exact current-gate receipts consumed by preflight. | Store the filled copy in the consumer branch or local evidence directory. |
 | `migration-evidence.example.yaml` | Required post-import evidence. | Public export requires hashed/generic routes and no private content. |
-| `migration-evidence.schema.json` | Deep input contract for commit, screenshot and rollback evidence. | Public kit checkout; filled private evidence stays downstream. |
+| `docs/references/schemas/wiki-migration-evidence-v2.schema.json` | Deep input contract for commit, screenshot and rollback evidence. Portable: every faithful public import carries it next to `wiki_core/upgrade.py`. | Public kit checkout and every consumer; filled private evidence stays downstream. |
 | `migration-report.schema.json` | Stable output contract for CI/PR tooling. | Public kit checkout. |
 
 The Python tools are read-only unless an explicit output path is supplied. They
@@ -102,14 +102,42 @@ the final migration report still requires `semantic_inventory=pass`.
 
 ## 4. Compile read-only preflight
 
+Run the preflight from the KIT checkout (its package, inventory and pinned
+`source_sha` are the authority), pointing `--kit-root` at that same checkout
+and `--consumer-root` at the downstream repository:
+
 ```sh
 /opt/anaconda3/bin/python scripts/wiki_upgrade_preflight.py \
+  --kit-root /path/to/wiki-viva-kit \
   --consumer-root /path/to/consumer \
   --consumer-id <inventory-id> \
   --checked-on 2026-07-09 \
   --gate-evidence /path/to/consumer/gate-evidence.json \
   --check
 ```
+
+A consumer whose `privacy_risk` is not `public_safe` must also produce the
+authoritative unredacted sidecar. Pass a consumer-root-relative `.json` path
+that is git-ignored and untracked (the conventional location is
+`output/wiki-upgrade/preflight-report.json`):
+
+```sh
+/opt/anaconda3/bin/python scripts/wiki_upgrade_preflight.py \
+  --kit-root /path/to/wiki-viva-kit \
+  --consumer-root /path/to/consumer \
+  --consumer-id <inventory-id> \
+  --checked-on 2026-07-09 \
+  --gate-evidence /path/to/consumer/gate-evidence.json \
+  --private-evidence-ref output/wiki-upgrade/preflight-report.json \
+  --check
+```
+
+The report is then written atomically only to that sidecar — never echoed to
+stdout — and `consumer_before.preflight.report_ref` in the migration evidence
+must reference exactly that file. Without an accepted sidecar the core forces
+the redacted projection and the checked migration report cannot bind. A ref
+that is tracked, not ignored or unsafely named is rejected before anything is
+written.
 
 For evidence that may leave a private repo, add `--redact`. Redacted output
 keeps aggregate counts and hashes only deliberately scoped identifiers such as
@@ -257,19 +285,32 @@ Compile and validate it:
 /opt/anaconda3/bin/python scripts/wiki_upgrade_report.py \
   --evidence /path/to/consumer/wiki-v8-migration-evidence.yaml \
   --consumer-root /path/to/consumer \
+  --kit-root /path/to/wiki-viva-kit \
   --json-out /path/to/consumer/wiki-v8-migration-report.json \
   --markdown-out /path/to/consumer/wiki-v8-migration-report.md \
   --verify-rollback \
   --check
 ```
 
+`--kit-root` is required with `--check`: boundary byte-equality and the final
+drift-zero proof are verified against the pinned public tree in that checkout.
+
+Checked gate claims are never self-declared. Each `gates[]` entry must use the
+exact command registered in the package's `migration.gate_commands`, and
+`gates_receipt_ref` must point to a git-ignored, untracked JSON receipt of the
+executed runs (conventional location `output/wiki-upgrade/gate-receipts.json`)
+recording `{id, command, exit_code, output_sha256}` per gate and pinning the
+final migration boundary as `captured_consumer_head`.
+
 Add `--public-export` only after routes/evidence are redacted. That mode blocks
 PII, access-secret patterns, absolute local paths, URL query strings and raw
 route/center identifiers.
 
-The checked report cannot be `complete` without distinct, ancestry-ordered
-before/import and every non-null artifact/adaptation boundary that exists in
-`--consumer-root`. Every omitted optional boundary needs an explicit reason.
+The checked report cannot be `complete` without distinct, ancestry-ordered,
+single-parent commits for all three package-declared boundaries
+(`faithful_public_import`, `regenerated_artifacts`, `downstream_adaptations`).
+In v4 no declared boundary is optional: `omitted_boundaries` must be empty and
+each boundary diff must exactly equal its declared path array.
 The package digest, validator version and captured consumer HEAD must match;
 every screenshot must be a real repo-relative PNG bound by SHA-256, byte count,
 dimensions and the final migration HEAD. The command must contain every

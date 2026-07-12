@@ -24,7 +24,7 @@ context: system
 visibility: public_reference
 updated_at: 2026-07-12
 stale_after_days: 30
-sources_policy: "current_head_code_review_plus_current_run_browser_evidence_plus_sanitized_private_downstream_validation"
+sources_policy: "current_source_code_review_plus_exact_historical_browser_evidence_plus_sanitized_private_pressure"
 gate: github_pr
 sensitive_data_policy: public_synthetic_only
 related_pages:
@@ -59,12 +59,19 @@ ready to merge or release as one semantically complete pair**. Historical
 payload `S=b781882a11e8bbac3ae9684d199979a1f4ee1bf7` remains immutable evidence for
 the original v8 closure. Exact S9 and its paired private pilot also remain
 historical, subject-bound evidence. The current post-S9 public payload is
-`S10=2bf99150b2e1a5a305743144e10a9a939b4e01e1`, split into authorial commit
-`d15278f8fdf55d8ebb9e056188420277a1152713` and generated commit `S10`, and
-pinned by metadata envelope `wiki-viva-v8-rc9`. Its complete public automated
-stack is closed; exact private `P10`, consumer-semantic evidence, human
-review/merge, release tag authority, VoiceOver and external E5 remain
-mandatory.
+`S18=f9defa5a0f156816fe419df6c8f208b9eea138e0`, tree
+`af495a46b74e5c20963518923bc5ce65160a9a98`. Package
+`wiki-viva-v8-rc15` deliberately declares `status: validation_pending`, so
+`package_is_pinned` is false and downstream preflight/import fail closed. S18
+contains the S16 coherent result-window selection, ARIA identity, reset
+visibility and keyboard behavior, plus an independently reviewed preflight
+diagnostic that separates source availability from promotion state and keeps
+real drift visible while validation is pending. The complete official Node 22
+release stack, 102-cell no-retry browser receipt and current visual QA do not
+yet exist on S18 because the managed sandbox denies loopback/browser execution
+and both escalation requests were refused. Private
+adoption, human review/merge, release tag authority, VoiceOver and external E5
+remain mandatory.
 
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
@@ -101,6 +108,8 @@ contains those layers together so they can be reviewed as one coherent kit,
 but the rule still governs claims: none of the expansion is released until the
 P0/P1 stabilization boundary, exact-subject evidence and downstream adoption
 are complete.
+
+### Historical release lineage — immutable subject-bound checkpoints
 
 Implementation update after the clean-subject rerun: Waves 0–8 are committed
 as public payload `S`, and the global adversarial freeze reports **no open
@@ -157,7 +166,7 @@ to an absent downstream `../../LICENSE`, and closes RT-139 by including pack
 `presentation` when downstream E2E independently recomputes composition.
 Exact `S5` passed **1,356/1,356 Python tests**, **489/489 Vitest tests** and
 **106/106 Node gates** together with the deterministic non-browser stack.
-Current exact payload
+At that historical checkpoint, exact payload
 `S6=b852a992afa3eae64e220c461c2eff052572377c` closes RT-140: the Playwright
 observer now classifies traffic using the route at request start and finish and
 forces the real live-to-demo transition in its regression. Exact `S6` passed
@@ -182,7 +191,7 @@ skips/retries in 5.9 minutes**; the adopted private S8 subject passed both
 mandatory downstream cells on the first attempt with 0 skips/retries. Those
 receipts remain S8 evidence and are not promoted to S9.
 
-The current exact payload
+At its historical checkpoint, exact payload
 `S9=b45378d37e96eed04fb355392d10bd8471c5fda7` closes the implementation side
 of RT-144 after a real 390x844 inspection found that all five view controls
 stayed inside the document while their labels overflowed their own 60 px
@@ -219,17 +228,19 @@ snapshot and one expected `local_overrides` warning. The redacted report is
 kept in the private ignored evidence cache; its SHA-256 is
 `0e38c895350097485f701f8a2285ed604d4744f626b4db34fef3a62bc9614e23`.
 
-## Consolidated implementation ledger — active pass
+## Historical consolidated implementation ledger — S10 checkpoint
 
-This section is the current execution surface; earlier counts and defect
-captures below remain historical evidence. A green worktree is still not an
-E5 release claim. The subject sequence is deliberately split into portable
-payload `S`, public metadata envelope `M` and private adoption `P`, so no commit
-attempts to contain its own SHA and no private state becomes upstream proof.
+This section freezes the former S10 execution surface. Its counts and defect
+captures remain historical evidence and are not current rc15 authority. A
+green worktree is still not an E5 release claim. The subject sequence is
+deliberately split into portable payload `S`, public metadata envelope `M` and
+private adoption `P`, so no commit attempts to contain its own SHA and no
+private state becomes upstream proof.
 
-### Post-S9 closure wave — current 2026-07-12 execution
+### Post-S9 closure wave — historical S10 execution snapshot
 
-This subsection supersedes S9 **only as the active execution ledger**. It does
+This subsection superseded S9 **only as the active execution ledger at the
+S10 checkpoint**. It does
 not rewrite any S9 receipt or reuse an S9 count. The starting Git commit remains
 `cd19770680bf3bdaa64d9c0decf1dae9e6d5cede`; all results below were produced
 against the current uncommitted payload and are bound either to a recorded
@@ -281,7 +292,7 @@ the plan never asks a commit to contain its own SHA.
 | Migration/rollback | Deep v2 evidence/report schemas, validator/compiler, screenshot metadata verifier, CLI and tests | Real report deliberately not generated before the consumer is versioned | Focused migration controls and full Python suite | Three ordered consumer boundaries, real captures and disposable-clone rollback | Synthetic public contract closed; real `P` report pending | RT-33 |
 | Operator restart/security | Shared v6/v2 security contract, client/capability logic, preflight/receipt wiring, SOP and existing downstream cell | No nonce or secret is persisted in generated evidence | 512 Vitest, 107 Node tests, real HTTP restart tests and 102+2 matrix contract | Execute old-process rejection → restart → re-verify against the private operator | Public contract closed; real restart replay pending | RT-48 |
 | Historical action adoption | Existing canonical resolver/auditor and source-lifecycle scenarios | Source-lifecycle snapshot changed only as demo fan-out | Full Python/frontend/browser stacks | Real accepted-without-ref, conflicting forms, transition history and redaction replay | No new public implementation required; private diagnostic remains open | RT-47 |
-| Visual evidence | Existing light/dark themes, density modes, WebGL/fallback, Timeline, packs, reader and Genesis | Two reviewed Darwin baselines plus immutable Playwright run artifacts | Current screenshots and exact 102-cell first-attempt run | Repeat representative surfaces with private Portuguese data | Public E3 inspected; private E4 pending | RT-32/41/43/44 |
+| Visual evidence | Existing light/dark themes, density modes, WebGL/fallback, Timeline, packs, reader and Genesis | Two reviewed Darwin baselines plus immutable Playwright run artifacts | Historical S10 screenshots and exact S10 102-cell first-attempt run | Repeat the complete matrix on exact S18, then representative surfaces with private Portuguese data | Historical public E3 inspected; current S18 E3 and private E4 pending | RT-32/41/43/44 |
 
 #### Semantic relation and event inventory
 
@@ -321,18 +332,18 @@ The dense search contract now proves:
   height instead of exposing unrelated navigation behind the workbench;
 - 390×844 measures zero document overflow and 44 px selects/results.
 
-The first current-run navigation attempt exposed three real defects rather than
+The first S10 navigation attempt exposed three real defects rather than
 being promoted: Timeline/pack CSS left the live listbox at 0×0, the dense accent
 assertion referenced a title from another fixture, and mobile selects measured
 18 px. After the minimal fixes, the focused rerun passed 3/3 desktop and 1/1
 WebKit mobile with retries disabled. The later complete matrix passed the same
 cells on its first attempt.
 
-#### Public validation matrix — current payload only
+#### Public validation matrix — historical S10 payload only
 
-| Gate | Current result | Exact evidence / qualification |
+| Gate | Historical S10 result | Exact evidence / qualification |
 | --- | --- | --- |
-| Python | **1,367 passed**, zero failures/skips, two known warnings, 8m44s | `/opt/anaconda3/bin/python -m pytest tests/`; current post-S9 command window |
+| Python | **1,367 passed**, zero failures/skips, two known warnings, 8m44s | `/opt/anaconda3/bin/python -m pytest tests/`; historical S10 command window |
 | Frontend | **64 files, 512/512 tests**, 3.65s Vitest | `npm test` |
 | Node gates | **107/107**, 18.90s | `npm run test:gates` |
 | Build | **pass**, 2,603 modules | Production Vite build; no build-only bypass |
@@ -358,9 +369,9 @@ correctly failed because no operator listened on `127.0.0.1:5173`. Snapshot API
 truth is instead covered by the 26-payload contract now and will be exercised
 against the restarted private operator during `P`.
 
-#### Current visual QA findings
+#### Historical S10 visual QA findings
 
-All screenshots in this row were captured in the current execution. Automated
+All screenshots in this row were captured in the S10 execution. Automated
 contrast cells require at least 4.5:1; the manual pass focused on hierarchy,
 occlusion, density, touch geometry and interpretation rather than replacing
 those computed checks.
@@ -378,7 +389,7 @@ those computed checks.
 | Genesis 390×844 | Center absent, empty=true, choices 160×90 px and fallback choice 120×44 px, zero overflow | Pass; hierarchy and touch targets are clear |
 | Locale | Current public matrix covers EN and pt-BR plus long-copy regression | Public pass; the manual E4 Portuguese read will be repeated on the private configured snapshot |
 
-No console warning/error was observed in the current in-app browser session.
+No console warning/error was observed in that historical in-app browser session.
 WebGL, explicit fallback, light/dark, desktop/mobile, Timeline, both packs,
 reader and Genesis were all visually inspected. VoiceOver remains a human gate
 and is not inferred from ARIA or keyboard automation.
@@ -407,9 +418,9 @@ and is not inferred from ARIA or keyboard automation.
     exact payload receipt, import it into the private consumer, execute E4
     replay/report/rollback/restart, then reconcile this same plan.
 
-#### RT disposition at the public/private boundary
+#### Historical S10 RT disposition at its public/private boundary
 
-| RT | Public `S` | Private `P` | Current disposition and next action |
+| RT | Public S10 | Private P10 | Disposition recorded at the S10 checkpoint |
 | --- | --- | --- | --- |
 | RT-09 | Partial | Open | Canonical/legacy identities coexist in parsers and mixed fixtures; add a public legacy-only fixture if private replay proves the sibling-inference limitation |
 | RT-10 | Closed | Open | Five demo events/three closed have exact cross-surface parity; replay private event inventory |
@@ -419,16 +430,16 @@ and is not inferred from ARIA or keyboard automation.
 | RT-47 | Unchanged public contract | Open diagnostic | Replay historical action conflicts and secret-shaped redaction privately; upstream only a minimized failing fixture if one appears |
 | RT-48 | Closed | Open | v4/v1 rejection and v6/v2 restart are executable publicly; perform documented private restart and 2/2 downstream cells |
 
-The current wave is therefore **publicly green but not complete** at this
-checkpoint. It becomes complete only after exact commits, exact payload import,
+The S10 wave was therefore **publicly green but not complete** at that
+checkpoint. It could become complete only after exact commits, exact payload import,
 private real-data replay, sanitized migration receipts and the final
 contradiction check in this same plan.
 
-| Wave | Current implementation state | Acceptance boundary before advancement |
+| Wave | Historical S10 implementation state | Acceptance boundary recorded at that checkpoint |
 | --- | --- | --- |
 | 0 — release truth | Exact matrix remains 102+2; rc9 pins exact public S10 while the paired private P10 is pending. | Finish P10 migration report/rollback/restart; human review/merge, VoiceOver, external E5 and tag authority remain separate. |
 | 1 — public P0/P1 | Genesis 0, keyboard focus, action state, output containment, public projection, source/event vocabulary, semantic parity, stale operator, route identity, portable assets, composition and evidence integrity have synthetic regressions. | Exact S10 passes 1,367 Python, 512 frontend, 107 Node, 102 browser and every deterministic gate; historical ledgers remain on their subjects. |
-| 2 — navigation/mobile/atomicity | One runtime grammar, surface singleton, mobile/fallback geometry, atomic content/snapshot activation, strict ports, primary-surface focus and cross-surface search are implemented. | Exact S10 public browser and current 390x844 QA pass; repeat against private P10 and keep human accessibility review separate. |
+| 2 — navigation/mobile/atomicity | One runtime grammar, surface singleton, mobile/fallback geometry, atomic content/snapshot activation, strict ports, primary-surface focus and cross-surface search are implemented. | Exact S10 public browser and then-current 390x844 QA passed; repeat against the then-planned private P10 and keep human accessibility review separate. |
 | 3 — source/event truth | Typed source lifecycle and a multi-clock temporal graph replace the false equivalence between activity feed and semantic history. | Public fixtures valid; later `P` must measure real private events and keep private identifiers out of public evidence. |
 | 4 — executable demos | Seven isolated base scenarios, nine Genesis stages (0–8) and the Study/Research plus Personal Finance showcases are built by deterministic fixture repositories. Their manifests bind 22 claims to 12 canonical routes. | `wiki_build_demo.py --check`, complete sidecars, empty contract errors and route-level browser journeys. |
 | 5 — visual system | Light Luminous Observatory and dark Night Mission Control themes, Focus/Balanced/Command densities, semantic tokens, licensed asset manifest and reduced/forced-motion/color fallbacks are implemented. | Named browser cells cover every theme×density pair, zoom, forced colors, reduced motion, keyboard and mobile; VoiceOver remains an explicit human release gate. |
@@ -489,7 +500,7 @@ memory rather than one fixed dashboard:
 | Surface | Reviewed baseline | Automated state | Human/product state | Decision |
 | --- | --- | --- | --- | --- |
 | Public baseline | Public feature branch at `31b94d81`; exact PR metadata stays in the Git review surface | Remote checks green; Python, frontend and most browser tests green | Confirmed P0/P1 failures at that revision; no human review decision | Block merge and release |
-| Public payload `S` | Exact subject `b781882a11e8bbac3ae9684d199979a1f4ee1bf7` | 1,339 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; matrix remains 102+2 | Global adversarial verdict has no open public P0/P1; human review and E5 remain | Public release candidate; do not tag until `P`, E5 and human gates converge |
+| Historical public payload `S` | Exact subject `b781882a11e8bbac3ae9684d199979a1f4ee1bf7` | 1,339 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; matrix remains 102+2 | Its then-global adversarial verdict had no open public P0/P1; later source and private pressure superseded it | Historical release candidate only; never tag or use as current authority |
 | Public pressure payload `S2` | Exact subject `f0936539ca44c34ff5eacf5817b22ff9451b9cef` | 1,355 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; demo and audit remain deterministic | Portability, historical-action adoption, rollback truth and demo-link closure are executable contracts | Historical rc3 candidate; imported by the private pilot before the final pressure pass |
 | Public renderer payload `S3` | Exact subject `8904d69daab1803043a89e553d78b95b57d2022f` | 1,356 Python pass; clean browser run blocks at 101/102 on a live→demo request race | Both action parsers accept canonical output, but browser closure is incomplete | Rejected intermediate; never promote or adopt as the final candidate |
 | Public pressure payload `S4` | Exact subject `f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb` | 1,356 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; 26-payload snapshot, demo, packs, build and audit are deterministic | The real downstream renderer defect and the same-turn demo abort boundary are executable contracts | Historical rc4 candidate; evidence retained on its exact subject |
@@ -498,15 +509,21 @@ memory rather than one fixed dashboard:
 | Public contract payload `S7` | Exact subject `fa83a70500b3b1d27074c54e70893405d61d9b87` | Focused release-contract controls align pages integrity and temporal vocabulary | RT-142 is executable without inventing payload fields | Historical rc6 contract-alignment subject |
 | Public atomic-observer payload `S8` | Exact subject `d0a6168cf8aa291d79047c28a0c61eb274b973f9` | 102/102 public plus 2/2 downstream browser cells pass first attempt with 0 skips/retries on paired exact subjects | The UI proof observes `/api/snapshot/boot`, the real atomic transport | Historical rc7 candidate; retain its exact receipts |
 | Historical mobile-control payload `S9` | Exact subject `b45378d37e96eed04fb355392d10bd8471c5fda7` | Public 1,356 Python/489 frontend/106 Node/102 browser plus deterministic gates pass; private 1,117 Python/489 frontend/106 Node/2 browser plus deterministic gates pass | RT-144 mobile inner-control overflow is repaired and manually remeasured against real data | Historical rc8 pair; retain without promoting its counts to S10 |
-| Current post-S9 payload `S10` | Exact subject `2bf99150b2e1a5a305743144e10a9a939b4e01e1`; authorial predecessor `d15278f8fdf55d8ebb9e056188420277a1152713` | 1,367 Python, 512 frontend, 107 Node and 102/102 public browser cells plus audit, semantic, demo, snapshot, pack, architecture, assets and bundle gates pass | Semantic inventory, event equality, dense search, migration v2 and operator restart/security are public synthetic contracts | Exact rc9 public candidate; private P10 replay is the active blocker |
-| Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for exact P10 |
-| Current private P10 | Not imported at this checkpoint | No S10 downstream receipt yet | Must preserve private memory/config/adapters while replaying events, relations, search, authorship, restart, Timeline, mobile and rollback | Blocked until the three ordered downstream commits and sanitized report exist |
-| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | 22 claims bind test IDs; 12 canonical routes are collected; exact S9 deterministic demo and browser matrix pass | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Exact automated candidate complete; preserve human review boundary |
-| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Exact S9 489 frontend, asset/build/bundle and 102 browser controls pass; private S9 mobile geometry passes | Updated desktop/reader/mobile baselines were visually compared; VoiceOver remains a human gate | Automated candidate complete; run final human accessibility gate |
+| Historical post-S9 payload `S10` | Exact subject `2bf99150b2e1a5a305743144e10a9a939b4e01e1`; authorial predecessor `d15278f8fdf55d8ebb9e056188420277a1152713` | 1,367 Python, 512 frontend, 107 Node and 102/102 public browser cells plus audit, semantic, demo, snapshot, pack, architecture, assets and bundle gates pass | Semantic inventory, event equality, dense search, migration v2 and operator restart/security became public synthetic contracts | Historical rc9 candidate; later real-data and UX pressure superseded it as adoption target |
+| Current public payload `S18` | Exact source `f9defa5a0f156816fe419df6c8f208b9eea138e0`, tree `af495a46b74e5c20963518923bc5ce65160a9a98`; package `wiki-viva-v8-rc15` | 513/513 frontend and build pass on the source tree under local Node 26; 67/67 upgrade tests pass; exact official Node 22/Python/Node/browser stack and current visual matrix are not yet authorized | S16 keeps result shrink/reorder, ARIA identity, reset visibility and mixed pointer/keyboard state coherent; S18 keeps real downstream drift inspectable while promotion remains blocked | `validation_pending`; package is deliberately non-releasable and private preflight/import must block |
+| Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the exact S18 private adoption |
+| Current private rc15 target | Not imported; clean isolated preparation exists but every earlier preflight is now historical | No rc15 downstream receipt | Must preserve private memory/config/adapters while replaying events, relations, search, authorship, restart, Timeline, mobile and rollback | Mechanically blocked by `validation_pending`; regenerate preflight only after the complete S18 official stack and E3 visual QA close |
+| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | 22 claims bind test IDs; 12 canonical routes are collected; exact S9 deterministic demo and browser matrix remain historical | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Implementation present; exact S18 demo, browser and visual release proof pending |
+| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Historical S9 frontend/asset/build/bundle/browser and private mobile geometry evidence exists | Historical desktop/reader/mobile baselines were visually compared; VoiceOver remains a human gate | Implementation present; exact S18 build/E3 and final human accessibility gate pending |
 
-The current local public branch changes 2,013 files with 480,684 additions and
-10,705 deletions across 87 commits from the locally recorded `origin/main`.
-This is a review-size signal, not a claim about unpushed remote PR state. The private pilot is also
+At historical machine-status commit `f849de26`, the local public branch changed 2,066
+files with 486,397 additions and 10,913 deletions across 100 commits from the
+locally recorded `origin/main`. This subject-bound snapshot is a review-size
+signal, not a claim about later uncommitted plan bytes or unpushed remote PR
+state. Exact source S18 changes the same 2,066-file surface with 486,558
+additions and 10,913 deletions across 104 commits from the same locally
+recorded `origin/main`; this is also a local review-size signal, not live
+remote authority. The private pilot is also
 a very large downstream diff; its exact Git metadata remains private. Generated
 artifacts are a large majority of the public insertion volume. Passing tests
 are necessary, but this diff size makes conceptual review, semantic drift
@@ -692,8 +709,9 @@ unchanged since 09:18 BRT on 2026-07-11. The only fresher writes were local
 session/plugin inventory metadata, not analysis, code, screenshots or tests.
 Chronicle was running but its newest frame was more than seven hours old, so it
 was used only to locate the named session and not as evidence of current work.
-Both canonical repositories were clean at their exact S9 heads; the detached
-Claude worktree remained a clean historical July 1 tree. Re-reading the
+At that historical checkpoint, both canonical repositories were clean at their
+then-exact S9 heads; the detached Claude worktree remained a clean historical
+July 1 tree. Re-reading the
 workflow schema confirmed 115 `started` events, 78 returned results and the
 same 37 missing verifier completions. No new Claude-authored `.md`, `Write`,
 `Edit`, commit, test receipt or finding exists to merge. The practical outcome
@@ -702,6 +720,18 @@ kernel, pack system, visual precedent register and the repaired Claude-derived
 defects in this plan. The remaining internal downstream proof stays focused on
 RT-09/10, RT-29, RT-33, RT-36, RT-47 and RT-48, independently of the dormant
 Claude process.
+
+An eleventh read-only Git reconciliation on 2026-07-12 inspected that detached
+Claude worktree against current metadata commit `8b44bb19…`. It is clean at the
+historical merge of public PR #44, has **zero exclusive commits**, sits 205
+commits behind the current branch at the comparison boundary and contains no
+file write newer than 2026-07-01. Its dashboard plan is an older ancestor of
+the canonical, substantially expanded copy; importing it would regress later
+Git/PR, local-execution, deploy, security and operation contracts. Therefore
+there is nothing to cherry-pick or merge, no test evidence to inherit and zero
+new RT rows. Its useful Setup Studio, contract interview, Quiet Reference
+Library, Module Orbit/bento and 3D-to-living-world ideas are already routed
+below as historical inspiration or future work, never current release scope.
 
 For future local-only reconciliation, the material layout is discoverable as
 `~/.claude/projects/<repository-slug>/<cli-session>.jsonl`, with the workflow
@@ -880,7 +910,7 @@ The review found a strong foundation. The corrective work must not erase it.
 ### Engineering
 
 - The historical Snapshot v2 baseline produced 24 validated payloads; exact
-  S9 produces and validates the current 26-payload contract.
+  S9 produced and validated the then-current 26-payload contract.
 - Demo generation is deterministic for the scenarios that are materialized.
 - Python and frontend unit coverage is broad.
 - Bundle size remains controlled despite the implementation volume.
@@ -1060,14 +1090,16 @@ reproduction.
 | RT-144 | P1 | At 390x844 the document had zero overflow, but the five 60 px view controls each had labels wider than their own boxes, visually colliding across the navigation row | E3 real private mobile inspection measured inner-control overflow; post-S9 reinspection measured five controls at 62 px with `clientWidth == scrollWidth`, zero inner/document overflow, 44 px minimum height and hidden icons | `S9` hides mobile view icons, tightens grid gap/padding and asserts exactly five controls with zero inner-label overflow; exact public browser and private manual geometry pass |
 | RT-145 | P2 | Reloading or closing the private tab during a large `/api/snapshot/boot` response can log full `BrokenPipeError` or `ConnectionResetError` tracebacks from `_send_json -> self.wfile.write(body)`, even though the user intentionally disconnected | E4 private operator observation reproduced expected client-abort noise without UI failure, gate failure or response corruption for a connected client | Catch only expected disconnect exceptions around socket write/flush, keep serialization and unexpected server errors visible, and add an aborted-client regression proving clean observability and correct attempt lifecycle; non-blocking for S9 |
 
-### Exact-public-subject closure overlay
+### Historical exact-public-subject closure overlay
 
 The baseline ledger above remains immutable reproduction history. This overlay
-records the accepted public `S` and the boundaries still owned by `P`, human
-review or E5. Public closure never promotes the browser-only receipt to a full
-release authority.
+records what was accepted on public `S` and the boundaries then owned by `P`,
+human review or E5. Every disposition is frozen historical evidence; current
+authority lives only in the final S18/rc15 section (and its later successors).
+Public closure never promotes the browser-only receipt to a full release
+authority.
 
-| Finding | Current disposition | Evidence now present | Gate still required |
+| Finding | Historical disposition | Evidence present at that checkpoint | Gate then still required |
 | --- | --- | --- | --- |
 | RT-21 | **Partial — P2 open** | The new v8 world, visual-control, Timeline and pack surfaces use parity-checked EN/PT namespaces; the PT-BR WebGL/fallback/long-copy browser cells pass. Static inspection still finds legacy visible copy in `App`, `ErrorBoundary`, `PacketTray` and renderer/HUD paths, so this is not global i18n closure | Keep the tested v8 surfaces green, inventory the remaining legacy literals by owning surface, migrate them without changing semantics, and add a fail-closed visible-copy gate before claiming whole-cockpit parity |
 | RT-32 | Public `S` closed; `P` pending | One canonical POSIX repo-relative parser rejects empty/dot/`..`, absolute, Windows-separator/drive and case-folded sensitive names before glob matching; the exact upgrade suite passed | Run the downstream import preflight against the pinned `S` tree |
@@ -1099,20 +1131,23 @@ release authority.
 | RT-130 | Exact `S` closed | Registry-owned writer emits canonical `/w?view=...`; positional routes are compatibility reads; malformed escapes fail closed; one URL-owned tray obeys primary-surface precedence. Exact route/back-forward/share/focus cells pass | Repeat with private composition |
 | RT-133 | **Exact `S` closed** | Rejected rows cannot advance causal pointers; state-preserving receipts emit truthful kinds; IDs are canonical; the full 141-event graph has zero dangling/false same-state transitions. Exact full suite passes | RT-134/135 retain causal-cycle/time-direction and future-pagination P2 work |
 | RT-138 / RT-139 | **Exact `S5` closed** | The asset manifest points to a license shipped in the portable tree and downstream composition recomputation includes `presentation`; exact S5 passed 1,356 Python, 489 frontend and 106 Node controls plus deterministic non-browser gates | Repeat the portable install/composition proof on private `P` |
-| RT-140 | **Exact S9 public/private closed** | Request observation binds route-at-start and route-at-finish; exact S6 first closed the regression, and current S9 independently passed 102 public plus 2 downstream browser cells on the first attempt | Preserve the observer and exact-subject receipts through human review |
+| RT-140 | **Exact S9 public/private closed** | Request observation binds route-at-start and route-at-finish; exact S6 first closed the regression, and then-current S9 independently passed 102 public plus 2 downstream browser cells on the first attempt | Preserve the observer and exact-subject receipts through human review |
 | RT-141 | P2 future hygiene | Runtime pack coordination can leave `.wiki-viva/pack-operation.lock` untracked because no portable ignore rule owns it | Move it to an ignored runtime root or add a narrow portable ignore/lifecycle contract; non-blocking for rc8 |
 | RT-142 | Exact S9 public/private closed | S7 removes invented `pages.snapshot_id`, checks `pages.json` against manifest integrity and accepts current action migration kinds; S9 passed 102+2 on paired subjects | Preserve exact-subject receipts through metadata/human review |
 | RT-143 | Exact S9 public/private closed | The UI observer reads the atomic `/api/snapshot/boot` envelope; S9 passed 102 public plus 2 downstream cells first attempt with zero skip/retry | Preserve the atomic observer contract |
 | RT-144 | Exact S9 public/private closed | CSS/test repair is committed; public S9 browser passes and manual private 390x844 proof measured five 62 px controls, zero inner/document overflow, 44 px minimum height and hidden icons | Human visual/accessibility review remains |
 | RT-145 | P2 future observability | Expected client aborts during a large atomic boot response can emit full socket-disconnect tracebacks without affecting UX or gates | Narrowly suppress only `BrokenPipeError`/`ConnectionResetError` at write/flush and prove an aborted client does not hide serialization/server faults |
 
-### Complete P0/P1 control matrix
+### Historical P0/P1 control matrix — original S/S9 checkpoint
 
-This is the release-blocker index for the **entire** ledger. It prevents later
+This is the release-blocker index frozen at the original S/S9 checkpoint, not
+the current rc15 disposition. The authoritative current deltas for RT-09/10,
+29, 33, 36, 47 and 48 are in the final rc15 table below. This historical table
+prevents later
 rows from falling outside a historical “RT-01 through RT-56” checklist. Slice
 codes are: `S` public portable payload and exact-subject proof; `M` metadata
 commit created only after `S`; `P` exact private adoption; `E5` external signed
-promotion/human authority. The disposition column is current after the exact
+promotion/human authority. The disposition column records the exact historical
 `S` rerun. For rows whose proof cell still describes the earlier focused gate,
 the exact-`S` overlay is authoritative: 1,339 Python, 489 frontend, 106 Node and
 102/102 public browser controls passed with zero required skip/retry. “Closed
@@ -1123,7 +1158,7 @@ first-attempt browser closure for RT-140. Exact S6 Python is independently
 green at 1,356/1,356 in 346.27 seconds; no row may silently transfer S5
 evidence to S6.
 
-| Finding | Sev | Owner role | Target slice | Current disposition | Closure proof or pending gate |
+| Finding | Sev | Owner role | Target slice | Historical disposition | Closure proof or pending gate |
 | --- | --- | --- | --- | --- | --- |
 | RT-01 | P0 | Runtime owner | S | Exact `S` closed | Empty-world contract plus Genesis cells. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 | RT-02 | P0 | Accessibility owner | S | Exact `S` closed | Native Tab/focus restoration controls. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
@@ -1226,7 +1261,7 @@ evidence to S6.
 | RT-133 | P1 | Temporal owner | S | Exact `S` closed | 165 focused controls plus regenerated 141-event graph with zero dangling/false same-state events. Exact-subject gate passed in the final 1,339/489/106/102 suite with 0 required skip/retry. |
 | RT-138 | P1 | Asset/packaging owner | S5→P | Exact S9 public/private closed | Portable first-party license exists; downstream asset validation passes with 1/64 first-party, 380 bytes and 0 external assets. |
 | RT-139 | P1 | Pack/release owner | S5→P | Exact S9 public/private closed | Downstream E2E recomputes the complete presentation-aware composition against the exact private pack and adapter identities. |
-| RT-140 | P1 | Browser release owner | S6→P | Exact S9 public/private closed | Request timing is bound to route start/finish; current S9 independently passes 102 public plus 2 downstream browser cells on first attempt. |
+| RT-140 | P1 | Browser release owner | S6→P | Exact S9 public/private closed | Request timing is bound to route start/finish; then-current S9 independently passed 102 public plus 2 downstream browser cells on first attempt. |
 | RT-141 | P2 | Pack/runtime hygiene owner | future S | Open, non-blocking | Add a portable ignore contract for `.wiki-viva/pack-operation.lock`; do not misclassify runtime lock hygiene as rc8 release proof. |
 | RT-142 | P1 | Downstream release owner | S7→P | Exact S9 public/private closed | Stop requiring the nonexistent `pages.snapshot_id`, attest `pages.json` through manifest integrity and accept `action_state_canonicalized` plus `action_contract_updated` in the temporal vocabulary. |
 | RT-143 | P1 | Downstream browser owner | S8→P | Exact S9 public/private closed | Observe the atomic `/api/snapshot/boot` envelope consumed by the UI instead of waiting for the deprecated manifest/pages/experience-pack fan-out. |
@@ -1241,8 +1276,8 @@ exposed RT-102/RT-104 before a 68-cell wrapper passed. The expanded 102-cell
 contract then failed its first clean-subject attempt at 84/102; the failed run
 is retained because it found a real compatibility-route defect, stale test
 assumptions and measurable mobile occlusion. Only the corrected 102/102 run on
-`b781882a11e8bbac3ae9684d199979a1f4ee1bf7` is promoted as current public
-browser proof.
+`b781882a11e8bbac3ae9684d199979a1f4ee1bf7` was promoted as the accepted proof
+for that historical subject; it is not current S18 browser authority.
 
 ### Public kit
 
@@ -1269,8 +1304,8 @@ browser proof.
 | Historical `S6` exact stack | 1,356/1,356 Python passed in 346.27 s with two known warnings; 102/102 browser passed in 6.0 min, first attempt, 0 skipped, 0 retries | Accepted rc5 exact-subject proof for `b852a992…`; browser result `public-mrhjnxhu-0b3e0e14-d9d3-430c-9b11-8c03b3bb3fed` |
 | S7 contract-alignment payload | Pages integrity replaces invented `pages.snapshot_id`; current action migration kinds enter the release vocabulary | RT-142 implementation evidence for `fa83a705…`; no S6/S8 count is relabeled as S7 proof |
 | S8 atomic-boot observer payload | 102/102 public browser cells in 5.9 min and 2/2 mandatory downstream cells, both first attempt with 0 skips/retries | Accepted rc7 exact-subject browser proof for `d0a6168c…`; RT-143 closed on S8 |
-| Current S9 mobile-control payload | CSS/regression committed; public S9 passed 102/102 browser plus the full deterministic stack; private S9 passed 2/2 downstream cells in 7.8s and manual 390x844 proof measured five 62 px controls with zero inner/document overflow and 44 px minimum height | Accepted rc8 exact-subject public/private automated closure for `b45378d3…`; human visual/VoiceOver review remains |
-| Current Playwright contract | Written/current and executed: 102 public cells in 17 specs + 2 downstream cells in 1 spec | S9 passed 102+2 on paired exact subjects, first attempt with 0 skips/retries |
+| Historical S9 mobile-control payload | CSS/regression committed; public S9 passed 102/102 browser plus the full deterministic stack; private S9 passed 2/2 downstream cells in 7.8s and manual 390x844 proof measured five 62 px controls with zero inner/document overflow and 44 px minimum height | Accepted rc8 exact-subject public/private automated closure for `b45378d3…`; human visual/VoiceOver review remains |
+| Historical S9 Playwright contract | Written and executed: 102 public cells in 17 specs + 2 downstream cells in 1 spec | S9 passed 102+2 on paired exact subjects, first attempt with 0 skips/retries |
 | Snapshot contract and atomic publication | Real contract: 26 payloads; full Python suite green | Reciprocal related pages no longer fake provenance; descriptor-pinned deletion, CAS activation, ctime invalidation and recovery paths remain covered |
 | WebKit affected case repeated 5x without retry | 5 passed in 39.1s after rebuilding `dist` | Global 45 px baseline plus targeted 47 px Q2-center rule closes RT-05; a rejected 50 px global attempt caused overlaps |
 | Quadrant report | 4 anchors, 49 pages, 0 warnings | Synthetic AQAL contract passes |
@@ -1349,9 +1384,9 @@ The same read-only pass corrected two gate-scope errors before any import:
   `compare_portable_files` against the package's exact `source_sha`, requiring
   literal zero after import. No ignore entry can convert drift into a pass.
 
-### Current exact S9 private-adoption checkpoint
+### Historical exact S9 private-adoption checkpoint
 
-The current private browser receipt is exact for the adopted S9 payload, while
+The historical private browser receipt is exact for the adopted S9 payload, while
 its consumer commit identity and raw result stay in the private report. Only
 sanitized aggregates are published here:
 
@@ -1473,7 +1508,7 @@ of the same density system, not unrelated pages.
 | RT-34 | Single-read page hash, revision-bound content, 409/cache refresh on mismatch and sidecar freeze check | 65 focused snapshot/content/server/output tests; full Python suite | Concurrent real-operator stress at downstream scale |
 | RT-42 / RT-49 | Repository containment/ownership plus deploy-boundary validation against frozen in-memory artifacts before any output promotion; refusal is count-only and preserves the previous public bundle | No-output, prior-bundle, escape/unowned and target/ancestor symlink controls participate in the 1,339-test final run | Exact-`S` repetition and human review of destructive-path UX |
 | RT-46 / RT-48 | Backend default-deny, Vite same-origin enforcement and v2 stale-operator rejection are closure candidates | Server/Vite/browser origin and stale-contract controls participate in the final Python/Node/frontend runs | Mandatory real-operator API/UI cells and downstream startup proof on `P` |
-| RT-39 | Sources route now drives `view=sources`, pressed Sources control and Sources mission in the current browser run | Current-worktree screenshot `06-sources-view-desktop.png`, URL/ARIA/DOM readback and clean console | Full registered-view matrix plus refresh/share/back-forward proof |
+| RT-39 | Sources route drives `view=sources`, pressed Sources control and Sources mission in the historical captured browser run | Historical exact-subject screenshot `06-sources-view-desktop.png`, URL/ARIA/DOM readback and clean console | Repeat on exact S18 in the full registered-view matrix plus refresh/share/back-forward proof |
 | RT-47 | One shared source-lifecycle vocabulary, flattened-over-nested precedence, explicit legacy aliases and early audit diagnostics; unknown values remain raw and publication remains fail-closed | Full Python passes; normal/public audit 0 errors with 6 freshness warnings after midnight; deterministic demo check | Downstream authoring-diagnostic replay on `P` |
 | RT-50 / RT-52 | Legacy adoption now requires a non-empty exact legacy hash-gap plus matching repository identity; common, snapshot, deploy and OKF paths reject target/ancestor symlinks while preserving external trees | 46 focused tests; explicit current-unmarked, compatible legacy and wrong-repo cases; target and ancestor symlink fixtures at all output layers; ruff/diff clean | Human review of destructive-path UX and downstream cache migration replay |
 | RT-53 / RT-54 | Hypothesis is required and imported normally; four tests for scripts owned only by the private downstream were removed from the generic public suite while remaining downstream-owned | Final public Python suite: 1,339 passed, 0 skipped | Verify clean-`S` dependency install; keep downstream finance cases green after exact-version adoption |
@@ -1523,32 +1558,33 @@ shared core is changed.
 
 ### Full journey inventory across evidence strata
 
-The eleven current-worktree captures above are the authoritative visual read
-for the surfaces they cover. The broader inventory below keeps earlier public
-and sanitized downstream journeys visible without presenting baseline defects
-as current-worktree truth.
+The eleven S10 worktree captures above are authoritative only for their exact
+historical subject. The broader inventory below keeps earlier public and
+sanitized downstream journeys visible without presenting baseline defects or
+old visual passes as current S18 truth. None of these rows is current release
+evidence.
 
 | Step | Surface | Evidence stratum | Current adjudication | Next improvement or proof |
 | --- | --- | --- | --- | --- |
-| 1 | Demo entry | Current public capture | Healthy with polish debt | Reduce empty space, increase explanatory type and show the kit/pack model sooner |
-| 2 | Genesis start | Current public capture + E2 | Empty-world crash fixed; founding state remains visually underscaled | Separate tutorial/form layers and enlarge root choices without obscuring the world |
-| 3 | Full quadrants world | Current public capture | Operationally dense but slow to scan | Establish stronger information hierarchy, luminance bands and label scaling |
+| 1 | Demo entry | Historical public capture | Healthy with polish debt | Reduce empty space, increase explanatory type and show the kit/pack model sooner |
+| 2 | Genesis start | Historical public capture + E2 | Empty-world crash fixed; founding state remains visually underscaled | Separate tutorial/form layers and enlarge root choices without obscuring the world |
+| 3 | Full quadrants world | Historical public capture | Operationally dense but slow to scan | Establish stronger information hierarchy, luminance bands and label scaling |
 | 4 | Guided tour start | Public baseline capture | Useful orientation; not re-captured after Wave 1 | Re-run with focus assertions and prevent competition with dense chrome |
 | 5 | Guided tour completion | Public baseline capture | Informational completion only; not re-captured after Wave 1 | End in a concrete safe task and record the transition |
-| 6 | Radar | Current public capture | Strong visual concept with microtext debt | Add non-color legend/fallback and scalable annotations |
-| 7 | Sources | Current public capture | URL, control and mission identity agree; RT-39 closure candidate | Make lifecycle, freshness and ingestion failures visually dominant; run the full registered-view matrix |
+| 6 | Radar | Historical public capture | Strong visual concept with microtext debt | Add non-color legend/fallback and scalable annotations |
+| 7 | Sources | Historical public capture | URL, control and mission identity agree; RT-39 closure candidate | Make lifecycle, freshness and ingestion failures visually dominant; run the full registered-view matrix |
 | 8 | Work | Public baseline + current unit evidence | Spatial model exists; canonical action-state resolver is now a closure candidate | Re-capture totals with contradictory/body-only fixtures and test every mutation boundary |
 | 9 | Search results | Current public replay | Native Enter opens and focuses the reader | Increase result prominence, add scopes/filters and retain atomic URL/focus semantics |
-| 10 | Reader | Current desktop/mobile captures | Strongest current surface | Move repository path behind disclosure; add temporal/provenance rail and explicit truncation |
+| 10 | Reader | Historical desktop/mobile captures | Strongest captured surface at that checkpoint | Move repository path behind disclosure; add temporal/provenance rail and explicit truncation |
 | 11 | Nested center | Public baseline + E2 replay | Recursive world works, but Galaxy reset remains RT-07 | Prove deterministic root/reset, breadcrumb and back/forward semantics |
 | 12 | Create gate | Public baseline capture | Reviewable-write intent is visible; operator trust contract changed after capture | Re-capture against v2 handshake and explain proposal, receipt and PR consequences |
 | 13 | Missions | Public baseline capture | Useful dense overlay; not re-captured after Wave 1 | Add hierarchy/filters and preserve spatial context and focus |
 | 14 | Blocks | Public baseline capture | Best proof of modular behavior | Add pack ownership, capability provenance and install/disable lifecycle |
 | 15 | Approval empty state | Public baseline capture | Honest empty state | Explain how approvals arrive and provide one safe next action |
 | 16 | Intake | Public baseline capture | Add is first-class, but flow evidence predates current operator/security work | Add source-type guidance, privacy classification, progress and receipt feedback |
-| 17 | Mobile full world | Current public capture + WebKit repeat | Controls fit; targeted Q2 active center now meets the rule without the overlap caused by a rejected global 50 px change | Improve map interpretation and run the final mobile matrix after the final build |
-| 18 | Mobile reader | Current public capture | Reader reflows and actions remain reachable | Verify 200%/400% zoom, long tables, screen-reader order and sticky-action overlap |
-| 19 | Forced 2D fallback | Current public capture | Functionally present but not parity-quality | Remove duplicate chrome/internal scrolling and replace sparse scatterplot with task-oriented semantic structure |
+| 17 | Mobile full world | Historical public capture + WebKit repeat | Controls fit; targeted Q2 active center now meets the rule without the overlap caused by a rejected global 50 px change | Improve map interpretation and run the final mobile matrix after the final build |
+| 18 | Mobile reader | Historical public capture | Reader reflows and actions remain reachable | Verify 200%/400% zoom, long tables, screen-reader order and sticky-action overlap |
+| 19 | Forced 2D fallback | Historical public capture | Functionally present but not parity-quality | Remove duplicate chrome/internal scrolling and replace sparse scatterplot with task-oriented semantic structure |
 | 20 | Back/forward/refresh/share | Mixed public evidence | Reader restores in tested paths; registered-view and mobile close/route anomaly still need deterministic coverage | Add a route-state matrix for Genesis, views, center, query, reader and overlays |
 | 21 | Private entry and onboarding | Sanitized downstream baseline | Real-data philosophy, root and review posture are understandable | Revalidate only after adoption of the exact reviewed public version |
 | 22 | Private Sources and Work | Sanitized downstream baseline | Real density is valuable, but aggregates predate current lifecycle/action-state candidates | Replay canonical events and descendant action rollups after exact-version adoption |
@@ -3003,38 +3039,54 @@ Not every commit runs the full Cartesian product. Tiered CI uses:
 - fallback has functional parity;
 - screen-reader smoke scripts plus manual VoiceOver release pass.
 
-## New And Updated Gates
+## Executable Current Gates And Future Contract Slots
 
 ```sh
-# Existing deterministic gates
+# Exact public deterministic gates
 python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_audit.py --public-export --check
 python3 scripts/wiki_check_methodology_coverage.py --check
+python3 scripts/wiki_quality_report.py --check
 python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_source_registry.py --check
 python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_semantic_inventory.py --check
+python3 scripts/wiki_build_demo.py --check
+python3 scripts/wiki_web_snapshot.py --check-contract
+python3 scripts/wiki_pack.py validate --all
 python3 -m pytest tests/
 
-# Proposed release-truth gates
-python3 scripts/wiki_release_receipt.py --check --base-sha "$BASE_SHA"
-python3 scripts/wiki_public_projection.py --fixture adversarial --check
-python3 scripts/wiki_upgrade_report.py --check --fixture adversarial-paths
-python3 scripts/wiki_action_contract.py --check
-python3 scripts/wiki_event_identity.py --check
-python3 scripts/wiki_snapshot_revision.py --check --concurrent
-python3 scripts/wiki_demo_contract.py --check --all-scenarios
-python3 scripts/wiki_temporal_contract.py --check
-python3 scripts/wiki_pack.py validate --all
+# Exact public frontend, Node and browser gates
+npm --prefix apps/wiki-cockpit test
+npm --prefix apps/wiki-cockpit run build
+npm --prefix apps/wiki-cockpit run test:gates
+npm --prefix apps/wiki-cockpit run check:architecture
+npm --prefix apps/wiki-cockpit run check:assets
+npm --prefix apps/wiki-cockpit run check:bundle
+npm --prefix apps/wiki-cockpit run check:release-matrix
+npm --prefix apps/wiki-cockpit run test:e2e:release
 
-# Frontend and browser gates
-npm test
-npm run check:architecture
-npm run check:bundle
-npm run check:a11y
-npm run test:e2e:release -- --retries=0
-npm run test:e2e:visual:webgl
-npm run test:e2e:locale -- --locale=en
-npm run test:e2e:locale -- --locale=pt-BR
-npm run test:e2e:operator -- --require-real-repo
+# Receipt verification after an immutable runner has produced the inputs
+python3 scripts/wiki_release_receipt.py --receipt "$RECEIPT" --base-sha "$BASE_SHA" --check
+git diff --check "$BASE_SHA" "$SOURCE_SHA"
+git diff --check
 ```
+
+After the three private migration commits, the consumer additionally runs the
+same stack plus its adapter tests and:
+
+```sh
+npm --prefix apps/wiki-cockpit run test:e2e:operator
+python3 scripts/wiki_upgrade_report.py --package docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml --evidence "$PRIVATE_EVIDENCE" --consumer-root "$CONSUMER" --kit-root "$KIT" --check --verify-rollback
+python3 scripts/wiki_upgrade_report.py --package docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml --evidence "$PRIVATE_EVIDENCE" --consumer-root "$CONSUMER" --kit-root "$KIT" --public-export --check --verify-rollback
+```
+
+Earlier drafts used aspirational CLI names for adversarial public projection,
+action, event, snapshot, demo, temporal, accessibility, WebGL and locale gates.
+Those names are **not executable commands** and must not appear in a receipt.
+Their implemented assertions live inside the current Python, Node and
+Playwright suites above; any future standalone CLI requires its own script,
+help contract, test and addition to this list before it becomes release policy.
 
 Release logic:
 
@@ -3237,10 +3289,12 @@ downstream, human or still-open engineering work.
 
 - [ ] Public PR is human-reviewed and merged first.
 - [ ] Private downstream consumes the merged public SHA.
-- [x] Exact private operator API and rendered UI prove repo ID, snapshot
-      revision/hash and capabilities; the required tests cannot skip.
-- [x] Exact-SHA browser-closure receipts pass for both public and private
-      subjects with zero required skip/retry.
+- [ ] Exact current private operator API and rendered UI prove repo ID,
+      snapshot revision/hash and capabilities; historical S9 evidence exists,
+      but the rc15 target has not been imported.
+- [ ] Exact-SHA browser-closure receipts pass for both current public and
+      private subjects with zero required skip/retry; the historical S9 pair
+      does not satisfy S18 or its private adoption.
 - [ ] Broader promotion manifests and the external signed E5 attestation bind
       both subjects without treating `browser_closure` as full release proof.
 - [ ] Release note is generated from the receipt.
@@ -3249,53 +3303,41 @@ downstream, human or still-open engineering work.
 
 ## Immediate Execution Queue
 
-The implementation and exact automated adoption work has moved to metadata,
-human review and promotion sequencing:
+This is the only active queue; earlier S9/S10 queues are historical snapshots:
 
-1. keep historical `S`, rc4/S4, rc5/S6, S7 and rc7/S8 immutable on their exact
-   subjects, and retain failed evidence beside each accepted closure instead
-   of rewriting it;
-2. validate metadata envelope `M`: package v2, consumer inventory, release
-   note, this plan and the compact operation log all pin exact
-   `S9=b45378d37e96eed04fb355392d10bd8471c5fda7` as
-   `wiki-viva-v8-rc8`, preserve its exact public/private receipts and never
-   claim human/E5 authority;
-3. preserve the exact S9 public evidence: 1,356 Python, 489 frontend, 106 Node,
-   102/102 browser and deterministic gates, with payload tree
-   `d39bff5c4b5b9dbe9ee09be2264682cd3ed418bf`, run-result SHA-256
-   `88ea56ac9a57654e0ac57c1e59d8db081d72019e4df9e06a81b8acb3cdfedc28`,
-   gate-result SHA-256
-   `7b5fbe0b3e57fdc1191a376c663ba4783ac084c4b2a7018be02d37400a913026`
-   and report SHA-256
-   `7d1ec18b3d33d353e33657e02e61f5460e5ddcae7e9457b38f4b5a90a4ea398e`;
-4. retain the completed allowlisted S9 private import and protected local
-   overrides; never overwrite consumer-owned lock, adapter or runtime config;
-5. preserve the exact 2/2 first-attempt private S9 downstream receipt and its
-   preflight aggregates (562 pages, 772 temporal events, one pack, one adapter)
-   while keeping consumer SHA and raw result inside the private report;
-6. preserve the completed private deterministic attestation around operator/UI
-   identity, non-empty Chronoscope, Finance composition and 390x844 mobile
-   geometry, plus the official ready upgrade preflight with drift 0, 0 blockers
-   and redacted report SHA-256
-   `0e38c895350097485f701f8a2285ed604d4744f626b4db34fef3a62bc9614e23`;
-7. complete the remaining consumer-semantic promotion gates: real legacy-event
-   equality/compatibility inventory (RT-09/10), real-data search acceptance
-   (RT-29), the canonical migration report (RT-33), downstream relation
-   inventory (RT-36), source authoring replay (RT-47) and restart/security
-   documentation replay (RT-48);
-8. keep all public private-pilot evidence aggregate/redacted; page titles,
-   values, routes, authenticated URLs, screenshots and raw payloads private;
-9. complete human conceptual/privacy/VoiceOver review, bind public `S` and
-   private `P` through the separate signed E5 authority, merge in the governed
-   order and only then authorize a tag;
-10. schedule RT-127, RT-131, RT-134, RT-135, RT-141, RT-145 and the residual
-   declarative registry surface as P2; do not advertise
-   `wiki_runtime_extension.v1` until its consumer, capability, fallback,
-   upgrade and rollback contracts exist.
+1. keep exact S18 source `f9defa5a…` and rc15 package status
+   `validation_pending`; do not import, push, merge, tag or reopen a stale
+   private preflight;
+2. with loopback/browser permission, run S18 alone on the declared Node 22
+   toolchain: normal/public-export audit, methodology, quality, operation,
+   source registry, input, semantic inventory, snapshot, packs, demo drift, 1,373 Python, 513
+   frontend, build, 107 Node, architecture, assets, bundle, release matrix,
+   diff check and 102/102 public browser cells with zero skip/retry; any real
+   failure creates a new fix/SHA rather than a rerun-and-promote cycle;
+3. execute the full current S18 E3 visual matrix and human screenshot
+   comparison across desktop/mobile, themes, locales, WebGL/fallback,
+   Timeline, both packs, search, reader and Genesis;
+4. only after 2–3 pass, change the **same exact source** to a releasable package
+   status in a reviewed metadata commit; recompute package digest and rerun the
+   package/inventory gates;
+5. wait for or explicitly freeze out the concurrent private authoring session;
+   if it commits, choose the new private baseline and rerun snapshot, semantic
+   inventory, 885-delta classification and all preflight evidence;
+6. regenerate the 49-path authorial patch from exact S18; verify all post-image
+   blobs; reuse the 836-path generated patch only if all 836 blobs still match;
+7. run a fresh private preflight, then create exactly three commits: faithful
+   import, generated artifacts and downstream adaptations;
+8. run private deterministic/browser/search/timeline/pack/operator/security,
+   current E4 visual and idempotent disposable-clone mutation proof;
+9. freeze the final package digest, compile private and public-redacted
+   JSON/Markdown reports, execute rollback verification and reconcile RT-09,
+   10, 29, 33, 36, 47 and 48 in this plan;
+10. complete conceptual/privacy/VoiceOver review, E5, governed public-first
+    merge and tag separately; keep residual P2 items out of the release claim.
 
 ## Evidence Manifest For This Review
 
-### Current-worktree UX artifacts
+### Historical worktree UX artifacts
 
 | Step | File | SHA-256 prefix | Evidence |
 | ---: | --- | --- | --- |
@@ -3314,13 +3356,15 @@ human review and promotion sequencing:
 All files are under
 `output/product-design-audit-2026-07-11-current/`. Step 6 replaced an early
 capture taken before the finite view transition settled; only the final hash
-above is accepted evidence.
+above is accepted for that historical comparison. The directory name is a
+legacy capture label; none of these files is current S18 E3 or release evidence.
 
 ### RT-26 adversarial artifacts
 
 These are defect/control captures from the independent rereview under
-`output/playwright/rt26-adversarial/`; they remain local current-worktree
-evidence until a final versioned visual manifest promotes neutral successors.
+`output/playwright/rt26-adversarial/`; they remain local historical
+exact-then-worktree evidence. A final S18 versioned visual manifest must create
+new neutral successors rather than promote them implicitly.
 
 | File | SHA-256 prefix | Evidence |
 | --- | --- | --- |
@@ -3331,7 +3375,7 @@ evidence until a final versioned visual manifest promotes neutral successors.
 
 ### Second-round accepted visual controls
 
-These public-synthetic current-worktree captures are under
+These public-synthetic historical worktree captures are under
 `output/product-design-audit-2026-07-11-round2/` and
 `output/playwright/rt26-closure/`. They were individually opened and inspected.
 The cropped closure images deliberately measure the Create surface rather than
@@ -3340,7 +3384,7 @@ reviewed release subject and bound through a scanned textual visual manifest.
 
 | File | Dimensions | Full SHA-256 | Evidence status |
 | --- | ---: | --- | --- |
-| `01-genesis-stage0-desktop.png` | 1440x900 | `43f42ef986ad70c3e1a851ee838bee61807e397b9b0870606c1bddc4d371cea1` | Accepted current-state control; interaction healthy, composition visually underscaled |
+| `01-genesis-stage0-desktop.png` | 1440x900 | `43f42ef986ad70c3e1a851ee838bee61807e397b9b0870606c1bddc4d371cea1` | Accepted historical-state control; interaction healthy, composition visually underscaled |
 | `02-genesis-stage2-create-mobile.png` | 390x844 | `f6be7996061b1b5d852092895638ee3f44f65535f0e0ee59472964530808e617` | Accepted whole-viewport RT-79 closure candidate |
 | `04-genesis-stage3-mobile-created.png` | 390x844 | `de11c4b385c3f3877d3cf26cb8f92a95b3719642720bb2c210d8f471664e9fbb` | Accepted post-create transition control |
 | `05-full-world-mobile.png` | 390x844 | `af373c0125d6a792554b43c0eded415c933ddffe9d7ee31f27c364e89619f7ad` | Accepted mobile-density control |
@@ -3386,8 +3430,9 @@ manifest rather than preserving agent/session naming.
 ### Exact `S` implementation anchors
 
 These symbol/line anchors identify the historical Wave 1 payload at
-`b781882a…`, not the current adoption target. The post-S9 target is pinned
-below. Cryptographic receipts bind files rather than line numbers; reviewers
+`b781882a…`, not the current adoption target. The post-S9 target is identified
+below and deliberately remains unpinned for release while validation is
+pending. Cryptographic receipts bind files rather than line numbers; reviewers
 should re-resolve the named symbols if later metadata changes shift navigation
 lines:
 
@@ -3457,28 +3502,30 @@ Before any release:
 8. remove any transient private reader payload after its owning parallel
    session ends; never promote it to Git, CI artifacts or public evidence.
 
-## Post-S9 Public-to-Private Closure Wave — RC12 / S13
+## Post-S9 Public-to-Private Closure Wave — RC15 / S18
 
 This checkpoint, recorded on **2026-07-12**, supersedes every earlier sentence
-that presents rc8/S9 as the current adoption target. Those checkpoints remain
-valid historical evidence; they are not rewritten as proof for the new
-payload.
+that presents S9, S10, S14, rc8, rc9, rc12, rc13 or an earlier payload as the current
+adoption target. Those checkpoints remain valid historical evidence; they are
+not rewritten as proof for the new payload.
 
 ### Current authority and freeze
 
 | Surface | Exact state | Authority consequence |
 |---|---|---|
-| Public source payload | `3fed97fa52fa1efd27d651cbd97c3ab67a4f5cfa` (`fix: synchronize search keyboard selection`) | This is the only source SHA rc12 may import |
-| Public metadata envelope | local commit `14b66ccd` (`wiki-viva-v8-rc12`) | Package metadata is local, unpushed and unmerged; it does not become human acceptance |
+| Public source payload | `f9defa5a0f156816fe419df6c8f208b9eea138e0`, tree `af495a46b74e5c20963518923bc5ce65160a9a98` (`fix: explain every unpinned release cause`) | This is the current S18 source; it includes the S16 search UX and S17/S18 preflight-truth fixes and cannot be imported while package status is non-releasable |
+| Machine release status | `8b44bb1921d2f8cdfda2573342a6c6c92a102c04` (`wiki-viva-v8-rc15`, `validation_pending`) | `package_is_pinned=false`; the source tree is independently available, drift remains measurable, and preflight/import must still fail at `release_pinned` until exact public validation promotes the status in a later reviewed commit |
+| Plan reconciliation | current local plan worktree, to receive its own commit | Documentation cannot self-attest the source or machine gate and does not become human acceptance |
 | Public branch | `wiki/v8-unified-living-world`, ahead locally | No push, PR mutation, merge or tag was authorized in this wave |
-| Private baseline | clean isolated branch/worktree at `191b2a4d…` | Private import must start from this subject unless the concurrent private authoring session commits first |
-| Concurrent private authoring | 12 modified plus 2 new files in the live worktree | Preserved completely; never staged, overwritten or copied into the isolated migration |
-| Private preflight | `status=ready`, report `preflight:ffe2931cc4d1a57c0af6` | Preparation is valid, but import remains frozen until the public browser gate can execute |
+| Private baseline | clean isolated private branch/worktree; raw consumer SHA retained only in private evidence | Import baseline must be rediscovered after public validation and after any concurrent private authoring commit |
+| Concurrent private authoring | 22 modified plus 8 new files in the live worktree at the latest read-only snapshot | Preserved completely; never staged, overwritten, copied into the isolated migration or described with private content |
+| Historical rc12 private preflight | formerly `ready`; opaque local report id retained only as a non-secret diagnostic handle | Invalidated as import authority by S18 and rc15; regenerate after public validation |
 
-The current package digest before any later private-status wording is
-`d4d77388b98592cbde5e9ad635c3322d9d15c2138a67a49b8a893c525b249b16`;
+The current canonical package digest before any later validation-status or
+private-status wording is
+`b5bf2133d97bacda3a7346aac178a948a3c53e94495cbb7376a15721637dcaa7`;
 the raw YAML SHA-256 is
-`0f88c342b108f106ec96d2ad462cf414e2a86df4043dea39eb8696ffe877fceb`.
+`03be816ae40ef16ff57b2a91b90c483c61d5f07a0b43931a1150fa01933147d6`.
 Migration evidence must recompute and bind the **canonical** digest after the
 package text is finally frozen. It must never bind this provisional value by
 memory.
@@ -3500,9 +3547,19 @@ timeline
     S13 rc12 : synchronous search selection and pointer-intent fix
              : 513 frontend pass plus deterministic gates pass
              : full socket and browser gates denied by sandbox authorization
-    Private rc12 preflight : 885 reviewed portable deltas
-                           : zero blockers and three expected warnings
-                           : import waits for public terminal gate
+             : independent review finds shrink ARIA and keyboard visibility gaps
+    S14 rc13 : selection follows page identity across shrink and reorder
+             : review finds false-green selected-option locator and reset-scroll race
+    S15 test-only : selected-option locator is corrected
+                  : no product source promotion
+    S16 rc14 : reset and immediate edit keyboard paths keep one visible identity
+             : 513 frontend checks and build pass locally
+    S17 S18 : pending release status no longer hides an available source or real drift
+            : every unpinned cause has a truthful diagnostic and synthetic test
+    S18 rc15 : status validation_pending still blocks import mechanically
+    Historical private rc12 preflight : 885 reviewed portable deltas
+                                      : zero blockers and three expected warnings at rc12
+                                      : invalidated by S18 and retained as preparation evidence only
 ```
 
 ### Public attempts: negative evidence stays attached to its subject
@@ -3512,12 +3569,17 @@ timeline
 | S10 / rc9, `2bf99150…` | 1,367 Python; 512 frontend; 107 Node; Playwright 102/102, first attempt, 0 skips/retries; run `public-mrhqo5lz-dc785928-668a-4420-8900-89d284d218a0` | Historical clean proof. Real private data later exposed semantic contracts outside this subject, so it is not the adoption target |
 | S11 / rc10, `83a98e5a…` | Playwright 101/102, 0 retries; run `public-mrhs4900-641636ed-7b05-40b8-8eee-67ea6822440a` | Appearance persistence reloaded into a blank, not-yet-hydrated app. Readiness now waits for `.worldWorkspace`; the persisted-theme assertion was not weakened |
 | S12 / rc11, `e0a45609…` | 1,372 Python pass, 0 skips; 512 frontend; 107 Node; deterministic gates pass; Playwright 101/102, 0 retries; run `public-mrht1s3j-f7c7ef48-0bc6-4867-9fe7-61c4265cc99d` | Dense search opened result 007 where immediate edit → ArrowDown → Enter requires result 002. Screenshot, URL, console and network proved a stale selection index, not ranking drift |
-| S13 / rc12, `3fed97fa…` | Focused regression: 513/513 frontend; build; focused failed E2E now passes in 4.4 s | `activeHit` is synchronously mirrored, every edit resets it before keyboard navigation, Enter consumes the current ref, and result hover now requires real pointer movement rather than layout motion |
+| S13 / rc12, `3fed97fa…` | 513/513 frontend; deterministic non-socket gates pass; restricted release runner `public-mrhz92wx-a37aa1c8-6d88-4d6d-a1e1-314e4456d945` blocked at build before Playwright because `listen EPERM`; earlier unrestricted focused regression passed in 4.4 s | Fixed the S12 stale mixed-pointer/keyboard index. Independent review then found that shrinking/reordered windows could split `aria-activedescendant` from `aria-selected` and keyboard navigation did not keep the active option visible. Historical negative evidence; never an import target |
+| S14 / rc13, `ffaec5dc…` | 513/513 frontend and production build pass; 66/66 upgrade-package tests pass on the then-current machine-status commit; focused browser is environment-blocked before server start | Selection becomes page-ID-aware across shrink/reorder, but later review finds a false-green selected-option locator and a reset visibility race; historical intermediate only |
+| S15 test-only, `07daf1ba…` | Corrected Playwright locator asserts the selected option inside the listbox; no product source promotion | Prevents the E2E test itself from treating an unrelated selected element as search proof |
+| S16 / rc14, `45e7cd90…` | 513/513 frontend and production build pass; exact browser execution remains environment-blocked | Reset/query/facet transitions scroll the committed first option, while page identity, ARIA and keyboard behavior remain coherent; later release review finds false preflight diagnostics, so rc14 remains historical |
+| S17, `da40042d…` | 67/67 upgrade tests | Separates `validation_pending` from source availability so drift is real and inspectable; review then finds a generic unpinned-ID diagnostic ambiguity |
+| S18 / rc15, `f9defa5a…` | 513/513 frontend in 5.04 s and build in 0.862 s under local Node 26; 67/67 upgrade tests in 7.94 s; package/inventory valid; official Node 22 full stack and browser remain pending | Current source. Every unpinned cause is truthful, source availability passes, 885 drift remains visible and only `release_pinned` blocks the prepared consumer while status is `validation_pending` |
 
 No failed attempt above may be relabeled as green after a later fix. Every fix
 creates a new subject and requires new exact-subject evidence.
 
-### S13 evidence that is currently valid
+### Historical S13 evidence that remains valid on its exact subject
 
 The following checks exercised the exact tree
 `22fbc539dac79cbd224d42be5239a9e620317440` and are valid:
@@ -3536,7 +3598,41 @@ The following checks exercised the exact tree
 | Matrix inventory | 102 public plus 2 mandatory downstream cells |
 | Portable package contract | 157/157 upgrade/release tests passed on the metadata envelope before the restricted exact-subject rerun |
 
-### S13 evidence that is explicitly not yet valid
+These checks explain the S18 lineage, but none transfers across the source
+commit. Current S18 has only the following valid evidence so far:
+
+| Gate | S18 result |
+|---|---|
+| Audit | exact detached S18: normal and public-export each pass with 0 errors and the same 6 date/freshness warnings |
+| Method/quality/compiled truth | exact detached S18: methodology 22/22; 49 pages, one closed event, zero thin/low-density/repetition/orphan/invalid-exemption findings; operation, source registry and input stage equal deterministic recompiles |
+| Semantic inventory | exact detached S18: 1 authored event equals closure, closed, temporal and graph surfaces; 106 expected = 106 actual relations; zero missing, extra, unresolved or identity mismatch |
+| Demo/snapshot/packs | exact detached S18: demo `wiki-viva-demo-v8`, seed 8008, no drift; snapshot `wiki-viva-kit-5c34ad60fac0e6d9`, 26 payloads; two public pack sources valid; composition `91278d9654bc92e5a7af1075c67297eb751beb6feef3bd06cee92210e5d667c4` |
+| Frontend | app source is byte-clean against S18; 513/513 across 64 files, 0 skips, 5.04 s under local Node 26; terminal-only evidence |
+| Production/static gates | app source is byte-clean against S18; 2,603-module build pass in 0.862 s; architecture 0 violations/debt; one 380-byte first-party asset and zero external; initial JS 163.32/300 kB gzip; matrix 102 public + 2 downstream; local Node 26 only |
+| Upgrade/package contract | exact detached S18 upgrade suite 67/67 in 8.74 s; current rc15 worktree repeats 67/67 in 7.94 s; package and two-consumer inventory validate; current package remains deliberately non-releasable |
+| Full Python | collect-only reports 1,373 tests on current S18 code; the exact execution remains pending because the restricted environment cannot satisfy socket/browser verifier tests |
+| Preflight truth | synthetic tests plus isolated redacted diagnostic show source available, drift 885 and exactly one blocker `release_pinned`; this is not a rerun of private gates |
+| Browser | no exact S18 browser run; the prior S16 focused start was blocked before the test by `listen EPERM 127.0.0.1:4173`, so no result transfers and no pass is claimed |
+| Toolchain diagnostic | bundled Node 24.14/Happy DOM produced three keyboard-event harness failures while the same 513 tests passed on local Node 26; neither run substitutes for the repository's official Node 22 release job |
+| Diff hygiene | clean committed source boundary; rc15 metadata and plan reconciliation remain separate docs changes |
+
+Exact execution ledger (absolute local paths are intentionally omitted from
+the public plan):
+
+| Subject | Command | Duration | Result | Artifact identity |
+|---|---|---:|---|---|
+| S13 | `python -m pytest tests/` | 438.10 s wall | environment-blocked: 1,247 pass, 89 fail, 36 error, 2 warnings | terminal capture only; no immutable log was produced, so this is diagnostic evidence rather than a receipt |
+| S13 | deterministic audit/methodology/operation/input/semantic/demo/snapshot/pack suite | 99.513 s aggregate | pass; event hash `d283ca2f…`, relation hash `9ebb377e…`, 106/106 | exact tree `22fbc539…`; worktree clean |
+| S13 | `npm test` | 3.55 s | 513/513, 64 files | exact tree `22fbc539…` |
+| S13 | `npm run test:gates` | 19.648 s | environment-blocked 105/107; 0 skip | terminal capture only; no immutable Node-gate receipt was produced |
+| S13 | restricted Playwright release runner | blocked before Playwright at release build | `failure_stage=build`, `listen EPERM`; no browser test executed | run `public-mrhz92wx-a37aa1c8-6d88-4d6d-a1e1-314e4456d945`; run-result SHA-256 `ad6dd159c040e58f6acb6a7c6fa3cd7720aaed2d76ff04f0a6aeceb018c94f15`; release-build-manifest SHA-256 `d12a3f9fd9944226764f04aeaea3c41fb99c2c3c70566f6cb61b8b4bd1dfc2b7` |
+| S16 | `npm test` + `npm run build` | terminal-only | 513/513, 64 files; 2,603-module build pass | source `45e7cd90…`; no release receipt claimed |
+| S18 | `npm test` | 5.04 s | 513/513, 64 files under Node 26 | source `f9defa5a…`, tree `af495a46…`; terminal-only, not official Node 22 receipt |
+| S18 | `npm run build` | 0.862 s Vite | 2,603 modules, pass under Node 26 | source `f9defa5a…`; disposable local dist only |
+| rc15 machine status | `python -m pytest tests/test_upgrade.py` | 7.94 s | 67/67 | metadata commit `8b44bb19…`; package `validation_pending`; `package_is_pinned=false`; canonical digest `b5bf2133…` |
+| S16 | focused dense-reader Playwright | <1 s before runner | environment-blocked at preview `listen EPERM`; no test collected/executed | no browser artifact and no pass claim; not S18 evidence |
+
+### Historical S13 evidence that is explicitly not release proof
 
 The managed sandbox denies loopback socket binding and independent browser
 process verification. The exact-subject Python attempt therefore ended with
@@ -3558,17 +3654,62 @@ Two explicit requests to execute outside the sandbox — full Python and the
 - PR review, merge, tag, VoiceOver and E5 remain separate human/external
   authorities.
 
-The next authorized public execution must run, alone and without retry:
+The next authorized public execution must run on S18, alone, on the declared
+Node 22 CI toolchain and without retry:
 
 ```sh
+python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_audit.py --public-export --check
+python3 scripts/wiki_check_methodology_coverage.py --check
+python3 scripts/wiki_quality_report.py --check
+python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_source_registry.py --check
+python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_semantic_inventory.py --check
+python3 scripts/wiki_build_demo.py --check
+python3 scripts/wiki_web_snapshot.py --check-contract
+python3 scripts/wiki_pack.py validate --all
 /opt/anaconda3/bin/python -m pytest tests/
+npm --prefix apps/wiki-cockpit test
+npm --prefix apps/wiki-cockpit run build
 npm --prefix apps/wiki-cockpit run test:gates
+npm --prefix apps/wiki-cockpit run check:architecture
+npm --prefix apps/wiki-cockpit run check:assets
+npm --prefix apps/wiki-cockpit run check:bundle
+npm --prefix apps/wiki-cockpit run check:release-matrix
 npm --prefix apps/wiki-cockpit run test:e2e:release
+git diff --check "$BASE_SHA" "$SOURCE_SHA"
+git diff --check
 ```
 
-Acceptance requires the expected 1,372 Python tests, 107 Node gates and 102
-public browser cells to pass with zero skip/retry on `3fed97fa…`, or a new fix
-and new subject if a real failure appears.
+Acceptance requires every deterministic, audit, semantic, demo/snapshot/pack,
+frontend/build, architecture/asset/bundle/matrix/diff gate above, the expected
+1,373 Python tests, 107 Node gates and 102 public browser cells to pass with
+zero skip/retry on `f9defa5a…`, or a new fix and new subject if a real failure
+appears. One partial green subset cannot promote the package.
+
+### Required current S18 public visual gate before private import
+
+Historical S10/S13/S16 captures do not prove S18. After the terminal automated
+gate is green, the exact S18 build must receive a new E3 visual manifest. Each
+cell requires the route/state, viewport, browser, source/tree, PNG SHA-256,
+dimensions, console/network status and a same-viewport comparison against the
+accepted reference — screenshots alone are not QA.
+
+| Dimension | Required S18 cells | Acceptance |
+|---|---|---|
+| Viewport | desktop 1440×1000 and mobile 390×844 | zero document/control overflow; touch targets ≥44 px; active result remains visible |
+| Appearance | light and dark; focus/balanced/command density | hierarchy, contrast, truncation, borders, radii and spacing reviewed, not only pixel-diffed |
+| Locale | EN and pt-BR, including long copy | no clipped labels; equivalent controls and state meaning |
+| Renderer | WebGL and explicit semantic fallback | same navigation identity, reader access and decision context |
+| Time | Timeline/Chronoscope with dense events | lanes, cursor, inspector, search and URL state remain interpretable |
+| Packs | Personal Finance and Study/Research existing views | no false executable affordance; dense data remains readable |
+| Search | exact title, reordered terms, accents/punctuation, type/context/scope, show-more→Back, keyboard scroll | one selected option equals `aria-activedescendant`; Enter opens the visible intended result |
+| Reader | dense action and ordinary page | foreground owns pixels/focus; decision-ready summary precedes detail |
+| Genesis | desktop/mobile, stage zero and at least one advanced stage | intentional emptiness and founding choices remain legible |
+
+VoiceOver remains a human gate after this E3 matrix and cannot be inferred from
+ARIA automation.
 
 ### Real-data pressure converted into generic public contracts
 
@@ -3600,7 +3741,7 @@ to existing documentation artifacts that should remain ordinary Markdown links
 rather than structured page/evidence edges; one points to an absent memory page
 and must be removed without inventing content.
 
-### Private preflight for rc12
+### Historical private preparation preflight for rc12
 
 The redacted preflight was generated from a real v2 snapshot with content
 sidecars, against the clean isolated private baseline. It reports:
@@ -3608,22 +3749,48 @@ sidecars, against the clean isolated private baseline. It reports:
 | Check | Result |
 |---|---|
 | Status | `ready`; zero blockers |
-| Release pin | `wiki-viva-v8-rc12@3fed97fa…` available locally |
+| Historical release pin | `wiki-viva-v8-rc12@3fed97fa…` was available locally |
 | Portable drift | 885 total: 6 only in kit, 879 content differences, 0 only in consumer |
 | Semantic adaptation | reviewed count 10; opaque fingerprint `512d74ceb37d40cf5bf52c2205f0291a7c23dda1ff057a509bf36cdbf9c1e2aa` |
 | Current snapshot | real, `wiki_web_snapshot.v2` |
 | Privacy | financial/personal boundary; redacted report; no secret-adjacent file |
 | Warnings | expected `semantic_inventory_adaptation`, `toolkit_drift`, `local_overrides` |
 
-`ready` means the consumer can be migrated **after** the public terminal gate;
-it does not overrule the public freeze above.
+At rc12, `ready` meant only that the consumer was structurally prepared after
+the public terminal gate. S18 and rc15 invalidate that report as import
+authority. A new read-only, redacted rc15 diagnostic against the clean isolated
+consumer confirms the corrected machine truth: source available; drift 885
+(6 only in kit, 879 changed, 0 only in consumer); `status=blocked`; sole
+blocker `release_pinned`; `toolkit_drift` is a non-blocking reviewed warning;
+snapshot and privacy/redaction pass. This diagnostic used an in-memory gate
+envelope bound to the clean consumer HEAD and **is not a rerun of private
+gates**. Its purpose is to prove fail-closed status without hiding the real
+comparison.
+
+The portable partition remains 49 authorial plus 836 generated paths. Opaque
+canonical fingerprints are: all paths
+`5d0d9db5f55d7c521967b0afbc3ef434c6b0f84834f0e700a6a30479883d548e`,
+authorial paths
+`3ef27388300c5cc9d8a4ddb904165b748ba672344e5df3239253edea1847dc9f`,
+generated paths
+`4a76d42a67d547dd1dea0d880e3270ac5ff97a02c7a6437638e7bb21355084a2`,
+current authorial post-images
+`93d7537dea61eb8adfc8b88445f621c2b13129a89a1447f1c4e51e49193865e8`
+and generated post-images
+`d89dd64acecd3b118b3dcaa3106614d70c01dfa1c4dd1959f142ae5b4b400c43`;
+the combined target post-image map is
+`bf6cafa44ec36aa5d2a4d02ba3078f96958833751987e8b10dcd20f7bcb77320`.
+A fresh authoritative preflight may be generated only after a later reviewed
+package commit promotes the **same exact S18 source** following the complete
+official stack and current E3 visual QA.
 
 ### Concurrent private authoring checkpoint and Claude consolidation
 
 A later Claude session, distinct from the earlier no-write review checkpoint,
-created a coherent but uncommitted private research/provenance slice across 14
-paths. It must not rewrite the earlier checkpoint or be merged implicitly into
-the isolated migration.
+created a coherent but uncommitted private research/provenance slice. The
+latest read-only status snapshot contains 30 dirty entries (22 modified and 8
+new), up from the earlier 14-path checkpoint. It must not rewrite the earlier
+checkpoint or be merged implicitly into the isolated migration.
 
 Its strongest reusable product model is:
 
@@ -3675,18 +3842,32 @@ the existing Timeline + graph grammar rather than a new visual language:
 This is future pack material. It must use a synthetic public fixture and does
 not expand the current release-closing wave.
 
-### Exact private migration once the public terminal gate is authorized
+### Current public/private acceptance matrix
+
+| Contract | Public S18 / rc15 | Private target | Advance rule |
+|---|---|---|---|
+| Source identity | exact `f9defa5a…`, tree `af495a46…`; package `validation_pending` | historical S9 installed; current clean baseline to be rediscovered | package becomes releasable only after the complete exact public stack and E3 QA |
+| Semantic events/relations | implementation inherited from fixed public core; exact S18 official rerun pending | historical preparation predicts 134 events and 2,399 relations with 10 bounded adaptations | S18 deterministic proof first; final private must be 134 on four surfaces, 2,399/2,399, zero unresolved |
+| Dense search | S18 contains the S16 mixed-input, result-shrink, ARIA and scroll-nearest contracts; official browser proof pending | no rc15 real-data run | complete public browser/visual matrix, then private real-title/locale/pack/timeline matrix |
+| Visual UX | historical public E3 only | no rc15 E4 | capture current S18 E3 before import; capture four package-owned private profiles after final private commit |
+| Operator/security | public implementation exists; exact socket/Node gate blocked by sandbox | historical S9 operator only | 107/107 public, then stale rejection/current restart/Re-verificar/CORS/action-state private proof |
+| Migration/rollback | 67/67 package/report tests pass; package intentionally non-pinned; corrected diagnostic preserves drift | historical rc12 preparation plus current blocked rc15 diagnostic only | releasable package → new authoritative preflight → three commits → private/public report parity and executed rollback |
+| Human/external | not requested in this local wave | not requested | conceptual/privacy/VoiceOver review, merge authority, tag and E5 remain separate |
+
+### Exact private migration once the public terminal gate promotes the package
 
 The migration keeps exactly three reviewable commits:
 
-1. **faithful public import** — apply all 49 authorial portable paths at the
-   pinned source state, including the four search-selection files;
+1. **faithful public import** — regenerate the authorial patch from exact S18
+   and apply all 49 authorial portable paths; the old S12 patch has the right
+   path set but stale post-images and is forbidden;
 2. **regenerated artifacts** — apply/regenerate the 836 demo/snapshot artifacts
    as a separate mechanical boundary;
-3. **downstream adaptations** — update the private runtime release pin; remove
-   exactly ten invalid structured references while preserving nine valid body
-   links; document the semantic-inventory command; regenerate only the private
-   deterministic surfaces required by the final gates.
+3. **downstream adaptations** — update the private runtime release pin; add
+   three missing ordinary Markdown body links, preserve the six already
+   visible documentation links, then remove exactly ten invalid structured
+   references; document the semantic-inventory command; regenerate only the
+   private deterministic surfaces required by the final gates.
 
 The union remains 885 portable files. Consumer-owned configuration, memories,
 tests, workflows, local template registry, pack lock and adapter manifest stay
@@ -3695,45 +3876,58 @@ source.
 
 After the three commits, required proof is:
 
-- toolkit drift = 0 against `3fed97fa…`;
+- toolkit drift = 0 against `f9defa5a…`;
 - private semantic inventory = 134 events on all four surfaces, 2,399/2,399
   relations and zero unresolved references;
-- audit, methodology, operation, input, full private Python, 513 frontend, 107
-  Node, snapshot, packs, architecture, assets, bundle, matrix, demo and diff
-  gates green;
+- audit, methodology, quality, operation, source registry, input, full private
+  Python, 513 frontend, build, 107 Node, snapshot, packs, architecture, assets,
+  bundle, matrix, demo and diff gates green;
 - a first-attempt 2/2 mandatory downstream browser receipt with zero
   skip/retry;
-- live v6/security-v2/default-deny operator handshake, normal restart with a
-  changed nonce hash and no raw nonce, and exact action-state capabilities;
+- live rejection of a stale v4/security-v1 operator **before any POST**;
+  v6/security-v2/default-deny CORS handshake; exact
+  `action_state_transitions_v1` capability; normal restart; **Re-verificar / Re-verify**
+  recovery in pt-BR and EN; changed nonce hash with no raw nonce; and execution
+  of the documented restart SOP;
 - one idempotent mutation replay only in a disposable clone, proving one write
   for one attempt key without mutating canonical private memory;
 - current in-app-browser QA on real data at desktop and 390×844 mobile, plus
   fallback and package-owned two-step quadrant collection captures;
-- dense search, Timeline, Finance view, reader ownership, keyboard/ARIA,
-  show-more, URL facets and overflow checks;
+- dense search across ordinary world, Timeline, Finance and Study views:
+  exact compound title before reordered terms, accents/punctuation, type and
+  context facets, global/current-world scope, bounded show-more→Back, complete
+  combobox/listbox/`aria-activedescendant` contract, visible keyboard active
+  option, reader ownership, URL state and overflow checks;
 - four private PNGs with dimensions, bytes and SHA-256 in ignored evidence;
 - private and public-redacted JSON/Markdown migration reports with parity;
 - executed reverse-order rollback that reproduces the exact previous tree.
 
+Before compiling migration evidence, freeze the final package status/text and
+recompute its canonical digest. Any later package change invalidates the
+private evidence context and requires recompiling private/public JSON and
+Markdown reports and re-running rollback verification.
+
 Only after those proofs may this table change:
 
-| Control | Current rc12 status | Closure condition |
+| Control | Current rc15 status | Closure condition |
 |---|---|---|
-| RT-09 / RT-10 | public core closed; private adoption pending | 134-event compatibility/equality on final private HEAD |
-| RT-29 | focused public search fix closed; real private acceptance pending | ranking, filters, bounded results and keyboard path on final real snapshot |
-| RT-33 | synthetic report/rollback closed; private pending | three-commit private report plus verified rollback |
-| RT-36 | public relation core closed; private pending | 2,399/2,399 and zero unresolved on final private HEAD |
+| RT-09 / RT-10 | public implementation present; exact S18 official deterministic proof and private adoption pending | complete S18 deterministic stack, then 134-event compatibility/equality on final private HEAD |
+| RT-29 | public implementation improved but terminal browser/visual proof pending; private acceptance open | complete S18 search E2/E3 matrix, then ranking, filters, bounded results and keyboard path on final real snapshot |
+| RT-33 | synthetic compiler exists; rc15 is non-releasable and private pending | releasable exact package, then three-commit private report plus verified rollback |
+| RT-36 | public relation implementation present; exact S18 and private pending | exact S18 semantic gate, then 2,399/2,399 and zero unresolved on final private HEAD |
 | RT-47 | open | close the 40th source event and replay authoring diagnostics/gates |
-| RT-48 | public synthetic core closed; private pending | live current-operator restart/security proof and downstream documentation replay |
+| RT-48 | public implementation present; exact S18 107/107 pending; private pending | exact Node 22/socket gate, then live current-operator restart/security proof and downstream documentation replay |
+| RT-12 / RT-37 / RT-59 / RT-85 / RT-91 / RT-119 | their former S/S9 release evidence remains historical only; none is inherited by rc15 | bind each control to the complete official S18 receipt, current E3/human review where applicable, final private adoption and E5 instead of reusing an earlier subject |
 
 ### Operational decision
 
-The correct decision at this checkpoint is **continue, do not promote**. rc12
-contains the right fixes and its migration preflight is ready, but the current
-environment has not authorized the terminal public release execution. A clean
-Git tree, green deterministic gates, focused E2E and ready private preflight are
-necessary evidence; they are not substitutes for 1,372/107/102 exact-subject
-closure.
+The correct decision at this checkpoint is **continue, do not promote**. rc15
+contains the current fixes and now blocks migration mechanically through
+`validation_pending`. The environment has not authorized the terminal public
+release execution or current visual capture. A clean Git tree, focused unit
+proof and historical deterministic/preflight evidence are necessary inputs;
+they are not substitutes for the complete official S18 stack, 102/102
+first-attempt browser receipt and current E3 visual closure.
 
 ## Final Recommendation
 
