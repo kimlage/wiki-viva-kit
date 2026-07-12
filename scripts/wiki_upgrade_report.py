@@ -17,6 +17,7 @@ except ModuleNotFoundError:
     sys.path.insert(0, str(ROOT))
 
 from wiki_core.upgrade import (
+    _finite_json_value,
     compile_migration_report,
     load_mapping,
     migration_evidence_template,
@@ -77,6 +78,14 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--kit-root",
+        type=Path,
+        help=(
+            "public kit Git checkout containing the package-pinned source tree; "
+            "required with --check"
+        ),
+    )
+    parser.add_argument(
         "--check", action="store_true", help="exit 1 unless the report is complete"
     )
     parser.add_argument(
@@ -91,6 +100,8 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         package = load_mapping(args.package)
+        if not _finite_json_value(package):
+            raise ValueError("package is not finite JSON-compatible data")
         package_errors = validate_upgrade_package(package)
         if package_errors:
             raise ValueError("; ".join(package_errors))
@@ -105,15 +116,26 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         evidence = load_mapping(args.evidence)
+        if not _finite_json_value(evidence):
+            raise ValueError("evidence is not finite JSON-compatible data")
         report = compile_migration_report(
             evidence,
             package,
             public_export=args.public_export,
             consumer_root=args.consumer_root,
+            kit_root=args.kit_root,
             require_git_commits=args.check,
             verify_rollback_execution=args.verify_rollback,
         )
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
+    except (
+        OSError,
+        ValueError,
+        json.JSONDecodeError,
+        yaml.YAMLError,
+        UnicodeError,
+        TypeError,
+        RecursionError,
+    ) as exc:
         print(_invalid_report_message(public_export=args.public_export, error=exc))
         return 2
 
@@ -126,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
             _write(args.json_out, json_output)
         if args.markdown_out:
             _write(args.markdown_out, markdown_output)
-    except (OSError, ValueError, TypeError) as exc:
+    except (OSError, ValueError, TypeError, UnicodeError, RecursionError) as exc:
         print(_invalid_report_message(public_export=args.public_export, error=exc))
         return 2
     if not args.json_out and not args.markdown_out:

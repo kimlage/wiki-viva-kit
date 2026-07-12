@@ -26,8 +26,10 @@ from wiki_core.upgrade import (
     UPGRADE_PACKAGE_SCHEMA_VERSION,
     _git_blob_payloads,
     build_preflight_report,
+    canonical_json,
     compare_portable_files,
     compile_migration_report,
+    deterministic_id,
     migration_evidence_template,
     package_is_pinned,
     portable_path_status,
@@ -95,7 +97,17 @@ def package(*, pinned: bool = True, source_sha: str | None = None) -> dict:
             "required_gates": ["toolkit_drift", "audit", "diff_check"],
         },
         "migration": {
+            "commit_boundaries": [
+                "faithful_public_import",
+                "regenerated_artifacts",
+                "downstream_adaptations",
+            ],
+            "generated_artifact_patterns": ["tests/generated/**"],
             "required_gates": ["audit", "bundle", "diff_check"],
+            "gate_commands": {
+                gate_id: f"python3 scripts/wiki_{gate_id}.py --check"
+                for gate_id in ("audit", "bundle", "diff_check")
+            },
             "visual_profiles": ["desktop", "mobile", "fallback"],
         },
         "compatibility": [
@@ -153,7 +165,7 @@ def repo_head(root: Path) -> str:
     ).strip()
 
 
-def png_bytes(width: int = 16, height: int = 12) -> bytes:
+def png_bytes(width: int = 16, height: int = 12, tone: int = 0) -> bytes:
     def chunk(kind: bytes, payload: bytes) -> bytes:
         checksum = zlib.crc32(kind + payload) & 0xFFFFFFFF
         return (
@@ -164,7 +176,8 @@ def png_bytes(width: int = 16, height: int = 12) -> bytes:
         )
 
     header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    rows = b"".join(b"\x00" + (b"\x00\x00\x00" * width) for _ in range(height))
+    pixel = bytes([tone % 256, tone % 256, tone % 256])
+    rows = b"".join(b"\x00" + (pixel * width) for _ in range(height))
     return (
         b"\x89PNG\r\n\x1a\n"
         + chunk(b"IHDR", header)
@@ -176,7 +189,8 @@ def png_bytes(width: int = 16, height: int = 12) -> bytes:
 def bind_migration_screenshots(root: Path, evidence: dict) -> None:
     final_head = evidence["evidence_context"]["captured_consumer_head"]
     for index, item in enumerate(evidence["visual_qa_evidence"], start=1):
-        raw = png_bytes(16 + index, 12 + index)
+        width, height = (int(value) for value in item["viewport"].split("x"))
+        raw = png_bytes(width, height, tone=index)
         path = root / item["screenshot_ref"]
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(raw)
@@ -185,12 +199,71 @@ def bind_migration_screenshots(root: Path, evidence: dict) -> None:
                 "screenshot_sha256": hashlib.sha256(raw).hexdigest(),
                 "screenshot_bytes": len(raw),
                 "screenshot_dimensions": {
-                    "width": 16 + index,
-                    "height": 12 + index,
+                    "width": width,
+                    "height": height,
                 },
                 "captured_consumer_head": final_head,
             }
         )
+
+
+def bind_migration_preflight(
+    root: Path,
+    evidence: dict,
+    pkg: dict,
+    report: dict,
+) -> None:
+    payload = {key: value for key, value in report.items() if key != "report_id"}
+    expected_id = deterministic_id("preflight", payload)
+    assert report["report_id"] == expected_id
+    report_sha256 = hashlib.sha256(
+        canonical_json(payload).encode("utf-8")
+    ).hexdigest()
+    report_ref = "output/wiki-upgrade/preflight-report.json"
+    path = root / report_ref
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    before = evidence["consumer_before"]
+    before["memory_root"] = report["layout"]["memory_root"]
+    before["preflight"] = {
+        "status": "ready",
+        "report_id": expected_id,
+        "report_sha256": report_sha256,
+        "report_ref": report_ref,
+        "package_sha256": upgrade_package_sha256(pkg),
+        "consumer_head": before["head_sha"],
+    }
+
+
+def bind_gate_receipts(root: Path, evidence: dict) -> None:
+    receipt_ref = "output/wiki-upgrade/gate-receipts.json"
+    receipt = {
+        "schema_version": "wiki_viva_migration_gate_receipts.v1",
+        "captured_consumer_head": evidence["evidence_context"][
+            "captured_consumer_head"
+        ],
+        "gates": [
+            {
+                "id": gate["id"],
+                "command": gate["command"],
+                "exit_code": 0,
+                "output_sha256": hashlib.sha256(
+                    f"gate-output-{gate['id']}".encode("utf-8")
+                ).hexdigest(),
+            }
+            for gate in evidence["gates"]
+        ],
+    }
+    path = root / receipt_ref
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    evidence["gates_receipt_ref"] = receipt_ref
 
 
 def make_matching_repos(tmp_path: Path) -> tuple[Path, Path, str]:
@@ -216,6 +289,7 @@ def make_matching_repos(tmp_path: Path) -> tuple[Path, Path, str]:
         "repo_id: fixture\nlanguage: en\ncontexts: [example]\n",
         encoding="utf-8",
     )
+    (target / ".gitignore").write_text("output/\n", encoding="utf-8")
     init_repo(target)
     head = commit_all(target)
     subprocess.run(
@@ -245,6 +319,7 @@ def gate_evidence(head: str) -> dict:
 
 
 def migration_evidence(pkg: dict) -> dict:
+    before_head = sha("consumer-before")
     final_head = sha("adaptation")
     return {
         "schema_version": MIGRATION_EVIDENCE_SCHEMA_VERSION,
@@ -261,9 +336,18 @@ def migration_evidence(pkg: dict) -> dict:
         "consumer_before": {
             "repository": "public-fixture-consumer",
             "branch": "wiki/upgrade-v8",
-            "head_sha": sha("consumer-before"),
+            "head_sha": before_head,
             "kit_version": "v7",
             "gate_status": "pass",
+            "memory_root": "memories",
+            "preflight": {
+                "status": "ready",
+                "report_id": f"preflight:{sha('preflight-id')[:20]}",
+                "report_sha256": sha("preflight-report"),
+                "report_ref": "output/wiki-upgrade/preflight-report.json",
+                "package_sha256": upgrade_package_sha256(pkg),
+                "consumer_head": before_head,
+            },
         },
         "consumer_after": {
             "branch": "wiki/upgrade-v8",
@@ -272,7 +356,9 @@ def migration_evidence(pkg: dict) -> dict:
             "adaptation_commit_sha": sha("adaptation"),
         },
         "omitted_boundaries": [],
-        "files_imported": ["wiki_core/core.py", "scripts/wiki_upgrade_report.py"],
+        "files_imported": ["scripts/wiki_upgrade_report.py", "wiki_core/core.py"],
+        "generated_artifacts": ["tests/generated/state.json"],
+        "downstream_adaptations": ["wiki.config.yaml"],
         "local_overrides_kept": ["wiki.config.yaml", "memories/"],
         "warnings": [
             {
@@ -284,7 +370,13 @@ def migration_evidence(pkg: dict) -> dict:
         ],
         "fixtures_added": ["tests/fixtures/core-bug.yaml"],
         "gates": [
-            {"id": gate_id, "command": f"run {gate_id}", "status": "pass"}
+            {
+                "id": gate_id,
+                "command": f"python3 scripts/wiki_{gate_id}.py --check",
+                "status": "pass",
+                "exit_code": 0,
+                "captured_consumer_head": final_head,
+            }
             for gate_id in pkg["migration"]["required_gates"]
         ],
         "visual_qa_evidence": [
@@ -294,10 +386,14 @@ def migration_evidence(pkg: dict) -> dict:
                 "center_ref": "public-fixture:root",
                 "viewport": "390x844" if profile == "mobile" else "1440x1000",
                 "browser": "webkit" if profile == "mobile" else "chromium",
-                "screenshot_ref": f"qa/{profile}.png",
+                "screenshot_ref": f"output/wiki-upgrade/qa/{profile}.png",
                 "screenshot_sha256": sha(f"screenshot-{profile}"),
                 "screenshot_bytes": 1,
-                "screenshot_dimensions": {"width": 1, "height": 1},
+                "screenshot_dimensions": (
+                    {"width": 390, "height": 844}
+                    if profile == "mobile"
+                    else {"width": 1440, "height": 1000}
+                ),
                 "captured_consumer_head": final_head,
                 "console_status": "clean",
                 "network_status": "clean",
@@ -312,9 +408,125 @@ def migration_evidence(pkg: dict) -> dict:
                 f"git revert --no-commit {sha('adaptation')} "
                 f"{sha('artifact')} {sha('import')}"
             ),
-            "preserves_local_paths": ["wiki.config.yaml", "memories/"],
+            "preserves_local_paths": ["wiki.config.yaml", "memories"],
         },
     }
+
+
+def exact_three_boundary_fixture(
+    tmp_path: Path,
+    *,
+    privacy: str = "public_safe",
+) -> tuple[Path, Path, dict, dict, dict, str, list[str], bytes]:
+    """Build a real import/artifact/adaptation chain from a reviewed preflight."""
+
+    kit, target, _initial = make_matching_repos(tmp_path)
+    generated_source = kit / "tests/generated/state.json"
+    generated_source.parent.mkdir(parents=True)
+    generated_source.write_text('{"generated":true}\n', encoding="utf-8")
+    source_sha = commit_all(kit, "public source with generated artifact")
+
+    (target / "wiki_core/core.py").write_text("VALUE = 0\n", encoding="utf-8")
+    before_sha = commit_all(target, "consumer before upgrade")
+    before_config = (target / "wiki.config.yaml").read_bytes()
+    pkg = package(source_sha=source_sha)
+    reviewed_gates = gate_evidence(before_sha)
+    next(
+        gate
+        for gate in reviewed_gates["gates"]
+        if gate["id"] == "toolkit_drift"
+    )["status"] = "reviewed"
+    preflight = build_preflight_report(
+        kit_root=kit,
+        consumer_root=target,
+        package=pkg,
+        consumer=consumer(privacy=privacy),
+        gate_evidence=reviewed_gates,
+        checked_on="2026-07-12",
+        private_evidence_ref=(
+            "output/wiki-upgrade/preflight-report.json"
+            if privacy != "public_safe"
+            else None
+        ),
+    )
+    assert preflight["status"] == "ready"
+    assert preflight["migration_partition"]["faithful_public_import"]["paths"] == [
+        "wiki_core/core.py"
+    ]
+    assert preflight["migration_partition"]["regenerated_artifacts"]["paths"] == [
+        "tests/generated/state.json"
+    ]
+
+    evidence = migration_evidence(pkg)
+    evidence["consumer_before"]["head_sha"] = before_sha
+    evidence["files_imported"] = ["wiki_core/core.py"]
+    evidence["generated_artifacts"] = ["tests/generated/state.json"]
+    evidence["downstream_adaptations"] = ["wiki.config.yaml"]
+    bind_migration_preflight(target, evidence, pkg, preflight)
+
+    (target / "wiki_core/core.py").write_bytes(
+        (kit / "wiki_core/core.py").read_bytes()
+    )
+    import_sha = commit_all(target, "faithful public import")
+    generated_target = target / "tests/generated/state.json"
+    generated_target.parent.mkdir(parents=True)
+    generated_target.write_bytes(generated_source.read_bytes())
+    artifact_sha = commit_all(target, "regenerated artifacts")
+    (target / "wiki.config.yaml").write_text(
+        "repo_id: fixture\nlanguage: pt\ncontexts: [example]\n",
+        encoding="utf-8",
+    )
+    adaptation_sha = commit_all(target, "downstream adaptations")
+    commits = [import_sha, artifact_sha, adaptation_sha]
+
+    evidence["consumer_after"].update(
+        {
+            "import_commit_sha": import_sha,
+            "artifact_commit_sha": artifact_sha,
+            "adaptation_commit_sha": adaptation_sha,
+        }
+    )
+    evidence["evidence_context"]["captured_consumer_head"] = adaptation_sha
+    for gate in evidence["gates"]:
+        gate["captured_consumer_head"] = adaptation_sha
+    for item in evidence["visual_qa_evidence"]:
+        item["captured_consumer_head"] = adaptation_sha
+    evidence["rollback"].update(
+        {
+            "previous_sha": before_sha,
+            "import_commit_sha": import_sha,
+            "command": (
+                f"git revert --no-commit {adaptation_sha} {artifact_sha} {import_sha}"
+            ),
+        }
+    )
+    bind_migration_screenshots(target, evidence)
+    bind_gate_receipts(target, evidence)
+    return kit, target, pkg, evidence, preflight, before_sha, commits, before_config
+
+
+def bind_boundary_commits(evidence: dict, commits: list[str]) -> None:
+    import_sha, artifact_sha, adaptation_sha = commits
+    evidence["consumer_after"].update(
+        {
+            "import_commit_sha": import_sha,
+            "artifact_commit_sha": artifact_sha,
+            "adaptation_commit_sha": adaptation_sha,
+        }
+    )
+    evidence["evidence_context"]["captured_consumer_head"] = adaptation_sha
+    for gate in evidence["gates"]:
+        gate["captured_consumer_head"] = adaptation_sha
+    for item in evidence["visual_qa_evidence"]:
+        item["captured_consumer_head"] = adaptation_sha
+    evidence["rollback"].update(
+        {
+            "import_commit_sha": import_sha,
+            "command": (
+                f"git revert --no-commit {adaptation_sha} {artifact_sha} {import_sha}"
+            ),
+        }
+    )
 
 
 def test_public_upgrade_package_and_inventory_are_valid() -> None:
@@ -450,6 +662,83 @@ def test_upgrade_package_requires_unique_safe_visual_profiles() -> None:
     assert "migration.visual_profiles[3] is invalid" in validate_upgrade_package(
         unsafe
     )
+
+
+def test_upgrade_package_commit_boundaries_are_canonical_and_v1_is_compatible() -> None:
+    pkg = package()
+    assert validate_upgrade_package(pkg) == []
+
+    missing = copy.deepcopy(pkg)
+    del missing["migration"]["commit_boundaries"]
+    assert (
+        "migration.commit_boundaries cannot be empty"
+        in validate_upgrade_package(missing)
+    )
+
+    reversed_order = copy.deepcopy(pkg)
+    reversed_order["migration"]["commit_boundaries"] = [
+        "faithful_public_import",
+        "downstream_adaptations",
+        "regenerated_artifacts",
+    ]
+    assert (
+        "migration.commit_boundaries must use canonical order"
+        in validate_upgrade_package(reversed_order)
+    )
+
+    duplicate = copy.deepcopy(pkg)
+    duplicate["migration"]["commit_boundaries"].append(
+        "downstream_adaptations"
+    )
+    assert (
+        "migration.commit_boundaries must be unique"
+        in validate_upgrade_package(duplicate)
+    )
+
+    missing_import = copy.deepcopy(pkg)
+    missing_import["migration"]["commit_boundaries"] = [
+        "regenerated_artifacts",
+        "downstream_adaptations",
+    ]
+    assert (
+        "migration.commit_boundaries must begin with faithful_public_import"
+        in validate_upgrade_package(missing_import)
+    )
+
+    legacy = copy.deepcopy(pkg)
+    legacy["schema_version"] = "wiki_viva_upgrade_package.v1"
+    del legacy["migration"]["commit_boundaries"]
+    assert validate_upgrade_package(legacy) == []
+
+
+def test_upgrade_package_requires_narrow_safe_generated_artifact_patterns() -> None:
+    missing = package()
+    del missing["migration"]["generated_artifact_patterns"]
+    assert (
+        "migration.generated_artifact_patterns is required when regenerated_artifacts is declared"
+        in validate_upgrade_package(missing)
+    )
+
+    for unsafe_pattern in ("**/*", "../generated/**", "memories/**", ".env/**"):
+        unsafe = package()
+        unsafe["migration"]["generated_artifact_patterns"] = [unsafe_pattern]
+        assert any(
+            "migration.generated_artifact_patterns[0] is unsafe" in error
+            for error in validate_upgrade_package(unsafe)
+        )
+
+    import_only = package()
+    import_only["migration"]["commit_boundaries"] = ["faithful_public_import"]
+    del import_only["migration"]["generated_artifact_patterns"]
+    assert validate_upgrade_package(import_only) == []
+
+
+def test_core_compile_fails_closed_for_invalid_v2_package() -> None:
+    invalid = package()
+    del invalid["migration"]["commit_boundaries"]
+    report = compile_migration_report(migration_evidence(invalid), invalid)
+    assert report["status"] == "blocked"
+    assert "upgrade package contract is invalid" in report["validation_errors"]
 
 
 def test_upgrade_package_reviewable_gate_is_narrow_and_bounded() -> None:
@@ -741,7 +1030,7 @@ def test_preflight_is_ready_only_with_pinned_release_clean_branch_current_gates_
     assert report["snapshot"]["kind"] == "real"
 
 
-def test_preflight_blocks_unpinned_dirty_drifted_or_unredacted_private_consumer(
+def test_preflight_blocks_unpinned_dirty_drifted_or_unbound_private_consumer(
     tmp_path: Path,
 ) -> None:
     kit, target, head = make_matching_repos(tmp_path)
@@ -762,6 +1051,8 @@ def test_preflight_blocks_unpinned_dirty_drifted_or_unredacted_private_consumer(
         "toolkit_drift",
         "privacy_evidence",
     } <= set(report["blockers"])
+    assert report["privacy"]["report_redacted"] is True
+    assert "paths" not in report["migration_partition"]["faithful_public_import"]
 
 
 def test_preflight_can_be_ready_with_clean_explicitly_reviewed_upgrade_drift(
@@ -937,7 +1228,9 @@ def test_preflight_blocks_unknown_privacy_even_when_every_other_check_passes(
     assert "privacy_evidence" in report["blockers"]
 
 
-def test_private_risk_cannot_opt_out_of_required_redaction(tmp_path: Path) -> None:
+def test_private_risk_has_private_authoritative_and_public_redacted_preflights(
+    tmp_path: Path,
+) -> None:
     kit, target, head = make_matching_repos(tmp_path)
     private_consumer = consumer(privacy="financial_personal")
     private_consumer["evidence_redaction_required"] = False
@@ -954,6 +1247,23 @@ def test_private_risk_cannot_opt_out_of_required_redaction(tmp_path: Path) -> No
     assert unredacted["status"] == "blocked"
     assert "privacy_evidence" in unredacted["blockers"]
     assert unredacted["privacy"]["redaction_required"] is True
+    assert unredacted["privacy"]["report_redacted"] is True
+    assert "paths" not in unredacted["migration_partition"]["faithful_public_import"]
+
+    authoritative = build_preflight_report(
+        kit_root=kit,
+        consumer_root=target,
+        package=package(source_sha=repo_head(kit)),
+        consumer=private_consumer,
+        gate_evidence=gate_evidence(head),
+        checked_on="2026-07-11",
+        redact=False,
+        private_evidence_ref="output/wiki-upgrade/preflight-report.json",
+    )
+    assert authoritative["status"] == "ready"
+    assert authoritative["privacy"]["report_redacted"] is False
+    assert authoritative["privacy"]["authoritative_private"] is True
+    assert "paths" in authoritative["migration_partition"]["faithful_public_import"]
 
     redacted = build_preflight_report(
         kit_root=kit,
@@ -967,6 +1277,7 @@ def test_private_risk_cannot_opt_out_of_required_redaction(tmp_path: Path) -> No
     assert redacted["status"] == "ready"
     assert redacted["privacy"]["redaction_required"] is True
     assert redacted["privacy"]["report_redacted"] is True
+    assert "paths" not in redacted["migration_partition"]["faithful_public_import"]
 
 
 def test_redacted_preflight_never_emits_local_drift_or_status_paths(
@@ -978,23 +1289,34 @@ def test_redacted_preflight_never_emits_local_drift_or_status_paths(
     (target / "tests" / private_name).write_text(
         "# private fixture name\n", encoding="utf-8"
     )
+    private_layout_name = "knowledge/client-internal-project"
+    (target / "wiki.config.yaml").write_text(
+        "repo_id: fixture\npaths:\n  memory_root: "
+        + private_layout_name
+        + "\n",
+        encoding="utf-8",
+    )
+    private_consumer = consumer(privacy="financial_personal")
+    private_consumer["repository"]["name"] = "client-internal-project"
     report = build_preflight_report(
         kit_root=kit,
         consumer_root=target,
         package=package(source_sha=repo_head(kit)),
-        consumer=consumer(privacy="financial_personal"),
+        consumer=private_consumer,
         gate_evidence=gate_evidence(head),
         checked_on="2026-07-09",
         redact=True,
     )
     serialized = json.dumps(report)
     assert private_name not in serialized
+    assert private_layout_name not in serialized
+    assert "client-internal-project" not in serialized
     assert str(target) not in serialized
     assert head not in serialized
     assert report["consumer_before"]["path"] == "<redacted-local-path>"
     assert report["consumer_before"]["head_sha"].startswith("consumer-head:sha256:")
     assert report["consumer_before"]["status_short"] == []
-    assert report["consumer_before"]["status_entry_count"] == 1
+    assert report["consumer_before"]["status_entry_count"] == 2
     assert "only_in_consumer_count" in report["drift"]
 
 
@@ -1070,14 +1392,21 @@ def test_migration_report_is_complete_deterministic_and_renderable() -> None:
     markdown = render_migration_report_markdown(first)
     assert "Faithful public import" in markdown
     assert "## Warnings" in markdown
-    assert "consumer-maintainer" in markdown
-    assert "v9 stable" in markdown
     assert "## Synthetic regression fixtures" in markdown
-    assert "tests/fixtures/core-bug.yaml" in markdown
+    assert "consumer-maintainer" not in markdown
+    assert "v9 stable" not in markdown
+    assert "tests/fixtures/core-bug.yaml" not in markdown
     assert "## Rollback" in markdown
     assert "Disposable rollback verification" in markdown
     assert "Screenshot" in markdown
     assert first["report_id"] in markdown
+
+    private_markdown = render_migration_report_markdown(
+        compile_migration_report(evidence, pkg, public_export=False)
+    )
+    assert "consumer-maintainer" in private_markdown
+    assert "v9 stable" in private_markdown
+    assert "tests/fixtures/core-bug.yaml" in private_markdown
 
     stale_shallow = {
         key: value
@@ -1094,6 +1423,106 @@ def test_migration_report_is_complete_deterministic_and_renderable() -> None:
         "schema_version must be wiki_viva_migration_evidence.v2" in error
         for error in legacy_report["validation_errors"]
     )
+
+
+def test_migration_markdown_escapes_html_and_code_span_injection() -> None:
+    pkg = package()
+    evidence = migration_evidence(pkg)
+    injection = "</code><script>alert(`client-alpha-redesign`)</script>"
+    evidence["warnings"][0]["message"] = injection
+    private_markdown = render_migration_report_markdown(
+        compile_migration_report(evidence, pkg, public_export=False)
+    )
+    public_markdown = render_migration_report_markdown(
+        compile_migration_report(evidence, pkg, public_export=True)
+    )
+    assert "<script>" not in private_markdown
+    assert "</code>" not in private_markdown
+    assert "&lt;script&gt;" in private_markdown
+    assert "&#96;client-alpha-redesign&#96;" in private_markdown
+    assert injection not in public_markdown
+
+
+def test_public_migration_projection_hides_safe_private_names_and_paths() -> None:
+    pkg = package()
+    evidence = migration_evidence(pkg)
+    before = evidence["consumer_before"]
+    before["repository"] = "internal-repository"
+    before["branch"] = "wiki/internal-before"
+    before["memory_root"] = "knowledge/internal"
+    before["preflight"]["report_ref"] = (
+        "output/wiki-upgrade/internal-preflight.json"
+    )
+    evidence["consumer_after"]["branch"] = "wiki/internal-after"
+    evidence["rollback"]["preserves_local_paths"] = [
+        "wiki.config.yaml",
+        "knowledge/internal",
+    ]
+    private_screenshot_refs: list[str] = []
+    for index, item in enumerate(evidence["visual_qa_evidence"]):
+        ref = f"output/wiki-upgrade/qa/internal-capture-{index}.png"
+        item["screenshot_ref"] = ref
+        private_screenshot_refs.append(ref)
+
+    public_report = compile_migration_report(evidence, pkg, public_export=True)
+    private_report = compile_migration_report(evidence, pkg, public_export=False)
+    assert public_report["status"] == "complete"
+    assert private_report["status"] == "complete"
+    assert public_report["consumer_before"]["repository"] == "<redacted-public-value>"
+    assert public_report["consumer_before"]["branch"] == "<redacted-public-value>"
+    assert public_report["consumer_before"]["memory_root"] == "<redacted-public-value>"
+    assert (
+        public_report["consumer_before"]["preflight"]["report_ref"]
+        == "<redacted-public-value>"
+    )
+    assert public_report["consumer_after"]["branch"] == "<redacted-public-value>"
+    assert public_report["rollback"]["preserves_local_paths"] == []
+    assert public_report["files_imported"] == []
+    assert public_report["generated_artifacts"] == []
+    assert public_report["downstream_adaptations"] == []
+    assert public_report["local_overrides_kept"] == []
+    assert public_report["fixtures_added"] == []
+    assert public_report["warnings"] == []
+    assert {
+        item["command"] for item in public_report["gates"]
+    } == {"<redacted-public-value>"}
+    assert {
+        item["screenshot_ref"] for item in public_report["visual_qa_evidence"]
+    } == {"qa/redacted.png"}
+    public_text = json.dumps(public_report, ensure_ascii=False)
+    for raw in (
+        "internal-repository",
+        "wiki/internal-before",
+        "wiki/internal-after",
+        "knowledge/internal",
+        "output/wiki-upgrade/internal-preflight.json",
+        *private_screenshot_refs,
+    ):
+        assert raw not in public_text
+    assert private_report["consumer_before"]["repository"] == "internal-repository"
+    assert private_report["files_imported"] == evidence["files_imported"]
+    assert private_report["generated_artifacts"] == evidence["generated_artifacts"]
+    assert (
+        private_report["downstream_adaptations"]
+        == evidence["downstream_adaptations"]
+    )
+    assert (
+        private_report["consumer_before"]["preflight"]["report_ref"]
+        == "output/wiki-upgrade/internal-preflight.json"
+    )
+
+
+def test_public_gate_projection_never_hashes_secret_commands() -> None:
+    pkg = package()
+    first = migration_evidence(pkg)
+    second = copy.deepcopy(first)
+    first["gates"][0]["command"] = "tool --password low-entropy-alpha"
+    second["gates"][0]["command"] = "tool --password low-entropy-beta"
+    first_report = compile_migration_report(first, pkg, public_export=True)
+    second_report = compile_migration_report(second, pkg, public_export=True)
+    assert first_report["gates"][0]["command"] == "<redacted-public-value>"
+    assert second_report["gates"][0]["command"] == "<redacted-public-value>"
+    assert first_report["gates"] == second_report["gates"]
 
 
 def test_migration_visual_profiles_are_package_owned_and_cannot_be_omitted() -> None:
@@ -1113,7 +1542,7 @@ def test_migration_visual_profiles_are_package_owned_and_cannot_be_omitted() -> 
     evidence_schema = json.loads(
         (
             ROOT
-            / "docs/references/upgrades/wiki-viva-v8/migration-evidence.schema.json"
+            / "docs/references/schemas/wiki-migration-evidence-v2.schema.json"
         ).read_text(encoding="utf-8")
     )
     assert list(Draft202012Validator(evidence_schema).iter_errors(evidence)) == []
@@ -1150,53 +1579,376 @@ def test_migration_visual_profiles_are_package_owned_and_cannot_be_omitted() -> 
         for error in validate_migration_evidence(undeclared, pkg)
     )
 
+    reused = copy.deepcopy(evidence)
+    reused["visual_qa_evidence"][1]["screenshot_ref"] = reused[
+        "visual_qa_evidence"
+    ][0]["screenshot_ref"]
+    reused["visual_qa_evidence"][1]["screenshot_sha256"] = reused[
+        "visual_qa_evidence"
+    ][0]["screenshot_sha256"]
+    reused_errors = validate_migration_evidence(reused, pkg)
+    assert "visual_qa_evidence screenshot refs must be unique" in reused_errors
+    assert "visual_qa_evidence screenshot hashes must be unique" in reused_errors
+
+    wrong_dimensions = copy.deepcopy(evidence)
+    wrong_dimensions["visual_qa_evidence"][0]["screenshot_dimensions"] = {
+        "width": 1,
+        "height": 1,
+    }
+    assert any(
+        "screenshot_dimensions must equal its viewport" in error
+        for error in validate_migration_evidence(wrong_dimensions, pkg)
+    )
+
+
+def test_package_declared_migration_boundaries_require_every_sha() -> None:
+    pkg = package()
+    template = migration_evidence_template(pkg)
+    assert template["evidence_context"]["validator_version"] == (
+        "wiki_viva_upgrade_validator.v4"
+    )
+    assert template["omitted_boundaries"] == []
+    assert all(
+        template["consumer_after"][field]
+        for field in (
+            "import_commit_sha",
+            "artifact_commit_sha",
+            "adaptation_commit_sha",
+        )
+    )
+    assert all(
+        {"exit_code", "captured_consumer_head"} <= set(gate)
+        for gate in template["gates"]
+    )
+    assert template["consumer_before"]["memory_root"] == (
+        "REPLACE_WITH_CONSUMER_MEMORY_ROOT"
+    )
+    assert template["consumer_before"]["preflight"]["report_ref"].startswith(
+        "output/wiki-upgrade/"
+    )
+
+    evidence = migration_evidence(pkg)
+    evidence["consumer_after"]["artifact_commit_sha"] = None
+    evidence["omitted_boundaries"] = [
+        {
+            "boundary": "artifact_commit_sha",
+            "reason": "Attempted omission despite the package contract.",
+        }
+    ]
+    errors = validate_migration_evidence(evidence, pkg)
+    assert any(
+        "artifact_commit_sha is required by migration.commit_boundaries" in error
+        for error in errors
+    )
+    assert (
+        "omitted_boundaries cannot omit package-declared artifact_commit_sha"
+        in errors
+    )
+
+    import_only = package()
+    import_only["migration"]["commit_boundaries"] = ["faithful_public_import"]
+    import_evidence = migration_evidence(import_only)
+    import_sha = import_evidence["consumer_after"]["import_commit_sha"]
+    import_evidence["consumer_after"].update(
+        {"artifact_commit_sha": None, "adaptation_commit_sha": None}
+    )
+    import_evidence["generated_artifacts"] = []
+    import_evidence["downstream_adaptations"] = []
+    import_evidence["omitted_boundaries"] = [
+        {
+            "boundary": "artifact_commit_sha",
+            "reason": "Not declared by this import-only package.",
+        },
+        {
+            "boundary": "adaptation_commit_sha",
+            "reason": "Not declared by this import-only package.",
+        },
+    ]
+    import_evidence["evidence_context"]["captured_consumer_head"] = import_sha
+    for gate in import_evidence["gates"]:
+        gate["captured_consumer_head"] = import_sha
+    for item in import_evidence["visual_qa_evidence"]:
+        item["captured_consumer_head"] = import_sha
+    import_evidence["rollback"]["command"] = f"git revert --no-commit {import_sha}"
+    assert validate_migration_evidence(import_evidence, import_only) == []
+
+    legacy = copy.deepcopy(import_only)
+    legacy["schema_version"] = "wiki_viva_upgrade_package.v1"
+    del legacy["migration"]["commit_boundaries"]
+    del legacy["migration"]["generated_artifact_patterns"]
+    legacy_evidence = migration_evidence(legacy)
+    legacy_import_sha = legacy_evidence["consumer_after"]["import_commit_sha"]
+    legacy_evidence["consumer_after"].update(
+        {"artifact_commit_sha": None, "adaptation_commit_sha": None}
+    )
+    del legacy_evidence["generated_artifacts"]
+    del legacy_evidence["downstream_adaptations"]
+    legacy_evidence["omitted_boundaries"] = copy.deepcopy(
+        import_evidence["omitted_boundaries"]
+    )
+    legacy_evidence["evidence_context"][
+        "captured_consumer_head"
+    ] = legacy_import_sha
+    for gate in legacy_evidence["gates"]:
+        gate["captured_consumer_head"] = legacy_import_sha
+    for item in legacy_evidence["visual_qa_evidence"]:
+        item["captured_consumer_head"] = legacy_import_sha
+    legacy_evidence["rollback"]["command"] = (
+        f"git revert --no-commit {legacy_import_sha}"
+    )
+    assert validate_migration_evidence(legacy_evidence, legacy) == []
+
+
+def test_migration_preflight_and_gate_claims_fail_closed_without_git() -> None:
+    pkg = package()
+    evidence = migration_evidence(pkg)
+
+    blocked_status = copy.deepcopy(evidence)
+    blocked_status["consumer_before"]["preflight"]["status"] = "blocked"
+    assert (
+        "consumer_before.preflight.status must be ready"
+        in validate_migration_evidence(blocked_status, pkg)
+    )
+
+    bad_report_id = copy.deepcopy(evidence)
+    bad_report_id["consumer_before"]["preflight"]["report_id"] = "pending"
+    assert (
+        "consumer_before.preflight.report_id is invalid"
+        in validate_migration_evidence(bad_report_id, pkg)
+    )
+
+    bad_report_digest = copy.deepcopy(evidence)
+    bad_report_digest["consumer_before"]["preflight"]["report_sha256"] = "pending"
+    assert any(
+        "preflight.report_sha256 must be an exact SHA-256" in error
+        for error in validate_migration_evidence(bad_report_digest, pkg)
+    )
+
+    placeholder_ref = copy.deepcopy(evidence)
+    placeholder_ref["consumer_before"]["preflight"]["report_ref"] = (
+        "REPLACE_WITH_PREFLIGHT.json"
+    )
+    assert any(
+        "preflight.report_ref must be a safe repo-relative JSON path" in error
+        for error in validate_migration_evidence(placeholder_ref, pkg)
+    )
+
+    wrong_package = copy.deepcopy(evidence)
+    wrong_package["consumer_before"]["preflight"]["package_sha256"] = "f" * 64
+    assert any(
+        "preflight.package_sha256 must match" in error
+        for error in validate_migration_evidence(wrong_package, pkg)
+    )
+
+    wrong_consumer = copy.deepcopy(evidence)
+    wrong_consumer["consumer_before"]["preflight"]["consumer_head"] = sha(
+        "different-consumer"
+    )
+    assert any(
+        "preflight.consumer_head must match" in error
+        for error in validate_migration_evidence(wrong_consumer, pkg)
+    )
+
+    missing_memory_preservation = copy.deepcopy(evidence)
+    missing_memory_preservation["rollback"]["preserves_local_paths"] = [
+        "wiki.config.yaml"
+    ]
+    assert any(
+        "preserves_local_paths must contain consumer_before.memory_root" in error
+        for error in validate_migration_evidence(missing_memory_preservation, pkg)
+    )
+
+    gate_exit = copy.deepcopy(evidence)
+    gate_exit["gates"][0]["exit_code"] = 1
+    assert any(
+        "gates[0].exit_code must be 0" in error
+        for error in validate_migration_evidence(gate_exit, pkg)
+    )
+
+    gate_head = copy.deepcopy(evidence)
+    gate_head["gates"][0]["captured_consumer_head"] = sha("stale-gate-head")
+    assert any(
+        "gates[0].captured_consumer_head must match" in error
+        for error in validate_migration_evidence(gate_head, pkg)
+    )
+
+    gate_placeholder = copy.deepcopy(evidence)
+    gate_placeholder["gates"][0]["command"] = "record exact audit command"
+    assert any(
+        "gates[0].command must be exact, not a placeholder" in error
+        for error in validate_migration_evidence(gate_placeholder, pkg)
+    )
+    no_op_gate = copy.deepcopy(evidence)
+    no_op_gate["gates"][0]["command"] = "true"
+    assert any(
+        "gates[0].command must be exact, not a placeholder" in error
+        for error in validate_migration_evidence(no_op_gate, pkg)
+    )
+
 
 def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
     tmp_path: Path,
 ) -> None:
-    kit, target, before_sha = make_matching_repos(tmp_path)
-    boundary = target / "migration-boundary.txt"
-    commits: list[str] = []
-    for stage in ("import", "artifacts", "adaptation"):
-        boundary.write_text(f"{stage}\n", encoding="utf-8")
-        commits.append(commit_all(target, stage))
-
-    pkg = package(source_sha=repo_head(kit))
-    evidence = migration_evidence(pkg)
-    evidence["consumer_before"]["head_sha"] = before_sha
-    evidence["consumer_after"].update(
-        {
-            "import_commit_sha": commits[0],
-            "artifact_commit_sha": commits[1],
-            "adaptation_commit_sha": commits[2],
-        }
-    )
-    evidence["evidence_context"]["captured_consumer_head"] = commits[2]
-    for item in evidence["visual_qa_evidence"]:
-        item["captured_consumer_head"] = commits[2]
-    evidence["rollback"].update(
-        {
-            "previous_sha": before_sha,
-            "import_commit_sha": commits[0],
-            "command": (
-                f"git revert --no-commit {commits[2]} {commits[1]} {commits[0]}"
-            ),
-        }
-    )
-    preserved_config = (target / "wiki.config.yaml").read_bytes()
-    bind_migration_screenshots(target, evidence)
+    (
+        kit,
+        target,
+        pkg,
+        evidence,
+        preflight_report,
+        before_sha,
+        commits,
+        preserved_config,
+    ) = exact_three_boundary_fixture(tmp_path)
+    assert subprocess.check_output(
+        [
+            "git",
+            "ls-tree",
+            "-r",
+            "--name-only",
+            commits[0],
+            "--",
+            evidence["consumer_before"]["preflight"]["report_ref"],
+        ],
+        cwd=target,
+        text=True,
+    ).strip() == ""
 
     assert validate_migration_evidence(
         evidence,
         pkg,
         consumer_root=target,
+        kit_root=kit,
         require_git_commits=True,
     ) == []
+
+    preflight_path = (
+        target / evidence["consumer_before"]["preflight"]["report_ref"]
+    )
+    altered_preflight = copy.deepcopy(preflight_report)
+    altered_preflight["status"] = "blocked"
+    preflight_path.write_text(
+        json.dumps(altered_preflight, sort_keys=True), encoding="utf-8"
+    )
+    altered_errors = validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    )
+    assert any("report_sha256 does not match report_ref" in error for error in altered_errors)
+    assert "referenced preflight report status must be ready" in altered_errors
+    bind_migration_preflight(target, evidence, pkg, preflight_report)
+
+    unsafe_preflight = copy.deepcopy(evidence)
+    unsafe_preflight["consumer_before"]["preflight"]["report_ref"] = (
+        "../preflight-report.json"
+    )
+    assert any(
+        "preflight.report_ref" in error
+        for error in validate_migration_evidence(
+            unsafe_preflight,
+            pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+        )
+    )
+
+    unignored_preflight_path = target / "preflight-report.json"
+    unignored_preflight_path.write_text(
+        json.dumps(preflight_report, sort_keys=True), encoding="utf-8"
+    )
+    unignored_preflight = copy.deepcopy(evidence)
+    unignored_preflight["consumer_before"]["preflight"]["report_ref"] = (
+        "preflight-report.json"
+    )
+    assert (
+        "consumer_before.preflight.report_ref must be ignored and untracked"
+        in validate_migration_evidence(
+            unignored_preflight,
+            pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+        )
+    )
+    unignored_preflight_path.unlink()
+
+    wrong_source_report = copy.deepcopy(preflight_report)
+    wrong_source_report["source_package"]["release"] = "wrong-release"
+    wrong_source_payload = {
+        key: value for key, value in wrong_source_report.items() if key != "report_id"
+    }
+    wrong_source_report["report_id"] = deterministic_id(
+        "preflight", wrong_source_payload
+    )
+    preflight_path.write_text(
+        json.dumps(wrong_source_report, sort_keys=True), encoding="utf-8"
+    )
+    wrong_source_evidence = copy.deepcopy(evidence)
+    wrong_source_binding = wrong_source_evidence["consumer_before"]["preflight"]
+    wrong_source_binding["report_id"] = wrong_source_report["report_id"]
+    wrong_source_binding["report_sha256"] = hashlib.sha256(
+        canonical_json(wrong_source_payload).encode("utf-8")
+    ).hexdigest()
+    assert (
+        "referenced preflight release does not match the upgrade package"
+        in validate_migration_evidence(
+            wrong_source_evidence,
+            pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+        )
+    )
+    bind_migration_preflight(target, evidence, pkg, preflight_report)
+
+    wrong_memory_root = copy.deepcopy(evidence)
+    wrong_memory_root["consumer_before"]["memory_root"] = "memorias"
+    wrong_memory_root["rollback"]["preserves_local_paths"].append("memorias")
+    assert (
+        "consumer_before.memory_root does not match the configured consumer layout"
+        in validate_migration_evidence(
+            wrong_memory_root,
+            pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+        )
+    )
+
+    wrong_before_branch = copy.deepcopy(evidence)
+    wrong_before_branch["consumer_before"]["branch"] = "wiki/self-attested-before"
+    assert (
+        "referenced preflight consumer branch does not match consumer_before.branch"
+        in validate_migration_evidence(
+            wrong_before_branch,
+            pkg,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
+        )
+    )
+
+    wrong_after_branch = copy.deepcopy(evidence)
+    wrong_after_branch["consumer_after"]["branch"] = "wiki/self-attested-after"
+    assert (
+        "consumer_after.branch does not match the checked consumer branch"
+        in validate_migration_evidence(
+            wrong_after_branch,
+            pkg,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
+        )
+    )
 
     verified = compile_migration_report(
         evidence,
         pkg,
         consumer_root=target,
+        kit_root=kit,
         require_git_commits=True,
         verify_rollback_execution=True,
     )
@@ -1209,6 +1961,7 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         evidence,
         pkg,
         consumer_root=target,
+        kit_root=kit,
         require_git_commits=True,
     )
     assert unchecked_rollback["status"] == "blocked"
@@ -1224,37 +1977,62 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         for error in validate_migration_evidence(
             mismatched_image,
             pkg,
-            consumer_root=target,
-            require_git_commits=True,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
         )
     )
 
-    symlink_path = target / "qa/symlink.png"
+    source_screenshot = target / evidence["visual_qa_evidence"][0]["screenshot_ref"]
+    unignored_screenshot_path = target / "qa/desktop.png"
+    unignored_screenshot_path.parent.mkdir(parents=True, exist_ok=True)
+    unignored_screenshot_path.write_bytes(source_screenshot.read_bytes())
+    unignored_image = copy.deepcopy(evidence)
+    unignored_image["visual_qa_evidence"][0]["screenshot_ref"] = "qa/desktop.png"
+    assert any(
+        "screenshot_ref must be ignored and untracked" in error
+        for error in validate_migration_evidence(
+            unignored_image,
+            pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+        )
+    )
+    unignored_screenshot_path.unlink()
+
+    symlink_path = target / "output/wiki-upgrade/qa/symlink.png"
     symlink_path.symlink_to("desktop.png")
     symlink_image = copy.deepcopy(evidence)
-    symlink_image["visual_qa_evidence"][0]["screenshot_ref"] = "qa/symlink.png"
+    symlink_image["visual_qa_evidence"][0]["screenshot_ref"] = (
+        "output/wiki-upgrade/qa/symlink.png"
+    )
     assert any(
         "screenshot_ref is missing or unsafe" in error
         for error in validate_migration_evidence(
             symlink_image,
             pkg,
-            consumer_root=target,
-            require_git_commits=True,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
         )
     )
     symlink_path.unlink()
 
-    hardlink_path = target / "qa/hardlink.png"
-    os.link(target / "qa/desktop.png", hardlink_path)
+    hardlink_path = target / "output/wiki-upgrade/qa/hardlink.png"
+    os.link(target / evidence["visual_qa_evidence"][0]["screenshot_ref"], hardlink_path)
     hardlink_image = copy.deepcopy(evidence)
-    hardlink_image["visual_qa_evidence"][0]["screenshot_ref"] = "qa/hardlink.png"
+    hardlink_image["visual_qa_evidence"][0]["screenshot_ref"] = (
+        "output/wiki-upgrade/qa/hardlink.png"
+    )
     assert any(
         "screenshot_ref is missing or unsafe" in error
         for error in validate_migration_evidence(
             hardlink_image,
             pkg,
-            consumer_root=target,
-            require_git_commits=True,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
         )
     )
     hardlink_path.unlink()
@@ -1296,6 +2074,7 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         duplicate,
         pkg,
         consumer_root=target,
+        kit_root=kit,
         require_git_commits=True,
     )
 
@@ -1308,6 +2087,7 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
             reversed_order,
             pkg,
             consumer_root=target,
+            kit_root=kit,
             require_git_commits=True,
         )
     )
@@ -1320,8 +2100,389 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
             unavailable,
             pkg,
             consumer_root=target,
+            kit_root=kit,
             require_git_commits=True,
         )
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "paths", "expected"),
+    [
+        (
+            "files_imported",
+            ["tests/generated/state.json", "wiki_core/core.py"],
+            "authoritative preflight partition",
+        ),
+        (
+            "downstream_adaptations",
+            ["wiki_core/core.py"],
+            "must not modify a portable path",
+        ),
+        (
+            "downstream_adaptations",
+            ["output/wiki-upgrade/runtime.json"],
+            "forbidden runtime or raw evidence",
+        ),
+    ],
+)
+def test_checked_migration_rejects_mixed_portable_and_runtime_evidence_paths(
+    tmp_path: Path,
+    field: str,
+    paths: list[str],
+    expected: str,
+) -> None:
+    kit, target, pkg, evidence, _preflight, _before, _commits, _config = (
+        exact_three_boundary_fixture(tmp_path)
+    )
+    evidence[field] = paths
+    errors = validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    )
+    assert any(expected in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    "history_kind", ["dummy", "extra", "wrong_blob", "wrong_mode", "merge"]
+)
+def test_checked_migration_rejects_nonsemantic_boundary_histories(
+    tmp_path: Path,
+    history_kind: str,
+) -> None:
+    kit, target, pkg, evidence, _preflight, before, _commits, _config = (
+        exact_three_boundary_fixture(tmp_path)
+    )
+    subprocess.run(
+        ["git", "checkout", "-qB", "wiki/adversarial", before],
+        cwd=target,
+        check=True,
+    )
+
+    (target / "wiki_core/core.py").write_bytes(
+        b"VALUE = 999\n"
+        if history_kind == "wrong_blob"
+        else (kit / "wiki_core/core.py").read_bytes()
+    )
+    if history_kind == "wrong_mode":
+        (target / "wiki_core/core.py").chmod(0o755)
+    import_sha = commit_all(target, "faithful public import")
+
+    if history_kind == "dummy":
+        subprocess.run(
+            ["git", "commit", "--allow-empty", "-qm", "artifact marker"],
+            cwd=target,
+            check=True,
+        )
+        artifact_sha = repo_head(target)
+    elif history_kind == "merge":
+        subprocess.run(
+            ["git", "checkout", "-qb", "wiki/generated-side", import_sha],
+            cwd=target,
+            check=True,
+        )
+        generated_target = target / "tests/generated/state.json"
+        generated_target.parent.mkdir(parents=True, exist_ok=True)
+        generated_target.write_bytes((kit / "tests/generated/state.json").read_bytes())
+        side_sha = commit_all(target, "generated side")
+        subprocess.run(
+            ["git", "checkout", "-qB", "wiki/adversarial", import_sha],
+            cwd=target,
+            check=True,
+        )
+        (target / "wiki.targets.yaml").write_text("targets: []\n", encoding="utf-8")
+        commit_all(target, "unrecorded intermediate")
+        subprocess.run(
+            ["git", "merge", "--no-ff", "-qm", "artifact merge", side_sha],
+            cwd=target,
+            check=True,
+        )
+        artifact_sha = repo_head(target)
+    else:
+        if history_kind == "extra":
+            (target / "wiki.targets.yaml").write_text(
+                "targets: []\n", encoding="utf-8"
+            )
+            commit_all(target, "unrecorded intermediate")
+        generated_target = target / "tests/generated/state.json"
+        generated_target.parent.mkdir(parents=True, exist_ok=True)
+        generated_target.write_bytes((kit / "tests/generated/state.json").read_bytes())
+        artifact_sha = commit_all(target, "regenerated artifacts")
+
+    (target / "wiki.config.yaml").write_text(
+        "repo_id: fixture\nlanguage: pt\ncontexts: [example]\n",
+        encoding="utf-8",
+    )
+    adaptation_sha = commit_all(target, "downstream adaptations")
+    bind_boundary_commits(evidence, [import_sha, artifact_sha, adaptation_sha])
+    bind_migration_screenshots(target, evidence)
+    bind_gate_receipts(target, evidence)
+
+    errors = validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    )
+    if history_kind in {"extra", "merge"}:
+        assert any("direct single-parent commit" in error for error in errors)
+    elif history_kind == "dummy":
+        assert any(
+            "generated_artifacts does not exactly match" in error for error in errors
+        )
+    else:
+        assert any("postimages do not match" in error for error in errors)
+
+
+def test_checked_migration_requires_public_kit_root(tmp_path: Path) -> None:
+    _kit, target, pkg, evidence, _preflight, _before, _commits, _config = (
+        exact_three_boundary_fixture(tmp_path)
+    )
+    errors = validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        require_git_commits=True,
+    )
+    assert "public kit Git verification root is required for a checked report" in errors
+
+
+def test_checked_migration_requires_clean_index_and_worktree(tmp_path: Path) -> None:
+    kit, target, pkg, evidence, _preflight, _before, _commits, _config = (
+        exact_three_boundary_fixture(tmp_path)
+    )
+    (target / "untracked-local-marker.txt").write_text("dirty\n", encoding="utf-8")
+    errors = validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    )
+    assert "checked migration requires a clean consumer index and worktree" in errors
+
+
+@pytest.mark.parametrize("flag", ["--assume-unchanged", "--skip-worktree"])
+def test_checked_migration_rejects_hidden_index_flags(
+    tmp_path: Path,
+    flag: str,
+) -> None:
+    kit, target, pkg, evidence, _preflight, _before, _commits, _config = (
+        exact_three_boundary_fixture(tmp_path)
+    )
+    subprocess.run(
+        ["git", "update-index", flag, "wiki.config.yaml"],
+        cwd=target,
+        check=True,
+    )
+    with (target / "wiki.config.yaml").open("a", encoding="utf-8") as handle:
+        handle.write("# hidden runtime mutation\n")
+    assert subprocess.check_output(
+        ["git", "status", "--porcelain=v1"], cwd=target, text=True
+    ).strip() == ""
+    errors = validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    )
+    assert "checked migration could not bind an exact Git subject" in errors
+
+
+def test_private_consumer_uses_ignored_unredacted_authoritative_preflight(
+    tmp_path: Path,
+) -> None:
+    kit, target, pkg, evidence, preflight, _before, _commits, _config = (
+        exact_three_boundary_fixture(tmp_path, privacy="financial_personal")
+    )
+    assert preflight["status"] == "ready"
+    assert preflight["privacy"]["report_redacted"] is False
+    assert preflight["privacy"]["redaction_required"] is True
+    assert preflight["migration_partition"]["portable_drift"]["path_count"] == 2
+    assert validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    ) == []
+
+
+def test_localized_memory_adaptation_is_allowed_but_secret_content_is_blocked(
+    tmp_path: Path,
+) -> None:
+    kit, target, _initial = make_matching_repos(tmp_path)
+    generated_source = kit / "tests/generated/state.json"
+    generated_source.parent.mkdir(parents=True)
+    generated_source.write_text('{"generated":true}\n', encoding="utf-8")
+    source_sha = commit_all(kit, "public generated source")
+
+    (target / "wiki_core/core.py").write_text("VALUE = 0\n", encoding="utf-8")
+    (target / "wiki.config.yaml").write_text(
+        "repo_id: fixture\nlanguage: pt-BR\ncontexts: [pessoal]\n"
+        "paths:\n  memory_root: memorias\n",
+        encoding="utf-8",
+    )
+    private_page = target / "memorias/system/operacoes.md"
+    private_page.parent.mkdir(parents=True)
+    private_page.write_text("# Operações\n\nEstado anterior.\n", encoding="utf-8")
+    before_sha = commit_all(target, "wiki privada antes da migração")
+
+    pkg = package(source_sha=source_sha)
+    current_gates = gate_evidence(before_sha)
+    next(
+        gate
+        for gate in current_gates["gates"]
+        if gate["id"] == "toolkit_drift"
+    )["status"] = "reviewed"
+    preflight = build_preflight_report(
+        kit_root=kit,
+        consumer_root=target,
+        package=pkg,
+        consumer=consumer(privacy="financial_personal"),
+        gate_evidence=current_gates,
+        checked_on="2026-07-12",
+        private_evidence_ref="output/wiki-upgrade/preflight-report.json",
+    )
+    assert preflight["status"] == "ready"
+
+    evidence = migration_evidence(pkg)
+    evidence["consumer_before"]["head_sha"] = before_sha
+    evidence["files_imported"] = ["wiki_core/core.py"]
+    evidence["generated_artifacts"] = ["tests/generated/state.json"]
+    evidence["downstream_adaptations"] = ["memorias/system/operacoes.md"]
+    evidence["rollback"]["preserves_local_paths"] = [
+        "wiki.config.yaml",
+        "memorias",
+    ]
+    evidence["rollback"]["previous_sha"] = before_sha
+    bind_migration_preflight(target, evidence, pkg, preflight)
+
+    (target / "wiki_core/core.py").write_bytes(
+        (kit / "wiki_core/core.py").read_bytes()
+    )
+    import_sha = commit_all(target, "faithful public import")
+    generated_target = target / "tests/generated/state.json"
+    generated_target.parent.mkdir(parents=True)
+    generated_target.write_bytes(generated_source.read_bytes())
+    artifact_sha = commit_all(target, "regenerated artifacts")
+    private_page.write_text(
+        "# Operações\n\nReferências estruturadas reconciliadas.\n",
+        encoding="utf-8",
+    )
+    adaptation_sha = commit_all(target, "adaptações downstream localizadas")
+    bind_boundary_commits(evidence, [import_sha, artifact_sha, adaptation_sha])
+    bind_migration_screenshots(target, evidence)
+    bind_gate_receipts(target, evidence)
+
+    assert validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    ) == []
+    public_report = compile_migration_report(evidence, pkg, public_export=True)
+    assert "memorias/system/operacoes.md" not in json.dumps(public_report)
+    assert public_report["migration_summary"]["downstream_adaptations"] == {
+        "path_count": 1,
+        "validated_count": 0,
+        "blocked_count": 0,
+        "unverified_count": 1,
+    }
+
+    private_page.write_text(
+        "# Operações\n\napi_key: sk-live-private-secret-value-1234567890\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", str(private_page)], cwd=target, check=True)
+    subprocess.run(
+        ["git", "commit", "--amend", "--no-edit", "-q"], cwd=target, check=True
+    )
+    secret_adaptation_sha = repo_head(target)
+    bind_boundary_commits(
+        evidence,
+        [import_sha, artifact_sha, secret_adaptation_sha],
+    )
+    bind_migration_screenshots(target, evidence)
+    bind_gate_receipts(target, evidence)
+    secret_errors = validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    )
+    assert any(
+        "secret-shaped or unsupported binary content" in error
+        for error in secret_errors
+    )
+    assert "sk-live-private" not in json.dumps(secret_errors)
+
+
+def test_consumer_owned_dependency_merge_surface_is_allowed(tmp_path: Path) -> None:
+    kit, target, pkg, evidence, _preflight, _before, commits, _config = (
+        exact_three_boundary_fixture(tmp_path)
+    )
+    import_sha, artifact_sha, _old_adaptation = commits
+    subprocess.run(
+        ["git", "checkout", "-qB", "wiki/dependency-adaptation", artifact_sha],
+        cwd=target,
+        check=True,
+    )
+    (target / "requirements.txt").write_text("PyYAML>=6\n", encoding="utf-8")
+    adaptation_sha = commit_all(target, "merge consumer dependencies")
+    evidence["downstream_adaptations"] = ["requirements.txt"]
+    evidence["consumer_after"]["branch"] = "wiki/dependency-adaptation"
+    bind_boundary_commits(evidence, [import_sha, artifact_sha, adaptation_sha])
+    bind_migration_screenshots(target, evidence)
+    bind_gate_receipts(target, evidence)
+    assert validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    ) == []
+
+
+@pytest.mark.parametrize("adaptation_kind", ["symlink", "deletion"])
+def test_checked_adaptation_requires_regular_postimage(
+    tmp_path: Path,
+    adaptation_kind: str,
+) -> None:
+    kit, target, pkg, evidence, _preflight, _before, commits, _config = (
+        exact_three_boundary_fixture(tmp_path)
+    )
+    import_sha, artifact_sha, _old_adaptation = commits
+    subprocess.run(
+        ["git", "checkout", "-qB", "wiki/unsafe-adaptation", artifact_sha],
+        cwd=target,
+        check=True,
+    )
+    config_path = target / "wiki.config.yaml"
+    config_path.unlink()
+    if adaptation_kind == "symlink":
+        config_path.symlink_to("../outside-config.yaml")
+    adaptation_sha = commit_all(target, f"unsafe {adaptation_kind} adaptation")
+    evidence["consumer_after"]["branch"] = "wiki/unsafe-adaptation"
+    bind_boundary_commits(evidence, [import_sha, artifact_sha, adaptation_sha])
+    bind_migration_screenshots(target, evidence)
+    bind_gate_receipts(target, evidence)
+    errors = validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    )
+    assert any(
+        "secret-shaped or unsupported binary content" in error for error in errors
     )
 
 
@@ -1349,6 +2510,33 @@ def test_public_migration_report_rejects_absolute_paths_and_unredacted_routes() 
     assert any("route_ref is not public-safe" in error for error in errors)
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("route_ref", "route:sha256:private-finance-project"),
+        ("center_ref", "center:sha256:client-internal-project"),
+        ("route_ref", "public-fixture:client-internal-project"),
+        ("center_ref", "public-fixture:private-finance-project"),
+    ],
+)
+def test_public_visual_refs_require_closed_hash_or_fixture_ids(
+    field: str,
+    value: str,
+) -> None:
+    pkg = package()
+    evidence = migration_evidence(pkg)
+    evidence["visual_qa_evidence"][0][field] = value
+    errors = validate_migration_evidence(evidence, pkg, public_export=True)
+    assert any(f"{field} is not public-safe" in error for error in errors)
+
+    report = compile_migration_report(evidence, pkg, public_export=True)
+    assert value not in json.dumps(report)
+    assert (
+        report["visual_qa_evidence"][0][field]
+        == "<redacted-public-value>"
+    )
+
+
 def test_blocked_public_report_is_a_fail_closed_sanitized_projection() -> None:
     pkg = package()
     evidence = migration_evidence(pkg)
@@ -1359,9 +2547,15 @@ def test_blocked_public_report_is_a_fail_closed_sanitized_projection() -> None:
     raw_other_path = "/var/" + "private-wiki/operator.json"
     raw_short_credential = "password=" + "not-public"
     raw_url = "https://private.example.invalid/view?token=" + raw_secret
+    safe_semantic_name = "client-alpha-redesign"
 
+    evidence["source"]["release"] = safe_semantic_name
     evidence["source"]["plan"] = raw_path
     evidence["consumer_before"]["repository"] = raw_email
+    evidence["consumer_before"]["kit_version"] = safe_semantic_name
+    evidence["omitted_boundaries"] = [
+        {"boundary": "artifact_commit_sha", "reason": safe_semantic_name}
+    ]
     evidence["files_imported"].append(raw_path)
     evidence["local_overrides_kept"].append(raw_url)
     evidence["fixtures_added"].append("../../" + raw_cpf + ".yaml")
@@ -1370,12 +2564,18 @@ def test_blocked_public_report_is_a_fail_closed_sanitized_projection() -> None:
     )
     evidence["warnings"][0]["removal_window"] = raw_email
     evidence["gates"][0]["command"] = f"run --config {raw_path} --token {raw_secret}"
+    evidence["gates"][0]["status"] = safe_semantic_name
     evidence["visual_qa_evidence"][0]["route_ref"] = raw_url
+    evidence["visual_qa_evidence"][0]["profile"] = safe_semantic_name
+    evidence["visual_qa_evidence"][0]["browser"] = safe_semantic_name
+    evidence["visual_qa_evidence"][0]["viewport"] = safe_semantic_name
+    evidence["visual_qa_evidence"][0]["screenshot_sha256"] = safe_semantic_name
     evidence["visual_qa_evidence"][0]["center_ref"] = (
         "public-fixture:" + raw_email
     )
     evidence["visual_qa_evidence"][0]["screenshot_ref"] = raw_path
     evidence["rollback"]["command"] += f" && cat {raw_path} {raw_other_path}"
+    evidence["rollback"]["command"] += " " + safe_semantic_name
     evidence["rollback"]["preserves_local_paths"].append(raw_path)
 
     report = compile_migration_report(evidence, pkg, public_export=True)
@@ -1393,6 +2593,7 @@ def test_blocked_public_report_is_a_fail_closed_sanitized_projection() -> None:
         raw_other_path,
         raw_short_credential,
         raw_url,
+        safe_semantic_name,
     ):
         assert forbidden not in exported
     assert not any(
@@ -1499,6 +2700,48 @@ def test_public_cli_load_error_does_not_echo_private_input_path(tmp_path: Path) 
     assert result.stderr == ""
 
 
+@pytest.mark.parametrize(
+    "raw_payload",
+    [
+        b"source:\n  plan: [sk-private-client-secret-1234567890\n",
+        b"source:\n  plan: /Users/private/client.yaml\n\xff\xfe",
+        b"schema_version: wiki_viva_migration_evidence.v2\nclient-alpha-redesign: 2026-07-12\n",
+        b"schema_version: wiki_viva_migration_evidence.v2\ncycle: &self\n  nested: *self\n",
+    ],
+)
+def test_public_cli_non_json_yaml_or_utf8_never_echoes_input(
+    tmp_path: Path,
+    raw_payload: bytes,
+) -> None:
+    pkg = package()
+    package_path = tmp_path / "package.yaml"
+    evidence_path = tmp_path / "client-alpha-redesign.yaml"
+    package_path.write_text(yaml.safe_dump(pkg, sort_keys=False), encoding="utf-8")
+    evidence_path.write_bytes(raw_payload)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/wiki_upgrade_report.py"),
+            "--package",
+            str(package_path),
+            "--evidence",
+            str(evidence_path),
+            "--public-export",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    exported = result.stdout + result.stderr
+    assert result.returncode == 2
+    assert json.loads(result.stdout)["status"] == "invalid"
+    assert "sk-private" not in exported
+    assert "/Users/private" not in exported
+    assert "client-alpha-redesign" not in exported
+    assert result.stderr == ""
+
+
 def test_placeholder_shas_cannot_complete_a_migration_report() -> None:
     pkg = package()
     evidence = migration_evidence(pkg)
@@ -1523,8 +2766,14 @@ def test_unpinned_public_package_cannot_produce_a_complete_migration_report() ->
 def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
     tmp_path: Path,
 ) -> None:
-    kit, target, head = make_matching_repos(tmp_path)
-    pkg = package(source_sha=repo_head(kit))
+    kit, target, _initial = make_matching_repos(tmp_path)
+    generated_source = kit / "tests/generated/state.json"
+    generated_source.parent.mkdir(parents=True)
+    generated_source.write_text('{"generated":true}\n', encoding="utf-8")
+    source_sha = commit_all(kit, "public generated source")
+    (target / "wiki_core/core.py").write_text("VALUE = 0\n", encoding="utf-8")
+    head = commit_all(target, "consumer before upgrade")
+    pkg = package(source_sha=source_sha)
     inventory = {
         "schema_version": CONSUMER_INVENTORY_SCHEMA_VERSION,
         "verified_on": "2026-07-09",
@@ -1538,7 +2787,13 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
     inventory_path.write_text(
         yaml.safe_dump(inventory, sort_keys=False), encoding="utf-8"
     )
-    gates_path.write_text(json.dumps(gate_evidence(head)), encoding="utf-8")
+    current_gates = gate_evidence(head)
+    next(
+        gate
+        for gate in current_gates["gates"]
+        if gate["id"] == "toolkit_drift"
+    )["status"] = "reviewed"
+    gates_path.write_text(json.dumps(current_gates), encoding="utf-8")
 
     inventory_run = subprocess.run(
         [
@@ -1581,15 +2836,30 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
         check=False,
     )
     assert preflight_run.returncode == 0, preflight_run.stderr + preflight_run.stdout
-    assert json.loads(preflight_run.stdout)["status"] == "ready"
+    preflight_report = json.loads(preflight_run.stdout)
+    assert preflight_report["status"] == "ready"
 
-    boundary = target / "migration-boundary.txt"
-    migration_commits: list[str] = []
-    for stage in ("import", "artifacts", "adaptation"):
-        boundary.write_text(f"{stage}\n", encoding="utf-8")
-        migration_commits.append(commit_all(target, stage))
     migration = migration_evidence(pkg)
     migration["consumer_before"]["head_sha"] = head
+    migration["files_imported"] = ["wiki_core/core.py"]
+    migration["generated_artifacts"] = ["tests/generated/state.json"]
+    migration["downstream_adaptations"] = ["wiki.config.yaml"]
+    bind_migration_preflight(target, migration, pkg, preflight_report)
+
+    (target / "wiki_core/core.py").write_bytes(
+        (kit / "wiki_core/core.py").read_bytes()
+    )
+    import_sha = commit_all(target, "faithful public import")
+    generated_target = target / "tests/generated/state.json"
+    generated_target.parent.mkdir(parents=True)
+    generated_target.write_bytes(generated_source.read_bytes())
+    artifact_sha = commit_all(target, "regenerated artifacts")
+    (target / "wiki.config.yaml").write_text(
+        "repo_id: fixture\nlanguage: pt\ncontexts: [example]\n",
+        encoding="utf-8",
+    )
+    adaptation_sha = commit_all(target, "downstream adaptations")
+    migration_commits = [import_sha, artifact_sha, adaptation_sha]
     migration["consumer_after"].update(
         {
             "import_commit_sha": migration_commits[0],
@@ -1598,6 +2868,8 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
         }
     )
     migration["evidence_context"]["captured_consumer_head"] = migration_commits[2]
+    for gate in migration["gates"]:
+        gate["captured_consumer_head"] = migration_commits[2]
     for item in migration["visual_qa_evidence"]:
         item["captured_consumer_head"] = migration_commits[2]
     migration["rollback"].update(
@@ -1611,12 +2883,40 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
         }
     )
     bind_migration_screenshots(target, migration)
+    bind_gate_receipts(target, migration)
     evidence_path.write_text(
         yaml.safe_dump(migration, sort_keys=False), encoding="utf-8"
     )
 
     json_out = tmp_path / "migration-report.json"
     markdown_out = tmp_path / "migration-report.md"
+    missing_kit_run = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts/wiki_upgrade_report.py"),
+            "--package",
+            str(package_path),
+            "--evidence",
+            str(evidence_path),
+            "--consumer-root",
+            str(target),
+            "--public-export",
+            "--check",
+            "--verify-rollback",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert missing_kit_run.returncode == 1
+    missing_kit_report = json.loads(missing_kit_run.stdout)
+    assert missing_kit_report["status"] == "blocked"
+    assert any(
+        "public kit Git verification root is required" in error
+        for error in missing_kit_report["validation_errors"]
+    )
+
     report_run = subprocess.run(
         [
             sys.executable,
@@ -1627,6 +2927,8 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
             str(evidence_path),
             "--consumer-root",
             str(target),
+            "--kit-root",
+            str(kit),
             "--public-export",
             "--json-out",
             str(json_out),
@@ -1641,5 +2943,247 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
         check=False,
     )
     assert report_run.returncode == 0, report_run.stderr + report_run.stdout
-    assert json.loads(json_out.read_text(encoding="utf-8"))["status"] == "complete"
+    checked_report = json.loads(json_out.read_text(encoding="utf-8"))
+    assert checked_report["status"] == "complete"
+    assert checked_report["migration_summary"]["downstream_adaptations"] == {
+        "path_count": 1,
+        "validated_count": 1,
+        "blocked_count": 0,
+        "unverified_count": 0,
+    }
     assert "## Rollback" in markdown_out.read_text(encoding="utf-8")
+
+
+def _preflight_cli_args(
+    *,
+    kit: Path,
+    target: Path,
+    package_path: Path,
+    inventory_path: Path,
+    gates_path: Path,
+) -> list[str]:
+    return [
+        sys.executable,
+        str(ROOT / "scripts/wiki_upgrade_preflight.py"),
+        "--kit-root",
+        str(kit),
+        "--consumer-root",
+        str(target),
+        "--consumer-id",
+        "consumer-one",
+        "--package",
+        str(package_path),
+        "--inventory",
+        str(inventory_path),
+        "--gate-evidence",
+        str(gates_path),
+        "--checked-on",
+        "2026-07-12",
+    ]
+
+
+def test_preflight_cli_private_sidecar_is_authoritative_and_never_echoed(
+    tmp_path: Path,
+) -> None:
+    kit, target, head = make_matching_repos(tmp_path)
+    source_sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=kit,
+        text=True,
+        capture_output=True,
+        check=True,
+    ).stdout.strip()
+    pkg = package(source_sha=source_sha)
+    inventory = {
+        "schema_version": CONSUMER_INVENTORY_SCHEMA_VERSION,
+        "verified_on": "2026-07-12",
+        "consumers": [consumer(privacy="financial_personal")],
+    }
+    package_path = tmp_path / "package.yaml"
+    inventory_path = tmp_path / "inventory.yaml"
+    gates_path = tmp_path / "gates.json"
+    package_path.write_text(yaml.safe_dump(pkg, sort_keys=False), encoding="utf-8")
+    inventory_path.write_text(
+        yaml.safe_dump(inventory, sort_keys=False), encoding="utf-8"
+    )
+    current_gates = gate_evidence(head)
+    gates_path.write_text(json.dumps(current_gates), encoding="utf-8")
+    base_args = _preflight_cli_args(
+        kit=kit,
+        target=target,
+        package_path=package_path,
+        inventory_path=inventory_path,
+        gates_path=gates_path,
+    )
+    sidecar_ref = "output/wiki-upgrade/preflight-report.json"
+    sidecar_path = target / sidecar_ref
+
+    accepted = subprocess.run(
+        [*base_args, "--private-evidence-ref", sidecar_ref, "--check"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert accepted.returncode == 0, accepted.stderr + accepted.stdout
+    # The unredacted authority payload lives only in the ignored sidecar.
+    assert accepted.stdout == ""
+    written = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    assert written["status"] == "ready"
+    assert written["privacy"]["authoritative_private"] is True
+    assert written["privacy"]["authoritative_ref"] == sidecar_ref
+    assert written["privacy"]["report_redacted"] is False
+    ignored = subprocess.run(
+        ["git", "check-ignore", "--quiet", sidecar_ref],
+        cwd=target,
+        check=False,
+    )
+    assert ignored.returncode == 0
+
+    tracked_ref = "wiki.config.yaml"
+    rejected = subprocess.run(
+        [*base_args, "--private-evidence-ref", tracked_ref],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert rejected.returncode == 2
+    rejection = json.loads(rejected.stdout)
+    assert rejection["status"] == "invalid"
+    assert "authoritative sidecar" in rejection["errors"][0]
+    # The tracked file must keep its original content: nothing was written.
+    assert "repo_id: fixture" in (target / tracked_ref).read_text(encoding="utf-8")
+
+    contradictory = subprocess.run(
+        [*base_args, "--private-evidence-ref", sidecar_ref, "--redact"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert contradictory.returncode == 2
+    assert "cannot be combined with --redact" in contradictory.stderr
+
+    out_path = tmp_path / "preflight-out.json"
+    redacted_out = subprocess.run(
+        [*base_args, "--redact", "--out", str(out_path)],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert redacted_out.returncode == 0, redacted_out.stderr + redacted_out.stdout
+    # --out writes the file without echoing the report to stdout.
+    assert redacted_out.stdout == ""
+    projected = json.loads(out_path.read_text(encoding="utf-8"))
+    assert projected["privacy"]["report_redacted"] is True
+
+
+def test_upgrade_package_requires_exact_gate_command_registry() -> None:
+    missing = package()
+    del missing["migration"]["gate_commands"]
+    assert (
+        "migration.gate_commands must register the exact command for "
+        "every required gate"
+    ) in validate_upgrade_package(missing)
+
+    partial = package()
+    del partial["migration"]["gate_commands"]["bundle"]
+    assert (
+        "migration.gate_commands must cover exactly migration.required_gates"
+    ) in validate_upgrade_package(partial)
+
+    placeholder = package()
+    placeholder["migration"]["gate_commands"]["audit"] = "record exact audit command"
+    assert any(
+        "migration.gate_commands.audit must be an exact command" in error
+        for error in validate_upgrade_package(placeholder)
+    )
+
+    free_text = package()
+    evidence = migration_evidence(free_text)
+    evidence["gates"][0]["command"] = "python3 scripts/my_own_wrapper.py"
+    assert any(
+        "does not match the package gate command registry" in error
+        for error in validate_migration_evidence(evidence, free_text)
+    )
+
+
+def test_checked_migration_gates_require_executed_receipts(tmp_path: Path) -> None:
+    kit, target, pkg, evidence, _preflight, _before, _commits, _cfg = (
+        exact_three_boundary_fixture(tmp_path)
+    )
+
+    def checked_errors(current: dict) -> list[str]:
+        return validate_migration_evidence(
+            current,
+            pkg,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
+        )
+
+    assert checked_errors(evidence) == []
+    receipt_path = target / evidence["gates_receipt_ref"]
+    original = receipt_path.read_text(encoding="utf-8")
+
+    without_ref = json.loads(json.dumps(evidence))
+    del without_ref["gates_receipt_ref"]
+    assert (
+        "checked migration evidence requires gates_receipt_ref: an ignored "
+        "untracked receipt of the executed gate commands"
+    ) in checked_errors(without_ref)
+
+    tracked = json.loads(json.dumps(evidence))
+    tracked["gates_receipt_ref"] = "data/derived/wiki/web-snapshot/manifest.json"
+    assert (
+        "gates_receipt_ref must be ignored and untracked in the consumer"
+    ) in checked_errors(tracked)
+
+    unregistered = json.loads(original)
+    unregistered["gates"][0]["command"] = "python3 scripts/my_own_wrapper.py"
+    receipt_path.write_text(
+        json.dumps(unregistered, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    assert any(
+        "gate receipt command does not match the package registry" in error
+        for error in checked_errors(evidence)
+    )
+
+    failed_run = json.loads(original)
+    failed_run["gates"][1]["exit_code"] = 1
+    receipt_path.write_text(
+        json.dumps(failed_run, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    assert any(
+        "gate receipt exit_code must be 0" in error
+        for error in checked_errors(evidence)
+    )
+
+    unhashed = json.loads(original)
+    unhashed["gates"][2]["output_sha256"] = "not-a-hash"
+    receipt_path.write_text(
+        json.dumps(unhashed, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    assert any(
+        "gate receipt output_sha256 must be a lowercase sha256" in error
+        for error in checked_errors(evidence)
+    )
+
+    stale = json.loads(original)
+    stale["captured_consumer_head"] = sha("stale-receipt-head")
+    receipt_path.write_text(
+        json.dumps(stale, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    assert (
+        "gate receipts captured_consumer_head must match the final "
+        "migration boundary"
+    ) in checked_errors(evidence)
+
+    receipt_path.write_text(original, encoding="utf-8")
+    assert checked_errors(evidence) == []

@@ -14,6 +14,9 @@
     "consumer_after",
     "omitted_boundaries",
     "files_imported",
+    "generated_artifacts",
+    "downstream_adaptations",
+    "migration_summary",
     "local_overrides_kept",
     "warnings",
     "fixtures_added",
@@ -38,6 +41,9 @@
       "uniqueItems": true
     },
     "files_imported": {"$ref": "#/$defs/string_array"},
+    "generated_artifacts": {"$ref": "#/$defs/string_array"},
+    "downstream_adaptations": {"$ref": "#/$defs/string_array"},
+    "migration_summary": {"$ref": "#/$defs/migration_summary"},
     "local_overrides_kept": {"$ref": "#/$defs/string_array"},
     "warnings": {
       "type": "array",
@@ -63,6 +69,37 @@
       "items": {"type": "string"},
       "uniqueItems": true
     },
+    "partition_summary": {
+      "type": "object",
+      "required": ["path_count", "paths_sha256", "source_projection_sha256"],
+      "properties": {
+        "path_count": {"type": "integer", "minimum": 0},
+        "paths_sha256": {"$ref": "#/$defs/nullable_string"},
+        "source_projection_sha256": {"$ref": "#/$defs/nullable_string"}
+      },
+      "additionalProperties": false
+    },
+    "adaptation_summary": {
+      "type": "object",
+      "required": ["path_count", "validated_count", "blocked_count", "unverified_count"],
+      "properties": {
+        "path_count": {"type": "integer", "minimum": 0},
+        "validated_count": {"type": "integer", "minimum": 0},
+        "blocked_count": {"type": "integer", "minimum": 0},
+        "unverified_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "migration_summary": {
+      "type": "object",
+      "required": ["faithful_public_import", "regenerated_artifacts", "downstream_adaptations"],
+      "properties": {
+        "faithful_public_import": {"$ref": "#/$defs/partition_summary"},
+        "regenerated_artifacts": {"$ref": "#/$defs/partition_summary"},
+        "downstream_adaptations": {"$ref": "#/$defs/adaptation_summary"}
+      },
+      "additionalProperties": false
+    },
     "evidence_context": {
       "type": "object",
       "required": ["package_sha256", "validator_version", "captured_consumer_head"],
@@ -85,13 +122,43 @@
     },
     "consumer_before": {
       "type": "object",
-      "required": ["repository", "branch", "head_sha", "kit_version", "gate_status"],
+      "required": [
+        "repository",
+        "branch",
+        "head_sha",
+        "kit_version",
+        "gate_status",
+        "memory_root",
+        "preflight"
+      ],
       "properties": {
         "repository": {"$ref": "#/$defs/nullable_string"},
         "branch": {"$ref": "#/$defs/nullable_string"},
         "head_sha": {"$ref": "#/$defs/nullable_string"},
         "kit_version": {"$ref": "#/$defs/nullable_string"},
-        "gate_status": {"$ref": "#/$defs/nullable_string"}
+        "gate_status": {"$ref": "#/$defs/nullable_string"},
+        "memory_root": {"$ref": "#/$defs/nullable_string"},
+        "preflight": {"$ref": "#/$defs/preflight_binding"}
+      },
+      "additionalProperties": false
+    },
+    "preflight_binding": {
+      "type": "object",
+      "required": [
+        "status",
+        "report_id",
+        "report_sha256",
+        "report_ref",
+        "package_sha256",
+        "consumer_head"
+      ],
+      "properties": {
+        "status": {"$ref": "#/$defs/nullable_string"},
+        "report_id": {"$ref": "#/$defs/nullable_string"},
+        "report_sha256": {"$ref": "#/$defs/nullable_string"},
+        "report_ref": {"$ref": "#/$defs/nullable_string"},
+        "package_sha256": {"$ref": "#/$defs/nullable_string"},
+        "consumer_head": {"$ref": "#/$defs/nullable_string"}
       },
       "additionalProperties": false
     },
@@ -128,11 +195,13 @@
     },
     "gate": {
       "type": "object",
-      "required": ["id", "command", "status"],
+      "required": ["id", "command", "status", "exit_code", "captured_consumer_head"],
       "properties": {
         "id": {"type": "string"},
         "command": {"type": "string"},
-        "status": {"enum": ["pass", "fail", "blocked", "not_run"]}
+        "status": {"enum": ["pass", "fail", "blocked", "not_run"]},
+        "exit_code": {"type": ["integer", "null"]},
+        "captured_consumer_head": {"$ref": "#/$defs/nullable_string"}
       },
       "additionalProperties": false
     },
@@ -140,8 +209,8 @@
       "type": "object",
       "required": ["width", "height"],
       "properties": {
-        "width": {"type": "integer", "minimum": 1, "maximum": 16384},
-        "height": {"type": "integer", "minimum": 1, "maximum": 16384}
+        "width": {"type": ["integer", "null"], "minimum": 1, "maximum": 16384},
+        "height": {"type": ["integer", "null"], "minimum": 1, "maximum": 16384}
       },
       "additionalProperties": false
     },
@@ -163,18 +232,18 @@
         "sample_fallback"
       ],
       "properties": {
-        "profile": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"},
+        "profile": {"type": "string"},
         "route_ref": {"type": "string"},
         "center_ref": {"type": "string"},
-        "viewport": {"type": "string", "pattern": "^[1-9][0-9]{2,4}x[1-9][0-9]{2,4}$"},
-        "browser": {"enum": ["chromium", "firefox", "webkit"]},
+        "viewport": {"type": "string"},
+        "browser": {"type": "string"},
         "screenshot_ref": {"type": "string", "pattern": "^[^/\\\\][^\\\\]*\\.png$"},
         "screenshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "screenshot_bytes": {"type": "integer", "minimum": 1, "maximum": 67108864},
+        "screenshot_bytes": {"type": ["integer", "null"], "minimum": 1, "maximum": 67108864},
         "screenshot_dimensions": {"$ref": "#/$defs/dimensions"},
         "captured_consumer_head": {"type": "string", "minLength": 1},
-        "console_status": {"const": "clean"},
-        "network_status": {"const": "clean"},
+        "console_status": {"type": "string"},
+        "network_status": {"type": "string"},
         "sample_fallback": {"const": false}
       },
       "additionalProperties": false

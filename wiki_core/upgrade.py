@@ -10,6 +10,7 @@ from __future__ import annotations
 import fnmatch
 import hashlib
 import json
+import math
 import re
 import subprocess
 import tempfile
@@ -30,11 +31,16 @@ PREFLIGHT_SCHEMA_VERSION = "wiki_viva_upgrade_preflight.v1"
 GATE_EVIDENCE_SCHEMA_VERSION = "wiki_viva_gate_evidence.v1"
 MIGRATION_EVIDENCE_SCHEMA_VERSION = "wiki_viva_migration_evidence.v2"
 MIGRATION_REPORT_SCHEMA_VERSION = "wiki_viva_migration_report.v2"
-MIGRATION_VALIDATOR_VERSION = "wiki_viva_upgrade_validator.v3"
+MIGRATION_VALIDATOR_VERSION = "wiki_viva_upgrade_validator.v4"
+MIGRATION_GATE_RECEIPTS_SCHEMA_VERSION = "wiki_viva_migration_gate_receipts.v1"
 ROLLBACK_VERIFICATION_SCHEMA_VERSION = "wiki_viva_rollback_verification.v1"
+# The evidence schema is a runtime dependency of this module, so it lives in
+# the portable docs/references/schemas/** surface and travels with every
+# faithful public import (docs/references/upgrades/** is consumer-owned and
+# blocked by the payload).
 MIGRATION_EVIDENCE_SCHEMA_PATH = (
     Path(__file__).resolve().parents[1]
-    / "docs/references/upgrades/wiki-viva-v8/migration-evidence.schema.json"
+    / "docs/references/schemas/wiki-migration-evidence-v2.schema.json"
 )
 
 CONSUMER_TYPES = {
@@ -79,6 +85,13 @@ _PUBLIC_CREDENTIAL_ASSIGNMENT_RE = re.compile(
     r"cookie|client[_-]?secret|refresh[_-]?token|access[_-]?token)"
     r"\s*[:=]\s*[^\s,;]+"
 )
+_PUBLIC_FIXTURE_REFS = {
+    "public-fixture:canonical-root",
+    "public-fixture:root",
+}
+_PUBLIC_ROUTE_HASH_RE = re.compile(r"route:sha256:[0-9a-f]{64}")
+_PUBLIC_CENTER_HASH_RE = re.compile(r"center:sha256:[0-9a-f]{64}")
+_PUBLIC_RELEASE_ID_RE = re.compile(r"wiki-viva-v[0-9]+(?:-[a-z0-9]+)*")
 _WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:")
 _SENSITIVE_PORTABLE_BASENAMES = {
     "access_token",
@@ -132,6 +145,48 @@ _UNPINNED = {
 }
 _RELEASABLE_STATUSES = {"candidate", "release_candidate", "ready", "released"}
 _DEFAULT_MIGRATION_VISUAL_PROFILES = ("desktop", "mobile", "fallback")
+_MIGRATION_COMMIT_BOUNDARIES = (
+    ("faithful_public_import", "import_commit_sha"),
+    ("regenerated_artifacts", "artifact_commit_sha"),
+    ("downstream_adaptations", "adaptation_commit_sha"),
+)
+_MIGRATION_COMMIT_BOUNDARY_FIELDS = dict(_MIGRATION_COMMIT_BOUNDARIES)
+_MIGRATION_COMMAND_PLACEHOLDER_RE = re.compile(
+    r"(?i)(?:replace[_ -]?with|record exact|placeholder|\btodo\b|\btbd\b|"
+    r"^\s*(?:run|execute)(?:\s+[^\s]+)?\s*$|"
+    r"^\s*(?:true|:|exit\s+0)\s*$|<[^>]+>)"
+)
+_FORBIDDEN_ADAPTATION_PATTERNS = (
+    ".git/**",
+    ".wiki-viva/**",
+    "data/raw/**",
+    "data/derived/**",
+    "private/**",
+    "output/**",
+    "test-results/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/test-results/**",
+    "**/playwright-report/**",
+    "**/.playwright-cli/**",
+    "**/*.log",
+    "**/*private-snapshot*",
+)
+_CONSUMER_OWNED_ADAPTATION_PATTERNS = (
+    "requirements.txt",
+    "wiki.page-types.yaml",
+    "wiki.templates.yaml",
+    "wiki.config.yaml",
+    "wiki.targets.yaml",
+    "wiki.templates.local.yaml",
+    "wiki.page-types.local.yaml",
+    "wiki.packs.lock.yaml",
+    "wiki.adapter-manifest.json",
+    ".toolkit-drift-ignore",
+    "apps/wiki-cockpit/public/wiki-cockpit.config.json",
+    "tests/**",
+    ".github/workflows/**",
+)
 _SKIP_DIRS = {
     ".git",
     "__pycache__",
@@ -159,6 +214,37 @@ def load_mapping(path: Path) -> dict[str, Any]:
 
 def canonical_json(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _finite_json_value(value: Any, *, _active: set[int] | None = None, _depth: int = 0) -> bool:
+    """Reject YAML-only scalars, recursive aliases and pathological depth."""
+
+    if _depth > 128:
+        return False
+    if value is None or isinstance(value, (str, bool, int)):
+        return True
+    if isinstance(value, float):
+        return math.isfinite(value)
+    if not isinstance(value, (dict, list)):
+        return False
+    active = _active if _active is not None else set()
+    identity = id(value)
+    if identity in active:
+        return False
+    active.add(identity)
+    try:
+        if isinstance(value, dict):
+            return all(
+                isinstance(key, str)
+                and _finite_json_value(item, _active=active, _depth=_depth + 1)
+                for key, item in value.items()
+            )
+        return all(
+            _finite_json_value(item, _active=active, _depth=_depth + 1)
+            for item in value
+        )
+    finally:
+        active.remove(identity)
 
 
 def deterministic_id(prefix: str, data: Any) -> str:
@@ -189,6 +275,22 @@ def _migration_visual_profiles(package: dict[str, Any]) -> tuple[str, ...]:
     return _DEFAULT_MIGRATION_VISUAL_PROFILES
 
 
+def _migration_commit_boundary_fields(package: dict[str, Any]) -> tuple[str, ...]:
+    """Return consumer-after SHA fields declared by the package, in order."""
+
+    migration = package.get("migration")
+    values = (
+        migration.get("commit_boundaries") if isinstance(migration, dict) else None
+    )
+    if not isinstance(values, list):
+        return ("import_commit_sha",)
+    return tuple(
+        _MIGRATION_COMMIT_BOUNDARY_FIELDS[str(value)]
+        for value in values
+        if str(value) in _MIGRATION_COMMIT_BOUNDARY_FIELDS
+    )
+
+
 def _require_mapping(value: Any, name: str, errors: list[str]) -> dict[str, Any]:
     if not isinstance(value, dict):
         errors.append(f"{name} must be a mapping")
@@ -203,8 +305,46 @@ def _require_list(value: Any, name: str, errors: list[str]) -> list[Any]:
     return value
 
 
+def _safe_repo_pattern(value: Any) -> bool:
+    """Return whether a package glob is bounded to one repository subtree."""
+
+    raw = str(value or "")
+    if (
+        not raw
+        or raw != raw.strip()
+        or "\x00" in raw
+        or raw.startswith(("/", "./", "~"))
+        or "\\" in raw
+        or _WINDOWS_DRIVE_RE.match(raw)
+        or raw in {"*", "**", "**/*"}
+    ):
+        return False
+    parts = raw.split("/")
+    if any(not part or part in {".", ".."} for part in parts):
+        return False
+    literal = re.sub(r"[*?\[\]]", "", raw)
+    if not literal or _portable_path_has_sensitive_name(literal):
+        return False
+    literal_head = re.split(r"[*?[]", raw, maxsplit=1)[0].rstrip("/")
+    return bool(
+        literal_head in _PORTABLE_ROOT_FILES
+        or literal_head.startswith(_PORTABLE_ROOT_PREFIXES)
+        or any(
+            prefix.rstrip("/").startswith(f"{literal_head}/")
+            for prefix in _PORTABLE_ROOT_PREFIXES
+        )
+        or literal_head.startswith(".skills/wiki-")
+    )
+
+
 @lru_cache(maxsize=1)
 def _migration_evidence_schema_validator() -> Draft202012Validator:
+    if not MIGRATION_EVIDENCE_SCHEMA_PATH.is_file():
+        raise FileNotFoundError(
+            "migration evidence schema is missing: import "
+            "docs/references/schemas/wiki-migration-evidence-v2.schema.json "
+            "from the same kit source commit as wiki_core/upgrade.py"
+        )
     schema = json.loads(MIGRATION_EVIDENCE_SCHEMA_PATH.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
@@ -343,11 +483,100 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
                 f"preflight.reviewable_gates.{gate_id}.max_findings is invalid"
             )
     migration = _require_mapping(package.get("migration"), "migration", errors)
+    raw_commit_boundaries = migration.get("commit_boundaries")
+    commit_boundaries = (
+        []
+        if schema_version == LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION
+        and raw_commit_boundaries is None
+        else _require_list(
+            raw_commit_boundaries, "migration.commit_boundaries", errors
+        )
+    )
+    if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION and not commit_boundaries:
+        errors.append("migration.commit_boundaries cannot be empty")
+    normalized_boundaries = [str(value) for value in commit_boundaries]
+    if len(normalized_boundaries) != len(set(normalized_boundaries)):
+        errors.append("migration.commit_boundaries must be unique")
+    canonical_ids = [boundary for boundary, _field in _MIGRATION_COMMIT_BOUNDARIES]
+    for index, value in enumerate(commit_boundaries):
+        if not isinstance(value, str) or value not in canonical_ids:
+            errors.append(f"migration.commit_boundaries[{index}] is invalid")
+    known_boundaries = [
+        value for value in normalized_boundaries if value in canonical_ids
+    ]
+    if known_boundaries != sorted(
+        known_boundaries, key=canonical_ids.index
+    ):
+        errors.append("migration.commit_boundaries must use canonical order")
+    if (
+        schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION
+        and normalized_boundaries
+        and normalized_boundaries[0] != "faithful_public_import"
+    ):
+        errors.append(
+            "migration.commit_boundaries must begin with faithful_public_import"
+        )
+    generated_patterns_value = migration.get("generated_artifact_patterns")
+    generated_patterns = (
+        []
+        if generated_patterns_value is None
+        else _require_list(
+            generated_patterns_value,
+            "migration.generated_artifact_patterns",
+            errors,
+        )
+    )
+    if (
+        schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION
+        and "regenerated_artifacts" in normalized_boundaries
+        and not generated_patterns
+    ):
+        errors.append(
+            "migration.generated_artifact_patterns is required when "
+            "regenerated_artifacts is declared"
+        )
+    normalized_generated_patterns = [str(value) for value in generated_patterns]
+    if len(normalized_generated_patterns) != len(set(normalized_generated_patterns)):
+        errors.append("migration.generated_artifact_patterns must be unique")
+    for index, value in enumerate(generated_patterns):
+        if not isinstance(value, str) or not _safe_repo_pattern(value):
+            errors.append(
+                f"migration.generated_artifact_patterns[{index}] is unsafe"
+            )
     migration_gates = _require_list(
         migration.get("required_gates"), "migration.required_gates", errors
     )
     if not migration_gates:
         errors.append("migration.required_gates cannot be empty")
+    gate_commands_value = migration.get("gate_commands")
+    if gate_commands_value is not None and not isinstance(gate_commands_value, dict):
+        errors.append("migration.gate_commands must be a mapping")
+    gate_commands = (
+        gate_commands_value if isinstance(gate_commands_value, dict) else {}
+    )
+    if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION and migration_gates:
+        # The package is the command registry: evidence may only claim gate
+        # runs whose exact command the package registered up front.
+        if not gate_commands:
+            errors.append(
+                "migration.gate_commands must register the exact command for "
+                "every required gate"
+            )
+        elif {str(key) for key in gate_commands} != {
+            str(value) for value in migration_gates
+        }:
+            errors.append(
+                "migration.gate_commands must cover exactly migration.required_gates"
+            )
+        for gate_id, command in gate_commands.items():
+            if (
+                not isinstance(command, str)
+                or not command.strip()
+                or _migration_command_is_placeholder(command)
+            ):
+                errors.append(
+                    f"migration.gate_commands.{gate_id} must be an exact command"
+                )
     visual_profiles = _require_list(
         migration.get("visual_profiles"), "migration.visual_profiles", errors
     )
@@ -675,6 +904,32 @@ def _git_tree_blobs(root: Path, sha: str) -> dict[str, str]:
     return blobs
 
 
+def _git_tree_entries(root: Path, sha: str) -> dict[str, tuple[str, str]]:
+    """Return blob mode and object id for every file in one committed tree."""
+
+    try:
+        raw = subprocess.check_output(
+            ["git", "ls-tree", "-r", "-z", sha],
+            cwd=root,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError(f"Git tree is unavailable: {sha}") from exc
+    entries: dict[str, tuple[str, str]] = {}
+    for record in raw.split(b"\0"):
+        if not record:
+            continue
+        metadata, separator, raw_path = record.partition(b"\t")
+        parts = metadata.split()
+        if not separator or len(parts) != 3 or parts[1] != b"blob":
+            continue
+        entries[raw_path.decode("utf-8", errors="surrogateescape")] = (
+            parts[0].decode("ascii"),
+            parts[2].decode("ascii"),
+        )
+    return entries
+
+
 def _git_blob_payloads(root: Path, object_ids: set[str]) -> dict[str, bytes]:
     """Read many Git blobs through one batch process."""
 
@@ -750,6 +1005,228 @@ def _git_blob_payloads(root: Path, object_ids: set[str]) -> dict[str, bytes]:
     return payloads
 
 
+def _portable_git_tree_comparison(
+    kit_root: Path,
+    source_sha: str,
+    consumer_root: Path,
+    consumer_sha: str,
+    package: dict[str, Any],
+) -> dict[str, Any]:
+    """Compare two committed trees without consulting either working tree."""
+
+    source_all = _git_tree_entries(kit_root, source_sha)
+    consumer_all = _git_tree_entries(consumer_root, consumer_sha)
+    source = {
+        path: oid
+        for path, oid in source_all.items()
+        if portable_path_status(path, package)[0]
+    }
+    consumer = {
+        path: oid
+        for path, oid in consumer_all.items()
+        if portable_path_status(path, package)[0]
+    }
+    shared = set(source) & set(consumer)
+    source_payloads = _git_blob_payloads(
+        kit_root, {source[path][1] for path in shared}
+    )
+    consumer_payloads = _git_blob_payloads(
+        consumer_root, {consumer[path][1] for path in shared}
+    )
+    differing = sorted(
+        path
+        for path in shared
+        if source[path][0] != consumer[path][0]
+        or source_payloads[source[path][1]] != consumer_payloads[consumer[path][1]]
+    )
+    report = {
+        "only_in_kit": sorted(set(source) - set(consumer)),
+        "only_in_consumer": sorted(set(consumer) - set(source)),
+        "content_differs": differing,
+        "source_mode": "pinned_git_tree",
+        "source_sha": source_sha,
+        "consumer_sha": consumer_sha,
+    }
+    report["drift_total"] = sum(
+        len(report[key])
+        for key in ("only_in_kit", "only_in_consumer", "content_differs")
+    )
+    return report
+
+
+def _portable_drift_paths(drift: Mapping[str, Any]) -> list[str]:
+    return sorted(
+        {
+            str(path)
+            for key in ("only_in_kit", "only_in_consumer", "content_differs")
+            for path in (drift.get(key) or [])
+        }
+    )
+
+
+def _path_digest(paths: Sequence[str]) -> str:
+    return hashlib.sha256(
+        canonical_json(sorted(set(paths))).encode("utf-8")
+    ).hexdigest()
+
+
+def _source_projection_digest(
+    kit_root: Path,
+    source_sha: str,
+    paths: Sequence[str],
+) -> str:
+    """Bind public source bytes (and expected deletions) with SHA-256."""
+
+    source_entries = _git_tree_entries(kit_root, source_sha)
+    selected = {path: source_entries.get(path) for path in sorted(set(paths))}
+    payloads = _git_blob_payloads(
+        kit_root, {entry[1] for entry in selected.values() if entry is not None}
+    )
+    projection = [
+        {
+            "path": path,
+            "mode": entry[0] if entry is not None else None,
+            "sha256": (
+                hashlib.sha256(payloads[entry[1]]).hexdigest()
+                if entry is not None
+                else None
+            ),
+        }
+        for path, entry in selected.items()
+    ]
+    return hashlib.sha256(canonical_json(projection).encode("utf-8")).hexdigest()
+
+
+def _partition_portable_drift(
+    *,
+    drift: Mapping[str, Any],
+    package: dict[str, Any],
+    kit_root: Path,
+    source_sha: str,
+    include_paths: bool,
+) -> dict[str, Any]:
+    paths = _portable_drift_paths(drift)
+    migration = package.get("migration")
+    migration = migration if isinstance(migration, dict) else {}
+    patterns = [str(value) for value in migration.get("generated_artifact_patterns") or []]
+    generated = sorted(
+        path for path in paths if any(_matches(path, pattern) for pattern in patterns)
+    )
+    generated_set = set(generated)
+    imported = sorted(path for path in paths if path not in generated_set)
+
+    def summary(values: list[str]) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "path_count": len(values),
+            "paths_sha256": _path_digest(values),
+            "source_projection_sha256": _source_projection_digest(
+                kit_root, source_sha, values
+            ),
+        }
+        if include_paths:
+            result["paths"] = values
+        return result
+
+    return {
+        "portable_drift": {
+            "path_count": len(paths),
+            "paths_sha256": _path_digest(paths),
+        },
+        "faithful_public_import": summary(imported),
+        "regenerated_artifacts": summary(generated),
+    }
+
+
+def _git_diff_paths(root: Path, parent: str, child: str) -> list[str]:
+    try:
+        raw = subprocess.check_output(
+            [
+                "git",
+                "diff-tree",
+                "--no-commit-id",
+                "--name-only",
+                "--no-renames",
+                "-r",
+                "-z",
+                parent,
+                child,
+            ],
+            cwd=root,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return []
+    return sorted(
+        part.decode("utf-8", errors="surrogateescape")
+        for part in raw.split(b"\0")
+        if part
+    )
+
+
+def _git_commit_parents(root: Path, sha: str) -> list[str]:
+    raw = _git(root, "rev-list", "--parents", "-n", "1", sha)
+    parts = raw.split()
+    return parts[1:] if parts and parts[0] == sha else []
+
+
+def _tree_paths_match_source_bytes(
+    *,
+    kit_root: Path,
+    source_sha: str,
+    consumer_root: Path,
+    consumer_sha: str,
+    paths: Sequence[str],
+) -> bool:
+    source = _git_tree_entries(kit_root, source_sha)
+    consumer = _git_tree_entries(consumer_root, consumer_sha)
+    source_oids = {source[path][1] for path in paths if path in source}
+    consumer_oids = {consumer[path][1] for path in paths if path in consumer}
+    source_payloads = _git_blob_payloads(kit_root, source_oids)
+    consumer_payloads = _git_blob_payloads(consumer_root, consumer_oids)
+    for path in paths:
+        source_entry = source.get(path)
+        consumer_entry = consumer.get(path)
+        if (source_entry is None) != (consumer_entry is None):
+            return False
+        if source_entry is not None and consumer_entry is not None:
+            source_mode, source_oid = source_entry
+            consumer_mode, consumer_oid = consumer_entry
+            if source_mode != consumer_mode:
+                return False
+            if source_payloads[source_oid] != consumer_payloads[consumer_oid]:
+                return False
+    return True
+
+
+def _tree_paths_are_secret_safe(
+    *,
+    root: Path,
+    sha: str,
+    paths: Sequence[str],
+) -> bool:
+    """Scan committed adaptation text without ever returning its private value."""
+
+    entries = _git_tree_entries(root, sha)
+    if any(path not in entries for path in paths):
+        return False
+    selected_entries = {path: entries[path] for path in paths if path in entries}
+    if any(mode not in {"100644", "100755"} for mode, _oid in selected_entries.values()):
+        return False
+    selected = {path: entry[1] for path, entry in selected_entries.items()}
+    payloads = _git_blob_payloads(root, set(selected.values()))
+    for oid in selected.values():
+        raw = payloads[oid]
+        if b"\x00" in raw:
+            return False
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            return False
+        if any(finding.category == "secret" for finding in scan_text(text)):
+            return False
+    return True
+
+
 def _git(root: Path, *args: str) -> str:
     try:
         return subprocess.check_output(
@@ -772,9 +1249,13 @@ def git_state(root: Path) -> dict[str, Any]:
 
 def _safe_config(root: Path) -> dict[str, Any]:
     config_path = root / "wiki.config.yaml"
-    if not config_path.exists():
+    if config_path.is_symlink() or not config_path.is_file():
         return {}
-    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    try:
+        config_path.resolve(strict=True).relative_to(root.resolve())
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError, yaml.YAMLError):
+        return {}
     return data if isinstance(data, dict) else {}
 
 
@@ -969,6 +1450,7 @@ def build_preflight_report(
     gate_evidence: dict[str, Any] | None,
     checked_on: str,
     redact: bool = False,
+    private_evidence_ref: str | None = None,
 ) -> dict[str, Any]:
     """Compile a deterministic, read-only preflight report for one consumer."""
 
@@ -979,6 +1461,25 @@ def build_preflight_report(
         raise ValueError("checked_on must be YYYY-MM-DD")
     if not consumer_root.is_dir():
         raise ValueError(f"consumer root does not exist: {consumer_root}")
+
+    privacy_risk = str(consumer.get("privacy_risk") or "unknown")
+    redaction_required = privacy_risk != "public_safe" or bool(
+        consumer.get("evidence_redaction_required", False)
+    )
+    private_ref = str(private_evidence_ref or "")
+    canonical_private_ref, _private_ref_error = _canonical_portable_path(private_ref)
+    authoritative_private = bool(
+        not redact
+        and private_ref
+        and canonical_private_ref == private_ref
+        and Path(private_ref).suffix.lower() == ".json"
+        and not _portable_path_has_sensitive_name(private_ref)
+        and _git_path_is_ignored_and_untracked(consumer_root.resolve(), private_ref)
+    )
+    # A private-risk request without an explicitly ignored sidecar is forced
+    # through the redacted projection even when the caller forgot --redact.
+    # It remains blocked below so stdout can never become an authority channel.
+    effective_redact = bool(redact or (redaction_required and not authoritative_private))
 
     state = git_state(consumer_root)
     layout = configured_layout(consumer_root)
@@ -998,8 +1499,38 @@ def build_preflight_report(
         kit_root, release_sha
     )
     if release_source_available:
-        drift = compare_portable_files(
-            kit_root, consumer_root, package, source_sha=release_sha
+        if state["dirty_count"] == 0 and _valid_sha(state["head_sha"]):
+            drift = _portable_git_tree_comparison(
+                kit_root,
+                release_sha,
+                consumer_root,
+                state["head_sha"],
+                package,
+            )
+            ignored_patterns = _ignore_patterns(consumer_root)
+            drift.update(
+                {
+                    "ignored_per_repo": ignored_patterns,
+                    "ignored_matches": sorted(
+                        path
+                        for path in _portable_drift_paths(drift)
+                        if any(_matches(path, pattern) for pattern in ignored_patterns)
+                    ),
+                    "unsafe_ignore_patterns": _unsafe_ignore_patterns(
+                        ignored_patterns
+                    ),
+                }
+            )
+        else:
+            drift = compare_portable_files(
+                kit_root, consumer_root, package, source_sha=release_sha
+            )
+        migration_partition = _partition_portable_drift(
+            drift=drift,
+            package=package,
+            kit_root=kit_root,
+            source_sha=release_sha,
+            include_paths=not effective_redact,
         )
     else:
         drift = {
@@ -1014,6 +1545,25 @@ def build_preflight_report(
             "drift_total": 0,
             "source_mode": "pinned_git_tree",
             "source_sha": release_sha,
+        }
+        empty_digest = _path_digest([])
+        migration_partition = {
+            "portable_drift": {
+                "path_count": 0,
+                "paths_sha256": empty_digest,
+            },
+            "faithful_public_import": {
+                "path_count": 0,
+                "paths_sha256": empty_digest,
+                "source_projection_sha256": empty_digest,
+                **({"paths": []} if not effective_redact else {}),
+            },
+            "regenerated_artifacts": {
+                "path_count": 0,
+                "paths_sha256": empty_digest,
+                "source_projection_sha256": empty_digest,
+                **({"paths": []} if not effective_redact else {}),
+            },
         }
     allow_sample = consumer.get("local_operator") == "static_demo"
     snapshot = _snapshot_state(consumer_root, layout, allow_sample=allow_sample)
@@ -1183,21 +1733,19 @@ def build_preflight_report(
                 blocking=False,
             )
         )
-    privacy_risk = str(consumer.get("privacy_risk") or "unknown")
-    # Most restrictive wins.  A consumer may request redaction even when its
-    # coarse risk class is public-safe, but it may never opt a private or
-    # unknown class out of the publication boundary with an explicit false.
-    redaction_required = privacy_risk != "public_safe" or bool(
-        consumer.get("evidence_redaction_required", False)
-    )
+    # Most restrictive wins. Private unredacted evidence is accepted only for
+    # one explicitly ignored/untracked JSON sidecar; every stdout/default path
+    # stays redacted and non-authoritative.
     privacy_ok = privacy_risk not in {"unknown", "secret_adjacent"} and (
-        not redaction_required or redact
+        not redaction_required or redact or authoritative_private
     )
     checks.append(
         _check(
             "privacy_evidence",
             "pass" if privacy_ok else "fail",
-            f"risk={privacy_risk}; redacted={redact}",
+            "risk="
+            f"{privacy_risk}; redacted={effective_redact}; "
+            f"authoritative_private={authoritative_private}",
         )
     )
     if overrides["known_files"] or overrides["source_adapter_count"]:
@@ -1217,7 +1765,7 @@ def build_preflight_report(
     status_paths = state["status_short"]
     status_entry_count = len(status_paths)
     consumer_head = state["head_sha"]
-    if redact:
+    if effective_redact:
         # A hash per private path is still linkable and vulnerable to guessing
         # from a small set of likely repository filenames. Public evidence only
         # needs the aggregate dirty count; detailed paths stay in the private
@@ -1237,6 +1785,32 @@ def build_preflight_report(
         if isinstance(consumer.get("repository"), dict)
         else {}
     )
+    report_layout = layout
+    report_checks = checks
+    consumer_id = str(consumer.get("id") or "")
+    repository_name = str(repository.get("name") or consumer_root.name)
+    consumer_branch = state["branch"]
+    if effective_redact:
+        report_layout = {
+            "language": str(layout.get("language") or ""),
+            "context_count": int(layout.get("context_count") or 0),
+            "memory_root": _PUBLIC_REDACTED_VALUE,
+            "references_root": _PUBLIC_REDACTED_VALUE,
+            "derived_root": _PUBLIC_REDACTED_VALUE,
+            "cockpit_root": _PUBLIC_REDACTED_VALUE,
+        }
+        report_checks = [
+            {
+                **item,
+                "evidence": _PUBLIC_REDACTED_VALUE,
+            }
+            for item in checks
+        ]
+        consumer_id = _PUBLIC_REDACTED_VALUE
+        repository_name = _PUBLIC_REDACTED_VALUE
+        consumer_branch = _PUBLIC_REDACTED_VALUE
+        if snapshot.get("manifest"):
+            snapshot["manifest"] = _PUBLIC_REDACTED_VALUE
     report = {
         "schema_version": PREFLIGHT_SCHEMA_VERSION,
         "checked_on": checked_on,
@@ -1245,12 +1819,17 @@ def build_preflight_report(
             "release": str((package.get("release") or {}).get("id") or ""),
             "source_sha": str((package.get("release") or {}).get("source_sha") or ""),
             "plan": str((package.get("release") or {}).get("plan") or ""),
+            "package_sha256": upgrade_package_sha256(package),
         },
         "consumer_before": {
-            "id": str(consumer.get("id") or ""),
-            "repository": str(repository.get("name") or consumer_root.name),
-            "path": "<redacted-local-path>" if redact else str(consumer_root.resolve()),
-            "branch": state["branch"],
+            "id": consumer_id,
+            "repository": repository_name,
+            "path": (
+                "<redacted-local-path>"
+                if effective_redact
+                else str(consumer_root.resolve())
+            ),
+            "branch": consumer_branch,
             "head_sha": consumer_head,
             "current_kit_version": str(
                 consumer.get("current_kit_version") or "untracked"
@@ -1258,17 +1837,19 @@ def build_preflight_report(
             "status_short": status_paths,
             "status_entry_count": status_entry_count,
         },
-        "layout": layout,
+        "layout": report_layout,
         "runtime": str(consumer.get("current_runtime") or "unknown"),
         "local_operator": str(consumer.get("local_operator") or "unknown"),
         "local_overrides": overrides,
         "privacy": {
             "risk": privacy_risk,
             "redaction_required": redaction_required,
-            "report_redacted": redact,
+            "report_redacted": effective_redact,
+            "authoritative_private": authoritative_private,
+            "authoritative_ref": private_ref if authoritative_private else "",
         },
         "drift": drift
-        if not redact
+        if not effective_redact
         else {
             "drift_total": drift["drift_total"],
             "only_in_kit_count": len(drift["only_in_kit"]),
@@ -1276,9 +1857,10 @@ def build_preflight_report(
             "content_differs_count": len(drift["content_differs"]),
             "ignored_per_repo_count": len(drift["ignored_per_repo"]),
         },
+        "migration_partition": migration_partition,
         "snapshot": snapshot,
         "gate_evidence": gate_summary,
-        "checks": checks,
+        "checks": report_checks,
         "blockers": blockers,
         "warnings": warnings,
     }
@@ -1291,12 +1873,22 @@ def migration_evidence_template(package: dict[str, Any]) -> dict[str, Any]:
         str(value)
         for value in (package.get("migration") or {}).get("required_gates") or []
     ]
+    package_digest = upgrade_package_sha256(package)
+    declared_fields = _migration_commit_boundary_fields(package) or (
+        "import_commit_sha",
+    )
+    boundary_placeholders = {
+        "import_commit_sha": "REPLACE_WITH_IMPORT_COMMIT_SHA",
+        "artifact_commit_sha": "REPLACE_WITH_ARTIFACT_COMMIT_SHA",
+        "adaptation_commit_sha": "REPLACE_WITH_ADAPTATION_COMMIT_SHA",
+    }
+    final_head_placeholder = boundary_placeholders[declared_fields[-1]]
     return {
         "schema_version": MIGRATION_EVIDENCE_SCHEMA_VERSION,
         "evidence_context": {
-            "package_sha256": upgrade_package_sha256(package),
+            "package_sha256": package_digest,
             "validator_version": MIGRATION_VALIDATOR_VERSION,
-            "captured_consumer_head": "REPLACE_WITH_IMPORT_COMMIT_SHA",
+            "captured_consumer_head": final_head_placeholder,
         },
         "source": {
             "release": str((package.get("release") or {}).get("id") or ""),
@@ -1309,32 +1901,62 @@ def migration_evidence_template(package: dict[str, Any]) -> dict[str, Any]:
             "head_sha": "REPLACE_WITH_PREVIOUS_CONSUMER_SHA",
             "kit_version": "untracked",
             "gate_status": "pass",
+            "memory_root": "REPLACE_WITH_CONSUMER_MEMORY_ROOT",
+            "preflight": {
+                "status": "ready",
+                "report_id": "REPLACE_WITH_PREFLIGHT_REPORT_ID",
+                "report_sha256": "REPLACE_WITH_PREFLIGHT_REPORT_SHA256",
+                "report_ref": "output/wiki-upgrade/REPLACE_WITH_PREFLIGHT_REPORT_REF.json",
+                "package_sha256": package_digest,
+                "consumer_head": "REPLACE_WITH_PREVIOUS_CONSUMER_SHA",
+            },
         },
         "consumer_after": {
             "branch": "wiki/upgrade-v8",
-            "import_commit_sha": "REPLACE_WITH_IMPORT_COMMIT_SHA",
-            "artifact_commit_sha": None,
-            "adaptation_commit_sha": None,
+            **{
+                field: boundary_placeholders[field]
+                if field in declared_fields
+                else None
+                for _boundary, field in _MIGRATION_COMMIT_BOUNDARIES
+            },
         },
         "omitted_boundaries": [
             {
-                "boundary": "artifact_commit_sha",
-                "reason": "No generated artifact commit was required for this consumer.",
-            },
-            {
-                "boundary": "adaptation_commit_sha",
-                "reason": "No consumer-specific adaptation commit was required.",
-            },
+                "boundary": field,
+                "reason": "This boundary is not declared by the upgrade package.",
+            }
+            for field in ("artifact_commit_sha", "adaptation_commit_sha")
+            if field not in declared_fields
         ],
         "files_imported": ["wiki_core/upgrade.py"],
+        "generated_artifacts": (
+            ["REPLACE_WITH_GENERATED_ARTIFACT_PATH"]
+            if "artifact_commit_sha" in declared_fields
+            else []
+        ),
+        "downstream_adaptations": (
+            ["REPLACE_WITH_DOWNSTREAM_ADAPTATION_PATH"]
+            if "adaptation_commit_sha" in declared_fields
+            else []
+        ),
         "local_overrides_kept": ["wiki.config.yaml", "wiki.targets.yaml"],
         "warnings": [],
         "fixtures_added": [],
+        "gates_receipt_ref": (
+            "output/wiki-upgrade/REPLACE_WITH_GATE_RECEIPTS_REF.json"
+        ),
         "gates": [
             {
                 "id": gate_id,
-                "command": f"record exact {gate_id} command",
+                "command": str(
+                    ((package.get("migration") or {}).get("gate_commands") or {}).get(
+                        gate_id
+                    )
+                    or f"record exact {gate_id} command"
+                ),
                 "status": "pass",
+                "exit_code": 0,
+                "captured_consumer_head": final_head_placeholder,
             }
             for gate_id in required_gates
         ],
@@ -1349,11 +1971,11 @@ def migration_evidence_template(package: dict[str, Any]) -> dict[str, Any]:
                     else "1440x1000"
                 ),
                 "browser": "webkit" if profile == "mobile" else "chromium",
-                "screenshot_ref": f"qa/{profile}.png",
+                "screenshot_ref": f"output/wiki-upgrade/qa/{profile}.png",
                 "screenshot_sha256": "REPLACE_WITH_SCREENSHOT_SHA256",
                 "screenshot_bytes": 0,
                 "screenshot_dimensions": {"width": 0, "height": 0},
-                "captured_consumer_head": "REPLACE_WITH_IMPORT_COMMIT_SHA",
+                "captured_consumer_head": final_head_placeholder,
                 "console_status": "clean",
                 "network_status": "clean",
                 "sample_fallback": False,
@@ -1363,13 +1985,14 @@ def migration_evidence_template(package: dict[str, Any]) -> dict[str, Any]:
         "rollback": {
             "previous_sha": "REPLACE_WITH_PREVIOUS_CONSUMER_SHA",
             "import_commit_sha": "REPLACE_WITH_IMPORT_COMMIT_SHA",
-            "command": (
-                "git revert --no-commit <adaptation> <artifacts> <import>"
+            "command": "git revert --no-commit "
+            + " ".join(
+                boundary_placeholders[field] for field in reversed(declared_fields)
             ),
             "preserves_local_paths": [
                 "wiki.config.yaml",
                 "wiki.targets.yaml",
-                "memories/",
+                "REPLACE_WITH_CONSUMER_MEMORY_ROOT",
             ],
         },
     }
@@ -1386,6 +2009,170 @@ def _valid_sha256(value: Any) -> bool:
 
 def _positive_int(value: Any) -> bool:
     return not isinstance(value, bool) and isinstance(value, int) and value > 0
+
+
+def _migration_command_is_placeholder(value: Any) -> bool:
+    command = str(value or "").strip()
+    return not command or bool(_MIGRATION_COMMAND_PLACEHOLDER_RE.search(command))
+
+
+def _git_path_is_ignored_and_untracked(root: Path, relative: str) -> bool:
+    ignored = subprocess.run(
+        ["git", "check-ignore", "--quiet", "--", relative],
+        cwd=root,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).returncode == 0
+    tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", "--", relative],
+        cwd=root,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    ).returncode == 0
+    return ignored and not tracked
+
+
+def _canonical_preflight_payload(report: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in report.items() if key != "report_id"}
+
+
+def _validate_preflight_report_binding(
+    *,
+    kit_root: Path,
+    consumer_root: Path,
+    before: dict[str, Any],
+    package: dict[str, Any],
+    errors: list[str],
+) -> dict[str, Any] | None:
+    """Bind checked migration evidence to one immutable preflight JSON file."""
+
+    preflight = before.get("preflight")
+    preflight = preflight if isinstance(preflight, dict) else {}
+    report_ref = str(preflight.get("report_ref") or "")
+    if not _git_path_is_ignored_and_untracked(consumer_root, report_ref):
+        errors.append(
+            "consumer_before.preflight.report_ref must be ignored and untracked"
+        )
+    try:
+        from wiki_core.release_receipt import (
+            ReleaseReceiptError,
+            _read_safe_evidence_file,
+        )
+
+        _relative, raw = _read_safe_evidence_file(
+            consumer_root,
+            report_ref,
+            label="migration preflight report",
+        )
+        loaded = json.loads(raw.decode("utf-8"))
+        if not isinstance(loaded, dict):
+            raise ValueError("preflight report root must be a mapping")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        del exc
+        errors.append("consumer_before.preflight.report_ref is missing or unsafe")
+        return None
+    except ReleaseReceiptError:
+        errors.append("consumer_before.preflight.report_ref is missing or unsafe")
+        return None
+
+    payload = _canonical_preflight_payload(loaded)
+    expected_id = deterministic_id("preflight", payload)
+    expected_sha256 = hashlib.sha256(
+        canonical_json(payload).encode("utf-8")
+    ).hexdigest()
+    if loaded.get("report_id") != expected_id:
+        errors.append("preflight report_id is not canonical for its content")
+    if preflight.get("report_id") != expected_id:
+        errors.append("consumer_before.preflight.report_id does not match report_ref")
+    if preflight.get("report_sha256") != expected_sha256:
+        errors.append(
+            "consumer_before.preflight.report_sha256 does not match report_ref"
+        )
+    if loaded.get("status") != "ready":
+        errors.append("referenced preflight report status must be ready")
+    if loaded.get("blockers") != []:
+        errors.append("referenced preflight report blockers must be empty")
+
+    source_package = loaded.get("source_package")
+    source_package = source_package if isinstance(source_package, dict) else {}
+    release = package.get("release")
+    release = release if isinstance(release, dict) else {}
+    if source_package.get("release") != release.get("id"):
+        errors.append("referenced preflight release does not match the upgrade package")
+    if source_package.get("source_sha") != release.get("source_sha"):
+        errors.append(
+            "referenced preflight source_sha does not match the upgrade package"
+        )
+    if source_package.get("package_sha256") != upgrade_package_sha256(package):
+        errors.append(
+            "referenced preflight package_sha256 does not match the upgrade package"
+        )
+    report_before = loaded.get("consumer_before")
+    report_before = report_before if isinstance(report_before, dict) else {}
+    if report_before.get("head_sha") != before.get("head_sha"):
+        errors.append(
+            "referenced preflight consumer HEAD does not match consumer_before.head_sha"
+        )
+    if report_before.get("branch") != before.get("branch"):
+        errors.append(
+            "referenced preflight consumer branch does not match consumer_before.branch"
+        )
+    report_layout = loaded.get("layout")
+    report_layout = report_layout if isinstance(report_layout, dict) else {}
+    if str(report_layout.get("memory_root") or "").rstrip("/") != str(
+        before.get("memory_root") or ""
+    ).rstrip("/"):
+        errors.append(
+            "referenced preflight memory root does not match consumer_before.memory_root"
+        )
+    privacy = loaded.get("privacy")
+    privacy = privacy if isinstance(privacy, dict) else {}
+    if privacy.get("report_redacted") is not False:
+        errors.append("referenced migration preflight must be authoritative and unredacted")
+    if (
+        privacy.get("risk") != "public_safe"
+        and privacy.get("authoritative_private") is not True
+    ):
+        errors.append(
+            "referenced private migration preflight lacks ignored-sidecar authority"
+        )
+    if (
+        privacy.get("risk") != "public_safe"
+        and privacy.get("authoritative_ref") != report_ref
+    ):
+        errors.append(
+            "referenced private migration preflight authority does not match report_ref"
+        )
+
+    source_sha = str(release.get("source_sha") or "")
+    before_sha = str(before.get("head_sha") or "")
+    if _valid_sha(source_sha) and _valid_sha(before_sha):
+        try:
+            drift = _portable_git_tree_comparison(
+                kit_root,
+                source_sha,
+                consumer_root,
+                before_sha,
+                package,
+            )
+            expected_partition = _partition_portable_drift(
+                drift=drift,
+                package=package,
+                kit_root=kit_root,
+                source_sha=source_sha,
+                include_paths=True,
+            )
+            if loaded.get("migration_partition") != expected_partition:
+                errors.append(
+                    "referenced preflight portable migration partition does not match committed trees"
+                )
+        except ValueError:
+            errors.append(
+                "referenced preflight portable migration partition could not be recomputed"
+            )
+    return loaded
 
 
 def _final_migration_sha(after: dict[str, Any]) -> str:
@@ -1437,15 +2224,132 @@ def _validate_visual_file_binding(
         )
 
 
+def _validate_gate_receipts_binding(
+    *,
+    evidence: dict[str, Any],
+    required_gates: list[str],
+    gate_commands: dict[str, str],
+    consumer_root: Path | None,
+    final_migration_sha: str,
+    errors: list[str],
+) -> None:
+    """Bind checked gate claims to one immutable executed-run receipt file."""
+
+    ref = str(evidence.get("gates_receipt_ref") or "")
+    if not ref:
+        errors.append(
+            "checked migration evidence requires gates_receipt_ref: an ignored "
+            "untracked receipt of the executed gate commands"
+        )
+        return
+    canonical, _canonical_error = _canonical_portable_path(ref)
+    if (
+        canonical is None
+        or canonical != ref
+        or Path(ref).suffix.lower() != ".json"
+        or _portable_path_has_sensitive_name(ref)
+    ):
+        errors.append("gates_receipt_ref must be a safe repo-relative .json path")
+        return
+    if consumer_root is None:
+        errors.append(
+            "consumer Git verification root is required to bind gates_receipt_ref"
+        )
+        return
+    root = consumer_root.resolve()
+    if not _git_path_is_ignored_and_untracked(root, canonical):
+        errors.append("gates_receipt_ref must be ignored and untracked in the consumer")
+    try:
+        from wiki_core.release_receipt import (
+            ReleaseReceiptError,
+            _read_safe_evidence_file,
+        )
+
+        _relative, raw = _read_safe_evidence_file(
+            root,
+            canonical,
+            label="migration gate receipts",
+        )
+        loaded = json.loads(raw.decode("utf-8"))
+        if not isinstance(loaded, dict):
+            raise ValueError("gate receipts root must be a mapping")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        del exc
+        errors.append("gates_receipt_ref is missing or unsafe")
+        return
+    except ReleaseReceiptError:
+        errors.append("gates_receipt_ref is missing or unsafe")
+        return
+
+    if loaded.get("schema_version") != MIGRATION_GATE_RECEIPTS_SCHEMA_VERSION:
+        errors.append(
+            f"gate receipts schema_version must be "
+            f"{MIGRATION_GATE_RECEIPTS_SCHEMA_VERSION}"
+        )
+    if loaded.get("captured_consumer_head") != final_migration_sha:
+        errors.append(
+            "gate receipts captured_consumer_head must match the final "
+            "migration boundary"
+        )
+    receipt_items = loaded.get("gates")
+    receipt_items = receipt_items if isinstance(receipt_items, list) else []
+    receipts_by_id: dict[str, dict[str, Any]] = {}
+    for item in receipt_items:
+        if not isinstance(item, dict):
+            errors.append("gate receipts entries must be mappings")
+            continue
+        receipt_id = str(item.get("id") or "")
+        if receipt_id in receipts_by_id:
+            errors.append(f"gate receipts contain duplicate id: {receipt_id}")
+        receipts_by_id[receipt_id] = item
+    for gate_id in required_gates:
+        receipt = receipts_by_id.get(gate_id)
+        if receipt is None:
+            errors.append(f"missing executed gate receipt: {gate_id}")
+            continue
+        registered_command = gate_commands.get(gate_id)
+        if registered_command is not None and (
+            receipt.get("command") != registered_command
+        ):
+            errors.append(
+                f"gate receipt command does not match the package registry: {gate_id}"
+            )
+        exit_code = receipt.get("exit_code")
+        if isinstance(exit_code, bool) or exit_code != 0:
+            errors.append(f"gate receipt exit_code must be 0: {gate_id}")
+        output_sha = str(receipt.get("output_sha256") or "")
+        if not re.fullmatch(r"[0-9a-f]{64}", output_sha):
+            errors.append(
+                f"gate receipt output_sha256 must be a lowercase sha256: {gate_id}"
+            )
+
+
 def validate_migration_evidence(
     evidence: dict[str, Any],
     package: dict[str, Any],
     *,
     public_export: bool = False,
     consumer_root: Path | None = None,
+    kit_root: Path | None = None,
     require_git_commits: bool = False,
 ) -> list[str]:
-    errors: list[str] = _migration_evidence_schema_errors(evidence)
+    if not _finite_json_value(package):
+        return ["upgrade package contract is invalid"]
+    if not _finite_json_value(evidence):
+        return ["migration evidence must contain only finite JSON-compatible values"]
+    schema_evidence = evidence
+    if package.get("schema_version") == LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION:
+        # V1 packages predate the explicit artifact/adaptation path arrays.
+        # Normalize only for schema validation; the caller's evidence remains
+        # immutable and report projection still emits deterministic empties.
+        schema_evidence = dict(evidence)
+        schema_evidence.setdefault("generated_artifacts", [])
+        schema_evidence.setdefault("downstream_adaptations", [])
+    errors: list[str] = _migration_evidence_schema_errors(schema_evidence)
+    if validate_upgrade_package(package):
+        # Do not copy package validation prose here: malformed package values
+        # can contain private names and this list crosses public projections.
+        errors.append("upgrade package contract is invalid")
     if not package_is_pinned(package):
         errors.append("upgrade package release is blocked or source_sha is not pinned")
     if evidence.get("schema_version") != MIGRATION_EVIDENCE_SCHEMA_VERSION:
@@ -1486,19 +2390,198 @@ def validate_migration_evidence(
             errors.append(f"consumer_before.{field} is required")
     if not _valid_sha(before.get("head_sha")):
         errors.append("consumer_before.head_sha must be an exact Git SHA")
+    memory_root = str(before.get("memory_root") or "")
+    normalized_memory_root_input = (
+        memory_root[:-1] if memory_root.endswith("/") else memory_root
+    )
+    normalized_memory_root, _memory_root_error = _canonical_portable_path(
+        normalized_memory_root_input
+    )
+    if (
+        normalized_memory_root is None
+        or memory_root
+        not in {normalized_memory_root, f"{normalized_memory_root}/"}
+        or _migration_command_is_placeholder(memory_root)
+    ):
+        errors.append("consumer_before.memory_root must be a safe repo-relative path")
+    preflight = _require_mapping(
+        before.get("preflight"), "consumer_before.preflight", errors
+    )
+    if preflight.get("status") != "ready":
+        errors.append("consumer_before.preflight.status must be ready")
+    if not re.fullmatch(
+        r"preflight:[0-9a-f]{20}", str(preflight.get("report_id") or "")
+    ):
+        errors.append("consumer_before.preflight.report_id is invalid")
+    if not _valid_sha256(preflight.get("report_sha256")):
+        errors.append(
+            "consumer_before.preflight.report_sha256 must be an exact SHA-256"
+        )
+    report_ref = str(preflight.get("report_ref") or "")
+    canonical_report_ref, _report_ref_error = _canonical_portable_path(report_ref)
+    if (
+        canonical_report_ref != report_ref
+        or Path(report_ref).suffix.lower() != ".json"
+        or _portable_path_has_sensitive_name(report_ref)
+        or _migration_command_is_placeholder(report_ref)
+    ):
+        errors.append(
+            "consumer_before.preflight.report_ref must be a safe repo-relative JSON path"
+        )
+    if preflight.get("package_sha256") != evidence_context.get("package_sha256"):
+        errors.append(
+            "consumer_before.preflight.package_sha256 must match evidence_context.package_sha256"
+        )
+    if preflight.get("consumer_head") != before.get("head_sha"):
+        errors.append(
+            "consumer_before.preflight.consumer_head must match consumer_before.head_sha"
+        )
     after = _require_mapping(evidence.get("consumer_after"), "consumer_after", errors)
     if not str(after.get("branch") or "").startswith("wiki/"):
         errors.append("consumer_after.branch must use the wiki/ prefix")
-    if not _valid_sha(after.get("import_commit_sha")):
-        errors.append("consumer_after.import_commit_sha must be an exact Git SHA")
-    for field in ("artifact_commit_sha", "adaptation_commit_sha"):
-        if after.get(field) not in (None, "") and not _valid_sha(after.get(field)):
-            errors.append(f"consumer_after.{field} must be null or an exact Git SHA")
+    declared_boundary_fields = _migration_commit_boundary_fields(package)
+    for field in (
+        "import_commit_sha",
+        "artifact_commit_sha",
+        "adaptation_commit_sha",
+    ):
+        value = after.get(field)
+        if field in declared_boundary_fields:
+            if not _valid_sha(value):
+                errors.append(
+                    f"consumer_after.{field} is required by migration.commit_boundaries "
+                    "and must be an exact Git SHA"
+                )
+        elif value not in (None, ""):
+            errors.append(
+                f"consumer_after.{field} must be null because the upgrade package "
+                "does not declare its boundary"
+            )
     final_migration_sha = _final_migration_sha(after)
     if evidence_context.get("captured_consumer_head") != final_migration_sha:
         errors.append(
             "evidence_context.captured_consumer_head must match the final non-null migration boundary"
         )
+
+    imported = _require_list(evidence.get("files_imported"), "files_imported", errors)
+    legacy_package = (
+        package.get("schema_version") == LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION
+    )
+    generated = (
+        []
+        if legacy_package and "generated_artifacts" not in evidence
+        else _require_list(
+            evidence.get("generated_artifacts"), "generated_artifacts", errors
+        )
+    )
+    adaptations = (
+        []
+        if legacy_package and "downstream_adaptations" not in evidence
+        else _require_list(
+            evidence.get("downstream_adaptations"),
+            "downstream_adaptations",
+            errors,
+        )
+    )
+    migration_config = package.get("migration")
+    migration_config = migration_config if isinstance(migration_config, dict) else {}
+    generated_patterns = [
+        str(value)
+        for value in migration_config.get("generated_artifact_patterns") or []
+    ]
+    for label, values in (
+        ("files_imported", imported),
+        ("generated_artifacts", generated),
+        ("downstream_adaptations", adaptations),
+    ):
+        normalized_values = [str(value) for value in values]
+        if len(normalized_values) != len(set(normalized_values)):
+            errors.append(f"{label} must contain unique paths")
+        if normalized_values != sorted(normalized_values):
+            errors.append(f"{label} must use canonical sorted order")
+        for index, rel in enumerate(normalized_values):
+            canonical, _reason = _canonical_portable_path(rel)
+            if canonical != rel or rel.endswith("/"):
+                errors.append(f"{label}[{index}] must be a canonical file path")
+
+    if "faithful_public_import" in (
+        migration_config.get("commit_boundaries") or []
+    ) and not imported:
+        errors.append("files_imported cannot be empty for faithful_public_import")
+    if "regenerated_artifacts" in (
+        migration_config.get("commit_boundaries") or []
+    ) and not generated:
+        errors.append("generated_artifacts cannot be empty for regenerated_artifacts")
+    if "regenerated_artifacts" not in (
+        migration_config.get("commit_boundaries") or []
+    ) and generated:
+        errors.append(
+            "generated_artifacts must be empty when regenerated_artifacts is not declared"
+        )
+    if "downstream_adaptations" in (
+        migration_config.get("commit_boundaries") or []
+    ) and not adaptations:
+        errors.append("downstream_adaptations cannot be empty for downstream_adaptations")
+    if "downstream_adaptations" not in (
+        migration_config.get("commit_boundaries") or []
+    ) and adaptations:
+        errors.append(
+            "downstream_adaptations must be empty when downstream_adaptations is not declared"
+        )
+
+    for index, rel in enumerate(imported):
+        allowed, _reason = portable_path_status(str(rel), package)
+        if not allowed:
+            errors.append(f"files_imported[{index}] contains a non-portable path")
+    for index, rel in enumerate(generated):
+        rel = str(rel)
+        allowed, _reason = portable_path_status(rel, package)
+        if not allowed:
+            errors.append(f"generated_artifacts[{index}] contains a non-portable path")
+        elif not any(_matches(rel, pattern) for pattern in generated_patterns):
+            errors.append(
+                f"generated_artifacts[{index}] does not match a package-generated pattern"
+            )
+
+    screenshot_refs = {
+        str(item.get("screenshot_ref") or "")
+        for item in evidence.get("visual_qa_evidence") or []
+        if isinstance(item, dict)
+    }
+    forbidden_refs = screenshot_refs | {report_ref}
+    for index, rel_value in enumerate(adaptations):
+        rel = str(rel_value)
+        allowed, _reason = portable_path_status(rel, package)
+        if allowed:
+            errors.append(
+                f"downstream_adaptations[{index}] must not modify a portable path"
+            )
+        in_configured_memory = bool(
+            normalized_memory_root
+            and (
+                rel == normalized_memory_root
+                or rel.startswith(f"{normalized_memory_root}/")
+            )
+        )
+        if not in_configured_memory and not any(
+            _matches(rel, pattern)
+            for pattern in _CONSUMER_OWNED_ADAPTATION_PATTERNS
+        ):
+            errors.append(
+                f"downstream_adaptations[{index}] is not a declared consumer-owned path"
+            )
+        if _portable_path_has_sensitive_name(rel):
+            errors.append(
+                f"downstream_adaptations[{index}] contains a sensitive path"
+            )
+        if rel in forbidden_refs:
+            errors.append(
+                f"downstream_adaptations[{index}] cannot contain migration evidence"
+            )
+        if any(_matches(rel, pattern) for pattern in _FORBIDDEN_ADAPTATION_PATTERNS):
+            errors.append(
+                f"downstream_adaptations[{index}] contains forbidden runtime or raw evidence"
+            )
 
     omitted = _require_list(
         evidence.get("omitted_boundaries"), "omitted_boundaries", errors
@@ -1518,6 +2601,10 @@ def validate_migration_evidence(
             errors.append(f"omitted_boundaries[{index}].reason is required")
     for field in ("artifact_commit_sha", "adaptation_commit_sha"):
         is_omitted = after.get(field) in (None, "")
+        if field in declared_boundary_fields and field in omitted_by_boundary:
+            errors.append(
+                f"omitted_boundaries cannot omit package-declared {field}"
+            )
         if is_omitted and field not in omitted_by_boundary:
             errors.append(f"omitted_boundaries must explain null {field}")
         if not is_omitted and field in omitted_by_boundary:
@@ -1531,8 +2618,7 @@ def validate_migration_evidence(
         ),
         *[
             (f"consumer_after.{field}", str(after.get(field) or ""))
-            for field in ("artifact_commit_sha", "adaptation_commit_sha")
-            if after.get(field) not in (None, "")
+            for field in declared_boundary_fields[1:]
         ],
     ]
     valid_boundary_shas = [sha for _label, sha in commit_boundaries if _valid_sha(sha)]
@@ -1540,6 +2626,8 @@ def validate_migration_evidence(
         errors.append("migration commit boundaries must be distinct")
     if require_git_commits and consumer_root is None:
         errors.append("consumer Git verification root is required for a checked report")
+    if require_git_commits and kit_root is None:
+        errors.append("public kit Git verification root is required for a checked report")
     if consumer_root is not None:
         root = consumer_root.resolve()
         if not _git(root, "rev-parse", "--is-inside-work-tree"):
@@ -1551,6 +2639,50 @@ def validate_migration_evidence(
                 errors.append(
                     "evidence_context.captured_consumer_head does not match consumer HEAD"
                 )
+            if require_git_commits:
+                if after.get("branch") != git_state(root)["branch"]:
+                    errors.append(
+                        "consumer_after.branch does not match the checked consumer branch"
+                    )
+                try:
+                    from scripts._git_subject import (
+                        GitSubjectError,
+                        collect_git_subject as collect_exact_git_subject,
+                    )
+
+                    exact_subject = collect_exact_git_subject(root)
+                except (OSError, GitSubjectError):
+                    exact_subject = None
+                    errors.append(
+                        "checked migration could not bind an exact Git subject"
+                    )
+                if exact_subject is not None and exact_subject.get("dirty"):
+                    errors.append(
+                        "checked migration requires a clean consumer index and worktree"
+                    )
+                configured_memory_root = str(
+                    configured_layout(root).get("memory_root") or ""
+                ).rstrip("/")
+                if normalized_memory_root != configured_memory_root:
+                    errors.append(
+                        "consumer_before.memory_root does not match the configured consumer layout"
+                    )
+                if kit_root is not None:
+                    resolved_kit_root = kit_root.resolve()
+                    if not _git(resolved_kit_root, "rev-parse", "--is-inside-work-tree"):
+                        errors.append("public kit Git verification root is not a repository")
+                        bound_preflight = None
+                    else:
+                        bound_preflight = _validate_preflight_report_binding(
+                            kit_root=resolved_kit_root,
+                            consumer_root=root,
+                            before=before,
+                            package=package,
+                            errors=errors,
+                        )
+                else:
+                    resolved_kit_root = None
+                    bound_preflight = None
             for label, sha in commit_boundaries:
                 if _valid_sha(sha) and not _git_commit_available(root, sha):
                     errors.append(f"{label} is not available in the consumer repository")
@@ -1573,20 +2705,127 @@ def validate_migration_evidence(
                         f"migration commit order is invalid: {left_label} must precede {right_label}"
                     )
 
-    imported = _require_list(evidence.get("files_imported"), "files_imported", errors)
-    if not imported:
-        errors.append("files_imported cannot be empty")
-    for index, rel in enumerate(imported):
-        if str(rel).endswith("/"):
-            errors.append(
-                f"files_imported[{index}] must list a file, not a directory"
-            )
-        allowed, _reason = portable_path_status(str(rel), package)
-        if not allowed:
-            # Do not echo a rejected path. This error is included in public
-            # reports, where the rejected value itself may contain a private
-            # path, PII or an access secret.
-            errors.append(f"files_imported[{index}] contains a non-portable path")
+            if require_git_commits and all(
+                _valid_sha(sha) and _git_commit_available(root, sha)
+                for _label, sha in commit_boundaries
+            ):
+                for (left_label, left), (right_label, right) in zip(
+                    commit_boundaries,
+                    commit_boundaries[1:],
+                    strict=False,
+                ):
+                    parents = _git_commit_parents(root, right)
+                    if parents != [left]:
+                        errors.append(
+                            "migration boundary must be a direct single-parent commit: "
+                            f"{right_label} must have only {left_label} as parent"
+                        )
+
+                declared_path_sets: list[tuple[str, list[str]]] = [
+                    ("files_imported", [str(value) for value in imported])
+                ]
+                for field, values in (
+                    ("artifact_commit_sha", generated),
+                    ("adaptation_commit_sha", adaptations),
+                ):
+                    if field in declared_boundary_fields:
+                        declared_path_sets.append(
+                            (
+                                "generated_artifacts"
+                                if field == "artifact_commit_sha"
+                                else "downstream_adaptations",
+                                [str(value) for value in values],
+                            )
+                        )
+                for index, ((_, left), (_, right)) in enumerate(
+                    zip(commit_boundaries, commit_boundaries[1:], strict=False)
+                ):
+                    field_name, declared_paths = declared_path_sets[index]
+                    actual_paths = _git_diff_paths(root, left, right)
+                    if actual_paths != declared_paths:
+                        errors.append(
+                            f"{field_name} does not exactly match its migration commit diff"
+                        )
+
+                if isinstance(bound_preflight, dict):
+                    partition = bound_preflight.get("migration_partition")
+                    partition = partition if isinstance(partition, dict) else {}
+                    imported_partition = partition.get("faithful_public_import")
+                    imported_partition = (
+                        imported_partition
+                        if isinstance(imported_partition, dict)
+                        else {}
+                    )
+                    generated_partition = partition.get("regenerated_artifacts")
+                    generated_partition = (
+                        generated_partition
+                        if isinstance(generated_partition, dict)
+                        else {}
+                    )
+                    if imported_partition.get("paths") != [
+                        str(value) for value in imported
+                    ]:
+                        errors.append(
+                            "files_imported does not match the authoritative preflight partition"
+                        )
+                    if generated_partition.get("paths") != [
+                        str(value) for value in generated
+                    ]:
+                        errors.append(
+                            "generated_artifacts does not match the authoritative preflight partition"
+                        )
+
+                if resolved_kit_root is not None:
+                    source_sha = str(
+                        (package.get("release") or {}).get("source_sha") or ""
+                    )
+                    import_sha = str(after.get("import_commit_sha") or "")
+                    artifact_sha = str(after.get("artifact_commit_sha") or "")
+                    try:
+                        if not _tree_paths_match_source_bytes(
+                            kit_root=resolved_kit_root,
+                            source_sha=source_sha,
+                            consumer_root=root,
+                            consumer_sha=import_sha,
+                            paths=[str(value) for value in imported],
+                        ):
+                            errors.append(
+                                "faithful public import postimages do not match the pinned source tree bytes"
+                            )
+                        if generated and not _tree_paths_match_source_bytes(
+                            kit_root=resolved_kit_root,
+                            source_sha=source_sha,
+                            consumer_root=root,
+                            consumer_sha=artifact_sha,
+                            paths=[str(value) for value in generated],
+                        ):
+                            errors.append(
+                                "regenerated artifact postimages do not match the pinned source tree bytes"
+                            )
+                        final_drift = _portable_git_tree_comparison(
+                            resolved_kit_root,
+                            source_sha,
+                            root,
+                            final_migration_sha,
+                            package,
+                        )
+                        if final_drift.get("drift_total") != 0:
+                            errors.append(
+                                "final migration tree retains portable toolkit drift"
+                            )
+                        if adaptations and not _tree_paths_are_secret_safe(
+                            root=root,
+                            sha=final_migration_sha,
+                            paths=[str(value) for value in adaptations],
+                        ):
+                            errors.append(
+                                "downstream adaptation postimages contain secret-shaped or unsupported binary content"
+                            )
+                    except ValueError:
+                        errors.append(
+                            "pinned source tree bytes could not be verified for migration boundaries"
+                        )
+
     _require_list(evidence.get("local_overrides_kept"), "local_overrides_kept", errors)
     warnings = _require_list(evidence.get("warnings"), "warnings", errors)
     for index, value in enumerate(warnings):
@@ -1597,11 +2836,41 @@ def validate_migration_evidence(
     _require_list(evidence.get("fixtures_added"), "fixtures_added", errors)
 
     gates = _require_list(evidence.get("gates"), "gates", errors)
-    by_gate = {
-        str(item.get("id")): item
-        for item in gates
-        if isinstance(item, dict) and item.get("id")
+    evidence_gate_commands = {
+        str(key): str(value)
+        for key, value in (
+            (package.get("migration") or {}).get("gate_commands") or {}
+        ).items()
     }
+    by_gate: dict[str, dict[str, Any]] = {}
+    for index, value in enumerate(gates):
+        gate = _require_mapping(value, f"gates[{index}]", errors)
+        gate_id = str(gate.get("id") or "")
+        if gate_id:
+            if gate_id in by_gate:
+                errors.append(f"gates contains duplicate id: {gate_id}")
+            by_gate[gate_id] = gate
+        command = str(gate.get("command") or "")
+        if _migration_command_is_placeholder(command):
+            errors.append(f"gates[{index}].command must be exact, not a placeholder")
+        if evidence_gate_commands and gate_id:
+            registered_command = evidence_gate_commands.get(gate_id)
+            if registered_command is None:
+                errors.append(
+                    f"gates[{index}].id is not in the package gate command registry"
+                )
+            elif command != registered_command:
+                errors.append(
+                    f"gates[{index}].command does not match the package gate "
+                    "command registry"
+                )
+        exit_code = gate.get("exit_code")
+        if isinstance(exit_code, bool) or exit_code != 0:
+            errors.append(f"gates[{index}].exit_code must be 0")
+        if gate.get("captured_consumer_head") != final_migration_sha:
+            errors.append(
+                f"gates[{index}].captured_consumer_head must match the final migration boundary"
+            )
     required_gates = [
         str(value)
         for value in (package.get("migration") or {}).get("required_gates") or []
@@ -1612,8 +2881,20 @@ def validate_migration_evidence(
             errors.append(f"missing migration gate: {gate_id}")
         elif gate.get("status") != "pass":
             errors.append(f"migration gate did not pass: {gate_id}")
-        elif not str(gate.get("command") or "").strip():
+        elif _migration_command_is_placeholder(gate.get("command")):
             errors.append(f"migration gate has no exact command: {gate_id}")
+    if require_git_commits:
+        # Checked reports never complete on self-declared gate claims: each
+        # required gate must be backed by an executed-run receipt in an
+        # ignored untracked sidecar, bound to the final migration boundary.
+        _validate_gate_receipts_binding(
+            evidence=evidence,
+            required_gates=required_gates,
+            gate_commands=evidence_gate_commands,
+            consumer_root=consumer_root,
+            final_migration_sha=final_migration_sha,
+            errors=errors,
+        )
 
     visual = _require_list(
         evidence.get("visual_qa_evidence"), "visual_qa_evidence", errors
@@ -1624,6 +2905,20 @@ def validate_migration_evidence(
     profiles = set(profile_values)
     if len(profile_values) != len(profiles):
         errors.append("visual_qa_evidence profiles must be unique")
+    screenshot_refs = [
+        str(item.get("screenshot_ref") or "")
+        for item in visual
+        if isinstance(item, dict)
+    ]
+    if len(screenshot_refs) != len(set(screenshot_refs)):
+        errors.append("visual_qa_evidence screenshot refs must be unique")
+    screenshot_hashes = [
+        str(item.get("screenshot_sha256") or "")
+        for item in visual
+        if isinstance(item, dict)
+    ]
+    if len(screenshot_hashes) != len(set(screenshot_hashes)):
+        errors.append("visual_qa_evidence screenshot hashes must be unique")
     required_profiles = _migration_visual_profiles(package)
     for required_profile in required_profiles:
         if required_profile not in profiles:
@@ -1679,6 +2974,17 @@ def validate_migration_evidence(
             errors.append(
                 f"visual_qa_evidence[{index}].screenshot_dimensions is invalid"
             )
+        viewport_match = re.fullmatch(
+            r"([1-9][0-9]{2,4})x([1-9][0-9]{2,4})",
+            str(item.get("viewport") or ""),
+        )
+        if viewport_match and dimensions != {
+            "width": int(viewport_match.group(1)),
+            "height": int(viewport_match.group(2)),
+        }:
+            errors.append(
+                f"visual_qa_evidence[{index}].screenshot_dimensions must equal its viewport"
+            )
         if item.get("captured_consumer_head") != final_migration_sha:
             errors.append(
                 f"visual_qa_evidence[{index}].captured_consumer_head must match the final migration boundary"
@@ -1690,6 +2996,12 @@ def validate_migration_evidence(
         if item.get("network_status") != "clean":
             errors.append(f"visual_qa_evidence[{index}].network_status must be clean")
         if consumer_root is not None and require_git_commits:
+            if not _git_path_is_ignored_and_untracked(
+                consumer_root.resolve(), screenshot_ref
+            ):
+                errors.append(
+                    f"visual_qa_evidence[{index}].screenshot_ref must be ignored and untracked"
+                )
             _validate_visual_file_binding(
                 consumer_root=consumer_root.resolve(),
                 item=item,
@@ -1729,6 +3041,11 @@ def validate_migration_evidence(
     )
     if not preserved:
         errors.append("rollback.preserves_local_paths cannot be empty")
+    preserved_roots = {str(value).rstrip("/") for value in preserved}
+    if normalized_memory_root and normalized_memory_root not in preserved_roots:
+        errors.append(
+            "rollback.preserves_local_paths must contain consumer_before.memory_root"
+        )
 
     serialized = json.dumps(evidence, ensure_ascii=False, sort_keys=True)
     findings = scan_text(serialized)
@@ -1755,16 +3072,11 @@ def validate_migration_evidence(
                 continue
             route = str(value.get("route_ref") or "")
             center = str(value.get("center_ref") or "")
-            if not (
-                route.startswith("public-fixture:") or route.startswith("route:sha256:")
-            ):
+            if not _public_route_ref_is_safe(route):
                 errors.append(
                     f"visual_qa_evidence[{index}].route_ref is not public-safe"
                 )
-            if not (
-                center.startswith("public-fixture:")
-                or center.startswith("center:sha256:")
-            ):
+            if not _public_center_ref_is_safe(center):
                 errors.append(
                     f"visual_qa_evidence[{index}].center_ref is not public-safe"
                 )
@@ -1933,6 +3245,14 @@ def _public_commit_id(kind: str, value: Any) -> str | None:
     return _redacted_identifier(kind, text)
 
 
+def _public_route_ref_is_safe(value: str) -> bool:
+    return value in _PUBLIC_FIXTURE_REFS or bool(_PUBLIC_ROUTE_HASH_RE.fullmatch(value))
+
+
+def _public_center_ref_is_safe(value: str) -> bool:
+    return value in _PUBLIC_FIXTURE_REFS or bool(_PUBLIC_CENTER_HASH_RE.fullmatch(value))
+
+
 def _public_string_list(values: Any) -> list[str]:
     if not isinstance(values, list):
         return []
@@ -1953,11 +3273,63 @@ def _public_portable_files(values: Any, package: dict[str, Any]) -> list[str]:
     return sorted(projected)
 
 
+def _migration_path_summary(
+    evidence: dict[str, Any],
+    package: dict[str, Any],
+    *,
+    kit_root: Path | None,
+    errors: Sequence[str],
+    verified: bool,
+) -> dict[str, Any]:
+    imported = sorted(set(str(value) for value in evidence.get("files_imported") or []))
+    generated = sorted(
+        set(str(value) for value in evidence.get("generated_artifacts") or [])
+    )
+    adaptations = sorted(
+        set(str(value) for value in evidence.get("downstream_adaptations") or [])
+    )
+    source_sha = str((package.get("release") or {}).get("source_sha") or "")
+
+    def source_digest(paths: list[str]) -> str | None:
+        if kit_root is None or not _valid_sha(source_sha):
+            return None
+        try:
+            return _source_projection_digest(kit_root.resolve(), source_sha, paths)
+        except ValueError:
+            return None
+
+    blocked = bool(errors)
+    validated_count = len(adaptations) if verified and not blocked else 0
+    blocked_count = len(adaptations) if blocked else 0
+    unverified_count = (
+        len(adaptations) if not blocked and not verified else 0
+    )
+    return {
+        "faithful_public_import": {
+            "path_count": len(imported),
+            "paths_sha256": _path_digest(imported),
+            "source_projection_sha256": source_digest(imported),
+        },
+        "regenerated_artifacts": {
+            "path_count": len(generated),
+            "paths_sha256": _path_digest(generated),
+            "source_projection_sha256": source_digest(generated),
+        },
+        "downstream_adaptations": {
+            "path_count": len(adaptations),
+            "validated_count": validated_count,
+            "blocked_count": blocked_count,
+            "unverified_count": unverified_count,
+        },
+    }
+
+
 def _public_migration_projection(
     evidence: dict[str, Any],
     package: dict[str, Any],
     errors: list[str],
     rollback_verification: dict[str, Any],
+    migration_summary: dict[str, Any],
 ) -> dict[str, Any]:
     """Build the only migration-report shape allowed to cross publicly.
 
@@ -1968,7 +3340,6 @@ def _public_migration_projection(
     shapes.
     """
 
-    source = evidence.get("source") if isinstance(evidence.get("source"), dict) else {}
     evidence_context = (
         evidence.get("evidence_context")
         if isinstance(evidence.get("evidence_context"), dict)
@@ -2007,59 +3378,104 @@ def _public_migration_projection(
             continue
         projected_omitted.append(
             {
-                "boundary": _public_text(value.get("boundary")),
-                "reason": _public_text(value.get("reason")),
+                "boundary": (
+                    str(value.get("boundary"))
+                    if value.get("boundary")
+                    in {"artifact_commit_sha", "adaptation_commit_sha"}
+                    else _PUBLIC_REDACTED_VALUE
+                ),
+                "reason": _PUBLIC_REDACTED_VALUE,
             }
         )
 
+    # Warning prose/owners and consumer-local filenames stay private even when
+    # they do not trigger generic PII detectors.
     projected_warnings: list[dict[str, str]] = []
-    for value in evidence.get("warnings") or []:
-        if not isinstance(value, dict):
-            continue
-        projected_warnings.append(
-            {
-                "code": _public_text(value.get("code")),
-                "message": _public_text(value.get("message")),
-                "owner": _public_text(value.get("owner")),
-                "removal_window": _public_text(value.get("removal_window")),
-            }
-        )
 
-    projected_gates: list[dict[str, str]] = []
+    projected_gates: list[dict[str, Any]] = []
+    public_gate_ids = {
+        str(value)
+        for value in (package.get("migration") or {}).get("required_gates") or []
+    }
     for value in evidence.get("gates") or []:
         if not isinstance(value, dict):
             continue
+        gate_id = str(value.get("id") or "")
+        if gate_id not in public_gate_ids:
+            continue
         projected_gates.append(
             {
-                "id": _public_text(value.get("id")),
-                "command": _public_text(value.get("command")),
-                "status": _public_text(value.get("status")),
+                "id": gate_id,
+                "command": _PUBLIC_REDACTED_VALUE,
+                "status": (
+                    "pass"
+                    if value.get("status") == "pass"
+                    else _PUBLIC_REDACTED_VALUE
+                ),
+                "exit_code": (
+                    value.get("exit_code")
+                    if isinstance(value.get("exit_code"), int)
+                    and not isinstance(value.get("exit_code"), bool)
+                    else None
+                ),
+                "captured_consumer_head": replacements.get(
+                    str(value.get("captured_consumer_head") or "")
+                )
+                or _public_commit_id(
+                    "gate-consumer-head", value.get("captured_consumer_head")
+                ),
             }
         )
 
     projected_visual: list[dict[str, Any]] = []
+    allowed_profiles = set(_migration_visual_profiles(package))
     for value in evidence.get("visual_qa_evidence") or []:
         if not isinstance(value, dict):
             continue
         route = str(value.get("route_ref") or "")
         center = str(value.get("center_ref") or "")
+        viewport = str(value.get("viewport") or "")
+        browser = str(value.get("browser") or "")
+        dimensions = value.get("screenshot_dimensions")
+        dimensions = dimensions if isinstance(dimensions, dict) else {}
+        valid_dimensions = all(
+            _positive_int(dimensions.get(axis))
+            and int(dimensions.get(axis) or 0) <= 16_384
+            for axis in ("width", "height")
+        )
         projected_visual.append(
             {
-                "profile": _public_text(value.get("profile")),
+                "profile": (
+                    str(value.get("profile"))
+                    if value.get("profile") in allowed_profiles
+                    else _PUBLIC_REDACTED_VALUE
+                ),
                 "route_ref": (
                     _public_text(route)
-                    if route.startswith(("public-fixture:", "route:sha256:"))
+                    if _public_route_ref_is_safe(route)
                     else _PUBLIC_REDACTED_VALUE
                 ),
                 "center_ref": (
                     _public_text(center)
-                    if center.startswith(("public-fixture:", "center:sha256:"))
+                    if _public_center_ref_is_safe(center)
                     else _PUBLIC_REDACTED_VALUE
                 ),
-                "viewport": _public_text(value.get("viewport")),
-                "browser": _public_text(value.get("browser")),
-                "screenshot_ref": _public_text(value.get("screenshot_ref")),
-                "screenshot_sha256": _public_text(value.get("screenshot_sha256")),
+                "viewport": (
+                    viewport
+                    if re.fullmatch(r"[1-9][0-9]{2,4}x[1-9][0-9]{2,4}", viewport)
+                    else _PUBLIC_REDACTED_VALUE
+                ),
+                "browser": (
+                    browser
+                    if browser in {"chromium", "firefox", "webkit"}
+                    else _PUBLIC_REDACTED_VALUE
+                ),
+                "screenshot_ref": "qa/redacted.png",
+                "screenshot_sha256": (
+                    str(value.get("screenshot_sha256"))
+                    if _valid_sha256(value.get("screenshot_sha256"))
+                    else _PUBLIC_REDACTED_VALUE
+                ),
                 "screenshot_bytes": (
                     value.get("screenshot_bytes")
                     if _positive_int(value.get("screenshot_bytes"))
@@ -2067,14 +3483,10 @@ def _public_migration_projection(
                 ),
                 "screenshot_dimensions": {
                     "width": (
-                        value.get("screenshot_dimensions", {}).get("width")
-                        if isinstance(value.get("screenshot_dimensions"), dict)
-                        else None
+                        dimensions.get("width") if valid_dimensions else None
                     ),
                     "height": (
-                        value.get("screenshot_dimensions", {}).get("height")
-                        if isinstance(value.get("screenshot_dimensions"), dict)
-                        else None
+                        dimensions.get("height") if valid_dimensions else None
                     ),
                 },
                 "captured_consumer_head": replacements.get(
@@ -2083,8 +3495,16 @@ def _public_migration_projection(
                 or _public_commit_id(
                     "visual-consumer-head", value.get("captured_consumer_head")
                 ),
-                "console_status": _public_text(value.get("console_status")),
-                "network_status": _public_text(value.get("network_status")),
+                "console_status": (
+                    "clean"
+                    if value.get("console_status") == "clean"
+                    else _PUBLIC_REDACTED_VALUE
+                ),
+                "network_status": (
+                    "clean"
+                    if value.get("network_status") == "clean"
+                    else _PUBLIC_REDACTED_VALUE
+                ),
                 "sample_fallback": (
                     value.get("sample_fallback")
                     if isinstance(value.get("sample_fallback"), bool)
@@ -2101,10 +3521,6 @@ def _public_migration_projection(
     projected_import = replacements.get(rollback_import) or _public_commit_id(
         "rollback-import-commit", rollback_import
     )
-    command = str(rollback.get("command") or "")
-    for raw, projected in replacements.items():
-        command = command.replace(raw, projected)
-
     def projected_verification_sha(kind: str, field: str) -> str | None:
         raw = rollback_verification.get(field)
         return _public_commit_id(kind, raw) if raw else None
@@ -2153,16 +3569,53 @@ def _public_migration_projection(
         ),
     }
 
+    package_release = package.get("release")
+    package_release = package_release if isinstance(package_release, dict) else {}
+    package_release_id = str(package_release.get("id") or "")
+    package_source_sha = str(package_release.get("source_sha") or "")
+    package_plan = str(package_release.get("plan") or "")
+    canonical_plan, _plan_error = _canonical_portable_path(package_plan)
+    public_release_id = (
+        package_release_id
+        if _PUBLIC_RELEASE_ID_RE.fullmatch(package_release_id)
+        else _PUBLIC_REDACTED_VALUE
+    )
+    public_source_sha = (
+        package_source_sha if _valid_sha(package_source_sha) else _PUBLIC_REDACTED_VALUE
+    )
+    public_plan = (
+        package_plan
+        if canonical_plan == package_plan
+        and package_plan.startswith("docs/references/proposals/")
+        else _PUBLIC_REDACTED_VALUE
+    )
+
+    projected_targets = [
+        projected_after_shas[field]
+        for field in (
+            "adaptation_commit_sha",
+            "artifact_commit_sha",
+            "import_commit_sha",
+        )
+        if projected_after_shas.get(field)
+    ]
+    projected_rollback_command = (
+        "git revert --no-commit " + " ".join(str(value) for value in projected_targets)
+        if projected_targets
+        else _PUBLIC_REDACTED_VALUE
+    )
+
     payload: dict[str, Any] = {
         "schema_version": MIGRATION_REPORT_SCHEMA_VERSION,
         "status": "complete" if not errors else "blocked",
         "public_export": True,
         "evidence_context": {
-            "package_sha256": _public_text(
-                evidence_context.get("package_sha256")
-            ),
-            "validator_version": _public_text(
-                evidence_context.get("validator_version")
+            "package_sha256": upgrade_package_sha256(package),
+            "validator_version": (
+                MIGRATION_VALIDATOR_VERSION
+                if evidence_context.get("validator_version")
+                == MIGRATION_VALIDATOR_VERSION
+                else _PUBLIC_REDACTED_VALUE
             ),
             "captured_consumer_head": replacements.get(
                 str(evidence_context.get("captured_consumer_head") or "")
@@ -2173,39 +3626,71 @@ def _public_migration_projection(
             ),
         },
         "source": {
-            "release": _public_text(source.get("release")),
-            "sha": _public_text(source.get("sha")),
-            "plan": _public_text(source.get("plan")),
+            "release": public_release_id,
+            "sha": public_source_sha,
+            "plan": public_plan,
         },
         "consumer_before": {
-            "repository": _public_text(before.get("repository")),
-            "branch": _public_text(before.get("branch")),
+            "repository": _PUBLIC_REDACTED_VALUE,
+            "branch": _PUBLIC_REDACTED_VALUE,
             "head_sha": projected_before_sha,
-            "kit_version": _public_text(before.get("kit_version")),
-            "gate_status": _public_text(before.get("gate_status")),
+            "kit_version": _PUBLIC_REDACTED_VALUE,
+            "gate_status": (
+                "pass"
+                if before.get("gate_status") == "pass"
+                else _PUBLIC_REDACTED_VALUE
+            ),
+            "memory_root": _PUBLIC_REDACTED_VALUE,
+            "preflight": {
+                "status": (
+                    "ready"
+                    if isinstance(before.get("preflight"), dict)
+                    and (before.get("preflight") or {}).get("status") == "ready"
+                    else _PUBLIC_REDACTED_VALUE
+                ),
+                "report_id": (
+                    str((before.get("preflight") or {}).get("report_id"))
+                    if isinstance(before.get("preflight"), dict)
+                    and re.fullmatch(
+                        r"preflight:[0-9a-f]{20}",
+                        str((before.get("preflight") or {}).get("report_id") or ""),
+                    )
+                    else _PUBLIC_REDACTED_VALUE
+                ),
+                "report_sha256": (
+                    str((before.get("preflight") or {}).get("report_sha256"))
+                    if isinstance(before.get("preflight"), dict)
+                    and _valid_sha256(
+                        (before.get("preflight") or {}).get("report_sha256")
+                    )
+                    else _PUBLIC_REDACTED_VALUE
+                ),
+                "report_ref": _PUBLIC_REDACTED_VALUE,
+                "package_sha256": upgrade_package_sha256(package),
+                "consumer_head": projected_before_sha,
+            },
         },
         "consumer_after": {
-            "branch": _public_text(after.get("branch")),
+            "branch": _PUBLIC_REDACTED_VALUE,
             **projected_after_shas,
         },
         "omitted_boundaries": projected_omitted,
-        "files_imported": _public_portable_files(
-            evidence.get("files_imported"), package
-        ),
-        "local_overrides_kept": _public_string_list(
-            evidence.get("local_overrides_kept")
-        ),
+        # Public reports expose only aggregate, deterministic summaries. Exact
+        # path arrays remain in the ignored private report/preflight.
+        "files_imported": [],
+        "generated_artifacts": [],
+        "downstream_adaptations": [],
+        "migration_summary": migration_summary,
+        "local_overrides_kept": [],
         "warnings": projected_warnings,
-        "fixtures_added": _public_string_list(evidence.get("fixtures_added")),
+        "fixtures_added": [],
         "gates": projected_gates,
         "visual_qa_evidence": projected_visual,
         "rollback": {
             "previous_sha": projected_previous,
             "import_commit_sha": projected_import,
-            "command": _public_text(command),
-            "preserves_local_paths": _public_string_list(
-                rollback.get("preserves_local_paths")
-            ),
+            "command": projected_rollback_command,
+            "preserves_local_paths": [],
         },
         "rollback_verification": projected_verification,
         "validation_errors": sorted(set(_public_text(error) for error in errors)),
@@ -2232,6 +3717,15 @@ def _public_migration_projection(
                 "head_sha": None,
                 "kit_version": None,
                 "gate_status": None,
+                "memory_root": None,
+                "preflight": {
+                    "status": None,
+                    "report_id": None,
+                    "report_sha256": None,
+                    "report_ref": None,
+                    "package_sha256": None,
+                    "consumer_head": None,
+                },
             },
             "consumer_after": {
                 "branch": None,
@@ -2241,6 +3735,26 @@ def _public_migration_projection(
             },
             "omitted_boundaries": [],
             "files_imported": [],
+            "generated_artifacts": [],
+            "downstream_adaptations": [],
+            "migration_summary": {
+                "faithful_public_import": {
+                    "path_count": 0,
+                    "paths_sha256": None,
+                    "source_projection_sha256": None,
+                },
+                "regenerated_artifacts": {
+                    "path_count": 0,
+                    "paths_sha256": None,
+                    "source_projection_sha256": None,
+                },
+                "downstream_adaptations": {
+                    "path_count": 0,
+                    "validated_count": 0,
+                    "blocked_count": 0,
+                    "unverified_count": 0,
+                },
+            },
             "local_overrides_kept": [],
             "warnings": [],
             "fixtures_added": [],
@@ -2305,41 +3819,64 @@ def compile_migration_report(
     *,
     public_export: bool = False,
     consumer_root: Path | None = None,
+    kit_root: Path | None = None,
     require_git_commits: bool = False,
     verify_rollback_execution: bool = False,
 ) -> dict[str, Any]:
+    evidence_is_json = _finite_json_value(evidence)
+    package_is_json = _finite_json_value(package)
     errors = validate_migration_evidence(
         evidence,
         package,
         public_export=public_export,
         consumer_root=consumer_root,
+        kit_root=kit_root,
         require_git_commits=require_git_commits,
     )
-    rollback_verification = _rollback_verification_not_run(evidence)
+    report_evidence = evidence if evidence_is_json else {}
+    report_package = package if package_is_json else {}
+    rollback_verification = _rollback_verification_not_run(report_evidence)
     if require_git_commits and not verify_rollback_execution:
         errors.append("checked migration report requires disposable rollback verification")
     if verify_rollback_execution:
         if consumer_root is None:
             errors.append("rollback verification requires a consumer Git root")
             rollback_verification = _rollback_verification_not_run(
-                evidence, failure_code="consumer_root_missing"
+                report_evidence, failure_code="consumer_root_missing"
             )
         elif errors:
             rollback_verification = _rollback_verification_not_run(
-                evidence, failure_code="validation_failed"
+                report_evidence, failure_code="validation_failed"
             )
         else:
             rollback_verification = verify_migration_rollback(
-                evidence, consumer_root
+                report_evidence, consumer_root
             )
             if rollback_verification.get("status") != "pass":
                 errors.append(
                     "disposable rollback verification did not restore the previous tree"
                 )
     errors = sorted(set(errors))
+    migration_summary = _migration_path_summary(
+        report_evidence,
+        report_package,
+        kit_root=kit_root,
+        errors=errors,
+        verified=bool(
+            require_git_commits
+            and verify_rollback_execution
+            and consumer_root is not None
+            and kit_root is not None
+            and not errors
+        ),
+    )
     if public_export:
         payload = _public_migration_projection(
-            evidence, package, errors, rollback_verification
+            report_evidence,
+            report_package,
+            errors,
+            rollback_verification,
+            migration_summary,
         )
     else:
         payload = {
@@ -2347,31 +3884,55 @@ def compile_migration_report(
             "status": "complete" if not errors else "blocked",
             "public_export": False,
             "evidence_context": json.loads(
-                json.dumps(evidence.get("evidence_context") or {})
+                json.dumps(report_evidence.get("evidence_context") or {})
             ),
-            "source": evidence.get("source") or {},
+            "source": report_evidence.get("source") or {},
             "consumer_before": json.loads(
-                json.dumps(evidence.get("consumer_before") or {})
+                json.dumps(report_evidence.get("consumer_before") or {})
             ),
             "consumer_after": json.loads(
-                json.dumps(evidence.get("consumer_after") or {})
+                json.dumps(report_evidence.get("consumer_after") or {})
             ),
             "omitted_boundaries": json.loads(
-                json.dumps(evidence.get("omitted_boundaries") or [])
+                json.dumps(report_evidence.get("omitted_boundaries") or [])
             ),
             "files_imported": sorted(
-                set(str(value) for value in evidence.get("files_imported") or [])
+                set(
+                    str(value)
+                    for value in report_evidence.get("files_imported") or []
+                )
             ),
+            "generated_artifacts": sorted(
+                set(
+                    str(value)
+                    for value in report_evidence.get("generated_artifacts") or []
+                )
+            ),
+            "downstream_adaptations": sorted(
+                set(
+                    str(value)
+                    for value in report_evidence.get("downstream_adaptations") or []
+                )
+            ),
+            "migration_summary": migration_summary,
             "local_overrides_kept": sorted(
-                set(str(value) for value in evidence.get("local_overrides_kept") or [])
+                set(
+                    str(value)
+                    for value in report_evidence.get("local_overrides_kept") or []
+                )
             ),
-            "warnings": evidence.get("warnings") or [],
+            "warnings": report_evidence.get("warnings") or [],
             "fixtures_added": sorted(
-                set(str(value) for value in evidence.get("fixtures_added") or [])
+                set(
+                    str(value)
+                    for value in report_evidence.get("fixtures_added") or []
+                )
             ),
-            "gates": evidence.get("gates") or [],
-            "visual_qa_evidence": evidence.get("visual_qa_evidence") or [],
-            "rollback": json.loads(json.dumps(evidence.get("rollback") or {})),
+            "gates": report_evidence.get("gates") or [],
+            "visual_qa_evidence": report_evidence.get("visual_qa_evidence") or [],
+            "rollback": json.loads(
+                json.dumps(report_evidence.get("rollback") or {})
+            ),
             "rollback_verification": rollback_verification,
             "validation_errors": errors,
         }
@@ -2380,9 +3941,14 @@ def compile_migration_report(
 
 
 def _md(value: Any) -> str:
+    text = str(value if value not in (None, "") else "—")
     return (
-        str(value if value not in (None, "") else "—")
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("`", "&#96;")
         .replace("|", "\\|")
+        .replace("\r", " ")
         .replace("\n", " ")
     )
 
@@ -2394,6 +3960,11 @@ def render_migration_report_markdown(report: dict[str, Any]) -> str:
     after = report.get("consumer_after") or {}
     rollback = report.get("rollback") or {}
     rollback_verification = report.get("rollback_verification") or {}
+    preflight = before.get("preflight") or {}
+    migration_summary = report.get("migration_summary") or {}
+    import_summary = migration_summary.get("faithful_public_import") or {}
+    artifact_summary = migration_summary.get("regenerated_artifacts") or {}
+    adaptation_summary = migration_summary.get("downstream_adaptations") or {}
     lines = [
         "# Wiki Viva v8 downstream migration report",
         "",
@@ -2404,6 +3975,15 @@ def render_migration_report_markdown(report: dict[str, Any]) -> str:
         f"- Package digest: `{_md(evidence_context.get('package_sha256'))}`",
         f"- Validator: `{_md(evidence_context.get('validator_version'))}`",
         f"- Captured consumer HEAD: `{_md(evidence_context.get('captured_consumer_head'))}`",
+        f"- Memory root: `{_md(before.get('memory_root'))}`",
+        f"- Preflight: `{_md(preflight.get('status'))}` · `{_md(preflight.get('report_id'))}`",
+        f"- Preflight report digest: `sha256:{_md(preflight.get('report_sha256'))}`",
+        f"- Preflight report ref: `{_md(preflight.get('report_ref'))}`",
+        f"- Preflight package digest: `sha256:{_md(preflight.get('package_sha256'))}`",
+        f"- Preflight consumer HEAD: `{_md(preflight.get('consumer_head'))}`",
+        f"- Faithful import paths: `{_md(import_summary.get('path_count'))}` · digest `{_md(import_summary.get('paths_sha256'))}`",
+        f"- Regenerated artifact paths: `{_md(artifact_summary.get('path_count'))}` · digest `{_md(artifact_summary.get('paths_sha256'))}`",
+        f"- Downstream adaptation paths: `{_md(adaptation_summary.get('path_count'))}` · validated `{_md(adaptation_summary.get('validated_count'))}` · blocked `{_md(adaptation_summary.get('blocked_count'))}` · unverified `{_md(adaptation_summary.get('unverified_count'))}`",
         "",
         "```mermaid",
         "flowchart LR",
@@ -2473,11 +4053,18 @@ def render_migration_report_markdown(report: dict[str, Any]) -> str:
     else:
         lines.append("| `none` | No migration warnings recorded. | `—` | `—` |")
     lines.extend(
-        ["", "## Gates", "", "| Gate | Status | Command |", "| --- | --- | --- |"]
+        [
+            "",
+            "## Gates",
+            "",
+            "| Gate | Status / exit | Captured consumer HEAD | Command |",
+            "| --- | --- | --- | --- |",
+        ]
     )
     for gate in report.get("gates") or []:
         lines.append(
-            f"| `{_md(gate.get('id'))}` | `{_md(gate.get('status'))}` | `{_md(gate.get('command'))}` |"
+            f"| `{_md(gate.get('id'))}` | `{_md(gate.get('status'))}` / `{_md(gate.get('exit_code'))}` | "
+            f"`{_md(gate.get('captured_consumer_head'))}` | `{_md(gate.get('command'))}` |"
         )
     lines.extend(
         [

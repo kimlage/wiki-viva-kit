@@ -151,16 +151,26 @@ migration:
     - faithful_public_import
     - regenerated_artifacts
     - downstream_adaptations
+  # Exact surfaces the regenerated_artifacts boundary may rewrite. Anything
+  # outside these globs must arrive via faithful_public_import or the declared
+  # downstream_adaptations boundary.
+  generated_artifact_patterns:
+    - apps/wiki-cockpit/public/sample-snapshot/**
+    - docs/references/fixtures/demo-wiki/memories/**
+    - apps/wiki-cockpit/e2e/__screenshots__/**
   required_gates:
     - toolkit_drift
     - audit
     - public_evidence_redaction
     - methodology_coverage
+    - quality_report
     - operation_compile
+    - source_registry
     - input_stage
     - semantic_inventory
     - pytest
     - frontend
+    - build
     - node_gates
     - snapshot_contract
     - pack_validation
@@ -171,6 +181,32 @@ migration:
     - browser_required
     - demo_drift
     - diff_check
+  # Command registry: migration evidence and executed-run receipts may only
+  # claim gate runs whose exact command is registered here. $WIKI_VIVA_KIT_ROOT
+  # is the consumer's local kit checkout used as the drift reference.
+  gate_commands:
+    toolkit_drift: python3 scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
+    audit: python3 scripts/wiki_audit.py --check
+    public_evidence_redaction: python3 scripts/wiki_audit.py --public-export --check
+    methodology_coverage: python3 scripts/wiki_check_methodology_coverage.py --check
+    quality_report: python3 scripts/wiki_quality_report.py --check
+    operation_compile: python3 scripts/wiki_operation_compile.py --check
+    source_registry: python3 scripts/wiki_source_registry.py --check
+    input_stage: python3 scripts/wiki_input_stage.py --check
+    semantic_inventory: python3 scripts/wiki_semantic_inventory.py --check
+    pytest: python3 -m pytest tests/
+    frontend: npm --prefix apps/wiki-cockpit test
+    build: npm --prefix apps/wiki-cockpit run build
+    node_gates: npm --prefix apps/wiki-cockpit run test:gates
+    snapshot_contract: python3 scripts/wiki_web_snapshot.py --check-contract
+    pack_validation: python3 scripts/wiki_pack.py validate --all
+    architecture: npm --prefix apps/wiki-cockpit run check:architecture
+    assets: npm --prefix apps/wiki-cockpit run check:assets
+    bundle: npm --prefix apps/wiki-cockpit run check:bundle
+    release_matrix_inventory: npm --prefix apps/wiki-cockpit run check:release-matrix
+    browser_required: npm --prefix apps/wiki-cockpit run test:e2e:release
+    demo_drift: python3 scripts/wiki_build_demo.py --check
+    diff_check: git diff --check
   visual_profiles:
     - desktop
     - mobile
@@ -230,6 +266,8 @@ privacy:
     - personal_or_financial_values
     - authenticated_urls
     - raw_source_content
+    - private_screenshots
+    - raw_private_visual_pixels
     - secrets_or_credentials
     - private_console_or_network_payloads
 
