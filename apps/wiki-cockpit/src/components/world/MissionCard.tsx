@@ -6,11 +6,14 @@
 import { useId } from "react";
 import { Sparkles } from "lucide-react";
 import { t } from "../../data/i18n";
-import { contextLabel, isRawData } from "../../data/presentation";
+import { contextLabel, isRawData, pageTypeLabel } from "../../data/presentation";
+import type { SearchFacet } from "../../scene/search";
 import type { PageRecord } from "../../types";
 import { HelpTip } from "../HelpTip";
 
 export const SEARCH_VISIBLE = 10;
+export const SEARCH_RESULTS_ID = "world-search-results";
+export const searchResultOptionId = (index: number) => `${SEARCH_RESULTS_ID}-option-${index}`;
 
 export type MissionRow = {
   key: string;
@@ -37,8 +40,15 @@ export function MissionCard({
   searchHits,
   visibleHits,
   activeHit,
+  searchType,
+  searchContext,
+  searchScope,
+  searchPageTypes,
+  searchContexts,
   onActiveHit,
-  onOpenHit
+  onOpenHit,
+  onSearchFilter,
+  onShowMore
 }: {
   rows: MissionRow[];
   viewLabel: string;
@@ -52,8 +62,19 @@ export function MissionCard({
   searchHits: PageRecord[];
   visibleHits: PageRecord[];
   activeHit: number;
+  searchType: string;
+  searchContext: string;
+  searchScope: "" | "world";
+  searchPageTypes: SearchFacet[];
+  searchContexts: SearchFacet[];
   onActiveHit: (index: number) => void;
   onOpenHit: (page?: PageRecord) => void;
+  onSearchFilter: (patch: {
+    searchType?: string | null;
+    searchContext?: string | null;
+    searchScope?: "world" | null;
+  }) => void;
+  onShowMore: () => void;
 }) {
   const panelId = useId();
   const titleId = `${panelId}-title`;
@@ -63,31 +84,98 @@ export function MissionCard({
     : actionable.some((row) => row.tone === "warn")
       ? "warn"
       : "good";
+  const typeFacets = searchType && !searchPageTypes.some((facet) => facet.value === searchType)
+    ? [{ value: searchType, count: 0 }, ...searchPageTypes]
+    : searchPageTypes;
+  const contextFacets = searchContext && !searchContexts.some((facet) => facet.value === searchContext)
+    ? [{ value: searchContext, count: 0 }, ...searchContexts]
+    : searchContexts;
   const searchBlock = query ? (
-    <div className="missionSearchResults" aria-label={t("world.results", { n: searchHits.length })}>
-      <span className="missionSearchCount">
+    <div className="missionSearchResults">
+      <span className="missionSearchCount" role="status" aria-live="polite">
         {searchHits.length > SEARCH_VISIBLE
-          ? t("world.resultsCapped", { n: searchHits.length, shown: SEARCH_VISIBLE })
+          ? t("world.resultsCapped", { n: searchHits.length, shown: visibleHits.length })
           : t("world.results", { n: searchHits.length })}
       </span>
-      {visibleHits.map((page, index) => (
-        <button
-          className={index === activeHit ? "textButton searchHitActive" : "textButton"}
-          key={page.id}
-          onMouseEnter={() => onActiveHit(index)}
-          onClick={() => onOpenHit(page)}
-          title={page.path}
-          type="button"
-        >
-          {page.title}
-          <small>
-            {" "}
-            · {contextLabel(page.context || "system")}
-            {isRawData(page.page_type) ? <em className="rawTag"> {t("world.raw")}</em> : null}
-            {page.summary_truncated ? ` · ${t("world.partialSummary")}` : ""}
-          </small>
+      <div className="searchFacetControls" role="group" aria-label={t("world.searchFiltersAria")}>
+        <label>
+          <span>{t("world.searchType")}</span>
+          <select
+            aria-label={t("world.searchType")}
+            value={searchType}
+            onChange={(event) => onSearchFilter({ searchType: event.target.value || null })}
+          >
+            <option value="">{t("world.searchAllTypes")}</option>
+            {typeFacets.map((facet) => (
+              <option key={facet.value} value={facet.value}>
+                {pageTypeLabel(facet.value)} · {facet.count}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{t("world.searchContext")}</span>
+          <select
+            aria-label={t("world.searchContext")}
+            value={searchContext}
+            onChange={(event) => onSearchFilter({ searchContext: event.target.value || null })}
+          >
+            <option value="">{t("world.searchAllContexts")}</option>
+            {contextFacets.map((facet) => (
+              <option key={facet.value} value={facet.value}>
+                {contextLabel(facet.value)} · {facet.count}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{t("world.searchScope")}</span>
+          <select
+            aria-label={t("world.searchScope")}
+            value={searchScope}
+            onChange={(event) => onSearchFilter({ searchScope: event.target.value === "world" ? "world" : null })}
+          >
+            <option value="">{t("world.searchScopeGlobal")}</option>
+            <option value="world">{t("world.searchScopeWorld")}</option>
+          </select>
+        </label>
+      </div>
+      <div
+        className="searchResultList"
+        id={SEARCH_RESULTS_ID}
+        role="listbox"
+        aria-label={t("world.results", { n: searchHits.length })}
+      >
+        {visibleHits.map((page, index) => (
+          <button
+            className={index === activeHit ? "textButton searchHitActive" : "textButton"}
+            id={searchResultOptionId(index)}
+            key={page.id}
+            role="option"
+            aria-selected={index === activeHit}
+            onMouseEnter={() => onActiveHit(index)}
+            onClick={() => onOpenHit(page)}
+            title={page.path}
+            type="button"
+          >
+            {page.title}
+            <small>
+              {" "}
+              · {pageTypeLabel(page.page_type)} · {contextLabel(page.context || "system")}
+              {isRawData(page.page_type) ? <em className="rawTag"> {t("world.raw")}</em> : null}
+              {page.summary_truncated ? ` · ${t("world.partialSummary")}` : ""}
+            </small>
+          </button>
+        ))}
+      </div>
+      {visibleHits.length < searchHits.length && (
+        <button className="searchShowMore" onClick={onShowMore} type="button">
+          {t("world.searchShowMore", {
+            n: Math.min(SEARCH_VISIBLE, searchHits.length - visibleHits.length),
+            remaining: searchHits.length - visibleHits.length
+          })}
         </button>
-      ))}
+      )}
       {searchHits.length === 0 && <span className="missionSearchCount">{t("world.noResults")}</span>}
     </div>
   ) : null;
@@ -95,14 +183,24 @@ export function MissionCard({
   // still render (the keyboard flow never depends on missions).
   if (!missionsEnabled) {
     return searchBlock ? (
-      <div className="worldMissionSlim" role="region" aria-label={t("world.missionAria")}>
+      <div
+        className="worldMissionSlim"
+        role="region"
+        aria-label={t("world.missionAria")}
+        data-search-active="true"
+      >
         <div className="worldMissionCard searchOnly">{searchBlock}</div>
       </div>
     ) : null;
   }
   if (!open) {
     return (
-      <div className="worldMissionSlim" role="region" aria-label={t("world.missionAria")}>
+      <div
+        className="worldMissionSlim"
+        role="region"
+        aria-label={t("world.missionAria")}
+        data-search-active={query ? "true" : undefined}
+      >
         <button
           className={`worldMissionChip tone-${worstTone}`}
           onClick={onToggle}
@@ -124,7 +222,13 @@ export function MissionCard({
     );
   }
   return (
-    <div className="worldMissionCard" id={panelId} role="region" aria-labelledby={titleId}>
+    <div
+      className="worldMissionCard"
+      id={panelId}
+      role="region"
+      aria-labelledby={titleId}
+      data-search-active={query ? "true" : undefined}
+    >
       <header>
         <strong id={titleId}>{t("world.nextSteps")}</strong>
         <span className="missionContextSummary" data-view-context={viewBadge ? "compatibility" : "native"}>

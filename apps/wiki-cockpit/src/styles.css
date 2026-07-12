@@ -5697,6 +5697,8 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
   gap: 3px;
   max-height: 240px;
   overflow: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .missionSearchCount {
@@ -5706,6 +5708,69 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
 
 .missionSearchResults .textButton small {
   color: #6f8494;
+}
+
+.searchFacetControls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  width: 100%;
+}
+
+.searchFacetControls label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: #7d93a3;
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.searchFacetControls select {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  border: 1px solid #2a3944;
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: #0a1219;
+  color: #d8e8f0;
+  font: inherit;
+  font-size: 11px;
+  text-transform: none;
+}
+
+.searchResultList {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  width: 100%;
+}
+
+.searchResultList .textButton {
+  width: 100%;
+  min-height: 34px;
+  text-align: left;
+}
+
+.searchShowMore {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid #304b5c;
+  border-radius: 6px;
+  background: rgba(38, 75, 96, 0.28);
+  color: #b8d8e7;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.searchShowMore:hover {
+  border-color: #5b91ad;
+  background: rgba(55, 102, 128, 0.34);
 }
 
 /* BOTTOM command bar. */
@@ -10772,6 +10837,30 @@ html[data-wiki-theme="luminous-observatory"] .dockButton.active,
 html[data-wiki-theme="luminous-observatory"] .glyphButton.active,
 html[data-wiki-theme="luminous-observatory"] .trayButton.active {
   color: var(--wiki-text);
+}
+
+html[data-wiki-theme="luminous-observatory"] .searchFacetControls select,
+html[data-wiki-theme="luminous-observatory"] .searchShowMore {
+  border-color: var(--wiki-border);
+  background: color-mix(in srgb, var(--wiki-surface) 94%, transparent);
+  color: var(--wiki-text);
+}
+
+@media (max-width: 720px) {
+  .searchFacetControls {
+    grid-template-columns: 1fr;
+  }
+
+  .searchFacetControls select,
+  .searchResultList .textButton,
+  .searchShowMore {
+    height: 44px;
+    min-height: 44px;
+  }
+
+  .missionSearchResults {
+    max-height: min(52vh, 390px);
+  }
 }
 
 html[data-wiki-theme="luminous-observatory"] .dockButton,

@@ -1,7 +1,10 @@
 .packWorkbenchSurface {
   position: absolute;
   z-index: 24;
-  inset: calc(var(--world-top-strip-height, 64px) + 12px) 14px 14px;
+  inset:
+    calc(var(--world-top-strip-height, 64px) + 12px)
+    14px
+    calc(var(--world-command-bar-height, 54px) + 8px);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   min-width: 0;
@@ -15,10 +18,9 @@
 }
 
 /* The workbench owns navigation, filtering and page opening while active.
-   Spatial instruments and the global command bar would otherwise remain
-   reachable behind it (and cover mobile controls), so they leave both the
-   visual and pointer trees until the namespaced view closes. */
-.worldWorkspace[data-pack-view] .worldCommandBar,
+   Spatial instruments leave the visual and pointer trees. The global command
+   bar contracts to search only, giving every pack the same escape/retrieval
+   path without exposing unrelated navigation behind the workbench. */
 .worldWorkspace[data-pack-view] .quadrantCompass,
 .worldWorkspace[data-pack-view] .focusLegend,
 .worldWorkspace[data-pack-view] .conditionStrip,
@@ -28,6 +30,19 @@
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
+}
+
+.worldWorkspace[data-pack-view] .worldCommandBar > :not(.commandSearch) {
+  display: none;
+}
+
+.worldWorkspace[data-pack-view] .worldMissionSlim[data-search-active="true"],
+.worldWorkspace[data-pack-view] .worldMissionSlim[data-search-active="true"] .worldMissionCard.searchOnly,
+.worldWorkspace[data-pack-view] .worldMissionCard[data-search-active="true"] {
+  z-index: 31;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .packWorkbenchHeader {

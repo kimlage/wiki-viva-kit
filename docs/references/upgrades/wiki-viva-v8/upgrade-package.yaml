@@ -107,6 +107,7 @@ preflight:
     - toolkit_drift
     - audit
     - input_stage
+    - semantic_inventory
     - pytest
     - diff_check
 
@@ -122,6 +123,7 @@ migration:
     - methodology_coverage
     - operation_compile
     - input_stage
+    - semantic_inventory
     - pytest
     - frontend
     - node_gates

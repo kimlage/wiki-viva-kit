@@ -64,6 +64,7 @@ python3 scripts/wiki_audit.py --public-export --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_semantic_inventory.py --check
 python3 scripts/wiki_web_snapshot.py --check-contract
 python3 scripts/wiki_pack.py validate --all
 python3 -m pytest tests/
@@ -84,6 +85,9 @@ npm --prefix apps/wiki-cockpit run check:release-matrix
 - Input stage: [memories/system/input-stage.md](memories/system/input-stage.md) equal to the
   root entity/channel/source compilation at HEAD —
   [scripts/wiki_input_stage.py](scripts/wiki_input_stage.py).
+- Semantic inventory: authored YAML relations and ingestion events equal the
+  closure, temporal and graph read models —
+  [scripts/wiki_semantic_inventory.py](scripts/wiki_semantic_inventory.py).
 
 ## Per-repo configuration
 

@@ -111,6 +111,11 @@ export function canonicalWorldUrl(
   // drops search, packets, Genesis stage or the selected demo universe.
   if (carry?.q) params.set("q", carry.q);
   if (carry?.filter) params.set("filter", carry.filter);
+  if (carry?.searchType) params.set("search_type", carry.searchType);
+  if (carry?.searchContext) params.set("search_context", carry.searchContext);
+  if (carry?.searchScope) params.set("search_scope", carry.searchScope);
+  const carriedSearchLimit = carry?.searchLimit ?? 10;
+  if (carriedSearchLimit > 10) params.set("search_limit", String(carriedSearchLimit));
   if (carry?.packet.length) params.set("packet", carry.packet.join(","));
   if (!state.dock && !state.readerId && carry?.tray) params.set("tray", carry.tray);
   if (state.dock && carry?.src) params.set("src", carry.src);

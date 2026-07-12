@@ -4,20 +4,25 @@ import copy
 import hashlib
 import io
 import json
+import os
 import re
 import shlex
+import struct
 import subprocess
 import sys
+import zlib
 from pathlib import Path
 
 import pytest
 import yaml
+from jsonschema import Draft202012Validator
 
 from wiki_core.detectors import scan_text
 from wiki_core.upgrade import (
     CONSUMER_INVENTORY_SCHEMA_VERSION,
     GATE_EVIDENCE_SCHEMA_VERSION,
     MIGRATION_EVIDENCE_SCHEMA_VERSION,
+    MIGRATION_VALIDATOR_VERSION,
     UPGRADE_PACKAGE_SCHEMA_VERSION,
     _git_blob_payloads,
     build_preflight_report,
@@ -26,6 +31,7 @@ from wiki_core.upgrade import (
     package_is_pinned,
     portable_path_status,
     render_migration_report_markdown,
+    upgrade_package_sha256,
     validate_consumer_inventory,
     validate_migration_evidence,
     validate_upgrade_package,
@@ -145,6 +151,46 @@ def repo_head(root: Path) -> str:
     ).strip()
 
 
+def png_bytes(width: int = 16, height: int = 12) -> bytes:
+    def chunk(kind: bytes, payload: bytes) -> bytes:
+        checksum = zlib.crc32(kind + payload) & 0xFFFFFFFF
+        return (
+            struct.pack(">I", len(payload))
+            + kind
+            + payload
+            + struct.pack(">I", checksum)
+        )
+
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    rows = b"".join(b"\x00" + (b"\x00\x00\x00" * width) for _ in range(height))
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(rows, 9))
+        + chunk(b"IEND", b"")
+    )
+
+
+def bind_migration_screenshots(root: Path, evidence: dict) -> None:
+    final_head = evidence["evidence_context"]["captured_consumer_head"]
+    for index, item in enumerate(evidence["visual_qa_evidence"], start=1):
+        raw = png_bytes(16 + index, 12 + index)
+        path = root / item["screenshot_ref"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        item.update(
+            {
+                "screenshot_sha256": hashlib.sha256(raw).hexdigest(),
+                "screenshot_bytes": len(raw),
+                "screenshot_dimensions": {
+                    "width": 16 + index,
+                    "height": 12 + index,
+                },
+                "captured_consumer_head": final_head,
+            }
+        )
+
+
 def make_matching_repos(tmp_path: Path) -> tuple[Path, Path, str]:
     kit = tmp_path / "kit"
     target = tmp_path / "consumer"
@@ -197,8 +243,14 @@ def gate_evidence(head: str) -> dict:
 
 
 def migration_evidence(pkg: dict) -> dict:
+    final_head = sha("adaptation")
     return {
         "schema_version": MIGRATION_EVIDENCE_SCHEMA_VERSION,
+        "evidence_context": {
+            "package_sha256": upgrade_package_sha256(pkg),
+            "validator_version": MIGRATION_VALIDATOR_VERSION,
+            "captured_consumer_head": final_head,
+        },
         "source": {
             "release": pkg["release"]["id"],
             "sha": pkg["release"]["source_sha"],
@@ -217,6 +269,7 @@ def migration_evidence(pkg: dict) -> dict:
             "artifact_commit_sha": sha("artifact"),
             "adaptation_commit_sha": sha("adaptation"),
         },
+        "omitted_boundaries": [],
         "files_imported": ["wiki_core/core.py", "scripts/wiki_upgrade_report.py"],
         "local_overrides_kept": ["wiki.config.yaml", "memories/"],
         "warnings": [
@@ -240,6 +293,10 @@ def migration_evidence(pkg: dict) -> dict:
                 "viewport": "390x844" if profile == "mobile" else "1440x1000",
                 "browser": "webkit" if profile == "mobile" else "chromium",
                 "screenshot_ref": f"qa/{profile}.png",
+                "screenshot_sha256": sha(f"screenshot-{profile}"),
+                "screenshot_bytes": 1,
+                "screenshot_dimensions": {"width": 1, "height": 1},
+                "captured_consumer_head": final_head,
                 "console_status": "clean",
                 "network_status": "clean",
                 "sample_fallback": False,
@@ -819,6 +876,13 @@ def test_migration_report_is_complete_deterministic_and_renderable() -> None:
     assert first["source"]["sha"] == pkg["release"]["source_sha"]
     assert first["consumer_before"]["head_sha"].startswith("consumer-head:sha256:")
     assert evidence["consumer_before"]["head_sha"] not in json.dumps(first)
+    report_schema = json.loads(
+        (
+            ROOT
+            / "docs/references/upgrades/wiki-viva-v8/migration-report.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert list(Draft202012Validator(report_schema).iter_errors(first)) == []
     markdown = render_migration_report_markdown(first)
     assert "Faithful public import" in markdown
     assert "## Warnings" in markdown
@@ -827,7 +891,25 @@ def test_migration_report_is_complete_deterministic_and_renderable() -> None:
     assert "## Synthetic regression fixtures" in markdown
     assert "tests/fixtures/core-bug.yaml" in markdown
     assert "## Rollback" in markdown
+    assert "Disposable rollback verification" in markdown
+    assert "Screenshot" in markdown
     assert first["report_id"] in markdown
+
+    stale_shallow = {
+        key: value
+        for key, value in first.items()
+        if key not in {"evidence_context", "omitted_boundaries", "rollback_verification"}
+    }
+    assert list(Draft202012Validator(report_schema).iter_errors(stale_shallow))
+
+    legacy_evidence = copy.deepcopy(evidence)
+    legacy_evidence["schema_version"] = "wiki_viva_migration_evidence.v1"
+    legacy_report = compile_migration_report(legacy_evidence, pkg)
+    assert legacy_report["status"] == "blocked"
+    assert any(
+        "schema_version must be wiki_viva_migration_evidence.v2" in error
+        for error in legacy_report["validation_errors"]
+    )
 
 
 def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
@@ -850,6 +932,9 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
             "adaptation_commit_sha": commits[2],
         }
     )
+    evidence["evidence_context"]["captured_consumer_head"] = commits[2]
+    for item in evidence["visual_qa_evidence"]:
+        item["captured_consumer_head"] = commits[2]
     evidence["rollback"].update(
         {
             "previous_sha": before_sha,
@@ -860,6 +945,7 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         }
     )
     preserved_config = (target / "wiki.config.yaml").read_bytes()
+    bind_migration_screenshots(target, evidence)
 
     assert validate_migration_evidence(
         evidence,
@@ -867,6 +953,72 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         consumer_root=target,
         require_git_commits=True,
     ) == []
+
+    verified = compile_migration_report(
+        evidence,
+        pkg,
+        consumer_root=target,
+        require_git_commits=True,
+        verify_rollback_execution=True,
+    )
+    assert verified["status"] == "complete"
+    assert verified["rollback_verification"]["status"] == "pass"
+    assert verified["rollback_verification"]["tree_matches_before"] is True
+    assert verified["rollback_verification"]["worktree_matches_index"] is True
+
+    unchecked_rollback = compile_migration_report(
+        evidence,
+        pkg,
+        consumer_root=target,
+        require_git_commits=True,
+    )
+    assert unchecked_rollback["status"] == "blocked"
+    assert any(
+        "requires disposable rollback verification" in error
+        for error in unchecked_rollback["validation_errors"]
+    )
+
+    mismatched_image = copy.deepcopy(evidence)
+    mismatched_image["visual_qa_evidence"][0]["screenshot_sha256"] = "f" * 64
+    assert any(
+        "screenshot hash/bytes/dimensions do not match" in error
+        for error in validate_migration_evidence(
+            mismatched_image,
+            pkg,
+            consumer_root=target,
+            require_git_commits=True,
+        )
+    )
+
+    symlink_path = target / "qa/symlink.png"
+    symlink_path.symlink_to("desktop.png")
+    symlink_image = copy.deepcopy(evidence)
+    symlink_image["visual_qa_evidence"][0]["screenshot_ref"] = "qa/symlink.png"
+    assert any(
+        "screenshot_ref is missing or unsafe" in error
+        for error in validate_migration_evidence(
+            symlink_image,
+            pkg,
+            consumer_root=target,
+            require_git_commits=True,
+        )
+    )
+    symlink_path.unlink()
+
+    hardlink_path = target / "qa/hardlink.png"
+    os.link(target / "qa/desktop.png", hardlink_path)
+    hardlink_image = copy.deepcopy(evidence)
+    hardlink_image["visual_qa_evidence"][0]["screenshot_ref"] = "qa/hardlink.png"
+    assert any(
+        "screenshot_ref is missing or unsafe" in error
+        for error in validate_migration_evidence(
+            hardlink_image,
+            pkg,
+            consumer_root=target,
+            require_git_commits=True,
+        )
+    )
+    hardlink_path.unlink()
 
     rollback_run = subprocess.run(
         shlex.split(evidence["rollback"]["command"]),
@@ -1206,6 +1358,9 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
             "adaptation_commit_sha": migration_commits[2],
         }
     )
+    migration["evidence_context"]["captured_consumer_head"] = migration_commits[2]
+    for item in migration["visual_qa_evidence"]:
+        item["captured_consumer_head"] = migration_commits[2]
     migration["rollback"].update(
         {
             "previous_sha": head,
@@ -1216,6 +1371,7 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
             ),
         }
     )
+    bind_migration_screenshots(target, migration)
     evidence_path.write_text(
         yaml.safe_dump(migration, sort_keys=False), encoding="utf-8"
     )
@@ -1238,6 +1394,7 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
             "--markdown-out",
             str(markdown_out),
             "--check",
+            "--verify-rollback",
         ],
         cwd=ROOT,
         text=True,

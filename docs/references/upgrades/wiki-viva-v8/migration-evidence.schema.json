@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kimlage/wiki-viva-kit/wiki_viva_migration_evidence.v2.schema.json",
+  "title": "Wiki Viva v8 downstream migration evidence",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evidence_context",
+    "source",
+    "consumer_before",
+    "consumer_after",
+    "omitted_boundaries",
+    "files_imported",
+    "local_overrides_kept",
+    "warnings",
+    "fixtures_added",
+    "gates",
+    "visual_qa_evidence",
+    "rollback"
+  ],
+  "properties": {
+    "schema_version": {"const": "wiki_viva_migration_evidence.v2"},
+    "evidence_context": {
+      "type": "object",
+      "required": ["package_sha256", "validator_version", "captured_consumer_head"],
+      "properties": {
+        "package_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "validator_version": {"const": "wiki_viva_upgrade_validator.v2"},
+        "captured_consumer_head": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": ["release", "sha", "plan"],
+      "properties": {
+        "release": {"type": "string", "minLength": 1},
+        "sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "plan": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "consumer_before": {
+      "type": "object",
+      "required": ["repository", "branch", "head_sha", "kit_version", "gate_status"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "branch": {"type": "string", "minLength": 1},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "kit_version": {"type": "string", "minLength": 1},
+        "gate_status": {"const": "pass"}
+      },
+      "additionalProperties": false
+    },
+    "consumer_after": {
+      "type": "object",
+      "required": ["branch", "import_commit_sha", "artifact_commit_sha", "adaptation_commit_sha"],
+      "properties": {
+        "branch": {"type": "string", "pattern": "^wiki/"},
+        "import_commit_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "artifact_commit_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40,64}$"},
+        "adaptation_commit_sha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40,64}$"}
+      },
+      "additionalProperties": false
+    },
+    "omitted_boundaries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["boundary", "reason"],
+        "properties": {
+          "boundary": {"enum": ["artifact_commit_sha", "adaptation_commit_sha"]},
+          "reason": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      },
+      "uniqueItems": true
+    },
+    "files_imported": {"$ref": "#/$defs/nonempty_string_array"},
+    "local_overrides_kept": {"$ref": "#/$defs/string_array"},
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message", "owner", "removal_window"],
+        "properties": {
+          "code": {"type": "string", "minLength": 1},
+          "message": {"type": "string", "minLength": 1},
+          "owner": {"type": "string", "minLength": 1},
+          "removal_window": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "fixtures_added": {"$ref": "#/$defs/string_array"},
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "command", "status"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "command": {"type": "string", "minLength": 1},
+          "status": {"const": "pass"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "visual_qa_evidence": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/visual_evidence"}
+    },
+    "rollback": {
+      "type": "object",
+      "required": ["previous_sha", "import_commit_sha", "command", "preserves_local_paths"],
+      "properties": {
+        "previous_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "import_commit_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "command": {"type": "string", "pattern": "^git revert --no-commit [0-9a-f ]+$"},
+        "preserves_local_paths": {"$ref": "#/$defs/nonempty_string_array"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "nonempty_string_array": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "dimensions": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 1, "maximum": 16384},
+        "height": {"type": "integer", "minimum": 1, "maximum": 16384}
+      },
+      "additionalProperties": false
+    },
+    "visual_evidence": {
+      "type": "object",
+      "required": [
+        "profile",
+        "route_ref",
+        "center_ref",
+        "viewport",
+        "browser",
+        "screenshot_ref",
+        "screenshot_sha256",
+        "screenshot_bytes",
+        "screenshot_dimensions",
+        "captured_consumer_head",
+        "console_status",
+        "network_status",
+        "sample_fallback"
+      ],
+      "properties": {
+        "profile": {"enum": ["desktop", "mobile", "fallback"]},
+        "route_ref": {"type": "string", "minLength": 1},
+        "center_ref": {"type": "string", "minLength": 1},
+        "viewport": {"type": "string", "pattern": "^[1-9][0-9]{2,4}x[1-9][0-9]{2,4}$"},
+        "browser": {"enum": ["chromium", "firefox", "webkit"]},
+        "screenshot_ref": {"type": "string", "pattern": "^[^/\\\\][^\\\\]*\\.png$"},
+        "screenshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "screenshot_bytes": {"type": "integer", "minimum": 1, "maximum": 67108864},
+        "screenshot_dimensions": {"$ref": "#/$defs/dimensions"},
+        "captured_consumer_head": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "console_status": {"const": "clean"},
+        "network_status": {"const": "clean"},
+        "sample_fallback": {"const": false}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

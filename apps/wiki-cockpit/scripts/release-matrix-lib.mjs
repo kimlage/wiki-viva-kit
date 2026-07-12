@@ -2,6 +2,12 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import {
+  operatorSecurityEvidence,
+  REQUIRED_OPERATOR_CAPABILITIES as SHARED_REQUIRED_OPERATOR_CAPABILITIES,
+  REQUIRED_OPERATOR_SERVER_VERSION,
+  validateOperatorHandshake
+} from "../src/contracts/operatorSecurity.js";
 
 export const RELEASE_MATRIX_SCHEMA = "wiki_playwright_release_matrix.v1";
 export const RELEASE_MATRIX_CONTRACT_VERSION = 2;
@@ -10,7 +16,7 @@ export const PREFLIGHT_MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 export const REQUIRED_DOWNSTREAM_VERSIONS = Object.freeze({
   snapshot: "wiki_web_snapshot.v2",
   runtime: "wiki_world_runtime.v8",
-  server: "wiki_web_server.v6",
+  server: REQUIRED_OPERATOR_SERVER_VERSION,
   temporalGraph: "wiki_temporal_graph.v1",
   temporalEvent: "wiki_temporal_event.v1",
   experiencePackComposition: "wiki_experience_pack_composition.v1",
@@ -38,10 +44,7 @@ export const DOWNSTREAM_ENV_KEYS = Object.freeze([
   "WIKI_COCKPIT_MIN_PAGES"
 ]);
 
-export const REQUIRED_OPERATOR_CAPABILITIES = Object.freeze([
-  "operator_security_v2",
-  "cors_default_deny_v1"
-]);
+export const REQUIRED_OPERATOR_CAPABILITIES = SHARED_REQUIRED_OPERATOR_CAPABILITIES;
 
 export const REQUIRED_SNAPSHOT_CAPABILITIES = Object.freeze([
   "temporal_graph",
@@ -1202,6 +1205,8 @@ export async function runDownstreamPreflight(
   const capabilities = Array.isArray(health.schema_capabilities)
     ? health.schema_capabilities.map(String)
     : [];
+  const operatorHandshake = validateOperatorHandshake(health);
+  const operatorSecurity = operatorSecurityEvidence(operatorHandshake);
   const snapshotCapabilities = Array.isArray(manifest.capabilities)
     ? manifest.capabilities.map(String)
     : [];
@@ -1322,10 +1327,7 @@ export async function runDownstreamPreflight(
       failures.push(`${file} does not match its manifest integrity hash and canonical byte count`);
     }
   }
-  if (health.ok !== true) failures.push("operator health did not report ok=true");
-  if (serverVersion !== expected.expectedServerVersion) {
-    failures.push(`operator server version ${serverVersion || "(missing)"} != ${expected.expectedServerVersion}`);
-  }
+  if (!operatorHandshake.ok) failures.push(...operatorHandshake.errors);
   if (!Array.isArray(contractErrors) || contractErrors.length !== 0) {
     failures.push("snapshot contract_errors must be an explicit empty array");
   }
@@ -1371,6 +1373,7 @@ export async function runDownstreamPreflight(
     snapshot_version: snapshotVersion,
     runtime_version: runtimeVersion,
     operator_server_version: serverVersion,
+    operator_security: operatorSecurity,
     temporal_graph_version: temporalGraphVersion,
     temporal_event_version: temporalEventVersion,
     temporal_event_count: temporalEvents?.length ?? 0,
@@ -1456,6 +1459,17 @@ export function evaluateDownstreamPreflightRecord(record, env = process.env, rep
   }
   if (record.operator_server_version !== expected.expectedServerVersion) {
     errors.push("downstream preflight operator server version does not match");
+  }
+  const recordedHandshake = validateOperatorHandshake({
+    ok: true,
+    server_version: record.operator_server_version,
+    schema_capabilities: record.capabilities,
+    operator_security: record.operator_security?.nonce_present === true
+      ? { ...record.operator_security, nonce: "recorded-present" }
+      : record.operator_security
+  });
+  if (!recordedHandshake.ok) {
+    errors.push(...recordedHandshake.errors.map((message) => `downstream preflight ${message}`));
   }
   if (record.temporal_graph_version !== expected.expectedTemporalGraphVersion) {
     errors.push("downstream preflight temporal graph version does not match");

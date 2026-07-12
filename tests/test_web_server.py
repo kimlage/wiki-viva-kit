@@ -288,6 +288,49 @@ def test_health_carries_operator_handshake(server: _Server) -> None:
     assert str(server.server.root) not in json.dumps(body["api_snapshot_serving"])
 
 
+def test_operator_restart_rotates_nonce_and_refuses_the_stale_process_nonce(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("WIKI_COCKPIT_CORS_ORIGINS", raising=False)
+    config = _repo(tmp_path)
+    first = _Server(tmp_path, config)
+    try:
+        first_status, first_health = first.get("/api/health")
+        assert first_status == 200
+        old_nonce = first_health["operator_security"]["nonce"]
+    finally:
+        first.close()
+
+    second = _Server(tmp_path, config)
+    try:
+        second_status, second_health = second.get("/api/health")
+        assert second_status == 200
+        new_nonce = second_health["operator_security"]["nonce"]
+        assert new_nonce != old_nonce
+        assert second_health["server_version"] == "wiki_web_server.v6"
+        assert second_health["operator_security"]["version"] == (
+            "wiki_operator_security.v2"
+        )
+
+        stale_status, stale_body = second.post(
+            "/api/git/workflow",
+            {"operation": "list_proposals", "dry_run": True},
+            nonce=old_nonce,
+        )
+        assert stale_status == 403
+        assert "nonce" in stale_body["error"]
+
+        current_status, current_body = second.post(
+            "/api/git/workflow",
+            {"operation": "list_proposals", "dry_run": True},
+        )
+        assert current_status == 200
+        assert current_body["operation"] == "list_proposals"
+    finally:
+        second.close()
+
+
 def test_operator_has_no_direct_cors_trust_by_default(server: _Server) -> None:
     for origin in (
         "http://127.0.0.1:5173",

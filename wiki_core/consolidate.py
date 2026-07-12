@@ -252,6 +252,13 @@ def build_event_markdown(
     impact: dict[str, object] | None = None,
 ) -> str:
     """The normalized event, generated from the recorded deep read."""
+    source_page = str(source_page or "").strip() or None
+    source_ref = str(source_ref or "").strip() or None
+    canonical_source_parent = source_page or source_ref
+    if canonical_source_parent is None:
+        raise ValueError(
+            "normalized ingestion event requires source_page or source_ref"
+        )
     s = _strings(config.language)
     source_id = str(aggregated.get("source_id") or "source")
     slug = _source_slug(source_id)
@@ -314,13 +321,11 @@ def build_event_markdown(
         f"stale_after_days: {freshness_for(context, 'ingestion_event', config)}",
         "sources_policy: evento_normalizado_com_quadrantes",
     ]
-    canonical_source_parent = source_page or source_ref
-    if canonical_source_parent:
-        # The registry is an index/collection of source pages, never the
-        # hierarchical parent of every ingestion event. Keep the normalized
-        # event under its canonical source so the journey is registry ->
-        # source -> event without flattening the event ledger.
-        fm.append(f"moc_parent: {canonical_source_parent}")
+    # The registry is an index/collection of source pages, never the
+    # hierarchical parent of every ingestion event. Keep the normalized event
+    # under its canonical source so the journey is registry -> source -> event
+    # without flattening the event ledger.
+    fm.append(f"moc_parent: {canonical_source_parent}")
     fm.extend(
         [
             "gate: github_pr",

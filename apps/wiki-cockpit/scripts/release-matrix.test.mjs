@@ -352,7 +352,7 @@ const VALID_ENV = {
   WIKI_COCKPIT_EXPECT_EXPERIENCE_PACK_COMPOSITION_VERSION: "wiki_experience_pack_composition.v1",
   WIKI_COCKPIT_EXPECT_COMPOSITION_SHA256: EMPTY_COMPOSITION.composition_sha256,
   WIKI_COCKPIT_EXPECT_ACTIVE_PACKS: "[]",
-  WIKI_COCKPIT_EXPECT_CAPABILITIES: "operator_security_v2,cors_default_deny_v1",
+  WIKI_COCKPIT_EXPECT_CAPABILITIES: "operator_security_v2,cors_default_deny_v1,action_state_transitions_v1",
   WIKI_COCKPIT_MIN_PAGES: "42"
 };
 
@@ -435,7 +435,21 @@ function validHealth(overrides = {}) {
     ok: true,
     repo: "private-pilot",
     server_version: "wiki_web_server.v6",
-    schema_capabilities: ["operator_security_v2", "cors_default_deny_v1"],
+    schema_capabilities: [
+      "operator_security_v2",
+      "cors_default_deny_v1",
+      "action_state_transitions_v1"
+    ],
+    operator_security: {
+      version: "wiki_operator_security.v2",
+      nonce_header: "X-Wiki-Operator-Nonce",
+      nonce: "release-preflight-nonce",
+      attempt_header: "X-Wiki-Attempt-Key",
+      max_body_bytes: 1_048_576,
+      mutations: "post_only",
+      browser_origin_default: "deny",
+      cors_opt_in: "exact_loopback_allowlist"
+    },
     ...overrides
   };
 }
@@ -598,6 +612,7 @@ test("downstream preflight rejects remote endpoints and weak security capabiliti
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((message) => message.includes("loopback")));
   assert.ok(result.errors.some((message) => message.includes("cors_default_deny_v1")));
+  assert.ok(result.errors.some((message) => message.includes("action_state_transitions_v1")));
 });
 
 test("downstream environment cannot bless an obsolete version by declaring it expected", () => {
@@ -607,6 +622,37 @@ test("downstream environment cannot bless an obsolete version by declaring it ex
   });
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((message) => message.includes("release-required wiki_web_server.v6")));
+});
+
+test("downstream preflight validates the complete shared operator security handshake", async () => {
+  const invalidSecurity = [
+    [undefined, /operator security object is missing/],
+    [{ ...validHealth().operator_security, version: "wiki_operator_security.v1" }, /security version/],
+    [{ ...validHealth().operator_security, nonce: "" }, /security nonce is missing/],
+    [{ ...validHealth().operator_security, nonce_header: "X-Other" }, /nonce header/],
+    [{ ...validHealth().operator_security, attempt_header: "X-Other" }, /attempt header/],
+    [{ ...validHealth().operator_security, max_body_bytes: 0 }, /max body bytes/],
+    [{ ...validHealth().operator_security, mutations: "get_or_post" }, /mutations contract/],
+    [{ ...validHealth().operator_security, browser_origin_default: "allow" }, /origin default/],
+    [{ ...validHealth().operator_security, cors_opt_in: "wildcard" }, /CORS opt-in/]
+  ];
+  for (const [operator_security, expected] of invalidSecurity) {
+    await assert.rejects(
+      () => runDownstreamPreflight(VALID_ENV, fixtureFetch({
+        health: validHealth({ operator_security })
+      })),
+      expected
+    );
+  }
+
+  await assert.rejects(
+    () => runDownstreamPreflight(VALID_ENV, fixtureFetch({
+      health: validHealth({
+        schema_capabilities: ["operator_security_v2", "cors_default_deny_v1"]
+      })
+    })),
+    /action_state_transitions_v1/
+  );
 });
 
 test("downstream environment requires a canonical explicit active-pack JSON contract", () => {
@@ -1171,6 +1217,15 @@ test("hashed downstream preflight record is revalidated against the current atte
   for (const fragment of ["manifest path", "manifest schema", "file count", "cannot be reverified"]) {
     assert.ok(adapterTamper.errors.some((message) => message.includes(fragment)), fragment);
   }
+
+  const securityTamper = evaluateDownstreamPreflightRecord({
+    ...evidence,
+    operator_security: { ...evidence.operator_security, nonce_present: false }
+  }, VALID_ENV);
+  assert.equal(securityTamper.ok, false);
+  assert.ok(
+    securityTamper.errors.some((message) => message.includes("security nonce"))
+  );
 });
 
 function report({
@@ -1343,6 +1398,7 @@ test("release configurations pin zero retries and keep downstream specs out of p
     "playwright-config",
     "release-matrix-checker",
     "release-matrix-library",
+    "operator-security-contract",
     "release-matrix-contract",
     "release-build-manifest",
     "release-build-policy",

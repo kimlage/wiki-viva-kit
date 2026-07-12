@@ -26,13 +26,14 @@ from wiki_core.paths import WikiPaths
 from wiki_core.web.commands import SECRET_VALUE_RE
 from wiki_core.web.schemas import WEB_GATE_SCHEMA_VERSION
 
-# The five honesty gates, id → argv. One place, shared by the read model and the
+# The honesty gates, id → argv. One place, shared by the read model and the
 # runner so they never drift.
 GATE_COMMANDS: tuple[tuple[str, list[str]], ...] = (
     ("wiki_audit", ["python3", "scripts/wiki_audit.py", "--check"]),
     ("methodology_coverage", ["python3", "scripts/wiki_check_methodology_coverage.py", "--check"]),
     ("operation_compile", ["python3", "scripts/wiki_operation_compile.py", "--check"]),
     ("input_stage", ["python3", "scripts/wiki_input_stage.py", "--check"]),
+    ("semantic_inventory", ["python3", "scripts/wiki_semantic_inventory.py", "--check"]),
     ("pytest", ["python3", "-m", "pytest", "tests/"]),
 )
 _GATE_IDS = {gate_id for gate_id, _ in GATE_COMMANDS}

@@ -130,7 +130,10 @@ The v8 downstream release flow is read-only by default:
   snapshot, overrides and privacy/redaction without copying files.
 - [wiki_upgrade_report.py](wiki_upgrade_report.py) validates allowlisted import
   evidence and compiles deterministic JSON/Markdown migration reports with
-  gates, visual QA and rollback.
+  gates, content-bound visual QA and disposable rollback verification.
+- [wiki_semantic_inventory.py](wiki_semantic_inventory.py) independently proves
+  that authored YAML events and relations equal closure, temporal and graph
+  read models without publishing page identities.
 
 Release-owned package metadata remains under
 `docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml` in the public source

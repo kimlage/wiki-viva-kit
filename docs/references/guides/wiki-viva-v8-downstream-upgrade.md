@@ -44,6 +44,7 @@ flowchart LR
 | `consumer-inventory.yaml` | Public-safe wave/status inventory. | Private paths, remotes, SHAs and drift filenames stay redacted. |
 | `gate-evidence.example.json` | Exact current-gate receipts consumed by preflight. | Store the filled copy in the consumer branch or local evidence directory. |
 | `migration-evidence.example.yaml` | Required post-import evidence. | Public export requires hashed/generic routes and no private content. |
+| `migration-evidence.schema.json` | Deep input contract for commit, screenshot and rollback evidence. | Public kit checkout; filled private evidence stays downstream. |
 | `migration-report.schema.json` | Stable output contract for CI/PR tooling. | Public kit checkout. |
 
 The Python tools are read-only unless an explicit output path is supplied. They
@@ -194,6 +195,47 @@ network and `sample_fallback=false`. A public report uses
 `route:sha256:<digest>`, `center:sha256:<digest>` or a public fixture ID — never
 private titles, values, authenticated URLs or raw console/network payloads.
 
+### Restart/security replay
+
+An operator started before the v6/default-deny payload is not valid downstream
+evidence, even if its health response contains a Codex block. Stop both old
+processes normally and use two terminals from the consumer checkout:
+
+```sh
+# terminal 1 — repository root
+python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
+
+# terminal 2 — repository root
+npm --prefix apps/wiki-cockpit run dev:proxy
+```
+
+From `apps/wiki-cockpit/`, run the shared, nonce-safe readback:
+
+```sh
+node --input-type=module <<'NODE'
+import { validateOperatorHandshake } from "./src/contracts/operatorSecurity.js";
+const response = await fetch("http://127.0.0.1:5173/api/health", {
+  headers: { accept: "application/json" }, cache: "no-store"
+});
+const result = validateOperatorHandshake(await response.json());
+if (!response.ok || !result.ok) {
+  console.error(result.errors.join("; ") || `health failed: ${response.status}`);
+  process.exit(1);
+}
+console.log("operator handshake current: v6 / security v2 / default-deny CORS");
+NODE
+```
+
+The accepted contract is `wiki_web_server.v6`,
+`wiki_operator_security.v2`, a present nonce under
+`X-Wiki-Operator-Nonce`, attempt keys under `X-Wiki-Attempt-Key`, bounded
+`post_only` mutations, browser-origin default `deny`, exact loopback allowlist
+opt-in and all three required capabilities: `operator_security_v2`,
+`cors_default_deny_v1` and `action_state_transitions_v1`. In the cockpit, open
+Codex diagnostics and choose **Re-verify** / **Re-verificar**; the operator rung
+must recover without reload. Record the exact downstream preflight and 2/2
+browser receipt only after this readback passes.
+
 ## 8. Compile the migration report
 
 Generate a fillable evidence document:
@@ -211,6 +253,7 @@ Compile and validate it:
   --consumer-root /path/to/consumer \
   --json-out /path/to/consumer/wiki-v8-migration-report.json \
   --markdown-out /path/to/consumer/wiki-v8-migration-report.md \
+  --verify-rollback \
   --check
 ```
 
@@ -219,11 +262,14 @@ PII, access-secret patterns, absolute local paths, URL query strings and raw
 route/center identifiers.
 
 The checked report cannot be `complete` without distinct, ancestry-ordered
-before/import/artifact/adaptation commits that exist in `--consumer-root`,
-allowlisted files, preserved overrides, warnings with owner and removal window,
-all gates, three visual profiles and a canonical rollback command containing
-every non-null migration SHA in reverse boundary order. Compilation
-without `--check` remains useful for drafting, but it is not release evidence.
+before/import and every non-null artifact/adaptation boundary that exists in
+`--consumer-root`. Every omitted optional boundary needs an explicit reason.
+The package digest, validator version and captured consumer HEAD must match;
+every screenshot must be a real repo-relative PNG bound by SHA-256, byte count,
+dimensions and the final migration HEAD. The command must contain every
+non-null migration SHA in reverse boundary order, and `--verify-rollback` must
+restore the previous Git tree in a disposable clone. Compilation without
+`--check` remains useful for drafting, but it is not release evidence.
 
 ## 9. Roll back per repository
 

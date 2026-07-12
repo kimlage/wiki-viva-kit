@@ -8,12 +8,17 @@ import hashlib
 import json
 import re
 from collections import Counter
+from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping, Sequence
 
 from wiki_core.action_state import (
     CANONICAL_ACTION_STATES,
     TERMINAL_ACTION_STATES,
     valid_action_transition,
+)
+from wiki_core.events import (
+    CANONICAL_INGESTION_EVENT_PAGE_TYPE,
+    resolve_ingestion_event_identity,
 )
 from wiki_core.temporal import (
     TEMPORAL_DATE_FIELDS,
@@ -259,6 +264,18 @@ def _adapt_pages(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     events: list[dict[str, Any]] = []
     diagnostics: list[dict[str, Any]] = []
+    # Page records retain their authored page type. Infer the configured event
+    # directories from canonical siblings, then let the shared resolver safely
+    # recognize legacy-typed rows there without treating source catalogs
+    # elsewhere in the wiki as ingestion events.
+    event_directories = {
+        PurePosixPath(str(page.get("path") or "")).parent
+        for page in pages_payload.get("pages") or []
+        if isinstance(page, Mapping)
+        and str(page.get("page_type") or "")
+        == CANONICAL_INGESTION_EVENT_PAGE_TYPE
+        and str(page.get("path") or "")
+    }
     for page in pages_payload.get("pages") or []:
         if not isinstance(page, Mapping):
             continue
@@ -295,7 +312,19 @@ def _adapt_pages(
             )
 
         page_type = str(page.get("page_type") or "")
-        if page_type == "ingestion_event":
+        page_path = PurePosixPath(str(page.get("path") or page_id))
+        event_identity = resolve_ingestion_event_identity(
+            Path(page_path.as_posix()),
+            {
+                "id": page_id,
+                "page_id": page_id,
+                "page_type": page_type,
+                "event_id": page.get("event_id"),
+                "source_id": page.get("source_id"),
+            },
+            in_events_directory=page_path.parent in event_directories,
+        )
+        if event_identity.recognized:
             occurred = dates.get("occurred_at") or dates.get("captured_at")
             _append_event(
                 events,
@@ -306,9 +335,18 @@ def _adapt_pages(
                     subject_refs=(subject,),
                     context_refs=contexts,
                     visibility=visibility,
-                    adapter="ingestion_event.v1",
+                    adapter=(
+                        "ingestion_event_compat.v1"
+                        if event_identity.is_legacy
+                        else "ingestion_event.v1"
+                    ),
                     source_refs=source_refs,
                     evidence_refs=evidence_refs,
+                    legacy_kind=(
+                        event_identity.authored_page_type
+                        if event_identity.is_legacy
+                        else None
+                    ),
                     occurred_at=occurred,
                     recorded_at=dates.get("recorded_at"),
                     verified_at=dates.get("verified_at"),

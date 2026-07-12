@@ -19,6 +19,11 @@
       "status": "pass"
     },
     {
+      "id": "semantic_inventory",
+      "command": "python3 scripts/wiki_semantic_inventory.py --check",
+      "status": "pass"
+    },
+    {
       "id": "pytest",
       "command": "python3 -m pytest tests/",
       "status": "pass"

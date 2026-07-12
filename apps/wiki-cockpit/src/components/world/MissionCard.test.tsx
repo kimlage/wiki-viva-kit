@@ -63,8 +63,15 @@ const baseProps = {
   searchHits: [] as PageRecord[],
   visibleHits: [] as PageRecord[],
   activeHit: 0,
+  searchType: "",
+  searchContext: "",
+  searchScope: "" as const,
+  searchPageTypes: [],
+  searchContexts: [],
   onActiveHit: vi.fn(),
-  onOpenHit: vi.fn()
+  onOpenHit: vi.fn(),
+  onSearchFilter: vi.fn(),
+  onShowMore: vi.fn()
 };
 
 beforeEach(() => {
@@ -187,10 +194,41 @@ describe("MissionCard", () => {
     );
 
     expect(screen.queryByText("Next steps")).toBeNull();
-    const result = screen.getByRole("button", { name: /Alpha result/ });
+    const result = screen.getByRole("option", { name: /Alpha result/ });
     fireEvent.mouseEnter(result);
     fireEvent.click(result);
     expect(onActiveHit).toHaveBeenCalledWith(0);
     expect(onOpenHit).toHaveBeenCalledWith(alpha);
+  });
+
+  it("exposes typed facets, current-world scope, listbox selection and explicit disclosure", () => {
+    const hits = Array.from({ length: 12 }, (_, index) => page(`p-${index}`, `Result ${index + 1}`));
+    const onSearchFilter = vi.fn();
+    const onShowMore = vi.fn();
+    render(
+      <MissionCard
+        {...baseProps}
+        rows={[]}
+        missionsEnabled={false}
+        query="result"
+        searchHits={hits}
+        visibleHits={hits.slice(0, 10)}
+        activeHit={1}
+        searchPageTypes={[{ value: "context_note", count: 12 }]}
+        searchContexts={[{ value: "system", count: 12 }]}
+        onSearchFilter={onSearchFilter}
+        onShowMore={onShowMore}
+      />
+    );
+
+    const listbox = screen.getByRole("listbox", { name: /12 result/ });
+    expect(listbox.querySelectorAll('[role="option"]')[1].getAttribute("aria-selected")).toBe("true");
+    fireEvent.change(screen.getByRole("combobox", { name: "Type" }), { target: { value: "context_note" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Scope" }), { target: { value: "world" } });
+    fireEvent.click(screen.getByRole("button", { name: /Show 2 more.*2 remaining/ }));
+
+    expect(onSearchFilter).toHaveBeenNthCalledWith(1, { searchType: "context_note" });
+    expect(onSearchFilter).toHaveBeenNthCalledWith(2, { searchScope: "world" });
+    expect(onShowMore).toHaveBeenCalledTimes(1);
   });
 });

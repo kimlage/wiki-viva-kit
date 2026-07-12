@@ -1768,6 +1768,7 @@ keeping a calm calendar.
             page(
                 f"memories/system/ingestion/events/{eid}.md",
                 fm(
+                    event_id=eid,
                     page_id=eid,
                     page_type="ingestion_event",
                     title=title,
@@ -1775,6 +1776,7 @@ keeping a calm calendar.
                     updated_at=when,
                     stale_after_days="365",  # a dated event is history, never "stale"
                     moc_parent=f"memories/sources/{source_ref}.md",
+                    source_id=source_ref,
                     source_refs=[source_ref],
                     consolidated_into=consolidated_into,
                     **event_extra,

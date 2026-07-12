@@ -6,6 +6,10 @@ import type { WorldQuery, WorldRoute } from "./router";
 const BASE_QUERY: WorldQuery = {
   q: "",
   filter: "",
+  searchType: "",
+  searchContext: "",
+  searchScope: "",
+  searchLimit: 10,
   packet: [],
   reader: false,
   visual: false,
@@ -48,6 +52,32 @@ const world = (
 });
 
 describe("router grammar", () => {
+  it("round-trips bounded typed search facets, scope and disclosure", () => {
+    const parsed = parseRoute(
+      "/w",
+      "?view=quadrants&q=source&search_type=source_catalog&search_context=system&search_scope=world&search_limit=37"
+    );
+    expect(parsed).toMatchObject({
+      kind: "world",
+      query: {
+        q: "source",
+        searchType: "source_catalog",
+        searchContext: "system",
+        searchScope: "world",
+        searchLimit: 30
+      }
+    });
+    expect(buildUrl(parsed)).toContain("search_type=source_catalog");
+    expect(buildUrl(parsed)).toContain("search_context=system");
+    expect(buildUrl(parsed)).toContain("search_scope=world");
+    expect(buildUrl(parsed)).toContain("search_limit=30");
+
+    const unsafe = parseRoute("/w", "?search_type=..%2Fsecret&search_context=a%2Fb&search_scope=global&search_limit=9999");
+    expect(unsafe).toMatchObject({
+      query: { searchType: "", searchContext: "", searchScope: "", searchLimit: 1000 }
+    });
+  });
+
   it("hydrates the canonical v8 query grammar without conflating view, lens and overlay", () => {
     expect(parseRoute("/w", "?center=root&view=radar&lens=q3_relacoes&overlay=evidence&page=source-mail&reader=1")).toMatchObject({
       kind: "world",

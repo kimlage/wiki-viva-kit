@@ -1053,6 +1053,69 @@ test("dense action reader owns the foreground and starts with decision-ready inf
   expect(geometry.compassOpacity).toBe(0);
   expect(geometry.overlapOwner).toBe(true);
   expect(geometry.documentOverflow).toBeLessThanOrEqual(1);
+
+  await page.locator(".pageReader .readerClose").last().click();
+  await expect(reader).toHaveCount(0);
+
+  const search = page.getByRole("combobox", { name: /Search content|Buscar conteúdo/ });
+  await search.fill("dense-canonical action");
+  const listbox = page.locator("#world-search-results");
+  const resultOptions = listbox.locator('[role="option"]');
+  await expect(listbox).toBeVisible();
+  await expect(resultOptions).toHaveCount(10);
+  await expect(resultOptions.first()).toContainText("Dense canonical action 001");
+  await expect(search).toHaveAttribute("aria-expanded", "true");
+  await expect(search).toHaveAttribute("aria-controls", "world-search-results");
+  await expect(search).toHaveAttribute(
+    "aria-activedescendant",
+    "world-search-results-option-0"
+  );
+  await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe(
+    "dense-canonical action"
+  );
+
+  await page.getByRole("combobox", { name: /Type|Tipo/ }).selectOption("action");
+  await page.getByRole("combobox", { name: /Context|Contexto/ }).selectOption("clientes");
+  await expect.poll(() => new URL(page.url()).searchParams.get("search_type")).toBe("action");
+  await expect.poll(() => new URL(page.url()).searchParams.get("search_context")).toBe("clientes");
+  await expect(resultOptions.first()).toContainText(/action|ação/i);
+
+  await page.getByRole("button", { name: /Show 10 more|Mostrar mais 10/ }).click();
+  await expect(resultOptions).toHaveCount(20);
+  await expect.poll(() => new URL(page.url()).searchParams.get("search_limit")).toBe("20");
+
+  await page.getByRole("combobox", { name: /Scope|Escopo/ }).selectOption("world");
+  await expect.poll(() => new URL(page.url()).searchParams.get("search_scope")).toBe("world");
+  expect(await resultOptions.count()).toBeLessThanOrEqual(20);
+  await page.getByRole("combobox", { name: /Scope|Escopo/ }).selectOption("");
+  await expect.poll(() => new URL(page.url()).searchParams.has("search_scope")).toBe(false);
+
+  // The immediate keyboard path uses the current draft, not the stale
+  // debounced URL result set. One ArrowDown must therefore open result 002.
+  await search.fill("dense canonical action");
+  await search.press("ArrowDown");
+  await search.press("Enter");
+  await expect(page.locator(".readerHead h2")).toHaveText("Dense canonical action 002");
+  await page.keyboard.press("Escape");
+  await expect(reader).toHaveCount(0);
+
+  await page.getByRole("combobox", { name: /Type|Tipo/ }).selectOption("");
+  await page.getByRole("combobox", { name: /Context|Contexto/ }).selectOption("");
+  await search.fill("acao que aguarda julgamento humano");
+  await expect(listbox.locator('[role="option"]').first()).toContainText(
+    "Ação que aguarda julgamento humano"
+  );
+  await search.fill("");
+  await expect.poll(() => {
+    const query = new URL(page.url()).searchParams;
+    return [
+      query.has("q"),
+      query.has("search_type"),
+      query.has("search_context"),
+      query.has("search_scope"),
+      query.has("search_limit")
+    ];
+  }).toEqual([false, false, false, false, false]);
 });
 
 test("Work accepts the Freshness overlay without route normalization", async ({ page }) => {

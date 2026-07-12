@@ -38,6 +38,13 @@ from .adapter_manifest import (
 )
 from .detectors import scan_text
 from .upgrade import _canonical_portable_path, _portable_path_has_sensitive_name
+from .web.schemas import (
+    ACTION_STATE_TRANSITION_CAPABILITY,
+    CORS_DEFAULT_DENY_CAPABILITY,
+    OPERATOR_SECURITY_CAPABILITY,
+    WEB_OPERATOR_SECURITY_VERSION,
+    WEB_SERVER_VERSION,
+)
 
 RECEIPT_SCHEMA_VERSION = "wiki_release_receipt.v1"
 GATE_RESULT_SCHEMA_VERSION = "wiki_test_gate_result.v1"
@@ -404,6 +411,27 @@ def _image_dimensions(raw: bytes, *, suffix: str) -> tuple[int, int]:
     if any(pixels[row] > 4 for row in range(0, expected_bytes, stride)):
         raise ReleaseReceiptError("visual evidence PNG row filter is invalid")
     return dimensions
+
+
+def visual_evidence_file_metadata(
+    root: Path, raw_path: object, *, label: str = "visual evidence image"
+) -> dict[str, Any]:
+    """Read one repository screenshot safely and return content-bound metadata.
+
+    The same descriptor-pinned, no-symlink/no-hardlink and strict-PNG contract
+    used by release receipts is shared with downstream migration reports.  A
+    caller therefore cannot make a missing or substituted screenshot look
+    valid by recording only a path string.
+    """
+
+    relative, raw = _read_safe_evidence_file(root, raw_path, label=label)
+    width, height = _image_dimensions(raw, suffix=Path(relative).suffix.lower())
+    return {
+        "path": relative,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "bytes": len(raw),
+        "dimensions": {"width": width, "height": height},
+    }
 
 
 def _validate_visual_evidence_manifest(
@@ -901,6 +929,7 @@ def _validate_downstream_preflight(
         "snapshot_version",
         "runtime_version",
         "operator_server_version",
+        "operator_security",
         "temporal_graph_version",
         "temporal_event_version",
         "temporal_event_count",
@@ -971,7 +1000,7 @@ def _validate_downstream_preflight(
     if (
         payload.get("snapshot_version") != "wiki_web_snapshot.v2"
         or payload.get("runtime_version") != "wiki_world_runtime.v8"
-        or payload.get("operator_server_version") != "wiki_web_server.v6"
+        or payload.get("operator_server_version") != WEB_SERVER_VERSION
         or payload.get("temporal_graph_version") != "wiki_temporal_graph.v1"
         or payload.get("temporal_event_version") != "wiki_temporal_event.v1"
         or payload.get("experience_pack_composition_version")
@@ -979,6 +1008,34 @@ def _validate_downstream_preflight(
         or payload.get("contract_errors") != []
     ):
         raise ReleaseReceiptError("downstream preflight runtime contract is invalid")
+    operator_security = payload.get("operator_security")
+    if (
+        not isinstance(operator_security, Mapping)
+        or set(operator_security)
+        != {
+            "version",
+            "nonce_present",
+            "nonce_header",
+            "attempt_header",
+            "max_body_bytes",
+            "mutations",
+            "browser_origin_default",
+            "cors_opt_in",
+        }
+        or operator_security.get("version") != WEB_OPERATOR_SECURITY_VERSION
+        or operator_security.get("nonce_present") is not True
+        or operator_security.get("nonce_header") != "X-Wiki-Operator-Nonce"
+        or operator_security.get("attempt_header") != "X-Wiki-Attempt-Key"
+        or not isinstance(operator_security.get("max_body_bytes"), int)
+        or isinstance(operator_security.get("max_body_bytes"), bool)
+        or not 1 <= operator_security["max_body_bytes"] <= 1_048_576
+        or operator_security.get("mutations") != "post_only"
+        or operator_security.get("browser_origin_default") != "deny"
+        or operator_security.get("cors_opt_in") != "exact_loopback_allowlist"
+    ):
+        raise ReleaseReceiptError(
+            "downstream preflight operator security contract is invalid"
+        )
     page_count = _nonnegative_int(
         payload.get("page_count"), label="preflight page_count"
     )
@@ -1024,7 +1081,11 @@ def _validate_downstream_preflight(
         not isinstance(capabilities, list)
         or any(not isinstance(value, str) or not value for value in capabilities)
         or len(capabilities) != len(set(capabilities))
-        or not {"operator_security_v2", "cors_default_deny_v1"}.issubset(capabilities)
+        or not {
+            OPERATOR_SECURITY_CAPABILITY,
+            CORS_DEFAULT_DENY_CAPABILITY,
+            ACTION_STATE_TRANSITION_CAPABILITY,
+        }.issubset(capabilities)
     ):
         raise ReleaseReceiptError("downstream preflight capabilities are invalid")
     snapshot_capabilities = payload.get("snapshot_capabilities")
@@ -1400,6 +1461,7 @@ def _validate_toolchain_manifest(
         ),
         "release-matrix-checker": "apps/wiki-cockpit/scripts/check-playwright-release.mjs",
         "release-matrix-library": "apps/wiki-cockpit/scripts/release-matrix-lib.mjs",
+        "operator-security-contract": "apps/wiki-cockpit/src/contracts/operatorSecurity.js",
         "release-matrix-generator": "apps/wiki-cockpit/scripts/release-matrix-contract.mjs",
         "release-matrix-contract": CANONICAL_RELEASE_MATRIX_PATH,
         "release-build-manifest": "apps/wiki-cockpit/scripts/release-build-manifest.mjs",

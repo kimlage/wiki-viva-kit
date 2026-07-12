@@ -19,7 +19,6 @@ purpose: "Normalized ingestion events: each one declares the four quadrants or e
 moc_parent: memories/system/ingestion/README.md
 related_pages:
   - memories/system/ingestion/README.md
-  - docs/references/templates/wiki/ingestion-event.md
 ---
 
 # Normalized ingestion events

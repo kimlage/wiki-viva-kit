@@ -145,6 +145,21 @@ def test_flat_parser_list_block_and_empty_list():
     assert values["consolidated_into"] == []
 
 
+def test_flat_parser_accepts_yaml_indentless_sequence_entries():
+    values, errors = parse_frontmatter_flat_with_errors(
+        _doc(
+            "source_refs:\n"
+            "- a.md\n"
+            "- b.md\n"
+            "consolidated_into:\n"
+            "- memories/index.md"
+        )
+    )
+    assert errors == []
+    assert values["source_refs"] == ["a.md", "b.md"]
+    assert values["consolidated_into"] == ["memories/index.md"]
+
+
 def test_flat_parser_missing_and_unterminated_blocks():
     missing = parse_frontmatter_flat("no block here\n")
     assert missing == {}

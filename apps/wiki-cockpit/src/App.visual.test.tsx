@@ -391,7 +391,7 @@ describe("visual route contract", () => {
       await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
     ).toBeTruthy();
     expect(await screen.findByText(/1 result/)).toBeTruthy();
-    const hit = screen.getByRole("button", { name: /Source Fixture/ });
+    const hit = screen.getByRole("option", { name: /Source Fixture/ });
     fireEvent.click(hit);
     await waitFor(() => {
       expect(window.location.pathname).toBe("/w");
@@ -399,6 +399,27 @@ describe("visual route contract", () => {
       expect(window.location.search).toContain("page=source-fixture");
     });
     expect(window.location.search).toContain("reader=1");
+  });
+
+  it("keeps the search surface operable over the temporal view with URL-owned facets", async () => {
+    await renderRoute("/w?view=timeline&q=Source");
+    expect(
+      await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
+    ).toBeTruthy();
+
+    const search = screen.getByRole("combobox", { name: "Search content" });
+    expect(search.getAttribute("aria-expanded")).toBe("true");
+    expect(search.getAttribute("aria-controls")).toBe("world-search-results");
+    expect(await screen.findByRole("listbox", { name: /1 result/ })).toBeTruthy();
+    expect(screen.getByRole("option", { name: /Source Fixture/ })).toBeTruthy();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Type" }), {
+      target: { value: "source" }
+    });
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("search_type")).toBe("source");
+    });
+    expect(screen.getByRole("option", { name: /Source Fixture/ })).toBeTruthy();
   });
 
   it("blocks sample fallback outside demo so real validation cannot impersonate sample data", async () => {

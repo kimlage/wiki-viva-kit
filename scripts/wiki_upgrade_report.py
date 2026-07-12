@@ -42,7 +42,7 @@ def _invalid_report_message(*, public_export: bool, error: Exception) -> str:
     )
     return json.dumps(
         {
-            "schema_version": "wiki_viva_migration_report.v1",
+            "schema_version": "wiki_viva_migration_report.v2",
             "status": "invalid",
             "errors": [message],
         },
@@ -79,6 +79,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check", action="store_true", help="exit 1 unless the report is complete"
     )
+    parser.add_argument(
+        "--verify-rollback",
+        action="store_true",
+        help=(
+            "clone the consumer into a disposable directory, revert the exact "
+            "migration boundaries and prove the resulting tree equals consumer_before"
+        ),
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -103,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
             public_export=args.public_export,
             consumer_root=args.consumer_root,
             require_git_commits=args.check,
+            verify_rollback_execution=args.verify_rollback,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(_invalid_report_message(public_export=args.public_export, error=exc))

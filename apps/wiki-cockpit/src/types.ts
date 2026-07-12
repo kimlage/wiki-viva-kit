@@ -775,8 +775,9 @@ export type CodexCapability = {
   version: string | null;
   usable: boolean;
   reason: string;
-  // The local operator process predates the code on disk (its /api/health lacks
-  // the codex capability). This is rung 0 of the diagnostics ladder: restart it.
+  // The local process fails the shared v6/v2/default-deny handshake (including
+  // required capabilities), even if it exposes a plausible Codex block. This is
+  // rung 0 of the diagnostics ladder: restart it before trusting other fields.
   operator_outdated?: boolean;
 };
 

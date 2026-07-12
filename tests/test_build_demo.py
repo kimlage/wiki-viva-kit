@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from wiki_core.frontmatter import parse_frontmatter
 from wiki_core.web.content import sidecar_name
 
 KIT_ROOT = Path(__file__).resolve().parents[1]
@@ -563,6 +564,103 @@ def test_committed_stage_snapshots_are_consistent() -> None:
         and edge["target"] == "idx-decisoes"
     }
     assert collection_sources == decision_ids
+
+
+def test_committed_demo_ingestion_events_are_semantically_identical_across_surfaces() -> (
+    None
+):
+    event_schema = yaml.safe_load(
+        (KIT_ROOT / "wiki.page-types.yaml").read_text(encoding="utf-8")
+    )["page_types"]["ingestion_event"]
+    assert {"event_id", "source_id"} <= set(
+        event_schema["required_frontmatter"]
+    )
+    assert event_schema["field_types"]["event_id"] == "string"
+    assert event_schema["field_types"]["source_id"] == "string"
+
+    authored: dict[str, dict] = {}
+    events_dir = (
+        KIT_ROOT
+        / "docs/references/fixtures/demo-wiki/memories/system/ingestion/events"
+    )
+    for path in sorted(events_dir.glob("*.md")):
+        front, _body = parse_frontmatter(path.read_text(encoding="utf-8"))
+        if front.get("page_type") != "ingestion_event":
+            continue
+        event_id = front.get("event_id")
+        source_id = front.get("source_id")
+        assert isinstance(event_id, str) and event_id
+        assert isinstance(source_id, str) and source_id
+        assert front["page_id"] == event_id
+        assert front["source_refs"] == [source_id]
+        authored[event_id] = {
+            "source_id": source_id,
+            "source_refs": front["source_refs"],
+            "consolidated_into": front.get("consolidated_into") or [],
+        }
+
+    pages_payload = json.loads((SAMPLE / "pages.json").read_text(encoding="utf-8"))
+    snapshot_pages = {
+        row["id"]: row
+        for row in pages_payload["pages"]
+        if row["page_type"] == "ingestion_event"
+    }
+    ingestion_payload = json.loads(
+        (SAMPLE / "ingestion.json").read_text(encoding="utf-8")
+    )
+    ingestion_events = {
+        row["event_id"]: row for row in ingestion_payload["events"]
+    }
+    temporal_payload = json.loads(
+        (SAMPLE / "temporal_graph.json").read_text(encoding="utf-8")
+    )
+    temporal_events = [
+        row
+        for row in temporal_payload["events"]
+        if row["kind"] == "ingestion_recorded"
+    ]
+    temporal_by_authored_event_id: dict[str, dict] = {}
+    for row in temporal_events:
+        assert row["origin"]["adapter"] == "ingestion_event.v1"
+        assert len(row["subject_refs"]) == 1
+        subject_ref = row["subject_refs"][0]
+        assert subject_ref.startswith("page:")
+        temporal_by_authored_event_id[subject_ref.removeprefix("page:")] = row
+
+    event_ids = set(authored)
+    assert len(event_ids) == 5
+    assert set(snapshot_pages) == event_ids
+    assert set(ingestion_events) == event_ids
+    assert set(temporal_by_authored_event_id) == event_ids
+
+    for event_id, contract in authored.items():
+        source_id = contract["source_id"]
+        snapshot_page = snapshot_pages[event_id]
+        ingestion_event = ingestion_events[event_id]
+        temporal_event = temporal_by_authored_event_id[event_id]
+
+        assert snapshot_page["source_refs"] == [source_id]
+        assert set(snapshot_page["relation_refs"]["consolidated_into"]) == set(
+            contract["consolidated_into"]
+        )
+        assert ingestion_event["source_refs"] == [source_id]
+        assert set(ingestion_event["consolidated_into"]) == set(
+            contract["consolidated_into"]
+        )
+        assert ingestion_event["closed"] is bool(contract["consolidated_into"])
+        assert temporal_event["source_refs"] == [f"source:{source_id}"]
+
+    closed_event_ids = {
+        event_id for event_id, row in ingestion_events.items() if row["closed"]
+    }
+    assert len(closed_event_ids) == 3
+    assert closed_event_ids == {
+        event_id
+        for event_id, row in authored.items()
+        if row["consolidated_into"]
+    }
+    assert ingestion_payload["summary"]["events_total"] == 5
+    assert ingestion_payload["summary"]["events_closed"] == 3
 
 
 def test_committed_core_scenario_snapshots_match_every_executable_manifest() -> None:

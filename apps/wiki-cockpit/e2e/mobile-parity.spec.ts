@@ -224,6 +224,32 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
   await expect(page.locator(".readerHead h2")).toHaveText(repeatedTitle);
   await expect(page).not.toHaveURL(/[?&]dock=/);
   await attachViewportScreenshot(page, testInfo, "webkit-mobile-touch-flow");
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".pageReader")).toHaveCount(0);
+  await prepareMobileWorld(
+    page,
+    "/demo/w?center=root-alex-rivera&view=quadrants&lens=all&overlay=actions" +
+    "&demo_scenario=dense_stress&tour=0"
+  );
+  const denseSearch = page.getByRole("combobox", { name: /Search content|Buscar conteúdo/ });
+  await denseSearch.fill("dense canonical action");
+  const denseResults = page.locator("#world-search-results");
+  const denseOptions = denseResults.locator('[role="option"]');
+  await expect(denseOptions).toHaveCount(10);
+  await expectMobileViewportBounded(page, ".worldMissionCard.searchOnly");
+  await expectTouchTarget(denseOptions.first());
+  for (const label of [/Type|Tipo/, /Context|Contexto/, /Scope|Escopo/]) {
+    await expectTouchTarget(page.getByRole("combobox", { name: label }));
+  }
+  const showMore = page.getByRole("button", { name: /Show 10 more|Mostrar mais 10/ });
+  await showMore.scrollIntoViewIfNeeded();
+  await expectTouchTarget(showMore);
+  await showMore.tap();
+  await expect(denseOptions).toHaveCount(20);
+  await expect.poll(() => new URL(page.url()).searchParams.get("search_limit")).toBe("20");
+  await expectMobileViewportBounded(page, ".worldMissionCard.searchOnly");
+  await attachViewportScreenshot(page, testInfo, "webkit-mobile-dense-search");
 });
 
 test("WebKit mobile opens a semantic quadrant collection and reaches a real center in two taps", async ({ page }, testInfo) => {

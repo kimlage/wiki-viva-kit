@@ -20,7 +20,14 @@ def test_receipts_flip_the_status_green(tmp_path: Path) -> None:
     config = _config()
     # A gate that last passed shows green — the whole point (the old code could
     # never leave 'not_run').
-    for gate_id in ("wiki_audit", "methodology_coverage", "operation_compile", "input_stage", "pytest"):
+    for gate_id in (
+        "wiki_audit",
+        "methodology_coverage",
+        "operation_compile",
+        "input_stage",
+        "semantic_inventory",
+        "pytest",
+    ):
         write_receipt(tmp_path, config, gate_id, ok=True, returncode=0)
     payload = gates_payload(tmp_path, config)
     assert payload["status"] == "pass"

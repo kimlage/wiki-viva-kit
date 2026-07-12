@@ -120,6 +120,20 @@
   display: none !important;
 }
 
+/* Search is a global way out of every projection. When Chronoscope owns the
+   canvas, keep its normal HUD hidden but let the query-owned result surface
+   sit above the timeline instead of leaving a live, invisible listbox. */
+.worldWorkspace[data-world-view="timeline"] .worldMissionSlim[data-search-active="true"] {
+  z-index: 31;
+  display: flex !important;
+}
+
+.worldWorkspace[data-world-view="timeline"] .worldMissionSlim[data-search-active="true"] .worldMissionCard.searchOnly,
+.worldWorkspace[data-world-view="timeline"] .worldMissionCard[data-search-active="true"] {
+  z-index: 31;
+  display: block !important;
+}
+
 .worldWorkspace[data-primary-surface-open="true"] .timelineSurface {
   opacity: 0.18;
   pointer-events: none;

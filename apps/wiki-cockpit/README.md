@@ -302,12 +302,9 @@ flaked or failed. The public Playwright configuration ignores
 harmless public-CI skip.
 
 Current worktree collection enumerates **102 public cells in 17 specifications**
-and **2 mandatory downstream cells in 1 specification**. This is collection
-evidence, not a completed release run: the tracked matrix contract still
-contains the earlier 84+2 inventory and must be rewritten only by the release
-owner after the global test freeze and review of the exact `playwright --list`
-diff. Until then, `check:release-matrix` is expected to report drift rather than
-silently blessing the larger collection.
+and **2 mandatory downstream cells in 1 specification**. The versioned matrix
+contains that exact 102+2 inventory; `check:release-matrix` must pass with zero
+collection drift before either release command can produce evidence.
 
 The downstream repository must start its exact local operator and same-origin
 cockpit, then provide every attestation below — there are no defaults:
@@ -330,7 +327,7 @@ export WIKI_COCKPIT_EXPECT_EXPERIENCE_PACK_COMPOSITION_VERSION=wiki_experience_p
 export WIKI_COCKPIT_EXPECT_COMPOSITION_SHA256=<exact-64-char-experience-packs-composition-sha256>
 # Explicit JSON is required. [] is valid when this consumer has no active pack.
 export WIKI_COCKPIT_EXPECT_ACTIVE_PACKS='[{"id":"personal-finance","version":"0.1.0"}]'
-export WIKI_COCKPIT_EXPECT_CAPABILITIES=operator_security_v2,cors_default_deny_v1
+export WIKI_COCKPIT_EXPECT_CAPABILITIES=operator_security_v2,cors_default_deny_v1,action_state_transitions_v1
 export WIKI_COCKPIT_MIN_PAGES=<explicit-positive-minimum>
 npm run test:e2e:operator
 ```
@@ -338,6 +335,46 @@ npm run test:e2e:operator
 Run that command from the consumer checkout itself: the checker requires the
 preflight consumer HEAD, clean snapshot `source_commit` and pre/post tested Git
 subject to be the same commit.
+
+### Restart a stale local operator safely
+
+If the Codex diagnostics dock says the operator is outdated, stop the existing
+Python operator and Vite proxy normally with `Ctrl-C`; do not keep or reuse the
+old port occupant. From the consumer repository root, start fresh processes:
+
+```sh
+# terminal 1 — repository root
+python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
+
+# terminal 2 — repository root
+npm --prefix apps/wiki-cockpit run dev:proxy
+```
+
+With both processes running, verify the same-origin handshake from
+`apps/wiki-cockpit/` using the exact shared validator. This prints no nonce:
+
+```sh
+node --input-type=module <<'NODE'
+import { validateOperatorHandshake } from "./src/contracts/operatorSecurity.js";
+
+const response = await fetch("http://127.0.0.1:5173/api/health", {
+  headers: { accept: "application/json" },
+  cache: "no-store"
+});
+const result = validateOperatorHandshake(await response.json());
+if (!response.ok || !result.ok) {
+  console.error(result.errors.join("; ") || `health failed: ${response.status}`);
+  process.exit(1);
+}
+console.log("operator handshake current: v6 / security v2 / default-deny CORS");
+NODE
+```
+
+Open the Codex diagnostics dock and choose **Re-verify** / **Re-verificar**. The
+operator rung must turn healthy without a page reload. The downstream preflight
+now rejects a v4/v1 process even when it exposes a plausible Codex block, and
+also rejects missing nonce/header/body bounds, non-POST mutation policy,
+non-default-deny browser origin or a non-exact CORS allowlist.
 
 The same-origin `/wiki-cockpit.config.json` served by that UI must independently
 publish the adoption identity; expected environment values are comparisons, not

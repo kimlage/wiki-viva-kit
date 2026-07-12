@@ -54,6 +54,9 @@ export function CommandBar({
   canComposeBrief,
   searchRef,
   searchDraft,
+  searchExpanded,
+  searchResultsId,
+  searchActiveDescendant,
   onSearchDraft,
   onSearchKeyDown,
   onNavigateWorld,
@@ -73,6 +76,9 @@ export function CommandBar({
   canComposeBrief: boolean;
   searchRef: RefObject<HTMLInputElement>;
   searchDraft: string;
+  searchExpanded: boolean;
+  searchResultsId: string;
+  searchActiveDescendant?: string;
   onSearchDraft: (value: string) => void;
   onSearchKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
   onNavigateWorld: (patch: WorldPatch) => void;
@@ -120,6 +126,12 @@ export function CommandBar({
           onKeyDown={onSearchKeyDown}
           placeholder={t("world.searchPlaceholder")}
           aria-label={t("world.searchAria")}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-haspopup="listbox"
+          aria-expanded={searchExpanded}
+          aria-controls={searchExpanded ? searchResultsId : undefined}
+          aria-activedescendant={searchActiveDescendant}
         />
       </label>
       {/* Destinations — the old left rail, dissolved into the world. Each

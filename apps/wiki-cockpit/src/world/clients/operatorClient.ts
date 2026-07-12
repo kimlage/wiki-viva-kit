@@ -1,14 +1,12 @@
 import { apiUrl } from "../../data/runtimeConfig";
+import {
+  operatorRestartReason,
+  validateOperatorHandshake
+} from "../../contracts/operatorSecurity.js";
 import type { OperatorHealth } from "../../types";
 
 type OperatorSecurity = NonNullable<OperatorHealth["operator_security"]>;
 type SecurityCache = { healthUrl: string; security: OperatorSecurity };
-
-const REQUIRED_SERVER_VERSION = "wiki_web_server.v6";
-const REQUIRED_SECURITY_CAPABILITY = "operator_security_v2";
-const REQUIRED_CORS_CAPABILITY = "cors_default_deny_v1";
-const REQUIRED_ACTION_TRANSITION_CAPABILITY = "action_state_transitions_v1";
-const REQUIRED_SECURITY_VERSION = "wiki_operator_security.v2";
 
 let securityCache: SecurityCache | null = null;
 let securityRequest: Promise<SecurityCache> | null = null;
@@ -60,32 +58,15 @@ export function operatorRequestUrl(url: string, init: RequestInit = {}): Promise
   return fetch(url, init);
 }
 
-function validSecurity(health: OperatorHealth): health is OperatorHealth & { operator_security: OperatorSecurity } {
-  const security = health.operator_security;
-  return Boolean(
-    health.server_version === REQUIRED_SERVER_VERSION &&
-      health.schema_capabilities?.includes(REQUIRED_SECURITY_CAPABILITY) &&
-      health.schema_capabilities?.includes(REQUIRED_CORS_CAPABILITY) &&
-      health.schema_capabilities?.includes(REQUIRED_ACTION_TRANSITION_CAPABILITY) &&
-      security?.version === REQUIRED_SECURITY_VERSION &&
-      security.nonce &&
-      security.nonce_header &&
-      security.attempt_header &&
-      security.mutations === "post_only" &&
-      security.browser_origin_default === "deny" &&
-      security.cors_opt_in === "exact_loopback_allowlist"
-  );
-}
-
 function staleOperatorError(health: OperatorHealth): Error {
-  const advertised =
-    [health.server_version, health.operator_security?.version].filter(Boolean).join(" / ") || "unknown version";
-  return new Error(
-    `local operator is outdated (${advertised}); restart it to activate the required ${REQUIRED_SECURITY_VERSION} CORS-default-deny mutation contract`
-  );
+  return new Error(operatorRestartReason(validateOperatorHandshake(health)));
 }
 
-async function requestHealth(signal?: AbortSignal): Promise<{ healthUrl: string; health: OperatorHealth }> {
+async function requestHealth(signal?: AbortSignal): Promise<{
+  healthUrl: string;
+  health: OperatorHealth;
+  validation: ReturnType<typeof validateOperatorHandshake>;
+}> {
   const response = await operatorRequest("/health", {
     method: "GET",
     headers: { accept: "application/json" },
@@ -98,8 +79,9 @@ async function requestHealth(signal?: AbortSignal): Promise<{ healthUrl: string;
   if (!response.ok) throw new Error(`operator handshake failed: ${response.status}`);
   const health = (await response.json()) as OperatorHealth;
   if (!health.ok) throw new Error("operator handshake returned an unhealthy operator");
-  if (validSecurity(health)) securityCache = { healthUrl, security: health.operator_security };
-  return { healthUrl, health };
+  const validation = validateOperatorHandshake(health);
+  if (validation.ok) securityCache = { healthUrl, security: validation.security };
+  return { healthUrl, health, validation };
 }
 
 async function securityForMutation(force = false, signal?: AbortSignal): Promise<SecurityCache> {
@@ -109,13 +91,13 @@ async function securityForMutation(force = false, signal?: AbortSignal): Promise
   // A caller-owned signal must never cancel another caller's shared
   // handshake. Only unsignalled requests share the in-flight probe.
   if (!force && !signal && securityRequest) return securityRequest;
-  const request = requestHealth(signal).then(({ healthUrl: resolvedUrl, health }) => {
+  const request = requestHealth(signal).then(({ healthUrl: resolvedUrl, health, validation }) => {
     assertOperatorRoute();
     assertSignal(signal);
-    if (!validSecurity(health)) {
+    if (!validation.ok) {
       throw staleOperatorError(health);
     }
-    return { healthUrl: resolvedUrl, security: health.operator_security };
+    return { healthUrl: resolvedUrl, security: validation.security };
   });
   if (!signal) securityRequest = request;
   try {

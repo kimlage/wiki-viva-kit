@@ -225,6 +225,203 @@ E5 release claim. The subject sequence is deliberately split into portable
 payload `S`, public metadata envelope `M` and private adoption `P`, so no commit
 attempts to contain its own SHA and no private state becomes upstream proof.
 
+### Post-S9 closure wave — current 2026-07-12 execution
+
+This subsection supersedes S9 **only as the active execution ledger**. It does
+not rewrite any S9 receipt or reuse an S9 count. The starting Git commit remains
+`cd19770680bf3bdaa64d9c0decf1dae9e6d5cede`; all results below were produced
+against the current uncommitted payload and are bound either to a recorded
+worktree fingerprint or to the named command window. The private replay is the
+next boundary and remains pending at this checkpoint.
+
+#### Executive summary and direction decisions
+
+- **Public core stays upstream.** Event compatibility, semantic inventory,
+  search, migration evidence and operator-security corrections were made in
+  this public repository with synthetic tests. No private page or value was
+  used to prove shared behavior.
+- **The wave is closure-only.** No new pack, rendering direction or speculative
+  feature was added. Search was made operable over the already-delivered
+  Timeline and pack surfaces by composing existing HUD layers.
+- **Structured external references were resolved, not ignored.** Three docs
+  paths that are not graph pages were removed from `related_pages`; their
+  explanatory Markdown body links remain visible and clickable. The semantic
+  gate therefore keeps a closed typed graph without discarding documentation.
+- **Generated truth is separate.** The official demo builder regenerated the
+  fixture/snapshot fan-out once after authorial changes. Visual baselines were
+  updated only after expected/actual/diff inspection showed the new sixth gate
+  and read-only demo copy, with the 1% raster tolerance unchanged.
+- **S9 is historical.** It explains the lineage, but neither its 1,356 Python
+  tests nor its 102 browser cells are cited as proof for this payload.
+- **Claude is adjudicated, not awaited.** Its partial workflow produced no
+  competing plan or repository write; useful findings already map to the RT
+  ledger below. Process liveness is not treated as new evidence.
+
+#### Read-only diff inventory and ownership
+
+The first read-only inventory found 780 concrete changed paths: 57 authorial,
+5 generator-owned fixture pages and 718 generated snapshot artifacts. The
+official demo regeneration, deterministic operational-pass recompile and two
+reviewed Darwin visual baselines expanded the stable pre-commit freeze to
+**911 concrete changed paths**: 74 authorial (66 tracked + 8 untracked), 5
+generator-owned fixture pages, 829 generated sample-snapshot artifacts, 2
+reviewed Darwin baselines and 1 deterministic operational-pass artifact. The
+index remained untouched: 903 tracked unstaged paths, 0 staged and 8 untracked;
+the tracked shortstat was +7,115/-3,884 across 903 files and two binaries. The
+next section binds those bytes to separate authorial and generated commits so
+the plan never asks a commit to contain its own SHA.
+
+| Front | Authorial sources | Generated or derived surfaces | Current tests | Remaining before `P` | Status / blocker | RT |
+| --- | --- | --- | --- | --- | --- | --- |
+| Event parity | `wiki_core/events.py`, frontmatter, consolidation, temporal compiler, page-type schema, event template and builder inputs | Five demo event pages plus closure, graph, temporal and snapshot projections | Focused Python plus full 1,367-test suite; deterministic demo/snapshot gates | Replay canonical and legacy identities against the private event corpus | Public candidate closed; legacy-only-repository compatibility remains partial | RT-09 partial; RT-10 public closed |
+| Semantic inventory | New independent `wiki_core/semantic_inventory.py`, CLI, tests, gate/command wiring and documentation | Gate projection in demo actions/commands/gates and regenerated snapshots | CLI reports 1/1 authored event on four surfaces and 106/106 relations | Run the same aggregate/hash-only report in private | Public closed; private parity pending | RT-36 |
+| Dense search UX | Search ranking, router state, World/Mission/Command composition, i18n, CSS and existing E2E cells | No new fixture family; existing dense, finance and study snapshots are reused | 512 Vitest; focused 3/3 Chromium + 1/1 WebKit; full public browser matrix | Real private titles/contexts, Portuguese copy and downstream mobile replay | Public closed; private replay pending | RT-29 |
+| Migration/rollback | Deep v2 evidence/report schemas, validator/compiler, screenshot metadata verifier, CLI and tests | Real report deliberately not generated before the consumer is versioned | Focused migration controls and full Python suite | Three ordered consumer boundaries, real captures and disposable-clone rollback | Synthetic public contract closed; real `P` report pending | RT-33 |
+| Operator restart/security | Shared v6/v2 security contract, client/capability logic, preflight/receipt wiring, SOP and existing downstream cell | No nonce or secret is persisted in generated evidence | 512 Vitest, 107 Node tests, real HTTP restart tests and 102+2 matrix contract | Execute old-process rejection → restart → re-verify against the private operator | Public contract closed; real restart replay pending | RT-48 |
+| Historical action adoption | Existing canonical resolver/auditor and source-lifecycle scenarios | Source-lifecycle snapshot changed only as demo fan-out | Full Python/frontend/browser stacks | Real accepted-without-ref, conflicting forms, transition history and redaction replay | No new public implementation required; private diagnostic remains open | RT-47 |
+| Visual evidence | Existing light/dark themes, density modes, WebGL/fallback, Timeline, packs, reader and Genesis | Two reviewed Darwin baselines plus immutable Playwright run artifacts | Current screenshots and exact 102-cell first-attempt run | Repeat representative surfaces with private Portuguese data | Public E3 inspected; private E4 pending | RT-32/41/43/44 |
+
+#### Semantic relation and event inventory
+
+`wiki_semantic_inventory.v1` independently derives the expected set from
+canonical Markdown and compares it with the runtime closure, temporal and graph
+surfaces. It does not count body Markdown links as typed relations and does not
+silently admit paths outside the page graph.
+
+| Inventory | Expected/authored | Closure | Temporal | Graph | Difference |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Current public ingestion events | 1 | 1 | 1 | 1 | 0 |
+| Current public closed events | 1 | 1 | n/a | n/a | 0 |
+| Direct typed relations | 106 | n/a | n/a | 106 | 0 |
+| Unresolved references | 0 | 0 | 0 | 0 | 0 |
+
+The executable demo is a larger synthetic pressure surface: **five** ingestion
+events all declare source identity and **three** are closed/consolidated. Tests
+compare the same identities and `source_emission` relations across canonical
+pages, `ingestion.json`, `temporal_graph.json` and `graph.json`. The official
+builder reports seed `8008`, 107 instructional pages, 467 authored fixture
+pages, 134 snapshot files, nine Genesis stages and eight scenarios; a second
+`--check` reports no drift.
+
+#### Search behavior and UX disposition
+
+The dense search contract now proves:
+
+- exact compound titles rank above reordered token matches;
+- accents and punctuation fold for retrieval without changing rendered copy;
+- type, context and current-world scope are URL-owned facets;
+- the first 10 results expand deterministically by “show 10 more” and persist
+  `search_limit` canonically;
+- ArrowDown/Enter uses the current draft rather than the stale debounce;
+- the input is a combobox with one controlled listbox and active descendant;
+- Timeline and pack searches are never inside an inert subtree;
+- the pack command bar contracts to search-only and reserves its measured
+  height instead of exposing unrelated navigation behind the workbench;
+- 390×844 measures zero document overflow and 44 px selects/results.
+
+The first current-run navigation attempt exposed three real defects rather than
+being promoted: Timeline/pack CSS left the live listbox at 0×0, the dense accent
+assertion referenced a title from another fixture, and mobile selects measured
+18 px. After the minimal fixes, the focused rerun passed 3/3 desktop and 1/1
+WebKit mobile with retries disabled. The later complete matrix passed the same
+cells on its first attempt.
+
+#### Public validation matrix — current payload only
+
+| Gate | Current result | Exact evidence / qualification |
+| --- | --- | --- |
+| Python | **1,367 passed**, zero failures/skips, two known warnings, 8m44s | `/opt/anaconda3/bin/python -m pytest tests/`; current post-S9 command window |
+| Frontend | **64 files, 512/512 tests**, 3.65s Vitest | `npm test` |
+| Node gates | **107/107**, 18.90s | `npm run test:gates` |
+| Build | **pass**, 2,603 modules | Production Vite build; no build-only bypass |
+| Architecture | **pass**, 0 violations / 0 legacy debt | `check:architecture` |
+| Assets | **pass**, 1/64 first-party, 0 external | `check:assets`; no new visual asset was required in this closure wave |
+| Bundle | **pass** | 163.32 kB initial JS gzip; 4.04 kB initial CSS gzip; lazy boundaries present |
+| Release matrix contract | **102 public + 2 downstream** | Cardinality unchanged; no cell added to hide a regression |
+| Browser release | **102/102**, first attempt, 0 skips, 0 retries, 6.3m | run `public-mrhpf5ba-56625710-41b2-4090-a5bf-a8b3e9bd9af1`; gate-result SHA-256 `afdfb34ff9e1d697fe93c736cc2f0f46f6d66c20842f7294806c2ee3cd7a8be0`; worktree fingerprint before/after `a90d4a3f130764c866ae8d41d134f2472d3c9d6ee36d0c630118fc320140a69c` |
+| Audit | **pass**, 0 errors / 6 date-driven warnings | Normal and `--public-export`; no unsafe value in output |
+| Method / operation / input | **pass** | Methodology, operation cockpit, operational pass, source registry and input-stage checks current after the CLI reference repair/recompile |
+| Semantic inventory | **pass** | 1 event on four surfaces; 106/106 relations; zero unresolved/errors |
+| Demo / snapshot / packs | **pass** | Demo seed 8008 current; 26-payload snapshot; 2 source packs and composition valid |
+| Whitespace | **pass** | `git diff --check` |
+
+The first full browser run is retained as negative evidence: **100/102 passed**
+and the review/health visual baselines failed at about 2% changed pixels. Side-
+by-side inspection showed only the legitimate sixth gate and explicit read-only
+copy. The baselines were regenerated with the official Playwright update path;
+the tolerance remained 1%. The exact second run above then passed 102/102.
+
+`check:snapshot-api` was not claimed from a dead port: its isolated invocation
+correctly failed because no operator listened on `127.0.0.1:5173`. Snapshot API
+truth is instead covered by the 26-payload contract now and will be exercised
+against the restarted private operator during `P`.
+
+#### Current visual QA findings
+
+All screenshots in this row were captured in the current execution. Automated
+contrast cells require at least 4.5:1; the manual pass focused on hierarchy,
+occlusion, density, touch geometry and interpretation rather than replacing
+those computed checks.
+
+| Surface | Current evidence | Judgment |
+| --- | --- | --- |
+| Dark desktop + dense WebGL search, 1280×900 | 1 canvas, 10 visible results, zero document overflow, exact-title ordering | Pass; internal result scroll is explicit and the world remains legible |
+| Light desktop + appearance panel | Theme changes without route/world loss; menu remains inside viewport; zero overflow | Pass with P2 polish note: long theme names/descriptions truncate in the 420 px two-column menu |
+| Finance Chronoscope + search | 19/19 events, search z-index 31, no inert ancestor, zero overflow | Pass; transient result card overlaps the title region by design and disappears with the query |
+| Personal Finance cashflow | Workbench bottom clears the measured search-only command bar; result is actionable | Pass; no unrelated pack-behind navigation remains reachable |
+| Study/Research evidence matrix | Same search-only bar, dark theme, two real results, zero overflow | Pass; capability/adapter limitation stays explicit instead of implying execution |
+| Reader + forced 2D fallback | 0 canvas, fallback active, reader inside 1280 px viewport, zero overflow | Pass; direct content, hierarchy and actions remain readable |
+| Genesis desktop | Centerless world and zero overflow | Pass as intentional emptiness; P2 opportunity to enlarge the founding cluster on wide screens after closure |
+| Dense search 390×844 | Panel 324×388 px, 10 results, all sampled selects/options exactly 44 px, zero document overflow | Pass; overlay is information-dense but bounded and internally scrollable |
+| Genesis 390×844 | Center absent, empty=true, choices 160×90 px and fallback choice 120×44 px, zero overflow | Pass; hierarchy and touch targets are clear |
+| Locale | Current public matrix covers EN and pt-BR plus long-copy regression | Public pass; the manual E4 Portuguese read will be repeated on the private configured snapshot |
+
+No console warning/error was observed in the current in-app browser session.
+WebGL, explicit fallback, light/dark, desktop/mobile, Timeline, both packs,
+reader and Genesis were all visually inspected. VoiceOver remains a human gate
+and is not inferred from ARIA or keyboard automation.
+
+#### Execution timeline
+
+1. Audited the moving diff read-only and separated authorial, fixture and
+   generated fan-out.
+2. Recovered the project direction and reconciled the partial Claude material
+   into existing RTs without creating another plan.
+3. Implemented the independent semantic inventory and resolved the three
+   external structured references as visible body links.
+4. Closed canonical event/closure/temporal/graph parity and regenerated the
+   demo once through the official builder.
+5. Implemented dense search ranking/facets/URL/keyboard semantics; reproduced
+   and fixed Timeline, pack and mobile presentation defects.
+6. Deepened migration schemas, screenshot metadata and disposable-clone
+   rollback verification.
+7. Centralized operator v6/v2 capability/security and restart semantics.
+8. Ran the complete public Python, frontend, Node, deterministic and browser
+   matrices; retained the initial 100/102 visual block and the final 102/102
+   receipt.
+9. Performed current-run desktop/mobile, light/dark, WebGL/fallback, Timeline,
+   pack, reader and Genesis visual QA.
+10. Next: freeze and commit authorial versus regenerated public bytes, build an
+    exact payload receipt, import it into the private consumer, execute E4
+    replay/report/rollback/restart, then reconcile this same plan.
+
+#### RT disposition at the public/private boundary
+
+| RT | Public `S` | Private `P` | Current disposition and next action |
+| --- | --- | --- | --- |
+| RT-09 | Partial | Open | Canonical/legacy identities coexist in parsers and mixed fixtures; add a public legacy-only fixture if private replay proves the sibling-inference limitation |
+| RT-10 | Closed | Open | Five demo events/three closed have exact cross-surface parity; replay private event inventory |
+| RT-29 | Closed | Open | Dense search and all requested UX paths pass publicly; replay real titles/contexts/mobile/Portuguese |
+| RT-33 | Closed synthetic contract | Open | Deep v2 schema and real rollback executor pass; compile/check real consumer JSON+Markdown with captures |
+| RT-36 | Closed | Open | Semantic CLI/gate passes 1/1 and 106/106; run aggregate-only private parity |
+| RT-47 | Unchanged public contract | Open diagnostic | Replay historical action conflicts and secret-shaped redaction privately; upstream only a minimized failing fixture if one appears |
+| RT-48 | Closed | Open | v4/v1 rejection and v6/v2 restart are executable publicly; perform documented private restart and 2/2 downstream cells |
+
+The current wave is therefore **publicly green but not complete** at this
+checkpoint. It becomes complete only after exact commits, exact payload import,
+private real-data replay, sanitized migration receipts and the final
+contradiction check in this same plan.
+
 | Wave | Current implementation state | Acceptance boundary before advancement |
 | --- | --- | --- |
 | 0 — release truth | Exact matrix is written/current at 102+2; rc8 pins exact S9 and its full public/private automated ledgers are closed. | Human review/merge, VoiceOver, external E5 and tag authority remain separate. |
@@ -466,18 +663,48 @@ completed.
 
 A ninth read-only checkpoint at 03:24 BRT on 2026-07-12 resolved the apparent
 contradiction. The visible Claude session stopped at its rate limit, but its
-structured multi-agent workflow had completed seconds earlier and retained the
-full 115-agent result set: 22 confirmed findings plus three vision blocks for
-packs, timelines and design. It still produced no repository `Write`/`Edit`, no
-second plan and no newer project-store delta. Revalidation against current code
-found one material residual: migration rollback was accepted by string prefix
-instead of exact commit identity, and the Markdown migration report omitted
-`fixtures_added` that existed in JSON. Exact `S2` now requires every non-null
-migration SHA in reverse boundary order with `git revert --no-commit`, executes
-that command in a disposable consumer repository, proves return to the previous
-tree while preserving consumer config, and renders regression fixtures in both
-report formats. Local workflow paths, process IDs and hashes remain private
-review evidence and are intentionally absent here.
+structured coordinator had completed seconds earlier and retained the aggregate
+result object for all 115 started tasks: 22 findings promoted by its aggregator
+(21 double-confirmed and one unilaterally confirmed), 28 rejected/divided/no-vote
+buckets and three vision blocks for packs, timelines and design. This does not
+erase the 37 absent verifier results recorded above; “coordinator completed” and
+“verification complete” remain different claims. It still produced no
+repository `Write`/`Edit`, no second plan and no newer project-store delta.
+Revalidation against current code found one material residual: migration
+rollback was accepted by string prefix instead of exact commit identity, and
+the Markdown migration report omitted `fixtures_added` that existed in JSON.
+Exact `S2` now requires every non-null migration SHA in reverse boundary order
+with `git revert --no-commit`, executes that command in a disposable consumer
+repository, proves return to the previous tree while preserving consumer
+config, and renders regression fixtures in both report formats. Local workflow
+paths, process IDs and hashes remain private review evidence and are
+intentionally absent here.
+
+A tenth read-only checkpoint at approximately 07:10 BRT on 2026-07-12 repeated
+the process, filesystem, transcript, workflow and Git-worktree inspection. One
+Claude worker still had the public repository as its current directory, but the
+project transcript, workflow result, journal and verifier artifacts remained
+unchanged since 09:18 BRT on 2026-07-11. The only fresher writes were local
+session/plugin inventory metadata, not analysis, code, screenshots or tests.
+Chronicle was running but its newest frame was more than seven hours old, so it
+was used only to locate the named session and not as evidence of current work.
+Both canonical repositories were clean at their exact S9 heads; the detached
+Claude worktree remained a clean historical July 1 tree. Re-reading the
+workflow schema confirmed 115 `started` events, 78 returned results and the
+same 37 missing verifier completions. No new Claude-authored `.md`, `Write`,
+`Edit`, commit, test receipt or finding exists to merge. The practical outcome
+is zero new RT rows: the parallel material has already influenced the temporal
+kernel, pack system, visual precedent register and the repaired Claude-derived
+defects in this plan. The remaining internal downstream proof stays focused on
+RT-09/10, RT-29, RT-33, RT-36, RT-47 and RT-48, independently of the dormant
+Claude process.
+
+For future local-only reconciliation, the material layout is discoverable as
+`~/.claude/projects/<repository-slug>/<cli-session>.jsonl`, with the workflow
+manifest under the session's `workflows/` directory and the journal/verifier
+artifacts under `subagents/workflows/<workflow>/`. Concrete UUIDs, absolute
+home paths and byte hashes stay out of this public plan; the versioned plan
+records only the adjudicated, independently reproducible conclusions.
 
 The seven recovered long-form outputs were consolidated, not copied:
 

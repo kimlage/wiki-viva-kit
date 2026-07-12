@@ -18,7 +18,7 @@ import type { QuadrantHomes, SceneFacet } from "../scene/facets";
 import { parseRealFamilyGroupId } from "../scene/worldState";
 import { scopeGraphToCompiledAnchor } from "../scene/worldScope";
 import { computeCondition } from "../scene/condition";
-import { rankPages } from "../scene/search";
+import { searchPages } from "../scene/search";
 import { canonicalWorldUrl, hydrateWorldRoute } from "../world/state/routeHydration";
 import type { OverlayId, RuntimeEvent } from "../world/contracts";
 import type { WorldPatch, WorldRoute } from "../router";
@@ -37,7 +37,12 @@ import type { SceneGuide, ScenePatch, SceneSeed } from "./SystemScene";
 import { CommandBar } from "./world/CommandBar";
 import { FoundingFallback } from "./world/FoundingFallback";
 import { GuideFallback } from "./world/GuideFallback";
-import { MissionCard, SEARCH_VISIBLE } from "./world/MissionCard";
+import {
+  MissionCard,
+  SEARCH_RESULTS_ID,
+  SEARCH_VISIBLE,
+  searchResultOptionId
+} from "./world/MissionCard";
 import type { MissionRow } from "./world/MissionCard";
 import { PacketTray } from "./world/PacketTray";
 import { WorldNavigator } from "./world/WorldNavigator";
@@ -657,7 +662,14 @@ export function WorldView({
       root.querySelectorAll<HTMLElement>(
         ".worldBreadcrumbs, .conditionStrip, .worldMeta, .worldMissionCard, .worldMissionSlim, .quadrantCompass, .focusLegend"
       ).forEach((target) => {
-        targetState.set(target, (targetState.get(target) ?? false) || primarySurfaceOpen || worldNavigatorOpen || temporalViewActive || packSurfaceActive);
+        const activeSearchSurface = Boolean(target.closest('[data-search-active="true"]'));
+        targetState.set(
+          target,
+          (targetState.get(target) ?? false) ||
+            primarySurfaceOpen ||
+            worldNavigatorOpen ||
+            ((temporalViewActive || packSurfaceActive) && !activeSearchSurface)
+        );
       });
       root.querySelectorAll<HTMLElement>(".timelineSurface, .packWorkbenchSurface").forEach((target) => {
         targetState.set(target, primarySurfaceOpen || worldNavigatorOpen);
@@ -1104,10 +1116,18 @@ export function WorldView({
     // already wrote `q`, `page`, `reader` and `dock=null`; never let a later
     // debounce reduce that state back to a query-only route.
     if (submittedSearchRef.current === searchDraft) return undefined;
-    const timer = window.setTimeout(
-      () => navigateWorld({ q: searchDraft || null, dock: null }, { replace: true }),
-      250
-    );
+    const timer = window.setTimeout(() => {
+      navigateWorld(searchDraft
+        ? { q: searchDraft, searchLimit: null, dock: null }
+        : {
+            q: null,
+            searchType: null,
+            searchContext: null,
+            searchScope: null,
+            searchLimit: null,
+            dock: null
+          }, { replace: true });
+    }, 250);
     searchRouteTimerRef.current = timer;
     return () => {
       window.clearTimeout(timer);
@@ -1116,13 +1136,35 @@ export function WorldView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.query.q, searchDraft]);
 
-  const searchHits = useMemo(
-    () => (route.query.q ? rankPages(pages, route.query.q) : []),
-    [pages, route.query.q]
+  const searchAllowedIds = useMemo(() => {
+    if (route.query.searchScope !== "world") return undefined;
+    const anchorId = focusAnchorId(bundle, worldState.centerId ?? undefined) ?? rootAnchor(bundle)?.id ?? null;
+    const record = anchorRecord(bundle, anchorId ?? undefined);
+    const scoped = scopeGraphToCompiledAnchor(bundle.graph, anchorId, record?.derived?.quadrant_assignments);
+    const ids = new Set<string>();
+    scoped.nodes.forEach((node) => {
+      ids.add(node.id);
+      ids.add(node.path);
+    });
+    return ids;
+  }, [bundle, route.query.searchScope, worldState.centerId]);
+  const searchResult = useMemo(
+    () => searchPages(pages, searchDraft, {
+      pageType: route.query.searchType || undefined,
+      context: route.query.searchContext || undefined,
+      allowedIds: searchAllowedIds
+    }),
+    [pages, route.query.searchContext, route.query.searchType, searchAllowedIds, searchDraft]
   );
+  const searchHits = searchResult.hits;
   // Keyboard result navigation resets whenever the query changes.
-  useEffect(() => setActiveHit(0), [route.query.q]);
-  const visibleHits = searchHits.slice(0, SEARCH_VISIBLE);
+  useEffect(() => setActiveHit(0), [
+    searchDraft,
+    route.query.searchContext,
+    route.query.searchScope,
+    route.query.searchType
+  ]);
+  const visibleHits = searchHits.slice(0, route.query.searchLimit);
   const openHit = (page?: PageRecord, query?: string) => {
     if (page) {
       // Search is a direct read intent and therefore owns the primary-surface
@@ -1146,17 +1188,20 @@ export function WorldView({
       navigateWorld({ q: null, tray: null }, { replace: true });
       return;
     }
-    const keyboardHits =
-      currentSearchValue === route.query.q
-        ? visibleHits
-        : rankPages(pages, currentSearchValue).slice(0, SEARCH_VISIBLE);
+    const keyboardHits = currentSearchValue === route.query.q
+      ? visibleHits
+      : searchPages(pages, currentSearchValue, {
+          pageType: route.query.searchType || undefined,
+          context: route.query.searchContext || undefined,
+          allowedIds: searchAllowedIds
+        }).hits.slice(0, route.query.searchLimit);
     if (!keyboardHits.length) {
       if (event.key === "Escape") setSearchDraft("");
       return;
     }
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActiveHit((index) => Math.min(index + 1, visibleHits.length - 1));
+      setActiveHit((index) => Math.min(index + 1, keyboardHits.length - 1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setActiveHit((index) => Math.max(index - 1, 0));
@@ -2087,13 +2132,13 @@ export function WorldView({
             the keyboard search flow must never depend on the card state.
             It precedes the compass so the fallback flow has the same semantic
             order as the layered HUD: context, mission, then navigation. */}
-        {!temporalViewActive && !packSurfaceActive && <MissionCard
+        {(!temporalViewActive && !packSurfaceActive || Boolean(searchDraft)) && <MissionCard
           rows={missionRows}
           viewLabel={activeViewLabel}
           viewHint={activeViewHint}
           viewBadge={compatibilityNavigatorView ? t("world.experience.compatibility.badge") : undefined}
           overlayLabel={t(`world.overlay.${worldState.overlay}`)}
-          missionsEnabled={instruments.missionsEnabled}
+          missionsEnabled={!temporalViewActive && !packSurfaceActive && instruments.missionsEnabled}
           open={missionCardOpen}
           onToggle={() => {
             setMissionCardOpen((open) => {
@@ -2101,12 +2146,19 @@ export function WorldView({
               return !open;
             });
           }}
-          query={route.query.q}
+          query={searchDraft}
           searchHits={searchHits}
           visibleHits={visibleHits}
           activeHit={activeHit}
+          searchType={route.query.searchType}
+          searchContext={route.query.searchContext}
+          searchScope={route.query.searchScope}
+          searchPageTypes={searchResult.pageTypes}
+          searchContexts={searchResult.contexts}
           onActiveHit={setActiveHit}
           onOpenHit={openHit}
+          onSearchFilter={(patch) => navigateWorld({ ...patch, searchLimit: null })}
+          onShowMore={() => navigateWorld({ searchLimit: Math.min(1000, route.query.searchLimit + SEARCH_VISIBLE) })}
         />}
 
         {packSurfaceActive && (
@@ -2329,6 +2381,9 @@ export function WorldView({
             canComposeBrief={Boolean(onComposeBrief)}
             searchRef={searchRef}
             searchDraft={searchDraft}
+            searchExpanded={Boolean(searchDraft)}
+            searchResultsId={SEARCH_RESULTS_ID}
+            searchActiveDescendant={visibleHits.length > 0 ? searchResultOptionId(Math.min(activeHit, visibleHits.length - 1)) : undefined}
             onSearchDraft={setSearchDraft}
             onSearchKeyDown={onSearchKeyDown}
             onNavigateWorld={navigateWorld}

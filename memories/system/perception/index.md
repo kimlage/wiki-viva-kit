@@ -20,7 +20,6 @@ purpose: "Hub of the perceptive layer: private perception (journal) and real rel
 moc_parent: memories/index.md
 related_pages:
   - memories/system/methodology-coverage-v5.md
-  - docs/references/templates/wiki/journal.md
 ---
 
 # System perception - MOC

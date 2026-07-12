@@ -5,6 +5,8 @@ const SHOWCASES = [
   {
     id: "personal_finance_showcase",
     center: "finance-transaction-income",
+    packView: "personal-finance.cashflow",
+    searchTitle: "Synthetic income transaction",
     prefix: "personal-finance.",
     labels: {
       "personal-finance.monthly-closed": { label: "Month closed", lane: "page" },
@@ -17,6 +19,8 @@ const SHOWCASES = [
   {
     id: "study_research_showcase",
     center: "claim-review-cadence",
+    packView: "study-research.evidence-matrix",
+    searchTitle: "Review cadence claim",
     prefix: "study-research.",
     labels: {
       "study-research.claim-recorded": { label: "Claim recorded", lane: "page" },
@@ -84,6 +88,26 @@ for (const showcase of SHOWCASES) {
       ).toHaveCount(expectedCount);
     }
     expect(new URL(page.url()).searchParams.has("time_lanes")).toBe(false);
+
+    const search = page.getByRole("combobox", { name: /Search content|Buscar conteúdo/ });
+    await search.fill(showcase.searchTitle);
+    const results = page.locator("#world-search-results");
+    await expect(results).toBeVisible();
+    await expect(results.locator('[role="option"]').first()).toContainText(showcase.searchTitle);
+    expect(await results.evaluate((element) => Boolean(element.closest("[inert]")))).toBe(false);
+
+    await page.goto(
+      `/demo/w?demo_scenario=${showcase.id}&center=${showcase.center}` +
+      `&view=quadrants&lens=all&overlay=evidence&pack_view=${showcase.packView}&tour=0`
+    );
+    await expect(page.locator(".packWorkbenchSurface")).toBeVisible({ timeout: 20_000 });
+    const packSearch = page.getByRole("combobox", { name: /Search content|Buscar conteúdo/ });
+    await packSearch.fill(showcase.searchTitle);
+    await expect(results).toBeVisible();
+    await expect(results.locator('[role="option"]').first()).toContainText(showcase.searchTitle);
+    expect(await results.evaluate((element) => Boolean(element.closest("[inert]")))).toBe(false);
+    await packSearch.press("Enter");
+    await expect(page.locator(".readerHead h2")).toHaveText(showcase.searchTitle);
     expect(runtimeErrors).toEqual([]);
   });
 }

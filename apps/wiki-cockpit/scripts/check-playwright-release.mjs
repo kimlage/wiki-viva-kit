@@ -212,6 +212,7 @@ try {
     ],
     ["release-matrix-checker", fileURLToPath(import.meta.url)],
     ["release-matrix-library", path.join(scriptsDir, "release-matrix-lib.mjs")],
+    ["operator-security-contract", path.join(appRoot, "src/contracts/operatorSecurity.js")],
     ["release-matrix-generator", path.join(scriptsDir, "release-matrix-contract.mjs")],
     ["release-matrix-contract", contractPath],
     ["release-build-manifest", path.join(scriptsDir, "release-build-manifest.mjs")],

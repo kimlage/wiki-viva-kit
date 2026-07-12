@@ -1,5 +1,5 @@
 // GatesDock (?dock=gates): Saúde dissolves into the world. Health is the
-// weather (the radar IS freshness) plus these five honesty gates, each shown
+// weather (the radar IS freshness) plus the honesty gates, each shown
 // with its REAL last-run status (persisted receipts) and a Run button — so the
 // verdict can finally turn green in-session, and "not run" is honest, never an
 // eternal amber. /health redirects here; the radar's own filter chips carry the

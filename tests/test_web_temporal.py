@@ -217,6 +217,65 @@ def test_adapters_emit_page_source_ingestion_action_decision_and_receipt_events(
     assert legacy["kind"] == "activity_recorded"
 
 
+def test_legacy_typed_event_in_canonical_event_directory_is_visually_reachable() -> None:
+    def page(page_id: str, page_type: str, path: str) -> dict[str, object]:
+        return {
+            "id": page_id,
+            "path": path,
+            "page_type": page_type,
+            "context": "system",
+            "visibility": "private_self",
+            "updated_at": "2026-07-11",
+            "source_refs": ["source-public"],
+            "relation_refs": {"evidence_refs": []},
+            "temporal": {
+                "dates": {"captured_at": "2026-07-10"},
+                "precision": {},
+                "action_state_history": [],
+            },
+        }
+
+    pages = {
+        "pages": [
+            page(
+                "event-canonical",
+                "ingestion_event",
+                "memories/system/ingestion/events/canonical.md",
+            ),
+            page(
+                "event-legacy",
+                "source_catalog",
+                "memories/system/ingestion/events/legacy.md",
+            ),
+            page(
+                "catalog-outside",
+                "source_catalog",
+                "memories/sources/catalog.md",
+            ),
+        ]
+    }
+
+    events, diagnostics = build_temporal_events(
+        pages, {"sources": []}, {"events": []}
+    )
+    ingestion = [event for event in events if event["kind"] == "ingestion_recorded"]
+
+    assert diagnostics == []
+    assert {
+        tuple(event["subject_refs"])
+        for event in ingestion
+    } == {("page:event-canonical",), ("page:event-legacy",)}
+    legacy = next(
+        event
+        for event in ingestion
+        if event["subject_refs"] == ["page:event-legacy"]
+    )
+    assert legacy["origin"] == {
+        "adapter": "ingestion_event_compat.v1",
+        "legacy_kind": "source_catalog",
+    }
+
+
 def test_cancelled_action_without_receipt_never_fabricates_none_receipt() -> None:
     pages = {
         "pages": [

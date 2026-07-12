@@ -131,6 +131,7 @@ def _repo(tmp_path: Path) -> Path:
         "apps/wiki-cockpit/playwright.downstream.config.ts",
         "apps/wiki-cockpit/scripts/check-playwright-release.mjs",
         "apps/wiki-cockpit/scripts/release-matrix-lib.mjs",
+        "apps/wiki-cockpit/src/contracts/operatorSecurity.js",
         "apps/wiki-cockpit/scripts/release-matrix-contract.mjs",
         "apps/wiki-cockpit/scripts/release-build-manifest.mjs",
         "apps/wiki-cockpit/scripts/release-build-policy.mjs",
@@ -360,6 +361,7 @@ def _gate(root: Path, *, scope: str, gate_id: str, **overrides: object) -> str:
         ),
         "release-matrix-checker": "apps/wiki-cockpit/scripts/check-playwright-release.mjs",
         "release-matrix-library": "apps/wiki-cockpit/scripts/release-matrix-lib.mjs",
+        "operator-security-contract": "apps/wiki-cockpit/src/contracts/operatorSecurity.js",
         "release-matrix-generator": "apps/wiki-cockpit/scripts/release-matrix-contract.mjs",
         "release-matrix-contract": CANONICAL_RELEASE_MATRIX_PATH,
         "release-build-manifest": "apps/wiki-cockpit/scripts/release-build-manifest.mjs",
@@ -433,6 +435,16 @@ def _gate(root: Path, *, scope: str, gate_id: str, **overrides: object) -> str:
                 'snapshot_version': 'wiki_web_snapshot.v2',
                 'runtime_version': 'wiki_world_runtime.v8',
                 'operator_server_version': 'wiki_web_server.v6',
+                'operator_security': {
+                    'version': 'wiki_operator_security.v2',
+                    'nonce_present': True,
+                    'nonce_header': 'X-Wiki-Operator-Nonce',
+                    'attempt_header': 'X-Wiki-Attempt-Key',
+                    'max_body_bytes': 1_048_576,
+                    'mutations': 'post_only',
+                    'browser_origin_default': 'deny',
+                    'cors_opt_in': 'exact_loopback_allowlist',
+                },
                 'temporal_graph_version': 'wiki_temporal_graph.v1',
                 'temporal_event_version': 'wiki_temporal_event.v1',
                 'temporal_event_count': 1,
@@ -442,7 +454,11 @@ def _gate(root: Path, *, scope: str, gate_id: str, **overrides: object) -> str:
                 'contract_errors': [],
                 'page_count': 1,
                 'minimum_pages': 1,
-                'capabilities': ['cors_default_deny_v1', 'operator_security_v2'],
+                'capabilities': [
+                    'action_state_transitions_v1',
+                    'cors_default_deny_v1',
+                    'operator_security_v2',
+                ],
                 'snapshot_capabilities': ['experience_packs', 'temporal_graph'],
                 'endpoint_origins': {
                     'snapshot': 'http://127.0.0.1:5173',
@@ -1411,6 +1427,47 @@ def test_downstream_preflight_is_hashed_into_gate_and_rechecked_by_receipt(
         "supporting evidence downstream-preflight hash/size" in error
         for error in errors
     )
+
+
+def test_downstream_preflight_receipt_requires_complete_operator_security(
+    tmp_path: Path,
+) -> None:
+    root = _repo(tmp_path)
+    gate_path = _gate(
+        root,
+        scope="downstream_required",
+        gate_id="operator-security-fixture",
+    )
+    gate = json.loads((root / gate_path).read_text(encoding="utf-8"))
+    support = next(
+        item
+        for item in gate["supporting_evidence"]
+        if item["id"] == "downstream-preflight"
+    )
+    preflight = json.loads((root / support["path"]).read_text(encoding="utf-8"))
+    subject_sha = _run(root, "git", "rev-parse", "HEAD")
+
+    for mutate in (
+        lambda payload: payload["operator_security"].update(
+            {"nonce_present": False}
+        ),
+        lambda payload: payload.update(
+            {
+                "capabilities": [
+                    "cors_default_deny_v1",
+                    "operator_security_v2",
+                ]
+            }
+        ),
+    ):
+        candidate = copy.deepcopy(preflight)
+        mutate(candidate)
+        with pytest.raises(ReleaseReceiptError, match="operator security|capabilities"):
+            release_module._validate_downstream_preflight(
+                root,
+                candidate,
+                expected_subject_sha=subject_sha,
+            )
 
 
 def test_downstream_receipt_reopens_the_tracked_adapter_files(tmp_path: Path) -> None:

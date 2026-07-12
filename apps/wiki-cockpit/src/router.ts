@@ -29,6 +29,10 @@ const QUADRANT_AWARE = new Set<PerspectiveId>(["quadrants", "radar", "districts"
 export type WorldQuery = {
   q: string;
   filter: string;
+  searchType: string;
+  searchContext: string;
+  searchScope: "" | "world";
+  searchLimit: number;
   packet: string[];
   reader: boolean;
   // Test-harness flag: forces the 2D fallback; must survive every redirect.
@@ -115,6 +119,10 @@ export type Route =
 const EMPTY_QUERY: WorldQuery = {
   q: "",
   filter: "",
+  searchType: "",
+  searchContext: "",
+  searchScope: "",
+  searchLimit: 10,
   packet: [],
   reader: false,
   visual: false,
@@ -177,6 +185,18 @@ function safeCompatibilityContext(value: string | null): string {
   return candidate;
 }
 
+function safeSearchFacet(value: string | null): string {
+  const candidate = (value || "").trim();
+  if (!candidate || candidate.length > 120 || /[\u0000-\u001f\\/]/.test(candidate)) return "";
+  return candidate;
+}
+
+function searchLimit(value: string | null): number {
+  const parsed = Number.parseInt(value || "10", 10);
+  if (!Number.isFinite(parsed)) return 10;
+  return Math.max(10, Math.min(1000, Math.floor(parsed / 10) * 10));
+}
+
 function decodeRouteSegment(value: string): string | null {
   try {
     return decodeURIComponent(value);
@@ -207,6 +227,10 @@ function parseQuery(search: string): WorldQuery {
   const query: WorldQuery = {
     q: params.get("q") || "",
     filter: params.get("filter") || "",
+    searchType: safeSearchFacet(params.get("search_type")),
+    searchContext: safeSearchFacet(params.get("search_context")),
+    searchScope: params.get("search_scope") === "world" ? "world" : "",
+    searchLimit: searchLimit(params.get("search_limit")),
     packet: (params.get("packet") || "").split(",").map((item) => item.trim()).filter(Boolean),
     reader: params.get("reader") === "1",
     visual: params.get("visual") === "1",
@@ -371,6 +395,10 @@ export function buildUrl(route: Route): string {
   if (canonicalCompatContext) params.set("compat_context", canonicalCompatContext);
   if (route.query.q) params.set("q", route.query.q);
   if (route.query.filter) params.set("filter", route.query.filter);
+  if (route.query.searchType) params.set("search_type", route.query.searchType);
+  if (route.query.searchContext) params.set("search_context", route.query.searchContext);
+  if (route.query.searchScope) params.set("search_scope", route.query.searchScope);
+  if (route.query.searchLimit > 10) params.set("search_limit", String(route.query.searchLimit));
   if (route.query.packet.length > 0) params.set("packet", route.query.packet.join(","));
   if (canonicalReader) params.set("reader", "1");
   if (route.query.visual) params.set("visual", "1");
@@ -406,6 +434,10 @@ export type WorldPatch = {
   pageId?: string | null;
   q?: string | null;
   filter?: string | null;
+  searchType?: string | null;
+  searchContext?: string | null;
+  searchScope?: "world" | null;
+  searchLimit?: number | null;
   packet?: string[];
   reader?: boolean;
   dock?: DockId | null;
@@ -472,6 +504,10 @@ export function patchWorld(route: WorldRoute, patch: WorldPatch): WorldRoute {
     query: {
       q: patch.q === null ? "" : patch.q ?? route.query.q,
       filter: patch.filter === null ? "" : patch.filter ?? route.query.filter,
+      searchType: patch.searchType === null ? "" : patch.searchType ?? route.query.searchType,
+      searchContext: patch.searchContext === null ? "" : patch.searchContext ?? route.query.searchContext,
+      searchScope: patch.searchScope === null ? "" : patch.searchScope ?? route.query.searchScope,
+      searchLimit: patch.searchLimit === null ? 10 : patch.searchLimit ?? route.query.searchLimit,
       packet: patch.packet ?? route.query.packet,
       reader: patch.reader ?? route.query.reader,
       visual: route.query.visual,

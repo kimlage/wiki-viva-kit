@@ -32,7 +32,7 @@ function failureReason(output: string): string {
   return line.length > 200 ? `${line.slice(0, 200)}…` : line;
 }
 
-// Human names for the five honesty gates (EN+PT via i18n; id is the fallback
+// Human names for the honesty gates (EN+PT via i18n; id is the fallback
 // for gates this build does not know yet).
 export function gateName(id: string): string {
   const key = `gate.name.${id}`;

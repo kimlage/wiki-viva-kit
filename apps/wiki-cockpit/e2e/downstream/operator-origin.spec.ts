@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { expect, test } from "../fixtures";
+import { validateOperatorHandshake } from "../../src/contracts/operatorSecurity.js";
 
 test.describe.configure({ timeout: 90_000 });
 
@@ -165,6 +166,9 @@ test("exact downstream operator serves the attested repo, revision, hash and cap
   expect(health.repo).toBe(expectedRepo);
   expect(health.ok).toBe(true);
   expect(health.server_version).toBe(expectedServerVersion);
+  const operatorHandshake = validateOperatorHandshake(health);
+  expect(operatorHandshake.errors).toEqual([]);
+  expect(operatorHandshake.ok).toBe(true);
   expect(String(runtimeConfig.adoption?.public_release_sha || "").toLowerCase()).toBe(expectedPublicReleaseSha);
   expect(String(runtimeConfig.adoption?.adapter_hash || "").toLowerCase()).toBe(expectedAdapterHash);
   expect(runtimeConfig.adoption?.adapter_manifest).toBe("wiki.adapter-manifest.json");

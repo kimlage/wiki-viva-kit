@@ -241,7 +241,7 @@ describe("operatorPost", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(operatorPost("/gates/run", { gate_id: "audit" })).rejects.toThrow(
-      /wiki_operator_security\.v1.*restart.*wiki_operator_security\.v2/
+      /outdated.*restart.*wiki_operator_security\.v2/
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

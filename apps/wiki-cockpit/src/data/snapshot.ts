@@ -18,6 +18,10 @@ import { loadRuntimeConfig } from "./runtimeConfig";
 import { isDemoScenarioId } from "./demoScenarios";
 import type { DemoScenarioId } from "./demoScenarios";
 import {
+  operatorRestartReason,
+  validateOperatorHandshake
+} from "../contracts/operatorSecurity.js";
+import {
   asTemporalGraphPayload,
   experiencePackContractErrors,
   temporalGraphContractErrors
@@ -544,18 +548,18 @@ export async function loadPageContent(
   };
 }
 
-// The operator handshake. Old operators (process older than the code on disk)
-// omit server_version/schema_capabilities entirely, which is how we detect
-// staleness and show the honest "restart the operator" state everywhere.
+// The operator handshake. Every consumer applies the shared executable
+// v6/v2/default-deny contract; merely exposing server_version, capabilities or
+// a Codex block is not enough to hide the honest restart state.
 export async function loadHealth(options: { signal?: AbortSignal } = {}): Promise<OperatorHealth | null> {
   return fetchOperatorHealth(options);
 }
 
 // Live Codex capability, read from /api/health (one fetch — the health payload
 // already carries the full probe record). Only the local operator can run
-// Codex, so demo/static mode never fetches. A stale operator (no `codex`
-// capability) is reported as operator_outdated, NOT as "not installed" — the
-// old code lied about a machine where codex is installed and authed.
+// Codex, so demo/static mode never fetches. A stale operator is reported as
+// operator_outdated, NOT as "not installed", even when an old v4/v1 process
+// happens to expose a plausible Codex block.
 export async function loadCodexCapability(
   runtime: RuntimeConfig,
   options: { signal?: AbortSignal } = {}
@@ -573,12 +577,20 @@ export async function loadCodexCapability(
   if (health === null) {
     return { ...CODEX_UNAVAILABLE, reason: "operator not reachable" };
   }
-  // An operator that serves a codex probe is trusted — that IS the live reading,
-  // even if it predates the schema_capabilities handshake (the handshake gates
-  // the OTHER one-world endpoints, not codex itself). Only a codex block that is
-  // entirely absent means a truly old operator (predates codex): restart it.
+  const handshake = validateOperatorHandshake(health);
+  if (!handshake.ok) {
+    return {
+      ...CODEX_UNAVAILABLE,
+      enabled: runtime.codexEnabled,
+      operator_outdated: true,
+      reason: operatorRestartReason(handshake)
+    };
+  }
+  // The Codex block is trusted only after the same exact security handshake
+  // that gates mutation. A v4/v1 process can expose a plausible Codex probe;
+  // treating that block as current would hide the required restart state.
   if (health.codex) {
-    return { ...CODEX_UNAVAILABLE, ...health.codex };
+    return { ...CODEX_UNAVAILABLE, ...health.codex, operator_outdated: false };
   }
   return {
     ...CODEX_UNAVAILABLE,

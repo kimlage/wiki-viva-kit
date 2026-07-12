@@ -109,12 +109,14 @@ def test_event_markdown_is_specific_never_placeholder(repo, language, forbidden)
     agg = aggregate_results(request, paths.llm_cache)
     md = build_event_markdown(
         agg, config=cfg, context="system", date=dt.date(2026, 6, 11),
+        source_ref="source-test",
         event_dir=paths.ingest_events_dir, root=tmp,
     )
     assert forbidden not in md
     assert "Ana wants the migration" in md          # real content from the cache
     assert "page_type: ingestion_event" in md       # distinct provenance family
     assert "page_type: source_catalog" not in md
+    assert "moc_parent: source-test" in md
     assert f"source_id: {SOURCE_ID}" in md           # gate hook
     assert "consolidated_into: []" in md             # integration to close
     assert "affected_pages: {must_update: [], should_review: []}" in md
@@ -153,6 +155,24 @@ def test_event_markdown_lives_under_its_canonical_source(repo):
     assert "moc_parent: source-test" in with_id_only
 
 
+def test_event_markdown_refuses_missing_canonical_source(repo):
+    tmp, cfg, paths, request = repo
+    agg = aggregate_results(request, paths.llm_cache)
+
+    with pytest.raises(
+        ValueError,
+        match="normalized ingestion event requires source_page or source_ref",
+    ):
+        build_event_markdown(
+            agg,
+            config=cfg,
+            context="system",
+            date=dt.date(2026, 6, 11),
+            event_dir=paths.ingest_events_dir,
+            root=tmp,
+        )
+
+
 def test_pending_lifecycle_until_consolidated(repo):
     tmp, cfg, paths, request = repo
     pend = pending_consolidations(tmp, cfg)
@@ -161,6 +181,7 @@ def test_pending_lifecycle_until_consolidated(repo):
     agg = aggregate_results(request, paths.llm_cache)
     md = build_event_markdown(
         agg, config=cfg, context="system", date=dt.date(2026, 6, 11),
+        source_ref="source-test",
         event_dir=paths.ingest_events_dir, root=tmp,
     )
     event = paths.ingest_events_dir / "2026-06-11-test-doc.md"

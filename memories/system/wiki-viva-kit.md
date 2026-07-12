@@ -57,7 +57,6 @@ related_pages:
   - memories/system/wiki/index.md
   - memories/system/input-stage.md
   - memories/system/source-registry.md
-  - docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 ---
 
 # Wiki Viva Kit

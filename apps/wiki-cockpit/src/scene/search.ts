@@ -12,6 +12,21 @@
 
 import type { PageRecord } from "../types";
 
+export type SearchFacet = { value: string; count: number };
+
+export type SearchOptions = {
+  pageType?: string;
+  context?: string;
+  allowedIds?: ReadonlySet<string>;
+};
+
+export type SearchResult = {
+  hits: PageRecord[];
+  total: number;
+  pageTypes: SearchFacet[];
+  contexts: SearchFacet[];
+};
+
 export function foldText(value: string): string {
   return value
     .normalize("NFD")
@@ -49,16 +64,35 @@ function scoreTerm(fields: { title: string; context: string; type: string; path:
 }
 
 export function searchTerms(query: string): string[] {
-  return foldText(query).split(/\s+/).filter(Boolean);
+  return foldText(query).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
 }
 
-/** Rank pages by relevance to a query. Every term must hit some field (AND).
- *  Returns most-relevant first; empty for an empty/whitespace query. */
-export function rankPages(pages: PageRecord[], query: string): PageRecord[] {
-  const terms = searchTerms(query);
-  if (!terms.length) return [];
-  const scored: { page: PageRecord; score: number }[] = [];
+function stableCompare(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function facetCounts(pages: readonly PageRecord[], field: "page_type" | "context"): SearchFacet[] {
+  const counts = new Map<string, number>();
   for (const page of pages) {
+    const value = page[field] || "";
+    if (!value) continue;
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || stableCompare(foldText(a.value), foldText(b.value)) || stableCompare(a.value, b.value));
+}
+
+/** Search with independent typed facets. Facet counts are calculated after
+ *  the query/scope and the opposite facet, so choosing a type keeps the
+ *  context choices truthful (and vice versa). */
+export function searchPages(pages: PageRecord[], query: string, options: SearchOptions = {}): SearchResult {
+  const terms = searchTerms(query);
+  if (!terms.length) return { hits: [], total: 0, pageTypes: [], contexts: [] };
+  const normalizedQuery = terms.join(" ");
+  const scored: { page: PageRecord; score: number; titleKey: string }[] = [];
+  for (const page of pages) {
+    if (options.allowedIds && !options.allowedIds.has(page.id) && !options.allowedIds.has(page.path)) continue;
     const fields = {
       title: foldText(page.title || ""),
       context: foldText(page.context || ""),
@@ -77,8 +111,50 @@ export function rankPages(pages: PageRecord[], query: string): PageRecord[] {
       }
       total += termScore;
     }
-    if (matchedAll) scored.push({ page, score: total });
+    if (!matchedAll) continue;
+
+    // Full-title intent must win before term-level relevance. Without this
+    // tier, "wiki system" tied "Wiki System" and "System Wiki" and the
+    // alphabetical fallback could place the reordered title first.
+    const normalizedTitle = searchTerms(page.title || "").join(" ");
+    const titleTier = normalizedTitle === normalizedQuery
+      ? 4
+      : normalizedTitle.startsWith(normalizedQuery)
+        ? 3
+        : terms.every((term) => fields.title.includes(term))
+          ? 2
+          : terms.some((term) => fields.title.includes(term))
+            ? 1
+            : 0;
+    scored.push({ page, score: titleTier * 10_000 + total, titleKey: fields.title });
   }
-  scored.sort((a, b) => b.score - a.score || a.page.title.localeCompare(b.page.title));
-  return scored.map((entry) => entry.page);
+  scored.sort((a, b) =>
+    b.score - a.score ||
+    stableCompare(a.titleKey, b.titleKey) ||
+    stableCompare(a.page.id, b.page.id)
+  );
+
+  const candidates = scored.map((entry) => entry.page);
+  const forPageTypeFacets = options.context
+    ? candidates.filter((page) => page.context === options.context)
+    : candidates;
+  const forContextFacets = options.pageType
+    ? candidates.filter((page) => page.page_type === options.pageType)
+    : candidates;
+  const hits = candidates.filter((page) =>
+    (!options.pageType || page.page_type === options.pageType) &&
+    (!options.context || page.context === options.context)
+  );
+  return {
+    hits,
+    total: hits.length,
+    pageTypes: facetCounts(forPageTypeFacets, "page_type"),
+    contexts: facetCounts(forContextFacets, "context")
+  };
+}
+
+/** Rank pages by relevance to a query. Every term must hit some field (AND).
+ *  Returns most-relevant first; empty for an empty/whitespace query. */
+export function rankPages(pages: PageRecord[], query: string): PageRecord[] {
+  return searchPages(pages, query).hits;
 }

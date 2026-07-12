@@ -52,6 +52,8 @@ jobs:
         run: python scripts/wiki_source_registry.py --check
       - name: Input stage freshness (root entity + channels)
         run: python scripts/wiki_input_stage.py --check
+      - name: Authored event and relation parity
+        run: python scripts/wiki_semantic_inventory.py --check
       - name: Deterministic v8 demo artifacts
         run: python scripts/wiki_build_demo.py --check
       - name: Atomic v8 snapshot contract

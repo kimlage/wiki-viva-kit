@@ -56,6 +56,7 @@ PYTHON_SCRIPTS: dict[str, set[tuple[str, ...]]] = {
     "scripts/wiki_audit.py": {("--check",)},
     "scripts/wiki_quality_report.py": {("--check",)},
     "scripts/wiki_check_methodology_coverage.py": {("--check",)},
+    "scripts/wiki_semantic_inventory.py": {("--check",)},
     "scripts/wiki_pr_summary.py": {()},
     "scripts/wiki_page_graph.py": {("--check",)},
 }
@@ -165,6 +166,7 @@ def build_operator_command_cards(config: WikiConfig) -> dict[str, Any]:
                 ("python3", "scripts/wiki_check_methodology_coverage.py", "--check"),
                 ("python3", "scripts/wiki_operation_compile.py", "--check"),
                 ("python3", "scripts/wiki_input_stage.py", "--check"),
+                ("python3", "scripts/wiki_semantic_inventory.py", "--check"),
             ),
         ),
         OperatorCommandCard(
