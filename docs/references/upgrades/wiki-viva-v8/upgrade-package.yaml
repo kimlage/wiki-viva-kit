@@ -1,13 +1,21 @@
 schema_version: wiki_viva_upgrade_package.v2
 
 release:
-  id: wiki-viva-v8-rc13
+  id: wiki-viva-v8-rc15
   status: validation_pending
-  source_sha: ffaec5dc263cf1e4baef8743015d1c8ea67f44b2
+  source_sha: f9defa5a0f156816fe419df6c8f208b9eea138e0
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc14
+    source_sha: 45e7cd90aada3ff847ded4570dbe921ab69f11c5
+    status: historical_release_candidate
+    note: S16 fixed result-window reset visibility and passed 513 frontend checks plus build, but independent release review found that validation_pending falsely hid an available source tree and its real downstream drift; S18 preserves those diagnostics while keeping promotion blocked
+  - id: wiki-viva-v8-rc13
+    source_sha: ffaec5dc263cf1e4baef8743015d1c8ea67f44b2
+    status: historical_release_candidate
+    note: S14 made result-window selection coherent and machine-blocked private adoption, but review found a false-green E2E locator and a reset-scroll race; the corrected test-only intermediate and final visibility fix advance together to rc14
   - id: wiki-viva-v8-rc12
     source_sha: 3fed97fa52fa1efd27d651cbd97c3ab67a4f5cfa
     status: historical_release_candidate
@@ -226,12 +234,12 @@ privacy:
     - private_console_or_network_payloads
 
 known_limitations:
-  - The package identifies exact post-S9 public payload S14 but deliberately keeps status validation_pending; package_is_pinned and downstream preflight must fail until exact 1,372 Python, 107 Node and 102-cell browser evidence plus current visual QA exist on the pinned source.
+  - The package identifies exact post-S9 public payload S18 but deliberately keeps status validation_pending; package_is_pinned and downstream preflight must fail until the complete deterministic/frontend/Node/browser gate stack plus current visual QA exist on the pinned source.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; exact S14 may be imported in three new ordered reviewable boundaries only after public validation changes this package to a releasable status.
-  - The historical private S9 read-only preflight remains attached to S9; S14 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; exact S18 may be imported in three new ordered reviewable boundaries only after public validation changes this package to a releasable status.
+  - The historical private S9 read-only preflight remains attached to S9; S18 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.
@@ -239,5 +247,5 @@ known_limitations:
   - Causal self/cycle/time-direction validation and full-graph attestation for future paginated temporal APIs remain explicit P2 follow-ups.
   - CI workflows are consumer-owned deployment policy and are intentionally excluded from portable import; downstreams must keep their own gates at least as strict.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Downstream test suites are consumer-owned integration policy and are not copied by the portable importer; the public core suite is proven on the pinned public subject, while each consumer must run its own real-data and adapter tests.
+  - Downstream test suites are consumer-owned integration policy and are not copied by the portable importer; the current public subject still requires its exact full validation before promotion, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.
