@@ -339,9 +339,17 @@ test("Timeline keeps one scroll model and 44px controls on mobile and fallback",
       return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
     });
     const rect = surface.getBoundingClientRect();
+    const navigatorViews = [
+      ...document.querySelectorAll<HTMLElement>(".worldNavigatorViewControls .worldNavigatorView")
+    ];
     return {
       minWidth: Math.min(...controls.map((element) => element.getBoundingClientRect().width)),
       minHeight: Math.min(...controls.map((element) => element.getBoundingClientRect().height)),
+      navigatorViewCount: navigatorViews.length,
+      navigatorLabelOverflow: Math.max(
+        0,
+        ...navigatorViews.map((element) => element.scrollWidth - element.clientWidth)
+      ),
       surface: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
       viewport: { width: window.innerWidth, height: window.innerHeight },
       documentOverflow: Math.max(
@@ -352,6 +360,8 @@ test("Timeline keeps one scroll model and 44px controls on mobile and fallback",
   });
   expect.soft(geometry.minWidth).toBeGreaterThanOrEqual(44);
   expect.soft(geometry.minHeight).toBeGreaterThanOrEqual(44);
+  expect.soft(geometry.navigatorViewCount).toBe(5);
+  expect.soft(geometry.navigatorLabelOverflow).toBeLessThanOrEqual(0);
   expect.soft(geometry.surface.left).toBeGreaterThanOrEqual(0);
   expect.soft(geometry.surface.right).toBeLessThanOrEqual(geometry.viewport.width + 1);
   expect.soft(geometry.surface.top).toBeGreaterThanOrEqual(0);

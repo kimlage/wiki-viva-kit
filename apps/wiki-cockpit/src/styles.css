@@ -3721,13 +3721,19 @@ button.worldNavigatorPackBadge[aria-pressed="true"] {
     display: grid;
     grid-column: 1 / -1;
     grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 2px;
     width: 100%;
   }
 
   .worldNavigatorView {
     min-width: 0;
-    padding-inline: 4px;
+    gap: 0;
+    padding-inline: 2px;
     font-size: 11px;
+  }
+
+  .worldNavigatorView > svg {
+    display: none;
   }
 
   .worldNavigatorOverlaySelect {
