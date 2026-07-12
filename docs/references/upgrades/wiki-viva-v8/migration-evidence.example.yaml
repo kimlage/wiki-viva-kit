@@ -25,11 +25,13 @@ files_imported:
 local_overrides_kept:
   - wiki.config.yaml
   - wiki.targets.yaml
+  - wiki.page-types.yaml
+  - wiki.templates.yaml
+  - requirements.txt
   - wiki.packs.lock.yaml
   - wiki.adapter-manifest.json
   - wiki.page-types.local.yaml
   - wiki.templates.local.yaml
-  - requirements.private.txt
   - .github/workflows/wiki.yml
   - apps/wiki-cockpit/public/wiki-cockpit.config.json
 warnings: []

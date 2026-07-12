@@ -42,9 +42,6 @@ portable_import:
     - docs/references/guides/**
     - docs/references/schemas/**
     - docs/references/fixtures/demo-wiki/**
-    - wiki.page-types.yaml
-    - wiki.templates.yaml
-    - requirements.txt
   block:
     - memories/**
     - memorias/**
@@ -58,6 +55,9 @@ portable_import:
     - docs/references/releases/wiki-viva-v8.md
     - docs/references/upgrades/wiki-viva-v8/**
     - .github/workflows/**
+    - requirements.txt
+    - wiki.page-types.yaml
+    - wiki.templates.yaml
     - apps/wiki-cockpit/public/wiki-cockpit.config.json
     - apps/wiki-cockpit/tmp/**
     - data/raw/**
@@ -183,4 +183,5 @@ known_limitations:
   - The private pilot must import this exact payload in three reviewable boundaries and repeat the real-data operator, Chronoscope, pack, theme, mobile and fallback matrix before adoption can be claimed.
   - Causal self/cycle/time-direction validation and full-graph attestation for future paginated temporal APIs remain explicit P2 follow-ups.
   - CI workflows are consumer-owned deployment policy and are intentionally excluded from portable import; downstreams must keep their own gates at least as strict.
+  - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
   - Consumer-specific core failures must first become synthetic public fixtures.

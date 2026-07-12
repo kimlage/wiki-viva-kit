@@ -42,9 +42,12 @@ Append-only record of changes in the [memories/](../index.md) layer.
   branch, pinned source, real snapshot and privacy checks passed, while 1,486
   portable differences and unsafe historical drift-ignore patterns remained.
   Package v2 now treats CI workflows as consumer-owned policy. Private-only
-  tests/scripts must move under the already blocked private extension surface,
-  and local requirements/templates/page types must use downstream overlays
-  before toolkit drift can reach zero.
+  tests/scripts must move under the already blocked private extension surface.
+  The follow-up semantic read proved that page-type local overlays are not yet
+  loaded by the runtime, so dependency and base page-type/template registries
+  are now protected consumer-owned merge surfaces: preserve local extensions,
+  add public minimums and prove the merged result instead of claiming a
+  nonexistent overlay capability.
 
 ## [2026-07-11] System | V8 release readiness reopened
 

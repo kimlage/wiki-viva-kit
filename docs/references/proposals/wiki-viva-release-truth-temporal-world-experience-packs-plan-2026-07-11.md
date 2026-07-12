@@ -911,17 +911,19 @@ private capability without weakening the public contract:
 2. private-only tests and scripts move under the already blocked `private/**`
    extension boundary and remain collected explicitly by the private test
    configuration;
-3. the public base `wiki.templates.yaml`, `wiki.page-types.yaml` and
-   `requirements.txt` become byte-identical to `S`, while private deltas move to
-   `wiki.templates.local.yaml`, `wiki.page-types.local.yaml` and
-   `requirements.private.txt`;
+3. `requirements.txt`, `wiki.templates.yaml` and `wiki.page-types.yaml` remain
+   consumer-owned merge surfaces. The migration preserves private extensions,
+   adds every public minimum dependency/contract and proves the merged result;
+   it does not claim `wiki.page-types.local.yaml` support that the runtime does
+   not currently implement;
 4. the unsafe ignore file is removed; final migration evidence may say
    `toolkit_drift=pass` only at literal zero.
 
 This is a real package-boundary improvement discovered by downstream pressure,
-not a waiver. The public payload SHA remains unchanged because the correction
-is metadata/import policy in `M`; the private structural moves belong to the
-downstream adaptation boundary.
+not a waiver. Workflow, dependency and base-registry policy are consumer-owned;
+portable core remains byte-identical. The public payload SHA remains unchanged
+because the correction is metadata/import policy in `M`; private structural
+moves and semantic merges belong to the downstream adaptation boundary.
 
 ### Historical private downstream pilot checkpoint
 

@@ -72,4 +72,4 @@ consumers:
       verified_on: "2026-07-12"
     upgrade_wave: pilot
     status: upgrade_pending
-    blocker: normalize consumer-owned workflow, tests, scripts, requirements and template/page-type overlays; then import exact rc2 payload b781882a, regenerate artifacts and repeat the non-skippable real-data browser matrix
+    blocker: normalize consumer-owned workflow/tests/scripts, semantically reconcile protected requirements and base registries, then import exact rc2 payload b781882a, regenerate artifacts and repeat the non-skippable real-data browser matrix
