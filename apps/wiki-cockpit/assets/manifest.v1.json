@@ -48,7 +48,7 @@
       "origin": "first_party",
       "license": {
         "spdx": "MIT",
-        "file": "../../LICENSE",
+        "file": "assets/FIRST_PARTY_ASSET_LICENSE.md",
         "sha256": "3960f834c06ae2e7870e7fd8957b28804333ee9a1bba663897cabad70c409642"
       },
       "integrity": {

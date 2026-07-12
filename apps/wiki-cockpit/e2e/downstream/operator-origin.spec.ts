@@ -156,7 +156,8 @@ test("exact downstream operator serves the attested repo, revision, hash and cap
   expect(canonicalEvidence({
     packs: experiencePacks.packs,
     block_packages: experiencePacks.block_packages,
-    slots: experiencePacks.slots
+    slots: experiencePacks.slots,
+    presentation: experiencePacks.presentation
   }).sha256).toBe(expectedCompositionSha256);
   expect(canonicalEvidence(temporal)).toEqual(manifest.integrity?.["temporal_graph.json"]);
   expect(canonicalEvidence(experiencePacks)).toEqual(manifest.integrity?.["experience_packs.json"]);

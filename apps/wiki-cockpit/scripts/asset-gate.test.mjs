@@ -54,7 +54,7 @@ function baseManifest(content) {
         path: "public/test.png",
         kind: "image",
         origin: "first_party",
-        license: { spdx: "MIT", file: "../../LICENSE", sha256: digest(Buffer.from(MIT_LICENSE)) },
+        license: { spdx: "MIT", file: "assets/FIRST_PARTY_ASSET_LICENSE.md", sha256: digest(Buffer.from(MIT_LICENSE)) },
         integrity: { algorithm: "sha256", value: digest(content), bytes: content.length },
         budget: { max_bytes: 1024 },
         provenance: { source: "repository", upstream_url: null, attribution: "Fixture contributors" }
@@ -69,7 +69,7 @@ function fixture(t, { content = Buffer.from("fixture-image") } = {}) {
   fs.mkdirSync(path.join(appRoot, "assets"), { recursive: true });
   fs.mkdirSync(path.join(appRoot, "public"), { recursive: true });
   fs.mkdirSync(path.join(appRoot, "src/assets"), { recursive: true });
-  fs.writeFileSync(path.join(repoRoot, "LICENSE"), MIT_LICENSE);
+  fs.writeFileSync(path.join(appRoot, "assets/FIRST_PARTY_ASSET_LICENSE.md"), MIT_LICENSE);
   fs.writeFileSync(path.join(appRoot, "assets/THIRD_PARTY_NOTICES.md"), LUCIDE_NOTICE);
   fs.writeFileSync(path.join(appRoot, "package.json"), JSON.stringify({ dependencies: { "lucide-react": LUCIDE_VERSION } }));
   fs.writeFileSync(path.join(appRoot, "package-lock.json"), JSON.stringify({
@@ -229,7 +229,7 @@ test("rejects an asset without license, hash or per-item budget", async (t) => {
 test("binds each asset to matching license bytes and SPDX content", async (t) => {
   await t.test("license hash drift", (nested) => {
     const current = fixture(nested);
-    fs.appendFileSync(path.resolve(current.appRoot, "../../LICENSE"), "drift\n");
+    fs.appendFileSync(path.join(current.appRoot, "assets/FIRST_PARTY_ASSET_LICENSE.md"), "drift\n");
     const result = current.evaluate();
     assert.ok(codes(result).includes("asset_license_hash"), JSON.stringify(result.errors, null, 2));
   });
