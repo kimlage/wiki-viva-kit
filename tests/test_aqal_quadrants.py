@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from wiki_core.config import load_config
 from wiki_core.quadrants import quadrant_contract
 
 
@@ -145,4 +146,5 @@ def test_quadrant_contract_cli_matches_python_contract() -> None:
         text=True,
     )
 
-    assert json.loads(result.stdout) == quadrant_contract("en")
+    config = load_config(ROOT)
+    assert json.loads(result.stdout) == quadrant_contract(config.language)

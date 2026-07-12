@@ -3,7 +3,7 @@ page_id: system-memories-log
 page_type: system_log
 context: system
 visibility: private_self
-updated_at: 2026-07-07
+updated_at: 2026-07-12
 stale_after_days: 180
 sources_policy: append_only_memory_changes
 gate: github_pr
@@ -13,6 +13,14 @@ sensitive_data_policy: private_sensitive_allowed
 # Memory log
 
 Append-only record of changes in the [memories/](../index.md) layer.
+
+## [2026-07-12] System | Configured-language CLI regression coverage
+
+- The quadrant contract CLI regression test now compares output with the
+  repository-configured language instead of assuming English, so localized
+  downstream wikis exercise the same contract without patching the shared suite.
+- [Operational pass](operational-pass.md) was regenerated for the current
+  source/action/context state required by CI.
 
 ## [2026-07-07] System | Quadrant terminology clarified
 
