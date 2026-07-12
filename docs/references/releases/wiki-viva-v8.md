@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 public payload candidate - downstream pending"
+title: "Wiki Viva v8 rc8 exact payload proven - promotion pending"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,11 +11,12 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 public payload candidate - downstream pending
+# Wiki Viva v8 rc8 exact payload proven - promotion pending
 
-Status on 2026-07-12: **the public payload is an exact-subject release
-candidate; the complete release is still blocked by private adoption, human
-review and external E5 authority**.
+Status on 2026-07-12: **metadata envelope rc8 pins an exact public S9 payload
+whose full automated public and redacted private stacks pass. Release remains
+blocked by the remaining consumer-semantic evidence, human review/merge,
+VoiceOver, tag authority and external E5**.
 
 Historical payload `S` remains pinned to
 `b781882a11e8bbac3ae9684d199979a1f4ee1bf7`. The first clean-subject browser
@@ -50,6 +51,86 @@ passed **1,356/1,356 Python**, **489/489 frontend**, **106/106 Node** and
 minutes**. Its retained browser result is
 `public-mrhi2oel-b9899085-eb90-4b27-b9fd-4f265fee8fcd/run-result.json`.
 
+Downstream attestation then exposed two more public P1 boundaries. Immediate
+predecessor
+`S5=605ad66b9d9a011505704c72be506e03e680583a` replaces the non-portable
+`../../LICENSE` asset reference with the shipped
+`assets/FIRST_PARTY_ASSET_LICENSE.md` license artifact (RT-138) and makes the
+downstream E2E recompute pack composition with the `presentation` contract
+included (RT-139). Exact `S5` passed **1,356/1,356 Python**, **489/489
+frontend** and **106/106 Node** controls together with the deterministic
+non-browser gates. The current browser-closure payload is
+`S6=b852a992afa3eae64e220c461c2eff052572377c`, pinned by package
+`wiki-viva-v8-rc5`. It closes RT-140 by classifying requests against their
+route at both start and finish, and by forcing a live-to-demo transition in the
+observer test instead of counting legitimate pre-transition traffic as a demo
+leak. Exact `S6` passed **102/102 browser cells on the first attempt, with 0
+skips and 0 retries in 6.0 minutes**. Its retained browser result is
+`public-mrhjnxhu-0b3e0e14-d9d3-430c-9b11-8c03b3bb3fed/run-result.json`.
+Exact `S6` also passed **1,356/1,356 Python tests in 346.27 seconds**, with
+the two known multiprocessing-fork deprecation warnings. The `S5`
+deterministic counts remain preserved on their original subject even though
+the unchanged Python surface was repeated successfully on `S6`.
+
+Two downstream proof-contract corrections follow rc5. Exact
+`S7=fa83a70500b3b1d27074c54e70893405d61d9b87` closes RT-142: the verifier no
+longer invents `pages.snapshot_id`, attests `pages.json` through manifest
+integrity, and accepts `action_state_canonicalized` plus
+`action_contract_updated` in the temporal vocabulary. Exact
+`S8=d0a6168cf8aa291d79047c28a0c61eb274b973f9` closes RT-143 by observing the
+atomic `/api/snapshot/boot` envelope the cockpit actually consumes instead of
+waiting for a deprecated manifest/pages/experience-pack fan-out. Exact S8
+passed **102/102 public browser cells on the first attempt in 5.9 minutes with
+0 skips/retries**; the paired adopted private S8 subject passed **2/2 mandatory
+downstream cells on the first attempt with 0 skips/retries**. Those receipts
+remain evidence for S8 only.
+
+The current payload is
+`S9=b45378d37e96eed04fb355392d10bd8471c5fda7`, pinned by package
+`wiki-viva-v8-rc8`. It closes the implementation side of RT-144 after real
+390x844 inspection found that all five view controls stayed inside the
+document but their labels overflowed their own 60 px buttons. Mobile CSS now
+hides view icons and tightens gap/padding; the Timeline geometry regression
+requires exactly five controls and zero inner-label overflow. Exact S9 passed
+**102/102 public browser cells on the first attempt with 0 skips/retries in
+6.0 minutes**; retained result
+`public-mrhlap2k-c82be0c1-a378-4faf-a558-28d397bdfbad/run-result.json`. It also
+passed **1,356/1,356 Python tests in 380.02 seconds** with two known
+multiprocessing/fork warnings, **489/489 frontend tests across 62 files in 3.13
+seconds**, **106/106 Node gates in 12.46 seconds**, build, zero-debt
+architecture, assets with 0 external entries, bundle at 162.38 kB initial
+JavaScript gzip, release-matrix inventory 102+2, both audits at 0 errors/6
+known warnings, methodology, operation, input, deterministic demo, 26-payload
+snapshot contract and pack validation. Its payload tree is
+`d39bff5c4b5b9dbe9ee09be2264682cd3ed418bf`; SHA-256 evidence hashes are
+`88ea56ac9a57654e0ac57c1e59d8db081d72019e4df9e06a81b8acb3cdfedc28`
+(run result),
+`7b5fbe0b3e57fdc1191a376c663ba4783ac084c4b2a7018be02d37400a913026`
+(gate result) and
+`7d1ec18b3d33d353e33657e02e61f5460e5ddcae7e9457b38f4b5a90a4ea398e`
+(report). The isolated snapshot API also passed against 49 public pages.
+
+The private S9 subject passes **2/2 mandatory downstream
+cells on the first attempt with 0 skips/retries in 7.8 seconds**; redacted
+preflight aggregates are 562 pages, 772 temporal events, one active pack and
+one adapter file. Manual 390x844 reinspection measured five 62 px controls
+with `clientWidth == scrollWidth`, zero inner/document overflow, 44 px minimum
+height and hidden icons. The same clean private subject passed **1,117 Python
+tests with 1 explicit skip and 0 warnings in 144.62 seconds**, **489/489
+frontend across 62 files in 3.74 seconds**, **106/106 Node in 14.398 seconds**,
+build, zero-debt architecture, assets, 162.38 kB initial JavaScript gzip,
+audit at 0 errors/35 known warnings, methodology, operation, input,
+deterministic demo, 26-payload snapshot contract and packs. No S8 result is
+promoted across this subject boundary; public and private S9 were executed
+independently.
+
+The official read-only downstream upgrade preflight, consuming gate evidence
+bound to that clean private subject, is **ready with 0 blockers**, toolkit drift
+0, all five required pre-import gates passing, a real snapshot and one expected
+`local_overrides` warning. The redacted report remains in the private ignored
+evidence cache; its SHA-256 is
+`0e38c895350097485f701f8a2285ed604d4744f626b4db34fef3a62bc9614e23`.
+
 Historical exact `S` passed **1,339/1,339 Python tests, 0 skips, in 355.06
 seconds**, with two multiprocessing-fork deprecation warnings. It also passed
 **489/489 frontend tests across 62 files**, **106/106 Node gate tests**, the
@@ -58,12 +139,12 @@ checks. Initial JavaScript is **162.38 kB gzip**. Normal and public-export audit
 report **0 errors and 6 freshness warnings** caused by the date crossing
 midnight, not privacy or contract failures.
 
-This evidence promotes only the public portable payload. Browser closure is
+This evidence promotes only the historical subjects named by each receipt.
+Browser closure is
 not a full-release receipt and does not self-attest Python, private data,
-product approval or E5. The next mandatory proof is an allowlisted three-commit
-adoption of exact `S4` by the private pilot, including real operator
-identity, non-empty Chronoscope, Finance pack composition, theme, mobile and
-fallback navigation. [Draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61)
+product approval or E5. The allowlisted private S9 adoption and its two
+mandatory browser cells plus both complete deterministic stacks are now
+proven. [Draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61)
 still requires human review and merge; no tag is authorized yet.
 
 ## Current correction lineage — public payload candidate
@@ -90,25 +171,27 @@ hash-bound toolchain and worktree subjects, a browser-only receipt, fail-closed
 demo/transport and atomic snapshot activation controls. Adversarial rereview
 reopened asynchronous GET, responsive layout, revision inventory,
 cleanup/durability and evidence-ownership boundaries before the final freeze.
-The global adversarial verdict has no open public P0/P1. The checked-in matrix
-records 102 public cells and 2 mandatory downstream cells, but the latter must
-still run on the adopted private subject.
+The implementation ledger has no unassigned public P0/P1 through RT-144. The
+checked-in matrix records 102 public cells and 2 mandatory downstream cells;
+exact S9 passed both halves independently on their paired subjects.
 
 ### Exact public subject evidence
 
-The active rc4 overlay is exact `S4`: **1,356 Python**, **489 frontend**,
-**106 Node** and **102/102 browser** controls passed; the browser result has
-zero skip/retry and the normal audit reports **0 errors / 6 date-driven
-freshness warnings**. Methodology, operation, input stage, deterministic demo,
-the 26-payload snapshot, pack validation, production build, architecture,
-assets and bundle gates are green. The historical counts below remain attached
-to their original subjects and are not rewritten.
+The current rc8 metadata overlay pins exact `S9`. Its public ledger passed
+**1,356 Python**, **489 frontend**, **106 Node**, **102/102 browser** and every
+deterministic release gate; its private adoption ledger passed **1,117 Python**,
+**489 frontend**, **106 Node**, **2/2 downstream browser** and every private
+deterministic gate on a clean subject. Historical rc5/S6 passed **102/102
+browser** and **1,356 Python** on its own subject, while S8 passed the complete
+102+2 browser split on its paired historical subjects. Historical rc4/S4 and
+all earlier counts below remain attached to their original subjects and are not
+rewritten.
 
-- Frontend unit/component suite: **489/489 passed across 62 files**.
+- Exact S9 frontend unit/component suite: **489/489 passed across 62 files in
+  3.13 seconds**.
 - Playwright collection: **102 public cells in 17 specs** plus **2 downstream
-  cells in 1 spec**. The checked-in matrix exactly records that frozen
-  inventory; the exact public wrapper passed 102/102 with zero skip/retry and
-  **106/106 Node gate tests** pass.
+  cells in 1 spec**. Exact S9 passed 102+2 on paired subjects, first attempt,
+  with zero skips/retries; **106/106 Node gates** also pass.
 - Executable public demos: **7 isolated base scenarios**, **22 bound claims**
   and **12 canonical `/demo/w` routes**, plus all 9 Genesis stages (0–8).
 - Pack showcases: Study/Research has **6 pages, 11 events and 4 pack-owned event
@@ -138,6 +221,28 @@ references and zero false same-state transitions. Causal self/cycle/time-
 direction checks and a future paginated API full-graph attestation remain
 explicit P2 work.
 
+The rc5 pressure pass additionally closes RT-138, RT-139 and RT-140 at the
+public P1 boundary: every first-party asset license now exists inside the
+portable asset tree, downstream composition recomputation includes pack
+presentation, and the browser observer measures the actual live-to-demo route
+boundary. RT-141 remains a non-blocking P2 hygiene item: the runtime
+`.wiki-viva/pack-operation.lock` file still needs a portable ignore contract.
+
+S7 closes RT-142 by aligning downstream proof with the actual pages integrity
+and canonical action-event contracts. S8 closes RT-143 by observing the atomic
+boot envelope actually consumed by the UI; its exact public/downstream browser
+receipts remain S8-only. Private S9 repeats both contracts in 2/2 mandatory
+cells, and exact public S9 passes 102/102. S9 implements RT-144's 390x844
+inner-control overflow repair and regression; public browser plus private
+manual geometry are closed.
+
+RT-145 is a non-blocking P2 observability item found during that manual pass:
+closing/reloading a client while a large `/api/snapshot/boot` body is being
+written can log full `BrokenPipeError`/`ConnectionResetError` tracebacks. It did
+not affect UX or gates. A future narrow write/flush guard must quiet only these
+expected disconnects and retain visibility for serialization and unexpected
+server errors, backed by an aborted-client regression.
+
 The architecture extracted from Claude's interrupted review has been
 independently replayed: collection compilation is shared, graph deduplication is
 indexed, demo construction no longer monkeypatches private snapshot functions,
@@ -147,6 +252,15 @@ boundary is deliberately honest: `sceneSystems`, `relationTypes`,
 plugin ABI. A future versioned `wiki_runtime_extension.v1` contract must bind
 ownership, consumers, capabilities, accessible fallbacks and rollback before
 those registries can be advertised as installable runtime extensions.
+
+The independently revalidated Claude design material is consolidated as future
+kit direction rather than rc8 release evidence: **Setup Studio** for visual
+pack/block composition, a pack-extensible **contract interview wizard**, the
+calmer **Quiet Reference Library / Knowledge Garden**, and optional **Module
+Orbit + bento docks** with a complete accessible 2D counterpart. The pack
+roadmap explicitly covers finance, teams, PDLC, notes, studies and references;
+each remains a separate versioned pack series with synthetic fixtures, temporal
+profiles, operations and rollback.
 
 ## Historical candidate checkpoint
 
@@ -388,17 +502,23 @@ blank world, center error, overlap, unreadable label or sample fallback.
 Conversely, a passed `browser_closure` receipt binds only that browser evidence;
 the commands above require their own exact-`S` results and broader manifest.
 
-## Remaining external gates
+## Remaining promotion gates
 
-- Execute the now-written exact 102+2 matrix on clean public `S` with zero
-  required skip, retry or flake; 106/106 matrix/gate tests already pass on the
-  frozen worktree, but contract identity is not browser execution.
-- Create metadata commit `M` only after `S`, without asking a commit to contain
-  its own SHA; do not repin the current upgrade package before that boundary.
-- Adopt the exact public payload downstream, run the real operator/UI/temporal/
-  pack matrix and bind private `P` without exporting private content.
-- Obtain human review/merge and the separate signed E5 promotion authority
-  before creating a release tag.
+- Retain the exact historical S6 and S8 ledgers on their original subjects;
+  neither can be relabeled as current S9 proof.
+- Preserve the completed exact S9 public 102-cell browser, 1,356-test Python,
+  489-test frontend, 106-test Node and deterministic-gate evidence.
+- Preserve the completed private S9 2/2 first-attempt downstream and full
+  deterministic receipts with only redacted real-data aggregates public.
+- Commit metadata envelope `M` only after the S9 payload, without asking a
+  commit to contain its own SHA; rc8 pins that already-created payload subject.
+- Complete the consumer-semantic gates that a green generic suite does not
+  replace: real legacy-event equality/compatibility inventory (RT-09/10),
+  real-data search acceptance (RT-29), canonical migration report (RT-33),
+  downstream relation inventory (RT-36), source authoring replay (RT-47) and
+  restart/security documentation replay (RT-48).
+- Complete human conceptual/privacy/VoiceOver review, human merge and the
+  separate signed E5 promotion authority before creating a release tag.
 
 ## Historical final candidate evidence (`dbd158a4`)
 

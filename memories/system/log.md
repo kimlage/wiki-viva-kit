@@ -14,6 +14,74 @@ sensitive_data_policy: private_sensitive_allowed
 
 Append-only record of changes in the [memories/](../index.md) layer.
 
+## [2026-07-12] System | V8 rc8 pins S9 with exact public and private automated proof
+
+- Current public payload `S9` is
+  `b45378d37e96eed04fb355392d10bd8471c5fda7`; package
+  `wiki-viva-v8-rc8` pins that exact subject. Its complete 102-cell browser,
+  1,356-test Python, 489-test frontend, 106-test Node and deterministic public
+  matrix pass on that exact subject; no historical count is promoted to S9.
+- Historical rc4/S4 and rc5/S6 remain immutable. `S7=fa83a705...` closes
+  RT-142 by replacing invented `pages.snapshot_id` proof with manifest
+  integrity and accepting the current action migration event kinds.
+  `S8=d0a6168c...` closes RT-143 by observing the atomic
+  `/api/snapshot/boot` envelope consumed by the UI; its 102/102 public and 2/2
+  downstream receipts remain S8-only evidence.
+- S9 implements RT-144 after real 390x844 inspection found inner label overflow
+  in all five mobile view controls despite zero document overflow. Mobile icons
+  are hidden, spacing is tightened and the regression requires five controls
+  with zero `scrollWidth - clientWidth` overflow.
+- The exact private S9 adoption passed 2/2 mandatory downstream cells on the
+  first attempt in 7.8 seconds with 0 skips/retries. Redacted preflight
+  aggregates are 562 pages, 772 temporal events, one active pack and one
+  adapter file. Manual mobile reinspection measured five 62 px controls,
+  44 px minimum height and zero inner/document overflow; Timeline exposed 772
+  events across sanitized lane counts 143/29/11/8/562/19.
+- The official read-only upgrade preflight consumed current gate evidence bound
+  to the exact private subject and returned ready with 0 blockers, toolkit
+  drift 0, five required gates passing, a real snapshot and one expected
+  local-overrides warning. The redacted report stays in the private ignored
+  evidence cache; its public-safe SHA-256 is
+  `0e38c895350097485f701f8a2285ed604d4744f626b4db34fef3a62bc9614e23`.
+- Independently revalidated Claude direction remains future kit input, not rc8
+  evidence: Setup Studio, a contract interview wizard, Quiet Reference
+  Library/Knowledge Garden, Module Orbit plus bento docks, and separate pack
+  series for finance, teams, PDLC, notes, studies and references.
+- RT-145 records a non-blocking P2 observability residual: closing/reloading a
+  client during a large atomic boot write can log expected
+  `BrokenPipeError`/`ConnectionResetError` tracebacks. A future narrow
+  write/flush guard and aborted-client test must not hide serialization or
+  unexpected server faults.
+- Human conceptual, privacy and VoiceOver review, merge and external E5 remain
+  mandatory before any tag. Consumer-semantic evidence for RT-09/10/29/33/36,
+  RT-47 and RT-48 also remains explicit; the exact public/private automated
+  suites and machine-readable upgrade preflight are complete.
+
+## [2026-07-12] System | V8 rc5 closes downstream attestation and observer boundaries
+
+- Current public browser-closure payload `S6` is
+  `b852a992afa3eae64e220c461c2eff052572377c`; package
+  `wiki-viva-v8-rc5` pins that exact subject. Historical rc4/S4 remains
+  immutable evidence for its own parser and live-to-demo closure.
+- Immediate predecessor `S5=605ad66b...` closes RT-138 by shipping
+  `assets/FIRST_PARTY_ASSET_LICENSE.md` instead of referencing an absent
+  downstream `../../LICENSE`, and closes RT-139 by including `presentation`
+  when the downstream E2E independently recomputes pack composition.
+- Exact `S5` passed 1,356/1,356 Python tests, 489/489 frontend tests, 106/106
+  Node gates and the deterministic non-browser stack. Those counts remain S5
+  evidence. Exact `S6` independently repeated 1,356/1,356 Python tests in
+  346.27 seconds with the two known multiprocessing warnings.
+- `S6` closes RT-140 by measuring each observed request against its route at
+  start and finish and forcing the actual live-to-demo transition in the
+  regression. Exact `S6` passed 102/102 browser cells on the first attempt,
+  with 0 skips/retries in 6.0 minutes; retained result:
+  `public-mrhjnxhu-0b3e0e14-d9d3-430c-9b11-8c03b3bb3fed/run-result.json`.
+- RT-141 records one non-blocking P2 hygiene residual: the runtime
+  `.wiki-viva/pack-operation.lock` path still lacks a portable ignore contract.
+- The private pilot remains in upgrade. Exact rc5 import, protected downstream
+  reconciliation and the redacted real-data operator/browser proof are still
+  mandatory before adoption can be claimed.
+
 ## [2026-07-12] System | V8 rc4 closes real parser and live-to-demo boundaries
 
 - Final public pressure payload `S4` is

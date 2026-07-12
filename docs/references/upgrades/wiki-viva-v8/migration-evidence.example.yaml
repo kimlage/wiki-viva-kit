@@ -3,7 +3,7 @@
 # contain real private paths, SHAs, routes or screenshots.
 schema_version: wiki_viva_migration_evidence.v1
 source:
-  release: wiki-viva-v8-rc4
+  release: wiki-viva-v8-rc8
   sha: REPLACE_WITH_PINNED_PUBLIC_SHA
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 consumer_before:

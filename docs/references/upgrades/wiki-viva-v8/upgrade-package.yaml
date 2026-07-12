@@ -1,11 +1,29 @@
 schema_version: wiki_viva_upgrade_package.v2
 
 release:
-  id: wiki-viva-v8-rc4
+  id: wiki-viva-v8-rc8
   status: release_candidate
-  source_sha: f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb
+  source_sha: b45378d37e96eed04fb355392d10bd8471c5fda7
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
+
+historical_release_candidates:
+  - id: wiki-viva-v8-rc4
+    source_sha: f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb
+    status: historical_release_candidate
+    note: exact S4 parser and same-turn live-to-demo boundary closure; retained with its original evidence and never rewritten as rc8 proof
+  - id: wiki-viva-v8-rc5
+    source_sha: b852a992afa3eae64e220c461c2eff052572377c
+    status: historical_release_candidate
+    note: exact S6 request-time live-to-demo observer closure with its own Python and browser evidence
+  - id: wiki-viva-v8-rc6
+    source_sha: fa83a70500b3b1d27074c54e70893405d61d9b87
+    status: historical_release_candidate
+    note: S7 aligns downstream pages integrity and canonical temporal migration vocabulary with the actual snapshot contracts
+  - id: wiki-viva-v8-rc7
+    source_sha: d0a6168cf8aa291d79047c28a0c61eb274b973f9
+    status: historical_release_candidate
+    note: exact S8 rendered-UI observer consumes the atomic snapshot boot envelope and retains its own public and downstream browser receipts
 
 contract_versions:
   route: wiki_world_route.v8
@@ -179,9 +197,15 @@ privacy:
     - private_console_or_network_payloads
 
 known_limitations:
-  - The payload is pinned to the exact public browser-closure subject, but PR 61 still requires human review, merge and a release tag.
+  - The package pins the current exact public payload subject; its complete public browser and deterministic validation pass, while PR 61 still requires human review, merge, VoiceOver, external E5 and a release tag.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
-  - The private pilot must import this exact payload in three reviewable boundaries and repeat the real-data operator, Chronoscope, pack, theme, mobile and fallback matrix before adoption can be claimed.
+  - Exact S9 passes the complete public browser, Python, frontend, Node and deterministic release matrix; S6 and S8 results remain attached to those historical subjects and are never relabeled as S9 evidence.
+  - The private pilot imported exact S9 in reviewable boundaries and passes 2/2 mandatory downstream cells first attempt plus the complete private deterministic stack; human review, merge, VoiceOver and E5 still remain.
+  - The official private read-only upgrade preflight is ready with toolkit drift zero, zero blockers, all five required current-gate receipts passing and one expected local-overrides warning; its redacted report hash is recorded in the release plan while raw evidence stays private.
+  - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
+  - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
+  - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.
+  - An expected client disconnect during a large atomic boot write can emit BrokenPipeError or ConnectionResetError tracebacks; RT-145 tracks a narrow write/flush guard and aborted-client regression without masking serialization or unexpected server errors.
   - Causal self/cycle/time-direction validation and full-graph attestation for future paginated temporal APIs remain explicit P2 follow-ups.
   - CI workflows are consumer-owned deployment policy and are intentionally excluded from portable import; downstreams must keep their own gates at least as strict.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.

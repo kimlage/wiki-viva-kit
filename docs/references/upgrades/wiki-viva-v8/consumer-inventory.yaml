@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc4@f7c9d0ad
+    current_kit_version: wiki-viva-v8-rc8@b45378d3
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -34,10 +34,10 @@ consumers:
     drift_status:
       state: self
       drift_total: 0
-      worktree: exact_subject_proven
+      worktree: exact_payload_validation_complete
     upgrade_wave: public_kit
     status: candidate
-    blocker: PR 61 human review, merge, external E5 authority and release tag remain
+    blocker: complete PR 61 human conceptual, privacy and VoiceOver review, merge, external E5 authority and release tag
 
   - id: private-pilot-01
     repository:
@@ -47,7 +47,7 @@ consumers:
       owner: <redacted>
     consumer_type: private_operational_wiki
     role: first_private_pilot
-    current_kit_version: wiki-viva-v8-rc3@f0936539
+    current_kit_version: wiki-viva-v8-rc8@b45378d3
     current_layout:
       memory_root: memorias
       references_root: docs/referencias
@@ -68,8 +68,8 @@ consumers:
       state: upgrade_in_progress
       scope: wiki_toolkit_drift_core_prefixes
       drift_total: 0
-      details: exact rc3 payload f0936539 is imported with zero portable drift; the three-file rc4 delta and its downstream evidence are not yet attested
+      details: exact S9 payload b45378d3 and the Finance pack are present with protected downstream adaptations; the complete public matrix and private deterministic stack pass, including 2/2 mandatory downstream browser cells on the first attempt with zero skip or retry; official upgrade preflight is ready with drift zero, zero blockers and one expected local-overrides warning
       verified_on: "2026-07-12"
     upgrade_wave: pilot
     status: upgrade_in_progress
-    blocker: import exact rc4 payload f7c9d0ad, reconcile protected contracts, activate the Finance pack, regenerate artifacts and repeat the non-skippable real-data browser matrix
+    blocker: retain exact receipts and redacted aggregates; complete RT-09/10/29/33/36/47/48 consumer-semantic evidence, human conceptual/privacy/VoiceOver review, merge and external E5
