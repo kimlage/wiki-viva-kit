@@ -110,7 +110,7 @@ def test_semantic_inventory_valid_case_matches_all_surfaces_and_relations(
     report = build_semantic_inventory(tmp_path, config, snapshot)
 
     assert report["schema_version"] == "wiki_semantic_inventory.v1"
-    assert report["status"] == "pass"
+    assert report["status"] == "pass", report
     assert report["summary"] == {
         "error_count": 0,
         "event_error_count": 0,
@@ -126,6 +126,135 @@ def test_semantic_inventory_valid_case_matches_all_surfaces_and_relations(
     assert report["relations"]["actual"]["count"] == 7
     assert report["relations"]["comparison"]["status"] == "pass"
     assert report["relations"]["unresolved"]["count"] == 0
+
+
+def test_legacy_event_and_source_only_action_keep_graph_semantics_in_parity(
+    tmp_path: Path,
+) -> None:
+    config = WikiConfig(
+        repo_id="semantic-legacy-fixture",
+        contexts=("example",),
+        default_context="example",
+        root_entity={"page": "memories/index.md"},
+    )
+    _write(
+        tmp_path / "memories/index.md",
+        _page("root", "root_index", "Root"),
+    )
+    _write(
+        tmp_path / "memories/sources/source.md",
+        _page(
+            "source-one",
+            "source",
+            "Source",
+            extra="moc_parent: root\n",
+        ),
+    )
+    _write(
+        tmp_path / "memories/sources/source-two.md",
+        _page(
+            "source-two",
+            "source",
+            "Second source",
+            extra="moc_parent: root\n",
+        ),
+    )
+    _write(
+        tmp_path / "memories/example/catalog.md",
+        _page(
+            "regular-catalog",
+            "source_catalog",
+            "Regular catalog",
+            extra=(
+                "moc_parent: root\n"
+                "source_refs:\n"
+                "- source-one\n"
+            ),
+        ),
+    )
+    _write(
+        tmp_path / "memories/actions/action.md",
+        _page(
+            "action-one",
+            "action",
+            "Action",
+            extra=(
+                "moc_parent: root\n"
+                "source_refs:\n"
+                "- source-one\n"
+                "action_state: open\n"
+            ),
+        ),
+    )
+    _write(
+        tmp_path / "memories/system/ingestion/events/legacy.md",
+        _page(
+            "event-legacy",
+            "source_catalog",
+            "Legacy event",
+            extra=(
+                "event_id: event-legacy\n"
+                "moc_parent: source-one\n"
+                "source_refs:\n"
+                "- source-one\n"
+                "- source-two\n"
+                "captured_at: 2026-07-10\n"
+            ),
+        )
+        + "\n## Source\n\n- Synthetic source.\n\n"
+        "## Quadrants\n\n- Synthetic quadrants.\n",
+    )
+    _write(
+        tmp_path / "memories/system/ingestion/events/identity-only.md",
+        _page(
+            "event-identity-only",
+            "context_note",
+            "Identity-only event",
+            extra=(
+                "event_id: event-identity-only\n"
+                "source_id: source-one\n"
+                "moc_parent: source-one\n"
+                "source_refs:\n"
+                "- source-one\n"
+                "captured_at: 2026-07-10\n"
+            ),
+        )
+        + "\n## Source\n\n- Synthetic source.\n\n"
+        "## Quadrants\n\n- Synthetic quadrants.\n",
+    )
+
+    snapshot = build_snapshot(
+        tmp_path,
+        config,
+        generated_at="2026-07-11T12:00:00Z",
+    )
+    report = build_semantic_inventory(tmp_path, config, snapshot)
+
+    assert report["status"] == "pass", report
+    assert report["events"]["authored"]["count"] == 2
+    assert report["events"]["legacy_count"] == 2
+    assert report["events"]["surfaces"]["graph"]["count"] == 2
+    assert report["relations"]["comparison"]["status"] == "pass"
+    graph_edges = snapshot["graph.json"]["edges"]
+    assert {
+        (edge["source"], edge["target"])
+        for edge in graph_edges
+        if edge["type"] == "source_emission"
+        and edge["target"] == "event-legacy"
+    } == {
+        ("source-one", "event-legacy"),
+        ("source-two", "event-legacy"),
+    }
+    assert not any(
+        edge["type"] == "source_emission"
+        and edge["target"] == "regular-catalog"
+        for edge in graph_edges
+    )
+    assert not any(
+        edge["type"] == "evidence_supports"
+        and edge["target"] == "action-one"
+        for edge in graph_edges
+    )
 
 
 def test_semantic_inventory_detects_removed_explicit_edge(tmp_path: Path) -> None:

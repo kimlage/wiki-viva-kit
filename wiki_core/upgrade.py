@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 import yaml
 from jsonschema import Draft202012Validator
@@ -30,7 +30,7 @@ PREFLIGHT_SCHEMA_VERSION = "wiki_viva_upgrade_preflight.v1"
 GATE_EVIDENCE_SCHEMA_VERSION = "wiki_viva_gate_evidence.v1"
 MIGRATION_EVIDENCE_SCHEMA_VERSION = "wiki_viva_migration_evidence.v2"
 MIGRATION_REPORT_SCHEMA_VERSION = "wiki_viva_migration_report.v2"
-MIGRATION_VALIDATOR_VERSION = "wiki_viva_upgrade_validator.v2"
+MIGRATION_VALIDATOR_VERSION = "wiki_viva_upgrade_validator.v3"
 ROLLBACK_VERIFICATION_SCHEMA_VERSION = "wiki_viva_rollback_verification.v1"
 MIGRATION_EVIDENCE_SCHEMA_PATH = (
     Path(__file__).resolve().parents[1]
@@ -67,6 +67,7 @@ UPGRADE_WAVES = {"public_kit", "pilot", "wave_1", "wave_2", "paused", "blocked"}
 _SHA_RE = re.compile(r"[0-9a-f]{40,64}")
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_VISUAL_PROFILE_RE = re.compile(r"[a-z][a-z0-9_]{1,63}")
 _PUBLIC_LOCAL_PATH_RE = re.compile(
     r"(?:/Users/|/home/|(?:^|[\s\"'=(:])/(?!/)[^\s\"',;]+|"
     r"[A-Za-z]:\\|file://|(?<![\w.-])~[/\\]|\\\\[^\\\s]+\\[^\\\s]+)"
@@ -130,6 +131,7 @@ _UNPINNED = {
     "unknown",
 }
 _RELEASABLE_STATUSES = {"candidate", "release_candidate", "ready", "released"}
+_DEFAULT_MIGRATION_VISUAL_PROFILES = ("desktop", "mobile", "fallback")
 _SKIP_DIRS = {
     ".git",
     "__pycache__",
@@ -168,6 +170,23 @@ def upgrade_package_sha256(package: dict[str, Any]) -> str:
     """Return a formatting-independent digest for the package under review."""
 
     return hashlib.sha256(canonical_json(package).encode("utf-8")).hexdigest()
+
+
+def _migration_visual_profiles(package: dict[str, Any]) -> tuple[str, ...]:
+    """Return the package-owned visual evidence contract.
+
+    V2 packages declare the exact profiles they require.  The fallback keeps
+    the v1 reader compatible without allowing a v2 package to advertise a
+    profile that templates and validators silently omit.
+    """
+
+    migration = package.get("migration")
+    values = (
+        migration.get("visual_profiles") if isinstance(migration, dict) else None
+    )
+    if isinstance(values, list) and values:
+        return tuple(str(value) for value in values)
+    return _DEFAULT_MIGRATION_VISUAL_PROFILES
 
 
 def _require_mapping(value: Any, name: str, errors: list[str]) -> dict[str, Any]:
@@ -293,12 +312,53 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     )
     if not required_gates:
         errors.append("preflight.required_gates cannot be empty")
+    reviewable_gates = preflight.get("reviewable_gates") or {}
+    if not isinstance(reviewable_gates, dict):
+        errors.append("preflight.reviewable_gates must be a mapping")
+        reviewable_gates = {}
+    for gate_id, raw_policy in reviewable_gates.items():
+        if gate_id != "semantic_inventory":
+            errors.append(
+                "preflight.reviewable_gates may only declare semantic_inventory"
+            )
+        if gate_id not in required_gates:
+            errors.append(
+                f"preflight.reviewable_gates.{gate_id} must also be required"
+            )
+        policy = _require_mapping(
+            raw_policy, f"preflight.reviewable_gates.{gate_id}", errors
+        )
+        if policy.get("required_boundary") != "downstream_adaptations":
+            errors.append(
+                f"preflight.reviewable_gates.{gate_id}.required_boundary "
+                "must be downstream_adaptations"
+            )
+        max_findings = policy.get("max_findings")
+        if (
+            isinstance(max_findings, bool)
+            or not isinstance(max_findings, int)
+            or not 1 <= max_findings <= 10_000
+        ):
+            errors.append(
+                f"preflight.reviewable_gates.{gate_id}.max_findings is invalid"
+            )
     migration = _require_mapping(package.get("migration"), "migration", errors)
     migration_gates = _require_list(
         migration.get("required_gates"), "migration.required_gates", errors
     )
     if not migration_gates:
         errors.append("migration.required_gates cannot be empty")
+    visual_profiles = _require_list(
+        migration.get("visual_profiles"), "migration.visual_profiles", errors
+    )
+    if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION and not visual_profiles:
+        errors.append("migration.visual_profiles cannot be empty")
+    normalized_profiles = [str(value) for value in visual_profiles]
+    if len(normalized_profiles) != len(set(normalized_profiles)):
+        errors.append("migration.visual_profiles must be unique")
+    for index, value in enumerate(visual_profiles):
+        if not isinstance(value, str) or not _VISUAL_PROFILE_RE.fullmatch(value):
+            errors.append(f"migration.visual_profiles[{index}] is invalid")
     return errors
 
 
@@ -806,7 +866,11 @@ def _snapshot_state(
 
 
 def validate_gate_evidence(
-    evidence: dict[str, Any], required: list[str], head_sha: str
+    evidence: dict[str, Any],
+    required: list[str],
+    head_sha: str,
+    *,
+    reviewable: Mapping[str, Any] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
     errors: list[str] = []
     if evidence.get("schema_version") != GATE_EVIDENCE_SCHEMA_VERSION:
@@ -823,18 +887,50 @@ def validate_gate_evidence(
         for item in gates
         if isinstance(item, dict) and item.get("id")
     }
+    reviewable = reviewable if isinstance(reviewable, Mapping) else {}
+    accepted_reviews: dict[str, dict[str, Any]] = {}
     for gate_id in required:
         gate = by_id.get(str(gate_id))
         if gate is None:
             errors.append(f"missing required gate evidence: {gate_id}")
-        elif gate_id == "toolkit_drift" and gate.get("status") not in {
-            "pass",
-            "reviewed",
-        }:
-            errors.append("toolkit_drift evidence must be pass or reviewed")
-        elif gate_id != "toolkit_drift" and gate.get("status") != "pass":
+            continue
+        status = gate.get("status")
+        if gate_id == "toolkit_drift":
+            if status not in {"pass", "reviewed"}:
+                errors.append("toolkit_drift evidence must be pass or reviewed")
+        elif status == "reviewed":
+            policy = reviewable.get(gate_id)
+            policy = policy if isinstance(policy, Mapping) else {}
+            finding_count = gate.get("finding_count")
+            max_findings = policy.get("max_findings")
+            planned_boundary = str(gate.get("planned_boundary") or "")
+            required_boundary = str(policy.get("required_boundary") or "")
+            valid_count = (
+                not isinstance(finding_count, bool)
+                and isinstance(finding_count, int)
+                and isinstance(max_findings, int)
+                and 1 <= finding_count <= max_findings
+            )
+            if (
+                not policy
+                or not valid_count
+                or not _valid_sha256(gate.get("findings_sha256"))
+                or not required_boundary
+                or planned_boundary != required_boundary
+                or not str(gate.get("note") or "").strip()
+            ):
+                errors.append(
+                    f"reviewed gate evidence is incomplete or unauthorized: {gate_id}"
+                )
+            else:
+                accepted_reviews[gate_id] = {
+                    "finding_count": finding_count,
+                    "findings_sha256": str(gate.get("findings_sha256")),
+                    "planned_boundary": planned_boundary,
+                }
+        elif status != "pass":
             errors.append(f"required gate did not pass: {gate_id}")
-        elif not str(gate.get("command") or "").strip():
+        if not str(gate.get("command") or "").strip():
             errors.append(f"required gate has no recorded command: {gate_id}")
     return errors, {
         "required": required,
@@ -843,6 +939,7 @@ def validate_gate_evidence(
             gate_id: str(by_id[gate_id].get("status") or "")
             for gate_id in sorted(by_id)
         },
+        "reviews": accepted_reviews,
         "all_pass": not errors,
     }
 
@@ -915,8 +1012,14 @@ def build_preflight_report(
         str(value)
         for value in (package.get("preflight") or {}).get("required_gates") or []
     ]
+    reviewable_gates = (
+        (package.get("preflight") or {}).get("reviewable_gates") or {}
+    )
     gate_errors, gate_summary = validate_gate_evidence(
-        gate_evidence or {}, required_gates, state["head_sha"]
+        gate_evidence or {},
+        required_gates,
+        state["head_sha"],
+        reviewable=reviewable_gates,
     )
 
     checks: list[dict[str, Any]] = []
@@ -962,9 +1065,24 @@ def build_preflight_report(
             "pass" if not gate_errors else "fail",
             "; ".join(gate_errors)
             if gate_errors
-            else "all required gates passed at current HEAD",
+            else "all required gates passed or have bounded reviews at current HEAD",
         )
     )
+    semantic_review = (gate_summary.get("reviews") or {}).get(
+        "semantic_inventory"
+    )
+    if isinstance(semantic_review, dict):
+        checks.append(
+            _check(
+                "semantic_inventory_adaptation",
+                "warn",
+                "finding_count="
+                f"{semantic_review['finding_count']}; findings_sha256="
+                f"{semantic_review['findings_sha256']}; planned_boundary="
+                f"{semantic_review['planned_boundary']}",
+                blocking=False,
+            )
+        )
     drift_evidence_status = str(
         (gate_summary.get("statuses") or {}).get("toolkit_drift") or ""
     )
@@ -1208,8 +1326,12 @@ def migration_evidence_template(package: dict[str, Any]) -> dict[str, Any]:
                 "profile": profile,
                 "route_ref": "public-fixture:canonical-root",
                 "center_ref": "public-fixture:root",
-                "viewport": "1440x1000" if profile == "desktop" else "390x844",
-                "browser": "chromium" if profile != "mobile" else "webkit",
+                "viewport": (
+                    "390x844"
+                    if profile in {"mobile", "fallback"}
+                    else "1440x1000"
+                ),
+                "browser": "webkit" if profile == "mobile" else "chromium",
                 "screenshot_ref": f"qa/{profile}.png",
                 "screenshot_sha256": "REPLACE_WITH_SCREENSHOT_SHA256",
                 "screenshot_bytes": 0,
@@ -1219,7 +1341,7 @@ def migration_evidence_template(package: dict[str, Any]) -> dict[str, Any]:
                 "network_status": "clean",
                 "sample_fallback": False,
             }
-            for profile in ("desktop", "mobile", "fallback")
+            for profile in _migration_visual_profiles(package)
         ],
         "rollback": {
             "previous_sha": "REPLACE_WITH_PREVIOUS_CONSUMER_SHA",
@@ -1485,7 +1607,8 @@ def validate_migration_evidence(
     profiles = set(profile_values)
     if len(profile_values) != len(profiles):
         errors.append("visual_qa_evidence profiles must be unique")
-    for required_profile in ("desktop", "mobile", "fallback"):
+    required_profiles = _migration_visual_profiles(package)
+    for required_profile in required_profiles:
         if required_profile not in profiles:
             errors.append(f"visual_qa_evidence missing profile: {required_profile}")
     for index, value in enumerate(visual):
@@ -1499,7 +1622,7 @@ def validate_migration_evidence(
         ):
             if not str(item.get(field) or "").strip():
                 errors.append(f"visual_qa_evidence[{index}].{field} is required")
-        if item.get("profile") not in {"desktop", "mobile", "fallback"}:
+        if item.get("profile") not in set(required_profiles):
             errors.append(f"visual_qa_evidence[{index}].profile is invalid")
         if item.get("browser") not in {"chromium", "firefox", "webkit"}:
             errors.append(f"visual_qa_evidence[{index}].browser is invalid")

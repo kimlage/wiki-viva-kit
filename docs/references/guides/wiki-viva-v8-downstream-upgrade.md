@@ -92,7 +92,13 @@ The preflight intentionally consumes receipts rather than executing arbitrary
 commands declared by a downstream repository. Evidence is accepted only when
 its `consumer_head` equals the checkout's current HEAD. Record toolkit drift as
 `pass` when zero or `reviewed` when the exact non-zero delta is the planned
-public import/adaptation set; every other current gate must pass.
+public import/adaptation set. `semantic_inventory` may be `reviewed` only when
+the package explicitly authorizes it and the receipt carries a positive bounded
+finding count, one opaque SHA-256 fingerprint, a non-empty note and
+`planned_boundary=downstream_adaptations`. This exception exists so consumer
+content references can be repaired in the third reviewable boundary without a
+fourth pre-import commit. Audit, input stage, pytest and diff remain pass-only;
+the final migration report still requires `semantic_inventory=pass`.
 
 ## 4. Compile read-only preflight
 

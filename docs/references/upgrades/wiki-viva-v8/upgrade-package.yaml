@@ -114,6 +114,13 @@ preflight:
     - semantic_inventory
     - pytest
     - diff_check
+  # A bounded semantic debt may be repaired only in the declared third
+  # downstream boundary. Audit, pytest, privacy and diff remain pass-only, and
+  # the final migration report still requires semantic_inventory=pass.
+  reviewable_gates:
+    semantic_inventory:
+      required_boundary: downstream_adaptations
+      max_findings: 64
 
 migration:
   commit_boundaries:

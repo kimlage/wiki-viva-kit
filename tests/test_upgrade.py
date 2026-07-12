@@ -28,6 +28,7 @@ from wiki_core.upgrade import (
     build_preflight_report,
     compare_portable_files,
     compile_migration_report,
+    migration_evidence_template,
     package_is_pinned,
     portable_path_status,
     render_migration_report_markdown,
@@ -95,6 +96,7 @@ def package(*, pinned: bool = True, source_sha: str | None = None) -> dict:
         },
         "migration": {
             "required_gates": ["audit", "bundle", "diff_check"],
+            "visual_profiles": ["desktop", "mobile", "fallback"],
         },
         "compatibility": [
             {
@@ -301,7 +303,7 @@ def migration_evidence(pkg: dict) -> dict:
                 "network_status": "clean",
                 "sample_fallback": False,
             }
-            for profile in ("desktop", "mobile", "fallback")
+            for profile in pkg["migration"]["visual_profiles"]
         ],
         "rollback": {
             "previous_sha": sha("consumer-before"),
@@ -369,6 +371,12 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     else:
         assert pkg["schema_version"] == UPGRADE_PACKAGE_SCHEMA_VERSION
         assert pkg["contract_versions"] == v2_contracts
+    assert pkg["migration"]["visual_profiles"] == [
+        "desktop",
+        "mobile",
+        "fallback",
+        "quadrant_collection_two_step",
+    ]
     assert portable_path_status("apps/wiki-cockpit/.env.local", pkg)[0] is False
     expected_v2_portable = pkg["schema_version"] == UPGRADE_PACKAGE_SCHEMA_VERSION
     assert portable_path_status("packs/personal-finance/pack.yaml", pkg)[0] is expected_v2_portable
@@ -419,6 +427,48 @@ def test_upgrade_package_requires_every_v8_runtime_contract(contract: str) -> No
     pkg = package()
     del pkg["contract_versions"][contract]
     assert f"contract_versions.{contract} is required" in validate_upgrade_package(pkg)
+
+
+def test_upgrade_package_requires_unique_safe_visual_profiles() -> None:
+    missing = package()
+    del missing["migration"]["visual_profiles"]
+    assert "migration.visual_profiles cannot be empty" in validate_upgrade_package(
+        missing
+    )
+
+    duplicate = package()
+    duplicate["migration"]["visual_profiles"].append("desktop")
+    assert "migration.visual_profiles must be unique" in validate_upgrade_package(
+        duplicate
+    )
+
+    unsafe = package()
+    unsafe["migration"]["visual_profiles"].append("../private")
+    assert "migration.visual_profiles[3] is invalid" in validate_upgrade_package(
+        unsafe
+    )
+
+
+def test_upgrade_package_reviewable_gate_is_narrow_and_bounded() -> None:
+    pkg = package()
+    pkg["preflight"]["required_gates"].append("semantic_inventory")
+    pkg["preflight"]["reviewable_gates"] = {
+        "semantic_inventory": {
+            "required_boundary": "downstream_adaptations",
+            "max_findings": 64,
+        }
+    }
+    assert validate_upgrade_package(pkg) == []
+
+    unsafe = copy.deepcopy(pkg)
+    unsafe["preflight"]["reviewable_gates"] = {
+        "audit": {
+            "required_boundary": "downstream_adaptations",
+            "max_findings": 64,
+        }
+    }
+    errors = validate_upgrade_package(unsafe)
+    assert any("may only declare semantic_inventory" in error for error in errors)
 
 
 def test_portable_blocklist_wins_and_private_paths_are_not_importable() -> None:
@@ -735,6 +785,86 @@ def test_preflight_can_be_ready_with_clean_explicitly_reviewed_upgrade_drift(
     assert "toolkit_drift" in report["warnings"]
 
 
+def test_preflight_accepts_only_bounded_semantic_review_for_third_boundary(
+    tmp_path: Path,
+) -> None:
+    kit, target, head = make_matching_repos(tmp_path)
+    pkg = package(source_sha=repo_head(kit))
+    pkg["preflight"]["required_gates"].append("semantic_inventory")
+    pkg["preflight"]["reviewable_gates"] = {
+        "semantic_inventory": {
+            "required_boundary": "downstream_adaptations",
+            "max_findings": 64,
+        }
+    }
+    evidence = gate_evidence(head)
+    evidence["gates"].append(
+        {
+            "id": "semantic_inventory",
+            "command": "python3 scripts/wiki_semantic_inventory.py --check",
+            "status": "reviewed",
+            "finding_count": 10,
+            "findings_sha256": sha("semantic-findings"),
+            "planned_boundary": "downstream_adaptations",
+            "note": "typed references require consumer-owned repair",
+        }
+    )
+
+    report = build_preflight_report(
+        kit_root=kit,
+        consumer_root=target,
+        package=pkg,
+        consumer=consumer(),
+        gate_evidence=evidence,
+        checked_on="2026-07-12",
+    )
+
+    assert report["status"] == "ready"
+    assert "semantic_inventory_adaptation" in report["warnings"]
+    assert report["gate_evidence"]["reviews"]["semantic_inventory"] == {
+        "finding_count": 10,
+        "findings_sha256": sha("semantic-findings"),
+        "planned_boundary": "downstream_adaptations",
+    }
+
+    for field, invalid_value in (
+        ("finding_count", 65),
+        ("findings_sha256", "not-a-hash"),
+        ("planned_boundary", "faithful_public_import"),
+        ("note", ""),
+        ("command", ""),
+    ):
+        invalid = copy.deepcopy(evidence)
+        next(
+            gate
+            for gate in invalid["gates"]
+            if gate["id"] == "semantic_inventory"
+        )[field] = invalid_value
+        blocked = build_preflight_report(
+            kit_root=kit,
+            consumer_root=target,
+            package=pkg,
+            consumer=consumer(),
+            gate_evidence=invalid,
+            checked_on="2026-07-12",
+        )
+        assert blocked["status"] == "blocked"
+        assert "current_gates" in blocked["blockers"]
+
+    final_pkg = copy.deepcopy(pkg)
+    final_pkg["migration"]["required_gates"].append("semantic_inventory")
+    final_evidence = migration_evidence(final_pkg)
+    next(
+        gate
+        for gate in final_evidence["gates"]
+        if gate["id"] == "semantic_inventory"
+    )["status"] = "reviewed"
+    assert "migration gate did not pass: semantic_inventory" in validate_migration_evidence(
+        final_evidence,
+        final_pkg,
+    )
+
+
 def test_preflight_blocks_unknown_privacy_even_when_every_other_check_passes(
     tmp_path: Path,
 ) -> None:
@@ -909,6 +1039,61 @@ def test_migration_report_is_complete_deterministic_and_renderable() -> None:
     assert any(
         "schema_version must be wiki_viva_migration_evidence.v2" in error
         for error in legacy_report["validation_errors"]
+    )
+
+
+def test_migration_visual_profiles_are_package_owned_and_cannot_be_omitted() -> None:
+    pkg = package()
+    pkg["migration"]["visual_profiles"].append("quadrant_collection_two_step")
+
+    template = migration_evidence_template(pkg)
+    assert [item["profile"] for item in template["visual_qa_evidence"]] == [
+        "desktop",
+        "mobile",
+        "fallback",
+        "quadrant_collection_two_step",
+    ]
+
+    evidence = migration_evidence(pkg)
+    assert validate_migration_evidence(evidence, pkg) == []
+    evidence_schema = json.loads(
+        (
+            ROOT
+            / "docs/references/upgrades/wiki-viva-v8/migration-evidence.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert list(Draft202012Validator(evidence_schema).iter_errors(evidence)) == []
+    report = compile_migration_report(evidence, pkg, public_export=True)
+    report_schema = json.loads(
+        (
+            ROOT
+            / "docs/references/upgrades/wiki-viva-v8/migration-report.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert list(Draft202012Validator(report_schema).iter_errors(report)) == []
+
+    missing = copy.deepcopy(evidence)
+    missing["visual_qa_evidence"] = [
+        item
+        for item in missing["visual_qa_evidence"]
+        if item["profile"] != "quadrant_collection_two_step"
+    ]
+    assert (
+        "visual_qa_evidence missing profile: quadrant_collection_two_step"
+        in validate_migration_evidence(missing, pkg)
+    )
+
+    undeclared = copy.deepcopy(evidence)
+    undeclared["visual_qa_evidence"].append(
+        {
+            **undeclared["visual_qa_evidence"][0],
+            "profile": "unreviewed_extra",
+            "screenshot_ref": "qa/unreviewed_extra.png",
+        }
+    )
+    assert any(
+        "profile is invalid" in error
+        for error in validate_migration_evidence(undeclared, pkg)
     )
 
 

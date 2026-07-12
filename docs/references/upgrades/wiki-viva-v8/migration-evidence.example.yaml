@@ -4,10 +4,10 @@
 schema_version: wiki_viva_migration_evidence.v2
 evidence_context:
   package_sha256: REPLACE_WITH_PACKAGE_SHA256
-  validator_version: wiki_viva_upgrade_validator.v2
+  validator_version: wiki_viva_upgrade_validator.v3
   captured_consumer_head: REPLACE_WITH_FINAL_MIGRATION_SHA
 source:
-  release: wiki-viva-v8-rc8
+  release: wiki-viva-v8-rc9
   sha: REPLACE_WITH_PINNED_PUBLIC_SHA
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 consumer_before:
@@ -70,6 +70,7 @@ visual_qa_evidence:
   - {profile: desktop, route_ref: "route:sha256:REPLACE", center_ref: "center:sha256:REPLACE", viewport: 1440x1000, browser: chromium, screenshot_ref: qa/desktop.png, screenshot_sha256: REPLACE_WITH_SHA256, screenshot_bytes: 0, screenshot_dimensions: {width: 0, height: 0}, captured_consumer_head: REPLACE_WITH_FINAL_MIGRATION_SHA, console_status: clean, network_status: clean, sample_fallback: false}
   - {profile: mobile, route_ref: "route:sha256:REPLACE", center_ref: "center:sha256:REPLACE", viewport: 390x844, browser: webkit, screenshot_ref: qa/mobile.png, screenshot_sha256: REPLACE_WITH_SHA256, screenshot_bytes: 0, screenshot_dimensions: {width: 0, height: 0}, captured_consumer_head: REPLACE_WITH_FINAL_MIGRATION_SHA, console_status: clean, network_status: clean, sample_fallback: false}
   - {profile: fallback, route_ref: "route:sha256:REPLACE", center_ref: "center:sha256:REPLACE", viewport: 1440x1000, browser: chromium, screenshot_ref: qa/fallback.png, screenshot_sha256: REPLACE_WITH_SHA256, screenshot_bytes: 0, screenshot_dimensions: {width: 0, height: 0}, captured_consumer_head: REPLACE_WITH_FINAL_MIGRATION_SHA, console_status: clean, network_status: clean, sample_fallback: false}
+  - {profile: quadrant_collection_two_step, route_ref: "route:sha256:REPLACE", center_ref: "center:sha256:REPLACE", viewport: 1440x1000, browser: chromium, screenshot_ref: qa/quadrant-collection-two-step.png, screenshot_sha256: REPLACE_WITH_SHA256, screenshot_bytes: 0, screenshot_dimensions: {width: 0, height: 0}, captured_consumer_head: REPLACE_WITH_FINAL_MIGRATION_SHA, console_status: clean, network_status: clean, sample_fallback: false}
 rollback:
   previous_sha: REPLACE_WITH_PREVIOUS_CONSUMER_SHA
   import_commit_sha: REPLACE_WITH_IMPORT_COMMIT_SHA

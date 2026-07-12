@@ -261,21 +261,27 @@ def _adapt_pages(
     pages_payload: Mapping[str, Any],
     *,
     public_boundary: bool,
+    ingest_events_dir: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     events: list[dict[str, Any]] = []
     diagnostics: list[dict[str, Any]] = []
-    # Page records retain their authored page type. Infer the configured event
-    # directories from canonical siblings, then let the shared resolver safely
-    # recognize legacy-typed rows there without treating source catalogs
-    # elsewhere in the wiki as ingestion events.
-    event_directories = {
-        PurePosixPath(str(page.get("path") or "")).parent
-        for page in pages_payload.get("pages") or []
-        if isinstance(page, Mapping)
-        and str(page.get("page_type") or "")
-        == CANONICAL_INGESTION_EVENT_PAGE_TYPE
-        and str(page.get("path") or "")
-    }
+    # Page records retain their authored page type. Snapshot callers provide
+    # the configured event directory explicitly; older direct callers fall
+    # back to canonical siblings. The shared resolver can therefore recognize
+    # a legacy-only repository without treating source catalogs elsewhere as
+    # ingestion events.
+    event_directories = (
+        {PurePosixPath(ingest_events_dir)}
+        if ingest_events_dir
+        else {
+            PurePosixPath(str(page.get("path") or "")).parent
+            for page in pages_payload.get("pages") or []
+            if isinstance(page, Mapping)
+            and str(page.get("page_type") or "")
+            == CANONICAL_INGESTION_EVENT_PAGE_TYPE
+            and str(page.get("path") or "")
+        }
+    )
     for page in pages_payload.get("pages") or []:
         if not isinstance(page, Mapping):
             continue
@@ -970,6 +976,7 @@ def build_temporal_events(
     *,
     public_boundary: bool = False,
     pack_temporal_adapters: Sequence[Mapping[str, Any]] = (),
+    ingest_events_dir: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Adapt current read models into one stable event set."""
 
@@ -979,6 +986,7 @@ def build_temporal_events(
         _adapt_pages(
             pages_payload,
             public_boundary=public_boundary,
+            ingest_events_dir=ingest_events_dir,
         ),
         _adapt_pack_temporal(
             pages_payload,
@@ -1260,6 +1268,7 @@ def build_temporal_graph_payload(
     cursor: str | None = None,
     limit: int | None = None,
     pack_temporal_adapters: Sequence[Mapping[str, Any]] = (),
+    ingest_events_dir: str | None = None,
 ) -> dict[str, Any]:
     """Build the snapshot read model (complete by default, never silently cut)."""
 
@@ -1269,6 +1278,7 @@ def build_temporal_graph_payload(
         activity_timeline,
         public_boundary=public_boundary,
         pack_temporal_adapters=pack_temporal_adapters,
+        ingest_events_dir=ingest_events_dir,
     )
     return paginate_temporal_events(
         events,

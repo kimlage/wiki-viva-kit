@@ -25,7 +25,7 @@
       "required": ["package_sha256", "validator_version", "captured_consumer_head"],
       "properties": {
         "package_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "validator_version": {"const": "wiki_viva_upgrade_validator.v2"},
+        "validator_version": {"const": "wiki_viva_upgrade_validator.v3"},
         "captured_consumer_head": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}
       },
       "additionalProperties": false
@@ -109,8 +109,8 @@
     },
     "visual_qa_evidence": {
       "type": "array",
-      "minItems": 3,
-      "maxItems": 3,
+      "minItems": 1,
+      "maxItems": 64,
       "items": {"$ref": "#/$defs/visual_evidence"}
     },
     "rollback": {
@@ -164,7 +164,7 @@
         "sample_fallback"
       ],
       "properties": {
-        "profile": {"enum": ["desktop", "mobile", "fallback"]},
+        "profile": {"type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$"},
         "route_ref": {"type": "string", "minLength": 1},
         "center_ref": {"type": "string", "minLength": 1},
         "viewport": {"type": "string", "pattern": "^[1-9][0-9]{2,4}x[1-9][0-9]{2,4}$"},

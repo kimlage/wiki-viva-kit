@@ -47,6 +47,7 @@ from wiki_core.experience_packs import (
     temporal_adapter_projection,
     validate_installation as validate_experience_pack_installation,
 )
+from wiki_core.events import resolve_ingestion_event_identity
 from wiki_core.freshness import freshness_state, is_stale_exempt
 from wiki_core.frontmatter import list_values, parse_frontmatter
 from wiki_core.graph import build_page_graph
@@ -676,6 +677,13 @@ def _page_record(
         "summary_truncated": summary_truncated,
         "content_sha256": hashlib.sha256(raw).hexdigest(),
     }
+    # Preserve explicit compatibility identity for downstream read models.
+    # Without these fields, legacy event pages whose authored page_type is not
+    # one of the historical aliases are recognized by closure but disappear
+    # from temporal and graph projections.
+    for identity_field in ("event_id", "source_id"):
+        if values.get(identity_field) not in (None, ""):
+            record[identity_field] = str(values[identity_field])
     if isinstance(values.get("region_expectations"), dict):
         record["region_expectations"] = values["region_expectations"]
     evidence_refs: list[str] = []
@@ -1350,6 +1358,7 @@ def _graph_payload(
     today: dt.date | None = None,
 ) -> dict[str, Any]:
     graph = build_page_graph(root, config)
+    events_dir = WikiPaths(root, config).ingest_events_dir.relative_to(root)
     pages_by_path = {str(page["path"]): page for page in pages_payload["pages"]}
     id_by_path = {rel: (node.page_id or rel) for rel, node in graph.nodes.items()}
     overlay_metrics = _graph_overlay_metrics(
@@ -1510,7 +1519,24 @@ def _graph_payload(
                 page,
                 "related_pages",
             )
-        if page.get("page_type") == "ingestion_event":
+        page_path = Path(str(page.get("path") or page_id))
+        try:
+            page_path.relative_to(events_dir)
+            in_events_directory = True
+        except ValueError:
+            in_events_directory = False
+        event_identity = resolve_ingestion_event_identity(
+            page_path,
+            {
+                "id": page_id,
+                "page_id": page_id,
+                "page_type": page.get("page_type"),
+                "event_id": page.get("event_id"),
+                "source_id": page.get("source_id"),
+            },
+            in_events_directory=in_events_directory,
+        )
+        if event_identity.recognized:
             for source_ref in page.get("source_refs") or []:
                 emit_relation(
                     resolve_ref(source_ref),
@@ -1540,7 +1566,10 @@ def _graph_payload(
             owner_id = resolve_ref(work.get("owner_ref"))
             if owner_id:
                 emit_relation(owner_id, page_id, "ownership", page, "owner_ref")
-            for evidence in work.get("evidence_refs") or []:
+            # ``work.evidence_refs`` retains the historical UI fallback from
+            # source_refs.  Only explicit evidence frontmatter is a typed
+            # evidence_supports graph edge.
+            for evidence in refs.get("evidence_refs") or []:
                 emit_relation(
                     resolve_ref(evidence),
                     page_id,
@@ -3050,6 +3079,7 @@ def build_snapshot(
     reference_date: dt.date | None = None,
 ) -> dict[str, dict[str, Any]]:
     config = config or load_config(root)
+    paths = WikiPaths(root, config)
     generated_at = generated_at or _utc_now()
     reference_date = reference_date or _today()
     experience_pack_composition_payload = _experience_pack_composition_payload(root)
@@ -3095,6 +3125,7 @@ def build_snapshot(
         repo_id=config.repo_id,
         generated_at=generated_at,
         pack_temporal_adapters=pack_temporal_adapters,
+        ingest_events_dir=paths.rel(paths.ingest_events_dir),
         # Static snapshots carry the complete event set. Cursor pagination is
         # available in the canonical builder for a future transport endpoint;
         # a static UI never receives a next cursor it cannot resolve.
