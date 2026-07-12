@@ -3305,16 +3305,16 @@ downstream, human or still-open engineering work.
 
 This is the only active queue; earlier S9/S10 queues are historical snapshots:
 
-1. keep exact S18 source `f9defa5a…` and rc15 package status
+1. keep exact S19 source `198471c3…` and rc16 package status
    `validation_pending`; do not import, push, merge, tag or reopen a stale
-   private preflight;
-2. with loopback/browser permission, run S18 alone on the declared Node 22
+   private preflight; S18/rc15 stays as the historical prior candidate;
+2. with loopback/browser permission, run S19 alone on the declared Node 22
    toolchain: normal/public-export audit, methodology, quality, operation,
-   source registry, input, semantic inventory, snapshot, packs, demo drift, 1,373 Python, 513
+   source registry, input, semantic inventory, snapshot, packs, demo drift, 1,409 Python, 513
    frontend, build, 107 Node, architecture, assets, bundle, release matrix,
    diff check and 102/102 public browser cells with zero skip/retry; any real
    failure creates a new fix/SHA rather than a rerun-and-promote cycle;
-3. execute the full current S18 E3 visual matrix and human screenshot
+3. execute the full current S19 E3 visual matrix and human screenshot
    comparison across desktop/mobile, themes, locales, WebGL/fallback,
    Timeline, both packs, search, reader and Genesis;
 4. only after 2–3 pass, change the **same exact source** to a releasable package
@@ -3322,8 +3322,9 @@ This is the only active queue; earlier S9/S10 queues are historical snapshots:
    package/inventory gates;
 5. wait for or explicitly freeze out the concurrent private authoring session;
    if it commits, choose the new private baseline and rerun snapshot, semantic
-   inventory, 885-delta classification and all preflight evidence;
-6. regenerate the 49-path authorial patch from exact S18; verify all post-image
+   inventory, 887-delta classification (51 authorial + 836 generated against
+   S19) and all preflight evidence;
+6. regenerate the 51-path authorial patch from exact S19; verify all post-image
    blobs; reuse the 836-path generated patch only if all 836 blobs still match;
 7. run a fresh private preflight, then create exactly three commits: faithful
    import, generated artifacts and downstream adaptations;

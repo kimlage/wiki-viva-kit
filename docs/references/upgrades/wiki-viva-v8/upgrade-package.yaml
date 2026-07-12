@@ -1,9 +1,9 @@
 schema_version: wiki_viva_upgrade_package.v2
 
 release:
-  id: wiki-viva-v8-rc15
+  id: wiki-viva-v8-rc16
   status: validation_pending
-  source_sha: f9defa5a0f156816fe419df6c8f208b9eea138e0
+  source_sha: 198471c3cf4176d7a046c5ceb8dd053f1be1ee58
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
