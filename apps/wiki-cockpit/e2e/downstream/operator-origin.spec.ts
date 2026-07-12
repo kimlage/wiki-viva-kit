@@ -191,24 +191,15 @@ test("exact downstream UI renders the attested repo instead of a sample fallback
     expectedActivePacks,
     minPages
   } = expectations();
-  const expectedManifestUrl = manifestUrl(snapshotUrl);
+  const expectedBootUrl = new URL("/api/snapshot/boot", snapshotUrl).toString();
   const expectedTemporalUrl = payloadUrl(snapshotUrl, "temporal_graph.json");
-  const expectedExperiencePacksUrl = payloadUrl(snapshotUrl, "experience_packs.json");
   const expectedRuntimeConfigUrl = new URL("/wiki-cockpit.config.json", snapshotUrl).toString();
   const runtimeConfigResponse = page.waitForResponse(
     (response) => response.request().method() === "GET" && response.url() === expectedRuntimeConfigUrl,
     { timeout: 20000 }
   );
-  const uiManifestResponse = page.waitForResponse(
-    (response) => response.request().method() === "GET" && response.url() === expectedManifestUrl,
-    { timeout: 20000 }
-  );
-  const uiPagesResponse = page.waitForResponse(
-    (response) => response.request().method() === "GET" && response.url() === snapshotUrl,
-    { timeout: 20000 }
-  );
-  const uiExperiencePacksResponse = page.waitForResponse(
-    (response) => response.request().method() === "GET" && response.url() === expectedExperiencePacksUrl,
+  const uiBootResponse = page.waitForResponse(
+    (response) => response.request().method() === "GET" && response.url() === expectedBootUrl,
     { timeout: 20000 }
   );
   await page.addInitScript(() => {
@@ -217,20 +208,20 @@ test("exact downstream UI renders the attested repo instead of a sample fallback
     window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
   });
   await page.goto("/w/quadrants");
-  const [manifestResponse, pagesResponse, experiencePacksResponse, configResponse] = await Promise.all([
-    uiManifestResponse,
-    uiPagesResponse,
-    uiExperiencePacksResponse,
+  const [bootResponse, configResponse] = await Promise.all([
+    uiBootResponse,
     runtimeConfigResponse
   ]);
-  expect(manifestResponse.ok()).toBe(true);
-  expect(pagesResponse.ok()).toBe(true);
-  expect(experiencePacksResponse.ok()).toBe(true);
+  expect(bootResponse.ok()).toBe(true);
   expect(configResponse.ok()).toBe(true);
-  const uiManifest = await manifestResponse.json();
-  const uiPages = await pagesResponse.json();
-  const uiExperiencePacks = await experiencePacksResponse.json();
+  const uiBoot = await bootResponse.json();
+  const uiManifest = uiBoot["manifest.json"];
+  const uiPages = uiBoot["pages.json"];
+  const uiExperiencePacks = uiBoot["experience_packs.json"];
   const uiRuntimeConfig = await configResponse.json();
+  expect(uiManifest).toBeTruthy();
+  expect(uiPages).toBeTruthy();
+  expect(uiExperiencePacks).toBeTruthy();
   expect(uiManifest.repo?.repo_id).toBe(expectedRepo);
   expect(uiManifest.snapshot_id).toBe(expectedRevision);
   expect(String(uiManifest.bundle_hash || "").toLowerCase()).toBe(expectedHash);
@@ -248,7 +239,8 @@ test("exact downstream UI renders the attested repo instead of a sample fallback
   expect(uiManifest.contract_errors).toEqual([]);
   expect(uiPages.repo_id || uiPages.repo?.repo_id).toBe(expectedRepo);
   expect(Array.isArray(uiPages.pages) ? uiPages.pages.length : 0).toBeGreaterThanOrEqual(minPages);
-  expect(uiPages.snapshot_id).toBe(expectedRevision);
+  expect(canonicalEvidence(uiPages)).toEqual(uiManifest.integrity?.["pages.json"]);
+  expect(canonicalEvidence(uiExperiencePacks)).toEqual(uiManifest.integrity?.["experience_packs.json"]);
   expect(String(uiRuntimeConfig.adoption?.public_release_sha || "").toLowerCase()).toBe(expectedPublicReleaseSha);
   expect(String(uiRuntimeConfig.adoption?.adapter_hash || "").toLowerCase()).toBe(expectedAdapterHash);
   expect(uiRuntimeConfig.adoption?.adapter_manifest).toBe("wiki.adapter-manifest.json");
