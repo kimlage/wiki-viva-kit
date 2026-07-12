@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { loadSnapshotBundle } from "./data/snapshot";
@@ -420,6 +420,73 @@ describe("visual route contract", () => {
       expect(new URLSearchParams(window.location.search).get("search_type")).toBe("source");
     });
     expect(screen.getByRole("option", { name: /Source Fixture/ })).toBeTruthy();
+  });
+
+  it("does not carry a pointer-hovered result into an immediate keyboard query", async () => {
+    const loadSnapshotMock = vi.mocked(loadSnapshotBundle);
+    const defaultImplementation = loadSnapshotMock.getMockImplementation();
+    expect(defaultImplementation).toBeTruthy();
+    const densePages = Array.from({ length: 8 }, (_, index) => {
+      const ordinal = String(index + 1).padStart(3, "0");
+      return {
+        ...bundle.pages.pages[0],
+        id: `dense-action-${ordinal}`,
+        path: `memories/actions/dense-action-${ordinal}.md`,
+        title: `Dense canonical action ${ordinal}`,
+        page_type: "action",
+        context: "clients",
+        moc_parent: "memories/index.md",
+        summary: `Dense action ${ordinal}`
+      };
+    });
+    const denseNodes = densePages.map((page) => ({
+      ...bundle.graph.nodes[0],
+      id: page.id,
+      path: page.path,
+      title: page.title,
+      page_type: page.page_type,
+      context: page.context
+    }));
+    loadSnapshotMock.mockImplementation(async (options) => {
+      const loaded = await defaultImplementation!(options);
+      return {
+        ...loaded,
+        bundle: {
+          ...bundle,
+          pages: { pages: [bundle.pages.pages[0], ...densePages] },
+          graph: { ...bundle.graph, nodes: [bundle.graph.nodes[0], ...denseNodes] }
+        }
+      };
+    });
+
+    try {
+      await renderRoute("/w?view=radar&q=dense-canonical%20action");
+      expect(
+        await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
+      ).toBeTruthy();
+      const search = screen.getByRole("combobox", { name: "Search content" });
+      const options = await screen.findAllByRole("option", { name: /Dense canonical action/ });
+      expect(options).toHaveLength(8);
+
+      fireEvent.pointerMove(options[6]);
+      expect(search.getAttribute("aria-activedescendant")).toBe("world-search-results-option-6");
+
+      // Keep all three input events in one React turn. This reproduces the
+      // browser path where no render is guaranteed between edit, ArrowDown and
+      // Enter, while the old pointer-owned index is still 6.
+      act(() => {
+        fireEvent.change(search, { target: { value: "dense canonical action" } });
+        fireEvent.keyDown(search, { key: "ArrowDown" });
+        fireEvent.keyDown(search, { key: "Enter" });
+      });
+
+      await waitFor(() => {
+        expect(new URLSearchParams(window.location.search).get("page")).toBe("dense-action-002");
+        expect(new URLSearchParams(window.location.search).get("reader")).toBe("1");
+      });
+    } finally {
+      loadSnapshotMock.mockImplementation(defaultImplementation!);
+    }
   });
 
   it("blocks sample fallback outside demo so real validation cannot impersonate sample data", async () => {

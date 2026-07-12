@@ -579,6 +579,15 @@ export function WorldView({
   // scene events) must never replay a stale route and revert navigation.
   const [searchDraft, setSearchDraft] = useState(route.query.q);
   const [activeHit, setActiveHit] = useState(0);
+  // Keyboard events can arrive back-to-back before React commits the state
+  // written by the previous event. Keep the active option in a synchronous
+  // ref as well, so a pointer-hovered result from the previous draft cannot
+  // leak into an immediate edit -> ArrowDown -> Enter sequence.
+  const activeHitRef = useRef(0);
+  const updateActiveHit = useCallback((index: number) => {
+    activeHitRef.current = index;
+    setActiveHit(index);
+  }, []);
   // Trays are primary surfaces and therefore shareable route state, not local
   // component toggles. This makes a deep link, refresh and Back/Forward hydrate
   // exactly the same visible surface.
@@ -1158,11 +1167,12 @@ export function WorldView({
   );
   const searchHits = searchResult.hits;
   // Keyboard result navigation resets whenever the query changes.
-  useEffect(() => setActiveHit(0), [
+  useEffect(() => updateActiveHit(0), [
     searchDraft,
     route.query.searchContext,
     route.query.searchScope,
-    route.query.searchType
+    route.query.searchType,
+    updateActiveHit
   ]);
   const visibleHits = searchHits.slice(0, route.query.searchLimit);
   const openHit = (page?: PageRecord, query?: string) => {
@@ -1201,10 +1211,10 @@ export function WorldView({
     }
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActiveHit((index) => Math.min(index + 1, keyboardHits.length - 1));
+      updateActiveHit(Math.min(activeHitRef.current + 1, keyboardHits.length - 1));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      setActiveHit((index) => Math.max(index - 1, 0));
+      updateActiveHit(Math.max(activeHitRef.current - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
       // Commit search + reader as one route transition. Otherwise the pending
@@ -1219,7 +1229,10 @@ export function WorldView({
       // pending and retaining the marker would suppress a future identical
       // query after the reader closes.
       if (currentSearchValue !== route.query.q) submittedSearchRef.current = currentSearchValue;
-      openHit(keyboardHits[activeHit] ?? keyboardHits[0], currentSearchValue);
+      openHit(
+        keyboardHits[Math.min(activeHitRef.current, keyboardHits.length - 1)] ?? keyboardHits[0],
+        currentSearchValue
+      );
     } else if (event.key === "Escape") {
       event.preventDefault();
       setSearchDraft("");
@@ -2155,7 +2168,7 @@ export function WorldView({
           searchScope={route.query.searchScope}
           searchPageTypes={searchResult.pageTypes}
           searchContexts={searchResult.contexts}
-          onActiveHit={setActiveHit}
+          onActiveHit={updateActiveHit}
           onOpenHit={openHit}
           onSearchFilter={(patch) => navigateWorld({ ...patch, searchLimit: null })}
           onShowMore={() => navigateWorld({ searchLimit: Math.min(1000, route.query.searchLimit + SEARCH_VISIBLE) })}
@@ -2384,7 +2397,14 @@ export function WorldView({
             searchExpanded={Boolean(searchDraft)}
             searchResultsId={SEARCH_RESULTS_ID}
             searchActiveDescendant={visibleHits.length > 0 ? searchResultOptionId(Math.min(activeHit, visibleHits.length - 1)) : undefined}
-            onSearchDraft={setSearchDraft}
+            onSearchDraft={(value) => {
+              // Reset synchronously. The result list can sit under the pointer
+              // and update activeHit through hover while filters reshape it;
+              // waiting for the draft effect would make an immediate keyboard
+              // submission inherit that stale pointer position.
+              updateActiveHit(0);
+              setSearchDraft(value);
+            }}
             onSearchKeyDown={onSearchKeyDown}
             onNavigateWorld={navigateWorld}
             onToggleTray={toggleTray}

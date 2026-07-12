@@ -195,7 +195,7 @@ describe("MissionCard", () => {
 
     expect(screen.queryByText("Next steps")).toBeNull();
     const result = screen.getByRole("option", { name: /Alpha result/ });
-    fireEvent.mouseEnter(result);
+    fireEvent.pointerMove(result);
     fireEvent.click(result);
     expect(onActiveHit).toHaveBeenCalledWith(0);
     expect(onOpenHit).toHaveBeenCalledWith(alpha);

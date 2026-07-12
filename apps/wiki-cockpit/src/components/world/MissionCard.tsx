@@ -153,7 +153,11 @@ export function MissionCard({
             key={page.id}
             role="option"
             aria-selected={index === activeHit}
-            onMouseEnter={() => onActiveHit(index)}
+            // Pointer intent, not layout motion, owns the active option. An
+            // expanding/refiltered list can move under a stationary cursor;
+            // mouseenter would then overwrite keyboard selection without the
+            // user moving the pointer at all.
+            onPointerMove={() => onActiveHit(index)}
             onClick={() => onOpenHit(page)}
             title={page.path}
             type="button"
