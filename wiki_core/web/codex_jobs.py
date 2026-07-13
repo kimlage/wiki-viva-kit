@@ -141,9 +141,18 @@ class JobRunner:
     def _write(self, record: dict[str, Any]) -> dict[str, Any]:
         self.dir.mkdir(parents=True, exist_ok=True)
         record["updated_at"] = _now_iso()
-        self._record_path(record["job_id"]).write_text(
-            json.dumps(record, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        path = self._record_path(record["job_id"])
+        temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            temporary.write_text(
+                json.dumps(record, indent=2, sort_keys=True), encoding="utf-8"
+            )
+            # Readers poll while the worker updates steps and cancellation state.
+            # Replace a complete sibling file so they can only observe the old
+            # or new JSON document, never a truncated in-place write.
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
         if self._on_change is not None:
             try:
                 self._on_change()
