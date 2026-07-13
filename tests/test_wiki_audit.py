@@ -1932,3 +1932,19 @@ def test_only_default_run_uses_full_registry(audit):
     source = WIKI_AUDIT_PATH.read_text(encoding="utf-8")
     assert "selected = CHECKS" in source
     assert "for _name, run in selected:" in source
+
+
+def test_text_at_audit_base_preserves_trailing_newline(tmp_path, monkeypatch, audit):
+    subprocess.run(["git", "init", "-b", "main"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "Wiki Audit Test"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "config", "user.email", "wiki-audit@example.invalid"], cwd=tmp_path, check=True)
+    target = tmp_path / "receipt.yaml"
+    target.write_text("schema_version: receipt.v1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "receipt.yaml"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "fixture"], cwd=tmp_path, check=True, capture_output=True)
+
+    monkeypatch.setattr(audit, "ROOT", tmp_path)
+    audit._audit_base_ref.cache_clear()
+    audit._text_at_audit_base.cache_clear()
+
+    assert audit._text_at_audit_base("receipt.yaml") == "schema_version: receipt.v1\n"
