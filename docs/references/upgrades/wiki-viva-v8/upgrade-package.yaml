@@ -197,30 +197,33 @@ migration:
     - demo_drift
     - diff_check
   # Command registry: migration evidence and executed-run receipts may only
-  # claim gate runs whose exact command is registered here. $WIKI_VIVA_KIT_ROOT
-  # is the consumer's local kit checkout used as the drift reference.
+  # claim gate runs whose exact command is registered here. WIKI_VIVA_KIT_ROOT
+  # is the consumer's local kit checkout used as the drift reference and
+  # WIKI_VIVA_PYTHON is the verified Python executable selected by the
+  # consumer. Keeping both as variables makes the public evidence projection
+  # portable without weakening the private executed-command receipt.
   gate_commands:
-    toolkit_drift: /opt/anaconda3/bin/python scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
-    audit: /opt/anaconda3/bin/python scripts/wiki_audit.py --check
-    public_evidence_redaction: /opt/anaconda3/bin/python scripts/wiki_audit.py --public-export --check
-    methodology_coverage: /opt/anaconda3/bin/python scripts/wiki_check_methodology_coverage.py --check
-    quality_report: /opt/anaconda3/bin/python scripts/wiki_quality_report.py --check
-    operation_compile: /opt/anaconda3/bin/python scripts/wiki_operation_compile.py --check
-    source_registry: /opt/anaconda3/bin/python private/scripts/wiki_source_registry.py --check
-    input_stage: /opt/anaconda3/bin/python scripts/wiki_input_stage.py --check
-    semantic_inventory: /opt/anaconda3/bin/python scripts/wiki_semantic_inventory.py --check
-    pytest: /opt/anaconda3/bin/python -m pytest tests/
+    toolkit_drift: '"$WIKI_VIVA_PYTHON" scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check'
+    audit: '"$WIKI_VIVA_PYTHON" scripts/wiki_audit.py --check'
+    public_evidence_redaction: '"$WIKI_VIVA_PYTHON" -m pytest tests/test_upgrade.py -k "public_migration"'
+    methodology_coverage: '"$WIKI_VIVA_PYTHON" scripts/wiki_check_methodology_coverage.py --check'
+    quality_report: '"$WIKI_VIVA_PYTHON" scripts/wiki_quality_report.py --check'
+    operation_compile: '"$WIKI_VIVA_PYTHON" scripts/wiki_operation_compile.py --check'
+    source_registry: '"$WIKI_VIVA_PYTHON" private/scripts/wiki_source_registry.py --check'
+    input_stage: '"$WIKI_VIVA_PYTHON" scripts/wiki_input_stage.py --check'
+    semantic_inventory: '"$WIKI_VIVA_PYTHON" scripts/wiki_semantic_inventory.py --check'
+    pytest: '"$WIKI_VIVA_PYTHON" -m pytest tests/'
     frontend: npm --prefix apps/wiki-cockpit test
     build: npm --prefix apps/wiki-cockpit run build
     node_gates: npm --prefix apps/wiki-cockpit run test:gates
-    snapshot_contract: /opt/anaconda3/bin/python scripts/wiki_web_snapshot.py --check-contract
-    pack_validation: /opt/anaconda3/bin/python scripts/wiki_pack.py validate --all
+    snapshot_contract: '"$WIKI_VIVA_PYTHON" scripts/wiki_web_snapshot.py --check-contract'
+    pack_validation: '"$WIKI_VIVA_PYTHON" scripts/wiki_pack.py validate --all'
     architecture: npm --prefix apps/wiki-cockpit run check:architecture
     assets: npm --prefix apps/wiki-cockpit run check:assets
     bundle: npm --prefix apps/wiki-cockpit run check:bundle
     release_matrix_inventory: npm --prefix apps/wiki-cockpit run check:release-matrix
     browser_required: npm --prefix apps/wiki-cockpit run test:e2e:release
-    demo_drift: /opt/anaconda3/bin/python scripts/wiki_build_demo.py --check
+    demo_drift: '"$WIKI_VIVA_PYTHON" scripts/wiki_build_demo.py --check'
     diff_check: git diff --check
   visual_profiles:
     - desktop
@@ -287,11 +290,12 @@ privacy:
     - private_console_or_network_payloads
 
 known_limitations:
-  - The package identifies exact post-S9 public payload S22 and the clean rc19 metadata subject passed 21/21 local gates on Node 22, including 1,428 Python, 516 frontend, 107 Node and 102/102 first-attempt browser cells. The current visual manifest binds baseline comparisons, manual tour=0 or Genesis states and the explicit seven-step modal-background contract. Status deliberately remains validation_pending and package_is_pinned remains false because release_candidate mechanically authorizes downstream preflight. Public push, remote CI, human conceptual/privacy/VoiceOver review and merge of the validated payload must precede a separately reviewed, CI-validated and merged public promotion boundary.
+  - The private-first rehearsal does not treat the whole private memory corpus as a public export. Its public_evidence_redaction gate runs the synthetic migration-projection regressions, and the completed consumer migration report must still pass its separate public-export validation after receipts and visual evidence exist. Private PII remains valid in private pages and forbidden in every public projection.
+  - The historical S22/rc19 validation passed 21/21 local gates on Node 22, including 1,428 Python, 516 frontend, 107 Node and 102/102 first-attempt browser cells. Those numbers remain historical. This package is now a pinned candidate scoped only to a private-first rehearsal; it does not claim a public push, remote CI result, public release or promotion.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; exact S22 may be imported in three new ordered reviewable boundaries only after the validated payload and its subsequent release_candidate promotion are both merged to the public main branch.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only. The owner explicitly authorized this newer payload to run first in the private main path through three ordered reviewable boundaries; that exception does not authorize public promotion or publication.
   - The historical private S9 read-only preflight remains attached to S9; S22 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
