@@ -88,6 +88,16 @@ commands and statuses. The standard v8 preflight set is:
 git diff --check
 ```
 
+The drift command is package-aware in `--ref-path --check` mode. It reads the
+canonical upgrade-package blob from one captured reference HEAD, verifies that
+the declared full `release.source_sha` is a direct ancestor commit, disables
+Git replacement objects and compares only paths selected by the package's
+`portable_import` allow/block contract. Consumer-owned tests, workflows,
+configuration, runtime adapters and memory are therefore preserved rather than
+misreported as toolkit drift. A missing, modified or uncommitted package,
+unavailable/non-commit source, unsafe ignore or authority mismatch exits
+fail-closed; the command never falls back to the historical prefix comparison.
+
 The preflight intentionally consumes receipts rather than executing arbitrary
 commands declared by a downstream repository. Evidence is accepted only when
 its `consumer_head` equals the checkout's current HEAD. Record toolkit drift as

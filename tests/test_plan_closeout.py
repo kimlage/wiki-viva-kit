@@ -5,16 +5,24 @@ doc-code gate. No network; writes only in tmp_path.
 from __future__ import annotations
 
 import importlib.util
+import json
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from wiki_core.config import WikiConfig
+from wiki_core.upgrade import (
+    compare_portable_files,
+    load_mapping,
+    upgrade_package_sha256,
+)
 
 
 def _load(path_rel: str, name: str):
@@ -300,3 +308,321 @@ def test_toolkit_drift_ref_path_compares_checkouts(tmp_path, monkeypatch):
     assert report["content_differs"] == ["wiki_core/a.py"]
     assert report["only_in_head"] == ["scripts/wiki_only_current.py"]
     assert report["only_in_ref"] == ["scripts/wiki_only_ref.py"]
+
+
+def _package_drift_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
+    kit = tmp_path / "kit"
+    consumer = tmp_path / "consumer"
+    kit.mkdir()
+    consumer.mkdir()
+
+    def write(root: Path, relative: str, text: str) -> None:
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    portable = {
+        "wiki_core/shared.py": "core-v1\n",
+        "scripts/wiki_shared.py": "script-v1\n",
+        "apps/wiki-cockpit/src/shared.ts": "export const value = 1;\n",
+    }
+    consumer_owned = {
+        "tests/public_only.py": "assert True\n",
+        ".github/workflows/wiki.yml": "name: public\n",
+        "wiki.config.yaml": "repo_id: public\n",
+        "apps/wiki-cockpit/public/wiki-cockpit.config.json": '{"repo":"public"}\n',
+    }
+    for relative, text in {**portable, **consumer_owned}.items():
+        write(kit, relative, text)
+
+    subprocess.run(["git", "init", "-q"], cwd=kit, check=True)
+    subprocess.run(["git", "config", "user.email", "test@test"], cwd=kit, check=True)
+    subprocess.run(["git", "config", "user.name", "test"], cwd=kit, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=kit, check=True)
+    subprocess.run(["git", "commit", "-qm", "portable source"], cwd=kit, check=True)
+    source_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=kit, text=True
+    ).strip()
+
+    package = yaml.safe_load(
+        (ROOT / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    package["release"]["source_sha"] = source_sha
+    package_path = kit / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+    package_path.parent.mkdir(parents=True, exist_ok=True)
+    package_path.write_text(
+        yaml.safe_dump(package, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    subprocess.run(
+        ["git", "add", package_path.relative_to(kit)], cwd=kit, check=True
+    )
+    subprocess.run(["git", "commit", "-qm", "package authority"], cwd=kit, check=True)
+
+    for relative, text in portable.items():
+        write(consumer, relative, text)
+    write(consumer, "tests/private_only.py", "assert 2 + 2 == 4\n")
+    write(consumer, ".github/workflows/wiki.yml", "name: private\n")
+    write(consumer, "wiki.config.yaml", "repo_id: private\n")
+    write(
+        consumer,
+        "apps/wiki-cockpit/public/wiki-cockpit.config.json",
+        '{"repo":"private"}\n',
+    )
+    return kit, consumer, source_sha
+
+
+def test_toolkit_drift_ref_path_uses_package_allowlist_and_pinned_source(
+    tmp_path, monkeypatch
+):
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_package_test")
+    kit, consumer, source_sha = _package_drift_fixture(tmp_path)
+    monkeypatch.setattr(drift_mod, "ROOT", consumer)
+
+    # A later source-worktree edit is not release authority; the pinned Git
+    # tree remains byte-identical to the consumer.
+    (kit / "wiki_core/shared.py").write_text("later-unpinned-edit\n", encoding="utf-8")
+    report = drift_mod.portable_drift_against_path(kit)
+
+    assert report["source_sha"] == source_sha
+    assert report["source_mode"] == "pinned_git_tree"
+    assert report["package_source"] == "committed_head"
+    assert report["package"] == "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+    assert report["package_sha256"] == upgrade_package_sha256(
+        load_mapping(kit / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml")
+    )
+    assert len(report["package_blob_sha256"]) == 64
+    assert report["drift_total"] == 0
+    assert report["only_in_head"] == []
+    assert report["only_in_ref"] == []
+    assert report["content_differs"] == []
+
+
+def test_toolkit_drift_ref_path_rejects_real_portable_drift(
+    tmp_path, monkeypatch, capsys
+):
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_package_drift_test")
+    kit, consumer, _ = _package_drift_fixture(tmp_path)
+    monkeypatch.setattr(drift_mod, "ROOT", consumer)
+    (consumer / "wiki_core/shared.py").write_text("consumer-diverged\n", encoding="utf-8")
+
+    exit_code = drift_mod.main(["--ref-path", str(kit), "--check"])
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+
+    assert exit_code == 1
+    assert payload["ref"] == "<reference-kit>"
+    assert payload["drift_total"] == 1
+    assert payload["content_differs"] == ["wiki_core/shared.py"]
+    assert str(kit) not in output.out + output.err
+
+
+@pytest.mark.parametrize("authority_failure", ["missing_package", "missing_source"])
+def test_toolkit_drift_ref_path_fails_closed_without_authority(
+    tmp_path, monkeypatch, authority_failure, capsys
+):
+    drift_mod = _load(
+        "scripts/wiki_toolkit_drift.py", f"wtd_authority_{authority_failure}_test"
+    )
+    kit, consumer, _ = _package_drift_fixture(tmp_path)
+    monkeypatch.setattr(drift_mod, "ROOT", consumer)
+    package_path = kit / drift_mod.PACKAGE_REL
+    if authority_failure == "missing_package":
+        package_path.unlink()
+    else:
+        package = yaml.safe_load(package_path.read_text(encoding="utf-8"))
+        package["release"]["source_sha"] = "f" * 40
+        package_path.write_text(
+            yaml.safe_dump(package, sort_keys=False, allow_unicode=True),
+            encoding="utf-8",
+        )
+        subprocess.run(["git", "add", package_path.relative_to(kit)], cwd=kit, check=True)
+        subprocess.run(["git", "commit", "-qm", "missing source"], cwd=kit, check=True)
+
+    assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
+    output = capsys.readouterr()
+    assert str(kit) not in output.out + output.err
+
+
+def test_toolkit_drift_ref_path_fails_closed_on_unsafe_ignore(
+    tmp_path, monkeypatch, capsys
+):
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_package_ignore_test")
+    kit, consumer, _ = _package_drift_fixture(tmp_path)
+    monkeypatch.setattr(drift_mod, "ROOT", consumer)
+    (consumer / ".toolkit-drift-ignore").write_text("wiki_core/**\n", encoding="utf-8")
+
+    exit_code = drift_mod.main(["--ref-path", str(kit), "--check"])
+    output = capsys.readouterr()
+    payload = json.loads(output.out)
+
+    assert exit_code == 1
+    assert payload["drift_total"] == 0
+    assert payload["unsafe_ignore_patterns"] == ["wiki_core/**"]
+    assert "DRIFT POLICY" in output.err
+
+
+@pytest.mark.parametrize(
+    "treeish", [None, "", "HEAD", "main", "abc1234", "HEAD^{tree}"]
+)
+def test_toolkit_drift_ref_path_rejects_non_sha_treeish(
+    tmp_path, monkeypatch, treeish
+):
+    drift_mod = _load(
+        "scripts/wiki_toolkit_drift.py",
+        "wtd_treeish_" + str(treeish).replace("^", "x"),
+    )
+    kit, consumer, _ = _package_drift_fixture(tmp_path)
+    monkeypatch.setattr(drift_mod, "ROOT", consumer)
+    package_path = kit / drift_mod.PACKAGE_REL
+    package = yaml.safe_load(package_path.read_text(encoding="utf-8"))
+    package["release"]["source_sha"] = treeish
+    package_path.write_text(
+        yaml.safe_dump(package, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", package_path.relative_to(kit)], cwd=kit, check=True)
+    subprocess.run(["git", "commit", "-qm", "invalid treeish"], cwd=kit, check=True)
+
+    assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
+
+
+def test_toolkit_drift_ref_path_rejects_tree_object_sha(
+    tmp_path, monkeypatch
+):
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_tree_object_test")
+    kit, consumer, source_sha = _package_drift_fixture(tmp_path)
+    monkeypatch.setattr(drift_mod, "ROOT", consumer)
+    tree_sha = subprocess.check_output(
+        ["git", "rev-parse", f"{source_sha}^{{tree}}"], cwd=kit, text=True
+    ).strip()
+    package_path = kit / drift_mod.PACKAGE_REL
+    package = yaml.safe_load(package_path.read_text(encoding="utf-8"))
+    package["release"]["source_sha"] = tree_sha
+    package_path.write_text(
+        yaml.safe_dump(package, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", package_path.relative_to(kit)], cwd=kit, check=True)
+    subprocess.run(["git", "commit", "-qm", "tree object"], cwd=kit, check=True)
+
+    assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
+
+
+def test_toolkit_drift_ref_path_rejects_non_ancestor_commit(
+    tmp_path, monkeypatch
+):
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_orphan_commit_test")
+    kit, consumer, source_sha = _package_drift_fixture(tmp_path)
+    monkeypatch.setattr(drift_mod, "ROOT", consumer)
+    source_tree = subprocess.check_output(
+        ["git", "rev-parse", f"{source_sha}^{{tree}}"], cwd=kit, text=True
+    ).strip()
+    orphan_sha = subprocess.check_output(
+        ["git", "commit-tree", source_tree, "-m", "orphan source"],
+        cwd=kit,
+        text=True,
+    ).strip()
+    package_path = kit / drift_mod.PACKAGE_REL
+    package = yaml.safe_load(package_path.read_text(encoding="utf-8"))
+    package["release"]["source_sha"] = orphan_sha
+    package_path.write_text(
+        yaml.safe_dump(package, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", package_path.relative_to(kit)], cwd=kit, check=True)
+    subprocess.run(["git", "commit", "-qm", "orphan authority"], cwd=kit, check=True)
+
+    assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
+
+
+def test_toolkit_drift_ref_path_rejects_git_replace_refs(
+    tmp_path, monkeypatch
+):
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_replace_ref_test")
+    kit, consumer, source_sha = _package_drift_fixture(tmp_path)
+    monkeypatch.setattr(drift_mod, "ROOT", consumer)
+    (kit / "wiki_core/shared.py").write_text("core-v2\n", encoding="utf-8")
+    subprocess.run(["git", "add", "wiki_core/shared.py"], cwd=kit, check=True)
+    subprocess.run(["git", "commit", "-qm", "replacement payload"], cwd=kit, check=True)
+    replacement_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=kit, text=True
+    ).strip()
+    subprocess.run(
+        ["git", "replace", source_sha, replacement_sha], cwd=kit, check=True
+    )
+    (consumer / "wiki_core/shared.py").write_text("core-v2\n", encoding="utf-8")
+
+    assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
+
+
+def test_portable_compare_ignores_replace_objects_even_after_precheck(
+    tmp_path, monkeypatch, capsys
+):
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_replace_race_test")
+    kit, consumer, source_sha = _package_drift_fixture(tmp_path)
+    monkeypatch.setattr(drift_mod, "ROOT", consumer)
+    (kit / "wiki_core/shared.py").write_text("core-v2\n", encoding="utf-8")
+    subprocess.run(["git", "add", "wiki_core/shared.py"], cwd=kit, check=True)
+    subprocess.run(["git", "commit", "-qm", "replacement payload"], cwd=kit, check=True)
+    replacement_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=kit, text=True
+    ).strip()
+    subprocess.run(
+        ["git", "replace", source_sha, replacement_sha], cwd=kit, check=True
+    )
+    (consumer / "wiki_core/shared.py").write_text("core-v2\n", encoding="utf-8")
+
+    real_check_output = drift_mod.subprocess.check_output
+
+    def hide_replace_precheck(args, *call_args, **call_kwargs):
+        if list(args) == ["git", "replace", "-l"]:
+            return "" if call_kwargs.get("text") else b""
+        return real_check_output(args, *call_args, **call_kwargs)
+
+    monkeypatch.setattr(drift_mod.subprocess, "check_output", hide_replace_precheck)
+    exit_code = drift_mod.main(["--ref-path", str(kit), "--check"])
+    payload = json.loads(capsys.readouterr().out)
+
+    assert exit_code == 1
+    assert payload["content_differs"] == ["wiki_core/shared.py"]
+
+    package = load_mapping(kit / drift_mod.PACKAGE_REL)
+    direct = compare_portable_files(
+        kit,
+        consumer,
+        package,
+        source_sha=source_sha,
+        git_no_replace_objects=True,
+    )
+    assert direct["content_differs"] == ["wiki_core/shared.py"]
+
+
+def test_toolkit_drift_ref_path_rejects_uncommitted_package_mutation(
+    tmp_path, monkeypatch
+):
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_package_mutation_test")
+    kit, consumer, _ = _package_drift_fixture(tmp_path)
+    monkeypatch.setattr(drift_mod, "ROOT", consumer)
+    package_path = kit / drift_mod.PACKAGE_REL
+    package = yaml.safe_load(package_path.read_text(encoding="utf-8"))
+    package["portable_import"]["allow"] = ["wiki_core/nonexistent.py"]
+    package_path.write_text(
+        yaml.safe_dump(package, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+    assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
+
+
+def test_toolkit_drift_package_argument_cannot_be_silently_ignored(tmp_path):
+    drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_package_cli_test")
+
+    with pytest.raises(SystemExit) as error:
+        drift_mod.main(
+            ["--ref", "HEAD", "--package", str(tmp_path / "missing.yaml"), "--check"]
+        )
+
+    assert error.value.code == 2

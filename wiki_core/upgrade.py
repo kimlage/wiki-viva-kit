@@ -11,6 +11,7 @@ import fnmatch
 import hashlib
 import json
 import math
+import os
 import re
 import subprocess
 import tempfile
@@ -798,6 +799,7 @@ def compare_portable_files(
     package: dict[str, Any],
     *,
     source_sha: str | None = None,
+    git_no_replace_objects: bool = False,
 ) -> dict[str, Any]:
     """Compare allowlisted files byte-for-byte.
 
@@ -818,7 +820,11 @@ def compare_portable_files(
 
     source_blobs: dict[str, str] = {}
     if source_sha:
-        source_blobs = _git_tree_blobs(kit_root, source_sha)
+        source_blobs = _git_tree_blobs(
+            kit_root,
+            source_sha,
+            no_replace_objects=git_no_replace_objects,
+        )
         kit_files = {
             rel
             for rel in source_blobs
@@ -830,7 +836,9 @@ def compare_portable_files(
     shared = kit_files & consumer_files
     if source_sha:
         blob_payloads = _git_blob_payloads(
-            kit_root, {source_blobs[rel] for rel in shared}
+            kit_root,
+            {source_blobs[rel] for rel in shared},
+            no_replace_objects=git_no_replace_objects,
         )
         differing = sorted(
             rel
@@ -880,7 +888,12 @@ def _git_commit_available(root: Path, sha: str) -> bool:
     return True
 
 
-def _git_tree_blobs(root: Path, sha: str) -> dict[str, str]:
+def _git_tree_blobs(
+    root: Path,
+    sha: str,
+    *,
+    no_replace_objects: bool = False,
+) -> dict[str, str]:
     """Return repository-relative blob paths for one exact Git tree."""
 
     try:
@@ -888,6 +901,7 @@ def _git_tree_blobs(root: Path, sha: str) -> dict[str, str]:
             ["git", "ls-tree", "-r", "-z", sha],
             cwd=root,
             stderr=subprocess.DEVNULL,
+            env=_git_subprocess_env(no_replace_objects),
         )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise ValueError(f"release source_sha is unavailable in kit checkout: {sha}") from exc
@@ -930,7 +944,18 @@ def _git_tree_entries(root: Path, sha: str) -> dict[str, tuple[str, str]]:
     return entries
 
 
-def _git_blob_payloads(root: Path, object_ids: set[str]) -> dict[str, bytes]:
+def _git_subprocess_env(no_replace_objects: bool) -> dict[str, str] | None:
+    if not no_replace_objects:
+        return None
+    return {**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"}
+
+
+def _git_blob_payloads(
+    root: Path,
+    object_ids: set[str],
+    *,
+    no_replace_objects: bool = False,
+) -> dict[str, bytes]:
     """Read many Git blobs through one batch process."""
 
     if not object_ids:
@@ -942,6 +967,7 @@ def _git_blob_payloads(root: Path, object_ids: set[str]) -> dict[str, bytes]:
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=_git_subprocess_env(no_replace_objects),
     )
     assert process.stdin is not None
     assert process.stdout is not None
