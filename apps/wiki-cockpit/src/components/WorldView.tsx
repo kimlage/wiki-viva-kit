@@ -612,11 +612,19 @@ export function WorldView({
     loadVisualControlConfig(typeof window === "undefined" ? undefined : window.localStorage)
   );
   const [previewQuadrant, setPreviewQuadrant] = useState<SceneFacet | null>(null);
+  const primarySurfaceOpen = Boolean(
+    worldState.dock ||
+    worldState.readerId ||
+    readerPresence.mounted ||
+    trayOpen ||
+    missionsOpen
+  );
   const [tourOpen, setTourOpen] = useState(() => {
     if (typeof window === "undefined") return false;
     const params = new URLSearchParams(window.location.search);
     const requestedTour = params.get("tour");
     return (
+      !primarySurfaceOpen &&
       params.get("visual") !== "1" &&
       !route.query.genesis && // the genesis IS the tour
       (requestedTour === "1" || (requestedTour !== "0" && !tourSeen()))
@@ -626,13 +634,11 @@ export function WorldView({
   const [hoverLinkId, setHoverLinkId] = useState<string | null>(null);
   const [walk, setWalk] = useState<{ ids: string[]; step: number } | null>(null);
   const [trailIds, setTrailIds] = useState<string[]>([]);
-  const primarySurfaceOpen = Boolean(
-    worldState.dock ||
-    worldState.readerId ||
-    readerPresence.mounted ||
-    trayOpen ||
-    missionsOpen
-  );
+  // The tour must keep its real HUD anchors visible for the spotlight while
+  // still removing every background instrument from interaction and the
+  // accessibility tree. Other primary surfaces also hide selected HUD layers
+  // through data-primary-surface-open, so those two meanings stay separate.
+  const backgroundSurfaceOwned = primarySurfaceOpen || tourOpen;
   const searchRef = useRef<HTMLInputElement>(null);
   const workspaceRef = useRef<HTMLElement>(null);
   const readerWasMountedRef = useRef(readerPresence.mounted);
@@ -651,31 +657,46 @@ export function WorldView({
   const submittedSearchRef = useRef<string | null>(null);
   const tourOpenerRef = useRef<HTMLElement | null>(null);
   const openTour = useCallback(() => {
+    if (primarySurfaceOpen) return;
     tourOpenerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setWorldNavigatorOpen(false);
+    setVisualPanelOpen(false);
     setTourOpen(true);
-  }, []);
+  }, [primarySurfaceOpen]);
 
   useEffect(() => {
-    if (primarySurfaceOpen && visualPanelOpen) setVisualPanelOpen(false);
-  }, [primarySurfaceOpen, visualPanelOpen]);
+    if (primarySurfaceOpen && tourOpen) setTourOpen(false);
+  }, [primarySurfaceOpen, tourOpen]);
 
-  // Primary surfaces keep the world visible for context, but the scene and
-  // instruments behind them are inert until the surface closes. This is the
-  // runtime surface-stack contract, not a per-dock convention.
+  useEffect(() => {
+    if (backgroundSurfaceOwned && visualPanelOpen) setVisualPanelOpen(false);
+  }, [backgroundSurfaceOwned, visualPanelOpen]);
+
+  // Foreground surfaces keep the world visible for context, but the scene and
+  // instruments behind them are inert until the surface closes. The tour is
+  // special: its anchors remain visible, while every sibling subtree is inert
+  // so new panel types cannot accidentally escape the modal boundary.
   useEffect(() => {
     const touched = new Set<HTMLElement>();
     const applySurfaceState = () => {
       const root = workspaceRef.current;
       if (!root) return;
       const targetState = new Map<HTMLElement, boolean>();
+      if (tourOpen) {
+        for (const child of root.children) {
+          if (child instanceof HTMLElement && !child.matches(".coachOverlay")) {
+            targetState.set(child, true);
+          }
+        }
+      }
       root.querySelectorAll<HTMLElement>(".sceneCanvasFrame, .sceneFallback, .radarStatusStrip, .worldMinimap").forEach((target) => {
-        targetState.set(target, primarySurfaceOpen || worldNavigatorOpen || temporalViewActive || packSurfaceActive);
+        targetState.set(target, backgroundSurfaceOwned || worldNavigatorOpen || temporalViewActive || packSurfaceActive);
       });
       root.querySelectorAll<HTMLElement>(".worldCommandBar").forEach((target) => {
-        targetState.set(target, primarySurfaceOpen || worldNavigatorOpen);
+        targetState.set(target, backgroundSurfaceOwned || worldNavigatorOpen);
       });
       root.querySelectorAll<HTMLElement>(".worldTopStrip").forEach((target) => {
-        targetState.set(target, primarySurfaceOpen);
+        targetState.set(target, backgroundSurfaceOwned);
       });
       root.querySelectorAll<HTMLElement>(
         ".worldBreadcrumbs, .conditionStrip, .worldMeta, .worldMissionCard, .worldMissionSlim, .quadrantCompass, .focusLegend"
@@ -684,13 +705,13 @@ export function WorldView({
         targetState.set(
           target,
           (targetState.get(target) ?? false) ||
-            primarySurfaceOpen ||
+            backgroundSurfaceOwned ||
             worldNavigatorOpen ||
             ((temporalViewActive || packSurfaceActive) && !activeSearchSurface)
         );
       });
       root.querySelectorAll<HTMLElement>(".timelineSurface, .packWorkbenchSurface").forEach((target) => {
-        targetState.set(target, primarySurfaceOpen || worldNavigatorOpen);
+        targetState.set(target, backgroundSurfaceOwned || worldNavigatorOpen);
       });
       for (const [target, active] of targetState) {
         touched.add(target);
@@ -713,7 +734,7 @@ export function WorldView({
       target.removeAttribute("aria-hidden");
       });
     };
-  }, [packSurfaceActive, primarySurfaceOpen, temporalViewActive, worldNavigatorOpen]);
+  }, [backgroundSurfaceOwned, packSurfaceActive, temporalViewActive, tourOpen, worldNavigatorOpen]);
 
   useEffect(() => {
     if (readerWasMountedRef.current && !readerPresence.mounted) {
@@ -1090,7 +1111,8 @@ export function WorldView({
     });
   }, [pages, route.pageId]);
 
-  // "?" reopens the guided tour from anywhere (outside typing contexts).
+  // "?" reopens the guide from the world itself. An existing reader, dock or
+  // tray keeps ownership instead of allowing two simultaneous modal surfaces.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
@@ -2017,6 +2039,7 @@ export function WorldView({
       data-runtime-mode={worldState.mode}
       data-world-empty={worldState.emptyWorld ? "true" : "false"}
       data-primary-surface-open={primarySurfaceOpen ? "true" : "false"}
+      data-background-surface-owned={backgroundSurfaceOwned ? "true" : "false"}
       data-world-center={worldState.centerId ?? undefined}
       data-world-view={worldState.view}
       data-world-page-count={pages.length}
@@ -2297,7 +2320,7 @@ export function WorldView({
               requestedView={route.query.packView}
               activeView={activePackView}
               pages={pages}
-              inactive={primarySurfaceOpen || worldNavigatorOpen}
+              inactive={backgroundSurfaceOwned || worldNavigatorOpen}
               onSelectView={(contribution) => navigateWorld({ packView: contribution })}
               onOpenPage={(pageId) => navigateWorld({ pageId, page: pageId, reader: true })}
               onOpenTimeline={() => navigateWorld({ packView: null, view: "timeline", timeCursor: null })}
@@ -2314,7 +2337,7 @@ export function WorldView({
               query={route.query}
               experiencePacks={bundle.experiencePacks}
               packTimelineProfiles={bundle.experiencePacks?.slots.timelines}
-              inactive={primarySurfaceOpen || worldNavigatorOpen}
+              inactive={backgroundSurfaceOwned || worldNavigatorOpen}
               onQueryChange={(patch) => navigateWorld(patch)}
               onOpenPage={(pageId) => navigateWorld({ pageId, page: pageId, reader: true })}
             />

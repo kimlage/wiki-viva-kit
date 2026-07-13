@@ -979,9 +979,40 @@ test("global view shortcuts stay suspended under the coach, docks and reader", a
 
   await page.locator(".tourButton").click();
   await expect(page.locator(".coachOverlay")).toBeVisible();
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-primary-surface-open", "false");
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-background-surface-owned", "true");
+  await expect(page.locator(".worldCommandBar")).toHaveAttribute("inert", "");
+  await expect(page.locator(".worldCommandBar")).toHaveAttribute("aria-hidden", "true");
   await expectViewShortcutBlocked(page, "quadrants");
+
+  const tourAnchors = [
+    null,
+    ".worldNavigatorViewControls",
+    ".worldNavigatorOverlaySelect",
+    ".quadrantCompass",
+    ".worldBreadcrumbs",
+    ".worldMissionCard, .worldMissionSlim",
+    ".commandSearch"
+  ];
+  for (let index = 0; index < tourAnchors.length; index += 1) {
+    await expect(page.locator(".coachProgress")).toHaveText(new RegExp(`^${index + 1} (of|de) 7$`));
+    const selector = tourAnchors[index];
+    if (selector) {
+      const anchor = page.locator(selector).first();
+      await expect(anchor).toBeVisible();
+      const anchorBox = await anchor.boundingBox();
+      expect(anchorBox?.width ?? 0).toBeGreaterThan(0);
+      expect(anchorBox?.height ?? 0).toBeGreaterThan(0);
+      await expect(page.locator(".coachSpotlight")).toBeVisible();
+    }
+    if (index < tourAnchors.length - 1) await page.locator(".coachCard .actionButton").click();
+  }
   await page.keyboard.press("Escape");
   await expect(page.locator(".coachOverlay")).toHaveCount(0);
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-background-surface-owned", "false");
+  await expect(page.locator(".worldCommandBar")).not.toHaveAttribute("inert", "");
+  await expect(page.locator(".worldCommandBar")).not.toHaveAttribute("aria-hidden", "true");
+  await expect(page.locator(".tourButton")).toBeFocused();
 
   await page.locator(".workButton").click();
   await expect(page.locator(".workDockPanel")).toBeVisible();
@@ -992,6 +1023,9 @@ test("global view shortcuts stay suspended under the coach, docks and reader", a
   const search = page.locator(".commandSearch input");
   await search.fill("CRM accounts export");
   await search.press("Enter");
+  await expect(page.locator(".pageReader")).toBeVisible();
+  await page.keyboard.press("Shift+/");
+  await expect(page.locator(".coachOverlay")).toHaveCount(0);
   await expect(page.locator(".pageReader")).toBeVisible();
   await expectViewShortcutBlocked(page, "quadrants");
 });

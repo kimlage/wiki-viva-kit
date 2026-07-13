@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { loadSnapshotBundle } from "./data/snapshot";
 import { browserApplication } from "./infrastructure/browserApplication";
@@ -329,6 +329,38 @@ async function renderRoute(path: string) {
   render(<App ports={browserApplication} />);
 }
 
+let fallbackLocalStorage: Storage | null = null;
+
+function testLocalStorage(): Storage {
+  try {
+    if (window.localStorage) return window.localStorage;
+  } catch {
+    // Continue with the deterministic in-memory fixture below.
+  }
+  if (!fallbackLocalStorage) {
+    const values = new Map<string, string>();
+    fallbackLocalStorage = {
+      get length() { return values.size; },
+      clear: () => values.clear(),
+      getItem: (key) => values.get(key) ?? null,
+      key: (index) => [...values.keys()][index] ?? null,
+      removeItem: (key) => { values.delete(key); },
+      setItem: (key, value) => { values.set(key, String(value)); }
+    };
+  }
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: fallbackLocalStorage
+  });
+  return fallbackLocalStorage;
+}
+
+beforeEach(() => {
+  // Most App contracts model a returning operator. Keep the independently
+  // tested first-run modal from implicitly owning their keyboard/focus state.
+  testLocalStorage().setItem("wikiCockpitTourDone.v1", "1");
+});
+
 afterEach(() => {
   mockSnapshotState.runtimeMode = "local_operator";
   mockSnapshotState.source = "/api/snapshot";
@@ -369,6 +401,61 @@ describe("visual route contract", () => {
 
     await renderRoute("/demo/w/radar");
     expect(await screen.findByText(/Read-only demo with synthetic data/)).toBeTruthy();
+  });
+
+  it("keeps the world background inert while the guided tour owns the modal surface", async () => {
+    await renderRoute("/w?view=radar&tour=1");
+    expect(
+      await screen.findByRole("dialog", { name: "Welcome to the knowledge world" })
+    ).toBeTruthy();
+
+    const workspace = document.querySelector<HTMLElement>(".worldWorkspace");
+    const commandBar = document.querySelector<HTMLElement>(".worldCommandBar");
+    expect(workspace).toBeTruthy();
+    expect(commandBar).toBeTruthy();
+    await waitFor(() => {
+      expect(workspace?.getAttribute("data-primary-surface-open")).toBe("false");
+      expect(workspace?.getAttribute("data-background-surface-owned")).toBe("true");
+      expect(commandBar?.inert).toBe(true);
+      expect(commandBar?.getAttribute("aria-hidden")).toBe("true");
+      const backgroundChildren = [...(workspace?.children ?? [])].filter(
+        (child): child is HTMLElement => child instanceof HTMLElement && !child.matches(".coachOverlay")
+      );
+      expect(backgroundChildren.length).toBeGreaterThan(0);
+      backgroundChildren.forEach((child) => {
+        expect(child.inert).toBe(true);
+        expect(child.getAttribute("aria-hidden")).toBe("true");
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Welcome to the knowledge world" })).toBeNull();
+      expect(workspace?.getAttribute("data-primary-surface-open")).toBe("false");
+      expect(workspace?.getAttribute("data-background-surface-owned")).toBe("false");
+      expect(commandBar?.inert).toBe(false);
+      expect(commandBar?.hasAttribute("aria-hidden")).toBe(false);
+    });
+  });
+
+  it("opens the guided tour for a clean first-run profile without a route override", async () => {
+    testLocalStorage().removeItem("wikiCockpitTourDone.v1");
+    await renderRoute("/w?view=radar");
+    expect(
+      await screen.findByRole("dialog", { name: "Welcome to the knowledge world" })
+    ).toBeTruthy();
+  });
+
+  it("does not stack the guided tour over an existing primary surface", async () => {
+    await renderRoute("/w?view=radar&page=root&reader=1&tour=1");
+    expect(await screen.findByLabelText("Reader: Root")).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Welcome to the knowledge world" })).toBeNull();
+
+    fireEvent.keyDown(window, { key: "?" });
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Welcome to the knowledge world" })).toBeNull();
+      expect(screen.getByLabelText("Reader: Root")).toBeTruthy();
+    });
   });
 
   it("redirects legacy /pages/:id bookmarks into the world with the reader open", async () => {
@@ -470,7 +557,10 @@ describe("visual route contract", () => {
     });
 
     try {
-      await renderRoute("/w?view=radar&q=dense-canonical%20action");
+      // This contract owns search selection, not the first-run coach marks.
+      // A clean official Node 22 profile has no persisted tourSeen() flag, and
+      // the modal tour legitimately captures Enter before the command bar.
+      await renderRoute("/w?view=radar&q=dense-canonical%20action&tour=0");
       expect(
         await screen.findByLabelText("3D knowledge world", {}, { timeout: 3_000 })
       ).toBeTruthy();
@@ -489,7 +579,7 @@ describe("visual route contract", () => {
       // Back/route hydration can shrink the visible window while preserving
       // the full result set. The selected option disappeared, so all ARIA and
       // keyboard state must reset to the first real visible option.
-      window.history.pushState({}, "", "/w?view=radar&q=dense-canonical%20action");
+      window.history.pushState({}, "", "/w?view=radar&q=dense-canonical%20action&tour=0");
       window.dispatchEvent(new PopStateEvent("popstate"));
       await waitFor(() => {
         expect(screen.getAllByRole("option", { name: /Dense canonical action/ })).toHaveLength(10);
@@ -801,7 +891,8 @@ describe("visual route contract", () => {
   });
 
   it("replace-normalizes a bad reader deep link and leaves mouse and keyboard navigation operable", async () => {
-    window.history.pushState({}, "", "/w?view=radar&page=does-not-exist&reader=1");
+    // Keep the first-run coach marks out of this keyboard recovery contract.
+    window.history.pushState({}, "", "/w?view=radar&page=does-not-exist&reader=1&tour=0");
     const historyLength = window.history.length;
     render(<App ports={browserApplication} />);
 
@@ -858,7 +949,7 @@ describe("visual route contract", () => {
     });
 
     try {
-      await renderRoute("/w?view=radar&page=source-fixture&reader=1");
+      await renderRoute("/w?view=radar&page=source-fixture&reader=1&tour=0");
       const reader = await screen.findByLabelText("Reader: Source Fixture");
       reader.focus();
       expect(document.activeElement).toBe(reader);
