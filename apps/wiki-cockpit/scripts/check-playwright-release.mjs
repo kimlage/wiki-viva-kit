@@ -210,6 +210,10 @@ try {
         scope === "public_required" ? "playwright.config.ts" : "playwright.downstream.config.ts"
       )
     ],
+    ...(scope === "public_required" ? [
+      ["runtime-performance-spec", path.join(appRoot, "e2e/runtime-performance.spec.ts")],
+      ["webgl-renderer-attestation", path.join(appRoot, "e2e/webgl-renderer-attestation.ts")]
+    ] : []),
     ["release-matrix-checker", fileURLToPath(import.meta.url)],
     ["release-matrix-library", path.join(scriptsDir, "release-matrix-lib.mjs")],
     ["operator-security-contract", path.join(appRoot, "src/contracts/operatorSecurity.js")],

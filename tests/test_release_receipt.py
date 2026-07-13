@@ -129,6 +129,8 @@ def _repo(tmp_path: Path) -> Path:
     for relative in (
         "apps/wiki-cockpit/playwright.config.ts",
         "apps/wiki-cockpit/playwright.downstream.config.ts",
+        "apps/wiki-cockpit/e2e/runtime-performance.spec.ts",
+        "apps/wiki-cockpit/e2e/webgl-renderer-attestation.ts",
         "apps/wiki-cockpit/scripts/check-playwright-release.mjs",
         "apps/wiki-cockpit/scripts/release-matrix-lib.mjs",
         "apps/wiki-cockpit/src/contracts/operatorSecurity.js",
@@ -400,6 +402,13 @@ def _gate(root: Path, *, scope: str, gate_id: str, **overrides: object) -> str:
         "cockpit-package": "apps/wiki-cockpit/package.json",
         "cockpit-lockfile": "apps/wiki-cockpit/package-lock.json",
     }
+    if scope == "public_required":
+        toolchain_paths.update(
+            {
+                "runtime-performance-spec": "apps/wiki-cockpit/e2e/runtime-performance.spec.ts",
+                "webgl-renderer-attestation": "apps/wiki-cockpit/e2e/webgl-renderer-attestation.ts",
+            }
+        )
     toolchain_files = []
     for item_id, item_path in toolchain_paths.items():
         item_hash, item_size = sha256_file(root / item_path)
@@ -1606,6 +1615,23 @@ def test_toolchain_manifest_rehashes_every_executed_config_and_checker(
     errors = validate_release_receipt(receipt, root=root)
     assert any(
         "toolchain file release-matrix-library hash/size is stale" in error
+        for error in errors
+    )
+
+
+def test_public_toolchain_manifest_binds_webgl_renderer_attestation(
+    tmp_path: Path,
+) -> None:
+    root = _repo(tmp_path)
+    receipt = build_release_receipt(root, _evidence(root))
+    _write(
+        root / "apps/wiki-cockpit/e2e/webgl-renderer-attestation.ts",
+        "fixture:renderer-attestation-removed-after-gate\n",
+    )
+
+    errors = validate_release_receipt(receipt, root=root)
+    assert any(
+        "toolchain file webgl-renderer-attestation hash/size is stale" in error
         for error in errors
     )
 

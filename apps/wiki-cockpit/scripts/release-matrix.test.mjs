@@ -1479,6 +1479,8 @@ test("release configurations pin zero retries and keep downstream specs out of p
   assert.doesNotMatch(checker, /\bcommand:\s/);
   for (const supportId of [
     "playwright-config",
+    "runtime-performance-spec",
+    "webgl-renderer-attestation",
     "release-matrix-checker",
     "release-matrix-library",
     "operator-security-contract",
@@ -1499,6 +1501,99 @@ test("release configurations pin zero retries and keep downstream specs out of p
   ]) {
     assert.ok(checker.includes(`"${supportId}"`));
   }
+});
+
+test("performance release evidence binds one hardware WebGL renderer attestation", () => {
+  const publicConfig = fs.readFileSync(new URL("../playwright.config.ts", import.meta.url), "utf8");
+  const performanceSpec = fs.readFileSync(new URL("../e2e/runtime-performance.spec.ts", import.meta.url), "utf8");
+  const attestation = fs.readFileSync(new URL("../e2e/webgl-renderer-attestation.ts", import.meta.url), "utf8");
+  const checker = fs.readFileSync(new URL("./check-playwright-release.mjs", import.meta.url), "utf8");
+  const performanceStart = publicConfig.indexOf('name: "chromium-performance"');
+  const nextProject = publicConfig.indexOf('name: "chromium-desktop"', performanceStart);
+  assert.ok(performanceStart >= 0 && nextProject > performanceStart);
+  const performanceProject = publicConfig.slice(performanceStart, nextProject);
+  assert.match(performanceProject, /launchOptions:\s*\{\s*args:\s*\["--enable-gpu"\]\s*\}/);
+  assert.equal(publicConfig.match(/--enable-gpu/g)?.length, 1);
+  assert.doesNotMatch(publicConfig.slice(nextProject), /--enable-gpu/);
+
+  assert.match(performanceSpec, /captureWebglRendererAttestation/);
+  assert.match(performanceSpec, /assertHardwareWebglRendererAttestation/);
+  assert.match(performanceSpec, /webgl-renderer-attestation\.json/);
+  assert.match(attestation, /wiki_webgl_renderer_attestation\.v1/);
+  assert.match(attestation, /WEBGL_debug_renderer_info/);
+  assert.match(attestation, /swiftshader\|llvmpipe/);
+  assert.match(attestation, /WebGL renderer attestation blocked/);
+  assert.ok(checker.includes('["runtime-performance-spec",'));
+  assert.ok(checker.includes('["webgl-renderer-attestation",'));
+});
+
+test("WebGL renderer attestation rejects missing, software and contradictory identities", async () => {
+  const {
+    assertHardwareWebglRendererAttestation,
+    webglRendererAttestationBlocker
+  } = await import("../e2e/webgl-renderer-attestation.ts");
+  const hardware = {
+    schema_version: "wiki_webgl_renderer_attestation.v1",
+    requested_gpu: true,
+    classification: "hardware",
+    blocker: null,
+    context: {
+      drawing_buffer_width: 1280,
+      drawing_buffer_height: 900,
+      lost: false,
+      version: "WebGL 2.0",
+      shading_language_version: "WebGL GLSL ES 3.00"
+    },
+    renderer: {
+      masked_vendor: "WebKit",
+      masked_renderer: "WebKit WebGL",
+      unmasked_vendor: "Example GPU Vendor",
+      unmasked_renderer: "ANGLE (Example Hardware GPU)",
+      debug_renderer_info: true
+    }
+  };
+  assert.equal(webglRendererAttestationBlocker(hardware), null);
+  assert.doesNotThrow(() => assertHardwareWebglRendererAttestation(hardware));
+
+  const software = {
+    ...structuredClone(hardware),
+    classification: "software",
+    blocker: "webgl_software_renderer:swiftshader",
+    renderer: {
+      ...hardware.renderer,
+      unmasked_renderer: "ANGLE (Google SwiftShader)"
+    }
+  };
+  assert.throws(
+    () => assertHardwareWebglRendererAttestation(software),
+    /blocked: webgl_software_renderer:swiftshader/
+  );
+  assert.throws(
+    () => assertHardwareWebglRendererAttestation({
+      ...structuredClone(hardware),
+      classification: "unknown",
+      blocker: "webgl_debug_renderer_info_unavailable",
+      renderer: { ...hardware.renderer, debug_renderer_info: false }
+    }),
+    /blocked: webgl_debug_renderer_info_unavailable/
+  );
+  assert.throws(
+    () => assertHardwareWebglRendererAttestation({
+      ...structuredClone(hardware),
+      classification: "unknown",
+      blocker: "webgl_context_identity_missing",
+      context: { ...hardware.context, version: "" }
+    }),
+    /blocked: webgl_context_identity_missing/
+  );
+  assert.throws(
+    () => assertHardwareWebglRendererAttestation({
+      ...software,
+      classification: "hardware",
+      blocker: null
+    }),
+    /fields contradict/
+  );
 });
 
 test("release Playwright refuses a stale sentinel server instead of reusing it", async () => {
