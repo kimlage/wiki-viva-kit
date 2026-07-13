@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc18@8a95ed94
+    current_kit_version: wiki-viva-v8-rc19@e01a4ed9
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -34,11 +34,11 @@ consumers:
     drift_status:
       state: public_validation_pending
       drift_total: 0
-      compared_against: wiki-viva-v8-rc18@8a95ed94
+      compared_against: wiki-viva-v8-rc19@e01a4ed9
       worktree: exact_payload_frozen_validation_pending
     upgrade_wave: public_kit
     status: validation_pending
-    blocker: S19 automated evidence is historical and its browser receipt used Node 26; S20/rc17 is superseded by RT-147. Complete the exact rc18/S21 full Node 22 stack with the corrected RT-146 drift authority and validator-v5 inert release-record controls, bind the current E3 manifest, then complete PR 61 human conceptual, privacy and VoiceOver review, merge, external E5 authority and release tag
+    blocker: S19 automated evidence is historical and its browser receipt used Node 26; S20/rc17 and S21/rc18 are superseded by RT-147/RT-148. Complete the exact rc19/S22 full Node 22 stack with corrected drift authority, inert release records, tour-isolated keyboard contracts and modal-background isolation, bind the current E3 manifest, then complete PR 61 human conceptual, privacy and VoiceOver review, merge, external E5 authority and release tag
 
   - id: private-pilot-01
     repository:
@@ -70,11 +70,11 @@ consumers:
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: wiki-viva-v8-rc18@8a95ed94
+      target_version: wiki-viva-v8-rc19@e01a4ed9
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
-      details: exact S9 payload b45378d3 remains the installed historical subject; rc16 projected 887 portable deltas (51 authorial + 836 generated), but RT-146 proved that its toolkit-drift entrypoint was not adoption authority and RT-147 changed the migration validator; recompute against exact S21 and the frozen private main before preflight
+      details: exact S9 payload b45378d3 remains the installed historical subject; rc16 projected 887 portable deltas (51 authorial + 836 generated), but RT-146 proved that its toolkit-drift entrypoint was not adoption authority and RT-147/RT-148 changed the validator and official test subject; recompute against exact S22 and the newly frozen private main before preflight
       verified_on: "2026-07-13"
     upgrade_wave: pilot
     status: blocked_on_public_validation
-    blocker: first close RT-146/RT-147 and the complete exact rc18/S21 Node 22 stack; then retain corrected drift receipts and redacted aggregates and complete RT-09/10/29/33/36/47/48/125/146/147 consumer-semantic evidence, human conceptual/privacy/VoiceOver review, merge and external E5
+    blocker: first close RT-146/RT-147/RT-148/RT-149 and the complete exact rc19/S22 Node 22 stack; then retain corrected drift receipts and redacted aggregates and complete RT-09/10/29/33/36/47/48/125/146/147/148/149 consumer-semantic evidence, human conceptual/privacy/VoiceOver review, merge and external E5

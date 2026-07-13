@@ -74,16 +74,35 @@ validator v4 rejected the mandatory localized private release record, while
 the first v5 draft admitted arbitrary executable payloads below the configured
 release subtree. S20/rc17 is therefore historical non-adoption evidence.
 
-The current correction is exact S21
+The next correction was exact S21
 `8a95ed94c424759f6b218038f8b5f6141c3cc079`, packaged as
-`wiki-viva-v8-rc18` with `status: validation_pending`. Validator v5 binds both
+`wiki-viva-v8-rc18`. Validator v5 binds both
 configured roots to preflight, requires them to be disjoint and admits only
 UTF-8 Markdown release records committed as inert `100644` data. The complete
 upgrade suite passes 105/105, including secret, executable, sibling, overlap,
-portable-path and localized-memory regressions, but no transferable full-stack
-release receipt exists yet.
+portable-path and localized-memory regressions. Its exact metadata subject
+`8dc7b6dfef601c127a2d826ad9708517825fc455` then passed gates 1–12 under
+Node 22, including 1,428/1,428 Python tests, before gate 13 stopped at 510/513
+frontend tests. RT-148 proved those three keyboard failures were a harness
+contract: a clean Node 22 profile correctly opened the first-run modal tour,
+which captured Enter before the tests' command bar. Node 26 had masked the
+missing fixture state through incompatible experimental localStorage behavior.
+rc18 is retained as negative first-attempt evidence and will not be retried.
 
-The complete official Node 22 stack must now run once on the exact rc18 pin
+The current correction is exact S22
+`e01a4ed91e3e4c2f1746539418d3faebec775204`, packaged as
+`wiki-viva-v8-rc19` with `status: validation_pending`. It isolates all three
+keyboard contracts with explicit `tour=0`, including the internal Back/route
+hydration URL. It also closes RT-149: while the guided-tour modal is open, the
+world command bar and background instruments are now `inert` and
+`aria-hidden`, then restored on close. It also refuses to stack the tour over
+an existing reader, dock or tray and preserves all seven visible tour anchors.
+Node 22 passes the focused file 17/17 and the frontend suite 516/516. A
+concurrent downstream review independently found the same two reader-test
+isolation and inspired the public check; the public synthetic fix also covers
+the newer dense-search contract without importing private content.
+
+The complete official Node 22 stack must now run once on the exact rc19 pin
 subject, with zero required skip or retry. S19 counts do not transfer. The six
 durable S19 desktop E3 captures may be rebound only after byte-equivalence is
 proved for every rendered cockpit, fixture, pack and asset input; uncovered
@@ -251,7 +270,7 @@ kept in the private ignored evidence cache; its SHA-256 is
 ## Historical consolidated implementation ledger — S10 checkpoint
 
 This section freezes the former S10 execution surface. Its counts and defect
-captures remain historical evidence and are not current S21/rc18 authority. A
+captures remain historical evidence and are not current S22/rc19 authority. A
 green worktree is still not an E5 release claim. The subject sequence is
 deliberately split into portable payload `S`, public metadata envelope `M` and
 private adoption `P`, so no commit attempts to contain its own SHA and no
@@ -533,11 +552,12 @@ memory rather than one fixed dashboard:
 | Historical public payload `S18` | Exact source `f9defa5a0f156816fe419df6c8f208b9eea138e0`; package `wiki-viva-v8-rc15` | Focused frontend/build and upgrade controls passed, but the exact official stack and current visual evidence were incomplete | It repaired truthful pending-state diagnostics | Historical non-releasable candidate |
 | Historical public payload `S19` | Exact source `198471c3cf4176d7a046c5ceb8dd053f1be1ee58`; pin subject `6ca0dba8b2772c970e0c6e5e20e18eb9ed742055`; package `wiki-viva-v8-rc16` | Then-declared 21-gate stack passed and E3 ran on 2026-07-13, but the browser receipt records Node 26, not Node 22 | RT-146 later proved the downstream drift gate was not trustworthy release authority | Never promote or import |
 | Historical public payload `S20` | Exact source `3f96b03e451e09227205546678cfa8e902afb2fd`; package `wiki-viva-v8-rc17` | 34 focused RT-146 controls pass | Committed canonical-package and pinned portable-tree authority is implemented, but RT-147 invalidated the downstream release-record boundary | Never promote or import |
-| Current public payload `S21` | Exact source `8a95ed94c424759f6b218038f8b5f6141c3cc079`; package `wiki-viva-v8-rc18` | 105/105 upgrade controls pass; no exact-subject full Node 22 release receipt exists yet | Validator v5 binds disjoint configured roots and only inert Markdown release records | `validation_pending`; private preflight/import must block until the full rerun and visual boundary close |
+| Historical public payload `S21` | Exact source `8a95ed94c424759f6b218038f8b5f6141c3cc079`; package `wiki-viva-v8-rc18`; metadata subject `8dc7b6dfef601c127a2d826ad9708517825fc455` | Gates 1–12 pass under Node 22, including 1,428 Python; frontend stops at 510/513 on first attempt | Validator v5 is correct; RT-148 exposes three keyboard tests that did not isolate the first-run modal tour | Never retry, promote or import |
+| Current public payload `S22` | Exact source `e01a4ed91e3e4c2f1746539418d3faebec775204`; package `wiki-viva-v8-rc19` | Node 22 focused file 17/17 and frontend 516/516 pass; the focused Chromium seven-step tour path passes; no exact-subject full release receipt exists yet | Keyboard contracts explicitly disable the separately tested tour; the guided-tour modal isolates every background sibling without hiding its anchors or stacking over another modal | `validation_pending`; private preflight/import must block until the full rerun and visual boundary close |
 | Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the exact S18 private adoption |
-| Current private rc18 target | Historical S9 remains installed; authoritative S21 preflight has not run | S19's 887-delta result is diagnostic history only and must be recomputed with the corrected gate and validator | Preserve private memory/config/adapters while replaying events, relations, search, authorship, restart, Timeline, mobile and rollback | Blocked on exact S21/rc18 validation |
-| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Deterministic implementation exists; exact S21 full-stack proof is pending | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Do not transfer S19 counts to S21 |
-| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Six durable S19 desktop cells plus thirteen current-run S21-compatible Timeline/pack/search/reader/Genesis/mobile/fallback cells are hashed; rendered inputs are byte-identical | No desktop/mobile overflow blocker was observed; transition frames require settling and VoiceOver remains human | Node 22 PT-BR/keyboard/matrix receipt and final manifest remain required; visual evidence alone never promotes the release |
+| Current private rc19 target | Historical S9 remains installed; authoritative S22 preflight has not run; concurrent private main advanced and must be freshly frozen | S19's 887-delta result is diagnostic history only and must be recomputed with the corrected gate, validator and official test subject | Preserve private memory/config/adapters while replaying events, relations, search, authorship, restart, Timeline, mobile and rollback | Blocked on exact S22/rc19 validation |
+| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Deterministic implementation exists; exact S22 full-stack proof is pending | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Do not transfer S19 or S21 counts to S22 |
+| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Six durable S19 desktop cells plus thirteen current-run S22-compatible Timeline/pack/search/reader/Genesis/mobile/fallback cells are hashed; S22 changes tests only, not runtime/fixture/pack/asset bytes | No desktop/mobile overflow blocker was observed; transition frames require settling and VoiceOver remains human | Node 22 PT-BR/keyboard/matrix receipt and final manifest remain required; visual evidence alone never promotes the release |
 
 At historical machine-status commit `f849de26`, the local public branch changed 2,066
 files with 486,397 additions and 10,913 deletions across 100 commits from the
@@ -1114,13 +1134,15 @@ reproduction.
 | RT-145 | P2 | Reloading or closing the private tab during a large `/api/snapshot/boot` response can log full `BrokenPipeError` or `ConnectionResetError` tracebacks from `_send_json -> self.wfile.write(body)`, even though the user intentionally disconnected | E4 private operator observation reproduced expected client-abort noise without UI failure, gate failure or response corruption for a connected client | Catch only expected disconnect exceptions around socket write/flush, keep serialization and unexpected server errors visible, and add an aborted-client regression proving clean observability and correct attempt lifecycle; non-blocking for S9 |
 | RT-146 | P0 | The downstream `wiki_toolkit_drift --ref-path` release gate compared mutable checkout bytes through hard-coded legacy prefixes instead of the committed canonical upgrade package and its exact pinned `release.source_sha`; it could omit portable app/pack/skill/documentation surfaces, count consumer-owned tests/workflows, honor out-of-contract ignore behavior, compare replaced objects and disclose a local reference path | E1 review of the S19 CLI path; E2 package-allowlist, portable-byte mismatch, missing/mutated authority, unsafe-ignore, non-SHA/tree/object, non-ancestor, Git-replace and redacted-output controls; 34 focused tests pass on exact S20 | Load the canonical package committed at reference HEAD; require an exact direct commit SHA that is its ancestor; compare only the package `portable_import` projection with replacement objects disabled; preserve RT-125 fail-closed ignore semantics; fail on missing/invalid/mutated authority and redact the local reference path. S20 was not promoted; S21 inherits this correction and owns the complete Node 22 rerun |
 | RT-147 | P0 | The private three-commit policy requires a localized release record below configured references, but validator v4 rejected it; the first v5 exception then admitted arbitrary files, including executable scripts, and overlapping memory/references roots could bypass sibling rejection | E1 private policy/runbook comparison; E2 localized `.md`, sibling, `.sh`, mode `100755`, secret, portable-path, overlapping-root, public-redaction and memory-regression controls; 105/105 upgrade tests pass on exact S21 | Bind memory/references roots to config and authoritative preflight; require disjoint canonical roots; admit only UTF-8 `.md` release records with final Git mode `100644`; keep secret, portable and evidence exclusions fail-closed; rerun the complete Node 22 stack on S21 before promotion |
+| RT-148 | P0 | Three keyboard/search recovery tests implicitly depended on the first-run tour already being seen. In a clean official Node 22 profile the modal correctly opened and captured Enter, so only the debounced `?q=` write occurred; Node 26's incompatible experimental localStorage failure made `tourSeen()` fail closed to true and masked the missing fixture state | E1 exact rc18 first-attempt frontend log; E2 Node 22 3/14 reproduction versus Node 26 14/14; modal listener/search trace; concurrent downstream review independently found the same reader-test isolation; exact S22 passes Node 22 focused 17/17 and frontend 516/516 | Preserve the modal's keyboard ownership; set `tour=0` explicitly in every unrelated keyboard contract and its internal history URL; retain rc18 failure bytes without retry; rerun the complete stack only on S22/rc19 |
+| RT-149 | P1 | `CoachMarks` owned focus and keyboard input as a modal, but the visible world remained reachable in the accessibility tree behind it. A naive reuse of `primarySurfaceOpen` then hid the tour's own anchors through existing CSS, and `?` could stack the coach over an existing reader/dock/tray | E1 surface-stack and CSS-anchor review; E2 Happy DOM contracts cover first-run opening, complete sibling `inert`/`aria-hidden`, restoration and no modal stacking; E3 focused Chromium traverses all seven anchors with non-zero geometry, blocks global shortcuts and restores focus to the tour button; exact S22 passes Node 22 focused 17/17 and frontend 516/516 | Keep CSS visibility state separate from background ownership; inert every sibling subtree except the coach overlay; refuse to open over another primary surface; retain visible anchors and modal keyboard ownership; require exact S22 full-stack/browser proof before promotion |
 
 ### Historical exact-public-subject closure overlay
 
 The baseline ledger above remains immutable reproduction history. This overlay
 records what was accepted on public `S` and the boundaries then owned by `P`,
 human review or E5. Every disposition is frozen historical evidence; current
-authority lives only in the current S21/rc18 section (and its later successors).
+authority lives only in the current S22/rc19 section (and its later successors).
 Public closure never promotes the browser-only receipt to a full release
 authority.
 
@@ -3316,10 +3338,10 @@ downstream, human or still-open engineering work.
 - [ ] Private downstream consumes the merged public SHA.
 - [ ] Exact current private operator API and rendered UI prove repo ID,
       snapshot revision/hash and capabilities; historical S9 evidence exists,
-      but the rc18 target has not been imported.
+      but the rc19 target has not been imported.
 - [ ] Exact-SHA browser-closure receipts pass for both current public and
       private subjects with zero required skip/retry; the historical S9 pair
-      does not satisfy S21 or its private adoption.
+      does not satisfy S22 or its private adoption.
 - [ ] Broader promotion manifests and the external signed E5 attestation bind
       both subjects without treating `browser_closure` as full release proof.
 - [ ] Release note is generated from the receipt.
@@ -3330,8 +3352,9 @@ downstream, human or still-open engineering work.
 
 This is the only active queue; earlier S9/S10 queues are historical snapshots:
 
-1. freeze S19/rc16 and S20/rc17 as historical non-adoption evidence; cancel
-   their status flips and do not import, merge or tag either payload;
+1. freeze S19/rc16, S20/rc17 and S21/rc18 as historical non-adoption evidence;
+   cancel their status flips, retain the rc18 first-attempt failure and do not
+   retry, import, merge or tag any of those payloads;
 2. retain exact S20 source
    `3f96b03e451e09227205546678cfa8e902afb2fd` as the RT-146 correction;
    its 34 focused green controls are source-bound evidence, not a full release;
@@ -3339,33 +3362,77 @@ This is the only active queue; earlier S9/S10 queues are historical snapshots:
    `8a95ed94c424759f6b218038f8b5f6141c3cc079` as the RT-147 correction;
    its 105/105 green upgrade controls are source-bound evidence, not a full
    release;
-4. pin the full S21 SHA in `wiki-viva-v8-rc18` with
-   `status: validation_pending`; record rc17, rc16 and rc15 as immutable
+4. retain exact S22 source
+   `e01a4ed91e3e4c2f1746539418d3faebec775204` as the RT-148 test-contract and
+   RT-149 modal-background correction; keep the concurrent downstream
+   inspiration redacted and prove the public synthetic extension independently;
+5. pin the full S22 SHA in `wiki-viva-v8-rc19` with
+   `status: validation_pending`; record rc18, rc17, rc16 and rc15 as immutable
    history, update the consumer inventory and validate package/inventory;
-5. bind the six durable 2026-07-13 S19 E3 captures to S21 only after proving
-   byte identity for every rendered cockpit, fixture, pack and asset input;
-   replay mobile, fallback, packs, dense search, reader and Genesis plus every
-   changed or uncovered cell;
-6. run the complete declared Node 22 release stack once on the rc18 pin
+6. bind the six durable 2026-07-13 S19 E3 captures and thirteen current cells
+   to S22 after proving fixture, pack and asset bytes unchanged and replaying
+   the cells whose cockpit runtime input changed; every accepted route carries
+   `tour=0`, while the new explicit modal cell proves the RT-149 state;
+7. run the complete declared Node 22 release stack once on the rc19 pin
    subject: deterministic/public-export gates, fresh collected Python count,
    frontend, build, Node gates, architecture, assets, bundle, matrix, diff and
-   102/102 no-retry browser cells; never copy S19 counts into the S21 receipt;
-7. only if steps 5-6 pass, change the same exact S21 package to
+   102/102 no-retry browser cells; never copy S19 or rc18 counts into S22;
+8. only if steps 6-7 pass, change the same exact S22 package to
    `release_candidate` in a reviewed metadata commit, recompute its digest and
    rerun package/inventory validation;
-8. fetch and freeze the concurrent private `origin/main`, recompute portable
+9. fetch and freeze the newly advanced private `origin/main`, recompute portable
    drift with both package comparator and corrected `wiki_toolkit_drift`, and
    retain 887/51/836 only as historical S19 diagnostics;
-9. run a fresh authoritative private preflight and create exactly three
+10. run a fresh authoritative private preflight and create exactly three
    commits: faithful public import, regenerated artifacts and downstream
    adaptations, preserving private memory/config/adapters/tests/workflows;
-10. execute all private deterministic, browser, real-search, Timeline, pack,
+11. execute all private deterministic, browser, real-search, Timeline, pack,
    operator/security, E4 visual and disposable-clone idempotency proofs;
-11. compile private and public-redacted JSON/Markdown receipts, verify reverse
-    rollback, reconcile RT-09/10/29/33/36/47/48/125/146/147, then integrate the
+12. compile private and public-redacted JSON/Markdown receipts, verify reverse
+    rollback, reconcile RT-09/10/29/33/36/47/48/125/146/147/148, then integrate the
     validated branch into private `main`. Public push/PR/merge/tag,
     conceptual/privacy/VoiceOver review and external E5 remain separate
     authorities.
+
+## Historical S21/rc18 First-Attempt Node 22 Evidence — Stopped by RT-148
+
+The exact metadata subject
+`8dc7b6dfef601c127a2d826ad9708517825fc455` (tree
+`b82c34619c332e2e6d8c1bb9420d03a78834ca7d`) executed once with Node
+`v22.22.3`, npm `10.9.8` and Python `3.12.4`. It pinned source S21
+`8a95ed94c424759f6b218038f8b5f6141c3cc079`, canonical package digest
+`7dad35db1c0747671b066107aa1d4e56514c1869bd9dd7a278930a93d0e7ce86`
+and package blob digest
+`65ca7f27db377f4a6ae80eb03a96e35204aa71994e3ab0757fed066ff1aa8c43`.
+The runner stopped on the first non-zero result; it did not execute build,
+Node, architecture, asset, bundle, matrix, Playwright or final diff gates.
+
+| Gate | Exit | Duration | Output SHA-256 | Exact result |
+|---|---:|---:|---|---|
+| audit | 0 | 17 s | `82a44249c54ddcc3d42d2aa723ffc5f4690f46ffdc5ae0ef4cafe3cdd58440ce` | 0 errors; six pre-existing stale warnings |
+| public audit | 0 | 17 s | `82a44249c54ddcc3d42d2aa723ffc5f4690f46ffdc5ae0ef4cafe3cdd58440ce` | 0 errors; same warnings |
+| methodology | 0 | <1 s | `82305c191752244ca53ef0db3b5416102e2af3be8be4ac30dd93243165495d8b` | complete |
+| quality | 0 | <1 s | `01635f4b1dac8bdd02f06366088c2d4327834a06ed6d9da63f709c76718a1de4` | no density/link/repetition blockers |
+| operation compile | 0 | 4 s | `41ddd1da27aae7278f5a9963d41725a65d0f8e54d6e8e6a4799de36f206f0143` | deterministic at HEAD |
+| source registry | 0 | <1 s | `f9d8f15dc98714f0415461b4b79bc8c03491136e4ef1c4f3e798ea2d55615cca` | current |
+| input stage | 0 | <1 s | `e7c84529ac5c45cdb440f117f7b0eae3c206c9f4739ca95ae27030e54415ac30` | deterministic at HEAD |
+| semantic inventory | 0 | 41 s | `7384b4105b3ce6d545f171dd7ce0b0afb54ae749d4600c7000e7491bb3d8fe40` | 1 event on four surfaces; 106/106 relations; zero unresolved |
+| snapshot contract | 0 | 39 s | `b601faa3100cfacd02c94393208751bc167fe198da70cc3782f9eba768eb5e40` | 26 payloads |
+| pack validation | 0 | <1 s | `ed931d24a1d10895ea610bc47b19bd6204597ad8787f0a66664755b460274048` | Finance and Study valid |
+| demo drift | 0 | 15 s | `95d19ae9c7c17f9dabd84f8b93d815c2360847a4a2600297151cff86b3fcc759` | deterministic seed 8008 |
+| Python | 0 | 543 s | `b1f0b276827b9dc5909bd36abe0e606132ffd231bcc6e028b96de3349f935df6` | 1,428/1,428; two known fork deprecation warnings |
+| frontend | 1 | 14 s | `c992a0d1d1c2915812b5cab2e4561999a2a0294c96322c98523c50347298a1ff` | 510/513; three keyboard/reader contracts blocked by active tour |
+
+The ignored evidence root is `output/public-release-rc18/`; it contains the
+command registry, one log per executed gate and the exact failed frontend
+bytes. RT-148 is not a product-search race: `CoachMarks` correctly owns
+keyboard events while its modal is open. The tests omitted `tour=0`; Node 26
+masked that omission because its experimental global localStorage threw and
+`tourSeen()` failed closed. S22 adds the missing fixture state to all three
+keyboard routes and their internal Back/hydration URL. Post-failure diagnostic
+evidence under Node 22 is 14/14 for `App.visual.test.tsx` and 513/513 for the
+full frontend suite. Those focused diagnostics support S22 but do not convert
+rc18 into a pass or count as its retry.
 
 ## Historical S19/rc16 Evidence — Automated 2026-07-12, E3 2026-07-13, Superseded by RT-146
 
@@ -3393,8 +3460,8 @@ found later:
   a corrected `toolkit_drift` receipt.
 - Current-run E3 inspection executed on 2026-07-13. It closes only the
   inspected S19 visual cells; it neither repairs RT-146 nor authorizes rc16.
-- The rc16 and rc17 status flips are cancelled. S21 source freeze, rc18
-  pinning, the full Node 22 rerun and every private step remain open at this
+- The rc16, rc17 and rc18 status flips are cancelled. S22 source freeze, rc19
+  pinning, the fresh Node 22 run and every private step remain open at this
   checkpoint.
 
 Durable accepted S19 E3 captures currently cover six desktop `1440x1000`
@@ -3409,7 +3476,7 @@ cells; transition frames are excluded:
 | `05b-timeline-event-detail-settled.png` | `8bbe4846e58b52648d638116af2a2f5909227984d7edd9a4361e4703886d0923` | Timeline detail |
 | `06-timeline-light-command.png` | `18dad8d101ef8b5e3813855dfab338dbd86391701e4b3a91d02ac178dd02099e` | Light theme + Command density |
 
-Current-run S21-compatible inspection added thirteen accepted cells under ignored
+Current-run S22-compatible inspection added thirteen accepted cells under ignored
 `output/product-design-audit-2026-07-13-rc18/`. Console and page error capture
 were empty in every inspected state; document/body horizontal overflow was
 zero. Transition frames and duplicate historical copies are not accepted:
@@ -3440,10 +3507,13 @@ compresses secondary pack tabs/filters, and stable captures need roughly
 1.6–1.8 seconds of settlement. The Node 22 Playwright run still owns PT-BR,
 keyboard and exact release-matrix closure.
 
-The `/tmp` directory is ephemeral, so the final S21 receipt must move accepted
-public-synthetic bytes and a full hash/dimension manifest to a durable ignored
-evidence surface. Mobile, fallback, both packs, dense search, reader and
-Genesis are not durably covered by this table and must replay before E3 closes.
+The accepted bytes now live on a durable ignored evidence surface. The final
+S22 receipt must add its machine-readable hash/dimension/subject manifest;
+fixtures, baselines, packs and assets remain byte-identical, but the one-line
+runtime accessibility predicate requires representative tour=0 desktop/mobile
+replay plus the explicit tour-open cell. The remaining pack/search/reader/
+Genesis captures may be bound only after that comparison confirms unchanged
+rendered output and the full matrix exposes no mismatch.
 
 Read-only Git-tree comparison proves that S19, S20 and S21 have identical
 rendered inputs. This binds the six inspected pixels above to S21, but does not transfer
@@ -3465,7 +3535,13 @@ The S19→S21 diff contains only RT-146/RT-147 core/CLI/schema/tests and
 release/migration documentation. The current manual E3 cells now cover
 Timeline, dense search, both packs, reader, Genesis, mobile and fallback; the
 final Node 22 receipt still owns PT-BR, keyboard and complete release-matrix
-closure.
+closure. S22 differs from S21 in the visual contract, the Playwright regression
+and one production line that adds `tourOpen` to the existing background-inert
+predicate. Fixtures, baselines, packs, assets, templates and page types remain
+byte-identical. Because the thirteen accepted cells explicitly use `tour=0`,
+their rendered branch is unchanged; the final S22 manifest must nevertheless
+replay representative desktop/mobile cells and add the explicit tour-open
+accessibility state before promotion.
 
 ## Evidence Manifest For This Review
 
@@ -3638,7 +3714,7 @@ Before any release:
 
 This section is frozen historical evidence. None of its “current” imperatives,
 S18 counts or private patch sizes is active release authority. The active
-authority is S21/rc18 in the Executive Decision, release-status matrix and
+authority is S22/rc19 in the Executive Decision, release-status matrix and
 Immediate Execution Queue above.
 
 This checkpoint, recorded on **2026-07-12**, supersedes every earlier sentence
@@ -3979,16 +4055,16 @@ the existing Timeline + graph grammar rather than a new visual language:
 This is future pack material. It must use a synthetic public fixture and does
 not expand the current release-closing wave.
 
-### Current public/private acceptance matrix — S21 / rc18
+### Current public/private acceptance matrix — S22 / rc19
 
-| Contract | Historical S19 / rc16 | Current S21 / rc18 | Private target | Advance rule |
+| Contract | Historical S19 / rc16 | Current S22 / rc19 | Private target | Advance rule |
 |---|---|---|---|---|
-| Source identity | `198471c3…`; rc16 pending forever | exact source `8a95ed94…`; rc18 `validation_pending`; S20/rc17 is historical RT-146 evidence | historical S9 installed; current `origin/main` must be frozen immediately before worktree creation | pin exact S21, then complete the full Node 22 proof |
-| Toolkit drift and release-record authority | S19 entrypoint fails RT-146 authority/scope review | package-aware committed-package/pinned-tree implementation plus RT-147 validator-v5 inert Markdown boundary; 105 upgrade controls green | corrected current-main receipt absent | exact S21 full suite, then recompute final drift and require zero after migration |
-| Automated stack | 1,409 Python, 513 frontend, 107 Node and 102 browser cells are historical S19 proof; browser manifest used Node 26 | no transferable full-stack count or release receipt yet | no S21 private run | collect and execute complete stack once on the rc18 pin |
-| Visual UX | six durable S19 desktop cells from 2026-07-13 | rendered-input byte equivalence plus thirteen current-run cells cover Timeline, packs, dense search/reader, Genesis, mobile and fallback | E4 pending | finalize durable manifest and Node 22 PT-BR/keyboard matrix; VoiceOver separate |
-| Semantic/search/operator | public implementations exist on S19 | inherited only after exact S21 gates pass | real replay pending | public proof first, then final private semantic/search/restart evidence |
-| Migration/rollback | rc16 and rc17 forbidden as import authority | rc18 non-releasable until promotion | no authoritative S21 preflight | release-candidate package → fresh preflight → exactly three commits → reports and rollback |
+| Source identity | `198471c3…`; rc16 pending forever | exact source `e01a4ed9…`; rc19 `validation_pending`; S20/rc17 and S21/rc18 are historical correction/failure evidence | historical S9 installed; current `origin/main` must be frozen immediately before worktree creation | complete the full Node 22 proof on the exact rc19 metadata subject |
+| Toolkit drift and release-record authority | S19 entrypoint fails RT-146 authority/scope review | package-aware committed-package/pinned-tree implementation plus RT-147 validator-v5 inert Markdown boundary; 105 upgrade controls green | corrected current-main receipt absent | exact S22 full suite, then recompute final drift and require zero after migration |
+| Automated stack | 1,409 Python, 513 frontend, 107 Node and 102 browser cells are historical S19 proof; browser manifest used Node 26 | focused Node 22 17/17, frontend 516/516 and one focused Chromium tour path are diagnostic; no transferable full-stack receipt yet | no S22 private run | collect and execute complete stack once on the rc19 pin |
+| Visual UX | six durable S19 desktop cells from 2026-07-13 | thirteen current-run cells cover Timeline, packs, dense search/reader, Genesis, mobile and fallback; RT-149 adds explicit modal-background isolation | E4 pending | replay runtime-changed representative cells, finalize durable manifest and Node 22 PT-BR/keyboard matrix; VoiceOver separate |
+| Semantic/search/operator | public implementations exist on S19 | inherited only after exact S22 gates pass | real replay pending | public proof first, then final private semantic/search/restart evidence |
+| Migration/rollback | rc16, rc17 and rc18 forbidden as import authority | rc19 non-releasable until promotion | no authoritative S22 preflight | release-candidate package → fresh preflight → exactly three commits → reports and rollback |
 | Human/external | none transferred | public publication authority absent | private-main integration authorized after validation | public conceptual/privacy/VoiceOver review, public merge/tag and E5 remain separate |
 
 ### Downstream concurrency reconciliation — 2026-07-13 (public-redacted)
@@ -4009,8 +4085,8 @@ identities, content, SHAs and receipts remain private.
 
 The migration keeps exactly three reviewable commits:
 
-1. **faithful public import** — derive the portable allowlist from exact S21's
-   committed canonical rc18 package and apply only package-owned authorial
+1. **faithful public import** — derive the portable allowlist from exact S22's
+   committed canonical rc19 package and apply only package-owned authorial
    paths; every historical S12/S19 patch is forbidden as current authority;
 2. **regenerated artifacts** — regenerate the package-owned demo/snapshot
    artifacts as a separate mechanical boundary;
@@ -4020,19 +4096,19 @@ The migration keeps exactly three reviewable commits:
    references; document the semantic-inventory command; regenerate only the
    private deterministic surfaces required by the final gates.
 
-The S21 union and authorial/generated partition must be recomputed after the
+The S22 union and authorial/generated partition must be recomputed after the
 private baseline is frozen. Consumer-owned configuration, memories, tests,
 workflows, local template registry, pack lock and adapter manifest stay outside
 faithful import. No live private worktree file is used as a patch source.
 
 After the three commits, required proof is:
 
-- toolkit drift = 0 against exact S21 `8a95ed94…` and the committed rc18
+- toolkit drift = 0 against exact S22 `e01a4ed9…` and the committed rc19
   portable allowlist;
 - private semantic inventory = 134 events on all four surfaces, 2,399/2,399
   relations and zero unresolved references;
 - audit, methodology, quality, operation, source registry, input, full private
-  Python, 513 frontend, build, 107 Node, snapshot, packs, architecture, assets,
+  Python, 514 frontend, build, collected Node, snapshot, packs, architecture, assets,
   bundle, matrix, demo and diff gates green;
 - a first-attempt 2/2 mandatory downstream browser receipt with zero
   skip/retry;
@@ -4061,24 +4137,26 @@ Markdown reports and re-running rollback verification.
 
 Only after those proofs may this table change:
 
-| Control | Current rc18 status | Closure condition |
+| Control | Current rc19 status | Closure condition |
 |---|---|---|
-| RT-09 / RT-10 | public implementation present; exact S21 official deterministic proof and private adoption pending | complete S21 deterministic stack, then recompute and prove event compatibility/equality on all final private surfaces |
-| RT-29 | public implementation improved but exact S21 browser/visual proof pending; private acceptance open | complete S21 search E2/E3 matrix, then ranking, filters, bounded results and keyboard path on final real snapshot |
-| RT-33 | synthetic compiler exists; rc18 is non-releasable and private pending | releasable exact package, then three-commit private report plus verified rollback |
-| RT-36 | public relation implementation present; exact S21 and private pending | exact S21 semantic gate, then recomputed closure/graph parity and zero unresolved on final private HEAD |
+| RT-09 / RT-10 | public implementation present; exact S22 official deterministic proof and private adoption pending | complete S22 deterministic stack, then recompute and prove event compatibility/equality on all final private surfaces |
+| RT-29 | public implementation improved but exact S22 browser/visual proof pending; private acceptance open | complete S22 search E2/E3 matrix, then ranking, filters, bounded results and keyboard path on final real snapshot |
+| RT-33 | synthetic compiler exists; rc19 is non-releasable and private pending | releasable exact package, then three-commit private report plus verified rollback |
+| RT-36 | public relation implementation present; exact S22 and private pending | exact S22 semantic gate, then recomputed closure/graph parity and zero unresolved on final private HEAD |
 | RT-47 | open | close the 40th source event and replay authoring diagnostics/gates |
-| RT-48 | public implementation present; exact S21 Node 22 gate and private replay pending | exact Node 22/socket gate, then live current-operator restart/security proof and downstream documentation replay |
-| RT-125 / RT-146 / RT-147 | RT-125's historical invariant exists; S19 bypassed package-aware authority; S20 fixed drift but not the release-record boundary; S21 closes both contracts | pass all focused and full Node 22 controls, prove committed canonical package + exact pinned Git tree + inert localized release record + redacted evidence, then obtain corrected private drift zero |
-| RT-12 / RT-37 / RT-59 / RT-85 / RT-91 / RT-119 | their former S/S9 release evidence remains historical only; none is inherited by rc18 | bind each control to the complete official S21 receipt, current E3/human review where applicable, final private adoption and E5 instead of reusing an earlier subject |
+| RT-48 | public implementation present; exact S22 Node 22 gate and private replay pending | exact Node 22/socket gate, then live current-operator restart/security proof and downstream documentation replay |
+| RT-125 / RT-146 / RT-147 | RT-125's historical invariant exists; S19 bypassed package-aware authority; S20 fixed drift but not the release-record boundary; S21 closed the validator contract | pass all focused and full S22 Node 22 controls, prove committed canonical package + exact pinned Git tree + inert localized release record + redacted evidence, then obtain corrected private drift zero |
+| RT-148 / RT-149 | S21/rc18 retains the first-attempt harness failure; S22 isolates keyboard fixtures and the modal background, with focused Node/browser proof only | bind both to the exact full S22 receipt, seven-step browser contract, current visual manifest and final private replay without stacked modals |
+| RT-12 / RT-37 / RT-59 / RT-85 / RT-91 / RT-119 | their former S/S9 release evidence remains historical only; none is inherited by rc19 | bind each control to the complete official S22 receipt, current E3/human review where applicable, final private adoption and E5 instead of reusing an earlier subject |
 
 ### Operational decision
 
-The correct decision is **continue, do not promote rc16 or rc17**. S19 retains useful
+The correct decision is **continue, do not promote rc16, rc17 or rc18**. S19 retains useful
 automated and 2026-07-13 E3 evidence, but its browser receipt used Node 26 and
 RT-146 invalidates its use as downstream-adoption authority. The public
-first correction was exact S20, but RT-147 superseded rc17. Exact S21/rc18 is
-`validation_pending` and must receive a new complete Node 22 run. Only the exact S21 receipt and a truthful
+first correction was exact S20, RT-147 superseded rc17 and the immutable
+S21/rc18 first attempt stopped at RT-148. Exact S22/rc19 is
+`validation_pending` and must receive a new complete Node 22 run. Only the exact S22 receipt and a truthful
 visual-equivalence/replay record can permit the later status flip. No private
 import starts before that boundary. Private-main integration is authorized
 after validation; public push, PR mutation, merge, tag and E5 remain outside
