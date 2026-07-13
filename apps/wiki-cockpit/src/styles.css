@@ -308,13 +308,14 @@ code {
 }
 
 /* Route changes keep the same canvas, but each semantic change gets a distinct
-   settling cue. Entity color/rings resolve in WebGL; this layer is only a quiet
-   orientation accent and never masks the data or captures input. */
+   settling cue. Entity color/rings resolve in WebGL. The cue owns pointer input
+   until the shared spatial morph has settled, so a label travelling through a
+   neighbour can never activate the destination underneath it. */
 .sceneTransitionCue {
   position: absolute;
   inset: 0;
   z-index: 70;
-  pointer-events: none;
+  pointer-events: auto;
   opacity: 0;
   transform-origin: center;
 }
@@ -330,7 +331,9 @@ code {
 
 .sceneTransitionCue-view {
   background: radial-gradient(circle at 50% 54%, transparent 24%, rgba(3, 8, 12, 0.18) 82%);
-  animation: worldViewSettle var(--motion-duration-view) var(--motion-easing-view) both;
+  animation:
+    worldViewSettle var(--motion-duration-view) var(--motion-easing-view) both,
+    sceneInteractionLock var(--motion-duration-view) steps(1, end) both;
 }
 
 .sceneTransitionCue-view::after {
@@ -339,7 +342,9 @@ code {
 
 .sceneTransitionCue-travel {
   background: radial-gradient(circle at 50% 54%, transparent 16%, rgba(3, 8, 12, 0.4) 82%);
-  animation: worldTravelSettle var(--motion-duration-travel) var(--motion-easing-travel) both;
+  animation:
+    worldTravelSettle var(--motion-duration-travel) var(--motion-easing-travel) both,
+    sceneInteractionLock var(--motion-duration-travel) steps(1, end) both;
 }
 
 .sceneTransitionCue-travel::after {
@@ -348,22 +353,30 @@ code {
 
 .sceneTransitionCue-retreat {
   background: radial-gradient(circle at 50% 54%, rgba(3, 8, 12, 0.28), transparent 68%);
-  animation: worldLensOrient var(--motion-duration-retreat) var(--motion-easing-retreat) both;
+  animation:
+    worldLensOrient var(--motion-duration-retreat) var(--motion-easing-retreat) both,
+    sceneInteractionLock var(--motion-duration-retreat) steps(1, end) both;
 }
 
 .sceneTransitionCue-control {
   background: color-mix(in srgb, var(--overlay-accent, #7fd0e8) 8%, transparent);
-  animation: worldOverlayResolve var(--motion-duration-control) var(--motion-easing-control) both;
+  animation:
+    worldOverlayResolve var(--motion-duration-control) var(--motion-easing-control) both,
+    sceneInteractionLock var(--motion-duration-control) steps(1, end) both;
 }
 
 .sceneTransitionCue-lens {
   background: radial-gradient(circle at 50% 54%, color-mix(in srgb, var(--overlay-accent, #7fd0e8) 10%, transparent), transparent 54%);
-  animation: worldLensOrient var(--motion-duration-lens) var(--motion-easing-lens) both;
+  animation:
+    worldLensOrient var(--motion-duration-lens) var(--motion-easing-lens) both,
+    sceneInteractionLock var(--motion-duration-lens) steps(1, end) both;
 }
 
 .sceneTransitionCue-overlay {
   background: radial-gradient(circle at 50% 54%, color-mix(in srgb, var(--overlay-accent, #7fd0e8) 4%, transparent), transparent 46%);
-  animation: worldOverlaySignalResolve var(--motion-duration-overlay) var(--motion-easing-overlay) both;
+  animation:
+    worldOverlaySignalResolve var(--motion-duration-overlay) var(--motion-easing-overlay) both,
+    sceneInteractionLock var(--motion-duration-overlay) steps(1, end) both;
 }
 
 @keyframes worldViewSettle {
@@ -398,6 +411,14 @@ code {
 @keyframes worldOverlaySignalResolve {
   0% { opacity: 0.08; transform: scale(0.992); }
   100% { opacity: 0; transform: scale(1.01); }
+}
+
+/* Pointer events are discrete. Holding the full-frame cue until the last
+   animation frame makes the map honest: controls become available exactly
+   when their visual position is the position the person can select. */
+@keyframes sceneInteractionLock {
+  0%, 99.9% { pointer-events: auto; }
+  100% { pointer-events: none; }
 }
 
 /* Radar shell: full-bleed command view with thin HUD bars. */

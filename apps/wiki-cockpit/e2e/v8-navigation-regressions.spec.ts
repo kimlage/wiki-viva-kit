@@ -65,6 +65,10 @@ async function expectRememberedCanvas(page: Page) {
   })).toBe(true);
 }
 
+async function expectSceneInteractionsSettled(page: Page) {
+  await expect(page.locator(".sceneTransitionCue")).toHaveCSS("pointer-events", "none", { timeout: 10_000 });
+}
+
 async function visibleWorldTargetIds(page: Page, kind: "page" | "group") {
   return page.locator(`[data-world-target-kind="${kind}"]`).evaluateAll((elements) =>
     elements
@@ -577,6 +581,7 @@ test("quadrant overview keeps every semantic group target disjoint at reviewed p
     // of the deliberate view/travel morph. Wait beyond the longest authored
     // transition before measuring overlap and hit ownership.
     await page.waitForTimeout(1_400);
+    await expectSceneInteractionsSettled(page);
 
     const geometry = await groups.evaluateAll((elements) => {
       const visible = elements.flatMap((element) => {
@@ -652,6 +657,10 @@ test("quadrant overview keeps every semantic group target disjoint at reviewed p
       await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
       await expect(page).not.toHaveURL(/[?&]group=/);
       await expectRememberedCanvas(page);
+      // The overlay owns pointer events during the return morph. Wait for the
+      // map's explicit interaction contract instead of measuring/clicking a
+      // transient label position.
+      await expectSceneInteractionsSettled(page);
     }
   }
 });
