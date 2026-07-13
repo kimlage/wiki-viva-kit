@@ -5,7 +5,7 @@ release:
   # It is not a public promotion of rc19 and must not be pushed as one.
   id: wiki-viva-v8-private-rehearsal-20260713
   status: candidate
-  source_sha: 9c4dcb91a964abd1d9982ff7372379f4c92deac4
+  source_sha: 0c2bb290347365560f3769913fc22f0111f87ab7
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: local-private-rehearsal-only
   base_release: wiki-viva-v8-rc19
