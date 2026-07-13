@@ -71,6 +71,12 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         browserName: "chromium",
+        // Headless Chromium otherwise forces ANGLE through SwiftShader on
+        // macOS, so this cell would benchmark LLVM software rasterization
+        // instead of the WebGL/GPU path used by the shipped cockpit. Keep the
+        // strict frame budget; the renderer attestation fails closed when the
+        // host still resolves this project to a software renderer.
+        launchOptions: { args: ["--enable-gpu"] },
         deviceScaleFactor: 1,
         screen: { width: 1280, height: 900 },
         viewport: { width: 1280, height: 900 }

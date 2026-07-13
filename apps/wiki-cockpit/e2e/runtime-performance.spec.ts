@@ -7,6 +7,10 @@ import {
   type RuntimePerformanceEvidence
 } from "./fixtures";
 import type { Page } from "@playwright/test";
+import {
+  assertHardwareWebglRendererAttestation,
+  captureWebglRendererAttestation
+} from "./webgl-renderer-attestation";
 
 const DESKTOP_FRAME_P95_BUDGET_MS = 33.33;
 const SCENARIOS = [
@@ -51,6 +55,12 @@ for (const scenario of SCENARIOS) {
       `/demo/w/quadrants?center=root-alex-rivera&demo_scenario=${scenario.id}&tour=0`
     );
     await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
+    const rendererAttestation = await captureWebglRendererAttestation(page);
+    await testInfo.attach("webgl-renderer-attestation.json", {
+      body: Buffer.from(`${JSON.stringify(rendererAttestation, null, 2)}\n`, "utf8"),
+      contentType: "application/json"
+    });
+    assertHardwareWebglRendererAttestation(rendererAttestation);
 
     // Warm the browser, renderer, shaders and route transition in a complete
     // bounded window. A healthy 3D result is followed by one bounded hover/JIT

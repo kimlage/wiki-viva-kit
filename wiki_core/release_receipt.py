@@ -1512,6 +1512,13 @@ def _validate_toolchain_manifest(
         "cockpit-package": "apps/wiki-cockpit/package.json",
         "cockpit-lockfile": "apps/wiki-cockpit/package-lock.json",
     }
+    if scope == "public_required":
+        expected_paths.update(
+            {
+                "runtime-performance-spec": "apps/wiki-cockpit/e2e/runtime-performance.spec.ts",
+                "webgl-renderer-attestation": "apps/wiki-cockpit/e2e/webgl-renderer-attestation.ts",
+            }
+        )
     if not isinstance(files, list) or len(files) != len(expected_paths):
         raise ReleaseReceiptError(
             "Playwright toolchain manifest file set is incomplete"
