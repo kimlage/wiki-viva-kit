@@ -226,7 +226,7 @@ try {
     ["release-runner-launcher", path.join(scriptsDir, "run-playwright-release.sh")],
     ["downstream-preflight-runner", path.join(scriptsDir, "preflight-downstream-e2e.mjs")],
     ["git-subject-compiler", subjectScript],
-    ["git-subject-helper", path.join(repoRoot, "scripts/_git_subject.py")],
+    ["git-subject-helper", path.join(repoRoot, "wiki_core/git_subject.py")],
     ["cockpit-package", path.join(appRoot, "package.json")],
     ["cockpit-lockfile", path.join(appRoot, "package-lock.json")]
   ].map(([id, absolute]) => {

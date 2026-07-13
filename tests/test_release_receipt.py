@@ -144,7 +144,7 @@ def _repo(tmp_path: Path) -> Path:
         "apps/wiki-cockpit/scripts/release-path-safety.mjs",
         "apps/wiki-cockpit/vite.config.ts",
         "scripts/wiki_git_subject.py",
-        "scripts/_git_subject.py",
+        "wiki_core/git_subject.py",
     ):
         _write(root / relative, f"fixture:{relative}\n")
     for relative in (
@@ -374,7 +374,7 @@ def _gate(root: Path, *, scope: str, gate_id: str, **overrides: object) -> str:
         "downstream-preflight-runner": "apps/wiki-cockpit/scripts/preflight-downstream-e2e.mjs",
         "release-path-safety": "apps/wiki-cockpit/scripts/release-path-safety.mjs",
         "git-subject-compiler": "scripts/wiki_git_subject.py",
-        "git-subject-helper": "scripts/_git_subject.py",
+        "git-subject-helper": "wiki_core/git_subject.py",
         "cockpit-package": "apps/wiki-cockpit/package.json",
         "cockpit-lockfile": "apps/wiki-cockpit/package-lock.json",
     }

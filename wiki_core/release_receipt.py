@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 from urllib.parse import urlparse
 
-from scripts._git_subject import (
+from .git_subject import (
     FINGERPRINT_VERSION,
     GitSubjectError,
     collect_git_subject as _collect_exact_git_subject,
@@ -1414,7 +1414,7 @@ def _validate_toolchain_manifest(
         "downstream-preflight-runner": "apps/wiki-cockpit/scripts/preflight-downstream-e2e.mjs",
         "release-path-safety": "apps/wiki-cockpit/scripts/release-path-safety.mjs",
         "git-subject-compiler": "scripts/wiki_git_subject.py",
-        "git-subject-helper": "scripts/_git_subject.py",
+        "git-subject-helper": "wiki_core/git_subject.py",
         "cockpit-package": "apps/wiki-cockpit/package.json",
         "cockpit-lockfile": "apps/wiki-cockpit/package-lock.json",
     }
@@ -2220,7 +2220,7 @@ def _normalize_waivers(raw_waivers: object) -> list[dict[str, str]]:
 def _semantic_validator_record() -> dict[str, Any]:
     repo_root = Path(__file__).resolve().parents[1]
     implementation_paths = (
-        "scripts/_git_subject.py",
+        "wiki_core/git_subject.py",
         "wiki_core/config.py",
         "wiki_core/detectors/__init__.py",
         "wiki_core/detectors/entities.py",
