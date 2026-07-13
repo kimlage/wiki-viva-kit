@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import time
 from pathlib import Path
@@ -240,6 +241,32 @@ def test_cancel_interrupts_a_running_job(tmp_path, monkeypatch) -> None:
             break
         time.sleep(0.1)
     assert runner.get(job_id)["status"] == "cancelled"
+
+
+def test_job_record_write_replaces_complete_json_atomically(tmp_path, monkeypatch) -> None:
+    config = _repo(tmp_path)
+    runner = _runner(tmp_path, config)
+    job_id = "job-atomic-write"
+    runner._write({"job_id": job_id, "status": "queued"})
+    target = runner._record_path(job_id)
+    original_replace = Path.replace
+    observed: list[tuple[str, str]] = []
+
+    def inspect_replace(temporary: Path, destination: Path) -> Path:
+        observed.append(
+            (
+                json.loads(destination.read_text(encoding="utf-8"))["status"],
+                json.loads(temporary.read_text(encoding="utf-8"))["status"],
+            )
+        )
+        return original_replace(temporary, destination)
+
+    monkeypatch.setattr(Path, "replace", inspect_replace)
+    runner._write({"job_id": job_id, "status": "running"})
+
+    assert observed == [("queued", "running")]
+    assert runner.get(job_id)["status"] == "running"
+    assert not list(target.parent.glob(f".{target.name}.*.tmp"))
 
 
 def test_continue_current_branch_commits_only_codex_delta(tmp_path) -> None:
