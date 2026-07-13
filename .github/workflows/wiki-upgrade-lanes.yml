@@ -1,0 +1,386 @@
+name: wiki-upgrade-two-lane
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/wiki-upgrade-lanes.yml"
+      - "docs/references/guides/downstream-migration-two-lane-strategy.md"
+      - "docs/references/schemas/wiki-upgrade-*.schema.json"
+      - "docs/references/upgrades/wiki-viva-v8/**"
+      - "scripts/wiki_upgrade*.py"
+      - "tests/test_upgrade*.py"
+      - "wiki_core/upgrade*.py"
+      - "apps/wiki-cockpit/**"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wiki-upgrade-two-lane-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  upstream-certification:
+    name: Upstream certification (public synthetic)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/wiki-cockpit/package-lock.json
+      - name: Install certification toolchain
+        run: |
+          python -m pip install -r requirements.txt playwright==1.61.1
+          npm --prefix apps/wiki-cockpit ci
+          echo "$GITHUB_WORKSPACE/apps/wiki-cockpit/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Verify capsule, command registry and public impact contracts
+        run: >-
+          python -m pytest -q tests/test_upgrade_lanes.py
+          -k "published_gate_classes or public_registry or release_capsule"
+      - name: Verify package v3 schema, gate DAG and v1/v2 compatibility
+        run: python -m pytest -q tests/test_upgrade_package_v3.py
+      - name: Verify upgrade-package schema and exact command catalog
+        run: >-
+          python -m pytest -q tests/test_upgrade.py
+          -k "upgrade_package"
+      - name: Prepare an uncertified public synthetic Lane A subject
+        env:
+          WIKI_UPGRADE_CI_CERTIFICATION_INPUTS: ${{ github.workspace }}/.wiki-viva-ci/lane-a-inputs
+        run: >-
+          python -m pytest -q
+          tests/test_wiki_upgrade_cli.py::test_ci_lane_a_inputs_export_only_public_uncertified_fixture
+      - name: Execute and seal the operator-facing Lane A certification
+        run: |
+          ROOT=.wiki-viva-ci/lane-a-inputs
+          python scripts/wiki_upgrade.py certify \
+            --package "$ROOT/upgrade-package.yaml" \
+            --impact-registry "$ROOT/impact-registry.yaml" \
+            --source-root "$ROOT/public-kit" \
+            --visual-root "$ROOT/release-authority/visual" \
+            --visual-manifest-ref visual-manifest.json \
+            --out-dir .wiki-viva-ci/lane-a-certified \
+            --attestation-authority-id github-actions \
+            --run-id "lane-a-${GITHUB_RUN_ID}" \
+            --jobs 4 \
+            --heartbeat-seconds 5
+      - name: Verify immutable Lane A artifact set
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('.wiki-viva-ci/lane-a-certified')
+          required = [
+              'release-capsule.json', 'certification-receipt.json',
+              'release-authority.json', 'trusted-attestation-sha256.txt',
+              'gate-output/execution-attestation.json',
+              'gate-output/toolchain/probe-manifest.json',
+              'visual/visual-manifest.json',
+          ]
+          assert all((root / relative).is_file() for relative in required)
+          receipt = json.loads((root / 'certification-receipt.json').read_text())
+          assert receipt['status'] == 'passed'
+          assert receipt['human_gate_required'] is True
+          assert receipt['upstream_gate_ids']
+          assert receipt['certification_gate_ids'] == receipt['upstream_gate_ids']
+          assert 'background_gate_ids' not in receipt
+          assert all(
+              result['class'] == 'upstream_certified'
+              for result in receipt['gate_results']
+          )
+          PY
+      - name: Upload immutable Lane A capsule, receipt, toolchain and visual authority
+        uses: actions/upload-artifact@v7
+        with:
+          name: wiki-upgrade-lane-a-${{ runner.os }}-${{ github.run_id }}
+          overwrite: true
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30
+          path: .wiki-viva-ci/lane-a-certified
+
+  fast-adoption:
+    name: Fast adoption (public synthetic consumer)
+    needs: upstream-certification
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/wiki-cockpit/package-lock.json
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt playwright==1.61.1
+      - name: Install the certified Playwright command registry
+        run: |
+          npm --prefix apps/wiki-cockpit ci
+          echo "$GITHUB_WORKSPACE/apps/wiki-cockpit/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Verify impact, exact receipt identity, resume and C1/C2/C3 ownership
+        run: >-
+          python -m pytest -q tests/test_upgrade_lanes.py
+          -k "known_delta or unknown_path or portable_path or adoption_receipt
+          or receipt_reuse or c3_changed or resume_state or gate_omission
+          or never_reusable or manual_or_fabricated or private_host
+          or private_data or c1_c2_c3 or c1_requires or missing_selected"
+      - name: Verify read-only preflight and generated report on synthetic Git repos
+        run: >-
+          python -m pytest -q tests/test_upgrade.py
+          -k "upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer
+          or preflight_cli_private_sidecar_is_authoritative_and_never_echoed"
+      - name: Verify fail-closed planning surfaces without entering canary
+        run: >-
+          python -m pytest -q tests/test_wiki_upgrade_cli.py
+          -k "unknown_impact or plan_refuses or forged_omission or upgrade_command"
+      - name: Execute fast adoption and seal resumable runner handoff
+        env:
+          WIKI_UPGRADE_CI_HANDOFF: ${{ github.workspace }}/.wiki-viva-ci/handoff
+        run: |
+          python -m pytest -q \
+            tests/test_wiki_upgrade_cli.py::test_ci_fast_adoption_handoff_is_resumable_runner_state
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path('.wiki-viva-ci/handoff/handoff.json')
+          payload = json.loads(path.read_text(encoding='utf-8'))
+          payload['ci_run_id'] = os.environ['GITHUB_RUN_ID']
+          payload['ci_head_sha'] = os.environ['GITHUB_SHA']
+          path.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+          tar -C .wiki-viva-ci -czf "$GITHUB_WORKSPACE/.wiki-viva-ci/fast-adoption-handoff.tgz" handoff
+      - name: Upload exact fast-adoption plan and state
+        uses: actions/upload-artifact@v7
+        with:
+          name: wiki-upgrade-fast-adoption-${{ runner.os }}-${{ github.run_id }}
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 14
+          path: .wiki-viva-ci/fast-adoption-handoff.tgz
+
+  canary:
+    name: Canary (served public synthetic world)
+    needs: fast-adoption
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/wiki-cockpit/package-lock.json
+      - name: Install the exact runner and browser toolchain
+        run: |
+          python -m pip install -r requirements.txt playwright==1.61.1
+          npm --prefix apps/wiki-cockpit ci
+          echo "$GITHUB_WORKSPACE/apps/wiki-cockpit/node_modules/.bin" >> "$GITHUB_PATH"
+          python -m playwright install --with-deps chromium
+      - name: Download fast-adoption runner handoff
+        uses: actions/download-artifact@v7
+        with:
+          name: wiki-upgrade-fast-adoption-${{ runner.os }}-${{ github.run_id }}
+          path: .wiki-viva-ci/incoming
+      - name: Restore and verify exact paused state
+        run: |
+          tar -C .wiki-viva-ci -xzf "$GITHUB_WORKSPACE/.wiki-viva-ci/incoming/fast-adoption-handoff.tgz"
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('.wiki-viva-ci/handoff')
+          manifest = json.loads((root / 'handoff.json').read_text(encoding='utf-8'))
+          state = root / 'consumer/.wiki-viva/upgrade/runs' / manifest['run_key'] / 'state.json'
+          assert manifest['schema_version'] == 'wiki_viva_upgrade_ci_handoff.v1'
+          assert manifest['ci_run_id'] == os.environ['GITHUB_RUN_ID']
+          assert manifest['ci_head_sha'] == os.environ['GITHUB_SHA']
+          assert hashlib.sha256(state.read_bytes()).hexdigest() == manifest['state_sha256']
+          payload = json.loads(state.read_text(encoding='utf-8'))
+          assert payload['status'] == 'paused_before_canary'
+          assert payload['plan_sha256'] == manifest['execution_plan_sha256']
+          PY
+      - name: Resume the exact consumer through served Playwright canary
+        run: |
+          ROOT=.wiki-viva-ci/handoff
+          TRUSTED="$(tr -d '\n' < "$ROOT/trusted-attestation-sha256")"
+          python scripts/wiki_upgrade.py adopt \
+            --plan "$ROOT/consumer/.wiki-viva/upgrade/plan.json" \
+            --package "$ROOT/upgrade-package.yaml" \
+            --capsule "$ROOT/release-capsule.json" \
+            --impact-registry "$ROOT/impact-registry.yaml" \
+            --authority "$ROOT/release-authority.json" \
+            --trusted-attestation-sha256 "$TRUSTED" \
+            --consumer-root "$ROOT/consumer" \
+            --kit-root "$ROOT/public-kit" \
+            --mode canary \
+            --resume \
+            --pause-before-background \
+            --jobs 4 \
+            --heartbeat-seconds 5
+      - name: Verify and seal the exact post-canary consumer handoff
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path('.wiki-viva-ci/handoff')
+          manifest = json.loads((root / 'handoff.json').read_text(encoding='utf-8'))
+          run = root / 'consumer/.wiki-viva/upgrade/runs' / manifest['run_key']
+          state_path = run / 'state.json'
+          state = json.loads(state_path.read_text())
+          assert state['status'] == 'paused_before_background'
+          assert state['plan_sha256'] == manifest['execution_plan_sha256']
+          assert state['gate_results']['real_canary']['status'] == 'passed'
+          assert all(
+              result['class'] != 'background_certification'
+              for result in state['gate_results'].values()
+          )
+          assert not (run / 'adoption-receipt.json').exists()
+          manifest['state_sha256'] = hashlib.sha256(state_path.read_bytes()).hexdigest()
+          (root / 'handoff.json').write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+          tar -C .wiki-viva-ci -czf .wiki-viva-ci/canary-handoff.tgz handoff
+      - name: Upload exact post-canary consumer handoff and runner evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wiki-upgrade-canary-handoff-${{ runner.os }}-${{ github.run_id }}
+          overwrite: true
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14
+          path: .wiki-viva-ci/canary-handoff.tgz
+
+  background-certification:
+    name: Background certification (same synthetic consumer)
+    needs: canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/wiki-cockpit/package-lock.json
+      - name: Install the exact runner and consumer gate toolchain
+        run: |
+          python -m pip install -r requirements.txt playwright==1.61.1
+          npm --prefix apps/wiki-cockpit ci
+          echo "$GITHUB_WORKSPACE/apps/wiki-cockpit/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Download the exact post-canary consumer handoff
+        uses: actions/download-artifact@v7
+        with:
+          name: wiki-upgrade-canary-handoff-${{ runner.os }}-${{ github.run_id }}
+          path: .wiki-viva-ci/incoming
+      - name: Restore and verify the same consumer run
+        run: |
+          tar -C .wiki-viva-ci -xzf "$GITHUB_WORKSPACE/.wiki-viva-ci/incoming/canary-handoff.tgz"
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path('.wiki-viva-ci/handoff')
+          manifest = json.loads((root / 'handoff.json').read_text(encoding='utf-8'))
+          state = root / 'consumer/.wiki-viva/upgrade/runs' / manifest['run_key'] / 'state.json'
+          payload = json.loads(state.read_text(encoding='utf-8'))
+          assert manifest['ci_run_id'] == os.environ['GITHUB_RUN_ID']
+          assert manifest['ci_head_sha'] == os.environ['GITHUB_SHA']
+          assert hashlib.sha256(state.read_bytes()).hexdigest() == manifest['state_sha256']
+          assert payload['status'] == 'paused_before_background'
+          assert payload['plan_sha256'] == manifest['execution_plan_sha256']
+          assert payload['gate_results']['real_canary']['status'] == 'passed'
+          assert all(
+              result['class'] != 'background_certification'
+              for result in payload['gate_results'].values()
+          )
+          PY
+      - name: Resume only consumer background gates, rollback and reports
+        run: |
+          ROOT=.wiki-viva-ci/handoff
+          TRUSTED="$(tr -d '\n' < "$ROOT/trusted-attestation-sha256")"
+          python scripts/wiki_upgrade.py adopt \
+            --plan "$ROOT/consumer/.wiki-viva/upgrade/plan.json" \
+            --package "$ROOT/upgrade-package.yaml" \
+            --capsule "$ROOT/release-capsule.json" \
+            --impact-registry "$ROOT/impact-registry.yaml" \
+            --authority "$ROOT/release-authority.json" \
+            --trusted-attestation-sha256 "$TRUSTED" \
+            --consumer-root "$ROOT/consumer" \
+            --kit-root "$ROOT/public-kit" \
+            --mode canary \
+            --resume \
+            --jobs 4 \
+            --heartbeat-seconds 5
+      - name: Verify final consumer receipt, rollback and reports
+        run: |
+          ROOT="$GITHUB_WORKSPACE/.wiki-viva-ci/handoff"
+          (
+            cd "$ROOT/consumer"
+            python "$GITHUB_WORKSPACE/scripts/wiki_upgrade.py" verify-rollback-report --check
+          )
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('.wiki-viva-ci/handoff')
+          manifest = json.loads((root / 'handoff.json').read_text(encoding='utf-8'))
+          run = root / 'consumer/.wiki-viva/upgrade/runs' / manifest['run_key']
+          required = [
+              'state.json', 'adoption-receipt.json', 'rollback.json',
+              'migration-report.private.json', 'migration-report.public.json',
+              'migration-report.json',
+          ]
+          assert all((run / relative).is_file() for relative in required)
+          state = json.loads((run / 'state.json').read_text())
+          assert state['status'] == 'complete'
+          assert state['plan_sha256'] == manifest['execution_plan_sha256']
+          assert state['gate_results']['real_canary']['status'] == 'passed'
+          background = [
+              result for result in state['gate_results'].values()
+              if result['class'] == 'background_certification'
+          ]
+          assert background and all(result['status'] == 'passed' for result in background)
+          assert json.loads((run / 'rollback.json').read_text())['tree_equal'] is True
+          public = json.loads((run / 'migration-report.public.json').read_text())
+          assert public['public_redacted'] is True
+          assert public['promotion_ready'] is True
+          PY
+      - name: Upload final same-consumer background evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wiki-upgrade-background-${{ runner.os }}-${{ github.run_id }}
+          overwrite: true
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14
+          path: .wiki-viva-ci/handoff/consumer/.wiki-viva/upgrade

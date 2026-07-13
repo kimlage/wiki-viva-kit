@@ -68,6 +68,7 @@ free. The deep read is the only model step, and it is yours.
 | Step | What you do | Reference |
 | --- | --- | --- |
 | **Adopt / configure** | Copy the kit into a repo, set `wiki.config.yaml` + `wiki.targets.yaml`, declare contexts, choose English defaults or pin a localized layout | [reference/setup.md](reference/setup.md) |
+| **Upgrade a downstream repo** | Reuse an exact upstream certification capsule, compute the consumer delta, run consumer-always/affected gates and promote through a reversible canary | [downstream-migration-two-lane-strategy.md](../../docs/references/guides/downstream-migration-two-lane-strategy.md) + [wiki-viva-v8-downstream-upgrade.md](../../docs/references/guides/wiki-viva-v8-downstream-upgrade.md) |
 | **Migrate existing pages** | Inventory legacy Markdown pages, add reviewed v6.2 frontmatter, register page types and reconnect the graph | [wiki-viva-v6.2-migration.md](../../docs/references/guides/wiki-viva-v6.2-migration.md) |
 | **Canonicalize entities** | Merge duplicated people/projects/sources into one canonical page, keep aliases there and update inbound links | [canonical-entity-navigation.md](../../docs/references/guides/canonical-entity-navigation.md) |
 | **Configure a source** | Create the source page + its config page (ingestion/search/business rules), register it; model meetings/cards/calendar as linked entities | [reference/sources.md](reference/sources.md) |
@@ -160,6 +161,16 @@ ship the skeletons, so a generated page starts with the scaffold.
   never get versioned. The pre-scan blocks at the origin (exit `2`).
 - **Privacy by boundary.** Personal data (PII) is welcome on private pages and
   raises no warning; it only blocks at the public boundary (`--public-export`).
+- **Certify once, adopt by delta.** A downstream migration reuses upstream
+  proof only when `source_sha`, `package_sha256`, `portable_tree_sha256`,
+  `consumer_B0`, `consumer_C3`, `command_registry_sha256` and
+  `toolchain_sha256` match the immutable capsule/adoption receipt. It still
+  runs current consumer privacy, semantic, adapter, snapshot, canary, diff and
+  rollback/report proof. Unknown path or contract impact escalates to the full
+  lane. A migration already started with a v2 package keeps every declared
+  `migration.required_gates` entry blocking; v3 classification never rewrites
+  its historical evidence. Follow the
+  [two-lane strategy](../../docs/references/guides/downstream-migration-two-lane-strategy.md).
 - **Canonical memory changes go through a `wiki/<theme>` branch and a PR.** Never
   hand-edit generated operational pages — recompile the cockpit with
   [wiki_operation_compile.py](../../scripts/wiki_operation_compile.py) and the

@@ -29,6 +29,17 @@ another) via skills — there is no embedded LLM client.
 - If a core bug is discovered in a private repo, reproduce the behavior here
   with minimized synthetic data. Do not use private financial, personal or
   client data as the proving ground for shared core behavior.
+- Downstream upgrades follow the
+  [two-lane migration strategy](docs/references/guides/downstream-migration-two-lane-strategy.md):
+  certify an immutable portable subject once, then prove only the exact
+  consumer delta, current privacy/semantic invariants and a reversible canary.
+  Reusing proof requires exact equality of `source_sha`, `package_sha256`,
+  `portable_tree_sha256`, `consumer_B0`, `consumer_C3`,
+  `command_registry_sha256` and `toolchain_sha256`; uncertainty escalates to
+  the full lane. Until a package and runner implement gate classes, every gate
+  declared in `migration.required_gates` remains blocking. A migration already
+  started under the v2 contract keeps that complete gate set even after v3
+  exists; never rewrite historical evidence into a reduced run.
 - Before opening a PR, run the local gates (see below) and review the conceptual diff.
 
 ## Privacy (two axes)

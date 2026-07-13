@@ -52,6 +52,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_upgrade_inventory.py](../../../scripts/wiki_upgrade_inventory.py) | Validates the public-safe v8 consumer inventory | Review pilot/wave/paused status before downstream preflight |
 | [wiki_upgrade_preflight.py](../../../scripts/wiki_upgrade_preflight.py) | Compiles a read-only downstream upgrade preflight | Prove release pin, branch, gates, drift, snapshot, overrides and privacy before import |
 | [wiki_upgrade_report.py](../../../scripts/wiki_upgrade_report.py) | Validates evidence and compiles v8 migration reports | Close a downstream upgrade with SHAs, allowlisted files, gates, QA and rollback |
+| [wiki_upgrade.py](../../../scripts/wiki_upgrade.py) | Certifies Lane A and plans/executes resumable Lane B adoption | Execute and seal public certification, bind its verified capsule, create/verify C1-C3, run the impact-derived matrix, real canary and disposable rollback, then emit receipts/reports |
 | [wiki_adapter_manifest.py](../../../scripts/wiki_adapter_manifest.py) | Builds or verifies the downstream adapter identity manifest | Bind a private consumer's explicit adapter files to tracked, no-follow hashes without importing private content into the kit |
 | [wiki_pack.py](../../../scripts/wiki_pack.py) | Operates versioned experience packs through a review-first lifecycle | Inspect/preview/dry-run/install/validate/upgrade/disable/remove a declarative use-case experience |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Living gate: lists, transitions, rebases | Move proposals between states and supersede old ones |
@@ -174,6 +175,81 @@ python3 scripts/wiki_upgrade_report.py \
   --json-out wiki-v8-migration-report.json \
   --markdown-out wiki-v8-migration-report.md \
   --check
+```
+
+The v3 two-lane runner first creates or consumes the exact package, impact
+registry, release capsule and external attestation trust anchor. `certify`
+executes exactly the `upstream_certified` public Lane A matrix, toolchain probes
+and visual authority, then emits the immutable capsule/receipt/authority
+artifact set. It never runs or packages consumer-owned
+`background_certification` results. `plan` runs and binds the read-only B0
+preflight and writes an ignored conceptual plan; `adopt` creates
+or verifies the three commit boundaries, resumes completed exact-subject work,
+executes affected gates, captures canary evidence and verifies rollback in a
+disposable clone. Promotion remains a PR/human gate.
+
+For a CI handoff, the fast-adoption job uses `--pause-before-canary` after the
+C1/C2/C3 chain and fast consumer gates. It transfers the full ignored runner
+state and the exact consumer clone, not a manually transcribed result. The
+canary job verifies that paused state and continues the same sealed plan with
+`--resume --pause-before-background`. The background job must then consume that
+same post-canary consumer handoff and finish with `--resume`; it cannot replace
+the consumer proof with an independent public checkout. A changed plan,
+subject, command registry, toolchain or boundary is rejected fail-closed.
+
+The CLI deliberately executes only v3. Existing v1/v2 migrations stay on their
+original transition runbook and continue to execute every declared
+`migration.required_gates` entry; they are not silently upgraded and cannot
+consume or produce v3 receipts.
+
+```sh
+python3 scripts/wiki_upgrade.py certify \
+  --package "$UPGRADE_PACKAGE" \
+  --impact-registry "$IMPACT_REGISTRY" \
+  --source-root "$PUBLIC_SOURCE_ROOT" \
+  --visual-root "$PUBLIC_VISUAL_ROOT" \
+  --visual-manifest-ref visual-manifest.json \
+  --out-dir "$NEW_LANE_A_AUTHORITY_ROOT" \
+  --attestation-authority-id "$RELEASE_AUTHORITY_ID"
+python3 scripts/wiki_upgrade.py plan \
+  --package "$UPGRADE_PACKAGE" \
+  --capsule "$RELEASE_CAPSULE" \
+  --impact-registry "$IMPACT_REGISTRY" \
+  --authority "$RELEASE_AUTHORITY" \
+  --trusted-attestation-sha256 "$TRUSTED_ATTESTATION_SHA256" \
+  --consumer-root "$CONSUMER_ROOT" \
+  --kit-root "$KIT_ROOT" \
+  --changed-path wiki.config.yaml
+python3 scripts/wiki_upgrade.py adopt \
+  --plan "$CONSUMER_ROOT/.wiki-viva/upgrade/plan.json" \
+  --package "$UPGRADE_PACKAGE" \
+  --capsule "$RELEASE_CAPSULE" \
+  --impact-registry "$IMPACT_REGISTRY" \
+  --authority "$RELEASE_AUTHORITY" \
+  --trusted-attestation-sha256 "$TRUSTED_ATTESTATION_SHA256" \
+  --consumer-root "$CONSUMER_ROOT" \
+  --kit-root "$KIT_ROOT" \
+  --mode canary --pause-before-canary
+python3 scripts/wiki_upgrade.py adopt \
+  --plan "$CONSUMER_ROOT/.wiki-viva/upgrade/plan.json" \
+  --package "$UPGRADE_PACKAGE" \
+  --capsule "$RELEASE_CAPSULE" \
+  --impact-registry "$IMPACT_REGISTRY" \
+  --authority "$RELEASE_AUTHORITY" \
+  --trusted-attestation-sha256 "$TRUSTED_ATTESTATION_SHA256" \
+  --consumer-root "$CONSUMER_ROOT" \
+  --kit-root "$KIT_ROOT" \
+  --mode canary --resume --pause-before-background
+python3 scripts/wiki_upgrade.py adopt \
+  --plan "$CONSUMER_ROOT/.wiki-viva/upgrade/plan.json" \
+  --package "$UPGRADE_PACKAGE" \
+  --capsule "$RELEASE_CAPSULE" \
+  --impact-registry "$IMPACT_REGISTRY" \
+  --authority "$RELEASE_AUTHORITY" \
+  --trusted-attestation-sha256 "$TRUSTED_ATTESTATION_SHA256" \
+  --consumer-root "$CONSUMER_ROOT" \
+  --kit-root "$KIT_ROOT" \
+  --mode canary --resume
 ```
 
 Add `--redact` to preflight evidence that may leave a private repo and

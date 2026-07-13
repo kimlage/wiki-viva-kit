@@ -1407,6 +1407,7 @@ test("release configurations pin zero retries and keep downstream specs out of p
     "cockpit-vite-config",
     "release-path-safety",
     "release-runner",
+    "upgrade-gate-evidence-adapter",
     "release-runner-launcher",
     "downstream-preflight-runner",
     "git-subject-helper"

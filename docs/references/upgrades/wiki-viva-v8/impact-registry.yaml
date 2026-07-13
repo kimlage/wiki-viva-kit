@@ -1,0 +1,378 @@
+schema_version: wiki_viva_upgrade_impact_registry.v1
+registry_version: 1.0.0
+
+unknown_policy:
+  path: full_matrix_and_lane_a
+  contract: full_matrix_and_lane_a
+
+gate_catalog:
+  - id: adapter_identity
+    class: consumer_always
+    command: python3 scripts/wiki_adapter_manifest.py check
+  - id: architecture
+    class: upstream_certified
+    command: npm --prefix apps/wiki-cockpit run check:architecture
+  - id: assets
+    class: upstream_certified
+    command: npm --prefix apps/wiki-cockpit run check:assets
+  - id: audit
+    class: consumer_always
+    command: python3 scripts/wiki_audit.py --check
+  - id: browser_synthetic_release
+    class: upstream_certified
+    command: npm --prefix apps/wiki-cockpit run test:e2e:release
+  - id: build
+    class: upstream_certified
+    command: npm --prefix apps/wiki-cockpit run build
+  - id: bundle
+    class: upstream_certified
+    command: npm --prefix apps/wiki-cockpit run check:bundle
+  - id: consolidate
+    class: consumer_always
+    command: python3 scripts/wiki_consolidate.py --check
+  - id: consumer_browser_matrix
+    class: background_certification
+    command: npm --prefix apps/wiki-cockpit run test:e2e:operator
+  - id: demo_drift
+    class: upstream_certified
+    command: python3 scripts/wiki_build_demo.py --check
+  - id: diff_check
+    class: consumer_always
+    command: git diff --check
+  - id: frontend
+    class: upstream_certified
+    command: npm --prefix apps/wiki-cockpit test
+  - id: frontend_focused
+    class: affected
+    command: npm --prefix apps/wiki-cockpit test
+  - id: input_stage
+    class: consumer_always
+    command: python3 scripts/wiki_input_stage.py --check
+  - id: methodology_coverage
+    class: consumer_always
+    command: python3 scripts/wiki_check_methodology_coverage.py --check
+  - id: node_gates
+    class: upstream_certified
+    command: npm --prefix apps/wiki-cockpit run test:gates
+  - id: operation_compile
+    class: consumer_always
+    command: python3 scripts/wiki_operation_compile.py --check
+  - id: operational_pass
+    class: consumer_always
+    command: python3 scripts/wiki_operational_pass.py --check
+  - id: operator_security
+    class: affected
+    command: npm --prefix apps/wiki-cockpit run test:e2e:operator
+  - id: pack_focused
+    class: affected
+    command: python3 scripts/wiki_pack.py validate --all
+  - id: pack_validation
+    class: upstream_certified
+    command: python3 scripts/wiki_pack.py validate --all
+  - id: page_graph
+    class: consumer_always
+    command: python3 scripts/wiki_page_graph.py --check
+  - id: portable_python
+    class: upstream_certified
+    command: python3 -m pytest tests/
+  - id: private_pytest
+    class: background_certification
+    command: python3 -m pytest tests/
+  - id: public_evidence_redaction
+    class: consumer_always
+    command: python3 scripts/wiki_audit.py --public-export --check
+  - id: quality_report
+    class: consumer_always
+    command: python3 scripts/wiki_quality_report.py --check
+  - id: real_canary
+    class: canary
+    command: npm --prefix apps/wiki-cockpit run test:e2e:operator
+  - id: release_matrix_inventory
+    class: upstream_certified
+    command: npm --prefix apps/wiki-cockpit run check:release-matrix
+  - id: rollback_report_verification
+    class: consumer_always
+    command: python3 scripts/wiki_upgrade.py verify-rollback-report --check
+  - id: semantic_inventory
+    class: consumer_always
+    command: python3 scripts/wiki_semantic_inventory.py --check
+  - id: snapshot_contract
+    class: consumer_always
+    command: python3 scripts/wiki_web_snapshot.py --check-contract
+  - id: source_registry
+    class: consumer_always
+    command: python3 scripts/wiki_source_registry.py --check
+  - id: temporal_parity
+    class: affected
+    command: python3 -m pytest tests/test_temporal.py tests/test_web_snapshot.py
+  - id: toolkit_drift
+    class: consumer_always
+    command: python3 scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
+  - id: visual_profiles
+    class: affected
+    command: npm --prefix apps/wiki-cockpit run test:visual
+
+full_matrix_gates:
+  - adapter_identity
+  - architecture
+  - assets
+  - audit
+  - browser_synthetic_release
+  - build
+  - bundle
+  - consolidate
+  - consumer_browser_matrix
+  - demo_drift
+  - diff_check
+  - frontend
+  - frontend_focused
+  - input_stage
+  - methodology_coverage
+  - node_gates
+  - operation_compile
+  - operational_pass
+  - operator_security
+  - pack_focused
+  - pack_validation
+  - page_graph
+  - portable_python
+  - private_pytest
+  - public_evidence_redaction
+  - quality_report
+  - real_canary
+  - release_matrix_inventory
+  - rollback_report_verification
+  - semantic_inventory
+  - snapshot_contract
+  - source_registry
+  - temporal_parity
+  - toolkit_drift
+  - visual_profiles
+
+surfaces:
+  - id: consumer_adapters
+    lane: lane_b
+    path_patterns:
+      - adapters/**
+    contracts:
+      - wiki_consumer_adapter.v1
+    gates:
+      - adapter_identity
+      - operator_security
+      - snapshot_contract
+      - temporal_parity
+    depends_on:
+      - consumer_configuration
+
+  - id: consumer_ci_policy
+    lane: lane_b
+    path_patterns:
+      - .github/workflows/**
+      - requirements.txt
+    contracts:
+      - wiki_consumer_ci.v1
+    gates:
+      - audit
+      - private_pytest
+      - toolkit_drift
+    depends_on:
+      - consumer_configuration
+
+  - id: consumer_configuration
+    lane: lane_b
+    path_patterns:
+      - .toolkit-drift-ignore
+      - wiki.config.yaml
+      - wiki.targets.yaml
+    contracts:
+      - wiki_config.v1
+      - wiki_targets.v1
+    gates:
+      - adapter_identity
+      - toolkit_drift
+    depends_on: []
+
+  - id: consumer_release_records
+    lane: lane_b
+    path_patterns:
+      - docs/references/releases/**
+    contracts:
+      - wiki_consumer_release_record.v1
+    gates:
+      - audit
+      - public_evidence_redaction
+    depends_on:
+      - consumer_configuration
+
+  - id: consumer_template_extensions
+    lane: lane_b
+    path_patterns:
+      - wiki.page-types.local.yaml
+      - wiki.templates.local.yaml
+    contracts:
+      - wiki_consumer_page_types.v1
+      - wiki_consumer_templates.v1
+    gates:
+      - pack_focused
+      - snapshot_contract
+      - temporal_parity
+    depends_on:
+      - consumer_configuration
+
+  - id: consumer_tests
+    lane: lane_b
+    path_patterns:
+      - tests/**
+    contracts:
+      - wiki_consumer_tests.v1
+    gates:
+      - private_pytest
+    depends_on:
+      - consumer_configuration
+
+  - id: content_semantics
+    lane: lane_b
+    path_patterns:
+      - memories/**
+    contracts:
+      - wiki_content.v1
+      - wiki_page_frontmatter.v6
+    gates:
+      - consolidate
+      - input_stage
+      - methodology_coverage
+      - operational_pass
+      - page_graph
+      - quality_report
+      - semantic_inventory
+      - snapshot_contract
+    depends_on:
+      - consumer_configuration
+
+  - id: experience_pack_config
+    lane: lane_b
+    path_patterns:
+      - wiki.packs.lock.yaml
+    contracts:
+      - wiki_experience_pack_lock.v1
+    gates:
+      - pack_focused
+      - visual_profiles
+    depends_on:
+      - snapshot_adapter
+
+  - id: frontend_presentation
+    lane: lane_b
+    path_patterns:
+      - apps/wiki-cockpit/public/wiki-cockpit.config.json
+    contracts:
+      - wiki_cockpit_appearance.v1
+      - wiki_visual_grammar.v8
+    gates:
+      - frontend_focused
+      - visual_profiles
+    depends_on:
+      - snapshot_adapter
+
+  - id: operator_adapter
+    lane: lane_b
+    path_patterns:
+      - adapters/operator/**
+    contracts:
+      - wiki_operator_security.v1
+      - wiki_web_server.v6
+    gates:
+      - operator_security
+    depends_on:
+      - snapshot_adapter
+
+  - id: portable_core
+    lane: lane_a
+    path_patterns:
+      - .skills/wiki-*/**
+      - apps/wiki-cockpit/src/**
+      - packs/**
+      - scripts/wiki_*.py
+      - wiki_core/**
+    contracts:
+      - wiki_upgrade_package.v3
+      - wiki_world_runtime.v8
+    gates:
+      - architecture
+      - assets
+      - browser_synthetic_release
+      - build
+      - bundle
+      - demo_drift
+      - frontend
+      - node_gates
+      - pack_validation
+      - portable_python
+      - release_matrix_inventory
+    depends_on: []
+
+  - id: route_navigation
+    lane: lane_b
+    path_patterns:
+      - apps/wiki-cockpit/public/navigation.overrides.json
+    contracts:
+      - wiki_world_route.v8
+    gates:
+      - frontend_focused
+      - visual_profiles
+    depends_on:
+      - snapshot_adapter
+
+  - id: snapshot_adapter
+    lane: lane_b
+    path_patterns:
+      - adapters/snapshot/**
+      - wiki.adapter-manifest.json
+    contracts:
+      - wiki_temporal_graph.v1
+      - wiki_web_snapshot.v2
+    gates:
+      - adapter_identity
+      - snapshot_contract
+      - temporal_parity
+    depends_on:
+      - consumer_configuration
+
+boundary_policy:
+  c1_portable_patterns:
+    - .skills/wiki-*/**
+    - apps/wiki-cockpit/**
+    - docs/references/fixtures/demo-wiki/**
+    - docs/references/guides/**
+    - docs/references/schemas/**
+    - docs/references/templates/deploy/**
+    - packs/**
+    - scripts/README.md
+    - scripts/_git_subject.py
+    - scripts/wiki_*.py
+    - wiki_core/**
+  c2_generated_patterns:
+    - apps/wiki-cockpit/e2e/__screenshots__/**
+    - apps/wiki-cockpit/public/sample-snapshot/**
+    - docs/references/fixtures/demo-wiki/memories/**
+  c3_consumer_patterns:
+    - .github/workflows/**
+    - .toolkit-drift-ignore
+    - adapters/**
+    - apps/wiki-cockpit/public/wiki-cockpit.config.json
+    - docs/references/releases/**
+    - requirements.txt
+    - tests/**
+    - wiki.adapter-manifest.json
+    - wiki.config.yaml
+    - wiki.packs.lock.yaml
+    - wiki.page-types.local.yaml
+    - wiki.targets.yaml
+    - wiki.templates.local.yaml
+  domain_content_patterns:
+    - data/raw/**
+    - memorias/**
+    - memories/**
+    - private/**
+
+registry_sha256: d1fb5c9b626c9540f5fd90f7f228ecbdaf3524277b6a5a8f499e12b8c92e2282

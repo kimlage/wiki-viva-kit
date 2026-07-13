@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wiki-viva.example/schemas/wiki-upgrade-certification-receipt-v1.schema.json",
+  "title": "Wiki Viva executed Lane A certification receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "lane",
+    "release_id",
+    "run_id",
+    "source_sha",
+    "package_sha256",
+    "portable_tree_sha256",
+    "command_registry_sha256",
+    "toolchain_sha256",
+    "visual_manifest_sha256",
+    "capsule_ref",
+    "capsule_sha256",
+    "attestation_ref",
+    "attestation_sha256",
+    "authority_ref",
+    "certification_gate_ids",
+    "upstream_gate_ids",
+    "gate_results",
+    "human_gate_required",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wiki_viva_upgrade_certification_receipt.v1"
+    },
+    "status": {
+      "const": "passed"
+    },
+    "lane": {
+      "const": "lane_a"
+    },
+    "release_id": {
+      "$ref": "#/$defs/id"
+    },
+    "run_id": {
+      "$ref": "#/$defs/id"
+    },
+    "source_sha": {
+      "$ref": "#/$defs/sha"
+    },
+    "package_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "portable_tree_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "command_registry_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "toolchain_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "visual_manifest_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "capsule_ref": {
+      "$ref": "#/$defs/path"
+    },
+    "capsule_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "attestation_ref": {
+      "$ref": "#/$defs/path"
+    },
+    "attestation_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "authority_ref": {
+      "$ref": "#/$defs/path"
+    },
+    "certification_gate_ids": {
+      "$ref": "#/$defs/idList"
+    },
+    "upstream_gate_ids": {
+      "allOf": [
+        { "$ref": "#/$defs/idList" },
+        { "minItems": 1 }
+      ]
+    },
+    "gate_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/gateResult"
+      }
+    },
+    "human_gate_required": {
+      "const": true
+    },
+    "receipt_sha256": {
+      "$ref": "#/$defs/sha256"
+    }
+  },
+  "$defs": {
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40,64}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]{1,127}$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\)(?!.*//)[^\\u0000]+$"
+    },
+    "idList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "gateResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "class",
+        "provenance",
+        "status",
+        "exit_code",
+        "subject_sha",
+        "command_sha256",
+        "output_ref",
+        "output_sha256",
+        "output_bytes"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "class": {
+          "const": "upstream_certified"
+        },
+        "provenance": {
+          "const": "executed"
+        },
+        "status": {
+          "const": "passed"
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "subject_sha": {
+          "$ref": "#/$defs/sha"
+        },
+        "command_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "output_ref": {
+          "$ref": "#/$defs/path"
+        },
+        "output_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "output_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        }
+      }
+    }
+  }
+}

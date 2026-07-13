@@ -131,6 +131,25 @@ The v8 downstream release flow is read-only by default:
 - [wiki_upgrade_report.py](wiki_upgrade_report.py) validates allowlisted import
   evidence and compiles deterministic JSON/Markdown migration reports with
   gates, content-bound visual QA and disposable rollback verification.
+- [wiki_upgrade.py](wiki_upgrade.py) is the v3 two-lane runner. `plan` binds the
+  exact package/capsule/impact registry, external attestation trust anchor,
+  active toolchain and read-only B0 preflight before mutation. `adopt` can
+  create or verify the C1/C2/C3 chain, replay C2 in a disposable clone, resume
+  exact-subject gates, capture real canary evidence and generate the ignored
+  receipt/private+public reports after a verified disposable rollback. It does
+  not promote or merge; the PR/human gate remains mandatory. CI can stop at an
+  exact runner-owned handoff with `adopt --pause-before-canary`, transfer the
+  ignored `.wiki-viva/upgrade` state together with the consumer clone, and
+  continue that unchanged plan with `adopt --resume` in the canary job.
+  `certify` is the operator-facing Lane A command: it executes exactly the
+  `upstream_certified` commands on one clean, releasable public source SHA,
+  probes the real toolchain, binds a public visual manifest and emits a verified
+  capsule, certification receipt, external attestation trust anchor and
+  self-contained authority bundle. Consumer-owned `background_certification`
+  gates remain in Lane B and resume from the exact post-canary consumer handoff;
+  they are never executed or packaged by `certify`. The CLI is
+  intentionally v3-only; in-flight v1/v2 packages retain their original full
+  `migration.required_gates` runbook and cannot reuse v3 receipts.
 - [wiki_semantic_inventory.py](wiki_semantic_inventory.py) independently proves
   that authored YAML events and relations equal closure, temporal and graph
   read models without publishing page identities.

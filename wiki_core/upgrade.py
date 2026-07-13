@@ -26,6 +26,8 @@ from wiki_core.detectors import scan_text
 
 
 UPGRADE_PACKAGE_SCHEMA_VERSION = "wiki_viva_upgrade_package.v2"
+TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION = "wiki_viva_upgrade_package.v3"
+BOUNDARY_OPERATIONS_SCHEMA_VERSION = "wiki_viva_upgrade_boundary_operations.v1"
 LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION = "wiki_viva_upgrade_package.v1"
 CONSUMER_INVENTORY_SCHEMA_VERSION = "wiki_viva_consumer_inventory.v1"
 PREFLIGHT_SCHEMA_VERSION = "wiki_viva_upgrade_preflight.v1"
@@ -35,6 +37,28 @@ MIGRATION_REPORT_SCHEMA_VERSION = "wiki_viva_migration_report.v2"
 MIGRATION_VALIDATOR_VERSION = "wiki_viva_upgrade_validator.v5"
 MIGRATION_GATE_RECEIPTS_SCHEMA_VERSION = "wiki_viva_migration_gate_receipts.v1"
 ROLLBACK_VERIFICATION_SCHEMA_VERSION = "wiki_viva_rollback_verification.v1"
+UPGRADE_GATE_CLASSES = {
+    "upstream_certified",
+    "consumer_always",
+    "affected",
+    "canary",
+    "background_certification",
+}
+UPGRADE_GATE_REUSE_POLICIES = {"exact_capsule", "impact", "never"}
+# Capabilities are policy identities.  A package cannot evade a current-
+# consumer invariant by renaming its gate.
+NEVER_REUSABLE_GATE_ASSERTIONS = {
+    "secret_private_audit",
+    "public_evidence_redaction",
+    "input_stage",
+    "operational_pass_current",
+    "semantic_inventory",
+    "adapter_identity",
+    "snapshot_contract",
+    "canary_real",
+    "diff_verification",
+    "rollback_report_verification",
+}
 # The evidence schema is a runtime dependency of this module, so it lives in
 # the portable docs/references/schemas/** surface and travels with every
 # faithful public import (docs/references/upgrades/** is consumer-owned and
@@ -259,6 +283,14 @@ def upgrade_package_sha256(package: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json(package).encode("utf-8")).hexdigest()
 
 
+def boundary_operations_sha256(boundary_operations: Mapping[str, Any]) -> str:
+    """Bind the package-owned C2 generator and C3 adapter contract."""
+
+    unsigned = dict(boundary_operations)
+    unsigned.pop("registry_sha256", None)
+    return hashlib.sha256(canonical_json(unsigned).encode("utf-8")).hexdigest()
+
+
 def _migration_visual_profiles(package: dict[str, Any]) -> tuple[str, ...]:
     """Return the package-owned visual evidence contract.
 
@@ -338,6 +370,27 @@ def _safe_repo_pattern(value: Any) -> bool:
     )
 
 
+def _safe_boundary_pattern(value: Any) -> bool:
+    """Accept one bounded consumer-owned glob without admitting repo-wide rules."""
+
+    raw = str(value or "")
+    if (
+        not raw
+        or raw != raw.strip()
+        or "\x00" in raw
+        or raw.startswith(("/", "./", "~"))
+        or "\\" in raw
+        or _WINDOWS_DRIVE_RE.match(raw)
+        or raw in {"*", "**", "**/*"}
+    ):
+        return False
+    parts = raw.split("/")
+    if any(not part or part in {".", ".."} for part in parts):
+        return False
+    literal = re.sub(r"[*?\[\]]", "", raw)
+    return bool(literal and not _portable_path_has_sensitive_name(literal))
+
+
 @lru_cache(maxsize=1)
 def _migration_evidence_schema_validator() -> Draft202012Validator:
     if not MIGRATION_EVIDENCE_SCHEMA_PATH.is_file():
@@ -363,16 +416,354 @@ def _migration_evidence_schema_errors(evidence: dict[str, Any]) -> list[str]:
     return sorted(set(errors))
 
 
+def _validate_two_lane_package(
+    migration: Mapping[str, Any], migration_gates: Sequence[Any]
+) -> list[str]:
+    """Validate the executable v3 policy without weakening v1/v2 packages."""
+
+    errors: list[str] = []
+    gate_ids = [str(value) for value in migration_gates]
+    if len(gate_ids) != len(set(gate_ids)):
+        errors.append("migration.required_gates must be unique")
+    expected = set(gate_ids)
+
+    command_registry_value = migration.get("command_registry")
+    command_registry = (
+        command_registry_value if isinstance(command_registry_value, Mapping) else {}
+    )
+    if command_registry_value is not None and not isinstance(
+        command_registry_value, Mapping
+    ):
+        errors.append("migration.command_registry must be a mapping when present")
+    if command_registry and set(str(key) for key in command_registry) != expected:
+        errors.append(
+            "migration.command_registry must cover exactly migration.required_gates"
+        )
+    for gate_id, raw_command in command_registry.items():
+        prefix = f"migration.command_registry.{gate_id}"
+        if not isinstance(raw_command, Mapping):
+            errors.append(f"{prefix} must be a mapping")
+            continue
+        unknown = set(raw_command) - {
+            "argv",
+            "cwd",
+            "timeout_seconds",
+            "env_allowlist",
+        }
+        if unknown:
+            errors.append(f"{prefix} has unknown fields")
+        argv = raw_command.get("argv")
+        if (
+            not isinstance(argv, list)
+            or not argv
+            or any(
+                not isinstance(value, str)
+                or not value
+                or "\x00" in value
+                or "\n" in value
+                for value in argv
+            )
+        ):
+            errors.append(f"{prefix}.argv must be a non-empty string list")
+        cwd = str(raw_command.get("cwd") or "")
+        if (
+            not cwd
+            or cwd.startswith(("/", "~", "\\"))
+            or _WINDOWS_DRIVE_RE.match(cwd)
+            or ".." in Path(cwd).parts
+        ):
+            errors.append(f"{prefix}.cwd must stay inside the consumer")
+        timeout = raw_command.get("timeout_seconds")
+        if (
+            isinstance(timeout, bool)
+            or not isinstance(timeout, int)
+            or not 1 <= timeout <= 86_400
+        ):
+            errors.append(f"{prefix}.timeout_seconds is invalid")
+        env_allowlist = raw_command.get("env_allowlist", [])
+        if (
+            not isinstance(env_allowlist, list)
+            or any(
+                not isinstance(value, str)
+                or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,63}", value)
+                for value in env_allowlist
+            )
+            or len(env_allowlist) != len(set(env_allowlist))
+        ):
+            errors.append(f"{prefix}.env_allowlist is invalid")
+
+    policies = migration.get("gate_policies")
+    if not isinstance(policies, Mapping):
+        errors.append("migration.gate_policies must be a mapping")
+        policies = {}
+    if set(str(key) for key in policies) != expected:
+        errors.append(
+            "migration.gate_policies must cover exactly migration.required_gates"
+        )
+    dependencies: dict[str, list[str]] = {}
+    for gate_id, raw_policy in policies.items():
+        prefix = f"migration.gate_policies.{gate_id}"
+        if not isinstance(raw_policy, Mapping):
+            errors.append(f"{prefix} must be a mapping")
+            continue
+        unknown = set(raw_policy) - {
+            "class",
+            "command_id",
+            "asserts",
+            "reuse",
+            "depends_on",
+            "resource_group",
+            "required_for_promotion",
+        }
+        if unknown:
+            errors.append(f"{prefix} has unknown fields")
+        gate_class = str(raw_policy.get("class") or "")
+        reuse = str(raw_policy.get("reuse") or "")
+        if gate_class not in UPGRADE_GATE_CLASSES:
+            errors.append(f"{prefix}.class is invalid")
+        if reuse not in UPGRADE_GATE_REUSE_POLICIES:
+            errors.append(f"{prefix}.reuse is invalid")
+        if str(raw_policy.get("command_id") or "") != str(gate_id):
+            errors.append(f"{prefix}.command_id must equal its gate id")
+        assertions = raw_policy.get("asserts")
+        if (
+            not isinstance(assertions, list)
+            or not assertions
+            or any(
+                not isinstance(value, str)
+                or not re.fullmatch(r"[a-z][a-z0-9_]{1,63}", value)
+                for value in assertions
+            )
+            or len(assertions) != len(set(assertions))
+        ):
+            errors.append(f"{prefix}.asserts is invalid")
+            assertions = []
+        if NEVER_REUSABLE_GATE_ASSERTIONS.intersection(assertions):
+            if reuse != "never" or gate_class == "upstream_certified":
+                errors.append(f"{prefix} contains a never-reusable assertion")
+        expected_reuse = {
+            "upstream_certified": "exact_capsule",
+            "consumer_always": "never",
+            "affected": "impact",
+            "canary": "never",
+            "background_certification": "never",
+        }.get(gate_class)
+        if expected_reuse and reuse != expected_reuse:
+            errors.append(f"{prefix}.reuse contradicts its class")
+        if "canary_real" in assertions and gate_class != "canary":
+            errors.append(f"{prefix}.class must be canary for canary_real")
+        depends_on = raw_policy.get("depends_on", [])
+        if (
+            not isinstance(depends_on, list)
+            or any(str(value) not in expected for value in depends_on)
+            or str(gate_id) in {str(value) for value in depends_on}
+            or len(depends_on) != len(set(str(value) for value in depends_on))
+        ):
+            errors.append(f"{prefix}.depends_on is invalid")
+            depends_on = []
+        dependencies[str(gate_id)] = [str(value) for value in depends_on]
+        resource_group = str(raw_policy.get("resource_group") or "")
+        if not re.fullmatch(r"[a-z][a-z0-9_]{1,63}", resource_group):
+            errors.append(f"{prefix}.resource_group is invalid")
+        if not isinstance(raw_policy.get("required_for_promotion"), bool):
+            errors.append(f"{prefix}.required_for_promotion must be boolean")
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(gate_id: str) -> None:
+        if gate_id in visiting:
+            errors.append("migration.gate_policies dependency graph has a cycle")
+            return
+        if gate_id in visited:
+            return
+        visiting.add(gate_id)
+        for dependency in dependencies.get(gate_id, []):
+            visit(dependency)
+        visiting.remove(gate_id)
+        visited.add(gate_id)
+
+    for gate_id in dependencies:
+        visit(gate_id)
+
+    gate_commands = migration.get("gate_commands")
+    command_registry_sha256 = str(
+        migration.get("command_registry_sha256") or ""
+    )
+    if (
+        isinstance(gate_commands, Mapping)
+        and set(str(key) for key in gate_commands) == expected
+        and isinstance(policies, Mapping)
+        and set(str(key) for key in policies) == expected
+    ):
+        projection = sorted(
+            (
+                {
+                    "id": gate_id,
+                    "class": str(policies[gate_id].get("class") or "")
+                    if isinstance(policies[gate_id], Mapping)
+                    else "",
+                    "command": str(gate_commands[gate_id]),
+                }
+                for gate_id in expected
+            ),
+            key=lambda item: item["id"],
+        )
+        expected_command_digest = hashlib.sha256(
+            canonical_json(projection).encode("utf-8")
+        ).hexdigest()
+        if command_registry_sha256 != expected_command_digest:
+            errors.append(
+                "migration.command_registry_sha256 does not bind gate commands/classes"
+            )
+    elif not _SHA256_RE.fullmatch(command_registry_sha256):
+        errors.append("migration.command_registry_sha256 is invalid")
+
+    impact = migration.get("impact_registry")
+    if not isinstance(impact, Mapping):
+        errors.append("migration.impact_registry must be a mapping")
+    else:
+        if (
+            impact.get("schema_version")
+            != "wiki_viva_upgrade_impact_registry.v1"
+        ):
+            errors.append("migration.impact_registry.schema_version is invalid")
+        if not _SHA256_RE.fullmatch(str(impact.get("sha256") or "")):
+            errors.append("migration.impact_registry.sha256 is invalid")
+        path = str(impact.get("path") or "")
+        if (
+            not path
+            or path.startswith(("/", "~", "\\"))
+            or _WINDOWS_DRIVE_RE.match(path)
+            or ".." in Path(path).parts
+        ):
+            errors.append("migration.impact_registry.path is unsafe")
+
+    boundary_value = migration.get("boundary_operations")
+    if not isinstance(boundary_value, Mapping):
+        errors.append("migration.boundary_operations must be a mapping")
+        boundary: Mapping[str, Any] = {}
+    else:
+        boundary = boundary_value
+    expected_boundary_keys = {
+        "schema_version",
+        "c2_generators",
+        "c3_adapter",
+        "registry_sha256",
+    }
+    if boundary and set(boundary) != expected_boundary_keys:
+        errors.append("migration.boundary_operations has unknown or missing fields")
+    if boundary.get("schema_version") != BOUNDARY_OPERATIONS_SCHEMA_VERSION:
+        errors.append("migration.boundary_operations.schema_version is invalid")
+
+    generators = boundary.get("c2_generators")
+    if not isinstance(generators, list) or not generators:
+        errors.append("migration.boundary_operations.c2_generators must be non-empty")
+        generators = []
+    generator_ids: list[str] = []
+    generated_owners: list[str] = []
+    for index, raw_generator in enumerate(generators):
+        prefix = f"migration.boundary_operations.c2_generators[{index}]"
+        if not isinstance(raw_generator, Mapping):
+            errors.append(f"{prefix} must be a mapping")
+            continue
+        if set(raw_generator) != {"id", "command", "owns_patterns"}:
+            errors.append(f"{prefix} has unknown or missing fields")
+        generator_id = str(raw_generator.get("id") or "")
+        if not re.fullmatch(r"[a-z][a-z0-9_]{1,127}", generator_id):
+            errors.append(f"{prefix}.id is invalid")
+        generator_ids.append(generator_id)
+        command = raw_generator.get("command")
+        if (
+            not isinstance(command, str)
+            or not command.strip()
+            or _migration_command_is_placeholder(command)
+        ):
+            errors.append(f"{prefix}.command must be an exact command")
+        owns = raw_generator.get("owns_patterns")
+        if not isinstance(owns, list) or not owns:
+            errors.append(f"{prefix}.owns_patterns must be non-empty")
+            continue
+        if len(owns) != len(set(str(value) for value in owns)):
+            errors.append(f"{prefix}.owns_patterns must be unique")
+        for owner_index, pattern in enumerate(owns):
+            if not isinstance(pattern, str) or not _safe_repo_pattern(pattern):
+                errors.append(f"{prefix}.owns_patterns[{owner_index}] is unsafe")
+            generated_owners.append(str(pattern))
+    if generator_ids != sorted(generator_ids) or len(generator_ids) != len(
+        set(generator_ids)
+    ):
+        errors.append(
+            "migration.boundary_operations.c2_generators must have unique sorted ids"
+        )
+    if len(generated_owners) != len(set(generated_owners)):
+        errors.append(
+            "migration.boundary_operations.c2_generators ownership overlaps"
+        )
+    if set(generated_owners) != {
+        str(value) for value in migration.get("generated_artifact_patterns") or []
+    }:
+        errors.append(
+            "migration.boundary_operations.c2_generators must own exactly "
+            "migration.generated_artifact_patterns"
+        )
+
+    c3_value = boundary.get("c3_adapter")
+    if not isinstance(c3_value, Mapping):
+        errors.append("migration.boundary_operations.c3_adapter must be a mapping")
+        c3: Mapping[str, Any] = {}
+    else:
+        c3 = c3_value
+    if c3 and set(c3) != {"mode", "contract", "owns_patterns"}:
+        errors.append(
+            "migration.boundary_operations.c3_adapter has unknown or missing fields"
+        )
+    if c3.get("mode") != "consumer_plan_commands":
+        errors.append("migration.boundary_operations.c3_adapter.mode is invalid")
+    if not re.fullmatch(
+        r"[a-z][a-z0-9_.:+-]{1,127}", str(c3.get("contract") or "")
+    ):
+        errors.append("migration.boundary_operations.c3_adapter.contract is invalid")
+    c3_patterns = c3.get("owns_patterns")
+    if not isinstance(c3_patterns, list) or not c3_patterns:
+        errors.append(
+            "migration.boundary_operations.c3_adapter.owns_patterns must be non-empty"
+        )
+        c3_patterns = []
+    if len(c3_patterns) != len(set(str(value) for value in c3_patterns)):
+        errors.append(
+            "migration.boundary_operations.c3_adapter.owns_patterns must be unique"
+        )
+    for index, pattern in enumerate(c3_patterns):
+        if not isinstance(pattern, str) or not _safe_boundary_pattern(pattern):
+            errors.append(
+                "migration.boundary_operations.c3_adapter."
+                f"owns_patterns[{index}] is unsafe"
+            )
+    if set(str(value) for value in c3_patterns).intersection(generated_owners):
+        errors.append("migration.boundary_operations C2 and C3 ownership overlaps")
+
+    boundary_digest = str(boundary.get("registry_sha256") or "")
+    if not _SHA256_RE.fullmatch(boundary_digest):
+        errors.append("migration.boundary_operations.registry_sha256 is invalid")
+    elif boundary_operations_sha256(boundary) != boundary_digest:
+        errors.append("migration.boundary_operations.registry_sha256 is stale")
+    return sorted(set(errors))
+
+
 def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     schema_version = package.get("schema_version")
     if schema_version not in {
         LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION,
         UPGRADE_PACKAGE_SCHEMA_VERSION,
+        TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
     }:
         errors.append(
             "schema_version must be "
-            f"{LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION} or {UPGRADE_PACKAGE_SCHEMA_VERSION}"
+            f"{LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION}, "
+            f"{UPGRADE_PACKAGE_SCHEMA_VERSION} or "
+            f"{TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION}"
         )
     release = _require_mapping(package.get("release"), "release", errors)
     for field in ("id", "status", "source_sha", "plan"):
@@ -430,7 +821,10 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     )
     required_contracts = (
         (*legacy_contracts, *v2_contracts)
-        if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION
+        if schema_version in {
+            UPGRADE_PACKAGE_SCHEMA_VERSION,
+            TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
+        }
         else legacy_contracts
     )
     for field in required_contracts:
@@ -493,7 +887,10 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
             raw_commit_boundaries, "migration.commit_boundaries", errors
         )
     )
-    if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION and not commit_boundaries:
+    if schema_version in {
+        UPGRADE_PACKAGE_SCHEMA_VERSION,
+        TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
+    } and not commit_boundaries:
         errors.append("migration.commit_boundaries cannot be empty")
     normalized_boundaries = [str(value) for value in commit_boundaries]
     if len(normalized_boundaries) != len(set(normalized_boundaries)):
@@ -510,7 +907,8 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     ):
         errors.append("migration.commit_boundaries must use canonical order")
     if (
-        schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION
+        schema_version
+        in {UPGRADE_PACKAGE_SCHEMA_VERSION, TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION}
         and normalized_boundaries
         and normalized_boundaries[0] != "faithful_public_import"
     ):
@@ -528,7 +926,8 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
         )
     )
     if (
-        schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION
+        schema_version
+        in {UPGRADE_PACKAGE_SCHEMA_VERSION, TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION}
         and "regenerated_artifacts" in normalized_boundaries
         and not generated_patterns
     ):
@@ -555,7 +954,10 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     gate_commands = (
         gate_commands_value if isinstance(gate_commands_value, dict) else {}
     )
-    if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION and migration_gates:
+    if schema_version in {
+        UPGRADE_PACKAGE_SCHEMA_VERSION,
+        TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
+    } and migration_gates:
         # The package is the command registry: evidence may only claim gate
         # runs whose exact command the package registered up front.
         if not gate_commands:
@@ -581,7 +983,10 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     visual_profiles = _require_list(
         migration.get("visual_profiles"), "migration.visual_profiles", errors
     )
-    if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION and not visual_profiles:
+    if schema_version in {
+        UPGRADE_PACKAGE_SCHEMA_VERSION,
+        TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
+    } and not visual_profiles:
         errors.append("migration.visual_profiles cannot be empty")
     normalized_profiles = [str(value) for value in visual_profiles]
     if len(normalized_profiles) != len(set(normalized_profiles)):
@@ -589,6 +994,25 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     for index, value in enumerate(visual_profiles):
         if not isinstance(value, str) or not _VISUAL_PROFILE_RE.fullmatch(value):
             errors.append(f"migration.visual_profiles[{index}] is invalid")
+    if schema_version == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION:
+        gate_mapping_value = preflight.get("gate_mapping")
+        if not isinstance(gate_mapping_value, Mapping):
+            errors.append("preflight.gate_mapping must be a mapping")
+        else:
+            preflight_ids = {str(value) for value in required_gates}
+            if set(str(key) for key in gate_mapping_value) != preflight_ids:
+                errors.append(
+                    "preflight.gate_mapping must cover exactly preflight.required_gates"
+                )
+            migration_ids = {str(value) for value in migration_gates}
+            if any(
+                not isinstance(value, str) or value not in migration_ids
+                for value in gate_mapping_value.values()
+            ):
+                errors.append(
+                    "preflight.gate_mapping values must name migration.required_gates"
+                )
+        errors.extend(_validate_two_lane_package(migration, migration_gates))
     return errors
 
 

@@ -224,6 +224,7 @@ try {
     ["release-path-safety", path.join(scriptsDir, "release-path-safety.mjs")],
     ["git-subject-capture", path.join(scriptsDir, "capture-git-subject.mjs")],
     ["release-runner", path.join(scriptsDir, "run-playwright-release.mjs")],
+    ["upgrade-gate-evidence-adapter", path.join(scriptsDir, "export-upgrade-gate-evidence.mjs")],
     ["release-runner-launcher", path.join(scriptsDir, "run-playwright-release.sh")],
     ["downstream-preflight-runner", path.join(scriptsDir, "preflight-downstream-e2e.mjs")],
     ["git-subject-compiler", subjectScript],

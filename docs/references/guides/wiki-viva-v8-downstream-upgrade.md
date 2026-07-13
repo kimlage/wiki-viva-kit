@@ -17,6 +17,13 @@ Use this runbook to upgrade a repository that consumes Wiki Viva Kit. It is a
 review-first migration: the public kit supplies contracts and read-only checks;
 the consumer owns its content, configuration, private evidence and PR.
 
+This runbook implements the detailed v8 mechanics under the normative
+[two-lane migration strategy](downstream-migration-two-lane-strategy.md). The
+public release is certified once; a downstream consumer proves its exact delta,
+current privacy/semantic invariants and reversible canary. Until the package
+declares reusable and affected gate classes, however, its existing
+`migration.required_gates` list remains fully blocking.
+
 The machine-readable package lives in the public kit checkout under the v8
 upgrade metadata directory. Do not start a downstream import while its
 `release.status` is blocked or its `source_sha` is not an exact public commit.
@@ -41,19 +48,46 @@ flowchart LR
 | Artifact | Purpose | Publication boundary |
 | --- | --- | --- |
 | `upgrade-package.yaml` | Release pin, contract versions, allowlist, blocklist, gates and compatibility window. | Public kit checkout. |
+| `impact-registry.yaml` | Versioned path + contract → surface → transitive gate selection. Unknown impact selects the full matrix and Lane A. | Public kit checkout; its canonical SHA is pinned by package v3. |
+| `wiki-upgrade-release-capsule-v1.schema.json` | Immutable Lane A capsule binding source, package, portable tree, command registry, toolchain, executed gate receipts and visual manifest. | Public certification output only; a locally invented capsule has no authority. |
 | `consumer-inventory.yaml` | Public-safe wave/status inventory. | Private paths, remotes, SHAs and drift filenames stay redacted. |
 | `gate-evidence.example.json` | Exact current-gate receipts consumed by preflight. | Store the filled copy in the consumer branch or local evidence directory. |
 | `migration-evidence.example.yaml` | Required post-import evidence. | Public export requires hashed/generic routes and no private content. |
 | `docs/references/schemas/wiki-migration-evidence-v2.schema.json` | Deep input contract for commit, screenshot and rollback evidence. Portable: every faithful public import carries it next to `wiki_core/upgrade.py`. | Public kit checkout and every consumer; filled private evidence stays downstream. |
 | `migration-report.schema.json` | Stable output contract for CI/PR tooling. | Public kit checkout. |
 
-The Python tools are read-only unless an explicit output path is supplied. They
-never copy toolkit files and never change the consumer checkout.
+Inspection, inventory, preflight and `wiki_upgrade.py plan` are read-only unless
+an explicit report/output path is supplied. `wiki_upgrade.py adopt` is the
+deliberate mutation boundary: after plan review it creates and verifies the
+atomic C1/C2/C3 commits, runs the selected gates and writes ignored evidence.
 
-The current validation boundary is declared by `upgrade-package.yaml` and uses
-`wiki_viva_upgrade_validator.v5`. While the package remains
-`validation_pending`, its evidence can be exercised but cannot be promoted as a
+The current validation boundary is declared by `upgrade-package.yaml`. Package
+schema v3 keeps the validator-v5 migration-evidence boundary and adds
+`gate_policies`, `command_registry_sha256` and the sealed impact-registry
+reference. While the package remains `validation_pending`, its contracts and
+public synthetic fixtures can be exercised but it cannot be promoted as a
 releasable downstream migration.
+
+### Receipt identity and transition rule
+
+Lane A certifies the immutable public subject. Lane B binds that capsule to the
+consumer. An adoption receipt is reusable only when these seven terms match:
+
+```text
+source_sha + package_sha256 + portable_tree_sha256 + consumer_B0 + consumer_C3
++ command_registry_sha256 + toolchain_sha256
+```
+
+The capsule supplies all terms except `consumer_B0` and `consumer_C3`; the
+adoption receipt supplies all seven. A changed C3 makes every prior consumer
+gate, resume checkpoint, canary and report stale, while unchanged Lane A proof
+remains attached to its exact public subject.
+
+Do not apply v3's smaller affected-gate selection retroactively. Any migration
+whose plan/preflight began under package schema v2 continues to execute every
+entry in its original `migration.required_gates` list. Those receipts remain
+valid only for their exact original subject. Finish and report that migration
+under v2; use v3 only for a new plan.
 
 ## 1. Pin the public source
 
@@ -181,6 +215,10 @@ Preflight blocks when any of these are false:
 Snapshot schema drift and local overrides are explicit warnings. A warning is
 an adaptation decision, never permission to overwrite local files.
 
+This preflight is the pre-mutation decision artifact. A v3 runner must bind it
+to the later C1/C2/C3 plan; a post-C3 inventory alone cannot claim that the
+conceptual diff was reviewed before the import.
+
 ## 5. Import only portable files
 
 The blocklist wins over the allowlist. In particular, the default import never
@@ -240,14 +278,100 @@ Local overrides must not weaken route grammar, turn quadrants/regions into
 entities, bypass `WorldRuntime`, disable secret scanning, allow sample fallback
 on a real route, relax operator security or cross the public/private boundary.
 
+### Seal and execute the v3 adoption plan
+
+After the read-only preflight, and before C1 exists, a package with a certified
+Lane A capsule and sealed impact registry compiles one sealed, reviewable plan.
+`plan` never mutates the consumer. After explicit review, `adopt` owns the
+atomic C1/C2/C3 commits and refuses any byte or ownership drift:
+
+```sh
+python3 scripts/wiki_upgrade.py certify \
+  --package /path/to/upgrade-package.yaml \
+  --impact-registry /path/to/impact-registry.yaml \
+  --source-root /path/to/clean-public-subject \
+  --visual-root /path/to/verified-visual-authority \
+  --visual-manifest-ref visual-manifest.json \
+  --out-dir /path/to/new-immutable-release-authority \
+  --attestation-authority-id <reviewed-authority-id>
+
+python3 scripts/wiki_upgrade.py plan \
+  --package /path/to/upgrade-package.yaml \
+  --capsule /path/to/release-capsule.json \
+  --impact-registry /path/to/impact-registry.yaml \
+  --authority /path/to/release-authority \
+  --trusted-attestation-sha256 <out-of-band-sha256> \
+  --kit-root /path/to/wiki-viva-kit \
+  --consumer-root /path/to/consumer \
+  --consumer-b0 <B0> \
+  --preflight-command 'audit::python3 scripts/wiki_audit.py --check' \
+  --c2-generator-command 'demo_snapshot::python3 scripts/wiki_build_demo.py' \
+  --c2-generator-command 'visual_baselines::npm --prefix apps/wiki-cockpit run test:visual:update' \
+  --c3-adapter-command 'consumer-adapter::/path/to/reviewed-consumer-adapter.sh' \
+  --out .wiki-viva/upgrade/plan.json
+```
+
+Review the proposed C1/C2/C3 ownership, changed paths/contracts, selected and
+omitted gates, capsule reuse, invalidations and conceptual diff. The plan must
+bind the accepted preflight and fail closed on an unavailable capsule,
+dirty/ambiguous baseline, unknown impact or unsafe evidence path; it must never
+silently fall back to the live kit checkout instead of the pinned source.
+Repeat `--c2-generator-command ID::COMMAND` for the package's independent
+generators. The runner replays them from C1 in a disposable clone, retains the
+real output log and accepts C2 only when the generated bytes match exactly; a
+hand-authored `provenance: executed` sidecar is not evidence. Repeat
+`--c3-adapter-command ID::COMMAND` for every reviewed consumer-owned adapter;
+the runner accepts no undeclared C3 mutation.
+
+The resumable v3 path executes the reviewed plan and generates its evidence:
+
+```sh
+python3 scripts/wiki_upgrade.py adopt \
+  --plan .wiki-viva/upgrade/plan.json \
+  --package /path/to/upgrade-package.yaml \
+  --capsule /path/to/release-capsule.json \
+  --impact-registry /path/to/impact-registry.yaml \
+  --authority /path/to/release-authority \
+  --trusted-attestation-sha256 <out-of-band-sha256> \
+  --kit-root /path/to/wiki-viva-kit \
+  --consumer-root /path/to/consumer \
+  --mode canary \
+  --resume
+```
+
+For split CI, the canary job adds `--pause-before-background`. The background
+job depends on canary, downloads that exact same consumer/run handoff and runs
+the same command with `--resume`; it must never start from a fresh public-only
+checkout or manufacture a second consumer identity.
+
+`--resume` is not a bypass. The checkpoint must match both the canonical plan
+digest and the complete seven-term receipt identity. Before reusing one result,
+the runner rechecks C3, the command digest, toolchain and output digest. A stale
+result is invalidated and rerun; a stale or modified plan is rejected.
+
 ## 7. Run post-import gates and visual QA
 
-The exact commands are listed in `migration.required_gates` in the package.
-At minimum, record drift, audit, methodology coverage, operation/input-stage
-compilers, Python tests, snapshot contract, architecture, bundle, demo drift and
+For an in-flight v2 migration, the exact commands listed in
+`migration.required_gates` remain one complete blocking matrix. At minimum,
+record drift, audit, methodology coverage, operation/input-stage compilers,
+Python tests, snapshot contract, architecture, bundle, demo drift and
 `git diff --check`. The v8 package additionally requires the public-export
 privacy boundary, `wiki_pack.py validate --all`, asset provenance, exact
 release-matrix contract and the subject-bound downstream browser gate.
+
+For a new v3 plan, the runner reads the package's five gate classes and the
+sealed impact registry. It may reuse only verified `upstream_certified` proof;
+it always runs `consumer_always`, selects `affected` through path + contract
+impact, runs `canary` on the final served consumer and schedules declared
+`background_certification`. Unknown path/contract impact or any portable-core
+surface selects the full catalog and requires a new Lane A capsule.
+
+These gate IDs can never be omitted or reused: `audit`,
+`public_evidence_redaction`, `input_stage`, `semantic_inventory`,
+`adapter_identity`, `snapshot_contract`, `real_canary`, `diff_check` and
+`rollback_report_verification`. An omission is valid only with exact capsule
+proof for an upstream gate or the current impact derivation for an unaffected
+gate. Every other omission blocks promotion.
 
 The downstream preflight/browser attestation must match the snapshot's exact
 temporal-event, temporal-graph and experience-pack-composition versions, the
@@ -333,8 +457,11 @@ Checked gate claims are never self-declared. Each `gates[]` entry must use the
 exact command registered in the package's `migration.gate_commands`, and
 `gates_receipt_ref` must point to a git-ignored, untracked JSON receipt of the
 executed runs (conventional location `output/wiki-upgrade/gate-receipts.json`)
-recording `{id, command, exit_code, output_sha256}` per gate and pinning the
-final migration boundary as `captured_consumer_head`.
+recording command provenance, exit code and output hash per gate and pinning the
+final migration boundary as `captured_consumer_head`. A v3 adoption receipt
+also binds the capsule, impact derivation, plan digest, complete seven-term
+identity, C1/C2/C3 ownership, omissions, resume state and executed
+rollback/report verification.
 
 Add `--public-export` only after routes/evidence are redacted. That mode blocks
 PII, access-secret patterns, absolute local paths, URL query strings and raw
@@ -354,6 +481,13 @@ non-null migration SHA in reverse boundary order, and `--verify-rollback` must
 restore the previous Git tree in a disposable clone. Compilation without
 `--check` remains useful for drafting, but it is not release evidence.
 
+The resumable runner keeps raw command/browser evidence private and writes a
+path-free JSON/Markdown report containing typed aggregates and hashes from that
+same execution. It must also capture package-declared PNG profiles, dimensions
+and hashes plus sanitized console/network summaries. Plan, checkpoint, logs,
+screenshots, receipts and reports remain ignored/untracked; manual
+transcription cannot make the report complete.
+
 ## 9. Roll back per repository
 
 First-line recovery is runtime-level: switch the adaptation from `v8` to
@@ -368,10 +502,13 @@ git diff -- wiki.config.yaml wiki.targets.yaml wiki.templates.local.yaml memorie
 git commit -m "revert: roll back Wiki Viva v8 import"
 ```
 
-Omit commits that were not created. Review the diff before committing; the
-portable import never owned local configs or memory roots. If only generated
-private artifacts are wrong, revert/regenerate the artifact commit rather than
-blindly reverting public core.
+For the current v8 contract all three boundaries are mandatory and ancestry
+ordered; a missing C1, C2 or C3 blocks the report instead of being omitted.
+Review the diff before committing; the portable import never owned local
+configs or memory roots. If only generated private artifacts are wrong,
+revert/regenerate the artifact commit rather than blindly reverting public
+core. The runner executes this reverse-order rollback in a disposable clone and
+compares the restored tree to B0 before declaring it verified.
 
 ## 10. Advance waves
 

@@ -201,6 +201,32 @@ back with `scripts/wiki_llm_context_pass.py --record-result` (provenance is
 enforced). For batch/cheap processing, export pending requests with
 `scripts/wiki_export_batch.py` (Anthropic Message Batches format, −50%).
 
+## Downstream upgrades: certify once, adopt by delta
+
+Upgrades use two proof lanes. Lane A certifies one immutable portable source
+with its package, portable-tree, command-registry and toolchain digests. Lane B
+freezes a consumer baseline, verifies a byte-equal C1 import, regenerates C2,
+applies consumer-owned C3 adapters, selects gates from a versioned path/contract
+impact registry and reaches a reversible real canary before the PR/human gate.
+
+An adoption receipt can be reused only when all seven fields match exactly:
+`source_sha`, `package_sha256`, `portable_tree_sha256`, `consumer_B0`,
+`consumer_C3`, `command_registry_sha256` and `toolchain_sha256`. Secret/private
+audit, public-evidence redaction, input stage, semantic inventory, adapter
+identity, snapshot contract, real canary, diff and rollback/report verification
+always rerun. Unknown path or contract impact selects the full matrix and Lane
+A; it never guesses a fast path.
+
+The normative contract, schemas, impact registry, resumable-runner behavior and
+transition rule are in the
+[two-lane downstream migration guide](docs/references/guides/downstream-migration-two-lane-strategy.md).
+That guide's runner-acceptance section is authoritative: local contract tests
+do not make a capsule or v3 receipt production-ready while a listed blocker is
+open.
+A migration already running under package schema v2 retains every declared
+`migration.required_gates` entry as blocking. V3 does not rewrite its evidence
+retroactively.
+
 ## Official documentation — the wiki documents itself
 
 There is no separate doc site. The official documentation **is the living wiki
@@ -222,6 +248,7 @@ is the context that explains how the wiki itself works:
 | [Experience-pack authoring](docs/references/guides/experience-pack-authoring.md) | Pack schema, lifecycle, composition, gates and runtime boundary |
 | [Pack showcase demos](docs/references/guides/experience-pack-showcase-demos.md) | Deterministic Study/Research and Personal Finance demo worlds |
 | [Registry-first extensions](docs/references/guides/extending-the-kit.md) | Add blocks, sources, primitives, people, surfaces and interactions |
+| [Two-lane downstream migration](docs/references/guides/downstream-migration-two-lane-strategy.md) | Certify a portable release once, adopt by consumer delta, canary and generated evidence |
 | [v8 downstream upgrade](docs/references/guides/wiki-viva-v8-downstream-upgrade.md) | Inventory, preflight, allowlisted import, reports, waves and rollback |
 | [v8 release candidate](docs/references/releases/wiki-viva-v8.md) | Version matrix, breaking changes, compatibility and current blockers |
 | [Root entity](memories/system/wiki-viva-kit.md) | Semantic top page for this kit and its integral quadrants |

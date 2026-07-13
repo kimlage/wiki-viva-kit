@@ -4346,28 +4346,157 @@ Only after those proofs may this table change:
 | RT-150 | strict canonical test keeps `package_is_pinned=false`; local validation is not machine adoption authority | merge validated S22 history, then merge a separately reviewed `release_candidate` metadata/test boundary before private preflight |
 | RT-12 / RT-37 / RT-59 / RT-85 / RT-91 / RT-119 | complete official S22 receipt is bound; human/private/E5 remain | complete human review, final private adoption and E5 instead of reusing an earlier subject |
 
+### Two-lane migration decision and current downstream QA — 2026-07-13 (public-redacted)
+
+This plan remains the single execution authority. No second migration plan is
+created. The new decision replaces repeated full upstream certification in
+future downstream migrations with two independently auditable lanes:
+
+```mermaid
+flowchart LR
+    A0["Lane A: immutable public subject"] --> A1["Release capsule"]
+    A1 --> B0["Lane B: read-only consumer preflight"]
+    B0 --> C1["C1 byte-equal import"]
+    C1 --> C2["C2 regenerated artifacts"]
+    C2 --> C3["C3 consumer adapters"]
+    C3 --> G["Consumer-always + affected gates"]
+    G --> K["Reversible real canary"]
+    K --> R["Report + verified rollback"]
+    R --> H["PR / human promotion gate"]
+```
+
+Lane A binds the public `source_sha`, canonical package digest, filtered
+portable-tree digest, versioned command registry, exact toolchain, executed
+portable gates and visual manifest in one sealed capsule. Lane B freezes B0,
+proves C1 byte equality, restricts C2 to generated surfaces, restricts C3 to
+consumer-owned adapters/configuration/tests, derives gate impact from both
+paths and contracts, runs a reversible canary and generates its receipts,
+private report, public-redacted projection and disposable-clone rollback proof.
+
+An adoption receipt is reusable only on exact equality of all seven terms:
+
+```text
+source_sha + package_sha256 + portable_tree_sha256 + consumer_B0 + consumer_C3
++ command_registry_sha256 + toolchain_sha256
+```
+
+Changing any term invalidates Lane B reuse. Changing one of the five upstream
+terms also invalidates the Lane A capsule. A changed B0 or C3 invalidates only
+consumer proof; it does not erase valid upstream certification for the
+unchanged portable subject.
+
+The versioned public contract is composed of:
+
+- `wiki_viva_upgrade_package.v3`, with the classes
+  `upstream_certified`, `consumer_always`, `affected`, `canary` and
+  `background_certification`;
+- an immutable Lane A capsule schema and fail-closed verifier;
+- a sealed path/contract/impact registry whose unknown path **or** contract
+  selects the complete matrix and `requires_lane_a=true`;
+- exact C1/C2/C3 boundary ownership and negative public synthetic fixtures;
+- a read-only `plan` plus resumable `adopt --mode canary --resume` interface;
+- separate upstream-certification, fast-adoption, canary and background CI
+  jobs; moving work to background does not waive any
+  `required_for_promotion` conclusion.
+
+The capsule, registry, package-v3 schema and fail-closed runner now close those
+implementation contracts with public synthetic fixtures in the local working
+tree. Lane A executes and seals only `upstream_certified` results while binding
+the complete command registry needed by both lanes. `plan` binds the read-only
+pre-mutation decision; `adopt` creates and verifies distinct ancestry-ordered
+B0/C1/C2/C3 subjects, replays C2 generators, restricts C3 to reviewed adapter
+commands, schedules the gate DAG by dependency/resource group, captures only
+current-C3 visual/console/network evidence, resumes by exact identity and
+verifies rollback/report output in a disposable clone. The four CI jobs pass
+the same consumer handoff from fast adoption to canary and then background;
+background never substitutes a fresh public checkout for the canary subject.
+
+The runner cutoff passed 96 public Python tests with two CI-environment-only
+cases skipped locally; both skipped cases passed when run with their declared CI
+environment. Its component cutoffs also passed 80 lane/package tests, 16 CLI
+tests, five adapter tests and the complete Node gate inventory. These results
+prove implementation behavior only. The current v8 package is still
+`validation_pending`; no production release capsule or reusable v3 adoption
+receipt exists until an exact releasable public subject runs `certify` and
+passes its PR/human promotion gate.
+
+The following current-consumer gates are never reusable: secret/private audit,
+public-evidence redaction, input stage, semantic inventory, adapter identity,
+snapshot contract, real canary, diff and rollback/report verification. Every
+omission must carry either exact capsule proof for an upstream gate or the
+current impact derivation for an unaffected gate. Manual, placeholder or
+fabricated evidence is never a receipt.
+
+#### Transition: do not rewrite the migration already in flight
+
+The current downstream migration began under package schema v2. Therefore its
+complete `migration.required_gates` matrix stays blocking. V3 gate classes do
+not reduce, replace or relabel any current receipt, and the runner must not
+retroactively convert the completed v2 evidence into a fast-lane run. The v3
+model applies to a new plan only after the public core and synthetic fixtures
+are green. Public push/publication remains unauthorized in this execution.
+
+#### Current downstream checkpoint — safe aggregate evidence only
+
+| Boundary / proof | Public-redacted observed result | Promotion meaning |
+|---|---|---|
+| Read-only preflight and original C1/C2/C3 | Produced and retained for their exact v2 subject; detailed identities remain downstream-only | useful diagnostic evidence, not authority for a corrected package |
+| Transitional required matrix | Two complete attempts retained. The latest closed every non-browser gate; the required browser gate remained red | the original v2 `migration.required_gates` matrix is still blocking and has not been reduced |
+| Remote PR checks | Non-visual audit/runtime jobs passed; the visual release job failed | PR stays unmerged and consumer `main` stays unchanged |
+| Report boundary | The fail-closed report builder rejected a repair history in which final C3 was not one direct child of C2 | create a clean direct C1 -> C2 -> C3 chain; do not relax the validator or transcribe a report manually |
+| Root cause A | The public synthetic release build consumed a consumer-owned runtime config, producing a different demo/runtime identity | fixed only in the public kit with a package-owned synthetic config and tamper/clean-subject controls |
+| Root cause B | After destination -> Back, one DOM label could retain the previous interpolated position and intercept the next real 3D target | fixed only in the public kit by keeping the interaction lock until all spatial layers sample a terminal frame |
+| Public regression evidence | Real-click return regression passed once; the complete frontend and Node cutoffs plus build/architecture/assets/bundle/release-matrix and config-tamper controls passed | candidate source correction is eligible for a new pinned package only after its final clean-source cutoff |
+| Real downstream canary, generated report and disposable rollback | **pending on the corrected direct-chain subject** | no `promotion_ready` claim exists |
+
+No consumer repository name, branch, host path, route, content label, commit,
+screenshot, timing, corpus count or raw receipt is published by this checkpoint.
+Unredacted evidence remains ignored/untracked downstream. Existing receipts are
+not erased or rewritten: each remains valid evidence about its exact failed
+subject, but none authorizes promotion after the source/package identity
+changes. Final status may advance only from the generated report and PR/CI/merge
+readback, never from this prose summary.
+
+The next lawful step is a new pinned v2 source/package, a fresh read-only
+preflight and one clean direct C1 -> C2 -> C3 chain, followed by the complete
+original required matrix, current-subject canary, generated reports and verified
+rollback. The public v3 runner may not relabel or selectively reuse this in-flight
+v2 evidence.
+
+The concurrent consumer domain-content slice is intentionally outside C1/C2/C3.
+After the technical migration merges, it must be replayed on the new consumer
+`main`, regenerated against that subject and opened as a separate content PR. It
+must not be folded into the migration report to make either change appear
+complete.
+
 ### Operational decision
 
-The correct decision is **continue, do not promote rc16, rc17 or rc18**. S19 retains useful
+The correct historical decision is **do not promote rc16, rc17 or rc18**. S19 retains useful
 automated and 2026-07-13 E3 evidence, but its browser receipt used Node 26 and
 RT-146 invalidates its use as downstream-adoption authority. The public
 first correction was exact S20, RT-147 superseded rc17 and the immutable
 S21/rc18 first attempt stopped at RT-148. Exact S22/rc19 passed the complete
 Node 22 stack and visual boundary, but RT-150 correctly keeps it
 `validation_pending` and `package_is_pinned=false` until public history and a
-subsequent promotion boundary both merge. No private import starts until this
-public branch is explicitly authorized for push/PR update, remote CI passes,
-human conceptual/privacy/VoiceOver review approves, the validated payload
-merges with S22 history preserved and the separate promotion passes CI/review
-and merges. Private-main integration is authorized after that public-first
-boundary; public push, PR mutation, merge, tag and E5 remain outside the current
-authorization.
+subsequent promotion boundary both merge under that historical route. A later
+explicit execution decision authorized the corrected private-first v2
+migration described above after the local public core/fixture correction; that
+decision supersedes the former statement that no private import may start. It
+does **not** authorize public push, PR mutation, merge, tag or E5. Consumer-main
+promotion remains blocked on a corrected direct-chain subject, the complete
+original v2 matrix, current canary evidence, generated report, disposable-clone
+rollback, consumer PR/CI and human gate.
 
 ## Final Recommendation
 
-Approve rc19 as locally validated, not yet released. Keep it mechanically
-unpinned until the public validation and promotion boundaries both pass CI,
-human review and merge; only then adopt it downstream.
+Retain rc19 as locally validated historical evidence, not as authority for the
+current downstream run. Finish the already-started v2 consumer migration on a
+new exact corrected source/package and direct C1 -> C2 -> C3 chain; execute its
+complete original matrix, current-subject canary, generated report, disposable
+rollback, consumer PR/CI and human merge gate. In parallel, close the public
+two-lane core and synthetic fixtures locally; do not publish them until a
+separate explicit authorization. Use the v3 capsule/impact/resume model only for
+a new migration plan, never to relabel the current receipts.
 
 The project has crossed an important threshold: it already proves that a
 Markdown/Git wiki can become a navigable living operational world. The next

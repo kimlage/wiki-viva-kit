@@ -39,7 +39,19 @@ starting point for persistent context is `memories/`.
   modular template blocks (v2) concept guide in
   [modular-blocks.md](references/guides/modular-blocks.md) and the extension
   checklists (blocks, page types, docks, perspectives) in
-  [extending-the-kit.md](references/guides/extending-the-kit.md).
+  [extending-the-kit.md](references/guides/extending-the-kit.md), plus the
+  certify-once/adopt-by-delta contract in
+  [downstream-migration-two-lane-strategy.md](references/guides/downstream-migration-two-lane-strategy.md)
+  and the executable v8 mechanics in
+  [wiki-viva-v8-downstream-upgrade.md](references/guides/wiki-viva-v8-downstream-upgrade.md).
+- `docs/references/upgrades/wiki-viva-v8/`: the package plus its sealed,
+  versioned path/contract/gate
+  [impact registry](references/upgrades/wiki-viva-v8/impact-registry.yaml).
+- `docs/references/schemas/wiki-upgrade-package-v3.schema.json`,
+  `wiki-upgrade-release-capsule-v1.schema.json` and
+  `wiki-upgrade-impact-registry-v1.schema.json`: classified package,
+  fail-closed Lane A capsule and impact-registry contracts. Consumer
+  receipts/evidence remain ignored and untracked in each downstream repository.
 - `docs/references/templates/`: stable models for new records.
 - `docs/references/templates/wiki/`: models for the operational wiki, including
   root entities, input channels, processes, artifacts, ingestion proposal,

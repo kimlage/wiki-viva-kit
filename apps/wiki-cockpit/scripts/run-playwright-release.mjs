@@ -20,6 +20,7 @@ import {
   sanitizedReleaseBuildEnvironment
 } from "./release-build-policy.mjs";
 import { assertReleasePortAvailable } from "./release-server-policy.mjs";
+import { exportUpgradeGateEvidence } from "./export-upgrade-gate-evidence.mjs";
 
 const RUNNER_VERSION = "wiki_playwright_release_runner.v1";
 const SCOPE_COMMAND = Object.freeze({
@@ -198,6 +199,30 @@ try {
   stage = "subject_after";
   subjectAfter = collectSubject(repoRoot);
   if (!sameSubject(subjectBefore, subjectAfter)) throw new StageFailure(stage, 1);
+  if (
+    scope === "downstream_required" &&
+    [
+      "WIKI_UPGRADE_RUN_DIR",
+      "WIKI_UPGRADE_GATE_ID",
+      "WIKI_UPGRADE_GATE_ARTIFACT_DIR"
+    ].some((name) => process.env[name])
+  ) {
+    stage = "upgrade_gate_evidence";
+    const evidence = await exportUpgradeGateEvidence({
+      repoRoot,
+      runId,
+      startedAt,
+      gateResultPath: paths.gate,
+      subjectBeforePath: paths.subjectBefore,
+      env: process.env
+    });
+    console.log(
+      `upgrade gate evidence: ${evidence.files.length} current-run files, ` +
+      `${evidence.files.map((item) => item.sha256.slice(0, 12)).join(",")}`
+    );
+    subjectAfter = collectSubject(repoRoot);
+    if (!sameSubject(subjectBefore, subjectAfter)) throw new StageFailure(stage, 1);
+  }
   status = "passed";
 } catch (error) {
   exitCode = error instanceof StageFailure ? error.exitCode : 1;

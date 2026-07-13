@@ -24,6 +24,7 @@ from wiki_core.upgrade import (
     GATE_EVIDENCE_SCHEMA_VERSION,
     MIGRATION_EVIDENCE_SCHEMA_VERSION,
     MIGRATION_VALIDATOR_VERSION,
+    TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
     UPGRADE_PACKAGE_SCHEMA_VERSION,
     _git_blob_payloads,
     build_preflight_report,
@@ -614,7 +615,10 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
         assert source_sha == "dbd158a482dca20ab823968467fec931d67ca050"
         assert pkg["contract_versions"] == legacy_contracts
     else:
-        assert pkg["schema_version"] == UPGRADE_PACKAGE_SCHEMA_VERSION
+        assert pkg["schema_version"] in {
+            UPGRADE_PACKAGE_SCHEMA_VERSION,
+            TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
+        }
         assert pkg["contract_versions"] == v2_contracts
     assert pkg["migration"]["visual_profiles"] == [
         "desktop",
@@ -623,15 +627,24 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
         "quadrant_collection_two_step",
     ]
     assert portable_path_status("apps/wiki-cockpit/.env.local", pkg)[0] is False
-    expected_v2_portable = pkg["schema_version"] == UPGRADE_PACKAGE_SCHEMA_VERSION
-    assert portable_path_status("packs/personal-finance/pack.yaml", pkg)[0] is expected_v2_portable
+    expected_modern_portable = pkg["schema_version"] in {
+        UPGRADE_PACKAGE_SCHEMA_VERSION,
+        TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
+    }
+    assert (
+        portable_path_status("packs/personal-finance/pack.yaml", pkg)[0]
+        is expected_modern_portable
+    )
     assert (
         portable_path_status(
             "docs/references/schemas/wiki-temporal-graph-v1.schema.json", pkg
         )[0]
-        is expected_v2_portable
+        is expected_modern_portable
     )
-    assert portable_path_status("scripts/_git_subject.py", pkg)[0] is expected_v2_portable
+    assert (
+        portable_path_status("scripts/_git_subject.py", pkg)[0]
+        is expected_modern_portable
+    )
     assert portable_path_status("wiki.packs.lock.yaml", pkg)[0] is False
     assert portable_path_status("wiki.adapter-manifest.json", pkg)[0] is False
     assert portable_path_status(".wiki-viva/packs/personal-finance/0.1.0/pack.yaml", pkg)[0] is False

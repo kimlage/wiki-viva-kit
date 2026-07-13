@@ -1,4 +1,4 @@
-schema_version: wiki_viva_upgrade_package.v2
+schema_version: wiki_viva_upgrade_package.v3
 
 release:
   id: wiki-viva-v8-rc19
@@ -154,6 +154,13 @@ preflight:
     - semantic_inventory
     - pytest
     - diff_check
+  gate_mapping:
+    toolkit_drift: toolkit_drift
+    audit: audit
+    input_stage: input_stage
+    semantic_inventory: semantic_inventory
+    pytest: private_pytest
+    diff_check: diff_check
   # A bounded semantic debt may be repaired only in the declared third
   # downstream boundary. Audit, pytest, privacy and diff remain pass-only, and
   # the final migration report still requires semantic_inventory=pass.
@@ -175,54 +182,150 @@ migration:
     - docs/references/fixtures/demo-wiki/memories/**
     - apps/wiki-cockpit/e2e/__screenshots__/**
   required_gates:
-    - toolkit_drift
-    - audit
-    - public_evidence_redaction
-    - methodology_coverage
-    - quality_report
-    - operation_compile
-    - source_registry
-    - input_stage
-    - semantic_inventory
-    - pytest
-    - frontend
-    - build
-    - node_gates
-    - snapshot_contract
-    - pack_validation
+    - adapter_identity
     - architecture
     - assets
+    - audit
+    - browser_synthetic_release
+    - build
     - bundle
-    - release_matrix_inventory
-    - browser_required
+    - consolidate
+    - consumer_browser_matrix
     - demo_drift
     - diff_check
-  # Command registry: migration evidence and executed-run receipts may only
-  # claim gate runs whose exact command is registered here. $WIKI_VIVA_KIT_ROOT
-  # is the consumer's local kit checkout used as the drift reference.
+    - frontend
+    - frontend_focused
+    - input_stage
+    - methodology_coverage
+    - node_gates
+    - operation_compile
+    - operational_pass
+    - operator_security
+    - pack_focused
+    - pack_validation
+    - page_graph
+    - portable_python
+    - private_pytest
+    - public_evidence_redaction
+    - quality_report
+    - real_canary
+    - release_matrix_inventory
+    - rollback_report_verification
+    - semantic_inventory
+    - snapshot_contract
+    - source_registry
+    - temporal_parity
+    - toolkit_drift
+    - visual_profiles
+  # V3 keeps the literal registry for compatibility with migration-evidence
+  # v2 while binding the same IDs/classes/commands into one canonical digest.
   gate_commands:
-    toolkit_drift: python3 scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
-    audit: python3 scripts/wiki_audit.py --check
-    public_evidence_redaction: python3 scripts/wiki_audit.py --public-export --check
-    methodology_coverage: python3 scripts/wiki_check_methodology_coverage.py --check
-    quality_report: python3 scripts/wiki_quality_report.py --check
-    operation_compile: python3 scripts/wiki_operation_compile.py --check
-    source_registry: python3 scripts/wiki_source_registry.py --check
-    input_stage: python3 scripts/wiki_input_stage.py --check
-    semantic_inventory: python3 scripts/wiki_semantic_inventory.py --check
-    pytest: python3 -m pytest tests/
-    frontend: npm --prefix apps/wiki-cockpit test
-    build: npm --prefix apps/wiki-cockpit run build
-    node_gates: npm --prefix apps/wiki-cockpit run test:gates
-    snapshot_contract: python3 scripts/wiki_web_snapshot.py --check-contract
-    pack_validation: python3 scripts/wiki_pack.py validate --all
+    adapter_identity: python3 scripts/wiki_adapter_manifest.py check
     architecture: npm --prefix apps/wiki-cockpit run check:architecture
     assets: npm --prefix apps/wiki-cockpit run check:assets
+    audit: python3 scripts/wiki_audit.py --check
+    browser_synthetic_release: npm --prefix apps/wiki-cockpit run test:e2e:release
+    build: npm --prefix apps/wiki-cockpit run build
     bundle: npm --prefix apps/wiki-cockpit run check:bundle
-    release_matrix_inventory: npm --prefix apps/wiki-cockpit run check:release-matrix
-    browser_required: npm --prefix apps/wiki-cockpit run test:e2e:release
+    consolidate: python3 scripts/wiki_consolidate.py --check
+    consumer_browser_matrix: npm --prefix apps/wiki-cockpit run test:e2e:operator
     demo_drift: python3 scripts/wiki_build_demo.py --check
     diff_check: git diff --check
+    frontend: npm --prefix apps/wiki-cockpit test
+    frontend_focused: npm --prefix apps/wiki-cockpit test
+    input_stage: python3 scripts/wiki_input_stage.py --check
+    methodology_coverage: python3 scripts/wiki_check_methodology_coverage.py --check
+    node_gates: npm --prefix apps/wiki-cockpit run test:gates
+    operation_compile: python3 scripts/wiki_operation_compile.py --check
+    operational_pass: python3 scripts/wiki_operational_pass.py --check
+    operator_security: npm --prefix apps/wiki-cockpit run test:e2e:operator
+    page_graph: python3 scripts/wiki_page_graph.py --check
+    pack_focused: python3 scripts/wiki_pack.py validate --all
+    pack_validation: python3 scripts/wiki_pack.py validate --all
+    portable_python: python3 -m pytest tests/
+    private_pytest: python3 -m pytest tests/
+    public_evidence_redaction: python3 scripts/wiki_audit.py --public-export --check
+    quality_report: python3 scripts/wiki_quality_report.py --check
+    real_canary: npm --prefix apps/wiki-cockpit run test:e2e:operator
+    release_matrix_inventory: npm --prefix apps/wiki-cockpit run check:release-matrix
+    rollback_report_verification: python3 scripts/wiki_upgrade.py verify-rollback-report --check
+    semantic_inventory: python3 scripts/wiki_semantic_inventory.py --check
+    snapshot_contract: python3 scripts/wiki_web_snapshot.py --check-contract
+    source_registry: python3 scripts/wiki_source_registry.py --check
+    temporal_parity: python3 -m pytest tests/test_temporal.py tests/test_web_snapshot.py
+    toolkit_drift: python3 scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
+    visual_profiles: npm --prefix apps/wiki-cockpit run test:visual
+  command_registry_sha256: e3ae2e664637ca87fd08d2a1db169245594153b68badba9694cfcde3bff3a7c0
+  impact_registry:
+    schema_version: wiki_viva_upgrade_impact_registry.v1
+    path: docs/references/upgrades/wiki-viva-v8/impact-registry.yaml
+    sha256: d1fb5c9b626c9540f5fd90f7f228ecbdaf3524277b6a5a8f499e12b8c92e2282
+  gate_policies:
+    adapter_identity: {class: consumer_always, command_id: adapter_identity, asserts: [adapter_identity], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
+    architecture: {class: upstream_certified, command_id: architecture, asserts: [architecture_contract], reuse: exact_capsule, depends_on: [], resource_group: node_readonly, required_for_promotion: true}
+    assets: {class: upstream_certified, command_id: assets, asserts: [asset_integrity], reuse: exact_capsule, depends_on: [], resource_group: node_readonly, required_for_promotion: true}
+    audit: {class: consumer_always, command_id: audit, asserts: [secret_private_audit], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
+    browser_synthetic_release: {class: upstream_certified, command_id: browser_synthetic_release, asserts: [synthetic_browser_release], reuse: exact_capsule, depends_on: [], resource_group: browser_public, required_for_promotion: true}
+    build: {class: upstream_certified, command_id: build, asserts: [production_build], reuse: exact_capsule, depends_on: [assets], resource_group: node_build, required_for_promotion: true}
+    bundle: {class: upstream_certified, command_id: bundle, asserts: [bundle_budget], reuse: exact_capsule, depends_on: [], resource_group: node_build, required_for_promotion: true}
+    consolidate: {class: consumer_always, command_id: consolidate, asserts: [consolidation_current], reuse: never, depends_on: [audit], resource_group: python_readonly, required_for_promotion: true}
+    consumer_browser_matrix: {class: background_certification, command_id: consumer_browser_matrix, asserts: [consumer_browser_matrix], reuse: never, depends_on: [real_canary], resource_group: browser_private, required_for_promotion: true}
+    demo_drift: {class: upstream_certified, command_id: demo_drift, asserts: [demo_drift], reuse: exact_capsule, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
+    diff_check: {class: consumer_always, command_id: diff_check, asserts: [diff_verification], reuse: never, depends_on: [], resource_group: git_readonly, required_for_promotion: true}
+    frontend: {class: upstream_certified, command_id: frontend, asserts: [frontend_portable], reuse: exact_capsule, depends_on: [], resource_group: node_test, required_for_promotion: true}
+    frontend_focused: {class: affected, command_id: frontend_focused, asserts: [frontend_consumer_delta], reuse: impact, depends_on: [adapter_identity], resource_group: node_test, required_for_promotion: true}
+    input_stage: {class: consumer_always, command_id: input_stage, asserts: [input_stage], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
+    methodology_coverage: {class: consumer_always, command_id: methodology_coverage, asserts: [methodology_coverage_current], reuse: never, depends_on: [semantic_inventory], resource_group: python_readonly, required_for_promotion: true}
+    node_gates: {class: upstream_certified, command_id: node_gates, asserts: [node_gate_contracts], reuse: exact_capsule, depends_on: [], resource_group: node_test, required_for_promotion: true}
+    operation_compile: {class: consumer_always, command_id: operation_compile, asserts: [operation_state], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
+    operational_pass: {class: consumer_always, command_id: operational_pass, asserts: [operational_pass_current], reuse: never, depends_on: [input_stage, semantic_inventory], resource_group: python_readonly, required_for_promotion: true}
+    operator_security: {class: affected, command_id: operator_security, asserts: [operator_security], reuse: impact, depends_on: [adapter_identity], resource_group: browser_private, required_for_promotion: true}
+    page_graph: {class: consumer_always, command_id: page_graph, asserts: [page_graph_current], reuse: never, depends_on: [semantic_inventory], resource_group: python_readonly, required_for_promotion: true}
+    pack_focused: {class: affected, command_id: pack_focused, asserts: [consumer_pack_composition], reuse: impact, depends_on: [adapter_identity], resource_group: python_readonly, required_for_promotion: true}
+    pack_validation: {class: upstream_certified, command_id: pack_validation, asserts: [pack_conformance], reuse: exact_capsule, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
+    portable_python: {class: upstream_certified, command_id: portable_python, asserts: [portable_python_suite], reuse: exact_capsule, depends_on: [], resource_group: python_test, required_for_promotion: true}
+    private_pytest: {class: background_certification, command_id: private_pytest, asserts: [consumer_python_suite], reuse: never, depends_on: [audit], resource_group: python_test, required_for_promotion: true}
+    public_evidence_redaction: {class: consumer_always, command_id: public_evidence_redaction, asserts: [public_evidence_redaction], reuse: never, depends_on: [audit], resource_group: python_readonly, required_for_promotion: true}
+    quality_report: {class: consumer_always, command_id: quality_report, asserts: [quality_report_current], reuse: never, depends_on: [methodology_coverage], resource_group: python_readonly, required_for_promotion: true}
+    real_canary: {class: canary, command_id: real_canary, asserts: [canary_real], reuse: never, depends_on: [adapter_identity, audit, diff_check, input_stage, operational_pass, semantic_inventory, snapshot_contract], resource_group: browser_private, required_for_promotion: true}
+    release_matrix_inventory: {class: upstream_certified, command_id: release_matrix_inventory, asserts: [release_matrix_inventory], reuse: exact_capsule, depends_on: [], resource_group: node_readonly, required_for_promotion: true}
+    rollback_report_verification: {class: consumer_always, command_id: rollback_report_verification, asserts: [rollback_report_verification], reuse: never, depends_on: [diff_check, real_canary], resource_group: git_readonly, required_for_promotion: true}
+    semantic_inventory: {class: consumer_always, command_id: semantic_inventory, asserts: [semantic_inventory], reuse: never, depends_on: [input_stage], resource_group: python_readonly, required_for_promotion: true}
+    snapshot_contract: {class: consumer_always, command_id: snapshot_contract, asserts: [snapshot_contract], reuse: never, depends_on: [semantic_inventory], resource_group: python_readonly, required_for_promotion: true}
+    source_registry: {class: consumer_always, command_id: source_registry, asserts: [source_registry], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
+    temporal_parity: {class: affected, command_id: temporal_parity, asserts: [temporal_parity], reuse: impact, depends_on: [semantic_inventory, snapshot_contract], resource_group: python_test, required_for_promotion: true}
+    toolkit_drift: {class: consumer_always, command_id: toolkit_drift, asserts: [toolkit_drift], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
+    visual_profiles: {class: affected, command_id: visual_profiles, asserts: [visual_profiles], reuse: impact, depends_on: [frontend_focused, snapshot_contract], resource_group: browser_private, required_for_promotion: true}
+  boundary_operations:
+    schema_version: wiki_viva_upgrade_boundary_operations.v1
+    c2_generators:
+      - id: demo_snapshot
+        command: python3 scripts/wiki_build_demo.py
+        owns_patterns:
+          - apps/wiki-cockpit/public/sample-snapshot/**
+          - docs/references/fixtures/demo-wiki/memories/**
+      - id: visual_baselines
+        command: npm --prefix apps/wiki-cockpit run test:visual:update
+        owns_patterns:
+          - apps/wiki-cockpit/e2e/__screenshots__/**
+    c3_adapter:
+      mode: consumer_plan_commands
+      contract: wiki_consumer_adaptation_plan.v1
+      owns_patterns:
+        - .github/workflows/**
+        - .toolkit-drift-ignore
+        - adapters/**
+        - apps/wiki-cockpit/public/wiki-cockpit.config.json
+        - docs/references/releases/**
+        - requirements.txt
+        - tests/**
+        - wiki.adapter-manifest.json
+        - wiki.config.yaml
+        - wiki.packs.lock.yaml
+        - wiki.page-types.local.yaml
+        - wiki.targets.yaml
+        - wiki.templates.local.yaml
+    registry_sha256: a8f03711e7d75044d5692581fdc1afe7fcc71aff03ef849dbc2d79dcefb985a8
   visual_profiles:
     - desktop
     - mobile
