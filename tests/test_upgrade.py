@@ -548,13 +548,8 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     assert validate_upgrade_package(pkg) == []
     assert validate_consumer_inventory(inventory) == []
     assert inventory["schema_version"] == CONSUMER_INVENTORY_SCHEMA_VERSION
-    assert pkg["release"]["status"] in {"validation_pending", "release_candidate"}
-    assert package_is_pinned(pkg) is (
-        pkg["release"]["status"] == "release_candidate"
-    )
-    pending = copy.deepcopy(pkg)
-    pending["release"]["status"] = "validation_pending"
-    assert package_is_pinned(pending) is False
+    assert package_is_pinned(pkg) is False
+    assert pkg["release"]["status"] == "validation_pending"
     releasable = copy.deepcopy(pkg)
     releasable["release"]["status"] = "release_candidate"
     assert package_is_pinned(releasable) is True
