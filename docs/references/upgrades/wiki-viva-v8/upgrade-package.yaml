@@ -5,7 +5,7 @@ release:
   # It is not a public promotion of rc19 and must not be pushed as one.
   id: wiki-viva-v8-private-rehearsal-20260713
   status: candidate
-  source_sha: f015ed8b380bbdb575a35157a3f680639afa855d
+  source_sha: 9c4dcb91a964abd1d9982ff7372379f4c92deac4
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: local-private-rehearsal-only
   base_release: wiki-viva-v8-rc19
@@ -200,27 +200,27 @@ migration:
   # claim gate runs whose exact command is registered here. $WIKI_VIVA_KIT_ROOT
   # is the consumer's local kit checkout used as the drift reference.
   gate_commands:
-    toolkit_drift: python3 scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
-    audit: python3 scripts/wiki_audit.py --check
-    public_evidence_redaction: python3 scripts/wiki_audit.py --public-export --check
-    methodology_coverage: python3 scripts/wiki_check_methodology_coverage.py --check
-    quality_report: python3 scripts/wiki_quality_report.py --check
-    operation_compile: python3 scripts/wiki_operation_compile.py --check
-    source_registry: python3 scripts/wiki_source_registry.py --check
-    input_stage: python3 scripts/wiki_input_stage.py --check
-    semantic_inventory: python3 scripts/wiki_semantic_inventory.py --check
-    pytest: python3 -m pytest tests/
+    toolkit_drift: /opt/anaconda3/bin/python scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
+    audit: /opt/anaconda3/bin/python scripts/wiki_audit.py --check
+    public_evidence_redaction: /opt/anaconda3/bin/python scripts/wiki_audit.py --public-export --check
+    methodology_coverage: /opt/anaconda3/bin/python scripts/wiki_check_methodology_coverage.py --check
+    quality_report: /opt/anaconda3/bin/python scripts/wiki_quality_report.py --check
+    operation_compile: /opt/anaconda3/bin/python scripts/wiki_operation_compile.py --check
+    source_registry: /opt/anaconda3/bin/python private/scripts/wiki_source_registry.py --check
+    input_stage: /opt/anaconda3/bin/python scripts/wiki_input_stage.py --check
+    semantic_inventory: /opt/anaconda3/bin/python scripts/wiki_semantic_inventory.py --check
+    pytest: /opt/anaconda3/bin/python -m pytest tests/
     frontend: npm --prefix apps/wiki-cockpit test
     build: npm --prefix apps/wiki-cockpit run build
     node_gates: npm --prefix apps/wiki-cockpit run test:gates
-    snapshot_contract: python3 scripts/wiki_web_snapshot.py --check-contract
-    pack_validation: python3 scripts/wiki_pack.py validate --all
+    snapshot_contract: /opt/anaconda3/bin/python scripts/wiki_web_snapshot.py --check-contract
+    pack_validation: /opt/anaconda3/bin/python scripts/wiki_pack.py validate --all
     architecture: npm --prefix apps/wiki-cockpit run check:architecture
     assets: npm --prefix apps/wiki-cockpit run check:assets
     bundle: npm --prefix apps/wiki-cockpit run check:bundle
     release_matrix_inventory: npm --prefix apps/wiki-cockpit run check:release-matrix
     browser_required: npm --prefix apps/wiki-cockpit run test:e2e:release
-    demo_drift: python3 scripts/wiki_build_demo.py --check
+    demo_drift: /opt/anaconda3/bin/python scripts/wiki_build_demo.py --check
     diff_check: git diff --check
   visual_profiles:
     - desktop
