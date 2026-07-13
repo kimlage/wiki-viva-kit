@@ -129,6 +129,7 @@
         "kit_version",
         "gate_status",
         "memory_root",
+        "references_root",
         "preflight"
       ],
       "properties": {
@@ -138,6 +139,7 @@
         "kit_version": {"$ref": "#/$defs/nullable_string"},
         "gate_status": {"$ref": "#/$defs/nullable_string"},
         "memory_root": {"$ref": "#/$defs/nullable_string"},
+        "references_root": {"$ref": "#/$defs/nullable_string"},
         "preflight": {"$ref": "#/$defs/preflight_binding"}
       },
       "additionalProperties": false

@@ -4,7 +4,7 @@ page_id: guide-wiki-viva-v8-downstream-upgrade
 page_type: reference_guide
 context: system
 visibility: public_candidate
-updated_at: 2026-07-10
+updated_at: 2026-07-13
 stale_after_days: 90
 sources_policy: release_runbook
 gate: github_pr
@@ -49,6 +49,11 @@ flowchart LR
 
 The Python tools are read-only unless an explicit output path is supplied. They
 never copy toolkit files and never change the consumer checkout.
+
+The current validation boundary is declared by `upgrade-package.yaml` and uses
+`wiki_viva_upgrade_validator.v5`. While the package remains
+`validation_pending`, its evidence can be exercised but cannot be promoted as a
+releasable downstream migration.
 
 ## 1. Pin the public source
 
@@ -149,6 +154,14 @@ the redacted projection and the checked migration report cannot bind. A ref
 that is tracked, not ignored or unsafely named is rejected before anything is
 written.
 
+Validator v5 also requires `consumer_before.memory_root` and
+`consumer_before.references_root` as safe repository-relative paths. Both must
+match the consumer's `configured_layout` and the exact `layout` captured by the
+authoritative preflight; a localized root such as `docs/referencias` is valid,
+but a self-attested or mismatched root is not. The two roots must be disjoint so
+that the broad private-memory adaptation surface cannot bypass the narrower
+release-record rule.
+
 For evidence that may leave a private repo, add `--redact`. Redacted output
 keeps aggregate counts and hashes only deliberately scoped identifiers such as
 the consumer HEAD or snapshot ID. It emits neither local paths, drift filenames
@@ -185,7 +198,18 @@ Use a reviewed file-transfer/diff workflow and stage only paths accepted by
 1. `import: faithful Wiki Viva v8 public kit at <SHA>` — portable files only;
 2. `build: regenerate v8 snapshot/demo artifacts` — only reproducible artifacts;
 3. `adapt: preserve downstream layout/templates/operator policy` — local
-   configuration and adapters, with conflict warnings recorded.
+   configuration, adapters and the consumer-owned release record, with conflict
+   warnings recorded.
+
+The release record is authored only in the third commit and only below the
+configured `<references_root>/releases/**` subtree, for example
+`docs/referencias/releases/<release-id>.md`. It records the pinned public
+release plus downstream decisions; it is neither a faithful import nor a
+generated artifact. A release record must be an inert UTF-8 Markdown `.md`
+regular file committed with mode `100644`; scripts, executable files and binary
+payloads are rejected. Files beside `releases/` remain rejected, as do any
+release paths that the package itself classifies as portable. Canonical path
+checks, secret scanning and migration-evidence exclusions still apply.
 
 If a consumer reveals a core bug, stop. Reproduce it with synthetic public data
 and fix/test it in `wiki-viva-kit` before importing the corrected public SHA.
@@ -319,8 +343,10 @@ route/center identifiers.
 The checked report cannot be `complete` without distinct, ancestry-ordered,
 single-parent commits for all three package-declared boundaries
 (`faithful_public_import`, `regenerated_artifacts`, `downstream_adaptations`).
-In v4 no declared boundary is optional: `omitted_boundaries` must be empty and
-each boundary diff must exactly equal its declared path array.
+In v5 no declared boundary is optional: `omitted_boundaries` must be empty and
+each boundary diff must exactly equal its declared path array. The evidence's
+memory and references roots must also bind to the configured and preflight
+layouts.
 The package digest, validator version and captured consumer HEAD must match;
 every screenshot must be a real repo-relative PNG bound by SHA-256, byte count,
 dimensions and the final migration HEAD. The command must contain every

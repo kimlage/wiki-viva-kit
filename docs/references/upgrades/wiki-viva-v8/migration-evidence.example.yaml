@@ -2,18 +2,18 @@
 # evidence from that repository. The public package intentionally does not
 # contain real private paths, SHAs, routes or screenshots.
 #
-# v4 contract: all three commit boundaries are package-declared and mandatory,
-# consumer_before binds the authoritative preflight sidecar, gate commands must
-# match the package's migration.gate_commands registry verbatim, and a checked
-# report additionally requires gates_receipt_ref (an ignored, untracked JSON
-# receipt of the executed gate runs).
+# v5 contract: all three commit boundaries are package-declared and mandatory;
+# consumer_before binds both configured roots to the authoritative preflight
+# sidecar. Gate commands must match the package's migration.gate_commands
+# registry verbatim, and a checked report additionally requires
+# gates_receipt_ref (an ignored, untracked JSON receipt of the executed runs).
 schema_version: wiki_viva_migration_evidence.v2
 evidence_context:
   package_sha256: REPLACE_WITH_PACKAGE_SHA256
-  validator_version: wiki_viva_upgrade_validator.v4
+  validator_version: wiki_viva_upgrade_validator.v5
   captured_consumer_head: REPLACE_WITH_ADAPTATION_COMMIT_SHA
 source:
-  release: wiki-viva-v8-rc16
+  release: wiki-viva-v8-rc17
   sha: REPLACE_WITH_PINNED_PUBLIC_SHA
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 consumer_before:
@@ -23,6 +23,7 @@ consumer_before:
   kit_version: untracked
   gate_status: pass
   memory_root: REPLACE_WITH_CONSUMER_MEMORY_ROOT
+  references_root: REPLACE_WITH_CONSUMER_REFERENCES_ROOT
   preflight:
     status: ready
     report_id: REPLACE_WITH_PREFLIGHT_REPORT_ID
@@ -35,7 +36,7 @@ consumer_after:
   import_commit_sha: REPLACE_WITH_IMPORT_COMMIT_SHA
   artifact_commit_sha: REPLACE_WITH_ARTIFACT_COMMIT_SHA
   adaptation_commit_sha: REPLACE_WITH_ADAPTATION_COMMIT_SHA
-# v4 packages declare all three boundaries; none may be omitted.
+# v5 packages declare all three boundaries; none may be omitted.
 omitted_boundaries: []
 files_imported:
   - wiki_core/upgrade.py
@@ -49,8 +50,11 @@ generated_artifacts:
   - apps/wiki-cockpit/public/sample-snapshot/manifest.json
   - docs/references/fixtures/demo-wiki/memories/index.md
 # Consumer-owned surfaces only (wiki.config.yaml, targets, local templates,
-# tests/**, workflows or paths under the consumer memory root).
+# tests/**, workflows, paths under the consumer memory root, or a release record
+# below <references_root>/releases/**). The release record is authored in the
+# third commit; sibling reference paths are not adaptation surfaces.
 downstream_adaptations:
+  - docs/references/releases/wiki-viva-v8-rc17.md
   - wiki.config.yaml
 local_overrides_kept:
   - wiki.config.yaml

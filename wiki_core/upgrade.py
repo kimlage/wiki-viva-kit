@@ -32,7 +32,7 @@ PREFLIGHT_SCHEMA_VERSION = "wiki_viva_upgrade_preflight.v1"
 GATE_EVIDENCE_SCHEMA_VERSION = "wiki_viva_gate_evidence.v1"
 MIGRATION_EVIDENCE_SCHEMA_VERSION = "wiki_viva_migration_evidence.v2"
 MIGRATION_REPORT_SCHEMA_VERSION = "wiki_viva_migration_report.v2"
-MIGRATION_VALIDATOR_VERSION = "wiki_viva_upgrade_validator.v4"
+MIGRATION_VALIDATOR_VERSION = "wiki_viva_upgrade_validator.v5"
 MIGRATION_GATE_RECEIPTS_SCHEMA_VERSION = "wiki_viva_migration_gate_receipts.v1"
 ROLLBACK_VERIFICATION_SCHEMA_VERSION = "wiki_viva_rollback_verification.v1"
 # The evidence schema is a runtime dependency of this module, so it lives in
@@ -1253,6 +1253,26 @@ def _tree_paths_are_secret_safe(
     return True
 
 
+def _tree_release_records_are_non_executable_markdown(
+    *,
+    root: Path,
+    sha: str,
+    paths: Sequence[str],
+    references_root: str,
+) -> bool:
+    """Keep consumer release records as inert Markdown data in the checked tree."""
+
+    prefix = f"{references_root.rstrip('/')}/releases/"
+    release_records = [path for path in paths if path.startswith(prefix)]
+    entries = _git_tree_entries(root, sha)
+    return all(
+        path.endswith(".md")
+        and path in entries
+        and entries[path][0] == "100644"
+        for path in release_records
+    )
+
+
 def _git(root: Path, *args: str) -> str:
     try:
         return subprocess.check_output(
@@ -1928,6 +1948,7 @@ def migration_evidence_template(package: dict[str, Any]) -> dict[str, Any]:
             "kit_version": "untracked",
             "gate_status": "pass",
             "memory_root": "REPLACE_WITH_CONSUMER_MEMORY_ROOT",
+            "references_root": "REPLACE_WITH_CONSUMER_REFERENCES_ROOT",
             "preflight": {
                 "status": "ready",
                 "report_id": "REPLACE_WITH_PREFLIGHT_REPORT_ID",
@@ -2152,6 +2173,12 @@ def _validate_preflight_report_binding(
     ).rstrip("/"):
         errors.append(
             "referenced preflight memory root does not match consumer_before.memory_root"
+        )
+    if str(report_layout.get("references_root") or "").rstrip("/") != str(
+        before.get("references_root") or ""
+    ).rstrip("/"):
+        errors.append(
+            "referenced preflight references root does not match consumer_before.references_root"
         )
     privacy = loaded.get("privacy")
     privacy = privacy if isinstance(privacy, dict) else {}
@@ -2430,6 +2457,34 @@ def validate_migration_evidence(
         or _migration_command_is_placeholder(memory_root)
     ):
         errors.append("consumer_before.memory_root must be a safe repo-relative path")
+    references_root = str(before.get("references_root") or "")
+    normalized_references_root_input = (
+        references_root[:-1] if references_root.endswith("/") else references_root
+    )
+    normalized_references_root, _references_root_error = _canonical_portable_path(
+        normalized_references_root_input
+    )
+    if (
+        normalized_references_root is None
+        or references_root
+        not in {normalized_references_root, f"{normalized_references_root}/"}
+        or _migration_command_is_placeholder(references_root)
+    ):
+        errors.append(
+            "consumer_before.references_root must be a safe repo-relative path"
+        )
+    if (
+        normalized_memory_root
+        and normalized_references_root
+        and (
+            normalized_memory_root == normalized_references_root
+            or normalized_memory_root.startswith(f"{normalized_references_root}/")
+            or normalized_references_root.startswith(f"{normalized_memory_root}/")
+        )
+    ):
+        errors.append(
+            "consumer_before.memory_root and references_root must be disjoint repository roots"
+        )
     preflight = _require_mapping(
         before.get("preflight"), "consumer_before.preflight", errors
     )
@@ -2589,7 +2644,18 @@ def validate_migration_evidence(
                 or rel.startswith(f"{normalized_memory_root}/")
             )
         )
-        if not in_configured_memory and not any(
+        in_configured_release_subtree = bool(
+            normalized_references_root
+            and rel.startswith(f"{normalized_references_root}/releases/")
+        )
+        in_configured_release_records = bool(
+            in_configured_release_subtree and rel.endswith(".md")
+        )
+        if in_configured_release_subtree and not rel.endswith(".md"):
+            errors.append(
+                f"downstream_adaptations[{index}] release record must be a Markdown .md file"
+            )
+        if not in_configured_memory and not in_configured_release_records and not any(
             _matches(rel, pattern)
             for pattern in _CONSUMER_OWNED_ADAPTATION_PATTERNS
         ):
@@ -2692,6 +2758,13 @@ def validate_migration_evidence(
                 if normalized_memory_root != configured_memory_root:
                     errors.append(
                         "consumer_before.memory_root does not match the configured consumer layout"
+                    )
+                configured_references_root = str(
+                    configured_layout(root).get("references_root") or ""
+                ).rstrip("/")
+                if normalized_references_root != configured_references_root:
+                    errors.append(
+                        "consumer_before.references_root does not match the configured consumer layout"
                     )
                 if kit_root is not None:
                     resolved_kit_root = kit_root.resolve()
@@ -2846,6 +2919,15 @@ def validate_migration_evidence(
                         ):
                             errors.append(
                                 "downstream adaptation postimages contain secret-shaped or unsupported binary content"
+                            )
+                        if adaptations and not _tree_release_records_are_non_executable_markdown(
+                            root=root,
+                            sha=final_migration_sha,
+                            paths=[str(value) for value in adaptations],
+                            references_root=normalized_references_root or "",
+                        ):
+                            errors.append(
+                                "downstream release record postimages must be non-executable Markdown files"
                             )
                     except ValueError:
                         errors.append(
@@ -3667,6 +3749,7 @@ def _public_migration_projection(
                 else _PUBLIC_REDACTED_VALUE
             ),
             "memory_root": _PUBLIC_REDACTED_VALUE,
+            "references_root": _PUBLIC_REDACTED_VALUE,
             "preflight": {
                 "status": (
                     "ready"
@@ -3744,6 +3827,7 @@ def _public_migration_projection(
                 "kit_version": None,
                 "gate_status": None,
                 "memory_root": None,
+                "references_root": None,
                 "preflight": {
                     "status": None,
                     "report_id": None,
@@ -4002,6 +4086,7 @@ def render_migration_report_markdown(report: dict[str, Any]) -> str:
         f"- Validator: `{_md(evidence_context.get('validator_version'))}`",
         f"- Captured consumer HEAD: `{_md(evidence_context.get('captured_consumer_head'))}`",
         f"- Memory root: `{_md(before.get('memory_root'))}`",
+        f"- References root: `{_md(before.get('references_root'))}`",
         f"- Preflight: `{_md(preflight.get('status'))}` · `{_md(preflight.get('report_id'))}`",
         f"- Preflight report digest: `sha256:{_md(preflight.get('report_sha256'))}`",
         f"- Preflight report ref: `{_md(preflight.get('report_ref'))}`",

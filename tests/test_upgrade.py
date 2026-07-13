@@ -132,7 +132,10 @@ def consumer(*, privacy: str = "public_safe") -> dict:
         },
         "consumer_type": "public_example",
         "current_kit_version": "v7",
-        "current_layout": {"memory_root": "memories"},
+        "current_layout": {
+            "memory_root": "memories",
+            "references_root": "docs/references",
+        },
         "current_runtime": "compat",
         "local_operator": "localhost_operator",
         "local_templates": {"registry": "wiki.templates.yaml"},
@@ -228,6 +231,7 @@ def bind_migration_preflight(
     )
     before = evidence["consumer_before"]
     before["memory_root"] = report["layout"]["memory_root"]
+    before["references_root"] = report["layout"]["references_root"]
     before["preflight"] = {
         "status": "ready",
         "report_id": expected_id,
@@ -340,6 +344,7 @@ def migration_evidence(pkg: dict) -> dict:
             "kit_version": "v7",
             "gate_status": "pass",
             "memory_root": "memories",
+            "references_root": "docs/references",
             "preflight": {
                 "status": "ready",
                 "report_id": f"preflight:{sha('preflight-id')[:20]}",
@@ -1450,6 +1455,7 @@ def test_public_migration_projection_hides_safe_private_names_and_paths() -> Non
     before["repository"] = "internal-repository"
     before["branch"] = "wiki/internal-before"
     before["memory_root"] = "knowledge/internal"
+    before["references_root"] = "knowledge/references"
     before["preflight"]["report_ref"] = (
         "output/wiki-upgrade/internal-preflight.json"
     )
@@ -1471,6 +1477,10 @@ def test_public_migration_projection_hides_safe_private_names_and_paths() -> Non
     assert public_report["consumer_before"]["repository"] == "<redacted-public-value>"
     assert public_report["consumer_before"]["branch"] == "<redacted-public-value>"
     assert public_report["consumer_before"]["memory_root"] == "<redacted-public-value>"
+    assert (
+        public_report["consumer_before"]["references_root"]
+        == "<redacted-public-value>"
+    )
     assert (
         public_report["consumer_before"]["preflight"]["report_ref"]
         == "<redacted-public-value>"
@@ -1495,6 +1505,7 @@ def test_public_migration_projection_hides_safe_private_names_and_paths() -> Non
         "wiki/internal-before",
         "wiki/internal-after",
         "knowledge/internal",
+        "knowledge/references",
         "output/wiki-upgrade/internal-preflight.json",
         *private_screenshot_refs,
     ):
@@ -1605,7 +1616,7 @@ def test_package_declared_migration_boundaries_require_every_sha() -> None:
     pkg = package()
     template = migration_evidence_template(pkg)
     assert template["evidence_context"]["validator_version"] == (
-        "wiki_viva_upgrade_validator.v4"
+        "wiki_viva_upgrade_validator.v5"
     )
     assert template["omitted_boundaries"] == []
     assert all(
@@ -1622,6 +1633,9 @@ def test_package_declared_migration_boundaries_require_every_sha() -> None:
     )
     assert template["consumer_before"]["memory_root"] == (
         "REPLACE_WITH_CONSUMER_MEMORY_ROOT"
+    )
+    assert template["consumer_before"]["references_root"] == (
+        "REPLACE_WITH_CONSUMER_REFERENCES_ROOT"
     )
     assert template["consumer_before"]["preflight"]["report_ref"].startswith(
         "output/wiki-upgrade/"
@@ -1731,6 +1745,16 @@ def test_migration_preflight_and_gate_claims_fail_closed_without_git() -> None:
     assert any(
         "preflight.report_ref must be a safe repo-relative JSON path" in error
         for error in validate_migration_evidence(placeholder_ref, pkg)
+    )
+
+    unsafe_references_root = copy.deepcopy(evidence)
+    unsafe_references_root["consumer_before"]["references_root"] = (
+        "../docs/references"
+    )
+    assert any(
+        "consumer_before.references_root must be a safe repo-relative path"
+        in error
+        for error in validate_migration_evidence(unsafe_references_root, pkg)
     )
 
     wrong_package = copy.deepcopy(evidence)
@@ -1929,6 +1953,26 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
             kit_root=kit,
             require_git_commits=True,
         )
+    )
+
+    wrong_references_root = copy.deepcopy(evidence)
+    wrong_references_root["consumer_before"]["references_root"] = (
+        "docs/referencias"
+    )
+    wrong_references_errors = validate_migration_evidence(
+        wrong_references_root,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    )
+    assert (
+        "consumer_before.references_root does not match the configured consumer layout"
+        in wrong_references_errors
+    )
+    assert (
+        "referenced preflight references root does not match consumer_before.references_root"
+        in wrong_references_errors
     )
 
     wrong_after_branch = copy.deepcopy(evidence)
@@ -2313,7 +2357,7 @@ def test_private_consumer_uses_ignored_unredacted_authoritative_preflight(
     ) == []
 
 
-def test_localized_memory_adaptation_is_allowed_but_secret_content_is_blocked(
+def test_localized_release_record_is_allowed_but_secret_content_is_blocked(
     tmp_path: Path,
 ) -> None:
     kit, target, _initial = make_matching_repos(tmp_path)
@@ -2325,12 +2369,10 @@ def test_localized_memory_adaptation_is_allowed_but_secret_content_is_blocked(
     (target / "wiki_core/core.py").write_text("VALUE = 0\n", encoding="utf-8")
     (target / "wiki.config.yaml").write_text(
         "repo_id: fixture\nlanguage: pt-BR\ncontexts: [pessoal]\n"
-        "paths:\n  memory_root: memorias\n",
+        "paths:\n  memory_root: memorias\n"
+        "  references_root: docs/referencias\n",
         encoding="utf-8",
     )
-    private_page = target / "memorias/system/operacoes.md"
-    private_page.parent.mkdir(parents=True)
-    private_page.write_text("# Operações\n\nEstado anterior.\n", encoding="utf-8")
     before_sha = commit_all(target, "wiki privada antes da migração")
 
     pkg = package(source_sha=source_sha)
@@ -2355,7 +2397,7 @@ def test_localized_memory_adaptation_is_allowed_but_secret_content_is_blocked(
     evidence["consumer_before"]["head_sha"] = before_sha
     evidence["files_imported"] = ["wiki_core/core.py"]
     evidence["generated_artifacts"] = ["tests/generated/state.json"]
-    evidence["downstream_adaptations"] = ["memorias/system/operacoes.md"]
+    evidence["downstream_adaptations"] = ["docs/referencias/releases/rc.md"]
     evidence["rollback"]["preserves_local_paths"] = [
         "wiki.config.yaml",
         "memorias",
@@ -2371,8 +2413,10 @@ def test_localized_memory_adaptation_is_allowed_but_secret_content_is_blocked(
     generated_target.parent.mkdir(parents=True)
     generated_target.write_bytes(generated_source.read_bytes())
     artifact_sha = commit_all(target, "regenerated artifacts")
-    private_page.write_text(
-        "# Operações\n\nReferências estruturadas reconciliadas.\n",
+    release_record = target / "docs/referencias/releases/rc.md"
+    release_record.parent.mkdir(parents=True)
+    release_record.write_text(
+        "# Wiki Viva v8 rc\n\nDecisões downstream reconciliadas.\n",
         encoding="utf-8",
     )
     adaptation_sha = commit_all(target, "adaptações downstream localizadas")
@@ -2388,7 +2432,7 @@ def test_localized_memory_adaptation_is_allowed_but_secret_content_is_blocked(
         require_git_commits=True,
     ) == []
     public_report = compile_migration_report(evidence, pkg, public_export=True)
-    assert "memorias/system/operacoes.md" not in json.dumps(public_report)
+    assert "docs/referencias/releases/rc.md" not in json.dumps(public_report)
     assert public_report["migration_summary"]["downstream_adaptations"] == {
         "path_count": 1,
         "validated_count": 0,
@@ -2396,11 +2440,36 @@ def test_localized_memory_adaptation_is_allowed_but_secret_content_is_blocked(
         "unverified_count": 1,
     }
 
-    private_page.write_text(
-        "# Operações\n\napi_key: sk-live-private-secret-value-1234567890\n",
+    release_record.chmod(0o755)
+    subprocess.run(["git", "add", str(release_record)], cwd=target, check=True)
+    subprocess.run(
+        ["git", "commit", "--amend", "--no-edit", "-q"], cwd=target, check=True
+    )
+    executable_adaptation_sha = repo_head(target)
+    bind_boundary_commits(
+        evidence,
+        [import_sha, artifact_sha, executable_adaptation_sha],
+    )
+    bind_migration_screenshots(target, evidence)
+    bind_gate_receipts(target, evidence)
+    executable_errors = validate_migration_evidence(
+        evidence,
+        pkg,
+        consumer_root=target,
+        kit_root=kit,
+        require_git_commits=True,
+    )
+    assert (
+        "downstream release record postimages must be non-executable Markdown files"
+        in executable_errors
+    )
+
+    release_record.chmod(0o644)
+    release_record.write_text(
+        "# Wiki Viva v8 rc\n\napi_key: sk-live-private-secret-value-1234567890\n",
         encoding="utf-8",
     )
-    subprocess.run(["git", "add", str(private_page)], cwd=target, check=True)
+    subprocess.run(["git", "add", str(release_record)], cwd=target, check=True)
     subprocess.run(
         ["git", "commit", "--amend", "--no-edit", "-q"], cwd=target, check=True
     )
@@ -2423,6 +2492,68 @@ def test_localized_memory_adaptation_is_allowed_but_secret_content_is_blocked(
         for error in secret_errors
     )
     assert "sk-live-private" not in json.dumps(secret_errors)
+
+
+def test_references_root_only_allows_release_descendants_as_adaptations() -> None:
+    pkg = package()
+    evidence = migration_evidence(pkg)
+    evidence["consumer_before"]["references_root"] = "docs/referencias"
+
+    accepted = copy.deepcopy(evidence)
+    accepted["downstream_adaptations"] = ["docs/referencias/releases/rc.md"]
+    assert validate_migration_evidence(accepted, pkg) == []
+
+    sibling = copy.deepcopy(evidence)
+    sibling["downstream_adaptations"] = ["docs/referencias/notes.md"]
+    assert any(
+        "is not a declared consumer-owned path" in error
+        for error in validate_migration_evidence(sibling, pkg)
+    )
+
+    executable = copy.deepcopy(evidence)
+    executable["downstream_adaptations"] = [
+        "docs/referencias/releases/postinstall.sh"
+    ]
+    assert any(
+        "release record must be a Markdown .md file" in error
+        for error in validate_migration_evidence(executable, pkg)
+    )
+
+    overlapping_roots = copy.deepcopy(evidence)
+    overlapping_roots["consumer_before"]["memory_root"] = "docs"
+    overlapping_roots["consumer_before"]["references_root"] = "docs/referencias"
+    overlapping_roots["rollback"]["preserves_local_paths"] = [
+        "docs",
+        "wiki.config.yaml",
+    ]
+    assert any(
+        "memory_root and references_root must be disjoint" in error
+        for error in validate_migration_evidence(overlapping_roots, pkg)
+    )
+
+    portable_pkg = copy.deepcopy(pkg)
+    portable_pkg["portable_import"]["allow"].append(
+        "docs/references/releases/**"
+    )
+    portable = migration_evidence(portable_pkg)
+    portable["downstream_adaptations"] = ["docs/references/releases/rc.md"]
+    assert any(
+        "must not modify a portable path" in error
+        for error in validate_migration_evidence(portable, portable_pkg)
+    )
+
+
+def test_localized_memory_root_remains_an_allowed_adaptation_surface() -> None:
+    pkg = package()
+    evidence = migration_evidence(pkg)
+    evidence["consumer_before"]["memory_root"] = "memorias"
+    evidence["downstream_adaptations"] = ["memorias/system/operacoes.md"]
+    evidence["rollback"]["preserves_local_paths"] = [
+        "memorias",
+        "wiki.config.yaml",
+    ]
+
+    assert validate_migration_evidence(evidence, pkg) == []
 
 
 def test_consumer_owned_dependency_merge_surface_is_allowed(tmp_path: Path) -> None:

@@ -37,7 +37,7 @@
           "pattern": "^[0-9a-f]{64}$"
         },
         "validator_version": {
-          "const": "wiki_viva_upgrade_validator.v4"
+          "const": "wiki_viva_upgrade_validator.v5"
         },
         "captured_consumer_head": {
           "type": "string",
@@ -78,6 +78,7 @@
         "kit_version",
         "gate_status",
         "memory_root",
+        "references_root",
         "preflight"
       ],
       "properties": {
@@ -103,6 +104,9 @@
         "memory_root": {
           "type": "string",
           "minLength": 1
+        },
+        "references_root": {
+          "$ref": "#/$defs/repo_relative_root"
         },
         "preflight": {
           "type": "object",
@@ -326,6 +330,14 @@
     }
   },
   "$defs": {
+    "repo_relative_root": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![/~])(?![A-Za-z]:)(?!.*\\\\)(?!.*//)(?!.*\\x00)\\S(?:.*\\S)?/?$",
+      "not": {
+        "pattern": "(?:^|/)\\.\\.?(?:/|$)"
+      }
+    },
     "string_array": {
       "type": "array",
       "items": {
