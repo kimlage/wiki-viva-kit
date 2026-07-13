@@ -30,6 +30,11 @@ import {
   sanitizedReleaseBuildEnvironment
 } from "./release-build-policy.mjs";
 import {
+  materializePublicReleaseRuntimeConfig,
+  PUBLIC_RELEASE_RUNTIME_CONFIG_PATH,
+  verifyPublicReleaseRuntimeConfig
+} from "./public-release-runtime-config.mjs";
+import {
   assertReleaseEvidencePlatform,
   RELEASE_DERIVED_ROOT,
   TEST_RESULTS_ROOT,
@@ -148,7 +153,11 @@ test("POSIX build launcher refuses a PATH-injected fake Node executable", () => 
 test("release build manifest records exact safe inputs and rejects input tampering", () => {
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "wiki-build-manifest-"));
   try {
+    fs.mkdirSync(path.join(fixture, "scripts"));
     fs.mkdirSync(path.join(fixture, "dist"));
+    const publicConfig = fs.readFileSync(path.join(APP_ROOT, ...PUBLIC_RELEASE_RUNTIME_CONFIG_PATH.split("/")));
+    fs.writeFileSync(path.join(fixture, ...PUBLIC_RELEASE_RUNTIME_CONFIG_PATH.split("/")), publicConfig);
+    fs.writeFileSync(path.join(fixture, "dist", "wiki-cockpit.config.json"), publicConfig);
     fs.writeFileSync(path.join(fixture, "dist", "index.html"), "<!doctype html>\n");
     const manifest = collectReleaseBuildManifest(fixture, "a".repeat(40), {});
     assert.equal(manifest.schema_version, "wiki_release_build_manifest.v2");
@@ -161,6 +170,80 @@ test("release build manifest records exact safe inputs and rejects input tamperi
     assert.throws(
       () => assertSameReleaseBuild(manifest, tampered),
       /served release dist changed/
+    );
+  } finally {
+    fs.rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+test("release build replaces a consumer config only inside dist with the package-owned static demo", () => {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "wiki-public-config-"));
+  try {
+    fs.mkdirSync(path.join(fixture, "scripts"));
+    fs.mkdirSync(path.join(fixture, "public"));
+    fs.mkdirSync(path.join(fixture, "dist"));
+    const source = fs.readFileSync(path.join(APP_ROOT, ...PUBLIC_RELEASE_RUNTIME_CONFIG_PATH.split("/")));
+    const consumer = Buffer.from('{"mode":"local_operator","api_base":"/api/private"}\n');
+    fs.writeFileSync(path.join(fixture, ...PUBLIC_RELEASE_RUNTIME_CONFIG_PATH.split("/")), source);
+    fs.writeFileSync(path.join(fixture, "public", "wiki-cockpit.config.json"), consumer);
+    fs.writeFileSync(path.join(fixture, "dist", "wiki-cockpit.config.json"), consumer);
+    fs.writeFileSync(path.join(fixture, ".gitignore"), "dist/\n");
+    execFileSync("git", ["init", "-q"], { cwd: fixture });
+    execFileSync("git", ["config", "user.email", "release-config@example.test"], { cwd: fixture });
+    execFileSync("git", ["config", "user.name", "Release Config Test"], { cwd: fixture });
+    execFileSync("git", ["add", ".gitignore", "public", "scripts"], { cwd: fixture });
+    execFileSync("git", ["commit", "-qm", "config fixture"], { cwd: fixture });
+    const subjectBefore = {
+      head: execFileSync("git", ["rev-parse", "HEAD"], { cwd: fixture, encoding: "utf8" }).trim(),
+      tree: execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: fixture, encoding: "utf8" }).trim(),
+      status: execFileSync("git", ["status", "--porcelain=v1"], { cwd: fixture, encoding: "utf8" })
+    };
+
+    const evidence = materializePublicReleaseRuntimeConfig(fixture);
+
+    assert.deepEqual(fs.readFileSync(path.join(fixture, "public", "wiki-cockpit.config.json")), consumer);
+    assert.deepEqual(fs.readFileSync(path.join(fixture, "dist", "wiki-cockpit.config.json")), source);
+    assert.equal(evidence.source_path, PUBLIC_RELEASE_RUNTIME_CONFIG_PATH);
+    assert.equal(evidence.output_path, "dist/wiki-cockpit.config.json");
+    assert.doesNotThrow(() => verifyPublicReleaseRuntimeConfig(fixture));
+    assert.deepEqual({
+      head: execFileSync("git", ["rev-parse", "HEAD"], { cwd: fixture, encoding: "utf8" }).trim(),
+      tree: execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: fixture, encoding: "utf8" }).trim(),
+      status: execFileSync("git", ["status", "--porcelain=v1"], { cwd: fixture, encoding: "utf8" })
+    }, subjectBefore);
+
+    fs.writeFileSync(path.join(fixture, ...PUBLIC_RELEASE_RUNTIME_CONFIG_PATH.split("/")), '{"mode":"local_operator"}\n');
+    assert.throws(
+      () => materializePublicReleaseRuntimeConfig(fixture),
+      /exact public synthetic static-demo contract/
+    );
+
+    const sourcePath = path.join(fixture, ...PUBLIC_RELEASE_RUNTIME_CONFIG_PATH.split("/"));
+    const linkedSource = path.join(fixture, "scripts", "linked-public-config.json");
+    fs.rmSync(sourcePath);
+    fs.writeFileSync(linkedSource, source);
+    fs.linkSync(linkedSource, sourcePath);
+    assert.throws(
+      () => materializePublicReleaseRuntimeConfig(fixture),
+      /regular non-hard-linked file/
+    );
+
+    fs.rmSync(sourcePath);
+    fs.rmSync(linkedSource);
+    fs.writeFileSync(sourcePath, source);
+    const outputPath = path.join(fixture, "dist", "wiki-cockpit.config.json");
+    fs.rmSync(outputPath);
+    fs.symlinkSync(path.join(fixture, "public", "wiki-cockpit.config.json"), outputPath);
+    assert.throws(
+      () => materializePublicReleaseRuntimeConfig(fixture),
+      /output must be a regular non-hard-linked file/
+    );
+
+    fs.rmSync(outputPath);
+    fs.linkSync(path.join(fixture, "public", "wiki-cockpit.config.json"), outputPath);
+    assert.throws(
+      () => materializePublicReleaseRuntimeConfig(fixture),
+      /output must be a regular non-hard-linked file/
     );
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
@@ -1402,6 +1485,8 @@ test("release configurations pin zero retries and keep downstream specs out of p
     "release-matrix-contract",
     "release-build-manifest",
     "release-build-policy",
+    "public-release-runtime-config-policy",
+    "public-release-runtime-config",
     "release-build-runner",
     "release-build-launcher",
     "cockpit-vite-config",

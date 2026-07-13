@@ -1,5 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import {
+  PUBLIC_RELEASE_RUNTIME_CONFIG_DELIVERY,
+  PUBLIC_RELEASE_RUNTIME_CONFIG_PATH
+} from "./public-release-runtime-config.mjs";
 
 export const RELEASE_BUILD_INPUTS_SCHEMA_VERSION = "wiki_release_build_inputs.v1";
 export const RELEASE_BUILD_MANIFEST_SCHEMA_VERSION = "wiki_release_build_manifest.v2";
@@ -53,8 +57,8 @@ export function effectiveReleaseBuildInputs() {
     vite_mode: "production",
     node_env: "production",
     vite_env_loading: "disabled",
-    runtime_config_path: "public/wiki-cockpit.config.json",
-    runtime_config_delivery: "runtime_fetch_no_store.v1",
+    runtime_config_path: PUBLIC_RELEASE_RUNTIME_CONFIG_PATH,
+    runtime_config_delivery: PUBLIC_RELEASE_RUNTIME_CONFIG_DELIVERY,
     environment_policy: {
       env_files: "forbidden",
       parent_launcher: "posix_env_i.v1",

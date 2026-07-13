@@ -1145,8 +1145,8 @@ def _validate_release_build_manifest(
         "vite_mode": "production",
         "node_env": "production",
         "vite_env_loading": "disabled",
-        "runtime_config_path": "public/wiki-cockpit.config.json",
-        "runtime_config_delivery": "runtime_fetch_no_store.v1",
+        "runtime_config_path": "scripts/public-release-runtime-config.json",
+        "runtime_config_delivery": "package_owned_static_demo_override.v1",
         "environment_policy": {
             "env_files": "forbidden",
             "parent_launcher": "posix_env_i.v1",
@@ -1245,6 +1245,36 @@ def _validate_release_build_manifest(
     if sorted(actual_inventory) != [item["path"] for item in normalized]:
         raise ReleaseReceiptError(
             "release build manifest does not cover the exact served dist inventory"
+        )
+    source_relative = (
+        "apps/wiki-cockpit/scripts/public-release-runtime-config.json"
+    )
+    served_relative = "apps/wiki-cockpit/dist/wiki-cockpit.config.json"
+    _, source_runtime_config = _read_safe_evidence_file(
+        root, source_relative, label="package-owned public release runtime config"
+    )
+    _, served_runtime_config = _read_safe_evidence_file(
+        root, served_relative, label="served public release runtime config"
+    )
+    try:
+        parsed_runtime_config = json.loads(source_runtime_config.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ReleaseReceiptError(
+            "package-owned public release runtime config is invalid"
+        ) from exc
+    if parsed_runtime_config != {
+        "api_base": "",
+        "snapshot_base": "/sample-snapshot",
+        "repo_label": "Wiki Viva Kit demo",
+        "mode": "static_demo",
+        "codex": {"enabled": False},
+    }:
+        raise ReleaseReceiptError(
+            "package-owned public release runtime config is not the exact synthetic contract"
+        )
+    if source_runtime_config != served_runtime_config:
+        raise ReleaseReceiptError(
+            "served public release runtime config is not byte-equal to its package-owned source"
         )
 
 
@@ -1466,6 +1496,8 @@ def _validate_toolchain_manifest(
         "release-matrix-contract": CANONICAL_RELEASE_MATRIX_PATH,
         "release-build-manifest": "apps/wiki-cockpit/scripts/release-build-manifest.mjs",
         "release-build-policy": "apps/wiki-cockpit/scripts/release-build-policy.mjs",
+        "public-release-runtime-config-policy": "apps/wiki-cockpit/scripts/public-release-runtime-config.mjs",
+        "public-release-runtime-config": "apps/wiki-cockpit/scripts/public-release-runtime-config.json",
         "release-build-runner": "apps/wiki-cockpit/scripts/build-production.mjs",
         "release-build-launcher": "apps/wiki-cockpit/scripts/build-production.sh",
         "cockpit-vite-config": "apps/wiki-cockpit/vite.config.ts",

@@ -7,6 +7,7 @@ import {
   assertInternalReleaseBuildEnvironment,
   sanitizedReleaseBuildEnvironment
 } from "./release-build-policy.mjs";
+import { materializePublicReleaseRuntimeConfig } from "./public-release-runtime-config.mjs";
 
 const scriptsRoot = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.dirname(scriptsRoot);
@@ -31,6 +32,7 @@ try {
     ["build", "--mode", "production", "--manifest"],
     env
   );
+  materializePublicReleaseRuntimeConfig(appRoot);
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

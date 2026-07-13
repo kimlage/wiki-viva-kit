@@ -69,6 +69,24 @@ async function expectSceneInteractionsSettled(page: Page) {
   await expect(page.locator(".sceneTransitionCue")).toHaveCSS("pointer-events", "none", { timeout: 10_000 });
 }
 
+async function expectWorldTargetCentersOwned(page: Page, nodeIds: string[]) {
+  const ownership = await page.evaluate((expectedNodeIds) => {
+    return expectedNodeIds.map((nodeId) => {
+      const element = [...document.querySelectorAll<HTMLElement>("[data-world-node-id]")]
+        .find((candidate) => candidate.dataset.worldNodeId === nodeId) ?? null;
+      const bounds = element?.getBoundingClientRect();
+      const hit = bounds
+        ? document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
+        : null;
+      return {
+        nodeId,
+        hitNodeId: hit?.closest<HTMLElement>("[data-world-node-id]")?.dataset.worldNodeId ?? ""
+      };
+    });
+  }, nodeIds);
+  expect(ownership).toEqual(nodeIds.map((nodeId) => ({ nodeId, hitNodeId: nodeId })));
+}
+
 async function visibleWorldTargetIds(page: Page, kind: "page" | "group") {
   return page.locator(`[data-world-target-kind="${kind}"]`).evaluateAll((elements) =>
     elements
@@ -544,6 +562,11 @@ test("the mobile world guide owns the viewport and exposes all three axes", asyn
 });
 
 test("quadrant overview keeps every semantic group target disjoint at reviewed phone and desktop sizes", async ({ page }, testInfo) => {
+  // This is six complete worlds and every real group round-trip in one fixed
+  // matrix cell. The post-Back fail-fast ownership assertion prevents a stale
+  // label from consuming this allowance as click retries; the larger ceiling
+  // only accommodates the intentionally expanded positive coverage.
+  test.setTimeout(180_000);
   const lensByQuadrant: Record<string, NativeLens> = {
     intencao: "q1_intencao",
     pratica: "q2_pratica",
@@ -661,6 +684,11 @@ test("quadrant overview keeps every semantic group target disjoint at reviewed p
       // map's explicit interaction contract instead of measuring/clicking a
       // transient label position.
       await expectSceneInteractionsSettled(page);
+      // The interaction cue is the product's promise that projected Html
+      // controls have sampled their final frame. Re-prove center ownership on
+      // every real return; a stale label must fail here, before Playwright can
+      // spend the remaining test timeout retrying an impossible pointer click.
+      await expectWorldTargetCentersOwned(page, geometry.visible.map((entry) => entry.nodeId));
     }
   }
 });
