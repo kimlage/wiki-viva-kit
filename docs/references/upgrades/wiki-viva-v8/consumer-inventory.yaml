@@ -1,5 +1,5 @@
 schema_version: wiki_viva_consumer_inventory.v1
-verified_on: "2026-07-12"
+verified_on: "2026-07-13"
 
 publication_policy:
   private_paths: redact
@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc16@198471c3
+    current_kit_version: wiki-viva-v8-rc17@3f96b03e
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -34,11 +34,11 @@ consumers:
     drift_status:
       state: public_validation_pending
       drift_total: 0
-      compared_against: wiki-viva-v8-rc16@198471c3
+      compared_against: wiki-viva-v8-rc17@3f96b03e
       worktree: exact_payload_frozen_validation_pending
     upgrade_wave: public_kit
     status: validation_pending
-    blocker: complete the exact official Node 22 release stack on one source without retry - normal and public-export audits, methodology, quality, operation, source registry, input, semantic inventory, snapshot, packs, demo drift, 1,409 Python, 513 frontend, build, 107 Node, architecture, assets, bundle, release matrix, diff check and 102/102 first-attempt browser cells - plus current E3 visual QA; then complete PR 61 human conceptual, privacy and VoiceOver review, merge, external E5 authority and release tag
+    blocker: S19 automated and E3 evidence is historical only and its browser receipt used Node 26; complete the exact rc17/S20 full Node 22 stack with the corrected RT-146 toolkit-drift controls, bind or replay every required E3 cell, then complete PR 61 human conceptual, privacy and VoiceOver review, merge, external E5 authority and release tag
 
   - id: private-pilot-01
     repository:
@@ -67,13 +67,14 @@ consumers:
     evidence_redaction_required: true
     drift_status:
       state: blocked_on_public_validation
-      scope: wiki_toolkit_drift_core_prefixes
+      scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: wiki-viva-v8-rc16@198471c3
-      target_drift_total: 887
-      details: exact S9 payload b45378d3 and the Finance pack remain the installed historical subject with protected downstream adaptations; rc16 has 887 recomputed portable deltas (51 authorial + 836 generated) pending review and cannot be imported while its public status is validation_pending
-      verified_on: "2026-07-12"
+      target_version: wiki-viva-v8-rc17@3f96b03e
+      target_drift_total: pending_recompute
+      historical_rc16_target_drift_total: 887
+      details: exact S9 payload b45378d3 remains the installed historical subject; rc16 projected 887 portable deltas (51 authorial + 836 generated), but RT-146 proved that its toolkit-drift entrypoint was not adoption authority; recompute against exact S20 and the frozen private main before preflight
+      verified_on: "2026-07-13"
     upgrade_wave: pilot
     status: blocked_on_public_validation
-    blocker: first close the complete rc15 public gate stack and current visual QA; then retain exact receipts and redacted aggregates and complete RT-09/10/29/33/36/47/48 consumer-semantic evidence, human conceptual/privacy/VoiceOver review, merge and external E5
+    blocker: first close RT-146 and the complete exact rc17/S20 Node 22 stack; then retain corrected drift receipts and redacted aggregates and complete RT-09/10/29/33/36/47/48/125/146 consumer-semantic evidence, human conceptual/privacy/VoiceOver review, merge and external E5
