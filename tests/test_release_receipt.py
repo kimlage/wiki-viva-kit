@@ -135,6 +135,7 @@ def _repo(tmp_path: Path) -> Path:
         "apps/wiki-cockpit/scripts/release-matrix-contract.mjs",
         "apps/wiki-cockpit/scripts/release-build-manifest.mjs",
         "apps/wiki-cockpit/scripts/release-build-policy.mjs",
+        "apps/wiki-cockpit/scripts/public-release-runtime-config.mjs",
         "apps/wiki-cockpit/scripts/build-production.mjs",
         "apps/wiki-cockpit/scripts/build-production.sh",
         "apps/wiki-cockpit/scripts/release-server-policy.mjs",
@@ -157,6 +158,12 @@ def _repo(tmp_path: Path) -> Path:
             root / relative,
             (WORKSPACE_ROOT / relative).read_text(encoding="utf-8"),
         )
+    runtime_config_relative = (
+        "apps/wiki-cockpit/scripts/public-release-runtime-config.json"
+    )
+    (root / runtime_config_relative).write_bytes(
+        (WORKSPACE_ROOT / runtime_config_relative).read_bytes()
+    )
     _run(root, "git", "add", ".")
     _run(root, "git", "commit", "-m", "fixture")
     return root
@@ -275,12 +282,23 @@ def _gate(root: Path, *, scope: str, gate_id: str, **overrides: object) -> str:
         dist_raw = b"<!doctype html><title>fixture release</title>\n"
         (root / dist_relative).parent.mkdir(parents=True, exist_ok=True)
         (root / dist_relative).write_bytes(dist_raw)
+        runtime_config_relative = (
+            "apps/wiki-cockpit/scripts/public-release-runtime-config.json"
+        )
+        runtime_config_raw = (root / runtime_config_relative).read_bytes()
+        dist_runtime_config = "apps/wiki-cockpit/dist/wiki-cockpit.config.json"
+        (root / dist_runtime_config).write_bytes(runtime_config_raw)
         files = [
             {
                 "path": "dist/index.html",
                 "sha256": hashlib.sha256(dist_raw).hexdigest(),
                 "bytes": len(dist_raw),
-            }
+            },
+            {
+                "path": "dist/wiki-cockpit.config.json",
+                "sha256": hashlib.sha256(runtime_config_raw).hexdigest(),
+                "bytes": len(runtime_config_raw),
+            },
         ]
         aggregate = hashlib.sha256(
             json.dumps(files, separators=(",", ":")).encode("utf-8")
@@ -299,8 +317,8 @@ def _gate(root: Path, *, scope: str, gate_id: str, **overrides: object) -> str:
                     'vite_mode': 'production',
                     'node_env': 'production',
                     'vite_env_loading': 'disabled',
-                    'runtime_config_path': 'public/wiki-cockpit.config.json',
-                    'runtime_config_delivery': 'runtime_fetch_no_store.v1',
+                    'runtime_config_path': 'scripts/public-release-runtime-config.json',
+                    'runtime_config_delivery': 'package_owned_static_demo_override.v1',
                     'environment_policy': {
                         'env_files': 'forbidden',
                         'parent_launcher': 'posix_env_i.v1',
@@ -327,7 +345,7 @@ def _gate(root: Path, *, scope: str, gate_id: str, **overrides: object) -> str:
                     },
                 },
                 'builder_runtime': release_module._current_node_binary_identity(),
-                'file_count': 1,
+                'file_count': 2,
                 'aggregate_sha256': aggregate,
                 'files': files,
             }, sort_keys=True)}\n",
@@ -366,6 +384,8 @@ def _gate(root: Path, *, scope: str, gate_id: str, **overrides: object) -> str:
         "release-matrix-contract": CANONICAL_RELEASE_MATRIX_PATH,
         "release-build-manifest": "apps/wiki-cockpit/scripts/release-build-manifest.mjs",
         "release-build-policy": "apps/wiki-cockpit/scripts/release-build-policy.mjs",
+        "public-release-runtime-config-policy": "apps/wiki-cockpit/scripts/public-release-runtime-config.mjs",
+        "public-release-runtime-config": "apps/wiki-cockpit/scripts/public-release-runtime-config.json",
         "release-build-runner": "apps/wiki-cockpit/scripts/build-production.mjs",
         "release-build-launcher": "apps/wiki-cockpit/scripts/build-production.sh",
         "cockpit-vite-config": "apps/wiki-cockpit/vite.config.ts",
@@ -1669,6 +1689,20 @@ def test_release_build_manifest_reopens_exact_ignored_dist_inventory(
     errors = validate_release_receipt(receipt, root=root)
 
     assert any("release build manifest file" in error for error in errors)
+
+
+def test_release_build_manifest_reopens_package_owned_runtime_config_source(
+    tmp_path: Path,
+) -> None:
+    root = _repo(tmp_path)
+    receipt = build_release_receipt(root, _evidence(root))
+    source = root / "apps/wiki-cockpit/scripts/public-release-runtime-config.json"
+    parsed = json.loads(source.read_text(encoding="utf-8"))
+    source.write_text(json.dumps(parsed, separators=(",", ":")), encoding="utf-8")
+
+    errors = validate_release_receipt(receipt, root=root)
+
+    assert any("not byte-equal to its package-owned source" in error for error in errors)
 
 
 def test_release_build_manifest_rejects_tampered_effective_inputs(

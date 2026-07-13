@@ -532,15 +532,43 @@ function RuntimeFrameProbe({
   return null;
 }
 
-// The shared morph stays active until every registered layer has sampled its
-// final frame. Keeping completion here prevents the instanced body from ending
-// the transaction before labels, rings and halos reach the same coordinate.
-function MorphCompletion({ morph }: { morph: React.RefObject<MorphState> }) {
+// Keep one complete frame after the nominal duration with the morph active.
+// useFrame subscribers do not have a guaranteed sibling order; ending on the
+// first terminal sample can otherwise leave a later Html label at its previous
+// interpolated coordinate forever. The second sample makes the final position
+// true for every layer before the DOM interaction lock is released.
+function MorphCompletion({
+  morph,
+  sequence,
+  onSettled
+}: {
+  morph: React.RefObject<MorphState>;
+  sequence: number;
+  onSettled: (sequence: number) => void;
+}) {
+  const terminalSamples = useRef({ sequence: -1, count: 0 });
   useFrame((state) => {
     const current = morph.current;
-    if (!current?.active || current.start === null) return;
-    if (state.clock.elapsedTime - current.start < current.duration) return;
+    if (!current?.active || current.start === null) {
+      terminalSamples.current = { sequence, count: 0 };
+      return;
+    }
+    if (state.clock.elapsedTime - current.start < current.duration) {
+      terminalSamples.current = { sequence, count: 0 };
+      return;
+    }
+    if (terminalSamples.current.sequence !== sequence) {
+      terminalSamples.current = { sequence, count: 1 };
+      state.invalidate();
+      return;
+    }
+    terminalSamples.current.count += 1;
+    if (terminalSamples.current.count < 2) {
+      state.invalidate();
+      return;
+    }
     current.active = false;
+    onSettled(sequence);
     state.invalidate();
   });
   return null;
@@ -595,6 +623,7 @@ function SceneContent({
   routeUsabilityMs,
   performanceTelemetry,
   onPerformanceEvidence,
+  onMorphSettled,
   onMarkerAct,
   onMarkerResolve,
   onMarkerDismiss,
@@ -641,6 +670,7 @@ function SceneContent({
   routeUsabilityMs: number;
   performanceTelemetry: RuntimePerformanceTelemetry;
   onPerformanceEvidence: (evidence: RuntimePerformanceEvidence) => void;
+  onMorphSettled: (sequence: number) => void;
   onMarkerAct?: (pageId: string) => void;
   onMarkerResolve?: (pageId: string) => void;
   onMarkerDismiss?: (pageId: string) => void;
@@ -1025,7 +1055,7 @@ function SceneContent({
         transition={transition}
       />
       <RuntimeFrameProbe telemetry={performanceTelemetry} width={performanceWidth} onEvidence={onPerformanceEvidence} />
-      <MorphCompletion morph={morph} />
+      <MorphCompletion morph={morph} sequence={transition.sequence} onSettled={onMorphSettled} />
       <OverlayTransitionCompletion transition={overlayTransition} />
     </>
   );
@@ -1660,6 +1690,16 @@ export function SystemScene({
     () => ({ current: activeLayoutMotionState.morph }),
     [activeLayoutMotionState.morph]
   );
+  const [settledSpatialMotionSequence, setSettledSpatialMotionSequence] = useState(sceneTransition.sequence);
+  const markSpatialMotionSettled = useCallback((sequence: number) => {
+    if (sequence === sceneTransition.sequence) setSettledSpatialMotionSequence(sequence);
+  }, [sceneTransition.sequence]);
+  useEffect(() => {
+    if (!activeLayoutMotionState.morph.active) {
+      setSettledSpatialMotionSequence(sceneTransition.sequence);
+    }
+  }, [activeLayoutMotionState.morph, sceneTransition.sequence]);
+  const spatialMotionSettled = settledSpatialMotionSequence === sceneTransition.sequence;
   const cameraTravelVia = activeLayoutMotionState.cameraTravelVia;
 
   useEffect(() => {
@@ -2131,6 +2171,7 @@ export function SystemScene({
                 routeUsabilityMs={routeUsabilityMs}
                 performanceTelemetry={performanceTelemetry}
                 onPerformanceEvidence={publishPerformanceEvidence}
+                onMorphSettled={markSpatialMotionSettled}
                 onMarkerAct={(pageId) => navigate({ pageId, reader: true })}
                 onMarkerResolve={onMarkerResolve}
                 onMarkerDismiss={onMarkerDismiss}
@@ -2160,6 +2201,7 @@ export function SystemScene({
               data-motion-intent={activeMotionIntent}
               data-motion-duration-ms={activeMotionDurationMs}
               data-motion-sequence={sceneTransition.sequence}
+              data-spatial-motion-settled={spatialMotionSettled ? "true" : "false"}
               aria-hidden="true"
             />
           </div>

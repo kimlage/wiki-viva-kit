@@ -320,6 +320,13 @@ code {
   transform-origin: center;
 }
 
+/* CSS duration is the visual clock; the renderer is the spatial clock. Keep
+   the full-frame lock authoritative when Html labels still owe their terminal
+   sample, even if the visual keyframe has already reached 100%. */
+.sceneTransitionCue[data-spatial-motion-settled="false"] {
+  pointer-events: auto !important;
+}
+
 .sceneTransitionCue::after {
   position: absolute;
   inset: 12%;

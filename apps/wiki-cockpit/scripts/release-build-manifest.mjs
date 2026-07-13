@@ -5,6 +5,7 @@ import {
   assertReleaseBuildEnvironment,
   RELEASE_BUILD_MANIFEST_SCHEMA_VERSION
 } from "./release-build-policy.mjs";
+import { verifyPublicReleaseRuntimeConfig } from "./public-release-runtime-config.mjs";
 
 function canonicalFiles(files) {
   return JSON.stringify(files);
@@ -83,6 +84,10 @@ export function collectReleaseBuildManifest(appRoot, subjectSha, env = process.e
   };
   visit(distRoot);
   if (files.length === 0) throw new Error("release dist inventory is empty");
+  // The consumer-owned runtime config is intentionally excluded from C1.
+  // A public release build therefore proves that the served byte came from
+  // the package-owned synthetic source before its dist inventory is sealed.
+  verifyPublicReleaseRuntimeConfig(appRoot);
   files.sort((left, right) => left.path.localeCompare(right.path, "en"));
   return {
     schema_version: RELEASE_BUILD_MANIFEST_SCHEMA_VERSION,

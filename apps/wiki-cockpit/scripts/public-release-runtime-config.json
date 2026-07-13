@@ -1,0 +1,7 @@
+{
+  "api_base": "",
+  "snapshot_base": "/sample-snapshot",
+  "repo_label": "Wiki Viva Kit demo",
+  "mode": "static_demo",
+  "codex": { "enabled": false }
+}

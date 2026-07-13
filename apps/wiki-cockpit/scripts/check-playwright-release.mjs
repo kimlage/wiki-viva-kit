@@ -217,6 +217,8 @@ try {
     ["release-matrix-contract", contractPath],
     ["release-build-manifest", path.join(scriptsDir, "release-build-manifest.mjs")],
     ["release-build-policy", path.join(scriptsDir, "release-build-policy.mjs")],
+    ["public-release-runtime-config-policy", path.join(scriptsDir, "public-release-runtime-config.mjs")],
+    ["public-release-runtime-config", path.join(scriptsDir, "public-release-runtime-config.json")],
     ["release-build-runner", path.join(scriptsDir, "build-production.mjs")],
     ["release-build-launcher", path.join(scriptsDir, "build-production.sh")],
     ["cockpit-vite-config", path.join(appRoot, "vite.config.ts")],

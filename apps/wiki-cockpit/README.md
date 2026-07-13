@@ -500,11 +500,14 @@ The app loads `/wiki-cockpit.config.json` at runtime:
 - `mode`: display/runtime mode label such as `static`, `local_operator` or
   `github_connected`.
 
-Production builds are deliberately generic. `npm run build` disables Vite
-`.env` loading and fails closed when an app-local `.env*`, any `VITE_*`,
-`WIKI_COCKPIT_PROXY_API` or caller-provided `NODE_ENV` is present. Deployment
-and operator differences belong in `wiki-cockpit.config.json`, which is fetched
-at runtime. Required release runs record those fixed effective inputs alongside
+Public release builds are deliberately synthetic and reproducible. `npm run build`
+disables Vite `.env` loading, fails closed when an app-local `.env*`, any
+`VITE_*`, `WIKI_COCKPIT_PROXY_API` or caller-provided `NODE_ENV` is present, and
+materializes the package-owned
+`scripts/public-release-runtime-config.json` into `dist/wiki-cockpit.config.json`.
+It never rewrites or serves a downstream's tracked operator config as public
+evidence. Consumer-specific deployment remains a separate deploy-bundle/runtime
+boundary. Required release runs record those fixed effective inputs alongside
 the exact `dist/` inventory in `wiki_release_build_manifest.v2`; the independent
 Python receipt validator reopens both contracts.
 

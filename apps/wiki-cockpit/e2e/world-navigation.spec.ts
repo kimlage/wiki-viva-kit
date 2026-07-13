@@ -324,6 +324,12 @@ async function openDock(
 
 test("desktop cockpit modules keep one semantic world while navigating", async ({ page }) => {
   test.setTimeout(90_000);
+  const writeRequests: string[] = [];
+  page.on("request", (request) => {
+    if (!["GET", "HEAD", "OPTIONS"].includes(request.method())) {
+      writeRequests.push(`${request.method()} ${new URL(request.url()).pathname}`);
+    }
+  });
   await prepareWorld(page);
 
   await page.locator(".glyphButton", { hasText: "Atlas" }).click();
@@ -456,7 +462,11 @@ test("desktop cockpit modules keep one semantic world while navigating", async (
     await expect(createSheet.locator(".createForm")).toBeVisible();
     await expect(page.locator(".spatialCardType")).toHaveCount(0);
     await createSheet.locator(".createForm .intakeField input").first().fill("Adaptive map draft");
-    await expect(createSheet.locator(".createFormFoot .btn--primary")).toBeEnabled();
+    const createAction = createSheet.locator(".createFormFoot .btn--primary");
+    await expect(createAction).toBeDisabled();
+    await expect(createAction).toHaveAttribute("title", /sends nothing to the local operator/i);
+    await expect(createSheet.locator(".createGateNote")).toContainText(/never composes a brief.*opens a PR|nunca compõe um brief.*abre um PR/i);
+    await createAction.evaluate((button: HTMLButtonElement) => button.click());
     await createSheet.locator(".createTypeRow").first().hover();
   }
   expect(page.url()).toBe(createUrl);
@@ -469,6 +479,7 @@ test("desktop cockpit modules keep one semantic world while navigating", async (
   await expect(page.locator(".pageReader")).toBeVisible({ timeout: 10000 });
   await expectNavigableWorld(page, expectedCenter);
   await expectCompactControlsFit(page);
+  expect(writeRequests).toEqual([]);
 });
 
 test("visual control easter egg is local configuration, not world navigation", async ({ page }) => {
