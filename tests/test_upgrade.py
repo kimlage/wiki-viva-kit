@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import copy
 import hashlib
 import io
@@ -42,6 +43,30 @@ from wiki_core.upgrade import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_wiki_core_has_only_the_declared_git_subject_scripts_boundary() -> None:
+    """Keep repository operations behind the one reviewed core facade."""
+
+    allowed = {
+        ("wiki_core/release_receipt.py", "scripts._git_subject"),
+    }
+    violations: list[tuple[str, int, str]] = []
+    for path in sorted((ROOT / "wiki_core").rglob("*.py")):
+        relative = path.relative_to(ROOT).as_posix()
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=relative)
+        for node in ast.walk(tree):
+            modules: list[str] = []
+            if isinstance(node, ast.Import):
+                modules = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                modules = [node.module]
+            for module in modules:
+                if module == "scripts" or module.startswith("scripts."):
+                    if (relative, module) not in allowed:
+                        violations.append((relative, node.lineno, module))
+
+    assert violations == []
 
 
 def sha(label: str) -> str:

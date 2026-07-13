@@ -2737,13 +2737,18 @@ def validate_migration_evidence(
                         "consumer_after.branch does not match the checked consumer branch"
                     )
                 try:
-                    from scripts._git_subject import (
-                        GitSubjectError,
+                    # Import through the core-owned receipt facade.  The
+                    # standard-library helper intentionally lives under
+                    # scripts for the Node-only release path, but upgrade
+                    # validation must not create a second wiki_core -> scripts
+                    # architecture exception.
+                    from .release_receipt import (
+                        ReleaseReceiptError,
                         collect_git_subject as collect_exact_git_subject,
                     )
 
                     exact_subject = collect_exact_git_subject(root)
-                except (OSError, GitSubjectError):
+                except (OSError, ReleaseReceiptError):
                     exact_subject = None
                     errors.append(
                         "checked migration could not bind an exact Git subject"
