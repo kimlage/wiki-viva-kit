@@ -305,7 +305,15 @@ def _text_at_audit_base(rel: str) -> str | None:
         return None
     if rel not in run_git(["ls-tree", "-r", "--name-only", base, "--", rel]).splitlines():
         return None
-    return run_git(["show", f"{base}:{rel}"])
+    try:
+        return subprocess.check_output(
+            ["git", "show", f"{base}:{rel}"],
+            cwd=ROOT,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return None
 
 
 def _semantic_impact_text(text: str) -> str:
