@@ -3,9 +3,9 @@ schema_version: wiki_viva_upgrade_package.v2
 release:
   # This local branch is an explicitly private-first acceptance rehearsal.
   # It is not a public promotion of rc19 and must not be pushed as one.
-  id: wiki-viva-v8-private-rehearsal-20260713
+  id: wiki-viva-v8-private-rehearsal-v2-20260713
   status: candidate
-  source_sha: 0c2bb290347365560f3769913fc22f0111f87ab7
+  source_sha: c6292b3cb5f05da65ccafae789c00ca132a548b2
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: local-private-rehearsal-only
   base_release: wiki-viva-v8-rc19
