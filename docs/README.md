@@ -133,10 +133,17 @@ starting point for persistent context is `memories/`.
   diagnostic appended outside the Lane A registry was
   `inapplicable_gate/orchestration_invalid`, not an rc33 source failure. Rc33
   is immutable `historical_validation_failed`; no candidate, capture, capsule
-  or Lane B authority exists. Package `wiki-viva-v8-rc34` is pinned only for
-  exact validation at source `533d286869c478bd157b066d7882388b99fde2f7`
-  and must receive a wholly new validation/candidate/capture/certification
-  sequence.
+  or Lane B authority exists. Rc34 exact source
+  `533d286869c478bd157b066d7882388b99fde2f7` passed its wholly new exact
+  validation at metadata subject
+  `2afd435c7cc955ae7a922b1d46eac355472ca0e6`: 1,746 Python checks with 3
+  declared skips in 1,113.61 seconds, all 518 frontend and 115 Node checks,
+  every applicable static gate, and first/only strict browser run
+  `public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` at 102/102 with no
+  failure, skip, retry or flaky cell in 6.5 minutes. It is now a local-QA
+  `candidate`, which permits productive capture and Lane A certification only.
+  No capsule, adoption or public-push authority exists until certification
+  seals a capsule and independent verification succeeds.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

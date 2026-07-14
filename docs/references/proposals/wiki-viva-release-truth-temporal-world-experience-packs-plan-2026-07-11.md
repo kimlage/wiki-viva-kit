@@ -126,8 +126,9 @@ That authorized adoption now has a fresh read-only preflight, a direct
 C1 -> C2 -> C3 ownership chain, all 22 required gates, four real visual canary
 profiles, generated private/public-redacted reports and an executed disposable
 rollback. Promotion is no longer blocked on evidence construction; it remains
-blocked on the consumer PR's exact hosted performance proof and the human merge
-gate. The hosted matrix closed 100 of 102 cells; the only two failures are the
+blocked only on the consumer PR's exact hosted performance proof. Standing
+private merge approval already satisfies the human-authorization boundary, but
+cannot replace that technical proof. The hosted matrix closed 100 of 102 cells; the only two failures are the
 unchanged desktop frame-budget cells on the standard macOS runner. Navigation,
 visual baselines, fallback and both secondary browsers passed. This is not a
 license to retry, raise the budget or omit the cells: consumer `main` remains
@@ -262,9 +263,14 @@ declared skips, 517 frontend, 115 Node and all applicable static gates. Its
 first/only browser matrix then ended 98/102 with four failures in 330.49
 seconds, so rc33 is immutable `historical_validation_failed`. RT-169 scopes
 the quadrant prefix to root-overview labels and passes 518 frontend plus the
-focused 4/4 formerly failing browser cases. Rc34 is pinned only for exact
-validation at source `533d286869c478bd157b066d7882388b99fde2f7`; its complete
-authority sequence has not started.
+focused 4/4 formerly failing browser cases. Rc34 exact source
+`533d286869c478bd157b066d7882388b99fde2f7` then passed its complete exact
+validation at metadata subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6`:
+1,746 Python tests with 3 declared skips, 518 frontend tests, 115 Node gates,
+every applicable static gate and the first/only strict browser matrix at
+102/102 with zero failure, skip, retry or flaky result. The next separate
+boundary marks rc34 as a local-QA `candidate` for productive Lane A capture
+and certification only; it is not a capsule, Lane B or publication authority.
 Public push and publication remain unauthorized.
 
 ### Normative Lane A -> Lane B handoff and fast-path budget
@@ -753,12 +759,12 @@ memory rather than one fixed dashboard:
 | Historical public rc31 validation failure | Exact source `6fa9b907d5dfc748e94d182ac3704b226142552e`; validation metadata `6c8fce74d1ea84712ef5a443ac7bee5aa2cfc6ef`; package-file/canonical-package/tree `f87ff28b...` / `3b6df79c...` / `f0322662...`, 521 entries | RT-164 public/downstream checks pass; first complete exact validation then passed 1,740 Python with 3 skips and 0 separately reported warnings in 1,291.72 s plus 517 frontend checks. Audit/public-audit/methodology/operation/input/semantic/snapshot/packs/consolidation passed, then operational-pass freshness failed; browser was not started | RT-165: the tracked dashboard was stale and a date-changing generation was not one-write idempotent because it indexed its own old record | Immutable `historical_validation_failed`; no candidate, capture, certification, capsule or downstream authority. Never retry, relabel, promote or import rc31 |
 | Historical public rc32 validation failure | Exact source `ed073dee5fbf05343b36db1fdc061a24d0220cb9`; metadata `5848f8f9e5ec059b1c3f880db0d7931a25920af9`; package `wiki-viva-v8-rc32` / `validation_pending`; package-file/canonical-package/tree `f88cb5fc625a28e2aff40518d895aa5668110838b2fd4179e53407f06ba2311d` / `8c07f05a680b1bd47994b3560067c28bcf5416aa2bc3546f1e698466940d2b81` / `7da9d6369550d45f368ee3ddb4f04382949f498fd0c2ff9350389243bd0fb82f`, 521 entries | Formation passed 198 focused checks and one-write operational-pass freshness. First/only full Python validation ended 2 failed, 1,744 passed and 3 skipped in 1,201.51 s; frontend and browser did not start | RT-167: one workflow assertion hardcoded legacy `python` after canonical `python3`. RT-168: release truth omitted the literal package ID | Immutable `historical_validation_failed`; no candidate, capture, capsule, downstream or public-promotion authority. Never retry, relabel, promote or import rc32 |
 | Historical public rc33 validation failure | Exact source `539eb19b958a4159eecb2c5a7afd6ceaabcbb086`; metadata `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`; package `wiki-viva-v8-rc33` / `validation_pending`; package-file/canonical-package/tree `300a78a6c9005059dfe07c6bbe98c268b34739a0aeed8d9f92eadd21dc1b4cb9` / `69dd37f9d6ed94b92751f6a83a4f4d15cbb1efe925d9bac9d286976a008e1a15` / `7964e884e019af57cc8d53322039635e66fb0233f407685fb258f3c24d76c847`, 521 entries | First/only exact stack passed 1,746 Python with 3 skips, 517 frontend, 115 Node and every applicable static gate; browser ended 98/102 with 4 failures, zero retry/skip in 330.49 s. The extra manual adapter command is `inapplicable_gate/orchestration_invalid`, not a selected required gate | RT-169: a root-overview quadrant prefix leaked into focused-lens names/breadcrumb assumptions and mobile pointer geometry | Immutable `historical_validation_failed`; no candidate, productive capture, capsule, attestation, receipt, downstream or promotion authority. Never retry, relabel, promote or import rc33 |
-| Public rc34 validation source | Exact source `533d286869c478bd157b066d7882388b99fde2f7`; package `wiki-viva-v8-rc34` / `validation_pending`; package-file/canonical-package/tree `f5a0ef463b56d3b35a918bb163108ba01e39eb68eefd8ef8b35f3a933507bb33` / `dc7cc755a69b33a8aaf994f52b12d38307a7153bde9942d1eac9b310cb0ebac7` / `257140ba318e4ee269d026f58f0e02bc6056e593dc9b25750e7f81af4c8834f9`, 521 entries | Public synthetic formation proof passes 518 frontend checks and the focused 4/4 formerly failing browser cases | RT-169 scopes `Qn ·` to root-overview `SceneLabel` records, restores concise focused-lens family names and asserts breadcrumb facet/family separately | Validation only. Run the complete exact stack from zero; no candidate, capture, capsule, downstream or public-promotion authority exists, and public push/publication remains unauthorized |
+| Exact public rc34 validated local-QA candidate | Exact source `533d286869c478bd157b066d7882388b99fde2f7`; validation subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6`; validation-pending package-file/canonical-package/tree `f5a0ef463b56d3b35a918bb163108ba01e39eb68eefd8ef8b35f3a933507bb33` / `dc7cc755a69b33a8aaf994f52b12d38307a7153bde9942d1eac9b310cb0ebac7` / `257140ba318e4ee269d026f58f0e02bc6056e593dc9b25750e7f81af4c8834f9`, 521 entries; candidate package-file/canonical-package/tree `a62594490177830b24d7a65b70f5acbd7f033235e0a26ed4f6e4b84d4af7cac8` / `b076019c6b890a0a54f2c5b4f6362bbe025f490d53eb588fdbd119bd74e7e5ea` / `59fa6d660f0d0e43b880e34d72fb1b9c00485ec72828051c0d8eeb56a881671c`, `521` entries | First/only exact validation passed 1,746 Python with 3 declared skips in 1,113.61 s, 518 frontend, 115 Node, every applicable static gate and browser run `public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` at 102/102 with 0 failures/skips/retries/flaky results in 6.5m. Run-result/report/build-manifest/gate-result SHA-256: `02f3d2bb5d7acea26313944978cc620cd92e024945f55f87f3d4bfb1f5fd09fe` / `3353646ccf808c586b285007c835566a6928fdfe430a64b044f5fdf5c9bd3d53` / `6578f59c80add285cea103795618ec8c3a0537906cd723cd178350332dc657aa` / `d0dca2712e831c953d76b58ff373bcb550a659e601596415134d2bd078b9ea9c` | RT-169 scopes `Qn ·` to root-overview `SceneLabel` records, restores concise focused-lens family names and asserts breadcrumb facet/family separately; the exact subject stayed clean before/after the browser run | Local-QA candidate only. Productive capture, visual manifest, certification, capsule verification, Lane B QA and human/promotion gates remain pending; public push/publication remains unauthorized |
 | Corrected local public source for the authorized v2 exception | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; package v2 canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc` | Public suite passed 1,529 tests, with two declared skips and two warnings; package validation and public privacy boundary pass | Atomic operator-job publication and the two-lane migration contracts are covered by public synthetic fixtures | Local source authority for the explicitly authorized in-flight v2 QA only; public publication remains unauthorized |
 | Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the frozen current v2 adoption or a future rc34-or-later v3 plan |
-| Current corrected authorized private v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; two deterministic hosted jobs pass; the only completed standard Apple Silicon attempt closed 100/102, a later attempt was cancelled during browser installation and a separate standard Intel probe closed 92/102 with software rendering and WebGL context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback; private `AGENTS.md`/router work is deliberately deferred to a fresh post-v2 v3 follow-up | Promotion blocked and the aggregate visual check is cancelled/non-green; consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the human gate approves; current v2 C3/receipts remain immutable |
-| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact rc26 passed its first/only 102-cell public matrix with 0 skips/retries, including demo, pack, Genesis, accessibility, compatibility, failure and source-lifecycle cells; rc27 stopped in Python before browser, rc28/rc29 were rejected pre-validation, rc30 was rejected before its complete matrix, rc31 stopped on operational-pass freshness, rc32 stopped in Python and rc33 stopped at 98/102 in browser | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Prior browser/capture proof remains exact-subject historical evidence only; a pinned rc34-or-later subject must repeat every stage |
-| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Exact rc26 passed 102 browser cells and its first productive four-profile capture, manifest `6681e1f751ecd157854a4c3d78360a79f981100a4eda97ec377189ea9566614f`; rc27 never reached capture, rc28/rc29 were rejected pre-validation, rc30 stopped before its matrix on RT-164, rc31 stopped before browser on RT-165, rc32 stopped in Python on RT-167/RT-168 and rc33 stopped in browser on RT-169 | Native/fallback/profile behavior was captured without granting release authority; transition frames still require settling and VoiceOver remains human | Rc24 and rc26 visual evidence is historical and cannot be reused. A pinned rc34-or-later subject requires a fresh productive capture, certification and human conceptual/privacy/VoiceOver review |
+| Current corrected authorized private v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; two deterministic hosted jobs pass; the only completed standard Apple Silicon attempt closed 100/102, a later attempt was cancelled during browser installation and a separate standard Intel probe closed 92/102 with software rendering and WebGL context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback; private `AGENTS.md`/router work is deliberately deferred to a fresh post-v2 v3 follow-up | Promotion blocked and the aggregate visual check is cancelled/non-green; standing private merge approval is already recorded, but consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the merge/readback completes; current v2 C3/receipts remain immutable |
+| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact rc34 passed its first/only 102-cell public matrix with zero failure, skip, retry or flaky result, including demo, pack, Genesis, accessibility, compatibility, failure and source-lifecycle cells | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Rc34 browser proof is exact-subject validation evidence; productive capture, certification and human review remain separate |
+| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Exact rc34 passed 102 browser cells including PT-BR, keyboard, touch, mobile, fallback, runtime identity and the RT-151/RT-164/RT-169 regressions; its productive four-profile capture has not started | Validated native/fallback/profile behavior is exact-subject automation evidence; transition frames still require settling and VoiceOver remains human | Rc24 and rc26 visual evidence is historical and cannot be reused. Rc34 needs its own productive capture, certification and human conceptual/privacy/VoiceOver review |
 
 At historical machine-status commit `f849de26`, the local public branch changed 2,066
 files with 486,397 additions and 10,913 deletions across 100 commits from the
@@ -1356,7 +1362,7 @@ reproduction.
 | RT-166 | P0 | The canonical package already classified `operational_pass` as mandatory `consumer_always`, but the root `AGENTS.md` local checklist omitted it and used a weaker Python command. CI ran operational-pass freshness but also used Python without `-W error`, while the strict visual job depended only on frontend and runner-policy jobs; a remote browser run could therefore become eligible after the deterministic audit/test job failed | E1 package/impact registry require `python3 scripts/wiki_operational_pass.py --check`, `python3 -m pytest -q -W error tests/`, reuse never and promotion blocking. Public workflow/guide inspection showed the three enforcement divergences. E2 workflow regressions parse the real YAML and require exact warning policy, operational-pass presence and `cockpit-visual` dependency on `audit-and-test`; the same test binds the root guide commands | Rc32 aligns the local guide and CI with the canonical registry and makes strict browser execution depend on deterministic audit/test success as well as cockpit and trusted-runner policy. The browser runner remains independently attested; hardware availability can never bypass a failed core gate |
 | RT-167 | P0 | Rc32 correctly standardized the Ubuntu workflow on the versioned `python3` command, but an older page-graph workflow assertion retained two literal `python` spellings. The full suite therefore rejected the correct workflow because the test had become a second, stale command authority | E2 exact rc32 source `ed073dee5fbf05343b36db1fdc061a24d0220cb9`, metadata `5848f8f9e5ec059b1c3f880db0d7931a25920af9`; first/only full Python validation ended 2 failed, 1,744 passed and 3 skipped in 1,201.51 s. Focused reproduction isolates the legacy alias assertion while registry/workflow topology tests remain green | Freeze rc32 as immutable `historical_validation_failed`. Rc33 derives the page-graph command and interpreter alias from `impact-registry.yaml`; never revert the canonical workflow or add another hardcoded alias |
 | RT-168 | P0 | The package/inventory truth contract requires the literal `release.id` in the release note, but rc32 prose used only the shortened “rc32” label. A human-readable abbreviation therefore diverged from the machine release identity | E2 the same rc32 full run failed `test_public_upgrade_package_and_inventory_are_valid`; adding the literal `wiki-viva-v8-rc32` satisfies that assertion and every later source/version/package/inventory assertion without weakening the test | Keep the assertion strict. Historical rc32 truth names the literal ID, and rc33's separate validation pin bound the literal exact `wiki-viva-v8-rc33` identity before its unrelated RT-169 browser failure |
-| RT-169 | P0 | The RT-164 `Q1`–`Q4` disambiguation was encoded inside the generic family-title resolver, so it also prefixed a single family inside a selected quadrant. That changed the focused-lens accessible name and made a compact short-phone label tall enough to overlap the quadrant compass; one desktop breadcrumb assertion also incorrectly treated the root target label as the full hierarchy | E2 exact rc33 source `539eb19b958a4159eecb2c5a7afd6ceaabcbb086`, metadata `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`, package-file/canonical-package/tree `300a78a6...` / `69dd37f9...` / `7964e884...`, 521 entries. Python passed 1,746 with 3 skips in 1,072.23 s; frontend 517, Node 115 and applicable static gates passed. First/only browser ended 98/102, 4 failed, 0 skipped/retried in 330.49 s. The manually appended adapter command is `inapplicable_gate/orchestration_invalid`, not a required-gate failure | Freeze rc33 as immutable `historical_validation_failed`. Carry the quadrant prefix as explicit root-overview `SceneLabel` context only; default/focused title resolution returns the concise family label, while breadcrumb tests assert facet and family as separate hierarchy elements. Public synthetic correction passes 518 frontend checks and focused 4/4 formerly failing browser cases. Exact rc34 source `533d286869c478bd157b066d7882388b99fde2f7` is pinned only for a wholly new authority sequence |
+| RT-169 | P0 | The RT-164 `Q1`–`Q4` disambiguation was encoded inside the generic family-title resolver, so it also prefixed a single family inside a selected quadrant. That changed the focused-lens accessible name and made a compact short-phone label tall enough to overlap the quadrant compass; one desktop breadcrumb assertion also incorrectly treated the root target label as the full hierarchy | E2 exact rc33 source `539eb19b958a4159eecb2c5a7afd6ceaabcbb086`, metadata `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`, package-file/canonical-package/tree `300a78a6...` / `69dd37f9...` / `7964e884...`, 521 entries. Python passed 1,746 with 3 skips in 1,072.23 s; frontend 517, Node 115 and applicable static gates passed. First/only browser ended 98/102, 4 failed, 0 skipped/retried in 330.49 s. The manually appended adapter command is `inapplicable_gate/orchestration_invalid`, not a required-gate failure. E3 exact rc34 source `533d286869c478bd157b066d7882388b99fde2f7` and validation subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6` passed 1,746 Python with 3 skips, 518 frontend, 115 Node, every applicable static gate and first/only browser 102/102 with zero failure/skip/retry/flaky result in 6.5m | Freeze rc33 as immutable `historical_validation_failed`. Rc34 carries the quadrant prefix as explicit root-overview `SceneLabel` context only; default/focused title resolution returns the concise family label, while breadcrumb tests assert facet and family as separate hierarchy elements. RT-169 is closed at exact validation; the separate local-QA candidate boundary permits productive Lane A capture/certification only and grants no capsule, Lane B or publication authority |
 
 ### Historical exact-public-subject closure overlay
 
@@ -3682,7 +3688,9 @@ This is the only active queue; earlier S9/S10 queues are historical snapshots:
     failure. Obtain explicit authority for an isolated physical self-hosted
     runner or an eligible GPU-accelerated larger runner, prove the unchanged
     matrix there, or fix a reproduced public-core defect with synthetic
-    fixtures. Then obtain the human merge gate and verify consumer `main`.
+    fixtures. Standing private merge approval is already recorded; after the
+    technical proof passes, merge and verify consumer `main` without another
+    approval request.
     Public push, PR, merge, tag and external E5 remain unauthorized;
 15. **PENDING AFTER V2 MAIN** — open one fresh v3 consumer-policy follow-up for
     private `AGENTS.md` and router/non-`wiki-*` skill adaptation. Start from the
@@ -4622,7 +4630,7 @@ is the public-redacted checkpoint below.
 | RT-48 | exact S22 Node 22/socket contracts pass; private replay pending | live current-operator restart/security proof and downstream documentation replay |
 | RT-125 / RT-146 / RT-147 | exact S22 focused/full controls, canonical package, pinned Git tree and inert release record pass; private drift pending | after merge, obtain corrected private drift zero and redacted evidence |
 | RT-148 / RT-149 | exact S22 full receipt, seven-step browser contract and visual manifest pass | final private replay without tour/modal stacking after merge |
-| RT-150 / RT-162 / RT-163 / RT-164 / RT-165 / RT-166 / RT-167 / RT-168 / RT-169 | rc26 became `candidate` only after exact validation, then passed productive capture and all six registered commands; the public-evidence scanner still rejected the transaction before attestation. Rc27 stopped in Python with 46 lifecycle failures; rc28/rc29 were rejected for stale portable truth; rc30 real-data QA exposed identical labels; rc31 failed non-fixed-point operational-pass freshness; rc32 failed two source-contract checks. Rc33 closed RT-167/RT-168 and passed Python, frontend, Node and static gates, but its first/only browser matrix stopped at 98/102: the root-only quadrant disambiguation had been applied globally, causing three focused-lens semantic-name/breadcrumb regressions and one short-phone pointer collision | Preserve rc26 as immutable failed-certification evidence, rc27/rc31/rc32/rc33 as immutable failed-validation evidence and rc28/rc29/rc30 as immutable pre-validation rejections. RT-169 scopes `Qn ·` disambiguation to root-overview scene labels, keeps focused-lens family names concise and separates breadcrumb hierarchy from target accessible identity. Exact rc34 source `533d286869c478bd157b066d7882388b99fde2f7` is pinned only for a wholly new validation and authority sequence |
+| RT-150 / RT-162 / RT-163 / RT-164 / RT-165 / RT-166 / RT-167 / RT-168 / RT-169 | rc26 became `candidate` only after exact validation, then passed productive capture and all six registered commands; the public-evidence scanner still rejected the transaction before attestation. Rc27 stopped in Python with 46 lifecycle failures; rc28/rc29 were rejected for stale portable truth; rc30 real-data QA exposed identical labels; rc31 failed non-fixed-point operational-pass freshness; rc32 failed two source-contract checks. Rc33 closed RT-167/RT-168 and passed Python, frontend, Node and static gates, but its first/only browser matrix stopped at 98/102: the root-only quadrant disambiguation had been applied globally, causing three focused-lens semantic-name/breadcrumb regressions and one short-phone pointer collision. Rc34 closes RT-169 and passed its complete exact validation at metadata subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6`, including 102/102 first/only browser cells | Preserve rc26 as immutable failed-certification evidence, rc27/rc31/rc32/rc33 as immutable failed-validation evidence and rc28/rc29/rc30 as immutable pre-validation rejections. The separate rc34 local-QA candidate boundary authorizes only a new productive capture and certification; a capsule, independent verification, fresh Lane B plan and human promotion gate remain mandatory, and public push/publication remains unauthorized |
 | RT-12 / RT-37 / RT-59 / RT-85 / RT-91 / RT-119 | complete official S22 receipt is bound; human/private/E5 remain | complete human review, final private adoption and E5 instead of reusing an earlier subject |
 
 ### Two-lane migration decision and current downstream QA — 2026-07-13 (public-redacted)
@@ -4868,8 +4876,10 @@ its first/only Python `-W error` validation with 46 lifecycle failures; browser,
 candidate, capture and certification never started. Rc30 was later rejected
 before its complete matrix on RT-164. Rc33 later passed its deterministic,
 frontend, Node and static stack, then RT-169 froze it when the first/only
-browser matrix ended 98/102. All new certification must begin from a separately
-pinned and fully validated rc34-or-later source. Public
+browser matrix ended 98/102. Exact rc34 source
+`533d286869c478bd157b066d7882388b99fde2f7` now supplies the separately pinned,
+fully validated successor; its local-QA candidate boundary permits only a new
+productive capture and certification. Public
 push and publication remain unauthorized.
 
 #### Post-rc21 downstream rehearsal: RT-152 and the rc22 correction boundary — 2026-07-14
@@ -4968,11 +4978,15 @@ validation on RT-167/RT-168. Rc33 then passed Python, frontend, Node and the
 static stack, but RT-169 froze it after the first/only browser matrix exposed
 three focused-lens semantic-scope failures and one short-phone pointer
 collision. Complete validation and every later authority stage must now start
-from a separately pinned rc34-or-later source.
+from a separately pinned rc34-or-later source. Rc34 source
+`533d286869c478bd157b066d7882388b99fde2f7` passed that complete exact
+validation at metadata subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6`;
+the next boundary is a local-QA candidate only, before fresh productive capture
+and certification.
 Public push and publication remain
 unauthorized.
 
-#### Rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed validation, rc24/rc26 failed certification, rc28/rc29/rc30 rejected and rc34 validation pin — 2026-07-14
+#### Rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed validation, rc24/rc26 failed certification, rc28/rc29/rc30 rejected and rc34 validated candidate — 2026-07-14
 
 | Evidence | Exact local result | Authority boundary |
 |---|---|---|
@@ -5000,22 +5014,28 @@ unauthorized.
 | Rc31 historical validation failure | Source `6fa9b907d5dfc748e94d182ac3704b226142552e`; metadata `6c8fce74d1ea84712ef5a443ac7bee5aa2cfc6ef`; package-file/canonical-package/tree `f87ff28b4dd4c43b9c831dc7449888b16898de3a65dc1bafcb408aff80c7074c` / `3b6df79c764c2c287e26d15c50f74fde3fef12dc1f4ca03fffa48517c84751d4` / `f03226622e7be9e2668d4d39b8c642bf0a7b52571cbedada70071e656b461037`, 521 entries | RT-164 public/downstream proof stayed green. First complete exact validation passed 1,740 Python with 3 skips and 0 separately reported warnings in 1,291.72 s, 517 frontend and audit/public-audit/methodology/operation/input/semantic/snapshot/packs/consolidation; operational-pass freshness then exited 1. Browser and later stages were not started | RT-165; immutable `historical_validation_failed`. Never retry, relabel, promote or import; no candidate, capture, capsule or Lane B authority |
 | Rc32 historical validation failure | Source `ed073dee5fbf05343b36db1fdc061a24d0220cb9`; metadata `5848f8f9e5ec059b1c3f880db0d7931a25920af9`; package `wiki-viva-v8-rc32` / `validation_pending`; package-file/canonical-package/tree `f88cb5fc625a28e2aff40518d895aa5668110838b2fd4179e53407f06ba2311d` / `8c07f05a680b1bd47994b3560067c28bcf5416aa2bc3546f1e698466940d2b81` / `7da9d6369550d45f368ee3ddb4f04382949f498fd0c2ff9350389243bd0fb82f`, 521 entries | Formation passed 198 focused checks and one-write operational freshness. First/only full Python run ended 2 failed, 1,744 passed, 3 skipped in 1,201.51 s: stale `python` workflow assertion plus missing literal release ID. Frontend and browser were not started | RT-167/RT-168; immutable `historical_validation_failed`. Never retry, relabel, promote or import; no candidate, capture, capsule or Lane B authority |
 | Rc33 historical validation failure | Source `539eb19b958a4159eecb2c5a7afd6ceaabcbb086`; validation metadata `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`; package `wiki-viva-v8-rc33` / `validation_pending`; package-file/canonical-package/tree `300a78a6c9005059dfe07c6bbe98c268b34739a0aeed8d9f92eadd21dc1b4cb9` / `69dd37f9d6ed94b92751f6a83a4f4d15cbb1efe925d9bac9d286976a008e1a15` / `7964e884e019af57cc8d53322039635e66fb0233f407685fb258f3c24d76c847`, 521 entries | First/only exact validation passed 1,746 Python with 3 declared skips in 1,072.23 s, 517 frontend, 115 Node and the complete applicable static stack. The first/only browser matrix ended 98/102 with 4 failures, zero retries and zero skips in 330.49 s: three focused-lens accessible-name/breadcrumb-scope failures and one short-phone pointer collision. A manually appended `wiki_adapter_manifest.py check` was not selected by Lane A; its exit 2 is `inapplicable_gate/orchestration_invalid`, not a required-gate or rc33 source failure, and mints no receipt | RT-169; immutable `historical_validation_failed`. `package_is_pinned` remains false; no candidate, productive capture, capsule, attestation, receipt, import, Lane B or public-promotion authority exists; never retry, reuse, relabel, promote or import |
-| Rc34 validation source | Source `533d286869c478bd157b066d7882388b99fde2f7`; package `wiki-viva-v8-rc34` / `validation_pending`; package-file/canonical-package/tree `f5a0ef463b56d3b35a918bb163108ba01e39eb68eefd8ef8b35f3a933507bb33` / `dc7cc755a69b33a8aaf994f52b12d38307a7153bde9942d1eac9b310cb0ebac7` / `257140ba318e4ee269d026f58f0e02bc6056e593dc9b25750e7f81af4c8834f9`, 521 entries | RT-169 carries quadrant disambiguation on the root-overview `SceneLabel` only, restores concise focused-lens family names and checks breadcrumb facet plus family separately. Public synthetic proof passes 518 frontend checks and a focused 4/4 replay of the four formerly failing browser cases | Pinned only for exact validation. `package_is_pinned` remains false; no plan, import, complete browser matrix, candidate, capture, capsule or public-promotion authority exists |
+| Rc34 validated local-QA candidate | Source `533d286869c478bd157b066d7882388b99fde2f7`; validation metadata `2afd435c7cc955ae7a922b1d46eac355472ca0e6`; validation-pending package-file/canonical-package/tree `f5a0ef463b56d3b35a918bb163108ba01e39eb68eefd8ef8b35f3a933507bb33` / `dc7cc755a69b33a8aaf994f52b12d38307a7153bde9942d1eac9b310cb0ebac7` / `257140ba318e4ee269d026f58f0e02bc6056e593dc9b25750e7f81af4c8834f9`, 521 entries; candidate package-file/canonical-package/tree `a62594490177830b24d7a65b70f5acbd7f033235e0a26ed4f6e4b84d4af7cac8` / `b076019c6b890a0a54f2c5b4f6362bbe025f490d53eb588fdbd119bd74e7e5ea` / `59fa6d660f0d0e43b880e34d72fb1b9c00485ec72828051c0d8eeb56a881671c`, `521` entries | RT-169 carries quadrant disambiguation on the root-overview `SceneLabel` only, restores concise focused-lens family names and checks breadcrumb facet plus family separately. First/only exact validation passed 1,746 Python with 3 declared skips in 1,113.61 s, 518 frontend, 115 Node and every applicable static gate. Browser run `public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` passed 102/102 with 0 failures/skips/retries/flaky results in 6.5m; run-result/report/build-manifest/gate-result SHA-256 `02f3d2bb5d7acea26313944978cc620cd92e024945f55f87f3d4bfb1f5fd09fe` / `3353646ccf808c586b285007c835566a6928fdfe430a64b044f5fdf5c9bd3d53` / `6578f59c80add285cea103795618ec8c3a0537906cd723cd178350332dc657aa` / `d0dca2712e831c953d76b58ff373bcb550a659e601596415134d2bd078b9ea9c` | Local-QA `candidate`; `package_is_pinned=true` authorizes productive Lane A capture/certification only. No plan, import, capture, capsule, attestation, Lane B or public-promotion authority exists; public push/publication remains unauthorized |
 
 Rc27, rc31, rc32 and rc33 are frozen as historical failed-validation evidence,
 rc28/rc29 are frozen as pre-validation rejections, and rc30 is frozen as a
 pre-validation rejection. Rc33 source
 `539eb19b958a4159eecb2c5a7afd6ceaabcbb086` and metadata
 `a3aae4b1aa5ef53b5e74983d396a744d22f3b514` must never be retried or relabeled.
-Rc34 source `533d286869c478bd157b066d7882388b99fde2f7` is pinned only for
-exact validation with focused RT-169 formation proof. The
+Rc34 source `533d286869c478bd157b066d7882388b99fde2f7` passed complete exact
+validation at metadata subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6`.
+The separate local-QA candidate boundary authorizes only a fresh productive
+capture and certification; capsule verification, Lane B and promotion remain
+pending. The
 already sealed v2 downstream C3 and all of its
 receipts remain frozen on their original complete
 `migration.required_gates` matrix. RT-152 does not append paths to that subject,
 regenerate evidence, reduce a gate or reinterpret a v2 receipt as v3 proof. The
 three config-bound roles may enter a consumer only through a fresh v3
-B0/C1/C2/C3 plan after the frozen v2 subject is promoted or rolled back through
-its existing human gate.
+B0/C1/C2/C3 plan after the frozen v2 subject is promoted or rolled back. The
+operator has recorded standing approval for incremental merges to the private
+consumer `main`; this satisfies the downstream human-authorization boundary
+without another confirmation request, but it never waives or weakens any
+technical gate, privacy audit, real canary, rollback or exact-subject check.
 
 The following current-consumer gates are never reusable: secret/private audit,
 public-evidence redaction, input stage, semantic inventory, adapter identity,
@@ -5078,7 +5098,7 @@ environment own every command and receipt.
 | Transitional required matrix | All 22 declared gates passed on first attempt against final C3; execution receipts remain ignored and untracked downstream | The original v2 matrix is closed without reuse or reduction |
 | Real canary, generated reports and disposable rollback | Four declared profiles pass with sanitized console/network evidence and no sample fallback; Timeline exposes 906 total events, 33 filtered results and an open detail state; private/public-redacted reports agree; reverse-order rollback restores the frozen baseline | Local technical evidence complete |
 | Consumer hosted CI | The only completed standard Apple Silicon attempt closed 100/102 with two unchanged performance-budget failures; a later attempt was cancelled during browser installation, so the aggregate visual check is currently cancelled/non-green; a separate first-attempt standard Intel probe closed 92/102 with software SwiftShader and WebKit context loss/crash | Neither tested standard pool is release authority; promotion remains blocked with no retry, waiver, omission or budget relaxation |
-| Consumer `main` | Unchanged | No integration or completion claim exists before 102/102 and human approval |
+| Consumer `main` | Unchanged; standing private merge approval is recorded | No integration or completion claim exists before the exact technical contract reaches 102/102, canary and rollback remain valid, and the merge/readback actually completes |
 
 No consumer repository name, branch, host path, route, content label, commit,
 screenshot, timing, raw corpus inventory or raw receipt is published. Typed,
@@ -5091,10 +5111,12 @@ but none authorizes promotion after the source/package identity changes. Final
 status may advance only from the generated report and PR/CI/merge readback,
 never from this prose summary.
 
-The next lawful step is to obtain explicit operator authority and run the
-unchanged 102-cell contract once on an isolated physical self-hosted runner, or
-provision an eligible GPU-accelerated larger runner, unless a real performance
-defect is first reproduced and fixed in the public core with synthetic fixtures.
+The standing private merge approval removes any need to request another human
+confirmation. The next remaining step for this frozen v2 subject is technical:
+run the unchanged 102-cell contract once on an isolated physical self-hosted
+runner, or provision an eligible GPU-accelerated larger runner, unless a real
+performance defect is first reproduced and fixed in the public core with
+synthetic fixtures.
 A retry on either tested standard pool, wider budget, omitted cell or manually
 fabricated green check is not evidence. Only after remote CI, the human merge
 gate and an exact consumer-`main` readback may the concurrent domain-content
@@ -5184,7 +5206,8 @@ does **not** authorize public push, PR mutation, merge, tag or E5. Consumer-main
 promotion has a corrected direct-chain subject, the complete original v2
 matrix, current canary evidence, generated reports and a passing
 disposable-clone rollback. It is eligible for the consumer PR and remains
-blocked on runner authority plus the human merge gate. The only completed
+blocked only on the missing capable-runner result; standing private merge
+approval is already recorded and cannot substitute for that proof. The only completed
 standard Apple Silicon attempt closed 100/102, a later attempt was cancelled
 during browser installation, and a separate standard Intel probe closed 92/102
 with software rendering and WebKit context loss. None authorizes a retry, budget
@@ -5245,17 +5268,23 @@ first/only browser result remains 98/102 with four failures in 330.49 seconds.
 Never retry, relabel, promote or import rc33, and do not reinterpret the
 manually appended, inapplicable adapter command as a required-gate failure.
 Preserve exact rc34 source `533d286869c478bd157b066d7882388b99fde2f7` and its
-separate validation-only metadata boundary while its context-scoped root-label
-fix is backed by 518 frontend and focused 4/4 browser formation proof. Run one
-complete exact validation, a
-separate candidate boundary, one new productive capture, one certification and
-independent capsule verification from zero. The corrected v2 chain,
+separate validation metadata subject
+`2afd435c7cc955ae7a922b1d46eac355472ca0e6`. Its context-scoped root-label fix
+is backed by 1,746 Python passes with 3 declared skips, 518 frontend passes, 115
+Node passes, the complete applicable static stack and first/only browser
+102/102 with zero failure, skip, retry or flaky result. This separate metadata
+boundary marks the exact source as a local-QA candidate with candidate
+package-file/canonical-package/tree identities `a62594490177830b24d7a65b70f5acbd7f033235e0a26ed4f6e4b84d4af7cac8` /
+`b076019c6b890a0a54f2c5b4f6362bbe025f490d53eb588fdbd119bd74e7e5ea` / `59fa6d660f0d0e43b880e34d72fb1b9c00485ec72828051c0d8eeb56a881671c`,
+`521` entries. Run one new productive capture, one
+certification and independent capsule verification from zero. The corrected v2 chain,
 complete original matrix,
 current-subject canary, generated reports and disposable rollback are closed;
 keep the consumer PR fail-closed until the same performance contract passes on
 an explicitly authorized, isolated physical self-hosted runner or eligible
 GPU-accelerated larger runner, or a public-core defect is reproduced and fixed.
-Then promote through the human merge gate and verify the new consumer `main`.
+Then use the recorded standing private merge approval and verify the new
+consumer `main`.
 Replay concurrent domain content afterwards in a separate PR. Keep the public
 two-lane core and synthetic fixtures local; do not publish them until a separate
 explicit authorization. Use the v3 capsule/impact/resume model only for a new

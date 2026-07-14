@@ -49,9 +49,15 @@ evidence. Rc33 exact source
 `539eb19b958a4159eecb2c5a7afd6ceaabcbb086` passed Python, frontend, Node and
 all applicable static gates, then stopped fail-closed at 98/102 in its first
 strict browser matrix. It is immutable failed-validation evidence with no
-candidate, capsule or adoption authority. Package `wiki-viva-v8-rc34` is
-pinned only for exact validation at source
-`533d286869c478bd157b066d7882388b99fde2f7`. See the
+candidate, capsule or adoption authority. Rc34 exact source
+`533d286869c478bd157b066d7882388b99fde2f7` passed its wholly new exact
+validation at metadata subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6`:
+1,746 Python checks with 3 declared skips in 1,113.61 seconds, 518 frontend and
+115 Node checks, every applicable static gate, and first/only strict browser
+run `public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` at 102/102 with no
+failure, skip, retry or flaky cell in 6.5 minutes. It is now a local-QA
+`candidate`, which permits productive capture and Lane A certification only;
+no capsule, adoption or public-push authority exists yet. See the
 [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority: do not
@@ -341,9 +347,16 @@ regressions and one short-phone pointer collision. The extra adapter-manifest
 diagnostic appended outside the Lane A registry was
 `inapplicable_gate/orchestration_invalid`, not an rc33 source failure. Rc33 is
 immutable failed-validation evidence; no candidate, capture, capsule or Lane B
-authority exists. Package `wiki-viva-v8-rc34` is pinned only for exact
-validation at source `533d286869c478bd157b066d7882388b99fde2f7` and must
-receive a wholly new validation/candidate/capture/certification sequence.
+authority exists. Rc34 exact source
+`533d286869c478bd157b066d7882388b99fde2f7` passed 1,746 Python checks with 3
+declared skips in 1,113.61 seconds, all 518 frontend and 115 Node checks, every
+applicable static gate, and its first/only strict browser run
+`public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` at 102/102 with no
+failure, skip, retry or flaky cell in 6.5 minutes at validation subject
+`2afd435c7cc955ae7a922b1d46eac355472ca0e6`. It is now a local-QA
+`candidate`; this permits only a new productive capture and Lane A
+certification attempt. No capsule, adoption or public-push authority exists
+until certification seals a capsule and independent verification succeeds.
 No existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself

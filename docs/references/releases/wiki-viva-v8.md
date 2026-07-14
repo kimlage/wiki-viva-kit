@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc34 validation source pinned - rc33 browser validation failed"
+title: "Wiki Viva v8 rc34 local-QA candidate - exact validation green"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc34 validation source pinned - rc33 browser validation failed
+# Wiki Viva v8 rc34 local-QA candidate - exact validation green
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -378,31 +378,50 @@ productive capture, certification, capsule, receipt, attestation, trust
 anchor, plan, import or Lane B authority exists. Never retry, relabel, promote,
 import or use rc33 to mint missing authority.
 
-## Rc34 exact validation source — root-only quadrant disambiguation
+## Rc34 exact source — complete validation green, local-QA candidate only
 
-Package `wiki-viva-v8-rc34` is pinned only for exact validation at source
-`533d286869c478bd157b066d7882388b99fde2f7`. Its public synthetic correction
+Package `wiki-viva-v8-rc34` binds exact source
+`533d286869c478bd157b066d7882388b99fde2f7` and validation metadata subject
+`2afd435c7cc955ae7a922b1d46eac355472ca0e6`. Its public synthetic correction
 scopes the `Q1`–`Q4` prefix to the root quadrant overview, where repeated
 family labels need disambiguation, while a focused quadrant lens keeps the
 concise family name used by navigation, breadcrumbs and assistive technology.
 The semantic scope correction removes the excess focused-label height instead
 of masking the mobile collision with a broad positional override.
 
-Focused formation proof passed all 518 frontend tests and the four browser
-cases that failed in rc33, including desktop root navigation, desktop focused
-quadrant navigation, mobile two-tap navigation and short-phone pointer-safe
-geometry. The validation-pending package-file SHA-256 is
+Before validation, the `validation_pending` package-file SHA-256 was
 `f5a0ef463b56d3b35a918bb163108ba01e39eb68eefd8ef8b35f3a933507bb33`, its
-canonical package identity is
+canonical package identity was
 `dc7cc755a69b33a8aaf994f52b12d38307a7153bde9942d1eac9b310cb0ebac7` and its
-exact 521-entry portable tree is
+exact 521-entry portable tree was
 `257140ba318e4ee269d026f58f0e02bc6056e593dc9b25750e7f81af4c8834f9`.
+These validation-only identities remain historical evidence of that state and
+are not substituted for the candidate identities below.
 
-These identities authorize validation only: `package_is_pinned=false`, and no
-plan, import, browser matrix, candidate, productive capture, certification,
-capsule or adoption authority exists. Rc34 must run every authority stage from
-zero and does not reuse or amend rc33 evidence. Public push remains
-unauthorized.
+The first and only complete exact validation passed 1,746 Python tests with 3
+declared skips and warnings treated as errors in 1,113.61 seconds, all 518
+frontend tests, all 115 Node gate tests and every applicable static, audit,
+architecture, asset, build, bundle and release-matrix gate. The first and only
+strict public browser run,
+`public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861`, then passed 102/102
+cells in 6.5 minutes with zero failures, skips, retries or flaky cells. Its
+run-result, Playwright-report, release-build-manifest and gate-result SHA-256
+values are
+`02f3d2bb5d7acea26313944978cc620cd92e024945f55f87f3d4bfb1f5fd09fe`,
+`3353646ccf808c586b285007c835566a6928fdfe430a64b044f5fdf5c9bd3d53`,
+`6578f59c80add285cea103795618ec8c3a0537906cd723cd178350332dc657aa`
+and `d0dca2712e831c953d76b58ff373bcb550a659e601596415134d2bd078b9ea9c`.
+
+The separately reviewed local-QA `candidate` package-file SHA-256 is
+`a62594490177830b24d7a65b70f5acbd7f033235e0a26ed4f6e4b84d4af7cac8`, its canonical package identity is
+`b076019c6b890a0a54f2c5b4f6362bbe025f490d53eb588fdbd119bd74e7e5ea`, and its exact portable tree is
+`59fa6d660f0d0e43b880e34d72fb1b9c00485ec72828051c0d8eeb56a881671c` with `521` entries. This state
+makes the exact subject eligible only for a wholly new productive local visual
+capture and Lane A certification. Green validation alone does not mint a
+visual manifest, capsule, attestation, receipt, trust anchor, downstream plan,
+import or Lane B adoption authority. Public push, publication, merge and tag
+remain unauthorized; rc33 evidence remains immutable and is not reused or
+amended.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
