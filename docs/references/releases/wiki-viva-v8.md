@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc31 validation source pinned - rc30 rejected before complete validation"
+title: "Wiki Viva v8 rc31 failed deterministic validation - rc32 source formation"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc31 validation source pinned - rc30 rejected before complete validation
+# Wiki Viva v8 rc31 failed deterministic validation - rc32 source formation
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -258,9 +258,9 @@ capsule, receipt, attestation, trust anchor or Lane B authority exists for
 rc30. It must never be retried, relabeled, promoted, imported or used to mint
 missing authority.
 
-## Rc31 exact validation source — quadrant-qualified group controls
+## Rc31 exact validation source — deterministic freshness failed closed
 
-The next source reproduces RT-164 with public synthetic root-quadrant family
+Rc31 reproduced RT-164 with public synthetic root-quadrant family
 nodes and qualifies each visible and accessible group name with its canonical
 `Q1`–`Q4` context. It preserves all four real groups, member counts, semantic
 family target and facet-specific drill lens; no entity is hidden, merged or
@@ -275,21 +275,56 @@ controls as `Q1`–`Q4` and confirms a `Q1` click opens the same family under th
 remain private and untracked; the versioned authority is the public synthetic
 fixture.
 
-Package `wiki-viva-v8-rc31` is pinned only for exact validation at source
-`6fa9b907d5dfc748e94d182ac3704b226142552e`; status remains
+Package `wiki-viva-v8-rc31` was pinned only for exact validation at source
+`6fa9b907d5dfc748e94d182ac3704b226142552e`; its status remained
 `validation_pending`, so `package_is_pinned=false` and no plan, import, capture
-or certification authority exists. Its package-file SHA-256 is
+or certification authority ever existed. Its package-file SHA-256 is
 `f87ff28b4dd4c43b9c831dc7449888b16898de3a65dc1bafcb408aff80c7074c`,
 its canonical package identity is
 `3b6df79c764c2c287e26d15c50f74fde3fef12dc1f4ca03fffa48517c84751d4`,
 and its exact 521-entry portable tree is
 `f03226622e7be9e2668d4d39b8c642bf0a7b52571cbedada70071e656b461037`.
-These identities authorize validation only and are not a capsule or adoption
+These identities authorized validation only and are not a capsule or adoption
 receipt.
-Complete exact validation, candidate review, a new productive capture, one
-certification, independent capsule verification, downstream QA, remote CI and
-the human promotion gate all remain mandatory. Public push remains
-unauthorized.
+
+Its first complete exact validation passed 1,740 Python tests with 3 declared
+skips and 0 separately reported warnings in 1,291.72 seconds, plus all 517
+frontend checks. Audit, public audit, methodology, operation cockpit, input
+stage, semantic inventory, snapshot, packs and consolidation also passed. The
+next blocking gate failed closed: `memories/system/operational-pass.md` was not
+equal to the deterministic recompile. Investigation with public repository
+data also showed that changing the generated dashboard's date required two
+writes because the compiler indexed its own stale page while rendering the
+replacement.
+
+The browser matrix and every later release stage were correctly not started.
+Rc31 is immutable `historical_validation_failed`; never retry, relabel,
+promote, import or use it to mint missing authority. No candidate, productive
+capture, certification, capsule, receipt, attestation, trust anchor or Lane B
+authority exists.
+
+## Rc32 source formation — one-write operational-pass fixed point
+
+Rc32 is prospective and unpinned. It preserves the public RT-164 quadrant
+label correction and adds a public synthetic fixed-point regression for the
+operational-pass compiler: the generated dashboard must not feed its own
+derived record back into `Latest updates`, and an immediate check/second render
+after one write must be byte-equal. The versioned dashboard is regenerated only after this
+core behavior is fixed. It also closes the enforcement gap exposed by RT-166:
+the local gate list names operational-pass freshness and the exact
+warnings-as-errors Python command; CI runs that same warning policy; and the
+strict visual job depends on the deterministic audit/test job instead of being
+eligible after a core validation failure.
+
+Formation proof passes 198 focused operational-pass, workflow, package and
+lane tests with warnings as errors. The versioned dashboard was written once,
+its immediate deterministic check passed, and its SHA-256 is
+`b632bf8eb2de2ca84ca84894280e907ff434143cbd822dbe0b62d5abeb8a5dca`.
+
+Rc32 must be formed and pinned in separate commits, then run every validation,
+browser, candidate, productive-capture, certification, capsule-verification,
+downstream-QA, remote-CI and human-promotion stage from zero. Public push
+remains unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -394,7 +429,7 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Any future rc31-or-later publication still requires exact validation, separate candidate
+Any future rc32-or-later publication still requires exact validation, separate candidate
 review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
@@ -873,16 +908,21 @@ dock wiring is compat-only and targets removal in v9 stable.
 The release owner must record one exact source SHA and pass:
 
 ```sh
-/opt/anaconda3/bin/python scripts/wiki_audit.py --check
-/opt/anaconda3/bin/python scripts/wiki_audit.py --public-export --check
-/opt/anaconda3/bin/python scripts/wiki_check_methodology_coverage.py --check
-/opt/anaconda3/bin/python scripts/wiki_operation_compile.py --check
-/opt/anaconda3/bin/python scripts/wiki_input_stage.py --check
-/opt/anaconda3/bin/python scripts/wiki_build_demo.py --check
-/opt/anaconda3/bin/python scripts/wiki_web_snapshot.py --check-contract
-/opt/anaconda3/bin/python scripts/wiki_pack.py validate --all
-/opt/anaconda3/bin/python -m pytest tests/
-npm --prefix apps/wiki-cockpit run test
+python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_audit.py --public-export --check
+python3 scripts/wiki_check_methodology_coverage.py --check
+python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_operational_pass.py --check
+python3 scripts/wiki_source_registry.py --check
+python3 scripts/wiki_input_stage.py --check
+python3 scripts/wiki_semantic_inventory.py --check
+python3 scripts/wiki_quality_report.py --check
+python3 scripts/wiki_build_demo.py --check
+python3 scripts/wiki_web_snapshot.py --check-contract
+python3 scripts/wiki_pack.py validate --all
+python3 scripts/wiki_consolidate.py --check
+python3 -m pytest -q -W error tests/
+npm --prefix apps/wiki-cockpit test -- --reporter=tap
 npm --prefix apps/wiki-cockpit run test:gates
 npm --prefix apps/wiki-cockpit run build
 npm --prefix apps/wiki-cockpit run check:architecture

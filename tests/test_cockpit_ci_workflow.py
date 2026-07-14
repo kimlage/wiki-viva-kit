@@ -5,6 +5,33 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github/workflows/wiki.yml"
+AGENT_GUIDE = ROOT / "AGENTS.md"
+IMPACT_REGISTRY = ROOT / "docs/references/upgrades/wiki-viva-v8/impact-registry.yaml"
+
+
+def test_release_validation_prerequisites_are_fail_closed() -> None:
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    audit = workflow["jobs"]["audit-and-test"]
+    audit_commands = [
+        step.get("run")
+        for step in audit["steps"]
+        if isinstance(step, dict) and isinstance(step.get("run"), str)
+    ]
+    guide = AGENT_GUIDE.read_text(encoding="utf-8")
+    registry = yaml.safe_load(IMPACT_REGISTRY.read_text(encoding="utf-8"))
+    catalog = {item["id"]: item["command"] for item in registry["gate_catalog"]}
+
+    assert catalog["portable_python"] in audit_commands
+    assert catalog["operational_pass"] in audit_commands
+    assert catalog["portable_python"] in guide
+    assert catalog["operational_pass"] in guide
+    legacy_alias_lines = [
+        line.strip()
+        for command in audit_commands
+        for line in command.splitlines()
+        if line.strip().startswith(("python ", "pip "))
+    ]
+    assert legacy_alias_lines == []
 
 
 def test_required_browser_release_uses_explicit_trusted_runner_authority() -> None:
@@ -35,9 +62,14 @@ def test_required_browser_release_uses_explicit_trusted_runner_authority() -> No
     assert "fork code" in policy_commands
     assert "exit 1" in policy_commands
 
-    assert job["needs"] == ["cockpit-v8", "cockpit_visual_runner_policy"]
+    assert job["needs"] == [
+        "audit-and-test",
+        "cockpit-v8",
+        "cockpit_visual_runner_policy",
+    ]
     assert job["if"] == (
-        "${{ needs.cockpit_visual_runner_policy.result == 'success' }}"
+        "${{ needs.audit-and-test.result == 'success' && "
+        "needs.cockpit_visual_runner_policy.result == 'success' }}"
     )
     assert job["runs-on"] == [
         "self-hosted",

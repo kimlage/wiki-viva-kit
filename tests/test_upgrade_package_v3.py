@@ -538,6 +538,9 @@ def test_project_registry_covers_every_agents_promotion_command() -> None:
     catalog_ids = [item["id"] for item in registry["gate_catalog"]]
 
     assert promotion_commands <= catalog_commands
+    assert "python3 scripts/wiki_operational_pass.py --check" in promotion_commands
+    assert "python3 -m pytest -q -W error tests/" in promotion_commands
+    assert "python3 -m pytest tests/" not in promotion_commands
     assert package["migration"]["required_gates"] == catalog_ids
     assert set(package["migration"]["gate_commands"]) == set(catalog_ids)
     assert set(package["migration"]["gate_policies"]) == set(catalog_ids)

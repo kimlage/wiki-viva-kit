@@ -21,48 +21,48 @@ jobs:
       - name: Install poppler (pdftotext)
         run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - name: Install deps
-        run: pip install -r requirements.txt
+        run: python3 -m pip install -r requirements.txt
       - name: Tests
-        run: python -m pytest tests/ -q
+        run: python3 -m pytest -q -W error tests/
       - name: Exact-base page graph and impact evidence
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |
           test -n "$BASE_SHA"
-          python scripts/wiki_page_graph.py --check --impact --base "$BASE_SHA" > /tmp/wiki-page-graph-impact.json
-          python -m json.tool /tmp/wiki-page-graph-impact.json
+          python3 scripts/wiki_page_graph.py --check --impact --base "$BASE_SHA" > /tmp/wiki-page-graph-impact.json
+          python3 -m json.tool /tmp/wiki-page-graph-impact.json
       - name: OKF interop smoke
         run: |
-          python scripts/wiki_okf_export.py --out tmp/okf-ci --clean
-          python scripts/wiki_okf_check.py --bundle tmp/okf-ci --check
-          python scripts/wiki_okf_visualize.py --bundle tmp/okf-ci --out tmp/okf-ci/viz.html
-          python scripts/wiki_okf_import.py --bundle tmp/okf-ci --context system --dry-run
+          python3 scripts/wiki_okf_export.py --out tmp/okf-ci --clean
+          python3 scripts/wiki_okf_check.py --bundle tmp/okf-ci --check
+          python3 scripts/wiki_okf_visualize.py --bundle tmp/okf-ci --out tmp/okf-ci/viz.html
+          python3 scripts/wiki_okf_import.py --bundle tmp/okf-ci --context system --dry-run
       - name: Wiki audit (secrets, PII on public pages, links, quadrants, promotion gate)
-        run: python scripts/wiki_audit.py --check
+        run: python3 scripts/wiki_audit.py --check
       - name: Public-export privacy boundary
-        run: python scripts/wiki_audit.py --public-export --check
+        run: python3 scripts/wiki_audit.py --public-export --check
       - name: Experience-pack registry, assets and composition
-        run: python scripts/wiki_pack.py validate --all
+        run: python3 scripts/wiki_pack.py validate --all
       - name: Wiki quality ratchet
-        run: python scripts/wiki_quality_report.py --check
+        run: python3 scripts/wiki_quality_report.py --check
       - name: Methodology coverage (presence + content)
-        run: python scripts/wiki_check_methodology_coverage.py --check
+        run: python3 scripts/wiki_check_methodology_coverage.py --check
       - name: Operation cockpit freshness (decisions/actions)
-        run: python scripts/wiki_operation_compile.py --check
+        run: python3 scripts/wiki_operation_compile.py --check
       - name: Operational pass freshness (sources/actions/contexts)
-        run: python scripts/wiki_operational_pass.py --check
+        run: python3 scripts/wiki_operational_pass.py --check
       - name: Source registry freshness (state + last update)
-        run: python scripts/wiki_source_registry.py --check
+        run: python3 scripts/wiki_source_registry.py --check
       - name: Input stage freshness (root entity + channels)
-        run: python scripts/wiki_input_stage.py --check
+        run: python3 scripts/wiki_input_stage.py --check
       - name: Authored event and relation parity
-        run: python scripts/wiki_semantic_inventory.py --check
+        run: python3 scripts/wiki_semantic_inventory.py --check
       - name: Deterministic v8 demo artifacts
-        run: python scripts/wiki_build_demo.py --check
+        run: python3 scripts/wiki_build_demo.py --check
       - name: Atomic v8 snapshot contract
-        run: python scripts/wiki_web_snapshot.py --check-contract
+        run: python3 scripts/wiki_web_snapshot.py --check-contract
       - name: Consolidation closed (ingesting = integrating)
-        run: python scripts/wiki_consolidate.py --check
+        run: python3 scripts/wiki_consolidate.py --check
 
   cockpit-v8:
     runs-on: ubuntu-latest
@@ -159,8 +159,8 @@ jobs:
           esac
 
   cockpit-visual:
-    needs: [cockpit-v8, cockpit_visual_runner_policy]
-    if: ${{ needs.cockpit_visual_runner_policy.result == 'success' }}
+    needs: [audit-and-test, cockpit-v8, cockpit_visual_runner_policy]
+    if: ${{ needs.audit-and-test.result == 'success' && needs.cockpit_visual_runner_policy.result == 'success' }}
     # The exact release matrix contains fail-closed hardware WebGL and frame
     # budgets. Standard hosted pools are not assumed capable. This job accepts
     # only a custom label on an isolated ARM64 macOS self-hosted runner. A

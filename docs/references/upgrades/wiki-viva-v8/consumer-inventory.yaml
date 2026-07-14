@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc31@6fa9b907
+    current_kit_version: unreleased@6c8fce74
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,13 +32,13 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc30_rejected_before_complete_validation_rc31_validation_pending
+      state: rc31_validation_failed_rc32_unpinned
       drift_total: 0
-      compared_against: wiki-viva-v8-rc31@6fa9b907
-      worktree: rc31_validation_pending
+      compared_against: unreleased@6c8fce74
+      worktree: rc32_source_formation
     upgrade_wave: public_kit
-    status: blocked_on_rc31_exact_validation_and_certification
-    blocker: Rc21 is frozen historical non-promotion evidence. Rc22 failed productive capture, rc23 and rc25 failed complete validation, and rc24/rc26 failed certification after valid captures; none can be retried, relabeled, promoted or imported. Rc27 exact source ba7ee194 then failed its first complete warnings-as-errors validation with 46 public synthetic resource-lifecycle failures after 1693 passes and 3 skips; browser, candidate, capture and certification were not started. Rc27 is immutable historical_validation_failed. Rc28 source 31cad3bc was rejected before validation because portable transition guides were stale. Rc29 source 905e3772 was rejected before validation because a portable skill stayed state-stale and public fixtures retained private-lineage labels. Rc30 source bc44255b was rejected before its complete matrix after RT-164 exposed four distinct root-quadrant family controls with the same visible and accessible label. Rc31 is pinned only for exact validation at 6fa9b907 and must receive a fresh validation/candidate/capture/certification sequence. Public push is not authorized. External E5 and a release tag remain separate
+    status: blocked_on_rc32_pin_validation_and_certification
+    blocker: Rc21 is frozen historical non-promotion evidence. Rc22 failed productive capture, rc23 and rc25 failed complete validation, and rc24/rc26 failed certification after valid captures; none can be retried, relabeled, promoted or imported. Rc27 exact source ba7ee194 failed its first complete warnings-as-errors validation with 46 public synthetic resource-lifecycle failures. Rc28/rc29 were rejected before validation, and rc30 was rejected before its complete matrix on RT-164. Rc31 exact source 6fa9b907 then passed 1740 Python and 517 frontend checks but failed its first complete validation because the deterministic operational-pass artifact was stale; browser, candidate, capture and certification were not started. Rc31 is immutable historical_validation_failed. Rc32 is prospective and unpinned and must receive a wholly new validation/candidate/capture/certification sequence. Public push is not authorized. External E5 and a release tag remain separate
 
   - id: private-pilot-01
     repository:
@@ -70,11 +70,11 @@ consumers:
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: wiki-viva-v8-rc31@6fa9b907
+      target_version: unreleased@6c8fce74
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
-      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 and rc21 are historical product evidence, rc22 is historical failed-capture evidence, rc23/rc25/rc27 are historical failed-validation evidence, rc24/rc26 are historical failed-certification evidence, rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix, all without adoption authority. Rc27 exact source ba7ee194 failed its first complete warnings-as-errors validation on public synthetic subprocess/thread/pipe lifecycle defects before browser or later stages. Rc30 exact source bc44255b exposed RT-164 during downstream real-data visual QA before its complete matrix. Rc31 is pinned only for exact validation at 6fa9b907 and can become a new v3 downstream-QA target only after that validation passes, a separate candidate boundary is reviewed, a new capture and certification capsule verify, and a read-only consumer preflight succeeds, never as a rewrite of v2. Consumer AGENTS.md, .skills/README.md and non-wiki local skills remain fresh-C3 routing surfaces
+      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 and rc21 are historical product evidence, rc22 is historical failed-capture evidence, rc23/rc25/rc27/rc31 are historical failed-validation evidence, rc24/rc26 are historical failed-certification evidence, rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix, all without adoption authority. Rc30 exposed RT-164 during downstream real-data visual QA. Rc31 preserved that visual correction but failed its first exact validation on stale deterministic operational-pass output after 1740 Python and 517 frontend checks passed. A new v3 downstream-QA target exists only after rc32 is pinned, passes its own complete validation, receives a separate candidate boundary, new capture and verified certification capsule, and passes a read-only consumer preflight, never as a rewrite of v2. Consumer AGENTS.md, .skills/README.md and non-wiki local skills remain fresh-C3 routing surfaces
       verified_on: "2026-07-14"
     upgrade_wave: pilot
     status: blocked_on_public_release_promotion
-    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 is historical, rc22 failed productive capture, rc23/rc25/rc27 failed complete validation, rc24/rc26 failed certification before any capsule or Lane B authority, rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. Rc27 failed its first warnings-as-errors Python validation with 46 resource-lifecycle failures and never reached browser, candidate, capture or certification. Rc30 exposed RT-164 during real-data QA and minted no authority. Rc31 is validation_pending at exact source 6fa9b907; full validation/capture/certification, independent capsule verification and a new consumer preflight precede any v3 downstream QA. None can authorize v2 promotion. Historical subjects cannot authorize adoption. External E5 remains separate
+    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 is historical, rc22 failed productive capture, rc23/rc25/rc27/rc31 failed complete validation, rc24/rc26 failed certification before any capsule or Lane B authority, rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. Rc31 passed its Python and frontend checks but failed the deterministic operational-pass freshness gate and never reached browser, candidate, capture or certification. A fresh exact rc32 source, full validation/capture/certification, independent capsule verification and a new consumer preflight precede any v3 downstream QA. None can authorize v2 promotion. Historical subjects cannot authorize adoption. External E5 remains separate

@@ -250,6 +250,20 @@ class OperationalPassReport:
     recent_pages: tuple[PageRecord, ...]
 
 
+def _repo_local_target(root: Path, target: Path) -> Path:
+    """Resolve a target inside ``root`` and reject traversal or symlink escape."""
+    root = root.resolve(strict=False)
+    candidate = target if target.is_absolute() else root / target
+    candidate = candidate.resolve(strict=False)
+    try:
+        candidate.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(
+            f"operational-pass target must stay inside repository root: {target}"
+        ) from exc
+    return candidate
+
+
 def read_markdown_page(path: Path, root: Path, default_context: str) -> PageRecord:
     text = path.read_text(encoding="utf-8")
     frontmatter: dict[str, Any] = {}
@@ -338,11 +352,22 @@ def build_operational_pass_report(
     *,
     as_of: dt.date | None = None,
     contexts: tuple[str, ...] = (),
+    exclude_path: Path | None = None,
 ) -> OperationalPassReport:
+    root = root.resolve(strict=False)
     paths = WikiPaths(root, config)
     as_of = as_of or dt.date.today()
     pages = collect_pages(root, config)
     pending_ids = pending_action_ids(paths)
+
+    # Generated operational-pass pages are derived state and must not feed back
+    # into their own recent-page inventory. Always exclude the configured page;
+    # callers rendering to an alternate target may exclude that target as well.
+    configured_target = _repo_local_target(root, paths.operational_pass_page)
+    excluded_recent_paths = {paths.rel(configured_target)}
+    if exclude_path is not None:
+        target = _repo_local_target(root, exclude_path)
+        excluded_recent_paths.add(paths.rel(target))
 
     selected_contexts = tuple(contexts)
     if selected_contexts:
@@ -436,7 +461,9 @@ def build_operational_pass_report(
         attention=attention,
         operational_model=operational_model,
         pending_ids=pending_ids,
-        recent_pages=_recent_pages_from_pages(pages),
+        recent_pages=_recent_pages_from_pages(
+            tuple(page for page in pages if page.rel not in excluded_recent_paths)
+        ),
     )
 
 
@@ -446,13 +473,25 @@ def build_operational_pass_page(
     *,
     updated_at: str | None = None,
     contexts: tuple[str, ...] = (),
+    target_path: Path | None = None,
 ) -> str:
+    root = root.resolve(strict=False)
     paths = WikiPaths(root, config)
+    target = _repo_local_target(
+        root,
+        target_path if target_path is not None else paths.operational_pass_page,
+    )
     date = _parse_date(updated_at) or dt.date.today()
-    report = build_operational_pass_report(root, config, as_of=date, contexts=contexts)
+    report = build_operational_pass_report(
+        root,
+        config,
+        as_of=date,
+        contexts=contexts,
+        exclude_path=target,
+    )
     s = _strings(config.language)
-    page_dir = paths.operational_pass_page.parent
-    page_id_prefix = paths.operational_pass_page.stem
+    page_dir = target.parent
+    page_id_prefix = target.stem
     context_label = ", ".join(contexts) if contexts else s["all_contexts"]
 
     lines: list[str] = [

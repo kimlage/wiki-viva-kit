@@ -118,11 +118,14 @@ another) via skills — there is no embedded LLM client.
   validation, then rejected before its complete matrix when downstream
   real-data visual QA exposed four distinct root-quadrant family controls with
   the same visible and accessible label. No rc30 browser, candidate, capture,
-  capsule or adoption authority exists. Rc31 is pinned only for exact
-  validation to source
-  `6fa9b907d5dfc748e94d182ac3704b226142552e`; status remains
-  `validation_pending`. It must preserve explicit process/stream ownership and
-  pass a wholly new validation, candidate, capture and certification sequence.
+  capsule or adoption authority exists. Rc31 exact source
+  `6fa9b907d5dfc748e94d182ac3704b226142552e` passed 1,740 Python and
+  517 frontend checks, then failed its first complete validation because the
+  deterministic operational-pass artifact was stale; browser and every later
+  stage were not started. Rc31 is immutable `historical_validation_failed`.
+  Rc32 is prospective and unpinned; it must make a single operational-pass
+  generation idempotent, preserve explicit process/stream ownership and pass
+  a wholly new validation, candidate, capture and certification sequence.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must
@@ -181,11 +184,12 @@ python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_audit.py --public-export --check
 python3 scripts/wiki_check_methodology_coverage.py --check
 python3 scripts/wiki_operation_compile.py --check
+python3 scripts/wiki_operational_pass.py --check
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_semantic_inventory.py --check
 python3 scripts/wiki_web_snapshot.py --check-contract
 python3 scripts/wiki_pack.py validate --all
-python3 -m pytest tests/
+python3 -m pytest -q -W error tests/
 npm --prefix apps/wiki-cockpit test
 npm --prefix apps/wiki-cockpit run test:gates
 npm --prefix apps/wiki-cockpit run check:architecture
