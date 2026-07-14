@@ -552,7 +552,7 @@ def test_published_upstream_certification_commands_use_public_safe_reporters() -
     )
     expected = {
         "frontend": "npm --prefix apps/wiki-cockpit test -- --reporter=tap",
-        "portable_python": "python3 -m pytest -q tests/",
+        "portable_python": "python3 -m pytest -q -W error tests/",
     }
     catalog = {item["id"]: item for item in registry["gate_catalog"]}
 

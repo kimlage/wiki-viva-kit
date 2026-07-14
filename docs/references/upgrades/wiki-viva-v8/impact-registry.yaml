@@ -74,7 +74,7 @@ gate_catalog:
     command: python3 scripts/wiki_page_graph.py --check
   - id: portable_python
     class: upstream_certified
-    command: python3 -m pytest -q tests/
+    command: python3 -m pytest -q -W error tests/
   - id: private_pytest
     class: background_certification
     command: python3 -m pytest tests/
@@ -411,4 +411,4 @@ boundary_policy:
     - memories/**
     - private/**
 
-registry_sha256: 1984b0d621de25b2bf9bac4c5623ad4f73a77afb5c84e4238afa1225fce09173
+registry_sha256: 92ce2ba62d728269a2c29323c9a433235f20cef790961f8ac6d5d1625942c0db

@@ -1,13 +1,39 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc26
-  status: candidate
-  source_sha: da3a9a0495db974e409f5af6413401c31851e071
+  id: unreleased
+  status: validation_pending
+  source_sha: cdb20a4e64165623de0b0934f472670aee28dcda
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc26
+    source_sha: da3a9a0495db974e409f5af6413401c31851e071
+    status: historical_certification_failed
+    note: >-
+      Exact rc26 passed complete validation at metadata subject
+      7afa7ece276197c3e7dc746dfa35c17990687ed4, then became the separately
+      reviewed candidate cdb20a4e64165623de0b0934f472670aee28dcda. Its
+      candidate package-file SHA was
+      f2f384e57992fa94d334d0e87bdd87895a9e1ce0c9937532b58cfb6bb7e824b4,
+      canonical package identity was
+      73cbca1b9fc514656603eb5a637e6bb193567cfbd965853c03641a6668333c64
+      and portable tree was
+      b27fbe273055781bc0171fdb3578c2b24634f2ce33fba91d68439c0d36e52804
+      with 521 entries. Its first productive four-profile capture verified
+      manifest
+      6681e1f751ecd157854a4c3d78360a79f981100a4eda97ec377189ea9566614f.
+      The first Lane A certification passed architecture, bundle, frontend,
+      demo_drift, browser_synthetic_release and portable_python; browser closed
+      102/102 in 386.098 seconds and portable Python closed 1728 passed, 3
+      declared skips and 2 warnings in 997.71 seconds. Certification then
+      failed closed before attestation because the strict public-evidence
+      scanner found a host-local interpreter-library path in the successful
+      pytest warning summary. No capsule, certification receipt, attestation,
+      trust anchor or Lane B authority was emitted. Rc26 and its valid capture
+      must never be retried, reused, promoted, imported, relabeled or used to
+      mint missing authority
   - id: wiki-viva-v8-rc25
     source_sha: c741e3d0ad409ac9baea8b136e3819952bb0657b
     status: historical_validation_failed
@@ -298,7 +324,7 @@ migration:
     page_graph: python3 scripts/wiki_page_graph.py --check
     pack_focused: python3 scripts/wiki_pack.py validate --all
     pack_validation: python3 scripts/wiki_pack.py validate --all
-    portable_python: python3 -m pytest -q tests/
+    portable_python: python3 -m pytest -q -W error tests/
     private_pytest: python3 -m pytest tests/
     public_evidence_redaction: python3 scripts/wiki_audit.py --public-export --check
     quality_report: python3 scripts/wiki_quality_report.py --check
@@ -311,11 +337,11 @@ migration:
     temporal_parity: python3 -m pytest tests/test_temporal.py tests/test_web_snapshot.py
     toolkit_drift: python3 scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
     visual_profiles: npm --prefix apps/wiki-cockpit run test:visual
-  command_registry_sha256: 85993dd5637f90539e9ff7318b7aadfbca3cbced897d651fc42ceae695375ea7
+  command_registry_sha256: 6e170423a544cdb735aef7d77ed70389846dc657dc905b69f6d2312e03458097
   impact_registry:
     schema_version: wiki_viva_upgrade_impact_registry.v1
     path: docs/references/upgrades/wiki-viva-v8/impact-registry.yaml
-    sha256: 1984b0d621de25b2bf9bac4c5623ad4f73a77afb5c84e4238afa1225fce09173
+    sha256: 92ce2ba62d728269a2c29323c9a433235f20cef790961f8ac6d5d1625942c0db
   gate_policies:
     adapter_identity: {class: consumer_always, command_id: adapter_identity, asserts: [adapter_identity], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
     architecture: {class: upstream_certified, command_id: architecture, asserts: [architecture_contract], reuse: exact_capsule, depends_on: [], resource_group: node_readonly, required_for_promotion: true}
@@ -526,16 +552,23 @@ known_limitations:
     frontend tests, 115 Node gates and the complete static stack passed; and
     public browser run public-mrkxrlvb-620f3776-799d-4c2e-a748-ae6110e5000d
     passed 102/102 first-attempt cells with zero skips or retries in 6.2
-    minutes. Rc26 is now a local-QA candidate. Public push remains
-    unauthorized; new productive capture, one certification, independent capsule
-    verification, remote CI and human conceptual/privacy/VoiceOver review and
-    merge still precede any production promotion boundary.
+    minutes. Candidate cdb20a4e64165623de0b0934f472670aee28dcda then passed
+    its first productive four-profile capture with manifest
+    6681e1f751ecd157854a4c3d78360a79f981100a4eda97ec377189ea9566614f.
+    Its first Lane A wave passed all six gates, including browser 102/102 in
+    386.098 seconds and 1728 Python passes, 3 skips and 2 warnings in 997.71
+    seconds, but the strict public-evidence scanner rejected the Python warning
+    summary because it exposed a host-local interpreter-library path. No
+    capsule, certification receipt, attestation, trust anchor or Lane B
+    authority was emitted. Rc26 is immutable historical-certification-failure
+    evidence. The next source is prospective and unpinned; public push remains
+    unauthorized.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
-  - Rc24 candidate metadata and capture are historical failed-certification evidence only. Rc25 is immutable failed-validation evidence and its browser matrix was never started. The active rc26 package is a local-QA candidate and package_is_pinned is true, but every v3 plan/adoption path must still fail closed until a new productive capture, certification capsule and independent verification exist; public promotion and the human gate remain separate.
+  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc25 is immutable failed-validation evidence and its browser matrix was never started. The active package is prospective and validation_pending, so package_is_pinned is false and every v3 plan/adoption path must fail closed until a new exact source, validation, candidate review, productive capture, certification capsule and independent verification exist; public promotion and the human gate remain separate.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc25 can never authorize another import. Exact rc26-or-later may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
-  - The historical private S9 read-only preflight remains attached to S9; exact rc26-or-later requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc26 can never authorize another import. Exact rc27-or-later may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
+  - The historical private S9 read-only preflight remains attached to S9; exact rc27-or-later requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.
@@ -545,5 +578,5 @@ known_limitations:
   - Toolkit-owned .skills/wiki-*/** remain portable C1. Nested consumer skills under .skills/*/**, AGENTS.md and the literal root .skills/README.md are C3; the literal path is required because the nested skill glob intentionally cannot cross the directory boundary.
   - A downstream must ignore only .wiki-viva/upgrade/ before freezing B0 so resumable plans and receipts remain untracked. Ignoring all .wiki-viva/ is forbidden because consumer pack state may be versioned there; this consumer-owned pre-B0 policy is never supplied by C1.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23 and rc25 failed complete validation, and rc24 failed certification after its valid capture. Rc26 retains RT-156/RT-157, closes RT-159 through RT-161 and passed its complete exact validation; it must still pass productive capture, certification and capsule verification, then the public human/promotion boundaries. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
+  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23 and rc25 failed complete validation, and rc24 and rc26 failed certification after valid captures. The next exact source must retain RT-156/RT-157, RT-159 through RT-161 and close RT-162 by using the versioned warnings-as-errors portable Python command while keeping the post-run scanner strict and the captured output unmodified; it must then pass its own complete validation, productive capture, certification and capsule verification before public human/promotion boundaries. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.

@@ -98,12 +98,16 @@ another) via skills — there is no embedded LLM client.
   failures; the strict browser matrix was not started and no candidate,
   capture or capsule exists. Rc25 is immutable
   `historical_validation_failed`. Rc26 exact source
-  `da3a9a0495db974e409f5af6413401c31851e071` passed the complete local
-  deterministic and first-attempt 102/102 strict-browser validation at
-  metadata subject `7afa7ece276197c3e7dc746dfa35c17990687ed4`; it is now a
-  local-QA `candidate`. Candidate status alone is not adoption authority: a
-  new productive capture, certification capsule and independent verification
-  are mandatory before any downstream v3 plan.
+  `da3a9a0495db974e409f5af6413401c31851e071` passed complete validation, its
+  first productive four-profile capture and all six Lane A commands, but the
+  strict public-evidence scanner rejected a host-local interpreter-library
+  path in the successful Python warning summary before attestation. Rc26 is
+  immutable `historical_certification_failed`: no capsule, receipt, trust or
+  Lane B authority exists, and its capture/results must never be retried or
+  reused. Rc27 is prospective and unpinned. It must replace the unsafe
+  multiprocessing `fork` fixture with `spawn`, execute the registered portable
+  Python gate with warnings-as-errors and pass an entirely new validation,
+  candidate, capture and certification sequence.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must

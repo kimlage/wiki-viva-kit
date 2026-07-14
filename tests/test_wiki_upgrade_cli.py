@@ -117,8 +117,8 @@ def test_python_probe_uses_only_an_alias_for_the_executing_interpreter(
     )
     assert upgrade_runner._active_python_alias() == "python"
     assert upgrade_runner._parse_command(
-        "python3 -m pytest -q tests/", kit_root=ROOT
-    ) == ["python", "-m", "pytest", "-q", "tests/"]
+        "python3 -m pytest -q -W error tests/", kit_root=ROOT
+    ) == ["python", "-m", "pytest", "-q", "-W", "error", "tests/"]
 
     monkeypatch.setattr(
         upgrade_runner.shutil,
@@ -196,7 +196,7 @@ def test_failed_certification_wave_freezes_subject_even_after_strict_gate_passed
         {
             "id": "portable_python",
             "class": "upstream_certified",
-            "command": "python3 -m pytest -q tests/",
+            "command": "python3 -m pytest -q -W error tests/",
         },
     ]
     package = {
@@ -255,6 +255,10 @@ def test_failed_certification_wave_freezes_subject_even_after_strict_gate_passed
         "artifact=/tmp/private-proof.json\n",
         "cache=/opt/wiki-viva/cache.json\n",
         "state=/var/folders/session.json\n",
+        "store=/nix/store/synthetic-python/bin/python\n",
+        "workspace=/workspace/repo/tests/test_public.py\n",
+        "runtime=/run/user/501/wiki-viva\n",
+        "ci=/__w/wiki-viva-kit/wiki-viva-kit\n",
         "GET /consumer/account/timeline 200\n",
         "https://example.invalid/real/account\n",
         "route=[/real/customer]\n",
@@ -306,7 +310,7 @@ def test_published_frontend_and_portable_python_success_output_is_public_safe(
     registered = {item["id"]: item["command"] for item in registry["gate_catalog"]}
     expected = {
         "frontend": "npm --prefix apps/wiki-cockpit test -- --reporter=tap",
-        "portable_python": "python3 -m pytest -q tests/",
+        "portable_python": "python3 -m pytest -q -W error tests/",
     }
     assert {gate_id: commands[gate_id] for gate_id in expected} == expected
     assert {gate_id: registered[gate_id] for gate_id in expected} == expected
@@ -336,13 +340,71 @@ def test_published_frontend_and_portable_python_success_output_is_public_safe(
         assert str(cwd.resolve()).encode("utf-8") not in result.stdout
 
 
+def test_registered_portable_python_fails_closed_on_path_bearing_warning(
+    tmp_path: Path,
+) -> None:
+    package = yaml.safe_load(
+        (
+            ROOT
+            / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    command = package["migration"]["gate_commands"]["portable_python"]
+    assert command == "python3 -m pytest -q -W error tests/"
+    python_root = tmp_path / "warning-python-fixture"
+    (python_root / "tests").mkdir(parents=True)
+    (python_root / "tests/test_warning_fixture.py").write_text(
+        "import warnings\n\n"
+        "def test_warning_fixture():\n"
+        "    warnings.warn_explicit(\n"
+        "        'synthetic runtime warning',\n"
+        "        DeprecationWarning,\n"
+        "        '/opt/synthetic-python/lib/runtime.py',\n"
+        "        66,\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        shlex.split(command),
+        cwd=python_root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+        timeout=60,
+    )
+    assert result.returncode != 0
+    assert b"/opt/synthetic-python" in result.stdout
+    with pytest.raises(
+        upgrade_runner.RunnerError, match="host-local or private evidence"
+    ):
+        upgrade_runner._require_public_certification_output(
+            result.stdout, gate_id="portable_python"
+        )
+
+
 def test_certify_rejects_published_gate_output_with_absolute_root() -> None:
     for gate_id in ("frontend", "portable_python"):
         raw = f"status=passed\nroot={ROOT.resolve()}\n".encode("utf-8")
         with pytest.raises(
             upgrade_runner.RunnerError, match="host-local or private evidence"
-        ):
+        ) as caught:
             upgrade_runner._require_public_certification_output(raw, gate_id=gate_id)
+        assert "freeze this failed release subject" in caught.value.next_action
+        assert "never retry or relabel this subject" in caught.value.next_action
+
+
+@pytest.mark.parametrize("raw", [b"", b"\xff"])
+def test_invalid_certification_output_requires_a_new_release_subject(
+    raw: bytes,
+) -> None:
+    with pytest.raises(upgrade_runner.RunnerError) as caught:
+        upgrade_runner._require_public_certification_output(
+            raw, gate_id="portable_python"
+        )
+    assert caught.value.lane == "lane_a"
+    assert caught.value.surface == "portable_python"
+    assert "freeze this failed release subject" in caught.value.next_action
+    assert "never retry or relabel this subject" in caught.value.next_action
 
 
 @pytest.mark.parametrize(

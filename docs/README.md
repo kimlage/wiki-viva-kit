@@ -97,11 +97,14 @@ starting point for persistent context is `memories/`.
   failures; its strict browser matrix was not started and no candidate,
   capture or capsule exists. Rc25 is immutable
   `historical_validation_failed`. Rc26 exact source
-  `da3a9a0495db974e409f5af6413401c31851e071` passed the complete local
-  deterministic and 102/102 first-attempt strict-browser validation at
-  metadata subject `7afa7ece276197c3e7dc746dfa35c17990687ed4` and is now a
-  local-QA `candidate`. A new productive capture, certification and independent
-  capsule verification remain mandatory before downstream adoption.
+  `da3a9a0495db974e409f5af6413401c31851e071` passed complete local
+  deterministic/browser validation, its first productive capture and every
+  Lane A command, but strict public-evidence scanning rejected a host-local
+  interpreter-library path in the successful Python warning summary before
+  attestation. Rc26 is immutable `historical_certification_failed`; no capsule
+  or downstream authority exists. Rc27 is prospective and unpinned, with a
+  `spawn` fixture and warnings-as-errors certification gate requiring a wholly
+  new validation/candidate/capture/certification sequence.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

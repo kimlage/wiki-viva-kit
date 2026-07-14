@@ -240,9 +240,16 @@ ship the skeletons, so a generated page starts with the scaffold.
   Rc25 exact source `c741e3d0ad409ac9baea8b136e3819952bb0657b`
   failed its first complete validation with 1,708 passed, 3 skips and 5 public
   synthetic contract failures; browser, candidate, capture and certification
-  were not started. It is immutable `historical_validation_failed`. Rc26 is
-  prospective and unpinned until a separate metadata boundary seals its exact
-  source, then requires a wholly new validation, capture and certification. A Python
+  were not started. It is immutable `historical_validation_failed`. Rc26 exact
+  source `da3a9a0495db974e409f5af6413401c31851e071` then passed validation,
+  first productive capture and every Lane A command, but strict public-evidence
+  scanning rejected a host-local interpreter-library path in the successful
+  Python warning summary before attestation. It minted no capsule, receipt,
+  trust or Lane B authority and is immutable
+  `historical_certification_failed`; never retry, reuse or relabel its evidence.
+  Rc27 is prospective and unpinned. It uses `spawn` for the multiprocess lock
+  fixture and warnings-as-errors for the public portable Python command; any
+  future warning fails the subject instead of being hidden or redacted. A Python
   alias in the command registry must resolve to the interpreter used by the
   toolchain probe; PATH-dependent divergence is a certification failure. Do not
   amend, regenerate or reclassify any already sealed v2 C3 or receipt.

@@ -137,7 +137,7 @@ failure: `plan` stops before mutation, the consumer repairs B0 and creates a new
 plan. Re-running Lane A does not repair invalid consumer configuration; it is
 required when the sealed package/impact mapping itself is defective.
 
-### Rc21 -> rc22 -> rc23 -> rc24 -> rc25 -> rc26 correction boundary
+### Rc21 -> rc22 -> rc23 -> rc24 -> rc25 -> rc26 -> rc27 correction boundary
 
 Rc21 is historical non-promotional local evidence. It retains its exact public
 mobile/visual proof, but a synthetic downstream rehearsal exposed a missing
@@ -173,9 +173,15 @@ reuse, relabel, promote or import it. Rc25 exact source
 `c741e3d0ad409ac9baea8b136e3819952bb0657b` then failed its first complete
 validation with 1,708 passed, 3 skips and 5 public synthetic contract failures;
 browser, candidate, capture and certification were not started. Rc25 is
-immutable `historical_validation_failed`. Rc26 is prospective and unpinned
-until a separate metadata boundary seals an exact source; it requires complete
-validation, a new capture and certification.
+immutable `historical_validation_failed`. Rc26 passed complete validation, its
+first productive capture and every Lane A command, but strict public-evidence
+scanning rejected a host-local interpreter-library path in the successful
+Python warning summary before attestation. No capsule or Lane B authority was
+minted; rc26 is immutable `historical_certification_failed` and its capture or
+gate outputs cannot be reused. Rc27 is prospective and unpinned. It replaces
+the multiprocess `fork` fixture with `spawn`, registers the public portable
+Python command with warnings-as-errors and requires complete new validation,
+capture and certification evidence.
 This runbook grants no public publication authority.
 
 ### Lane A -> Lane B handoff checklist

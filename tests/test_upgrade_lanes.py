@@ -2594,6 +2594,10 @@ def test_private_host_path_cannot_leak_into_receipt_output(
     [
         ("value", "/tmp/wiki-viva/report.json", "host-local path"),
         ("value", "/opt/wiki-viva/runtime", "host-local path"),
+        ("value", "/nix/store/synthetic-python", "host-local path"),
+        ("value", "/workspace/repo/tests/test_public.py", "host-local path"),
+        ("value", "/run/user/501/wiki-viva", "host-local path"),
+        ("value", "/__w/wiki-viva-kit/wiki-viva-kit", "host-local path"),
         ("key", "/var/folders/private-report", "host-local path"),
         ("value", "/consumer/w/timeline", "private consumer route"),
         ("key", "/private/wiki", "private"),

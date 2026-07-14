@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc26 validated local-QA candidate - certification pending"
+title: "Wiki Viva v8 rc26 certification failed closed - rc27 source unpinned"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc26 validated local-QA candidate - certification pending
+# Wiki Viva v8 rc26 certification failed closed - rc27 source unpinned
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -84,7 +84,7 @@ anchor, attestation or Lane B authority exists. Rc25 is immutable
 `historical_validation_failed` and must never be retried, relabeled, promoted,
 imported or used to mint missing authority.
 
-## Rc26 exact source — validated local-QA candidate, capture pending
+## Rc26 exact source — every command passed, certification failed closed
 
 `wiki-viva-v8-rc26` carries the public synthetic fixes for the three rc25
 failures at exact source
@@ -107,16 +107,59 @@ its canonical package identity was
 `2266b30d60566b21d49103e7bbb258e12291a7dafe0d4f61b1564d0d9873e33c`,
 and its exact 521-entry portable tree was
 `24d3f0f79e65d00f4b9fe3b1bec4947044aa32ede7d445033ffb25b5e47c402e`.
-The separately reviewed local-QA `candidate` package file SHA-256 is
+The separately reviewed local-QA `candidate` package file SHA-256 was
 `f2f384e57992fa94d334d0e87bdd87895a9e1ce0c9937532b58cfb6bb7e824b4`,
-its canonical package identity is
+its canonical package identity was
 `73cbca1b9fc514656603eb5a637e6bb193567cfbd965853c03641a6668333c64`,
-and its exact 521-entry portable tree is
+and its exact 521-entry portable tree was
 `b27fbe273055781bc0171fdb3578c2b24634f2ce33fba91d68439c0d36e52804`.
-`package_is_pinned=true` now permits the next Lane A stage; it does not mint
-adoption authority. Productive capture, visual manifest, certification
-capsule, attestation, certification receipt, independent verification,
-downstream QA, remote CI, human review and promotion all remain pending.
+Candidate metadata commit `cdb20a4e64165623de0b0934f472670aee28dcda`
+authorized exactly one productive capture and one Lane A certification.
+
+The first productive capture verified desktop, mobile Timeline, explicit
+fallback and two-step quadrant collection. Its visual-manifest SHA-256 is
+`6681e1f751ecd157854a4c3d78360a79f981100a4eda97ec377189ea9566614f`.
+The following first certification command wave returned success for every
+registered upstream gate:
+
+| Gate | Exact observed result |
+|---|---|
+| `architecture` | passed in 0.831 s |
+| `bundle` | passed in 2.380 s |
+| `frontend` | passed in 4.975 s |
+| `demo_drift` | passed in 17.202 s |
+| `browser_synthetic_release` | passed 102/102 in 386.098 s |
+| `portable_python` | runner passed in 998.129 s; pytest reported 1,728 passed, 3 declared skips and 2 warnings in 997.71 s |
+
+Lane A is transactional: six successful commands are not a successful
+certification. Before attestation, the strict public-evidence scanner found a
+host-local interpreter-library path in the Python warning summary and rejected
+the run with `private_certification_output`. The retained private raw Python
+log is 2,621 bytes with SHA-256
+`4fbf2a19cd2633d03464354257d43c229efbfa46f77dbc6cf05a7ad1a26e85b7`;
+the path itself is intentionally not published.
+
+No capsule, execution attestation, certification receipt, trust anchor, Lane B
+authority, public release, push, merge or tag was emitted. Rc26 is immutable
+`historical_certification_failed` and must never be retried, reused, relabeled,
+promoted or imported. Its capture and successful command outputs cannot be
+carried into rc27.
+
+## Rc27 prospective source — public-safe warning contract, not pinned
+
+Rc27 replaces the real multiprocess `fork` fixture that triggered the warning
+with `spawn`, registers `portable_python` as
+`python3 -m pytest -q -W error tests/`, broadens public path negatives for
+common local and CI roots, and makes every certification-output or attestation
+failure instruct the operator to freeze the subject and form a new source.
+Passing evidence remains the unmodified captured output; there is no
+post-processing redactor or manual summary that could hide a warning.
+
+Rc27 is currently `unreleased` / `validation_pending` and unpinned. It still
+requires a separate exact-source pin, complete validation, candidate review,
+new productive capture, one certification, independent capsule verification,
+downstream QA, remote CI and the human promotion gate. Public push remains
+unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -221,15 +264,16 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Any future rc26 publication still requires new capture and certification,
+Any future rc27 publication still requires new validation, capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
 human conceptual/privacy/VoiceOver review and merge, followed by a separately
 reviewed promotion boundary that can mint production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
-rc21, rc22, rc23, the exact rc24 failed-certification subject nor the exact
-rc25 failed-validation subject reclassifies, reduces or rewrites that evidence.
+rc21, rc22, rc23, the exact rc24/rc26 failed-certification subjects nor the
+exact rc25 failed-validation subject reclassifies, reduces or rewrites that
+evidence.
 
 ## Historical rc8-era evidence — preserved without current authority
 

@@ -160,6 +160,12 @@ REPORT_SCHEMA_VERSION = "wiki_viva_upgrade_runner_report.v3"
 ROLLBACK_SCHEMA_VERSION = "wiki_viva_upgrade_rollback_execution.v1"
 CERTIFICATION_RECEIPT_SCHEMA_VERSION = "wiki_viva_upgrade_certification_receipt.v1"
 
+_FAILED_CERTIFICATION_NEXT_ACTION = (
+    "freeze this failed release subject, inspect the retained private runner log, "
+    "fix the defect publicly, and form a new source/package subject; never retry "
+    "or relabel this subject"
+)
+
 _TWO_LANE_PACKAGE = "wiki_viva_upgrade_package.v3"
 _SUPPORTED_PACKAGES = {_TWO_LANE_PACKAGE}
 
@@ -452,7 +458,7 @@ _CONTROL_TOKEN_RE = re.compile(r"(?:\$\(|`|\x00|\r|\n)")
 _SHELL_TOKENS = {"|", "||", "&", "&&", ";", ">", ">>", "<", "<<"}
 _HOST_PATH_RE = re.compile(
     r"(?:"
-    r"(?<![\w.-])/(?:Users|home|tmp|opt|var|etc|usr|root|srv|mnt|Volumes|Library|System|Applications)(?:/|$)"
+    r"(?<![\w.-])/(?:Applications|Library|System|Users|Volumes|__w|bin|boot|builds|dev|etc|github|home|lib|lib64|media|mnt|nix|opt|proc|root|run|sbin|srv|sys|tmp|usr|var|workspace)(?:/|$)"
     r"|file://|(?<![\w.-])~[/\\]|[A-Za-z]:\\|\\\\[^\\\s]+\\"
     r")"
 )
@@ -2547,6 +2553,7 @@ def _require_public_certification_output(raw: bytes, *, gate_id: str) -> None:
             "a certification gate produced empty or oversized evidence",
             lane="lane_a",
             surface=gate_id,
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
         )
     try:
         text = raw.decode("utf-8", "strict")
@@ -2556,6 +2563,7 @@ def _require_public_certification_output(raw: bytes, *, gate_id: str) -> None:
             "a certification gate output is not public UTF-8 text",
             lane="lane_a",
             surface=gate_id,
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
         ) from exc
     try:
         views = _percent_decoded_views(text)
@@ -2565,6 +2573,7 @@ def _require_public_certification_output(raw: bytes, *, gate_id: str) -> None:
             "a Lane A gate output contains invalid or excessively nested percent-encoded private evidence",
             lane="lane_a",
             surface=gate_id,
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
         ) from exc
     if any(
         "\x00" in view
@@ -2578,7 +2587,7 @@ def _require_public_certification_output(raw: bytes, *, gate_id: str) -> None:
             "a Lane A gate output contains a host-local or private evidence reference",
             lane="lane_a",
             surface=gate_id,
-            next_action="repair the public synthetic gate output before recertifying",
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
         )
     findings = []
     for view in views:
@@ -2598,7 +2607,7 @@ def _require_public_certification_output(raw: bytes, *, gate_id: str) -> None:
             "a Lane A gate output contains secret or personal data",
             lane="lane_a",
             surface=gate_id,
-            next_action="remove private data from the public fixture and run a new certification",
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
         )
 
 
@@ -3025,11 +3034,7 @@ def _execute_certification_matrix(
                 "a required Lane A certification gate failed",
                 lane="lane_a",
                 surface=sorted(result["id"] for result in failed)[0],
-                next_action=(
-                    "freeze this failed release subject, inspect the retained private "
-                    "runner log, fix the defect publicly, and form a new source/package "
-                    "subject; never retry or relabel this subject"
-                ),
+                next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
             )
         for result in wave_results:
             completed[result["id"]] = result
@@ -3372,6 +3377,7 @@ def _certify(args: argparse.Namespace) -> int:
             "the executed Lane A evidence could not form an exact attestation",
             lane="lane_a",
             surface="execution_attestation",
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
         ) from exc
     if attestation.get("schema_version") != EXECUTION_ATTESTATION_SCHEMA_VERSION:
         raise RunnerError(
@@ -3379,6 +3385,7 @@ def _certify(args: argparse.Namespace) -> int:
             "the generated Lane A attestation schema is invalid",
             lane="lane_a",
             surface="execution_attestation",
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
         )
     attestation_raw = _json_bytes(attestation)
     _atomic_write(gate_output_root / "execution-attestation.json", attestation_raw)
@@ -3399,6 +3406,7 @@ def _certify(args: argparse.Namespace) -> int:
             "the executed Lane A evidence could not seal a verified release capsule",
             lane="lane_a",
             surface="release_capsule",
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
         ) from exc
     capsule_ref = "release-capsule.json"
     capsule_raw = _json_bytes(capsule)

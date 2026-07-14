@@ -145,7 +145,7 @@ _ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,127}$")
 _CONTRACT_RE = re.compile(r"^[a-z][a-z0-9_.:+-]{1,127}$")
 _LOCAL_PATH_RE = re.compile(
     r"(?:"
-    r"(?<![\w.-])/(?:Users|home|tmp|opt|var|etc|usr|root|srv|mnt|Volumes|Library|System|Applications)(?:/|$)"
+    r"(?<![\w.-])/(?:Applications|Library|System|Users|Volumes|__w|bin|boot|builds|dev|etc|github|home|lib|lib64|media|mnt|nix|opt|proc|root|run|sbin|srv|sys|tmp|usr|var|workspace)(?:/|$)"
     r"|file://|(?<![\w.-])~[/\\]|[A-Za-z]:\\|\\\\[^\\\s]+\\"
     r")"
 )

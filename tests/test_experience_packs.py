@@ -1145,7 +1145,7 @@ def test_pack_operation_guard_serializes_processes_and_lock_write_uses_cas(
     tmp_path: Path,
 ) -> None:
     root = _repo(tmp_path).resolve()
-    context = mp.get_context("fork")
+    context = mp.get_context("spawn")
     first_entered = context.Event()
     release_first = context.Event()
     second_entered = context.Event()
