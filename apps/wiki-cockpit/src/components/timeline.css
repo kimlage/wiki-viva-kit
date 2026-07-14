@@ -849,7 +849,16 @@ html[data-wiki-density="command"] .timelineSurface {
 
 @media (max-width: 980px) {
   .timelineSurface {
+    /* The desktop grid is intentionally viewport-constrained. On one-scroll
+       layouts its auto/minmax rows can shrink scroll containers to 0px and
+       let their children paint across the next semantic region. Normal flow
+       makes every mobile section own its content height in DOM order. */
+    display: block;
     overflow: auto;
+  }
+
+  .timelineSurface > * + * {
+    margin-block-start: calc(10px * var(--wiki-density-gap));
   }
 
   .timelineNotices {

@@ -368,9 +368,16 @@ test("Timeline keeps one scroll model and 44px controls on mobile and fallback",
   expect.soft(geometry.surface.bottom).toBeLessThanOrEqual(geometry.viewport.height + 1);
   expect.soft(geometry.documentOverflow).toBeLessThanOrEqual(1);
 
+  const actionsLane = page.locator(".timelineLaneControls button").filter({ hasText: /Actions|Ações/ });
+  await actionsLane.click();
+  await expect(actionsLane).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/[?&]time_lanes=action(?:&|$)/);
+
   const firstEvent = page.locator(".timelineEvent").first();
   await firstEvent.scrollIntoViewIfNeeded();
   await firstEvent.click();
+  await expect(firstEvent).toHaveAttribute("aria-controls", "timeline-inspector");
+  await expect(firstEvent).toHaveAttribute("aria-current", "true");
   const inspectorHeading = page.locator(".timelineInspector h3");
   await expect(inspectorHeading).toBeVisible();
   await expect.poll(() => inspectorHeading.evaluate((element) => document.activeElement === element)).toBe(true);
@@ -378,6 +385,74 @@ test("Timeline keeps one scroll model and 44px controls on mobile and fallback",
   expect(inspectorRect).not.toBeNull();
   expect(inspectorRect!.y).toBeGreaterThanOrEqual(0);
   expect(inspectorRect!.y + inspectorRect!.height).toBeLessThanOrEqual(845);
+
+  // Regression: at this exact scroll position the constrained fifth grid row
+  // used to collapse to zero. The list and inspector then painted outside
+  // their boxes and on top of each other despite retaining the right DOM order.
+  await timeline.evaluate((surface) => { surface.scrollTop = 350; });
+  await expect.poll(() => timeline.evaluate((surface) => surface.scrollTop)).toBe(350);
+  const mobileFlow = await timeline.evaluate((surface) => {
+    const body = surface.querySelector<HTMLElement>(".timelineBody")!;
+    const list = surface.querySelector<HTMLElement>(".timelineEventList")!;
+    const inspector = surface.querySelector<HTMLElement>(".timelineInspector")!;
+    const lastEvent = list.querySelector<HTMLElement>("li:last-child")!;
+    const lastDetail = inspector.lastElementChild as HTMLElement;
+    const listRect = list.getBoundingClientRect();
+    const inspectorRect = inspector.getBoundingClientRect();
+    return {
+      bodyHeight: body.getBoundingClientRect().height,
+      directChildOrder:
+        body.children[0] === list &&
+        body.children[1] === inspector &&
+        Boolean(list.compareDocumentPosition(inspector) & Node.DOCUMENT_POSITION_FOLLOWING),
+      visualGap: inspectorRect.top - listRect.bottom,
+      listContentOverflow: list.scrollHeight - list.clientHeight,
+      inspectorContentOverflow: inspector.scrollHeight - inspector.clientHeight,
+      lastEventOverflow: lastEvent.getBoundingClientRect().bottom - listRect.bottom,
+      lastDetailOverflow: lastDetail.getBoundingClientRect().bottom - inspectorRect.bottom,
+      surfaceHorizontalOverflow: surface.scrollWidth - surface.clientWidth,
+      documentHorizontalOverflow: Math.max(
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        document.body.scrollWidth - document.documentElement.clientWidth
+      )
+    };
+  });
+  expect.soft(mobileFlow.bodyHeight).toBeGreaterThan(0);
+  expect.soft(mobileFlow.directChildOrder).toBe(true);
+  expect.soft(mobileFlow.visualGap).toBeGreaterThanOrEqual(0);
+  expect.soft(mobileFlow.listContentOverflow).toBeLessThanOrEqual(1);
+  expect.soft(mobileFlow.inspectorContentOverflow).toBeLessThanOrEqual(1);
+  expect.soft(mobileFlow.lastEventOverflow).toBeLessThanOrEqual(1);
+  expect.soft(mobileFlow.lastDetailOverflow).toBeLessThanOrEqual(1);
+  expect.soft(mobileFlow.surfaceHorizontalOverflow).toBeLessThanOrEqual(1);
+  expect.soft(mobileFlow.documentHorizontalOverflow).toBeLessThanOrEqual(1);
+
+  await inspectorHeading.scrollIntoViewIfNeeded();
+  await expect(inspectorHeading).toBeVisible();
+  const readableDetail = await inspectorHeading.evaluate((heading) => {
+    const surface = heading.closest<HTMLElement>(".timelineSurface")!;
+    const headingRect = heading.getBoundingClientRect();
+    const surfaceRect = surface.getBoundingClientRect();
+    const hitTarget = document.elementFromPoint(
+      headingRect.left + headingRect.width / 2,
+      headingRect.top + headingRect.height / 2
+    );
+    const style = getComputedStyle(heading);
+    return {
+      text: heading.textContent?.trim() ?? "",
+      fullyReachable:
+        headingRect.top >= surfaceRect.top - 1 &&
+        headingRect.bottom <= surfaceRect.bottom + 1,
+      topmost: hitTarget === heading || heading.contains(hitTarget),
+      fontSize: Number.parseFloat(style.fontSize),
+      opacity: Number.parseFloat(style.opacity)
+    };
+  });
+  expect.soft(readableDetail.text.length).toBeGreaterThan(0);
+  expect.soft(readableDetail.fullyReachable).toBe(true);
+  expect.soft(readableDetail.topmost).toBe(true);
+  expect.soft(readableDetail.fontSize).toBeGreaterThanOrEqual(16);
+  expect.soft(readableDetail.opacity).toBe(1);
 });
 
 test("demo gate offers guided tour, free exploration and from-zero entry paths", async ({ page }) => {
