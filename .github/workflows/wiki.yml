@@ -116,7 +116,13 @@ jobs:
 
   cockpit-visual:
     needs: cockpit-v8
-    runs-on: ubuntu-latest
+    # The required release matrix contains a fail-closed hardware WebGL
+    # attestation. GitHub's Linux hosted runner exposes SwiftShader only, so it
+    # cannot certify that contract honestly. Keep the exact 102-cell matrix on
+    # the standard Apple-silicon macOS runner so the Metal-backed path can be
+    # attested instead of weakening or skipping the performance and long-lived
+    # 3D continuity cells. The renderer attestation still fails closed.
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
