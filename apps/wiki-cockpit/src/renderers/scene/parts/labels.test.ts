@@ -378,7 +378,8 @@ describe("scene labels", () => {
           groupKind: "family",
           groupLabelKey: "hub",
           quadrant
-        })
+        }),
+        true
       )
     );
 
@@ -391,6 +392,16 @@ describe("scene labels", () => {
     expect(new Set(titles)).toHaveLength(4);
     expect(
       labelTitleForNode(
+        layoutNode("region:pratica:family:hub", {
+          isGroup: true,
+          groupKind: "family",
+          groupLabelKey: "hub",
+          quadrant: "pratica"
+        })
+      )
+    ).toBe("áreas & espaços de trabalho");
+    expect(
+      labelTitleForNode(
         layoutNode("family:hub", {
           isGroup: true,
           groupKind: "family",
@@ -399,6 +410,32 @@ describe("scene labels", () => {
         })
       )
     ).toBe("áreas & espaços de trabalho");
+  });
+
+  it("scopes quadrant prefixes to the unfiltered root overview", () => {
+    configureLanguage("pt-BR");
+    const root = layoutNode("root", { title: "Root", isRoot: true, isHub: true });
+    const family = layoutNode("region:pratica:family:source", {
+      title: "data sources",
+      page_type: "visual_group_source",
+      isHub: true,
+      isGroup: true,
+      groupKind: "family",
+      groupLabelKey: "source",
+      groupMemberIds: ["source-a", "source-b"],
+      quadrant: "pratica",
+      position: [1, 0, 1]
+    });
+
+    const overviewLabel = buildLabelSet(world([root, family]), new Set(), "", 8)
+      .find((label) => label.node.id === family.id);
+    expect(overviewLabel).toMatchObject({ disambiguateQuadrant: true });
+    expect(labelTitleForNode(overviewLabel!.node, overviewLabel!.disambiguateQuadrant)).toBe("Q2 · fontes & evidências");
+
+    const focusedLabel = buildLabelSet(world([root, family]), new Set(), "", 8, "pratica")
+      .find((label) => label.node.id === family.id);
+    expect(focusedLabel?.disambiguateQuadrant).toBeUndefined();
+    expect(labelTitleForNode(focusedLabel!.node, focusedLabel!.disambiguateQuadrant)).toBe("fontes & evidências");
   });
 
   it("connects visible group labels to their drill-down group object", () => {

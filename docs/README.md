@@ -124,9 +124,20 @@ starting point for persistent context is `memories/`.
   one-write operational-pass fixed point, then its first full Python
   validation stopped with 2 contract failures after 1,744 passes and 3 skips.
   Frontend, browser and later stages were not started; rc32 is immutable
-  `historical_validation_failed`. Rc33 is pinned only for exact validation at
-  source `539eb19b958a4159eecb2c5a7afd6ceaabcbb086` and must receive a wholly
-  new validation/candidate/capture/certification sequence.
+  `historical_validation_failed`. Rc33 exact source
+  `539eb19b958a4159eecb2c5a7afd6ceaabcbb086` passed 1,746 Python checks with
+  3 declared skips, all 517 frontend and 115 Node checks, and every applicable
+  static gate. Its first strict browser matrix then stopped at 98/102 with four
+  failures in 330.49 seconds: three focus-scope accessible-name/breadcrumb
+  regressions and one short-phone pointer collision. The extra adapter-manifest
+  diagnostic appended outside the Lane A registry was
+  `inapplicable_gate/orchestration_invalid`, not an rc33 source failure. Rc33
+  is immutable `historical_validation_failed`; no candidate, capture, capsule
+  or Lane B authority exists. The active package is now `unreleased` at
+  metadata base `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`; future literal
+  `wiki-viva-v8-rc34` remains unpinned until a new source-formation and pin
+  boundary, then must receive a wholly new
+  validation/candidate/capture/certification sequence.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

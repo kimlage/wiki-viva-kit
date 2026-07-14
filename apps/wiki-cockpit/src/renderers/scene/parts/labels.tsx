@@ -24,13 +24,14 @@ export type SceneLabel = {
   annotationColor: string | null;
   compact?: boolean;
   mode?: "full" | "glyph" | "metric";
+  disambiguateQuadrant?: boolean;
 };
 
-export function labelTitleForNode(node: LayoutNode): string {
+export function labelTitleForNode(node: LayoutNode, disambiguateQuadrant = false): string {
   if (!node.isGroup) return node.title;
 
   const groupTitle = worldGroupLabel(node.groupKind ?? "", node.groupLabelKey ?? node.title);
-  if (node.groupKind !== "family") return groupTitle;
+  if (!disambiguateQuadrant || node.groupKind !== "family") return groupTitle;
 
   const region = parseRegionDrillKey(node.id);
   if (!region) return groupTitle;
@@ -161,10 +162,25 @@ export function buildLabelSet(
   const labels: SceneLabel[] = [];
   const scopedQuadrantDrill = layout.perspective === "quadrants" && layout.level >= 1;
   const quadrantRoot = layout.perspective === "quadrants" && layout.level === 0;
-  const push = (node: LayoutNode | undefined, annotation: string | null, annotationColor: string | null, compact = false, mode: SceneLabel["mode"] = "full") => {
+  const quadrantOverview = quadrantRoot && !activeQuadrant;
+  const push = (
+    node: LayoutNode | undefined,
+    annotation: string | null,
+    annotationColor: string | null,
+    compact = false,
+    mode: SceneLabel["mode"] = "full"
+  ) => {
     if (!node || seen.has(node.id)) return;
     seen.add(node.id);
-    labels.push({ node, annotation, annotationColor, compact, mode });
+    const scopedDisambiguation = quadrantOverview && node.groupKind === "family" && Boolean(parseRegionDrillKey(node.id));
+    labels.push({
+      node,
+      annotation,
+      annotationColor,
+      compact,
+      mode,
+      ...(scopedDisambiguation ? { disambiguateQuadrant: true } : {})
+    });
   };
   const byOverdue = [...layout.nodes].sort((a, b) => b.overdueRatio - a.overdueRatio || a.title.localeCompare(b.title));
 
@@ -321,9 +337,9 @@ export function NodeLabels({
   }, [labels]);
   return (
     <group>
-      {labels.map(({ node, annotation, annotationColor, compact, mode = "full" }) => {
+      {labels.map(({ node, annotation, annotationColor, compact, mode = "full", disambiguateQuadrant }) => {
         const selected = node.id === selectedId || node.path === selectedId;
-        const labelTitle = labelTitleForNode(node);
+        const labelTitle = labelTitleForNode(node, disambiguateQuadrant);
         const lift = labelLiftForNode(node, tiers.get(node.id) ?? 0);
         const labelClass = [
           node.isGroup ? "nodeGroupLabel" : "",

@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc33 validation source pinned - rc32 failed full Python validation"
+title: "Wiki Viva v8 rc33 browser validation failed - rc34 source forming"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc33 validation source pinned - rc32 failed full Python validation
+# Wiki Viva v8 rc33 browser validation failed - rc34 source forming
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -336,29 +336,68 @@ import or use it to mint missing authority. No candidate, productive capture,
 certification, capsule, receipt, attestation, trust anchor or Lane B authority
 exists.
 
-## Rc33 exact validation source — registry-bound workflow and literal release truth
+## Rc33 exact validation source — browser matrix failed closed
 
-Package `wiki-viva-v8-rc33` is pinned only for exact validation at source
-`539eb19b958a4159eecb2c5a7afd6ceaabcbb086`.
-RT-167 derives the page-graph workflow command and interpreter alias from the
-versioned impact registry instead of hardcoding a second command authority.
-RT-168 keeps the machine truth assertion strict and requires every pinned
-release note to name the literal package ID.
+Package `wiki-viva-v8-rc33` was pinned only for exact validation at source
+`539eb19b958a4159eecb2c5a7afd6ceaabcbb086` and metadata subject
+`a3aae4b1aa5ef53b5e74983d396a744d22f3b514`. RT-167 derived the
+page-graph workflow command and interpreter alias from the versioned impact
+registry instead of hardcoding a second command authority. RT-168 kept the
+machine truth assertion strict and required every pinned release note to name
+the literal package ID.
 
-The focused formation set covers page-graph CLI, workflow topology, package
-truth and upgrade lanes: all 182 tests pass with warnings as errors in 196.45
-seconds. The validation-pending package-file SHA-256 is
+The validation-pending package-file SHA-256 was
 `300a78a6c9005059dfe07c6bbe98c268b34739a0aeed8d9f92eadd21dc1b4cb9`,
-its canonical package identity is
+its canonical package identity was
 `69dd37f9d6ed94b92751f6a83a4f4d15cbb1efe925d9bac9d286976a008e1a15`
-and its exact 521-entry portable tree is
+and its exact 521-entry portable tree was
 `7964e884e019af57cc8d53322039635e66fb0233f407685fb258f3c24d76c847`.
-These identities authorize validation only: `package_is_pinned` remains false,
-and no plan, import, browser, candidate, capture, capsule or promotion
-authority exists. Rc33 must now run every validation, browser, candidate,
-productive-capture, certification, capsule-verification, downstream-QA,
-remote-CI and human-promotion stage from zero. Public push remains
-unauthorized.
+These identities authorized validation only; they are not a capsule, receipt
+or downstream adoption authority.
+
+The first and only complete exact Python validation passed 1,746 tests with 3
+declared skips and warnings treated as errors. The frontend stack passed 517
+tests, the Node gate stack passed 115 tests, and every applicable static,
+audit, architecture, asset, build, bundle and release-matrix gate was green.
+An additional manual adapter-manifest check was outside the upstream Lane A
+selection: it is retained only as `inapplicable_gate/orchestration_invalid`,
+not as an rc33 source or validation failure, because adapter identity is a
+consumer-owned C3 gate that can never be reused upstream.
+
+The first and only strict public browser matrix then ended in 330.49 seconds
+with 98/102 cells passing and four failures. Three failures exposed the same
+semantic scoping defect: the `Qn` disambiguator needed by repeated root
+quadrant controls had also changed the concise accessible name and breadcrumb
+expectation inside an already focused quadrant lens. The fourth failure was
+the resulting short-phone pointer collision between the taller focused family
+label and the quadrant compass. The subject stayed exact and clean; no retry
+or sibling browser evidence was substituted.
+
+Rc33 is therefore immutable `historical_validation_failed`. No candidate,
+productive capture, certification, capsule, receipt, attestation, trust
+anchor, plan, import or Lane B authority exists. Never retry, relabel, promote,
+import or use rc33 to mint missing authority.
+
+## Rc34 source formation — root-only quadrant disambiguation
+
+Rc34 is prospective and unpinned. Its public synthetic correction scopes the
+`Q1`–`Q4` prefix to the root quadrant overview, where repeated family labels
+need disambiguation, while a focused quadrant lens keeps the concise family
+name used by navigation, breadcrumbs and assistive technology. The semantic
+scope correction removes the excess focused-label height instead of masking
+the mobile collision with a broad positional override.
+
+Focused formation proof passes all 518 frontend tests and the four browser
+cases that failed in rc33, including desktop root navigation, desktop focused
+quadrant navigation, mobile two-tap navigation and short-phone pointer-safe
+geometry. This proof forms a replacement source; it is not complete release
+validation and does not reuse or amend rc33 evidence.
+
+The active package remains `unreleased` at baseline metadata
+`a3aae4b1aa5ef53b5e74983d396a744d22f3b514`: `package_is_pinned=false`.
+No rc34 source SHA, package identity, candidate, capture, capsule or adoption
+authority exists until a separate exact source-formation commit and metadata
+pin are reviewed. Public push remains unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -463,7 +502,7 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Rc33, or any later replacement, still requires exact validation, separate
+Rc34, or any later replacement, still requires exact validation, separate
 candidate review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
@@ -472,7 +511,7 @@ reviewed promotion boundary that can mint production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
 rc21, rc22, rc23, the exact rc24/rc26 failed-certification subjects, the exact
-rc25/rc27/rc31/rc32 failed-validation subjects nor rejected rc28/rc29/rc30 reclassifies,
+rc25/rc27/rc31/rc32/rc33 failed-validation subjects nor rejected rc28/rc29/rc30 reclassifies,
 reduces or rewrites
 that evidence.
 

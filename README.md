@@ -45,9 +45,13 @@ rc31 is now immutable failed-validation evidence. Rc32 exact source
 `ed073dee5fbf05343b36db1fdc061a24d0220cb9` then stopped in its first full
 Python validation with 2 contract failures after 1,744 passes and 3 skips;
 frontend and browser were not started. Rc32 is immutable failed-validation
-evidence. Rc33 is pinned only for exact validation at source
-`539eb19b958a4159eecb2c5a7afd6ceaabcbb086`; it has no candidate, capsule or
-adoption authority. See the
+evidence. Rc33 exact source
+`539eb19b958a4159eecb2c5a7afd6ceaabcbb086` passed Python, frontend, Node and
+all applicable static gates, then stopped fail-closed at 98/102 in its first
+strict browser matrix. It is immutable failed-validation evidence with no
+candidate, capsule or adoption authority. The active package is `unreleased`
+at `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`; future literal
+`wiki-viva-v8-rc34` remains unpinned. See the
 [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority: do not
@@ -328,10 +332,19 @@ frontend checks, then failed operational-pass freshness before browser. Rc31
 is immutable failed-validation evidence. Rc32 exact source
 `ed073dee5fbf05343b36db1fdc061a24d0220cb9` closed that fixed-point defect but
 failed its first full Python validation on two stale truth-contract
-expectations. Rc32 is immutable failed-validation evidence; rc33 is pinned
-only for exact validation at source
-`539eb19b958a4159eecb2c5a7afd6ceaabcbb086` and must receive a wholly new
-validation/candidate/capture/certification sequence.
+expectations. Rc32 is immutable failed-validation evidence. Rc33 exact source
+`539eb19b958a4159eecb2c5a7afd6ceaabcbb086` passed 1,746 Python checks with 3
+declared skips, all 517 frontend and 115 Node checks, and every applicable
+static gate, then its first strict browser matrix stopped at 98/102 with four
+failures in 330.49 seconds: three focus-scope accessible-name/breadcrumb
+regressions and one short-phone pointer collision. The extra adapter-manifest
+diagnostic appended outside the Lane A registry was
+`inapplicable_gate/orchestration_invalid`, not an rc33 source failure. Rc33 is
+immutable failed-validation evidence; no candidate, capture, capsule or Lane B
+authority exists. The active package is `unreleased` at metadata base
+`a3aae4b1aa5ef53b5e74983d396a744d22f3b514`; future literal
+`wiki-viva-v8-rc34` is still unpinned and must receive a wholly new
+validation/candidate/capture/certification sequence after source formation.
 No existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself

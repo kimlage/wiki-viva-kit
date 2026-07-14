@@ -1,13 +1,38 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc33
+  id: unreleased
   status: validation_pending
-  source_sha: 539eb19b958a4159eecb2c5a7afd6ceaabcbb086
+  source_sha: a3aae4b1aa5ef53b5e74983d396a744d22f3b514
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc33
+    source_sha: 539eb19b958a4159eecb2c5a7afd6ceaabcbb086
+    status: historical_validation_failed
+    note: >-
+      Exact rc33 was pinned only for validation at metadata subject
+      a3aae4b1aa5ef53b5e74983d396a744d22f3b514 with package-file SHA
+      300a78a6c9005059dfe07c6bbe98c268b34739a0aeed8d9f92eadd21dc1b4cb9,
+      canonical package identity
+      69dd37f9d6ed94b92751f6a83a4f4d15cbb1efe925d9bac9d286976a008e1a15
+      and portable tree
+      7964e884e019af57cc8d53322039635e66fb0233f407685fb258f3c24d76c847
+      with 521 entries. Its first exact validation passed 1746 Python checks
+      with 3 declared skips in 1072.23 seconds, all 517 frontend and 115 Node
+      checks, and every applicable static gate. Its first strict browser
+      matrix then stopped at 98/102 with four failures and zero retry in
+      330.49 seconds. Three failures exposed focus-scope accessible-name and
+      breadcrumb regressions after root-quadrant disambiguation was applied
+      inside a focused lens; the fourth was the resulting short-phone pointer
+      collision. An adapter-manifest diagnostic appended outside the Lane A
+      command registry returned untracked, but is classified as
+      inapplicable_gate/orchestration_invalid rather than an rc33 gate
+      failure: adapter identity is consumer_always, reuse never, and C3-owned.
+      No candidate, productive capture, certification, capsule, receipt,
+      attestation, trust anchor or Lane B authority exists. Rc33 must never be
+      retried, relabeled, promoted, imported or used to mint missing authority
   - id: wiki-viva-v8-rc32
     source_sha: ed073dee5fbf05343b36db1fdc061a24d0220cb9
     status: historical_validation_failed
@@ -664,14 +689,20 @@ known_limitations:
     and 517 frontend checks passed. Rc32 source
     ed073dee5fbf05343b36db1fdc061a24d0220cb9 then stopped in its first full
     Python validation with 2 contract failures after 1744 passes and 3 skips.
-    Rc33 is pinned only for exact validation at source
-    539eb19b958a4159eecb2c5a7afd6ceaabcbb086. Public push remains unauthorized.
+    Rc33 source 539eb19b958a4159eecb2c5a7afd6ceaabcbb086 then passed
+    1746 Python checks with 3 skips, all 517 frontend and 115 Node checks, and
+    every applicable static gate, but its first strict browser matrix stopped
+    at 98/102 with four failures in 330.49 seconds. Rc33 is immutable
+    historical-validation-failure evidence and minted no candidate, capsule or
+    Lane B authority. The active package is unreleased at metadata base
+    a3aae4b1aa5ef53b5e74983d396a744d22f3b514; future literal
+    wiki-viva-v8-rc34 remains unpinned. Public push remains unauthorized.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
-  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25, rc27, rc31 and rc32 are immutable failed-validation evidence; rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. None of their incomplete stages can be resumed. The active rc33 package is pinned only for exact validation and remains validation_pending, so package_is_pinned is false and every v3 plan/adoption path must fail closed until validation, candidate review, productive capture, certification capsule and independent verification exist; public promotion and the human gate remain separate.
+  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. None of their incomplete stages can be resumed. The active package is `unreleased` at metadata base a3aae4b1aa5ef53b5e74983d396a744d22f3b514 and remains validation_pending, so package_is_pinned is false. Future literal wiki-viva-v8-rc34 remains unpinned until a distinct source-formation and pin boundary, and every v3 plan/adoption path must fail closed until its wholly new validation, candidate review, productive capture, certification capsule and independent verification exist; public promotion and the human gate remain separate.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc32 can never authorize another import. Exact rc33-or-later may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
-  - The historical private S9 read-only preflight remains attached to S9; exact rc33-or-later requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc33 can never authorize another import. A future exact `wiki-viva-v8-rc34` or later subject may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
+  - The historical private S9 read-only preflight remains attached to S9; a future exact `wiki-viva-v8-rc34` or later subject requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.
@@ -681,5 +712,5 @@ known_limitations:
   - Toolkit-owned .skills/wiki-*/** remain portable C1. Nested consumer skills under .skills/*/**, AGENTS.md and the literal root .skills/README.md are C3; the literal path is required because the nested skill glob intentionally cannot cross the directory boundary.
   - A downstream must ignore only .wiki-viva/upgrade/ before freezing B0 so resumable plans and receipts remain untracked. Ignoring all .wiki-viva/ is forbidden because consumer pack state may be versioned there; this consumer-owned pre-B0 policy is never supplied by C1.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27/rc31/rc32 failed complete validation, rc24/rc26 failed certification after valid captures, and rc28/rc29/rc30 were rejected before complete validation. Exact rc33 retains the rc31 RT-164 fix and rc32 RT-165/RT-166 fixed point/order corrections, closes RT-167/RT-168 by deriving CI command assertions from the versioned registry and naming the literal package identity in release truth, preserves state-stable portable truth and keeps the versioned warnings-as-errors portable Python command, strict post-run scanner and unmodified captured output; it must pass its own complete validation, productive capture, certification and capsule verification before public human/promotion boundaries. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
+  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed complete validation, rc24/rc26 failed certification after valid captures, and rc28/rc29/rc30 were rejected before complete validation. Exact rc33 retained the rc31 RT-164 fix and rc32 RT-165/RT-166 fixed point/order corrections and closed RT-167/RT-168, but over-broad root-quadrant disambiguation failed its first strict browser matrix at 98/102; the appended adapter-manifest diagnostic was inapplicable_gate/orchestration_invalid, not upstream evidence. The active unreleased source-formation must scope disambiguation to the root overview with public synthetic coverage before future literal wiki-viva-v8-rc34 can be pinned for a wholly new validation, productive capture, certification and capsule-verification sequence. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.

@@ -573,6 +573,12 @@ test("quadrant overview keeps every semantic group target disjoint at reviewed p
     relacoes: "q3_relacoes",
     sistemas: "q4_sistemas"
   };
+  const hierarchyByQuadrant: Record<string, { mark: string; facet: string }> = {
+    intencao: { mark: "Q1", facet: "Identity & intent" },
+    pratica: { mark: "Q2", facet: "Outputs & evidence" },
+    relacoes: { mark: "Q3", facet: "Culture & relations" },
+    sistemas: { mark: "Q4", facet: "Systems & governance" }
+  };
   const cases = [
     // The five ingestion events live below their source anchors. With the
     // root's canonical nested_mode=summarize, the overview therefore owns four
@@ -665,6 +671,12 @@ test("quadrant overview keeps every semantic group target disjoint at reviewed p
     await expectRememberedCanvas(page);
 
     for (const destination of geometry.visible) {
+      const hierarchy = hierarchyByQuadrant[destination.quadrant];
+      const accessiblePrefix = `${hierarchy.mark} · `;
+      expect(destination.label.startsWith(accessiblePrefix)).toBe(true);
+      const groupLabel = destination.label.slice(accessiblePrefix.length);
+      expect(groupLabel).not.toBe("");
+
       const target = page.locator(`[data-world-node-id="${destination.nodeId}"]`);
       await expect(target).toHaveCount(1);
       await target.focus();
@@ -672,7 +684,9 @@ test("quadrant overview keeps every semantic group target disjoint at reviewed p
       await target.click();
       expect(new URL(page.url()).searchParams.get("group")).toBe(destination.id);
       await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", lensByQuadrant[destination.quadrant]);
-      await expect(page.locator(".worldBreadcrumbs")).toContainText(destination.label);
+      const breadcrumbs = page.locator(".worldBreadcrumbs");
+      await expect(breadcrumbs).toContainText(hierarchy.facet);
+      await expect(breadcrumbs).toContainText(groupLabel);
       await expect(page.locator(`[data-world-group-summary="${destination.id}"]`)).toBeVisible();
       await expectRememberedCanvas(page);
 
