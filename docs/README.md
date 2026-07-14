@@ -46,6 +46,13 @@ starting point for persistent context is `memories/`.
   [wiki-viva-v8-downstream-upgrade.md](references/guides/wiki-viva-v8-downstream-upgrade.md).
   That contract keeps toolkit `wiki-*` skills byte-equal in C1 and treats each
   consumer's `AGENTS.md` plus non-`wiki-*` repo-local skills as C3 routing.
+  Its localized technical-page authority is derived exclusively from the
+  committed `consumer_B0:wiki.config.yaml` blob and has exactly three roles:
+  `command_reference_page`, `operational_pass_page` and `release_records` under
+  the configured `references_root/releases/**` subtree. These are C3-only inert
+  UTF-8 Markdown `100644` blobs; C1/C2 placement, executable/binary content or a
+  worktree/C3 attempt to widen the authority fails closed. Plan, resumable
+  state, receipt and report bind the derived-authority digest.
 - `docs/references/upgrades/wiki-viva-v8/`: the package plus its sealed,
   versioned path/contract/gate
   [impact registry](references/upgrades/wiki-viva-v8/impact-registry.yaml).
@@ -58,7 +65,18 @@ starting point for persistent context is `memories/`.
   first-write real-canary completion anchor; both SHA-256 values are carried out
   of band through resumable CI handoffs. Receipt and state bind the full
   B0/C1/C2/C3 Git chain, and the active runner interpreter is part of toolchain
-  authority.
+  authority. The acceptance-attempt identity also binds the canonical digest
+  of the complete preflight object; every resume with an execution plan replays
+  C2 from C1 and verifies the full path set, Git modes and blob digests before
+  reusing gate results.
+  Lane A visual authority is generated from the exact clean source by
+  `wiki_visual_evidence.py`, covers every declared profile with record-backed
+  PNG/console/network evidence, and is independently reopened by
+  `wiki_upgrade.py verify-capsule` before adoption.
+  Rc21 is historical non-promotional evidence after downstream rehearsal found
+  the missing config-bound C3 authority; rc22 is the prospective corrected
+  candidate. Existing v2 subjects and receipts remain frozen and are never
+  rewritten into v3 proof.
 - `docs/references/templates/`: stable models for new records.
 - `docs/references/templates/wiki/`: models for the operational wiki, including
   root entities, input channels, processes, artifacts, ingestion proposal,

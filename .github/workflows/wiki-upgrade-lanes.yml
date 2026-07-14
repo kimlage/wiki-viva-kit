@@ -16,9 +16,12 @@ on:
       - "scripts/_common.py"
       - "scripts/_git_subject.py"
       - "scripts/wiki_toolchain_probe.py"
+      - "scripts/wiki_*.py"
       - "scripts/wiki_upgrade*.py"
+      - "scripts/wiki_visual_evidence.py"
       - "tests/test_upgrade*.py"
       - "tests/test_wiki_upgrade_cli.py"
+      - "tests/test_wiki_visual_evidence.py"
       - "wiki_core/**"
       - "apps/wiki-cockpit/**"
   push:
@@ -63,6 +66,8 @@ jobs:
         run: >-
           python -m pytest -q tests/test_upgrade_lanes.py
           -k "published_gate_classes or public_registry or release_capsule"
+      - name: Verify visual evidence implementation
+        run: python -m pytest -q tests/test_wiki_visual_evidence.py
       - name: Verify package v3 schema, gate DAG and v1/v2 compatibility
         run: python -m pytest -q tests/test_upgrade_package_v3.py
       - name: Verify upgrade-package schema and exact command catalog
@@ -75,6 +80,50 @@ jobs:
         run: >-
           python -m pytest -q
           tests/test_wiki_upgrade_cli.py::test_ci_lane_a_inputs_export_only_public_uncertified_fixture
+      - name: Prepare exact public cockpit source for productive capture
+        run: |
+          ROOT=.wiki-viva-ci/lane-a-inputs
+          git archive HEAD .gitignore apps/wiki-cockpit scripts/wiki_visual_evidence.py \
+            | tar -x -C "$ROOT/public-kit"
+          git -C "$ROOT/public-kit" add \
+            .gitignore apps/wiki-cockpit scripts/wiki_visual_evidence.py
+          git -C "$ROOT/public-kit" commit -q -m "add productive visual capture subject"
+          SOURCE_SHA="$(git -C "$ROOT/public-kit" rev-parse HEAD)"
+          SOURCE_SHA="$SOURCE_SHA" python - <<'PY'
+          import os
+          from pathlib import Path
+          import yaml
+          path = Path('.wiki-viva-ci/lane-a-inputs/upgrade-package.yaml')
+          package = yaml.safe_load(path.read_text(encoding='utf-8'))
+          package['release']['source_sha'] = os.environ['SOURCE_SHA']
+          path.write_text(yaml.safe_dump(package, sort_keys=False), encoding='utf-8')
+          PY
+          rm -rf "$ROOT/release-authority"
+          npm --prefix "$ROOT/public-kit/apps/wiki-cockpit" ci
+      - name: Capture productive public visual authority
+        run: |
+          ROOT=.wiki-viva-ci/lane-a-inputs
+          SOURCE_SHA="$(git -C "$ROOT/public-kit" rev-parse HEAD)"
+          python "$ROOT/public-kit/scripts/wiki_visual_evidence.py" capture \
+            --package "$ROOT/upgrade-package.yaml" \
+            --source-root "$ROOT/public-kit" \
+            --source-sha "$SOURCE_SHA" \
+            --out-dir "$ROOT/productive-visual" \
+            > "$ROOT/productive-visual-capture.json"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          capture = json.loads(
+              Path('.wiki-viva-ci/lane-a-inputs/productive-visual-capture.json')
+              .read_text(encoding='utf-8')
+          )
+          assert capture['status'] == 'verified'
+          assert capture['trust'] == {
+              'capture_provenance': 'observed_in_this_capture_process',
+              'productive_authority': False,
+              'release_authority': 'requires_external_capture_attestation',
+          }
+          PY
       - name: Execute and seal the operator-facing Lane A certification
         run: |
           ROOT=.wiki-viva-ci/lane-a-inputs
@@ -82,7 +131,7 @@ jobs:
             --package "$ROOT/upgrade-package.yaml" \
             --impact-registry "$ROOT/impact-registry.yaml" \
             --source-root "$ROOT/public-kit" \
-            --visual-root "$ROOT/release-authority/visual" \
+            --visual-root "$ROOT/productive-visual" \
             --visual-manifest-ref visual-manifest.json \
             --out-dir .wiki-viva-ci/lane-a-certified \
             --attestation-authority-id github-actions \
@@ -93,6 +142,7 @@ jobs:
         run: |
           python - <<'PY'
           import json
+          import hashlib
           from pathlib import Path
           root = Path('.wiki-viva-ci/lane-a-certified')
           required = [
@@ -101,9 +151,27 @@ jobs:
               'gate-output/execution-attestation.json',
               'gate-output/toolchain/probe-manifest.json',
               'visual/visual-manifest.json',
+              'visual/records/desktop.json',
           ]
           assert all((root / relative).is_file() for relative in required)
+          capsule = json.loads((root / 'release-capsule.json').read_text())
           receipt = json.loads((root / 'certification-receipt.json').read_text())
+          capture = json.loads(
+              Path('.wiki-viva-ci/lane-a-inputs/productive-visual-capture.json')
+              .read_text(encoding='utf-8')
+          )
+          captured_root = Path('.wiki-viva-ci/lane-a-inputs/productive-visual')
+          certified_root = root / 'visual'
+          def hashes(subject):
+              return {
+                  path.relative_to(subject).as_posix(): hashlib.sha256(
+                      path.read_bytes()
+                  ).hexdigest()
+                  for path in sorted(subject.rglob('*'))
+                  if path.is_file() and not path.is_symlink()
+              }
+          assert hashes(certified_root) == hashes(captured_root)
+          assert capsule['visual_manifest_sha256'] == capture['visual_manifest_sha256']
           assert receipt['status'] == 'passed'
           assert receipt['human_gate_required'] is True
           assert receipt['upstream_gate_ids']
@@ -114,6 +182,18 @@ jobs:
               for result in receipt['gate_results']
           )
           PY
+      - name: Independently verify the sealed Lane A capsule
+        run: |
+          ROOT=.wiki-viva-ci/lane-a-inputs
+          CERTIFIED=.wiki-viva-ci/lane-a-certified
+          TRUSTED_ATTESTATION_SHA256="$(tr -d '\n' < "$CERTIFIED/trusted-attestation-sha256.txt")"
+          python scripts/wiki_upgrade.py verify-capsule \
+            --package "$ROOT/upgrade-package.yaml" \
+            --capsule "$CERTIFIED/release-capsule.json" \
+            --impact-registry "$ROOT/impact-registry.yaml" \
+            --authority "$CERTIFIED/release-authority.json" \
+            --trusted-attestation-sha256 "$TRUSTED_ATTESTATION_SHA256" \
+            --kit-root "$ROOT/public-kit"
       - name: Export out-of-band Lane A trust anchor
         id: lane_a_trust
         run: |

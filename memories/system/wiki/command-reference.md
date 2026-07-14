@@ -23,7 +23,16 @@ related_pages:
 
 Last updated: 2026-07-14.
 
-This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/README.md) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
+This page catalogs the deterministic CLIs of the living wiki system. They all
+live in [scripts/](../../../scripts/README.md) with the `wiki_` prefix and call
+no language model. Most are pure Python; browser, cockpit and release commands
+also use their explicitly probed Node/Playwright toolchain. Repository-aware
+commands read [wiki.config.yaml](../../../wiki.config.yaml) through
+[wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is
+always delegated to the agent that runs the repo, as per
+[ingestion-process.md](../ingestion-process.md). The gates and the audit are
+detailed on [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle
+in [git-approvals.md](../git-approvals.md).
 
 General convention: most accept `--dry-run` (computes without writing) and `--check` (exits with a code != 0 when something is pending/invalid, for use in CI). Output paths are printed relative to the repo root.
 
@@ -54,6 +63,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_upgrade_report.py](../../../scripts/wiki_upgrade_report.py) | Validates evidence and compiles v8 migration reports | Close a downstream upgrade with SHAs, allowlisted files, gates, QA and rollback |
 | [wiki_upgrade.py](../../../scripts/wiki_upgrade.py) | Certifies Lane A and plans/executes resumable Lane B adoption | Execute and seal public certification, bind its verified capsule, create/verify C1-C3, run the impact-derived matrix, real canary and disposable rollback, then emit receipts/reports |
 | [wiki_toolchain_probe.py](../../../scripts/wiki_toolchain_probe.py) | Emits canonical Python dependency and launched Chromium identities | Let Lane A attest the resolved Python environment and the browser engine actually launched by Playwright; not a standalone migration authority |
+| [wiki_visual_evidence.py](../../../scripts/wiki_visual_evidence.py) | Captures/verifies the exact public Lane A visual authority | Build and serve the clean source, capture every package visual profile in Chromium and bind PNG, source/package/toolchain, console and network records before certification |
 | [wiki_adapter_manifest.py](../../../scripts/wiki_adapter_manifest.py) | Builds or verifies the downstream adapter identity manifest | Bind a private consumer's explicit adapter files to tracked, no-follow hashes without importing private content into the kit |
 | [wiki_pack.py](../../../scripts/wiki_pack.py) | Operates versioned experience packs through a review-first lifecycle | Inspect/preview/dry-run/install/validate/upgrade/disable/remove a declarative use-case experience |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Living gate: lists, transitions, rebases | Move proposals between states and supersede old ones |
@@ -223,7 +233,26 @@ python3 scripts/wiki_toolchain_probe.py python
 python3 scripts/wiki_toolchain_probe.py browser
 ```
 
+### [wiki_visual_evidence.py](../../../scripts/wiki_visual_evidence.py) and [wiki_upgrade.py](../../../scripts/wiki_upgrade.py) - two-lane release
+
+`capture` owns a clean exact-source build and loopback preview, then emits one
+create-once public visual bundle with all package profiles. `verify` reopens its
+PNG/record inventory with the live Chromium toolchain. `certify` executes the
+public-safe upstream command registry and seals the Lane A authority;
+`verify-capsule` independently reopens that sealed authority before `plan` may
+bind a consumer. `plan` and `adopt` remain v3-only and never merge a PR.
+
 ```sh
+python3 scripts/wiki_visual_evidence.py capture \
+  --package "$UPGRADE_PACKAGE" \
+  --source-root "$PUBLIC_SOURCE_ROOT" \
+  --source-sha "$SOURCE_SHA" \
+  --out-dir "$PUBLIC_VISUAL_ROOT"
+python3 scripts/wiki_visual_evidence.py verify \
+  --package "$UPGRADE_PACKAGE" \
+  --source-root "$PUBLIC_SOURCE_ROOT" \
+  --source-sha "$SOURCE_SHA" \
+  --visual-root "$PUBLIC_VISUAL_ROOT"
 python3 scripts/wiki_upgrade.py certify \
   --package "$UPGRADE_PACKAGE" \
   --impact-registry "$IMPACT_REGISTRY" \
@@ -232,6 +261,13 @@ python3 scripts/wiki_upgrade.py certify \
   --visual-manifest-ref visual-manifest.json \
   --out-dir "$NEW_LANE_A_AUTHORITY_ROOT" \
   --attestation-authority-id "$RELEASE_AUTHORITY_ID"
+python3 scripts/wiki_upgrade.py verify-capsule \
+  --package "$UPGRADE_PACKAGE" \
+  --capsule "$NEW_LANE_A_AUTHORITY_ROOT/release-capsule.json" \
+  --impact-registry "$IMPACT_REGISTRY" \
+  --authority "$NEW_LANE_A_AUTHORITY_ROOT/release-authority.json" \
+  --trusted-attestation-sha256 "$TRUSTED_ATTESTATION_SHA256" \
+  --kit-root "$PUBLIC_SOURCE_ROOT"
 python3 scripts/wiki_upgrade.py plan \
   --package "$UPGRADE_PACKAGE" \
   --capsule "$RELEASE_CAPSULE" \

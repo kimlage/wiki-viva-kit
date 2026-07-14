@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import json
 import tarfile
 from pathlib import Path
 
 import yaml
+
+from wiki_core.upgrade import portable_path_status
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -63,10 +66,66 @@ def test_pr_paths_cover_runner_toolchain_and_portable_authority() -> None:
         "scripts/_common.py",
         "scripts/_git_subject.py",
         "scripts/wiki_toolchain_probe.py",
+        "scripts/wiki_*.py",
         "scripts/wiki_upgrade*.py",
+        "scripts/wiki_visual_evidence.py",
         "tests/test_wiki_upgrade_cli.py",
+        "tests/test_wiki_visual_evidence.py",
         "wiki_core/**",
     }.issubset(paths)
+
+    package = yaml.safe_load(
+        (
+            ROOT
+            / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    portable_scripts = []
+    for script in sorted((ROOT / "scripts").glob("wiki_*.py")):
+        relative = script.relative_to(ROOT).as_posix()
+        allowed, _reason = portable_path_status(relative, package)
+        if allowed:
+            portable_scripts.append(relative)
+    assert portable_scripts
+    assert all(
+        any(fnmatch.fnmatchcase(relative, pattern) for pattern in paths)
+        for relative in portable_scripts
+    )
+
+
+def test_upstream_job_runs_productive_visual_capture_and_capsule_verifier() -> None:
+    upstream = _workflow_jobs()["upstream-certification"]
+    visual = _step(upstream, "Verify visual evidence implementation")
+    prepare = _step(
+        upstream, "Prepare exact public cockpit source for productive capture"
+    )
+    capture = _step(upstream, "Capture productive public visual authority")
+    certify = _step(
+        upstream, "Execute and seal the operator-facing Lane A certification"
+    )
+    sealed = _step(upstream, "Verify immutable Lane A artifact set")
+    verifier = _step(upstream, "Independently verify the sealed Lane A capsule")
+
+    assert "tests/test_wiki_visual_evidence.py" in visual["run"]
+    assert 'rm -rf "$ROOT/release-authority"' in prepare["run"]
+    assert "wiki_visual_evidence.py\" capture" in capture["run"]
+    assert '--out-dir "$ROOT/productive-visual"' in capture["run"]
+    assert "observed_in_this_capture_process" in capture["run"]
+    assert "productive_authority': False" in capture["run"]
+    assert '--visual-root "$ROOT/productive-visual"' in certify["run"]
+    assert "release-authority/visual" not in certify["run"]
+    assert "hashes(certified_root) == hashes(captured_root)" in sealed["run"]
+    assert (
+        "capsule['visual_manifest_sha256'] == capture['visual_manifest_sha256']"
+        in sealed["run"]
+    )
+    names = [step.get("name") for step in upstream["steps"]]
+    assert names.index("Capture productive public visual authority") < names.index(
+        "Execute and seal the operator-facing Lane A certification"
+    )
+    assert "wiki_upgrade.py verify-capsule" in verifier["run"]
+    assert "--trusted-attestation-sha256" in verifier["run"]
+    assert "--authority" in verifier["run"]
 
 
 def test_every_toolchain_probe_job_installs_the_launched_browser() -> None:

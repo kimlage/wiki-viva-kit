@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import copy
+import functools
 import hashlib
 import json
+import os
 import struct
 import subprocess
 import zlib
 from pathlib import Path
+from typing import Mapping
 
 import pytest
 from jsonschema import Draft202012Validator
 
-from wiki_core.upgrade import boundary_operations_sha256
+from wiki_core.upgrade import CONFIG_BOUND_C3_ROLE_SPECS, boundary_operations_sha256
 from wiki_core.upgrade_lanes import (
     ADOPTION_RECEIPT_SCHEMA_VERSION,
     AdoptionEvidenceAuthority,
@@ -21,7 +24,12 @@ from wiki_core.upgrade_lanes import (
     RELEASE_CAPSULE_SCHEMA_VERSION,
     ReleaseCapsuleAuthority,
     UpgradeLaneError,
+    VISUAL_PROFILE_CONTRACTS,
+    _safe_file_bytes,
+    canonical_json,
     canonical_sha256,
+    classify_consumer_c3_path,
+    consumer_c3_authority_from_git,
     collect_release_attestation,
     _verify_git_boundary_chain,
     load_mapping,
@@ -39,9 +47,12 @@ from wiki_core.upgrade_lanes import (
     verify_adoption_receipt,
     verify_adoption_evidence,
     verify_gate_omissions,
+    verify_config_bound_c3_git_content,
+    verify_consumer_c3_authority,
     verify_impact_registry,
     verify_release_capsule,
 )
+from wiki_core.release_receipt import visual_evidence_file_metadata
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -85,6 +96,7 @@ def _png_chunk(kind: bytes, payload: bytes) -> bytes:
     )
 
 
+@functools.lru_cache(maxsize=None)
 def _png_bytes(width: int = 16, height: int = 12) -> bytes:
     header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
     rows = b"".join(b"\x00" + (b"\x00\x00\x00" * width) for _ in range(height))
@@ -115,100 +127,101 @@ def capsule_authority(tmp_path: Path) -> dict:
     _git(source_root, "add", ".")
     _git(source_root, "commit", "-q", "-m", "public synthetic source")
     source_sha = _git(source_root, "rev-parse", "HEAD")
-    package = {
-        "schema_version": "wiki_viva_upgrade_package.v3",
-        "release": {
-            "id": "wiki-viva-v8-public-synthetic",
-            "status": "ready",
-            "source_sha": source_sha,
-            "plan": "docs/references/proposals/synthetic.md",
-        },
-        "portable_import": {
-            "allow": list(
-                registry["boundary_policy"]["c1_portable_patterns"]
-            ),
-            "block": ["memories/**"],
-        },
-        "migration": {
-            "required_gates": [item["id"] for item in registry["gate_catalog"]],
-            "gate_commands": {
-                item["id"]: item["command"]
-                for item in registry["gate_catalog"]
-            },
-            "gate_policies": {
-                item["id"]: {
-                    "class": item["class"],
-                    "command_id": item["id"],
-                    "depends_on": [],
-                    "required_for_promotion": False,
-                }
-                for item in registry["gate_catalog"]
-            },
-            "command_registry_sha256": canonical_sha256(
-                registry["gate_catalog"]
-            ),
-            "impact_registry": {
-                "schema_version": IMPACT_REGISTRY_SCHEMA_VERSION,
-                "path": "impact-registry.yaml",
-                "sha256": registry["registry_sha256"],
-            },
-            "acceptance_budget": {
-                "schema_version": "wiki_viva_upgrade_acceptance_budget_policy.v1",
-                "scope": "plan_to_real_canary",
-                "limit_seconds": 1200,
-                "enforcement": "promotion_blocking",
-            },
-            "boundary_operations": {
-                "schema_version": "wiki_viva_upgrade_boundary_operations.v1",
-                "c2_generators": [
-                    {
-                        "id": "synthetic_generated",
-                        "command": "python3 scripts/wiki_build_demo.py",
-                        "owns_patterns": list(
-                            registry["boundary_policy"]["c2_generated_patterns"]
-                        ),
-                    }
-                ],
-                "c3_adapter": {
-                    "mode": "consumer_plan_commands",
-                    "contract": "wiki_consumer_adaptation_plan.v1",
-                    "owns_patterns": list(
-                        registry["boundary_policy"]["c3_consumer_patterns"]
-                    ),
-                },
-                "registry_sha256": "0" * 64,
-            },
-            "visual_profiles": ["desktop", "mobile"],
-        },
+    package = load_mapping(
+        ROOT / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+    )
+    package["release"] = {
+        "id": "wiki-viva-v8-public-synthetic",
+        "status": "ready",
+        "source_sha": source_sha,
+        "plan": "docs/references/proposals/synthetic.md",
     }
     boundary = package["migration"]["boundary_operations"]
     boundary["registry_sha256"] = boundary_operations_sha256(boundary)
+    toolchain = {
+        "browser": {
+            "name": "playwright-chromium",
+            "version": "1.61.1+chromium.128.0.0",
+        },
+        "node": {"name": "node", "version": "22.17.0"},
+        "python": {"name": "cpython", "version": "3.12.9"},
+        "runner": {"name": "wiki-upgrade", "version": "1.1.0"},
+    }
     visual_root = tmp_path / "public-visuals"
-    image_path = visual_root / "images/world-overview.png"
-    image_path.parent.mkdir(parents=True)
-    image_raw = _png_bytes()
-    image_path.write_bytes(image_raw)
+    (visual_root / "images").mkdir(parents=True)
+    (visual_root / "records").mkdir()
+    visual_entries = []
+    for profile in (
+        sorted(package["migration"]["visual_profiles"])
+    ):
+        spec = VISUAL_PROFILE_CONTRACTS[profile]
+        image_ref = f"images/{profile}.png"
+        image_raw = _png_bytes(
+            width=spec["viewport"]["width"],
+            height=spec["viewport"]["height"],
+        )
+        (visual_root / image_ref).write_bytes(image_raw)
+        image = {
+            "path": image_ref,
+            "sha256": hashlib.sha256(image_raw).hexdigest(),
+            "bytes": len(image_raw),
+            "dimensions": dict(spec["viewport"]),
+        }
+        record = {
+            "schema_version": "wiki_visual_evidence_capture.v1",
+            "profile": profile,
+            "source_sha": source_sha,
+            "package_sha256": canonical_sha256(package),
+            "requested_route": spec["route"],
+            "route": spec["route"],
+            "viewport": spec["viewport"],
+            "browser_toolchain": toolchain["browser"],
+            "browser_toolchain_sha256": canonical_sha256(toolchain["browser"]),
+            "image": image,
+            "console_summary": {
+                "capture": "sanitized_counts_only",
+                "warning_count": 0,
+                "error_count": 0,
+                "page_error_count": 0,
+                "truncated": False,
+            },
+            "network_summary": {
+                "capture": "sanitized_counts_only",
+                "request_count": 4,
+                "response_error_count": 0,
+                "request_failed_count": 0,
+                "truncated": False,
+            },
+            "capture": {
+                "method": "playwright_served_public_synthetic",
+                "action_count": spec["action_count"],
+                "state": spec["state"],
+                "settled": True,
+            },
+        }
+        record_raw = (canonical_json(record) + "\n").encode("utf-8")
+        (visual_root / "records" / f"{profile}.json").write_bytes(record_raw)
+        visual_entries.append(
+            {
+                "id": profile,
+                "path": image_ref,
+                "sha256": image["sha256"],
+                "bytes": image["bytes"],
+                "route": spec["route"],
+                "browser": "chromium",
+                "viewport": spec["viewport"],
+                "capture_dimensions": image["dimensions"],
+                "state": f"capture-{hashlib.sha256(record_raw).hexdigest()}",
+                "public_synthetic": True,
+            }
+        )
     visual_manifest_ref = "visual-manifest.json"
     (visual_root / visual_manifest_ref).write_text(
-        json.dumps(
+        canonical_json(
             {
                 "schema_version": "wiki_visual_evidence_manifest.v1",
-                "entries": [
-                    {
-                        "id": "world-overview",
-                        "path": "images/world-overview.png",
-                        "sha256": hashlib.sha256(image_raw).hexdigest(),
-                        "bytes": len(image_raw),
-                        "route": "/demo/w/radar",
-                        "browser": "chromium",
-                        "viewport": {"width": 1280, "height": 900},
-                        "capture_dimensions": {"width": 16, "height": 12},
-                        "state": "radar-overview",
-                        "public_synthetic": True,
-                    }
-                ],
-            },
-            sort_keys=True,
+                "entries": visual_entries,
+            }
         )
         + "\n",
         encoding="utf-8",
@@ -238,12 +251,6 @@ def capsule_authority(tmp_path: Path) -> dict:
         (gate_output_root / gate["output_ref"]).write_text(
             f"gate={gate['id']}\nstatus=passed\n", encoding="utf-8"
         )
-    toolchain = {
-        "browser": {"name": "chromium", "version": "128.0.0"},
-        "node": {"name": "node", "version": "22.17.0"},
-        "python": {"name": "cpython", "version": "3.12.9"},
-        "runner": {"name": "wiki-upgrade", "version": "1.1.0"},
-    }
     probe_entries = []
     for tool_id, identity in sorted(toolchain.items()):
         output_ref = f"toolchain/{tool_id}.log"
@@ -323,6 +330,9 @@ def capsule_authority(tmp_path: Path) -> dict:
     _git(consumer_root, "config", "user.email", "consumer@example.invalid")
     (consumer_root / ".gitignore").write_text(".wiki-viva/\n", encoding="utf-8")
     (consumer_root / "README.md").write_text("synthetic consumer\n", encoding="utf-8")
+    (consumer_root / "wiki.config.yaml").write_text(
+        "repo_id: public-synthetic\n", encoding="utf-8"
+    )
     _git(consumer_root, "add", ".")
     _git(consumer_root, "commit", "-q", "-m", "consumer B0")
     consumer_b0 = _git(consumer_root, "rev-parse", "HEAD")
@@ -340,7 +350,7 @@ def capsule_authority(tmp_path: Path) -> dict:
     _git(consumer_root, "commit", "-q", "-m", "consumer C2")
     consumer_c2 = _git(consumer_root, "rev-parse", "HEAD")
     (consumer_root / "wiki.config.yaml").write_text(
-        "repo_id: public-synthetic\n", encoding="utf-8"
+        "repo_id: public-synthetic-v8\n", encoding="utf-8"
     )
     _git(consumer_root, "add", "wiki.config.yaml")
     _git(consumer_root, "commit", "-q", "-m", "consumer C3")
@@ -367,6 +377,33 @@ def _capsule(capsule_authority: dict) -> dict:
     return copy.deepcopy(capsule_authority["capsule"])
 
 
+def _replace_visual_image_and_reseal(
+    capsule_authority: dict,
+    profile: str,
+    *,
+    width: int,
+    height: int,
+) -> None:
+    root = capsule_authority["visual_root"]
+    image_ref = f"images/{profile}.png"
+    (root / image_ref).write_bytes(_png_bytes(width=width, height=height))
+    image = visual_evidence_file_metadata(root, image_ref, label=profile)
+
+    record_path = root / "records" / f"{profile}.json"
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    record["image"] = image
+    record_path.write_text(canonical_json(record) + "\n", encoding="utf-8")
+
+    manifest_path = root / "visual-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entry = next(item for item in manifest["entries"] if item["id"] == profile)
+    entry["sha256"] = image["sha256"]
+    entry["bytes"] = image["bytes"]
+    entry["capture_dimensions"] = image["dimensions"]
+    entry["state"] = f"capture-{hashlib.sha256(record_path.read_bytes()).hexdigest()}"
+    manifest_path.write_text(canonical_json(manifest) + "\n", encoding="utf-8")
+
+
 def _identity(capsule: dict, capsule_authority: dict) -> dict[str, str]:
     return {
         "source_sha": capsule["source_sha"],
@@ -379,11 +416,29 @@ def _identity(capsule: dict, capsule_authority: dict) -> dict[str, str]:
     }
 
 
-def _selection(registry: dict) -> dict:
-    return select_impacted_gates(
+def _consumer_c3_authority(
+    capsule_authority: dict, package: Mapping[str, object] | None = None
+) -> dict:
+    return consumer_c3_authority_from_git(
+        capsule_authority["consumer_root"],
+        capsule_authority["consumer_B0"],
+        package or capsule_authority["authority"].package,
+    )
+
+
+def _selection(registry: dict, capsule_authority: dict) -> dict:
+    package = capsule_authority["authority"].package
+    authority = consumer_c3_authority_from_git(
+        capsule_authority["consumer_root"],
+        capsule_authority["consumer_B0"],
+        package,
+    )
+    return select_promotion_gates(
+        package,
         registry,
         changed_paths=["wiki.config.yaml"],
         changed_contracts=[],
+        consumer_c3_authority=authority,
     )
 
 
@@ -395,8 +450,14 @@ def _receipt(
 ) -> tuple[dict, dict, dict, dict, str]:
     registry = registry or _registry()
     capsule = capsule or _capsule(capsule_authority)
-    selection = selection or _selection(registry)
+    selection = selection or _selection(registry, capsule_authority)
     identity = _identity(capsule, capsule_authority)
+    consumer_c3_authority = consumer_c3_authority_from_git(
+        capsule_authority["consumer_root"],
+        capsule_authority["consumer_B0"],
+        capsule_authority["authority"].package,
+    )
+    consumer_c3_authority_sha256 = consumer_c3_authority["authority_sha256"]
     classes = {item["id"]: item["class"] for item in registry["gate_catalog"]}
     commands = {item["id"]: item["command"] for item in registry["gate_catalog"]}
     plan_sha256 = _digest("synthetic-read-only-plan")
@@ -590,7 +651,15 @@ def _receipt(
             "artifact_file": console_file,
         }
     )
-    for profile, width, height in (("desktop", 320, 240), ("mobile", 240, 320)):
+    visual_profiles = capsule_authority["authority"].package["migration"][
+        "visual_profiles"
+    ]
+    for index, profile in enumerate(visual_profiles):
+        width, height = (
+            (320 + index, 240 + index)
+            if profile != "mobile"
+            else (240, 320)
+        )
         image = _png_bytes(width, height)
         image_file = f"screenshot-{profile}.png"
         (canary_dir / image_file).write_bytes(image)
@@ -621,11 +690,12 @@ def _receipt(
         "status": "met",
     }
     report = {
-        "schema_version": "wiki_viva_upgrade_runner_report.v2",
+        "schema_version": "wiki_viva_upgrade_runner_report.v3",
         "status": "complete",
         "lane": "lane_b",
         "mode": "canary",
         "plan_sha256": plan_sha256,
+        "consumer_c3_authority_sha256": consumer_c3_authority_sha256,
         "identity": identity,
         "selection": {
             "escalation": selection["escalation"],
@@ -720,6 +790,7 @@ def _receipt(
         "impact_registry_sha256": registry["registry_sha256"],
         "impact_derivation_sha256": selection["derivation_sha256"],
         "plan_sha256": plan_sha256,
+        "consumer_c3_authority_sha256": consumer_c3_authority_sha256,
         "acceptance_budget": acceptance_budget,
         "canary_completion_anchor": completion_reference,
         "resume": {
@@ -746,13 +817,14 @@ def _receipt(
     }
     receipt = seal_adoption_receipt(payload)
     state = {
-        "schema_version": "wiki_viva_upgrade_runner_state.v3",
+        "schema_version": "wiki_viva_upgrade_runner_state.v4",
         "status": "complete",
         "plan_sha256": plan_sha256,
         "identity_sha256": canonical_sha256(identity),
         "capsule_sha256": capsule["capsule_sha256"],
         "impact_registry_sha256": registry["registry_sha256"],
         "toolchain_sha256": identity["toolchain_sha256"],
+        "consumer_c3_authority_sha256": consumer_c3_authority_sha256,
         "boundary_commits": boundary_commits,
         "run_started_unix_ns": 1,
         "acceptance_budget": acceptance_budget,
@@ -899,6 +971,11 @@ def _verify(
     plan_sha256: str,
     capsule_authority: dict,
 ) -> str:
+    consumer_c3_authority = consumer_c3_authority_from_git(
+        capsule_authority["consumer_root"],
+        capsule_authority["consumer_B0"],
+        capsule_authority["authority"].package,
+    )
     return verify_adoption_receipt(
         receipt,
         expected_identity=identity,
@@ -913,6 +990,7 @@ def _verify(
         package=capsule_authority["authority"].package,
         registry=_registry(),
         selection=selection,
+        consumer_c3_authority=consumer_c3_authority,
     )
 
 
@@ -981,6 +1059,92 @@ def test_release_capsule_is_immutable_canonical_and_schema_valid(
         )
         == capsule
     )
+
+
+def test_productive_visual_authority_requires_external_capture_attestation(
+    capsule_authority: dict,
+) -> None:
+    attestation = json.loads(
+        capsule_authority["attestation_path"].read_text(encoding="utf-8")
+    )
+
+    assert attestation["visual_capture_trust"] == {
+        "model": "external_capture_execution_attestation",
+        "capture_method": "playwright_served_public_synthetic",
+        "bundle_verification": "structural_only",
+        "productive_authority": "external_sha256",
+    }
+    assert attestation["authority"] == {
+        "kind": "external_sha256",
+        "id": "synthetic-ci",
+    }
+    with pytest.raises(UpgradeLaneError, match="requires exact package/tree"):
+        verify_release_capsule(capsule_authority["capsule"])
+
+
+def test_safe_file_bytes_remains_pinned_when_path_is_replaced_mid_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "authority"
+    evidence = root / "records" / "desktop.json"
+    evidence.parent.mkdir(parents=True)
+    evidence.write_bytes(b"trusted-descriptor-bytes")
+    original_read = os.read
+    replaced = False
+
+    def replace_path_then_read(descriptor: int, size: int) -> bytes:
+        nonlocal replaced
+        if not replaced:
+            replaced = True
+            evidence.rename(evidence.with_name("desktop-original.json"))
+            evidence.write_bytes(b"attacker-path-bytes")
+        return original_read(descriptor, size)
+
+    monkeypatch.setattr(os, "read", replace_path_then_read)
+    relative, raw = _safe_file_bytes(
+        root, "records/desktop.json", label="visual record"
+    )
+
+    assert replaced is True
+    assert relative == "records/desktop.json"
+    assert raw == b"trusted-descriptor-bytes"
+    assert evidence.read_bytes() == b"attacker-path-bytes"
+
+
+def test_safe_file_bytes_rejects_symlinks_and_hardlinks(tmp_path: Path) -> None:
+    root = tmp_path / "authority"
+    records = root / "records"
+    records.mkdir(parents=True)
+    regular = records / "desktop.json"
+    regular.write_bytes(b"trusted")
+
+    final_symlink = records / "final-link.json"
+    final_symlink.symlink_to(regular.name)
+    with pytest.raises(UpgradeLaneError, match="without symlink traversal"):
+        _safe_file_bytes(root, "records/final-link.json", label="visual record")
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "record.json").write_bytes(b"outside")
+    (root / "linked-directory").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(UpgradeLaneError, match="without symlink traversal"):
+        _safe_file_bytes(
+            root, "linked-directory/record.json", label="visual record"
+        )
+
+    hardlink = records / "desktop-hardlink.json"
+    try:
+        os.link(regular, hardlink)
+    except OSError as exc:
+        pytest.skip(f"hardlinks unavailable in this test environment: {exc}")
+    with pytest.raises(UpgradeLaneError, match="non-hard-linked"):
+        _safe_file_bytes(root, "records/desktop.json", label="visual record")
+
+    fifo = records / "named-pipe.json"
+    if hasattr(os, "mkfifo"):
+        os.mkfifo(fifo)
+        with pytest.raises(UpgradeLaneError, match="regular"):
+            _safe_file_bytes(root, "records/named-pipe.json", label="visual record")
 
 
 def test_release_capsule_rejects_tamper_and_manual_evidence(
@@ -1090,9 +1254,78 @@ def test_capsule_recomputes_the_pinned_git_tree_not_the_dirty_worktree(
 def test_capsule_rejects_substituted_strict_png_evidence(
     capsule_authority: dict,
 ) -> None:
-    image_path = capsule_authority["visual_root"] / "images/world-overview.png"
+    image_path = capsule_authority["visual_root"] / "images/desktop.png"
     image_path.write_bytes(_png_bytes(width=17, height=12))
-    with pytest.raises(UpgradeLaneError, match="hash/bytes/dimensions differ"):
+    with pytest.raises(
+        UpgradeLaneError, match="DPR-1 viewport|hash/bytes/dimensions"
+    ):
+        verify_release_capsule(
+            capsule_authority["capsule"],
+            authority=capsule_authority["authority"],
+        )
+
+
+def test_capsule_rejects_coherently_resealed_wrong_dpr1_dimensions(
+    capsule_authority: dict,
+) -> None:
+    _replace_visual_image_and_reseal(
+        capsule_authority, "desktop", width=720, height=500
+    )
+
+    with pytest.raises(UpgradeLaneError, match="DPR-1 viewport"):
+        verify_release_capsule(
+            capsule_authority["capsule"],
+            authority=capsule_authority["authority"],
+        )
+
+
+@pytest.mark.parametrize("mutation", ["missing", "duplicate", "undeclared"])
+def test_capsule_visual_manifest_exactly_covers_package_profiles(
+    capsule_authority: dict, mutation: str
+) -> None:
+    manifest_path = capsule_authority["visual_root"] / "visual-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if mutation == "missing":
+        manifest["entries"].pop()
+    elif mutation == "duplicate":
+        manifest["entries"].append(copy.deepcopy(manifest["entries"][0]))
+    else:
+        manifest["entries"][0]["id"] = "undeclared"
+    manifest_path.write_text(canonical_json(manifest) + "\n", encoding="utf-8")
+    with pytest.raises(UpgradeLaneError, match="exactly cover"):
+        verify_release_capsule(
+            capsule_authority["capsule"],
+            authority=capsule_authority["authority"],
+        )
+
+
+@pytest.mark.parametrize("mutation", ["source", "toolchain", "route", "console"])
+def test_capsule_reopens_record_backed_visual_authority(
+    capsule_authority: dict, mutation: str
+) -> None:
+    root = capsule_authority["visual_root"]
+    record_path = root / "records/desktop.json"
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    if mutation == "source":
+        record["source_sha"] = "f" * 40
+    elif mutation == "toolchain":
+        record["browser_toolchain"]["version"] = "9.9.9"
+        record["browser_toolchain_sha256"] = canonical_sha256(
+            record["browser_toolchain"]
+        )
+    elif mutation == "route":
+        record["requested_route"] = "/demo/w?center=%2570rivate"
+        record["route"] = "/demo/w?center=%2570rivate"
+    else:
+        record["console_summary"]["error_count"] = 1
+    record_path.write_text(canonical_json(record) + "\n", encoding="utf-8")
+    manifest_path = root / "visual-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    entry = next(item for item in manifest["entries"] if item["id"] == "desktop")
+    entry["state"] = f"capture-{hashlib.sha256(record_path.read_bytes()).hexdigest()}"
+    entry["route"] = record["route"]
+    manifest_path.write_text(canonical_json(manifest) + "\n", encoding="utf-8")
+    with pytest.raises(UpgradeLaneError, match="visual capture record|visual profile"):
         verify_release_capsule(
             capsule_authority["capsule"],
             authority=capsule_authority["authority"],
@@ -1153,9 +1386,9 @@ def test_capsule_attestation_digest_inside_capsule_is_not_a_trust_anchor(
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
-        ("command", "command/class identity differs"),
-        ("class", "command/class identity differs"),
-        ("digest", "command registry digest differs"),
+        ("command", "semantically invalid"),
+        ("class", "schema rejected"),
+        ("digest", "semantically invalid"),
         ("boundary", "C3 ownership differs"),
     ],
 )
@@ -1213,6 +1446,24 @@ def test_capsule_cannot_certify_unpinned_or_mismatched_release_identity(
         verify_release_capsule(mismatched, authority=current)
 
 
+def test_capsule_rejects_a_normatively_incomplete_upgrade_package(
+    capsule_authority: dict,
+) -> None:
+    current = capsule_authority["authority"]
+    package = copy.deepcopy(current.package)
+    del package["contract_versions"]["consumer_c3_authority"]
+    authority = ReleaseCapsuleAuthority(
+        package=package,
+        impact_registry=current.impact_registry,
+        source_root=current.source_root,
+        visual_root=current.visual_root,
+        gate_output_root=current.gate_output_root,
+        verified_attestation_sha256=current.verified_attestation_sha256,
+    )
+    with pytest.raises(UpgradeLaneError, match="upgrade package schema rejected"):
+        verify_release_capsule(capsule_authority["capsule"], authority=authority)
+
+
 def test_known_delta_selects_consumer_invariants_canary_and_affected_gates() -> None:
     registry = _registry()
     selection = select_impacted_gates(
@@ -1237,14 +1488,16 @@ def test_promotion_selection_adds_required_background_gate_and_dependencies(
     capsule_authority: dict,
 ) -> None:
     package = copy.deepcopy(capsule_authority["authority"].package)
-    package["migration"]["gate_policies"]["consumer_browser_matrix"][
-        "required_for_promotion"
-    ] = True
     selection = select_promotion_gates(
         package,
         _registry(),
         changed_paths=["wiki.config.yaml"],
         changed_contracts=[],
+        consumer_c3_authority=consumer_c3_authority_from_git(
+            capsule_authority["consumer_root"],
+            capsule_authority["consumer_B0"],
+            package,
+        ),
     )
     assert "consumer_browser_matrix" in selection["selected_gates"]
 
@@ -1327,6 +1580,295 @@ def test_skill_root_file_is_not_misclassified_as_a_consumer_skill() -> None:
     assert selection["unknown_paths"] == [".skills/README.md"]
     assert selection["requires_lane_a"] is True
     assert selection["escalation"] == "unknown_impact_full_lane"
+
+
+def _localized_c3_chain(
+    tmp_path: Path,
+    package: Mapping[str, object],
+    *,
+    files: Mapping[str, tuple[bytes, str]],
+    c3_config: str | None = None,
+) -> tuple[Path, dict, dict, dict]:
+    consumer = tmp_path / "localized-consumer"
+    consumer.mkdir()
+    _git(consumer, "init", "-q", "-b", "main")
+    _git(consumer, "config", "user.name", "Synthetic Consumer")
+    _git(consumer, "config", "user.email", "consumer@example.invalid")
+    (consumer / "wiki.config.yaml").write_text(
+        "\n".join(
+            [
+                "repo_id: localized-public-synthetic",
+                "paths:",
+                "  memory_root: memoria-publica",
+                "  references_root: docs/referencias-publicas",
+                "  command_reference_page: memoria-publica/sistema/referencia-comandos.md",
+                "  operational_pass_page: memoria-publica/sistema/passagem-operacional.md",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "consumer B0")
+    b0 = _git(consumer, "rev-parse", "HEAD")
+    _git(consumer, "commit", "-q", "--allow-empty", "-m", "consumer C1")
+    c1 = _git(consumer, "rev-parse", "HEAD")
+    _git(consumer, "commit", "-q", "--allow-empty", "-m", "consumer C2")
+    c2 = _git(consumer, "rev-parse", "HEAD")
+    for path, (raw, mode) in files.items():
+        target = consumer / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+        target.chmod(0o755 if mode == "100755" else 0o644)
+    if c3_config is not None:
+        (consumer / "wiki.config.yaml").write_text(c3_config, encoding="utf-8")
+    _git(consumer, "add", "-A")
+    _git(consumer, "commit", "-q", "-m", "consumer C3")
+    c3 = _git(consumer, "rev-parse", "HEAD")
+    boundaries = {"C1": [], "C2": [], "C3": []}
+    for path, (raw, mode) in files.items():
+        boundaries["C3"].append(
+            {
+                "path": path,
+                "operation": "upsert",
+                "mode": mode,
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
+        )
+    if c3_config is not None:
+        raw = c3_config.encode("utf-8")
+        boundaries["C3"].append(
+            {
+                "path": "wiki.config.yaml",
+                "operation": "upsert",
+                "mode": "100644",
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
+        )
+    boundaries["C3"].sort(key=lambda item: item["path"])
+    commits = {"B0": b0, "C1": c1, "C2": c2, "C3": c3}
+    authority = consumer_c3_authority_from_git(consumer, b0, package)
+    return consumer, commits, boundaries, authority
+
+
+def test_localized_b0_authority_accepts_only_three_exact_technical_roles(
+    tmp_path: Path, capsule_authority: dict
+) -> None:
+    package = capsule_authority["authority"].package
+    files = {
+        "memoria-publica/sistema/referencia-comandos.md": (
+            b"# Comandos publicos sinteticos\n",
+            "100644",
+        ),
+        "memoria-publica/sistema/passagem-operacional.md": (
+            b"# Passagem operacional sintetica\n",
+            "100644",
+        ),
+        "docs/referencias-publicas/releases/wiki-viva-v8-rc22.md": (
+            b"# Registro sintetico rc22\n",
+            "100644",
+        ),
+    }
+    consumer, commits, boundaries, authority = _localized_c3_chain(
+        tmp_path, package, files=files
+    )
+
+    assert [
+        classify_consumer_c3_path(path, authority) for path in sorted(files)
+    ] == ["release_records", "operational_pass_page", "command_reference_page"]
+    selection = select_promotion_gates(
+        package,
+        _registry(),
+        changed_paths=sorted(files),
+        changed_contracts=[],
+        consumer_c3_authority=authority,
+    )
+    assert selection["requires_lane_a"] is False
+    assert selection["unknown_paths"] == []
+    validate_boundary_ownership(
+        boundaries,
+        _registry(),
+        package=package,
+        consumer_c3_authority=authority,
+    )
+    verify_config_bound_c3_git_content(
+        consumer,
+        commits=commits,
+        boundaries=boundaries,
+        authority=authority,
+        package=package,
+    )
+
+
+def test_arbitrary_localized_domain_path_remains_full_lane_and_forbidden_c3(
+    tmp_path: Path, capsule_authority: dict
+) -> None:
+    package = capsule_authority["authority"].package
+    path = "memoria-publica/financeiro/ledger.md"
+    _consumer, _commits, boundaries, authority = _localized_c3_chain(
+        tmp_path,
+        package,
+        files={path: (b"# Dados sinteticos\n", "100644")},
+    )
+    selection = select_promotion_gates(
+        package,
+        _registry(),
+        changed_paths=[path],
+        changed_contracts=[],
+        consumer_c3_authority=authority,
+    )
+    assert selection["requires_lane_a"] is True
+    assert selection["unknown_paths"] == [path]
+    with pytest.raises(UpgradeLaneError, match="domain content is forbidden"):
+        validate_boundary_ownership(
+            boundaries,
+            _registry(),
+            package=package,
+            consumer_c3_authority=authority,
+        )
+
+
+def test_c3_config_edit_cannot_expand_the_b0_authority(
+    tmp_path: Path, capsule_authority: dict
+) -> None:
+    package = capsule_authority["authority"].package
+    new_path = "memoria-publica/financeiro/referencia-comandos.md"
+    c3_config = "\n".join(
+        [
+            "repo_id: localized-public-synthetic",
+            "paths:",
+            "  memory_root: memoria-publica",
+            "  references_root: docs/referencias-publicas",
+            f"  command_reference_page: {new_path}",
+            "  operational_pass_page: memoria-publica/sistema/passagem-operacional.md",
+            "",
+        ]
+    )
+    consumer, _commits, boundaries, authority = _localized_c3_chain(
+        tmp_path,
+        package,
+        files={new_path: (b"# Tentativa de ampliacao\n", "100644")},
+        c3_config=c3_config,
+    )
+    assert classify_consumer_c3_path(new_path, authority) is None
+    assert (
+        verify_consumer_c3_authority(
+            authority,
+            consumer_root=consumer,
+            consumer_B0=authority["consumer_B0"],
+            package=package,
+        )
+        == authority["authority_sha256"]
+    )
+    with pytest.raises(UpgradeLaneError, match="domain content is forbidden"):
+        validate_boundary_ownership(
+            boundaries,
+            _registry(),
+            package=package,
+            consumer_c3_authority=authority,
+        )
+
+
+@pytest.mark.parametrize(
+    ("path", "raw", "mode", "message"),
+    [
+        (
+            "docs/referencias-publicas/releases/postinstall.sh",
+            b"#!/bin/sh\nexit 0\n",
+            "100644",
+            "must be inert Markdown",
+        ),
+        (
+            "docs/referencias-publicas/releases/executable.md",
+            b"# Executavel\n",
+            "100755",
+            "inert 100644 Markdown",
+        ),
+        (
+            "docs/referencias-publicas/releases/binary.md",
+            b"\xff\xfe\xfd",
+            "100644",
+            "must be UTF-8",
+        ),
+        (
+            "docs/referencias-publicas/releases/nul.md",
+            b"# Registro\x00invalido\n",
+            "100644",
+            "inert 100644 Markdown",
+        ),
+        (
+            "docs/referencias-publicas/releases/secret.md",
+            b"api_key=super-secret-token-value-1234567890\n",
+            "100644",
+            "contains an access secret",
+        ),
+    ],
+)
+def test_release_records_fail_closed_as_inert_markdown(
+    path: str,
+    raw: bytes,
+    mode: str,
+    message: str,
+    tmp_path: Path,
+    capsule_authority: dict,
+) -> None:
+    package = capsule_authority["authority"].package
+    consumer, commits, boundaries, authority = _localized_c3_chain(
+        tmp_path, package, files={path: (raw, mode)}
+    )
+    if path.endswith(".sh") or mode == "100755":
+        with pytest.raises(UpgradeLaneError, match=message):
+            validate_boundary_ownership(
+                boundaries,
+                _registry(),
+                package=package,
+                consumer_c3_authority=authority,
+            )
+        return
+    validate_boundary_ownership(
+        boundaries,
+        _registry(),
+        package=package,
+        consumer_c3_authority=authority,
+    )
+    with pytest.raises(UpgradeLaneError, match=message):
+        verify_config_bound_c3_git_content(
+            consumer,
+            commits=commits,
+            boundaries=boundaries,
+            authority=authority,
+            package=package,
+        )
+
+
+def test_resealed_consumer_c3_authority_tamper_is_rejected_against_b0(
+    tmp_path: Path, capsule_authority: dict
+) -> None:
+    package = capsule_authority["authority"].package
+    consumer, _commits, _boundaries, authority = _localized_c3_chain(
+        tmp_path,
+        package,
+        files={
+            "memoria-publica/sistema/referencia-comandos.md": (
+                b"# Sintetico\n",
+                "100644",
+            )
+        },
+    )
+    forged = copy.deepcopy(authority)
+    forged["exact_markdown_paths"][0]["path"] = (
+        "memoria-publica/financeiro/referencia-comandos.md"
+    )
+    unsigned = copy.deepcopy(forged)
+    unsigned.pop("authority_sha256")
+    forged["authority_sha256"] = canonical_sha256(unsigned)
+    with pytest.raises(UpgradeLaneError, match="differs from exact B0 config"):
+        verify_consumer_c3_authority(
+            forged,
+            consumer_root=consumer,
+            consumer_B0=authority["consumer_B0"],
+            package=package,
+        )
 
 
 def _canary_evidence() -> tuple[dict, dict, list[str], list[dict], str]:
@@ -1459,6 +2001,31 @@ def test_registry_rejects_dependency_cycles_and_incomplete_full_matrix() -> None
         seal_impact_registry(incomplete)
 
 
+def test_registry_binds_each_configured_role_to_its_exact_impact_contract() -> None:
+    registry = _registry()
+    wrong_contract = copy.deepcopy(registry)
+    surface = next(
+        item
+        for item in wrong_contract["surfaces"]
+        if "command_reference_page" in item.get("configured_path_roles", [])
+    )
+    surface["contracts"].remove("wiki_consumer_command_reference.v1")
+    surface["contracts"].append("wiki_consumer_operational_pass.v1")
+    with pytest.raises(UpgradeLaneError, match="role/contract binding differs"):
+        seal_impact_registry(wrong_contract)
+
+    duplicate_role = copy.deepcopy(registry)
+    surface = next(
+        item
+        for item in duplicate_role["surfaces"]
+        if item["id"] == "content_semantics"
+    )
+    surface["configured_path_roles"].append("command_reference_page")
+    surface["contracts"].append("wiki_consumer_command_reference.v1")
+    with pytest.raises(UpgradeLaneError, match="exactly one impact surface"):
+        seal_impact_registry(duplicate_role)
+
+
 def test_valid_adoption_receipt_reuses_only_exact_subject(
     capsule_authority: dict,
 ) -> None:
@@ -1495,7 +2062,7 @@ def test_adoption_evidence_accepts_ignored_runner_artifacts(
     )
 
 
-def test_verifiers_recompute_package_required_promotion_gates(
+def test_verifiers_reject_package_policy_drift_before_promotion_reuse(
     capsule_authority: dict,
 ) -> None:
     receipt, identity, capsule, selection, plan_sha256 = _receipt(
@@ -1503,11 +2070,10 @@ def test_verifiers_recompute_package_required_promotion_gates(
     )
     run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
     package = copy.deepcopy(capsule_authority["authority"].package)
-    package["migration"]["gate_policies"]["consumer_browser_matrix"][
-        "required_for_promotion"
-    ] = True
+    policy = package["migration"]["gate_policies"]["consumer_browser_matrix"]
+    policy["required_for_promotion"] = not policy["required_for_promotion"]
 
-    with pytest.raises(UpgradeLaneError, match="package-required promotion gates"):
+    with pytest.raises(UpgradeLaneError, match="C3 authority is stale"):
         verify_adoption_evidence(
             receipt,
             authority=_adoption_authority(capsule_authority, run_root),
@@ -1515,7 +2081,9 @@ def test_verifiers_recompute_package_required_promotion_gates(
             registry=_registry(),
             selection=selection,
         )
-    with pytest.raises(UpgradeLaneError, match="package-required promotion gates"):
+    with pytest.raises(
+        UpgradeLaneError, match="consumer C3 authority differs from package policy"
+    ):
         verify_adoption_receipt(
             receipt,
             expected_identity=identity,
@@ -1528,6 +2096,11 @@ def test_verifiers_recompute_package_required_promotion_gates(
             package=package,
             registry=_registry(),
             selection=selection,
+            consumer_c3_authority=consumer_c3_authority_from_git(
+                capsule_authority["consumer_root"],
+                capsule_authority["consumer_B0"],
+                capsule_authority["authority"].package,
+            ),
         )
 
 
@@ -1568,6 +2141,25 @@ def test_adoption_evidence_rejects_state_boundary_chain_drift(
         )
 
 
+def test_adoption_evidence_rejects_extra_runner_state_fields(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule, selection, _plan = _receipt(capsule_authority)
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    state_path = run_root / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["manual_override"] = "fabricated"
+    state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(UpgradeLaneError, match="fields must be exact"):
+        verify_adoption_evidence(
+            receipt,
+            authority=_adoption_authority(capsule_authority, run_root),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
 def test_adoption_evidence_rejects_nonignored_untracked_consumer_file(
     capsule_authority: dict,
 ) -> None:
@@ -1582,7 +2174,7 @@ def test_adoption_evidence_rejects_nonignored_untracked_consumer_file(
     with pytest.raises(UpgradeLaneError, match="tracked or untracked worktree"):
         verify_adoption_evidence(
             receipt,
-        authority=_adoption_authority(capsule_authority, run_root),
+            authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -1606,6 +2198,11 @@ def test_shape_only_adoption_receipt_cannot_authorize_reuse(
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
+            consumer_c3_authority=consumer_c3_authority_from_git(
+                capsule_authority["consumer_root"],
+                capsule_authority["consumer_B0"],
+                capsule_authority["authority"].package,
+            ),
         )
 
 
@@ -2132,7 +2729,7 @@ def test_public_acceptance_budget_projection_is_typed_without_timing() -> None:
     }
 
 
-def test_receipt_v3_budget_must_match_runner_and_reports(
+def test_receipt_v4_budget_must_match_runner_and_reports(
     capsule_authority: dict,
 ) -> None:
     receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
@@ -2157,7 +2754,7 @@ def test_receipt_v3_budget_must_match_runner_and_reports(
         )
 
 
-def test_receipt_v3_budget_must_match_runner_canary_completion(
+def test_receipt_v4_budget_must_match_runner_canary_completion(
     capsule_authority: dict,
 ) -> None:
     receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
@@ -2234,6 +2831,11 @@ def test_budget_blocked_receipt_has_integrity_proof_but_is_never_reusable(
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
+            consumer_c3_authority=consumer_c3_authority_from_git(
+                capsule_authority["consumer_root"],
+                capsule_authority["consumer_B0"],
+                capsule_authority["authority"].package,
+            ),
         )
 
 
@@ -2500,6 +3102,7 @@ def test_c1_c2_c3_reject_domain_or_ownership_mixing(
             boundaries,
             _registry(),
             package=capsule_authority["authority"].package,
+            consumer_c3_authority=_consumer_c3_authority(capsule_authority),
         )
 
 
@@ -2528,6 +3131,7 @@ def test_agent_routing_and_local_skills_are_consumer_owned_c3(
         boundaries,
         _registry(),
         package=capsule_authority["authority"].package,
+        consumer_c3_authority=_consumer_c3_authority(capsule_authority),
     )
 
 
@@ -2550,6 +3154,7 @@ def test_toolkit_wiki_skill_remains_byte_equal_c1(capsule_authority: dict) -> No
         boundaries,
         _registry(),
         package=capsule_authority["authority"].package,
+        consumer_c3_authority=_consumer_c3_authority(capsule_authority),
     )
 
 
@@ -2566,6 +3171,7 @@ def test_c1_requires_byte_and_mode_equality_with_lane_a(
             boundaries,
             _registry(),
             package=capsule_authority["authority"].package,
+            consumer_c3_authority=_consumer_c3_authority(capsule_authority),
         )
 
 
@@ -2579,7 +3185,12 @@ def test_c1_rejects_registry_package_allowlist_drift(
     package["portable_import"]["allow"].remove("wiki_core/**")
     with pytest.raises(UpgradeLaneError, match="differs from package portable"):
         validate_boundary_ownership(
-            receipt["boundaries"], _registry(), package=package
+            receipt["boundaries"],
+            _registry(),
+            package=package,
+            consumer_c3_authority=_consumer_c3_authority(
+                capsule_authority, package
+            ),
         )
 
 
@@ -2855,6 +3466,7 @@ def test_c2_and_c3_deletions_have_explicit_before_and_generator_proof(
         boundaries,
         _registry(),
         package=capsule_authority["authority"].package,
+        consumer_c3_authority=_consumer_c3_authority(capsule_authority),
     )
     wrong_generator = copy.deepcopy(boundaries)
     wrong_generator["C2"][0]["generator_sha256"] = "f" * 64
@@ -2863,6 +3475,7 @@ def test_c2_and_c3_deletions_have_explicit_before_and_generator_proof(
             wrong_generator,
             _registry(),
             package=capsule_authority["authority"].package,
+            consumer_c3_authority=_consumer_c3_authority(capsule_authority),
         )
     del boundaries["C2"][0]["before_sha256"]
     with pytest.raises(UpgradeLaneError, match="fields must be exact"):
@@ -2870,6 +3483,7 @@ def test_c2_and_c3_deletions_have_explicit_before_and_generator_proof(
             boundaries,
             _registry(),
             package=capsule_authority["authority"].package,
+            consumer_c3_authority=_consumer_c3_authority(capsule_authority),
         )
 
 

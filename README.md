@@ -213,7 +213,15 @@ impact registry and reaches a reversible real canary before the PR/human gate.
 Portable `.skills/wiki-*/**` remain byte-equal C1, while downstream `AGENTS.md`
 and non-`wiki-*` repo-local skills are explicit consumer-owned C3 routing.
 Consumer base and `.local` page-type/template registries are also C3 merge
-surfaces, and B0->C1->C2->C3 must be three direct single-parent edges with no
+surfaces. Localized technical pages use a separate fail-closed authority derived
+only from the committed `consumer_B0:wiki.config.yaml` blob: the exact
+`command_reference_page`, exact `operational_pass_page`, and inert Markdown
+`release_records` below the configured `references_root/releases/**` subtree.
+The worktree and C1/C2/C3 cannot widen this three-role authority. Each artifact
+is a regular UTF-8 `.md` blob with mode `100644`, secret-clean and C3-only;
+executable, binary, non-Markdown or C1/C2 placement is rejected. Its digest is
+bound to plan, state, receipt and report.
+B0->C1->C2->C3 must be three direct single-parent edges with no
 intermediate or merge commit.
 The runner identity includes a byte/mode digest of its Python and schema
 closure, and the toolchain probe must run through the same interpreter that is
@@ -239,6 +247,15 @@ replay promotion or call `--resume` again. Unknown path or contract impact
 selects the full matrix and Lane A; it never guesses a fast path. Selection is
 canonical: package-required promotion gates and their dependencies cannot be
 removed by caller-supplied input.
+The external acceptance anchor binds the canonical digest of the complete
+preflight object. On every resume with a materialized execution plan, C2 is
+replayed from C1 in a disposable clone and must match the complete committed
+path set, Git modes and blob digests before any cached gate result is reusable.
+Lane A creates its visual authority with `wiki_visual_evidence.py capture` on
+the exact clean source, covering every package visual profile with strict PNG
+and record-backed source/toolchain/console/network proof. `verify-capsule` then
+reopens the sealed authority with the out-of-band attestation SHA-256 before
+Lane B may plan; successful gate logs containing host-local paths are rejected.
 
 The normative contract, schemas, impact registry, resumable-runner behavior and
 transition rule are in the
@@ -248,7 +265,10 @@ do not make a capsule or v3 receipt production-ready while a listed blocker is
 open.
 A migration already running under package schema v2 retains every declared
 `migration.required_gates` entry as blocking. V3 does not rewrite its evidence
-retroactively.
+retroactively. Rc21 is retained as historical non-promotional local evidence
+because downstream rehearsal exposed the missing config-bound authority and an
+over-broad release-record surface; rc22 is the next corrected candidate. No
+existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself
 

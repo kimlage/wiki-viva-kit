@@ -9,6 +9,7 @@ from pathlib import Path
 from jsonschema import Draft202012Validator
 
 from wiki_core.upgrade import (
+    CONFIG_BOUND_C3_ROLE_SPECS,
     boundary_operations_sha256,
     canonical_json,
     portable_path_status,
@@ -133,6 +134,7 @@ def _package_v3() -> dict:
             "experience_pack_composition": "wiki_experience_pack_composition.v1",
             "asset_manifest": "wiki_cockpit_asset_manifest.v1",
             "downstream_adapter_manifest": "wiki_downstream_adapter_manifest.v1",
+            "consumer_c3_authority": "wiki_viva_upgrade_consumer_c3_authority.v1",
         },
         "portable_import": {
             "allow": [
@@ -187,7 +189,7 @@ def _package_v3() -> dict:
                 "enforcement": "promotion_blocking",
             },
             "boundary_operations": {
-                "schema_version": "wiki_viva_upgrade_boundary_operations.v1",
+                "schema_version": "wiki_viva_upgrade_boundary_operations.v2",
                 "c2_generators": [
                     {
                         "id": "demo_snapshot",
@@ -199,8 +201,13 @@ def _package_v3() -> dict:
                 ],
                 "c3_adapter": {
                     "mode": "consumer_plan_commands",
-                    "contract": "wiki_consumer_adaptation_plan.v1",
+                    "contract": "wiki_consumer_adaptation_plan.v2",
                     "owns_patterns": ["tests/**"],
+                    "configured_ownership": {
+                        "schema_version": "wiki_viva_config_bound_c3_policy.v1",
+                        "config_path": "wiki.config.yaml",
+                        "roles": [dict(item) for item in CONFIG_BOUND_C3_ROLE_SPECS],
+                    },
                 },
                 "registry_sha256": "0" * 64,
             },
@@ -536,6 +543,32 @@ def test_project_registry_covers_every_agents_promotion_command() -> None:
     assert set(package["migration"]["gate_policies"]) == set(catalog_ids)
 
 
+def test_published_upstream_certification_commands_use_public_safe_reporters() -> None:
+    package = load_mapping(
+        ROOT / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+    )
+    registry = load_mapping(
+        ROOT / "docs/references/upgrades/wiki-viva-v8/impact-registry.yaml"
+    )
+    expected = {
+        "frontend": "npm --prefix apps/wiki-cockpit test -- --reporter=tap",
+        "portable_python": "python3 -m pytest -q tests/",
+    }
+    catalog = {item["id"]: item for item in registry["gate_catalog"]}
+
+    assert {
+        gate_id: package["migration"]["gate_commands"][gate_id]
+        for gate_id in expected
+    } == expected
+    assert {gate_id: catalog[gate_id]["command"] for gate_id in expected} == expected
+    assert all(catalog[gate_id]["class"] == "upstream_certified" for gate_id in expected)
+    assert package["migration"]["command_registry_sha256"] == _command_digest(package)
+    assert verify_impact_registry(registry) == registry["registry_sha256"]
+    assert package["migration"]["impact_registry"]["sha256"] == registry[
+        "registry_sha256"
+    ]
+
+
 def test_v1_and_v2_packages_remain_valid_without_two_lane_fields() -> None:
     modern = _package_v3()
     modern["schema_version"] = "wiki_viva_upgrade_package.v2"
@@ -566,3 +599,23 @@ def test_v1_and_v2_packages_remain_valid_without_two_lane_fields() -> None:
     ):
         del legacy["contract_versions"][field]
     assert validate_upgrade_package(legacy) == []
+
+
+def test_v3_requires_the_exact_consumer_c3_authority_contract_version() -> None:
+    missing = _package_v3()
+    del missing["contract_versions"]["consumer_c3_authority"]
+    assert list(_schema_validator().iter_errors(missing))
+    assert any(
+        "contract_versions.consumer_c3_authority is required" in error
+        for error in validate_upgrade_package(missing)
+    )
+
+    wrong = _package_v3()
+    wrong["contract_versions"]["consumer_c3_authority"] = (
+        "wiki_viva_upgrade_consumer_c3_authority.v999"
+    )
+    assert list(_schema_validator().iter_errors(wrong))
+    assert any(
+        "contract_versions.consumer_c3_authority must be" in error
+        for error in validate_upgrade_package(wrong)
+    )

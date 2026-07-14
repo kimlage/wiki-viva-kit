@@ -161,9 +161,12 @@ fixture and fixed in exact rc21 source
 `db3bba4957f551cc7c2d261561a45d0c606fdd05` by using normal block flow and one
 scroll model at the mobile breakpoint. Exact rc21 then passed 1,632 Python
 tests, 516 frontend tests, 115 Node gates and 102/102 first-attempt public
-browser cells with zero skip or retry. Rc20 is therefore historical diagnostic
-evidence, not a promotion or adoption target; rc21 is the current local
-`validation_pending` candidate and remains unpublished.
+browser cells with zero skip or retry. That remains valid historical RT-151
+evidence. RT-152 later proved that rc21 lacked the exact config-bound C3
+authority and fail-closed release-record boundary, so rc20 and rc21 are both
+historical non-promotional subjects. Rc21 must not be promoted, imported,
+relabeled or used to mint a capsule. Rc22 is the prospective corrected subject;
+no exact rc22 source, package digest or capsule is claimed here.
 
 ### Normative Lane A -> Lane B handoff and fast-path budget
 
@@ -353,7 +356,7 @@ kept in the private ignored evidence cache; its SHA-256 is
 ## Historical consolidated implementation ledger — S10 checkpoint
 
 This section freezes the former S10 execution surface. Its counts and defect
-captures remain historical evidence and are not current rc21 authority. A
+captures remain historical evidence and are not current release authority. A
 green worktree is still not an E5 release claim. The subject sequence is
 deliberately split into portable payload `S`, public metadata envelope `M` and
 private adoption `P`, so no commit attempts to contain its own SHA and no
@@ -638,12 +641,12 @@ memory rather than one fixed dashboard:
 | Historical public payload `S21` | Exact source `8a95ed94c424759f6b218038f8b5f6141c3cc079`; package `wiki-viva-v8-rc18`; metadata subject `8dc7b6dfef601c127a2d826ad9708517825fc455` | Gates 1–12 pass under Node 22, including 1,428 Python; frontend stops at 510/513 on first attempt | Validator v5 is correct; RT-148 exposes three keyboard tests that did not isolate the first-run modal tour | Never retry, promote or import |
 | Historical public payload `S22` | Exact source `e01a4ed91e3e4c2f1746539418d3faebec775204`; package `wiki-viva-v8-rc19`; validation subject `2023ee714cfbdb9f48b22c7cd3d818fb9dc8d2b8` | 21/21 Node 22 gates: 1,428 Python, 516 frontend, 107 Node and 102/102 first-attempt browser cells; exact visual manifest bound | Keyboard contracts isolate the separately tested tour; the modal isolates every background sibling without hiding its seven anchors or stacking over another modal | Locally validated historical evidence; superseded as the current downstream source and never published/promoted |
 | Historical public v3 trust payload | Exact source `1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc`; package `wiki-viva-v8-rc20` | 1,631 Python, 516 frontend, 115 Node and 102/102 first-attempt browser cells plus the two-lane trust controls passed locally | Capsule, impact, resume, rollback/report and synthetic negative contracts are executable, but later real-data pressure exposed RT-151 in the mobile Timeline | Historical diagnostic evidence only; never promote, import or relabel as passing RT-151 |
-| Current local public v3 candidate | Exact source `db3bba4957f551cc7c2d261561a45d0c606fdd05`; package `wiki-viva-v8-rc21` | 1,632 Python, 516 frontend, 115 Node and 102/102 first-attempt browser cells; 0 skips/retries in the browser matrix; package and portable-tree digests are bound in the current rc21 section | RT-151 is reproduced with public synthetic data and closed through mobile block flow plus explicit reading-order/containment geometry | `validation_pending`, unpublished and without a production Lane A capsule; remote CI, human review/merge and a separate promotion boundary remain mandatory |
+| Historical public RT-151 closure | Exact source `db3bba4957f551cc7c2d261561a45d0c606fdd05`; historical package `wiki-viva-v8-rc21` | 1,632 Python, 516 frontend, 115 Node and 102/102 first-attempt browser cells; 0 skips/retries in the browser matrix; package and portable-tree digests remain bound to that checkpoint | RT-151 is reproduced with public synthetic data and closed through mobile block flow plus explicit reading-order/containment geometry; RT-152 later invalidated rc21 as a migration/release candidate | Historical non-promotional evidence only; never promote, import, relabel or mint a capsule from rc21. Rc22 requires a new exact source, package and complete proof |
 | Corrected local public source for the authorized v2 exception | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; package v2 canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc` | Public suite passed 1,529 tests, with two declared skips and two warnings; package validation and public privacy boundary pass | Atomic operator-job publication and the two-lane migration contracts are covered by public synthetic fixtures | Local source authority for the explicitly authorized in-flight v2 QA only; public publication remains unauthorized |
-| Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the frozen current v2 adoption or a future rc21 v3 plan |
+| Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the frozen current v2 adoption or a future rc22 v3 plan |
 | Current corrected authorized private v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; two deterministic hosted jobs pass; the only completed standard Apple Silicon attempt closed 100/102, a later attempt was cancelled during browser installation and a separate standard Intel probe closed 92/102 with software rendering and WebGL context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback; private `AGENTS.md`/router work is deliberately deferred to a fresh post-v2 v3 follow-up | Promotion blocked and the aggregate visual check is cancelled/non-green; consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the human gate approves; current v2 C3/receipts remain immutable |
-| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact rc21 demo, pack, Genesis, accessibility, compatibility, failure and source-lifecycle cells pass in the 102-cell receipt | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Public local proof closed; real private replay and release promotion remain separate |
-| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Exact rc21 passes 102 cells covering PT-BR, keyboard, touch, mobile, fallback and the RT-151 reading-order regression | The inspected RT-151 overlap is closed with public synthetic geometry; transition frames require settling and VoiceOver remains human | Automated/E3 local boundary closed; human conceptual/privacy/VoiceOver gate remains before merge |
+| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Historical rc21 demo, pack, Genesis, accessibility, compatibility, failure and source-lifecycle cells pass in its 102-cell receipt | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Retain as historical rc21 proof; rc22 must execute and bind its own complete demo matrix before any release claim |
+| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Historical rc21 passes 102 cells covering PT-BR, keyboard, touch, mobile, fallback and the RT-151 reading-order regression | The inspected RT-151 overlap is closed with public synthetic geometry; transition frames require settling and VoiceOver remains human | Historical automation/E3 evidence only; rc22 needs a new exact visual authority plus human conceptual/privacy/VoiceOver review before promotion |
 
 At historical machine-status commit `f849de26`, the local public branch changed 2,066
 files with 486,397 additions and 10,913 deletions across 100 commits from the
@@ -1222,17 +1225,17 @@ reproduction.
 | RT-147 | P0 | The private three-commit policy requires a localized release record below configured references, but validator v4 rejected it; the first v5 exception then admitted arbitrary files, including executable scripts, and overlapping memory/references roots could bypass sibling rejection | E1 private policy/runbook comparison; E2 localized `.md`, sibling, `.sh`, mode `100755`, secret, portable-path, overlapping-root, public-redaction and memory-regression controls; 105/105 upgrade tests pass on exact S21 | Bind memory/references roots to config and authoritative preflight; require disjoint canonical roots; admit only UTF-8 `.md` release records with final Git mode `100644`; keep secret, portable and evidence exclusions fail-closed; rerun the complete Node 22 stack on S21 before promotion |
 | RT-148 | P0 | Three keyboard/search recovery tests implicitly depended on the first-run tour already being seen. In a clean official Node 22 profile the modal correctly opened and captured Enter, so only the debounced `?q=` write occurred; Node 26's incompatible experimental localStorage failure made `tourSeen()` fail closed to true and masked the missing fixture state | E1 exact rc18 first-attempt frontend log; E2 Node 22 3/14 reproduction versus Node 26 14/14; modal listener/search trace; concurrent downstream review independently found the same reader-test isolation; exact S22 passes Node 22 focused 17/17 and frontend 516/516 | Preserve the modal's keyboard ownership; set `tour=0` explicitly in every unrelated keyboard contract and its internal history URL; retain rc18 failure bytes without retry; rerun the complete stack only on S22/rc19 |
 | RT-149 | P1 | `CoachMarks` owned focus and keyboard input as a modal, but the visible world remained reachable in the accessibility tree behind it. A naive reuse of `primarySurfaceOpen` then hid the tour's own anchors through existing CSS, and `?` could stack the coach over an existing reader/dock/tray | E1 surface-stack and CSS-anchor review; E2 Happy DOM contracts cover first-run opening, complete sibling `inert`/`aria-hidden`, restoration and no modal stacking; E3 focused Chromium traverses all seven anchors with non-zero geometry, blocks global shortcuts and restores focus to the tour button; exact S22 passes Node 22 focused 17/17 and frontend 516/516 | Keep CSS visibility state separate from background ownership; inert every sibling subtree except the coach overlay; refuse to open over another primary surface; retain visible anchors and modal keyboard ownership; require exact S22 full-stack/browser proof before promotion |
-| RT-150 | P0 | A locally applied `release_candidate` label was described as editorially blocked until public merge, but `package_is_pinned()` treats that state as executable adoption authority and makes downstream `release_pinned` preflight pass. Documentation alone cannot revoke the machine permission | E1 `wiki_core.upgrade.package_is_pinned` and preflight call-chain review; E2 the canonical test's strict `validation_pending` assertion rejected the premature flip; the experimental phase-neutral test commit `9ba49f43` was immediately reverted by `b0dc04ea` without changing portable payload bytes; post-reconciliation upgrade suite passes 105/105 in 249.72 s, focused pending/preflight controls pass 2/2 and both audits report zero errors | Keep current rc21 `validation_pending` and preserve rc19/rc20 as historical evidence until exact rc21 is publicly reachable without SHA rewriting. After rc21 public CI/human review and merge, create a separate metadata/test promotion boundary, recompute the canonical digest, pass CI and merge that promotion before any new private v3 preflight/import |
+| RT-150 | P0 | A locally applied `release_candidate` label was described as editorially blocked until public merge, but `package_is_pinned()` treats that state as executable adoption authority and makes downstream `release_pinned` preflight pass. Documentation alone cannot revoke the machine permission | E1 `wiki_core.upgrade.package_is_pinned` and preflight call-chain review; E2 the canonical test's strict `validation_pending` assertion rejected the premature flip; the experimental phase-neutral test commit `9ba49f43` was immediately reverted by `b0dc04ea` without changing portable payload bytes; post-reconciliation upgrade suite passes 105/105 in 249.72 s, focused pending/preflight controls pass 2/2 and both audits report zero errors | Historical disposition: rc21 stayed `validation_pending`. RT-152 later superseded its possible promotion path, so rc21 is immutable non-promotional evidence and must never be promoted or imported. Rc22 requires a new exact source/package, complete proof and separately reviewed promotion boundary before any private v3 preflight/import |
 | RT-151 | P1 | At 390 x 844, the Timeline retained its desktop constrained grid after filtering, selecting and scrolling. Auto/minmax rows collapsed to near-zero heights while list and inspector children overflowed, interleaving two reading surfaces and making the selected detail unreadable | E1 real-data downstream reproduction with private pixels retained only in ignored evidence; E2 public synthetic before capture and computed grid-row diagnosis; E3 a focused Playwright regression filters Actions, selects an event, scrolls 350 px and proves DOM/visual order, containment, topmost readable detail and zero horizontal overflow; exact rc21 passes the complete deterministic stack and 102/102 first-attempt public browser cells | At the mobile breakpoint use normal block flow with one page scroll model and tokenized spacing; keep the inspector after the list in DOM and visual order; retain the regression in the package-owned cockpit suite; never publish private screenshots or relabel rc20 as passing this contract |
 
 ### Historical exact-public-subject closure overlay
 
 The baseline ledger above remains immutable reproduction history. This overlay
 records what was accepted on public `S` and the boundaries then owned by `P`,
-human review or E5. Every disposition is frozen historical evidence; current
-authority lives only in the exact rc21 section (and its later successors).
-Public closure never promotes the browser-only receipt to a full release
-authority.
+human review or E5. Every disposition is frozen historical evidence. Rc21 is
+now historical non-promotional proof; future release authority can exist only
+for a separately certified exact rc22-or-later subject. Public closure never
+promotes a browser-only receipt to full release authority.
 
 | Finding | Historical disposition | Evidence present at that checkpoint | Gate then still required |
 | --- | --- | --- | --- |
@@ -4544,10 +4547,20 @@ The versioned public contract is composed of:
 - a sealed path/contract/impact registry whose unknown path **or** contract
   selects the complete matrix and `requires_lane_a=true`;
 - exact C1/C2/C3 boundary ownership and negative public synthetic fixtures;
-- a read-only `plan` plus resumable `adopt --mode canary --resume` interface;
+- a read-only `plan`, a first `adopt --mode canary` invocation and `--resume`
+  only after interruption or an explicit runner-owned pause;
 - separate upstream-certification, fast-adoption, canary and background CI
   jobs; moving work to background does not waive any
   `required_for_promotion` conclusion.
+
+Public source audits remain exact pre-certification and PR gates. The capsule
+seals only commands classified as `upstream_certified`; consumer-owned `audit`
+and `public_evidence_redaction` are never converted into reusable Lane A
+receipts and run again on every Lane B subject. If a future capsule must attest
+an audit CLI, its package must declare a distinct upstream-certified gate. A
+selected background gate marked `required_for_promotion` must pass before the
+run becomes promotion-ready; a reversible post-canary `compat` merge is not
+promotion of v8 as the default runtime.
 
 The capsule, registry, package-v3 schema and fail-closed runner now close those
 implementation contracts with public synthetic fixtures in the local working
@@ -4582,13 +4595,19 @@ competing migration plan:
 | The public acceptance-budget projection exposed exact timing | Its typed public form contains only policy and `met`/`exceeded`, with no timestamps, elapsed duration or undeclared fields | Timing names/values and extra/missing budget fields are rejected |
 | A blocked public migration report could claim promotion readiness | The public report is an exact, schema-closed projection derived from the verified private report | `promotion_ready=true`, extra/missing report fields or disagreement with the private report are rejected |
 | A blocked receipt bypassed executed-gate semantics | Passed and budget-blocked receipts share exact selected-gate coverage, class, subject, command, provenance, status, exit-code and output-digest checks; blocked remains non-reusable | Manual, failed, boolean exit-code, duplicate, missing or command-divergent results are rejected |
-| Runner identity was only a human version label | Runner `1.2.0+payload.<sha256>` embeds a digest of byte/mode entries for its entrypoint, bootstrap helpers (`_common.py` and `_git_subject.py`), portable toolchain probe, `wiki_core/**/*.py` and runtime schemas; `toolchain_sha256` binds the complete portable closure | Same base version with altered entrypoint, either bootstrap helper, probe or a core dependency is rejected before consumer mutation; byte-equal identity is path-independent |
+| Runner identity was only a human version label | Runner `1.3.0+payload.<sha256>` embeds a digest of byte/mode entries for its entrypoint, bootstrap helpers (`_common.py` and `_git_subject.py`), portable toolchain probe, `wiki_core/**/*.py` and runtime schemas; `toolchain_sha256` binds the complete portable closure. The closure uses plan v4, mutation state v2, runner state v4, runner report v3, adoption receipt v4, acceptance attempt v2 and boundary operations v2. | Same base version with altered entrypoint, either bootstrap helper, probe or a core dependency is rejected before consumer mutation; byte-equal identity is path-independent |
+| A coherently resealed or fabricated preflight could attempt to reuse the original acceptance clock | `wiki_viva_upgrade_acceptance_attempt.v2` binds the canonical SHA-256 of the complete exact `plan.preflight` object, including its internal digest, before mutation | Replacing and coherently resealing preflight while retaining the original external acceptance anchor is rejected before C1 |
+| A resume could trust historical C2 evidence without reproducing it | Whenever an execution plan exists, every `--resume` replays all registered C2 generators from C1 in a disposable clone and compares the complete C2 path set, Git modes and blob digests before any gate-result reuse | Missing, divergent or stale C2 replay fails before gates even when the stored execution plan and result ledger were coherently resealed |
 | Fast/canary/background trusted internally rewritten tar manifests | Every raw Lane A, fast-adoption and canary handoff archive has a digest propagated outside that archive and verified before extraction | Content plus internal manifest can be rewritten coherently and still fails against the original external archive digest |
 | Declared C2 paths could also remain in the effective C1 projection | Every C2 glob must be conservatively contained by a `portable_import.block` glob; validation computes effective C1 and proves C1/C2 disjoint while the migration subject remains C1 union C2 | An unblocked, partially blocked or ambiguously contained C2 pattern is rejected in real and synthetic packages |
 | A completed run could replay its receipt and promotion result through `--resume` | Completed state raises `completed_run_not_resumable` whether or not the receipt file is still present; the existing receipt/report remains immutable historical evidence for its original PR/human gate | A second resume and a resume after receipt deletion both exit fail-closed, never recreate the receipt and emit no reused-receipt or promotion claim |
 | Final evidence cleanliness ignored non-ignored untracked files | Final subject verification uses porcelain status with all untracked files; only evidence already covered by repository ignore rules may remain | A non-ignored untracked file invalidates closure while the declared ignored evidence root remains accepted |
 | Reports were not semantically bound to the executed lane, mode, impact selection and boundaries | The private report requires `lane_b`, `mode=canary`, the exact derived selected-gate set and exact C1/C2/C3 digest/count bindings; the public report is its schema-closed projection | A coherently resealed report with changed lane, mode, selection, boundary digest or count is rejected |
 | Public-output redaction missed host prefixes and private routes embedded in arbitrary keys/values | Redaction scans keys and values, broad host prefixes including `/tmp`, `/opt` and `/var`, and private route patterns in any string while preserving declared public `/demo` routes | Host paths/private routes fail in capsules, logs and reports; a public synthetic demo route remains allowed |
+| Passing upstream commands could still emit the runner's absolute checkout path | The published Lane A command registry uses quiet Pytest and TAP Vitest reporters, and every successful raw gate log passes the same public-evidence scanner before it can enter a receipt | Real successful reporter output is scanner-clean; a passing output containing an absolute root is rejected as `private_certification_output` |
+| A hand-authored or one-image visual manifest could claim full release coverage | `wiki_visual_evidence.py capture` owns the exact clean-source build/preview and real Chromium capture; every package profile has one canonical digest-bound record with PNG, source/package/browser, console and network proof, and capsule verification requires exact sorted coverage | Missing, duplicate, undeclared or tampered profile/record/image, private or encoded route, source/toolchain drift, extra file, symlink and hardlink all fail closed |
+| Capsule self-verification during sealing had no independent operator-facing readback | `wiki_upgrade.py verify-capsule` reopens only a fully sealed authority with the separately carried attestation SHA-256 and recomputes package, portable tree, registries, toolchain, visual records, gate outputs and certification receipt without a consumer | Divergent trust, tampered authority, unsealed bundle, pending package or host-path output fails; the successful summary is read-only and path-free |
+| Changes to the productive visual authority could bypass the two-lane workflow | PR path filters include the visual script and tests; upstream certification runs the real capture contract and the independent capsule verifier after sealing | Workflow structure tests require both path families and both upstream steps |
 | Toolchain proof named Playwright but did not bind resolved Python dependencies or the browser engine actually launched | A portable shell-free probe emits the sorted resolved distribution digest and launches Chromium to bind Playwright plus engine versions; the probe is inside the runner payload and its recorded argv/output manifest | Changed dependency digest or Chromium engine fails before mutation; certification output with unsafe/fabricated probe argv is rejected |
 | Three CI jobs invoked the live-browser probe without first installing Chromium | Upstream certification, fast adoption, canary and background certification all install the exact Playwright package and Chromium engine before probing or resuming | Workflow structure tests require a live-browser install step in every toolchain-probing job |
 | Manual boundary subjects could hide intermediate or merge commits between B0/C1/C2/C3 | Every adjacent pair must be one direct single-parent edge; ancestor-only chains are rejected before ownership or gate evaluation | A chain whose net B0→C1 diff is valid but contains an intermediate commit fails `boundary_ancestry_mismatch` |
@@ -4697,10 +4716,59 @@ and `23c970d79b731280c4a0e9d775cc37017335e453dc36b69f318d66b8659fc308`.
 These are local candidate identities, not a capsule: the production visual
 manifest, certified gate receipts and attestation are intentionally not sealed
 while release status is pending.
-Rc21 remains `validation_pending`: public publication is unauthorized, no
-production Lane A capsule or v3 adoption receipt exists, and remote CI plus the
-PR/human conceptual, privacy and VoiceOver gate must precede a separately
-reviewed promotion boundary.
+At that exact checkpoint rc21 was `validation_pending`. RT-152 subsequently
+quarantined it as immutable non-promotional evidence: no later CI or human
+review can promote that subject. All new certification starts from rc22, and
+public publication remains unauthorized.
+
+#### Post-rc21 downstream rehearsal: RT-152 and the rc22 correction boundary — 2026-07-14
+
+The rc21 UI fix and its exact 102/102 browser proof remain valid historical
+evidence for that subject. They are not release authority. A subsequent
+downstream rehearsal with a localized synthetic layout exposed RT-152 in the
+migration trust boundary: static C3 ownership could not authorize the
+consumer's configured command-reference and operational-pass pages, while the
+static release-record subtree could admit an executable or non-Markdown
+descendant. Treating the whole localized memory or references root as C3 would
+fix the first symptom by creating a domain-content escape hatch, so that broad
+exception is explicitly rejected.
+
+The consolidated normative decision is a closed config-bound C3 authority
+derived exclusively from the immutable Git blob at
+`consumer_B0:wiki.config.yaml` before any mutation:
+
+| Exact role | Authority derived from B0 | Fail-closed content boundary |
+|---|---|---|
+| `command_reference_page` | One exact `paths.command_reference_page` path | Inert, secret-clean UTF-8 Markdown `.md`, regular Git mode `100644` |
+| `operational_pass_page` | One exact `paths.operational_pass_page` path | Inert, secret-clean UTF-8 Markdown `.md`, regular Git mode `100644` |
+| `release_records` | Descendants of `<paths.references_root>/releases/` only | Inert UTF-8 `.md` regular blobs at mode `100644`; executable, binary, sibling and non-Markdown paths rejected |
+
+The worktree and the C1, C2 or C3 config versions can neither derive nor widen
+this authority. All three roles are C3-only; their presence in C1 or C2 remains
+a boundary failure. The canonical authority SHA-256 must bind plan,
+mutation/resume state, adoption receipt and private migration report. A changed
+B0 config blob, role, path or authority digest invalidates every C3-bound
+result. Unknown path/contract impact or a missing package-role mapping selects
+Lane A and the complete matrix. A missing, malformed or unsafe B0
+`wiki.config.yaml` is instead a Lane B baseline failure: stop before mutation,
+repair B0 and create a new plan. Public evidence may carry the digest and typed
+role IDs, never consumer paths.
+
+Rc21 is therefore frozen as historical non-promotional evidence and must not be
+promoted, imported, relabeled or used to mint a capsule. Rc22 is the next
+prospective candidate after the implementation, public synthetic positive and
+negative fixtures, full deterministic stack and exact browser certification are
+green. No rc22 source SHA, package digest, capsule or production adoption
+receipt is claimed by this planning checkpoint. Public push and publication
+remain unauthorized.
+
+This correction is prospective. The already sealed v2 downstream C3 and all of
+its receipts remain frozen on their original complete
+`migration.required_gates` matrix. RT-152 does not append paths to that subject,
+regenerate evidence, reduce a gate or reinterpret a v2 receipt as v3 proof. The
+three config-bound roles may enter a consumer only through a fresh v3
+B0/C1/C2/C3 plan after the frozen v2 subject is promoted or rolled back through
+its existing human gate.
 
 The following current-consumer gates are never reusable: secret/private audit,
 public-evidence redaction, input stage, semantic inventory, adapter identity,
@@ -4777,9 +4845,13 @@ subsequent promotion boundary both merge under that historical route. Rc20
 implemented the v3 two-lane trust boundary and passed its exact local stack,
 but RT-151 discovered through real-data QA makes rc20 historical
 non-promotion evidence. Exact rc21 closes RT-151 with a public synthetic fixture
-and again passes the complete local deterministic and 102/102 browser stack;
-it remains the unpublished `validation_pending` candidate without a production
-Lane A capsule. A later
+and again passes the complete local deterministic and 102/102 browser stack,
+but RT-152 discovered through the downstream rehearsal makes rc21 historical
+non-promotion evidence as well. Its static C3 contract lacked exact B0-derived
+authority for the three localized technical roles and did not close the
+executable/non-Markdown release-record boundary. Rc22 is the next unpublished
+prospective candidate; it has no production Lane A capsule or validated
+production receipt yet. A later
 explicit execution decision authorized the corrected private-first v2
 migration described above after the local public core/fixture correction; that
 decision supersedes the former statement that no private import may start. It
@@ -4795,10 +4867,13 @@ relaxation, omission or merge around the remaining proof.
 
 ## Final Recommendation
 
-Retain rc19 and rc20 as locally validated historical evidence, not as authority
-for the current downstream run. Keep rc21 local and `validation_pending` until
-publication is explicitly authorized and its remote CI, human review, merge and
-separate promotion boundary complete. The corrected v2 chain, complete original matrix,
+Retain rc19, rc20 and rc21 as locally validated historical evidence, not as
+release or downstream-adoption authority. Complete the RT-152 implementation
+and public synthetic negatives, then certify rc22 as a new exact subject; do
+not inherit rc21's status or receipts. Rc22 stays local and non-promotional
+until its complete deterministic/browser matrix, remote CI, human review, merge
+and separate promotion boundary are all closed under explicit publication
+authority. The corrected v2 chain, complete original matrix,
 current-subject canary, generated reports and disposable rollback are closed;
 keep the consumer PR fail-closed until the same performance contract passes on
 an explicitly authorized, isolated physical self-hosted runner or eligible

@@ -103,6 +103,50 @@ toolkit-owned `.skills/wiki-*/**` remain byte-equal C1, while consumer
 `AGENTS.md`, router and non-`wiki-*` local skills belong to C3. Concurrent
 domain content stays in its own later content PR.
 
+### Exact config-bound C3 authority for new v3 plans
+
+A localized layout is not a wildcard C3 permission. Before mutation, `plan`
+reads the immutable Git blob at `consumer_B0:wiki.config.yaml` and derives a
+closed authority with exactly three roles:
+
+| Role | Exact B0-derived surface | Contract |
+| --- | --- | --- |
+| `command_reference_page` | `paths.command_reference_page` | One inert UTF-8 Markdown `.md` regular blob, mode `100644`. |
+| `operational_pass_page` | `paths.operational_pass_page` | One inert UTF-8 Markdown `.md` regular blob, mode `100644`. |
+| `release_records` | `<paths.references_root>/releases/**` | Only inert UTF-8 `.md` descendants committed as regular `100644` blobs. |
+
+The sealed package contract is
+`contract_versions.consumer_c3_authority = wiki_viva_upgrade_consumer_c3_authority.v1`.
+The three roles must map exactly once to
+`wiki_consumer_command_reference.v1`,
+`wiki_consumer_operational_pass.v1` and
+`wiki_consumer_release_record.v1`, respectively. Missing, duplicate or
+ambiguous package/impact mapping selects Lane A and the full matrix because the
+release policy must be repaired and recertified.
+
+The live worktree and the C1/C2/C3 config versions are not authority and cannot
+widen these paths. Executable mode, binary/NUL data, invalid UTF-8, secrets,
+non-Markdown release descendants or any domain-content sibling fails closed.
+All three roles are C3-only; placing them in C1 or C2 is a boundary error even
+when the bytes would otherwise match. The canonical authority SHA-256 is bound
+to the plan, mutation/resume state, receipt and private report. Any B0 config or
+authority change requires a new plan and invalidates every C3-bound result.
+Unknown path or contract impact selects Lane A and the full matrix. A missing,
+malformed or unsafe `wiki.config.yaml` at B0 is instead a Lane B baseline
+failure: `plan` stops before mutation, the consumer repairs B0 and creates a new
+plan. Re-running Lane A does not repair invalid consumer configuration; it is
+required when the sealed package/impact mapping itself is defective.
+
+### Rc21 -> rc22 correction boundary
+
+Rc21 is historical non-promotional local evidence. It retains its exact public
+mobile/visual proof, but a synthetic downstream rehearsal exposed a missing
+config-localized C3 authority and an over-broad release-record surface. It must
+not be promoted, imported, relabeled or used to mint a production capsule.
+Rc22 is the next prospective corrected candidate after the three-role authority
+and its negative fixtures pass the complete public certification matrix. This
+runbook claims no rc22 capsule and grants no public publication authority.
+
 ### Lane A -> Lane B handoff checklist
 
 A real handoff is an immutable release authority, not a branch name, mutable
@@ -113,15 +157,22 @@ attestation. Both the raw archive SHA-256 and the attestation SHA-256 are
 delivered through separately reviewed channels. Verify the raw archive digest
 before extraction; only then execute the byte-equal runner restored from it.
 
+Run the exact public source audits as pre-certification/PR gates. The capsule
+seals only commands classified as `upstream_certified`; the consumer-owned
+`audit` and `public_evidence_redaction` IDs are not reusable Lane A receipts and
+must run again on every Lane B subject. A capsule that must attest a public
+audit CLI needs a separately declared upstream-certified gate.
+
 Before `plan`, the downstream operator must verify every supplied digest and
 capsule contract fail-closed, freeze `consumer_B0`, and retain a handoff receipt
 that binds the trusted authority, B0 and canonical plan digest. `plan` is
 accepted only when it prints the exact C1/C2/C3 delta, affected contracts,
 selected/omitted gates and invalidations without mutation. `adopt --resume`
-must use the same authority, attestation and plan; it may not fall back to the
-live kit checkout. Mismatch, unknown impact or missing authority stops before
-C1 and reports the owning lane, affected contract and next action. No private
-consumer path, route, payload or receipt is copied into the public capsule.
+is valid only after an interruption or declared pause and must use the same
+authority, attestation and plan; it may not fall back to the live kit checkout.
+Mismatch, unknown impact or missing authority stops before C1 and reports the
+owning lane, affected contract and next action. No private consumer path,
+route, payload or receipt is copied into the public capsule.
 
 ### Current private v2 transition checkpoint
 
@@ -322,6 +373,12 @@ payloads are rejected. Files beside `releases/` remain rejected, as do any
 release paths that the package itself classifies as portable. Canonical path
 checks, secret scanning and migration-evidence exclusions still apply.
 
+For a v3 run, that subtree and the two exact configured technical pages are the
+sealed B0-derived roles above, not manually asserted paths. They never belong
+to C1 or C2, and editing `wiki.config.yaml` in C3 cannot authorize its own
+postimage. The v2-only validator language in this section remains solely for a
+frozen v2 migration and must not be used to rewrite its evidence.
+
 If a consumer reveals a core bug, stop. Reproduce it with synthetic public data
 and fix/test it in `wiki-viva-kit` before importing the corrected public SHA.
 
@@ -355,13 +412,26 @@ on a real route, relax operator security or cross the public/private boundary.
 
 ### Seal and execute the v3 adoption plan
 
-After the read-only preflight, and before C1 exists, a package with a certified
-Lane A capsule and sealed impact registry compiles one sealed, reviewable plan.
+Before C1 exists, `plan` itself executes the package-required read-only B0
+preflight and a package with a certified Lane A capsule and sealed impact
+registry compiles one sealed, reviewable plan.
 `plan` never mutates the consumer Git/tracked subject; it writes only sealed,
 ignored planning evidence. After explicit review, `adopt` owns the atomic
 C1/C2/C3 commits and refuses any byte or ownership drift:
 
 ```sh
+python3 /path/to/clean-public-subject/scripts/wiki_visual_evidence.py capture \
+  --package /path/to/upgrade-package.yaml \
+  --source-root /path/to/clean-public-subject \
+  --source-sha <exact-source-sha> \
+  --out-dir /path/to/verified-visual-authority
+
+python3 /path/to/clean-public-subject/scripts/wiki_visual_evidence.py verify \
+  --package /path/to/upgrade-package.yaml \
+  --source-root /path/to/clean-public-subject \
+  --source-sha <exact-source-sha> \
+  --visual-root /path/to/verified-visual-authority
+
 python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py certify \
   --package /path/to/upgrade-package.yaml \
   --impact-registry /path/to/impact-registry.yaml \
@@ -370,6 +440,14 @@ python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py certify \
   --visual-manifest-ref visual-manifest.json \
   --out-dir /path/to/new-immutable-release-authority \
   --attestation-authority-id <reviewed-authority-id>
+
+python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py verify-capsule \
+  --package /path/to/upgrade-package.yaml \
+  --capsule /path/to/new-immutable-release-authority/release-capsule.json \
+  --impact-registry /path/to/impact-registry.yaml \
+  --authority /path/to/new-immutable-release-authority/release-authority.json \
+  --trusted-attestation-sha256 <out-of-band-sha256> \
+  --kit-root /path/to/clean-public-subject
 
 python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py plan \
   --package /path/to/restored-release-authority/upgrade-package.yaml \
@@ -387,11 +465,25 @@ python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py p
   --out /path/to/consumer/.wiki-viva/upgrade/plan.json
 ```
 
+The visual bundle must exactly and uniquely cover the package profiles with
+record-backed PNG/source/package/Chromium/console/network evidence; hand-authored
+manifest claims are insufficient. `verify-capsule` reopens package, portable
+tree, command/impact registry, live toolchain, visual records, gate outputs,
+attestation and certification receipt without a consumer and emits a path-free
+summary. Successful Lane A gate logs are also public evidence: the versioned
+quiet/TAP reporters must prevent host-path output rather than relying on later
+redaction.
+
 Review the proposed C1/C2/C3 ownership, changed paths/contracts, selected and
 omitted gates, capsule reuse, invalidations and conceptual diff. The plan must
 bind the accepted preflight and fail closed on an unavailable capsule,
 dirty/ambiguous baseline, unknown impact or unsafe evidence path; it must never
 silently fall back to the live kit checkout instead of the pinned source.
+`preflight_sha256` seals the exact unsigned execution payload. The
+acceptance-attempt identity separately hashes the complete exact preflight
+object, including that internal digest; replacing and coherently resealing
+preflight therefore creates a different attempt and cannot reuse the original
+external acceptance anchor.
 Repeat `--c2-generator-command ID::COMMAND` for the package's independent
 generators. The runner replays them from C1 in a disposable clone, retains the
 real output log and accepts C2 only when the generated bytes match exactly; a
@@ -442,7 +534,10 @@ PR/human gate rather than invoking the runner again.
 
 `--resume` is not a bypass. The checkpoint must match both the canonical plan
 digest and the complete seven-term receipt identity. Before reusing one result,
-the runner rechecks both external anchors, the complete B0/C1/C2/C3 direct Git
+if a materialized execution plan exists, the runner first reruns every
+registered C2 command from C1 in a disposable clone and requires exact equality
+of the complete C2 path set, Git modes and blob digests. Missing or divergent
+replay fails before gates. The runner then rechecks both external anchors, the complete B0/C1/C2/C3 direct Git
 chain, the canonical package/impact-selected gate set, the command digest,
 byte-equal runner/toolchain closure and output digest. The toolchain probe uses
 the same Python interpreter that is executing the runner. A stale
@@ -483,6 +578,9 @@ it always runs `consumer_always`, selects `affected` through path + contract
 impact, runs `canary` on the final served consumer and schedules declared
 `background_certification`. Unknown path/contract impact or any portable-core
 surface selects the full catalog and requires a new Lane A capsule.
+Every selected background gate marked `required_for_promotion` must pass before
+the run becomes `promotion_ready`; a reversible `compat` merge after canary is
+not promotion of v8 as the default runtime.
 
 These gate IDs can never be omitted or reused: `audit`,
 `public_evidence_redaction`, `input_stage`, `semantic_inventory`,

@@ -111,11 +111,28 @@ paths:
   sources_dirname: fontes
   operation_page: memorias/operacao.md
   command_reference_page: memorias/sistema/wiki/referencia-comandos.md
+  operational_pass_page: memorias/sistema/passe-operacional.md
 ```
 
 The code never hardcodes layout paths; it reads them from here via
 [wiki_core/paths.py](../../../wiki_core/paths.py). The directory and file names
 then follow your pins, while code, comments and CLIs stay English.
+
+For a v3 downstream upgrade, localization does not authorize an arbitrary
+localized memory or references-tree C3 delta. The runner reads the immutable
+Git blob at `consumer_B0:wiki.config.yaml` and derives exactly three
+config-bound roles: the exact `command_reference_page`, the exact
+`operational_pass_page`, and `release_records` below the configured
+`references_root/releases/**` subtree. The live worktree and the later C1/C2/C3
+subjects cannot redefine or widen those paths. All three surfaces are C3-only:
+each changed artifact must be inert UTF-8 Markdown in a regular `100644` Git
+blob, with release records restricted to `.md` descendants. Never place them in
+C1 or C2. A different B0 config blob or derived-authority digest requires a new
+plan and invalidates all C3-bound state, receipts and reports.
+
+This prospective rule does not rewrite an in-flight v2 migration. Keep its
+sealed C3 and receipts byte-for-byte historical, complete its original gate
+matrix, and introduce routing/localization changes only in a fresh v3 plan.
 
 ## 6. Verify the gates are green
 

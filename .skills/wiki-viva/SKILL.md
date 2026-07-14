@@ -173,13 +173,30 @@ ship the skeletons, so a generated page starts with the scaffold.
   includes the byte/mode digest of its Python/schema/probe execution closure;
   the toolchain binds the actual runner interpreter, its resolved Python
   dependencies and the Chromium engine actually launched by Playwright.
+  Generate Lane A visual authority with
+  [wiki_visual_evidence.py](../../scripts/wiki_visual_evidence.py) `capture`
+  from the exact clean source: its
+  sorted manifest must cover every
+  package visual profile and bind each PNG to a canonical record containing
+  source/package/browser identity plus count-only console/network evidence.
+  After `certify`, independently run
+  [wiki_upgrade.py](../../scripts/wiki_upgrade.py) `verify-capsule` with the
+  sealed authority and out-of-band attestation digest before `plan`. Treat
+  public-safe quiet/TAP gate reporters as command-registry authority; a passing
+  log that exposes a host path is a failed certification artifact.
   Preserve the `acceptance_anchor_sha256`
   emitted by `plan` outside `.wiki-viva/`; pass it back to every `adopt` or
   `--resume`. Never derive trust again from a restored anchor file and never
   recreate a missing anchor. After the selected real canary completes, capture
   the emitted `canary_completion_anchor_sha256` outside `.wiki-viva/` and pass
   it to every post-canary resume; never accept a locally resealed result ledger
-  as completion authority. Gate selection is recomputed from the sealed package
+  as completion authority. The acceptance-attempt identity binds the canonical
+  SHA-256 of the complete exact preflight object, including its internal
+  `preflight_sha256`; a changed, coherently resealed preflight is a different
+  attempt and cannot reuse the original anchor. If an execution plan already
+  exists, every `--resume` must first replay the registered C2 commands from C1
+  in a disposable clone and prove exact path-set, Git-mode and blob equality
+  before reusing any stored gate result. Gate selection is recomputed from the sealed package
   and impact registry, including package-required background promotion gates
   and dependency closure. A migration already started with a v2 package
   keeps every declared `migration.required_gates` entry blocking; v3
@@ -188,7 +205,21 @@ ship the skeletons, so a generated page starts with the scaffold.
   [AGENTS.md](../../AGENTS.md) and every
   non-`wiki-*` repo-local skill are consumer-owned C3; update their routing with
   the adapter delta. Consumer base and `.local` page-type/template registries
-  are also C3 merge surfaces. Require direct single-parent B0->C1->C2->C3 edges;
+  are also C3 merge surfaces. Config localization grants no broad memory or
+  references-root exception. Derive the config-bound C3 authority exclusively
+  from the committed `consumer_B0:wiki.config.yaml` blob and accept exactly
+  three roles: the exact `command_reference_page`, the exact
+  `operational_pass_page`, and inert Markdown descendants of the configured
+  `references_root/releases/**` subtree (`release_records`). Never derive or
+  widen that authority from the worktree, C1, C2 or C3. Require every such
+  artifact to be a regular UTF-8 `.md` blob with mode `100644`, secret-clean and
+  owned only by C3; C1/C2 placement, executable mode, binary data or any other
+  descendant fails closed. Bind the derived-authority digest into plan, state,
+  receipt and report, and invalidate the attempt when it changes. Rc21 is
+  historical non-promotional proof after downstream rehearsal exposed this
+  missing boundary; rc22 is its prospective corrected successor. Do not amend,
+  regenerate or reclassify any already sealed v2 C3 or receipt.
+  Require direct single-parent B0->C1->C2->C3 edges;
   bind all four commits in receipt and state; recompute edge paths, modes and
   blobs from Git; and regenerate all C3-bound receipts whenever those files
   change. Reject symlinks, submodules and special boundary entries. Scan public

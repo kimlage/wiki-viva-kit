@@ -67,6 +67,7 @@
         "c1_portable_patterns",
         "c2_generated_patterns",
         "c3_consumer_patterns",
+        "configured_c3_roles",
         "domain_content_patterns"
       ],
       "properties": {
@@ -78,6 +79,18 @@
         },
         "c3_consumer_patterns": {
           "$ref": "#/$defs/pathPatterns"
+        },
+        "configured_c3_roles": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "prefixItems": [
+            {"const": "command_reference_page"},
+            {"const": "operational_pass_page"},
+            {"const": "release_records"}
+          ],
+          "items": false
         },
         "domain_content_patterns": {
           "$ref": "#/$defs/pathPatterns"
@@ -169,6 +182,17 @@
         },
         "path_patterns": {
           "$ref": "#/$defs/pathPatterns"
+        },
+        "configured_path_roles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "command_reference_page",
+              "operational_pass_page",
+              "release_records"
+            ]
+          }
         },
         "contracts": {
           "type": "array",

@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc21 local validation complete - promotion pending"
+title: "Wiki Viva v8 rc21 historical validation evidence - promotion prohibited"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,24 +11,26 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc21 local validation complete - promotion pending
+# Wiki Viva v8 rc21 historical validation evidence - promotion prohibited
 
 Status on 2026-07-14: **exact public source
 `db3bba4957f551cc7c2d261561a45d0c606fdd05`, packaged locally as
-`wiki-viva-v8-rc21`, passes the complete declared deterministic and 102/102
-first-attempt browser stack. It remains `validation_pending`, unpublished and
-without a production Lane A capsule. It is not downstream adoption authority.**
+`wiki-viva-v8-rc21`, passed its then-declared deterministic and 102/102
+first-attempt browser stack. RT-152 later froze that subject as historical
+non-promotional evidence. It remains unpublished, has no production Lane A
+capsule and must not be promoted, imported, relabeled or used as downstream
+adoption authority.**
 
-Rc21 supersedes rc20 only as the current local validation candidate. Real-data
-downstream QA exposed RT-151 in rc20: at 390 x 844, filtering, selecting and
-scrolling the Timeline could visually interleave the result list and inspector
-because constrained grid rows collapsed while their children overflowed. The
-private pixels, paths, routes and content remain private. Rc21 reproduces the
-defect with a public synthetic fixture, uses normal mobile block flow and one
-scroll model, and requires DOM/visual order, containment, readable selected
-detail and zero horizontal overflow after the same interaction. Rc20 remains
-immutable historical diagnostic evidence and must never be promoted or
-imported.
+Rc21 superseded rc20 only at its historical RT-151 validation checkpoint.
+Real-data downstream QA had exposed that defect in rc20: at 390 x 844,
+filtering, selecting and scrolling the Timeline could visually interleave the
+result list and inspector because constrained grid rows collapsed while their
+children overflowed. The private pixels, paths, routes and content remain
+private. Rc21 reproduces the defect with a public synthetic fixture, uses
+normal mobile block flow and one scroll model, and requires DOM/visual order,
+containment, readable selected detail and zero horizontal overflow after the
+same interaction. Rc20 and rc21 are immutable historical diagnostic evidence;
+neither may be promoted or imported.
 
 The exact rc21 local evidence is: both audits at 0 errors / 7 known staleness
 warnings; methodology, operation, input-stage, semantic-inventory, 26-payload
@@ -49,7 +51,7 @@ The command, impact and boundary-operation registry SHA-256 values are
 `e3ae2e664637ca87fd08d2a1db169245594153b68badba9694cfcde3bff3a7c0`,
 `ccd3f53eee8ccf3328a820dfe9e2a6c73f1056a9e54a0d88b3380d0224e70629`
 and `23c970d79b731280c4a0e9d775cc37017335e453dc36b69f318d66b8659fc308`.
-These are candidate identities only; no production capsule has been sealed.
+These are historical local identities only; no production capsule was sealed.
 
 The rc21 package names the following exact portable contracts:
 
@@ -62,12 +64,26 @@ The rc21 package names the following exact portable contracts:
 | Experience pack / registry / lock / composition | `wiki_experience_pack.v1` / `wiki_experience_pack_registry.v1` / `wiki_experience_pack_lock.v1` / `wiki_experience_pack_composition.v1` |
 | Asset / downstream adapter manifests | `wiki_cockpit_asset_manifest.v1` / `wiki_downstream_adapter_manifest.v1` |
 
-Publication still requires explicit authorization, remote public CI, human
-conceptual/privacy/VoiceOver review and merge, followed by a separately reviewed
-promotion boundary that can mint Lane A release authority. External E5 and a
-release tag remain separate. The in-flight private v2 migration keeps its
-original full blocking matrix and receipts; neither rc20 nor rc21 reclassifies,
-reduces or rewrites that evidence.
+The new `wiki_viva_upgrade_consumer_c3_authority.v1` contract is reserved for a
+prospective rc22 package, never rc21. Rc22 must bind that contract to a new
+exact source, package digest, public synthetic fixtures, complete certification
+evidence and its own capsule; it cannot inherit any rc21 status or receipt. No
+rc22 source SHA, package digest or capsule is claimed by this historical note.
+
+Until that exact source commit exists, the active development package uses the
+non-certifiable release id `unreleased` and the already committed baseline
+`226f2c646484cb5da8ec5ffd4c8e5d106318e723`. That placeholder is intentionally
+`validation_pending`; changing only its status cannot turn it into release
+authority. The rc22 metadata boundary must replace both values after the new
+source is committed.
+
+Any future rc22 publication still requires explicit authorization, remote
+public CI, human conceptual/privacy/VoiceOver review and merge, followed by a
+separately reviewed promotion boundary that can mint Lane A release authority.
+External E5 and a release tag remain separate. The in-flight private v2
+migration keeps its original full blocking matrix and receipts; neither rc20,
+rc21 nor the prospective rc22 contract reclassifies, reduces or rewrites that
+evidence.
 
 ## Historical rc8-era evidence — preserved without current authority
 
@@ -560,7 +576,7 @@ blank world, center error, overlap, unreadable label or sample fallback.
 Conversely, a passed `browser_closure` receipt binds only that browser evidence;
 the commands above require their own exact-`S` results and broader manifest.
 
-## Historical rc8 promotion checklist — superseded by rc21 status above
+## Historical rc8 checklist — superseded by rc21 historical status
 
 - Retain the exact historical S6 and S8 ledgers on their original subjects;
   neither can be relabeled as current S9 proof.

@@ -38,15 +38,22 @@ flowchart LR
     Capsule --> Plan["Lane B: compute consumer delta"]
     Plan --> Fast["Fast adoption gates"]
     Fast --> Canary["Reversible consumer canary"]
-    Canary --> Promote["Human promotion to main"]
-    Canary --> Background["Broader downstream certification"]
+    Canary -->|policy requires background| Background["Broader downstream certification"]
+    Canary -->|no background required| Ready["Promotion ready"]
     Background -->|failure| Rollback["Compat/legacy or Git revert"]
-    Background -->|pass| Promote
+    Background -->|pass| Ready
+    Ready --> Promote["Human promotion to main"]
 ```
 
 The target steady state is:
 
-`certified capsule -> read-only preflight -> exact import -> local adaptation -> targeted proof -> canary -> promotion`
+`certified capsule -> read-only preflight -> exact import -> local adaptation -> targeted proof -> canary -> [policy-required background proof] -> human promotion`
+
+The background step is conditional only when the sealed policy declares no
+selected `background_certification` gate as `required_for_promotion`. When one
+is required, a canary may support a reversible `compat` merge, but it does not
+become `promotion_ready` and cannot make v8 the promoted default until that
+background proof passes.
 
 The expected fast path is measured in minutes, not hours. That is an operating
 budget, not permission to hide failures or fabricate evidence.
@@ -91,9 +98,19 @@ Run Lane A once for an exact portable release subject. It owns:
 - the full synthetic browser/release matrix;
 - demos, experience-pack conformance and fallback fixtures;
 - architecture, assets, bundle and release-matrix checks;
-- public audit, secret controls and public-export fixtures;
+- public-audit, secret-control and public-export fixture coverage inside the
+  portable test suite;
 - exact visual baselines for package-owned profiles;
 - package/schema validation and rollback tooling tests.
+
+The exact public repository audits are separate pre-certification and PR gates:
+run `wiki_audit.py --check` and `wiki_audit.py --public-export --check` against
+the source that is being reviewed. They do not become reusable capsule receipts
+through the consumer-owned `audit` or `public_evidence_redaction` IDs. The
+capsule seals only gates explicitly classified as `upstream_certified`; if a
+release policy needs the capsule itself to attest an audit CLI, it must declare
+a distinct upstream-certified gate and recertify the package. Lane B still
+reruns its current consumer audit and redaction gates every time.
 
 Lane A emits an immutable release capsule:
 
@@ -189,6 +206,45 @@ an exact package-allowed `.skills/wiki-*/**` path is C1 and is rejected from C3;
 every other declared repo-local skill is C3. This lets a consumer update its
 router and operating policy without forking the toolkit skill, while keeping
 the imported `wiki-*` playbooks byte-equal to the Lane A capsule.
+
+### Exact config-bound C3 authority
+
+Static C3 allowlists do not authorize an entire localized memory or references
+root. The only paths that configuration may add to C3 are derived exclusively
+from the immutable Git blob at `consumer_B0:wiki.config.yaml`. The runner reads
+that blob through Git, applies the package's closed role policy and seals the
+result before any mutation. It never consults the live worktree or the later
+C1, C2 or C3 version of the config to derive or widen ownership.
+
+The config-bound policy contains exactly three roles:
+
+| Role | B0-derived authority | Required Git/content contract |
+| --- | --- | --- |
+| `command_reference_page` | The one exact path named by `paths.command_reference_page`. | Regular UTF-8 Markdown `.md`, mode `100644`, inert and secret-clean. |
+| `operational_pass_page` | The one exact path named by `paths.operational_pass_page`. | Regular UTF-8 Markdown `.md`, mode `100644`, inert and secret-clean. |
+| `release_records` | Markdown descendants only beneath the B0-configured `paths.references_root` plus `/releases/`. | Every descendant is an inert UTF-8 `.md` regular blob with mode `100644`; executable, binary and sibling paths are rejected. |
+
+The sealed package must declare
+`contract_versions.consumer_c3_authority = wiki_viva_upgrade_consumer_c3_authority.v1`.
+Each role maps one-to-one to its impact contract:
+`command_reference_page` to `wiki_consumer_command_reference.v1`,
+`operational_pass_page` to `wiki_consumer_operational_pass.v1`, and
+`release_records` to `wiki_consumer_release_record.v1`. A missing, duplicate or
+ambiguous package/impact mapping selects Lane A and the complete matrix because
+the release policy itself must be repaired and recertified.
+
+These are C3-only technical surfaces. A matching localized path in C1 or C2 is
+still a boundary violation, and domain content elsewhere in the same roots is
+not adaptation authority. The canonical authority object and its SHA-256 bind
+the plan, mutation/resume state, adoption receipt and private migration report.
+A different B0 config blob, derived path, role contract or authority digest
+invalidates all C3-bound evidence. Unknown path or contract impact selects the
+complete Lane A/full-matrix path; it never guesses a localized fast path. A
+missing, malformed or unsafe `wiki.config.yaml` blob at B0 is instead a Lane B
+baseline failure: `plan` stops before mutation, the consumer repairs B0 and
+creates a new plan. Re-running Lane A cannot repair an invalid consumer config;
+Lane A is required only when the sealed package/impact mapping itself is
+missing or ambiguous.
 
 This ownership rule is prospective. If a migration was already sealed under
 v2 without consumer `AGENTS.md` or router changes in C3, do not append those
@@ -321,9 +377,25 @@ requiring an agent to assemble evidence by hand. Lane A executes and seals only
 `upstream_certified` gates. Its capsule still binds the complete command
 registry because Lane B must verify the same package-wide command identity, but
 no consumer/background result can appear in `certified_gates`, the Lane A
-attestation or its certification receipt:
+attestation or its certification receipt. First generate and independently
+verify the create-once visual authority from the exact clean source; it must
+cover every package profile and bind each PNG to a canonical source/package/
+Chromium plus count-only console/network record. Then certify and independently
+reopen the sealed capsule:
 
 ```sh
+python3 /path/to/clean-public-subject/scripts/wiki_visual_evidence.py capture \
+  --package /path/to/upgrade-package.yaml \
+  --source-root /path/to/clean-public-subject \
+  --source-sha <exact-source-sha> \
+  --out-dir /path/to/verified-visual-authority
+
+python3 /path/to/clean-public-subject/scripts/wiki_visual_evidence.py verify \
+  --package /path/to/upgrade-package.yaml \
+  --source-root /path/to/clean-public-subject \
+  --source-sha <exact-source-sha> \
+  --visual-root /path/to/verified-visual-authority
+
 python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py certify \
   --package /path/to/upgrade-package.yaml \
   --impact-registry /path/to/impact-registry.yaml \
@@ -332,10 +404,23 @@ python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py certify \
   --visual-manifest-ref visual-manifest.json \
   --out-dir /path/to/new-immutable-release-authority \
   --attestation-authority-id <reviewed-authority-id>
+
+python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py verify-capsule \
+  --package /path/to/upgrade-package.yaml \
+  --capsule /path/to/new-immutable-release-authority/release-capsule.json \
+  --impact-registry /path/to/impact-registry.yaml \
+  --authority /path/to/new-immutable-release-authority/release-authority.json \
+  --trusted-attestation-sha256 <out-of-band-sha256> \
+  --kit-root /path/to/clean-public-subject
 ```
 
-The downstream operator then uses the out-of-band attestation digest emitted by
-that run. The operator-facing Lane B workflow is:
+Every successful upstream command log is itself public evidence. The package's
+quiet Pytest and TAP Vitest reporters are part of the sealed command registry;
+a passing log that contains a host-local path is rejected, not redacted after
+the fact.
+
+The downstream operator uses the independently verified out-of-band attestation
+digest emitted by that run. The operator-facing Lane B workflow is:
 
 ```sh
 python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py plan \
@@ -363,9 +448,13 @@ python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py a
   --trusted-acceptance-anchor-sha256 <sha256-emitted-by-plan> \
   --kit-root /path/to/restored-release-authority/public-kit \
   --consumer-root /path/to/consumer \
-  --mode canary \
-  --resume
+  --mode canary
 ```
+
+This is the first `adopt` invocation and therefore never uses `--resume`. For a
+split CI handoff, append `--pause-before-canary`; only an interrupted or
+explicitly paused run may continue with `--resume`. A later post-canary resume
+also requires the separately held completion anchor below.
 
 The first invocation that reaches the real canary emits
 `canary_completion_anchor_sha256`. Capture it outside `.wiki-viva/`. Any later
@@ -376,7 +465,11 @@ resume, including the background job, adds:
 ```
 
 `plan` emits `acceptance_anchor_sha256` after atomically claiming one
-first-write clock for the exact capsule, B0, impact inputs and mutation intent.
+first-write clock for the exact capsule, B0, impact inputs, canonical digest of
+the complete exact preflight object and mutation intent. The acceptance-attempt
+identity binds that outer canonical preflight digest as well as the embedded
+`preflight_sha256`, so replacing and coherently resealing preflight creates a
+different attempt and cannot reuse the original external anchor.
 The caller must freeze that value outside the consumer evidence directory; CI
 uses a job output and the externally hashed handoff archive. A second plan for
 the same attempt reuses the original timestamp. `adopt` verifies the exact
@@ -403,8 +496,9 @@ The runner contract is:
   projection, create C2 only from the registered generators and create C3 only
   from the reviewed consumer adapter commands, one direct single-parent atomic
   commit per boundary with no intermediate or merge commit;
-- replay each registered C2 generator from C1 in a disposable clone, retain
-  the real command log and require byte-for-byte equality with committed C2;
+- during initial materialization, replay each registered C2 generator from C1
+  in a disposable clone, retain the real command log and require equality of
+  the complete path set, Git modes and blob digests with committed C2;
 - recompute the canonical affected-gate set from the package plus versioned
   impact registry, adding every package-required promotion gate and dependency;
 - execute independent gates in parallel with bounded resources;
@@ -414,6 +508,9 @@ The runner contract is:
 - automatically capture the package-declared visual profiles;
 - write receipts, screenshots and reports only to ignored consumer evidence
   paths;
+- on every resume with an existing execution plan, replay the complete
+  registered C2 command set from C1 in a disposable clone and prove exact path,
+  mode and blob equality before evaluating or reusing any gate result;
 - resume completed gates after interruption only while the overall run remains
   incomplete, without reusing stale results;
 - bind B0/C1/C2/C3 in both receipt and state, then independently recompute each
@@ -460,6 +557,17 @@ or production v3 adoption receipt exists until the exact releasable public subje
 is certified and promoted through its own PR/human gate. The migration already
 in flight remains on its complete v2 `migration.required_gates` matrix.
 
+The locally validated rc21 subject is now immutable historical
+non-promotional evidence. Its public UI regression proof remains useful, but a
+downstream rehearsal exposed that its static C3 policy could not represent the
+three localized roles above and that its broad release-record surface did not
+fail closed on executable/non-Markdown descendants. Rc21 must not be promoted,
+imported, relabeled or used to mint a capsule. Rc22 is the next prospective
+candidate after the config-bound authority, public synthetic negative controls
+and complete certification matrix are green. No rc22 capsule or adoption
+authority is claimed here, and public publication remains a separate human
+decision.
+
 ### Sanitized in-flight v2 checkpoint
 
 As of 2026-07-14, the current authorized private technical PR is the transition
@@ -477,7 +585,10 @@ therefore unchanged.
 The private `AGENTS.md` and router improvement discovered during this review
 are deliberately excluded from that sealed C3. They belong to a fresh v3
 follow-up after the v2 promotion, and cannot be used to rewrite or reissue the
-current receipts. Concurrent domain material remains a separate content PR. No
+current receipts. Rc21's historical reclassification and the prospective rc22
+contract do not amend that v2 subject, reduce its original matrix or invalidate
+receipts that still describe their exact frozen subject. Concurrent domain
+material remains a separate content PR. No
 private repository name, PR number, domain label, branch, SHA, route, path,
 payload or screenshot is part of this public checkpoint.
 

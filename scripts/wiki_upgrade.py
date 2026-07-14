@@ -3,6 +3,7 @@
 
 ``certify`` executes Lane A against one releasable public source and emits an
 immutable release capsule plus its external attestation/receipt authority.
+``verify-capsule`` independently recomputes that exact sealed public authority.
 ``plan`` is read-only and seals the Lane B conceptual delta at a clean B0.
 ``adopt`` can create the exact C1/C2/C3 chain from that plan, records real
 command output, verifies a reverse-patch rollback in a disposable clone and
@@ -36,7 +37,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 
-RUNNER_VERSION = "1.2.0"
+RUNNER_VERSION = "1.3.0"
 
 
 def _runner_payload_manifest(runtime_root: Path) -> dict[str, Any]:
@@ -125,6 +126,8 @@ from wiki_core.upgrade_lanes import (
     VerifiedReleaseCapsule,
     canonical_json,
     canonical_sha256,
+    consumer_c3_authority_from_git,
+    consumer_c3_authority_patterns,
     collect_release_attestation,
     load_mapping,
     public_migration_report_projection,
@@ -135,19 +138,25 @@ from wiki_core.upgrade_lanes import (
     validate_canary_evidence,
     validate_c1_projection,
     validate_boundary_ownership,
+    verify_config_bound_c3_git_content,
+    verify_consumer_c3_authority,
     verify_adoption_receipt,
     verify_adoption_evidence,
     verify_gate_omissions,
     verify_impact_registry,
     verify_release_capsule,
 )
-from wiki_core.upgrade import package_is_pinned, validate_upgrade_package
+from wiki_core.upgrade import (
+    BOUNDARY_OPERATIONS_SCHEMA_VERSION,
+    package_is_pinned,
+    validate_upgrade_package,
+)
 from wiki_core.detectors import scan_text
 
 
-PLAN_SCHEMA_VERSION = "wiki_viva_upgrade_plan.v3"
-STATE_SCHEMA_VERSION = "wiki_viva_upgrade_runner_state.v3"
-REPORT_SCHEMA_VERSION = "wiki_viva_upgrade_runner_report.v2"
+PLAN_SCHEMA_VERSION = "wiki_viva_upgrade_plan.v4"
+STATE_SCHEMA_VERSION = "wiki_viva_upgrade_runner_state.v4"
+REPORT_SCHEMA_VERSION = "wiki_viva_upgrade_runner_report.v3"
 ROLLBACK_SCHEMA_VERSION = "wiki_viva_upgrade_rollback_execution.v1"
 CERTIFICATION_RECEIPT_SCHEMA_VERSION = "wiki_viva_upgrade_certification_receipt.v1"
 
@@ -437,6 +446,8 @@ _CERTIFICATION_RECEIPT_SCHEMA = (
 _SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _GATE_ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,127}$")
+_VISUAL_ENTRY_ID_RE = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
+_VISUAL_CAPTURE_STATE_RE = re.compile(r"^capture-[0-9a-f]{64}$")
 _CONTROL_TOKEN_RE = re.compile(r"(?:\$\(|`|\x00|\r|\n)")
 _SHELL_TOKENS = {"|", "||", "&", "&&", ";", ">", ">>", "<", "<<"}
 _HOST_PATH_RE = re.compile(
@@ -458,6 +469,11 @@ _PRIVATE_ROUTE_RE = re.compile(
 )
 _PERCENT_ESCAPE_RE = re.compile(r"%[0-9A-Fa-f]{2}")
 _MAX_PERCENT_DECODE_ROUNDS = 3
+_MAX_CERTIFICATION_FILE_BYTES = 64 * 1024 * 1024
+_MAX_GATE_OUTPUT_BYTES = 16 * 1024 * 1024
+_MAX_GATE_ARTIFACT_FILE_BYTES = 64 * 1024 * 1024
+_MAX_GATE_ARTIFACT_TOTAL_BYTES = 128 * 1024 * 1024
+_MAX_GATE_ARTIFACT_FILES = 512
 _DOWNSTREAM_OPERATOR_ENV_KEYS = (
     "WIKI_COCKPIT_SNAPSHOT_URL",
     "WIKI_COCKPIT_REAL_BASE_URL",
@@ -707,7 +723,7 @@ def _package_c2_generator_sha256(
             "c2_generator_ownership_mismatch",
             "a C2 path does not resolve to exactly one package-owned generator",
             surface="C2",
-            contract="wiki_viva_upgrade_boundary_operations.v1",
+            contract=BOUNDARY_OPERATIONS_SCHEMA_VERSION,
         )
     return _sha256_bytes(owners[0]["command"].encode("utf-8"))
 
@@ -752,6 +768,7 @@ def _build_boundaries(
     commits: Mapping[str, str],
     registry: Mapping[str, Any],
     package: Mapping[str, Any],
+    consumer_c3_authority: Mapping[str, Any],
 ) -> dict[str, list[dict[str, str]]]:
     boundaries: dict[str, list[dict[str, str]]] = {"C1": [], "C2": [], "C3": []}
     for path in _changed_paths(consumer, commits["B0"], commits["C1"]):
@@ -871,7 +888,19 @@ def _build_boundaries(
                 }
             )
     try:
-        validate_boundary_ownership(boundaries, registry, package=package)
+        validate_boundary_ownership(
+            boundaries,
+            registry,
+            package=package,
+            consumer_c3_authority=consumer_c3_authority,
+        )
+        verify_config_bound_c3_git_content(
+            consumer,
+            commits=commits,
+            boundaries=boundaries,
+            authority=consumer_c3_authority,
+            package=package,
+        )
         validate_c1_projection(
             boundaries["C1"],
             package=package,
@@ -1114,8 +1143,7 @@ def _boundary_operations(package: Mapping[str, Any]) -> Mapping[str, Any]:
         return operations if isinstance(operations, Mapping) else {}
     if (
         not isinstance(operations, Mapping)
-        or operations.get("schema_version")
-        != "wiki_viva_upgrade_boundary_operations.v1"
+        or operations.get("schema_version") != BOUNDARY_OPERATIONS_SCHEMA_VERSION
         or not isinstance(operations.get("c2_generators"), list)
         or not isinstance(operations.get("c3_adapter"), Mapping)
         or not isinstance(operations.get("registry_sha256"), str)
@@ -1162,7 +1190,7 @@ def _c2_commands_for_plan(
             "c2_generator_contract_mismatch",
             "a supplied C2 command differs from the package-certified generator registry",
             surface="C2",
-            contract="wiki_viva_upgrade_boundary_operations.v1",
+            contract=BOUNDARY_OPERATIONS_SCHEMA_VERSION,
             next_action="remove the override and use the package-owned C2 generator",
         )
     return packaged
@@ -1676,9 +1704,37 @@ def _verify_boundary_execution(
     if len(entries) != len(expected):
         raise RunnerError("stale_c2_execution_evidence", "the plan C2 evidence is incomplete", surface="C2")
     for entry in entries:
+        operation = entry.get("operation") if isinstance(entry, dict) else None
+        expected_fields = (
+            {
+                "path",
+                "operation",
+                "provenance",
+                "generator_id",
+                "command_sha256",
+                "output_sha256",
+                "output_ref",
+                "mode",
+                "artifact_sha256",
+            }
+            if operation == "upsert"
+            else {
+                "path",
+                "operation",
+                "provenance",
+                "generator_id",
+                "command_sha256",
+                "output_sha256",
+                "output_ref",
+                "before_mode",
+                "before_sha256",
+            }
+        )
         if (
             not isinstance(entry, dict)
+            or set(entry) != expected_fields
             or entry.get("provenance") != "executed"
+            or entry.get("generator_id") != "c2_regeneration_replay"
             or entry.get("path") not in expected
             or entry.get("operation")
             != expected[entry["path"]].get("operation")
@@ -2341,61 +2397,147 @@ def _safe_relative_path(raw: object, *, label: str) -> str:
     return raw
 
 
+def _read_fd_pinned_regular(
+    root: Path,
+    relative: str,
+    *,
+    label: str,
+    max_bytes: int,
+    lane: str,
+    surface: str,
+    unsafe_code: str,
+    missing_code: str,
+) -> bytes:
+    """Read one root-relative regular file through an immutable descriptor chain."""
+
+    if os.name != "posix":
+        raise RunnerError(
+            unsafe_code,
+            f"{label} requires descriptor-pinned POSIX verification",
+            lane=lane,
+            surface=surface,
+        )
+    parts = Path(relative).parts
+    opened: list[int] = []
+    descriptor: int | None = None
+    directory_flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    file_flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    try:
+        descriptor = os.open(root.resolve(strict=True), directory_flags)
+        opened.append(descriptor)
+        if not stat.S_ISDIR(os.fstat(descriptor).st_mode):
+            raise RunnerError(
+                unsafe_code,
+                f"{label} authority root is not a directory",
+                lane=lane,
+                surface=surface,
+            )
+        for part in parts[:-1]:
+            descriptor = os.open(part, directory_flags, dir_fd=descriptor)
+            opened.append(descriptor)
+            if not stat.S_ISDIR(os.fstat(descriptor).st_mode):
+                raise RunnerError(
+                    unsafe_code,
+                    f"{label} traverses a non-directory component",
+                    lane=lane,
+                    surface=surface,
+                )
+        descriptor = os.open(parts[-1], file_flags, dir_fd=descriptor)
+        opened.append(descriptor)
+        before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_nlink != 1
+            or before.st_size > max_bytes
+        ):
+            raise RunnerError(
+                unsafe_code,
+                f"{label} is not one bounded regular, non-hard-linked file",
+                lane=lane,
+                surface=surface,
+            )
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, max_bytes + 1 - total))
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise RunnerError(
+                    unsafe_code,
+                    f"{label} exceeds its evidence size limit",
+                    lane=lane,
+                    surface=surface,
+                )
+            chunks.append(chunk)
+        after = os.fstat(descriptor)
+        if (
+            before.st_dev,
+            before.st_ino,
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_nlink,
+        ) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_nlink,
+        ):
+            raise RunnerError(
+                unsafe_code,
+                f"{label} changed while its pinned descriptor was read",
+                lane=lane,
+                surface=surface,
+            )
+        return b"".join(chunks)
+    except RunnerError:
+        raise
+    except FileNotFoundError as exc:
+        raise RunnerError(
+            missing_code,
+            f"{label} is missing from its authority root",
+            lane=lane,
+            surface=surface,
+        ) from exc
+    except OSError as exc:
+        raise RunnerError(
+            unsafe_code,
+            f"{label} could not be opened without link traversal",
+            lane=lane,
+            surface=surface,
+        ) from exc
+    finally:
+        for handle in reversed(opened):
+            with contextlib.suppress(OSError):
+                os.close(handle)
+
+
 def _safe_certification_file(
     root: Path, raw_path: object, *, label: str
 ) -> tuple[str, bytes]:
     relative = _safe_relative_path(raw_path, label=f"{label} path")
-    authority_root = root.resolve(strict=True)
-    current = authority_root
-    for part in Path(relative).parts:
-        current = current / part
-        if current.is_symlink():
-            raise RunnerError(
-                "unsafe_certification_file",
-                f"{label} traverses a symlink",
-                lane="lane_a",
-                surface="certification_authority",
-            )
-    try:
-        resolved = current.resolve(strict=True)
-        resolved.relative_to(authority_root)
-    except (FileNotFoundError, ValueError) as exc:
-        raise RunnerError(
-            "missing_certification_file",
-            f"{label} is missing from its authority root",
-            lane="lane_a",
-            surface="certification_authority",
-        ) from exc
-    before = resolved.stat()
-    if not resolved.is_file() or before.st_nlink != 1 or before.st_size > 64 * 1024 * 1024:
-        raise RunnerError(
-            "unsafe_certification_file",
-            f"{label} is not one bounded regular file",
-            lane="lane_a",
-            surface="certification_authority",
-        )
-    raw = resolved.read_bytes()
-    after = resolved.stat()
-    if (
-        before.st_dev,
-        before.st_ino,
-        before.st_size,
-        before.st_mtime_ns,
-        before.st_nlink,
-    ) != (
-        after.st_dev,
-        after.st_ino,
-        after.st_size,
-        after.st_mtime_ns,
-        after.st_nlink,
-    ):
-        raise RunnerError(
-            "changed_certification_file",
-            f"{label} changed while it was read",
-            lane="lane_a",
-            surface="certification_authority",
-        )
-    return relative, raw
+    return relative, _read_fd_pinned_regular(
+        root,
+        relative,
+        label=label,
+        max_bytes=_MAX_CERTIFICATION_FILE_BYTES,
+        lane="lane_a",
+        surface="certification_authority",
+        unsafe_code="unsafe_certification_file",
+        missing_code="missing_certification_file",
+    )
 
 
 def _require_public_certification_output(raw: bytes, *, gate_id: str) -> None:
@@ -2541,7 +2683,28 @@ def _stage_visual_authority(
                 lane="lane_a",
                 surface="visual_manifest",
             )
-        files.append(_safe_relative_path(entry.get("path"), label="visual image"))
+        entry_id = entry.get("id")
+        state = entry.get("state")
+        if (
+            not isinstance(entry_id, str)
+            or _VISUAL_ENTRY_ID_RE.fullmatch(entry_id) is None
+            or not isinstance(state, str)
+            or _VISUAL_CAPTURE_STATE_RE.fullmatch(state) is None
+        ):
+            raise RunnerError(
+                "invalid_visual_manifest",
+                "a source visual entry lacks exact record-backed identity",
+                lane="lane_a",
+                surface="visual_manifest",
+            )
+        files.extend(
+            [
+                _safe_relative_path(entry.get("path"), label="visual image"),
+                _safe_relative_path(
+                    f"records/{entry_id}.json", label="visual capture record"
+                ),
+            ]
+        )
     if len(files) != len(set(files)):
         raise RunnerError(
             "duplicate_visual_artifact",
@@ -3315,6 +3478,7 @@ def _load_artifacts(
     kit_root: Path,
     authority_path: Path,
     trusted_attestation_sha256: str,
+    require_sealed_authority: bool = False,
 ) -> tuple[
     dict[str, Any],
     dict[str, Any],
@@ -3342,8 +3506,16 @@ def _load_artifacts(
             "trust_anchor_file_sha256",
         }
         authority_fields = frozenset(authority_bundle)
+        allowed_authority_fields = (
+            {frozenset(sealed_authority_fields)}
+            if require_sealed_authority
+            else {
+                frozenset(base_authority_fields),
+                frozenset(sealed_authority_fields),
+            }
+        )
         if (
-            authority_fields not in {frozenset(base_authority_fields), frozenset(sealed_authority_fields)}
+            authority_fields not in allowed_authority_fields
             or authority_bundle.get("schema_version")
             != "wiki_viva_release_capsule_authority.v1"
         ):
@@ -3527,6 +3699,54 @@ def _load_artifacts(
     return package, capsule, registry, verified_capsule
 
 
+def _verify_capsule(args: argparse.Namespace) -> int:
+    """Verify one exact Lane A authority without opening a consumer run."""
+
+    package = _require_v3_cli_package(args.package)
+    _validate_package_contract(package)
+    if not package_is_pinned(package):
+        raise RunnerError(
+            "release_not_releasable",
+            "the package release is not pinned in a releasable status",
+            lane="lane_a",
+            surface="release_status",
+            next_action=(
+                "complete public validation and human review, promote the package status, "
+                "then certify the exact merged source subject"
+            ),
+        )
+    package, capsule, registry, verified_capsule = _load_artifacts(
+        args.package,
+        args.capsule,
+        args.impact_registry,
+        kit_root=args.kit_root,
+        authority_path=args.authority,
+        trusted_attestation_sha256=args.trusted_attestation_sha256,
+        require_sealed_authority=True,
+    )
+    summary = {
+        "schema_version": "wiki_viva_release_capsule_verification_summary.v1",
+        "status": "verified",
+        "lane": "lane_a",
+        "release_id": capsule["release_id"],
+        "source_sha": capsule["source_sha"],
+        "capsule_sha256": verified_capsule.digest,
+        "package_sha256": canonical_sha256(package),
+        "portable_tree_sha256": capsule["portable_tree_sha256"],
+        "command_registry_sha256": capsule["command_registry_sha256"],
+        "impact_registry_sha256": registry["registry_sha256"],
+        "toolchain_sha256": capsule["toolchain_sha256"],
+        "visual_manifest_sha256": capsule["visual_manifest_sha256"],
+        "attestation_sha256": capsule["attestation_sha256"],
+        "human_gate_required": True,
+    }
+    _require_public_certification_output(
+        _json_bytes(summary), gate_id="verify-capsule"
+    )
+    _emit(summary)
+    return 0
+
+
 def _required_gate_ids(package: Mapping[str, Any]) -> list[str]:
     migration = package.get("migration")
     values = migration.get("required_gates") if isinstance(migration, dict) else None
@@ -3547,6 +3767,8 @@ def _two_lane_selection(
     verified_capsule: VerifiedReleaseCapsule,
     paths: Sequence[str],
     contracts: Sequence[str],
+    *,
+    consumer_c3_authority: Mapping[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, str]], list[dict[str, str]]]:
     required = set(_required_gate_ids(package))
     catalog = list(registry["gate_catalog"])
@@ -3565,6 +3787,7 @@ def _two_lane_selection(
             registry,
             changed_paths=list(paths),
             changed_contracts=list(contracts),
+            consumer_c3_authority=consumer_c3_authority,
         )
     except UpgradeLaneError as exc:
         raise RunnerError(
@@ -3675,8 +3898,65 @@ def _plan_digest(plan: Mapping[str, Any]) -> str:
 
 
 def _verify_plan_digest(plan: Mapping[str, Any]) -> str:
+    expected_fields = {
+        "schema_version",
+        "runner_version",
+        "status",
+        "mode",
+        "package_schema_version",
+        "release_id",
+        "capsule_sha256",
+        "impact_registry_sha256",
+        "consumer_c3_authority",
+        "consumer_c3_authority_sha256",
+        "identity",
+        "boundary_commits",
+        "boundaries",
+        "boundary_execution",
+        "preflight",
+        "mutation",
+        "impact_inputs",
+        "selection",
+        "omitted_gates",
+        "gate_catalog",
+        "conceptual_diff",
+        "acceptance_budget",
+        "acceptance_anchor",
+        "plan_sha256",
+    }
+    mutation = plan.get("mutation")
+    mutation_strategy = (
+        mutation.get("strategy") if isinstance(mutation, Mapping) else None
+    )
+    if mutation_strategy == "runner_owned_completed":
+        expected_fields.add("pre_mutation_plan_sha256")
+    elif mutation_strategy not in {None, "runner_owned"}:
+        raise RunnerError(
+            "invalid_plan_shape",
+            "the adoption plan mutation strategy is invalid",
+            surface="adoption_plan",
+        )
+    if set(plan) != expected_fields:
+        raise RunnerError(
+            "invalid_plan_shape",
+            "the adoption plan has unknown or missing fields",
+            surface="adoption_plan",
+        )
     if plan.get("schema_version") != PLAN_SCHEMA_VERSION:
         raise RunnerError("unsupported_plan_schema", "the adoption plan schema is unsupported")
+    if (
+        plan.get("runner_version") != RUNNER_VERSION
+        or plan.get("mode") != "canary"
+        or plan.get("package_schema_version") != _TWO_LANE_PACKAGE
+        or plan.get("status") not in {"ready", "ready_to_mutate", "requires_lane_a"}
+        or not isinstance(plan.get("release_id"), str)
+        or not plan["release_id"]
+    ):
+        raise RunnerError(
+            "invalid_plan_metadata",
+            "the adoption plan runner, mode, package or release metadata is invalid",
+            surface="adoption_plan",
+        )
     digest = _plan_digest(plan)
     if plan.get("plan_sha256") != digest:
         raise RunnerError(
@@ -3686,6 +3966,99 @@ def _verify_plan_digest(plan: Mapping[str, Any]) -> str:
             next_action="discard it and generate a new read-only plan",
         )
     return digest
+
+
+def _validate_plan_presentation(plan: Mapping[str, Any]) -> None:
+    """Recompute the exact status and conceptual diff shown before mutation."""
+
+    impact = plan.get("impact_inputs")
+    selection = plan.get("selection")
+    boundaries = plan.get("boundaries")
+    mutation = plan.get("mutation")
+    if (
+        not isinstance(impact, Mapping)
+        or set(impact) != {"changed_paths", "changed_contracts"}
+        or not isinstance(selection, Mapping)
+        or not isinstance(boundaries, Mapping)
+        or set(boundaries) != {"C1", "C2", "C3"}
+        or any(not isinstance(boundaries[key], list) for key in boundaries)
+    ):
+        raise RunnerError(
+            "invalid_plan_presentation",
+            "the adoption plan cannot derive its conceptual diff",
+            surface="conceptual_diff",
+        )
+    changed_paths = impact.get("changed_paths")
+    changed_contracts = impact.get("changed_contracts")
+    if (
+        not isinstance(changed_paths, list)
+        or changed_paths != sorted(set(changed_paths))
+        or any(not isinstance(value, str) for value in changed_paths)
+        or not isinstance(changed_contracts, list)
+        or changed_contracts != sorted(set(changed_contracts))
+        or any(not isinstance(value, str) for value in changed_contracts)
+    ):
+        raise RunnerError(
+            "invalid_plan_presentation",
+            "the adoption plan impact inputs are not canonical",
+            surface="conceptual_diff",
+        )
+    required_selection = {
+        "matched_surfaces",
+        "unknown_paths",
+        "unknown_contracts",
+        "selected_gates",
+        "omitted_gates",
+        "escalation",
+        "requires_lane_a",
+    }
+    if not required_selection.issubset(selection):
+        raise RunnerError(
+            "invalid_plan_presentation",
+            "the adoption plan selection cannot derive its conceptual diff",
+            surface="conceptual_diff",
+        )
+    strategy = mutation.get("strategy") if isinstance(mutation, Mapping) else None
+    if strategy == "runner_owned":
+        prospective = mutation.get("c1_prospective_paths")
+        if not isinstance(prospective, list):
+            raise RunnerError(
+                "invalid_plan_presentation",
+                "the pre-mutation C1 projection is incomplete",
+                surface="conceptual_diff",
+            )
+        boundary_counts = {
+            "C1": len(prospective),
+            "C2": 0,
+            "C3": len(changed_paths),
+        }
+    else:
+        boundary_counts = {key: len(boundaries[key]) for key in ("C1", "C2", "C3")}
+    expected_diff = {
+        "boundary_file_counts": boundary_counts,
+        "changed_path_count": len(changed_paths),
+        "changed_contract_count": len(changed_contracts),
+        "matched_surfaces": selection["matched_surfaces"],
+        "unknown_path_count": len(selection["unknown_paths"]),
+        "unknown_contract_count": len(selection["unknown_contracts"]),
+        "selected_gate_count": len(selection["selected_gates"]),
+        "omitted_gate_count": len(selection["omitted_gates"]),
+        "escalation": selection["escalation"],
+    }
+    expected_status = (
+        "requires_lane_a"
+        if selection["requires_lane_a"]
+        else "ready_to_mutate"
+        if strategy == "runner_owned"
+        else "ready"
+    )
+    if plan.get("conceptual_diff") != expected_diff or plan.get("status") != expected_status:
+        raise RunnerError(
+            "stale_or_forged_conceptual_diff",
+            "the plan status or conceptual diff cannot be reproduced",
+            surface="conceptual_diff",
+            next_action="generate a new read-only plan before mutation",
+        )
 
 
 def _acceptance_attempt_identity(plan: Mapping[str, Any]) -> str:
@@ -3698,6 +4071,9 @@ def _acceptance_attempt_identity(plan: Mapping[str, Any]) -> str:
         "boundary_commits",
         "impact_inputs",
         "mutation",
+        "consumer_c3_authority_sha256",
+        "preflight",
+        "boundary_execution",
     }
     if not required.issubset(plan):
         raise RunnerError(
@@ -3707,13 +4083,20 @@ def _acceptance_attempt_identity(plan: Mapping[str, Any]) -> str:
         )
     return canonical_sha256(
         {
-            "schema_version": "wiki_viva_upgrade_acceptance_attempt.v1",
+            "schema_version": "wiki_viva_upgrade_acceptance_attempt.v2",
             "capsule_sha256": plan["capsule_sha256"],
             "impact_registry_sha256": plan["impact_registry_sha256"],
             "identity": plan["identity"],
             "boundary_commits": plan["boundary_commits"],
             "impact_inputs": plan["impact_inputs"],
             "mutation": plan["mutation"],
+            "consumer_c3_authority_sha256": plan[
+                "consumer_c3_authority_sha256"
+            ],
+            "preflight_sha256": canonical_sha256(plan["preflight"]),
+            "boundary_execution_sha256": canonical_sha256(
+                plan["boundary_execution"]
+            ),
         }
     )
 
@@ -4046,6 +4429,16 @@ def _verify_preflight(
     preflight = plan.get("preflight")
     if not isinstance(preflight, dict):
         raise RunnerError("missing_preflight_evidence", "the plan omits B0 preflight evidence")
+    if set(preflight) != {
+        "schema_version",
+        "subject_sha",
+        "results",
+        "preflight_sha256",
+    }:
+        raise RunnerError(
+            "stale_preflight_evidence",
+            "the B0 preflight evidence shape is not exact",
+        )
     unsigned = dict(preflight)
     claimed = unsigned.pop("preflight_sha256", None)
     if claimed != canonical_sha256(unsigned):
@@ -4083,6 +4476,23 @@ def _verify_preflight(
     ):
         raise RunnerError("stale_preflight_evidence", "the B0 preflight identity is incomplete")
     for result in results:
+        if not isinstance(result, dict) or set(result) != {
+            "id",
+            "command_id",
+            "provenance",
+            "status",
+            "exit_code",
+            "subject_sha",
+            "command",
+            "command_sha256",
+            "output_sha256",
+            "output_ref",
+            "output_bytes",
+        }:
+            raise RunnerError(
+                "stale_preflight_evidence",
+                "a B0 preflight result has unknown or missing fields",
+            )
         gate_id = result["id"]
         command_id = result.get("command_id")
         output_ref = result.get("output_ref")
@@ -4146,6 +4556,68 @@ def _materialize_mutation_plan(
 ) -> dict[str, Any]:
     execution_path = plan_path.parent / f"execution-plan-{preplan['plan_sha256'][:16]}.json"
     mutation_state_path = plan_path.parent / f"mutation-state-{preplan['plan_sha256'][:16]}.json"
+
+    def require_execution_lineage(execution: Mapping[str, Any]) -> None:
+        pre_mutation = preplan.get("mutation")
+        completed_mutation = execution.get("mutation")
+        commits = execution.get("boundary_commits")
+        boundaries = execution.get("boundaries")
+        impact = execution.get("impact_inputs")
+        pre_impact = preplan.get("impact_inputs")
+        if (
+            not isinstance(pre_mutation, Mapping)
+            or pre_mutation.get("strategy") != "runner_owned"
+            or not isinstance(completed_mutation, Mapping)
+            or completed_mutation.get("strategy") != "runner_owned_completed"
+            or set(completed_mutation)
+            != {*pre_mutation, "c1_commit", "c2_commit", "c3_commit"}
+            or any(
+                completed_mutation.get(key) != value
+                for key, value in pre_mutation.items()
+                if key != "strategy"
+            )
+            or not isinstance(commits, Mapping)
+            or set(commits) != {"B0", "C1", "C2", "C3"}
+            or completed_mutation.get("c1_commit") != commits.get("C1")
+            or completed_mutation.get("c2_commit") != commits.get("C2")
+            or completed_mutation.get("c3_commit") != commits.get("C3")
+            or execution.get("preflight") != preplan.get("preflight")
+            or not isinstance(boundaries, Mapping)
+            or set(boundaries) != {"C1", "C2", "C3"}
+            or not isinstance(boundaries.get("C3"), list)
+            or not isinstance(impact, Mapping)
+            or set(impact) != {"changed_paths", "changed_contracts"}
+            or not isinstance(pre_impact, Mapping)
+            or set(pre_impact) != {"changed_paths", "changed_contracts"}
+        ):
+            raise RunnerError(
+                "stale_execution_plan_lineage",
+                "the materialized execution plan no longer derives from its anchored pre-mutation plan",
+                surface="impact_derivation",
+            )
+        c3_paths = {
+            item.get("path")
+            for item in boundaries["C3"]
+            if isinstance(item, Mapping) and isinstance(item.get("path"), str)
+        }
+        if len(c3_paths) != len(boundaries["C3"]):
+            raise RunnerError(
+                "stale_execution_plan_lineage",
+                "the materialized execution plan has invalid C3 impact paths",
+                surface="impact_derivation",
+            )
+        expected_paths = sorted(set(pre_impact["changed_paths"]) | c3_paths)
+        expected_contracts = sorted(set(pre_impact["changed_contracts"]))
+        if impact.get("changed_paths") != expected_paths or impact.get(
+            "changed_contracts"
+        ) != expected_contracts:
+            raise RunnerError(
+                "stale_execution_plan_lineage",
+                "the execution plan omits or invents an anchored C3 path or contract",
+                surface="impact_derivation",
+                next_action="discard the execution plan and resume from the exact anchored pre-mutation plan",
+            )
+
     if execution_path.is_file():
         if not resume:
             raise RunnerError(
@@ -4170,8 +4642,52 @@ def _materialize_mutation_plan(
                 surface="acceptance_budget",
                 next_action="discard the stale execution evidence and restart from the exact anchored plan",
             )
+        require_execution_lineage(execution)
+        replay_commands = preplan["mutation"]["c2_commands"]
+        replay_evidence_path = _require_ignored_output(
+            consumer,
+            plan_path.parent
+            / f"c2-resume-replay-{execution['plan_sha256'][:16]}.log",
+        )
+        _boundary_execution(
+            [f"{item['id']}::{item['command']}" for item in replay_commands],
+            execution["boundaries"],
+            consumer=consumer,
+            kit=kit,
+            commits=execution["boundary_commits"],
+            evidence_path=replay_evidence_path,
+        )
         return execution
     b0 = preplan["identity"]["consumer_B0"]
+    consumer_c3_authority = preplan.get("consumer_c3_authority")
+    if not isinstance(consumer_c3_authority, Mapping):
+        raise RunnerError(
+            "missing_consumer_c3_authority",
+            "the pre-mutation plan omits its B0-derived C3 authority",
+            surface="C3",
+        )
+    try:
+        consumer_c3_authority_sha256 = verify_consumer_c3_authority(
+            consumer_c3_authority,
+            consumer_root=consumer,
+            consumer_B0=b0,
+            package=package,
+        )
+    except UpgradeLaneError as exc:
+        raise RunnerError(
+            "stale_consumer_c3_authority",
+            "the pre-mutation C3 authority differs from the exact B0 config",
+            surface="C3",
+        ) from exc
+    if (
+        preplan.get("consumer_c3_authority_sha256")
+        != consumer_c3_authority_sha256
+    ):
+        raise RunnerError(
+            "stale_consumer_c3_authority",
+            "the pre-mutation C3 authority digest is stale",
+            surface="C3",
+        )
     mutation = preplan.get("mutation")
     if not isinstance(mutation, dict) or mutation.get("strategy") != "runner_owned":
         raise RunnerError("invalid_mutation_plan", "the plan has no runner-owned mutation contract")
@@ -4199,23 +4715,47 @@ def _materialize_mutation_plan(
                 "runner-owned boundary state is malformed",
                 surface="resume_state",
             ) from exc
+        mutation_state_fields = {
+            "schema_version",
+            "mutation_identity_sha256",
+            "consumer_B0",
+            "consumer_c3_authority_sha256",
+            "phase",
+            "commits",
+        }
+        phase = mutation_state.get("phase") if isinstance(mutation_state, dict) else None
+        expected_commit_keys = {
+            "B0": {"B0"},
+            "C1_prepared": {"B0", "C1"},
+            "C1": {"B0", "C1"},
+            "C2_prepared": {"B0", "C1", "C2"},
+            "C2": {"B0", "C1", "C2"},
+            "C3_prepared": {"B0", "C1", "C2", "C3"},
+            "C3": {"B0", "C1", "C2", "C3"},
+        }.get(str(phase))
+        commits_value = (
+            mutation_state.get("commits")
+            if isinstance(mutation_state, dict)
+            else None
+        )
         if (
             not isinstance(mutation_state, dict)
+            or set(mutation_state) != mutation_state_fields
             or mutation_state.get("schema_version")
-            != "wiki_viva_upgrade_mutation_state.v1"
+            != "wiki_viva_upgrade_mutation_state.v2"
             or mutation_state.get("mutation_identity_sha256") != mutation_identity
             or mutation_state.get("consumer_B0") != b0
-            or mutation_state.get("phase")
-            not in {
-                "B0",
-                "C1_prepared",
-                "C1",
-                "C2_prepared",
-                "C2",
-                "C3_prepared",
-                "C3",
-            }
-            or not isinstance(mutation_state.get("commits"), dict)
+            or mutation_state.get("consumer_c3_authority_sha256")
+            != consumer_c3_authority_sha256
+            or expected_commit_keys is None
+            or not isinstance(commits_value, dict)
+            or set(commits_value) != expected_commit_keys
+            or commits_value.get("B0") != b0
+            or any(
+                not isinstance(value, str)
+                or re.fullmatch(r"[0-9a-f]{40}", value) is None
+                for value in commits_value.values()
+            )
         ):
             raise RunnerError(
                 "stale_mutation_resume_state",
@@ -4232,9 +4772,10 @@ def _materialize_mutation_plan(
                 next_action="check out B0 and rerun adopt without altering the plan",
             )
         mutation_state = {
-            "schema_version": "wiki_viva_upgrade_mutation_state.v1",
+            "schema_version": "wiki_viva_upgrade_mutation_state.v2",
             "mutation_identity_sha256": mutation_identity,
             "consumer_B0": b0,
+            "consumer_c3_authority_sha256": consumer_c3_authority_sha256,
             "phase": "B0",
             "commits": {"B0": b0},
         }
@@ -4278,6 +4819,8 @@ def _materialize_mutation_plan(
             != operations.get("registry_sha256")
             or mutation.get("c3_adapter_contract") != adapter.get("contract")
             or mutation.get("c3_owned_patterns") != adapter.get("owns_patterns")
+            or mutation.get("consumer_c3_authority_sha256")
+            != consumer_c3_authority_sha256
         ):
             raise RunnerError(
                 "stale_boundary_operations",
@@ -4294,7 +4837,13 @@ def _materialize_mutation_plan(
             str(generator["id"]): list(generator["owns_patterns"])
             for generator in operations["c2_generators"]
         }
-        c3_owned_patterns = list(adapter["owns_patterns"])
+        configured_c3_patterns = consumer_c3_authority_patterns(
+            consumer_c3_authority
+        )
+        c3_owned_patterns = [
+            *list(adapter["owns_patterns"]),
+            *configured_c3_patterns,
+        ]
         c3_ownership = {
             str(item["id"]): c3_owned_patterns
             for item in mutation.get("c3_commands", [])
@@ -4308,6 +4857,7 @@ def _materialize_mutation_plan(
         )
         c2_ownership = None
         c3_ownership = None
+        configured_c3_patterns = []
     entries = _portable_entries(package, kit, capsule["source_sha"])
     projection = {
         path: {"mode": value["mode"], "sha256": value["sha256"]}
@@ -4438,8 +4988,11 @@ def _materialize_mutation_plan(
                 c3_paths,
                 c3_owned_patterns,
                 label="C3",
-                forbidden_patterns=portable_allow,
-                forbidden_exceptions=portable_block,
+                forbidden_patterns=[
+                    *portable_allow,
+                    *registry["boundary_policy"]["domain_content_patterns"],
+                ],
+                forbidden_exceptions=[*portable_block, *configured_c3_patterns],
             )
             _git(stage, ["add", "-A"])
             c3 = _commit_index(stage, "wiki: downstream adaptations (C3)")
@@ -4474,6 +5027,7 @@ def _materialize_mutation_plan(
         commits=commits,
         registry=registry,
         package=package,
+        consumer_c3_authority=consumer_c3_authority,
     )
     boundary_execution = _boundary_execution(
         [f"{item['id']}::{item['command']}" for item in mutation.get("c2_commands", [])],
@@ -4484,7 +5038,12 @@ def _materialize_mutation_plan(
         evidence_path=c2_log,
     )
     _bind_c2_generators(boundaries, boundary_execution, package=package)
-    validate_boundary_ownership(boundaries, registry, package=package)
+    validate_boundary_ownership(
+        boundaries,
+        registry,
+        package=package,
+        consumer_c3_authority=consumer_c3_authority,
+    )
     _validate_declared_boundaries(package, commits, boundaries)
 
     exact_changed_paths = sorted(
@@ -4499,6 +5058,7 @@ def _materialize_mutation_plan(
         verified_capsule,
         exact_changed_paths,
         exact_changed_contracts,
+        consumer_c3_authority=consumer_c3_authority,
     )
     execution = json.loads(json.dumps(preplan))
     execution["status"] = "requires_lane_a" if selection["requires_lane_a"] else "ready"
@@ -4549,6 +5109,7 @@ def _materialize_mutation_plan(
             "the generated execution plan is detached from its anchored pre-mutation plan",
             surface="acceptance_budget",
         )
+    require_execution_lineage(execution)
     return execution
 
 
@@ -4577,6 +5138,20 @@ def _plan(args: argparse.Namespace) -> int:
         (args.consumer_c1, args.consumer_c2, args.consumer_c3)
     )
     b0 = _commit(consumer, args.consumer_b0, fallback=current)
+    try:
+        consumer_c3_authority = consumer_c3_authority_from_git(
+            consumer, b0, package
+        )
+        consumer_c3_authority_sha256 = str(
+            consumer_c3_authority["authority_sha256"]
+        )
+    except UpgradeLaneError as exc:
+        raise RunnerError(
+            "invalid_consumer_c3_authority",
+            "the exact B0 config cannot derive the fail-closed C3 authority",
+            surface="C3",
+            next_action="repair wiki.config.yaml at B0 and generate a new plan",
+        ) from exc
     preflight_execution = _execute_preflight(
         package=package,
         explicit_specs=args.preflight_command,
@@ -4627,6 +5202,7 @@ def _plan(args: argparse.Namespace) -> int:
             "boundary_operations_sha256": operations.get("registry_sha256"),
             "c3_adapter_contract": c3_adapter.get("contract"),
             "c3_owned_patterns": list(c3_adapter.get("owns_patterns") or []),
+            "consumer_c3_authority_sha256": consumer_c3_authority_sha256,
         }
     else:
         commits = {
@@ -4653,6 +5229,7 @@ def _plan(args: argparse.Namespace) -> int:
             commits=commits,
             registry=registry,
             package=package,
+            consumer_c3_authority=consumer_c3_authority,
         )
         _verify_complete_c1_projection(
             consumer=consumer,
@@ -4675,7 +5252,12 @@ def _plan(args: argparse.Namespace) -> int:
             evidence_path=c2_evidence_path,
         )
         _bind_c2_generators(boundaries, boundary_execution, package=package)
-        validate_boundary_ownership(boundaries, registry, package=package)
+        validate_boundary_ownership(
+            boundaries,
+            registry,
+            package=package,
+            consumer_c3_authority=consumer_c3_authority,
+        )
         _validate_declared_boundaries(package, commits, boundaries)
     changed_paths = sorted(
         set(args.changed_path or [])
@@ -4689,6 +5271,7 @@ def _plan(args: argparse.Namespace) -> int:
         verified_capsule,
         changed_paths,
         changed_contracts,
+        consumer_c3_authority=consumer_c3_authority,
     )
     identity = {
         "source_sha": capsule["source_sha"],
@@ -4714,6 +5297,8 @@ def _plan(args: argparse.Namespace) -> int:
         "release_id": package["release"].get("id"),
         "capsule_sha256": capsule["capsule_sha256"],
         "impact_registry_sha256": registry["registry_sha256"],
+        "consumer_c3_authority": consumer_c3_authority,
+        "consumer_c3_authority_sha256": consumer_c3_authority_sha256,
         "identity": identity,
         "boundary_commits": commits,
         "boundaries": boundaries,
@@ -4815,6 +5400,32 @@ def _validate_current_plan(
             surface="receipt_identity",
             next_action="generate a new plan for the exact seven-term identity",
         )
+    authority = plan.get("consumer_c3_authority")
+    if not isinstance(authority, Mapping):
+        raise RunnerError(
+            "missing_consumer_c3_authority",
+            "the plan omits its B0-derived C3 authority",
+            surface="C3",
+        )
+    try:
+        authority_sha256 = verify_consumer_c3_authority(
+            authority,
+            consumer_root=consumer,
+            consumer_B0=expected_identity["consumer_B0"],
+            package=package,
+        )
+    except UpgradeLaneError as exc:
+        raise RunnerError(
+            "stale_consumer_c3_authority",
+            "the plan C3 authority differs from the exact B0 config",
+            surface="C3",
+        ) from exc
+    if plan.get("consumer_c3_authority_sha256") != authority_sha256:
+        raise RunnerError(
+            "stale_consumer_c3_authority",
+            "the plan C3 authority digest is stale",
+            surface="C3",
+        )
     _verify_preflight(plan, package=package, consumer=consumer, kit=kit)
     _require_clean(consumer)
     if _head(consumer) != expected_identity["consumer_C3"]:
@@ -4836,6 +5447,7 @@ def _validate_current_plan(
         commits=commits,
         registry=registry,
         package=package,
+        consumer_c3_authority=authority,
     )
     _verify_complete_c1_projection(
         consumer=consumer,
@@ -4847,7 +5459,12 @@ def _validate_current_plan(
         rebuilt, plan.get("boundary_execution"), consumer=consumer
     )
     _bind_c2_generators(rebuilt, plan["boundary_execution"], package=package)
-    validate_boundary_ownership(rebuilt, registry, package=package)
+    validate_boundary_ownership(
+        rebuilt,
+        registry,
+        package=package,
+        consumer_c3_authority=authority,
+    )
     _validate_declared_boundaries(package, commits, rebuilt)
     if canonical_sha256(rebuilt) != canonical_sha256(plan.get("boundaries")):
         raise RunnerError(
@@ -4858,8 +5475,22 @@ def _validate_current_plan(
         )
     paths = plan["impact_inputs"]["changed_paths"]
     contracts = plan["impact_inputs"]["changed_contracts"]
+    rebuilt_c3_paths = {item["path"] for item in rebuilt["C3"]}
+    if not rebuilt_c3_paths.issubset(paths):
+        raise RunnerError(
+            "stale_execution_impact_inputs",
+            "the plan impact inputs omit a real C3 boundary path",
+            surface="impact_derivation",
+            next_action="generate a new exact plan before running gates",
+        )
     selection, omissions, catalog = _two_lane_selection(
-        package, capsule, registry, verified_capsule, paths, contracts
+        package,
+        capsule,
+        registry,
+        verified_capsule,
+        paths,
+        contracts,
+        consumer_c3_authority=authority,
     )
     for key, expected in (
         ("selection", selection),
@@ -4873,6 +5504,7 @@ def _validate_current_plan(
                 surface="impact_derivation",
                 next_action="generate a new plan from the current registry",
             )
+    _validate_plan_presentation(plan)
 
 
 def _validate_pre_mutation_plan(
@@ -4898,6 +5530,7 @@ def _validate_pre_mutation_plan(
         "boundary_operations_sha256",
         "c3_adapter_contract",
         "c3_owned_patterns",
+        "consumer_c3_authority_sha256",
     }
     if set(mutation) != expected_mutation_fields:
         raise RunnerError(
@@ -4924,6 +5557,35 @@ def _validate_pre_mutation_plan(
             "the read-only plan no longer binds the exact capsule, B0 or registry",
             surface="receipt_identity",
         )
+    authority = plan.get("consumer_c3_authority")
+    if not isinstance(authority, Mapping):
+        raise RunnerError(
+            "missing_consumer_c3_authority",
+            "the read-only plan omits its B0-derived C3 authority",
+            surface="C3",
+        )
+    try:
+        authority_sha256 = verify_consumer_c3_authority(
+            authority,
+            consumer_root=consumer,
+            consumer_B0=expected_identity["consumer_B0"],
+            package=package,
+        )
+    except UpgradeLaneError as exc:
+        raise RunnerError(
+            "stale_consumer_c3_authority",
+            "the read-only C3 authority differs from the exact B0 config",
+            surface="C3",
+        ) from exc
+    if (
+        plan.get("consumer_c3_authority_sha256") != authority_sha256
+        or mutation.get("consumer_c3_authority_sha256") != authority_sha256
+    ):
+        raise RunnerError(
+            "stale_consumer_c3_authority",
+            "the read-only C3 authority digest is stale",
+            surface="C3",
+        )
     _verify_preflight(plan, package=package, consumer=consumer, kit=kit)
     paths = plan["impact_inputs"]["changed_paths"]
     contracts = plan["impact_inputs"]["changed_contracts"]
@@ -4934,6 +5596,7 @@ def _validate_pre_mutation_plan(
         verified_capsule,
         paths,
         contracts,
+        consumer_c3_authority=authority,
     )
     for key, expected in (
         ("selection", selection),
@@ -4946,6 +5609,7 @@ def _validate_pre_mutation_plan(
                 "the pre-mutation impact selection or omission proof cannot be reproduced",
                 surface="impact_derivation",
             )
+    _validate_plan_presentation(plan)
     entries = _portable_entries(package, kit, capsule["source_sha"])
     projection = {
         path: {"mode": item["mode"], "sha256": item["sha256"]}
@@ -5031,6 +5695,7 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
         "capsule_sha256",
         "impact_registry_sha256",
         "toolchain_sha256",
+        "consumer_c3_authority_sha256",
         "boundary_commits",
         "run_started_unix_ns",
         "acceptance_budget",
@@ -5042,6 +5707,14 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
         raise RunnerError("stale_resume_plan", "resume state belongs to a stale plan")
     if state.get("identity_sha256") != canonical_sha256(plan["identity"]):
         raise RunnerError("stale_resume_identity", "resume state belongs to a stale B0/C3 identity")
+    if state.get("consumer_c3_authority_sha256") != plan.get(
+        "consumer_c3_authority_sha256"
+    ):
+        raise RunnerError(
+            "stale_resume_consumer_c3_authority",
+            "resume state belongs to a stale B0-derived C3 authority",
+            surface="C3",
+        )
     if state.get("boundary_commits") != plan.get("boundary_commits"):
         raise RunnerError(
             "stale_resume_boundaries",
@@ -5082,8 +5755,48 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
                 surface="gate_evidence",
                 next_action="rerun the gate through the runner",
             )
-        _acceptance_timestamp_microseconds(result.get("_completed_at"))
         gate = catalog.get(gate_id)
+        if (
+            state.get("status") != "complete"
+            and gate is not None
+            and gate.get("class") not in {"upstream_certified", "canary"}
+            and result.get("status") == "passed"
+        ):
+            previous_revalidation = result.get("_resume_revalidation")
+            previous_attempt = (
+                previous_revalidation.get("attempt", 0)
+                if isinstance(previous_revalidation, Mapping)
+                else 0
+            )
+            result["status"] = "revalidation_required"
+            result["_resume_revalidation"] = {
+                "reason": "portable_external_execution_authority_absent",
+                "attempt": (
+                    previous_attempt + 1
+                    if isinstance(previous_attempt, int)
+                    and not isinstance(previous_attempt, bool)
+                    and previous_attempt >= 0
+                    else 1
+                ),
+                "previous_output_sha256": (
+                    result.get("output_sha256")
+                    if isinstance(result.get("output_sha256"), str)
+                    and _SHA256_RE.fullmatch(result["output_sha256"])
+                    else "untrusted"
+                ),
+            }
+            _emit(
+                {
+                    "event": "gate_revalidation_required",
+                    "lane": "lane_b",
+                    "phase": gate["class"],
+                    "gate": gate_id,
+                    "reason": "portable_external_execution_authority_absent",
+                },
+                stream=sys.stderr,
+            )
+            continue
+        _acceptance_timestamp_microseconds(result.get("_completed_at"))
         if (
             gate is None
             or result.get("class") != gate["class"]
@@ -5099,8 +5812,20 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
             )
         if result.get("status") != "passed":
             continue
-        log = run_dir / "logs" / f"{gate_id}.log"
-        if not log.is_file() or _sha256_bytes(log.read_bytes()) != result.get("output_sha256"):
+        log_raw = _read_fd_pinned_regular(
+            run_dir,
+            f"logs/{gate_id}.log",
+            label=f"resumed gate log {gate_id}",
+            max_bytes=_MAX_GATE_OUTPUT_BYTES,
+            lane="lane_b",
+            surface="gate_evidence",
+            unsafe_code="stale_resume_output",
+            missing_code="stale_resume_output",
+        )
+        _require_safe_gate_text(
+            log_raw, gate_id=gate_id, artifact="resumed stdout/stderr"
+        )
+        if _sha256_bytes(log_raw) != result.get("output_sha256"):
             raise RunnerError(
                 "stale_resume_output",
                 "a completed gate log is missing or no longer matches its receipt",
@@ -5132,6 +5857,9 @@ def _state_template(plan: Mapping[str, Any]) -> dict[str, Any]:
         "capsule_sha256": plan["capsule_sha256"],
         "impact_registry_sha256": plan["impact_registry_sha256"],
         "toolchain_sha256": plan["identity"]["toolchain_sha256"],
+        "consumer_c3_authority_sha256": plan[
+            "consumer_c3_authority_sha256"
+        ],
         "boundary_commits": dict(plan["boundary_commits"]),
         "run_started_unix_ns": time.time_ns(),
         "acceptance_budget": _validate_acceptance_budget_record(
@@ -5419,6 +6147,205 @@ def _gate_environment(
     return allowed
 
 
+def _require_safe_gate_text(raw: bytes, *, gate_id: str, artifact: str) -> None:
+    """Reject secret-bearing or host/private gate output before runner persistence."""
+
+    if len(raw) > _MAX_GATE_ARTIFACT_FILE_BYTES:
+        raise RunnerError(
+            "oversized_gate_evidence",
+            "a gate evidence payload exceeds the bounded runner allowance",
+            surface=gate_id,
+        )
+    try:
+        text = raw.decode("utf-8", "strict")
+        views = _percent_decoded_views(text)
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise RunnerError(
+            "binary_or_nested_gate_evidence",
+            "textual gate evidence is not bounded canonical UTF-8",
+            surface=gate_id,
+            next_action="emit a redacted UTF-8 summary instead of raw gate data",
+        ) from exc
+    if any(
+        "\x00" in view
+        or _HOST_PATH_RE.search(view)
+        or _PRIVATE_EVIDENCE_RE.search(view)
+        or _PRIVATE_ROUTE_RE.search(view)
+        for view in views
+    ):
+        raise RunnerError(
+            "private_gate_evidence",
+            "gate evidence contains a host-local path or private route",
+            surface=gate_id,
+            next_action=f"redact the {artifact} payload before rerunning the gate",
+        )
+    for view in views:
+        masked = re.sub(
+            r"(?<![0-9A-Fa-f])(?:[0-9A-Fa-f]{64}|[0-9A-Fa-f]{40})(?![0-9A-Fa-f])",
+            "<digest>",
+            view,
+        )
+        if any(finding.category == "secret" for finding in scan_text(masked)):
+            raise RunnerError(
+                "secret_gate_evidence",
+                "gate evidence contains an access secret",
+                surface=gate_id,
+                next_action=f"remove the secret from {artifact} and rerun the gate",
+            )
+
+
+def _gate_artifact_files(artifact_dir: Path, *, gate_id: str) -> list[tuple[str, bytes]]:
+    """Inventory a finished gate artifact tree through pinned POSIX descriptors."""
+
+    if not os.path.lexists(artifact_dir):
+        return []
+    if os.name != "posix":
+        raise RunnerError(
+            "unsafe_gate_artifact",
+            "gate evidence collection requires descriptor-pinned POSIX traversal",
+            surface=gate_id,
+        )
+    directory_flags = (
+        os.O_RDONLY
+        | getattr(os, "O_DIRECTORY", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    file_flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0)
+    )
+    root_path = Path(os.path.abspath(artifact_dir))
+    try:
+        root_before = os.lstat(root_path)
+        root_descriptor = os.open(root_path, directory_flags)
+    except OSError as exc:
+        raise RunnerError(
+            "unsafe_gate_artifact",
+            "the gate artifact root is missing, linked or not a real directory",
+            surface=gate_id,
+        ) from exc
+    files: list[tuple[str, bytes]] = []
+    total_bytes = 0
+
+    def fail(message: str, *, cause: OSError | None = None) -> None:
+        error = RunnerError(
+            "unsafe_gate_artifact",
+            message,
+            surface=gate_id,
+            next_action="remove linked, special, changing or oversized gate artifacts and rerun",
+        )
+        if cause is None:
+            raise error
+        raise error from cause
+
+    def walk(directory: int, prefix: tuple[str, ...], depth: int) -> None:
+        nonlocal total_bytes
+        if depth > 16:
+            fail("the gate artifact tree exceeds the bounded directory depth")
+        try:
+            names = sorted(os.listdir(directory))
+        except OSError as exc:
+            fail("the gate artifact directory changed during inventory", cause=exc)
+        for name in names:
+            if not isinstance(name, str) or name in {"", ".", ".."} or "/" in name:
+                fail("the gate artifact tree contains an unsafe entry name")
+            try:
+                listed = os.stat(name, dir_fd=directory, follow_symlinks=False)
+            except OSError as exc:
+                fail("a gate artifact changed during inventory", cause=exc)
+            relative_parts = (*prefix, name)
+            relative = "/".join(relative_parts)
+            if stat.S_ISLNK(listed.st_mode):
+                fail("the gate artifact tree contains a symbolic link")
+            if stat.S_ISDIR(listed.st_mode):
+                try:
+                    child = os.open(name, directory_flags, dir_fd=directory)
+                except OSError as exc:
+                    fail("a gate artifact directory cannot be opened safely", cause=exc)
+                try:
+                    opened = os.fstat(child)
+                    if (listed.st_dev, listed.st_ino) != (opened.st_dev, opened.st_ino):
+                        fail("a gate artifact directory changed while it was opened")
+                    walk(child, relative_parts, depth + 1)
+                finally:
+                    with contextlib.suppress(OSError):
+                        os.close(child)
+                continue
+            if not stat.S_ISREG(listed.st_mode):
+                fail("the gate artifact tree contains a special file")
+            try:
+                descriptor = os.open(name, file_flags, dir_fd=directory)
+            except OSError as exc:
+                fail("a gate artifact cannot be opened without link traversal", cause=exc)
+            try:
+                before = os.fstat(descriptor)
+                if (
+                    (listed.st_dev, listed.st_ino) != (before.st_dev, before.st_ino)
+                    or not stat.S_ISREG(before.st_mode)
+                    or before.st_nlink != 1
+                    or before.st_size > _MAX_GATE_ARTIFACT_FILE_BYTES
+                ):
+                    fail("a gate artifact is linked, changed or exceeds its size limit")
+                chunks: list[bytes] = []
+                file_bytes = 0
+                while True:
+                    chunk = os.read(
+                        descriptor,
+                        min(
+                            1024 * 1024,
+                            _MAX_GATE_ARTIFACT_FILE_BYTES + 1 - file_bytes,
+                        ),
+                    )
+                    if not chunk:
+                        break
+                    file_bytes += len(chunk)
+                    if file_bytes > _MAX_GATE_ARTIFACT_FILE_BYTES:
+                        fail("a gate artifact exceeds its size limit")
+                    chunks.append(chunk)
+                after = os.fstat(descriptor)
+                if (
+                    before.st_dev,
+                    before.st_ino,
+                    before.st_size,
+                    before.st_mtime_ns,
+                    before.st_nlink,
+                ) != (
+                    after.st_dev,
+                    after.st_ino,
+                    after.st_size,
+                    after.st_mtime_ns,
+                    after.st_nlink,
+                ):
+                    fail("a gate artifact changed while its pinned descriptor was read")
+                total_bytes += file_bytes
+                if total_bytes > _MAX_GATE_ARTIFACT_TOTAL_BYTES:
+                    fail("the gate artifact tree exceeds its total size limit")
+                files.append((relative, b"".join(chunks)))
+                if len(files) > _MAX_GATE_ARTIFACT_FILES:
+                    fail("the gate artifact tree exceeds its file-count limit")
+            finally:
+                with contextlib.suppress(OSError):
+                    os.close(descriptor)
+
+    try:
+        root_opened = os.fstat(root_descriptor)
+        if (
+            not stat.S_ISDIR(root_before.st_mode)
+            or not stat.S_ISDIR(root_opened.st_mode)
+            or (root_before.st_dev, root_before.st_ino)
+            != (root_opened.st_dev, root_opened.st_ino)
+        ):
+            fail("the gate artifact root changed while it was opened")
+        walk(root_descriptor, (), 0)
+        return files
+    finally:
+        with contextlib.suppress(OSError):
+            os.close(root_descriptor)
+
+
 def _collect_gate_evidence(
     *,
     gate_id: str,
@@ -5428,8 +6355,30 @@ def _collect_gate_evidence(
     artifact_dir: Path,
     run_dir: Path,
 ) -> dict[str, list[dict[str, Any]]]:
-    evidence_dir = run_dir / "evidence" / gate_id
-    evidence_dir.mkdir(parents=True, exist_ok=True)
+    evidence_root = run_dir / "evidence"
+    if os.path.lexists(evidence_root):
+        evidence_root_mode = os.lstat(evidence_root).st_mode
+        if stat.S_ISLNK(evidence_root_mode) or not stat.S_ISDIR(
+            evidence_root_mode
+        ):
+            raise RunnerError(
+                "unsafe_gate_evidence_destination",
+                "the runner evidence root is linked or not a real directory",
+                surface=gate_id,
+            )
+    else:
+        evidence_root.mkdir(parents=True)
+    evidence_dir = evidence_root / gate_id
+    if os.path.lexists(evidence_dir):
+        evidence_dir_mode = os.lstat(evidence_dir).st_mode
+        if stat.S_ISLNK(evidence_dir_mode) or not stat.S_ISDIR(evidence_dir_mode):
+            raise RunnerError(
+                "unsafe_gate_evidence_destination",
+                "the gate evidence destination is linked or not a real directory",
+                surface=gate_id,
+            )
+    else:
+        evidence_dir.mkdir()
     screenshots: list[dict[str, Any]] = []
     console = [
         {
@@ -5448,14 +6397,19 @@ def _collect_gate_evidence(
         }
     ]
     network: list[dict[str, Any]] = []
-    if artifact_dir.is_dir():
+    artifact_files = _gate_artifact_files(artifact_dir, gate_id=gate_id)
+    if artifact_files:
+        artifact_by_path = dict(artifact_files)
         visual_by_artifact: dict[str, dict[str, Any]] = {}
-        visual_summary_path = artifact_dir / "visual-evidence-summary.json"
-        if visual_summary_path.is_file():
+        visual_summary_raw = artifact_by_path.get("visual-evidence-summary.json")
+        if visual_summary_raw is not None:
+            _require_safe_gate_text(
+                visual_summary_raw,
+                gate_id=gate_id,
+                artifact="visual evidence summary",
+            )
             try:
-                visual_summary = json.loads(
-                    visual_summary_path.read_text(encoding="utf-8")
-                )
+                visual_summary = json.loads(visual_summary_raw)
             except (OSError, UnicodeError, ValueError, TypeError) as exc:
                 raise RunnerError(
                     "invalid_visual_evidence_summary",
@@ -5512,10 +6466,8 @@ def _collect_gate_evidence(
                 seen_profiles.add(profile)
                 visual_by_artifact[artifact] = dict(entry)
         seen_visual_artifacts: set[str] = set()
-        for source in sorted(artifact_dir.rglob("*")):
-            if not source.is_file():
-                continue
-            data = source.read_bytes()
+        for relative, data in artifact_files:
+            source = Path(relative)
             digest = _sha256_bytes(data)
             lower = source.name.lower()
             if source.suffix.lower() == ".png":
@@ -5552,6 +6504,9 @@ def _collect_gate_evidence(
                     }
                 )
             elif "network" in lower or source.suffix.lower() == ".har":
+                _require_safe_gate_text(
+                    data, gate_id=gate_id, artifact="network evidence"
+                )
                 if lower == "network-summary.json":
                     try:
                         summary = json.loads(data.decode("utf-8"))
@@ -5607,6 +6562,9 @@ def _collect_gate_evidence(
                     }
                 )
             elif "console" in lower:
+                _require_safe_gate_text(
+                    data, gate_id=gate_id, artifact="console evidence"
+                )
                 if lower == "browser-console-summary.json":
                     try:
                         summary = json.loads(data.decode("utf-8"))
@@ -5712,6 +6670,7 @@ def _run_gate(
     completed_before: int,
     total_count: int,
     run_started_unix_ns: int,
+    resume_revalidation: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     gate_id = gate["id"]
     command = gate["command"]
@@ -5726,11 +6685,27 @@ def _run_gate(
                 next_action="restore the command from the versioned impact registry",
             )
         argv[-3] = str(Path(__file__).resolve())
-    log_path = run_dir / "logs" / f"{gate_id}.log"
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    artifact_dir = run_dir / "gate-artifacts" / gate_id
-    if artifact_dir.exists():
-        shutil.rmtree(artifact_dir)
+    logs_root = run_dir / "logs"
+    artifacts_root = run_dir / "gate-artifacts"
+    evidence_root = run_dir / "evidence"
+    for owned_root in (logs_root, artifacts_root, evidence_root):
+        if os.path.lexists(owned_root) and (
+            stat.S_ISLNK(os.lstat(owned_root).st_mode)
+            or not stat.S_ISDIR(os.lstat(owned_root).st_mode)
+        ):
+            owned_root.unlink()
+        owned_root.mkdir(parents=True, exist_ok=True)
+    log_path = logs_root / f"{gate_id}.log"
+    artifact_dir = artifacts_root / gate_id
+    evidence_dir = evidence_root / gate_id
+    for stale_path in (log_path, artifact_dir, evidence_dir):
+        if not os.path.lexists(stale_path):
+            continue
+        stale_mode = os.lstat(stale_path).st_mode
+        if stat.S_ISDIR(stale_mode):
+            shutil.rmtree(stale_path)
+        else:
+            stale_path.unlink()
     artifact_dir.mkdir(parents=True, exist_ok=True)
     _emit(
         {
@@ -5748,58 +6723,122 @@ def _run_gate(
     )
     started = time.monotonic()
     exit_code = 1
-    with log_path.open("wb") as log:
-        process = subprocess.Popen(
-            argv,
-            cwd=consumer,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            env=_gate_environment(
-                run_dir,
-                kit,
-                gate_id,
-                subject_sha=subject_sha,
-                public_release_sha=public_release_sha,
-                require_operator_environment="test:e2e:operator" in command,
-            ),
-            start_new_session=True,
+    output = bytearray()
+    output_oversized = threading.Event()
+    output_reader_errors: list[BaseException] = []
+    process = subprocess.Popen(
+        argv,
+        cwd=consumer,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        env=_gate_environment(
+            run_dir,
+            kit,
+            gate_id,
+            subject_sha=subject_sha,
+            public_release_sha=public_release_sha,
+            require_operator_environment="test:e2e:operator" in command,
+        ),
+        start_new_session=True,
+    )
+    assert process.stdout is not None
+
+    def drain_output() -> None:
+        try:
+            while True:
+                chunk = process.stdout.read(64 * 1024)
+                if not chunk:
+                    return
+                remaining = _MAX_GATE_OUTPUT_BYTES + 1 - len(output)
+                if remaining > 0:
+                    output.extend(chunk[:remaining])
+                if len(output) > _MAX_GATE_OUTPUT_BYTES or len(chunk) > remaining:
+                    output_oversized.set()
+        except BaseException as exc:  # pragma: no cover - defensive pipe failure
+            output_reader_errors.append(exc)
+
+    def terminate_process() -> None:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+
+    reader = threading.Thread(
+        target=drain_output,
+        name=f"wiki-upgrade-output-{gate_id}",
+        daemon=True,
+    )
+    reader.start()
+    next_heartbeat = started + max(0.1, heartbeat)
+    while process.poll() is None:
+        now = time.monotonic()
+        if output_oversized.is_set():
+            terminate_process()
+            exit_code = 125
+            break
+        if now - started > timeout:
+            terminate_process()
+            exit_code = 124
+            break
+        if now >= next_heartbeat:
+            _emit(
+                {
+                    "event": "gate_heartbeat",
+                    "lane": "lane_b",
+                    "phase": gate["class"],
+                    "gate": gate_id,
+                    **_progress_fields(
+                        completed=completed_before,
+                        total=total_count,
+                        run_started_unix_ns=run_started_unix_ns,
+                    ),
+                },
+                stream=sys.stderr,
+            )
+            next_heartbeat = now + max(0.1, heartbeat)
+        time.sleep(min(0.1, max(0.02, heartbeat / 10)))
+    else:
+        exit_code = int(process.returncode or 0)
+    reader.join(timeout=5)
+    if reader.is_alive():
+        terminate_process()
+        reader.join(timeout=5)
+    process.stdout.close()
+    if reader.is_alive() or output_reader_errors:
+        raise RunnerError(
+            "gate_output_capture_failed",
+            "the gate output stream could not be captured safely",
+            surface=gate_id,
         )
-        next_heartbeat = started + max(0.1, heartbeat)
-        while process.poll() is None:
-            now = time.monotonic()
-            if now - started > timeout:
-                with contextlib.suppress(ProcessLookupError):
-                    os.killpg(process.pid, signal.SIGTERM)
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    with contextlib.suppress(ProcessLookupError):
-                        os.killpg(process.pid, signal.SIGKILL)
-                    process.wait()
-                exit_code = 124
-                break
-            if now >= next_heartbeat:
-                _emit(
-                    {
-                        "event": "gate_heartbeat",
-                        "lane": "lane_b",
-                        "phase": gate["class"],
-                        "gate": gate_id,
-                        **_progress_fields(
-                            completed=completed_before,
-                            total=total_count,
-                            run_started_unix_ns=run_started_unix_ns,
-                        ),
-                    },
-                    stream=sys.stderr,
-                )
-                next_heartbeat = now + max(0.1, heartbeat)
-            time.sleep(min(0.1, max(0.02, heartbeat / 10)))
-        else:
-            exit_code = int(process.returncode or 0)
-        log.flush()
-        os.fsync(log.fileno())
-    output_sha256 = _sha256_bytes(log_path.read_bytes())
+    if output_oversized.is_set():
+        raise RunnerError(
+            "oversized_gate_output",
+            "the gate stdout/stderr stream exceeds the bounded runner allowance",
+            surface=gate_id,
+            next_action="use a quiet registered reporter and rerun the gate",
+        )
+    output_raw = bytes(output)
+    _require_safe_gate_text(
+        output_raw,
+        gate_id=gate_id,
+        artifact="stdout/stderr",
+    )
+    if (
+        not os.path.lexists(logs_root)
+        or stat.S_ISLNK(os.lstat(logs_root).st_mode)
+        or not stat.S_ISDIR(os.lstat(logs_root).st_mode)
+    ):
+        raise RunnerError(
+            "unsafe_gate_log_destination",
+            "the runner log destination changed while the gate executed",
+            surface=gate_id,
+        )
+    _atomic_write(log_path, output_raw)
+    output_sha256 = _sha256_bytes(output_raw)
     status = "passed" if exit_code == 0 else "failed"
     _emit(
         {
@@ -5826,6 +6865,11 @@ def _run_gate(
         "command_sha256": _sha256_bytes(command.encode("utf-8")),
         "output_sha256": output_sha256,
     }
+    if resume_revalidation is not None:
+        result["_resume_revalidation"] = {
+            **dict(resume_revalidation),
+            "result": "reexecuted",
+        }
     result["_evidence"] = _collect_gate_evidence(
         gate_id=gate_id,
         gate_class=gate["class"],
@@ -5853,7 +6897,11 @@ def _execute_group(
     heartbeat: float,
     total_count: int,
 ) -> None:
-    pending = [gate for gate in gates if state["gate_results"].get(gate["id"], {}).get("status") != "passed"]
+    pending = [
+        gate
+        for gate in gates
+        if state["gate_results"].get(gate["id"], {}).get("status") != "passed"
+    ]
     if not pending:
         return
     completed_before = sum(
@@ -5874,6 +6922,14 @@ def _execute_group(
                 completed_before=completed_before,
                 total_count=total_count,
                 run_started_unix_ns=state["run_started_unix_ns"],
+                resume_revalidation=(
+                    state["gate_results"].get(gate["id"], {}).get(
+                        "_resume_revalidation"
+                    )
+                    if state["gate_results"].get(gate["id"], {}).get("status")
+                    == "revalidation_required"
+                    else None
+                ),
             ): gate
             for gate in pending
         }
@@ -6286,8 +7342,23 @@ def _validate_gate_evidence_manifest(
                 continue
             if not isinstance(artifact_file, str) or Path(artifact_file).name != artifact_file:
                 raise RunnerError("unsafe_run_owned_evidence", "a gate artifact reference is unsafe", surface=gate_id)
-            artifact = run_dir / "evidence" / gate_id / artifact_file
-            if not artifact.is_file() or _sha256_bytes(artifact.read_bytes()) != item.get("sha256"):
+            artifact_raw = _read_fd_pinned_regular(
+                run_dir,
+                f"evidence/{gate_id}/{artifact_file}",
+                label=f"resumed {kind} evidence for {gate_id}",
+                max_bytes=_MAX_GATE_ARTIFACT_FILE_BYTES,
+                lane="lane_b",
+                surface=gate_id,
+                unsafe_code="unsafe_run_owned_evidence",
+                missing_code="stale_run_owned_evidence",
+            )
+            if kind in {"console", "network"}:
+                _require_safe_gate_text(
+                    artifact_raw,
+                    gate_id=gate_id,
+                    artifact=f"resumed {kind} evidence",
+                )
+            if _sha256_bytes(artifact_raw) != item.get("sha256"):
                 raise RunnerError(
                     "stale_run_owned_evidence",
                     "a runner-owned artifact no longer matches its manifest",
@@ -6314,6 +7385,9 @@ def _report(
         "lane": "lane_b",
         "mode": "canary",
         "plan_sha256": plan["plan_sha256"],
+        "consumer_c3_authority_sha256": plan[
+            "consumer_c3_authority_sha256"
+        ],
         "identity": plan["identity"],
         "selection": {
             "escalation": plan["selection"]["escalation"],
@@ -6870,6 +7944,9 @@ def _adopt(args: argparse.Namespace) -> int:
                 "impact_registry_sha256": registry["registry_sha256"],
                 "impact_derivation_sha256": plan["selection"]["derivation_sha256"],
                 "plan_sha256": plan["plan_sha256"],
+                "consumer_c3_authority_sha256": plan[
+                    "consumer_c3_authority_sha256"
+                ],
                 "acceptance_budget": acceptance_budget,
                 "canary_completion_anchor": canary_completion_anchor,
                 "resume": {
@@ -6913,6 +7990,7 @@ def _adopt(args: argparse.Namespace) -> int:
                     package=package,
                     registry=registry,
                     selection=plan["selection"],
+                    consumer_c3_authority=plan["consumer_c3_authority"],
                 )
         except UpgradeLaneError as exc:
             state["status"] = "running"
@@ -6980,6 +8058,27 @@ def _parser() -> argparse.ArgumentParser:
     certify.add_argument("--gate-timeout", type=int, default=1200)
     certify.add_argument("--heartbeat-seconds", type=float, default=10.0)
     certify.set_defaults(handler=_certify)
+
+    verify_capsule = subparsers.add_parser(
+        "verify-capsule",
+        help="verify one exact sealed public Lane A release authority",
+    )
+    verify_capsule.add_argument("--package", type=Path, required=True)
+    verify_capsule.add_argument("--capsule", type=Path, required=True)
+    verify_capsule.add_argument("--impact-registry", type=Path, required=True)
+    verify_capsule.add_argument(
+        "--authority",
+        type=Path,
+        required=True,
+        help="sealed release authority bundle emitted by certify",
+    )
+    verify_capsule.add_argument(
+        "--trusted-attestation-sha256",
+        required=True,
+        help="out-of-band SHA-256 trust anchor; never inferred from the capsule",
+    )
+    verify_capsule.add_argument("--kit-root", type=Path, required=True)
+    verify_capsule.set_defaults(handler=_verify_capsule)
 
     plan = subparsers.add_parser("plan", help="compile a sealed read-only Lane B plan")
     plan.add_argument("--package", type=Path, required=True)

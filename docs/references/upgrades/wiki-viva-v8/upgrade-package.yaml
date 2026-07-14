@@ -1,13 +1,17 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc21
+  id: unreleased
   status: validation_pending
-  source_sha: db3bba4957f551cc7c2d261561a45d0c606fdd05
+  source_sha: 226f2c646484cb5da8ec5ffd4c8e5d106318e723
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc21
+    source_sha: db3bba4957f551cc7c2d261561a45d0c606fdd05
+    status: historical_validation_checkpoint
+    note: Exact rc21 closed RT-151 and passed its then-declared deterministic and 102/102 first-attempt browser stack, but RT-152 froze it as historical non-promotional evidence because it predates the config-bound C3 authority, productive visual capture provenance and hardened resume/evidence contracts now required for rc22. It must never be promoted, imported, relabeled or used to mint a Lane A capsule
   - id: wiki-viva-v8-rc20
     source_sha: 1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc
     status: historical_release_candidate
@@ -98,6 +102,7 @@ contract_versions:
   experience_pack_composition: wiki_experience_pack_composition.v1
   asset_manifest: wiki_cockpit_asset_manifest.v1
   downstream_adapter_manifest: wiki_downstream_adapter_manifest.v1
+  consumer_c3_authority: wiki_viva_upgrade_consumer_c3_authority.v1
 
 portable_import:
   # Block rules win over allow rules. Paths are always repository-relative.
@@ -246,7 +251,7 @@ migration:
     consumer_browser_matrix: npm --prefix apps/wiki-cockpit run test:e2e:operator
     demo_drift: python3 scripts/wiki_build_demo.py --check
     diff_check: git diff --check
-    frontend: npm --prefix apps/wiki-cockpit test
+    frontend: npm --prefix apps/wiki-cockpit test -- --reporter=tap
     frontend_focused: npm --prefix apps/wiki-cockpit test
     input_stage: python3 scripts/wiki_input_stage.py --check
     methodology_coverage: python3 scripts/wiki_check_methodology_coverage.py --check
@@ -257,7 +262,7 @@ migration:
     page_graph: python3 scripts/wiki_page_graph.py --check
     pack_focused: python3 scripts/wiki_pack.py validate --all
     pack_validation: python3 scripts/wiki_pack.py validate --all
-    portable_python: python3 -m pytest tests/
+    portable_python: python3 -m pytest -q tests/
     private_pytest: python3 -m pytest tests/
     public_evidence_redaction: python3 scripts/wiki_audit.py --public-export --check
     quality_report: python3 scripts/wiki_quality_report.py --check
@@ -270,11 +275,11 @@ migration:
     temporal_parity: python3 -m pytest tests/test_temporal.py tests/test_web_snapshot.py
     toolkit_drift: python3 scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
     visual_profiles: npm --prefix apps/wiki-cockpit run test:visual
-  command_registry_sha256: e3ae2e664637ca87fd08d2a1db169245594153b68badba9694cfcde3bff3a7c0
+  command_registry_sha256: 85993dd5637f90539e9ff7318b7aadfbca3cbced897d651fc42ceae695375ea7
   impact_registry:
     schema_version: wiki_viva_upgrade_impact_registry.v1
     path: docs/references/upgrades/wiki-viva-v8/impact-registry.yaml
-    sha256: ccd3f53eee8ccf3328a820dfe9e2a6c73f1056a9e54a0d88b3380d0224e70629
+    sha256: 663ab77840d43011856dc79a3c3f718cb3da874e179600a99a668e5e47572315
   gate_policies:
     adapter_identity: {class: consumer_always, command_id: adapter_identity, asserts: [adapter_identity], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
     architecture: {class: upstream_certified, command_id: architecture, asserts: [architecture_contract], reuse: exact_capsule, depends_on: [], resource_group: node_readonly, required_for_promotion: true}
@@ -317,7 +322,7 @@ migration:
     limit_seconds: 1200
     enforcement: promotion_blocking
   boundary_operations:
-    schema_version: wiki_viva_upgrade_boundary_operations.v1
+    schema_version: wiki_viva_upgrade_boundary_operations.v2
     c2_generators:
       - id: demo_snapshot
         command: python3 scripts/wiki_build_demo.py
@@ -330,7 +335,7 @@ migration:
           - apps/wiki-cockpit/e2e/__screenshots__/**
     c3_adapter:
       mode: consumer_plan_commands
-      contract: wiki_consumer_adaptation_plan.v1
+      contract: wiki_consumer_adaptation_plan.v2
       owns_patterns:
         - .github/workflows/**
         - .skills/*/**
@@ -338,7 +343,6 @@ migration:
         - AGENTS.md
         - adapters/**
         - apps/wiki-cockpit/public/wiki-cockpit.config.json
-        - docs/references/releases/**
         - requirements.txt
         - tests/**
         - wiki.adapter-manifest.json
@@ -349,7 +353,30 @@ migration:
         - wiki.targets.yaml
         - wiki.templates.local.yaml
         - wiki.templates.yaml
-    registry_sha256: 23c970d79b731280c4a0e9d775cc37017335e453dc36b69f318d66b8659fc308
+      configured_ownership:
+        schema_version: wiki_viva_config_bound_c3_policy.v1
+        config_path: wiki.config.yaml
+        roles:
+          - id: command_reference_page
+            kind: exact_markdown
+            path_key: command_reference_page
+            impact_contract: wiki_consumer_command_reference.v1
+            mode: '100644'
+            suffix: .md
+          - id: operational_pass_page
+            kind: exact_markdown
+            path_key: operational_pass_page
+            impact_contract: wiki_consumer_operational_pass.v1
+            mode: '100644'
+            suffix: .md
+          - id: release_records
+            kind: inert_markdown_subtree
+            path_key: references_root
+            subtree: releases
+            impact_contract: wiki_consumer_release_record.v1
+            mode: '100644'
+            suffix: .md
+    registry_sha256: f8ac0ad44fa0b29c3c0142fa86b8c62d0af060aa7b1b227d44183aadb3de573a
   visual_profiles:
     - desktop
     - mobile
@@ -416,7 +443,7 @@ privacy:
 
 known_limitations:
   - >-
-    Exact rc21 source db3bba4957f551cc7c2d261561a45d0c606fdd05 passed the
+    Historical rc21 source db3bba4957f551cc7c2d261561a45d0c606fdd05 passed the
     complete declared local stack: both audits with 0 errors and 7 known
     staleness warnings, methodology/operation/input/semantic/snapshot/pack
     contracts, 1,632 Python passes with 3 declared skips and 2 known fork
@@ -431,15 +458,17 @@ known_limitations:
     85a1770378364999eb0eb8c0963d4679daa155e5a87adea4b775a97c068b3a18.
     RT-151 is closed by public synthetic mobile geometry and reading-order
     coverage; the real downstream pixels that exposed it remain private.
-    Status deliberately remains validation_pending: this local proof is not a
-    production Lane A capsule, public push remains unauthorized, and remote CI
-    plus human conceptual/privacy/VoiceOver review and merge must precede any
-    promotion boundary.
+    RT-152 freezes that package as historical evidence. The active release slot
+    is deliberately `unreleased` and `validation_pending`, so this development
+    package cannot pass the pinned-release preflight or mint a Lane A capsule.
+    Public push remains unauthorized; a prospective rc22 must bind a new exact
+    source and pass remote CI plus human conceptual/privacy/VoiceOver review and
+    merge before any promotion boundary.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; exact rc21 may be imported in three new ordered reviewable boundaries only after the validated payload and its subsequent release_candidate promotion are both merged to the public main branch.
-  - The historical private S9 read-only preflight remains attached to S9; rc21 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 can never authorize another import. A prospective rc22 may be adopted in three new ordered reviewable boundaries only after its exact payload and release promotion are both approved.
+  - The historical private S9 read-only preflight remains attached to S9; a prospective rc22 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.

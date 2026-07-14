@@ -7,10 +7,12 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import struct
 import subprocess
 import sys
+import time
 import zlib
 from pathlib import Path
 
@@ -26,7 +28,10 @@ from wiki_core.upgrade_lanes import (
     seal_impact_registry,
     seal_release_capsule,
 )
-from wiki_core.upgrade import boundary_operations_sha256
+from wiki_core.upgrade import (
+    CONFIG_BOUND_C3_ROLE_SPECS,
+    boundary_operations_sha256,
+)
 from wiki_core.web.commands import is_allowed_argv
 
 
@@ -152,6 +157,345 @@ def test_public_certification_output_rejects_host_paths_and_private_routes(
         )
 
 
+def test_published_frontend_and_portable_python_success_output_is_public_safe(
+    tmp_path: Path,
+) -> None:
+    package = yaml.safe_load(
+        (
+            ROOT
+            / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    registry = yaml.safe_load(
+        (
+            ROOT
+            / "docs/references/upgrades/wiki-viva-v8/impact-registry.yaml"
+        ).read_text(encoding="utf-8")
+    )
+    commands = package["migration"]["gate_commands"]
+    registered = {item["id"]: item["command"] for item in registry["gate_catalog"]}
+    expected = {
+        "frontend": "npm --prefix apps/wiki-cockpit test -- --reporter=tap",
+        "portable_python": "python3 -m pytest -q tests/",
+    }
+    assert {gate_id: commands[gate_id] for gate_id in expected} == expected
+    assert {gate_id: registered[gate_id] for gate_id in expected} == expected
+
+    python_root = tmp_path / "public-python-fixture"
+    (python_root / "tests").mkdir(parents=True)
+    (python_root / "tests/test_public_fixture.py").write_text(
+        "def test_public_fixture():\n    assert True\n", encoding="utf-8"
+    )
+    executions = {
+        "portable_python": (python_root, expected["portable_python"]),
+        "frontend": (ROOT, expected["frontend"]),
+    }
+    for gate_id, (cwd, command) in executions.items():
+        result = subprocess.run(
+            shlex.split(command),
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+            timeout=180,
+        )
+        assert result.returncode == 0, result.stdout.decode("utf-8", "replace")
+        upgrade_runner._require_public_certification_output(
+            result.stdout, gate_id=gate_id
+        )
+        assert str(cwd.resolve()).encode("utf-8") not in result.stdout
+
+
+def test_certify_rejects_published_gate_output_with_absolute_root() -> None:
+    for gate_id in ("frontend", "portable_python"):
+        raw = f"status=passed\nroot={ROOT.resolve()}\n".encode("utf-8")
+        with pytest.raises(
+            upgrade_runner.RunnerError, match="host-local or private evidence"
+        ):
+            upgrade_runner._require_public_certification_output(raw, gate_id=gate_id)
+
+
+@pytest.mark.parametrize(
+    ("entries", "error_code"),
+    [
+        (
+            [
+                {
+                    "id": "desktop-bad",
+                    "state": "capture-" + ("0" * 64),
+                    "path": "images/desktop.png",
+                }
+            ],
+            "invalid_visual_manifest",
+        ),
+        (
+            [
+                {
+                    "id": "desktop",
+                    "state": "hand-authored-state",
+                    "path": "images/desktop.png",
+                }
+            ],
+            "invalid_visual_manifest",
+        ),
+        (
+            [
+                {
+                    "id": "desktop",
+                    "state": "capture-" + ("0" * 64),
+                    "path": "images/desktop.png",
+                },
+                {
+                    "id": "desktop",
+                    "state": "capture-" + ("1" * 64),
+                    "path": "images/desktop-copy.png",
+                },
+            ],
+            "duplicate_visual_artifact",
+        ),
+    ],
+)
+def test_visual_authority_staging_rejects_invalid_or_duplicate_record_identity(
+    tmp_path: Path, entries: list[dict[str, str]], error_code: str
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "visual-manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wiki_visual_evidence_manifest.v1",
+                "entries": entries,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    destination = tmp_path / "destination"
+
+    with pytest.raises(upgrade_runner.RunnerError) as raised:
+        upgrade_runner._stage_visual_authority(
+            source_root=source,
+            manifest_ref="visual-manifest.json",
+            destination_root=destination,
+        )
+
+    assert raised.value.code == error_code
+    assert not destination.exists()
+
+
+@pytest.mark.parametrize("link_kind", ["symlink", "hardlink"])
+def test_safe_certification_file_rejects_linked_authority(
+    tmp_path: Path, link_kind: str
+) -> None:
+    root = tmp_path / "authority"
+    root.mkdir()
+    original = root / "original.json"
+    original.write_text('{"status":"trusted"}\n', encoding="utf-8")
+    linked = root / "linked.json"
+    if link_kind == "symlink":
+        linked.symlink_to(original.name)
+    else:
+        os.link(original, linked)
+
+    with pytest.raises(upgrade_runner.RunnerError) as raised:
+        upgrade_runner._safe_certification_file(
+            root, linked.name, label="test authority"
+        )
+
+    assert raised.value.code == "unsafe_certification_file"
+
+
+def test_safe_certification_file_is_pinned_when_path_is_replaced_during_read(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    root = tmp_path / "authority"
+    root.mkdir()
+    authority = root / "authority.json"
+    replacement = root / "replacement.json"
+    displaced = root / "displaced.json"
+    trusted = b'{"status":"trusted"}\n'
+    authority.write_bytes(trusted)
+    replacement.write_bytes(b'{"status":"swapped"}\n')
+    original_read = upgrade_runner.os.read
+    swapped = False
+
+    def replace_after_open(descriptor: int, size: int) -> bytes:
+        nonlocal swapped
+        if not swapped:
+            authority.replace(displaced)
+            replacement.replace(authority)
+            swapped = True
+        return original_read(descriptor, size)
+
+    monkeypatch.setattr(upgrade_runner.os, "read", replace_after_open)
+
+    relative, raw = upgrade_runner._safe_certification_file(
+        root, "authority.json", label="test authority"
+    )
+
+    assert relative == "authority.json"
+    assert raw == trusted
+    assert authority.read_bytes() != raw
+
+
+@pytest.mark.parametrize("link_kind", ["symlink", "hardlink"])
+def test_gate_artifact_collection_rejects_links_before_copy(
+    tmp_path: Path, link_kind: str
+) -> None:
+    run_dir = tmp_path / "run"
+    artifact_dir = run_dir / "gate-artifacts/audit"
+    artifact_dir.mkdir(parents=True)
+    outside = tmp_path / "outside.log"
+    outside.write_text("outside evidence\n", encoding="utf-8")
+    linked = artifact_dir / "console-linked.log"
+    if link_kind == "symlink":
+        linked.symlink_to(outside)
+    else:
+        os.link(outside, linked)
+
+    with pytest.raises(upgrade_runner.RunnerError) as raised:
+        upgrade_runner._collect_gate_evidence(
+            gate_id="audit",
+            gate_class="consumer_always",
+            subject_sha="a" * 40,
+            output_sha256="b" * 64,
+            artifact_dir=artifact_dir,
+            run_dir=run_dir,
+        )
+
+    assert raised.value.code == "unsafe_gate_artifact"
+    assert not list((run_dir / "evidence").rglob("*.bin"))
+
+
+def test_gate_evidence_destination_symlink_is_rejected(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    artifact_dir = run_dir / "gate-artifacts/audit"
+    artifact_dir.mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (run_dir / "evidence").symlink_to(outside, target_is_directory=True)
+
+    with pytest.raises(upgrade_runner.RunnerError) as raised:
+        upgrade_runner._collect_gate_evidence(
+            gate_id="audit",
+            gate_class="consumer_always",
+            subject_sha="a" * 40,
+            output_sha256="b" * 64,
+            artifact_dir=artifact_dir,
+            run_dir=run_dir,
+        )
+
+    assert raised.value.code == "unsafe_gate_evidence_destination"
+    assert not list(outside.iterdir())
+
+
+@pytest.mark.parametrize(
+    "artifact_name", ["console-secret.log", "network-secret.har"]
+)
+def test_gate_artifact_secret_is_rejected_before_runner_persistence(
+    tmp_path: Path, artifact_name: str
+) -> None:
+    run_dir = tmp_path / "run"
+    artifact_dir = run_dir / "gate-artifacts/audit"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / artifact_name).write_text(
+        "api_key=abcdef1234567890\n", encoding="utf-8"
+    )
+
+    with pytest.raises(upgrade_runner.RunnerError) as raised:
+        upgrade_runner._collect_gate_evidence(
+            gate_id="audit",
+            gate_class="consumer_always",
+            subject_sha="a" * 40,
+            output_sha256="b" * 64,
+            artifact_dir=artifact_dir,
+            run_dir=run_dir,
+        )
+
+    assert raised.value.code == "secret_gate_evidence"
+    assert not list((run_dir / "evidence").rglob("*.bin"))
+
+
+def test_gate_artifact_collection_is_size_bounded(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    run_dir = tmp_path / "run"
+    artifact_dir = run_dir / "gate-artifacts/audit"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "console-too-large.log").write_bytes(b"x" * 9)
+    monkeypatch.setattr(upgrade_runner, "_MAX_GATE_ARTIFACT_FILE_BYTES", 8)
+
+    with pytest.raises(upgrade_runner.RunnerError) as raised:
+        upgrade_runner._collect_gate_evidence(
+            gate_id="audit",
+            gate_class="consumer_always",
+            subject_sha="a" * 40,
+            output_sha256="b" * 64,
+            artifact_dir=artifact_dir,
+            run_dir=run_dir,
+        )
+
+    assert raised.value.code == "unsafe_gate_artifact"
+    assert not list((run_dir / "evidence").rglob("*.bin"))
+
+
+def test_gate_private_path_is_rejected_before_runner_persistence(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "run"
+    artifact_dir = run_dir / "gate-artifacts/audit"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "console-private.log").write_text(
+        "root=/Users/example/private-wiki\n", encoding="utf-8"
+    )
+
+    with pytest.raises(upgrade_runner.RunnerError) as raised:
+        upgrade_runner._collect_gate_evidence(
+            gate_id="audit",
+            gate_class="consumer_always",
+            subject_sha="a" * 40,
+            output_sha256="b" * 64,
+            artifact_dir=artifact_dir,
+            run_dir=run_dir,
+        )
+
+    assert raised.value.code == "private_gate_evidence"
+    assert not list((run_dir / "evidence").rglob("*.bin"))
+
+
+def test_gate_stdout_secret_is_rejected_before_log_persistence(tmp_path: Path) -> None:
+    consumer = tmp_path / "consumer"
+    consumer.mkdir()
+    run_dir = consumer / ".wiki-viva/upgrade/runs/test"
+    gate = {
+        "id": "audit",
+        "class": "consumer_always",
+        "command": (
+            "python3 -c \"import sys; "
+            "print('api_key=abcdef1234567890', file=sys.stderr)\""
+        ),
+    }
+
+    with pytest.raises(upgrade_runner.RunnerError) as raised:
+        upgrade_runner._run_gate(
+            gate,
+            consumer=consumer,
+            kit=ROOT,
+            run_dir=run_dir,
+            subject_sha="a" * 40,
+            public_release_sha="b" * 40,
+            timeout=30,
+            heartbeat=0.1,
+            completed_before=0,
+            total_count=1,
+            run_started_unix_ns=time.time_ns(),
+        )
+
+    assert raised.value.code == "secret_gate_evidence"
+    assert not (run_dir / "logs/audit.log").exists()
+
+
 def _git(root: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", *args],
@@ -269,6 +613,19 @@ def _reseal_package(fixture: dict[str, Path | str], package: dict) -> None:
     Path(fixture["package"]).write_text(
         yaml.safe_dump(package, sort_keys=False), encoding="utf-8"
     )
+    visual_root = Path(fixture["visual_root"])
+    manifest_path = visual_root / "visual-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for entry in manifest["entries"]:
+        record_path = visual_root / "records" / f"{entry['id']}.json"
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        record["package_sha256"] = canonical_sha256(package)
+        record_raw = (upgrade_runner.canonical_json(record) + "\n").encode("utf-8")
+        record_path.write_bytes(record_raw)
+        entry["state"] = f"capture-{hashlib.sha256(record_raw).hexdigest()}"
+    manifest_path.write_bytes(
+        (upgrade_runner.canonical_json(manifest) + "\n").encode("utf-8")
+    )
     capsule = json.loads(Path(fixture["capsule"]).read_text(encoding="utf-8"))
     capsule.pop("schema_version", None)
     capsule.pop("capsule_sha256", None)
@@ -277,7 +634,7 @@ def _reseal_package(fixture: dict[str, Path | str], package: dict) -> None:
         registry=yaml.safe_load(Path(fixture["registry"]).read_text(encoding="utf-8")),
         payload=capsule,
         source_root=Path(fixture["kit"]),
-        visual_root=Path(fixture["visual_root"]),
+        visual_root=visual_root,
         gate_output_root=Path(fixture["gate_output_root"]),
     )
     Path(fixture["capsule"]).write_text(json.dumps(capsule, indent=2), encoding="utf-8")
@@ -469,8 +826,37 @@ def _certify_args(
     ]
 
 
-@pytest.fixture
-def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
+def _verify_capsule_args(
+    fixture: dict[str, Path | str], authority_root: Path
+) -> list[str]:
+    return [
+        "verify-capsule",
+        "--package",
+        str(fixture["package"]),
+        "--capsule",
+        str(authority_root / "release-capsule.json"),
+        "--impact-registry",
+        str(fixture["registry"]),
+        "--authority",
+        str(authority_root / "release-authority.json"),
+        "--trusted-attestation-sha256",
+        (authority_root / "trusted-attestation-sha256.txt")
+        .read_text(encoding="ascii")
+        .strip(),
+        "--kit-root",
+        str(fixture["kit"]),
+    ]
+
+
+def _regular_file_hashes(root: Path) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and not path.is_symlink()
+    }
+
+
+def _build_synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
     kit = tmp_path / "public-kit"
     _init_repo(kit)
     (kit / "portable.txt").write_text("synthetic portable subject\n", encoding="utf-8")
@@ -607,7 +993,17 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
                     "id": "consumer_configuration",
                     "lane": "lane_b",
                     "path_patterns": ["wiki.config.yaml"],
-                    "contracts": ["wiki_config.v1"],
+                    "configured_path_roles": [
+                        "command_reference_page",
+                        "operational_pass_page",
+                        "release_records",
+                    ],
+                    "contracts": [
+                        "wiki_config.v1",
+                        "wiki_consumer_command_reference.v1",
+                        "wiki_consumer_operational_pass.v1",
+                        "wiki_consumer_release_record.v1",
+                    ],
                     "gates": ["affected_check"],
                     "depends_on": [],
                 },
@@ -634,6 +1030,11 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
                     "docs/references/fixtures/demo-wiki/memories/**"
                 ],
                 "c3_consumer_patterns": ["wiki.config.yaml"],
+                "configured_c3_roles": [
+                    "command_reference_page",
+                    "operational_pass_page",
+                    "release_records",
+                ],
                 "domain_content_patterns": ["memories/**"],
             },
         }
@@ -697,7 +1098,7 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
         "encoding='utf-8')\""
     )
     boundary_operations = {
-        "schema_version": "wiki_viva_upgrade_boundary_operations.v1",
+        "schema_version": "wiki_viva_upgrade_boundary_operations.v2",
         "c2_generators": [
             {
                 "id": "generate_fixture",
@@ -709,8 +1110,13 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
         ],
         "c3_adapter": {
             "mode": "consumer_plan_commands",
-            "contract": "synthetic_consumer_adapter.v1",
+            "contract": "wiki_consumer_adaptation_plan.v2",
             "owns_patterns": ["wiki.config.yaml"],
+            "configured_ownership": {
+                "schema_version": "wiki_viva_config_bound_c3_policy.v1",
+                "config_path": "wiki.config.yaml",
+                "roles": [dict(item) for item in CONFIG_BOUND_C3_ROLE_SPECS],
+            },
         },
         "registry_sha256": "0" * 64,
     }
@@ -746,6 +1152,7 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
             "experience_pack_composition": "wiki_experience_pack_composition.v1",
             "asset_manifest": "wiki_cockpit_asset_manifest.v1",
             "downstream_adapter_manifest": "wiki_downstream_adapter_manifest.v1",
+            "consumer_c3_authority": "wiki_viva_upgrade_consumer_c3_authority.v1",
         },
         "portable_import": {
             "allow": [
@@ -846,33 +1253,75 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
     ]
     authority_base = tmp_path / "release-authority"
     visual_root = authority_base / "visual"
-    image_path = visual_root / "images/world-overview.png"
+    image_ref = "images/desktop.png"
+    image_path = visual_root / image_ref
     image_path.parent.mkdir(parents=True)
-    image_raw = _png_bytes()
+    image_raw = _png_bytes(1440, 1000)
     image_path.write_bytes(image_raw)
-    (visual_root / "visual-manifest.json").write_text(
-        json.dumps(
+    image_sha256 = hashlib.sha256(image_raw).hexdigest()
+    route = "/demo/w/quadrants?center=root-alex-rivera&tour=0"
+    viewport = {"width": 1440, "height": 1000}
+    browser_toolchain = copy.deepcopy(_active_toolchain()["browser"])
+    record = {
+        "schema_version": "wiki_visual_evidence_capture.v1",
+        "profile": "desktop",
+        "source_sha": source_sha,
+        "package_sha256": canonical_sha256(package),
+        "requested_route": route,
+        "route": route,
+        "viewport": viewport,
+        "browser_toolchain": browser_toolchain,
+        "browser_toolchain_sha256": canonical_sha256(browser_toolchain),
+        "image": {
+            "path": image_ref,
+            "sha256": image_sha256,
+            "bytes": len(image_raw),
+            "dimensions": viewport,
+        },
+        "console_summary": {
+            "capture": "sanitized_counts_only",
+            "warning_count": 0,
+            "error_count": 0,
+            "page_error_count": 0,
+            "truncated": False,
+        },
+        "network_summary": {
+            "capture": "sanitized_counts_only",
+            "request_count": 1,
+            "response_error_count": 0,
+            "request_failed_count": 0,
+            "truncated": False,
+        },
+        "capture": {
+            "method": "playwright_served_public_synthetic",
+            "action_count": 0,
+            "state": "webgl",
+            "settled": True,
+        },
+    }
+    record_raw = (upgrade_runner.canonical_json(record) + "\n").encode("utf-8")
+    record_path = visual_root / "records/desktop.json"
+    record_path.parent.mkdir(parents=True)
+    record_path.write_bytes(record_raw)
+    manifest = {
+        "schema_version": "wiki_visual_evidence_manifest.v1",
+        "entries": [
             {
-                "schema_version": "wiki_visual_evidence_manifest.v1",
-                "entries": [
-                    {
-                        "id": "world-overview",
-                        "path": "images/world-overview.png",
-                        "sha256": hashlib.sha256(image_raw).hexdigest(),
-                        "bytes": len(image_raw),
-                        "route": "/demo/w/radar",
-                        "browser": "chromium",
-                        "viewport": {"width": 1280, "height": 900},
-                        "capture_dimensions": {"width": 16, "height": 12},
-                        "state": "radar-overview",
-                        "public_synthetic": True,
-                    }
-                ],
-            },
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
+                "id": "desktop",
+                "path": image_ref,
+                "sha256": image_sha256,
+                "bytes": len(image_raw),
+                "route": route,
+                "browser": "chromium",
+                "viewport": viewport,
+                "capture_dimensions": viewport,
+                "state": f"capture-{hashlib.sha256(record_raw).hexdigest()}",
+                "public_synthetic": True,
+            }
+        ],
+    }
+    (visual_root / "visual-manifest.json").write_bytes(
+        (upgrade_runner.canonical_json(manifest) + "\n").encode("utf-8")
     )
     gate_output_root = authority_base / "gate-output"
     (gate_output_root / "outputs").mkdir(parents=True)
@@ -932,6 +1381,64 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
         "gate_output_root": gate_output_root,
         "plan": consumer / ".wiki-viva/upgrade/plan.json",
     }
+
+
+@pytest.fixture
+def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
+    return _build_synthetic_upgrade(tmp_path)
+
+
+@pytest.fixture(scope="module")
+def sealed_upgrade(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> tuple[dict[str, Path | str], Path]:
+    fixture = _build_synthetic_upgrade(
+        tmp_path_factory.mktemp("sealed-public-upgrade")
+    )
+    output = Path(fixture["package"]).parent / "lane-a-certified"
+    result = _run(fixture, *_certify_args(fixture, output))
+    assert result.returncode == 0, result.stdout + result.stderr
+    return fixture, output
+
+
+def _localize_consumer_b0(fixture: dict[str, Path | str]) -> str:
+    consumer = Path(fixture["consumer"])
+    config = (
+        "repo_id: synthetic-consumer\n"
+        "paths:\n"
+        "  memory_root: memorias\n"
+        "  references_root: docs/referencias\n"
+        "  command_reference_page: memorias/sistema/wiki/comandos.md\n"
+        "  operational_pass_page: memorias/passagem-operacional.md\n"
+    )
+    (consumer / "wiki.config.yaml").write_text(config, encoding="utf-8")
+    _git(consumer, "add", "wiki.config.yaml")
+    _git(consumer, "commit", "-q", "--amend", "--no-edit")
+    consumer_b0 = _git(consumer, "rev-parse", "HEAD")
+    fixture["consumer_b0"] = consumer_b0
+    return consumer_b0
+
+
+def _localized_c3_adapter_spec() -> str:
+    config = (
+        "repo_id: synthetic-consumer-v8\n"
+        "paths:\n"
+        "  memory_root: memorias\n"
+        "  references_root: docs/referencias\n"
+        "  command_reference_page: memorias/sistema/wiki/comandos.md\n"
+        "  operational_pass_page: memorias/passagem-operacional.md\n"
+    )
+    code = (
+        "from pathlib import Path; "
+        "command=Path('memorias/sistema/wiki/comandos.md'); "
+        "command.parent.mkdir(parents=True,exist_ok=True); "
+        "command.write_text('# Comandos sinteticos\\n',encoding='utf-8'); "
+        "release=Path('docs/referencias/releases/rc-sintetico.md'); "
+        "release.parent.mkdir(parents=True,exist_ok=True); "
+        "release.write_text('# Release sintetica\\n',encoding='utf-8'); "
+        f"Path('wiki.config.yaml').write_text({config!r},encoding='utf-8')"
+    )
+    return f"adapt_localized::{sys.executable} -c {json.dumps(code)}"
 
 
 def _create_plan(fixture: dict[str, Path | str], changed_path: str = "wiki.config.yaml") -> dict:
@@ -1012,6 +1519,54 @@ def test_canary_handoff_resumes_background_on_same_consumer_run(
     assert after["identity_sha256"] == before["identity_sha256"]
     assert after["gate_results"]["background_suite"]["status"] == "passed"
     assert (run_dir / "adoption-receipt.json").is_file()
+
+
+def test_resume_rejects_execution_plan_that_omits_anchored_impact_input(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    planned = _run(
+        synthetic_upgrade,
+        *_plan_args(synthetic_upgrade),
+        "--changed-path",
+        "wiki.config.yaml",
+        "--changed-contract",
+        "wiki_config.v1",
+    )
+    assert planned.returncode == 0, planned.stdout + planned.stderr
+    _remember_plan_anchor(synthetic_upgrade, planned)
+    paused = _run(
+        synthetic_upgrade,
+        *_adopt_args(synthetic_upgrade, pause_before_canary=True),
+    )
+    assert paused.returncode == 0, paused.stdout + paused.stderr
+    execution_path = next(
+        Path(synthetic_upgrade["plan"]).parent.glob("execution-plan-*.json")
+    )
+    execution = json.loads(execution_path.read_text(encoding="utf-8"))
+    original_execution_sha256 = execution["plan_sha256"]
+    assert execution["impact_inputs"]["changed_contracts"] == ["wiki_config.v1"]
+    execution["impact_inputs"]["changed_contracts"] = []
+    execution["conceptual_diff"]["changed_contract_count"] = 0
+    execution["plan_sha256"] = upgrade_runner._plan_digest(execution)
+    execution_path.write_text(
+        json.dumps(execution, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    original_run_dir = (
+        Path(synthetic_upgrade["consumer"])
+        / ".wiki-viva/upgrade/runs"
+        / original_execution_sha256[:16]
+    )
+    state_path = original_run_dir / "state.json"
+    state_before = state_path.read_bytes()
+
+    rejected = _run(
+        synthetic_upgrade,
+        *_adopt_args(synthetic_upgrade, resume=True),
+    )
+    assert rejected.returncode == 2
+    assert '"error_code": "stale_execution_plan_lineage"' in rejected.stdout
+    assert state_path.read_bytes() == state_before
 
 
 def test_ci_fast_adoption_handoff_is_resumable_runner_state(
@@ -1133,6 +1688,7 @@ def test_certify_executes_only_upstream_and_seals_authority(
         "gate-output/execution-attestation.json",
         "gate-output/toolchain/probe-manifest.json",
         "visual/visual-manifest.json",
+        "visual/records/desktop.json",
     }
     assert all((output / relative).is_file() for relative in required)
     capsule = json.loads((output / "release-capsule.json").read_text(encoding="utf-8"))
@@ -1152,6 +1708,9 @@ def test_certify_executes_only_upstream_and_seals_authority(
     assert receipt["human_gate_required"] is True
     assert authority["certification_receipt_ref"] == "certification-receipt.json"
     assert authority["release_capsule_ref"] == "release-capsule.json"
+    assert (output / "visual/records/desktop.json").read_bytes() == (
+        Path(synthetic_upgrade["visual_root"]) / "records/desktop.json"
+    ).read_bytes()
     assert (output / "gate-output/outputs/upstream_check.log").is_file()
     assert not (output / "gate-output/outputs/background_suite.log").exists()
 
@@ -1170,6 +1729,141 @@ def test_certify_executes_only_upstream_and_seals_authority(
     assert rejected.returncode == 2
     assert '"error_code": "stale_certification_gate_output"' in rejected.stdout
     assert str(output) not in rejected.stdout
+
+
+def test_verify_capsule_recomputes_exact_sealed_authority_read_only_and_path_free(
+    sealed_upgrade: tuple[dict[str, Path | str], Path],
+) -> None:
+    fixture, authority_root = sealed_upgrade
+    source_root = Path(fixture["kit"])
+    authority_before = _regular_file_hashes(authority_root)
+    source_before = _regular_file_hashes(source_root)
+    input_before = {
+        key: Path(fixture[key]).read_bytes() for key in ("package", "registry")
+    }
+
+    result = _run(fixture, *_verify_capsule_args(fixture, authority_root))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    summary = json.loads(result.stdout)
+    assert set(summary) == {
+        "schema_version",
+        "status",
+        "lane",
+        "release_id",
+        "source_sha",
+        "capsule_sha256",
+        "package_sha256",
+        "portable_tree_sha256",
+        "command_registry_sha256",
+        "impact_registry_sha256",
+        "toolchain_sha256",
+        "visual_manifest_sha256",
+        "attestation_sha256",
+        "human_gate_required",
+    }
+    assert summary["schema_version"] == (
+        "wiki_viva_release_capsule_verification_summary.v1"
+    )
+    assert summary["status"] == "verified"
+    assert summary["lane"] == "lane_a"
+    assert summary["human_gate_required"] is True
+    capsule = json.loads(
+        (authority_root / "release-capsule.json").read_text(encoding="utf-8")
+    )
+    assert summary["capsule_sha256"] == capsule["capsule_sha256"]
+    assert summary["attestation_sha256"] == capsule["attestation_sha256"]
+    assert not any(key.endswith("_ref") for key in summary)
+    combined = result.stdout + result.stderr
+    for path in (source_root, authority_root, Path(fixture["package"]).parent):
+        assert str(path.resolve()) not in combined
+    upgrade_runner._require_public_certification_output(
+        result.stdout.encode("utf-8"), gate_id="verify-capsule"
+    )
+    assert _regular_file_hashes(authority_root) == authority_before
+    assert _regular_file_hashes(source_root) == source_before
+    assert {
+        key: Path(fixture[key]).read_bytes() for key in ("package", "registry")
+    } == input_before
+
+
+def test_verify_capsule_rejects_tampered_authority_without_leaking_paths(
+    sealed_upgrade: tuple[dict[str, Path | str], Path], tmp_path: Path
+) -> None:
+    fixture, authority_root = sealed_upgrade
+    tampered = tmp_path / "tampered-authority"
+    shutil.copytree(authority_root, tampered)
+    (tampered / "gate-output/outputs/upstream_check.log").write_text(
+        "fabricated replacement\n", encoding="utf-8"
+    )
+
+    result = _run(fixture, *_verify_capsule_args(fixture, tampered))
+
+    assert result.returncode == 2
+    assert '"error_code": "stale_certification_gate_output"' in result.stdout
+    assert str(tampered.resolve()) not in result.stdout + result.stderr
+    upgrade_runner._require_public_certification_output(
+        result.stdout.encode("utf-8"), gate_id="verify-capsule-rejection"
+    )
+
+
+def test_verify_capsule_rejects_divergent_trust_and_unsealed_authority(
+    sealed_upgrade: tuple[dict[str, Path | str], Path],
+) -> None:
+    fixture, authority_root = sealed_upgrade
+    arguments = _verify_capsule_args(fixture, authority_root)
+    arguments[arguments.index("--trusted-attestation-sha256") + 1] = "0" * 64
+    wrong_trust = _run(fixture, *arguments)
+    assert wrong_trust.returncode == 2
+    assert '"error_code": "lane_contract_rejected"' in wrong_trust.stdout
+
+    arguments = _verify_capsule_args(fixture, authority_root)
+    arguments[arguments.index("--authority") + 1] = str(fixture["authority"])
+    unsealed = _run(fixture, *arguments)
+    assert unsealed.returncode == 2
+    assert '"error_code": "lane_contract_rejected"' in unsealed.stdout
+
+    combined = wrong_trust.stdout + wrong_trust.stderr + unsealed.stdout + unsealed.stderr
+    for path in (authority_root, Path(fixture["authority"]), Path(fixture["kit"])):
+        assert str(path.resolve()) not in combined
+
+
+def test_verify_capsule_rejects_validation_pending_before_authority_use(
+    sealed_upgrade: tuple[dict[str, Path | str], Path], tmp_path: Path
+) -> None:
+    fixture, authority_root = sealed_upgrade
+    package = yaml.safe_load(Path(fixture["package"]).read_text(encoding="utf-8"))
+    package["release"]["status"] = "validation_pending"
+    pending = tmp_path / "validation-pending.yaml"
+    pending.write_text(yaml.safe_dump(package, sort_keys=False), encoding="utf-8")
+    arguments = _verify_capsule_args(fixture, authority_root)
+    arguments[arguments.index("--package") + 1] = str(pending)
+
+    result = _run(fixture, *arguments)
+
+    assert result.returncode == 2
+    assert '"error_code": "release_not_releasable"' in result.stdout
+    assert str(pending.resolve()) not in result.stdout + result.stderr
+
+
+def test_verify_capsule_rejects_path_bearing_authority_without_echoing_it(
+    sealed_upgrade: tuple[dict[str, Path | str], Path], tmp_path: Path
+) -> None:
+    fixture, authority_root = sealed_upgrade
+    unsafe = tmp_path / "path-bearing-authority"
+    shutil.copytree(authority_root, unsafe)
+    authority_path = unsafe / "release-authority.json"
+    authority = json.loads(authority_path.read_text(encoding="utf-8"))
+    authority["visual_root"] = str(tmp_path.resolve())
+    authority_path.write_text(
+        json.dumps(authority, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    result = _run(fixture, *_verify_capsule_args(fixture, unsafe))
+
+    assert result.returncode == 2
+    assert '"error_code": "lane_contract_rejected"' in result.stdout
+    assert str(tmp_path.resolve()) not in result.stdout + result.stderr
 
 
 def test_certify_refuses_validation_pending_without_creating_authority(
@@ -1205,6 +1899,7 @@ def test_plan_adopt_resume_canary_and_rollback_are_complete_and_path_free(
     synthetic_upgrade: dict[str, Path | str],
 ) -> None:
     plan, run_dir = _complete_adoption(synthetic_upgrade)
+    assert plan["schema_version"] == "wiki_viva_upgrade_plan.v4"
     assert plan["status"] == "ready"
     assert plan["selection"]["escalation"] == "consumer_delta"
     assert "upstream_check" in plan["selection"]["omitted_gates"]
@@ -1216,7 +1911,18 @@ def test_plan_adopt_resume_canary_and_rollback_are_complete_and_path_free(
     public_report = json.loads(
         (run_dir / "migration-report.public.json").read_text(encoding="utf-8")
     )
+    state = json.loads((run_dir / "state.json").read_text(encoding="utf-8"))
     rollback = json.loads((run_dir / "rollback.json").read_text(encoding="utf-8"))
+    authority_sha256 = plan["consumer_c3_authority_sha256"]
+    assert plan["consumer_c3_authority"]["authority_sha256"] == authority_sha256
+    assert receipt["schema_version"] == "wiki_viva_upgrade_adoption_receipt.v4"
+    assert state["schema_version"] == "wiki_viva_upgrade_runner_state.v4"
+    assert private_report["schema_version"] == "wiki_viva_upgrade_runner_report.v3"
+    assert {
+        receipt["consumer_c3_authority_sha256"],
+        state["consumer_c3_authority_sha256"],
+        private_report["consumer_c3_authority_sha256"],
+    } == {authority_sha256}
     assert receipt["status"] == "passed"
     assert report["promotion_ready"] is True
     assert report["human_gate_required"] is True
@@ -1267,6 +1973,92 @@ def test_plan_adopt_resume_canary_and_rollback_are_complete_and_path_free(
     assert '"status": "verified"' in verified.stdout
     assert str(Path(synthetic_upgrade["consumer"])) not in resumed.stdout
     assert str(Path(synthetic_upgrade["consumer"])) not in verified.stdout
+
+
+def test_localized_config_bound_c3_flows_through_plan_state_receipt_and_report(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    consumer_b0 = _localize_consumer_b0(synthetic_upgrade)
+    plan_args = _plan_args(synthetic_upgrade)
+    adapter_index = plan_args.index("--c3-adapter-command") + 1
+    plan_args[adapter_index] = _localized_c3_adapter_spec()
+    planned = _run(
+        synthetic_upgrade,
+        *plan_args,
+        "--changed-path",
+        "memorias/sistema/wiki/comandos.md",
+        "--changed-path",
+        "docs/referencias/releases/rc-sintetico.md",
+    )
+    assert planned.returncode == 0, planned.stdout + planned.stderr
+    _remember_plan_anchor(synthetic_upgrade, planned)
+    preplan = json.loads(Path(synthetic_upgrade["plan"]).read_text(encoding="utf-8"))
+    authority = preplan["consumer_c3_authority"]
+    authority_sha256 = preplan["consumer_c3_authority_sha256"]
+    assert preplan["schema_version"] == "wiki_viva_upgrade_plan.v4"
+    assert preplan["selection"]["escalation"] == "consumer_delta"
+    assert authority["consumer_B0"] == consumer_b0
+    assert authority["authority_sha256"] == authority_sha256
+    assert authority["layout"] == {
+        "memory_root": "memorias",
+        "references_root": "docs/referencias",
+    }
+    assert [item["path"] for item in authority["exact_markdown_paths"]] == [
+        "memorias/sistema/wiki/comandos.md",
+        "memorias/passagem-operacional.md",
+    ]
+    assert authority["release_records"]["root"] == "docs/referencias/releases"
+
+    adopted = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade))
+    assert adopted.returncode == 0, adopted.stdout + adopted.stderr
+    execution = json.loads(
+        next(Path(synthetic_upgrade["plan"]).parent.glob("execution-plan-*.json"))
+        .read_text(encoding="utf-8")
+    )
+    run_dir = (
+        Path(synthetic_upgrade["consumer"])
+        / ".wiki-viva/upgrade/runs"
+        / execution["plan_sha256"][:16]
+    )
+    state = json.loads((run_dir / "state.json").read_text(encoding="utf-8"))
+    receipt = json.loads(
+        (run_dir / "adoption-receipt.json").read_text(encoding="utf-8")
+    )
+    private_report = json.loads(
+        (run_dir / "migration-report.private.json").read_text(encoding="utf-8")
+    )
+    public_report_text = (run_dir / "migration-report.public.json").read_text(
+        encoding="utf-8"
+    )
+    c3_paths = {item["path"] for item in execution["boundaries"]["C3"]}
+    assert {
+        "wiki.config.yaml",
+        "memorias/sistema/wiki/comandos.md",
+        "docs/referencias/releases/rc-sintetico.md",
+    }.issubset(c3_paths)
+    assert state["schema_version"] == "wiki_viva_upgrade_runner_state.v4"
+    assert receipt["schema_version"] == "wiki_viva_upgrade_adoption_receipt.v4"
+    assert private_report["schema_version"] == "wiki_viva_upgrade_runner_report.v3"
+    assert {
+        state["consumer_c3_authority_sha256"],
+        receipt["consumer_c3_authority_sha256"],
+        private_report["consumer_c3_authority_sha256"],
+    } == {authority_sha256}
+    assert "memorias/sistema/wiki/comandos.md" not in public_report_text
+    assert "docs/referencias/releases/rc-sintetico.md" not in public_report_text
+
+
+def test_localized_arbitrary_domain_path_still_escalates_to_full_lane_a(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    _localize_consumer_b0(synthetic_upgrade)
+    plan = _create_plan(synthetic_upgrade, "memorias/pessoal/dado-real.md")
+    assert plan["consumer_c3_authority"]["layout"]["memory_root"] == "memorias"
+    assert plan["status"] == "requires_lane_a"
+    assert plan["selection"]["escalation"] == "unknown_impact_full_lane"
+    assert plan["selection"]["unknown_paths"] == [
+        "memorias/pessoal/dado-real.md"
+    ]
 
 
 def test_unknown_impact_selects_full_matrix_and_blocks_adopt_until_lane_a(
@@ -1427,8 +2219,92 @@ def test_resume_after_mid_c2_failure_keeps_consumer_at_clean_recorded_phase(
     assert _git(consumer, "rev-parse", "HEAD") == mutation_state["commits"]["C1"]
     assert _git(consumer, "status", "--porcelain=v1", "--untracked-files=all") == ""
 
+    extra_field = copy.deepcopy(mutation_state)
+    extra_field["manual_evidence"] = {"status": "passed"}
+    mutation_state_path.write_text(json.dumps(extra_field), encoding="utf-8")
+    rejected_field = _run(
+        synthetic_upgrade,
+        *_adopt_args(synthetic_upgrade, resume=True),
+    )
+    assert rejected_field.returncode == 2
+    assert '"error_code": "stale_mutation_resume_state"' in rejected_field.stdout
+
+    extra_commit = copy.deepcopy(mutation_state)
+    extra_commit["commits"]["C2"] = "e" * 40
+    mutation_state_path.write_text(json.dumps(extra_commit), encoding="utf-8")
+    rejected_commit = _run(
+        synthetic_upgrade,
+        *_adopt_args(synthetic_upgrade, resume=True),
+    )
+    assert rejected_commit.returncode == 2
+    assert '"error_code": "stale_mutation_resume_state"' in rejected_commit.stdout
+
+    mutation_state_path.write_text(json.dumps(mutation_state), encoding="utf-8")
     resumed = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade, resume=True))
     assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+
+
+def test_resume_reexecutes_coherently_resealed_passed_gate(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    _create_plan(synthetic_upgrade)
+    paused = _run(
+        synthetic_upgrade,
+        *_adopt_args(synthetic_upgrade, pause_before_canary=True),
+    )
+    assert paused.returncode == 0, paused.stdout + paused.stderr
+    execution = json.loads(
+        next(Path(synthetic_upgrade["plan"]).parent.glob("execution-plan-*.json"))
+        .read_text(encoding="utf-8")
+    )
+    consumer = Path(synthetic_upgrade["consumer"])
+    c3_before = _git(consumer, "rev-parse", "HEAD")
+    run_dir = (
+        consumer
+        / ".wiki-viva/upgrade/runs"
+        / execution["plan_sha256"][:16]
+    )
+    state_path = run_dir / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    forged = b"coherently resealed fabricated result\n"
+    forged_sha256 = hashlib.sha256(forged).hexdigest()
+    (run_dir / "logs/audit.log").write_bytes(forged)
+    result = state["gate_results"]["audit"]
+    result["output_sha256"] = forged_sha256
+    process_console = next(
+        item
+        for item in result["_evidence"]["console"]
+        if item.get("capture") == "process_stdout_stderr"
+    )
+    process_console["sha256"] = canonical_sha256(
+        {
+            "kind": "captured_process_console",
+            "gate_id": "audit",
+            "subject_sha": result["subject_sha"],
+            "output_sha256": forged_sha256,
+        }
+    )
+    state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+
+    resumed = _run(
+        synthetic_upgrade,
+        *_adopt_args(synthetic_upgrade, resume=True),
+    )
+
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    assert '"event": "gate_revalidation_required"' in resumed.stderr
+    assert '"gate": "audit"' in resumed.stderr
+    assert (run_dir / "logs/audit.log").read_bytes() == b"audit\n"
+    after = json.loads(state_path.read_text(encoding="utf-8"))
+    revalidation = after["gate_results"]["audit"]["_resume_revalidation"]
+    assert revalidation == {
+        "attempt": 1,
+        "previous_output_sha256": forged_sha256,
+        "reason": "portable_external_execution_authority_absent",
+        "result": "reexecuted",
+    }
+    assert _git(consumer, "rev-parse", "HEAD") == c3_before
+    assert execution["identity"]["consumer_C3"] == c3_before
 
 
 def test_resume_rejects_stale_plan_manual_evidence_and_changed_c3(
@@ -1444,6 +2320,13 @@ def test_resume_rejects_stale_plan_manual_evidence_and_changed_c3(
     result = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade, resume=True))
     assert result.returncode == 2
     assert '"error_code": "stale_resume_plan"' in result.stdout
+
+    stale_c3_authority = copy.deepcopy(original)
+    stale_c3_authority["consumer_c3_authority_sha256"] = "d" * 64
+    state_path.write_text(json.dumps(stale_c3_authority), encoding="utf-8")
+    result = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade, resume=True))
+    assert result.returncode == 2
+    assert '"error_code": "stale_resume_consumer_c3_authority"' in result.stdout
 
     stale_command = copy.deepcopy(original)
     command_gate = sorted(stale_command["gate_results"])[0]
@@ -1545,7 +2428,7 @@ def test_plan_to_canary_budget_overrun_blocks_receipt_and_promotion(
     public_report = json.loads(
         (run_dir / "migration-report.public.json").read_text(encoding="utf-8")
     )
-    assert receipt["schema_version"] == "wiki_viva_upgrade_adoption_receipt.v3"
+    assert receipt["schema_version"] == "wiki_viva_upgrade_adoption_receipt.v4"
     assert receipt["status"] == "blocked"
     assert receipt["acceptance_budget"]["status"] == "exceeded"
     assert receipt["acceptance_budget"] == private_report["acceptance_budget"]
@@ -1731,6 +2614,37 @@ def test_forged_omission_unsafe_output_and_boundary_mixing_fail_closed(
     assert '"error_code": "boundary_ownership_mismatch"' in mixed.stdout
 
 
+def test_resealed_plan_rejects_forged_conceptual_diff_and_unknown_fields(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    original = _create_plan(synthetic_upgrade)
+    forged_diff = copy.deepcopy(original)
+    forged_diff["status"] = "ready"
+    forged_diff["conceptual_diff"]["summary"] = "fabricated operator preview"
+    forged_diff["plan_sha256"] = upgrade_runner._plan_digest(forged_diff)
+    Path(synthetic_upgrade["plan"]).write_text(
+        json.dumps(forged_diff, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    rejected_diff = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade))
+    assert rejected_diff.returncode == 2
+    assert (
+        '"error_code": "stale_or_forged_conceptual_diff"'
+        in rejected_diff.stdout
+    )
+
+    forged_shape = copy.deepcopy(original)
+    forged_shape["fabricated_evidence"] = {"status": "passed"}
+    forged_shape["plan_sha256"] = upgrade_runner._plan_digest(forged_shape)
+    Path(synthetic_upgrade["plan"]).write_text(
+        json.dumps(forged_shape, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    rejected_shape = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade))
+    assert rejected_shape.returncode == 2
+    assert '"error_code": "invalid_plan_shape"' in rejected_shape.stdout
+
+
 def test_malformed_acceptance_budget_is_rejected_before_consumer_mutation(
     synthetic_upgrade: dict[str, Path | str],
 ) -> None:
@@ -1751,6 +2665,41 @@ def test_malformed_acceptance_budget_is_rejected_before_consumer_mutation(
     assert '"error_code": "invalid_acceptance_budget"' in result.stdout
     assert _git(consumer, "rev-parse", "HEAD") == b0
     assert _git(consumer, "rev-list", "--count", "HEAD") == commit_count
+    output_root = Path(synthetic_upgrade["plan"]).parent
+    assert not list(output_root.glob("execution-plan-*.json"))
+    assert not list(output_root.glob("mutation-state-*.json"))
+
+
+def test_resealed_fabricated_preflight_cannot_reuse_original_acceptance_anchor(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    plan = _create_plan(synthetic_upgrade)
+    consumer = Path(synthetic_upgrade["consumer"])
+    b0 = _git(consumer, "rev-parse", "HEAD")
+    result = plan["preflight"]["results"][0]
+    fabricated = b"fabricated preflight evidence\n"
+    (consumer / result["output_ref"]).write_bytes(fabricated)
+    result["output_sha256"] = hashlib.sha256(fabricated).hexdigest()
+    result["output_bytes"] = len(fabricated)
+    unsigned_preflight = dict(plan["preflight"])
+    unsigned_preflight.pop("preflight_sha256")
+    plan["preflight"]["preflight_sha256"] = canonical_sha256(
+        unsigned_preflight
+    )
+    plan["plan_sha256"] = upgrade_runner._plan_digest(plan)
+    Path(synthetic_upgrade["plan"]).write_text(
+        json.dumps(plan, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    rejected = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade))
+    assert rejected.returncode == 2
+    failure = json.loads(rejected.stdout)
+    assert failure["error_code"] in {
+        "acceptance_anchor_attempt_mismatch",
+        "invalid_acceptance_anchor",
+    }
+    assert _git(consumer, "rev-parse", "HEAD") == b0
     output_root = Path(synthetic_upgrade["plan"]).parent
     assert not list(output_root.glob("execution-plan-*.json"))
     assert not list(output_root.glob("mutation-state-*.json"))
@@ -2009,6 +2958,9 @@ def test_upgrade_command_is_versioned_and_only_safe_verifier_is_operator_allowed
         ["python3", "scripts/wiki_upgrade.py", "verify-rollback-report", "--check"]
     )
     assert not is_allowed_argv(["python3", "scripts/wiki_upgrade.py", "certify"])
+    assert not is_allowed_argv(
+        ["python3", "scripts/wiki_upgrade.py", "verify-capsule"]
+    )
     assert not is_allowed_argv(["python3", "scripts/wiki_upgrade.py", "plan"])
     assert not is_allowed_argv(["python3", "scripts/wiki_upgrade.py", "adopt"])
     for relative in (

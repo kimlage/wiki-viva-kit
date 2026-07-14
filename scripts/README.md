@@ -152,7 +152,10 @@ The v8 downstream release flow is read-only by default:
   `upstream_certified` commands on one clean, releasable public source SHA,
   probes the real toolchain, binds a public visual manifest and emits a verified
   capsule, certification receipt, external attestation trust anchor and
-  self-contained authority bundle. Consumer-owned `background_certification`
+  self-contained authority bundle. `verify-capsule` independently reopens that
+  exact sealed authority with the out-of-band attestation SHA-256, recomputes
+  package, portable tree, registry, toolchain, visual records, gate outputs and
+  certification receipt, and emits only a path-free public summary. Consumer-owned `background_certification`
   gates remain in Lane B and resume from the exact post-canary consumer handoff;
   they are never executed or packaged by `certify`. The CLI is
   intentionally v3-only; in-flight v1/v2 packages retain their original full
@@ -164,6 +167,29 @@ The v8 downstream release flow is read-only by default:
   launches Chromium and reports both the Playwright package and live engine
   versions. Diagnostic stdout is never sufficient authority without the
   capsule, receipt and externally trusted attestation digest.
+- [wiki_visual_evidence.py](wiki_visual_evidence.py) builds and serves one clean
+  exact-source checkout, launches its installed Playwright Chromium and captures
+  exactly the package-declared public `/demo` visual profiles. The create-once
+  bundle keeps a sorted v1 manifest plus one digest-bound capture record per
+  profile; records contain only source/package/browser identity, strict PNG
+  metadata and count-only console/network summaries. Output must be external or
+  Git-ignored. `verify` reopens every image and record, rejects extra files,
+  symlinks, hardlinks, encoded private routes, source/toolchain drift and any
+  missing, duplicate or undeclared profile before Lane A certification stages
+  the authority:
+
+  ```sh
+  python3 scripts/wiki_visual_evidence.py capture \
+    --package /path/to/upgrade-package.yaml \
+    --source-root /path/to/exact-release-worktree \
+    --source-sha "$SOURCE_SHA" \
+    --out-dir /external/ignored/visual-evidence
+  python3 scripts/wiki_visual_evidence.py verify \
+    --package /path/to/upgrade-package.yaml \
+    --source-root /path/to/exact-release-worktree \
+    --source-sha "$SOURCE_SHA" \
+    --visual-root /external/ignored/visual-evidence
+  ```
 - [wiki_semantic_inventory.py](wiki_semantic_inventory.py) independently proves
   that authored YAML events and relations equal closure, temporal and graph
   read models without publishing page identities.

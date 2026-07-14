@@ -1,5 +1,5 @@
 schema_version: wiki_viva_upgrade_impact_registry.v1
-registry_version: 1.1.0
+registry_version: 1.2.0
 
 unknown_policy:
   path: full_matrix_and_lane_a
@@ -41,7 +41,7 @@ gate_catalog:
     command: git diff --check
   - id: frontend
     class: upstream_certified
-    command: npm --prefix apps/wiki-cockpit test
+    command: npm --prefix apps/wiki-cockpit test -- --reporter=tap
   - id: frontend_focused
     class: affected
     command: npm --prefix apps/wiki-cockpit test
@@ -74,7 +74,7 @@ gate_catalog:
     command: python3 scripts/wiki_page_graph.py --check
   - id: portable_python
     class: upstream_certified
-    command: python3 -m pytest tests/
+    command: python3 -m pytest -q tests/
   - id: private_pytest
     class: background_certification
     command: python3 -m pytest tests/
@@ -169,8 +169,11 @@ surfaces:
     path_patterns:
       - .skills/*/**
       - AGENTS.md
+    configured_path_roles:
+      - command_reference_page
     contracts:
       - wiki_consumer_agent_routing.v1
+      - wiki_consumer_command_reference.v1
     gates:
       - adapter_identity
       - audit
@@ -210,6 +213,8 @@ surfaces:
     lane: lane_b
     path_patterns:
       - docs/references/releases/**
+    configured_path_roles:
+      - release_records
     contracts:
       - wiki_consumer_release_record.v1
     gates:
@@ -250,7 +255,10 @@ surfaces:
     lane: lane_b
     path_patterns:
       - memories/**
+    configured_path_roles:
+      - operational_pass_page
     contracts:
+      - wiki_consumer_operational_pass.v1
       - wiki_content.v1
       - wiki_page_frontmatter.v6
     gates:
@@ -381,7 +389,6 @@ boundary_policy:
     - AGENTS.md
     - adapters/**
     - apps/wiki-cockpit/public/wiki-cockpit.config.json
-    - docs/references/releases/**
     - requirements.txt
     - tests/**
     - wiki.adapter-manifest.json
@@ -392,10 +399,14 @@ boundary_policy:
     - wiki.targets.yaml
     - wiki.templates.local.yaml
     - wiki.templates.yaml
+  configured_c3_roles:
+    - command_reference_page
+    - operational_pass_page
+    - release_records
   domain_content_patterns:
     - data/raw/**
     - memorias/**
     - memories/**
     - private/**
 
-registry_sha256: ccd3f53eee8ccf3328a820dfe9e2a6c73f1056a9e54a0d88b3380d0224e70629
+registry_sha256: 663ab77840d43011856dc79a3c3f718cb3da874e179600a99a668e5e47572315

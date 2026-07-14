@@ -599,7 +599,7 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     assert pkg["release"]["status"] == "validation_pending"
     releasable = copy.deepcopy(pkg)
     releasable["release"]["status"] = "release_candidate"
-    assert package_is_pinned(releasable) is True
+    assert package_is_pinned(releasable) is (release_id != "unreleased")
     assert subprocess.run(
         ["git", "cat-file", "-e", f"{source_sha}^{{commit}}"],
         cwd=ROOT,
@@ -631,15 +631,18 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
         "asset_manifest": "wiki_cockpit_asset_manifest.v1",
         "downstream_adapter_manifest": "wiki_downstream_adapter_manifest.v1",
     }
+    v3_contracts = {
+        **v2_contracts,
+        "consumer_c3_authority": "wiki_viva_upgrade_consumer_c3_authority.v1",
+    }
     if pkg["schema_version"] == "wiki_viva_upgrade_package.v1":
         assert source_sha == "dbd158a482dca20ab823968467fec931d67ca050"
         assert pkg["contract_versions"] == legacy_contracts
-    else:
-        assert pkg["schema_version"] in {
-            UPGRADE_PACKAGE_SCHEMA_VERSION,
-            TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
-        }
+    elif pkg["schema_version"] == UPGRADE_PACKAGE_SCHEMA_VERSION:
         assert pkg["contract_versions"] == v2_contracts
+    else:
+        assert pkg["schema_version"] == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION
+        assert pkg["contract_versions"] == v3_contracts
     assert pkg["migration"]["visual_profiles"] == [
         "desktop",
         "mobile",
@@ -2417,7 +2420,13 @@ def test_private_consumer_uses_ignored_unredacted_authoritative_preflight(
 
 def test_localized_release_record_is_allowed_but_secret_content_is_blocked(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
+    # Public export scans the complete report, including Git-derived IDs. Keep
+    # this synthetic history deterministic so a random commit digest cannot
+    # intermittently contain a checksum-valid CPF/CNPJ-shaped digit run.
+    monkeypatch.setenv("GIT_AUTHOR_DATE", "2000-01-01T00:00:00Z")
+    monkeypatch.setenv("GIT_COMMITTER_DATE", "2000-01-01T00:00:00Z")
     kit, target, _initial = make_matching_repos(tmp_path)
     generated_source = kit / "tests/generated/state.json"
     generated_source.parent.mkdir(parents=True)

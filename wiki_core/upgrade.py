@@ -27,7 +27,8 @@ from wiki_core.detectors import scan_text
 
 UPGRADE_PACKAGE_SCHEMA_VERSION = "wiki_viva_upgrade_package.v2"
 TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION = "wiki_viva_upgrade_package.v3"
-BOUNDARY_OPERATIONS_SCHEMA_VERSION = "wiki_viva_upgrade_boundary_operations.v1"
+BOUNDARY_OPERATIONS_SCHEMA_VERSION = "wiki_viva_upgrade_boundary_operations.v2"
+CONFIG_BOUND_C3_POLICY_SCHEMA_VERSION = "wiki_viva_config_bound_c3_policy.v1"
 LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION = "wiki_viva_upgrade_package.v1"
 CONSUMER_INVENTORY_SCHEMA_VERSION = "wiki_viva_consumer_inventory.v1"
 PREFLIGHT_SCHEMA_VERSION = "wiki_viva_upgrade_preflight.v1"
@@ -45,6 +46,38 @@ UPGRADE_GATE_CLASSES = {
     "background_certification",
 }
 UPGRADE_GATE_REUSE_POLICIES = {"exact_capsule", "impact", "never"}
+
+# These are the only domain-root exceptions a certified v3 package may derive
+# from a consumer's B0 configuration.  Keeping the complete role contract here
+# prevents a package from turning an arbitrary config key into a broad C3
+# ownership escape hatch.
+CONFIG_BOUND_C3_ROLE_SPECS = (
+    {
+        "id": "command_reference_page",
+        "kind": "exact_markdown",
+        "path_key": "command_reference_page",
+        "impact_contract": "wiki_consumer_command_reference.v1",
+        "mode": "100644",
+        "suffix": ".md",
+    },
+    {
+        "id": "operational_pass_page",
+        "kind": "exact_markdown",
+        "path_key": "operational_pass_page",
+        "impact_contract": "wiki_consumer_operational_pass.v1",
+        "mode": "100644",
+        "suffix": ".md",
+    },
+    {
+        "id": "release_records",
+        "kind": "inert_markdown_subtree",
+        "path_key": "references_root",
+        "subtree": "releases",
+        "impact_contract": "wiki_consumer_release_record.v1",
+        "mode": "100644",
+        "suffix": ".md",
+    },
+)
 # Capabilities are policy identities.  A package cannot evade a current-
 # consumer invariant by renaming its gate.
 NEVER_REUSABLE_GATE_ASSERTIONS = {
@@ -727,7 +760,12 @@ def _validate_two_lane_package(
         c3: Mapping[str, Any] = {}
     else:
         c3 = c3_value
-    if c3 and set(c3) != {"mode", "contract", "owns_patterns"}:
+    if c3 and set(c3) != {
+        "mode",
+        "contract",
+        "owns_patterns",
+        "configured_ownership",
+    }:
         errors.append(
             "migration.boundary_operations.c3_adapter has unknown or missing fields"
         )
@@ -753,6 +791,49 @@ def _validate_two_lane_package(
                 "migration.boundary_operations.c3_adapter."
                 f"owns_patterns[{index}] is unsafe"
             )
+
+    configured_value = c3.get("configured_ownership")
+    if not isinstance(configured_value, Mapping):
+        errors.append(
+            "migration.boundary_operations.c3_adapter.configured_ownership "
+            "must be a mapping"
+        )
+        configured: Mapping[str, Any] = {}
+    else:
+        configured = configured_value
+    if configured and set(configured) != {
+        "schema_version",
+        "config_path",
+        "roles",
+    }:
+        errors.append(
+            "migration.boundary_operations.c3_adapter.configured_ownership "
+            "has unknown or missing fields"
+        )
+    if (
+        configured.get("schema_version")
+        != CONFIG_BOUND_C3_POLICY_SCHEMA_VERSION
+    ):
+        errors.append(
+            "migration.boundary_operations.c3_adapter.configured_ownership."
+            "schema_version is invalid"
+        )
+    if configured.get("config_path") != "wiki.config.yaml":
+        errors.append(
+            "migration.boundary_operations.c3_adapter.configured_ownership."
+            "config_path must be wiki.config.yaml"
+        )
+    configured_roles = configured.get("roles")
+    if not isinstance(configured_roles, list):
+        errors.append(
+            "migration.boundary_operations.c3_adapter.configured_ownership.roles "
+            "must be a list"
+        )
+    elif configured_roles != list(CONFIG_BOUND_C3_ROLE_SPECS):
+        errors.append(
+            "migration.boundary_operations.c3_adapter.configured_ownership.roles "
+            "must declare the exact fail-closed role contract"
+        )
     if set(str(value) for value in c3_patterns).intersection(generated_owners):
         errors.append("migration.boundary_operations C2 and C3 ownership overlaps")
 
@@ -832,17 +913,26 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
         "asset_manifest",
         "downstream_adapter_manifest",
     )
+    v3_contracts = ("consumer_c3_authority",)
     required_contracts = (
-        (*legacy_contracts, *v2_contracts)
-        if schema_version in {
-            UPGRADE_PACKAGE_SCHEMA_VERSION,
-            TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
-        }
+        (*legacy_contracts, *v2_contracts, *v3_contracts)
+        if schema_version == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION
+        else (*legacy_contracts, *v2_contracts)
+        if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION
         else legacy_contracts
     )
     for field in required_contracts:
         if not str(schemas.get(field) or "").strip():
             errors.append(f"contract_versions.{field} is required")
+    if (
+        schema_version == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION
+        and schemas.get("consumer_c3_authority")
+        != "wiki_viva_upgrade_consumer_c3_authority.v1"
+    ):
+        errors.append(
+            "contract_versions.consumer_c3_authority must be "
+            "wiki_viva_upgrade_consumer_c3_authority.v1"
+        )
     compatibility = _require_list(package.get("compatibility"), "compatibility", errors)
     for index, entry in enumerate(compatibility):
         row = _require_mapping(entry, f"compatibility[{index}]", errors)

@@ -200,8 +200,14 @@
         "experience_pack_lock",
         "experience_pack_composition",
         "asset_manifest",
-        "downstream_adapter_manifest"
-      ]
+        "downstream_adapter_manifest",
+        "consumer_c3_authority"
+      ],
+      "properties": {
+        "consumer_c3_authority": {
+          "const": "wiki_viva_upgrade_consumer_c3_authority.v1"
+        }
+      }
     },
     "portableImport": {
       "type": "object",
@@ -617,7 +623,7 @@
       ],
       "properties": {
         "schema_version": {
-          "const": "wiki_viva_upgrade_boundary_operations.v1"
+          "const": "wiki_viva_upgrade_boundary_operations.v2"
         },
         "c2_generators": {
           "type": "array",
@@ -632,7 +638,8 @@
           "required": [
             "mode",
             "contract",
-            "owns_patterns"
+            "owns_patterns",
+            "configured_ownership"
           ],
           "properties": {
             "mode": {
@@ -649,12 +656,86 @@
               "items": {
                 "$ref": "#/$defs/pathPattern"
               }
+            },
+            "configured_ownership": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "schema_version",
+                "config_path",
+                "roles"
+              ],
+              "properties": {
+                "schema_version": {
+                  "const": "wiki_viva_config_bound_c3_policy.v1"
+                },
+                "config_path": {
+                  "const": "wiki.config.yaml"
+                },
+                "roles": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 3,
+                  "prefixItems": [
+                    {
+                      "$ref": "#/$defs/commandReferenceC3Role"
+                    },
+                    {
+                      "$ref": "#/$defs/operationalPassC3Role"
+                    },
+                    {
+                      "$ref": "#/$defs/releaseRecordsC3Role"
+                    }
+                  ],
+                  "items": false
+                }
+              }
             }
           }
         },
         "registry_sha256": {
           "$ref": "#/$defs/sha256"
         }
+      }
+    },
+    "commandReferenceC3Role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path_key", "impact_contract", "mode", "suffix"],
+      "properties": {
+        "id": {"const": "command_reference_page"},
+        "kind": {"const": "exact_markdown"},
+        "path_key": {"const": "command_reference_page"},
+        "impact_contract": {"const": "wiki_consumer_command_reference.v1"},
+        "mode": {"const": "100644"},
+        "suffix": {"const": ".md"}
+      }
+    },
+    "operationalPassC3Role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path_key", "impact_contract", "mode", "suffix"],
+      "properties": {
+        "id": {"const": "operational_pass_page"},
+        "kind": {"const": "exact_markdown"},
+        "path_key": {"const": "operational_pass_page"},
+        "impact_contract": {"const": "wiki_consumer_operational_pass.v1"},
+        "mode": {"const": "100644"},
+        "suffix": {"const": ".md"}
+      }
+    },
+    "releaseRecordsC3Role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path_key", "subtree", "impact_contract", "mode", "suffix"],
+      "properties": {
+        "id": {"const": "release_records"},
+        "kind": {"const": "inert_markdown_subtree"},
+        "path_key": {"const": "references_root"},
+        "subtree": {"const": "releases"},
+        "impact_contract": {"const": "wiki_consumer_release_record.v1"},
+        "mode": {"const": "100644"},
+        "suffix": {"const": ".md"}
       }
     },
     "acceptanceBudgetPolicy": {
