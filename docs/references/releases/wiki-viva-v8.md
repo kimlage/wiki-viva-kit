@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc26 validation source pinned - rc25 historical"
+title: "Wiki Viva v8 rc26 validated local-QA candidate - certification pending"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc26 validation source pinned - rc25 historical
+# Wiki Viva v8 rc26 validated local-QA candidate - certification pending
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -84,25 +84,39 @@ anchor, attestation or Lane B authority exists. Rc25 is immutable
 `historical_validation_failed` and must never be retried, relabeled, promoted,
 imported or used to mint missing authority.
 
-## Rc26 exact validation source — pinned, not a candidate
+## Rc26 exact source — validated local-QA candidate, capture pending
 
 `wiki-viva-v8-rc26` carries the public synthetic fixes for the three rc25
-failures and is pinned only for exact validation to source
-`da3a9a0495db974e409f5af6413401c31851e071`. Status remains
-`validation_pending`, so `package_is_pinned=false`: no plan, import, capture or
-certification authority exists. Exact validation must finish first; only a
-later separately reviewed candidate metadata boundary may authorize a fresh
-strict browser proof, productive four-profile capture and one Lane A
-certification. No green rc25 sibling result is reusable.
+failures at exact source
+`da3a9a0495db974e409f5af6413401c31851e071`. The complete validation ran on
+metadata subject `7afa7ece276197c3e7dc746dfa35c17990687ed4`: 1,728 Python
+tests passed with 3 declared skips and 2 warnings in 1,193.34 seconds; 516
+frontend tests, 115 Node gates and the complete static/audit/build stack
+passed. The first and only strict browser run,
+`public-mrkxrlvb-620f3776-799d-4c2e-a748-ae6110e5000d`, passed 102/102 cells
+with 0 skips and 0 retries in 6.2 minutes while the subject stayed clean and
+exact. Its run-result, gate-result and Playwright-report SHA-256 values are
+`e638a1f54e2a2bc6fb46aec053ace9c9601903670784d10826e053257249a84c`,
+`59772cbd9ba98f35c507dafd54bd36cd464264085ae1f16fefbbe3f6a7553e0a`
+and `12c6e2a0deae9309979241326af203dc1888392aebfc8229a7a7bbf08efb1ddc`.
+No green rc25 sibling result was reused.
 
-The validation-pending package file SHA-256 is
+The validation-pending package file SHA-256 was
 `f5e73c17547a477cc9ba1b4303b17af23d7141b697659a177287e5f2fd8cd35c`,
-its canonical package identity is
+its canonical package identity was
 `2266b30d60566b21d49103e7bbb258e12291a7dafe0d4f61b1564d0d9873e33c`,
-and the exact 521-entry portable tree is
+and its exact 521-entry portable tree was
 `24d3f0f79e65d00f4b9fe3b1bec4947044aa32ede7d445033ffb25b5e47c402e`.
-These identities are validation-only evidence and will change if package
-status or semantics change.
+The separately reviewed local-QA `candidate` package file SHA-256 is
+`f2f384e57992fa94d334d0e87bdd87895a9e1ce0c9937532b58cfb6bb7e824b4`,
+its canonical package identity is
+`73cbca1b9fc514656603eb5a637e6bb193567cfbd965853c03641a6668333c64`,
+and its exact 521-entry portable tree is
+`b27fbe273055781bc0171fdb3578c2b24634f2ce33fba91d68439c0d36e52804`.
+`package_is_pinned=true` now permits the next Lane A stage; it does not mint
+adoption authority. Productive capture, visual manifest, certification
+capsule, attestation, certification receipt, independent verification,
+downstream QA, remote CI, human review and promotion all remain pending.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -207,8 +221,8 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Any future rc26 publication still requires exact validation, a separate
-candidate metadata boundary, new capture and certification, explicit
+Any future rc26 publication still requires new capture and certification,
+independent capsule verification, explicit
 authorization, remote public CI,
 human conceptual/privacy/VoiceOver review and merge, followed by a separately
 reviewed promotion boundary that can mint production Lane A release authority.

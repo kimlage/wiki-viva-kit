@@ -97,10 +97,13 @@ another) via skills — there is no embedded LLM client.
   validation with 1,708 passed, 3 skips and 5 public synthetic contract
   failures; the strict browser matrix was not started and no candidate,
   capture or capsule exists. Rc25 is immutable
-  `historical_validation_failed`. Rc26 is pinned only for exact validation to
-  source `da3a9a0495db974e409f5af6413401c31851e071`; status remains
-  `validation_pending`, so candidate review, a new capture and certification
-  are mandatory before any adoption authority exists.
+  `historical_validation_failed`. Rc26 exact source
+  `da3a9a0495db974e409f5af6413401c31851e071` passed the complete local
+  deterministic and first-attempt 102/102 strict-browser validation at
+  metadata subject `7afa7ece276197c3e7dc746dfa35c17990687ed4`; it is now a
+  local-QA `candidate`. Candidate status alone is not adoption authority: a
+  new productive capture, certification capsule and independent verification
+  are mandatory before any downstream v3 plan.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must

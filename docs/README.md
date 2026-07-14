@@ -96,10 +96,12 @@ starting point for persistent context is `memories/`.
   validation with 1,708 passed, 3 skips and 5 public synthetic contract
   failures; its strict browser matrix was not started and no candidate,
   capture or capsule exists. Rc25 is immutable
-  `historical_validation_failed`. Rc26 is pinned only for exact validation to
-  source `da3a9a0495db974e409f5af6413401c31851e071`; status remains
-  `validation_pending`, so candidate review, a new capture and certification
-  remain mandatory.
+  `historical_validation_failed`. Rc26 exact source
+  `da3a9a0495db974e409f5af6413401c31851e071` passed the complete local
+  deterministic and 102/102 first-attempt strict-browser validation at
+  metadata subject `7afa7ece276197c3e7dc746dfa35c17990687ed4` and is now a
+  local-QA `candidate`. A new productive capture, certification and independent
+  capsule verification remain mandatory before downstream adoption.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

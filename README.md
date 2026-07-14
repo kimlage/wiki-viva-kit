@@ -34,13 +34,12 @@ empty void and watch the interface materialize block by block), the **full
 world**, or complete **Study/Research** and **Personal Finance** pack
 showcases.
 
-The unified v8 runtime is currently a local validation candidate, not a
+The unified v8 runtime is currently a validated local-QA candidate, not a
 published consumer release. See the
 [v8 release note](docs/references/releases/wiki-viva-v8.md) for the exact
 remaining gates. An exact `source_sha` alone is not adoption authority: do not
-migrate a downstream repo until `validation_pending` is separately promoted
-through the public human gate and a production Lane A capsule verifies
-fail-closed.
+migrate a downstream repo until a production Lane A capsule verifies
+fail-closed and the release passes the separate public human/promotion gate.
 
 ## Registered views, one world
 
@@ -289,10 +288,12 @@ or imported. Rc25 exact source
 `c741e3d0ad409ac9baea8b136e3819952bb0657b` then failed its first complete
 validation with 1,708 passed, 3 skips and 5 public synthetic contract failures;
 the strict browser matrix was not started and no candidate, capture or capsule
-exists. Rc25 is immutable `historical_validation_failed`. Rc26 is pinned only
-for exact validation to source
-`da3a9a0495db974e409f5af6413401c31851e071`; status remains
-`validation_pending`, so candidate review, a new capture and certification
+exists. Rc25 is immutable `historical_validation_failed`. Rc26 exact source
+`da3a9a0495db974e409f5af6413401c31851e071` passed 1,728 Python, 516
+frontend, 115 Node, the complete static stack and 102/102 first-attempt strict
+browser cells at validation subject
+`7afa7ece276197c3e7dc746dfa35c17990687ed4`. It is a local-QA `candidate`,
+but new productive capture, certification and independent capsule verification
 remain mandatory before any adoption authority exists.
 No existing v2 C3 or receipt is amended to reach it.
 
