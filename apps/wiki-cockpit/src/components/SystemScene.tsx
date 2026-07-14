@@ -1691,14 +1691,53 @@ export function SystemScene({
     [activeLayoutMotionState.morph]
   );
   const [settledSpatialMotionSequence, setSettledSpatialMotionSequence] = useState(sceneTransition.sequence);
-  const markSpatialMotionSettled = useCallback((sequence: number) => {
-    if (sequence === sceneTransition.sequence) setSettledSpatialMotionSequence(sequence);
+  const spatialSettlePaintFrame = useRef<number | null>(null);
+  const latestSpatialMotion = useRef({ sequence: sceneTransition.sequence, morph });
+  useLayoutEffect(() => {
+    latestSpatialMotion.current = { sequence: sceneTransition.sequence, morph };
+  }, [morph, sceneTransition.sequence]);
+  const scheduleSpatialMotionSettled = useCallback((sequence: number, subjectMorph: React.RefObject<MorphState>) => {
+    const latest = latestSpatialMotion.current;
+    if (latest.sequence !== sequence || latest.morph !== subjectMorph || subjectMorph.current?.active) return;
+    if (spatialSettlePaintFrame.current !== null) {
+      window.cancelAnimationFrame(spatialSettlePaintFrame.current);
+    }
+    // MorphCompletion proves every R3F subscriber sampled the terminal
+    // coordinate. Keep the interaction cue for two browser frames as well so
+    // drei Html transforms cross a real style/layout/paint boundary before
+    // elementFromPoint or a fast real click can target them.
+    const firstPaintFrame = window.requestAnimationFrame(() => {
+      if (spatialSettlePaintFrame.current !== firstPaintFrame) return;
+      const secondPaintFrame = window.requestAnimationFrame(() => {
+        if (spatialSettlePaintFrame.current !== secondPaintFrame) return;
+        spatialSettlePaintFrame.current = null;
+        const current = latestSpatialMotion.current;
+        if (current.sequence !== sequence || current.morph !== subjectMorph || subjectMorph.current?.active) return;
+        setSettledSpatialMotionSequence(sequence);
+      });
+      spatialSettlePaintFrame.current = secondPaintFrame;
+    });
+    spatialSettlePaintFrame.current = firstPaintFrame;
+  }, []);
+  const markSpatialMotionSettled = useCallback((_sequence: number) => {
+    const latest = latestSpatialMotion.current;
+    // A completion from the previous R3F root is only a signal to inspect the
+    // latest committed transaction. If both roots briefly share the morph and
+    // the stale callback made it inactive, settle the latest sequence instead
+    // of leaving its interaction cue locked forever.
+    scheduleSpatialMotionSettled(latest.sequence, latest.morph);
+  }, [scheduleSpatialMotionSettled]);
+  useEffect(() => () => {
+    if (spatialSettlePaintFrame.current !== null) {
+      window.cancelAnimationFrame(spatialSettlePaintFrame.current);
+      spatialSettlePaintFrame.current = null;
+    }
   }, [sceneTransition.sequence]);
   useEffect(() => {
     if (!activeLayoutMotionState.morph.active) {
-      setSettledSpatialMotionSequence(sceneTransition.sequence);
+      scheduleSpatialMotionSettled(sceneTransition.sequence, morph);
     }
-  }, [activeLayoutMotionState.morph, sceneTransition.sequence]);
+  }, [activeLayoutMotionState.morph, morph, sceneTransition.sequence, scheduleSpatialMotionSettled]);
   const spatialMotionSettled = settledSpatialMotionSequence === sceneTransition.sequence;
   const cameraTravelVia = activeLayoutMotionState.cameraTravelVia;
 
