@@ -296,6 +296,35 @@ def test_project_v3_blocks_every_c2_pattern_from_effective_c1() -> None:
         )
 
 
+def test_manual_v2_evidence_example_is_not_bound_to_project_v3_release() -> None:
+    example_path = (
+        ROOT
+        / "docs/references/upgrades/wiki-viva-v8/migration-evidence.example.yaml"
+    )
+    example_text = example_path.read_text(encoding="utf-8")
+    example = load_mapping(example_path)
+    package = load_mapping(
+        ROOT / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+    )
+
+    assert example["schema_version"] == "wiki_viva_migration_evidence.v2"
+    assert package["schema_version"] == "wiki_viva_upgrade_package.v3"
+    assert example["source"] == {
+        "release": "HISTORICAL_V2_RELEASE_ID",
+        "sha": "REPLACE_WITH_HISTORICAL_V2_PINNED_PUBLIC_SHA",
+        "plan": "docs/references/proposals/HISTORICAL_V2_PLAN.md",
+    }
+    assert package["release"]["id"] not in example_text
+    assert re.search(r"wiki-viva-v8-rc\d+", example_text) is None
+    assert example["downstream_adaptations"][0] == (
+        "docs/references/releases/HISTORICAL_V2_RELEASE_RECORD.md"
+    )
+    assert "HISTORICAL REFERENCE ONLY" in example_text
+    assert "manual v2 migration-evidence template" in example_text
+    assert "New v3 adoptions MUST NOT hand-author or copy this file" in example_text
+    assert "python3 scripts/wiki_upgrade.py adopt" in example_text
+
+
 def test_project_v3_keeps_operational_pass_current_in_every_consumer() -> None:
     package = load_mapping(
         ROOT / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"

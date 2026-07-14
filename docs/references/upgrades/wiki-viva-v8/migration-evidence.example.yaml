@@ -1,6 +1,15 @@
-# Copy this file into the consumer PR and replace every placeholder with
-# evidence from that repository. The public package intentionally does not
-# contain real private paths, SHAs, routes or screenshots.
+# HISTORICAL REFERENCE ONLY: this is the manual v2 migration-evidence template.
+# It is not evidence for the current v3 package or for any current release, and
+# a v2 adoption already in progress must preserve its original package/runbook.
+# Copy it only when reconstructing that historical manual v2 workflow, then
+# replace every placeholder with evidence from that repository. The public
+# template intentionally contains no real private paths, SHAs, routes or
+# screenshots.
+#
+# New v3 adoptions MUST NOT hand-author or copy this file. Their evidence is
+# generated and verified fail-closed by the byte-equal runner invoked through:
+#   python3 scripts/wiki_upgrade.py adopt --plan <PLAN_JSON> --mode canary
+# Use --resume with the original anchors for an interrupted, unfinished run.
 #
 # v5 contract: all three commit boundaries are package-declared and mandatory;
 # consumer_before binds both configured roots to the authoritative preflight
@@ -13,9 +22,9 @@ evidence_context:
   validator_version: wiki_viva_upgrade_validator.v5
   captured_consumer_head: REPLACE_WITH_ADAPTATION_COMMIT_SHA
 source:
-  release: wiki-viva-v8-rc20
-  sha: REPLACE_WITH_PINNED_PUBLIC_SHA
-  plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
+  release: HISTORICAL_V2_RELEASE_ID
+  sha: REPLACE_WITH_HISTORICAL_V2_PINNED_PUBLIC_SHA
+  plan: docs/references/proposals/HISTORICAL_V2_PLAN.md
 consumer_before:
   repository: consumer-id
   branch: wiki/upgrade-v8
@@ -54,7 +63,7 @@ generated_artifacts:
 # below <references_root>/releases/**). The release record is authored in the
 # third commit; sibling reference paths are not adaptation surfaces.
 downstream_adaptations:
-  - docs/references/releases/wiki-viva-v8-rc20.md
+  - docs/references/releases/HISTORICAL_V2_RELEASE_RECORD.md
   - wiki.config.yaml
 local_overrides_kept:
   - wiki.config.yaml
