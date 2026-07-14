@@ -25,8 +25,8 @@ Node gates, both audits with 0 errors, methodology/operation/input/semantic,
 matrix contract. The integrated upgrade/security subset passed 375 tests with
 3 declared skips.
 
-The `wiki-viva-v8-rc22` `validation_pending` package SHA-256 is
-`20a92e19eba537acf411e5d9d01b65adad5f71ca8e7634e81cd6764d8d1e9e0c`;
+The local-QA `wiki-viva-v8-rc22` `candidate` package SHA-256 is
+`d7a6a005ee7a57658e4d40ebd3d589be5b9151b7d0b95adf0914bafd6b382797`;
 its 521-entry portable tree is
 `7e70e7b3f457374624e4ef2656deb131318336228b848706f2b38ff2954cfb03`.
 The command, impact and boundary-operation registry SHA-256 values are
@@ -36,9 +36,10 @@ and `f8ac0ad44fa0b29c3c0142fa86b8c62d0af060aa7b1b227d44183aadb3de573a`.
 The runner identity is
 `wiki-upgrade 1.3.0+payload.136b58c2dd34e7f473a59452eb7c1bd1becd0b64667981eb9aad707b493d803f`.
 
-These are local validation identities, not production release authority. No
-rc22 Lane A capsule, trusted production attestation, public push, remote CI,
-human merge or tag is claimed at this checkpoint. The current private v2
+These are local validation identities, not production release authority. The
+tracked `candidate` status can mint only a separately attested local
+downstream-QA capsule. No trusted production attestation, public push, remote
+CI, human merge or tag is claimed at this checkpoint. The current private v2
 receipts remain unchanged.
 
 ## Rc21 historical validation evidence — promotion prohibited
@@ -97,8 +98,8 @@ The rc21 package names the following exact portable contracts:
 The new `wiki_viva_upgrade_consumer_c3_authority.v1` contract belongs to rc22,
 never rc21. Exact rc22 source
 `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` binds that contract to public
-synthetic fixtures and the complete local stack, but remains
-`validation_pending` without a capsule; it inherits no rc21 status or receipt.
+synthetic fixtures and the complete local stack. Its tracked `candidate` status
+is local-QA-only and inherits no rc21 status or receipt.
 
 Any future rc22 publication still requires explicit authorization, remote
 public CI, human conceptual/privacy/VoiceOver review and merge, followed by a

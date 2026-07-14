@@ -32,13 +32,13 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: exact_source_local_validation_complete_package_unpinned
+      state: exact_source_local_qa_candidate
       drift_total: 0
       compared_against: wiki-viva-v8-rc22@7e72664f
-      worktree: exact_source_committed_package_validation_pending
+      worktree: exact_source_committed_candidate_local_qa_only
     upgrade_wave: public_kit
     status: blocked_on_public_release_promotion
-    blocker: Rc21 is frozen historical non-promotion evidence. Exact rc22 source 7e72664f passed the complete local deterministic stack, but its package remains validation_pending and cannot mint a Lane A capsule. Public push is not authorized in this execution. Remote CI and human conceptual/privacy/VoiceOver review must still approve the payload before any production promotion boundary. External E5 and a release tag remain separate
+    blocker: Rc21 is frozen historical non-promotion evidence. Exact rc22 source 7e72664f passed the complete local deterministic stack. Its tracked candidate status may mint only a separately attested local downstream-QA capsule; it grants no public release or production promotion. Public push is not authorized. Remote CI and human conceptual/privacy/VoiceOver review remain required. External E5 and a release tag remain separate
 
   - id: private-pilot-01
     repository:
@@ -73,8 +73,8 @@ consumers:
       target_version: wiki-viva-v8-rc22@7e72664f
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
-      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 and rc21 are retained as historical product evidence. Exact rc22 source 7e72664f is locally green but remains validation_pending; it becomes a v3 downstream-QA target only after a separately attested local capsule and a new read-only consumer preflight, never as a rewrite of v2
+      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 and rc21 are retained as historical product evidence. Exact rc22 source 7e72664f is a local-QA candidate only; it becomes a v3 downstream-QA target after its separate local attestation and a new read-only consumer preflight, never as a rewrite of v2
       verified_on: "2026-07-14"
     upgrade_wave: pilot
     status: blocked_on_public_release_promotion
-    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 is historical and rc22 remains validation_pending without a capsule, so v3 downstream QA requires separate local attestation plus a new consumer preflight and cannot authorize promotion. Historical candidates cannot authorize adoption. External E5 remains separate
+    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 is historical and rc22 is a local-QA candidate only, so v3 downstream QA requires separate local attestation plus a new consumer preflight and cannot authorize promotion. Historical candidates cannot authorize adoption. External E5 remains separate

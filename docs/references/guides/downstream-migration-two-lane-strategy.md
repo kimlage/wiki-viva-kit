@@ -551,10 +551,11 @@ distribution digest and a Chromium process launched by the recorded Playwright
 package; the portable probe is part of the runner payload closure. The command
 reference, schemas and negative controls cover those paths.
 
-This implementation evidence does **not** certify the current v8 release. Its
-versioned package remains `validation_pending`, so no production Lane A capsule
-or production v3 adoption receipt exists until the exact releasable public subject
-is certified and promoted through its own PR/human gate. The migration already
+This implementation evidence does **not** certify the current v8 release. The
+tracked `candidate` status exists only to mint a separately attested local
+downstream-QA capsule; no production Lane A capsule or production v3 adoption
+receipt exists until the exact public subject is promoted through its own
+PR/human gate. The migration already
 in flight remains on its complete v2 `migration.required_gates` matrix.
 
 The locally validated rc21 subject is now immutable historical
@@ -565,9 +566,9 @@ fail closed on executable/non-Markdown descendants. Rc21 must not be promoted,
 imported, relabeled or used to mint a capsule. Exact local rc22 source
 `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` contains the config-bound
 authority, productive visual capture and hardened resume/evidence controls and
-passed the complete local deterministic stack. Its package remains
-`validation_pending`; no rc22 capsule or adoption authority is claimed here,
-and public publication remains a separate human decision.
+passed the complete local deterministic stack. Its tracked `candidate` status
+is local-QA-only; no rc22 capsule is claimed at this pre-certification
+checkpoint, and public publication remains a separate human decision.
 
 ### Sanitized in-flight v2 checkpoint
 

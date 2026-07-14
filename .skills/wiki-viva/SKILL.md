@@ -218,8 +218,9 @@ ship the skeletons, so a generated page starts with the scaffold.
   receipt and report, and invalidate the attempt when it changes. Rc21 is
   historical non-promotional proof after downstream rehearsal exposed this
   missing boundary. Exact local rc22 source
-  `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` is its corrected successor, but
-  remains `validation_pending` without a Lane A capsule. Do not amend,
+  `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` is its corrected successor. Its
+  tracked `candidate` status authorizes only a separately attested local
+  downstream-QA capsule, never public release or production promotion. Do not amend,
   regenerate or reclassify any already sealed v2 C3 or receipt.
   Require direct single-parent B0->C1->C2->C3 edges;
   bind all four commits in receipt and state; recompute edge paths, modes and

@@ -167,9 +167,9 @@ authority and fail-closed release-record boundary, so rc20 and rc21 are both
 historical non-promotional subjects. Rc21 must not be promoted, imported,
 relabeled or used to mint a capsule. Exact local rc22 source
 `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` is the corrected subject and
-passed the complete local deterministic stack. Its package remains
-`validation_pending`; no rc22 capsule or production adoption authority is
-claimed here.
+passed the complete local deterministic stack. Its tracked `candidate` status
+is local-QA-only; no rc22 capsule or production adoption authority is claimed
+at this checkpoint.
 
 ### Normative Lane A -> Lane B handoff and fast-path budget
 
@@ -4762,16 +4762,16 @@ promoted, imported, relabeled or used to mint a capsule. Exact local rc22 source
 `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` now closes the implementation,
 public synthetic positive/negative fixtures, productive visual capture,
 fd-pinned evidence reads and hardened resume boundary. Its complete local stack
-is green. The package remains `validation_pending`; no capsule or production
-adoption receipt is claimed by this checkpoint. Public push and publication
-remain unauthorized.
+is green. The tracked `candidate` status exists only for a separately attested
+local downstream-QA capsule; no production adoption receipt is claimed by this
+checkpoint. Public push and publication remain unauthorized.
 
 #### Rc22 exact source checkpoint — 2026-07-14
 
 | Evidence | Exact local result | Authority boundary |
 |---|---|---|
 | Source | `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` | Committed locally; not pushed |
-| Package | `wiki-viva-v8-rc22`, `validation_pending`, SHA-256 `20a92e19eba537acf411e5d9d01b65adad5f71ca8e7634e81cd6764d8d1e9e0c` | Non-certifiable until an explicit local-QA promotion boundary |
+| Package | `wiki-viva-v8-rc22`, local-QA `candidate`, SHA-256 `d7a6a005ee7a57658e4d40ebd3d589be5b9151b7d0b95adf0914bafd6b382797` | May mint only a separately attested local-QA capsule; no production authority |
 | Portable tree | 521 entries, SHA-256 `7e70e7b3f457374624e4ef2656deb131318336228b848706f2b38ff2954cfb03` | Exact source Git tree only |
 | Registries | command `85993dd5637f90539e9ff7318b7aadfbca3cbced897d651fc42ceae695375ea7`; impact `663ab77840d43011856dc79a3c3f718cb3da874e179600a99a668e5e47572315`; C2/C3 boundary `f8ac0ad44fa0b29c3c0142fa86b8c62d0af060aa7b1b227d44183aadb3de573a` | Canonical package/registry derivation |
 | Runner | `wiki-upgrade 1.3.0+payload.136b58c2dd34e7f473a59452eb7c1bd1becd0b64667981eb9aad707b493d803f` | Execution closure identity |

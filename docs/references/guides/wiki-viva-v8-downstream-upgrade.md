@@ -66,9 +66,9 @@ gates and writes ignored evidence.
 The current validation boundary is declared by `upgrade-package.yaml`. Package
 schema v3 keeps the validator-v5 migration-evidence boundary and adds
 `gate_policies`, `command_registry_sha256` and the sealed impact-registry
-reference. While the package remains `validation_pending`, its contracts and
-public synthetic fixtures can be exercised but it cannot be promoted as a
-releasable downstream migration.
+reference. A tracked `candidate` package may mint a separately attested local
+downstream-QA capsule; it still cannot authorize public release or production
+promotion without the public human gate.
 
 ### Receipt identity and transition rule
 
@@ -146,8 +146,9 @@ not be promoted, imported, relabeled or used to mint a production capsule.
 Exact local rc22 source `7e72664fb6871d906addbddb6ed5b2e7f1fec33c`
 implements the three-role authority, productive visual provenance, hardened
 resume/evidence reads and their negative fixtures and passed the complete local
-stack. Its package remains `validation_pending`. This runbook claims no rc22
-capsule and grants no public publication authority.
+stack. Its tracked `candidate` status is local-QA-only. This runbook claims no
+rc22 capsule at the pre-certification checkpoint and grants no public
+publication authority.
 
 ### Lane A -> Lane B handoff checklist
 

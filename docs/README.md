@@ -76,8 +76,9 @@ starting point for persistent context is `memories/`.
   Rc21 is historical non-promotional evidence after downstream rehearsal found
   the missing config-bound C3 authority. Exact local rc22 source
   `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` implements the correction and
-  passed the complete local stack, but its package is still
-  `validation_pending`; no Lane A capsule or adoption authority exists yet.
+  passed the complete local stack. Its tracked `candidate` status exists only
+  to mint a separately attested local downstream-QA capsule; no public release
+  or production adoption authority exists.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

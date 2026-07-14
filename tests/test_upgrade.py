@@ -595,8 +595,13 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     assert source_sha in release_note
     for contract_version in pkg["contract_versions"].values():
         assert contract_version in release_note
-    assert package_is_pinned(pkg) is False
-    assert pkg["release"]["status"] == "validation_pending"
+    expected_pinned = pkg["release"]["status"] in {
+        "candidate",
+        "release_candidate",
+        "ready",
+        "released",
+    } and release_id != "unreleased"
+    assert package_is_pinned(pkg) is expected_pinned
     releasable = copy.deepcopy(pkg)
     releasable["release"]["status"] = "release_candidate"
     assert package_is_pinned(releasable) is (release_id != "unreleased")
