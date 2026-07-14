@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc24 validation checkpoint - rc23 failed validation"
+title: "Wiki Viva v8 rc24 local-QA candidate - exact validation passed"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,20 +11,34 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc24 validation checkpoint - rc23 failed validation
+# Wiki Viva v8 rc24 local-QA candidate - exact validation passed
 
-## Rc24 exact source — validation pending, not a candidate
+## Rc24 exact source — local-QA candidate, capsule pending
 
 `wiki-viva-v8-rc24` now binds exact source
-`39d490231c00cbc0cf0374c6b1dd3d16f23a2406` at `validation_pending`. The
+`39d490231c00cbc0cf0374c6b1dd3d16f23a2406`. Exact validation subject
+`e912c095e42ba56b97ec3179fd20cdd71779db87` passed 1,709 Python tests with
+3 declared skips and 2 warnings in 988.84 seconds, 516 frontend tests, 115 Node
+gates, the static/audit/build stack and 102/102 first-attempt public browser
+cells in 7.6 minutes with zero skips or retries. The browser run-result,
+gate-result and report SHA-256 values are
+`b6f899f3ed365e4788d48ae7957932292c96d232c96040af00c7b3fc2af4c3b9`,
+`eb3c91ade66419375a814b760955d1adf7536a2daa3eceece3a60a01e6930c95`
+and `7d63ddc26544b4ac582095fe23b3652fce9b477f6405a93780c7187ab9d688bb`.
+The
 metadata boundary changes only package/status documentation outside the portable
-projection; it does not amend the source bytes. Rc24 may become a local-QA
-candidate only after its complete exact stack and productive Chromium capture
-pass. The validation-pending package/tree pair is
+projection; it does not amend the source bytes. The validation-pending
+package/tree pair was
 `882448e1c76b7d5098dee7255e134650222bb4483509770d8a44501abaeb8525` /
 `18d2475102b205c1540e28a028106d88b5bd06847f954d871c6d4ec553554deb`,
-with 521 entries. No rc24 manifest, capsule, attestation, Lane B authority,
-public release, push, merge or tag is claimed here.
+with 521 entries. The current local-QA candidate pair is
+`9fdcd2985f5ab4fbc98932859a950b9aad52ffea0b7ae643a8a1f8830c5f1976` /
+`b001f89c7453177a66439a22524f5bb00e47bacb54216cff3291ed408d332048`,
+also with 521 entries. Candidate status makes `package_is_pinned=true`, but the
+v3 planner must still reject a missing or unverifiable capsule; metadata alone
+is not Lane B authority. No productive rc24 visual manifest, capsule,
+attestation, Lane B authority, public release, push, merge or tag is claimed
+here.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 

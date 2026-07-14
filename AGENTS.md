@@ -81,9 +81,10 @@ another) via skills — there is no embedded LLM client.
   relabel, promote or import either subject. Rc23 corrected the native routes,
   but its first complete validation stopped on one stale synthetic CLI route
   helper before any candidate, manifest, capsule or adoption authority existed;
-  preserve that subject without retry or relabel. Rc24 has exact
-  `validation_pending` source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`;
-  the pin is inspectable but is not a candidate, capsule or adoption authority.
+  preserve that subject without retry or relabel. Rc24 exact source
+  `39d490231c00cbc0cf0374c6b1dd3d16f23a2406` passed its complete local stack
+  and is a local-QA candidate only; productive capture, capsule and independent
+  verification still precede any adoption or publication authority.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must

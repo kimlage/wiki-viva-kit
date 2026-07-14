@@ -2,7 +2,7 @@ schema_version: wiki_viva_upgrade_package.v3
 
 release:
   id: wiki-viva-v8-rc24
-  status: validation_pending
+  status: candidate
   source_sha: 39d490231c00cbc0cf0374c6b1dd3d16f23a2406
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
@@ -478,12 +478,17 @@ known_limitations:
     attestation or Lane B authority existed, so rc23 is immutable
     historical-validation-failure evidence. Rc24 now has the exact
     validation-pending source pin 39d490231c00cbc0cf0374c6b1dd3d16f23a2406.
-    That metadata is not a candidate or capsule and grants no public
+    Exact validation subject e912c095e42ba56b97ec3179fd20cdd71779db87 then
+    passed 1709 Python tests with 3 declared skips and 2 warnings, the complete
+    deterministic stack and 102/102 first-attempt public browser cells with no
+    skips or retries. Rc24 is now a local-QA candidate only. No productive
+    visual manifest, capsule or attestation exists yet, so it grants no public
     release, merge, tag or production adoption authority. Public push remains
     unauthorized; exact local validation, remote CI and human
     conceptual/privacy/VoiceOver review and merge still precede any production
     promotion boundary.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
+  - Rc24 candidate status makes package_is_pinned true so productive Lane A capture/certification can proceed. No verified visual manifest, capsule or attestation exists at this boundary, so every v3 plan/adoption path must still fail closed; candidate metadata alone is never Lane B or production authority.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
   - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21, rc22 and rc23 can never authorize another import. Exact rc24 may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
@@ -495,5 +500,5 @@ known_limitations:
   - Causal self/cycle/time-direction validation and full-graph attestation for future paginated temporal APIs remain explicit P2 follow-ups.
   - CI workflows are consumer-owned deployment policy and are intentionally excluded from portable import; downstreams must keep their own gates at least as strict.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23 failed complete validation and rc24 has only an exact validation-pending source pin; its complete exact validation has not run. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
+  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture and rc23 failed complete validation. Rc24 passed its exact local deterministic/browser validation and is only a local-QA candidate until productive capture, capsule verification and the later public human/promotion boundaries close. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.
