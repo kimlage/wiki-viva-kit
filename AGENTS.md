@@ -92,8 +92,10 @@ another) via skills — there is no embedded LLM client.
   ambient `python3` different from the probed Python 3.12.4 interpreter. Rc24
   is immutable `historical_certification_failed`: no capsule, receipt, trust or
   Lane B authority was minted, and it must never be retried, reused, relabeled
-  or imported. Rc25 is prospective and unpinned until a separate metadata
-  boundary seals its exact source; it requires a new capture and certification.
+  or imported. Rc25 is pinned only for exact validation to source
+  `c741e3d0ad409ac9baea8b136e3819952bb0657b`; status remains
+  `validation_pending`, so candidate review, a new capture and certification
+  are still mandatory before any adoption authority exists.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must

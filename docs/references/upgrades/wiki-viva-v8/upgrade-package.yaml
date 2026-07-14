@@ -1,9 +1,9 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: unreleased
+  id: wiki-viva-v8-rc25
   status: validation_pending
-  source_sha: ef8d930cff11ba4a8f9dc4ccfe6ea58785066c19
+  source_sha: c741e3d0ad409ac9baea8b136e3819952bb0657b
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
@@ -491,13 +491,14 @@ known_limitations:
     probed runner Python 3.12.4 dependency closure. No capsule, certification
     receipt, trust anchor or release authority was emitted. Rc24 is immutable
     historical-certification-failure evidence and its capture is not reusable.
-    Rc25 remains prospective and unpinned until this new source is committed
-    and separately pinned. Public push remains unauthorized; rc25 exact local
-    validation, new productive capture, one certification, independent capsule
+    Rc25 is now pinned only for exact validation to source
+    c741e3d0ad409ac9baea8b136e3819952bb0657b. Public push remains unauthorized;
+    rc25 exact local validation, later candidate metadata, new productive
+    capture, one certification, independent capsule
     verification, remote CI and human conceptual/privacy/VoiceOver review and
     merge still precede any production promotion boundary.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
-  - Rc24 candidate metadata and capture are historical failed-certification evidence only. The active package is deliberately unreleased and validation_pending, so package_is_pinned is false and every v3 plan/adoption path must fail closed until a separately pinned rc25 candidate produces and independently verifies a new capsule.
+  - Rc24 candidate metadata and capture are historical failed-certification evidence only. The active rc25 package is validation_pending, so package_is_pinned is false and every v3 plan/adoption path must fail closed until exact validation passes, a separate candidate metadata boundary is reviewed and a new capsule is produced and independently verified.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
   - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21, rc22, rc23 and rc24 can never authorize another import. Exact rc25-or-later may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
