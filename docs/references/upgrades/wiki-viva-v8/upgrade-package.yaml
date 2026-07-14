@@ -1,13 +1,17 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc20
+  id: wiki-viva-v8-rc21
   status: validation_pending
-  source_sha: 1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc
+  source_sha: db3bba4957f551cc7c2d261561a45d0c606fdd05
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc20
+    source_sha: 1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc
+    status: historical_release_candidate
+    note: Exact v3 trust implementation passed its complete local deterministic and 102/102 first-attempt browser stack, but subsequent real-data product QA exposed RT-151, a mobile Timeline reading-order failure caused by collapsed grid rows after filtering, selecting and scrolling. The defect was reproduced with a public synthetic fixture and fixed in rc21; rc20 is retained as immutable diagnostic evidence and must never be promoted or imported
   - id: wiki-viva-v8-rc19
     source_sha: e01a4ed91e3e4c2f1746539418d3faebec775204
     status: historical_release_candidate
@@ -412,18 +416,21 @@ privacy:
 
 known_limitations:
   - >-
-    Exact rc20 source 1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc passed the
+    Exact rc21 source db3bba4957f551cc7c2d261561a45d0c606fdd05 passed the
     complete declared local stack: both audits with 0 errors and 7 known
     staleness warnings, methodology/operation/input/semantic/snapshot/pack
-    contracts, 1,631 Python passes with 3 declared skips and 2 known fork
-    warnings, 516 frontend passes, 115 Node gate passes, zero architecture
+    contracts, 1,632 Python passes with 3 declared skips and 2 known fork
+    warnings across 1,635 collected tests, 516 frontend passes, 115 Node gate
+    passes, zero architecture
     debt, licensed local assets with 0 external entries, 163.32 kB initial
     JavaScript gzip, the 102-public-plus-2-downstream matrix contract and
     102/102 first-attempt public browser cells with 0 skips and 0 retries. The
     browser run-result, gate-result and report SHA-256 values are
-    b918cbf637d0ccefed4a011c9817c921865fff0d131f87bfa0508c08ccc9ebcd,
-    3ce0d8c31666d2572b22eaed4ccd907dc1d3a5d8e0efc576d9ca5e0a0979a5b8 and
-    aabe13f036db21c9b7622253635c9c2fa41a8e6cb546c5a576973689b52448b8.
+    70d79029853da8e8ca9a3df8469db39a7668a41b87954736d55826bf64b270c7,
+    d6fbba509bdb236c32af5c9724bfee4a8cbbadc16ec466463dcc13947f66941c and
+    85a1770378364999eb0eb8c0963d4679daa155e5a87adea4b775a97c068b3a18.
+    RT-151 is closed by public synthetic mobile geometry and reading-order
+    coverage; the real downstream pixels that exposed it remain private.
     Status deliberately remains validation_pending: this local proof is not a
     production Lane A capsule, public push remains unauthorized, and remote CI
     plus human conceptual/privacy/VoiceOver review and merge must precede any
@@ -431,8 +438,8 @@ known_limitations:
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; exact S22 may be imported in three new ordered reviewable boundaries only after the validated payload and its subsequent release_candidate promotion are both merged to the public main branch.
-  - The historical private S9 read-only preflight remains attached to S9; S22 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; exact rc21 may be imported in three new ordered reviewable boundaries only after the validated payload and its subsequent release_candidate promotion are both merged to the public main branch.
+  - The historical private S9 read-only preflight remains attached to S9; rc21 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.
@@ -440,5 +447,5 @@ known_limitations:
   - Causal self/cycle/time-direction validation and full-graph attestation for future paginated temporal APIs remain explicit P2 follow-ups.
   - CI workflows are consumer-owned deployment policy and are intentionally excluded from portable import; downstreams must keep their own gates at least as strict.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. The current public subject has completed exact local validation, but RT-150 requires public validation and promotion merges before adoption, and each consumer must then run its own real-data and adapter tests.
+  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. The current public subject has completed exact local validation, but RT-150 requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.

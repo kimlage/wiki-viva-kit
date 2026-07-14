@@ -89,7 +89,7 @@ which captured Enter before the tests' command bar. Node 26 had masked the
 missing fixture state through incompatible experimental localStorage behavior.
 rc18 is retained as negative first-attempt evidence and will not be retried.
 
-The current correction is exact S22
+The historical S22 correction was
 `e01a4ed91e3e4c2f1746539418d3faebec775204`, packaged as
 `wiki-viva-v8-rc19`. It isolates all three
 keyboard contracts with explicit `tour=0`, including the internal Back/route
@@ -97,7 +97,7 @@ hydration URL. It also closes RT-149: while the guided-tour modal is open, the
 world command bar and background instruments are now `inert` and
 `aria-hidden`, then restored on close. It also refuses to stack the tour over
 an existing reader, dock or tray and preserves all seven visible tour anchors.
-Node 22 passes the focused file 17/17 and the frontend suite 516/516. A
+Node 22 passed the focused file 17/17 and the frontend suite 516/516. A
 concurrent downstream review independently found the same two reader-test
 isolation and inspired the public check; the public synthetic fix also covers
 the newer dense-search contract without importing private content.
@@ -105,7 +105,7 @@ the newer dense-search contract without importing private content.
 Exact metadata subject `2023ee714cfbdb9f48b22c7cd3d818fb9dc8d2b8`
 passed the complete official Node 22 stack once: 21/21 gates, 1,428 Python,
 516 frontend, 107 Node and 102/102 first-attempt browser cells with zero skip,
-retry, flaky result or subject drift. The current visual manifest binds six
+retry, flaky result or subject drift. That visual manifest binds six
 baseline comparisons, nineteen accepted manual captures and the explicit
 seven-anchor tour contract to S22. This closes local validation, but it is not
 yet release authority: `release_candidate` makes `package_is_pinned=true` and
@@ -149,6 +149,21 @@ follow-up with a new B0/C1/C2/C3 chain. Toolkit-owned `.skills/wiki-*/**`
 remain byte-equal C1; consumer `AGENTS.md`, router and non-`wiki-*` local skills
 are C3. This prospective rule does not rewrite current evidence, and the
 concurrent domain-content slice remains a separate content PR.
+
+The first exact v3 trust boundary was rc20 at
+`1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc`. Its full local stack was green,
+but downstream real-data UX pressure subsequently exposed RT-151: at a
+390 x 844 viewport, filtering the Timeline, selecting an event and scrolling
+could collapse the mobile grid rows while their children overflowed, visually
+interleaving the result list and inspector. The private pixels, routes and
+content remain private. The defect was minimized into a public synthetic
+fixture and fixed in exact rc21 source
+`db3bba4957f551cc7c2d261561a45d0c606fdd05` by using normal block flow and one
+scroll model at the mobile breakpoint. Exact rc21 then passed 1,632 Python
+tests, 516 frontend tests, 115 Node gates and 102/102 first-attempt public
+browser cells with zero skip or retry. Rc20 is therefore historical diagnostic
+evidence, not a promotion or adoption target; rc21 is the current local
+`validation_pending` candidate and remains unpublished.
 
 ### Normative Lane A -> Lane B handoff and fast-path budget
 
@@ -338,7 +353,7 @@ kept in the private ignored evidence cache; its SHA-256 is
 ## Historical consolidated implementation ledger — S10 checkpoint
 
 This section freezes the former S10 execution surface. Its counts and defect
-captures remain historical evidence and are not current S22/rc19 authority. A
+captures remain historical evidence and are not current rc21 authority. A
 green worktree is still not an E5 release claim. The subject sequence is
 deliberately split into portable payload `S`, public metadata envelope `M` and
 private adoption `P`, so no commit attempts to contain its own SHA and no
@@ -622,11 +637,13 @@ memory rather than one fixed dashboard:
 | Historical public payload `S20` | Exact source `3f96b03e451e09227205546678cfa8e902afb2fd`; package `wiki-viva-v8-rc17` | 34 focused RT-146 controls pass | Committed canonical-package and pinned portable-tree authority is implemented, but RT-147 invalidated the downstream release-record boundary | Never promote or import |
 | Historical public payload `S21` | Exact source `8a95ed94c424759f6b218038f8b5f6141c3cc079`; package `wiki-viva-v8-rc18`; metadata subject `8dc7b6dfef601c127a2d826ad9708517825fc455` | Gates 1–12 pass under Node 22, including 1,428 Python; frontend stops at 510/513 on first attempt | Validator v5 is correct; RT-148 exposes three keyboard tests that did not isolate the first-run modal tour | Never retry, promote or import |
 | Historical public payload `S22` | Exact source `e01a4ed91e3e4c2f1746539418d3faebec775204`; package `wiki-viva-v8-rc19`; validation subject `2023ee714cfbdb9f48b22c7cd3d818fb9dc8d2b8` | 21/21 Node 22 gates: 1,428 Python, 516 frontend, 107 Node and 102/102 first-attempt browser cells; exact visual manifest bound | Keyboard contracts isolate the separately tested tour; the modal isolates every background sibling without hiding its seven anchors or stacking over another modal | Locally validated historical evidence; superseded as the current downstream source and never published/promoted |
+| Historical public v3 trust payload | Exact source `1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc`; package `wiki-viva-v8-rc20` | 1,631 Python, 516 frontend, 115 Node and 102/102 first-attempt browser cells plus the two-lane trust controls passed locally | Capsule, impact, resume, rollback/report and synthetic negative contracts are executable, but later real-data pressure exposed RT-151 in the mobile Timeline | Historical diagnostic evidence only; never promote, import or relabel as passing RT-151 |
+| Current local public v3 candidate | Exact source `db3bba4957f551cc7c2d261561a45d0c606fdd05`; package `wiki-viva-v8-rc21` | 1,632 Python, 516 frontend, 115 Node and 102/102 first-attempt browser cells; 0 skips/retries in the browser matrix; package and portable-tree digests are bound in the current rc21 section | RT-151 is reproduced with public synthetic data and closed through mobile block flow plus explicit reading-order/containment geometry | `validation_pending`, unpublished and without a production Lane A capsule; remote CI, human review/merge and a separate promotion boundary remain mandatory |
 | Corrected local public source for the authorized v2 exception | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; package v2 canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc` | Public suite passed 1,529 tests, with two declared skips and two warnings; package validation and public privacy boundary pass | Atomic operator-job publication and the two-lane migration contracts are covered by public synthetic fixtures | Local source authority for the explicitly authorized in-flight v2 QA only; public publication remains unauthorized |
-| Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the exact S22/rc19 private adoption |
+| Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the frozen current v2 adoption or a future rc21 v3 plan |
 | Current corrected authorized private v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; two deterministic hosted jobs pass; the only completed standard Apple Silicon attempt closed 100/102, a later attempt was cancelled during browser installation and a separate standard Intel probe closed 92/102 with software rendering and WebGL context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback; private `AGENTS.md`/router work is deliberately deferred to a fresh post-v2 v3 follow-up | Promotion blocked and the aggregate visual check is cancelled/non-green; consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the human gate approves; current v2 C3/receipts remain immutable |
-| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact S22 demo, pack, Genesis, accessibility, compatibility, failure and source-lifecycle cells pass in the 102-cell receipt | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Public proof closed; real private replay remains separate |
-| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Six visual baselines, nineteen accepted manual cells and the exact S22 tour contract are manifest-bound; 102 cells cover PT-BR, keyboard, touch, mobile and fallback | No inspected overflow/error blocker; transition frames require settling and VoiceOver remains human | Automated/E3 boundary closed; human conceptual/privacy/VoiceOver gate remains before merge |
+| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact rc21 demo, pack, Genesis, accessibility, compatibility, failure and source-lifecycle cells pass in the 102-cell receipt | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Public local proof closed; real private replay and release promotion remain separate |
+| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Exact rc21 passes 102 cells covering PT-BR, keyboard, touch, mobile, fallback and the RT-151 reading-order regression | The inspected RT-151 overlap is closed with public synthetic geometry; transition frames require settling and VoiceOver remains human | Automated/E3 local boundary closed; human conceptual/privacy/VoiceOver gate remains before merge |
 
 At historical machine-status commit `f849de26`, the local public branch changed 2,066
 files with 486,397 additions and 10,913 deletions across 100 commits from the
@@ -1205,14 +1222,15 @@ reproduction.
 | RT-147 | P0 | The private three-commit policy requires a localized release record below configured references, but validator v4 rejected it; the first v5 exception then admitted arbitrary files, including executable scripts, and overlapping memory/references roots could bypass sibling rejection | E1 private policy/runbook comparison; E2 localized `.md`, sibling, `.sh`, mode `100755`, secret, portable-path, overlapping-root, public-redaction and memory-regression controls; 105/105 upgrade tests pass on exact S21 | Bind memory/references roots to config and authoritative preflight; require disjoint canonical roots; admit only UTF-8 `.md` release records with final Git mode `100644`; keep secret, portable and evidence exclusions fail-closed; rerun the complete Node 22 stack on S21 before promotion |
 | RT-148 | P0 | Three keyboard/search recovery tests implicitly depended on the first-run tour already being seen. In a clean official Node 22 profile the modal correctly opened and captured Enter, so only the debounced `?q=` write occurred; Node 26's incompatible experimental localStorage failure made `tourSeen()` fail closed to true and masked the missing fixture state | E1 exact rc18 first-attempt frontend log; E2 Node 22 3/14 reproduction versus Node 26 14/14; modal listener/search trace; concurrent downstream review independently found the same reader-test isolation; exact S22 passes Node 22 focused 17/17 and frontend 516/516 | Preserve the modal's keyboard ownership; set `tour=0` explicitly in every unrelated keyboard contract and its internal history URL; retain rc18 failure bytes without retry; rerun the complete stack only on S22/rc19 |
 | RT-149 | P1 | `CoachMarks` owned focus and keyboard input as a modal, but the visible world remained reachable in the accessibility tree behind it. A naive reuse of `primarySurfaceOpen` then hid the tour's own anchors through existing CSS, and `?` could stack the coach over an existing reader/dock/tray | E1 surface-stack and CSS-anchor review; E2 Happy DOM contracts cover first-run opening, complete sibling `inert`/`aria-hidden`, restoration and no modal stacking; E3 focused Chromium traverses all seven anchors with non-zero geometry, blocks global shortcuts and restores focus to the tour button; exact S22 passes Node 22 focused 17/17 and frontend 516/516 | Keep CSS visibility state separate from background ownership; inert every sibling subtree except the coach overlay; refuse to open over another primary surface; retain visible anchors and modal keyboard ownership; require exact S22 full-stack/browser proof before promotion |
-| RT-150 | P0 | A locally applied `release_candidate` label was described as editorially blocked until public merge, but `package_is_pinned()` treats that state as executable adoption authority and makes downstream `release_pinned` preflight pass. Documentation alone cannot revoke the machine permission | E1 `wiki_core.upgrade.package_is_pinned` and preflight call-chain review; E2 the canonical test's strict `validation_pending` assertion rejected the premature flip; the experimental phase-neutral test commit `9ba49f43` was immediately reverted by `b0dc04ea` without changing portable payload bytes; post-reconciliation upgrade suite passes 105/105 in 249.72 s, focused pending/preflight controls pass 2/2 and both audits report zero errors | Keep rc19 `validation_pending` and the strict tripwire until the validated S22 history is publicly reachable without SHA rewriting. After public CI/human review and merge, create a separate metadata/test promotion boundary, recompute the canonical digest, pass CI and merge that promotion before any private preflight/import |
+| RT-150 | P0 | A locally applied `release_candidate` label was described as editorially blocked until public merge, but `package_is_pinned()` treats that state as executable adoption authority and makes downstream `release_pinned` preflight pass. Documentation alone cannot revoke the machine permission | E1 `wiki_core.upgrade.package_is_pinned` and preflight call-chain review; E2 the canonical test's strict `validation_pending` assertion rejected the premature flip; the experimental phase-neutral test commit `9ba49f43` was immediately reverted by `b0dc04ea` without changing portable payload bytes; post-reconciliation upgrade suite passes 105/105 in 249.72 s, focused pending/preflight controls pass 2/2 and both audits report zero errors | Keep current rc21 `validation_pending` and preserve rc19/rc20 as historical evidence until exact rc21 is publicly reachable without SHA rewriting. After rc21 public CI/human review and merge, create a separate metadata/test promotion boundary, recompute the canonical digest, pass CI and merge that promotion before any new private v3 preflight/import |
+| RT-151 | P1 | At 390 x 844, the Timeline retained its desktop constrained grid after filtering, selecting and scrolling. Auto/minmax rows collapsed to near-zero heights while list and inspector children overflowed, interleaving two reading surfaces and making the selected detail unreadable | E1 real-data downstream reproduction with private pixels retained only in ignored evidence; E2 public synthetic before capture and computed grid-row diagnosis; E3 a focused Playwright regression filters Actions, selects an event, scrolls 350 px and proves DOM/visual order, containment, topmost readable detail and zero horizontal overflow; exact rc21 passes the complete deterministic stack and 102/102 first-attempt public browser cells | At the mobile breakpoint use normal block flow with one page scroll model and tokenized spacing; keep the inspector after the list in DOM and visual order; retain the regression in the package-owned cockpit suite; never publish private screenshots or relabel rc20 as passing this contract |
 
 ### Historical exact-public-subject closure overlay
 
 The baseline ledger above remains immutable reproduction history. This overlay
 records what was accepted on public `S` and the boundaries then owned by `P`,
 human review or E5. Every disposition is frozen historical evidence; current
-authority lives only in the current S22/rc19 section (and its later successors).
+authority lives only in the exact rc21 section (and its later successors).
 Public closure never promotes the browser-only receipt to a full release
 authority.
 
@@ -4592,7 +4610,7 @@ self-hash and gate-result ledger remain integrity metadata; neither is clock
 authority. V2 receipts already in flight are neither reclassified nor rewritten
 by this closure.
 
-The exact v3 implementation boundary is public source
+The first exact v3 implementation boundary was public source
 `1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc`, recorded as
 `wiki-viva-v8-rc20`. Its focused cutoff collects 200 public Python checks: 123
 lane tests, 15 package-v3 tests, 52 CLI tests and ten dedicated cross-job
@@ -4623,11 +4641,66 @@ release-build-manifest SHA-256
 `dc9d34de33eee39753e9420f69bdc9d50a6af31e7de7e8080370dcb6ae853218`
 and toolchain SHA-256
 `dc568a952a51b0694362c7695677acfe7c70d3a56c24d8684e9dbfca72576cbc`.
-These results prove the local implementation boundary only. Rc20 deliberately
-remains `validation_pending`; this run did not mint a production Lane A
-capsule or a v3 adoption receipt, public publication remains unauthorized, and
-remote CI plus the PR/human conceptual, privacy and VoiceOver gate must precede
-any release-promotion boundary.
+These results proved that exact local implementation boundary only. Subsequent
+real-data UX pressure exposed RT-151, so rc20 is now immutable historical
+diagnostic evidence and must never be promoted, imported or relabeled as
+passing the corrected mobile reading-order contract. It did not mint a
+production Lane A capsule or a v3 adoption receipt.
+
+#### Post-rc20 real-data pressure and exact rc21 closure — 2026-07-14
+
+The downstream QA route remained on its frozen v2 C3 and did not alter any
+receipt. At 390 x 844, filtering the Timeline to Actions, selecting an event
+and scrolling exposed an overlap between the result list and selected-event
+inspector. The private capture, route, titles, IDs and payload remain ignored
+and untracked in the consumer. A minimized public synthetic reproduction proved
+that the mobile breakpoint retained the desktop constrained grid: its rows
+collapsed while descendants overflowed. Exact source
+`db3bba4957f551cc7c2d261561a45d0c606fdd05` closes the defect through normal
+block flow, a single scroll model and tokenized mobile spacing. The package-owned
+Playwright regression performs the actual filter, selection and 350 px scroll,
+then asserts DOM and visual order, containment, readable topmost detail and no
+horizontal overflow.
+
+| Exact rc21 proof | Result |
+|---|---|
+| Public and public-export audits | 0 errors; seven known staleness warnings in each mode |
+| Methodology, operation, input-stage, semantic-inventory, snapshot and pack contracts | Passed; snapshot contract covered 26 payloads |
+| Complete Python suite | 1,632 passed, three declared CI-export skips and two known fork warnings; 1,635 collected |
+| Cockpit unit suite and Node gates | 64 files / 516 tests passed; 115 gate tests passed |
+| Architecture, assets and bundle | Zero tracked architecture violations and zero exact legacy debt; 1/64 licensed first-party asset, zero external assets, 380 bytes; initial JavaScript 163.32 kB gzip, CSS 18.11 kB min / 4.04 kB gzip, HTML 0.39 kB and largest lazy chunk 55.14 kB |
+| Release matrix contract | 102 required public cells plus two mandatory downstream cells |
+| Exact public browser release | 102/102 on the first attempt, zero skips, zero retries, 6.3 minutes; run `public-mrkgtv9x-0291bd7f-6d29-489b-a963-f8f0b49fe009` |
+
+The exact rc21 browser artifacts are bound by run-result SHA-256
+`70d79029853da8e8ca9a3df8469db39a7668a41b87954736d55826bf64b270c7`,
+gate-result SHA-256
+`d6fbba509bdb236c32af5c9724bfee4a8cbbadc16ec466463dcc13947f66941c`,
+Playwright-report SHA-256
+`85a1770378364999eb0eb8c0963d4679daa155e5a87adea4b775a97c068b3a18`,
+release-build-manifest SHA-256
+`75eed7af8a41e6b9f8e8f5900cbe48cd4663834d84cd077fc2bd4c01ba78bbd5`
+and toolchain SHA-256
+`1e19e3128ecd0be5152eadca50608d28bbffafffb19cad0f4e44716ca4c3cf4a`.
+The clean exact-subject worktree before and after the run is separately bound by
+Git-subject manifest SHA-256
+`48880d76a9da63b2a9b8d97639e181e7d40132997e1e1435b1756551e47687a9`.
+The current canonical package SHA-256 is
+`65c4e679a43f40c3c91bd38b7d6fa283ba2f329e39731115384a2fa83b527891`;
+its exact rc21 portable projection contains 520 regular-file entries and binds
+to portable-tree SHA-256
+`1039a8d4ef641a7e9ec9a30283df6914dbc4157aeeb45b26bae16badd9965472`.
+The command registry, impact registry and boundary-operations SHA-256 values are
+`e3ae2e664637ca87fd08d2a1db169245594153b68badba9694cfcde3bff3a7c0`,
+`ccd3f53eee8ccf3328a820dfe9e2a6c73f1056a9e54a0d88b3380d0224e70629`
+and `23c970d79b731280c4a0e9d775cc37017335e453dc36b69f318d66b8659fc308`.
+These are local candidate identities, not a capsule: the production visual
+manifest, certified gate receipts and attestation are intentionally not sealed
+while release status is pending.
+Rc21 remains `validation_pending`: public publication is unauthorized, no
+production Lane A capsule or v3 adoption receipt exists, and remote CI plus the
+PR/human conceptual, privacy and VoiceOver gate must precede a separately
+reviewed promotion boundary.
 
 The following current-consumer gates are never reusable: secret/private audit,
 public-evidence redaction, input stage, semantic inventory, adapter identity,
@@ -4700,7 +4773,13 @@ first correction was exact S20, RT-147 superseded rc17 and the immutable
 S21/rc18 first attempt stopped at RT-148. Exact S22/rc19 passed the complete
 Node 22 stack and visual boundary, but RT-150 correctly keeps it
 `validation_pending` and `package_is_pinned=false` until public history and a
-subsequent promotion boundary both merge under that historical route. A later
+subsequent promotion boundary both merge under that historical route. Rc20
+implemented the v3 two-lane trust boundary and passed its exact local stack,
+but RT-151 discovered through real-data QA makes rc20 historical
+non-promotion evidence. Exact rc21 closes RT-151 with a public synthetic fixture
+and again passes the complete local deterministic and 102/102 browser stack;
+it remains the unpublished `validation_pending` candidate without a production
+Lane A capsule. A later
 explicit execution decision authorized the corrected private-first v2
 migration described above after the local public core/fixture correction; that
 decision supersedes the former statement that no private import may start. It
@@ -4716,8 +4795,10 @@ relaxation, omission or merge around the remaining proof.
 
 ## Final Recommendation
 
-Retain rc19 as locally validated historical evidence, not as authority for the
-current downstream run. The corrected v2 chain, complete original matrix,
+Retain rc19 and rc20 as locally validated historical evidence, not as authority
+for the current downstream run. Keep rc21 local and `validation_pending` until
+publication is explicitly authorized and its remote CI, human review, merge and
+separate promotion boundary complete. The corrected v2 chain, complete original matrix,
 current-subject canary, generated reports and disposable rollback are closed;
 keep the consumer PR fail-closed until the same performance contract passes on
 an explicitly authorized, isolated physical self-hosted runner or eligible

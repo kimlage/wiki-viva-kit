@@ -574,12 +574,32 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     assert validate_upgrade_package(pkg) == []
     assert validate_consumer_inventory(inventory) == []
     assert inventory["schema_version"] == CONSUMER_INVENTORY_SCHEMA_VERSION
+    release_note = (
+        ROOT / "docs/references/releases/wiki-viva-v8.md"
+    ).read_text(encoding="utf-8")
+    release_id = pkg["release"]["id"]
+    source_sha = pkg["release"]["source_sha"]
+    public_consumer = next(
+        item
+        for item in inventory["consumers"]
+        if item["id"] == "wiki-viva-kit-public-source"
+    )
+    private_pilot = next(
+        item for item in inventory["consumers"] if item["id"] == "private-pilot-01"
+    )
+    expected_version = f"{release_id}@{source_sha[:8]}"
+    assert public_consumer["current_kit_version"] == expected_version
+    assert public_consumer["drift_status"]["compared_against"] == expected_version
+    assert private_pilot["drift_status"]["target_version"] == expected_version
+    assert release_id in release_note
+    assert source_sha in release_note
+    for contract_version in pkg["contract_versions"].values():
+        assert contract_version in release_note
     assert package_is_pinned(pkg) is False
     assert pkg["release"]["status"] == "validation_pending"
     releasable = copy.deepcopy(pkg)
     releasable["release"]["status"] = "release_candidate"
     assert package_is_pinned(releasable) is True
-    source_sha = pkg["release"]["source_sha"]
     assert subprocess.run(
         ["git", "cat-file", "-e", f"{source_sha}^{{commit}}"],
         cwd=ROOT,

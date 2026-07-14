@@ -34,11 +34,13 @@ empty void and watch the interface materialize block by block), the **full
 world**, or complete **Study/Research** and **Personal Finance** pack
 showcases.
 
-The unified v8 runtime is currently a blocked release candidate, not a published
-consumer release. See the
+The unified v8 runtime is currently a local validation candidate, not a
+published consumer release. See the
 [v8 release note](docs/references/releases/wiki-viva-v8.md) for the exact
-remaining gates and do not migrate a downstream repo until its public SHA is
-pinned in the upgrade package.
+remaining gates. An exact `source_sha` alone is not adoption authority: do not
+migrate a downstream repo until `validation_pending` is separately promoted
+through the public human gate and a production Lane A capsule verifies
+fail-closed.
 
 ## Registered views, one world
 

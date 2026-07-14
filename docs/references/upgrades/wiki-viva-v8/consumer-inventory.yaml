@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc20@1a9bd7ce
+    current_kit_version: wiki-viva-v8-rc21@db3bba49
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -34,11 +34,11 @@ consumers:
     drift_status:
       state: local_validation_complete_release_promotion_blocked
       drift_total: 0
-      compared_against: wiki-viva-v8-rc20@1a9bd7ce
+      compared_against: wiki-viva-v8-rc21@db3bba49
       worktree: exact_payload_validated_clean_package_unpinned
     upgrade_wave: public_kit
     status: blocked_on_public_release_promotion
-    blocker: Exact rc20 source 1a9bd7ce passed the complete local deterministic and 102/102 first-attempt browser stack, but the canonical package intentionally remains validation_pending and no production Lane A capsule exists. Public push is not authorized in this execution. After explicit publication authority, pass remote CI and human conceptual/privacy/VoiceOver review, merge the validated payload, then seal and review a separate promotion boundary. External E5 and a release tag remain separate
+    blocker: Exact rc21 source db3bba49 closes the mobile Timeline reading-order defect exposed by real-data QA and passed the complete local deterministic and 102/102 first-attempt browser stack, but the canonical package intentionally remains validation_pending and no production Lane A capsule exists. Rc20 remains historical non-promotion evidence. Public push is not authorized in this execution. After explicit publication authority, pass remote CI and human conceptual/privacy/VoiceOver review, merge the validated payload, then seal and review a separate promotion boundary. External E5 and a release tag remain separate
 
   - id: private-pilot-01
     repository:
@@ -70,11 +70,11 @@ consumers:
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: wiki-viva-v8-rc20@1a9bd7ce
+      target_version: wiki-viva-v8-rc21@db3bba49
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
-      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 is the future v3 target only after public certification/promotion and a new read-only consumer preflight
+      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 is retained as historical product evidence after real-data QA exposed RT-151. Rc21 is the future v3 target only after public certification/promotion and a new read-only consumer preflight
       verified_on: "2026-07-14"
     upgrade_wave: pilot
     status: blocked_on_public_release_promotion
-    blocker: The current private v2 adoption remains immutable and cannot be reduced by rc20; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc20 remains validation_pending, unpublished and without a production Lane A capsule, so a future v3 adoption requires separate public promotion and a new consumer preflight. External E5 remains separate
+    blocker: The current private v2 adoption remains immutable and cannot be reduced by rc21; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 remains validation_pending, unpublished and without a production Lane A capsule, so a future v3 adoption requires separate public promotion and a new consumer preflight. Rc20 remains historical and cannot authorize adoption. External E5 remains separate

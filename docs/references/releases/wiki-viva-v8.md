@@ -1,17 +1,75 @@
 ---
-title: "Wiki Viva v8 rc8 exact payload proven - promotion pending"
+title: "Wiki Viva v8 rc21 local validation complete - promotion pending"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
 visibility: public_candidate
-updated_at: 2026-07-12
+updated_at: 2026-07-14
 stale_after_days: 365
 sources_policy: release_note
 gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc8 exact payload proven - promotion pending
+# Wiki Viva v8 rc21 local validation complete - promotion pending
+
+Status on 2026-07-14: **exact public source
+`db3bba4957f551cc7c2d261561a45d0c606fdd05`, packaged locally as
+`wiki-viva-v8-rc21`, passes the complete declared deterministic and 102/102
+first-attempt browser stack. It remains `validation_pending`, unpublished and
+without a production Lane A capsule. It is not downstream adoption authority.**
+
+Rc21 supersedes rc20 only as the current local validation candidate. Real-data
+downstream QA exposed RT-151 in rc20: at 390 x 844, filtering, selecting and
+scrolling the Timeline could visually interleave the result list and inspector
+because constrained grid rows collapsed while their children overflowed. The
+private pixels, paths, routes and content remain private. Rc21 reproduces the
+defect with a public synthetic fixture, uses normal mobile block flow and one
+scroll model, and requires DOM/visual order, containment, readable selected
+detail and zero horizontal overflow after the same interaction. Rc20 remains
+immutable historical diagnostic evidence and must never be promoted or
+imported.
+
+The exact rc21 local evidence is: both audits at 0 errors / 7 known staleness
+warnings; methodology, operation, input-stage, semantic-inventory, 26-payload
+snapshot and pack contracts green; 1,632 Python passes with 3 declared skips
+and 2 known fork warnings; 516 frontend passes; 115 Node gate passes; zero
+architecture debt; licensed assets with 0 external entries; 163.32 kB initial
+JavaScript gzip; a 102-public-plus-2-downstream matrix contract; and 102/102
+public browser cells on the first attempt with 0 skips / 0 retries in 6.3
+minutes. The run-result, gate-result and Playwright-report SHA-256 values are
+`70d79029853da8e8ca9a3df8469db39a7668a41b87954736d55826bf64b270c7`,
+`d6fbba509bdb236c32af5c9724bfee4a8cbbadc16ec466463dcc13947f66941c`
+and `85a1770378364999eb0eb8c0963d4679daa155e5a87adea4b775a97c068b3a18`.
+The canonical package SHA-256 is
+`65c4e679a43f40c3c91bd38b7d6fa283ba2f329e39731115384a2fa83b527891`;
+the 520-entry portable tree is
+`1039a8d4ef641a7e9ec9a30283df6914dbc4157aeeb45b26bae16badd9965472`.
+The command, impact and boundary-operation registry SHA-256 values are
+`e3ae2e664637ca87fd08d2a1db169245594153b68badba9694cfcde3bff3a7c0`,
+`ccd3f53eee8ccf3328a820dfe9e2a6c73f1056a9e54a0d88b3380d0224e70629`
+and `23c970d79b731280c4a0e9d775cc37017335e453dc36b69f318d66b8659fc308`.
+These are candidate identities only; no production capsule has been sealed.
+
+The rc21 package names the following exact portable contracts:
+
+| Surface | Contract |
+|---|---|
+| Route / snapshot / envelope | `wiki_world_route.v8` / `wiki_web_snapshot.v2` / `wiki_web_snapshot.v2` |
+| Blocks / visual grammar / semantic visual tokens | `wiki_templates.v2+wiki_web_block_stacks.v1` / `wiki_visual_grammar.v8` / `wiki_semantic_visual_tokens.v1` |
+| Appearance / runtime / source lifecycle / freshness / server | `wiki_cockpit_appearance.v1` / `wiki_world_runtime.v8` / `wiki_source_lifecycle.v2` / `wiki_web_freshness.v1` / `wiki_web_server.v6` |
+| Timeline / temporal event / temporal graph | `activity_timeline.v1` / `wiki_temporal_event.v1` / `wiki_temporal_graph.v1` |
+| Experience pack / registry / lock / composition | `wiki_experience_pack.v1` / `wiki_experience_pack_registry.v1` / `wiki_experience_pack_lock.v1` / `wiki_experience_pack_composition.v1` |
+| Asset / downstream adapter manifests | `wiki_cockpit_asset_manifest.v1` / `wiki_downstream_adapter_manifest.v1` |
+
+Publication still requires explicit authorization, remote public CI, human
+conceptual/privacy/VoiceOver review and merge, followed by a separately reviewed
+promotion boundary that can mint Lane A release authority. External E5 and a
+release tag remain separate. The in-flight private v2 migration keeps its
+original full blocking matrix and receipts; neither rc20 nor rc21 reclassifies,
+reduces or rewrites that evidence.
+
+## Historical rc8-era evidence — preserved without current authority
 
 Status on 2026-07-12: **metadata envelope rc8 pins an exact public S9 payload
 whose full automated public and redacted private stacks pass. Release remains
@@ -42,7 +100,7 @@ Real downstream pressure then exposed a final parser and navigation boundary.
 both the structured and flat frontmatter parsers and passed 1,356 Python tests,
 but its exact browser run was rejected at **101/102**: a real operator manifest
 could finish between a direct `popstate` and React's later demo-render cleanup.
-The current payload is
+The then-current historical payload was
 `S4=f7c9d0ad837b303e388b3b1c1dbaaeff9df3b1bb`, pinned by package
 `wiki-viva-v8-rc4`. It aborts the live read on the navigation notification
 itself and requires same-turn abort for external history writers. Exact `S4`
@@ -59,7 +117,7 @@ predecessor
 downstream E2E recompute pack composition with the `presentation` contract
 included (RT-139). Exact `S5` passed **1,356/1,356 Python**, **489/489
 frontend** and **106/106 Node** controls together with the deterministic
-non-browser gates. The current browser-closure payload is
+non-browser gates. The then-current historical browser-closure payload was
 `S6=b852a992afa3eae64e220c461c2eff052572377c`, pinned by package
 `wiki-viva-v8-rc5`. It closes RT-140 by classifying requests against their
 route at both start and finish, and by forcing a live-to-demo transition in the
@@ -85,7 +143,7 @@ passed **102/102 public browser cells on the first attempt in 5.9 minutes with
 downstream cells on the first attempt with 0 skips/retries**. Those receipts
 remain evidence for S8 only.
 
-The current payload is
+The then-current historical payload was
 `S9=b45378d37e96eed04fb355392d10bd8471c5fda7`, pinned by package
 `wiki-viva-v8-rc8`. It closes the implementation side of RT-144 after real
 390x844 inspection found that all five view controls stayed inside the
@@ -147,9 +205,9 @@ mandatory browser cells plus both complete deterministic stacks are now
 proven. [Draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61)
 still requires human review and merge; no tag is authorized yet.
 
-## Current correction lineage — public payload candidate
+## Historical rc8 correction lineage — public payload candidate at that checkpoint
 
-The active correction contract is the
+The active correction contract at that checkpoint was the
 [release truth, temporal world and experience packs plan](../proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md).
 It consolidates the independently reproduced parts of the interrupted parallel
 Claude review, but not its raw local transcripts, stale task cards or
@@ -177,7 +235,7 @@ exact S9 passed both halves independently on their paired subjects.
 
 ### Exact public subject evidence
 
-The current rc8 metadata overlay pins exact `S9`. Its public ledger passed
+The rc8 metadata overlay at that checkpoint pins exact `S9`. Its public ledger passed
 **1,356 Python**, **489 frontend**, **106 Node**, **102/102 browser** and every
 deterministic release gate; its private adoption ledger passed **1,117 Python**,
 **489 frontend**, **106 Node**, **2/2 downstream browser** and every private
@@ -502,7 +560,7 @@ blank world, center error, overlap, unreadable label or sample fallback.
 Conversely, a passed `browser_closure` receipt binds only that browser evidence;
 the commands above require their own exact-`S` results and broader manifest.
 
-## Remaining promotion gates
+## Historical rc8 promotion checklist — superseded by rc21 status above
 
 - Retain the exact historical S6 and S8 ledgers on their original subjects;
   neither can be relabeled as current S9 proof.
