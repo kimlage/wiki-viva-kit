@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc31 failed deterministic validation - rc32 source formation"
+title: "Wiki Viva v8 rc32 validation source pinned - rc31 failed deterministic validation"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc31 failed deterministic validation - rc32 source formation
+# Wiki Viva v8 rc32 validation source pinned - rc31 failed deterministic validation
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -303,10 +303,11 @@ promote, import or use it to mint missing authority. No candidate, productive
 capture, certification, capsule, receipt, attestation, trust anchor or Lane B
 authority exists.
 
-## Rc32 source formation — one-write operational-pass fixed point
+## Rc32 exact validation source — one-write operational-pass fixed point
 
-Rc32 is prospective and unpinned. It preserves the public RT-164 quadrant
-label correction and adds a public synthetic fixed-point regression for the
+Rc32 is pinned only for exact validation at source
+`ed073dee5fbf05343b36db1fdc061a24d0220cb9`. It preserves the public RT-164
+quadrant label correction and adds a public synthetic fixed-point regression for the
 operational-pass compiler: the generated dashboard must not feed its own
 derived record back into `Latest updates`, and an immediate check/second render
 after one write must be byte-equal. The versioned dashboard is regenerated only after this
@@ -321,10 +322,17 @@ lane tests with warnings as errors. The versioned dashboard was written once,
 its immediate deterministic check passed, and its SHA-256 is
 `b632bf8eb2de2ca84ca84894280e907ff434143cbd822dbe0b62d5abeb8a5dca`.
 
-Rc32 must be formed and pinned in separate commits, then run every validation,
-browser, candidate, productive-capture, certification, capsule-verification,
-downstream-QA, remote-CI and human-promotion stage from zero. Public push
-remains unauthorized.
+The validation-pending package-file SHA-256 is
+`f88cb5fc625a28e2aff40518d895aa5668110838b2fd4179e53407f06ba2311d`,
+its canonical package identity is
+`8c07f05a680b1bd47994b3560067c28bcf5416aa2bc3546f1e698466940d2b81`
+and its exact 521-entry portable tree is
+`7da9d6369550d45f368ee3ddb4f04382949f498fd0c2ff9350389243bd0fb82f`.
+These identities authorize validation only: `package_is_pinned` remains false,
+and no plan, import, capture, capsule or promotion authority exists. Rc32 must
+now run every validation, browser, candidate, productive-capture,
+certification, capsule-verification, downstream-QA, remote-CI and
+human-promotion stage from zero. Public push remains unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -429,8 +437,8 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Any future rc32-or-later publication still requires exact validation, separate candidate
-review, new capture and certification,
+Rc32, or any later replacement, still requires exact validation, separate
+candidate review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
 human conceptual/privacy/VoiceOver review and merge, followed by a separately
