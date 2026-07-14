@@ -217,11 +217,13 @@ ship the skeletons, so a generated page starts with the scaffold.
   descendant fails closed. Bind the derived-authority digest into plan, state,
   receipt and report, and invalidate the attempt when it changes. Rc21 is
   historical non-promotional proof after downstream rehearsal exposed this
-  missing boundary. Exact local rc22 source
-  `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` is its corrected successor. Its
-  tracked `candidate` status authorizes only a separately attested local
-  downstream-QA capsule, never public release or production promotion. Do not amend,
-  regenerate or reclassify any already sealed v2 C3 or receipt.
+  missing boundary. Rc22 corrected it, but its first productive Chromium
+  capture stopped fail-closed because the legacy mobile route normalized to
+  Quadrants instead of Timeline. No visual manifest, capsule, attestation or
+  Lane B authority was minted; never retry, relabel, promote or import rc22.
+  Rc23 remains a prospective unpinned validation subject until a later
+  metadata boundary seals its exact source. Do not amend, regenerate or
+  reclassify any already sealed v2 C3 or receipt.
   Require direct single-parent B0->C1->C2->C3 edges;
   bind all four commits in receipt and state; recompute edge paths, modes and
   blobs from Git; and regenerate all C3-bound receipts whenever those files

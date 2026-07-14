@@ -1,17 +1,21 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc22
-  status: candidate
-  source_sha: 7e72664fb6871d906addbddb6ed5b2e7f1fec33c
+  id: unreleased
+  status: validation_pending
+  source_sha: afed3beb3637f2d9ea5a4baa76d007fc7508dadc
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc22
+    source_sha: 7e72664fb6871d906addbddb6ed5b2e7f1fec33c
+    status: historical_capture_failed
+    note: Exact rc22 passed its pre-capture local deterministic stack, but the first productive Chromium capture stopped fail-closed because its legacy /demo/w/timeline?tour=0 profile normalized to Quadrants instead of the native Timeline. No visual manifest, capsule, attestation or Lane B authority was minted. The validation-pending package/tree pair was 20a92e19eba537acf411e5d9d01b65adad5f71ca8e7634e81cd6764d8d1e9e0c / 7e70e7b3f457374624e4ef2656deb131318336228b848706f2b38ff2954cfb03; the attempted candidate pair was d7a6a005ee7a57658e4d40ebd3d589be5b9151b7d0b95adf0914bafd6b382797 / e27f8efd99fb7eb112a9d08dcc8628f891086f191bf43de084f69b2c40c3593c, both with 521 entries. Mixing those package-bound digests was stale documentation, not reusable evidence. Rc22 must never be retried, promoted, imported, relabeled or used to mint a capsule
   - id: wiki-viva-v8-rc21
     source_sha: db3bba4957f551cc7c2d261561a45d0c606fdd05
     status: historical_validation_checkpoint
-    note: Exact rc21 closed RT-151 and passed its then-declared deterministic and 102/102 first-attempt browser stack, but RT-152 froze it as historical non-promotional evidence because it predates the config-bound C3 authority, productive visual capture provenance and hardened resume/evidence contracts now required for rc22. It must never be promoted, imported, relabeled or used to mint a Lane A capsule
+    note: Exact rc21 closed RT-151 and passed its then-declared deterministic and 102/102 first-attempt browser stack, but RT-152 froze it as historical non-promotional evidence because it predates the config-bound C3 authority, productive visual capture provenance and hardened resume/evidence contracts required by every later subject. It must never be promoted, imported, relabeled or used to mint a Lane A capsule
   - id: wiki-viva-v8-rc20
     source_sha: 1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc
     status: historical_release_candidate
@@ -458,21 +462,22 @@ known_limitations:
     85a1770378364999eb0eb8c0963d4679daa155e5a87adea4b775a97c068b3a18.
     RT-151 is closed by public synthetic mobile geometry and reading-order
     coverage; the real downstream pixels that exposed it remain private.
-    RT-152 freezes that package as historical evidence. Rc22 now binds exact
-    local source 7e72664fb6871d906addbddb6ed5b2e7f1fec33c, whose final local
-    stack passed 1,703 Python tests with 3 declared skips and 2 known fork
-    warnings, 516 frontend tests, 115 Node gates, both audits with 0 errors,
-    semantic/snapshot/pack contracts and the 102-public-plus-2-downstream matrix
-    contract. Status is `candidate` only for a local, separately attested Lane A
-    capsule used by downstream QA. It grants no public release, merge, tag or
-    production adoption authority. Public push remains unauthorized; remote CI
-    plus human conceptual/privacy/VoiceOver review and merge still precede any
-    production promotion boundary.
+    RT-152 freezes that package as historical evidence. Exact rc22 source
+    7e72664fb6871d906addbddb6ed5b2e7f1fec33c passed that pre-capture stack,
+    but its first productive Chromium capture failed closed when the legacy
+    mobile route normalized to Quadrants instead of Timeline. No visual
+    manifest, capsule, attestation or Lane B authority was minted, and its
+    earlier package/tree pairing was stale and is not reusable. Rc23 is prospective and
+    remains unpinned at this validation checkpoint. It grants no public
+    release, merge, tag or production adoption authority. Public push remains
+    unauthorized; exact local validation, remote CI and human
+    conceptual/privacy/VoiceOver review and merge still precede any production
+    promotion boundary.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 can never authorize another import. A prospective rc22 may be adopted in three new ordered reviewable boundaries only after its exact payload and release promotion are both approved.
-  - The historical private S9 read-only preflight remains attached to S9; a prospective rc22 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 and rc22 can never authorize another import. A prospective rc23 may be adopted in three new ordered reviewable boundaries only after its exact payload, capsule and release promotion are approved.
+  - The historical private S9 read-only preflight remains attached to S9; a prospective rc23 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.

@@ -69,11 +69,16 @@ another) via skills — there is no embedded LLM client.
   descendants fail closed. These paths may exist only in C3, never C1 or C2,
   and the derived-authority digest is bound to plan, resumable state, receipt
   and report.
-  The locally validated rc21 subject is historical non-promotional evidence:
+  Rc21 and rc22 are immutable historical non-promotional evidence. Rc21's
   downstream rehearsal exposed the missing localized C3 authority and the
-  over-broad release-record surface. Rc22 is the next candidate after this
-  correction is proved with public synthetic fixtures. Existing v2 subjects
-  and receipts remain frozen and must not be amended or reclassified. Every
+  over-broad release-record surface. Rc22 corrected that boundary, but its
+  first productive Chromium capture stopped fail-closed because the legacy
+  mobile route normalized to Quadrants instead of Timeline; no visual
+  manifest, capsule, attestation or Lane B authority was minted. Never retry,
+  relabel, promote or import either subject. Rc23 is a prospective unpinned
+  validation subject until a later metadata boundary seals its exact source.
+  Existing v2 subjects and receipts remain frozen and must not be amended or
+  reclassified. Every
   new v3 run must
   keep B0->C1->C2->C3 as three direct single-parent edges with no intermediate
   or merge commit. The receipt and resumable state bind all four subjects, and

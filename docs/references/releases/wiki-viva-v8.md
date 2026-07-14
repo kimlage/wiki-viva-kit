@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc22 local validation checkpoint - rc21 historical"
+title: "Wiki Viva v8 rc23 validation checkpoint - rc22 failed capture"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,9 +11,20 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc22 local validation checkpoint - rc21 historical
+# Wiki Viva v8 rc23 validation checkpoint - rc22 failed capture
 
-## Rc22 exact local source — capsule not yet minted
+## Rc23 prospective source — validation not yet pinned
+
+Rc23 is the prospective correction subject for canonical native visual routes.
+At this checkpoint its package remains `unreleased` / `validation_pending` and
+binds the prior code-only correction
+`afed3beb3637f2d9ea5a4baa76d007fc7508dadc`, not its own containing commit. A
+later metadata-only boundary may pin
+the exact source only after the complete local stack and productive Chromium
+capture pass. No rc23 capsule, attestation, Lane B authority, public release,
+push, merge or tag is claimed here.
+
+## Rc22 exact local source — failed capture, promotion prohibited
 
 Exact source `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` implements the
 config-bound three-role C3 authority, productive record-backed Chromium capture,
@@ -25,22 +36,21 @@ Node gates, both audits with 0 errors, methodology/operation/input/semantic,
 matrix contract. The integrated upgrade/security subset passed 375 tests with
 3 declared skips.
 
-The local-QA `wiki-viva-v8-rc22` `candidate` package SHA-256 is
-`d7a6a005ee7a57658e4d40ebd3d589be5b9151b7d0b95adf0914bafd6b382797`;
-its 521-entry portable tree is
-`7e70e7b3f457374624e4ef2656deb131318336228b848706f2b38ff2954cfb03`.
-The command, impact and boundary-operation registry SHA-256 values are
-`85993dd5637f90539e9ff7318b7aadfbca3cbced897d651fc42ceae695375ea7`,
-`663ab77840d43011856dc79a3c3f718cb3da874e179600a99a668e5e47572315`
-and `f8ac0ad44fa0b29c3c0142fa86b8c62d0af060aa7b1b227d44183aadb3de573a`.
-The runner identity is
-`wiki-upgrade 1.3.0+payload.136b58c2dd34e7f473a59452eb7c1bd1becd0b64667981eb9aad707b493d803f`.
-
-These are local validation identities, not production release authority. The
-tracked `candidate` status can mint only a separately attested local
-downstream-QA capsule. No trusted production attestation, public push, remote
-CI, human merge or tag is claimed at this checkpoint. The current private v2
-receipts remain unchanged.
+The local-QA `wiki-viva-v8-rc22` candidate package SHA-256 was
+`d7a6a005ee7a57658e4d40ebd3d589be5b9151b7d0b95adf0914bafd6b382797`.
+Its first productive Chromium capture stopped fail-closed before sealing any
+manifest: `/demo/w/timeline?tour=0` normalized to Quadrants instead of the
+native Timeline. The validation-pending package/tree pair was
+`20a92e19eba537acf411e5d9d01b65adad5f71ca8e7634e81cd6764d8d1e9e0c` /
+`7e70e7b3f457374624e4ef2656deb131318336228b848706f2b38ff2954cfb03`;
+the attempted candidate pair was
+`d7a6a005ee7a57658e4d40ebd3d589be5b9151b7d0b95adf0914bafd6b382797` /
+`e27f8efd99fb7eb112a9d08dcc8628f891086f191bf43de084f69b2c40c3593c`,
+both with 521 entries. Mixing the package-bound tree digests in the prior prose
+was stale documentation, not a verifier failure or reusable evidence. No rc22 visual manifest, capsule,
+attestation, receipt or Lane B authority was minted. Rc22 must never be
+retried, relabeled, promoted, imported or used as adoption authority. Its
+failure does not change the still-valid identity-scoped private v2 receipts.
 
 ## Rc21 historical validation evidence — promotion prohibited
 
@@ -95,18 +105,17 @@ The rc21 package names the following exact portable contracts:
 | Experience pack / registry / lock / composition | `wiki_experience_pack.v1` / `wiki_experience_pack_registry.v1` / `wiki_experience_pack_lock.v1` / `wiki_experience_pack_composition.v1` |
 | Asset / downstream adapter manifests | `wiki_cockpit_asset_manifest.v1` / `wiki_downstream_adapter_manifest.v1` |
 
-The new `wiki_viva_upgrade_consumer_c3_authority.v1` contract belongs to rc22,
-never rc21. Exact rc22 source
-`7e72664fb6871d906addbddb6ed5b2e7f1fec33c` binds that contract to public
-synthetic fixtures and the complete local stack. Its tracked `candidate` status
-is local-QA-only and inherits no rc21 status or receipt.
+The `wiki_viva_upgrade_consumer_c3_authority.v1` contract was introduced after
+rc21 and is preserved in the prospective rc23 source. Rc22's failed capture
+cannot authorize its adoption. Rc23 inherits no rc21 or rc22 status or receipt.
 
-Any future rc22 publication still requires explicit authorization, remote
-public CI, human conceptual/privacy/VoiceOver review and merge, followed by a
-separately reviewed promotion boundary that can mint Lane A release authority.
+Any future rc23 publication still requires explicit authorization, exact local
+certification, remote public CI, human conceptual/privacy/VoiceOver review and
+merge, followed by a separately reviewed promotion boundary that can mint
+production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
-rc21 nor the local rc22 checkpoint reclassifies, reduces or rewrites that
+rc21, rc22 nor the prospective rc23 checkpoint reclassifies, reduces or rewrites that
 evidence.
 
 ## Historical rc8-era evidence — preserved without current authority

@@ -137,18 +137,19 @@ failure: `plan` stops before mutation, the consumer repairs B0 and creates a new
 plan. Re-running Lane A does not repair invalid consumer configuration; it is
 required when the sealed package/impact mapping itself is defective.
 
-### Rc21 -> rc22 correction boundary
+### Rc21 -> rc22 -> rc23 correction boundary
 
 Rc21 is historical non-promotional local evidence. It retains its exact public
 mobile/visual proof, but a synthetic downstream rehearsal exposed a missing
-config-localized C3 authority and an over-broad release-record surface. It must
-not be promoted, imported, relabeled or used to mint a production capsule.
-Exact local rc22 source `7e72664fb6871d906addbddb6ed5b2e7f1fec33c`
-implements the three-role authority, productive visual provenance, hardened
-resume/evidence reads and their negative fixtures and passed the complete local
-stack. Its tracked `candidate` status is local-QA-only. This runbook claims no
-rc22 capsule at the pre-certification checkpoint and grants no public
-publication authority.
+config-localized C3 authority and an over-broad release-record surface. Rc22
+corrected that boundary and passed its pre-capture local stack, but its first
+productive Chromium capture stopped fail-closed because the legacy
+`/demo/w/timeline?tour=0` profile normalized to Quadrants instead of Timeline.
+No rc22 visual manifest, capsule, attestation or Lane B authority was minted;
+its earlier mixed package/tree pairing is stale and not reusable. Neither rc21 nor rc22 may be
+promoted, imported, relabeled or retried. Rc23 is a prospective unpinned
+validation subject until a later metadata boundary seals its exact source.
+This runbook grants no public publication authority.
 
 ### Lane A -> Lane B handoff checklist
 

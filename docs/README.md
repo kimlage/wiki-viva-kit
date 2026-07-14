@@ -74,11 +74,12 @@ starting point for persistent context is `memories/`.
   PNG/console/network evidence, and is independently reopened by
   `wiki_upgrade.py verify-capsule` before adoption.
   Rc21 is historical non-promotional evidence after downstream rehearsal found
-  the missing config-bound C3 authority. Exact local rc22 source
-  `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` implements the correction and
-  passed the complete local stack. Its tracked `candidate` status exists only
-  to mint a separately attested local downstream-QA capsule; no public release
-  or production adoption authority exists.
+  the missing config-bound C3 authority. Rc22 corrected that boundary and
+  passed its pre-capture local stack, but productive Chromium capture stopped
+  fail-closed when its legacy mobile route normalized to Quadrants instead of
+  Timeline. No visual manifest, capsule, attestation or Lane B authority was
+  minted; rc22 cannot be retried, relabeled, promoted or imported. Rc23 remains
+  a prospective unpinned validation subject until a later metadata boundary.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

@@ -558,17 +558,21 @@ receipt exists until the exact public subject is promoted through its own
 PR/human gate. The migration already
 in flight remains on its complete v2 `migration.required_gates` matrix.
 
-The locally validated rc21 subject is now immutable historical
-non-promotional evidence. Its public UI regression proof remains useful, but a
-downstream rehearsal exposed that its static C3 policy could not represent the
-three localized roles above and that its broad release-record surface did not
-fail closed on executable/non-Markdown descendants. Rc21 must not be promoted,
-imported, relabeled or used to mint a capsule. Exact local rc22 source
-`7e72664fb6871d906addbddb6ed5b2e7f1fec33c` contains the config-bound
-authority, productive visual capture and hardened resume/evidence controls and
-passed the complete local deterministic stack. Its tracked `candidate` status
-is local-QA-only; no rc22 capsule is claimed at this pre-certification
-checkpoint, and public publication remains a separate human decision.
+Rc21 and rc22 are now immutable historical non-promotional evidence. Rc21's
+public UI regression proof remains useful, but a downstream rehearsal exposed
+that its static C3 policy could not represent the three localized roles above
+and that its broad release-record surface did not fail closed on
+executable/non-Markdown descendants. Rc22 corrected that trust boundary and
+passed its pre-capture local deterministic stack. Its first productive
+Chromium capture then stopped fail-closed because the legacy
+`/demo/w/timeline?tour=0` profile normalized to Quadrants instead of the native
+Timeline. No rc22 visual manifest, capsule, attestation or Lane B authority was
+minted. Its validation-pending and candidate package/tree pairs each reproduce
+exactly, but the earlier prose mixed their package-bound tree digests; that
+stale pairing is not reusable evidence. Rc22 must never be retried, promoted, imported, relabeled or used to
+mint a capsule. Rc23 is prospective and unpinned until a later metadata
+boundary seals its exact source; public publication remains a separate human
+decision.
 
 ### Sanitized in-flight v2 checkpoint
 
@@ -587,8 +591,9 @@ therefore unchanged.
 The private `AGENTS.md` and router improvement discovered during this review
 are deliberately excluded from that sealed C3. They belong to a fresh v3
 follow-up after the v2 promotion, and cannot be used to rewrite or reissue the
-current receipts. Rc21's historical reclassification and the prospective rc22
-contract do not amend that v2 subject, reduce its original matrix or invalidate
+current receipts. Rc21's historical reclassification, rc22's failed capture
+and the prospective rc23 contract do not amend that v2 subject, reduce its
+original matrix or invalidate
 receipts that still describe their exact frozen subject. Concurrent domain
 material remains a separate content PR. No
 private repository name, PR number, domain label, branch, SHA, route, path,

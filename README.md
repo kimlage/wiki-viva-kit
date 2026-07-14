@@ -267,13 +267,14 @@ A migration already running under package schema v2 retains every declared
 `migration.required_gates` entry as blocking. V3 does not rewrite its evidence
 retroactively. Rc21 is retained as historical non-promotional local evidence
 because downstream rehearsal exposed the missing config-bound authority and an
-over-broad release-record surface. Exact local rc22 source
-`7e72664fb6871d906addbddb6ed5b2e7f1fec33c` contains the corrected authority,
-productive visual capture and hardened resume/evidence boundary and passed the
-complete local stack. Its tracked `candidate` status is strictly a local
-downstream-QA boundary: it can mint only a separately attested local capsule
-and grants no public release or production promotion. No existing v2 C3 or
-receipt is amended to reach it.
+over-broad release-record surface. Rc22 corrected that trust boundary and
+passed its pre-capture local stack, but the first productive Chromium capture
+stopped fail-closed when its legacy mobile route normalized to Quadrants rather
+than Timeline. No rc22 visual manifest, capsule, attestation or Lane B
+authority was minted; the subject must not be retried, relabeled, promoted or
+imported. Rc23 is a prospective unpinned validation subject until a later
+metadata boundary seals its exact source. No existing v2 C3 or receipt is
+amended to reach it.
 
 ## Official documentation — the wiki documents itself
 
