@@ -78,8 +78,9 @@ starting point for persistent context is `memories/`.
   passed its pre-capture local stack, but productive Chromium capture stopped
   fail-closed when its legacy mobile route normalized to Quadrants instead of
   Timeline. No visual manifest, capsule, attestation or Lane B authority was
-  minted; rc22 cannot be retried, relabeled, promoted or imported. Rc23 remains
-  a prospective unpinned validation subject until a later metadata boundary.
+  minted; rc22 cannot be retried, relabeled, promoted or imported. Rc23 has an
+  exact `validation_pending` source pin but no candidate, capsule or adoption
+  authority.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

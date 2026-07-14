@@ -172,8 +172,9 @@ productive Chromium capture: the legacy mobile profile normalized to Quadrants
 instead of the native Timeline. Capture stopped fail-closed before a visual
 manifest, capsule, attestation or Lane B authority existed. Rc22 is therefore
 historical failed-capture evidence and must not be retried, relabeled,
-promoted or imported. Rc23 is prospective and unpinned until a later metadata
-boundary seals its exact source.
+promoted or imported. Rc23 now has an exact `validation_pending` source pin;
+that metadata is inspectable but is not a candidate, capsule or adoption
+authority.
 
 ### Normative Lane A -> Lane B handoff and fast-path budget
 
@@ -650,7 +651,7 @@ memory rather than one fixed dashboard:
 | Historical public v3 trust payload | Exact source `1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc`; package `wiki-viva-v8-rc20` | 1,631 Python, 516 frontend, 115 Node and 102/102 first-attempt browser cells plus the two-lane trust controls passed locally | Capsule, impact, resume, rollback/report and synthetic negative contracts are executable, but later real-data pressure exposed RT-151 in the mobile Timeline | Historical diagnostic evidence only; never promote, import or relabel as passing RT-151 |
 | Historical public RT-151 closure | Exact source `db3bba4957f551cc7c2d261561a45d0c606fdd05`; historical package `wiki-viva-v8-rc21` | 1,632 Python, 516 frontend, 115 Node and 102/102 first-attempt browser cells; 0 skips/retries in the browser matrix; package and portable-tree digests remain bound to that checkpoint | RT-151 is reproduced with public synthetic data and closed through mobile block flow plus explicit reading-order/containment geometry; RT-152 later invalidated rc21 as a migration/release candidate | Historical non-promotional evidence only; never promote, import, relabel or mint a capsule from rc21. Rc23 requires a new exact source, package and complete proof |
 | Historical public RT-152 closure / RT-153 failed capture | Exact rc22 source `7e72664fb6871d906addbddb6ed5b2e7f1fec33c`; candidate package `d7a6a005...`; package-bound portable tree `e27f8efd...`, 521 entries | Pre-capture stack: 1,703 Python, 516 frontend, 115 Node plus static/matrix contracts; productive Chromium capture stopped before a manifest when legacy Timeline normalized to Quadrants | Config-bound C3 and hardened evidence/resume contracts close RT-152; RT-153 proves that green contract tests did not certify the actual native visual route | Immutable failed-capture evidence; never retry, relabel, promote, import or mint a capsule from rc22 |
-| Prospective public rc23 transition | Package `unreleased` / `validation_pending`, bound only to its code predecessor until the later metadata pin | Focused visual/capsule tests, real synthetic Chromium capture, full 516 frontend router/runtime suite and audits are green; complete exact matrix and productive release capture still required | All four certification profiles use canonical native `view` routes and safe failure reasons; no capsule or Lane B authority exists | Pin only after the transition source commit; candidate/capsule and any downstream QA remain separate later boundaries |
+| Exact public rc23 validation source | Exact source `ba42b95c93c3383162bf105703d5d6d4ea688e3e`; package `wiki-viva-v8-rc23` / `validation_pending` | Focused visual/capsule tests, real synthetic Chromium capture, full 516 frontend router/runtime suite and audits are green; complete exact matrix and productive release capture still required | All four certification profiles use canonical native `view` routes and safe failure reasons; no capsule or Lane B authority exists | Inspectable source pin only; candidate/capsule and any downstream QA remain separate later boundaries |
 | Corrected local public source for the authorized v2 exception | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; package v2 canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc` | Public suite passed 1,529 tests, with two declared skips and two warnings; package validation and public privacy boundary pass | Atomic operator-job publication and the two-lane migration contracts are covered by public synthetic fixtures | Local source authority for the explicitly authorized in-flight v2 QA only; public publication remains unauthorized |
 | Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the frozen current v2 adoption or a future rc23 v3 plan |
 | Current corrected authorized private v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; two deterministic hosted jobs pass; the only completed standard Apple Silicon attempt closed 100/102, a later attempt was cancelled during browser installation and a separate standard Intel probe closed 92/102 with software rendering and WebGL context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback; private `AGENTS.md`/router work is deliberately deferred to a fresh post-v2 v3 follow-up | Promotion blocked and the aggregate visual check is cancelled/non-green; consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the human gate approves; current v2 C3/receipts remain immutable |
@@ -4789,7 +4790,7 @@ metadata-only boundary. Public push and publication remain unauthorized.
 | Cockpit | 516 frontend; 115 Node gates; zero architecture debt; assets/bundle/release-matrix green | 102 public + 2 downstream matrix contract |
 | Static gates | Both audits 0 errors / 7 known staleness warnings; coverage, operation, input, semantic, snapshot and packs green | No production capsule or attestation yet |
 | Productive visual capture | Failed closed: legacy `/demo/w/timeline?tour=0` normalized to Quadrants, not Timeline | RT-153; no visual manifest, capsule, attestation or Lane B authority minted |
-| Rc23 | Prospective canonical native-route correction; package `unreleased` / `validation_pending` | Pin only in a later metadata boundary after the complete stack and capture pass |
+| Rc23 | Exact canonical native-route source `ba42b95c...`; package `wiki-viva-v8-rc23` / `validation_pending` | Inspectable source pin only; candidate/capsule require the complete stack and productive capture in a later metadata boundary |
 
 This correction is prospective. The already sealed v2 downstream C3 and all of
 its receipts remain frozen on their original complete
@@ -4883,8 +4884,8 @@ executable/non-Markdown release-record boundary. Exact rc22 source
 pre-capture local stack, but RT-153 then stopped productive Chromium capture
 when the legacy mobile route normalized to Quadrants. No visual manifest,
 capsule, attestation or Lane B authority was minted, so rc22 is immutable
-failed-capture evidence. Rc23 is the next unpublished, unpinned validation
-subject. A later
+failed-capture evidence. Rc23 is the next unpublished exact validation subject,
+still non-candidate and without a capsule. A later
 explicit execution decision authorized the corrected private-first v2
 migration described above after the local public core/fixture correction; that
 decision supersedes the former statement that no private import may start. It

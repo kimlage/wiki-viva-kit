@@ -75,8 +75,9 @@ another) via skills — there is no embedded LLM client.
   first productive Chromium capture stopped fail-closed because the legacy
   mobile route normalized to Quadrants instead of Timeline; no visual
   manifest, capsule, attestation or Lane B authority was minted. Never retry,
-  relabel, promote or import either subject. Rc23 is a prospective unpinned
-  validation subject until a later metadata boundary seals its exact source.
+  relabel, promote or import either subject. Rc23 has an exact
+  `validation_pending` source pin; that metadata is inspectable but is not a
+  candidate, capsule or adoption authority.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must

@@ -272,9 +272,10 @@ passed its pre-capture local stack, but the first productive Chromium capture
 stopped fail-closed when its legacy mobile route normalized to Quadrants rather
 than Timeline. No rc22 visual manifest, capsule, attestation or Lane B
 authority was minted; the subject must not be retried, relabeled, promoted or
-imported. Rc23 is a prospective unpinned validation subject until a later
-metadata boundary seals its exact source. No existing v2 C3 or receipt is
-amended to reach it.
+imported. Rc23 now has an exact `validation_pending` source pin, but it is not a
+candidate, capsule or adoption authority until its complete stack and
+productive capture pass in a later metadata boundary. No existing v2 C3 or
+receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself
 

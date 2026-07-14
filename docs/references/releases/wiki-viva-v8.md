@@ -15,14 +15,13 @@ sensitive_data_policy: no_personal_data
 
 ## Rc23 prospective source — validation not yet pinned
 
-Rc23 is the prospective correction subject for canonical native visual routes.
-At this checkpoint its package remains `unreleased` / `validation_pending` and
-binds the prior code-only correction
-`afed3beb3637f2d9ea5a4baa76d007fc7508dadc`, not its own containing commit. A
-later metadata-only boundary may pin
-the exact source only after the complete local stack and productive Chromium
-capture pass. No rc23 capsule, attestation, Lane B authority, public release,
-push, merge or tag is claimed here.
+`wiki-viva-v8-rc23` is the exact correction subject for canonical native visual routes:
+`ba42b95c93c3383162bf105703d5d6d4ea688e3e`. Its package remains
+`validation_pending`, so this pin is inspectable but not adoption authority. A
+later metadata-only boundary may change it to a local-QA candidate only after
+the complete local stack and productive Chromium capture pass. No rc23
+capsule, attestation, Lane B authority, public release, push, merge or tag is
+claimed here.
 
 ## Rc22 exact local source — failed capture, promotion prohibited
 
@@ -106,7 +105,7 @@ The rc21 package names the following exact portable contracts:
 | Asset / downstream adapter manifests | `wiki_cockpit_asset_manifest.v1` / `wiki_downstream_adapter_manifest.v1` |
 
 The `wiki_viva_upgrade_consumer_c3_authority.v1` contract was introduced after
-rc21 and is preserved in the prospective rc23 source. Rc22's failed capture
+rc21 and is preserved in the exact rc23 validation source. Rc22's failed capture
 cannot authorize its adoption. Rc23 inherits no rc21 or rc22 status or receipt.
 
 Any future rc23 publication still requires explicit authorization, exact local
@@ -115,7 +114,7 @@ merge, followed by a separately reviewed promotion boundary that can mint
 production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
-rc21, rc22 nor the prospective rc23 checkpoint reclassifies, reduces or rewrites that
+rc21, rc22 nor the rc23 validation checkpoint reclassifies, reduces or rewrites that
 evidence.
 
 ## Historical rc8-era evidence — preserved without current authority
