@@ -139,11 +139,9 @@ another) via skills — there is no embedded LLM client.
   adapter identity is consumer-owned and cannot certify an upstream source.
   Rc33 is immutable `historical_validation_failed`; no candidate, productive
   capture, capsule, receipt, attestation, trust anchor or Lane B authority
-  exists. The active package is now `unreleased` at metadata base
-  `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`; the future literal
-  `wiki-viva-v8-rc34` remains unpinned until a new source-formation and pin
-  boundary, then must receive a wholly new validation, candidate, capture and
-  certification sequence.
+  exists. Package `wiki-viva-v8-rc34` is pinned only for exact validation at
+  source `533d286869c478bd157b066d7882388b99fde2f7`; it must receive a wholly
+  new validation, candidate, capture and certification sequence.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must

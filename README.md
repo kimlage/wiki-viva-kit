@@ -49,9 +49,9 @@ evidence. Rc33 exact source
 `539eb19b958a4159eecb2c5a7afd6ceaabcbb086` passed Python, frontend, Node and
 all applicable static gates, then stopped fail-closed at 98/102 in its first
 strict browser matrix. It is immutable failed-validation evidence with no
-candidate, capsule or adoption authority. The active package is `unreleased`
-at `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`; future literal
-`wiki-viva-v8-rc34` remains unpinned. See the
+candidate, capsule or adoption authority. Package `wiki-viva-v8-rc34` is
+pinned only for exact validation at source
+`533d286869c478bd157b066d7882388b99fde2f7`. See the
 [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority: do not
@@ -341,10 +341,9 @@ regressions and one short-phone pointer collision. The extra adapter-manifest
 diagnostic appended outside the Lane A registry was
 `inapplicable_gate/orchestration_invalid`, not an rc33 source failure. Rc33 is
 immutable failed-validation evidence; no candidate, capture, capsule or Lane B
-authority exists. The active package is `unreleased` at metadata base
-`a3aae4b1aa5ef53b5e74983d396a744d22f3b514`; future literal
-`wiki-viva-v8-rc34` is still unpinned and must receive a wholly new
-validation/candidate/capture/certification sequence after source formation.
+authority exists. Package `wiki-viva-v8-rc34` is pinned only for exact
+validation at source `533d286869c478bd157b066d7882388b99fde2f7` and must
+receive a wholly new validation/candidate/capture/certification sequence.
 No existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself

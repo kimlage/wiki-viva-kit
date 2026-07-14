@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc33 browser validation failed - rc34 source forming"
+title: "Wiki Viva v8 rc34 validation source pinned - rc33 browser validation failed"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc33 browser validation failed - rc34 source forming
+# Wiki Viva v8 rc34 validation source pinned - rc33 browser validation failed
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -378,26 +378,31 @@ productive capture, certification, capsule, receipt, attestation, trust
 anchor, plan, import or Lane B authority exists. Never retry, relabel, promote,
 import or use rc33 to mint missing authority.
 
-## Rc34 source formation — root-only quadrant disambiguation
+## Rc34 exact validation source — root-only quadrant disambiguation
 
-Rc34 is prospective and unpinned. Its public synthetic correction scopes the
-`Q1`–`Q4` prefix to the root quadrant overview, where repeated family labels
-need disambiguation, while a focused quadrant lens keeps the concise family
-name used by navigation, breadcrumbs and assistive technology. The semantic
-scope correction removes the excess focused-label height instead of masking
-the mobile collision with a broad positional override.
+Package `wiki-viva-v8-rc34` is pinned only for exact validation at source
+`533d286869c478bd157b066d7882388b99fde2f7`. Its public synthetic correction
+scopes the `Q1`–`Q4` prefix to the root quadrant overview, where repeated
+family labels need disambiguation, while a focused quadrant lens keeps the
+concise family name used by navigation, breadcrumbs and assistive technology.
+The semantic scope correction removes the excess focused-label height instead
+of masking the mobile collision with a broad positional override.
 
-Focused formation proof passes all 518 frontend tests and the four browser
+Focused formation proof passed all 518 frontend tests and the four browser
 cases that failed in rc33, including desktop root navigation, desktop focused
 quadrant navigation, mobile two-tap navigation and short-phone pointer-safe
-geometry. This proof forms a replacement source; it is not complete release
-validation and does not reuse or amend rc33 evidence.
+geometry. The validation-pending package-file SHA-256 is
+`f5a0ef463b56d3b35a918bb163108ba01e39eb68eefd8ef8b35f3a933507bb33`, its
+canonical package identity is
+`dc7cc755a69b33a8aaf994f52b12d38307a7153bde9942d1eac9b310cb0ebac7` and its
+exact 521-entry portable tree is
+`257140ba318e4ee269d026f58f0e02bc6056e593dc9b25750e7f81af4c8834f9`.
 
-The active package remains `unreleased` at baseline metadata
-`a3aae4b1aa5ef53b5e74983d396a744d22f3b514`: `package_is_pinned=false`.
-No rc34 source SHA, package identity, candidate, capture, capsule or adoption
-authority exists until a separate exact source-formation commit and metadata
-pin are reviewed. Public push remains unauthorized.
+These identities authorize validation only: `package_is_pinned=false`, and no
+plan, import, browser matrix, candidate, productive capture, certification,
+capsule or adoption authority exists. Rc34 must run every authority stage from
+zero and does not reuse or amend rc33 evidence. Public push remains
+unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
