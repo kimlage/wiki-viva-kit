@@ -35,8 +35,9 @@ world**, or complete **Study/Research** and **Personal Finance** pack
 showcases.
 
 The unified v8 runtime is not a published consumer release. Rc26 is frozen
-failed-certification evidence, rc27 is frozen failed-validation evidence and
-rc28 is still an unpinned local source. See the
+failed-certification evidence, rc27 is frozen failed-validation evidence,
+rc28 and rc29 were rejected before validation, and rc30 is pinned only for
+exact validation. See the
 [v8 release note](docs/references/releases/wiki-viva-v8.md) for the exact
 remaining gates. An exact `source_sha` alone is not adoption authority: do not
 migrate a downstream repo until a production Lane A capsule verifies
@@ -300,9 +301,15 @@ Lane B authority exists. Rc27 exact source
 `ba7ee19457436993edc7ff8a838b34c5b864fd98` then failed its first complete
 warnings-as-errors validation with 46 public synthetic resource-lifecycle
 failures after 1,693 passes and 3 skips; browser and later stages were not
-started. Rc27 is immutable `historical_validation_failed`. Rc28 is prospective
-and unpinned, with explicit process and stream ownership awaiting a wholly new
-validation/candidate/capture/certification sequence.
+started. Rc27 is immutable `historical_validation_failed`. Rc28 source
+`31cad3bc8aa9cf45d4842103307baff678ddeeb7` was rejected before validation
+because its portable transition guides were stale. Rc29 source
+`905e377220a409bee6e1977d3c0e6262bdc27914` was also rejected before
+validation because one portable skill remained state-stale and public fixtures
+retained private-lineage labels. Rc30 is pinned only for exact validation to
+source `bc44255b22d65b8c9869ec45759afd4dac1355b9`, with explicit process and
+stream ownership awaiting a wholly new validation/candidate/capture/
+certification sequence.
 No existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself

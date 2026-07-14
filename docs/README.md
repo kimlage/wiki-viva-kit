@@ -106,8 +106,14 @@ starting point for persistent context is `memories/`.
   `ba7ee19457436993edc7ff8a838b34c5b864fd98` then failed its first complete
   warnings-as-errors validation with 46 public synthetic resource-lifecycle
   failures; browser and later stages were not started. Rc27 is immutable
-  `historical_validation_failed`. Rc28 is prospective and unpinned, with
-  explicit process/stream ownership requiring a wholly new
+  `historical_validation_failed`. Rc28 source
+  `31cad3bc8aa9cf45d4842103307baff678ddeeb7` was rejected before validation
+  because its portable transition guides were stale. Rc29 source
+  `905e377220a409bee6e1977d3c0e6262bdc27914` was also rejected before
+  validation because one portable skill remained state-stale and public
+  fixtures retained private-lineage labels. Rc30 is pinned only for exact
+  validation to source `bc44255b22d65b8c9869ec45759afd4dac1355b9`,
+  with explicit process/stream ownership requiring a wholly new
   validation/candidate/capture/certification sequence.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.

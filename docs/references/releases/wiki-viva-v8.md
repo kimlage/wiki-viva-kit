@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc27 validation failed - rc28 source unpinned"
+title: "Wiki Viva v8 rc30 validation source pinned - rc28/rc29 rejected pre-validation"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc27 validation failed - rc28 source unpinned
+# Wiki Viva v8 rc30 validation source pinned - rc28/rc29 rejected pre-validation
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -183,9 +183,10 @@ Rc27 is immutable `historical_validation_failed`. No capsule, receipt,
 attestation, trust anchor or Lane B authority exists; never retry, relabel,
 promote, import or use rc27 to mint missing authority.
 
-## Rc28 prospective source — explicit process and stream ownership
+## Rc28 source formation — rejected before validation
 
-Rc28 closes the three RT-163 families with public synthetic controls: Codex
+Rc28 source `31cad3bc8aa9cf45d4842103307baff678ddeeb7` closed the three
+RT-163 families with public synthetic controls: Codex
 jobs now kill/reap on exceptional exit, join feeder/watchdog threads and close
 both parent pipes; Git batch reads use a managed `Popen` plus `communicate()`
 and verify all three streams close; and reader-lease tests drain and close the
@@ -193,11 +194,63 @@ child with `communicate()`. The integrated affected set passes 159 checks with
 warnings as errors. No warning filter, post-processing redactor or fabricated
 manual evidence was added.
 
-Rc28 remains prospective, `unreleased` / `validation_pending` and unpinned. A
-separate exact-source metadata boundary, complete validation, candidate review,
-new productive capture, one certification, independent capsule verification,
-downstream QA, remote CI and the human promotion gate remain mandatory. Public
-push remains unauthorized.
+The pre-pin audit found that two portable C1 guides still described rc28 as
+prospective and unpinned. Pinning metadata around those contradictory portable
+bytes would have made the release record false. Rc28 was therefore rejected
+before its metadata pin and before complete validation; its draft package
+identities below are diagnostic only and never became validation, capsule or
+adoption authority:
+
+- draft package file SHA-256:
+`d3a71b4653df53ad5ab39da214e3aaf08dc9b823913055a16ab840f5ec1eca60`,
+- draft canonical package identity:
+`26f8f15e177ec92d7a75d4989ec47b854ca95aa2c6486b45ce802ca2b8c8692e`,
+- draft 521-entry portable tree:
+`961eb6c4f5a11be29e08b72a07fcb4a3d655e160d7d6fae25c441e46dac849a3`.
+
+No complete validation, browser matrix, candidate, capture, certification,
+capsule, receipt, push or publication exists for rc28.
+
+## Rc29 source formation — rejected before validation
+
+Rc29 source `905e377220a409bee6e1977d3c0e6262bdc27914` preserves the
+resource-lifecycle corrections and replaces the stale portable transition
+claims in both guides. The complete portable audit then found one remaining
+state-stale claim inside the portable `wiki-viva` skill and real
+private-lineage labels in public fixtures. Rc29 was therefore rejected before
+its metadata pin and before complete validation. Its draft identities below
+are diagnostic only:
+
+- draft package file SHA-256:
+`72ff75f4253435e69d4798049cd2d0dc4c5f10559a0d726c8832d2e69aa5438a`,
+- draft canonical package identity:
+`a7079189f24a63cd6e12b30f9d8fe9b40ae357f6c1347afc0fd70b2802167202`,
+- draft 521-entry portable tree:
+`9dd92ec9435659def81be0130926c11f19e8dcd3cbf0f7034845735a117d0277`.
+
+No complete validation, browser matrix, candidate, capture, certification,
+capsule, receipt, push or publication exists for rc29.
+
+## Rc30 exact validation source — public-safe portable truth
+
+Rc30 source `bc44255b22d65b8c9869ec45759afd4dac1355b9` keeps the
+resource-lifecycle fixes, makes the portable skill and guides state-stable, and
+replaces private-lineage fixture labels with neutral public synthetic data. The
+cleanup-specific evidence passed 27 Python checks with warnings as errors and
+all 516 frontend checks; the complete exact validation has not started.
+
+Package `wiki-viva-v8-rc30` is pinned only for exact validation; status remains
+`validation_pending`, so `package_is_pinned=false` and no plan, import, capture
+or certification authority exists. The validation-pending package file SHA-256
+is `a99e04d9b41333778a5bee6fb405a85eb4050229ed354ea0151708b9b7f7323c`,
+its canonical package identity is
+`adf99371ab5e7ddc6b265cbc3dc73b9b7c66c18ca2c93c5c4db53836cf43083f`,
+and its exact 521-entry portable tree is
+`af505d83ff9ba2f73c8861c029234e3a844392e079f501cd36aa0ebd37a2da8b`.
+These identities authorize validation only and are not a capsule or adoption
+receipt. Complete validation, candidate review, new productive capture, one
+certification, independent capsule verification, downstream QA, remote CI and
+the human promotion gate remain mandatory. Public push remains unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -302,7 +355,7 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Any future rc28 publication still requires exact validation, separate candidate
+Any future rc30 publication still requires exact validation, separate candidate
 review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
@@ -310,8 +363,9 @@ human conceptual/privacy/VoiceOver review and merge, followed by a separately
 reviewed promotion boundary that can mint production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
-rc21, rc22, rc23, the exact rc24/rc26 failed-certification subjects nor the
-exact rc25/rc27 failed-validation subjects reclassifies, reduces or rewrites
+rc21, rc22, rc23, the exact rc24/rc26 failed-certification subjects, the exact
+rc25/rc27 failed-validation subjects nor rejected rc28/rc29 reclassifies,
+reduces or rewrites
 that evidence.
 
 ## Historical rc8-era evidence — preserved without current authority

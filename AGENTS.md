@@ -108,9 +108,16 @@ another) via skills — there is no embedded LLM client.
   failed its first complete warnings-as-errors validation with 46 public
   synthetic subprocess/thread/pipe lifecycle failures after 1,693 passes and
   3 skips. Its browser and later stages were not started; rc27 is immutable
-  `historical_validation_failed`. Rc28 is prospective and unpinned. It must
-  prove explicit process/stream ownership through a wholly new validation,
-  candidate, capture and certification sequence.
+  `historical_validation_failed`. Rc28 source
+  `31cad3bc8aa9cf45d4842103307baff678ddeeb7` was rejected before validation
+  because its portable guides still carried stale transition wording. Rc29
+  source `905e377220a409bee6e1977d3c0e6262bdc27914` was also rejected before
+  validation because one portable skill remained state-stale and public
+  fixtures retained private-lineage labels. Rc30 is pinned only for exact
+  validation to source `bc44255b22d65b8c9869ec45759afd4dac1355b9`;
+  status remains `validation_pending`. It must prove explicit process/stream
+  ownership through a wholly new validation, candidate, capture and
+  certification sequence.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must
