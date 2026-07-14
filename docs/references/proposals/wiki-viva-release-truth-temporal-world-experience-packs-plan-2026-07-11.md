@@ -22,7 +22,7 @@ date: "2026-07-11"
 status: blocked
 context: system
 visibility: public_reference
-updated_at: 2026-07-13
+updated_at: 2026-07-14
 stale_after_days: 30
 sources_policy: "current_source_code_review_plus_exact_historical_browser_evidence_plus_sanitized_private_pressure"
 gate: github_pr
@@ -50,7 +50,7 @@ scope: "One evidence-backed correction and extension contract covering release t
 
 # Plan - Wiki Viva Release Truth, Temporal World and Experience Packs
 
-Updated on: 2026-07-13.
+Updated on: 2026-07-14.
 
 ## Executive Decision
 
@@ -114,16 +114,33 @@ canonical package at `status: validation_pending` until the validated payload
 and a subsequent reviewed promotion boundary are published through public CI
 and merged to public `main`.
 
-Private adoption still requires the public branch to be pushed, CI to pass,
-the human conceptual/privacy gate to approve and the public PR to merge, so the
-private consumer can cite a merged public SHA rather than a local-only object.
-VoiceOver, release-tag authority and external E5 remain separate mandatory
-gates. The user's 2026-07-13 authorization covers integration of the validated
-migration into private `main`; it does not authorize public push, PR mutation,
-merge or tag. That missing publication authority is now the only blocker before
-the remaining public-first sequence can start: remote CI, human/VoiceOver
-review, history-preserving validation merge and the separately reviewed
-promotion merge must all precede the three-commit private migration.
+The public-first rule above records the historical rc19 policy. On 2026-07-13,
+an explicit execution decision authorized one corrected **private-first v2**
+exception after the shared defect had been reproduced and fixed locally with
+public synthetic fixtures. The corrected public source and v2 package remain
+local-only: public push, PR mutation, merge, tag and E5 are still unauthorized.
+The in-flight consumer adoption therefore keeps the complete original v2 gate
+matrix and cannot borrow the later v3 gate classes retroactively.
+
+That authorized adoption now has a fresh read-only preflight, a direct
+C1 -> C2 -> C3 ownership chain, all 22 required gates, four real visual canary
+profiles, generated private/public-redacted reports and an executed disposable
+rollback. Promotion is no longer blocked on evidence construction; it remains
+blocked on the consumer PR's exact hosted performance proof and the human merge
+gate. The hosted matrix closed 100 of 102 cells; the only two failures are the
+unchanged desktop frame-budget cells on the standard macOS runner. Navigation,
+visual baselines, fallback and both secondary browsers passed. This is not a
+license to retry, raise the budget or omit the cells: consumer `main` remains
+unchanged until the same contract passes on an honestly capable subject/runner.
+A separate first-attempt standard Intel probe also failed closed at 92/102:
+Chromium attested software SwiftShader rendering and WebKit lost or crashed its
+WebGL context across keyboard and mobile flows. That diagnostic branch was
+closed without retry or merge, so no standard hosted macOS label tested here is
+release authority. The remaining path requires an explicitly authorized,
+isolated physical self-hosted runner or an eligible GPU-accelerated larger
+runner; neither may be silently substituted into the current receipts.
+Concurrent domain content is intentionally excluded and must follow in a
+separate PR.
 
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
@@ -566,9 +583,10 @@ memory rather than one fixed dashboard:
 | Historical public payload `S19` | Exact source `198471c3cf4176d7a046c5ceb8dd053f1be1ee58`; pin subject `6ca0dba8b2772c970e0c6e5e20e18eb9ed742055`; package `wiki-viva-v8-rc16` | Then-declared 21-gate stack passed and E3 ran on 2026-07-13, but the browser receipt records Node 26, not Node 22 | RT-146 later proved the downstream drift gate was not trustworthy release authority | Never promote or import |
 | Historical public payload `S20` | Exact source `3f96b03e451e09227205546678cfa8e902afb2fd`; package `wiki-viva-v8-rc17` | 34 focused RT-146 controls pass | Committed canonical-package and pinned portable-tree authority is implemented, but RT-147 invalidated the downstream release-record boundary | Never promote or import |
 | Historical public payload `S21` | Exact source `8a95ed94c424759f6b218038f8b5f6141c3cc079`; package `wiki-viva-v8-rc18`; metadata subject `8dc7b6dfef601c127a2d826ad9708517825fc455` | Gates 1–12 pass under Node 22, including 1,428 Python; frontend stops at 510/513 on first attempt | Validator v5 is correct; RT-148 exposes three keyboard tests that did not isolate the first-run modal tour | Never retry, promote or import |
-| Current public payload `S22` | Exact source `e01a4ed91e3e4c2f1746539418d3faebec775204`; package `wiki-viva-v8-rc19`; validation subject `2023ee714cfbdb9f48b22c7cd3d818fb9dc8d2b8` | 21/21 Node 22 gates: 1,428 Python, 516 frontend, 107 Node and 102/102 first-attempt browser cells; exact visual manifest bound | Keyboard contracts isolate the separately tested tour; the modal isolates every background sibling without hiding its seven anchors or stacking over another modal | local validation complete, canonical `validation_pending` and mechanically unpinned by RT-150; publish/merge validation and promotion before downstream import |
+| Historical public payload `S22` | Exact source `e01a4ed91e3e4c2f1746539418d3faebec775204`; package `wiki-viva-v8-rc19`; validation subject `2023ee714cfbdb9f48b22c7cd3d818fb9dc8d2b8` | 21/21 Node 22 gates: 1,428 Python, 516 frontend, 107 Node and 102/102 first-attempt browser cells; exact visual manifest bound | Keyboard contracts isolate the separately tested tour; the modal isolates every background sibling without hiding its seven anchors or stacking over another modal | Locally validated historical evidence; superseded as the current downstream source and never published/promoted |
+| Corrected local public source for the authorized v2 exception | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; package v2 canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc` | Public suite passed 1,529 tests, with two declared skips and two warnings; package validation and public privacy boundary pass | Atomic operator-job publication and the two-lane migration contracts are covered by public synthetic fixtures | Local source authority for the explicitly authorized in-flight v2 QA only; public publication remains unauthorized |
 | Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the exact S22/rc19 private adoption |
-| Current private rc19 target | Historical S9 remains installed; authoritative S22 preflight has not run; concurrent private main advanced and must be freshly frozen | S19's 887-delta result is diagnostic history only and must be recomputed against the eventual promoted public-main package | Preserve private memory/config/adapters while replaying events, relations, search, authorship, restart, Timeline, mobile and rollback | Blocked on public validation merge plus the subsequent reviewed release-promotion merge |
+| Current corrected v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; standard hosted Apple Silicon closed 100/102 and a separate standard Intel probe closed 92/102 with software rendering and WebKit context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback | Promotion blocked; consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the human gate approves |
 | Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact S22 demo, pack, Genesis, accessibility, compatibility, failure and source-lifecycle cells pass in the 102-cell receipt | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Public proof closed; real private replay remains separate |
 | Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Six visual baselines, nineteen accepted manual cells and the exact S22 tour contract are manifest-bound; 102 cells cover PT-BR, keyboard, touch, mobile and fallback | No inspected overflow/error blocker; transition frames require settling and VoiceOver remains human | Automated/E3 boundary closed; human conceptual/privacy/VoiceOver gate remains before merge |
 
@@ -3243,6 +3261,27 @@ Decisions made by this review:
     symlink-versus-manifest-pointer is no longer an open v8 decision.
 21. Treat `wiki_release_receipt.v1` as browser evidence only; broader release
     closure and E5 remain separate authorities.
+22. Split future migrations into two normative lanes: certify one immutable,
+    portable release capsule once upstream; adopt it in each consumer by the
+    exact C1/C2/C3 delta and an impact-derived gate plan.
+23. Preserve the complete `migration.required_gates` matrix for the v2 adoption
+    already in flight. V3 gate classes, receipts and resume rules apply only to
+    a new plan and never rewrite historical evidence.
+24. Keep consumer-owned technical adaptation and concurrent domain content in
+    separate PRs; the content PR must be replayed only after the technical
+    migration reaches the new consumer `main`.
+25. Keep every public source/package/document change local until publication is
+    explicitly authorized; private integration authority does not imply public
+    push, PR, merge, tag or external attestation authority.
+26. Treat every hosted performance budget as a blocking promotion gate. A green
+    local 22/22 matrix, canary and rollback never override remote 100/102;
+    require the exact promotion subject to reach 102/102 before human merge.
+27. Reject both tested standard hosted macOS pools as release authority for the
+    current unchanged visual matrix. Apple Silicon closed 100/102 on frame
+    budgets; Intel closed 92/102 with software SwiftShader and WebKit context
+    loss. Preserve both first attempts and require explicit authority before
+    registering an isolated physical self-hosted runner or provisioning an
+    eligible GPU-accelerated larger runner.
 
 Open implementation decisions, to resolve in their owning PR:
 
@@ -3287,13 +3326,16 @@ downstream, human or still-open engineering work.
 
 ### Semantic/private parity
 
-- [ ] Event closure, typed identity and visual reachability counts agree.
+- [x] Required semantic inventory passes on final C3; the canary Timeline
+      exposes 906 total events, 33 filtered results and a working detail state.
 - [ ] Legacy private events are migrated or explicitly compatibility-tracked.
-- [ ] Private release evidence names the reviewed public/private SHAs.
-- [ ] Drift is classified and expected generated drift is separated.
+- [x] Private evidence binds the exact subjects while the public projection
+      removes consumer identity, paths, routes and payloads.
+- [x] Drift and boundary ownership are classified: C1 74, C2 836 and C3 21
+      paths.
 - [ ] Real-data rollups expose descendant actions honestly.
 - [ ] Current warnings have owner, class and expiry.
-- [ ] No private content enters public fixtures, screenshots or receipts.
+- [x] Public fixtures and exported evidence contain no private content.
 
 ### Demo completeness
 
@@ -3314,7 +3356,8 @@ downstream, human or still-open engineering work.
       any future paginated endpoint must expose terminal cursors explicitly.
 - [x] Timeline is a registered native view with shareable routes.
 - [x] Chronoscope, provenance and before/after have 2D accessible surfaces.
-- [ ] Real private history passes scale and semantic checks.
+- [x] Real private history passes the exercised scale/filter/detail canary:
+      906 total events, 33 filtered results and detail state open.
 - [x] Reader provenance no longer depends on a non-emitted event kind.
 - [x] Historical playback is absent until a Git/persisted-state reconstruction
       proof passes; missing temporal precision remains visible.
@@ -3348,15 +3391,20 @@ downstream, human or still-open engineering work.
 
 ### Release
 
-- [ ] Public PR is human-reviewed and merged first.
-- [ ] Private downstream consumes the merged public SHA.
-- [ ] Exact current private operator API and rendered UI prove repo ID,
-      snapshot revision/hash and capabilities; historical S9 evidence exists,
-      but the rc19 target has not been imported.
+- [ ] Public PR is human-reviewed and merged first for any future public
+      release; the authorized private-first v2 exception does not authorize
+      public publication.
+- [ ] Future steady-state downstream releases consume a merged/certified public
+      SHA; the authorized private-first v2 exception is not reusable authority.
+- [x] Current consumer operator, snapshot and rendered UI identity are bound in
+      ignored private evidence and represented publicly only by safe aggregates.
 - [x] Exact-SHA public browser closure passes on rc19 with 102/102 first-attempt
       cells, zero skip/retry/flaky result and stable before/after subject.
-- [ ] Exact-SHA private browser closure passes 2/2 after the merged S22 import;
-      the historical S9 pair does not satisfy current private adoption.
+- [x] Corrected v2 downstream proof passes 22/22 required gates and four real
+      canary profiles; reports and disposable rollback pass.
+- [ ] Hosted consumer CI passes 102/102; current result is 100/102 with two
+      performance-budget failures.
+- [ ] Consumer `main` readback matches the promoted subject; `main` is unchanged.
 - [ ] Broader promotion manifests and the external signed E5 attestation bind
       both subjects without treating `browser_closure` as full release proof.
 - [ ] Release note is generated from the receipt.
@@ -3396,27 +3444,35 @@ This is the only active queue; earlier S9/S10 queues are historical snapshots:
 8. **DONE** — retain rc19 at `validation_pending`, prove
    `package_is_pinned=false` and record RT-150: a local `release_candidate`
    would mechanically authorize downstream preflight before publication;
-9. **BLOCKED ON EXPLICIT PUBLICATION AUTHORITY** — push the validated public
-   branch, update PR 61, observe green remote CI, complete human
-   conceptual/privacy and VoiceOver review, then merge with history preservation
-   so exact S22 remains reachable from public `main`;
-10. create a separate public promotion boundary that changes the exact S22
-   package and strict canonical test to `release_candidate`, recomputes its
-   digest, passes package/inventory/audit/CI review and merges to public `main`;
-11. fetch and freeze the newly advanced private `origin/main`, recompute portable
-   drift with both package comparator and corrected `wiki_toolkit_drift`, and
-   retain 887/51/836 only as historical S19 diagnostics;
-12. run a fresh authoritative private preflight and create exactly three
-   commits: faithful public import, regenerated artifacts and downstream
-   adaptations, preserving private memory/config/adapters/tests/workflows;
-13. execute all private deterministic, browser, real-search, Timeline, pack,
-   operator/security, E4 visual and disposable-clone idempotency proofs;
-14. compile private and public-redacted JSON/Markdown receipts, verify reverse
-    rollback, reconcile RT-09/10/29/33/36/47/48/125/146/147/148/149/150,
-    open the private `wiki/*` PR with source/page/privacy/gate/pending summaries,
-    pass input/audit/PR-summary/conceptual-diff checks and obtain human approval,
-    then merge and verify private `main`/remote identity; tag and external E5
-    remain separate post-merge authorities.
+9. **DONE** — fix the shared atomic-publication defect in the local public core,
+   cover it with synthetic fixtures and pass the complete public suite: 1,529
+   passed, two declared skips and two warnings;
+10. **DONE** — pin a v2 package to the corrected local source, validate its
+    canonical digest and run a fresh read-only consumer preflight with zero
+    blockers; no public publication occurred;
+11. **DONE** — create one direct chain: C1 imports 74 byte/mode-equal portable
+    paths, C2 owns 836 regenerated paths and C3 owns 21 allowlisted
+    consumer-technical paths; concurrent domain content remains excluded;
+12. **DONE** — execute the complete original v2 matrix once on final C3: 22/22
+    required gates passed on first attempt, without reuse or reduction;
+13. **DONE** — capture four real canary profiles with sanitized console/network
+    evidence and no sample fallback; exercise Timeline over 906 total events,
+    33 filtered results and one open detail state; generate matching
+    private/public-redacted reports and verify reverse-order rollback in a
+    disposable clone;
+14. **BLOCKED, FAIL-CLOSED** — the consumer technical branch and PR exist. Two
+    deterministic CI jobs pass and the exact hosted visual matrix closes
+    100/102 cells; only the two unchanged desktop performance-budget cells fail
+    on the standard Apple Silicon runner. A separate first-attempt Intel probe
+    closed 92/102 because Chromium used software SwiftShader and WebKit lost or
+    crashed its WebGL context; its diagnostic branch was closed without retry
+    or merge. Do not retry, raise the budget, omit a cell or merge around either
+    failure. Obtain explicit authority for an isolated physical self-hosted
+    runner or an eligible GPU-accelerated larger runner, prove the unchanged
+    matrix there, or fix a reproduced public-core defect with synthetic
+    fixtures. Then obtain the human merge gate and verify consumer `main`.
+    Replay the concurrent domain-content slice only afterwards as a separate
+    PR. Public push, PR, merge, tag and external E5 remain unauthorized.
 
 ## Exact S22/rc19 Node 22 Release Validation Evidence — Passed
 
@@ -4177,7 +4233,7 @@ the existing Timeline + graph grammar rather than a new visual language:
 This is future pack material. It must use a synthetic public fixture and does
 not expand the current release-closing wave.
 
-### Current public/private acceptance matrix — S22 / rc19
+### Historical public/private acceptance matrix — S22 / rc19 before the authorized v2 exception
 
 | Contract | Historical S19 / rc16 | Current S22 / rc19 | Private target | Advance rule |
 |---|---|---|---|---|
@@ -4202,7 +4258,10 @@ re-fetch/re-read remote `main` immediately before creating the isolated
 migration worktree and again before publishing private `main`. Raw paths,
 identities, content, SHAs and receipts remain private.
 
-### Exact private migration once the public terminal gate promotes the package
+### Historical S22/rc19 private-migration design before the authorized v2 exception
+
+This section is superseded for current status by the public-redacted corrected-v2
+checkpoint below. It remains intact as historical planning evidence.
 
 The migration keeps exactly three reviewable commits:
 
@@ -4331,9 +4390,11 @@ recompute its canonical digest. Any later package change invalidates the
 private evidence context and requires recompiling private/public JSON and
 Markdown reports and re-running rollback verification.
 
-Only after those proofs may this table change:
+The following table is frozen as the historical rc19 planning checkpoint. Its
+"private pending" statements are not current status; the corrected v2 authority
+is the public-redacted checkpoint below.
 
-| Control | Current rc19 status | Closure condition |
+| Control | Historical rc19 status | Historical closure condition |
 |---|---|---|
 | RT-09 / RT-10 | exact S22 deterministic proof passes; private adoption pending | after public merge, recompute and prove event compatibility/equality on all final private surfaces |
 | RT-29 | exact S22 search/browser/visual matrix passes; real private acceptance open | after public merge, prove ranking, filters, bounded results and keyboard path on final real snapshot |
@@ -4436,32 +4497,45 @@ retroactively convert the completed v2 evidence into a fast-lane run. The v3
 model applies to a new plan only after the public core and synthetic fixtures
 are green. Public push/publication remains unauthorized in this execution.
 
-#### Current downstream checkpoint — safe aggregate evidence only
+#### Current downstream checkpoint — 2026-07-14, safe aggregate evidence only
 
 | Boundary / proof | Public-redacted observed result | Promotion meaning |
 |---|---|---|
-| Read-only preflight and original C1/C2/C3 | Produced and retained for their exact v2 subject; detailed identities remain downstream-only | useful diagnostic evidence, not authority for a corrected package |
-| Transitional required matrix | Two complete attempts retained. The latest closed every non-browser gate; the required browser gate remained red | the original v2 `migration.required_gates` matrix is still blocking and has not been reduced |
-| Remote PR checks | Non-visual audit/runtime jobs passed; the visual release job failed | PR stays unmerged and consumer `main` stays unchanged |
-| Report boundary | The fail-closed report builder rejected a repair history in which final C3 was not one direct child of C2 | create a clean direct C1 -> C2 -> C3 chain; do not relax the validator or transcribe a report manually |
-| Root cause A | The public synthetic release build consumed a consumer-owned runtime config, producing a different demo/runtime identity | fixed only in the public kit with a package-owned synthetic config and tamper/clean-subject controls |
-| Root cause B | After destination -> Back, one DOM label could retain the previous interpolated position and intercept the next real 3D target | fixed only in the public kit by keeping the interaction lock until all spatial layers sample a terminal frame |
-| Public regression evidence | Real-click return regression passed once; the complete frontend and Node cutoffs plus build/architecture/assets/bundle/release-matrix and config-tamper controls passed | candidate source correction is eligible for a new pinned package only after its final clean-source cutoff |
-| Real downstream canary, generated report and disposable rollback | **pending on the corrected direct-chain subject** | no `promotion_ready` claim exists |
+| Corrected local public subject | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; candidate package v2 with canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc`; public suite passed 1,529 tests, with two declared skips and two warnings | Valid only for the explicitly authorized in-flight v2 downstream QA; public publication remains unauthorized |
+| Read-only preflight | Ready with zero blockers and bound to the exact package and frozen baseline | Authorized creation of C1 without weakening the transition rule |
+| Direct C1 -> C2 -> C3 chain | Direct ancestry and ownership verified: C1 contains 74 byte/mode-equal portable paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-technical paths; domain content excluded | Valid subject for the complete original v2 matrix |
+| Transitional required matrix | All 22 declared gates passed on first attempt against final C3; execution receipts remain ignored and untracked downstream | The original v2 matrix is closed without reuse or reduction |
+| Real canary, generated reports and disposable rollback | Four declared profiles pass with sanitized console/network evidence and no sample fallback; Timeline exposes 906 total events, 33 filtered results and an open detail state; private/public-redacted reports agree; reverse-order rollback restores the frozen baseline | Local technical evidence complete |
+| Consumer hosted CI | Standard Apple Silicon closed 100/102 with two unchanged performance-budget failures; a separate first-attempt standard Intel probe closed 92/102 with software SwiftShader and WebKit context loss/crash | Neither tested standard pool is release authority; promotion remains blocked with no retry, waiver, omission or budget relaxation |
+| Consumer `main` | Unchanged | No integration or completion claim exists before 102/102 and human approval |
 
 No consumer repository name, branch, host path, route, content label, commit,
-screenshot, timing, corpus count or raw receipt is published by this checkpoint.
+screenshot, timing, raw corpus inventory or raw receipt is published. Typed,
+non-identifying aggregates emitted by the redacted report — boundary path
+counts, gate/profile totals and Timeline total/filter cardinality — may remain;
+titles, selected IDs, event payloads and consumer identities may not.
 Unredacted evidence remains ignored/untracked downstream. Existing receipts are
-not erased or rewritten: each remains valid evidence about its exact failed
-subject, but none authorizes promotion after the source/package identity
-changes. Final status may advance only from the generated report and PR/CI/merge
-readback, never from this prose summary.
+not erased or rewritten: each remains valid evidence about its exact subject,
+but none authorizes promotion after the source/package identity changes. Final
+status may advance only from the generated report and PR/CI/merge readback,
+never from this prose summary.
 
-The next lawful step is a new pinned v2 source/package, a fresh read-only
-preflight and one clean direct C1 -> C2 -> C3 chain, followed by the complete
-original required matrix, current-subject canary, generated reports and verified
-rollback. The public v3 runner may not relabel or selectively reuse this in-flight
-v2 evidence.
+The next lawful step is to obtain explicit operator authority and run the
+unchanged 102-cell contract once on an isolated physical self-hosted runner, or
+provision an eligible GPU-accelerated larger runner, unless a real performance
+defect is first reproduced and fixed in the public core with synthetic fixtures.
+A retry on either tested standard pool, wider budget, omitted cell or manually
+fabricated green check is not evidence. Only after remote CI, the human merge
+gate and an exact consumer-`main` readback may the concurrent domain-content
+slice be replayed as its own PR. The public v3 runner may not relabel or
+selectively reuse this in-flight v2 evidence.
+
+If the hosted failure is runner-only and C3/toolchain remain identical, retain
+the first failure and execute the same cells once on a different, attested,
+capable runner against the same subject; do not rerun the same undersized pool
+until it happens to pass. Any consumer commit, package, toolchain or C3 change
+invalidates the C3-bound receipts and requires a fresh complete v2 matrix,
+canary, reports and rollback before promotion.
 
 The concurrent consumer domain-content slice is intentionally outside C1/C2/C3.
 After the technical migration merges, it must be replayed on the new consumer
@@ -4483,20 +4557,27 @@ explicit execution decision authorized the corrected private-first v2
 migration described above after the local public core/fixture correction; that
 decision supersedes the former statement that no private import may start. It
 does **not** authorize public push, PR mutation, merge, tag or E5. Consumer-main
-promotion remains blocked on a corrected direct-chain subject, the complete
-original v2 matrix, current canary evidence, generated report, disposable-clone
-rollback, consumer PR/CI and human gate.
+promotion has a corrected direct-chain subject, the complete original v2
+matrix, current canary evidence, generated reports and a passing
+disposable-clone rollback. It is eligible for the consumer PR and remains
+blocked on runner authority plus the human merge gate. Standard Apple Silicon
+closed 100/102 and a separate standard Intel probe closed 92/102 with software
+rendering and WebKit context loss. Neither result authorizes a retry, budget
+relaxation, omission or merge around the remaining proof.
 
 ## Final Recommendation
 
 Retain rc19 as locally validated historical evidence, not as authority for the
-current downstream run. Finish the already-started v2 consumer migration on a
-new exact corrected source/package and direct C1 -> C2 -> C3 chain; execute its
-complete original matrix, current-subject canary, generated report, disposable
-rollback, consumer PR/CI and human merge gate. In parallel, close the public
-two-lane core and synthetic fixtures locally; do not publish them until a
-separate explicit authorization. Use the v3 capsule/impact/resume model only for
-a new migration plan, never to relabel the current receipts.
+current downstream run. The corrected v2 chain, complete original matrix,
+current-subject canary, generated reports and disposable rollback are closed;
+keep the consumer PR fail-closed until the same performance contract passes on
+an explicitly authorized, isolated physical self-hosted runner or eligible
+GPU-accelerated larger runner, or a public-core defect is reproduced and fixed.
+Then promote through the human merge gate and verify the new consumer `main`.
+Replay concurrent domain content afterwards in a separate PR. Keep the public
+two-lane core and synthetic fixtures local; do not publish them until a separate
+explicit authorization. Use the v3 capsule/impact/resume model only for a new
+migration plan, never to relabel the current receipts.
 
 The project has crossed an important threshold: it already proves that a
 Markdown/Git wiki can become a navigable living operational world. The next

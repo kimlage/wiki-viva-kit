@@ -1,6 +1,6 @@
 # Docs
 
-Updated on: 2026-07-11
+Updated on: 2026-07-14
 
 `docs/` holds only perennial references, snapshots, decisions and templates. The
 starting point for persistent context is `memories/`.
