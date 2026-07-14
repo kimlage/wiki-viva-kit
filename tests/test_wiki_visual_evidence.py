@@ -10,6 +10,7 @@ import shutil
 import struct
 import subprocess
 import threading
+import urllib.parse
 import zlib
 from pathlib import Path
 
@@ -386,7 +387,8 @@ class _SyntheticDemoHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - stdlib callback name
         parsed = self.path
         fallback = "visual=1" in parsed
-        timeline = "/timeline" in parsed
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(parsed).query)
+        timeline = query.get("view") == ["timeline"]
         scene_class = "sceneShell fallbackMode" if fallback else "sceneShell"
         canvas = "" if fallback else "<canvas width='32' height='24'></canvas>"
         view = "timeline" if timeline else "quadrants"
@@ -449,3 +451,62 @@ def test_real_chromium_capture_is_bounded_and_strict_when_available(
         )
         assert metadata["bytes"] > 0
         assert metadata["dimensions"] == visual.PROFILE_SPECS[profile]["viewport"]
+
+
+@pytest.mark.parametrize(
+    ("profile", "view"),
+    [
+        ("desktop", "quadrants"),
+        ("mobile", "timeline"),
+        ("fallback", "quadrants"),
+        ("quadrant_collection_two_step", "quadrants"),
+    ],
+)
+def test_capture_profiles_use_canonical_native_view_routes(
+    profile: str, view: str
+) -> None:
+    route = visual.PROFILE_SPECS[profile]["route"]
+    parsed = urllib.parse.urlsplit(route)
+    query = urllib.parse.parse_qs(parsed.query)
+
+    assert parsed.path == "/demo/w"
+    assert query["view"] == [view]
+    assert query["tour"] == ["0"]
+
+
+@pytest.mark.parametrize(
+    ("stderr", "expected_reason"),
+    [
+        (b"VISUAL_CAPTURE_ERROR:mobile_profile_contract", "mobile_profile_contract"),
+        (b"/private/tmp/secret-path", "chromium_capture_process_failed"),
+    ],
+)
+def test_capture_failure_exposes_only_a_bounded_safe_reason(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    stderr: bytes,
+    expected_reason: str,
+) -> None:
+    output = tmp_path / "capture"
+    (output / "images").mkdir(parents=True)
+    monkeypatch.setattr(
+        visual, "_node_playwright_module", lambda _root: tmp_path / "playwright.js"
+    )
+    monkeypatch.setattr(
+        visual.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args[0], returncode=2, stdout=b"", stderr=stderr
+        ),
+    )
+
+    with pytest.raises(visual.VisualEvidenceError) as captured:
+        visual._capture_profiles(
+            source_root=tmp_path,
+            base_url="http://127.0.0.1:4173",
+            output_root=output,
+            profiles=["mobile"],
+        )
+
+    assert expected_reason in str(captured.value)
+    assert "/private/" not in str(captured.value)

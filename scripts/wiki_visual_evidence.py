@@ -528,19 +528,19 @@ function relativeRoute(value) {
         };
       });
       if (spec.profile === 'desktop' && (state.fallback || state.canvas_count !== 1)) {
-        throw new Error('desktop profile did not reach one WebGL canvas');
+        throw new Error('desktop_profile_contract');
       }
       if (spec.profile === 'mobile' && (state.view !== 'timeline' || state.horizontal_overflow > 1)) {
-        throw new Error('mobile profile did not reach bounded Timeline');
+        throw new Error('mobile_profile_contract');
       }
       if (spec.profile === 'fallback' && (!state.fallback || state.canvas_count !== 0)) {
-        throw new Error('fallback profile did not reach semantic fallback');
+        throw new Error('fallback_profile_contract');
       }
       if (spec.profile === 'quadrant_collection_two_step' && (state.fallback || state.canvas_count !== 1 || actionCount !== 2)) {
-        throw new Error('two-step quadrant profile did not reach its real center');
+        throw new Error('quadrant_collection_two_step_contract');
       }
       if (state.width !== spec.viewport.width || state.height !== spec.viewport.height) {
-        throw new Error('captured viewport differs from the declared profile');
+        throw new Error('viewport_contract');
       }
       await page.screenshot({path: spec.image_path, type: 'png', fullPage: false, animations: 'disabled'});
       captures.push({
@@ -573,7 +573,20 @@ function relativeRoute(value) {
   } finally {
     await browser.close();
   }
-})().catch(() => process.exit(2));
+})().catch((error) => {
+  const allowed = new Set([
+    'desktop_profile_contract',
+    'mobile_profile_contract',
+    'fallback_profile_contract',
+    'quadrant_collection_two_step_contract',
+    'viewport_contract'
+  ]);
+  const code = allowed.has(error?.message)
+    ? error.message
+    : 'chromium_capture_process_failed';
+  process.stderr.write(`VISUAL_CAPTURE_ERROR:${code}`);
+  process.exit(2);
+});
 """.strip()
 
 
@@ -616,7 +629,17 @@ def _capture_profiles(
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise VisualEvidenceError("real Chromium visual capture failed") from exc
     if result.returncode != 0:
-        raise VisualEvidenceError("real Chromium visual capture failed")
+        try:
+            safe_error = result.stderr.decode("ascii", "strict").strip()
+        except UnicodeDecodeError:
+            safe_error = ""
+        match = re.fullmatch(
+            r"VISUAL_CAPTURE_ERROR:([a-z][a-z0-9_]{1,63})", safe_error
+        )
+        reason = match.group(1) if match else "chromium_capture_process_failed"
+        raise VisualEvidenceError(
+            f"real Chromium visual capture failed ({reason})"
+        )
     try:
         response = json.loads(result.stdout.decode("utf-8", "strict"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:

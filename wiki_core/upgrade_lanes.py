@@ -43,19 +43,21 @@ VISUAL_CAPTURE_METHOD = "playwright_served_public_synthetic"
 
 VISUAL_PROFILE_CONTRACTS: dict[str, dict[str, Any]] = {
     "desktop": {
-        "route": "/demo/w/quadrants?center=root-alex-rivera&tour=0",
+        "route": "/demo/w?center=root-alex-rivera&view=quadrants&tour=0",
         "viewport": {"width": 1440, "height": 1000},
         "action_count": 0,
         "state": "webgl",
     },
     "mobile": {
-        "route": "/demo/w/timeline?tour=0",
+        "route": "/demo/w?view=timeline&tour=0",
         "viewport": {"width": 390, "height": 844},
         "action_count": 0,
         "state": "timeline",
     },
     "fallback": {
-        "route": "/demo/w/quadrants?center=root-alex-rivera&visual=1&tour=0",
+        "route": (
+            "/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0"
+        ),
         "viewport": {"width": 1280, "height": 900},
         "action_count": 0,
         "state": "fallback",
