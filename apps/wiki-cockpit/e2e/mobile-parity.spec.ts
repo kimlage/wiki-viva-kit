@@ -24,7 +24,7 @@ test.use({
 // for the same exit animations and semantic transitions exercised on device.
 test.describe.configure({ timeout: 90_000 });
 
-async function prepareMobileWorld(page: Page, path = "/demo/w/quadrants?center=root-alex-rivera") {
+async function prepareMobileWorld(page: Page, path = "/demo/w?view=quadrants&center=root-alex-rivera") {
   await page.addInitScript(() => {
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
     window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
@@ -32,6 +32,7 @@ async function prepareMobileWorld(page: Page, path = "/demo/w/quadrants?center=r
   });
   await page.goto(path);
   await expect(page.getByText("Loading cockpit")).toHaveCount(0, { timeout: 20_000 });
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-runtime-mode", "v8");
 }
 
 async function expectTouchTarget(locator: Locator) {
@@ -140,11 +141,12 @@ test("WebKit mobile uses real touch for lens, view, dock and long-label reader f
   await expect(page).toHaveURL(/[?&]lens=/);
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", originalCenter ?? "root-alex-rivera");
 
-  await page.locator(".glyphButton").filter({ hasText: /Atlas/ }).tap();
+  await page.locator('[data-view-option="radar"]').tap();
   await expect.poll(() => {
     const url = new URL(page.url());
     return { pathname: url.pathname, view: url.searchParams.get("view") };
-  }).toEqual({ pathname: "/demo/w", view: "atlas" });
+  }).toEqual({ pathname: "/demo/w", view: "radar" });
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-runtime-mode", "v8");
   await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", originalCenter ?? "root-alex-rivera");
 
   await page.locator(".dockButton").filter({ hasText: /Sources|Fontes/ }).tap();
@@ -463,7 +465,7 @@ test("WebKit mobile keeps the visible mission, quadrant controls and real Q2 tar
 
 test("WebKit mobile keeps the same semantic route in reduced-motion fallback", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await prepareMobileWorld(page, "/demo/w/quadrants?center=root-alex-rivera&lens=pratica");
+  await prepareMobileWorld(page, "/demo/w?view=quadrants&center=root-alex-rivera&lens=pratica");
 
   await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/, { timeout: 20_000 });
   await expect(page.locator("canvas")).toHaveCount(0);
@@ -555,7 +557,7 @@ test("WebKit mobile keeps the same semantic route in reduced-motion fallback", a
 });
 
 test("WebKit mobile keeps semantic overlay tokens and geometry stable", async ({ page }, testInfo) => {
-  await prepareMobileWorld(page, "/demo/w/quadrants?center=root-alex-rivera&overlay=attention");
+  await prepareMobileWorld(page, "/demo/w?view=quadrants&center=root-alex-rivera&overlay=attention");
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
   const evidence = await expectOverlayEncodingMatrix(page, { fallback: false });
   await testInfo.attach("overlay-encoding-mobile.json", {

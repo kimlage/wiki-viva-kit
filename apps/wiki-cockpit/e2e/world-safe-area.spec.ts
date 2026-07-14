@@ -52,6 +52,7 @@ test("3D quadrant drill keeps diegetic labels legible and out of fixed HUD safe 
   await page.goto("/demo/w/quadrants/~/region%3Apratica%3Afamily%3Asource?center=company-clearpath-labs");
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20000 });
   await expect(page.locator("canvas")).toHaveCount(1, { timeout: 20000 });
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-runtime-mode", "compat");
   await page.waitForTimeout(1600);
 
   const result = await page.evaluate((selectors) => {

@@ -32,14 +32,16 @@ async function waitForWorld(page: Page) {
   await expect(page.locator(".worldRouteLoading, .sceneLoading")).toHaveCount(0, {
     timeout: 20_000
   });
-  await expect(page.locator(".worldWorkspace")).toBeVisible({ timeout: 20_000 });
+  const workspace = page.locator(".worldWorkspace");
+  await expect(workspace).toBeVisible({ timeout: 20_000 });
+  await expect(workspace).toHaveAttribute("data-runtime-mode", "v8");
   await expect(page.getByLabel("Barra de comando")).toBeVisible();
   await expect(page.getByLabel("Buscar conteúdo")).toBeVisible();
 }
 
 test("pt-BR proves one functional WebGL world and its explicit topology-equivalent fallback", async ({ page }, testInfo) => {
   await forcePortugueseWiki(page);
-  await page.goto("/demo/w/quadrants?center=root-alex-rivera&tour=0");
+  await page.goto("/demo/w?view=quadrants&center=root-alex-rivera&tour=0");
   await waitForWorld(page);
 
   const scene = page.locator(".sceneShell");
@@ -73,7 +75,7 @@ test("pt-BR proves one functional WebGL world and its explicit topology-equivale
   }
   await attachViewportScreenshot(page, testInfo, "pt-br-webgl-functional");
 
-  await page.goto("/demo/w/quadrants?center=root-alex-rivera&visual=1&tour=0");
+  await page.goto("/demo/w?view=quadrants&center=root-alex-rivera&visual=1&tour=0");
   await waitForWorld(page);
   await expect(scene).toHaveClass(/fallbackMode/);
   await expect(scene).toHaveAttribute("data-scene-fallback-reason", "visual_test");
@@ -97,7 +99,7 @@ test("pt-BR proves one functional WebGL world and its explicit topology-equivale
 
 test("pt-BR browser journey keeps long guidance, reader, approval warning and mobile controls localized", async ({ page }, testInfo) => {
   await forcePortugueseWiki(page);
-  await page.goto("/demo/w/quadrants?center=root-alex-rivera&visual=1&tour=0");
+  await page.goto("/demo/w?view=quadrants&center=root-alex-rivera&visual=1&tour=0");
   await waitForWorld(page);
 
   const commandSearch = page.getByLabel("Buscar conteúdo");
@@ -134,7 +136,7 @@ test("pt-BR browser journey keeps long guidance, reader, approval warning and mo
   await reader.getByRole("button", { name: "Fechar leitor (Esc)" }).click();
 
   await page.goto(
-    "/demo/w/quadrants?center=root-alex-rivera&dock=approve&visual=1&tour=0"
+    "/demo/w?view=quadrants&center=root-alex-rivera&dock=approve&visual=1&tour=0"
   );
   await waitForWorld(page);
   const approval = page.getByRole("dialog", { name: "Aprovar mudanças" });
@@ -146,7 +148,7 @@ test("pt-BR browser journey keeps long guidance, reader, approval warning and mo
   await attachViewportScreenshot(page, testInfo, "pt-br-reader-and-approval");
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/demo/w/quadrants?center=root-alex-rivera&visual=1&tour=0");
+  await page.goto("/demo/w?view=quadrants&center=root-alex-rivera&visual=1&tour=0");
   await waitForWorld(page);
   await page.locator(".worldNavigatorLearn").click();
   await expect(guide).toBeVisible();

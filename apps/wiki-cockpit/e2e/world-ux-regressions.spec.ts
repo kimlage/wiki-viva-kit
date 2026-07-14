@@ -24,9 +24,10 @@ async function prepareWorld(page: Page, options: { missionCard?: "open" | "close
     window.localStorage.removeItem("wikiCockpitVisualControl.v1");
     window.localStorage.removeItem("wikiCockpitVisualControl.v2");
   }, { missionCard: options.missionCard ?? "closed" });
-  await page.goto("/demo/w/quadrants?center=root-alex-rivera");
+  await page.goto("/demo/w?view=quadrants&center=root-alex-rivera");
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
   await expect(page.locator(".sceneShell canvas")).toHaveCount(1, { timeout: 20_000 });
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-runtime-mode", "v8");
   await expect(page.locator(".worldNavigator")).toBeVisible({ timeout: 20_000 });
 }
 

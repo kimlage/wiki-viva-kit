@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc23 validation checkpoint - rc22 failed capture"
+title: "Wiki Viva v8 rc24 source transition - rc23 failed validation"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,17 +11,32 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc23 validation checkpoint - rc22 failed capture
+# Wiki Viva v8 rc24 source transition - rc23 failed validation
 
-## Rc23 prospective source — validation not yet pinned
+## Rc24 prospective source — validation not yet pinned
 
-`wiki-viva-v8-rc23` is the exact correction subject for canonical native visual routes:
-`ba42b95c93c3383162bf105703d5d6d4ea688e3e`. Its package remains
-`validation_pending`, so this pin is inspectable but not adoption authority. A
-later metadata-only boundary may change it to a local-QA candidate only after
-the complete local stack and productive Chromium capture pass. No rc23
-capsule, attestation, Lane B authority, public release, push, merge or tag is
-claimed here.
+The `unreleased` / `validation_pending` transition binds predecessor
+`e97371490091416466825bc6c6d79ed984d480ee`, not its own containing commit.
+Rc24 may be pinned only in a later metadata boundary, then may become a local-QA
+candidate only after its complete stack and productive Chromium capture pass.
+No rc24 capsule, attestation, Lane B authority, public release, push, merge or
+tag is claimed here.
+
+## Rc23 exact validation source — full matrix failed, promotion prohibited
+
+Exact source `ba42b95c93c3383162bf105703d5d6d4ea688e3e` corrected all four
+visual profiles to canonical native routes. The first complete validation of
+that source pin at metadata commit `e97371490091416466825bc6c6d79ed984d480ee`
+ended with 1,670 passed, 1 declared skip, 2 warnings and 41 setup errors.
+Reproduction against the exact source reached the same route-contract
+signature. Every error had the same public synthetic root: the CLI authority
+helper still fabricated the legacy desktop route, so its capture record
+correctly failed the exact route contract. The validation-pending package/tree pair was
+`a55126d84551c32feb458607a7f6dfd1e2785c136c6ad789dc4be32365477578` /
+`4ec21ffe6221fadf7ea582f14fd83ee89926ca5d2738f7040436b89749de79ad`,
+with 521 entries. No candidate, visual manifest, capsule, attestation, receipt
+or Lane B authority existed. Rc23 must never be retried, relabeled, promoted,
+imported or used as adoption authority.
 
 ## Rc22 exact local source — failed capture, promotion prohibited
 
@@ -105,16 +120,17 @@ The rc21 package names the following exact portable contracts:
 | Asset / downstream adapter manifests | `wiki_cockpit_asset_manifest.v1` / `wiki_downstream_adapter_manifest.v1` |
 
 The `wiki_viva_upgrade_consumer_c3_authority.v1` contract was introduced after
-rc21 and is preserved in the exact rc23 validation source. Rc22's failed capture
-cannot authorize its adoption. Rc23 inherits no rc21 or rc22 status or receipt.
+rc21 and is preserved through the prospective rc24 source. Neither rc22's
+failed capture nor rc23's failed validation can authorize its adoption. Rc24
+inherits no prior status or receipt.
 
-Any future rc23 publication still requires explicit authorization, exact local
+Any future rc24 publication still requires explicit authorization, exact local
 certification, remote public CI, human conceptual/privacy/VoiceOver review and
 merge, followed by a separately reviewed promotion boundary that can mint
 production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
-rc21, rc22 nor the rc23 validation checkpoint reclassifies, reduces or rewrites that
+rc21, rc22, rc23 nor the prospective rc24 checkpoint reclassifies, reduces or rewrites that
 evidence.
 
 ## Historical rc8-era evidence — preserved without current authority

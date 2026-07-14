@@ -50,6 +50,9 @@ another) via skills — there is no embedded LLM client.
   carried attestation SHA-256 before any downstream plan. Successful upstream
   gate logs must also pass the public-evidence scanner; quiet/TAP reporters are
   part of the versioned command registry, not cosmetic output choices.
+  Native release capture and browser fixtures must use canonical
+  `?view=<native>` routes and assert `data-runtime-mode="v8"`. Positional deep
+  links are compatibility evidence only and must assert `compat` explicitly.
   Until a package and runner implement gate classes, every gate
   declared in `migration.required_gates` remains blocking. A migration already
   started under the v2 contract keeps that complete gate set even after v3
@@ -75,9 +78,11 @@ another) via skills — there is no embedded LLM client.
   first productive Chromium capture stopped fail-closed because the legacy
   mobile route normalized to Quadrants instead of Timeline; no visual
   manifest, capsule, attestation or Lane B authority was minted. Never retry,
-  relabel, promote or import either subject. Rc23 has an exact
-  `validation_pending` source pin; that metadata is inspectable but is not a
-  candidate, capsule or adoption authority.
+  relabel, promote or import either subject. Rc23 corrected the native routes,
+  but its first complete validation stopped on one stale synthetic CLI route
+  helper before any candidate, manifest, capsule or adoption authority existed;
+  preserve that subject without retry or relabel. Rc24 is the prospective
+  unpinned validation subject.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must

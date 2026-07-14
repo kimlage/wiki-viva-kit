@@ -39,14 +39,16 @@ test("forced fallback preserves route, first viewport and source/action/person/r
     window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
     window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
   });
-  await page.goto("/demo/w/quadrants?center=root-alex-rivera&lens=pratica");
+  await page.goto("/demo/w?view=quadrants&center=root-alex-rivera&lens=pratica");
 
   expect(await page.evaluate(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(true);
   await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/, { timeout: 20_000 });
   await expect(page.locator("canvas")).toHaveCount(0);
   await expect(page).not.toHaveURL(/[?&]visual=1/);
-  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
-  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", /pratica|q2_pratica/);
+  const workspace = page.locator(".worldWorkspace");
+  await expect(workspace).toHaveAttribute("data-runtime-mode", "v8");
+  await expect(workspace).toHaveAttribute("data-world-center", "root-alex-rivera");
+  await expect(workspace).toHaveAttribute("data-world-lens", /pratica|q2_pratica/);
   await expect(page.locator(".fallbackCore")).toBeInViewport();
   await expect(page.locator(".fallbackGroupLink:not(.emptyFacet)").first()).toBeVisible();
   const scrollContract = await page.locator(".sceneShell").evaluate((shell) => {
@@ -96,8 +98,9 @@ test("forced fallback exposes all semantic overlay tokens without moving nodes",
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
     window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
   });
-  await page.goto("/demo/w/quadrants?center=root-alex-rivera&overlay=attention");
+  await page.goto("/demo/w?view=quadrants&center=root-alex-rivera&overlay=attention");
   await expect(page.locator(".sceneShell")).toHaveClass(/fallbackMode/, { timeout: 20_000 });
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-runtime-mode", "v8");
   const evidence = await expectOverlayEncodingMatrix(page, { fallback: true });
   await testInfo.attach("overlay-encoding-fallback.json", {
     body: Buffer.from(`${JSON.stringify(evidence, null, 2)}\n`, "utf8"),

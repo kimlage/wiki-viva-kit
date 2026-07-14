@@ -28,6 +28,7 @@ async function prepareWorld(page: Page, path = "/demo/w/quadrants") {
   await page.goto(path);
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20000 });
   await expect(page.locator("canvas")).toHaveCount(1, { timeout: 20000 });
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-runtime-mode", "compat");
   await expect(page.locator(".worldCommandBar")).toBeVisible({ timeout: 20000 });
   await page.waitForTimeout(900);
   await expectWorldCanvasHasSignal(page);

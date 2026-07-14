@@ -23,6 +23,7 @@ import scripts.wiki_upgrade as upgrade_runner
 from wiki_core.upgrade_lanes import (
     NEVER_REUSABLE_GATES,
     ReleaseCapsuleAuthority,
+    VISUAL_PROFILE_CONTRACTS,
     canonical_sha256,
     collect_release_attestation,
     seal_impact_registry,
@@ -1259,7 +1260,7 @@ def _build_synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
     image_raw = _png_bytes(1440, 1000)
     image_path.write_bytes(image_raw)
     image_sha256 = hashlib.sha256(image_raw).hexdigest()
-    route = "/demo/w/quadrants?center=root-alex-rivera&tour=0"
+    route = VISUAL_PROFILE_CONTRACTS["desktop"]["route"]
     viewport = {"width": 1440, "height": 1000}
     browser_toolchain = copy.deepcopy(_active_toolchain()["browser"])
     record = {

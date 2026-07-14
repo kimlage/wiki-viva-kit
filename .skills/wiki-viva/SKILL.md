@@ -179,6 +179,10 @@ ship the skeletons, so a generated page starts with the scaffold.
   sorted manifest must cover every
   package visual profile and bind each PNG to a canonical record containing
   source/package/browser identity plus count-only console/network evidence.
+  Native release fixtures and browser checks must enter through canonical
+  `?view=<native>` routes and assert `data-runtime-mode="v8"`; positional deep
+  links are reserved for explicit compatibility coverage and must assert
+  `data-runtime-mode="compat"`.
   After `certify`, independently run
   [wiki_upgrade.py](../../scripts/wiki_upgrade.py) `verify-capsule` with the
   sealed authority and out-of-band attestation digest before `plan`. Treat
@@ -221,9 +225,13 @@ ship the skeletons, so a generated page starts with the scaffold.
   capture stopped fail-closed because the legacy mobile route normalized to
   Quadrants instead of Timeline. No visual manifest, capsule, attestation or
   Lane B authority was minted; never retry, relabel, promote or import rc22.
-  Rc23 remains a prospective unpinned validation subject until a later
-  metadata boundary seals its exact source. Do not amend, regenerate or
-  reclassify any already sealed v2 C3 or receipt.
+  Rc23 corrected the routes, but complete validation stopped fail-closed
+  because the synthetic CLI authority helper still fabricated the legacy
+  desktop route; no candidate, visual manifest, capsule, attestation or Lane B
+  authority existed. Rc23 is historical validation-failure evidence and must
+  not be retried or relabeled. Rc24 is a prospective unpinned validation
+  subject until a later metadata boundary seals its exact source. Do not amend,
+  regenerate or reclassify any already sealed v2 C3 or receipt.
   Require direct single-parent B0->C1->C2->C3 edges;
   bind all four commits in receipt and state; recompute edge paths, modes and
   blobs from Git; and regenerate all C3-bound receipts whenever those files

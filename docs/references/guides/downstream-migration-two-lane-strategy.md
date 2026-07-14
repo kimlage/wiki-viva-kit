@@ -383,6 +383,12 @@ cover every package profile and bind each PNG to a canonical source/package/
 Chromium plus count-only console/network record. Then certify and independently
 reopen the sealed capsule:
 
+Every native release profile and browser fixture enters through the canonical
+`?view=<native>` route and proves `data-runtime-mode="v8"`. Positional deep
+links belong only to explicit compatibility coverage and must prove
+`data-runtime-mode="compat"`; a screenshot without runtime identity is not
+release evidence.
+
 ```sh
 python3 /path/to/clean-public-subject/scripts/wiki_visual_evidence.py capture \
   --package /path/to/upgrade-package.yaml \
@@ -570,8 +576,12 @@ Timeline. No rc22 visual manifest, capsule, attestation or Lane B authority was
 minted. Its validation-pending and candidate package/tree pairs each reproduce
 exactly, but the earlier prose mixed their package-bound tree digests; that
 stale pairing is not reusable evidence. Rc22 must never be retried, promoted, imported, relabeled or used to
-mint a capsule. Rc23 is prospective and unpinned until a later metadata
-boundary seals its exact source; public publication remains a separate human
+mint a capsule. Rc23 corrected the native routes, but its first complete
+validation stopped with 41 setup errors from the one synthetic CLI helper that
+still fabricated the legacy desktop route. No candidate, manifest, capsule,
+attestation or Lane B authority existed; rc23 must not be retried or relabeled.
+Rc24 is prospective and unpinned until a later metadata boundary seals its
+exact source; public publication remains a separate human
 decision.
 
 ### Sanitized in-flight v2 checkpoint
@@ -591,8 +601,8 @@ therefore unchanged.
 The private `AGENTS.md` and router improvement discovered during this review
 are deliberately excluded from that sealed C3. They belong to a fresh v3
 follow-up after the v2 promotion, and cannot be used to rewrite or reissue the
-current receipts. Rc21's historical reclassification, rc22's failed capture
-and the prospective rc23 contract do not amend that v2 subject, reduce its
+current receipts. Rc21's historical reclassification, rc22's failed capture,
+rc23's failed validation and the prospective rc24 contract do not amend that v2 subject, reduce its
 original matrix or invalidate
 receipts that still describe their exact frozen subject. Concurrent domain
 material remains a separate content PR. No

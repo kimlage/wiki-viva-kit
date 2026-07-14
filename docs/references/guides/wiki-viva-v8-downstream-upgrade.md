@@ -137,7 +137,7 @@ failure: `plan` stops before mutation, the consumer repairs B0 and creates a new
 plan. Re-running Lane A does not repair invalid consumer configuration; it is
 required when the sealed package/impact mapping itself is defective.
 
-### Rc21 -> rc22 -> rc23 correction boundary
+### Rc21 -> rc22 -> rc23 -> rc24 correction boundary
 
 Rc21 is historical non-promotional local evidence. It retains its exact public
 mobile/visual proof, but a synthetic downstream rehearsal exposed a missing
@@ -147,8 +147,12 @@ productive Chromium capture stopped fail-closed because the legacy
 `/demo/w/timeline?tour=0` profile normalized to Quadrants instead of Timeline.
 No rc22 visual manifest, capsule, attestation or Lane B authority was minted;
 its earlier mixed package/tree pairing is stale and not reusable. Neither rc21 nor rc22 may be
-promoted, imported, relabeled or retried. Rc23 is a prospective unpinned
-validation subject until a later metadata boundary seals its exact source.
+promoted, imported, relabeled or retried. Rc23 corrected the native routes,
+but complete validation stopped fail-closed because its synthetic CLI authority
+helper still fabricated the legacy desktop route; no candidate, manifest,
+capsule, attestation or Lane B authority existed. Rc23 must not be retried or
+relabeled. Rc24 is a prospective unpinned validation subject until a later
+metadata boundary seals its exact source.
 This runbook grants no public publication authority.
 
 ### Lane A -> Lane B handoff checklist

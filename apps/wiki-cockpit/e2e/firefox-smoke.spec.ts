@@ -6,7 +6,7 @@ test("Firefox keeps center, source reader and Back/Forward semantics across 3D o
     window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
     window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
   });
-  await page.goto("/demo/w/quadrants?center=root-alex-rivera");
+  await page.goto("/demo/w?view=quadrants&center=root-alex-rivera");
   const scene = page.locator(".sceneShell");
   await expect(scene).toBeVisible({ timeout: 20_000 });
   const startedInFallback = await scene.evaluate((element) => element.classList.contains("fallbackMode"));
@@ -20,10 +20,13 @@ test("Firefox keeps center, source reader and Back/Forward semantics across 3D o
     });
     expect(fallbackEvidence?.counters?.fallbackReason).toBe("webgl_unavailable");
   }
-  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
+  const workspace = page.locator(".worldWorkspace");
+  await expect(workspace).toHaveAttribute("data-runtime-mode", "v8");
+  await expect(workspace).toHaveAttribute("data-world-center", "root-alex-rivera");
 
-  await page.goto("/demo/w/quadrants?center=company-clearpath-labs");
-  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "company-clearpath-labs");
+  await page.goto("/demo/w?view=quadrants&center=company-clearpath-labs");
+  await expect(workspace).toHaveAttribute("data-runtime-mode", "v8");
+  await expect(workspace).toHaveAttribute("data-world-center", "company-clearpath-labs");
 
   const input = page.locator(".commandSearch input");
   await input.fill("CRM accounts export");

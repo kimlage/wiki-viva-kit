@@ -19,10 +19,12 @@ test("Chromium desktop covers the required v8 viewports without clipping the wor
 
   for (const viewport of REQUIRED_DESKTOP_VIEWPORTS) {
     await page.setViewportSize(viewport);
-    await page.goto("/demo/w/quadrants?center=root-alex-rivera");
+    await page.goto("/demo/w?view=quadrants&center=root-alex-rivera");
     await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
     await expect(page.locator("canvas")).toHaveCount(1, { timeout: 20_000 });
-    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-center", "root-alex-rivera");
+    const workspace = page.locator(".worldWorkspace");
+    await expect(workspace).toHaveAttribute("data-runtime-mode", "v8");
+    await expect(workspace).toHaveAttribute("data-world-center", "root-alex-rivera");
 
     const layout = await page.evaluate(() => {
       const visible = (element: HTMLElement) => {
@@ -70,8 +72,9 @@ test("Chromium desktop keeps every curated Create card inside the world safe are
     window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
     window.localStorage.setItem("wiki-cockpit.missionCard", "closed");
   });
-  await page.goto("/demo/w/quadrants?center=root-alex-rivera");
+  await page.goto("/demo/w?view=quadrants&center=root-alex-rivera");
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-runtime-mode", "v8");
   await page.locator(".dockButton").filter({ hasText: /Create|Criar/ }).click();
   await expect(page).toHaveURL(/[?&]dock=create/);
   await expect(page.locator(".spatialCardType")).toHaveCount(7, { timeout: 10_000 });
@@ -84,8 +87,9 @@ test("Chromium desktop applies all six semantic overlays without relayout", asyn
     window.localStorage.setItem("wikiCockpitTourDone.v1", "1");
     window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
   });
-  await page.goto("/demo/w/quadrants?center=root-alex-rivera&overlay=attention");
+  await page.goto("/demo/w?view=quadrants&center=root-alex-rivera&overlay=attention");
   await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
+  await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-runtime-mode", "v8");
   const evidence = await expectOverlayEncodingMatrix(page, { fallback: false });
   await testInfo.attach("overlay-encoding-desktop.json", {
     body: Buffer.from(`${JSON.stringify(evidence, null, 2)}\n`, "utf8"),

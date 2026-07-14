@@ -52,9 +52,10 @@ for (const scenario of SCENARIOS) {
       window.localStorage.setItem("wikiCockpitMissionCard.v1", "closed");
     });
     await page.goto(
-      `/demo/w/quadrants?center=root-alex-rivera&demo_scenario=${scenario.id}&tour=0`
+      `/demo/w?view=quadrants&center=root-alex-rivera&demo_scenario=${scenario.id}&tour=0`
     );
     await expect(page.locator(".sceneShell")).not.toHaveClass(/fallbackMode/, { timeout: 20_000 });
+    await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-runtime-mode", "v8");
     const rendererAttestation = await captureWebglRendererAttestation(page);
     await testInfo.attach("webgl-renderer-attestation.json", {
       body: Buffer.from(`${JSON.stringify(rendererAttestation, null, 2)}\n`, "utf8"),
