@@ -181,9 +181,12 @@ minted; rc26 is immutable `historical_certification_failed` and its capture or
 gate outputs cannot be reused. Rc27 then failed its first complete
 warnings-as-errors validation with 46 public synthetic resource-lifecycle
 failures after 1,693 passes and 3 skips; browser and later stages were not
-started. Rc27 is immutable `historical_validation_failed`. Rc28 is prospective
-and unpinned. It gives subprocesses, helper threads and every pipe explicit
-kill/reap/join/drain/close ownership and requires complete new validation,
+started. Rc27 is immutable `historical_validation_failed`. Rc28 source
+`31cad3bc8aa9cf45d4842103307baff678ddeeb7` gave subprocesses, helper threads
+and every pipe explicit kill/reap/join/drain/close ownership, but was rejected
+before pin or validation because portable transition documentation still
+described the previous state. Its resource-safe successor requires a separate
+validation-only source/package/tree pin followed by complete new validation,
 capture and certification evidence.
 This runbook grants no public publication authority.
 
