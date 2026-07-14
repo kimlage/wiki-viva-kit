@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc24 source transition - rc23 failed validation"
+title: "Wiki Viva v8 rc24 validation checkpoint - rc23 failed validation"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,16 +11,20 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc24 source transition - rc23 failed validation
+# Wiki Viva v8 rc24 validation checkpoint - rc23 failed validation
 
-## Rc24 prospective source — validation not yet pinned
+## Rc24 exact source — validation pending, not a candidate
 
-The `unreleased` / `validation_pending` transition binds predecessor
-`e97371490091416466825bc6c6d79ed984d480ee`, not its own containing commit.
-Rc24 may be pinned only in a later metadata boundary, then may become a local-QA
-candidate only after its complete stack and productive Chromium capture pass.
-No rc24 capsule, attestation, Lane B authority, public release, push, merge or
-tag is claimed here.
+`wiki-viva-v8-rc24` now binds exact source
+`39d490231c00cbc0cf0374c6b1dd3d16f23a2406` at `validation_pending`. The
+metadata boundary changes only package/status documentation outside the portable
+projection; it does not amend the source bytes. Rc24 may become a local-QA
+candidate only after its complete exact stack and productive Chromium capture
+pass. The validation-pending package/tree pair is
+`882448e1c76b7d5098dee7255e134650222bb4483509770d8a44501abaeb8525` /
+`18d2475102b205c1540e28a028106d88b5bd06847f954d871c6d4ec553554deb`,
+with 521 entries. No rc24 manifest, capsule, attestation, Lane B authority,
+public release, push, merge or tag is claimed here.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -120,7 +124,7 @@ The rc21 package names the following exact portable contracts:
 | Asset / downstream adapter manifests | `wiki_cockpit_asset_manifest.v1` / `wiki_downstream_adapter_manifest.v1` |
 
 The `wiki_viva_upgrade_consumer_c3_authority.v1` contract was introduced after
-rc21 and is preserved through the prospective rc24 source. Neither rc22's
+rc21 and is preserved in the exact rc24 validation source. Neither rc22's
 failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt.
 
@@ -130,7 +134,7 @@ merge, followed by a separately reviewed promotion boundary that can mint
 production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
-rc21, rc22, rc23 nor the prospective rc24 checkpoint reclassifies, reduces or rewrites that
+rc21, rc22, rc23 nor the exact rc24 validation checkpoint reclassifies, reduces or rewrites that
 evidence.
 
 ## Historical rc8-era evidence — preserved without current authority

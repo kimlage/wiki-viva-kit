@@ -275,8 +275,9 @@ authority was minted; the subject must not be retried, relabeled, promoted or
 imported. Rc23 corrected the native routes, but its first complete validation
 stopped fail-closed because one synthetic CLI authority helper still fabricated
 the legacy desktop route. No candidate, manifest, capsule or adoption authority
-existed; rc23 is not retried or relabeled. Rc24 is the prospective unpinned
-validation subject. No existing v2 C3 or receipt is amended to reach it.
+existed; rc23 is not retried or relabeled. Rc24 has exact `validation_pending`
+source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`, but no candidate, capsule or
+adoption authority. No existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself
 

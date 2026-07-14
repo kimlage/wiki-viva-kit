@@ -81,7 +81,8 @@ starting point for persistent context is `memories/`.
   minted; rc22 cannot be retried, relabeled, promoted or imported. Rc23
   corrected the native routes, but complete validation stopped on one stale
   synthetic CLI route helper before any candidate, manifest, capsule or
-  adoption authority. Rc24 is the prospective unpinned validation subject.
+  adoption authority. Rc24 has exact `validation_pending` source
+  `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`, but no candidate or capsule.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.
