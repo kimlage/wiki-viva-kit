@@ -164,12 +164,36 @@ ship the skeletons, so a generated page starts with the scaffold.
 - **Certify once, adopt by delta.** A downstream migration reuses upstream
   proof only when `source_sha`, `package_sha256`, `portable_tree_sha256`,
   `consumer_B0`, `consumer_C3`, `command_registry_sha256` and
-  `toolchain_sha256` match the immutable capsule/adoption receipt. It still
-  runs current consumer privacy, semantic, adapter, snapshot, canary, diff and
-  rollback/report proof. Unknown path or contract impact escalates to the full
-  lane. A migration already started with a v2 package keeps every declared
-  `migration.required_gates` entry blocking; v3 classification never rewrites
-  its historical evidence. Follow the
+  `toolchain_sha256` match the immutable capsule and unfinished-attempt state.
+  A completed adoption receipt is historical evidence for its original
+  PR/human gate; it never authorizes a second promotion or a completed-run
+  `--resume`. A new attempt still runs current consumer privacy, semantic,
+  adapter, snapshot, canary, diff and rollback/report proof. Unknown path or
+  contract impact escalates to the full lane. The certified runner version
+  includes the byte/mode digest of its Python/schema/probe execution closure;
+  the toolchain binds the actual runner interpreter, its resolved Python
+  dependencies and the Chromium engine actually launched by Playwright.
+  Preserve the `acceptance_anchor_sha256`
+  emitted by `plan` outside `.wiki-viva/`; pass it back to every `adopt` or
+  `--resume`. Never derive trust again from a restored anchor file and never
+  recreate a missing anchor. After the selected real canary completes, capture
+  the emitted `canary_completion_anchor_sha256` outside `.wiki-viva/` and pass
+  it to every post-canary resume; never accept a locally resealed result ledger
+  as completion authority. Gate selection is recomputed from the sealed package
+  and impact registry, including package-required background promotion gates
+  and dependency closure. A migration already started with a v2 package
+  keeps every declared `migration.required_gates` entry blocking; v3
+  classification never rewrites its historical evidence. Toolkit-owned
+  portable wiki skill packages are byte-equal C1. The downstream
+  [AGENTS.md](../../AGENTS.md) and every
+  non-`wiki-*` repo-local skill are consumer-owned C3; update their routing with
+  the adapter delta. Consumer base and `.local` page-type/template registries
+  are also C3 merge surfaces. Require direct single-parent B0->C1->C2->C3 edges;
+  bind all four commits in receipt and state; recompute edge paths, modes and
+  blobs from Git; and regenerate all C3-bound receipts whenever those files
+  change. Reject symlinks, submodules and special boundary entries. Scan public
+  evidence keys, values, routes and gate output literally and through bounded
+  repeated percent-decoding; unresolved nested encoding fails closed. Follow the
   [two-lane strategy](../../docs/references/guides/downstream-migration-two-lane-strategy.md).
 - **Canonical memory changes go through a `wiki/<theme>` branch and a PR.** Never
   hand-edit generated operational pages — recompile the cockpit with

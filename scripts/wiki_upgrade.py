@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import contextlib
+import datetime as dt
 import fnmatch
 import hashlib
 import json
@@ -23,14 +24,90 @@ import re
 import shlex
 import shutil
 import signal
+import stat
 import struct
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+from urllib.parse import unquote_to_bytes
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
+
+
+RUNNER_VERSION = "1.2.0"
+
+
+def _runner_payload_manifest(runtime_root: Path) -> dict[str, Any]:
+    """Hash the byte-exact Python/schema closure that executes this runner."""
+
+    runtime_root = runtime_root.resolve(strict=True)
+    candidates = [
+        runtime_root / "scripts/wiki_upgrade.py",
+        runtime_root / "scripts/_common.py",
+        runtime_root / "scripts/_git_subject.py",
+        runtime_root / "scripts/wiki_toolchain_probe.py",
+    ]
+    core_root = runtime_root / "wiki_core"
+    schema_root = runtime_root / "docs/references/schemas"
+    if not core_root.is_dir() or not schema_root.is_dir():
+        raise ValueError("runner payload closure is incomplete")
+    candidates.extend(path for path in core_root.rglob("*.py"))
+    candidates.extend(path for path in schema_root.rglob("*.json"))
+    entries: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for path in sorted(candidates, key=lambda value: value.as_posix()):
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("runner payload contains a missing or unsafe file")
+        resolved = path.resolve(strict=True)
+        try:
+            relative = resolved.relative_to(runtime_root).as_posix()
+        except ValueError as exc:
+            raise ValueError("runner payload escaped its runtime root") from exc
+        if relative in seen:
+            continue
+        seen.add(relative)
+        raw = resolved.read_bytes()
+        mode = "100755" if resolved.stat().st_mode & 0o111 else "100644"
+        entries.append(
+            {
+                "path": relative,
+                "mode": mode,
+                "bytes": len(raw),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+            }
+        )
+    if len(entries) < 4:
+        raise ValueError("runner payload closure is incomplete")
+    return {
+        "schema_version": "wiki_viva_upgrade_runner_payload.v1",
+        "scope": "python_and_schema_runtime_closure",
+        "entrypoint": "scripts/wiki_upgrade.py",
+        "entries": entries,
+    }
+
+
+def _runner_identity_version(runtime_root: Path) -> str:
+    manifest = _runner_payload_manifest(runtime_root)
+    serialized = json.dumps(
+        manifest, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    return f"{RUNNER_VERSION}+payload.{hashlib.sha256(serialized).hexdigest()}"
+
+
+# A source copy can prove its byte identity with only the standard library.
+# This executes before third-party and repo-local imports by design.
+if __name__ == "__main__" and sys.argv[1:] == ["--version"]:
+    try:
+        print(
+            "wiki-upgrade "
+            + _runner_identity_version(Path(__file__).resolve().parents[1])
+        )
+    except (OSError, ValueError):
+        print("wiki-upgrade invalid-runtime-payload", file=sys.stderr)
+        raise SystemExit(2)
+    raise SystemExit(0)
 
 from jsonschema import Draft202012Validator
 
@@ -50,9 +127,11 @@ from wiki_core.upgrade_lanes import (
     canonical_sha256,
     collect_release_attestation,
     load_mapping,
+    public_migration_report_projection,
     seal_adoption_receipt,
     seal_release_capsule,
     select_impacted_gates,
+    select_promotion_gates,
     validate_canary_evidence,
     validate_c1_projection,
     validate_boundary_ownership,
@@ -66,15 +145,291 @@ from wiki_core.upgrade import package_is_pinned, validate_upgrade_package
 from wiki_core.detectors import scan_text
 
 
-PLAN_SCHEMA_VERSION = "wiki_viva_upgrade_plan.v1"
-STATE_SCHEMA_VERSION = "wiki_viva_upgrade_runner_state.v1"
-REPORT_SCHEMA_VERSION = "wiki_viva_upgrade_runner_report.v1"
+PLAN_SCHEMA_VERSION = "wiki_viva_upgrade_plan.v3"
+STATE_SCHEMA_VERSION = "wiki_viva_upgrade_runner_state.v3"
+REPORT_SCHEMA_VERSION = "wiki_viva_upgrade_runner_report.v2"
 ROLLBACK_SCHEMA_VERSION = "wiki_viva_upgrade_rollback_execution.v1"
 CERTIFICATION_RECEIPT_SCHEMA_VERSION = "wiki_viva_upgrade_certification_receipt.v1"
-RUNNER_VERSION = "1.0.0"
 
 _TWO_LANE_PACKAGE = "wiki_viva_upgrade_package.v3"
 _SUPPORTED_PACKAGES = {_TWO_LANE_PACKAGE}
+
+
+def _matches_repo_pattern(path: str, pattern: str) -> bool:
+    """Match one repo glob without allowing a skill-name ``*`` across ``/``."""
+
+    pattern_parts = pattern.split("/")
+    if (
+        len(pattern_parts) == 3
+        and pattern_parts[0] == ".skills"
+        and pattern_parts[2] == "**"
+    ):
+        path_parts = path.split("/")
+        return (
+            len(path_parts) >= 3
+            and path_parts[0] == ".skills"
+            and fnmatch.fnmatchcase(path_parts[1], pattern_parts[1])
+        )
+    return fnmatch.fnmatchcase(path, pattern)
+
+
+def _matches_repo_patterns(path: str, patterns: Sequence[str]) -> bool:
+    return any(_matches_repo_pattern(path, pattern) for pattern in patterns)
+
+
+def _acceptance_budget_policy(package: Mapping[str, Any]) -> dict[str, Any]:
+    migration = package.get("migration")
+    policy = (
+        migration.get("acceptance_budget")
+        if isinstance(migration, Mapping)
+        else None
+    )
+    expected = {
+        "schema_version": "wiki_viva_upgrade_acceptance_budget_policy.v1",
+        "scope": "plan_to_real_canary",
+        "limit_seconds": 1200,
+        "enforcement": "promotion_blocking",
+    }
+    if policy != expected:
+        raise RunnerError(
+            "invalid_acceptance_budget_policy",
+            "the package does not enforce the 20-minute plan-to-canary budget",
+            lane="lane_a",
+            surface="acceptance_budget",
+            contract="wiki_viva_upgrade_acceptance_budget_policy.v1",
+            next_action="repair and recertify the package acceptance policy",
+        )
+    return expected
+
+
+def _pending_acceptance_budget(
+    package: Mapping[str, Any], *, plan_started_unix_ns: int
+) -> dict[str, Any]:
+    return _pending_acceptance_budget_at(
+        package, plan_started_at=_acceptance_timestamp(plan_started_unix_ns)
+    )
+
+
+def _pending_acceptance_budget_at(
+    package: Mapping[str, Any], *, plan_started_at: str
+) -> dict[str, Any]:
+    policy = _acceptance_budget_policy(package)
+    _acceptance_timestamp_microseconds(plan_started_at)
+    return {
+        "schema_version": "wiki_viva_upgrade_acceptance_budget.v1",
+        "scope": policy["scope"],
+        "limit_seconds": policy["limit_seconds"],
+        "enforcement": policy["enforcement"],
+        "plan_started_at": plan_started_at,
+        "canary_completed_at": None,
+        "elapsed_milliseconds": None,
+        "status": "pending",
+    }
+
+
+_ACCEPTANCE_TIMESTAMP_RE = re.compile(
+    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$"
+)
+_UNIX_EPOCH = dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)
+
+
+def _acceptance_timestamp(unix_ns: int) -> str:
+    if isinstance(unix_ns, bool) or not isinstance(unix_ns, int) or unix_ns <= 0:
+        raise RunnerError(
+            "invalid_acceptance_budget_clock",
+            "the acceptance budget timestamp is invalid",
+            surface="acceptance_budget",
+        )
+    seconds, nanoseconds = divmod(unix_ns, 1_000_000_000)
+    try:
+        value = dt.datetime.fromtimestamp(seconds, tz=dt.timezone.utc).replace(
+            microsecond=nanoseconds // 1_000
+        )
+    except (OverflowError, OSError, ValueError) as exc:
+        raise RunnerError(
+            "invalid_acceptance_budget_clock",
+            "the acceptance budget timestamp is outside the supported UTC range",
+            surface="acceptance_budget",
+        ) from exc
+    return value.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+
+def _acceptance_timestamp_microseconds(value: object) -> int:
+    if not isinstance(value, str) or _ACCEPTANCE_TIMESTAMP_RE.fullmatch(value) is None:
+        raise RunnerError(
+            "invalid_acceptance_budget_clock",
+            "the acceptance budget timestamp is not canonical UTC RFC3339",
+            surface="acceptance_budget",
+        )
+    try:
+        parsed = dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
+            tzinfo=dt.timezone.utc
+        )
+    except ValueError as exc:
+        raise RunnerError(
+            "invalid_acceptance_budget_clock",
+            "the acceptance budget timestamp is not a real UTC instant",
+            surface="acceptance_budget",
+        ) from exc
+    delta = parsed - _UNIX_EPOCH
+    microseconds = (
+        delta.days * 86_400_000_000
+        + delta.seconds * 1_000_000
+        + delta.microseconds
+    )
+    if microseconds <= 0:
+        raise RunnerError(
+            "invalid_acceptance_budget_clock",
+            "the acceptance budget timestamp must be after the Unix epoch",
+            surface="acceptance_budget",
+        )
+    return microseconds
+
+
+def _validate_acceptance_budget_record(
+    value: object, *, expected_plan: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise RunnerError(
+            "invalid_acceptance_budget",
+            "the plan-to-canary budget record is missing",
+            surface="acceptance_budget",
+        )
+    expected_keys = {
+        "schema_version",
+        "scope",
+        "limit_seconds",
+        "enforcement",
+        "plan_started_at",
+        "canary_completed_at",
+        "elapsed_milliseconds",
+        "status",
+    }
+    record = dict(value)
+    if (
+        set(record) != expected_keys
+        or record.get("schema_version")
+        != "wiki_viva_upgrade_acceptance_budget.v1"
+        or record.get("scope") != "plan_to_real_canary"
+        or record.get("limit_seconds") != 1200
+        or record.get("enforcement") != "promotion_blocking"
+    ):
+        raise RunnerError(
+            "invalid_acceptance_budget",
+            "the plan-to-canary budget contract is incomplete or weakened",
+            surface="acceptance_budget",
+        )
+    started = _acceptance_timestamp_microseconds(record.get("plan_started_at"))
+    completed_value = record.get("canary_completed_at")
+    elapsed = record.get("elapsed_milliseconds")
+    status = record.get("status")
+    if status == "pending":
+        if completed_value is not None or elapsed is not None:
+            raise RunnerError(
+                "stale_acceptance_budget",
+                "a pending acceptance budget contains a measurement",
+                surface="acceptance_budget",
+            )
+    elif status in {"met", "exceeded"}:
+        completed = _acceptance_timestamp_microseconds(completed_value)
+        if (
+            completed < started
+            or isinstance(elapsed, bool)
+            or not isinstance(elapsed, int)
+            or elapsed < 0
+        ):
+            raise RunnerError(
+                "invalid_acceptance_budget_clock",
+                "the canary completion clock moved backwards or is invalid",
+                surface="acceptance_budget",
+            )
+        expected_elapsed = (completed - started + 999) // 1_000
+        expected_status = "met" if expected_elapsed <= 1_200_000 else "exceeded"
+        if elapsed != expected_elapsed or status != expected_status:
+            raise RunnerError(
+                "stale_acceptance_budget",
+                "the acceptance budget elapsed time or status was altered",
+                surface="acceptance_budget",
+            )
+    else:
+        raise RunnerError(
+            "invalid_acceptance_budget",
+            "the acceptance budget status is invalid",
+            surface="acceptance_budget",
+        )
+    if expected_plan is not None:
+        plan_record = _validate_acceptance_budget_record(
+            expected_plan.get("acceptance_budget")
+        )
+        for key in (
+            "schema_version",
+            "scope",
+            "limit_seconds",
+            "enforcement",
+            "plan_started_at",
+        ):
+            if record[key] != plan_record[key]:
+                raise RunnerError(
+                    "stale_acceptance_budget",
+                    "the run budget differs from its sealed plan",
+                    surface="acceptance_budget",
+                )
+    return record
+
+
+def _complete_acceptance_budget(
+    value: Mapping[str, Any], *, canary_completed_unix_ns: int | None = None
+) -> dict[str, Any]:
+    record = _validate_acceptance_budget_record(value)
+    if record["status"] != "pending":
+        return record
+    completed_unix_ns = (
+        time.time_ns()
+        if canary_completed_unix_ns is None
+        else canary_completed_unix_ns
+    )
+    completed_at = _acceptance_timestamp(completed_unix_ns)
+    completed = _acceptance_timestamp_microseconds(completed_at)
+    started = _acceptance_timestamp_microseconds(record["plan_started_at"])
+    if completed < started:
+        raise RunnerError(
+            "invalid_acceptance_budget_clock",
+            "the canary completion clock moved backwards",
+            surface="acceptance_budget",
+            contract="wiki_viva_upgrade_acceptance_budget.v1",
+            next_action="discard the invalid temporal evidence and rerun the plan",
+        )
+    elapsed = (completed - started + 999) // 1_000
+    record.update(
+        {
+            "canary_completed_at": completed_at,
+            "elapsed_milliseconds": elapsed,
+            "status": "met" if elapsed <= 1_200_000 else "exceeded",
+        }
+    )
+    return _validate_acceptance_budget_record(record)
+
+
+def _validate_pending_plan_acceptance_budget(
+    plan: Mapping[str, Any], package: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Verify the sealed plan budget before any consumer mutation or gate work."""
+
+    plan_budget = _validate_acceptance_budget_record(plan.get("acceptance_budget"))
+    policy = _acceptance_budget_policy(package)
+    if any(
+        plan_budget[key] != value
+        for key, value in policy.items()
+        if key != "schema_version"
+    ) or plan_budget["status"] != "pending":
+        raise RunnerError(
+            "stale_acceptance_budget",
+            "the sealed plan budget differs from the certified package",
+            surface="acceptance_budget",
+        )
+    return plan_budget
+
+
 _CERTIFICATION_RECEIPT_SCHEMA = (
     ROOT
     / "docs/references/schemas/wiki-upgrade-certification-receipt-v1.schema.json"
@@ -85,12 +440,24 @@ _GATE_ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,127}$")
 _CONTROL_TOKEN_RE = re.compile(r"(?:\$\(|`|\x00|\r|\n)")
 _SHELL_TOKENS = {"|", "||", "&", "&&", ";", ">", ">>", "<", "<<"}
 _HOST_PATH_RE = re.compile(
-    r"(?:/Users/|/home/|file://|(?<![\w.-])~[/\\]|[A-Za-z]:\\|\\\\[^\\\s]+\\)"
+    r"(?:"
+    r"(?<![\w.-])/(?:Users|home|tmp|opt|var|etc|usr|root|srv|mnt|Volumes|Library|System|Applications)(?:/|$)"
+    r"|file://|(?<![\w.-])~[/\\]|[A-Za-z]:\\|\\\\[^\\\s]+\\"
+    r")"
 )
 _PRIVATE_EVIDENCE_RE = re.compile(
     r"(?:^|[/\\])(?:private|data[/\\]raw|data[/\\]derived)(?:[/\\]|$)",
     re.IGNORECASE,
 )
+_PRIVATE_ROUTE_RE = re.compile(
+    r"(?:"
+    r"(?<![A-Za-z0-9._~-])/(?:private|consumer|real)(?![A-Za-z0-9._~-])"
+    r"|(?:https?|wss?)://[^/\s]+/(?:private|consumer|real)(?![A-Za-z0-9._~-])"
+    r")",
+    re.IGNORECASE,
+)
+_PERCENT_ESCAPE_RE = re.compile(r"%[0-9A-Fa-f]{2}")
+_MAX_PERCENT_DECODE_ROUNDS = 3
 _DOWNSTREAM_OPERATOR_ENV_KEYS = (
     "WIKI_COCKPIT_SNAPSHOT_URL",
     "WIKI_COCKPIT_REAL_BASE_URL",
@@ -249,34 +616,77 @@ def _commit(root: Path, raw: str | None, *, fallback: str) -> str:
 
 def _require_ancestry(root: Path, commits: Sequence[str]) -> None:
     for before, after in zip(commits, commits[1:]):
-        result = _git(root, ["merge-base", "--is-ancestor", before, after], check=False)
-        if result.returncode != 0:
+        result = _git(root, ["rev-list", "--parents", "-n", "1", after])
+        lineage = result.stdout.decode("ascii", "strict").strip().split()
+        if lineage != [after, before]:
             raise RunnerError(
                 "boundary_ancestry_mismatch",
-                "B0, C1, C2 and C3 are not one ordered ancestry chain",
+                "B0, C1, C2 and C3 are not one direct single-parent ancestry chain",
                 surface="commit_boundaries",
-                next_action="supply the exact ordered migration commits and plan again",
+                next_action=(
+                    "supply four consecutive single-parent migration subjects with no "
+                    "intermediate or merge commit"
+                ),
             )
 
 
 def _changed_paths(root: Path, before: str, after: str) -> list[str]:
     if before == after:
         return []
-    raw = _git(root, ["diff", "--name-only", "-z", before, after, "--"]).stdout
+    raw = _git(
+        root,
+        ["diff", "--no-renames", "--name-only", "-z", before, after, "--"],
+    ).stdout
     values = [item.decode("utf-8", "strict") for item in raw.split(b"\0") if item]
     return sorted(set(values))
 
 
 def _blob(root: Path, commit: str, path: str) -> bytes:
-    result = _git(root, ["show", f"{commit}:{path}"], check=False)
-    if result.returncode != 0:
+    entry = _regular_git_entry(root, commit, path)
+    if entry is None:
         raise RunnerError(
             "boundary_deletion_unsupported",
             "a boundary contains a deletion that cannot be attested byte-for-byte",
             surface="commit_boundaries",
             next_action="split deletions into a reviewed consumer adaptation and regenerate the plan",
         )
-    return result.stdout
+    return entry["bytes"]
+
+
+def _regular_git_entry(
+    root: Path, commit: str, path: str
+) -> dict[str, Any] | None:
+    """Read one exact regular Git blob, including its executable mode."""
+
+    listing = _git(root, ["ls-tree", "-z", commit, "--", path]).stdout
+    records = [record for record in listing.split(b"\0") if record]
+    if not records:
+        return None
+    if len(records) != 1:
+        raise RunnerError(
+            "invalid_boundary_tree_entry",
+            "a boundary path resolves to multiple Git tree entries",
+            surface="commit_boundaries",
+        )
+    try:
+        metadata, raw_path = records[0].split(b"\t", 1)
+        mode, object_type, object_id = metadata.decode("ascii").split(" ", 2)
+        observed_path = raw_path.decode("utf-8", "strict")
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise RunnerError(
+            "invalid_boundary_tree_entry",
+            "a boundary contains an invalid Git tree entry",
+            surface="commit_boundaries",
+        ) from exc
+    if observed_path != path or object_type != "blob" or mode not in {"100644", "100755"}:
+        raise RunnerError(
+            "unsafe_boundary_tree_entry",
+            "C1, C2 and C3 may contain only regular Git files with mode 100644 or 100755",
+            surface="commit_boundaries",
+            next_action="replace symlinks, submodules or special entries with regular reviewed files",
+        )
+    raw = _git(root, ["cat-file", "blob", object_id]).stdout
+    return {"mode": mode, "bytes": raw, "sha256": _sha256_bytes(raw)}
 
 
 def _package_c2_generator_sha256(
@@ -290,10 +700,7 @@ def _package_c2_generator_sha256(
         for generator in operations["c2_generators"]
         if isinstance(generator, Mapping)
         and isinstance(generator.get("owns_patterns"), list)
-        and any(
-            fnmatch.fnmatchcase(path, pattern)
-            for pattern in generator["owns_patterns"]
-        )
+        and _matches_repo_patterns(path, generator["owns_patterns"])
     ]
     if len(owners) != 1 or not isinstance(owners[0].get("command"), str):
         raise RunnerError(
@@ -309,29 +716,30 @@ def _portable_commit_entries(
     root: Path,
     commit: str,
     package: Mapping[str, Any],
-) -> dict[str, str]:
+) -> dict[str, dict[str, str]]:
     portable = package["portable_import"]
     allow = portable["allow"]
     block = portable["block"]
     listing = _git(root, ["ls-tree", "-r", "-z", "--full-tree", commit]).stdout
-    entries: dict[str, str] = {}
+    entries: dict[str, dict[str, str]] = {}
     for record in listing.split(b"\0"):
         if not record:
             continue
         metadata, raw_path = record.split(b"\t", 1)
-        _mode, object_type, _object_id = metadata.decode("ascii").split(" ", 2)
+        mode, object_type, object_id = metadata.decode("ascii").split(" ", 2)
         path = raw_path.decode("utf-8", "strict")
-        if any(fnmatch.fnmatchcase(path, pattern) for pattern in block):
+        if _matches_repo_patterns(path, block):
             continue
-        if not any(fnmatch.fnmatchcase(path, pattern) for pattern in allow):
+        if not _matches_repo_patterns(path, allow):
             continue
-        if object_type != "blob":
+        if object_type != "blob" or mode not in {"100644", "100755"}:
             raise RunnerError(
                 "unsafe_portable_projection_entry",
-                "a portable projection contains a non-blob Git entry",
+                "a portable projection contains a symlink, submodule or special entry",
                 surface="C1",
             )
-        entries[path] = _sha256_bytes(_blob(root, commit, path))
+        raw = _git(root, ["cat-file", "blob", object_id]).stdout
+        entries[path] = {"mode": mode, "sha256": _sha256_bytes(raw)}
     return entries
 
 
@@ -347,30 +755,52 @@ def _build_boundaries(
 ) -> dict[str, list[dict[str, str]]]:
     boundaries: dict[str, list[dict[str, str]]] = {"C1": [], "C2": [], "C3": []}
     for path in _changed_paths(consumer, commits["B0"], commits["C1"]):
-        after = _git(consumer, ["show", f"{commits['C1']}:{path}"], check=False)
-        if after.returncode != 0:
+        before = _regular_git_entry(consumer, commits["B0"], path)
+        after = _regular_git_entry(consumer, commits["C1"], path)
+        if after is None:
+            if before is None:
+                raise RunnerError(
+                    "invalid_c1_deletion",
+                    "a C1 deletion has no regular before file",
+                    surface="C1",
+                )
             boundaries["C1"].append(
                 {
                     "operation": "delete",
                     "path": path,
-                    "before_sha256": _sha256_bytes(_blob(consumer, commits["B0"], path)),
+                    "before_mode": before["mode"],
+                    "before_sha256": before["sha256"],
                 }
             )
         else:
-            consumer_digest = _sha256_bytes(after.stdout)
-            source_digest = _sha256_bytes(_blob(kit, source_sha, path))
+            source = _regular_git_entry(kit, source_sha, path)
+            if source is None:
+                raise RunnerError(
+                    "missing_c1_source_file",
+                    "a C1 upsert has no regular file in the certified source",
+                    surface="C1",
+                )
             boundaries["C1"].append(
                 {
                     "operation": "upsert",
                     "path": path,
-                    "sha256": consumer_digest,
-                    "source_sha256": source_digest,
+                    "mode": after["mode"],
+                    "sha256": after["sha256"],
+                    "source_mode": source["mode"],
+                    "source_sha256": source["sha256"],
                 }
             )
     for path in _changed_paths(consumer, commits["C1"], commits["C2"]):
-        after = _git(consumer, ["show", f"{commits['C2']}:{path}"], check=False)
-        if after.returncode != 0:
-            before_digest = _sha256_bytes(_blob(consumer, commits["C1"], path))
+        before = _regular_git_entry(consumer, commits["C1"], path)
+        after = _regular_git_entry(consumer, commits["C2"], path)
+        if after is None:
+            if before is None:
+                raise RunnerError(
+                    "invalid_c2_deletion",
+                    "a C2 deletion has no regular before file",
+                    surface="C2",
+                )
+            before_digest = before["sha256"]
             generator_digest = _package_c2_generator_sha256(package, path)
             if generator_digest is None:
                 generator_digest = canonical_sha256(
@@ -386,12 +816,13 @@ def _build_boundaries(
                 {
                     "operation": "delete",
                     "path": path,
+                    "before_mode": before["mode"],
                     "before_sha256": before_digest,
                     "generator_sha256": generator_digest,
                 }
             )
         else:
-            artifact_digest = _sha256_bytes(after.stdout)
+            artifact_digest = after["sha256"]
             generator_digest = _package_c2_generator_sha256(package, path)
             if generator_digest is None:
                 generator_digest = canonical_sha256(
@@ -407,18 +838,27 @@ def _build_boundaries(
                 {
                     "operation": "upsert",
                     "path": path,
+                    "mode": after["mode"],
                     "sha256": artifact_digest,
                     "generator_sha256": generator_digest,
                 }
             )
     for path in _changed_paths(consumer, commits["C2"], commits["C3"]):
-        after = _git(consumer, ["show", f"{commits['C3']}:{path}"], check=False)
-        if after.returncode != 0:
+        before = _regular_git_entry(consumer, commits["C2"], path)
+        after = _regular_git_entry(consumer, commits["C3"], path)
+        if after is None:
+            if before is None:
+                raise RunnerError(
+                    "invalid_c3_deletion",
+                    "a C3 deletion has no regular before file",
+                    surface="C3",
+                )
             boundaries["C3"].append(
                 {
                     "operation": "delete",
                     "path": path,
-                    "before_sha256": _sha256_bytes(_blob(consumer, commits["C2"], path)),
+                    "before_mode": before["mode"],
+                    "before_sha256": before["sha256"],
                 }
             )
         else:
@@ -426,7 +866,8 @@ def _build_boundaries(
                 {
                     "operation": "upsert",
                     "path": path,
-                    "sha256": _sha256_bytes(after.stdout),
+                    "mode": after["mode"],
+                    "sha256": after["sha256"],
                 }
             )
     try:
@@ -435,7 +876,7 @@ def _build_boundaries(
             boundaries["C1"],
             package=package,
             source_entries={
-                path: str(item["sha256"])
+                path: {"mode": str(item["mode"]), "sha256": str(item["sha256"])}
                 for path, item in _portable_entries(package, kit, source_sha).items()
             },
             before_entries=_portable_commit_entries(
@@ -479,9 +920,9 @@ def _portable_entries(
         metadata, raw_path = record.split(b"\t", 1)
         mode, object_type, object_id = metadata.decode("ascii").split(" ", 2)
         path = raw_path.decode("utf-8", "strict")
-        if any(fnmatch.fnmatchcase(path, pattern) for pattern in block):
+        if _matches_repo_patterns(path, block):
             continue
-        if not any(fnmatch.fnmatchcase(path, pattern) for pattern in allow):
+        if not _matches_repo_patterns(path, allow):
             continue
         if object_type != "blob" or mode not in {"100644", "100755"}:
             raise RunnerError(
@@ -513,8 +954,8 @@ def _consumer_portable_paths(
         for path in (
             item.decode("utf-8", "strict") for item in tracked.split(b"\0") if item
         )
-        if any(fnmatch.fnmatchcase(path, pattern) for pattern in allow)
-        and not any(fnmatch.fnmatchcase(path, pattern) for pattern in block)
+        if _matches_repo_patterns(path, allow)
+        and not _matches_repo_patterns(path, block)
     }
 
 
@@ -536,9 +977,9 @@ def _verify_complete_c1_projection(
         metadata, raw_path = record.split(b"\t", 1)
         mode, object_type, _object_id = metadata.decode("ascii").split(" ", 2)
         path = raw_path.decode("utf-8", "strict")
-        if any(fnmatch.fnmatchcase(path, pattern) for pattern in block):
+        if _matches_repo_patterns(path, block):
             continue
-        if not any(fnmatch.fnmatchcase(path, pattern) for pattern in allow):
+        if not _matches_repo_patterns(path, allow):
             continue
         if object_type != "blob" or mode not in {"100644", "100755"}:
             raise RunnerError(
@@ -573,9 +1014,14 @@ def _prospective_c1_paths(
     for path, entry in entries.items():
         destination = consumer / path
         expected_executable = entry["mode"] == "100755"
-        actual_executable = bool(destination.stat().st_mode & 0o111) if destination.is_file() else False
+        try:
+            metadata = destination.lstat()
+        except OSError:
+            metadata = None
+        regular = metadata is not None and stat.S_ISREG(metadata.st_mode)
+        actual_executable = bool(metadata.st_mode & 0o111) if regular else False
         if (
-            not destination.is_file()
+            not regular
             or _sha256_bytes(destination.read_bytes()) != entry["sha256"]
             or actual_executable != expected_executable
         ):
@@ -949,12 +1395,21 @@ def _advance_prepared_phase(
 
 
 def _require_stage_paths(
-    paths: Sequence[str], patterns: Sequence[str], *, label: str
+    paths: Sequence[str],
+    patterns: Sequence[str],
+    *,
+    label: str,
+    forbidden_patterns: Sequence[str] = (),
+    forbidden_exceptions: Sequence[str] = (),
 ) -> None:
     unknown = [
         path
         for path in paths
-        if not any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+        if not _matches_repo_patterns(path, patterns)
+        or (
+            _matches_repo_patterns(path, forbidden_patterns)
+            and not _matches_repo_patterns(path, forbidden_exceptions)
+        )
     ]
     if unknown:
         raise RunnerError(
@@ -1148,8 +1603,21 @@ def _boundary_execution(
             if boundary.get("operation") == "delete":
                 matches = not replayed.exists() and not replayed.is_symlink()
             else:
+                try:
+                    replayed_stat = replayed.lstat()
+                except OSError:
+                    replayed_stat = None
+                replayed_mode = (
+                    "100755"
+                    if replayed_stat is not None
+                    and stat.S_ISREG(replayed_stat.st_mode)
+                    and replayed_stat.st_mode & 0o111
+                    else "100644"
+                )
                 matches = (
-                    replayed.is_file()
+                    replayed_stat is not None
+                    and stat.S_ISREG(replayed_stat.st_mode)
+                    and replayed_mode == boundary.get("mode")
                     and _sha256_bytes(replayed.read_bytes()) == boundary.get("sha256")
                 )
             if not matches:
@@ -1177,8 +1645,10 @@ def _boundary_execution(
             "output_ref": output_ref,
         }
         if boundary["operation"] == "delete":
+            entry["before_mode"] = boundary["before_mode"]
             entry["before_sha256"] = boundary["before_sha256"]
         else:
+            entry["mode"] = boundary["mode"]
             entry["artifact_sha256"] = boundary["sha256"]
         entries.append(entry)
     return {
@@ -1214,13 +1684,20 @@ def _verify_boundary_execution(
             != expected[entry["path"]].get("operation")
             or (
                 entry.get("operation") == "upsert"
-                and expected[entry["path"]].get("sha256")
-                != entry.get("artifact_sha256")
+                and (
+                    expected[entry["path"]].get("mode") != entry.get("mode")
+                    or expected[entry["path"]].get("sha256")
+                    != entry.get("artifact_sha256")
+                )
             )
             or (
                 entry.get("operation") == "delete"
-                and expected[entry["path"]].get("before_sha256")
-                != entry.get("before_sha256")
+                and (
+                    expected[entry["path"]].get("before_mode")
+                    != entry.get("before_mode")
+                    or expected[entry["path"]].get("before_sha256")
+                    != entry.get("before_sha256")
+                )
             )
         ):
             raise RunnerError("manual_evidence_rejected", "the plan contains stale or manual C2 evidence", surface="C2")
@@ -1333,6 +1810,82 @@ def _atomic_write(path: Path, data: bytes) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _atomic_create_once(path: Path, data: bytes) -> bool:
+    """Install immutable first-write evidence atomically without replacement."""
+
+    if path.is_symlink():
+        raise RunnerError(
+            "unsafe_output_symlink",
+            "runner evidence cannot replace a symbolic link",
+        )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(name)
+    try:
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        try:
+            os.link(temporary, path)
+        except FileExistsError:
+            return False
+        directory = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+        return True
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _read_exact_private_file(path: Path, *, label: str) -> bytes:
+    if path.is_symlink():
+        raise RunnerError(
+            "unsafe_private_evidence",
+            f"{label} cannot be a symbolic link",
+            surface="private_evidence_output",
+        )
+    try:
+        resolved = path.resolve(strict=True)
+        before = resolved.stat()
+    except (FileNotFoundError, OSError) as exc:
+        raise RunnerError(
+            "missing_private_evidence",
+            f"{label} is missing",
+            surface="private_evidence_output",
+        ) from exc
+    if not resolved.is_file() or before.st_nlink != 1 or before.st_size > 1024 * 1024:
+        raise RunnerError(
+            "unsafe_private_evidence",
+            f"{label} is not one bounded regular file",
+            surface="private_evidence_output",
+        )
+    raw = resolved.read_bytes()
+    after = resolved.stat()
+    if (
+        before.st_dev,
+        before.st_ino,
+        before.st_size,
+        before.st_mtime_ns,
+        before.st_nlink,
+    ) != (
+        after.st_dev,
+        after.st_ino,
+        after.st_size,
+        after.st_mtime_ns,
+        after.st_nlink,
+    ):
+        raise RunnerError(
+            "changed_private_evidence",
+            f"{label} changed while it was read",
+            surface="private_evidence_output",
+        )
+    return raw
+
+
 def _normalize_version(raw: str) -> str:
     value = raw.strip().splitlines()[0] if raw.strip() else ""
     value = re.sub(r"^(?:Python|Version|v)\s*", "", value, flags=re.IGNORECASE)
@@ -1377,7 +1930,300 @@ def _probe_command_version(argv: Sequence[str], *, cwd: Path) -> str:
     return _normalize_version(result.stdout)
 
 
+_PYTHON_RESOLVED_PROBE = """
+import hashlib
+import importlib.metadata as metadata
+import json
+import platform
+
+entries = sorted({
+    (
+        str(distribution.metadata.get("Name") or "").strip().lower().replace("_", "-"),
+        str(distribution.version).strip(),
+    )
+    for distribution in metadata.distributions()
+    if str(distribution.metadata.get("Name") or "").strip()
+    and str(distribution.version).strip()
+})
+dependencies = [{"name": name, "version": version} for name, version in entries]
+encoded = json.dumps(
+    dependencies, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+).encode("utf-8")
+print(json.dumps({
+    "schema_version": "wiki_viva_python_resolved_toolchain.v1",
+    "implementation": platform.python_implementation().lower(),
+    "python_version": platform.python_version(),
+    "dependencies": dependencies,
+    "dependencies_sha256": hashlib.sha256(encoded).hexdigest(),
+}, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+""".strip()
+
+
+_PLAYWRIGHT_CHROMIUM_PROBE = """
+const playwright = require(process.argv[1]);
+const packageJson = require(process.argv[1] + '/package.json');
+(async () => {
+  const browser = await playwright.chromium.launch({headless: true});
+  const payload = {
+    schema_version: 'wiki_viva_browser_engine_toolchain.v1',
+    browser: 'chromium',
+    browser_version: browser.version(),
+    playwright_version: packageJson.version,
+  };
+  await browser.close();
+  process.stdout.write(JSON.stringify(payload));
+})().catch((error) => {
+  process.stderr.write(String(error));
+  process.exit(2);
+});
+""".strip()
+
+
+_PYTHON_PLAYWRIGHT_CHROMIUM_PROBE = """
+import importlib.metadata as metadata
+import json
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as runtime:
+    browser = runtime.chromium.launch(headless=True)
+    payload = {
+        "schema_version": "wiki_viva_browser_engine_toolchain.v1",
+        "browser": "chromium",
+        "browser_version": browser.version,
+        "playwright_version": metadata.version("playwright"),
+    }
+    browser.close()
+print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
+""".strip()
+
+
+def _toolchain_probe_output(argv: Sequence[str], *, cwd: Path) -> bytes:
+    try:
+        result = subprocess.run(
+            list(argv),
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "a required certified tool is unavailable",
+            lane="lane_a",
+            surface="toolchain",
+            next_action="install the exact certified toolchain and retry",
+        ) from exc
+    if result.returncode != 0:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "a required certified tool could not be executed",
+            lane="lane_a",
+            surface="toolchain",
+            next_action="install the exact certified toolchain and retry",
+        )
+    return result.stdout
+
+
+def _probe_json_object(
+    raw: bytes, *, label: str, fields: set[str]
+) -> dict[str, Any]:
+    try:
+        payload = json.loads(raw.decode("utf-8", "strict"))
+    except (UnicodeDecodeError, ValueError, TypeError) as exc:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            f"the {label} probe did not return canonical JSON",
+            lane="lane_a",
+            surface="toolchain",
+        ) from exc
+    if not isinstance(payload, dict) or set(payload) != fields:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            f"the {label} probe contract is incomplete",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    return payload
+
+
+def _python_toolchain_identity(raw: bytes) -> dict[str, str]:
+    payload = _probe_json_object(
+        raw,
+        label="resolved Python",
+        fields={
+            "schema_version",
+            "implementation",
+            "python_version",
+            "dependencies",
+            "dependencies_sha256",
+        },
+    )
+    if payload["schema_version"] != "wiki_viva_python_resolved_toolchain.v1":
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the resolved Python probe schema is unsupported",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    dependencies = payload["dependencies"]
+    if not isinstance(dependencies, list) or not all(
+        isinstance(item, dict)
+        and set(item) == {"name", "version"}
+        and isinstance(item["name"], str)
+        and item["name"]
+        and isinstance(item["version"], str)
+        and item["version"]
+        for item in dependencies
+    ):
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the resolved Python dependency inventory is invalid",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    normalized = sorted(
+        dependencies, key=lambda item: (item["name"], item["version"])
+    )
+    dependency_digest = canonical_sha256(normalized)
+    if dependencies != normalized or payload["dependencies_sha256"] != dependency_digest:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the resolved Python dependency digest is stale",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    implementation = str(payload["implementation"]).lower()
+    python_version = _normalize_version(str(payload["python_version"]))
+    name = f"{implementation}-resolved"
+    version = f"{python_version}+deps.{dependency_digest}"
+    if (
+        re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", name) is None
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", version) is None
+    ):
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the resolved Python identity is not canonical",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    return {"name": name, "version": version}
+
+
+def _active_python_alias() -> str:
+    """Return a public PATH alias for the interpreter executing this runner."""
+
+    try:
+        active = Path(sys.executable).resolve(strict=True)
+    except OSError as exc:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the executing Python interpreter cannot be resolved",
+            lane="lane_a",
+            surface="toolchain",
+        ) from exc
+    for alias in ("python3", "python"):
+        executable = shutil.which(alias)
+        if executable is None:
+            continue
+        try:
+            if Path(executable).resolve(strict=True) == active:
+                return alias
+        except OSError:
+            continue
+    raise RunnerError(
+        "toolchain_probe_failed",
+        "no public PATH alias resolves to the Python executing this runner",
+        lane="lane_a",
+        surface="toolchain",
+        next_action="run the upgrade with the certified Python exposed as python or python3",
+    )
+
+
+def _python_toolchain_probe(
+    *, cwd: Path
+) -> tuple[dict[str, str], list[str], bytes]:
+    argv = [_active_python_alias(), "scripts/wiki_toolchain_probe.py", "python"]
+    raw = _toolchain_probe_output(argv, cwd=cwd)
+    return _python_toolchain_identity(raw), argv, raw
+
+
+def _playwright_module_root(kit_root: Path) -> Path:
+    candidates = [
+        kit_root / "apps/wiki-cockpit/node_modules/playwright",
+        ROOT / "apps/wiki-cockpit/node_modules/playwright",
+    ]
+    executable = shutil.which("playwright")
+    if executable:
+        resolved = Path(executable).resolve()
+        for parent in (resolved.parent, *resolved.parents):
+            if parent.name == "node_modules":
+                candidates.append(parent / "playwright")
+                break
+    for candidate in candidates:
+        if candidate.is_dir() and (candidate / "package.json").is_file():
+            return candidate.resolve(strict=True)
+    raise RunnerError(
+        "toolchain_probe_failed",
+        "the installed Playwright module is unavailable for engine verification",
+        lane="lane_a",
+        surface="toolchain",
+        next_action="install the exact Playwright package and browser engine",
+    )
+
+
+def _browser_toolchain_identity(raw: bytes) -> dict[str, str]:
+    payload = _probe_json_object(
+        raw,
+        label="Playwright browser engine",
+        fields={
+            "schema_version",
+            "browser",
+            "browser_version",
+            "playwright_version",
+        },
+    )
+    if (
+        payload["schema_version"] != "wiki_viva_browser_engine_toolchain.v1"
+        or payload["browser"] != "chromium"
+    ):
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the browser engine probe contract is unsupported",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    playwright_version = _normalize_version(str(payload["playwright_version"]))
+    browser_version = _normalize_version(str(payload["browser_version"]))
+    version = f"{playwright_version}+chromium.{browser_version}"
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", version) is None:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the Playwright/browser engine identity is not canonical",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    return {"name": "playwright-chromium", "version": version}
+
+
+def _browser_toolchain_probe(
+    *, kit_root: Path
+) -> tuple[dict[str, str], list[str], bytes]:
+    try:
+        module_root = _playwright_module_root(kit_root)
+    except RunnerError:
+        argv = [_active_python_alias(), "scripts/wiki_toolchain_probe.py", "browser"]
+        raw = _toolchain_probe_output(argv, cwd=kit_root)
+    else:
+        argv = ["node", "-e", _PLAYWRIGHT_CHROMIUM_PROBE, "./playwright"]
+        raw = _toolchain_probe_output(argv, cwd=module_root.parent)
+    return _browser_toolchain_identity(raw), argv, raw
+
+
 def _probe_browser_version(name: str, *, kit_root: Path) -> str:
+    if name == "playwright-chromium":
+        return _browser_toolchain_probe(kit_root=kit_root)[0]["version"]
     if name == "playwright":
         return _probe_command_version(["playwright", "--version"], cwd=kit_root)
     if name in {"chromium", "chrome", "webkit", "firefox"}:
@@ -1418,23 +2264,25 @@ def _probe_toolchain(capsule: Mapping[str, Any], *, kit_root: Path) -> str:
             lane="lane_a",
             surface="toolchain",
         )
+    python_identity, _python_argv, _python_raw = _python_toolchain_probe(
+        cwd=kit_root
+    )
+    browser_identity, _browser_argv, _browser_raw = _browser_toolchain_probe(
+        kit_root=kit_root
+    )
     actual = {
-        "python": {
-            "name": platform.python_implementation().lower(),
-            "version": platform.python_version(),
-        },
+        "python": python_identity,
         "node": {
             "name": "node",
             "version": _probe_command_version(["node", "--version"], cwd=kit_root),
         },
-        "browser": {
-            "name": str(expected.get("browser", {}).get("name") or ""),
-            "version": _probe_browser_version(
-                str(expected.get("browser", {}).get("name") or ""),
-                kit_root=kit_root,
+        "browser": browser_identity,
+        "runner": {
+            "name": "wiki-upgrade",
+            "version": _runner_identity_version(
+                Path(__file__).resolve().parents[1]
             ),
         },
-        "runner": {"name": "wiki-upgrade", "version": RUNNER_VERSION},
     }
     if actual != expected or canonical_sha256(actual) != capsule.get("toolchain_sha256"):
         raise RunnerError(
@@ -1567,7 +2415,22 @@ def _require_public_certification_output(raw: bytes, *, gate_id: str) -> None:
             lane="lane_a",
             surface=gate_id,
         ) from exc
-    if "\x00" in text or _HOST_PATH_RE.search(text) or _PRIVATE_EVIDENCE_RE.search(text):
+    try:
+        views = _percent_decoded_views(text)
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise RunnerError(
+            "private_certification_output",
+            "a Lane A gate output contains invalid or excessively nested percent-encoded private evidence",
+            lane="lane_a",
+            surface=gate_id,
+        ) from exc
+    if any(
+        "\x00" in view
+        or _HOST_PATH_RE.search(view)
+        or _PRIVATE_EVIDENCE_RE.search(view)
+        or _PRIVATE_ROUTE_RE.search(view)
+        for view in views
+    ):
         raise RunnerError(
             "private_certification_output",
             "a Lane A gate output contains a host-local or private evidence reference",
@@ -1575,16 +2438,18 @@ def _require_public_certification_output(raw: bytes, *, gate_id: str) -> None:
             surface=gate_id,
             next_action="repair the public synthetic gate output before recertifying",
         )
-    masked = re.sub(
-        r"(?<![0-9A-Fa-f])(?:[0-9A-Fa-f]{64}|[0-9A-Fa-f]{40})(?![0-9A-Fa-f])",
-        "<digest>",
-        text,
-    )
-    findings = [
-        finding
-        for finding in scan_text(masked)
-        if finding.category in {"secret", "pii"}
-    ]
+    findings = []
+    for view in views:
+        masked = re.sub(
+            r"(?<![0-9A-Fa-f])(?:[0-9A-Fa-f]{64}|[0-9A-Fa-f]{40})(?![0-9A-Fa-f])",
+            "<digest>",
+            view,
+        )
+        findings.extend(
+            finding
+            for finding in scan_text(masked)
+            if finding.category in {"secret", "pii"}
+        )
     if findings:
         raise RunnerError(
             "private_certification_output",
@@ -1593,6 +2458,24 @@ def _require_public_certification_output(raw: bytes, *, gate_id: str) -> None:
             surface=gate_id,
             next_action="remove private data from the public fixture and run a new certification",
         )
+
+
+def _percent_decoded_views(value: str) -> tuple[str, ...]:
+    """Return bounded views for literal, encoded and double-encoded output."""
+
+    views = [value]
+    current = value
+    for _ in range(_MAX_PERCENT_DECODE_ROUNDS):
+        if _PERCENT_ESCAPE_RE.search(current) is None:
+            break
+        decoded = unquote_to_bytes(current).decode("utf-8", "strict")
+        if decoded == current:
+            break
+        views.append(decoded)
+        current = decoded
+    if _PERCENT_ESCAPE_RE.search(current) is not None:
+        raise ValueError("percent encoding exceeds the public normalization bound")
+    return tuple(views)
 
 
 def _prepare_certification_output(source_root: Path, requested: Path) -> Path:
@@ -1676,50 +2559,53 @@ def _stage_visual_authority(
 def _certification_toolchain(
     *, source_root: Path, gate_output_root: Path, run_id: str
 ) -> tuple[str, dict[str, dict[str, str]]]:
-    probes: list[tuple[str, str, list[str], Path, str | None]] = [
-        ("browser", "playwright", ["playwright", "--version"], source_root, None),
-        ("node", "node", ["node", "--version"], source_root, None),
-        ("python", platform.python_implementation().lower(), ["python3", "--version"], source_root, None),
-        (
-            "runner",
-            "wiki-upgrade",
-            ["python3", "scripts/wiki_upgrade.py", "--version"],
-            ROOT,
-            RUNNER_VERSION,
-        ),
+    try:
+        source_runner_identity = _runner_identity_version(source_root)
+        active_runner_identity = _runner_identity_version(
+            Path(__file__).resolve().parents[1]
+        )
+    except (OSError, ValueError) as exc:
+        raise RunnerError(
+            "runner_identity_mismatch",
+            "the source or active runner closure is incomplete",
+            lane="lane_a",
+            surface="toolchain",
+        ) from exc
+    if source_runner_identity != active_runner_identity:
+        raise RunnerError(
+            "runner_identity_mismatch",
+            "the executing runner closure differs byte-for-byte from source_sha",
+            lane="lane_a",
+            surface="toolchain",
+            next_action="execute certification with the runner from the exact source worktree",
+        )
+    python_alias = _active_python_alias()
+    browser_argv = [python_alias, "scripts/wiki_toolchain_probe.py", "browser"]
+    browser_raw = _toolchain_probe_output(browser_argv, cwd=source_root)
+    browser_identity = _browser_toolchain_identity(browser_raw)
+    python_argv = [python_alias, "scripts/wiki_toolchain_probe.py", "python"]
+    python_raw = _toolchain_probe_output(python_argv, cwd=source_root)
+    python_identity = _python_toolchain_identity(python_raw)
+    node_argv = ["node", "--version"]
+    node_raw = _toolchain_probe_output(node_argv, cwd=source_root)
+    node_identity = {"name": "node", "version": _normalize_version(node_raw.decode("utf-8", "strict"))}
+    runner_argv = [python_alias, "scripts/wiki_upgrade.py", "--version"]
+    runner_raw = _toolchain_probe_output(runner_argv, cwd=source_root)
+    runner_identity = {"name": "wiki-upgrade", "version": source_runner_identity}
+    probes: list[tuple[str, dict[str, str], list[str], bytes]] = [
+        ("browser", browser_identity, browser_argv, browser_raw),
+        ("node", node_identity, node_argv, node_raw),
+        ("python", python_identity, python_argv, python_raw),
+        ("runner", runner_identity, runner_argv, runner_raw),
     ]
     entries: list[dict[str, Any]] = []
     toolchain: dict[str, dict[str, str]] = {}
-    for tool_id, name, argv, cwd, fixed_version in probes:
-        try:
-            result = subprocess.run(
-                argv,
-                cwd=cwd,
-                check=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                timeout=30,
-            )
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            raise RunnerError(
-                "toolchain_probe_failed",
-                "a Lane A toolchain probe could not be executed",
-                lane="lane_a",
-                surface="toolchain",
-                next_action="install the exact Python, Node and Playwright toolchain",
-            ) from exc
-        if result.returncode != 0:
-            raise RunnerError(
-                "toolchain_probe_failed",
-                "a Lane A toolchain probe returned a non-zero status",
-                lane="lane_a",
-                surface="toolchain",
-                next_action="install the exact Python, Node and Playwright toolchain",
-            )
-        _require_public_certification_output(result.stdout, gate_id=f"toolchain-{tool_id}")
-        probe_text = result.stdout.decode("utf-8", "strict")
-        version = fixed_version or _normalize_version(probe_text)
-        evidence_raw = result.stdout
+    for tool_id, identity, argv, raw in probes:
+        name = identity["name"]
+        version = identity["version"]
+        _require_public_certification_output(raw, gate_id=f"toolchain-{tool_id}")
+        probe_text = raw.decode("utf-8", "strict")
+        evidence_raw = raw
         if re.search(
             rf"(?<![A-Za-z0-9]){re.escape(version)}(?![A-Za-z0-9])",
             probe_text,
@@ -1730,7 +2616,6 @@ def _certification_toolchain(
             evidence_raw += f"{name} {version}\n".encode("utf-8")
         output_ref = f"toolchain/{tool_id}.log"
         _atomic_write(gate_output_root / output_ref, evidence_raw)
-        identity = {"name": name, "version": version}
         toolchain[tool_id] = identity
         entries.append(
             {
@@ -2440,6 +3325,7 @@ def _load_artifacts(
         package = load_mapping(package_path)
         capsule = load_mapping(capsule_path)
         registry = load_mapping(registry_path)
+        _probe_toolchain(capsule, kit_root=kit_root)
         _validate_package_contract(package)
         authority_bundle = load_mapping(authority_path)
         base_authority_fields = {
@@ -2535,6 +3421,8 @@ def _load_artifacts(
         )
         verified_capsule = verify_release_capsule(capsule, authority=authority)
         registry_digest = verify_impact_registry(registry)
+    except RunnerError:
+        raise
     except (OSError, ValueError, UpgradeLaneError) as exc:
         raise RunnerError(
             "lane_contract_rejected",
@@ -2636,7 +3524,6 @@ def _load_artifacts(
         "registry_sha256"
     ):
         raise RunnerError("artifact_digest_mismatch", "a sealed artifact digest is stale")
-    _probe_toolchain(capsule, kit_root=kit_root)
     return package, capsule, registry, verified_capsule
 
 
@@ -2673,8 +3560,11 @@ def _two_lane_selection(
             next_action="recertify one package, registry and capsule tuple",
         )
     try:
-        selection = select_impacted_gates(
-            registry, changed_paths=list(paths), changed_contracts=list(contracts)
+        selection = select_promotion_gates(
+            package,
+            registry,
+            changed_paths=list(paths),
+            changed_contracts=list(contracts),
         )
     except UpgradeLaneError as exc:
         raise RunnerError(
@@ -2683,50 +3573,6 @@ def _two_lane_selection(
             surface="impact_registry",
             next_action="correct canonical impact inputs or execute the full Lane A path",
         ) from exc
-    policies = package["migration"].get("gate_policies")
-    if not isinstance(policies, dict) or set(policies) != required:
-        raise RunnerError(
-            "invalid_gate_policy_registry",
-            "the package gate policy does not cover the exact command registry",
-            lane="lane_a",
-            surface="gate_policy",
-        )
-    if not selection["requires_lane_a"]:
-        selected = set(selection["selected_gates"])
-        selected.update(
-            gate_id
-            for gate_id, policy in policies.items()
-            if isinstance(policy, dict)
-            and policy.get("class") == "background_certification"
-            and policy.get("required_for_promotion") is True
-        )
-        frontier = list(selected)
-        while frontier:
-            gate_id = frontier.pop()
-            policy = policies.get(gate_id)
-            dependencies = policy.get("depends_on", []) if isinstance(policy, dict) else []
-            for dependency in dependencies:
-                if dependency not in required:
-                    raise RunnerError(
-                        "unknown_gate_dependency",
-                        "a selected gate depends on an unregistered gate",
-                        lane="lane_a",
-                        surface=gate_id,
-                    )
-                if dependency not in selected:
-                    selected.add(dependency)
-                    frontier.append(dependency)
-        derivation = {
-            key: value
-            for key, value in selection.items()
-            if key != "derivation_sha256"
-        }
-        derivation["selected_gates"] = sorted(selected)
-        derivation["omitted_gates"] = sorted(required - selected)
-        selection = {
-            **derivation,
-            "derivation_sha256": canonical_sha256(derivation),
-        }
     certified = {item["id"] for item in capsule["certified_gates"]}
     omissions = [
         {
@@ -2754,6 +3600,14 @@ def _two_lane_selection(
                 surface="gate_policy",
                 next_action="select the gate or repair its exact derivation",
             ) from exc
+    policies = package["migration"].get("gate_policies")
+    if not isinstance(policies, Mapping) or set(policies) != required:
+        raise RunnerError(
+            "invalid_gate_policy_registry",
+            "the package gate policy does not cover the exact command registry",
+            lane="lane_a",
+            surface="gate_policy",
+        )
     selected = set(selection["selected_gates"])
     execution_catalog: list[dict[str, Any]] = []
     for item in catalog:
@@ -2832,6 +3686,191 @@ def _verify_plan_digest(plan: Mapping[str, Any]) -> str:
             next_action="discard it and generate a new read-only plan",
         )
     return digest
+
+
+def _acceptance_attempt_identity(plan: Mapping[str, Any]) -> str:
+    """Derive the immutable plan attempt independently of its clock/evidence."""
+
+    required = {
+        "capsule_sha256",
+        "impact_registry_sha256",
+        "identity",
+        "boundary_commits",
+        "impact_inputs",
+        "mutation",
+    }
+    if not required.issubset(plan):
+        raise RunnerError(
+            "invalid_acceptance_anchor",
+            "the plan lacks fields required for its acceptance attempt identity",
+            surface="acceptance_budget",
+        )
+    return canonical_sha256(
+        {
+            "schema_version": "wiki_viva_upgrade_acceptance_attempt.v1",
+            "capsule_sha256": plan["capsule_sha256"],
+            "impact_registry_sha256": plan["impact_registry_sha256"],
+            "identity": plan["identity"],
+            "boundary_commits": plan["boundary_commits"],
+            "impact_inputs": plan["impact_inputs"],
+            "mutation": plan["mutation"],
+        }
+    )
+
+
+def _acceptance_anchor_path(plan_path: Path, attempt_identity_sha256: str) -> Path:
+    if _SHA256_RE.fullmatch(attempt_identity_sha256) is None:
+        raise RunnerError(
+            "invalid_acceptance_anchor",
+            "the acceptance attempt identity is not a SHA-256 digest",
+            surface="acceptance_budget",
+        )
+    return plan_path.parent / f"acceptance-anchor-{attempt_identity_sha256}.json"
+
+
+def _validate_acceptance_anchor_payload(
+    payload: object, *, expected_attempt_identity_sha256: str
+) -> dict[str, Any]:
+    if not isinstance(payload, Mapping):
+        raise RunnerError(
+            "invalid_acceptance_anchor",
+            "the acceptance clock anchor is malformed",
+            surface="acceptance_budget",
+        )
+    anchor = dict(payload)
+    if set(anchor) != {
+        "schema_version",
+        "authority",
+        "attempt_identity_sha256",
+        "plan_started_at",
+        "anchor_sha256",
+    } or anchor.get("schema_version") != "wiki_viva_upgrade_acceptance_anchor.v1":
+        raise RunnerError(
+            "invalid_acceptance_anchor",
+            "the acceptance clock anchor contract is incomplete",
+            surface="acceptance_budget",
+        )
+    if anchor.get("authority") != {
+        "kind": "external_sha256",
+        "id": "wiki_upgrade_plan_first_write",
+    } or anchor.get("attempt_identity_sha256") != expected_attempt_identity_sha256:
+        raise RunnerError(
+            "stale_acceptance_anchor",
+            "the acceptance clock anchor belongs to another migration attempt",
+            surface="acceptance_budget",
+        )
+    _acceptance_timestamp_microseconds(anchor.get("plan_started_at"))
+    unsigned = dict(anchor)
+    claimed = unsigned.pop("anchor_sha256")
+    if _SHA256_RE.fullmatch(str(claimed)) is None or claimed != canonical_sha256(unsigned):
+        raise RunnerError(
+            "stale_acceptance_anchor",
+            "the acceptance clock anchor digest is stale",
+            surface="acceptance_budget",
+        )
+    return anchor
+
+
+def _load_or_create_acceptance_anchor(
+    *,
+    consumer: Path,
+    plan_path: Path,
+    attempt_identity_sha256: str,
+    invocation_started_unix_ns: int,
+) -> tuple[dict[str, Any], str]:
+    path = _require_ignored_output(
+        consumer, _acceptance_anchor_path(plan_path, attempt_identity_sha256)
+    )
+    started_at = _acceptance_timestamp(invocation_started_unix_ns)
+    seed: dict[str, Any] = {
+        "schema_version": "wiki_viva_upgrade_acceptance_anchor.v1",
+        "authority": {
+            "kind": "external_sha256",
+            "id": "wiki_upgrade_plan_first_write",
+        },
+        "attempt_identity_sha256": attempt_identity_sha256,
+        "plan_started_at": started_at,
+    }
+    seed["anchor_sha256"] = canonical_sha256(seed)
+    raw = _json_bytes(seed)
+    if not _atomic_create_once(path, raw):
+        raw = _read_exact_private_file(path, label="acceptance clock anchor")
+    try:
+        payload = json.loads(raw)
+    except (UnicodeDecodeError, ValueError, TypeError) as exc:
+        raise RunnerError(
+            "invalid_acceptance_anchor",
+            "the acceptance clock anchor is not valid UTF-8 JSON",
+            surface="acceptance_budget",
+        ) from exc
+    anchor = _validate_acceptance_anchor_payload(
+        payload, expected_attempt_identity_sha256=attempt_identity_sha256
+    )
+    return anchor, _sha256_bytes(raw)
+
+
+def _verify_acceptance_anchor(
+    *,
+    plan: Mapping[str, Any],
+    plan_path: Path,
+    consumer: Path,
+    trusted_file_sha256: str,
+) -> dict[str, Any]:
+    reference = plan.get("acceptance_anchor")
+    expected_attempt = _acceptance_attempt_identity(plan)
+    if not isinstance(reference, Mapping) or dict(reference) != {
+        "schema_version": "wiki_viva_upgrade_acceptance_anchor_reference.v1",
+        "attempt_identity_sha256": expected_attempt,
+        "anchor_sha256": reference.get("anchor_sha256") if isinstance(reference, Mapping) else None,
+        "file_sha256": reference.get("file_sha256") if isinstance(reference, Mapping) else None,
+    }:
+        raise RunnerError(
+            "invalid_acceptance_anchor",
+            "the plan acceptance anchor reference is incomplete or stale",
+            surface="acceptance_budget",
+        )
+    if (
+        _SHA256_RE.fullmatch(str(trusted_file_sha256)) is None
+        or reference.get("file_sha256") != trusted_file_sha256
+    ):
+        raise RunnerError(
+            "untrusted_acceptance_anchor",
+            "the plan clock lacks its out-of-band SHA-256 trust anchor",
+            surface="acceptance_budget",
+            next_action="use the exact digest emitted by the original plan command",
+        )
+    path = _require_ignored_output(
+        consumer, _acceptance_anchor_path(plan_path, expected_attempt)
+    )
+    raw = _read_exact_private_file(path, label="acceptance clock anchor")
+    if _sha256_bytes(raw) != trusted_file_sha256:
+        raise RunnerError(
+            "untrusted_acceptance_anchor",
+            "the acceptance clock anchor bytes differ from external authority",
+            surface="acceptance_budget",
+        )
+    try:
+        payload = json.loads(raw)
+    except (UnicodeDecodeError, ValueError, TypeError) as exc:
+        raise RunnerError(
+            "invalid_acceptance_anchor",
+            "the acceptance clock anchor is not valid UTF-8 JSON",
+            surface="acceptance_budget",
+        ) from exc
+    anchor = _validate_acceptance_anchor_payload(
+        payload, expected_attempt_identity_sha256=expected_attempt
+    )
+    if (
+        reference.get("anchor_sha256") != anchor["anchor_sha256"]
+        or plan.get("acceptance_budget", {}).get("plan_started_at")
+        != anchor["plan_started_at"]
+    ):
+        raise RunnerError(
+            "stale_acceptance_anchor",
+            "the plan clock was reset or detached from its first-write anchor",
+            surface="acceptance_budget",
+        )
+    return anchor
 
 
 def _preflight_commands(
@@ -3120,6 +4159,17 @@ def _materialize_mutation_plan(
         except (OSError, ValueError, TypeError) as exc:
             raise RunnerError("invalid_execution_plan", "the materialized execution plan is malformed") from exc
         _verify_plan_digest(execution)
+        if (
+            execution.get("pre_mutation_plan_sha256") != preplan["plan_sha256"]
+            or execution.get("acceptance_anchor") != preplan.get("acceptance_anchor")
+            or execution.get("acceptance_budget") != preplan.get("acceptance_budget")
+        ):
+            raise RunnerError(
+                "stale_execution_plan_anchor",
+                "the materialized execution plan is detached from its anchored pre-mutation plan",
+                surface="acceptance_budget",
+                next_action="discard the stale execution evidence and restart from the exact anchored plan",
+            )
         return execution
     b0 = preplan["identity"]["consumer_B0"]
     mutation = preplan.get("mutation")
@@ -3214,6 +4264,13 @@ def _materialize_mutation_plan(
             base_sha=str(mutation_state["commits"].get("C2") or ""),
         )
     operations = _boundary_operations(package)
+    portable = package.get("portable_import")
+    portable_allow = (
+        list(portable.get("allow") or []) if isinstance(portable, Mapping) else []
+    )
+    portable_block = (
+        list(portable.get("block") or []) if isinstance(portable, Mapping) else []
+    )
     if package.get("schema_version") == _TWO_LANE_PACKAGE:
         adapter = operations["c3_adapter"]
         if (
@@ -3381,6 +4438,8 @@ def _materialize_mutation_plan(
                 c3_paths,
                 c3_owned_patterns,
                 label="C3",
+                forbidden_patterns=portable_allow,
+                forbidden_exceptions=portable_block,
             )
             _git(stage, ["add", "-A"])
             c3 = _commit_index(stage, "wiki: downstream adaptations (C3)")
@@ -3480,10 +4539,21 @@ def _materialize_mutation_plan(
     execution.pop("plan_sha256", None)
     execution["plan_sha256"] = _plan_digest(execution)
     _atomic_write(execution_path, _json_bytes(execution))
+    if (
+        execution.get("pre_mutation_plan_sha256") != preplan["plan_sha256"]
+        or execution.get("acceptance_anchor") != preplan.get("acceptance_anchor")
+        or execution.get("acceptance_budget") != preplan.get("acceptance_budget")
+    ):
+        raise RunnerError(
+            "stale_execution_plan_anchor",
+            "the generated execution plan is detached from its anchored pre-mutation plan",
+            surface="acceptance_budget",
+        )
     return execution
 
 
 def _plan(args: argparse.Namespace) -> int:
+    plan_started_unix_ns = time.time_ns()
     consumer = args.consumer_root.resolve()
     kit = args.kit_root.resolve()
     _require_v3_cli_package(args.package)
@@ -3677,6 +4747,24 @@ def _plan(args: argparse.Namespace) -> int:
             "escalation": selection["escalation"],
         },
     }
+    attempt_identity_sha256 = _acceptance_attempt_identity(plan)
+    acceptance_anchor, acceptance_anchor_file_sha256 = (
+        _load_or_create_acceptance_anchor(
+            consumer=consumer,
+            plan_path=target,
+            attempt_identity_sha256=attempt_identity_sha256,
+            invocation_started_unix_ns=plan_started_unix_ns,
+        )
+    )
+    plan["acceptance_budget"] = _pending_acceptance_budget_at(
+        package, plan_started_at=acceptance_anchor["plan_started_at"]
+    )
+    plan["acceptance_anchor"] = {
+        "schema_version": "wiki_viva_upgrade_acceptance_anchor_reference.v1",
+        "attempt_identity_sha256": attempt_identity_sha256,
+        "anchor_sha256": acceptance_anchor["anchor_sha256"],
+        "file_sha256": acceptance_anchor_file_sha256,
+    }
     plan["plan_sha256"] = _plan_digest(plan)
     _atomic_write(target, _json_bytes(plan))
     _emit(
@@ -3688,6 +4776,7 @@ def _plan(args: argparse.Namespace) -> int:
             "selected_gate_count": len(selection["selected_gates"]),
             "omitted_gate_count": len(selection["omitted_gates"]),
             "plan_sha256": plan["plan_sha256"],
+            "acceptance_anchor_sha256": acceptance_anchor_file_sha256,
             "conceptual_diff": plan["conceptual_diff"],
         }
     )
@@ -3705,6 +4794,7 @@ def _validate_current_plan(
     kit: Path,
 ) -> None:
     _verify_plan_digest(plan)
+    _validate_pending_plan_acceptance_budget(plan, package)
     if plan.get("capsule_sha256") != capsule["capsule_sha256"]:
         raise RunnerError("stale_plan_capsule", "the plan targets a different release capsule")
     if plan.get("impact_registry_sha256") != registry["registry_sha256"]:
@@ -3798,6 +4888,7 @@ def _validate_pre_mutation_plan(
     mutation = plan.get("mutation")
     if not isinstance(mutation, dict) or mutation.get("strategy") != "runner_owned":
         return
+    _validate_pending_plan_acceptance_budget(plan, package)
     expected_mutation_fields = {
         "strategy",
         "c1_projection_sha256",
@@ -3940,7 +5031,9 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
         "capsule_sha256",
         "impact_registry_sha256",
         "toolchain_sha256",
+        "boundary_commits",
         "run_started_unix_ns",
+        "acceptance_budget",
         "gate_results",
     }
     if set(state) != expected or state.get("schema_version") != STATE_SCHEMA_VERSION:
@@ -3949,6 +5042,12 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
         raise RunnerError("stale_resume_plan", "resume state belongs to a stale plan")
     if state.get("identity_sha256") != canonical_sha256(plan["identity"]):
         raise RunnerError("stale_resume_identity", "resume state belongs to a stale B0/C3 identity")
+    if state.get("boundary_commits") != plan.get("boundary_commits"):
+        raise RunnerError(
+            "stale_resume_boundaries",
+            "resume state belongs to a different B0/C1/C2/C3 chain",
+            surface="commit_boundaries",
+        )
     for field in ("capsule_sha256", "impact_registry_sha256", "toolchain_sha256"):
         expected_value = (
             plan["identity"][field] if field == "toolchain_sha256" else plan[field]
@@ -3963,6 +5062,9 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
     results = state.get("gate_results")
     if not isinstance(results, dict):
         raise RunnerError("invalid_resume_results", "resume gate results are not a mapping")
+    budget = _validate_acceptance_budget_record(
+        state.get("acceptance_budget"), expected_plan=plan
+    )
     catalog = {item["id"]: item for item in plan["gate_catalog"]}
     selected = set(plan["selection"]["selected_gates"])
     if not set(results).issubset(selected):
@@ -3980,6 +5082,7 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
                 surface="gate_evidence",
                 next_action="rerun the gate through the runner",
             )
+        _acceptance_timestamp_microseconds(result.get("_completed_at"))
         gate = catalog.get(gate_id)
         if (
             gate is None
@@ -4005,6 +5108,19 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
                 next_action="start a new run; stale results cannot be resumed",
             )
         _validate_gate_evidence_manifest(gate_id, result, run_dir)
+    canary_completed_at = _completed_canary_at(state, plan)
+    if (
+        canary_completed_at is None
+        and budget["status"] != "pending"
+        or canary_completed_at is not None
+        and budget["status"] in {"met", "exceeded"}
+        and budget["canary_completed_at"] != canary_completed_at
+    ):
+        raise RunnerError(
+            "stale_acceptance_budget",
+            "resume canary results and budget measurement disagree",
+            surface="acceptance_budget",
+        )
 
 
 def _state_template(plan: Mapping[str, Any]) -> dict[str, Any]:
@@ -4016,9 +5132,239 @@ def _state_template(plan: Mapping[str, Any]) -> dict[str, Any]:
         "capsule_sha256": plan["capsule_sha256"],
         "impact_registry_sha256": plan["impact_registry_sha256"],
         "toolchain_sha256": plan["identity"]["toolchain_sha256"],
+        "boundary_commits": dict(plan["boundary_commits"]),
         "run_started_unix_ns": time.time_ns(),
+        "acceptance_budget": _validate_acceptance_budget_record(
+            plan["acceptance_budget"]
+        ),
         "gate_results": {},
     }
+
+
+def _canary_results_projection(
+    state: Mapping[str, Any], plan: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    canary_ids = sorted(
+        item["id"]
+        for item in plan["gate_catalog"]
+        if item.get("class") == "canary"
+        and item["id"] in plan["selection"]["selected_gates"]
+    )
+    projection: list[dict[str, Any]] = []
+    for gate_id in canary_ids:
+        result = state.get("gate_results", {}).get(gate_id)
+        if not isinstance(result, Mapping):
+            raise RunnerError(
+                "missing_canary_completion_evidence",
+                "the completion anchor lacks a selected real canary result",
+                lane="lane_b",
+                surface="canary",
+            )
+        projection.append(
+            {
+                "id": gate_id,
+                "class": result.get("class"),
+                "status": result.get("status"),
+                "subject_sha": result.get("subject_sha"),
+                "command_sha256": result.get("command_sha256"),
+                "output_sha256": result.get("output_sha256"),
+                "completed_at": result.get("_completed_at"),
+                "evidence_sha256": canonical_sha256(result.get("_evidence")),
+            }
+        )
+    return projection
+
+
+def _validate_canary_completion_anchor(
+    payload: object,
+    *,
+    plan: Mapping[str, Any],
+    completed_at: str,
+    canary_results_sha256: str,
+) -> dict[str, Any]:
+    if not isinstance(payload, Mapping):
+        raise RunnerError(
+            "invalid_canary_completion_anchor",
+            "the real canary completion anchor is malformed",
+            lane="lane_b",
+            surface="acceptance_budget",
+        )
+    anchor = dict(payload)
+    expected_keys = {
+        "schema_version",
+        "authority",
+        "plan_sha256",
+        "identity_sha256",
+        "canary_completed_at",
+        "canary_results_sha256",
+        "anchor_sha256",
+    }
+    unsigned = dict(anchor)
+    claimed = unsigned.pop("anchor_sha256", None)
+    if (
+        set(anchor) != expected_keys
+        or anchor.get("schema_version")
+        != "wiki_viva_upgrade_canary_completion_anchor.v1"
+        or anchor.get("authority")
+        != {
+            "kind": "external_sha256",
+            "id": "wiki_upgrade_real_canary_first_completion",
+        }
+        or anchor.get("plan_sha256") != plan["plan_sha256"]
+        or anchor.get("identity_sha256") != canonical_sha256(plan["identity"])
+        or anchor.get("canary_completed_at") != completed_at
+        or anchor.get("canary_results_sha256") != canary_results_sha256
+        or claimed != canonical_sha256(unsigned)
+    ):
+        raise RunnerError(
+            "stale_canary_completion_anchor",
+            "the real canary completion anchor is stale or unbound",
+            lane="lane_b",
+            surface="acceptance_budget",
+            next_action="use the original post-canary anchor and unchanged run state",
+        )
+    return anchor
+
+
+def _record_completed_canary_budget(
+    state: dict[str, Any],
+    plan: Mapping[str, Any],
+    state_path: Path,
+    run_dir: Path,
+    *,
+    trusted_file_sha256: str | None,
+    allow_anchor_create: bool,
+) -> tuple[dict[str, str] | None, str | None]:
+    completed_at = _completed_canary_at(state, plan)
+    if completed_at is None:
+        if (run_dir / "canary-completion-anchor.json").exists():
+            raise RunnerError(
+                "stale_canary_completion_anchor",
+                "a canary completion anchor exists without completed canary evidence",
+                lane="lane_b",
+                surface="acceptance_budget",
+            )
+        return None, None
+    completed_microseconds = _acceptance_timestamp_microseconds(completed_at)
+    budget = _validate_acceptance_budget_record(
+        state.get("acceptance_budget"), expected_plan=plan
+    )
+    if budget["status"] == "pending":
+        state["acceptance_budget"] = _complete_acceptance_budget(
+            budget,
+            canary_completed_unix_ns=completed_microseconds * 1_000,
+        )
+        _atomic_write(state_path, _json_bytes(state))
+    elif budget["canary_completed_at"] != completed_at:
+        raise RunnerError(
+            "stale_acceptance_budget",
+            "the measured budget is not bound to the completed real canary",
+            surface="acceptance_budget",
+        )
+    canary_results_sha256 = canonical_sha256(
+        _canary_results_projection(state, plan)
+    )
+    seed: dict[str, Any] = {
+        "schema_version": "wiki_viva_upgrade_canary_completion_anchor.v1",
+        "authority": {
+            "kind": "external_sha256",
+            "id": "wiki_upgrade_real_canary_first_completion",
+        },
+        "plan_sha256": plan["plan_sha256"],
+        "identity_sha256": canonical_sha256(plan["identity"]),
+        "canary_completed_at": completed_at,
+        "canary_results_sha256": canary_results_sha256,
+    }
+    seed["anchor_sha256"] = canonical_sha256(seed)
+    raw = _json_bytes(seed)
+    path = run_dir / "canary-completion-anchor.json"
+    created = False
+    if not path.exists():
+        if not allow_anchor_create:
+            raise RunnerError(
+                "missing_canary_completion_anchor",
+                "completed canary state lacks its first-write completion authority",
+                lane="lane_b",
+                surface="acceptance_budget",
+                next_action="discard the unanchored run and execute a new exact plan",
+            )
+        created = _atomic_create_once(path, raw)
+    if not created:
+        raw = _read_exact_private_file(path, label="canary completion anchor")
+    try:
+        payload = json.loads(raw)
+    except (UnicodeDecodeError, ValueError, TypeError) as exc:
+        raise RunnerError(
+            "invalid_canary_completion_anchor",
+            "the canary completion anchor is not valid UTF-8 JSON",
+            lane="lane_b",
+            surface="acceptance_budget",
+        ) from exc
+    anchor = _validate_canary_completion_anchor(
+        payload,
+        plan=plan,
+        completed_at=completed_at,
+        canary_results_sha256=canary_results_sha256,
+    )
+    file_sha256 = _sha256_bytes(raw)
+    if created:
+        _emit(
+            {
+                "schema_version": "wiki_viva_upgrade_canary_completion_summary.v1",
+                "status": "anchored",
+                "lane": "lane_b",
+                "plan_sha256": plan["plan_sha256"],
+                "canary_completion_anchor_sha256": file_sha256,
+                "promotion_ready": False,
+            }
+        )
+    if not created and trusted_file_sha256 is None:
+        raise RunnerError(
+            "untrusted_canary_completion_anchor",
+            "resuming after the real canary requires its out-of-band completion digest",
+            lane="lane_b",
+            surface="acceptance_budget",
+            next_action="pass the digest emitted by the original canary invocation",
+        )
+    if trusted_file_sha256 is not None and (
+        _SHA256_RE.fullmatch(trusted_file_sha256) is None
+        or trusted_file_sha256 != file_sha256
+    ):
+        raise RunnerError(
+            "untrusted_canary_completion_anchor",
+            "the canary completion bytes differ from out-of-band authority",
+            lane="lane_b",
+            surface="acceptance_budget",
+        )
+    reference = {
+        "schema_version": "wiki_viva_upgrade_canary_completion_anchor_reference.v1",
+        "anchor_sha256": anchor["anchor_sha256"],
+        "file_sha256": file_sha256,
+    }
+    return reference, file_sha256
+
+
+def _completed_canary_at(
+    state: Mapping[str, Any], plan: Mapping[str, Any]
+) -> str | None:
+    canary_ids = {
+        item["id"]
+        for item in plan["gate_catalog"]
+        if item.get("class") == "canary"
+        and item["id"] in plan["selection"]["selected_gates"]
+    }
+    if not canary_ids or not all(
+        state["gate_results"].get(gate_id, {}).get("status") == "passed"
+        for gate_id in canary_ids
+    ):
+        return None
+    completed = [
+        state["gate_results"][gate_id].get("_completed_at")
+        for gate_id in sorted(canary_ids)
+    ]
+    for value in completed:
+        _acceptance_timestamp_microseconds(value)
+    return max(completed, key=_acceptance_timestamp_microseconds)
 
 
 def _gate_environment(
@@ -4488,6 +5834,7 @@ def _run_gate(
         artifact_dir=artifact_dir,
         run_dir=run_dir,
     )
+    result["_completed_at"] = _acceptance_timestamp(time.time_ns())
     return result
 
 
@@ -4954,9 +6301,13 @@ def _report(
     gate_results: Sequence[Mapping[str, Any]],
     rollback: Mapping[str, Any],
     evidence: Mapping[str, Any],
+    acceptance_budget: Mapping[str, Any],
     *,
     status: str,
 ) -> dict[str, Any]:
+    budget = _validate_acceptance_budget_record(
+        acceptance_budget, expected_plan=plan
+    )
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
         "status": status,
@@ -4985,8 +6336,9 @@ def _report(
             for item in sorted(gate_results, key=lambda value: value["id"])
         ],
         "rollback_evidence_sha256": rollback["evidence_sha256"],
+        "acceptance_budget": budget,
         "evidence": evidence,
-        "promotion_ready": status == "complete",
+        "promotion_ready": status == "complete" and budget["status"] == "met",
         "human_gate_required": True,
     }
 
@@ -4994,6 +6346,12 @@ def _report(
 def _render_report(report: Mapping[str, Any]) -> str:
     selection = report["selection"]
     boundaries = report["boundaries"]["counts"]
+    budget = report["acceptance_budget"]
+    budget_summary = (
+        f"{budget['elapsed_milliseconds']} ms ({budget['status']})"
+        if "elapsed_milliseconds" in budget
+        else f"{budget['status']} (limit {budget['limit_seconds']} s)"
+    )
     return "\n".join(
         [
             "# Wiki Viva downstream adoption report",
@@ -5006,6 +6364,7 @@ def _render_report(report: Mapping[str, Any]) -> str:
             f"- Gates: {selection['selected_gate_count']} selected; {selection['omitted_gate_count']} omitted with proof",
             f"- Boundaries: C1={boundaries['C1']}, C2={boundaries['C2']}, C3={boundaries['C3']}",
             f"- Rollback: `{report['rollback_evidence_sha256']}`",
+            f"- Plan-to-canary: `{budget_summary}`",
             f"- Promotion ready: `{str(report['promotion_ready']).lower()}`",
             "- Final promotion still requires PR review and the human gate.",
             "",
@@ -5014,51 +6373,15 @@ def _render_report(report: Mapping[str, Any]) -> str:
 
 
 def _public_report_projection(report: Mapping[str, Any]) -> dict[str, Any]:
-    evidence = report["evidence"]
-    identity = report["identity"]
-    projection = {
-        **{
-            key: value
-            for key, value in report.items()
-            if key not in {"evidence", "identity"}
-        },
-        "public_redacted": True,
-        "identity_sha256": canonical_sha256(identity),
-        "upstream_identity": {
-            key: identity[key]
-            for key in (
-                "source_sha",
-                "package_sha256",
-                "portable_tree_sha256",
-                "command_registry_sha256",
-                "toolchain_sha256",
-            )
-        },
-        "consumer_subjects": "redacted",
-        "evidence": {
-            "gate_log_count": len(evidence.get("gate_logs", [])),
-            "screenshot_count": len(evidence.get("screenshots", [])),
-            "console_count": len(evidence.get("console", [])),
-            "network_count": len(evidence.get("network", [])),
-            "manifest_sha256": canonical_sha256(evidence),
-            "raw_private_evidence": "omitted",
-        },
-    }
-    serialized = canonical_json(projection)
-    if any(identity[field] in serialized for field in ("consumer_B0", "consumer_C3")):
+    try:
+        return public_migration_report_projection(report)
+    except UpgradeLaneError as exc:
         raise RunnerError(
-            "public_report_consumer_subject_leak",
-            "the public report projection contains a private consumer Git subject",
+            "public_report_projection_rejected",
+            "the private report cannot form the exact safe public projection",
             surface="public_evidence_redaction",
-        )
-    if re.search(r"(?:/Users/|/home/|file://|(?:^|/)private(?:/|$))", serialized):
-        raise RunnerError(
-            "public_report_redaction_failed",
-            "the public report projection contains a private or host-local reference",
-            surface="public_evidence_redaction",
-            next_action="block promotion and repair report projection",
-        )
-    return projection
+            next_action="block promotion and repair the private report contract",
+        ) from exc
 
 
 def _resolve_verification_run(args: argparse.Namespace) -> Path:
@@ -5112,6 +6435,7 @@ def _verify_rollback_report(args: argparse.Namespace) -> int:
     claimed = rollback.get("evidence_sha256")
     unsigned = dict(rollback)
     unsigned.pop("evidence_sha256", None)
+    budget = _validate_acceptance_budget_record(report.get("acceptance_budget"))
     valid = (
         report.get("schema_version") == REPORT_SCHEMA_VERSION
         and report.get("status") in {"candidate", "complete"}
@@ -5122,6 +6446,8 @@ def _verify_rollback_report(args: argparse.Namespace) -> int:
         and claimed == canonical_sha256(unsigned)
         and report.get("rollback_evidence_sha256") == claimed
         and report.get("identity", {}).get("consumer_C3") == rollback.get("subject_sha")
+        and report.get("promotion_ready")
+        is (report.get("status") == "complete" and budget["status"] == "met")
     )
     if not valid:
         raise RunnerError(
@@ -5197,6 +6523,12 @@ def _adopt(args: argparse.Namespace) -> int:
     )
     _require_upgrade_branch(consumer, package)
     _verify_plan_digest(plan)
+    _verify_acceptance_anchor(
+        plan=plan,
+        plan_path=plan_path,
+        consumer=consumer,
+        trusted_file_sha256=args.trusted_acceptance_anchor_sha256,
+    )
     _validate_pre_mutation_plan(
         plan=plan,
         package=package,
@@ -5260,6 +6592,10 @@ def _adopt(args: argparse.Namespace) -> int:
     lock_path = run_dir / "run.lock"
     run_dir.mkdir(parents=True, exist_ok=True)
     with _run_lock(lock_path):
+        canary_completion_anchor: dict[str, str] | None = None
+        trusted_canary_completion_sha256 = (
+            args.trusted_canary_completion_anchor_sha256
+        )
         if state_path.exists():
             if not args.resume:
                 raise RunnerError(
@@ -5273,59 +6609,53 @@ def _adopt(args: argparse.Namespace) -> int:
             except (OSError, ValueError, TypeError) as exc:
                 raise RunnerError("invalid_resume_state", "the resume state is malformed") from exc
             _validate_resume_state(state, plan, run_dir)
+            if state.get("status") == "complete":
+                raise RunnerError(
+                    "completed_run_not_resumable",
+                    "a completed adoption receipt is historical evidence, not reusable promotion proof",
+                    lane="lane_b",
+                    surface="resume_state",
+                    contract="never_reusable_gates",
+                    next_action=(
+                        "use the existing generated report for its original PR/human gate; "
+                        "if policy requires reexecution, create a new consumer subject and plan identity"
+                    ),
+                )
+            canary_was_complete = _completed_canary_at(state, plan) is not None
+            (
+                canary_completion_anchor,
+                anchored_digest,
+            ) = _record_completed_canary_budget(
+                state,
+                plan,
+                state_path,
+                run_dir,
+                trusted_file_sha256=trusted_canary_completion_sha256,
+                allow_anchor_create=False,
+            )
+            if anchored_digest is not None:
+                trusted_canary_completion_sha256 = anchored_digest
             if state.get("status") != "complete":
                 state["status"] = "running"
                 _atomic_write(state_path, _json_bytes(state))
         else:
             state = _state_template(plan)
+            canary_was_complete = False
             _atomic_write(state_path, _json_bytes(state))
 
         receipt_path = run_dir / "adoption-receipt.json"
-        if state["status"] == "complete" and receipt_path.is_file():
-            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-            try:
-                verified_evidence = verify_adoption_evidence(
-                    receipt,
-                    authority=AdoptionEvidenceAuthority(
-                        consumer_root=consumer,
-                        run_root=run_dir,
-                    ),
-                    package=package,
-                    registry=registry,
-                    selection=plan["selection"],
-                )
-                verify_adoption_receipt(
-                    receipt,
-                    expected_identity=plan["identity"],
-                    expected_plan_sha256=plan["plan_sha256"],
-                    capsule=capsule,
-                    verified_capsule=verified_capsule,
-                    verified_evidence=verified_evidence,
-                    package=package,
-                    registry=registry,
-                    selection=plan["selection"],
-                )
-            except UpgradeLaneError as exc:
-                raise RunnerError(
-                    "adoption_evidence_rejected",
-                    "the completed receipt no longer resolves to exact runner and Git evidence",
-                    surface="adoption_receipt",
-                    contract="rollback_report_verification",
-                    next_action="block promotion and rerun the exact plan evidence",
-                ) from exc
-            _emit(
-                {
-                    "schema_version": "wiki_viva_upgrade_adoption_summary.v1",
-                    "status": "complete",
-                    "lane": "lane_b",
-                    "resumed": True,
-                    "reused_receipt": True,
-                    "plan_sha256": plan["plan_sha256"],
-                    "promotion_ready": True,
-                    "human_gate_required": True,
-                }
+        if state["status"] == "complete":
+            raise RunnerError(
+                "completed_run_not_resumable",
+                "a completed adoption receipt is historical evidence, not reusable promotion proof",
+                lane="lane_b",
+                surface="resume_state",
+                contract="never_reusable_gates",
+                next_action=(
+                    "use the existing generated report for its original PR/human gate; "
+                    "if policy requires reexecution, create a new consumer subject and plan identity"
+                ),
             )
-            return 0
 
         gates = [dict(item) for item in plan["gate_catalog"]]
         rollback_gate = [item for item in gates if item["id"] == "rollback_report_verification"]
@@ -5358,6 +6688,21 @@ def _adopt(args: argparse.Namespace) -> int:
                 timeout=args.gate_timeout,
                 heartbeat=args.heartbeat_seconds,
             )
+        (
+            current_completion_anchor,
+            anchored_digest,
+        ) = _record_completed_canary_budget(
+            state,
+            plan,
+            state_path,
+            run_dir,
+            trusted_file_sha256=trusted_canary_completion_sha256,
+            allow_anchor_create=not canary_was_complete,
+        )
+        if current_completion_anchor is not None:
+            canary_completion_anchor = current_completion_anchor
+        if anchored_digest is not None:
+            trusted_canary_completion_sha256 = anchored_digest
 
         if args.pause_before_canary:
             state["status"] = "paused_before_canary"
@@ -5404,6 +6749,9 @@ def _adopt(args: argparse.Namespace) -> int:
                     "plan_sha256": plan["plan_sha256"],
                     "completed_gate_count": len(state["gate_results"]),
                     "pending_background_gates": sorted(selected_background),
+                    "canary_completion_anchor_sha256": (
+                        trusted_canary_completion_sha256
+                    ),
                     "promotion_ready": False,
                     "human_gate_required": True,
                     "next_action": (
@@ -5422,6 +6770,7 @@ def _adopt(args: argparse.Namespace) -> int:
             preliminary_results,
             rollback,
             _empty_evidence(),
+            state["acceptance_budget"],
             status="candidate",
         )
         _atomic_write(run_dir / "migration-report.candidate.json", _json_bytes(candidate))
@@ -5461,7 +6810,14 @@ def _adopt(args: argparse.Namespace) -> int:
             gate_catalog=plan["gate_catalog"],
             subject_sha=plan["identity"]["consumer_C3"],
         )
-        report = _report(plan, results, rollback, evidence, status="complete")
+        report = _report(
+            plan,
+            results,
+            rollback,
+            evidence,
+            state["acceptance_budget"],
+            status="complete",
+        )
         report_bytes = _json_bytes(report)
         public_report = _public_report_projection(report)
         public_report_bytes = _json_bytes(public_report)
@@ -5490,19 +6846,38 @@ def _adopt(args: argparse.Namespace) -> int:
             "subject_sha": plan["identity"]["consumer_C3"],
             "evidence_sha256": _sha256_bytes(report_bytes),
         }
+        acceptance_budget = _validate_acceptance_budget_record(
+            state["acceptance_budget"], expected_plan=plan
+        )
+        if (
+            canary_completion_anchor is None
+            or trusted_canary_completion_sha256 is None
+        ):
+            raise RunnerError(
+                "missing_canary_completion_anchor",
+                "final adoption evidence lacks external real-canary completion authority",
+                lane="lane_b",
+                surface="acceptance_budget",
+            )
+        receipt_status = (
+            "passed" if acceptance_budget["status"] == "met" else "blocked"
+        )
         receipt = seal_adoption_receipt(
             {
-                "status": "passed",
+                "status": receipt_status,
                 "identity": plan["identity"],
                 "capsule_sha256": capsule["capsule_sha256"],
                 "impact_registry_sha256": registry["registry_sha256"],
                 "impact_derivation_sha256": plan["selection"]["derivation_sha256"],
                 "plan_sha256": plan["plan_sha256"],
+                "acceptance_budget": acceptance_budget,
+                "canary_completion_anchor": canary_completion_anchor,
                 "resume": {
                     "identity_sha256": canonical_sha256(plan["identity"]),
                     "plan_sha256": plan["plan_sha256"],
                     "completed_gates": sorted(plan["selection"]["selected_gates"]),
                 },
+                "boundary_commits": plan["boundary_commits"],
                 "boundaries": plan["boundaries"],
                 "gate_results": results,
                 "omitted_gates": plan["omitted_gates"],
@@ -5511,29 +6886,37 @@ def _adopt(args: argparse.Namespace) -> int:
             }
         )
         _atomic_write(receipt_path, _json_bytes(receipt))
+        state["status"] = "complete"
+        _atomic_write(state_path, _json_bytes(state))
         try:
             verified_evidence = verify_adoption_evidence(
                 receipt,
                 authority=AdoptionEvidenceAuthority(
                     consumer_root=consumer,
                     run_root=run_dir,
+                    trusted_canary_completion_anchor_sha256=(
+                        trusted_canary_completion_sha256
+                    ),
                 ),
                 package=package,
                 registry=registry,
                 selection=plan["selection"],
             )
-            verify_adoption_receipt(
-                receipt,
-                expected_identity=plan["identity"],
-                expected_plan_sha256=plan["plan_sha256"],
-                capsule=capsule,
-                verified_capsule=verified_capsule,
-                verified_evidence=verified_evidence,
-                package=package,
-                registry=registry,
-                selection=plan["selection"],
-            )
+            if receipt_status == "passed":
+                verify_adoption_receipt(
+                    receipt,
+                    expected_identity=plan["identity"],
+                    expected_plan_sha256=plan["plan_sha256"],
+                    capsule=capsule,
+                    verified_capsule=verified_capsule,
+                    verified_evidence=verified_evidence,
+                    package=package,
+                    registry=registry,
+                    selection=plan["selection"],
+                )
         except UpgradeLaneError as exc:
+            state["status"] = "running"
+            _atomic_write(state_path, _json_bytes(state))
             raise RunnerError(
                 "adoption_evidence_rejected",
                 "the generated receipt does not resolve to exact runner and Git evidence",
@@ -5541,32 +6924,43 @@ def _adopt(args: argparse.Namespace) -> int:
                 contract="rollback_report_verification",
                 next_action="block promotion and rerun the exact plan evidence",
             ) from exc
-        # Completion is the final durable transition.  If the generated
-        # receipt/evidence verifier fails or the process is interrupted,
-        # state stays resumable and a later --resume can rebuild the
-        # artifacts instead of getting trapped behind a false "complete".
-        state["status"] = "complete"
-        _atomic_write(state_path, _json_bytes(state))
+        # Completion remains durable only after the receipt/evidence verifier
+        # succeeds. A failed verifier restores the resumable running state.
     _emit(
         {
             "schema_version": "wiki_viva_upgrade_adoption_summary.v1",
-            "status": "complete",
+            "status": "complete" if receipt_status == "passed" else "blocked",
             "lane": "lane_b",
             "resumed": bool(args.resume),
             "reused_receipt": False,
             "plan_sha256": plan["plan_sha256"],
             "selected_gate_count": len(results),
-            "promotion_ready": True,
+            "acceptance_budget": acceptance_budget,
+            "canary_completion_anchor_sha256": (
+                trusted_canary_completion_sha256
+            ),
+            "promotion_ready": receipt_status == "passed",
             "human_gate_required": True,
+            "contract": "wiki_viva_upgrade_acceptance_budget.v1",
+            "next_action": (
+                "open the human-gated promotion PR"
+                if receipt_status == "passed"
+                else "inspect the Lane B bottleneck and run a new plan; do not promote"
+            ),
         }
     )
-    return 0
+    return 0 if receipt_status == "passed" else 2
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--version", action="version", version=f"wiki-upgrade {RUNNER_VERSION}"
+        "--version",
+        action="version",
+        version=(
+            "wiki-upgrade "
+            + _runner_identity_version(Path(__file__).resolve().parents[1])
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -5647,6 +7041,18 @@ def _parser() -> argparse.ArgumentParser:
     adopt.add_argument("--impact-registry", type=Path, required=True)
     adopt.add_argument("--authority", type=Path, required=True)
     adopt.add_argument("--trusted-attestation-sha256", required=True)
+    adopt.add_argument(
+        "--trusted-acceptance-anchor-sha256",
+        required=True,
+        help="out-of-band SHA-256 emitted by the original plan command",
+    )
+    adopt.add_argument(
+        "--trusted-canary-completion-anchor-sha256",
+        help=(
+            "out-of-band SHA-256 emitted when the exact run first completes "
+            "the real canary; required to resume a post-canary run"
+        ),
+    )
     adopt.add_argument("--consumer-root", type=Path, required=True)
     adopt.add_argument("--kit-root", type=Path, required=True)
     adopt.add_argument("--mode", choices=["canary"], default="canary")

@@ -9,6 +9,7 @@ client.  It validates the evidence produced by a future resumable runner.
 from __future__ import annotations
 
 import copy
+import datetime as dt
 import fnmatch
 import hashlib
 import json
@@ -17,6 +18,7 @@ import os
 import re
 import stat
 import subprocess
+from urllib.parse import unquote_to_bytes
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -29,7 +31,7 @@ from wiki_core.detectors import scan_text
 
 RELEASE_CAPSULE_SCHEMA_VERSION = "wiki_viva_upgrade_release_capsule.v1"
 IMPACT_REGISTRY_SCHEMA_VERSION = "wiki_viva_upgrade_impact_registry.v1"
-ADOPTION_RECEIPT_SCHEMA_VERSION = "wiki_viva_upgrade_adoption_receipt.v1"
+ADOPTION_RECEIPT_SCHEMA_VERSION = "wiki_viva_upgrade_adoption_receipt.v3"
 EXECUTION_ATTESTATION_SCHEMA_VERSION = "wiki_viva_upgrade_execution_attestation.v1"
 TOOLCHAIN_PROBE_SCHEMA_VERSION = "wiki_viva_toolchain_probe.v1"
 
@@ -73,13 +75,24 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,127}$")
 _CONTRACT_RE = re.compile(r"^[a-z][a-z0-9_.:+-]{1,127}$")
 _LOCAL_PATH_RE = re.compile(
-    r"(?:/Users/|/home/|file://|(?<![\w.-])~[/\\]|[A-Za-z]:\\|\\\\[^\\\s]+\\)"
+    r"(?:"
+    r"(?<![\w.-])/(?:Users|home|tmp|opt|var|etc|usr|root|srv|mnt|Volumes|Library|System|Applications)(?:/|$)"
+    r"|file://|(?<![\w.-])~[/\\]|[A-Za-z]:\\|\\\\[^\\\s]+\\"
+    r")"
 )
 _PRIVATE_PATH_RE = re.compile(
     r"(?:^|[/\\])(?:private|data[/\\]raw|data[/\\]derived)(?:[/\\]|$)",
     re.IGNORECASE,
 )
-_PRIVATE_ROUTE_RE = re.compile(r"^/(?:private|consumer|real)(?:/|$)", re.IGNORECASE)
+_PRIVATE_ROUTE_RE = re.compile(
+    r"(?:"
+    r"(?<![A-Za-z0-9._~-])/(?:private|consumer|real)(?![A-Za-z0-9._~-])"
+    r"|(?:https?|wss?)://[^/\s]+/(?:private|consumer|real)(?![A-Za-z0-9._~-])"
+    r")",
+    re.IGNORECASE,
+)
+_PERCENT_ESCAPE_RE = re.compile(r"%[0-9A-Fa-f]{2}")
+_MAX_PERCENT_DECODE_ROUNDS = 3
 _PLACEHOLDER_COMMAND_RE = re.compile(
     r"(?i)(?:\b(?:todo|tbd|placeholder|replace[_ -]?with|manual|fabricated)\b|"
     r"^\s*(?:true|:|exit\s+0|echo\b.*)\s*$)"
@@ -113,7 +126,10 @@ _RECEIPT_FIELDS = {
     "impact_registry_sha256",
     "impact_derivation_sha256",
     "plan_sha256",
+    "acceptance_budget",
+    "canary_completion_anchor",
     "resume",
+    "boundary_commits",
     "boundaries",
     "gate_results",
     "omitted_gates",
@@ -121,6 +137,20 @@ _RECEIPT_FIELDS = {
     "report_verification",
     "receipt_sha256",
 }
+_ACCEPTANCE_BUDGET_FIELDS = {
+    "schema_version",
+    "scope",
+    "limit_seconds",
+    "enforcement",
+    "plan_started_at",
+    "canary_completed_at",
+    "elapsed_milliseconds",
+    "status",
+}
+_ACCEPTANCE_TIMESTAMP_RE = re.compile(
+    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$"
+)
+_UNIX_EPOCH = dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)
 _ATTESTATION_AUTHORITY = object()
 _ADOPTION_EVIDENCE_AUTHORITY = object()
 
@@ -167,6 +197,7 @@ class AdoptionEvidenceAuthority:
 
     consumer_root: Path
     run_root: Path
+    trusted_canary_completion_anchor_sha256: str
 
 
 @dataclass(frozen=True)
@@ -296,8 +327,13 @@ def _canonical_repo_path(raw: object, *, label: str, allow_glob: bool = False) -
 
 
 def _walk_strings(value: Any, *, key: str = "") -> Iterable[tuple[str, str]]:
-    if isinstance(value, dict):
+    if isinstance(value, Mapping):
         for child_key, child in value.items():
+            if isinstance(child_key, str):
+                # Mapping keys are publication data too.  Treating only leaf
+                # values as data lets a forged report smuggle a path or route
+                # through an otherwise innocuous nested key.
+                yield "<mapping-key>", child_key
             yield from _walk_strings(child, key=str(child_key))
     elif isinstance(value, list):
         for child in value:
@@ -310,27 +346,64 @@ def _assert_public_safe_payload(payload: Mapping[str, Any], *, label: str) -> No
     """Reject host paths, private evidence roots, private routes and secrets."""
 
     for key, value in _walk_strings(payload):
-        if _LOCAL_PATH_RE.search(value):
-            raise UpgradeLaneError(f"{label} contains a host-local path")
-        if _SECRET_ASSIGNMENT_RE.search(value):
-            raise UpgradeLaneError(f"{label} contains secret/private data")
-        if _PRIVATE_PATH_RE.search(value):
-            raise UpgradeLaneError(f"{label} contains a private evidence path")
-        if "route" in key and _PRIVATE_ROUTE_RE.match(value):
-            raise UpgradeLaneError(f"{label} contains a private consumer route")
-    masked = re.sub(
-        r"(?<![0-9A-Fa-f])(?:[0-9A-Fa-f]{64}|[0-9A-Fa-f]{40})(?![0-9A-Fa-f])",
-        "<digest>",
-        canonical_json(payload),
-    )
-    findings = [
-        finding
-        for finding in scan_text(masked)
-        if finding.category in {"secret", "pii"}
-    ]
+        try:
+            views = _percent_decoded_views(value)
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise UpgradeLaneError(
+                f"{label} contains invalid percent-encoded publication data"
+            ) from exc
+        for view in views:
+            if _LOCAL_PATH_RE.search(view):
+                raise UpgradeLaneError(f"{label} contains a host-local path")
+            if _SECRET_ASSIGNMENT_RE.search(view):
+                raise UpgradeLaneError(f"{label} contains secret/private data")
+            if _PRIVATE_PATH_RE.search(view):
+                raise UpgradeLaneError(f"{label} contains a private evidence path")
+            if _PRIVATE_ROUTE_RE.search(view):
+                raise UpgradeLaneError(f"{label} contains a private consumer route")
+    findings = []
+    for view in _percent_decoded_views(canonical_json(payload)):
+        masked = re.sub(
+            r"(?<![0-9A-Fa-f])(?:[0-9A-Fa-f]{64}|[0-9A-Fa-f]{40})(?![0-9A-Fa-f])",
+            "<digest>",
+            view,
+        )
+        findings.extend(
+            finding
+            for finding in scan_text(masked)
+            if finding.category in {"secret", "pii"}
+        )
     if findings:
         kinds = ", ".join(sorted({finding.kind for finding in findings}))
         raise UpgradeLaneError(f"{label} contains secret/private data: {kinds}")
+
+
+def _percent_decoded_views(value: str) -> tuple[str, ...]:
+    """Return bounded canonical views so encoded private routes cannot hide."""
+
+    views = [value]
+    current = value
+    for _ in range(_MAX_PERCENT_DECODE_ROUNDS):
+        if _PERCENT_ESCAPE_RE.search(current) is None:
+            break
+        decoded = unquote_to_bytes(current).decode("utf-8", "strict")
+        if decoded == current:
+            break
+        views.append(decoded)
+        current = decoded
+    if _PERCENT_ESCAPE_RE.search(current) is not None:
+        raise ValueError("percent encoding exceeds the public normalization bound")
+    return tuple(views)
+
+
+def _contains_private_route(value: str) -> bool:
+    try:
+        return any(
+            _PRIVATE_ROUTE_RE.search(view)
+            for view in _percent_decoded_views(value)
+        )
+    except (UnicodeDecodeError, ValueError):
+        return True
 
 
 def _unique_ids(items: Sequence[Mapping[str, Any]], *, label: str) -> list[str]:
@@ -360,6 +433,45 @@ def _git_bytes(root: Path, arguments: Sequence[str], *, label: str) -> bytes:
     if result.returncode != 0:
         raise UpgradeLaneError(f"{label} could not be read from exact Git authority")
     return result.stdout
+
+
+def _git_regular_blob(
+    root: Path,
+    commit: str,
+    path: str,
+    *,
+    label: str,
+) -> dict[str, str] | None:
+    """Return one exact regular Git blob projection or ``None`` when absent."""
+
+    listing = _git_bytes(
+        root,
+        ["ls-tree", "-z", commit, "--", path],
+        label=f"{label} tree entry",
+    )
+    records = [record for record in listing.split(b"\0") if record]
+    if not records:
+        return None
+    if len(records) != 1:
+        raise UpgradeLaneError(f"{label} resolves to multiple Git tree entries")
+    try:
+        metadata, raw_path = records[0].split(b"\t", 1)
+        mode, object_type, object_id = metadata.decode("ascii").split(" ", 2)
+        observed_path = raw_path.decode("utf-8", "strict")
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise UpgradeLaneError(f"{label} has an invalid Git tree entry") from exc
+    if observed_path != path:
+        raise UpgradeLaneError(f"{label} differs from the requested Git path")
+    if object_type != "blob" or mode not in {"100644", "100755"}:
+        raise UpgradeLaneError(
+            f"{label} must be a regular Git blob with mode 100644 or 100755"
+        )
+    raw = _git_bytes(
+        root,
+        ["cat-file", "blob", object_id],
+        label=f"{label} blob",
+    )
+    return {"mode": mode, "sha256": hashlib.sha256(raw).hexdigest()}
 
 
 def _safe_file_bytes(root: Path, raw_path: object, *, label: str) -> tuple[str, bytes]:
@@ -458,9 +570,9 @@ def _portable_tree_metadata(
         if path in seen:
             raise UpgradeLaneError("portable Git tree contains duplicate paths")
         seen.add(path)
-        if any(fnmatch.fnmatchcase(path, pattern) for pattern in block):
+        if _matches(path, block):
             continue
-        if not any(fnmatch.fnmatchcase(path, pattern) for pattern in allow):
+        if not _matches(path, allow):
             continue
         if object_type != "blob" or mode not in {"100644", "100755"}:
             raise UpgradeLaneError("portable tree contains a symlink/submodule/special entry")
@@ -1234,8 +1346,26 @@ def verify_impact_registry(registry: Mapping[str, Any]) -> str:
     return digest
 
 
+def _matches_pattern(path: str, pattern: str) -> bool:
+    """Match one repo glob without letting a skill-name ``*`` cross ``/``."""
+
+    pattern_parts = pattern.split("/")
+    if (
+        len(pattern_parts) == 3
+        and pattern_parts[0] == ".skills"
+        and pattern_parts[2] == "**"
+    ):
+        path_parts = path.split("/")
+        return (
+            len(path_parts) >= 3
+            and path_parts[0] == ".skills"
+            and fnmatch.fnmatchcase(path_parts[1], pattern_parts[1])
+        )
+    return fnmatch.fnmatchcase(path, pattern)
+
+
 def _matches(path: str, patterns: Sequence[str]) -> bool:
-    return any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+    return any(_matches_pattern(path, pattern) for pattern in patterns)
 
 
 def select_impacted_gates(
@@ -1265,6 +1395,14 @@ def select_impacted_gates(
         path_matches = {
             item["id"] for item in surfaces if _matches(path, item["path_patterns"])
         }
+        lane_a_matches = {
+            surface_id
+            for surface_id in path_matches
+            if next(item for item in surfaces if item["id"] == surface_id)["lane"]
+            == "lane_a"
+        }
+        if lane_a_matches:
+            path_matches = lane_a_matches
         if not path_matches:
             unknown_paths.append(path)
         matched.update(path_matches)
@@ -1318,6 +1456,98 @@ def select_impacted_gates(
         "escalation": escalation,
     }
     return {**derivation, "derivation_sha256": canonical_sha256(derivation)}
+
+
+def select_promotion_gates(
+    package: Mapping[str, Any],
+    registry: Mapping[str, Any],
+    *,
+    changed_paths: Sequence[str],
+    changed_contracts: Sequence[str],
+) -> dict[str, Any]:
+    """Derive the exact promotion-blocking Lane B gate selection.
+
+    Impact decides affected gates.  A package may additionally mark background
+    certification gates as promotion-blocking; those gates and their complete
+    dependency closure are selected even when they are intentionally scheduled
+    after the real canary.
+    """
+
+    selection = select_impacted_gates(
+        registry,
+        changed_paths=changed_paths,
+        changed_contracts=changed_contracts,
+    )
+    migration = package.get("migration")
+    policies = migration.get("gate_policies") if isinstance(migration, Mapping) else None
+    required = migration.get("required_gates") if isinstance(migration, Mapping) else None
+    catalog_ids = {item["id"] for item in registry["gate_catalog"]}
+    if (
+        not isinstance(required, list)
+        or set(required) != catalog_ids
+        or not isinstance(policies, Mapping)
+        or set(policies) != catalog_ids
+    ):
+        raise UpgradeLaneError(
+            "package promotion policy does not cover the exact impact gate catalog"
+        )
+    if selection["requires_lane_a"]:
+        return selection
+
+    selected = set(selection["selected_gates"])
+    selected.update(
+        gate_id
+        for gate_id, policy in policies.items()
+        if isinstance(policy, Mapping)
+        and policy.get("class") == "background_certification"
+        and policy.get("required_for_promotion") is True
+    )
+    frontier = list(selected)
+    while frontier:
+        gate_id = frontier.pop()
+        policy = policies.get(gate_id)
+        dependencies = policy.get("depends_on") if isinstance(policy, Mapping) else None
+        if not isinstance(dependencies, list) or any(
+            not isinstance(dependency, str) or dependency not in catalog_ids
+            for dependency in dependencies
+        ):
+            raise UpgradeLaneError(
+                f"package promotion gate dependencies are invalid: {gate_id}"
+            )
+        for dependency in dependencies:
+            if dependency not in selected:
+                selected.add(dependency)
+                frontier.append(dependency)
+
+    derivation = {
+        key: value
+        for key, value in selection.items()
+        if key != "derivation_sha256"
+    }
+    derivation["selected_gates"] = sorted(selected)
+    derivation["omitted_gates"] = sorted(catalog_ids - selected)
+    return {**derivation, "derivation_sha256": canonical_sha256(derivation)}
+
+
+def _require_canonical_promotion_selection(
+    package: Mapping[str, Any],
+    registry: Mapping[str, Any],
+    selection: Mapping[str, Any],
+) -> None:
+    paths = selection.get("changed_paths")
+    contracts = selection.get("changed_contracts")
+    if not isinstance(paths, list) or not isinstance(contracts, list):
+        raise UpgradeLaneError("impact selection omits canonical impact inputs")
+    expected = select_promotion_gates(
+        package,
+        registry,
+        changed_paths=paths,
+        changed_contracts=contracts,
+    )
+    if dict(selection) != expected:
+        raise UpgradeLaneError(
+            "impact selection differs from package-required promotion gates"
+        )
 
 
 def validate_canary_evidence(
@@ -1405,7 +1635,7 @@ def validate_canary_evidence(
             profile not in profiles
             or not isinstance(route, str)
             or not route.startswith("/")
-            or _PRIVATE_ROUTE_RE.match(route)
+            or _contains_private_route(route)
             or not isinstance(viewport, Mapping)
             or set(viewport) != {"width", "height"}
             or any(
@@ -1439,6 +1669,278 @@ def adoption_identity(payload: Mapping[str, Any]) -> dict[str, str]:
             sha256=field not in {"source_sha", "consumer_B0", "consumer_C3"},
         )
     return identity
+
+
+def _acceptance_timestamp_microseconds(value: object) -> int:
+    if not isinstance(value, str) or _ACCEPTANCE_TIMESTAMP_RE.fullmatch(value) is None:
+        raise UpgradeLaneError(
+            "acceptance budget timestamp is not canonical UTC RFC3339"
+        )
+    try:
+        parsed = dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
+            tzinfo=dt.timezone.utc
+        )
+    except ValueError as exc:
+        raise UpgradeLaneError(
+            "acceptance budget timestamp is not a real UTC instant"
+        ) from exc
+    delta = parsed - _UNIX_EPOCH
+    microseconds = (
+        delta.days * 86_400_000_000
+        + delta.seconds * 1_000_000
+        + delta.microseconds
+    )
+    if microseconds <= 0:
+        raise UpgradeLaneError(
+            "acceptance budget timestamp must be after the Unix epoch"
+        )
+    return microseconds
+
+
+def validate_acceptance_budget(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Validate the immutable plan-to-canary promotion budget measurement."""
+
+    _require_exact_keys(
+        payload, _ACCEPTANCE_BUDGET_FIELDS, label="acceptance budget"
+    )
+    if (
+        payload.get("schema_version")
+        != "wiki_viva_upgrade_acceptance_budget.v1"
+        or payload.get("scope") != "plan_to_real_canary"
+        or payload.get("limit_seconds") != 1200
+        or payload.get("enforcement") != "promotion_blocking"
+    ):
+        raise UpgradeLaneError("acceptance budget policy is invalid")
+    started = _acceptance_timestamp_microseconds(payload.get("plan_started_at"))
+    completed_value = payload.get("canary_completed_at")
+    elapsed = payload.get("elapsed_milliseconds")
+    status = payload.get("status")
+    if status == "pending":
+        if completed_value is not None or elapsed is not None:
+            raise UpgradeLaneError("pending acceptance budget contains a measurement")
+    elif status in {"met", "exceeded"}:
+        completed = _acceptance_timestamp_microseconds(completed_value)
+        if (
+            completed < started
+            or isinstance(elapsed, bool)
+            or not isinstance(elapsed, int)
+            or elapsed < 0
+        ):
+            raise UpgradeLaneError("acceptance budget timestamps are invalid")
+        expected_elapsed = (completed - started + 999) // 1_000
+        if elapsed != expected_elapsed:
+            raise UpgradeLaneError("acceptance budget elapsed time is stale")
+        expected_status = "met" if elapsed <= 1_200_000 else "exceeded"
+        if status != expected_status:
+            raise UpgradeLaneError("acceptance budget status contradicts elapsed time")
+    else:
+        raise UpgradeLaneError("acceptance budget status is invalid")
+    return dict(payload)
+
+
+def public_acceptance_budget_projection(
+    payload: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Return the only acceptance-budget fields safe for a public report.
+
+    The private receipt remains the authority for the measured instants and
+    elapsed duration.  A completed public report exposes only the typed policy
+    and its promotion outcome, so host timing cannot become publication data.
+    """
+
+    budget = validate_acceptance_budget(payload)
+    if budget["status"] not in {"met", "exceeded"}:
+        raise UpgradeLaneError(
+            "public acceptance budget requires a completed real canary"
+        )
+    return {
+        "schema_version": "wiki_viva_upgrade_acceptance_budget_public.v1",
+        "scope": budget["scope"],
+        "limit_seconds": budget["limit_seconds"],
+        "enforcement": budget["enforcement"],
+        "status": budget["status"],
+    }
+
+
+def public_migration_report_projection(
+    report: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Derive the exact, fail-closed public projection of a private report."""
+
+    _require_exact_keys(
+        report,
+        {
+            "schema_version",
+            "status",
+            "lane",
+            "mode",
+            "plan_sha256",
+            "identity",
+            "selection",
+            "boundaries",
+            "gate_results",
+            "rollback_evidence_sha256",
+            "acceptance_budget",
+            "evidence",
+            "promotion_ready",
+            "human_gate_required",
+        },
+        label="private migration report",
+    )
+    identity = adoption_identity(report["identity"])
+    evidence = report["evidence"]
+    if not isinstance(evidence, Mapping):
+        raise UpgradeLaneError("private migration report evidence is invalid")
+    _require_exact_keys(
+        evidence,
+        {"gate_logs", "screenshots", "console", "network", "capture_status"},
+        label="private migration report evidence",
+    )
+    for kind in ("gate_logs", "screenshots", "console", "network"):
+        if not isinstance(evidence[kind], list):
+            raise UpgradeLaneError(
+                f"private migration report {kind} evidence is invalid"
+            )
+    projection = {
+        "schema_version": report["schema_version"],
+        "status": report["status"],
+        "lane": report["lane"],
+        "mode": report["mode"],
+        "plan_sha256": report["plan_sha256"],
+        "selection": copy.deepcopy(report["selection"]),
+        "boundaries": copy.deepcopy(report["boundaries"]),
+        "gate_results": copy.deepcopy(report["gate_results"]),
+        "rollback_evidence_sha256": report["rollback_evidence_sha256"],
+        "acceptance_budget": public_acceptance_budget_projection(
+            report["acceptance_budget"]
+        ),
+        "promotion_ready": report["promotion_ready"],
+        "human_gate_required": report["human_gate_required"],
+        "public_redacted": True,
+        "identity_sha256": canonical_sha256(identity),
+        "upstream_identity": {
+            field: identity[field] for field in _UPSTREAM_IDENTITY_FIELDS
+        },
+        "consumer_subjects": "redacted",
+        "evidence": {
+            "gate_log_count": len(evidence["gate_logs"]),
+            "screenshot_count": len(evidence["screenshots"]),
+            "console_count": len(evidence["console"]),
+            "network_count": len(evidence["network"]),
+            "manifest_sha256": canonical_sha256(evidence),
+            "raw_private_evidence": "omitted",
+        },
+    }
+    serialized = canonical_json(projection)
+    if any(identity[field] in serialized for field in ("consumer_B0", "consumer_C3")):
+        raise UpgradeLaneError(
+            "public migration report contains a private consumer subject"
+        )
+    _assert_public_safe_payload(projection, label="public migration report")
+    return projection
+
+
+def _integrity_gate_results(
+    receipt: Mapping[str, Any],
+    *,
+    identity: Mapping[str, str],
+    registry: Mapping[str, Any],
+    selection: Mapping[str, Any],
+) -> dict[str, Mapping[str, Any]]:
+    """Validate gate execution claims for passed and integrity-only blocked runs."""
+
+    identity_sha256 = canonical_sha256(identity)
+    if receipt.get("identity_sha256") != identity_sha256:
+        raise UpgradeLaneError("adoption receipt identity_sha256 mismatch")
+    registry_sha256 = verify_impact_registry(registry)
+    if receipt.get("impact_registry_sha256") != registry_sha256:
+        raise UpgradeLaneError("adoption receipt impact registry is stale")
+    if selection.get("registry_sha256") != registry_sha256:
+        raise UpgradeLaneError("impact selection used a stale registry")
+    if receipt.get("impact_derivation_sha256") != selection.get("derivation_sha256"):
+        raise UpgradeLaneError("adoption receipt impact derivation mismatch")
+    if selection.get("requires_lane_a") is not False:
+        raise UpgradeLaneError("impact requires a new Lane A capsule before adoption")
+    if canonical_sha256(registry["gate_catalog"]) != identity[
+        "command_registry_sha256"
+    ]:
+        raise UpgradeLaneError(
+            "current impact registry command catalog differs from receipt identity"
+        )
+
+    classes, commands = _catalog_maps(registry)
+    selected_values = selection.get("selected_gates")
+    if not isinstance(selected_values, list) or not all(
+        isinstance(gate_id, str) for gate_id in selected_values
+    ):
+        raise UpgradeLaneError("impact selection gates are invalid")
+    selected = set(selected_values)
+    if not NEVER_REUSABLE_GATES.issubset(selected):
+        raise UpgradeLaneError("impact selection omitted a never-reusable gate")
+    results = receipt.get("gate_results")
+    if not isinstance(results, list) or not results:
+        raise UpgradeLaneError("adoption receipt must contain executed gate results")
+
+    result_by_id: dict[str, Mapping[str, Any]] = {}
+    for result in results:
+        if not isinstance(result, Mapping):
+            raise UpgradeLaneError("adoption receipt gate results are invalid")
+        _require_exact_keys(
+            result,
+            {
+                "id",
+                "class",
+                "provenance",
+                "status",
+                "exit_code",
+                "subject_sha",
+                "command_sha256",
+                "output_sha256",
+            },
+            label="gate result",
+        )
+        gate_id = result["id"]
+        if not isinstance(gate_id, str):
+            raise UpgradeLaneError("gate result id is invalid")
+        if gate_id in result_by_id:
+            raise UpgradeLaneError(f"duplicate gate result: {gate_id}")
+        if gate_id not in selected or gate_id not in classes:
+            raise UpgradeLaneError(f"gate result is not selected/registered: {gate_id}")
+        if result["class"] != classes[gate_id]:
+            raise UpgradeLaneError(f"gate result class mismatch: {gate_id}")
+        if result["provenance"] != "executed":
+            raise UpgradeLaneError(
+                f"manual/fabricated evidence is forbidden: {gate_id}"
+            )
+        if (
+            result["status"] != "passed"
+            or isinstance(result["exit_code"], bool)
+            or result["exit_code"] != 0
+        ):
+            raise UpgradeLaneError(f"gate result did not pass: {gate_id}")
+        if result["subject_sha"] != identity["consumer_C3"]:
+            raise UpgradeLaneError(f"gate result is stale after C3 changed: {gate_id}")
+        if result["command_sha256"] != _command_digest(commands[gate_id]):
+            raise UpgradeLaneError(f"gate result command digest mismatch: {gate_id}")
+        _assert_sha(result["output_sha256"], label="gate output_sha256", sha256=True)
+        result_by_id[gate_id] = result
+    if set(result_by_id) != selected:
+        raise UpgradeLaneError("gate results must exactly cover selected gates")
+    resume = receipt.get("resume")
+    if not isinstance(resume, Mapping):
+        raise UpgradeLaneError("resume state is invalid")
+    _require_exact_keys(
+        resume,
+        {"identity_sha256", "plan_sha256", "completed_gates"},
+        label="resume state",
+    )
+    if resume["identity_sha256"] != identity_sha256:
+        raise UpgradeLaneError("resume state identity is stale")
+    if resume["plan_sha256"] != receipt.get("plan_sha256"):
+        raise UpgradeLaneError("resume state plan is stale")
+    if resume["completed_gates"] != sorted(selected):
+        raise UpgradeLaneError("resume completed_gates are stale or incomplete")
+    return result_by_id
 
 
 def _catalog_maps(registry: Mapping[str, Any]) -> tuple[dict[str, str], dict[str, str]]:
@@ -1621,18 +2123,32 @@ def validate_boundary_ownership(
             if boundary == "C1":
                 operation = item.get("operation")
                 required = (
-                    {"path", "operation", "sha256", "source_sha256"}
+                    {
+                        "path",
+                        "operation",
+                        "mode",
+                        "sha256",
+                        "source_mode",
+                        "source_sha256",
+                    }
                     if operation == "upsert"
-                    else {"path", "operation", "before_sha256"}
+                    else {"path", "operation", "before_mode", "before_sha256"}
                 )
             elif boundary == "C2":
                 operation = item.get("operation")
                 required = (
-                    {"path", "operation", "sha256", "generator_sha256"}
+                    {
+                        "path",
+                        "operation",
+                        "mode",
+                        "sha256",
+                        "generator_sha256",
+                    }
                     if operation == "upsert"
                     else {
                         "path",
                         "operation",
+                        "before_mode",
                         "before_sha256",
                         "generator_sha256",
                     }
@@ -1640,15 +2156,23 @@ def validate_boundary_ownership(
             elif boundary == "C3":
                 operation = item.get("operation")
                 required = (
-                    {"path", "operation", "sha256"}
+                    {"path", "operation", "mode", "sha256"}
                     if operation == "upsert"
-                    else {"path", "operation", "before_sha256"}
+                    else {"path", "operation", "before_mode", "before_sha256"}
                 )
             _require_exact_keys(item, required, label=f"{boundary} entry")
             path = _canonical_repo_path(item["path"], label=f"{boundary} path")
             if item.get("operation", "upsert") == "upsert":
+                if item.get("mode") not in {"100644", "100755"}:
+                    raise UpgradeLaneError(
+                        f"{boundary} upsert is not a regular Git file: {path}"
+                    )
                 _assert_sha(item["sha256"], label=f"{boundary} sha256", sha256=True)
             elif boundary in {"C1", "C2", "C3"} and item.get("operation") == "delete":
+                if item.get("before_mode") not in {"100644", "100755"}:
+                    raise UpgradeLaneError(
+                        f"{boundary} deletion did not remove a regular Git file: {path}"
+                    )
                 _assert_sha(
                     item["before_sha256"],
                     label=f"{boundary} before_sha256",
@@ -1667,14 +2191,21 @@ def validate_boundary_ownership(
                 )
             if boundary == "C1":
                 if item.get("operation") == "upsert":
+                    if item.get("source_mode") not in {"100644", "100755"}:
+                        raise UpgradeLaneError(
+                            f"C1 source is not a regular Git file: {path}"
+                        )
                     _assert_sha(
                         item["source_sha256"],
                         label="C1 source_sha256",
                         sha256=True,
                     )
-                    if item["sha256"] != item["source_sha256"]:
+                    if (
+                        item["sha256"] != item["source_sha256"]
+                        or item["mode"] != item["source_mode"]
+                    ):
                         raise UpgradeLaneError(
-                            f"C1 file is not byte-equal to Lane A: {path}"
+                            f"C1 file is not byte-and-mode-equal to Lane A: {path}"
                         )
                 elif item.get("operation") == "delete":
                     _assert_sha(
@@ -1688,9 +2219,12 @@ def validate_boundary_ownership(
                     raise UpgradeLaneError(
                         f"consumer/generated path mixed into C1 by package policy: {path}"
                     )
-                if _matches(path, policy["c2_generated_patterns"]) or _matches(
-                    path, policy["c3_consumer_patterns"]
-                ):
+                # The consumer skill namespace intentionally has a broad C3
+                # owner (``.skills/*/**``) while portable ``wiki-*`` skills
+                # remain C1.  The package portable allow/block policy is the
+                # authoritative precedence rule, so only generated ownership
+                # can make an already-authorized C1 path ambiguous here.
+                if _matches(path, policy["c2_generated_patterns"]):
                     raise UpgradeLaneError(f"C1 path has ambiguous boundary ownership: {path}")
             elif boundary == "C2":
                 _assert_sha(
@@ -1712,6 +2246,10 @@ def validate_boundary_ownership(
             else:
                 if item.get("operation") not in {"upsert", "delete"}:
                     raise UpgradeLaneError(f"C3 operation is invalid: {path}")
+                if _matches(path, allow) and not _matches(path, block):
+                    raise UpgradeLaneError(f"portable path mixed into C3: {path}")
+                if _matches(path, policy["c2_generated_patterns"]):
+                    raise UpgradeLaneError(f"generated path mixed into C3: {path}")
                 if not _matches(path, policy["c3_consumer_patterns"]):
                     raise UpgradeLaneError(f"portable/generated path mixed into C3: {path}")
 
@@ -1720,11 +2258,11 @@ def validate_c1_projection(
     c1_entries: Sequence[Mapping[str, Any]],
     *,
     package: Mapping[str, Any],
-    source_entries: Mapping[str, str],
-    before_entries: Mapping[str, str],
-    after_entries: Mapping[str, str],
+    source_entries: Mapping[str, Mapping[str, str]],
+    before_entries: Mapping[str, Mapping[str, str]],
+    after_entries: Mapping[str, Mapping[str, str]],
 ) -> None:
-    """Prove C1 is the complete source projection, including stale deletions."""
+    """Prove C1 is the complete byte-and-mode source projection."""
 
     portable = package.get("portable_import")
     if not isinstance(portable, Mapping):
@@ -1734,13 +2272,24 @@ def validate_c1_projection(
     if not isinstance(allow, list) or not isinstance(block, list):
         raise UpgradeLaneError("portable projection allow/block is invalid")
 
-    def normalized(entries: Mapping[str, str], *, label: str) -> dict[str, str]:
-        result: dict[str, str] = {}
-        for raw_path, digest in entries.items():
+    def normalized(
+        entries: Mapping[str, Mapping[str, str]], *, label: str
+    ) -> dict[str, dict[str, str]]:
+        result: dict[str, dict[str, str]] = {}
+        for raw_path, raw_entry in entries.items():
             path = _canonical_repo_path(raw_path, label=f"{label} path")
-            result[path] = _assert_sha(
-                digest, label=f"{label} sha256", sha256=True
-            )
+            if not isinstance(raw_entry, Mapping):
+                raise UpgradeLaneError(f"{label} entry must bind mode and sha256")
+            _require_exact_keys(raw_entry, {"mode", "sha256"}, label=f"{label} entry")
+            mode = raw_entry.get("mode")
+            if mode not in {"100644", "100755"}:
+                raise UpgradeLaneError(f"{label} entry is not a regular Git file")
+            result[path] = {
+                "mode": str(mode),
+                "sha256": _assert_sha(
+                    raw_entry.get("sha256"), label=f"{label} sha256", sha256=True
+                ),
+            }
         return result
 
     source = normalized(source_entries, label="C1 source projection")
@@ -1763,23 +2312,28 @@ def validate_c1_projection(
         raise UpgradeLaneError("C1 after tree is not the exact portable source projection")
     expected: list[dict[str, Any]] = []
     for path in sorted(set(before_portable) | set(source)):
-        before_digest = before_portable.get(path)
-        source_digest = source.get(path)
-        if source_digest is None:
+        before_entry = before_portable.get(path)
+        source_entry = source.get(path)
+        if source_entry is None:
+            if before_entry is None:
+                raise UpgradeLaneError("C1 projection deletion lacks its before file")
             expected.append(
                 {
                     "path": path,
                     "operation": "delete",
-                    "before_sha256": before_digest,
+                    "before_mode": before_entry["mode"],
+                    "before_sha256": before_entry["sha256"],
                 }
             )
-        elif source_digest != before_digest:
+        elif source_entry != before_entry:
             expected.append(
                 {
                     "path": path,
                     "operation": "upsert",
-                    "sha256": source_digest,
-                    "source_sha256": source_digest,
+                    "mode": source_entry["mode"],
+                    "sha256": source_entry["sha256"],
+                    "source_mode": source_entry["mode"],
+                    "source_sha256": source_entry["sha256"],
                 }
             )
     if [dict(item) for item in c1_entries] != expected:
@@ -1813,6 +2367,225 @@ def _private_json_artifact(
     return payload, raw
 
 
+def _verify_git_boundary_chain(
+    consumer: Path,
+    receipt: Mapping[str, Any],
+) -> None:
+    """Recompute the direct B0 -> C1 -> C2 -> C3 receipt projection from Git."""
+
+    commits = receipt.get("boundary_commits")
+    if not isinstance(commits, Mapping):
+        raise UpgradeLaneError("adoption receipt omits Git boundary commits")
+    _require_exact_keys(
+        commits, {"B0", "C1", "C2", "C3"}, label="Git boundary commits"
+    )
+    normalized = {
+        key: _assert_sha(commits[key], label=f"Git boundary {key}")
+        for key in ("B0", "C1", "C2", "C3")
+    }
+    identity = adoption_identity(receipt["identity"])
+    if (
+        normalized["B0"] != identity["consumer_B0"]
+        or normalized["C3"] != identity["consumer_C3"]
+    ):
+        raise UpgradeLaneError("Git boundary endpoints differ from receipt identity")
+    for before, after in zip(
+        ("B0", "C1", "C2"),
+        ("C1", "C2", "C3"),
+    ):
+        lineage = _git_bytes(
+            consumer,
+            ["rev-list", "--parents", "-n", "1", normalized[after]],
+            label=f"consumer {after} lineage",
+        ).decode("ascii", "strict").strip().split()
+        if lineage != [normalized[after], normalized[before]]:
+            raise UpgradeLaneError(
+                "consumer B0, C1, C2 and C3 are not one direct single-parent chain"
+            )
+
+    boundaries = receipt.get("boundaries")
+    if not isinstance(boundaries, Mapping):
+        raise UpgradeLaneError("adoption receipt boundaries are invalid")
+    for before, after in zip(
+        ("B0", "C1", "C2"),
+        ("C1", "C2", "C3"),
+    ):
+        raw_paths = _git_bytes(
+            consumer,
+            [
+                "diff",
+                "--no-renames",
+                "--name-only",
+                "-z",
+                normalized[before],
+                normalized[after],
+                "--",
+            ],
+            label=f"consumer {after} changed paths",
+        )
+        changed_paths = sorted(
+            item.decode("utf-8", "strict")
+            for item in raw_paths.split(b"\0")
+            if item
+        )
+        entries = boundaries.get(after)
+        if not isinstance(entries, list):
+            raise UpgradeLaneError(f"adoption receipt {after} boundary is invalid")
+        declared_paths = [
+            _canonical_repo_path(item.get("path"), label=f"{after} Git path")
+            if isinstance(item, Mapping)
+            else ""
+            for item in entries
+        ]
+        if declared_paths != changed_paths or len(declared_paths) != len(
+            set(declared_paths)
+        ):
+            raise UpgradeLaneError(
+                f"{after} receipt boundary differs from the exact Git diff"
+            )
+        for item in entries:
+            path = item["path"]
+            before_entry = _git_regular_blob(
+                consumer,
+                normalized[before],
+                path,
+                label=f"consumer {before} path {path}",
+            )
+            after_entry = _git_regular_blob(
+                consumer,
+                normalized[after],
+                path,
+                label=f"consumer {after} path {path}",
+            )
+            if after_entry is not None:
+                if (
+                    item.get("operation") != "upsert"
+                    or item.get("mode") != after_entry["mode"]
+                    or item.get("sha256") != after_entry["sha256"]
+                ):
+                    raise UpgradeLaneError(
+                        f"{after} receipt upsert differs from the committed Git mode/blob: {path}"
+                    )
+            else:
+                if before_entry is None:
+                    raise UpgradeLaneError(
+                        f"{after} receipt deletion has no committed before file: {path}"
+                    )
+                if (
+                    item.get("operation") != "delete"
+                    or item.get("before_mode") != before_entry["mode"]
+                    or item.get("before_sha256") != before_entry["sha256"]
+                ):
+                    raise UpgradeLaneError(
+                        f"{after} receipt deletion differs from the committed Git mode/blob: {path}"
+                    )
+
+
+def _verify_canary_completion_anchor(
+    receipt: Mapping[str, Any],
+    *,
+    authority: AdoptionEvidenceAuthority,
+    run_root: Path,
+    state_results: Mapping[str, Any],
+    registry: Mapping[str, Any],
+    selection: Mapping[str, Any],
+) -> tuple[dict[str, Any], str]:
+    """Verify the first-write canary timestamp against out-of-band authority."""
+
+    reference = receipt.get("canary_completion_anchor")
+    if not isinstance(reference, Mapping):
+        raise UpgradeLaneError("adoption receipt omits canary completion authority")
+    _require_exact_keys(
+        reference,
+        {"schema_version", "anchor_sha256", "file_sha256"},
+        label="canary completion anchor reference",
+    )
+    if (
+        reference.get("schema_version")
+        != "wiki_viva_upgrade_canary_completion_anchor_reference.v1"
+    ):
+        raise UpgradeLaneError("unsupported canary completion anchor reference")
+    trusted = _assert_sha(
+        authority.trusted_canary_completion_anchor_sha256,
+        label="trusted canary completion anchor",
+        sha256=True,
+    )
+    _relative, raw = _safe_file_bytes(
+        run_root,
+        "canary-completion-anchor.json",
+        label="canary completion anchor",
+    )
+    file_sha256 = hashlib.sha256(raw).hexdigest()
+    if reference.get("file_sha256") != trusted or file_sha256 != trusted:
+        raise UpgradeLaneError(
+            "canary completion anchor differs from out-of-band authority"
+        )
+    try:
+        payload = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise UpgradeLaneError("canary completion anchor is not valid UTF-8 JSON") from exc
+    if not isinstance(payload, dict):
+        raise UpgradeLaneError("canary completion anchor must contain a mapping")
+    _require_exact_keys(
+        payload,
+        {
+            "schema_version",
+            "authority",
+            "plan_sha256",
+            "identity_sha256",
+            "canary_completed_at",
+            "canary_results_sha256",
+            "anchor_sha256",
+        },
+        label="canary completion anchor",
+    )
+    unsigned = dict(payload)
+    claimed = unsigned.pop("anchor_sha256")
+    canary_ids = sorted(
+        item["id"]
+        for item in registry["gate_catalog"]
+        if item.get("class") == "canary"
+        and item["id"] in selection["selected_gates"]
+    )
+    canary_projection: list[dict[str, Any]] = []
+    for gate_id in canary_ids:
+        result = state_results.get(gate_id)
+        if not isinstance(result, Mapping):
+            raise UpgradeLaneError("canary completion anchor lacks a selected canary")
+        canary_projection.append(
+            {
+                "id": gate_id,
+                "class": result.get("class"),
+                "status": result.get("status"),
+                "subject_sha": result.get("subject_sha"),
+                "command_sha256": result.get("command_sha256"),
+                "output_sha256": result.get("output_sha256"),
+                "completed_at": result.get("_completed_at"),
+                "evidence_sha256": canonical_sha256(result.get("_evidence")),
+            }
+        )
+    if (
+        payload.get("schema_version")
+        != "wiki_viva_upgrade_canary_completion_anchor.v1"
+        or payload.get("authority")
+        != {
+            "kind": "external_sha256",
+            "id": "wiki_upgrade_real_canary_first_completion",
+        }
+        or payload.get("plan_sha256") != receipt.get("plan_sha256")
+        or payload.get("identity_sha256") != receipt.get("identity_sha256")
+        or payload.get("canary_completed_at")
+        != receipt.get("acceptance_budget", {}).get("canary_completed_at")
+        or payload.get("canary_results_sha256")
+        != canonical_sha256(canary_projection)
+        or claimed != canonical_sha256(unsigned)
+        or reference.get("anchor_sha256") != claimed
+    ):
+        raise UpgradeLaneError("canary completion anchor is stale or unbound")
+    _acceptance_timestamp_microseconds(payload["canary_completed_at"])
+    return payload, file_sha256
+
+
 def verify_adoption_evidence(
     receipt: Mapping[str, Any],
     *,
@@ -1826,6 +2599,9 @@ def verify_adoption_evidence(
     if not isinstance(authority, AdoptionEvidenceAuthority):
         raise UpgradeLaneError("adoption evidence authority is required")
     _require_exact_keys(receipt, _RECEIPT_FIELDS, label="adoption receipt")
+    if receipt.get("schema_version") != ADOPTION_RECEIPT_SCHEMA_VERSION:
+        raise UpgradeLaneError("unsupported adoption receipt schema_version")
+    _require_canonical_promotion_selection(package, registry, selection)
     unsigned_receipt = dict(receipt)
     receipt_digest = unsigned_receipt.pop("receipt_sha256", None)
     if receipt_digest != canonical_sha256(unsigned_receipt):
@@ -1860,41 +2636,34 @@ def verify_adoption_evidence(
         raise UpgradeLaneError("adoption evidence consumer HEAD differs from C3")
     if _git_bytes(
         consumer,
-        ["status", "--porcelain", "--untracked-files=no"],
-        label="consumer tracked state",
+        ["status", "--porcelain=v1", "--untracked-files=all"],
+        label="consumer worktree state",
     ):
-        raise UpgradeLaneError("adoption evidence consumer has tracked worktree changes")
+        raise UpgradeLaneError(
+            "adoption evidence consumer has tracked or untracked worktree changes"
+        )
     b0_tree = _git_bytes(
         consumer,
         ["rev-parse", f"{identity['consumer_B0']}^{{tree}}"],
         label="consumer B0 tree",
     ).decode("ascii", "strict").strip()
-    ancestry = subprocess.run(
-        [
-            "git",
-            "merge-base",
-            "--is-ancestor",
-            identity["consumer_B0"],
-            identity["consumer_C3"],
-        ],
-        cwd=consumer,
-        check=False,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    if ancestry.returncode != 0:
-        raise UpgradeLaneError("consumer B0 is not an ancestor of C3")
+    _verify_git_boundary_chain(consumer, receipt)
     state, state_raw = _private_json_artifact(
         run_root, "state.json", label="adoption runner state"
     )
+    receipt_budget = validate_acceptance_budget(receipt["acceptance_budget"])
     if (
-        state.get("schema_version") != "wiki_viva_upgrade_runner_state.v1"
+        receipt.get("status") not in {"passed", "blocked"}
+        or state.get("schema_version") != "wiki_viva_upgrade_runner_state.v3"
+        or state.get("status") != "complete"
         or state.get("plan_sha256") != receipt["plan_sha256"]
         or state.get("identity_sha256") != receipt["identity_sha256"]
         or state.get("capsule_sha256") != receipt["capsule_sha256"]
         or state.get("impact_registry_sha256")
         != receipt["impact_registry_sha256"]
         or state.get("toolchain_sha256") != identity["toolchain_sha256"]
+        or state.get("boundary_commits") != receipt["boundary_commits"]
+        or state.get("acceptance_budget") != receipt_budget
         or not isinstance(state.get("gate_results"), Mapping)
     ):
         raise UpgradeLaneError("adoption runner state is stale or incomplete")
@@ -1902,11 +2671,12 @@ def verify_adoption_evidence(
     receipt_results = receipt["gate_results"]
     if not isinstance(receipt_results, list):
         raise UpgradeLaneError("adoption receipt gate results are invalid")
-    receipt_by_id = {
-        str(item.get("id")): item
-        for item in receipt_results
-        if isinstance(item, Mapping)
-    }
+    receipt_by_id = _integrity_gate_results(
+        receipt,
+        identity=identity,
+        registry=registry,
+        selection=selection,
+    )
     if set(state_results) != set(receipt_by_id):
         raise UpgradeLaneError("runner state and receipt gate coverage differ")
     for gate_id, result in receipt_by_id.items():
@@ -1920,6 +2690,37 @@ def verify_adoption_evidence(
         )
         if hashlib.sha256(output).hexdigest() != result.get("output_sha256"):
             raise UpgradeLaneError(f"adoption gate log hash differs: {gate_id}")
+    canary_ids = {
+        item["id"]
+        for item in registry["gate_catalog"]
+        if item.get("class") == "canary"
+        and item["id"] in selection["selected_gates"]
+    }
+    canary_completed = [
+        state_results[gate_id].get("_completed_at")
+        for gate_id in sorted(canary_ids)
+        if state_results.get(gate_id, {}).get("status") == "passed"
+    ]
+    if len(canary_completed) != len(canary_ids):
+        raise UpgradeLaneError("adoption runner state lacks a completed real canary")
+    for value in canary_completed:
+        _acceptance_timestamp_microseconds(value)
+    if (
+        not canary_completed
+        or receipt_budget["canary_completed_at"]
+        != max(canary_completed, key=_acceptance_timestamp_microseconds)
+    ):
+        raise UpgradeLaneError(
+            "acceptance budget is not bound to the completed real canary"
+        )
+    _verify_canary_completion_anchor(
+        receipt,
+        authority=authority,
+        run_root=run_root,
+        state_results=state_results,
+        registry=registry,
+        selection=selection,
+    )
     rollback, rollback_raw = _private_json_artifact(
         run_root, "rollback.json", label="rollback execution"
     )
@@ -1947,18 +2748,56 @@ def verify_adoption_evidence(
         "migration-report.private.json",
         label="private migration report",
     )
+    expected_report_selection = {
+        "escalation": selection["escalation"],
+        "impact_derivation_sha256": selection["derivation_sha256"],
+        "selected_gate_count": len(selection["selected_gates"]),
+        "omitted_gate_count": len(selection["omitted_gates"]),
+        "matched_surfaces": selection["matched_surfaces"],
+    }
+    receipt_boundaries = receipt["boundaries"]
     if (
-        private_report.get("schema_version") != "wiki_viva_upgrade_runner_report.v1"
+        not isinstance(receipt_boundaries, Mapping)
+        or set(receipt_boundaries) != {"C1", "C2", "C3"}
+        or not all(
+            isinstance(receipt_boundaries[boundary], list)
+            for boundary in ("C1", "C2", "C3")
+        )
+    ):
+        raise UpgradeLaneError("adoption receipt boundaries are invalid")
+    expected_report_boundaries = {
+        "digest": canonical_sha256(receipt_boundaries),
+        "counts": {
+            boundary: len(receipt_boundaries[boundary])
+            for boundary in ("C1", "C2", "C3")
+        },
+    }
+    promotion_ready = receipt["status"] == "passed"
+    if (
+        private_report.get("schema_version") != "wiki_viva_upgrade_runner_report.v2"
         or private_report.get("status") != "complete"
+        or private_report.get("lane") != "lane_b"
+        or private_report.get("mode") != "canary"
         or private_report.get("plan_sha256") != receipt["plan_sha256"]
         or private_report.get("identity") != receipt["identity"]
+        or private_report.get("selection") != expected_report_selection
+        or private_report.get("boundaries") != expected_report_boundaries
         or private_report.get("rollback_evidence_sha256") != rollback_digest
-        or private_report.get("promotion_ready") is not True
+        or private_report.get("acceptance_budget") != receipt_budget
+        or private_report.get("promotion_ready") is not promotion_ready
         or private_report.get("human_gate_required") is not True
         or receipt["report_verification"].get("evidence_sha256")
         != hashlib.sha256(private_raw).hexdigest()
     ):
         raise UpgradeLaneError("private migration report is stale or unbound")
+    if (
+        (receipt["status"] == "passed" and receipt_budget["status"] != "met")
+        or (
+            receipt["status"] == "blocked"
+            and receipt_budget["status"] != "exceeded"
+        )
+    ):
+        raise UpgradeLaneError("receipt promotion status contradicts acceptance budget")
     report_results = private_report.get("gate_results")
     expected_report_results = [
         {
@@ -2085,16 +2924,13 @@ def verify_adoption_evidence(
     )
     _assert_public_safe_payload(public_report, label="public migration report")
     public_serialized = canonical_json(public_report)
+    expected_public_report = public_migration_report_projection(private_report)
     if (
-        public_report.get("public_redacted") is not True
-        or "identity" in public_report
-        or public_report.get("identity_sha256") != receipt["identity_sha256"]
+        public_report != expected_public_report
         or "consumer_B0" in public_serialized
         or "consumer_C3" in public_serialized
         or identity["consumer_B0"] in public_serialized
         or identity["consumer_C3"] in public_serialized
-        or public_report.get("plan_sha256") != receipt["plan_sha256"]
-        or public_report.get("human_gate_required") is not True
     ):
         raise UpgradeLaneError("public migration report is stale or not redacted")
     _relative, default_report = _safe_file_bytes(
@@ -2151,8 +2987,11 @@ def verify_adoption_receipt(
     _require_exact_keys(receipt, _RECEIPT_FIELDS, label="adoption receipt")
     if receipt["schema_version"] != ADOPTION_RECEIPT_SCHEMA_VERSION:
         raise UpgradeLaneError("unsupported adoption receipt schema_version")
+    _require_canonical_promotion_selection(package, registry, selection)
     if receipt["status"] != "passed":
         raise UpgradeLaneError("only passed adoption receipts are reusable")
+    if validate_acceptance_budget(receipt["acceptance_budget"])["status"] != "met":
+        raise UpgradeLaneError("only within-budget adoption receipts are reusable")
     _assert_public_safe_payload(receipt, label="adoption receipt")
     capsule_sha256 = _require_verified_capsule_token(
         capsule, verified_capsule
@@ -2234,7 +3073,11 @@ def verify_adoption_receipt(
             raise UpgradeLaneError(f"gate result class mismatch: {gate_id}")
         if result["provenance"] != "executed":
             raise UpgradeLaneError(f"manual/fabricated evidence is forbidden: {gate_id}")
-        if result["status"] != "passed" or result["exit_code"] != 0:
+        if (
+            result["status"] != "passed"
+            or isinstance(result["exit_code"], bool)
+            or result["exit_code"] != 0
+        ):
             raise UpgradeLaneError(f"gate result did not pass: {gate_id}")
         if result["subject_sha"] != identity["consumer_C3"]:
             raise UpgradeLaneError(f"gate result is stale after C3 changed: {gate_id}")
@@ -2302,10 +3145,14 @@ __all__ = [
     "canonical_sha256",
     "collect_release_attestation",
     "load_mapping",
+    "public_acceptance_budget_projection",
+    "public_migration_report_projection",
     "seal_adoption_receipt",
     "seal_impact_registry",
     "seal_release_capsule",
     "select_impacted_gates",
+    "select_promotion_gates",
+    "validate_acceptance_budget",
     "validate_boundary_ownership",
     "validate_c1_projection",
     "validate_canary_evidence",

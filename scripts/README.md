@@ -140,7 +140,14 @@ The v8 downstream release flow is read-only by default:
   not promote or merge; the PR/human gate remains mandatory. CI can stop at an
   exact runner-owned handoff with `adopt --pause-before-canary`, transfer the
   ignored `.wiki-viva/upgrade` state together with the consumer clone, and
-  continue that unchanged plan with `adopt --resume` in the canary job.
+  continue that unchanged plan with `adopt --resume` in the canary job. The
+  canary emits a first-write completion-anchor digest; every post-canary resume
+  must receive that digest from the external handoff authority. Receipt and
+  state bind all B0/C1/C2/C3 commits and the verifier recomputes their direct
+  Git edges, paths, modes and blobs. Gate selection is canonical and restores
+  package-required promotion gates plus dependency closure if a caller omits
+  them. Boundary symlinks/special entries and literal or repeatedly
+  percent-encoded private routes/host paths fail closed.
   `certify` is the operator-facing Lane A command: it executes exactly the
   `upstream_certified` commands on one clean, releasable public source SHA,
   probes the real toolchain, binds a public visual manifest and emits a verified
@@ -150,6 +157,13 @@ The v8 downstream release flow is read-only by default:
   they are never executed or packaged by `certify`. The CLI is
   intentionally v3-only; in-flight v1/v2 packages retain their original full
   `migration.required_gates` runbook and cannot reuse v3 receipts.
+- [wiki_toolchain_probe.py](wiki_toolchain_probe.py) is the portable,
+  shell-free Lane A helper recorded in the toolchain attestation. Its `python`
+  mode hashes the sorted resolved distribution inventory through the exact
+  interpreter executing the runner; its `browser` mode
+  launches Chromium and reports both the Playwright package and live engine
+  versions. Diagnostic stdout is never sufficient authority without the
+  capsule, receipt and externally trusted attestation digest.
 - [wiki_semantic_inventory.py](wiki_semantic_inventory.py) independently proves
   that authored YAML events and relations equal closure, temporal and graph
   read models without publishing page identities.

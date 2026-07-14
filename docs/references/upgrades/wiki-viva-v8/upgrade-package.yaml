@@ -96,6 +96,7 @@ portable_import:
   allow:
     - wiki_core/**
     - scripts/wiki_*.py
+    - scripts/_common.py
     - scripts/_git_subject.py
     - apps/wiki-cockpit/**
     - .skills/wiki-*/**
@@ -123,6 +124,12 @@ portable_import:
     - wiki.page-types.yaml
     - wiki.templates.yaml
     - apps/wiki-cockpit/public/wiki-cockpit.config.json
+    # C2 is generated from the certified subject, never imported byte-equal as
+    # C1. These exact ownership globs must stay blocked even though broader
+    # portable allow rules contain them.
+    - apps/wiki-cockpit/e2e/__screenshots__/**
+    - apps/wiki-cockpit/public/sample-snapshot/**
+    - docs/references/fixtures/demo-wiki/memories/**
     - apps/wiki-cockpit/tmp/**
     - data/raw/**
     - data/derived/**
@@ -259,7 +266,7 @@ migration:
   impact_registry:
     schema_version: wiki_viva_upgrade_impact_registry.v1
     path: docs/references/upgrades/wiki-viva-v8/impact-registry.yaml
-    sha256: d1fb5c9b626c9540f5fd90f7f228ecbdaf3524277b6a5a8f499e12b8c92e2282
+    sha256: ccd3f53eee8ccf3328a820dfe9e2a6c73f1056a9e54a0d88b3380d0224e70629
   gate_policies:
     adapter_identity: {class: consumer_always, command_id: adapter_identity, asserts: [adapter_identity], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
     architecture: {class: upstream_certified, command_id: architecture, asserts: [architecture_contract], reuse: exact_capsule, depends_on: [], resource_group: node_readonly, required_for_promotion: true}
@@ -296,6 +303,11 @@ migration:
     temporal_parity: {class: affected, command_id: temporal_parity, asserts: [temporal_parity], reuse: impact, depends_on: [semantic_inventory, snapshot_contract], resource_group: python_test, required_for_promotion: true}
     toolkit_drift: {class: consumer_always, command_id: toolkit_drift, asserts: [toolkit_drift], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
     visual_profiles: {class: affected, command_id: visual_profiles, asserts: [visual_profiles], reuse: impact, depends_on: [frontend_focused, snapshot_contract], resource_group: browser_private, required_for_promotion: true}
+  acceptance_budget:
+    schema_version: wiki_viva_upgrade_acceptance_budget_policy.v1
+    scope: plan_to_real_canary
+    limit_seconds: 1200
+    enforcement: promotion_blocking
   boundary_operations:
     schema_version: wiki_viva_upgrade_boundary_operations.v1
     c2_generators:
@@ -313,7 +325,9 @@ migration:
       contract: wiki_consumer_adaptation_plan.v1
       owns_patterns:
         - .github/workflows/**
+        - .skills/*/**
         - .toolkit-drift-ignore
+        - AGENTS.md
         - adapters/**
         - apps/wiki-cockpit/public/wiki-cockpit.config.json
         - docs/references/releases/**
@@ -323,9 +337,11 @@ migration:
         - wiki.config.yaml
         - wiki.packs.lock.yaml
         - wiki.page-types.local.yaml
+        - wiki.page-types.yaml
         - wiki.targets.yaml
         - wiki.templates.local.yaml
-    registry_sha256: a8f03711e7d75044d5692581fdc1afe7fcc71aff03ef849dbc2d79dcefb985a8
+        - wiki.templates.yaml
+    registry_sha256: 23c970d79b731280c4a0e9d775cc37017335e453dc36b69f318d66b8659fc308
   visual_profiles:
     - desktop
     - mobile

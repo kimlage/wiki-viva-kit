@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-12
+updated_at: 2026-07-14
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Command reference
 
-Last updated: 2026-07-12.
+Last updated: 2026-07-14.
 
 This page catalogs the deterministic CLIs of the living wiki system. They all live in [scripts/](../../../scripts/README.md) with the `wiki_` prefix, are pure Python (with no external dependency beyond PyYAML), call no language model and read the repo profile from [wiki.config.yaml](../../../wiki.config.yaml) via [wiki_core/config.py](../../../wiki_core/config.py). The deep reading (LLM) is always delegated to the agent that runs the repo, as per [ingestion-process.md](../ingestion-process.md). The gates and the audit are detailed on the sister page [gates-and-audit.md](gates-and-audit.md), and the PR approval cycle in [git-approvals.md](../git-approvals.md).
 
@@ -53,6 +53,7 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_upgrade_preflight.py](../../../scripts/wiki_upgrade_preflight.py) | Compiles a read-only downstream upgrade preflight | Prove release pin, branch, gates, drift, snapshot, overrides and privacy before import |
 | [wiki_upgrade_report.py](../../../scripts/wiki_upgrade_report.py) | Validates evidence and compiles v8 migration reports | Close a downstream upgrade with SHAs, allowlisted files, gates, QA and rollback |
 | [wiki_upgrade.py](../../../scripts/wiki_upgrade.py) | Certifies Lane A and plans/executes resumable Lane B adoption | Execute and seal public certification, bind its verified capsule, create/verify C1-C3, run the impact-derived matrix, real canary and disposable rollback, then emit receipts/reports |
+| [wiki_toolchain_probe.py](../../../scripts/wiki_toolchain_probe.py) | Emits canonical Python dependency and launched Chromium identities | Let Lane A attest the resolved Python environment and the browser engine actually launched by Playwright; not a standalone migration authority |
 | [wiki_adapter_manifest.py](../../../scripts/wiki_adapter_manifest.py) | Builds or verifies the downstream adapter identity manifest | Bind a private consumer's explicit adapter files to tracked, no-follow hashes without importing private content into the kit |
 | [wiki_pack.py](../../../scripts/wiki_pack.py) | Operates versioned experience packs through a review-first lifecycle | Inspect/preview/dry-run/install/validate/upgrade/disable/remove a declarative use-case experience |
 | [wiki_gate.py](../../../scripts/wiki_gate.py) | Living gate: lists, transitions, rebases | Move proposals between states and supersede old ones |
@@ -184,9 +185,12 @@ and visual authority, then emits the immutable capsule/receipt/authority
 artifact set. It never runs or packages consumer-owned
 `background_certification` results. `plan` runs and binds the read-only B0
 preflight and writes an ignored conceptual plan; `adopt` creates
-or verifies the three commit boundaries, resumes completed exact-subject work,
-executes affected gates, captures canary evidence and verifies rollback in a
-disposable clone. Promotion remains a PR/human gate.
+or verifies the three commit boundaries, resumes verified exact-subject gate
+results only while the overall run is incomplete, executes affected gates,
+captures canary evidence and verifies rollback in a disposable clone. A
+completed adoption is historical evidence and cannot be resumed or promoted
+again by the runner; its generated report proceeds to the original PR/human
+gate.
 
 For a CI handoff, the fast-adoption job uses `--pause-before-canary` after the
 C1/C2/C3 chain and fast consumer gates. It transfers the full ignored runner
@@ -201,6 +205,23 @@ The CLI deliberately executes only v3. Existing v1/v2 migrations stay on their
 original transition runbook and continue to execute every declared
 `migration.required_gates` entry; they are not silently upgraded and cannot
 consume or produce v3 receipts.
+
+### [wiki_toolchain_probe.py](../../../scripts/wiki_toolchain_probe.py) - canonical certification probe
+
+This helper is part of the byte-equal upgrade-runner closure. Lane A invokes it
+with recorded, shell-free argv and binds its raw output into the toolchain probe
+manifest. `python` emits the active CPython version plus the sorted resolved
+distribution inventory and digest. `browser` launches Chromium through the
+installed Playwright module and emits both the Playwright package version and
+the browser engine version returned by that live process. A capsule is reusable
+only when Lane B reproduces both identities exactly. Operators may run the
+commands below for diagnosis, but their stdout alone is not a capsule or
+receipt.
+
+```sh
+python3 scripts/wiki_toolchain_probe.py python
+python3 scripts/wiki_toolchain_probe.py browser
+```
 
 ```sh
 python3 scripts/wiki_upgrade.py certify \
@@ -219,6 +240,7 @@ python3 scripts/wiki_upgrade.py plan \
   --trusted-attestation-sha256 "$TRUSTED_ATTESTATION_SHA256" \
   --consumer-root "$CONSUMER_ROOT" \
   --kit-root "$KIT_ROOT" \
+  --c3-adapter-command "$C3_ADAPTER_COMMAND" \
   --changed-path wiki.config.yaml
 python3 scripts/wiki_upgrade.py adopt \
   --plan "$CONSUMER_ROOT/.wiki-viva/upgrade/plan.json" \
@@ -227,6 +249,7 @@ python3 scripts/wiki_upgrade.py adopt \
   --impact-registry "$IMPACT_REGISTRY" \
   --authority "$RELEASE_AUTHORITY" \
   --trusted-attestation-sha256 "$TRUSTED_ATTESTATION_SHA256" \
+  --trusted-acceptance-anchor-sha256 "$ACCEPTANCE_ANCHOR_SHA256" \
   --consumer-root "$CONSUMER_ROOT" \
   --kit-root "$KIT_ROOT" \
   --mode canary --pause-before-canary
@@ -237,9 +260,12 @@ python3 scripts/wiki_upgrade.py adopt \
   --impact-registry "$IMPACT_REGISTRY" \
   --authority "$RELEASE_AUTHORITY" \
   --trusted-attestation-sha256 "$TRUSTED_ATTESTATION_SHA256" \
+  --trusted-acceptance-anchor-sha256 "$ACCEPTANCE_ANCHOR_SHA256" \
   --consumer-root "$CONSUMER_ROOT" \
   --kit-root "$KIT_ROOT" \
   --mode canary --resume --pause-before-background
+# Capture CANARY_COMPLETION_ANCHOR_SHA256 from the preceding command's
+# wiki_viva_upgrade_canary_completion_summary.v1 output, outside .wiki-viva/.
 python3 scripts/wiki_upgrade.py adopt \
   --plan "$CONSUMER_ROOT/.wiki-viva/upgrade/plan.json" \
   --package "$UPGRADE_PACKAGE" \
@@ -247,6 +273,8 @@ python3 scripts/wiki_upgrade.py adopt \
   --impact-registry "$IMPACT_REGISTRY" \
   --authority "$RELEASE_AUTHORITY" \
   --trusted-attestation-sha256 "$TRUSTED_ATTESTATION_SHA256" \
+  --trusted-acceptance-anchor-sha256 "$ACCEPTANCE_ANCHOR_SHA256" \
+  --trusted-canary-completion-anchor-sha256 "$CANARY_COMPLETION_ANCHOR_SHA256" \
   --consumer-root "$CONSUMER_ROOT" \
   --kit-root "$KIT_ROOT" \
   --mode canary --resume

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import copy
+import datetime as dt
+import functools
 import hashlib
 import json
 import os
-import platform
+import re
 import shutil
 import struct
 import subprocess
@@ -30,6 +32,124 @@ from wiki_core.web.commands import is_allowed_argv
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/wiki_upgrade.py"
+
+
+@functools.lru_cache(maxsize=1)
+def _active_toolchain() -> dict[str, dict[str, str]]:
+    python_identity, _python_argv, _python_raw = (
+        upgrade_runner._python_toolchain_probe(cwd=ROOT)
+    )
+    browser_identity, _browser_argv, _browser_raw = (
+        upgrade_runner._browser_toolchain_probe(kit_root=ROOT)
+    )
+    return {
+        "python": python_identity,
+        "node": {
+            "name": "node",
+            "version": subprocess.run(
+                ["node", "--version"],
+                check=True,
+                text=True,
+                stdout=subprocess.PIPE,
+            ).stdout.strip().removeprefix("v"),
+        },
+        "browser": browser_identity,
+        "runner": {
+            "name": "wiki-upgrade",
+            "version": upgrade_runner._runner_identity_version(ROOT),
+        },
+    }
+
+
+def test_c3_stage_accepts_consumer_skill_but_rejects_portable_wiki_skill() -> None:
+    upgrade_runner._require_stage_paths(
+        [".skills/local-operator/SKILL.md", "AGENTS.md"],
+        [".skills/*/**", "AGENTS.md"],
+        label="C3",
+        forbidden_patterns=[".skills/wiki-*/**"],
+    )
+    with pytest.raises(upgrade_runner.RunnerError, match="outside its owned boundary"):
+        upgrade_runner._require_stage_paths(
+            [".skills/wiki-viva/SKILL.md"],
+            [".skills/*/**"],
+            label="C3",
+            forbidden_patterns=[".skills/wiki-*/**"],
+        )
+
+
+def test_toolchain_identity_binds_resolved_python_and_launched_browser() -> None:
+    toolchain = _active_toolchain()
+    assert toolchain["python"]["name"].endswith("-resolved")
+    assert re.fullmatch(
+        r"[A-Za-z0-9._+-]+\+deps\.[0-9a-f]{64}",
+        toolchain["python"]["version"],
+    )
+    assert toolchain["browser"]["name"] == "playwright-chromium"
+    assert re.fullmatch(
+        r"[A-Za-z0-9._+-]+\+chromium\.[A-Za-z0-9._+-]+",
+        toolchain["browser"]["version"],
+    )
+
+
+def test_python_probe_uses_only_an_alias_for_the_executing_interpreter(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    divergent = tmp_path / "divergent-python3"
+    divergent.write_text("synthetic", encoding="utf-8")
+    active = sys.executable
+
+    monkeypatch.setattr(
+        upgrade_runner.shutil,
+        "which",
+        lambda name: str(divergent) if name == "python3" else active,
+    )
+    assert upgrade_runner._active_python_alias() == "python"
+
+    monkeypatch.setattr(
+        upgrade_runner.shutil,
+        "which",
+        lambda _name: str(divergent),
+    )
+    with pytest.raises(upgrade_runner.RunnerError, match="executing this runner"):
+        upgrade_runner._active_python_alias()
+
+
+@pytest.mark.parametrize(
+    "unsafe_output",
+    [
+        "artifact=/tmp/private-proof.json\n",
+        "cache=/opt/wiki-viva/cache.json\n",
+        "state=/var/folders/session.json\n",
+        "GET /consumer/account/timeline 200\n",
+        "https://example.invalid/real/account\n",
+        "route=[/real/customer]\n",
+        "route,{/consumer/account}\n",
+        "[/real]\n",
+        "route=%2Freal%2Fcustomer\n",
+        "route=%252Fconsumer%252Faccount\n",
+        "route=%2525252Freal%2525252Fcustomer\n",
+        "https://example.invalid/%72eal/customer\n",
+        "artifact=%2Ftmp%2Fprivate-proof.json\n",
+    ],
+)
+def test_public_certification_output_rejects_host_paths_and_private_routes(
+    unsafe_output: str,
+) -> None:
+    with pytest.raises(upgrade_runner.RunnerError, match="private evidence"):
+        upgrade_runner._require_public_certification_output(
+            unsafe_output.encode("utf-8"), gate_id="synthetic-public-gate"
+        )
+    for safe_output in (
+        b"GET /demo/w/radar 200\n",
+        b"docs/real/customer.md\n",
+        b"GET /realtime 200\n",
+        b"GET /consumer-v2 200\n",
+        b"GET %2Fdemo%2Fw%2Fradar 200\n",
+        b"docs%2Freal%2Fcustomer.md\n",
+    ):
+        upgrade_runner._require_public_certification_output(
+            safe_output, gate_id="synthetic-public-gate"
+        )
 
 
 def _git(root: Path, *args: str) -> str:
@@ -169,9 +289,9 @@ def _run(
     *arguments: str,
     cwd: Path | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    environment = dict(os.environ)
+    environment = _relocated_runtime_environment()
     environment.pop("WIKI_UPGRADE_RUN_DIR", None)
-    return subprocess.run(
+    result = subprocess.run(
         [sys.executable, str(SCRIPT), *arguments],
         cwd=cwd or ROOT,
         env=environment,
@@ -181,6 +301,51 @@ def _run(
         check=False,
         timeout=180,
     )
+    for line in result.stdout.splitlines():
+        if not line.startswith("{"):
+            continue
+        try:
+            payload = json.loads(line)
+        except ValueError:
+            continue
+        digest = payload.get("canary_completion_anchor_sha256")
+        if isinstance(digest, str):
+            fixture["trusted_canary_completion_anchor_sha256"] = digest
+    return result
+
+
+def _copy_runner_runtime(destination: Path) -> Path:
+    (destination / "scripts").mkdir(parents=True)
+    shutil.copy2(SCRIPT, destination / "scripts/wiki_upgrade.py")
+    shutil.copy2(ROOT / "scripts/_common.py", destination / "scripts/_common.py")
+    shutil.copy2(
+        ROOT / "scripts/_git_subject.py",
+        destination / "scripts/_git_subject.py",
+    )
+    shutil.copy2(
+        ROOT / "scripts/wiki_toolchain_probe.py",
+        destination / "scripts/wiki_toolchain_probe.py",
+    )
+    shutil.copytree(
+        ROOT / "wiki_core",
+        destination / "wiki_core",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    shutil.copytree(
+        ROOT / "docs/references/schemas",
+        destination / "docs/references/schemas",
+    )
+    return destination / "scripts/wiki_upgrade.py"
+
+
+def _relocated_runtime_environment() -> dict[str, str]:
+    environment = dict(os.environ)
+    environment.pop("PYTHONPATH", None)
+    node_bin = ROOT / "apps/wiki-cockpit/node_modules/.bin"
+    environment["PATH"] = (
+        str(node_bin) + os.pathsep + environment.get("PATH", "")
+    )
+    return environment
 
 
 def _plan_args(fixture: dict[str, Path | str]) -> list[str]:
@@ -216,6 +381,9 @@ def _adopt_args(
     pause_before_canary: bool = False,
     pause_before_background: bool = False,
 ) -> list[str]:
+    trusted_acceptance_anchor_sha256 = str(
+        fixture["trusted_acceptance_anchor_sha256"]
+    )
     values = [
         "adopt",
         "--plan",
@@ -230,6 +398,8 @@ def _adopt_args(
         str(fixture["authority"]),
         "--trusted-attestation-sha256",
         str(fixture["trusted_attestation_sha256"]),
+        "--trusted-acceptance-anchor-sha256",
+        trusted_acceptance_anchor_sha256,
         "--consumer-root",
         str(fixture["consumer"]),
         "--kit-root",
@@ -247,7 +417,30 @@ def _adopt_args(
         values.append("--pause-before-canary")
     if pause_before_background:
         values.append("--pause-before-background")
+    completion_digest = fixture.get("trusted_canary_completion_anchor_sha256")
+    if isinstance(completion_digest, str):
+        values.extend(
+            ["--trusted-canary-completion-anchor-sha256", completion_digest]
+        )
     return values
+
+
+def _remember_plan_anchor(
+    fixture: dict[str, Path | str], result: subprocess.CompletedProcess[str]
+) -> None:
+    summaries = [
+        json.loads(line)
+        for line in result.stdout.splitlines()
+        if line.startswith("{")
+    ]
+    summary = next(
+        item
+        for item in summaries
+        if item.get("schema_version") == "wiki_viva_upgrade_plan_summary.v1"
+    )
+    fixture["trusted_acceptance_anchor_sha256"] = summary[
+        "acceptance_anchor_sha256"
+    ]
 
 
 def _certify_args(
@@ -281,9 +474,16 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
     kit = tmp_path / "public-kit"
     _init_repo(kit)
     (kit / "portable.txt").write_text("synthetic portable subject\n", encoding="utf-8")
-    (kit / "wiki_core").mkdir()
-    (kit / "wiki_core/portable.py").write_text("PORTABLE = True\n", encoding="utf-8")
-    (kit / "wiki_core/synthetic_canary.py").write_text(
+    shutil.copytree(
+        ROOT / "wiki_core",
+        kit / "wiki_core",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
+    (kit / "synthetic_fixture").mkdir()
+    (kit / "synthetic_fixture/portable.py").write_text(
+        "PORTABLE = True\n", encoding="utf-8"
+    )
+    (kit / "synthetic_fixture/synthetic_canary.py").write_text(
         "import json, os, threading\n"
         "from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\n"
         "from pathlib import Path\n"
@@ -338,6 +538,18 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
         encoding="utf-8",
     )
     (kit / "scripts").mkdir()
+    shutil.copy2(SCRIPT, kit / "scripts/wiki_upgrade.py")
+    shutil.copy2(ROOT / "scripts/_common.py", kit / "scripts/_common.py")
+    shutil.copy2(ROOT / "scripts/_git_subject.py", kit / "scripts/_git_subject.py")
+    shutil.copy2(
+        ROOT / "scripts/wiki_toolchain_probe.py",
+        kit / "scripts/wiki_toolchain_probe.py",
+    )
+    shutil.copytree(
+        ROOT / "docs/references/schemas",
+        kit / "docs/references/schemas",
+        ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+    )
     (kit / "scripts/wiki_generate_synthetic.py").write_text(
         "from pathlib import Path\n"
         "p=Path('docs/references/fixtures/demo-wiki/memories/artifact.txt')\n"
@@ -377,7 +589,7 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
         if gate_id == "rollback_report_verification":
             command = "python3 scripts/wiki_upgrade.py verify-rollback-report --check"
         elif gate_id == "real_canary":
-            command = "python3 wiki_core/synthetic_canary.py"
+            command = "python3 synthetic_fixture/synthetic_canary.py"
         else:
             command = f'python3 -c "print(\'{gate_id}\')"'
         gate_catalog.append({"id": gate_id, "class": gate_class, "command": command})
@@ -402,14 +614,22 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
                 {
                     "id": "portable_core",
                     "lane": "lane_a",
-                    "path_patterns": ["wiki_core/**"],
+                    "path_patterns": ["synthetic_fixture/**"],
                     "contracts": ["wiki_core.v1"],
                     "gates": ["upstream_check"],
                     "depends_on": [],
                 },
             ],
             "boundary_policy": {
-                "c1_portable_patterns": ["wiki_core/**"],
+                "c1_portable_patterns": [
+                    "synthetic_fixture/portable.py",
+                    "synthetic_fixture/synthetic_canary.py",
+                    "scripts/wiki_generate_synthetic.py",
+                    "scripts/wiki_upgrade.py",
+                    "scripts/_common.py",
+                    "scripts/_git_subject.py",
+                    "scripts/wiki_toolchain_probe.py",
+                ],
                 "c2_generated_patterns": [
                     "docs/references/fixtures/demo-wiki/memories/**"
                 ],
@@ -527,7 +747,21 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
             "asset_manifest": "wiki_cockpit_asset_manifest.v1",
             "downstream_adapter_manifest": "wiki_downstream_adapter_manifest.v1",
         },
-        "portable_import": {"allow": ["wiki_core/**"], "block": ["memories/**"]},
+        "portable_import": {
+            "allow": [
+                "synthetic_fixture/portable.py",
+                "synthetic_fixture/synthetic_canary.py",
+                "scripts/wiki_generate_synthetic.py",
+                "scripts/wiki_upgrade.py",
+                "scripts/_common.py",
+                "scripts/_git_subject.py",
+                "scripts/wiki_toolchain_probe.py",
+            ],
+            "block": [
+                "docs/references/fixtures/demo-wiki/memories/**",
+                "memories/**",
+            ],
+        },
         "preflight": {
             "branch_prefix": "wiki/",
             "required_gates": ["audit", "pytest"],
@@ -563,6 +797,12 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
                 "sha256": registry["registry_sha256"],
             },
             "gate_policies": gate_policies,
+            "acceptance_budget": {
+                "schema_version": "wiki_viva_upgrade_acceptance_budget_policy.v1",
+                "scope": "plan_to_real_canary",
+                "limit_seconds": 1200,
+                "enforcement": "promotion_blocking",
+            },
             "boundary_operations": boundary_operations,
             "visual_profiles": ["desktop"],
         },
@@ -647,31 +887,7 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
         "package_sha256": "0" * 64,
         "portable_tree_sha256": "0" * 64,
         "command_registry": gate_catalog,
-        "toolchain": {
-            "python": {
-                "name": platform.python_implementation().lower(),
-                "version": platform.python_version(),
-            },
-            "node": {
-                "name": "node",
-                "version": subprocess.run(
-                    ["node", "--version"],
-                    check=True,
-                    text=True,
-                    stdout=subprocess.PIPE,
-                ).stdout.strip().removeprefix("v"),
-            },
-            "browser": {
-                "name": "playwright",
-                "version": subprocess.run(
-                    ["playwright", "--version"],
-                    check=True,
-                    text=True,
-                    stdout=subprocess.PIPE,
-                ).stdout.strip().removeprefix("Version "),
-            },
-            "runner": {"name": "wiki-upgrade", "version": "1.0.0"},
-        },
+        "toolchain": copy.deepcopy(_active_toolchain()),
         "certified_gates": certified,
         "run_id": "synthetic-run",
         "visual_manifest_ref": "visual-manifest.json",
@@ -721,6 +937,7 @@ def synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
 def _create_plan(fixture: dict[str, Path | str], changed_path: str = "wiki.config.yaml") -> dict:
     result = _run(fixture, *_plan_args(fixture), "--changed-path", changed_path)
     assert result.returncode == 0, result.stdout + result.stderr
+    _remember_plan_anchor(fixture, result)
     return json.loads(Path(fixture["plan"]).read_text(encoding="utf-8"))
 
 
@@ -803,6 +1020,32 @@ def test_ci_fast_adoption_handoff_is_resumable_runner_state(
     destination_value = os.environ.get("WIKI_UPGRADE_CI_HANDOFF")
     if not destination_value:
         pytest.skip("CI handoff export is only enabled by the two-lane workflow")
+    lane_a_value = os.environ.get("WIKI_UPGRADE_CI_LANE_A")
+    if not lane_a_value:
+        pytest.fail("CI fast adoption must consume the upstream Lane A bundle")
+    lane_a_root = Path(lane_a_value).resolve()
+    bundle_manifest = json.loads(
+        (lane_a_root / "bundle-manifest.json").read_text(encoding="utf-8")
+    )
+    certified_root = lane_a_root / "certified"
+    inputs_root = lane_a_root / "inputs"
+    synthetic_upgrade = {
+        **synthetic_upgrade,
+        "kit": inputs_root / "public-kit",
+        "package": inputs_root / "upgrade-package.yaml",
+        "registry": inputs_root / "impact-registry.yaml",
+        "capsule": certified_root / "release-capsule.json",
+        "authority": certified_root / "release-authority.json",
+        "trusted_attestation_sha256": (
+            certified_root / "trusted-attestation-sha256.txt"
+        ).read_text(encoding="ascii").strip(),
+    }
+    capsule = json.loads(
+        Path(synthetic_upgrade["capsule"]).read_text(encoding="utf-8")
+    )
+    assert capsule["capsule_sha256"] == bundle_manifest["capsule_sha256"]
+    assert capsule["source_sha"] == bundle_manifest["source_sha"]
+    assert capsule["package_sha256"] == bundle_manifest["package_sha256"]
     preplan = _create_plan(synthetic_upgrade)
     fast = _run(
         synthetic_upgrade,
@@ -827,8 +1070,8 @@ def test_ci_fast_adoption_handoff_is_resumable_runner_state(
     destination.parent.mkdir(parents=True, exist_ok=True)
     if destination.exists():
         shutil.rmtree(destination)
-    fixture_root = Path(synthetic_upgrade["package"]).parent
-    shutil.copytree(fixture_root, destination, symlinks=True)
+    shutil.copytree(inputs_root, destination, symlinks=True)
+    shutil.copytree(certified_root, destination, symlinks=True, dirs_exist_ok=True)
     (destination / "trusted-attestation-sha256").write_text(
         str(synthetic_upgrade["trusted_attestation_sha256"]) + "\n",
         encoding="utf-8",
@@ -841,6 +1084,16 @@ def test_ci_fast_adoption_handoff_is_resumable_runner_state(
         "state_sha256": hashlib.sha256(
             (run_dir / "state.json").read_bytes()
         ).hexdigest(),
+        "source_sha": bundle_manifest["source_sha"],
+        "capsule_sha256": bundle_manifest["capsule_sha256"],
+        "package_sha256": bundle_manifest["package_sha256"],
+        "impact_registry_sha256": bundle_manifest["impact_registry_sha256"],
+        "certification_receipt_sha256": bundle_manifest[
+            "certification_receipt_sha256"
+        ],
+        "trusted_attestation_sha256": bundle_manifest[
+            "trusted_attestation_sha256"
+        ],
     }
     (destination / "handoff.json").write_text(
         json.dumps(handoff, indent=2, sort_keys=True) + "\n",
@@ -915,7 +1168,7 @@ def test_certify_executes_only_upstream_and_seals_authority(
     upstream_log.write_text("fabricated replacement\n", encoding="utf-8")
     rejected = _run(synthetic_upgrade, *plan_args, "--changed-path", "wiki.config.yaml")
     assert rejected.returncode == 2
-    assert '"error_code": "lane_contract_rejected"' in rejected.stdout
+    assert '"error_code": "stale_certification_gate_output"' in rejected.stdout
     assert str(output) not in rejected.stdout
 
 
@@ -987,9 +1240,22 @@ def test_plan_adopt_resume_canary_and_rollback_are_complete_and_path_free(
     assert private_report["evidence"]["network"]
     assert rollback["tree_equal"] is True
 
+    receipt_bytes = (run_dir / "adoption-receipt.json").read_bytes()
     resumed = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade, resume=True))
-    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
-    assert '"reused_receipt": true' in resumed.stdout
+    assert resumed.returncode == 2
+    assert '"error_code": "completed_run_not_resumable"' in resumed.stdout
+    assert '"promotion_ready": true' not in resumed.stdout
+    assert '"reused_receipt": true' not in resumed.stdout
+    assert (run_dir / "adoption-receipt.json").read_bytes() == receipt_bytes
+
+    (run_dir / "adoption-receipt.json").unlink()
+    missing_receipt = _run(
+        synthetic_upgrade, *_adopt_args(synthetic_upgrade, resume=True)
+    )
+    assert missing_receipt.returncode == 2
+    assert '"error_code": "completed_run_not_resumable"' in missing_receipt.stdout
+    assert not (run_dir / "adoption-receipt.json").exists()
+    (run_dir / "adoption-receipt.json").write_bytes(receipt_bytes)
 
     verified = _run(
         synthetic_upgrade,
@@ -1029,18 +1295,48 @@ def test_plan_refuses_detached_or_non_review_branch(
     assert not Path(synthetic_upgrade["plan"]).exists()
 
 
+def test_boundary_chain_rejects_hidden_intermediate_or_merge_commit(
+    tmp_path: Path,
+) -> None:
+    consumer = tmp_path / "consumer"
+    _init_repo(consumer)
+    (consumer / "baseline.txt").write_text("baseline\n", encoding="utf-8")
+    b0 = _commit_all(consumer, "B0")
+    (consumer / "transient.txt").write_text("intermediate\n", encoding="utf-8")
+    _commit_all(consumer, "unreviewed intermediate")
+    (consumer / "transient.txt").unlink()
+    (consumer / "c1.txt").write_text("C1\n", encoding="utf-8")
+    c1 = _commit_all(consumer, "C1")
+    (consumer / "c2.txt").write_text("C2\n", encoding="utf-8")
+    c2 = _commit_all(consumer, "C2")
+    (consumer / "c3.txt").write_text("C3\n", encoding="utf-8")
+    c3 = _commit_all(consumer, "C3")
+
+    with pytest.raises(
+        upgrade_runner.RunnerError,
+        match="direct single-parent ancestry chain",
+    ):
+        upgrade_runner._require_ancestry(consumer, [b0, c1, c2, c3])
+
+
 def test_pre_mutation_plan_proves_distinct_c1_c2_c3_and_replays_generator(
     synthetic_upgrade: dict[str, Path | str],
 ) -> None:
     consumer = Path(synthetic_upgrade["consumer"])
     kit = Path(synthetic_upgrade["kit"])
     b0 = str(synthetic_upgrade["consumer_b0"])
+    package = yaml.safe_load(
+        Path(synthetic_upgrade["package"]).read_text(encoding="utf-8")
+    )
     _git(consumer, "checkout", "-q", "-b", "wiki/synthetic-migration")
-    (consumer / "wiki_core").mkdir()
-    for relative in ("wiki_core/portable.py", "wiki_core/synthetic_canary.py"):
-        source = kit / relative
+    portable_entries = upgrade_runner._portable_entries(
+        package, kit, package["release"]["source_sha"]
+    )
+    for relative, entry in portable_entries.items():
         destination = consumer / relative
-        destination.write_bytes(source.read_bytes())
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(entry["bytes"])
+        destination.chmod(0o755 if entry["mode"] == "100755" else 0o644)
     c1 = _commit_all(consumer, "C1 faithful public import")
     generated = consumer / "docs/references/fixtures/demo-wiki/memories/artifact.txt"
     generated.parent.mkdir(parents=True)
@@ -1054,7 +1350,6 @@ def test_pre_mutation_plan_proves_distinct_c1_c2_c3_and_replays_generator(
     c3 = _commit_all(consumer, "C3 consumer adaptation")
     _git(consumer, "checkout", "-q", "wiki/synthetic-upgrade")
 
-    package = yaml.safe_load(Path(synthetic_upgrade["package"]).read_text(encoding="utf-8"))
     package["migration"]["commit_boundaries"] = [
         "faithful_public_import",
         "regenerated_artifacts",
@@ -1076,6 +1371,7 @@ def test_pre_mutation_plan_proves_distinct_c1_c2_c3_and_replays_generator(
         "wiki.config.yaml",
     )
     assert planned.returncode == 0, planned.stdout + planned.stderr
+    _remember_plan_anchor(synthetic_upgrade, planned)
     assert _git(consumer, "rev-parse", "HEAD") == b0
     plan = json.loads(Path(synthetic_upgrade["plan"]).read_text(encoding="utf-8"))
     assert len({plan["boundary_commits"][key] for key in ("B0", "C1", "C2", "C3")}) == 4
@@ -1116,6 +1412,7 @@ def test_resume_after_mid_c2_failure_keeps_consumer_at_clean_recorded_phase(
         "wiki.config.yaml",
     )
     assert planned.returncode == 0, planned.stdout + planned.stderr
+    _remember_plan_anchor(synthetic_upgrade, planned)
     preplan = json.loads(Path(synthetic_upgrade["plan"]).read_text(encoding="utf-8"))
 
     failed = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade))
@@ -1164,6 +1461,30 @@ def test_resume_rejects_stale_plan_manual_evidence_and_changed_c3(
     assert result.returncode == 2
     assert '"error_code": "manual_evidence_rejected"' in result.stdout
 
+    stale_budget = copy.deepcopy(original)
+    for key in ("plan_started_at", "canary_completed_at"):
+        stale_budget["acceptance_budget"][key] = (
+            "2099" + stale_budget["acceptance_budget"][key][4:]
+        )
+    state_path.write_text(json.dumps(stale_budget), encoding="utf-8")
+    result = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade, resume=True))
+    assert result.returncode == 2
+    assert '"error_code": "stale_acceptance_budget"' in result.stdout
+
+    stale_canary_clock = copy.deepcopy(original)
+    canary_gate = next(
+        gate_id
+        for gate_id, gate_result in stale_canary_clock["gate_results"].items()
+        if gate_result["class"] == "canary"
+    )
+    stale_canary_clock["gate_results"][canary_gate]["_completed_at"] = (
+        stale_canary_clock["acceptance_budget"]["plan_started_at"]
+    )
+    state_path.write_text(json.dumps(stale_canary_clock), encoding="utf-8")
+    result = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade, resume=True))
+    assert result.returncode == 2
+    assert '"error_code": "stale_acceptance_budget"' in result.stdout
+
     state_path.write_text(json.dumps(original), encoding="utf-8")
     consumer = Path(synthetic_upgrade["consumer"])
     (consumer / "wiki.config.yaml").write_text("repo_id: changed-c3\n", encoding="utf-8")
@@ -1173,6 +1494,127 @@ def test_resume_rejects_stale_plan_manual_evidence_and_changed_c3(
     assert '"error_code": "changed_consumer_C3"' in result.stdout
     assert str(consumer) not in result.stdout
     assert plan["identity"]["consumer_C3"] != _git(consumer, "rev-parse", "HEAD")
+
+
+def test_plan_to_canary_budget_overrun_blocks_receipt_and_promotion(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    plan = _create_plan(synthetic_upgrade)
+    started = dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=1201)
+    started_at = started.strftime(
+        "%Y-%m-%dT%H:%M:%S.%fZ"
+    )
+    plan_path = Path(synthetic_upgrade["plan"])
+    anchor_path = upgrade_runner._acceptance_anchor_path(
+        plan_path, plan["acceptance_anchor"]["attempt_identity_sha256"]
+    )
+    anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
+    anchor["plan_started_at"] = started_at
+    anchor.pop("anchor_sha256")
+    anchor["anchor_sha256"] = canonical_sha256(anchor)
+    anchor_raw = upgrade_runner._json_bytes(anchor)
+    anchor_path.write_bytes(anchor_raw)
+    trusted_anchor = hashlib.sha256(anchor_raw).hexdigest()
+    synthetic_upgrade["trusted_acceptance_anchor_sha256"] = trusted_anchor
+    plan["acceptance_budget"]["plan_started_at"] = started_at
+    plan["acceptance_anchor"]["anchor_sha256"] = anchor["anchor_sha256"]
+    plan["acceptance_anchor"]["file_sha256"] = trusted_anchor
+    plan["plan_sha256"] = upgrade_runner._plan_digest(plan)
+    plan_path.write_text(
+        json.dumps(plan, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    result = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade))
+    assert result.returncode == 2, result.stdout + result.stderr
+    execution_paths = sorted(
+        Path(synthetic_upgrade["plan"]).parent.glob("execution-plan-*.json")
+    )
+    assert len(execution_paths) == 1
+    execution = json.loads(execution_paths[0].read_text(encoding="utf-8"))
+    run_dir = (
+        Path(synthetic_upgrade["consumer"])
+        / ".wiki-viva/upgrade/runs"
+        / execution["plan_sha256"][:16]
+    )
+    receipt = json.loads(
+        (run_dir / "adoption-receipt.json").read_text(encoding="utf-8")
+    )
+    private_report = json.loads(
+        (run_dir / "migration-report.private.json").read_text(encoding="utf-8")
+    )
+    public_report = json.loads(
+        (run_dir / "migration-report.public.json").read_text(encoding="utf-8")
+    )
+    assert receipt["schema_version"] == "wiki_viva_upgrade_adoption_receipt.v3"
+    assert receipt["status"] == "blocked"
+    assert receipt["acceptance_budget"]["status"] == "exceeded"
+    assert receipt["acceptance_budget"] == private_report["acceptance_budget"]
+    assert public_report["acceptance_budget"] == {
+        "schema_version": "wiki_viva_upgrade_acceptance_budget_public.v1",
+        "scope": "plan_to_real_canary",
+        "limit_seconds": 1200,
+        "enforcement": "promotion_blocking",
+        "status": "exceeded",
+    }
+    public_text = json.dumps(public_report, sort_keys=True)
+    assert "plan_started_at" not in public_text
+    assert "canary_completed_at" not in public_text
+    assert "elapsed_milliseconds" not in public_text
+    assert private_report["promotion_ready"] is False
+    assert public_report["promotion_ready"] is False
+    assert (run_dir / "rollback.json").is_file()
+    assert "background_suite" in {
+        result["id"] for result in receipt["gate_results"]
+    }
+    assert '"status": "blocked"' in result.stdout
+    assert '"lane": "lane_b"' in result.stdout
+    assert (
+        '"contract": "wiki_viva_upgrade_acceptance_budget.v1"'
+        in result.stdout
+    )
+    assert '"next_action"' in result.stdout
+    assert '"promotion_ready": false' in result.stdout
+
+
+def test_resume_recovers_budget_from_persisted_real_canary_completion(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    _create_plan(synthetic_upgrade)
+    paused = _run(
+        synthetic_upgrade,
+        *_adopt_args(synthetic_upgrade, pause_before_background=True),
+    )
+    assert paused.returncode == 0, paused.stdout + paused.stderr
+    execution = json.loads(
+        next(
+            Path(synthetic_upgrade["plan"]).parent.glob("execution-plan-*.json")
+        ).read_text(encoding="utf-8")
+    )
+    run_dir = (
+        Path(synthetic_upgrade["consumer"])
+        / ".wiki-viva/upgrade/runs"
+        / execution["plan_sha256"][:16]
+    )
+    state_path = run_dir / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["acceptance_budget"]["status"] == "met"
+    expected_completed_at = state["acceptance_budget"]["canary_completed_at"]
+    state["acceptance_budget"] = copy.deepcopy(execution["acceptance_budget"])
+    state_path.write_text(
+        json.dumps(state, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    resumed = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade, resume=True))
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    recovered = json.loads(state_path.read_text(encoding="utf-8"))
+    assert recovered["acceptance_budget"]["status"] == "met"
+    assert (
+        recovered["acceptance_budget"]["canary_completed_at"]
+        == expected_completed_at
+    )
+    assert json.loads(
+        (run_dir / "adoption-receipt.json").read_text(encoding="utf-8")
+    )["acceptance_budget"] == recovered["acceptance_budget"]
 
 
 def test_scheduler_waits_for_dependencies_before_parallel_gate_wave(
@@ -1247,9 +1689,28 @@ def test_forged_omission_unsafe_output_and_boundary_mixing_fail_closed(
     assert not outside.exists()
 
     consumer = Path(synthetic_upgrade["consumer"])
+    kit = Path(synthetic_upgrade["kit"])
     b0 = str(synthetic_upgrade["consumer_b0"])
-    (consumer / "wiki_core").mkdir()
-    (consumer / "wiki_core/consumer.py").write_text("VALUE = 1\n", encoding="utf-8")
+    package = yaml.safe_load(
+        Path(synthetic_upgrade["package"]).read_text(encoding="utf-8")
+    )
+    _git(consumer, "checkout", "-q", "-b", "wiki/mixed-chain", b0)
+    for relative, entry in upgrade_runner._portable_entries(
+        package, kit, package["release"]["source_sha"]
+    ).items():
+        destination = consumer / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(entry["bytes"])
+        destination.chmod(0o755 if entry["mode"] == "100755" else 0o644)
+    c1 = _commit_all(consumer, "C1 faithful public import")
+    generated = consumer / "docs/references/fixtures/demo-wiki/memories/artifact.txt"
+    generated.parent.mkdir(parents=True, exist_ok=True)
+    generated.write_text("generated exactly\n", encoding="utf-8")
+    c2 = _commit_all(consumer, "C2 regenerated artifacts")
+    (consumer / "wiki_core").mkdir(parents=True, exist_ok=True)
+    (consumer / "wiki_core/consumer.py").write_text(
+        "VALUE = 1\n", encoding="utf-8"
+    )
     c3 = _commit_all(consumer, "mix portable code into C3")
     _git(consumer, "checkout", "-q", "-b", "wiki/mixed-plan", b0)
     mixed = _run(
@@ -1258,9 +1719,9 @@ def test_forged_omission_unsafe_output_and_boundary_mixing_fail_closed(
         "--consumer-b0",
         b0,
         "--consumer-c1",
-        b0,
+        c1,
         "--consumer-c2",
-        b0,
+        c2,
         "--consumer-c3",
         c3,
         "--changed-path",
@@ -1268,6 +1729,258 @@ def test_forged_omission_unsafe_output_and_boundary_mixing_fail_closed(
     )
     assert mixed.returncode == 2
     assert '"error_code": "boundary_ownership_mismatch"' in mixed.stdout
+
+
+def test_malformed_acceptance_budget_is_rejected_before_consumer_mutation(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    plan = _create_plan(synthetic_upgrade)
+    consumer = Path(synthetic_upgrade["consumer"])
+    b0 = _git(consumer, "rev-parse", "HEAD")
+    commit_count = _git(consumer, "rev-list", "--count", "HEAD")
+
+    plan["acceptance_budget"].pop("limit_seconds")
+    plan["plan_sha256"] = upgrade_runner._plan_digest(plan)
+    Path(synthetic_upgrade["plan"]).write_text(
+        json.dumps(plan), encoding="utf-8"
+    )
+
+    result = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade))
+
+    assert result.returncode == 2
+    assert '"error_code": "invalid_acceptance_budget"' in result.stdout
+    assert _git(consumer, "rev-parse", "HEAD") == b0
+    assert _git(consumer, "rev-list", "--count", "HEAD") == commit_count
+    output_root = Path(synthetic_upgrade["plan"]).parent
+    assert not list(output_root.glob("execution-plan-*.json"))
+    assert not list(output_root.glob("mutation-state-*.json"))
+
+
+def test_plan_clock_cannot_be_reset_after_external_anchor_is_emitted(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    plan = _create_plan(synthetic_upgrade)
+    consumer = Path(synthetic_upgrade["consumer"])
+    b0 = _git(consumer, "rev-parse", "HEAD")
+    adopt_args = _adopt_args(synthetic_upgrade)
+
+    started = dt.datetime.strptime(
+        plan["acceptance_budget"]["plan_started_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
+    ).replace(tzinfo=dt.timezone.utc)
+    plan["acceptance_budget"]["plan_started_at"] = (
+        started + dt.timedelta(minutes=10)
+    ).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    plan["plan_sha256"] = upgrade_runner._plan_digest(plan)
+    Path(synthetic_upgrade["plan"]).write_text(
+        json.dumps(plan), encoding="utf-8"
+    )
+
+    result = _run(synthetic_upgrade, *adopt_args)
+
+    assert result.returncode == 2
+    assert '"error_code": "stale_acceptance_anchor"' in result.stdout
+    assert _git(consumer, "rev-parse", "HEAD") == b0
+    output_root = Path(synthetic_upgrade["plan"]).parent
+    assert not list(output_root.glob("execution-plan-*.json"))
+    assert not list(output_root.glob("mutation-state-*.json"))
+
+
+def test_coherent_plan_and_anchor_tamper_fails_against_original_external_digest(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    plan = _create_plan(synthetic_upgrade)
+    consumer = Path(synthetic_upgrade["consumer"])
+    b0 = _git(consumer, "rev-parse", "HEAD")
+    adopt_args = _adopt_args(synthetic_upgrade)
+    plan_path = Path(synthetic_upgrade["plan"])
+    anchor_path = upgrade_runner._acceptance_anchor_path(
+        plan_path, plan["acceptance_anchor"]["attempt_identity_sha256"]
+    )
+    anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
+    started = dt.datetime.strptime(
+        anchor["plan_started_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
+    ).replace(tzinfo=dt.timezone.utc)
+    changed_started = (started + dt.timedelta(minutes=10)).strftime(
+        "%Y-%m-%dT%H:%M:%S.%fZ"
+    )
+    anchor["plan_started_at"] = changed_started
+    anchor.pop("anchor_sha256")
+    anchor["anchor_sha256"] = canonical_sha256(anchor)
+    changed_anchor_raw = upgrade_runner._json_bytes(anchor)
+    anchor_path.write_bytes(changed_anchor_raw)
+
+    plan["acceptance_budget"]["plan_started_at"] = changed_started
+    plan["acceptance_anchor"]["anchor_sha256"] = anchor["anchor_sha256"]
+    plan["acceptance_anchor"]["file_sha256"] = hashlib.sha256(
+        changed_anchor_raw
+    ).hexdigest()
+    plan["plan_sha256"] = upgrade_runner._plan_digest(plan)
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+
+    result = _run(synthetic_upgrade, *adopt_args)
+
+    assert result.returncode == 2
+    assert '"error_code": "untrusted_acceptance_anchor"' in result.stdout
+    assert _git(consumer, "rev-parse", "HEAD") == b0
+    assert not list(plan_path.parent.glob("execution-plan-*.json"))
+    assert not list(plan_path.parent.glob("mutation-state-*.json"))
+
+
+def test_same_attempt_reuses_first_write_acceptance_clock(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    first = _create_plan(synthetic_upgrade)
+    first_digest = synthetic_upgrade["trusted_acceptance_anchor_sha256"]
+    first_started_at = first["acceptance_budget"]["plan_started_at"]
+
+    second = _create_plan(synthetic_upgrade)
+
+    assert second["acceptance_budget"]["plan_started_at"] == first_started_at
+    assert synthetic_upgrade["trusted_acceptance_anchor_sha256"] == first_digest
+    assert second["acceptance_anchor"] == first["acceptance_anchor"]
+
+
+def test_adopt_never_recreates_a_missing_acceptance_anchor(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    plan = _create_plan(synthetic_upgrade)
+    consumer = Path(synthetic_upgrade["consumer"])
+    b0 = _git(consumer, "rev-parse", "HEAD")
+    adopt_args = _adopt_args(synthetic_upgrade)
+    plan_path = Path(synthetic_upgrade["plan"])
+    anchor_path = upgrade_runner._acceptance_anchor_path(
+        plan_path, plan["acceptance_anchor"]["attempt_identity_sha256"]
+    )
+    anchor_path.unlink()
+
+    result = _run(synthetic_upgrade, *adopt_args)
+
+    assert result.returncode == 2
+    assert '"error_code": "missing_private_evidence"' in result.stdout
+    assert not anchor_path.exists()
+    assert _git(consumer, "rev-parse", "HEAD") == b0
+    assert not list(plan_path.parent.glob("mutation-state-*.json"))
+
+
+@pytest.mark.parametrize(
+    "altered_relative",
+    [
+        "scripts/wiki_upgrade.py",
+        "scripts/_common.py",
+        "scripts/_git_subject.py",
+        "scripts/wiki_toolchain_probe.py",
+        "wiki_core/upgrade_lanes.py",
+    ],
+)
+def test_modified_runner_closure_is_rejected_before_mutation(
+    synthetic_upgrade: dict[str, Path | str],
+    tmp_path: Path,
+    altered_relative: str,
+) -> None:
+    _create_plan(synthetic_upgrade)
+    consumer = Path(synthetic_upgrade["consumer"])
+    b0 = _git(consumer, "rev-parse", "HEAD")
+    runtime = tmp_path / "altered-runtime"
+    entrypoint = _copy_runner_runtime(runtime)
+    altered = runtime / altered_relative
+    altered.write_text(
+        altered.read_text(encoding="utf-8")
+        + "\n# altered runtime-closure bytes\n",
+        encoding="utf-8",
+    )
+    environment = _relocated_runtime_environment()
+    result = subprocess.run(
+        [sys.executable, str(entrypoint), *_adopt_args(synthetic_upgrade)],
+        cwd=runtime,
+        env=environment,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=180,
+    )
+
+    assert result.returncode == 2
+    assert '"error_code": "toolchain_identity_mismatch"' in result.stdout
+    assert _git(consumer, "rev-parse", "HEAD") == b0
+    assert not list(Path(synthetic_upgrade["plan"]).parent.glob("mutation-state-*.json"))
+
+
+@pytest.mark.parametrize("tool_id", ["python", "browser"])
+def test_resolved_toolchain_change_is_rejected_before_mutation(
+    synthetic_upgrade: dict[str, Path | str], tool_id: str,
+) -> None:
+    _create_plan(synthetic_upgrade)
+    consumer = Path(synthetic_upgrade["consumer"])
+    b0 = _git(consumer, "rev-parse", "HEAD")
+    capsule_path = Path(synthetic_upgrade["capsule"])
+    capsule = json.loads(capsule_path.read_text(encoding="utf-8"))
+    capsule["toolchain"][tool_id]["version"] += "+altered"
+    capsule_path.write_text(
+        json.dumps(capsule, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+    result = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade))
+
+    assert result.returncode == 2
+    assert '"error_code": "toolchain_identity_mismatch"' in result.stdout
+    assert _git(consumer, "rev-parse", "HEAD") == b0
+    assert not list(Path(synthetic_upgrade["plan"]).parent.glob("mutation-state-*.json"))
+
+
+def test_byte_equal_runner_closure_identity_is_path_independent(
+    synthetic_upgrade: dict[str, Path | str], tmp_path: Path,
+) -> None:
+    runtime = tmp_path / "relocated-runtime"
+    relocated = _copy_runner_runtime(runtime)
+    environment = _relocated_runtime_environment()
+
+    result = subprocess.run(
+        [sys.executable, str(relocated), "--version"],
+        cwd=runtime,
+        env=environment,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=180,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.stdout.strip() == (
+        "wiki-upgrade " + upgrade_runner._runner_identity_version(ROOT)
+    )
+
+    probe = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; from pathlib import Path; "
+                "from scripts.wiki_upgrade import _load_artifacts; "
+                "\ntry:\n _load_artifacts(Path(sys.argv[1]),Path(sys.argv[2]),"
+                "Path(sys.argv[3]),kit_root=Path(sys.argv[4]),"
+                "authority_path=Path(sys.argv[5]),"
+                "trusted_attestation_sha256=sys.argv[6])\n"
+                "except Exception as exc:\n print(type(exc).__name__,repr(exc),"
+                "type(exc.__cause__).__name__,repr(exc.__cause__))\n raise\n"
+            ),
+            str(synthetic_upgrade["package"]),
+            str(synthetic_upgrade["capsule"]),
+            str(synthetic_upgrade["registry"]),
+            str(synthetic_upgrade["kit"]),
+            str(synthetic_upgrade["authority"]),
+            str(synthetic_upgrade["trusted_attestation_sha256"]),
+        ],
+        cwd=runtime,
+        env=environment,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=180,
+    )
+    assert probe.returncode == 0, probe.stdout + probe.stderr
 
 
 def test_rollback_report_tamper_is_not_accepted(
@@ -1392,3 +2105,268 @@ def test_two_lane_workflow_handoff_is_retry_safe_for_rerun_failed_jobs() -> None
     assert "--pause-before-background" in workflow
     assert "Broad Python suite" not in workflow
     assert "Broad non-browser cockpit matrix" not in workflow
+
+
+def test_ci_fast_adoption_consumes_exact_upstream_lane_a_bundle(
+    tmp_path: Path,
+) -> None:
+    destination_value = os.environ.get("WIKI_UPGRADE_CI_HANDOFF")
+    if not destination_value:
+        pytest.skip("CI handoff export is only enabled by the two-lane workflow")
+    lane_a_value = os.environ.get("WIKI_UPGRADE_CI_LANE_A")
+    if not lane_a_value:
+        pytest.fail("CI fast adoption must consume the upstream Lane A bundle")
+
+    from wiki_core.upgrade_lanes import verify_impact_registry
+
+    lane_a_root = Path(lane_a_value).resolve(strict=True)
+    manifest = json.loads(
+        (lane_a_root / "bundle-manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["schema_version"] == "wiki_viva_upgrade_lane_a_bundle.v1"
+    manifest_files = manifest["files"]
+    assert isinstance(manifest_files, list) and manifest_files
+    expected = {item["path"]: item for item in manifest_files}
+    assert len(expected) == len(manifest_files)
+    observed: dict[str, dict[str, str | int]] = {}
+    for path in sorted(lane_a_root.rglob("*")):
+        if path.is_symlink():
+            pytest.fail(f"Lane A bundle contains a symlink: {path.name}")
+        if not path.is_file() or path.name == "bundle-manifest.json":
+            continue
+        raw = path.read_bytes()
+        relative = path.relative_to(lane_a_root).as_posix()
+        observed[relative] = {
+            "path": relative,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "bytes": len(raw),
+        }
+    assert observed == expected
+
+    certified_root = lane_a_root / "certified"
+    inputs_root = lane_a_root / "inputs"
+    capsule = json.loads(
+        (certified_root / "release-capsule.json").read_text(encoding="utf-8")
+    )
+    receipt_raw = (certified_root / "certification-receipt.json").read_bytes()
+    certification_receipt = json.loads(receipt_raw)
+    package = yaml.safe_load(
+        (inputs_root / "upgrade-package.yaml").read_text(encoding="utf-8")
+    )
+    registry = yaml.safe_load(
+        (inputs_root / "impact-registry.yaml").read_text(encoding="utf-8")
+    )
+    trust = (certified_root / "trusted-attestation-sha256.txt").read_text(
+        encoding="ascii"
+    ).strip()
+    unsigned_receipt = dict(certification_receipt)
+    assert unsigned_receipt.pop("receipt_sha256") == canonical_sha256(
+        unsigned_receipt
+    )
+    assert capsule["source_sha"] == manifest["source_sha"]
+    assert capsule["capsule_sha256"] == manifest["capsule_sha256"]
+    assert canonical_sha256(package) == capsule["package_sha256"] == manifest[
+        "package_sha256"
+    ]
+    assert capsule["portable_tree_sha256"] == manifest["portable_tree_sha256"]
+    assert capsule["command_registry_sha256"] == manifest[
+        "command_registry_sha256"
+    ]
+    assert capsule["toolchain_sha256"] == manifest["toolchain_sha256"]
+    assert capsule["toolchain"]["python"]["name"].endswith("-resolved")
+    assert re.fullmatch(
+        r"[A-Za-z0-9._+-]+\+deps\.[0-9a-f]{64}",
+        capsule["toolchain"]["python"]["version"],
+    )
+    assert capsule["toolchain"]["browser"]["name"] == "playwright-chromium"
+    assert "+chromium." in capsule["toolchain"]["browser"]["version"]
+    assert verify_impact_registry(registry) == manifest["impact_registry_sha256"]
+    assert hashlib.sha256(receipt_raw).hexdigest() == manifest[
+        "certification_receipt_sha256"
+    ]
+    assert certification_receipt["receipt_sha256"] == manifest[
+        "certification_receipt_digest"
+    ]
+    assert certification_receipt["source_sha"] == manifest["source_sha"]
+    assert certification_receipt["capsule_sha256"] == manifest["capsule_sha256"]
+    assert certification_receipt["package_sha256"] == manifest["package_sha256"]
+    assert certification_receipt["portable_tree_sha256"] == manifest[
+        "portable_tree_sha256"
+    ]
+    assert certification_receipt["command_registry_sha256"] == manifest[
+        "command_registry_sha256"
+    ]
+    assert certification_receipt["toolchain_sha256"] == manifest[
+        "toolchain_sha256"
+    ]
+    assert certification_receipt["attestation_sha256"] == trust == manifest[
+        "trusted_attestation_sha256"
+    ]
+
+    consumer = tmp_path / "consumer"
+    _init_repo(consumer)
+    (consumer / ".gitignore").write_text(".wiki-viva/\n", encoding="utf-8")
+    (consumer / "wiki.config.yaml").write_text(
+        "repo_id: synthetic-consumer\n", encoding="utf-8"
+    )
+    consumer_b0 = _commit_all(consumer, "synthetic consumer B0")
+    _git(consumer, "checkout", "-q", "-b", "wiki/synthetic-upgrade")
+    fixture: dict[str, Path | str] = {
+        "kit": inputs_root / "public-kit",
+        "consumer": consumer,
+        "consumer_b0": consumer_b0,
+        "package": inputs_root / "upgrade-package.yaml",
+        "capsule": certified_root / "release-capsule.json",
+        "registry": inputs_root / "impact-registry.yaml",
+        "authority": certified_root / "release-authority.json",
+        "trusted_attestation_sha256": trust,
+        "plan": consumer / ".wiki-viva/upgrade/plan.json",
+    }
+    preplan = _create_plan(fixture)
+    assert preplan["identity"]["source_sha"] == manifest["source_sha"]
+    assert preplan["capsule_sha256"] == manifest["capsule_sha256"]
+    assert preplan["identity"]["package_sha256"] == manifest["package_sha256"]
+    assert preplan["identity"]["portable_tree_sha256"] == manifest[
+        "portable_tree_sha256"
+    ]
+    assert preplan["identity"]["command_registry_sha256"] == manifest[
+        "command_registry_sha256"
+    ]
+    assert preplan["identity"]["toolchain_sha256"] == manifest[
+        "toolchain_sha256"
+    ]
+    assert preplan["impact_registry_sha256"] == manifest["impact_registry_sha256"]
+    assert preplan["identity"]["consumer_B0"] == consumer_b0
+    assert preplan["acceptance_budget"]["status"] == "pending"
+
+    fast = _run(fixture, *_adopt_args(fixture, pause_before_canary=True))
+    assert fast.returncode == 0, fast.stdout + fast.stderr
+    assert '"status": "paused_before_canary"' in fast.stdout
+    execution_paths = sorted(
+        Path(fixture["plan"]).parent.glob("execution-plan-*.json")
+    )
+    assert len(execution_paths) == 1
+    execution = json.loads(execution_paths[0].read_text(encoding="utf-8"))
+    run_key = execution["plan_sha256"][:16]
+    run_dir = consumer / ".wiki-viva/upgrade/runs" / run_key
+    state_path = run_dir / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert state["status"] == "paused_before_canary"
+    assert state["capsule_sha256"] == manifest["capsule_sha256"]
+    assert state["impact_registry_sha256"] == manifest["impact_registry_sha256"]
+    assert state["acceptance_budget"] == execution["acceptance_budget"]
+    assert state["acceptance_budget"]["status"] == "pending"
+    assert not (run_dir / "adoption-receipt.json").exists()
+
+    destination = Path(destination_value).resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists():
+        shutil.rmtree(destination)
+    shutil.copytree(inputs_root, destination, symlinks=True)
+    shutil.copytree(certified_root, destination, symlinks=True, dirs_exist_ok=True)
+    shutil.copytree(consumer, destination / "consumer", symlinks=True)
+    (destination / "trusted-attestation-sha256").write_text(
+        trust + "\n", encoding="ascii"
+    )
+    handoff = {
+        "schema_version": "wiki_viva_upgrade_ci_handoff.v3",
+        "preplan_sha256": preplan["plan_sha256"],
+        "execution_plan_sha256": execution["plan_sha256"],
+        "run_key": run_key,
+        "state_sha256": hashlib.sha256(state_path.read_bytes()).hexdigest(),
+        "source_sha": manifest["source_sha"],
+        "capsule_sha256": manifest["capsule_sha256"],
+        "package_sha256": manifest["package_sha256"],
+        "portable_tree_sha256": manifest["portable_tree_sha256"],
+        "consumer_B0": execution["identity"]["consumer_B0"],
+        "consumer_C3": execution["identity"]["consumer_C3"],
+        "command_registry_sha256": manifest["command_registry_sha256"],
+        "toolchain_sha256": manifest["toolchain_sha256"],
+        "impact_registry_sha256": manifest["impact_registry_sha256"],
+        "certification_receipt_sha256": manifest[
+            "certification_receipt_sha256"
+        ],
+        "certification_receipt_digest": manifest[
+            "certification_receipt_digest"
+        ],
+        "trusted_attestation_sha256": manifest["trusted_attestation_sha256"],
+        "acceptance_budget": state["acceptance_budget"],
+        "acceptance_budget_sha256": canonical_sha256(state["acceptance_budget"]),
+    }
+    (destination / "handoff.json").write_text(
+        json.dumps(handoff, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+def test_two_lane_workflow_reuses_lane_a_bundle_and_propagates_v2_budget() -> None:
+    import inspect
+
+    workflow_path = ROOT / ".github/workflows/wiki-upgrade-lanes.yml"
+    workflow = workflow_path.read_text(encoding="utf-8")
+    parsed = yaml.safe_load(workflow)
+
+    fast = parsed["jobs"]["fast-adoption"]
+    canary = parsed["jobs"]["canary"]
+    background = parsed["jobs"]["background-certification"]
+    upstream = parsed["jobs"]["upstream-certification"]
+    fast_script = "\n".join(
+        str(step.get("run", "")) for step in fast["steps"]
+    )
+    canary_script = "\n".join(
+        str(step.get("run", "")) for step in canary["steps"]
+    )
+    background_script = "\n".join(
+        str(step.get("run", "")) for step in background["steps"]
+    )
+
+    assert "wiki-upgrade-lane-a-${{ runner.os }}-${{ github.run_id }}" in workflow
+    assert "lane-a-release.tgz" in workflow
+    assert upstream["outputs"]["trusted_attestation_sha256"] == (
+        "${{ steps.lane_a_trust.outputs.trusted_attestation_sha256 }}"
+    )
+    assert "TRUSTED_LANE_A_ATTESTATION_SHA256" in workflow
+    assert "needs['upstream-certification'].outputs.trusted_attestation_sha256" in workflow
+    assert "trusted_out_of_band" in fast_script
+    assert (
+        "manifest['trusted_attestation_sha256'] == trusted_out_of_band"
+        in fast_script
+    )
+    assert "WIKI_UPGRADE_CI_LANE_A" in workflow
+    assert "wiki_upgrade.py certify" not in fast_script
+    assert "seal_release_capsule" not in fast_script
+    assert "seal_release_capsule" not in canary_script
+    assert "seal_release_capsule" not in background_script
+    lane_b_test_source = inspect.getsource(
+        test_ci_fast_adoption_consumes_exact_upstream_lane_a_bundle
+    )
+    assert "seal_release_capsule" not in lane_b_test_source
+    assert "synthetic_upgrade" not in lane_b_test_source
+    assert "test_ci_fast_adoption_consumes_exact_upstream_lane_a_bundle" in fast_script
+    assert "test_ci_fast_adoption_handoff_is_resumable_runner_state" not in fast_script
+    assert "wiki_viva_upgrade_ci_handoff.v3" in canary_script
+    assert "wiki_viva_upgrade_ci_handoff.v3" in background_script
+    assert "execution-plan-*.json" in canary_script
+    assert "execution-plan-*.json" in background_script
+    assert '--plan "$PLAN"' in canary_script
+    assert '--plan "$PLAN"' in background_script
+    for key in (
+        "source_sha",
+        "capsule_sha256",
+        "package_sha256",
+        "portable_tree_sha256",
+        "consumer_B0",
+        "consumer_C3",
+        "command_registry_sha256",
+        "toolchain_sha256",
+        "impact_registry_sha256",
+        "certification_receipt_sha256",
+        "certification_receipt_digest",
+        "trusted_attestation_sha256",
+        "canary_completion_anchor_sha256",
+    ):
+        assert key in canary_script
+        assert key in background_script
+    assert "acceptance_budget_sha256" in canary_script
+    assert "acceptance_budget_sha256" in background_script
+    assert "budget['status'] == 'met'" in background_script
+    assert "receipt['status'] == 'passed'" in background_script

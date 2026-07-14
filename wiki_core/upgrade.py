@@ -427,6 +427,19 @@ def _validate_two_lane_package(
         errors.append("migration.required_gates must be unique")
     expected = set(gate_ids)
 
+    acceptance_budget = migration.get("acceptance_budget")
+    expected_budget = {
+        "schema_version": "wiki_viva_upgrade_acceptance_budget_policy.v1",
+        "scope": "plan_to_real_canary",
+        "limit_seconds": 1200,
+        "enforcement": "promotion_blocking",
+    }
+    if acceptance_budget != expected_budget:
+        errors.append(
+            "migration.acceptance_budget must enforce plan-to-real-canary "
+            "promotion blocking at exactly 1200 seconds"
+        )
+
     command_registry_value = migration.get("command_registry")
     command_registry = (
         command_registry_value if isinstance(command_registry_value, Mapping) else {}
@@ -943,6 +956,14 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
             errors.append(
                 f"migration.generated_artifact_patterns[{index}] is unsafe"
             )
+    if schema_version == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION:
+        errors.extend(
+            _effective_c1_c2_disjoint_errors(
+                allow=allow,
+                block=block,
+                generated_patterns=generated_patterns,
+            )
+        )
     migration_gates = _require_list(
         migration.get("required_gates"), "migration.required_gates", errors
     )
@@ -1104,6 +1125,101 @@ def _matches(path: str, pattern: str) -> bool:
     return normalized == candidate or fnmatch.fnmatchcase(normalized, candidate)
 
 
+def _segment_pattern_contains(container: str, contained: str) -> bool:
+    """Conservatively prove containment for one repository path segment.
+
+    This deliberately returns ``False`` for relationships it cannot prove.
+    Equality, a full-segment wildcard and literal members of a glob are enough
+    for the bounded subtree contracts used by upgrade packages.
+    """
+
+    if container == contained or container in {"*", "**"}:
+        return True
+    if not re.search(r"[*?[]", contained):
+        return fnmatch.fnmatchcase(contained, container)
+    return False
+
+
+def _repo_pattern_contains(container: str, contained: str) -> bool:
+    """Conservatively prove that one package glob contains another.
+
+    A trailing ``/**`` owns its directory and every descendant.  For other
+    patterns, both sides must have the same segment arity and each contained
+    segment must be provably inside the corresponding container segment.  The
+    fail-closed result is intentional: uncertain glob-language relationships
+    cannot authorize boundary reuse.
+    """
+
+    if container == contained:
+        return True
+    container_parts = container.split("/")
+    contained_parts = contained.split("/")
+    container_tree = len(container_parts) > 1 and container_parts[-1] == "**"
+    contained_tree = len(contained_parts) > 1 and contained_parts[-1] == "**"
+    container_prefix = container_parts[:-1] if container_tree else container_parts
+    contained_prefix = contained_parts[:-1] if contained_tree else contained_parts
+    if container_tree:
+        if len(contained_prefix) < len(container_prefix):
+            return False
+        return all(
+            _segment_pattern_contains(owner, candidate)
+            for owner, candidate in zip(container_prefix, contained_prefix)
+        )
+    if contained_tree or len(container_prefix) != len(contained_prefix):
+        return False
+    return all(
+        _segment_pattern_contains(owner, candidate)
+        for owner, candidate in zip(container_prefix, contained_prefix)
+    )
+
+
+def _effective_c1_c2_disjoint_errors(
+    *,
+    allow: Sequence[Any],
+    block: Sequence[Any],
+    generated_patterns: Sequence[Any],
+) -> list[str]:
+    """Require an explicit, provable block for every C2 ownership glob.
+
+    C1 is ``allow - block``.  Requiring each complete C2 language to be
+    contained by a block rule proves that no generated path can enter the
+    effective byte-equal C1 projection, including when a broad allow rule also
+    contains it.  Invalid patterns are reported by the caller and cannot be
+    used as proof here.
+    """
+
+    safe_allow = [str(value) for value in allow if isinstance(value, str)]
+    safe_block = [str(value) for value in block if isinstance(value, str)]
+    errors: list[str] = []
+    for index, raw_pattern in enumerate(generated_patterns):
+        if not isinstance(raw_pattern, str) or not _safe_repo_pattern(raw_pattern):
+            continue
+        # Evaluate allow containment as part of the effective-C1 proof.  The
+        # result does not weaken the explicit-block requirement: C2 ownership
+        # must remain visible and reviewable even if today's allowlist narrows.
+        allowed_by_c1 = any(
+            _repo_pattern_contains(pattern, raw_pattern)
+            for pattern in safe_allow
+        )
+        block_proves_disjoint = any(
+            _repo_pattern_contains(pattern, raw_pattern)
+            for pattern in safe_block
+        )
+        effective_c1_overlap = allowed_by_c1 and not block_proves_disjoint
+        error = (
+            "migration.generated_artifact_patterns"
+            f"[{index}] is not fully excluded from effective C1 by "
+            "portable_import.block"
+        )
+        if effective_c1_overlap:
+            errors.append(error)
+        elif not block_proves_disjoint:
+            # An explicit C2 reservation is still required outside today's
+            # allowlist so a later C1 expansion cannot silently claim it.
+            errors.append(error)
+    return errors
+
+
 def _canonical_portable_path(path: str) -> tuple[str | None, str]:
     """Require one canonical repository-relative POSIX path.
 
@@ -1160,6 +1276,50 @@ def portable_path_status(path: str, package: dict[str, Any]) -> tuple[bool, str]
         if _matches(normalized, str(pattern)):
             return True, f"allowed by {pattern}"
     return False, "not in portable allowlist"
+
+
+def _generated_artifact_path_status(
+    path: str, package: dict[str, Any]
+) -> tuple[bool, str]:
+    """Return whether ``path`` belongs exclusively to the package C2 surface."""
+
+    normalized, error = _canonical_portable_path(path)
+    if normalized is None:
+        return False, error
+    if _portable_path_has_sensitive_name(normalized):
+        return False, "blocked by global sensitive-name policy"
+    if normalized in _CONSUMER_OWNED_PORTABLE_PATHS:
+        return False, "blocked by global consumer-owned manifest policy"
+    if not (
+        normalized in _PORTABLE_ROOT_FILES
+        or normalized.startswith(_PORTABLE_ROOT_PREFIXES)
+        or normalized.startswith(".skills/wiki-")
+    ):
+        return False, "blocked by global portable-surface policy"
+    migration = package.get("migration") or {}
+    patterns = migration.get("generated_artifact_patterns") or []
+    if not any(_matches(normalized, str(pattern)) for pattern in patterns):
+        return False, "not in generated artifact ownership"
+    if (
+        package.get("schema_version") == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION
+        and portable_path_status(normalized, package)[0]
+    ):
+        return False, "generated artifact overlaps effective C1"
+    return True, "owned by generated artifact C2"
+
+
+def _migration_subject_path_status(
+    path: str, package: dict[str, Any]
+) -> tuple[bool, str]:
+    """Select the complete migration subject while keeping C1 and C2 disjoint."""
+
+    portable = portable_path_status(path, package)
+    if portable[0]:
+        return portable
+    generated = _generated_artifact_path_status(path, package)
+    if generated[0]:
+        return generated
+    return portable
 
 
 def _iter_files(root: Path) -> Iterable[str]:
@@ -1239,7 +1399,7 @@ def compare_portable_files(
         return {
             rel
             for rel in _iter_files(root)
-            if portable_path_status(rel, package)[0]
+            if _migration_subject_path_status(rel, package)[0]
         }
 
     source_blobs: dict[str, str] = {}
@@ -1252,7 +1412,7 @@ def compare_portable_files(
         kit_files = {
             rel
             for rel in source_blobs
-            if portable_path_status(rel, package)[0]
+            if _migration_subject_path_status(rel, package)[0]
         }
     else:
         kit_files = selected(kit_root)
@@ -1469,12 +1629,12 @@ def _portable_git_tree_comparison(
     source = {
         path: oid
         for path, oid in source_all.items()
-        if portable_path_status(path, package)[0]
+        if _migration_subject_path_status(path, package)[0]
     }
     consumer = {
         path: oid
         for path, oid in consumer_all.items()
-        if portable_path_status(path, package)[0]
+        if _migration_subject_path_status(path, package)[0]
     }
     shared = set(source) & set(consumer)
     source_payloads = _git_blob_payloads(
@@ -3040,12 +3200,10 @@ def validate_migration_evidence(
             errors.append(f"files_imported[{index}] contains a non-portable path")
     for index, rel in enumerate(generated):
         rel = str(rel)
-        allowed, _reason = portable_path_status(rel, package)
+        allowed, _reason = _generated_artifact_path_status(rel, package)
         if not allowed:
-            errors.append(f"generated_artifacts[{index}] contains a non-portable path")
-        elif not any(_matches(rel, pattern) for pattern in generated_patterns):
             errors.append(
-                f"generated_artifacts[{index}] does not match a package-generated pattern"
+                f"generated_artifacts[{index}] contains a non-generated C2 path"
             )
 
     screenshot_refs = {

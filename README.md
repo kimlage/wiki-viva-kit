@@ -208,14 +208,35 @@ with its package, portable-tree, command-registry and toolchain digests. Lane B
 freezes a consumer baseline, verifies a byte-equal C1 import, regenerates C2,
 applies consumer-owned C3 adapters, selects gates from a versioned path/contract
 impact registry and reaches a reversible real canary before the PR/human gate.
+Portable `.skills/wiki-*/**` remain byte-equal C1, while downstream `AGENTS.md`
+and non-`wiki-*` repo-local skills are explicit consumer-owned C3 routing.
+Consumer base and `.local` page-type/template registries are also C3 merge
+surfaces, and B0->C1->C2->C3 must be three direct single-parent edges with no
+intermediate or merge commit.
+The runner identity includes a byte/mode digest of its Python and schema
+closure, and the toolchain probe must run through the same interpreter that is
+executing the runner. `plan` creates one first-write acceptance-clock anchor per
+exact attempt; `adopt` requires the SHA-256 captured out of band from that plan
+and never recreates a missing anchor. The real canary creates a second
+first-write completion anchor over its canonical result projection; every
+post-canary resume requires that separately captured digest. Receipt and state
+also bind B0/C1/C2/C3, whose three direct edges, changed paths, modes and blobs
+are recomputed from Git; symlinks, submodules and special entries are rejected.
+Public evidence is scanned literally and through bounded repeated
+percent-decoding so encoded private routes or host paths cannot escape.
 
-An adoption receipt can be reused only when all seven fields match exactly:
+The seven fields below are the exact identity required to validate a Lane B
+receipt or resume an unfinished run:
 `source_sha`, `package_sha256`, `portable_tree_sha256`, `consumer_B0`,
 `consumer_C3`, `command_registry_sha256` and `toolchain_sha256`. Secret/private
 audit, public-evidence redaction, input stage, semantic inventory, adapter
 identity, snapshot contract, real canary, diff and rollback/report verification
-always rerun. Unknown path or contract impact selects the full matrix and Lane
-A; it never guesses a fast path.
+always rerun in a new attempt. A completed adoption receipt is immutable
+historical evidence for its original PR/human gate, never authorization to
+replay promotion or call `--resume` again. Unknown path or contract impact
+selects the full matrix and Lane A; it never guesses a fast path. Selection is
+canonical: package-required promotion gates and their dependencies cannot be
+removed by caller-supplied input.
 
 The normative contract, schemas, impact registry, resumable-runner behavior and
 transition rule are in the

@@ -33,13 +33,35 @@ another) via skills — there is no embedded LLM client.
   [two-lane migration strategy](docs/references/guides/downstream-migration-two-lane-strategy.md):
   certify an immutable portable subject once, then prove only the exact
   consumer delta, current privacy/semantic invariants and a reversible canary.
-  Reusing proof requires exact equality of `source_sha`, `package_sha256`,
-  `portable_tree_sha256`, `consumer_B0`, `consumer_C3`,
-  `command_registry_sha256` and `toolchain_sha256`; uncertainty escalates to
-  the full lane. Until a package and runner implement gate classes, every gate
+  Validating a receipt or resuming an unfinished run requires exact equality of
+  `source_sha`, `package_sha256`, `portable_tree_sha256`, `consumer_B0`,
+  `consumer_C3`, `command_registry_sha256` and `toolchain_sha256`; a completed
+  receipt is historical PR evidence and cannot be resumed or promoted twice.
+  The toolchain binds the actual runner interpreter (not an unrelated
+  `python3` binary), its resolved Python dependencies and the Chromium engine
+  actually launched by Playwright; uncertainty escalates to the full lane.
+  Until a package and runner implement gate classes, every gate
   declared in `migration.required_gates` remains blocking. A migration already
   started under the v2 contract keeps that complete gate set even after v3
-  exists; never rewrite historical evidence into a reduced run.
+  exists; never rewrite historical evidence into a reduced run. Toolkit-owned
+  [wiki skill packages](.skills/README.md) stay byte-equal in C1; downstream
+  [AGENTS.md](AGENTS.md) and non-`wiki-*` repo-local skills are C3 consumer
+  routing and invalidate every C3-bound receipt when changed. New v3 runs must
+  also own consumer base/`.local` page-type and template registries in C3 and
+  keep B0->C1->C2->C3 as three direct single-parent edges with no intermediate
+  or merge commit. The receipt and resumable state bind all four subjects, and
+  verification recomputes each edge, changed path, mode and blob from Git.
+  Gate selection is recomputed from the sealed registry and package; a caller
+  cannot omit a package-required background promotion gate. New runs must
+  execute the byte-equal runner closure certified in the capsule and preserve
+  the first-write plan-clock SHA-256 outside the consumer evidence directory;
+  `adopt` may verify that anchor but never regenerate it. After the real canary,
+  preserve the separately emitted first-write canary-completion SHA-256 outside
+  the evidence directory and pass it to every post-canary resume; a result
+  ledger cannot mint or rewrite its own completion authority.
+  Public evidence redaction checks mapping keys, values, canary routes and gate
+  output both literally and through bounded repeated percent-decoding; an
+  encoding that remains nested at the bound fails closed.
 - Before opening a PR, run the local gates (see below) and review the conceptual diff.
 
 ## Privacy (two axes)

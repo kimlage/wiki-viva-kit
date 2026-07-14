@@ -4,7 +4,7 @@ page_id: guide-wiki-viva-v8-downstream-upgrade
 page_type: reference_guide
 context: system
 visibility: public_candidate
-updated_at: 2026-07-13
+updated_at: 2026-07-14
 stale_after_days: 90
 sources_policy: release_runbook
 gate: github_pr
@@ -51,15 +51,17 @@ flowchart LR
 | `impact-registry.yaml` | Versioned path + contract → surface → transitive gate selection. Unknown impact selects the full matrix and Lane A. | Public kit checkout; its canonical SHA is pinned by package v3. |
 | `wiki-upgrade-release-capsule-v1.schema.json` | Immutable Lane A capsule binding source, package, portable tree, command registry, toolchain, executed gate receipts and visual manifest. | Public certification output only; a locally invented capsule has no authority. |
 | `consumer-inventory.yaml` | Public-safe wave/status inventory. | Private paths, remotes, SHAs and drift filenames stay redacted. |
-| `gate-evidence.example.json` | Exact current-gate receipts consumed by preflight. | Store the filled copy in the consumer branch or local evidence directory. |
+| `gate-evidence.example.json` | Exact current-gate receipts consumed by the legacy v2 preflight. | Store a filled private copy only under a git-ignored, untracked consumer evidence root; never commit it to the branch. |
 | `migration-evidence.example.yaml` | Required post-import evidence. | Public export requires hashed/generic routes and no private content. |
 | `docs/references/schemas/wiki-migration-evidence-v2.schema.json` | Deep input contract for commit, screenshot and rollback evidence. Portable: every faithful public import carries it next to `wiki_core/upgrade.py`. | Public kit checkout and every consumer; filled private evidence stays downstream. |
 | `migration-report.schema.json` | Stable output contract for CI/PR tooling. | Public kit checkout. |
 
-Inspection, inventory, preflight and `wiki_upgrade.py plan` are read-only unless
-an explicit report/output path is supplied. `wiki_upgrade.py adopt` is the
-deliberate mutation boundary: after plan review it creates and verifies the
-atomic C1/C2/C3 commits, runs the selected gates and writes ignored evidence.
+Inspection, inventory, preflight and `wiki_upgrade.py plan` are read-only with
+respect to the consumer Git/tracked subject. `plan` writes only its sealed plan,
+first-write clock anchor and preflight evidence under an ignored output boundary.
+`wiki_upgrade.py adopt` is the deliberate Git mutation boundary: after plan
+review it creates and verifies the atomic C1/C2/C3 commits, runs the selected
+gates and writes ignored evidence.
 
 The current validation boundary is declared by `upgrade-package.yaml`. Package
 schema v3 keeps the validator-v5 migration-evidence boundary and adds
@@ -71,7 +73,8 @@ releasable downstream migration.
 ### Receipt identity and transition rule
 
 Lane A certifies the immutable public subject. Lane B binds that capsule to the
-consumer. An adoption receipt is reusable only when these seven terms match:
+consumer. These seven terms must match before an unfinished run may resume or a
+receipt may be validated:
 
 ```text
 source_sha + package_sha256 + portable_tree_sha256 + consumer_B0 + consumer_C3
@@ -81,13 +84,75 @@ source_sha + package_sha256 + portable_tree_sha256 + consumer_B0 + consumer_C3
 The capsule supplies all terms except `consumer_B0` and `consumer_C3`; the
 adoption receipt supplies all seven. A changed C3 makes every prior consumer
 gate, resume checkpoint, canary and report stale, while unchanged Lane A proof
-remains attached to its exact public subject.
+remains attached to its exact public subject. A completed adoption receipt is
+immutable historical evidence for its original PR/human gate, not replay
+authority: the runner refuses a completed-run `--resume`. Reexecution requires
+a new consumer subject and plan identity.
 
 Do not apply v3's smaller affected-gate selection retroactively. Any migration
 whose plan/preflight began under package schema v2 continues to execute every
 entry in its original `migration.required_gates` list. Those receipts remain
 valid only for their exact original subject. Finish and report that migration
 under v2; use v3 only for a new plan.
+
+The same transition rule applies to ownership discovered late. If consumer
+`AGENTS.md`, its router or another non-`wiki-*` local skill was not included in
+the sealed v2 C3, do not amend C3 or regenerate the v2 receipt. Promote or roll
+back that exact subject first. Then create a fresh v3 follow-up from the new B0:
+toolkit-owned `.skills/wiki-*/**` remain byte-equal C1, while consumer
+`AGENTS.md`, router and non-`wiki-*` local skills belong to C3. Concurrent
+domain content stays in its own later content PR.
+
+### Lane A -> Lane B handoff checklist
+
+A real handoff is an immutable release authority, not a branch name, mutable
+checkout or pasted green-test summary. Lane A supplies the canonical package,
+release capsule, portable subject/tree, sealed impact registry, command
+registry, toolchain identity, visual manifest, executed gate receipts and
+attestation. Both the raw archive SHA-256 and the attestation SHA-256 are
+delivered through separately reviewed channels. Verify the raw archive digest
+before extraction; only then execute the byte-equal runner restored from it.
+
+Before `plan`, the downstream operator must verify every supplied digest and
+capsule contract fail-closed, freeze `consumer_B0`, and retain a handoff receipt
+that binds the trusted authority, B0 and canonical plan digest. `plan` is
+accepted only when it prints the exact C1/C2/C3 delta, affected contracts,
+selected/omitted gates and invalidations without mutation. `adopt --resume`
+must use the same authority, attestation and plan; it may not fall back to the
+live kit checkout. Mismatch, unknown impact or missing authority stops before
+C1 and reports the owning lane, affected contract and next action. No private
+consumer path, route, payload or receipt is copied into the public capsule.
+
+### Current private v2 transition checkpoint
+
+As of 2026-07-14, the current authorized private technical PR remains an
+in-flight v2 migration. Its exact C1/C2/C3 ownership is 74/836/21 paths; all 22
+originally required gates, four real canary profiles, generated
+private/public-redacted reports and disposable-clone rollback passed. Its two
+deterministic hosted jobs pass, but the hosted visual matrix is still 100/102
+on the only completed standard Apple Silicon attempt. A later attempt was
+cancelled during browser installation, so the aggregate visual check is
+currently cancelled/non-green. A separate first-attempt Intel diagnostic
+closed 92/102 after software rendering and WebGL context failures. Consumer
+`main` is unchanged.
+
+Do not modify this C3 to add `AGENTS.md` or router work. Open that consumer
+policy update as a new v3 follow-up after the v2 promotion and preserve all v2
+receipts exactly. Keep concurrent domain content in a separate content PR. This
+checkpoint deliberately omits private repository, PR number, domain label,
+branch, SHA, path, route, payload and screenshot details.
+
+## Choose the migration contract before executing
+
+| Situation | Authoritative path | Evidence rule |
+| --- | --- | --- |
+| Migration already started under package schema v2 | Continue sections 2-9 of this legacy path, including the complete original `migration.required_gates` matrix, manual boundary review and v2 report compiler. | Keep all private gate/preflight/report inputs ignored and untracked; never reclassify or rewrite existing receipts. |
+| New migration under a certified package schema v3 | Use `wiki_upgrade.py plan`, review its conceptual diff, then run `wiki_upgrade.py adopt` and `--resume` only after interruption or a declared CI pause. | `plan` executes/binds read-only preflight; `adopt` owns C1/C2/C3, gates, canary, receipts, reports and rollback. No manual gate-evidence or report transcription completes v3. |
+
+The shared ownership, privacy and human-PR rules below apply to both contracts.
+Sections explicitly marked **v2 only** are retained so an in-flight migration
+can finish without changing its rules; a new v3 run must not execute that
+manual evidence path in parallel with the runner.
 
 ## 1. Pin the public source
 
@@ -103,7 +168,7 @@ The release owner changes the package only after the release commit exists:
 ## 2. Validate inventory and prepare the consumer branch
 
 ```sh
-/opt/anaconda3/bin/python scripts/wiki_upgrade_inventory.py --check
+python3 scripts/wiki_upgrade_inventory.py --check
 git -C /path/to/consumer status --short
 git -C /path/to/consumer switch -c wiki/upgrade-v8
 ```
@@ -113,17 +178,17 @@ operator capabilities, local templates/adapters, privacy risk, drift and wave.
 A private consumer can appear publicly by a stable generic ID; exact local path,
 remote, owner and consumer SHA belong only in its private preflight/report.
 
-## 3. Record current gates
+## 3. Record current gates — v2 only
 
 Run the consumer's current gates before importing anything. Copy
 `gate-evidence.example.json`, replace `consumer_head`, and record the exact
 commands and statuses. The standard v8 preflight set is:
 
 ```sh
-/opt/anaconda3/bin/python scripts/wiki_toolkit_drift.py --ref-path /path/to/wiki-viva-kit --check
-/opt/anaconda3/bin/python scripts/wiki_audit.py --check
-/opt/anaconda3/bin/python scripts/wiki_input_stage.py --check
-/opt/anaconda3/bin/python -m pytest tests/
+python3 scripts/wiki_toolkit_drift.py --ref-path /path/to/wiki-viva-kit --check
+python3 scripts/wiki_audit.py --check
+python3 scripts/wiki_input_stage.py --check
+python3 -m pytest tests/
 git diff --check
 ```
 
@@ -149,14 +214,14 @@ content references can be repaired in the third reviewable boundary without a
 fourth pre-import commit. Audit, input stage, pytest and diff remain pass-only;
 the final migration report still requires `semantic_inventory=pass`.
 
-## 4. Compile read-only preflight
+## 4. Compile read-only preflight — v2 only
 
 Run the preflight from the KIT checkout (its package, inventory and pinned
 `source_sha` are the authority), pointing `--kit-root` at that same checkout
 and `--consumer-root` at the downstream repository:
 
 ```sh
-/opt/anaconda3/bin/python scripts/wiki_upgrade_preflight.py \
+python3 scripts/wiki_upgrade_preflight.py \
   --kit-root /path/to/wiki-viva-kit \
   --consumer-root /path/to/consumer \
   --consumer-id <inventory-id> \
@@ -171,7 +236,7 @@ that is git-ignored and untracked (the conventional location is
 `output/wiki-upgrade/preflight-report.json`):
 
 ```sh
-/opt/anaconda3/bin/python scripts/wiki_upgrade_preflight.py \
+python3 scripts/wiki_upgrade_preflight.py \
   --kit-root /path/to/wiki-viva-kit \
   --consumer-root /path/to/consumer \
   --consumer-id <inventory-id> \
@@ -219,9 +284,11 @@ This preflight is the pre-mutation decision artifact. A v3 runner must bind it
 to the later C1/C2/C3 plan; a post-C3 inventory alone cannot claim that the
 conceptual diff was reviewed before the import.
 
-## 5. Import only portable files
+## 5. Import only portable files — manual v2 path
 
-The blocklist wins over the allowlist. In particular, the default import never
+The blocklist wins over the allowlist. Toolkit-owned `.skills/wiki-*/**` are
+portable C1 bytes, while `AGENTS.md` and all other repo-local skills are
+consumer-owned C3 routing policy. In particular, the default import never
 includes memory roots, `wiki.config.yaml`, targets, local templates, raw/cache
 data, private snapshots, `.env` files, credentials, downstream evidence or the
 consumer-owned `apps/wiki-cockpit/public/wiki-cockpit.config.json` runtime
@@ -236,8 +303,14 @@ Use a reviewed file-transfer/diff workflow and stage only paths accepted by
 1. `import: faithful Wiki Viva v8 public kit at <SHA>` — portable files only;
 2. `build: regenerate v8 snapshot/demo artifacts` — only reproducible artifacts;
 3. `adapt: preserve downstream layout/templates/operator policy` — local
-   configuration, adapters and the consumer-owned release record, with conflict
-   warnings recorded.
+   configuration, adapters, `AGENTS.md`, non-`wiki-*` repo-local skills and the
+   consumer-owned release record, with conflict warnings recorded.
+
+For v3, do not stage or commit these boundaries manually. Review the same
+ownership in `plan`; after approval, `adopt` materializes and verifies the
+three direct single-parent atomic commits from package bytes, registered
+generators and declared C3 adapter commands. An intermediate or merge commit
+between B0/C1/C2/C3 is a hard failure even when the net file diff looks valid.
 
 The release record is authored only in the third commit and only below the
 configured `<references_root>/releases/**` subtree, for example
@@ -255,8 +328,10 @@ and fix/test it in `wiki-viva-kit` before importing the corrected public SHA.
 ## 6. Apply local adapters without weakening invariants
 
 Allowed local specialization includes display labels, i18n, enabled block
-stacks, local template/page-type extensions, source-adapter references, density
-policies inside public budgets and localhost operator capability configuration.
+stacks, reviewed merges into consumer base and `.local` template/page-type
+registries, source-adapter references, density policies inside public budgets
+and localhost operator capability configuration. In v3 those registry merges
+must be declared C3 adapter commands; they are blocked from byte-equal C1.
 
 Compile those consumer-owned files into the tracked adapter identity, commit
 the manifest/config/adapters together, and verify the clean subject before the
@@ -282,11 +357,12 @@ on a real route, relax operator security or cross the public/private boundary.
 
 After the read-only preflight, and before C1 exists, a package with a certified
 Lane A capsule and sealed impact registry compiles one sealed, reviewable plan.
-`plan` never mutates the consumer. After explicit review, `adopt` owns the
-atomic C1/C2/C3 commits and refuses any byte or ownership drift:
+`plan` never mutates the consumer Git/tracked subject; it writes only sealed,
+ignored planning evidence. After explicit review, `adopt` owns the atomic
+C1/C2/C3 commits and refuses any byte or ownership drift:
 
 ```sh
-python3 scripts/wiki_upgrade.py certify \
+python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py certify \
   --package /path/to/upgrade-package.yaml \
   --impact-registry /path/to/impact-registry.yaml \
   --source-root /path/to/clean-public-subject \
@@ -295,20 +371,20 @@ python3 scripts/wiki_upgrade.py certify \
   --out-dir /path/to/new-immutable-release-authority \
   --attestation-authority-id <reviewed-authority-id>
 
-python3 scripts/wiki_upgrade.py plan \
-  --package /path/to/upgrade-package.yaml \
-  --capsule /path/to/release-capsule.json \
-  --impact-registry /path/to/impact-registry.yaml \
-  --authority /path/to/release-authority \
+python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py plan \
+  --package /path/to/restored-release-authority/upgrade-package.yaml \
+  --capsule /path/to/restored-release-authority/release-capsule.json \
+  --impact-registry /path/to/restored-release-authority/impact-registry.yaml \
+  --authority /path/to/restored-release-authority/release-authority.json \
   --trusted-attestation-sha256 <out-of-band-sha256> \
-  --kit-root /path/to/wiki-viva-kit \
+  --kit-root /path/to/restored-release-authority/public-kit \
   --consumer-root /path/to/consumer \
   --consumer-b0 <B0> \
   --preflight-command 'audit::python3 scripts/wiki_audit.py --check' \
   --c2-generator-command 'demo_snapshot::python3 scripts/wiki_build_demo.py' \
   --c2-generator-command 'visual_baselines::npm --prefix apps/wiki-cockpit run test:visual:update' \
   --c3-adapter-command 'consumer-adapter::/path/to/reviewed-consumer-adapter.sh' \
-  --out .wiki-viva/upgrade/plan.json
+  --out /path/to/consumer/.wiki-viva/upgrade/plan.json
 ```
 
 Review the proposed C1/C2/C3 ownership, changed paths/contracts, selected and
@@ -326,28 +402,70 @@ the runner accepts no undeclared C3 mutation.
 The resumable v3 path executes the reviewed plan and generates its evidence:
 
 ```sh
-python3 scripts/wiki_upgrade.py adopt \
-  --plan .wiki-viva/upgrade/plan.json \
-  --package /path/to/upgrade-package.yaml \
-  --capsule /path/to/release-capsule.json \
-  --impact-registry /path/to/impact-registry.yaml \
-  --authority /path/to/release-authority \
+python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py adopt \
+  --plan /path/to/consumer/.wiki-viva/upgrade/plan.json \
+  --package /path/to/restored-release-authority/upgrade-package.yaml \
+  --capsule /path/to/restored-release-authority/release-capsule.json \
+  --impact-registry /path/to/restored-release-authority/impact-registry.yaml \
+  --authority /path/to/restored-release-authority/release-authority.json \
   --trusted-attestation-sha256 <out-of-band-sha256> \
-  --kit-root /path/to/wiki-viva-kit \
+  --trusted-acceptance-anchor-sha256 <sha256-emitted-by-plan> \
+  --kit-root /path/to/restored-release-authority/public-kit \
   --consumer-root /path/to/consumer \
-  --mode canary \
-  --resume
+  --mode canary
 ```
+
+Capture `acceptance_anchor_sha256` from the successful `plan` summary and keep
+it outside `.wiki-viva/`. The anchor is first-write for the exact attempt, so a
+second identical plan keeps the original start time. `adopt` and every resume
+must receive that captured value; they reject a missing, replaced or
+coherently rewritten anchor before C1 and never derive trust from the restored
+file itself. In CI the digest is a job output bound into the externally hashed
+handoff archive.
+
+The canary invocation emits `canary_completion_anchor_sha256` after the exact
+selected real-canary projection completes. Keep that digest outside
+`.wiki-viva/` as a second first-write authority. Any subsequent invocation adds
+`--trusted-canary-completion-anchor-sha256 <captured-sha256>`; a post-canary
+resume rejects a missing, replaced or coherently resealed completion anchor.
 
 For split CI, the canary job adds `--pause-before-background`. The background
 job depends on canary, downloads that exact same consumer/run handoff and runs
-the same command with `--resume`; it must never start from a fresh public-only
-checkout or manufacture a second consumer identity.
+the same command with `--resume` plus the externally captured canary-completion
+digest; it must never start from a fresh public-only checkout or manufacture a
+second consumer identity.
+
+Use `--resume` only after the first adoption invocation was interrupted or
+stopped at `--pause-before-canary`/`--pause-before-background`. A completed run
+fails `completed_run_not_resumable`; use its generated report in the original
+PR/human gate rather than invoking the runner again.
 
 `--resume` is not a bypass. The checkpoint must match both the canonical plan
 digest and the complete seven-term receipt identity. Before reusing one result,
-the runner rechecks C3, the command digest, toolchain and output digest. A stale
+the runner rechecks both external anchors, the complete B0/C1/C2/C3 direct Git
+chain, the canonical package/impact-selected gate set, the command digest,
+byte-equal runner/toolchain closure and output digest. The toolchain probe uses
+the same Python interpreter that is executing the runner. A stale
 result is invalidated and rerun; a stale or modified plan is rejected.
+Each boundary projection binds regular-file mode plus blob digest; symlinks,
+submodules and special entries fail closed. Public keys, values, canary routes
+and gate output are checked literally and after bounded repeated
+percent-decoding.
+
+Every v3 Lane B plan has a contractual plan-to-real-canary wall-clock budget of
+**<= 20 minutes**; `ordinary_no_core_change` is the required public conformance
+case, not a switch that weakens other plans. Timing starts when the read-only
+`plan` command starts and stops when the selected current-C3 real-canary gates
+complete. The clock survives `--resume` and cross-job handoffs, so queue or
+wait time after `plan` counts. C1/C2/C3, `consumer_always`, `affected` and
+canary work are inside the clock. Work before `plan`, plus explicit
+`background_certification`, final report generation, rollback verification and
+the later human gate, are outside this metric but remain mandatory. A breach
+still completes those later proofs, then seals a blocked receipt with status
+`exceeded`, elapsed milliseconds, Lane B, the affected contract and the next
+action; it cannot be silently paused, reused or relabeled as a passing fast
+path. Existing v2 evidence is not retroactively benchmarked against this v3
+contract.
 
 ## 7. Run post-import gates and visual QA
 
@@ -428,19 +546,19 @@ Codex diagnostics and choose **Re-verify** / **Re-verificar**; the operator rung
 must recover without reload. Record the exact downstream preflight and 2/2
 browser receipt only after this readback passes.
 
-## 8. Compile the migration report
+## 8. Compile the migration report — v2 only
 
 Generate a fillable evidence document:
 
 ```sh
-/opt/anaconda3/bin/python scripts/wiki_upgrade_report.py --template \
+python3 scripts/wiki_upgrade_report.py --template \
   > /path/to/consumer/wiki-v8-migration-evidence.yaml
 ```
 
 Compile and validate it:
 
 ```sh
-/opt/anaconda3/bin/python scripts/wiki_upgrade_report.py \
+python3 scripts/wiki_upgrade_report.py \
   --evidence /path/to/consumer/wiki-v8-migration-evidence.yaml \
   --consumer-root /path/to/consumer \
   --kit-root /path/to/wiki-viva-kit \

@@ -1,5 +1,5 @@
 schema_version: wiki_viva_upgrade_impact_registry.v1
-registry_version: 1.0.0
+registry_version: 1.1.0
 
 unknown_policy:
   path: full_matrix_and_lane_a
@@ -164,6 +164,20 @@ surfaces:
     depends_on:
       - consumer_configuration
 
+  - id: consumer_agent_routing
+    lane: lane_b
+    path_patterns:
+      - .skills/*/**
+      - AGENTS.md
+    contracts:
+      - wiki_consumer_agent_routing.v1
+    gates:
+      - adapter_identity
+      - audit
+      - toolkit_drift
+    depends_on:
+      - consumer_configuration
+
   - id: consumer_ci_policy
     lane: lane_b
     path_patterns:
@@ -208,7 +222,9 @@ surfaces:
     lane: lane_b
     path_patterns:
       - wiki.page-types.local.yaml
+      - wiki.page-types.yaml
       - wiki.templates.local.yaml
+      - wiki.templates.yaml
     contracts:
       - wiki_consumer_page_types.v1
       - wiki_consumer_templates.v1
@@ -292,6 +308,8 @@ surfaces:
       - .skills/wiki-*/**
       - apps/wiki-cockpit/src/**
       - packs/**
+      - scripts/_common.py
+      - scripts/_git_subject.py
       - scripts/wiki_*.py
       - wiki_core/**
     contracts:
@@ -348,6 +366,7 @@ boundary_policy:
     - docs/references/templates/deploy/**
     - packs/**
     - scripts/README.md
+    - scripts/_common.py
     - scripts/_git_subject.py
     - scripts/wiki_*.py
     - wiki_core/**
@@ -357,7 +376,9 @@ boundary_policy:
     - docs/references/fixtures/demo-wiki/memories/**
   c3_consumer_patterns:
     - .github/workflows/**
+    - .skills/*/**
     - .toolkit-drift-ignore
+    - AGENTS.md
     - adapters/**
     - apps/wiki-cockpit/public/wiki-cockpit.config.json
     - docs/references/releases/**
@@ -367,12 +388,14 @@ boundary_policy:
     - wiki.config.yaml
     - wiki.packs.lock.yaml
     - wiki.page-types.local.yaml
+    - wiki.page-types.yaml
     - wiki.targets.yaml
     - wiki.templates.local.yaml
+    - wiki.templates.yaml
   domain_content_patterns:
     - data/raw/**
     - memorias/**
     - memories/**
     - private/**
 
-registry_sha256: d1fb5c9b626c9540f5fd90f7f228ecbdaf3524277b6a5a8f499e12b8c92e2282
+registry_sha256: ccd3f53eee8ccf3328a820dfe9e2a6c73f1056a9e54a0d88b3380d0224e70629

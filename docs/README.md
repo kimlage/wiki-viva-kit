@@ -44,6 +44,8 @@ starting point for persistent context is `memories/`.
   [downstream-migration-two-lane-strategy.md](references/guides/downstream-migration-two-lane-strategy.md)
   and the executable v8 mechanics in
   [wiki-viva-v8-downstream-upgrade.md](references/guides/wiki-viva-v8-downstream-upgrade.md).
+  That contract keeps toolkit `wiki-*` skills byte-equal in C1 and treats each
+  consumer's `AGENTS.md` plus non-`wiki-*` repo-local skills as C3 routing.
 - `docs/references/upgrades/wiki-viva-v8/`: the package plus its sealed,
   versioned path/contract/gate
   [impact registry](references/upgrades/wiki-viva-v8/impact-registry.yaml).
@@ -52,6 +54,11 @@ starting point for persistent context is `memories/`.
   `wiki-upgrade-impact-registry-v1.schema.json`: classified package,
   fail-closed Lane A capsule and impact-registry contracts. Consumer
   receipts/evidence remain ignored and untracked in each downstream repository.
+  New v3 plans keep a private first-write acceptance-clock anchor and a separate
+  first-write real-canary completion anchor; both SHA-256 values are carried out
+  of band through resumable CI handoffs. Receipt and state bind the full
+  B0/C1/C2/C3 Git chain, and the active runner interpreter is part of toolchain
+  authority.
 - `docs/references/templates/`: stable models for new records.
 - `docs/references/templates/wiki/`: models for the operational wiki, including
   root entities, input channels, processes, artifacts, ingestion proposal,

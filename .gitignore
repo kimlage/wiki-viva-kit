@@ -13,6 +13,7 @@ apps/wiki-cockpit/test-results/
 # Local agent/tool state.
 tmp/
 .playwright-cli/
+.wiki-viva-ci/
 
 # Generated local spreadsheet artifacts.
 outputs/

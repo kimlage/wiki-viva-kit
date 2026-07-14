@@ -142,6 +142,44 @@ runner; neither may be silently substituted into the current receipts.
 Concurrent domain content is intentionally excluded and must follow in a
 separate PR.
 
+The current v2 C3 and its receipts are now frozen. Private `AGENTS.md` and
+router improvements discovered during review are not grafted onto that subject:
+after the v2 migration reaches consumer `main`, they move through a fresh v3
+follow-up with a new B0/C1/C2/C3 chain. Toolkit-owned `.skills/wiki-*/**`
+remain byte-equal C1; consumer `AGENTS.md`, router and non-`wiki-*` local skills
+are C3. This prospective rule does not rewrite current evidence, and the
+concurrent domain-content slice remains a separate content PR.
+
+### Normative Lane A -> Lane B handoff and fast-path budget
+
+Lane A hands off one immutable release-authority bundle, not a branch name or
+a pasted green result. The bundle contains the canonical package, release
+capsule, portable subject/tree, impact registry, command registry, toolchain
+identity, visual manifest, executed upstream receipts and attestation. The raw
+archive digest and attestation digest are delivered through separately reviewed
+channels; Lane B verifies the raw archive before extraction and executes only
+the byte-equal runner restored from that verified bundle.
+
+Lane B must verify every digest fail-closed before mutation, freeze
+`consumer_B0`, compile the exact conceptual C1/C2/C3 delta and gate derivation,
+and bind the trusted authority plus plan digest in a handoff receipt. The
+handoff is accepted only when read-only `plan` explains selected and omitted
+gates, invalidations and unknown impact; `adopt --resume` must consume the same
+authority and plan. It may not fall back to a mutable checkout or locally
+invented capsule, and private consumer evidence never flows back into Lane A.
+
+For every future v3 Lane B adoption, reaching the selected real current-C3
+canary is a contractual **<= 20 minute** fast path;
+`ordinary_no_core_change` is the required public conformance case, not a policy
+selector. The continuous clock starts when read-only `plan` starts, survives
+`--resume` and cross-job waits, and stops when canary gates complete. C1/C2/C3
+and all selected pre-canary gates are included. Work before `plan`, plus background
+certification, final reports, rollback and the later human gate, are outside
+this metric but remain mandatory. A breach still completes those proofs and
+seals a non-reusable blocked receipt with status `exceeded`, elapsed
+milliseconds, lane, contract and next action. The in-flight v2 run retains its
+historical contract and is not retroactively timed or reduced as v3.
+
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
 the green CI result did not represent. The bullets below are the **historical
@@ -412,7 +450,7 @@ cells on its first attempt.
 
 | Gate | Historical S10 result | Exact evidence / qualification |
 | --- | --- | --- |
-| Python | **1,367 passed**, zero failures/skips, two known warnings, 8m44s | `/opt/anaconda3/bin/python -m pytest tests/`; historical S10 command window |
+| Python | **1,367 passed**, zero failures/skips, two known warnings, 8m44s | `python3 -m pytest tests/`; historical S10 toolchain identity is retained in its receipt rather than a host path |
 | Frontend | **64 files, 512/512 tests**, 3.65s Vitest | `npm test` |
 | Node gates | **107/107**, 18.90s | `npm run test:gates` |
 | Build | **pass**, 2,603 modules | Production Vite build; no build-only bypass |
@@ -586,7 +624,7 @@ memory rather than one fixed dashboard:
 | Historical public payload `S22` | Exact source `e01a4ed91e3e4c2f1746539418d3faebec775204`; package `wiki-viva-v8-rc19`; validation subject `2023ee714cfbdb9f48b22c7cd3d818fb9dc8d2b8` | 21/21 Node 22 gates: 1,428 Python, 516 frontend, 107 Node and 102/102 first-attempt browser cells; exact visual manifest bound | Keyboard contracts isolate the separately tested tour; the modal isolates every background sibling without hiding its seven anchors or stacking over another modal | Locally validated historical evidence; superseded as the current downstream source and never published/promoted |
 | Corrected local public source for the authorized v2 exception | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; package v2 canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc` | Public suite passed 1,529 tests, with two declared skips and two warnings; package validation and public privacy boundary pass | Atomic operator-job publication and the two-lane migration contracts are covered by public synthetic fixtures | Local source authority for the explicitly authorized in-flight v2 QA only; public publication remains unauthorized |
 | Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the exact S22/rc19 private adoption |
-| Current corrected v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; standard hosted Apple Silicon closed 100/102 and a separate standard Intel probe closed 92/102 with software rendering and WebKit context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback | Promotion blocked; consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the human gate approves |
+| Current corrected authorized private v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; two deterministic hosted jobs pass; the only completed standard Apple Silicon attempt closed 100/102, a later attempt was cancelled during browser installation and a separate standard Intel probe closed 92/102 with software rendering and WebGL context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback; private `AGENTS.md`/router work is deliberately deferred to a fresh post-v2 v3 follow-up | Promotion blocked and the aggregate visual check is cancelled/non-green; consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the human gate approves; current v2 C3/receipts remain immutable |
 | Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact S22 demo, pack, Genesis, accessibility, compatibility, failure and source-lifecycle cells pass in the 102-cell receipt | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Public proof closed; real private replay remains separate |
 | Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Six visual baselines, nineteen accepted manual cells and the exact S22 tour contract are manifest-bound; 102 cells cover PT-BR, keyboard, touch, mobile and fallback | No inspected overflow/error blocker; transition frames require settling and VoiceOver remains human | Automated/E3 boundary closed; human conceptual/privacy/VoiceOver gate remains before merge |
 
@@ -3274,14 +3312,27 @@ Decisions made by this review:
     explicitly authorized; private integration authority does not imply public
     push, PR, merge, tag or external attestation authority.
 26. Treat every hosted performance budget as a blocking promotion gate. A green
-    local 22/22 matrix, canary and rollback never override remote 100/102;
+    local 22/22 matrix, canary and rollback never override the completed remote
+    100/102 attempt or the current cancelled/non-green aggregate visual check;
     require the exact promotion subject to reach 102/102 before human merge.
 27. Reject both tested standard hosted macOS pools as release authority for the
     current unchanged visual matrix. Apple Silicon closed 100/102 on frame
-    budgets; Intel closed 92/102 with software SwiftShader and WebKit context
-    loss. Preserve both first attempts and require explicit authority before
+    budgets, a later attempt was cancelled during browser installation, and
+    Intel closed 92/102 with software SwiftShader and WebKit context loss.
+    Preserve the completed diagnostics and cancellation receipt; require
+    explicit authority before
     registering an isolated physical self-hosted runner or provisioning an
     eligible GPU-accelerated larger runner.
+28. Freeze the current private v2 technical PR C3 and receipts. Do not add private
+    `AGENTS.md` or router changes to that subject. After v2 reaches consumer
+    `main`, open a fresh v3 follow-up: toolkit-owned `.skills/wiki-*/**` remain
+    C1, consumer `AGENTS.md`/router/non-`wiki-*` skills are C3, and concurrent
+    domain content remains a separate PR.
+29. Make the Lane A -> Lane B handoff a machine-verifiable immutable authority,
+    independently attested and accepted by a read-only exact-delta plan. Make
+    the future v3 no-core-change path contractually reach current-C3 canary in
+    <= 20 minutes from the start of `plan`, with continuous cross-resume timing,
+    then complete generated reports and verified rollback before promotion.
 
 Open implementation decisions, to resolve in their owning PR:
 
@@ -3402,9 +3453,19 @@ downstream, human or still-open engineering work.
       cells, zero skip/retry/flaky result and stable before/after subject.
 - [x] Corrected v2 downstream proof passes 22/22 required gates and four real
       canary profiles; reports and disposable rollback pass.
-- [ ] Hosted consumer CI passes 102/102; current result is 100/102 with two
-      performance-budget failures.
+- [x] Current v2 C3 remains frozen at 21 paths; late private `AGENTS.md`/router
+      work is assigned to a fresh post-v2 v3 follow-up, not amended receipts.
+- [ ] Hosted consumer CI passes 102/102; the only completed Apple Silicon
+      result is 100/102 with two performance-budget failures and the current
+      aggregate visual check is cancelled/non-green after a later browser-install
+      cancellation.
 - [ ] Consumer `main` readback matches the promoted subject; `main` is unchanged.
+- [ ] A releasable Lane A authority is handed to Lane B as one immutable,
+      independently attested bundle and accepted by an exact read-only plan.
+- [ ] A synthetic v3 no-core-change adoption demonstrates the receipt-measured
+      <= 20-minute path from `plan` through real canary, then completes the
+      generated report and verified rollback, including budget-breach
+      diagnostics.
 - [ ] Broader promotion manifests and the external signed E5 attestation bind
       both subjects without treating `browser_closure` as full release proof.
 - [ ] Release note is generated from the receipt.
@@ -3471,8 +3532,14 @@ This is the only active queue; earlier S9/S10 queues are historical snapshots:
     runner or an eligible GPU-accelerated larger runner, prove the unchanged
     matrix there, or fix a reproduced public-core defect with synthetic
     fixtures. Then obtain the human merge gate and verify consumer `main`.
-    Replay the concurrent domain-content slice only afterwards as a separate
-    PR. Public push, PR, merge, tag and external E5 remain unauthorized.
+    Public push, PR, merge, tag and external E5 remain unauthorized;
+15. **PENDING AFTER V2 MAIN** — open one fresh v3 consumer-policy follow-up for
+    private `AGENTS.md` and router/non-`wiki-*` skill adaptation. Start from the
+    promoted v2 B0, preserve toolkit-owned `wiki-*` skills as byte-equal C1,
+    derive a new C3 and new receipts, and never amend or reissue the v2 proof;
+16. **PENDING, SEPARATE AUTHORITY** — replay the concurrent domain-content
+    slice only after the technical v8 migration reaches consumer `main`. Keep it
+    out of both the sealed v2 C3 and the v3 policy follow-up.
 
 ## Exact S22/rc19 Node 22 Release Validation Evidence — Passed
 
@@ -4042,7 +4109,7 @@ python3 scripts/wiki_semantic_inventory.py --check
 python3 scripts/wiki_build_demo.py --check
 python3 scripts/wiki_web_snapshot.py --check-contract
 python3 scripts/wiki_pack.py validate --all
-/opt/anaconda3/bin/python -m pytest tests/
+python3 -m pytest tests/
 npm --prefix apps/wiki-cockpit test
 npm --prefix apps/wiki-cockpit run build
 npm --prefix apps/wiki-cockpit run test:gates
@@ -4434,7 +4501,8 @@ consumer-owned adapters/configuration/tests, derives gate impact from both
 paths and contracts, runs a reversible canary and generates its receipts,
 private report, public-redacted projection and disposable-clone rollback proof.
 
-An adoption receipt is reusable only on exact equality of all seven terms:
+Exact equality of all seven terms is required to validate an adoption receipt
+or resume an unfinished Lane B run:
 
 ```text
 source_sha + package_sha256 + portable_tree_sha256 + consumer_B0 + consumer_C3
@@ -4444,7 +4512,10 @@ source_sha + package_sha256 + portable_tree_sha256 + consumer_B0 + consumer_C3
 Changing any term invalidates Lane B reuse. Changing one of the five upstream
 terms also invalidates the Lane A capsule. A changed B0 or C3 invalidates only
 consumer proof; it does not erase valid upstream certification for the
-unchanged portable subject.
+unchanged portable subject. This identity match is necessary but not
+authorization to replay a completed adoption: the completed receipt is
+immutable historical evidence for its original PR/human gate, and the runner
+refuses a completed-run `--resume`.
 
 The versioned public contract is composed of:
 
@@ -4468,18 +4539,68 @@ pre-mutation decision; `adopt` creates and verifies distinct ancestry-ordered
 B0/C1/C2/C3 subjects, replays C2 generators, restricts C3 to reviewed adapter
 commands, schedules the gate DAG by dependency/resource group, captures only
 current-C3 visual/console/network evidence, resumes by exact identity and
-verifies rollback/report output in a disposable clone. The four CI jobs pass
-the same consumer handoff from fast adoption to canary and then background;
-background never substitutes a fresh public checkout for the canary subject.
+verifies rollback/report output in a disposable clone. The four CI job
+definitions preserve the same consumer handoff from fast adoption to canary
+and then background; the local end-to-end workflow simulation passes that path,
+and background never substitutes a fresh public checkout for the canary
+subject. Gate selection is recomputed canonically from the package and sealed
+impact registry, so package-required background promotion gates and dependency
+closure cannot be removed by caller input. Both receipt and state bind all four
+B0/C1/C2/C3 subjects, and verification recomputes the three direct Git edges,
+changed paths, modes and blobs. The runner probes the interpreter that actually
+executes it. Two external first-write anchors separately protect plan start and
+real-canary completion across resumable handoffs.
 
-The runner cutoff passed 96 public Python tests with two CI-environment-only
-cases skipped locally; both skipped cases passed when run with their declared CI
-environment. Its component cutoffs also passed 80 lane/package tests, 16 CLI
-tests, five adapter tests and the complete Node gate inventory. These results
-prove implementation behavior only. The current v8 package is still
-`validation_pending`; no production release capsule or reusable v3 adoption
-receipt exists until an exact releasable public subject runs `certify` and
-passes its PR/human promotion gate.
+#### Adversarial v3 trust closure — 2026-07-14
+
+Five read-only review rounds found twenty-three P1 trust gaps plus one cross-job
+handoff risk. All closures remain part of this consolidated plan, not a
+competing migration plan:
+
+| Review finding | Implemented closure | Required negative evidence |
+|---|---|---|
+| A malformed acceptance budget reached C1/C2/C3 before rejection | Pending budget and package policy are verified in the pre-mutation validator | Malformed budget with a recomputed plan self-hash leaves HEAD at B0 and creates no mutation/execution state |
+| `plan_started_at` could be edited or reset behind another self-hash | One full-attempt-identity first-write anchor is created atomically; `plan` reuses it and `adopt` requires the SHA-256 frozen outside `.wiki-viva/` before C1 | Clock-only edit, coherent plan+anchor rewrite against the original external digest, missing anchor and repeated plan are all fail-closed |
+| The public acceptance-budget projection exposed exact timing | Its typed public form contains only policy and `met`/`exceeded`, with no timestamps, elapsed duration or undeclared fields | Timing names/values and extra/missing budget fields are rejected |
+| A blocked public migration report could claim promotion readiness | The public report is an exact, schema-closed projection derived from the verified private report | `promotion_ready=true`, extra/missing report fields or disagreement with the private report are rejected |
+| A blocked receipt bypassed executed-gate semantics | Passed and budget-blocked receipts share exact selected-gate coverage, class, subject, command, provenance, status, exit-code and output-digest checks; blocked remains non-reusable | Manual, failed, boolean exit-code, duplicate, missing or command-divergent results are rejected |
+| Runner identity was only a human version label | Runner `1.2.0+payload.<sha256>` embeds a digest of byte/mode entries for its entrypoint, bootstrap helpers (`_common.py` and `_git_subject.py`), portable toolchain probe, `wiki_core/**/*.py` and runtime schemas; `toolchain_sha256` binds the complete portable closure | Same base version with altered entrypoint, either bootstrap helper, probe or a core dependency is rejected before consumer mutation; byte-equal identity is path-independent |
+| Fast/canary/background trusted internally rewritten tar manifests | Every raw Lane A, fast-adoption and canary handoff archive has a digest propagated outside that archive and verified before extraction | Content plus internal manifest can be rewritten coherently and still fails against the original external archive digest |
+| Declared C2 paths could also remain in the effective C1 projection | Every C2 glob must be conservatively contained by a `portable_import.block` glob; validation computes effective C1 and proves C1/C2 disjoint while the migration subject remains C1 union C2 | An unblocked, partially blocked or ambiguously contained C2 pattern is rejected in real and synthetic packages |
+| A completed run could replay its receipt and promotion result through `--resume` | Completed state raises `completed_run_not_resumable` whether or not the receipt file is still present; the existing receipt/report remains immutable historical evidence for its original PR/human gate | A second resume and a resume after receipt deletion both exit fail-closed, never recreate the receipt and emit no reused-receipt or promotion claim |
+| Final evidence cleanliness ignored non-ignored untracked files | Final subject verification uses porcelain status with all untracked files; only evidence already covered by repository ignore rules may remain | A non-ignored untracked file invalidates closure while the declared ignored evidence root remains accepted |
+| Reports were not semantically bound to the executed lane, mode, impact selection and boundaries | The private report requires `lane_b`, `mode=canary`, the exact derived selected-gate set and exact C1/C2/C3 digest/count bindings; the public report is its schema-closed projection | A coherently resealed report with changed lane, mode, selection, boundary digest or count is rejected |
+| Public-output redaction missed host prefixes and private routes embedded in arbitrary keys/values | Redaction scans keys and values, broad host prefixes including `/tmp`, `/opt` and `/var`, and private route patterns in any string while preserving declared public `/demo` routes | Host paths/private routes fail in capsules, logs and reports; a public synthetic demo route remains allowed |
+| Toolchain proof named Playwright but did not bind resolved Python dependencies or the browser engine actually launched | A portable shell-free probe emits the sorted resolved distribution digest and launches Chromium to bind Playwright plus engine versions; the probe is inside the runner payload and its recorded argv/output manifest | Changed dependency digest or Chromium engine fails before mutation; certification output with unsafe/fabricated probe argv is rejected |
+| Three CI jobs invoked the live-browser probe without first installing Chromium | Upstream certification, fast adoption, canary and background certification all install the exact Playwright package and Chromium engine before probing or resuming | Workflow structure tests require a live-browser install step in every toolchain-probing job |
+| Manual boundary subjects could hide intermediate or merge commits between B0/C1/C2/C3 | Every adjacent pair must be one direct single-parent edge; ancestor-only chains are rejected before ownership or gate evaluation | A chain whose net B0→C1 diff is valid but contains an intermediate commit fails `boundary_ancestry_mismatch` |
+| Consumer base page-type/template registries were blocked from C1 but absent from C3 ownership and impact routing | `wiki.page-types.yaml` and `wiki.templates.yaml` are explicit consumer C3 adapter surfaces alongside their `.local` overlays; package boundary and impact-registry digests are resealed | Both base registries select Lane B gates and can be changed only by a declared C3 adapter command |
+| PR path filters could skip changes to the certified runner/toolchain/portable authority | The workflow trigger covers the probe, bootstrap helpers, requirements, CLI tests, all `wiki_core`, all runtime schemas and every portable allowlist family | A workflow structure test asserts the required trigger families and prevents a probe-only or core-dependency PR from bypassing two-lane CI |
+| The runner could probe a literal `python3` different from the interpreter executing it | Startup resolves a PATH alias only when it is the exact `sys.executable`; certification, adoption and subprocess gates use that same alias and the portable probe | A divergent `python3` shim fails before package validation or consumer mutation |
+| Caller-supplied selected gates could omit a package-required background promotion gate | Core and CLI independently recompute selection from package plus sealed registry, then add every `required_for_promotion` gate and recursive dependency | A coherently resealed caller selection missing the required gate is rejected by evidence and receipt verification |
+| A blocked or budget-exceeded canary result could be rewritten coherently as passed before resume | The first completed real-canary projection creates a separate O_EXCL completion anchor; its digest is exported outside `.wiki-viva/` and required by every post-canary resume | Rewriting result, completion timestamp and local anchor together still fails against the original external completion digest |
+| Receipt identity proved only that B0 was an ancestor of C3 | Adoption receipt and runner state now bind B0, C1, C2 and C3; the verifier recomputes each direct single-parent edge and exact path/mode/blob ownership from Git | Fabricated intermediate subjects, hidden commits, merges or state/receipt boundary disagreement fail closed |
+| Private route redaction could be bypassed by punctuation such as `route=[/real/customer]` | Boundary-aware route detection treats punctuation as a delimiter while preserving safe public paths such as `/demo` | Bracketed, braced and comma-prefixed private/consumer/real routes fail in every public projection |
+| Boundary receipts bound content but not Git mode/type, and C1 rejected a legitimate mode-only import | C1/C2/C3 entries bind `mode` or `before_mode`; core and runner recompute regular `100644`/`100755` tree entries and blobs from Git; C2 replay compares mode; symlinks, submodules and special entries fail closed | A mode-only C1 delta succeeds only when equal to Lane A; forged receipt mode and a C3 symlink are rejected |
+| Private routes and host paths could be hidden by percent encoding | Public keys, values, canary routes and Lane A output are checked in literal form plus bounded repeated percent-decoded views; encoding still nested at the bound is rejected as ambiguous | Encoded/double-encoded route and host-path leaks fail while encoded `/demo`, `/realtime`, `/consumer-v2` controls and public docs remain allowed |
+
+The two local O_EXCL anchors protect plan-start and canary-completion first-write
+behavior, but deletion of the whole private evidence ledger is detectable only
+because both digests are retained outside that directory (CI job outputs plus
+externally hashed handoffs, or an equivalent reviewed channel). The plan
+self-hash and gate-result ledger remain integrity metadata; neither is clock
+authority. V2 receipts already in flight are neither reclassified nor rewritten
+by this closure.
+
+The current v3 cutoff collects 200 public Python checks: 123 lane tests, 15
+package-v3 tests, 52 CLI tests and ten dedicated cross-job handoff tests. The
+focused execution closed 197 passes with three CI-export cases skipped outside
+their declared workflow environment; the local Lane A -> fast -> canary ->
+background simulation also passed rollback/report verification using only the
+restored runner. These results prove implementation behavior only. The current
+v8 package is still `validation_pending`; no production release capsule or v3
+adoption receipt exists until an exact releasable public subject runs `certify`
+and passes its PR/human promotion gate.
 
 The following current-consumer gates are never reusable: secret/private audit,
 public-evidence redaction, input stage, semantic inventory, adapter identity,
@@ -4506,7 +4627,7 @@ are green. Public push/publication remains unauthorized in this execution.
 | Direct C1 -> C2 -> C3 chain | Direct ancestry and ownership verified: C1 contains 74 byte/mode-equal portable paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-technical paths; domain content excluded | Valid subject for the complete original v2 matrix |
 | Transitional required matrix | All 22 declared gates passed on first attempt against final C3; execution receipts remain ignored and untracked downstream | The original v2 matrix is closed without reuse or reduction |
 | Real canary, generated reports and disposable rollback | Four declared profiles pass with sanitized console/network evidence and no sample fallback; Timeline exposes 906 total events, 33 filtered results and an open detail state; private/public-redacted reports agree; reverse-order rollback restores the frozen baseline | Local technical evidence complete |
-| Consumer hosted CI | Standard Apple Silicon closed 100/102 with two unchanged performance-budget failures; a separate first-attempt standard Intel probe closed 92/102 with software SwiftShader and WebKit context loss/crash | Neither tested standard pool is release authority; promotion remains blocked with no retry, waiver, omission or budget relaxation |
+| Consumer hosted CI | The only completed standard Apple Silicon attempt closed 100/102 with two unchanged performance-budget failures; a later attempt was cancelled during browser installation, so the aggregate visual check is currently cancelled/non-green; a separate first-attempt standard Intel probe closed 92/102 with software SwiftShader and WebKit context loss/crash | Neither tested standard pool is release authority; promotion remains blocked with no retry, waiver, omission or budget relaxation |
 | Consumer `main` | Unchanged | No integration or completion claim exists before 102/102 and human approval |
 
 No consumer repository name, branch, host path, route, content label, commit,
@@ -4560,9 +4681,10 @@ does **not** authorize public push, PR mutation, merge, tag or E5. Consumer-main
 promotion has a corrected direct-chain subject, the complete original v2
 matrix, current canary evidence, generated reports and a passing
 disposable-clone rollback. It is eligible for the consumer PR and remains
-blocked on runner authority plus the human merge gate. Standard Apple Silicon
-closed 100/102 and a separate standard Intel probe closed 92/102 with software
-rendering and WebKit context loss. Neither result authorizes a retry, budget
+blocked on runner authority plus the human merge gate. The only completed
+standard Apple Silicon attempt closed 100/102, a later attempt was cancelled
+during browser installation, and a separate standard Intel probe closed 92/102
+with software rendering and WebKit context loss. None authorizes a retry, budget
 relaxation, omission or merge around the remaining proof.
 
 ## Final Recommendation

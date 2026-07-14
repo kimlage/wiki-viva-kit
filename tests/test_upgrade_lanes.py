@@ -23,11 +23,16 @@ from wiki_core.upgrade_lanes import (
     UpgradeLaneError,
     canonical_sha256,
     collect_release_attestation,
+    _verify_git_boundary_chain,
     load_mapping,
+    public_acceptance_budget_projection,
+    public_migration_report_projection,
     seal_adoption_receipt,
     seal_impact_registry,
     seal_release_capsule,
     select_impacted_gates,
+    select_promotion_gates,
+    validate_acceptance_budget,
     validate_boundary_ownership,
     validate_c1_projection,
     validate_canary_evidence,
@@ -134,6 +139,8 @@ def capsule_authority(tmp_path: Path) -> dict:
                 item["id"]: {
                     "class": item["class"],
                     "command_id": item["id"],
+                    "depends_on": [],
+                    "required_for_promotion": False,
                 }
                 for item in registry["gate_catalog"]
             },
@@ -144,6 +151,12 @@ def capsule_authority(tmp_path: Path) -> dict:
                 "schema_version": IMPACT_REGISTRY_SCHEMA_VERSION,
                 "path": "impact-registry.yaml",
                 "sha256": registry["registry_sha256"],
+            },
+            "acceptance_budget": {
+                "schema_version": "wiki_viva_upgrade_acceptance_budget_policy.v1",
+                "scope": "plan_to_real_canary",
+                "limit_seconds": 1200,
+                "enforcement": "promotion_blocking",
             },
             "boundary_operations": {
                 "schema_version": "wiki_viva_upgrade_boundary_operations.v1",
@@ -229,7 +242,7 @@ def capsule_authority(tmp_path: Path) -> dict:
         "browser": {"name": "chromium", "version": "128.0.0"},
         "node": {"name": "node", "version": "22.17.0"},
         "python": {"name": "cpython", "version": "3.12.9"},
-        "runner": {"name": "wiki-upgrade", "version": "1.0.0"},
+        "runner": {"name": "wiki-upgrade", "version": "1.1.0"},
     }
     probe_entries = []
     for tool_id, identity in sorted(toolchain.items()):
@@ -313,6 +326,19 @@ def capsule_authority(tmp_path: Path) -> dict:
     _git(consumer_root, "add", ".")
     _git(consumer_root, "commit", "-q", "-m", "consumer B0")
     consumer_b0 = _git(consumer_root, "rev-parse", "HEAD")
+    (consumer_root / "wiki_core").mkdir()
+    (consumer_root / "wiki_core/config.py").write_bytes(
+        (source_root / "wiki_core/config.py").read_bytes()
+    )
+    _git(consumer_root, "add", "wiki_core/config.py")
+    _git(consumer_root, "commit", "-q", "-m", "consumer C1")
+    consumer_c1 = _git(consumer_root, "rev-parse", "HEAD")
+    snapshot = consumer_root / "apps/wiki-cockpit/public/sample-snapshot/snapshot.json"
+    snapshot.parent.mkdir(parents=True)
+    snapshot.write_text('{"synthetic":true}\n', encoding="utf-8")
+    _git(consumer_root, "add", snapshot.relative_to(consumer_root).as_posix())
+    _git(consumer_root, "commit", "-q", "-m", "consumer C2")
+    consumer_c2 = _git(consumer_root, "rev-parse", "HEAD")
     (consumer_root / "wiki.config.yaml").write_text(
         "repo_id: public-synthetic\n", encoding="utf-8"
     )
@@ -329,6 +355,8 @@ def capsule_authority(tmp_path: Path) -> dict:
         "attestation_path": attestation_path,
         "consumer_root": consumer_root,
         "consumer_B0": consumer_b0,
+        "consumer_C1": consumer_c1,
+        "consumer_C2": consumer_c2,
         "consumer_C3": consumer_c3,
         "adoption_tokens": {},
         "adoption_run_roots": {},
@@ -413,20 +441,36 @@ def _receipt(
         }
         for gate_id in selection["omitted_gates"]
     ]
+    consumer_root = capsule_authority["consumer_root"]
+    c1_digest = hashlib.sha256(
+        (consumer_root / "wiki_core/config.py").read_bytes()
+    ).hexdigest()
+    c2_digest = hashlib.sha256(
+        (
+            consumer_root
+            / "apps/wiki-cockpit/public/sample-snapshot/snapshot.json"
+        ).read_bytes()
+    ).hexdigest()
+    c3_digest = hashlib.sha256(
+        (consumer_root / "wiki.config.yaml").read_bytes()
+    ).hexdigest()
     boundaries = {
         "C1": [
             {
                 "path": "wiki_core/config.py",
                 "operation": "upsert",
-                "sha256": "7" * 64,
-                "source_sha256": "7" * 64,
+                "mode": "100644",
+                "sha256": c1_digest,
+                "source_mode": "100644",
+                "source_sha256": c1_digest,
             }
         ],
         "C2": [
             {
                 "path": "apps/wiki-cockpit/public/sample-snapshot/snapshot.json",
                 "operation": "upsert",
-                "sha256": "8" * 64,
+                "mode": "100644",
+                "sha256": c2_digest,
                 "generator_sha256": _digest(
                     "python3 scripts/wiki_build_demo.py"
                 ),
@@ -436,9 +480,16 @@ def _receipt(
             {
                 "path": "wiki.config.yaml",
                 "operation": "upsert",
-                "sha256": "a" * 64,
+                "mode": "100644",
+                "sha256": c3_digest,
             }
         ],
+    }
+    boundary_commits = {
+        "B0": capsule_authority["consumer_B0"],
+        "C1": capsule_authority["consumer_C1"],
+        "C2": capsule_authority["consumer_C2"],
+        "C3": capsule_authority["consumer_C3"],
     }
     b0_tree = _git(
         capsule_authority["consumer_root"],
@@ -559,8 +610,18 @@ def _receipt(
         )
     for kind in ("screenshots", "console", "network"):
         evidence[kind].sort(key=lambda item: item["gate_id"])
+    acceptance_budget = {
+        "schema_version": "wiki_viva_upgrade_acceptance_budget.v1",
+        "scope": "plan_to_real_canary",
+        "limit_seconds": 1200,
+        "enforcement": "promotion_blocking",
+        "plan_started_at": "2026-07-14T00:00:00.000000Z",
+        "canary_completed_at": "2026-07-14T00:00:01.000000Z",
+        "elapsed_milliseconds": 1000,
+        "status": "met",
+    }
     report = {
-        "schema_version": "wiki_viva_upgrade_runner_report.v1",
+        "schema_version": "wiki_viva_upgrade_runner_report.v2",
         "status": "complete",
         "lane": "lane_b",
         "mode": "canary",
@@ -587,31 +648,71 @@ def _receipt(
             for result in sorted(gate_results, key=lambda item: item["id"])
         ],
         "rollback_evidence_sha256": rollback["evidence_sha256"],
+        "acceptance_budget": acceptance_budget,
         "evidence": evidence,
         "promotion_ready": True,
         "human_gate_required": True,
     }
     private_raw = (json.dumps(report, sort_keys=True) + "\n").encode("utf-8")
     (run_root / "migration-report.private.json").write_bytes(private_raw)
-    public_report = {
-        **{
-            key: value
-            for key, value in report.items()
-            if key not in {"identity", "evidence"}
-        },
-        "identity_sha256": canonical_sha256(identity),
-        "evidence": {
-            "gate_log_count": len(evidence["gate_logs"]),
-            "screenshot_count": len(evidence["screenshots"]),
-            "console_count": len(evidence["console"]),
-            "network_count": len(evidence["network"]),
-            "raw_private_evidence": "omitted",
-        },
-        "public_redacted": True,
-    }
+    public_report = public_migration_report_projection(report)
     public_raw = (json.dumps(public_report, sort_keys=True) + "\n").encode("utf-8")
     (run_root / "migration-report.public.json").write_bytes(public_raw)
     (run_root / "migration-report.json").write_bytes(public_raw)
+    state_gate_results = {
+        result["id"]: {
+            **result,
+            "_completed_at": (
+                acceptance_budget["canary_completed_at"]
+                if result["class"] == "canary"
+                else acceptance_budget["plan_started_at"]
+            ),
+            "_evidence": {
+                kind: [
+                    item
+                    for item in evidence[kind]
+                    if item["gate_id"] == result["id"]
+                ]
+                for kind in ("screenshots", "console", "network")
+            },
+        }
+        for result in gate_results
+    }
+    canary_result = state_gate_results["real_canary"]
+    canary_projection = [
+        {
+            "id": "real_canary",
+            "class": canary_result["class"],
+            "status": canary_result["status"],
+            "subject_sha": canary_result["subject_sha"],
+            "command_sha256": canary_result["command_sha256"],
+            "output_sha256": canary_result["output_sha256"],
+            "completed_at": canary_result["_completed_at"],
+            "evidence_sha256": canonical_sha256(canary_result["_evidence"]),
+        }
+    ]
+    completion_anchor = {
+        "schema_version": "wiki_viva_upgrade_canary_completion_anchor.v1",
+        "authority": {
+            "kind": "external_sha256",
+            "id": "wiki_upgrade_real_canary_first_completion",
+        },
+        "plan_sha256": plan_sha256,
+        "identity_sha256": canonical_sha256(identity),
+        "canary_completed_at": acceptance_budget["canary_completed_at"],
+        "canary_results_sha256": canonical_sha256(canary_projection),
+    }
+    completion_anchor["anchor_sha256"] = canonical_sha256(completion_anchor)
+    completion_raw = (
+        json.dumps(completion_anchor, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    completion_file_sha256 = hashlib.sha256(completion_raw).hexdigest()
+    (run_root / "canary-completion-anchor.json").write_bytes(completion_raw)
+    completion_reference = {
+        "schema_version": "wiki_viva_upgrade_canary_completion_anchor_reference.v1",
+        "anchor_sha256": completion_anchor["anchor_sha256"],
+        "file_sha256": completion_file_sha256,
+    }
     payload = {
         "status": "passed",
         "identity": identity,
@@ -619,11 +720,14 @@ def _receipt(
         "impact_registry_sha256": registry["registry_sha256"],
         "impact_derivation_sha256": selection["derivation_sha256"],
         "plan_sha256": plan_sha256,
+        "acceptance_budget": acceptance_budget,
+        "canary_completion_anchor": completion_reference,
         "resume": {
             "identity_sha256": canonical_sha256(identity),
             "plan_sha256": plan_sha256,
             "completed_gates": sorted(selection["selected_gates"]),
         },
+        "boundary_commits": boundary_commits,
         "boundaries": boundaries,
         "gate_results": gate_results,
         "omitted_gates": omissions,
@@ -642,28 +746,17 @@ def _receipt(
     }
     receipt = seal_adoption_receipt(payload)
     state = {
-        "schema_version": "wiki_viva_upgrade_runner_state.v1",
+        "schema_version": "wiki_viva_upgrade_runner_state.v3",
         "status": "complete",
         "plan_sha256": plan_sha256,
         "identity_sha256": canonical_sha256(identity),
         "capsule_sha256": capsule["capsule_sha256"],
         "impact_registry_sha256": registry["registry_sha256"],
         "toolchain_sha256": identity["toolchain_sha256"],
+        "boundary_commits": boundary_commits,
         "run_started_unix_ns": 1,
-        "gate_results": {
-            result["id"]: {
-                **result,
-                "_evidence": {
-                    kind: [
-                        item
-                        for item in evidence[kind]
-                        if item["gate_id"] == result["id"]
-                    ]
-                    for kind in ("screenshots", "console", "network")
-                },
-            }
-            for result in gate_results
-        },
+        "acceptance_budget": acceptance_budget,
+        "gate_results": state_gate_results,
     }
     (run_root / "state.json").write_text(
         json.dumps(state, sort_keys=True) + "\n", encoding="utf-8"
@@ -671,7 +764,9 @@ def _receipt(
     token = verify_adoption_evidence(
         receipt,
         authority=AdoptionEvidenceAuthority(
-            consumer_root=capsule_authority["consumer_root"], run_root=run_root
+            consumer_root=capsule_authority["consumer_root"],
+            run_root=run_root,
+            trusted_canary_completion_anchor_sha256=completion_file_sha256,
         ),
         package=capsule_authority["authority"].package,
         registry=registry,
@@ -686,6 +781,87 @@ def _receipt(
         selection,
         plan_sha256,
     )
+
+
+def _blocked_run_receipt(
+    capsule_authority: dict,
+    receipt: dict,
+) -> tuple[dict, Path, str]:
+    """Rewrite one synthetic completed run into a coherent budget-blocked run."""
+
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    blocked = copy.deepcopy(receipt)
+    blocked_budget = copy.deepcopy(blocked["acceptance_budget"])
+    blocked_budget.update(
+        {
+            "canary_completed_at": "2026-07-14T00:20:00.001000Z",
+            "elapsed_milliseconds": 1_200_001,
+            "status": "exceeded",
+        }
+    )
+    blocked["status"] = "blocked"
+    blocked["acceptance_budget"] = blocked_budget
+
+    state_path = run_root / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["acceptance_budget"] = blocked_budget
+    for result in state["gate_results"].values():
+        if result["class"] == "canary":
+            result["_completed_at"] = blocked_budget["canary_completed_at"]
+    state_path.write_text(
+        json.dumps(state, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    canary_result = state["gate_results"]["real_canary"]
+    canary_projection = [
+        {
+            "id": "real_canary",
+            "class": canary_result["class"],
+            "status": canary_result["status"],
+            "subject_sha": canary_result["subject_sha"],
+            "command_sha256": canary_result["command_sha256"],
+            "output_sha256": canary_result["output_sha256"],
+            "completed_at": canary_result["_completed_at"],
+            "evidence_sha256": canonical_sha256(canary_result["_evidence"]),
+        }
+    ]
+    completion_anchor = json.loads(
+        (run_root / "canary-completion-anchor.json").read_text(encoding="utf-8")
+    )
+    completion_anchor["canary_completed_at"] = blocked_budget[
+        "canary_completed_at"
+    ]
+    completion_anchor["canary_results_sha256"] = canonical_sha256(
+        canary_projection
+    )
+    completion_anchor.pop("anchor_sha256")
+    completion_anchor["anchor_sha256"] = canonical_sha256(completion_anchor)
+    completion_raw = (
+        json.dumps(completion_anchor, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    completion_digest = hashlib.sha256(completion_raw).hexdigest()
+    (run_root / "canary-completion-anchor.json").write_bytes(completion_raw)
+    blocked["canary_completion_anchor"] = {
+        "schema_version": "wiki_viva_upgrade_canary_completion_anchor_reference.v1",
+        "anchor_sha256": completion_anchor["anchor_sha256"],
+        "file_sha256": completion_digest,
+    }
+
+    private_path = run_root / "migration-report.private.json"
+    private_report = json.loads(private_path.read_text(encoding="utf-8"))
+    private_report["acceptance_budget"] = blocked_budget
+    private_report["promotion_ready"] = False
+    private_raw = (json.dumps(private_report, sort_keys=True) + "\n").encode("utf-8")
+    private_path.write_bytes(private_raw)
+    blocked["report_verification"]["evidence_sha256"] = hashlib.sha256(
+        private_raw
+    ).hexdigest()
+    blocked = seal_adoption_receipt(blocked)
+
+    public_report = public_migration_report_projection(private_report)
+    public_raw = (json.dumps(public_report, sort_keys=True) + "\n").encode("utf-8")
+    (run_root / "migration-report.public.json").write_bytes(public_raw)
+    (run_root / "migration-report.json").write_bytes(public_raw)
+    return blocked, run_root, completion_digest
 
 
 def _reseal(receipt: dict) -> dict:
@@ -737,6 +913,22 @@ def _verify(
         package=capsule_authority["authority"].package,
         registry=_registry(),
         selection=selection,
+    )
+
+
+def _adoption_authority(
+    capsule_authority: dict,
+    run_root: Path,
+    *,
+    trusted_digest: str | None = None,
+) -> AdoptionEvidenceAuthority:
+    digest = trusted_digest or hashlib.sha256(
+        (run_root / "canary-completion-anchor.json").read_bytes()
+    ).hexdigest()
+    return AdoptionEvidenceAuthority(
+        consumer_root=capsule_authority["consumer_root"],
+        run_root=run_root,
+        trusted_canary_completion_anchor_sha256=digest,
     )
 
 
@@ -1041,15 +1233,35 @@ def test_known_delta_selects_consumer_invariants_canary_and_affected_gates() -> 
     )
 
 
+def test_promotion_selection_adds_required_background_gate_and_dependencies(
+    capsule_authority: dict,
+) -> None:
+    package = copy.deepcopy(capsule_authority["authority"].package)
+    package["migration"]["gate_policies"]["consumer_browser_matrix"][
+        "required_for_promotion"
+    ] = True
+    selection = select_promotion_gates(
+        package,
+        _registry(),
+        changed_paths=["wiki.config.yaml"],
+        changed_contracts=[],
+    )
+    assert "consumer_browser_matrix" in selection["selected_gates"]
+
+
 @pytest.mark.parametrize(
     "path",
     [
         ".github/workflows/private-ci.yml",
+        ".skills/local-operator/SKILL.md",
+        "AGENTS.md",
         "adapters/custom/adapter.py",
         "docs/references/releases/private-v8.md",
         "requirements.txt",
         "tests/test_private_adapter.py",
+        "wiki.page-types.yaml",
         "wiki.page-types.local.yaml",
+        "wiki.templates.yaml",
         "wiki.templates.local.yaml",
     ],
 )
@@ -1095,6 +1307,26 @@ def test_portable_path_or_contract_requires_new_lane_a_capsule() -> None:
     )
     assert selection["requires_lane_a"] is True
     assert selection["escalation"] == "portable_change_lane_a"
+
+
+def test_portable_wiki_skill_wins_over_broad_consumer_skill_namespace() -> None:
+    selection = select_impacted_gates(
+        _registry(),
+        changed_paths=[".skills/wiki-viva/SKILL.md"],
+        changed_contracts=[],
+    )
+    assert selection["matched_surfaces"] == ["portable_core"]
+    assert selection["requires_lane_a"] is True
+    assert selection["escalation"] == "portable_change_lane_a"
+
+
+def test_skill_root_file_is_not_misclassified_as_a_consumer_skill() -> None:
+    selection = select_impacted_gates(
+        _registry(), changed_paths=[".skills/README.md"], changed_contracts=[]
+    )
+    assert selection["unknown_paths"] == [".skills/README.md"]
+    assert selection["requires_lane_a"] is True
+    assert selection["escalation"] == "unknown_impact_full_lane"
 
 
 def _canary_evidence() -> tuple[dict, dict, list[str], list[dict], str]:
@@ -1195,6 +1427,23 @@ def test_canary_rejects_duplicate_or_missing_visual_profile() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "route",
+    ["/%72eal/customer", "/redirect?next=%252Fconsumer%252Faccount"],
+)
+def test_canary_rejects_percent_encoded_private_route(route: str) -> None:
+    package, evidence, selected, catalog, subject = _canary_evidence()
+    evidence["screenshots"][0]["route"] = route
+    with pytest.raises(UpgradeLaneError, match="profile/route/viewport"):
+        validate_canary_evidence(
+            package,
+            evidence,
+            selected_gates=selected,
+            gate_catalog=catalog,
+            subject_sha=subject,
+        )
+
+
 def test_registry_rejects_dependency_cycles_and_incomplete_full_matrix() -> None:
     registry = _registry()
     cycle = copy.deepcopy(registry)
@@ -1225,6 +1474,119 @@ def test_valid_adoption_receipt_reuses_only_exact_subject(
         plan_sha256,
         capsule_authority,
     ) == receipt["receipt_sha256"]
+
+
+def test_adoption_evidence_accepts_ignored_runner_artifacts(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity_value, _capsule_value, selection, _plan = _receipt(
+        capsule_authority
+    )
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    ignored_probe = run_root / "operator-note.txt"
+    ignored_probe.write_text("ignored synthetic evidence\n", encoding="utf-8")
+
+    verify_adoption_evidence(
+        receipt,
+        authority=_adoption_authority(capsule_authority, run_root),
+        package=capsule_authority["authority"].package,
+        registry=_registry(),
+        selection=selection,
+    )
+
+
+def test_verifiers_recompute_package_required_promotion_gates(
+    capsule_authority: dict,
+) -> None:
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(
+        capsule_authority
+    )
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    package = copy.deepcopy(capsule_authority["authority"].package)
+    package["migration"]["gate_policies"]["consumer_browser_matrix"][
+        "required_for_promotion"
+    ] = True
+
+    with pytest.raises(UpgradeLaneError, match="package-required promotion gates"):
+        verify_adoption_evidence(
+            receipt,
+            authority=_adoption_authority(capsule_authority, run_root),
+            package=package,
+            registry=_registry(),
+            selection=selection,
+        )
+    with pytest.raises(UpgradeLaneError, match="package-required promotion gates"):
+        verify_adoption_receipt(
+            receipt,
+            expected_identity=identity,
+            expected_plan_sha256=plan_sha256,
+            capsule=capsule,
+            verified_capsule=capsule_authority["verified"],
+            verified_evidence=capsule_authority["adoption_tokens"][
+                receipt["receipt_sha256"]
+            ],
+            package=package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+def test_adoption_evidence_rejects_fabricated_intermediate_git_boundaries(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule, selection, _plan = _receipt(capsule_authority)
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    forged = copy.deepcopy(receipt)
+    forged["boundary_commits"]["C2"] = forged["boundary_commits"]["C1"]
+    forged = seal_adoption_receipt(forged)
+    with pytest.raises(UpgradeLaneError, match="direct single-parent chain"):
+        verify_adoption_evidence(
+            forged,
+            authority=_adoption_authority(capsule_authority, run_root),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+def test_adoption_evidence_rejects_state_boundary_chain_drift(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule, selection, _plan = _receipt(capsule_authority)
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    state_path = run_root / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["boundary_commits"]["C2"] = state["boundary_commits"]["C1"]
+    state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+    with pytest.raises(UpgradeLaneError, match="stale or incomplete"):
+        verify_adoption_evidence(
+            receipt,
+            authority=_adoption_authority(capsule_authority, run_root),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+def test_adoption_evidence_rejects_nonignored_untracked_consumer_file(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity_value, _capsule_value, selection, _plan = _receipt(
+        capsule_authority
+    )
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    (capsule_authority["consumer_root"] / "untracked-private-note.txt").write_text(
+        "must invalidate final evidence\n", encoding="utf-8"
+    )
+
+    with pytest.raises(UpgradeLaneError, match="tracked or untracked worktree"):
+        verify_adoption_evidence(
+            receipt,
+        authority=_adoption_authority(capsule_authority, run_root),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
 
 
 def test_shape_only_adoption_receipt_cannot_authorize_reuse(
@@ -1260,10 +1622,7 @@ def test_adoption_evidence_rejects_arbitrary_executed_output_hash(
     with pytest.raises(UpgradeLaneError, match="runner state gate result differs"):
         verify_adoption_evidence(
             forged,
-            authority=AdoptionEvidenceAuthority(
-                consumer_root=capsule_authority["consumer_root"],
-                run_root=run_root,
-            ),
+        authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -1284,10 +1643,7 @@ def test_adoption_evidence_rejects_changed_real_gate_log(
     with pytest.raises(UpgradeLaneError, match="gate log hash differs"):
         verify_adoption_evidence(
             receipt,
-            authority=AdoptionEvidenceAuthority(
-                consumer_root=capsule_authority["consumer_root"],
-                run_root=run_root,
-            ),
+        authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -1322,10 +1678,60 @@ def test_adoption_evidence_rejects_fabricated_rollback_or_report(
     with pytest.raises(UpgradeLaneError, match=message):
         verify_adoption_evidence(
             receipt,
-            authority=AdoptionEvidenceAuthority(
-                consumer_root=capsule_authority["consumer_root"],
-                run_root=run_root,
-            ),
+        authority=_adoption_authority(capsule_authority, run_root),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_path", "forged_value"),
+    [
+        (("lane",), "lane_a"),
+        (("mode",), "background_certification"),
+        (("selection", "impact_derivation_sha256"), "f" * 64),
+        (("selection", "selected_gate_count"), 999),
+        (("boundaries", "digest"), "e" * 64),
+        (("boundaries", "counts", "C3"), 999),
+    ],
+)
+def test_adoption_evidence_rejects_coherently_resealed_report_binding_tamper(
+    field_path: tuple[str, ...],
+    forged_value: object,
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity_value, _capsule_value, selection, _plan = _receipt(
+        capsule_authority
+    )
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    private_path = run_root / "migration-report.private.json"
+    private_report = json.loads(private_path.read_text(encoding="utf-8"))
+    target = private_report
+    for part in field_path[:-1]:
+        target = target[part]
+    target[field_path[-1]] = forged_value
+    private_raw = (json.dumps(private_report, sort_keys=True) + "\n").encode("utf-8")
+    private_path.write_bytes(private_raw)
+
+    # Keep both public files coherent with the forged private report and bind
+    # the receipt to its new bytes.  Verification must still derive authority
+    # from Lane B's selection and receipt boundaries, not trust self-consistent
+    # attacker-controlled artifacts.
+    public_report = public_migration_report_projection(private_report)
+    public_raw = (json.dumps(public_report, sort_keys=True) + "\n").encode("utf-8")
+    (run_root / "migration-report.public.json").write_bytes(public_raw)
+    (run_root / "migration-report.json").write_bytes(public_raw)
+    forged = copy.deepcopy(receipt)
+    forged["report_verification"]["evidence_sha256"] = hashlib.sha256(
+        private_raw
+    ).hexdigest()
+    forged = seal_adoption_receipt(forged)
+
+    with pytest.raises(UpgradeLaneError, match="private migration report is stale"):
+        verify_adoption_evidence(
+            forged,
+        authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -1348,10 +1754,7 @@ def test_public_migration_report_rejects_private_consumer_identity_sha(
     with pytest.raises(UpgradeLaneError, match="public migration report is stale"):
         verify_adoption_evidence(
             receipt,
-            authority=AdoptionEvidenceAuthority(
-                consumer_root=capsule_authority["consumer_root"],
-                run_root=run_root,
-            ),
+        authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -1563,6 +1966,81 @@ def test_private_host_path_cannot_leak_into_receipt_output(
         )
 
 
+@pytest.mark.parametrize(
+    ("placement", "leaked", "message"),
+    [
+        ("value", "/tmp/wiki-viva/report.json", "host-local path"),
+        ("value", "/opt/wiki-viva/runtime", "host-local path"),
+        ("key", "/var/folders/private-report", "host-local path"),
+        ("value", "/consumer/w/timeline", "private consumer route"),
+        ("key", "/private/wiki", "private"),
+        ("value", "/real/dashboard", "private consumer route"),
+        ("value", "route=[/real/customer]", "private consumer route"),
+        ("key", "route,{/consumer/account}", "private consumer route"),
+        ("value", "[/real]", "private consumer route"),
+        ("value", "route=%2Freal%2Fcustomer", "private consumer route"),
+        ("key", "route=%252Fconsumer%252Faccount", "private consumer route"),
+        (
+            "value",
+            "route=%2525252Freal%2525252Fcustomer",
+            "invalid percent-encoded",
+        ),
+        (
+            "value",
+            "https://example.invalid/%72eal/customer",
+            "private consumer route",
+        ),
+        ("value", "artifact=%2Ftmp%2Fprivate-proof.json", "host-local path"),
+        (
+            "value",
+            "https://consumer.invalid/consumer/w/radar",
+            "private consumer route",
+        ),
+        ("value", "api_key=not-public", "secret/private data"),
+    ],
+)
+def test_public_projection_rejects_private_path_route_or_data_in_any_string_or_key(
+    placement: str,
+    leaked: str,
+    message: str,
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule_value, _selection_value, _plan = _receipt(
+        capsule_authority
+    )
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    private_report = json.loads(
+        (run_root / "migration-report.private.json").read_text(encoding="utf-8")
+    )
+    if placement == "key":
+        private_report["selection"][leaked] = "redacted"
+    else:
+        private_report["selection"]["publication_probe"] = leaked
+
+    with pytest.raises(UpgradeLaneError, match=message):
+        public_migration_report_projection(private_report)
+
+
+def test_public_projection_preserves_legitimate_public_routes(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule_value, _selection_value, _plan = _receipt(
+        capsule_authority
+    )
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    private_report = json.loads(
+        (run_root / "migration-report.private.json").read_text(encoding="utf-8")
+    )
+    private_report["selection"]["publication_probe"] = "/demo/w/radar"
+    private_report["selection"]["encoded_public_probe"] = "%2Fdemo%2Fw%2Fradar"
+    private_report["selection"]["encoded_docs_probe"] = "docs%2Freal%2Fcustomer.md"
+
+    public_report = public_migration_report_projection(private_report)
+
+    assert public_report["selection"]["publication_probe"] == "/demo/w/radar"
+    assert public_report["selection"]["encoded_public_probe"] == "%2Fdemo%2Fw%2Fradar"
+
+
 def test_private_data_marker_cannot_leak_into_capsule(
     capsule_authority: dict,
 ) -> None:
@@ -1574,6 +2052,369 @@ def test_private_data_marker_cannot_leak_into_capsule(
         )
 
 
+def test_acceptance_budget_exact_boundary_and_fail_closed_clock() -> None:
+    base = {
+        "schema_version": "wiki_viva_upgrade_acceptance_budget.v1",
+        "scope": "plan_to_real_canary",
+        "limit_seconds": 1200,
+        "enforcement": "promotion_blocking",
+        "plan_started_at": "2026-07-14T00:00:00.000000Z",
+        "canary_completed_at": "2026-07-14T00:20:00.000000Z",
+        "elapsed_milliseconds": 1_200_000,
+        "status": "met",
+    }
+    assert validate_acceptance_budget(base)["status"] == "met"
+
+    exceeded = copy.deepcopy(base)
+    exceeded["canary_completed_at"] = "2026-07-14T00:20:00.001000Z"
+    exceeded["elapsed_milliseconds"] = 1_200_001
+    exceeded["status"] = "exceeded"
+    assert validate_acceptance_budget(exceeded)["status"] == "exceeded"
+
+    contradictory = copy.deepcopy(exceeded)
+    contradictory["status"] = "met"
+    with pytest.raises(UpgradeLaneError, match="contradicts"):
+        validate_acceptance_budget(contradictory)
+
+    backwards = copy.deepcopy(base)
+    backwards["canary_completed_at"] = "2026-07-13T23:59:59.999999Z"
+    with pytest.raises(UpgradeLaneError, match="timestamps are invalid"):
+        validate_acceptance_budget(backwards)
+
+    stale_elapsed = copy.deepcopy(base)
+    stale_elapsed["elapsed_milliseconds"] -= 1
+    with pytest.raises(UpgradeLaneError, match="elapsed time is stale"):
+        validate_acceptance_budget(stale_elapsed)
+
+    pending_with_measurement = copy.deepcopy(base)
+    pending_with_measurement["status"] = "pending"
+    with pytest.raises(UpgradeLaneError, match="pending acceptance budget"):
+        validate_acceptance_budget(pending_with_measurement)
+
+    noncanonical = copy.deepcopy(base)
+    noncanonical["plan_started_at"] = "2026-07-14T00:00:00Z"
+    with pytest.raises(UpgradeLaneError, match="canonical UTC RFC3339"):
+        validate_acceptance_budget(noncanonical)
+
+    impossible = copy.deepcopy(base)
+    impossible["plan_started_at"] = "2026-02-30T00:00:00.000000Z"
+    with pytest.raises(UpgradeLaneError, match="real UTC instant"):
+        validate_acceptance_budget(impossible)
+
+    pre_epoch = copy.deepcopy(base)
+    pre_epoch["plan_started_at"] = "1969-12-31T23:59:59.999999Z"
+    with pytest.raises(UpgradeLaneError, match="after the Unix epoch"):
+        validate_acceptance_budget(pre_epoch)
+
+    missing = copy.deepcopy(base)
+    del missing["canary_completed_at"]
+    with pytest.raises(UpgradeLaneError, match="fields must be exact"):
+        validate_acceptance_budget(missing)
+
+
+def test_public_acceptance_budget_projection_is_typed_without_timing() -> None:
+    private_budget = {
+        "schema_version": "wiki_viva_upgrade_acceptance_budget.v1",
+        "scope": "plan_to_real_canary",
+        "limit_seconds": 1200,
+        "enforcement": "promotion_blocking",
+        "plan_started_at": "2026-07-14T00:00:00.000000Z",
+        "canary_completed_at": "2026-07-14T00:00:01.000000Z",
+        "elapsed_milliseconds": 1000,
+        "status": "met",
+    }
+    assert public_acceptance_budget_projection(private_budget) == {
+        "schema_version": "wiki_viva_upgrade_acceptance_budget_public.v1",
+        "scope": "plan_to_real_canary",
+        "limit_seconds": 1200,
+        "enforcement": "promotion_blocking",
+        "status": "met",
+    }
+
+
+def test_receipt_v3_budget_must_match_runner_and_reports(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
+        capsule_authority
+    )
+    changed = copy.deepcopy(receipt)
+    changed["acceptance_budget"].update(
+        {
+            "plan_started_at": "2026-07-15T00:00:00.000000Z",
+            "canary_completed_at": "2026-07-15T00:00:01.000000Z",
+        }
+    )
+    changed = seal_adoption_receipt(changed)
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    with pytest.raises(UpgradeLaneError, match="runner state is stale"):
+        verify_adoption_evidence(
+            changed,
+        authority=_adoption_authority(capsule_authority, run_root),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+def test_receipt_v3_budget_must_match_runner_canary_completion(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
+        capsule_authority
+    )
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    state_path = run_root / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    canary_id = next(
+        result["id"] for result in receipt["gate_results"] if result["class"] == "canary"
+    )
+    state["gate_results"][canary_id]["_completed_at"] = receipt[
+        "acceptance_budget"
+    ]["plan_started_at"]
+    state_path.write_text(
+        json.dumps(state, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    with pytest.raises(UpgradeLaneError, match="completed real canary"):
+        verify_adoption_evidence(
+            receipt,
+        authority=_adoption_authority(capsule_authority, run_root),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+def test_legacy_adoption_receipt_v1_is_rejected(capsule_authority: dict) -> None:
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
+        capsule_authority
+    )
+    legacy = copy.deepcopy(receipt)
+    legacy["schema_version"] = "wiki_viva_upgrade_adoption_receipt.v1"
+    unsigned = dict(legacy)
+    unsigned.pop("receipt_sha256")
+    legacy["receipt_sha256"] = canonical_sha256(unsigned)
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    with pytest.raises(UpgradeLaneError, match="unsupported adoption receipt"):
+        verify_adoption_evidence(
+            legacy,
+        authority=_adoption_authority(capsule_authority, run_root),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+def test_budget_blocked_receipt_has_integrity_proof_but_is_never_reusable(
+    capsule_authority: dict,
+) -> None:
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(capsule_authority)
+    blocked, run_root, completion_digest = _blocked_run_receipt(
+        capsule_authority, receipt
+    )
+    verified_evidence = verify_adoption_evidence(
+        blocked,
+        authority=AdoptionEvidenceAuthority(
+            consumer_root=capsule_authority["consumer_root"],
+            run_root=run_root,
+            trusted_canary_completion_anchor_sha256=completion_digest,
+        ),
+        package=capsule_authority["authority"].package,
+        registry=_registry(),
+        selection=selection,
+    )
+    with pytest.raises(UpgradeLaneError, match="only passed"):
+        verify_adoption_receipt(
+            blocked,
+            expected_identity=identity,
+            expected_plan_sha256=plan_sha256,
+            capsule=capsule,
+            verified_capsule=capsule_authority["verified"],
+            verified_evidence=verified_evidence,
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+def test_external_canary_anchor_rejects_coherently_resealed_budget_promotion(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
+        capsule_authority
+    )
+    forged, run_root, trusted_blocked_digest = _blocked_run_receipt(
+        capsule_authority, receipt
+    )
+    met_budget = copy.deepcopy(forged["acceptance_budget"])
+    met_budget.update(
+        {
+            "canary_completed_at": "2026-07-14T00:00:10.000000Z",
+            "elapsed_milliseconds": 10_000,
+            "status": "met",
+        }
+    )
+    forged["status"] = "passed"
+    forged["acceptance_budget"] = met_budget
+
+    state_path = run_root / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["acceptance_budget"] = met_budget
+    canary = state["gate_results"]["real_canary"]
+    canary["_completed_at"] = met_budget["canary_completed_at"]
+    state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+
+    canary_projection = [
+        {
+            "id": "real_canary",
+            "class": canary["class"],
+            "status": canary["status"],
+            "subject_sha": canary["subject_sha"],
+            "command_sha256": canary["command_sha256"],
+            "output_sha256": canary["output_sha256"],
+            "completed_at": canary["_completed_at"],
+            "evidence_sha256": canonical_sha256(canary["_evidence"]),
+        }
+    ]
+    anchor_path = run_root / "canary-completion-anchor.json"
+    anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
+    anchor["canary_completed_at"] = met_budget["canary_completed_at"]
+    anchor["canary_results_sha256"] = canonical_sha256(canary_projection)
+    anchor.pop("anchor_sha256")
+    anchor["anchor_sha256"] = canonical_sha256(anchor)
+    anchor_raw = (json.dumps(anchor, sort_keys=True) + "\n").encode("utf-8")
+    anchor_path.write_bytes(anchor_raw)
+    forged["canary_completion_anchor"] = {
+        "schema_version": "wiki_viva_upgrade_canary_completion_anchor_reference.v1",
+        "anchor_sha256": anchor["anchor_sha256"],
+        "file_sha256": hashlib.sha256(anchor_raw).hexdigest(),
+    }
+
+    private_path = run_root / "migration-report.private.json"
+    private_report = json.loads(private_path.read_text(encoding="utf-8"))
+    private_report["acceptance_budget"] = met_budget
+    private_report["promotion_ready"] = True
+    private_raw = (json.dumps(private_report, sort_keys=True) + "\n").encode("utf-8")
+    private_path.write_bytes(private_raw)
+    forged["report_verification"]["evidence_sha256"] = hashlib.sha256(
+        private_raw
+    ).hexdigest()
+    public_raw = (
+        json.dumps(public_migration_report_projection(private_report), sort_keys=True)
+        + "\n"
+    ).encode("utf-8")
+    (run_root / "migration-report.public.json").write_bytes(public_raw)
+    (run_root / "migration-report.json").write_bytes(public_raw)
+    forged = seal_adoption_receipt(forged)
+
+    with pytest.raises(UpgradeLaneError, match="out-of-band authority"):
+        verify_adoption_evidence(
+            forged,
+            authority=_adoption_authority(
+                capsule_authority,
+                run_root,
+                trusted_digest=trusted_blocked_digest,
+            ),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ({"provenance": "manual"}, "manual/fabricated evidence"),
+        ({"status": "failed", "exit_code": 1}, "gate result did not pass"),
+        ({"exit_code": False}, "gate result did not pass"),
+    ],
+)
+def test_budget_blocked_receipt_rejects_nonexecuted_or_failed_gate_integrity(
+    mutation: dict,
+    message: str,
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
+        capsule_authority
+    )
+    blocked, run_root, completion_digest = _blocked_run_receipt(
+        capsule_authority, receipt
+    )
+    gate_id = blocked["gate_results"][0]["id"]
+    blocked["gate_results"][0].update(mutation)
+    blocked = seal_adoption_receipt(blocked)
+    state_path = run_root / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["gate_results"][gate_id].update(mutation)
+    state_path.write_text(
+        json.dumps(state, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    with pytest.raises(UpgradeLaneError, match=message):
+        verify_adoption_evidence(
+            blocked,
+            authority=AdoptionEvidenceAuthority(
+                consumer_root=capsule_authority["consumer_root"],
+                run_root=run_root,
+                trusted_canary_completion_anchor_sha256=completion_digest,
+            ),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+def test_budget_blocked_public_report_rejects_forged_promotion_ready(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
+        capsule_authority
+    )
+    blocked, run_root, completion_digest = _blocked_run_receipt(
+        capsule_authority, receipt
+    )
+    public_path = run_root / "migration-report.public.json"
+    public_report = json.loads(public_path.read_text(encoding="utf-8"))
+    public_report["promotion_ready"] = True
+    public_raw = (json.dumps(public_report, sort_keys=True) + "\n").encode("utf-8")
+    public_path.write_bytes(public_raw)
+    (run_root / "migration-report.json").write_bytes(public_raw)
+    with pytest.raises(UpgradeLaneError, match="public migration report is stale"):
+        verify_adoption_evidence(
+            blocked,
+            authority=AdoptionEvidenceAuthority(
+                consumer_root=capsule_authority["consumer_root"],
+                run_root=run_root,
+                trusted_canary_completion_anchor_sha256=completion_digest,
+            ),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
+def test_public_report_rejects_private_acceptance_timing_fields(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
+        capsule_authority
+    )
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    public_path = run_root / "migration-report.public.json"
+    public_report = json.loads(public_path.read_text(encoding="utf-8"))
+    public_report["acceptance_budget"]["elapsed_milliseconds"] = 1000
+    public_raw = (json.dumps(public_report, sort_keys=True) + "\n").encode("utf-8")
+    public_path.write_bytes(public_raw)
+    (run_root / "migration-report.json").write_bytes(public_raw)
+    with pytest.raises(UpgradeLaneError, match="public migration report is stale"):
+        verify_adoption_evidence(
+            receipt,
+        authority=_adoption_authority(capsule_authority, run_root),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+
 @pytest.mark.parametrize(
     ("boundary", "entry", "message"),
     [
@@ -1582,7 +2423,9 @@ def test_private_data_marker_cannot_leak_into_capsule(
             {
                 "path": "wiki.config.yaml",
                 "operation": "upsert",
+                "mode": "100644",
                 "sha256": "7" * 64,
+                "source_mode": "100644",
                 "source_sha256": "7" * 64,
             },
             "mixed into C1",
@@ -1592,7 +2435,9 @@ def test_private_data_marker_cannot_leak_into_capsule(
             {
                 "path": "memories/private-domain.md",
                 "operation": "upsert",
+                "mode": "100644",
                 "sha256": "7" * 64,
+                "source_mode": "100644",
                 "source_sha256": "7" * 64,
             },
             "domain content is forbidden",
@@ -1602,6 +2447,7 @@ def test_private_data_marker_cannot_leak_into_capsule(
             {
                 "path": "memories/finance/ledger.md",
                 "operation": "upsert",
+                "mode": "100644",
                 "sha256": "8" * 64,
                 "generator_sha256": _digest(
                     "python3 scripts/wiki_build_demo.py"
@@ -1614,6 +2460,7 @@ def test_private_data_marker_cannot_leak_into_capsule(
             {
                 "path": "wiki_core/paths.py",
                 "operation": "upsert",
+                "mode": "100644",
                 "sha256": "a" * 64,
             },
             "mixed into C3",
@@ -1621,8 +2468,19 @@ def test_private_data_marker_cannot_leak_into_capsule(
         (
             "C3",
             {
+                "path": ".skills/wiki-viva/SKILL.md",
+                "operation": "upsert",
+                "mode": "100644",
+                "sha256": "a" * 64,
+            },
+            "portable path mixed into C3",
+        ),
+        (
+            "C3",
+            {
                 "path": "memories/private-domain.md",
                 "operation": "upsert",
+                "mode": "100644",
                 "sha256": "a" * 64,
             },
             "domain content is forbidden",
@@ -1645,7 +2503,57 @@ def test_c1_c2_c3_reject_domain_or_ownership_mixing(
         )
 
 
-def test_c1_requires_byte_equality_with_lane_a(
+def test_agent_routing_and_local_skills_are_consumer_owned_c3(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity_value, _capsule_value, _selection_value, _plan = _receipt(
+        capsule_authority
+    )
+    boundaries = copy.deepcopy(receipt["boundaries"])
+    boundaries["C3"] = [
+        {
+            "path": ".skills/local-operator/SKILL.md",
+            "operation": "upsert",
+            "mode": "100644",
+            "sha256": "b" * 64,
+        },
+        {
+            "path": "AGENTS.md",
+            "operation": "upsert",
+            "mode": "100644",
+            "sha256": "c" * 64,
+        },
+    ]
+    validate_boundary_ownership(
+        boundaries,
+        _registry(),
+        package=capsule_authority["authority"].package,
+    )
+
+
+def test_toolkit_wiki_skill_remains_byte_equal_c1(capsule_authority: dict) -> None:
+    receipt, _identity_value, _capsule_value, _selection_value, _plan = _receipt(
+        capsule_authority
+    )
+    boundaries = copy.deepcopy(receipt["boundaries"])
+    boundaries["C1"] = [
+        {
+            "path": ".skills/wiki-viva/SKILL.md",
+            "operation": "upsert",
+            "mode": "100644",
+            "sha256": "d" * 64,
+            "source_mode": "100644",
+            "source_sha256": "d" * 64,
+        }
+    ]
+    validate_boundary_ownership(
+        boundaries,
+        _registry(),
+        package=capsule_authority["authority"].package,
+    )
+
+
+def test_c1_requires_byte_and_mode_equality_with_lane_a(
     capsule_authority: dict,
 ) -> None:
     receipt, _identity_value, _capsule_value, _selection_value, _plan = _receipt(
@@ -1653,7 +2561,7 @@ def test_c1_requires_byte_equality_with_lane_a(
     )
     boundaries = copy.deepcopy(receipt["boundaries"])
     boundaries["C1"][0]["source_sha256"] = "f" * 64
-    with pytest.raises(UpgradeLaneError, match="not byte-equal"):
+    with pytest.raises(UpgradeLaneError, match="not byte-and-mode-equal"):
         validate_boundary_ownership(
             boundaries,
             _registry(),
@@ -1682,26 +2590,31 @@ def test_c1_projection_requires_exact_upserts_and_stale_deletions() -> None:
             "block": ["memories/**"],
         }
     }
-    source = {"wiki_core/config.py": "1" * 64}
+    source = {
+        "wiki_core/config.py": {"mode": "100644", "sha256": "1" * 64}
+    }
     before = {
-        "wiki_core/config.py": "2" * 64,
-        "wiki_core/stale.py": "3" * 64,
-        "wiki.config.yaml": "4" * 64,
+        "wiki_core/config.py": {"mode": "100644", "sha256": "2" * 64},
+        "wiki_core/stale.py": {"mode": "100755", "sha256": "3" * 64},
+        "wiki.config.yaml": {"mode": "100644", "sha256": "4" * 64},
     }
     after = {
-        "wiki_core/config.py": "1" * 64,
-        "wiki.config.yaml": "4" * 64,
+        "wiki_core/config.py": {"mode": "100644", "sha256": "1" * 64},
+        "wiki.config.yaml": {"mode": "100644", "sha256": "4" * 64},
     }
     entries = [
         {
             "path": "wiki_core/config.py",
             "operation": "upsert",
+            "mode": "100644",
             "sha256": "1" * 64,
+            "source_mode": "100644",
             "source_sha256": "1" * 64,
         },
         {
             "path": "wiki_core/stale.py",
             "operation": "delete",
+            "before_mode": "100755",
             "before_sha256": "3" * 64,
         },
     ]
@@ -1722,6 +2635,198 @@ def test_c1_projection_requires_exact_upserts_and_stale_deletions() -> None:
         )
 
 
+def test_c1_projection_supports_mode_only_portable_updates() -> None:
+    package = {
+        "portable_import": {
+            "allow": ["wiki_core/**"],
+            "block": ["memories/**"],
+        }
+    }
+    digest = "1" * 64
+    source = {"wiki_core/config.py": {"mode": "100755", "sha256": digest}}
+    before = {"wiki_core/config.py": {"mode": "100644", "sha256": digest}}
+    after = {"wiki_core/config.py": {"mode": "100755", "sha256": digest}}
+    entry = {
+        "path": "wiki_core/config.py",
+        "operation": "upsert",
+        "mode": "100755",
+        "sha256": digest,
+        "source_mode": "100755",
+        "source_sha256": digest,
+    }
+
+    validate_c1_projection(
+        [entry],
+        package=package,
+        source_entries=source,
+        before_entries=before,
+        after_entries=after,
+    )
+    forged = {**entry, "mode": "100644"}
+    with pytest.raises(UpgradeLaneError, match="upserts and deletions"):
+        validate_c1_projection(
+            [forged],
+            package=package,
+            source_entries=source,
+            before_entries=before,
+            after_entries=after,
+        )
+
+
+def test_git_boundary_receipt_binds_mode_only_change_and_rejects_forged_mode(
+    tmp_path: Path,
+) -> None:
+    consumer = tmp_path / "mode-consumer"
+    consumer.mkdir()
+    _git(consumer, "init", "-q", "-b", "main")
+    _git(consumer, "config", "user.name", "Synthetic Consumer")
+    _git(consumer, "config", "user.email", "consumer@example.invalid")
+    _git(consumer, "config", "core.filemode", "true")
+
+    config = consumer / "wiki.config.yaml"
+    config.write_text("repo_id: synthetic\n", encoding="utf-8")
+    config.chmod(0o644)
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "B0")
+    b0 = _git(consumer, "rev-parse", "HEAD")
+
+    portable = consumer / "wiki_core/config.py"
+    portable.parent.mkdir()
+    portable.write_text("PUBLIC = True\n", encoding="utf-8")
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "C1")
+    c1 = _git(consumer, "rev-parse", "HEAD")
+
+    generated = consumer / "apps/wiki-cockpit/public/sample-snapshot/snapshot.json"
+    generated.parent.mkdir(parents=True)
+    generated.write_text("{}\n", encoding="utf-8")
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "C2")
+    c2 = _git(consumer, "rev-parse", "HEAD")
+
+    config.chmod(0o755)
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "C3 mode only")
+    c3 = _git(consumer, "rev-parse", "HEAD")
+    digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+    receipt = {
+        "identity": {
+            "source_sha": "1" * 40,
+            "package_sha256": "2" * 64,
+            "portable_tree_sha256": "3" * 64,
+            "consumer_B0": b0,
+            "consumer_C3": c3,
+            "command_registry_sha256": "4" * 64,
+            "toolchain_sha256": "5" * 64,
+        },
+        "boundary_commits": {"B0": b0, "C1": c1, "C2": c2, "C3": c3},
+        "boundaries": {
+            "C1": [
+                {
+                    "path": "wiki_core/config.py",
+                    "operation": "upsert",
+                    "mode": "100644",
+                    "sha256": digest(portable),
+                    "source_mode": "100644",
+                    "source_sha256": digest(portable),
+                }
+            ],
+            "C2": [
+                {
+                    "path": "apps/wiki-cockpit/public/sample-snapshot/snapshot.json",
+                    "operation": "upsert",
+                    "mode": "100644",
+                    "sha256": digest(generated),
+                    "generator_sha256": "6" * 64,
+                }
+            ],
+            "C3": [
+                {
+                    "path": "wiki.config.yaml",
+                    "operation": "upsert",
+                    "mode": "100755",
+                    "sha256": digest(config),
+                }
+            ],
+        },
+    }
+
+    _verify_git_boundary_chain(consumer, receipt)
+    forged = copy.deepcopy(receipt)
+    forged["boundaries"]["C3"][0]["mode"] = "100644"
+    with pytest.raises(UpgradeLaneError, match="mode/blob"):
+        _verify_git_boundary_chain(consumer, forged)
+
+
+def test_git_boundary_receipt_rejects_symlink_entry(tmp_path: Path) -> None:
+    consumer = tmp_path / "symlink-consumer"
+    consumer.mkdir()
+    _git(consumer, "init", "-q", "-b", "main")
+    _git(consumer, "config", "user.name", "Synthetic Consumer")
+    _git(consumer, "config", "user.email", "consumer@example.invalid")
+    (consumer / "baseline.txt").write_text("B0\n", encoding="utf-8")
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "B0")
+    b0 = _git(consumer, "rev-parse", "HEAD")
+    (consumer / "c1.txt").write_text("C1\n", encoding="utf-8")
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "C1")
+    c1 = _git(consumer, "rev-parse", "HEAD")
+    (consumer / "c2.txt").write_text("C2\n", encoding="utf-8")
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "C2")
+    c2 = _git(consumer, "rev-parse", "HEAD")
+    (consumer / "wiki.config.yaml").symlink_to("baseline.txt")
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "C3 symlink")
+    c3 = _git(consumer, "rev-parse", "HEAD")
+    digest = lambda value: hashlib.sha256(value.encode("utf-8")).hexdigest()
+    receipt = {
+        "identity": {
+            "source_sha": "1" * 40,
+            "package_sha256": "2" * 64,
+            "portable_tree_sha256": "3" * 64,
+            "consumer_B0": b0,
+            "consumer_C3": c3,
+            "command_registry_sha256": "4" * 64,
+            "toolchain_sha256": "5" * 64,
+        },
+        "boundary_commits": {"B0": b0, "C1": c1, "C2": c2, "C3": c3},
+        "boundaries": {
+            "C1": [
+                {
+                    "path": "c1.txt",
+                    "operation": "upsert",
+                    "mode": "100644",
+                    "sha256": digest("C1\n"),
+                    "source_mode": "100644",
+                    "source_sha256": digest("C1\n"),
+                }
+            ],
+            "C2": [
+                {
+                    "path": "c2.txt",
+                    "operation": "upsert",
+                    "mode": "100644",
+                    "sha256": digest("C2\n"),
+                    "generator_sha256": "6" * 64,
+                }
+            ],
+            "C3": [
+                {
+                    "path": "wiki.config.yaml",
+                    "operation": "upsert",
+                    "mode": "100644",
+                    "sha256": digest("baseline.txt"),
+                }
+            ],
+        },
+    }
+
+    with pytest.raises(UpgradeLaneError, match="regular Git blob"):
+        _verify_git_boundary_chain(consumer, receipt)
+
+
 def test_c2_and_c3_deletions_have_explicit_before_and_generator_proof(
     capsule_authority: dict,
 ) -> None:
@@ -1733,6 +2838,7 @@ def test_c2_and_c3_deletions_have_explicit_before_and_generator_proof(
         {
             "path": "apps/wiki-cockpit/public/sample-snapshot/stale.json",
             "operation": "delete",
+            "before_mode": "100644",
             "before_sha256": "8" * 64,
             "generator_sha256": _digest("python3 scripts/wiki_build_demo.py"),
         }
@@ -1741,6 +2847,7 @@ def test_c2_and_c3_deletions_have_explicit_before_and_generator_proof(
         {
             "path": "wiki.templates.local.yaml",
             "operation": "delete",
+            "before_mode": "100644",
             "before_sha256": "a" * 64,
         }
     ]

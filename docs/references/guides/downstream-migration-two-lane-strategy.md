@@ -4,7 +4,7 @@ page_id: guide-downstream-migration-two-lane-strategy
 page_type: reference_guide
 context: system
 visibility: public_candidate
-updated_at: 2026-07-13
+updated_at: 2026-07-14
 stale_after_days: 90
 sources_policy: operational_contract
 gate: github_pr
@@ -103,7 +103,7 @@ Lane A emits an immutable release capsule:
 | `package_sha256` | Canonical digest of the package that declares import and gate policy. |
 | `portable_tree_sha256` | Digest of the allowlisted, blocklist-filtered Git tree. |
 | `command_registry` + `command_registry_sha256` | Sorted gate ID/class/command registry plus its canonical digest. |
-| `toolchain` + `toolchain_sha256` | Exact Python, Node, browser and runner identities plus their canonical digest. |
+| `toolchain` + `toolchain_sha256` | Exact resolved Python distributions, Node, Playwright package plus launched Chromium engine, and runner identities with their canonical digest. The runner version embeds the byte/mode digest of `scripts/wiki_upgrade.py`, `scripts/_common.py`, `scripts/_git_subject.py`, `scripts/wiki_toolchain_probe.py`, `wiki_core/**/*.py` and the runtime JSON schemas. |
 | `gate_receipt_sha256` | Hash of executed commands, exit codes and output hashes. |
 | `visual_manifest_sha256` | Hash of package-owned screenshots and comparison metadata. |
 | `capsule_sha256` | Canonical digest of the complete unsigned capsule. |
@@ -128,6 +128,35 @@ Any change to the subject, package digest, portable tree, command registry,
 schema or declared toolchain invalidates the capsule and requires a new Lane A
 run.
 
+### Lane A -> Lane B handoff authority
+
+Lane A does not hand off a branch name or a prose claim that CI passed. It
+hands off one immutable release-authority bundle containing the canonical
+package, capsule, portable subject/tree, impact registry, command registry,
+toolchain identity, visual manifest, executed gate receipts and attestation.
+The attestation digest travels through a separately reviewed channel so that a
+consumer cannot make a locally sealed capsule trusted by copying files into an
+authority directory.
+
+Before planning any consumer mutation, Lane B must:
+
+1. obtain that immutable bundle, its independently supplied raw archive
+   SHA-256 and the independently supplied attestation digest;
+2. verify the raw archive before extraction, execute the restored byte-equal
+   runner, then recompute the capsule, package, portable tree, registry,
+   command, toolchain, visual and receipt digests fail-closed;
+3. freeze `consumer_B0` and compile the read-only conceptual C1/C2/C3 delta;
+4. emit a handoff receipt that binds the verified Lane A authority to that B0,
+   the exact selected/omitted gates and the plan digest; and
+5. require `adopt --resume` to consume the same authority and plan, with no
+   fallback to a live branch, mutable checkout or newly invented capsule.
+
+The handoff is accepted only when `plan` can explain the exact consumer delta
+and gate derivation without mutating the consumer. Private paths, routes,
+payloads and consumer receipts never flow back into the public capsule. A
+missing artifact, mismatched digest, unknown impact or changed plan rejects the
+handoff and names Lane A or Lane B, the affected contract and the next action.
+
 ## Lane B — downstream adoption by delta
 
 Lane B starts from a clean consumer baseline and one certified capsule. It
@@ -144,18 +173,34 @@ owns only consumer-specific proof:
 9. promote through the consumer PR/human gate.
 
 The reviewed import/regeneration/adaptation workflow creates three distinct
-commits. `plan` is read-only; after the operator reviews that sealed plan,
-`adopt` materializes and verifies each boundary atomically from its declared
-source bytes and commands:
+commits. `plan` is read-only for Git/tracked state and writes only ignored
+planning evidence; after the operator reviews that sealed plan, `adopt`
+materializes and verifies each boundary atomically from its declared source
+bytes and commands:
 
 | Boundary | Owns | Must not own |
 | --- | --- | --- |
-| C1 faithful import | Portable files byte-equal to Lane A. | Memory, consumer config, tests or generated data. |
+| C1 faithful import | Portable files byte-equal to Lane A, including toolkit-owned `.skills/wiki-*/**`. | Memory, consumer config, tests or generated data. |
 | C2 regenerated artifacts | Deterministic snapshot/demo/build artifacts declared by the package. | Hand-authored content or local policy. |
-| C3 downstream adaptations | Consumer config, adapters, consumer-owned tests, semantic repairs and localized release record. | Modified portable core or private evidence sidecars. |
+| C3 downstream adaptations | Consumer config, base plus `.local` page-type/template registries, adapters, `AGENTS.md`, non-`wiki-*` repo-local skills, consumer-owned tests, semantic repairs and localized release record. | Modified portable core, toolkit-owned `wiki-*` skills or private evidence sidecars. |
 
-An adoption receipt is reusable only when all seven identity terms match
-exactly:
+The broad `.skills/*/**` consumer namespace is resolved by portable precedence:
+an exact package-allowed `.skills/wiki-*/**` path is C1 and is rejected from C3;
+every other declared repo-local skill is C3. This lets a consumer update its
+router and operating policy without forking the toolkit skill, while keeping
+the imported `wiki-*` playbooks byte-equal to the Lane A capsule.
+
+This ownership rule is prospective. If a migration was already sealed under
+v2 without consumer `AGENTS.md` or router changes in C3, do not append those
+paths, amend C3 or regenerate its receipts. Finish that exact v2 subject with
+its complete original gate matrix. After it reaches consumer `main`, create a
+new v3 follow-up plan whose fresh B0/C1/C2/C3 chain imports any changed
+toolkit-owned `wiki-*` skill in C1 and owns downstream `AGENTS.md`, router and
+non-`wiki-*` local-skill adaptations in C3. Domain content remains a different
+PR and authority surface.
+
+All seven identity terms must match before an unfinished run may resume or a
+receipt may be validated:
 
 | Exact reuse key | Bound authority |
 | --- | --- |
@@ -165,12 +210,16 @@ exactly:
 | `consumer_B0` | Frozen consumer baseline before C1. |
 | `consumer_C3` | Final consumer adaptation subject on which gates ran. |
 | `command_registry_sha256` | Exact command IDs/classes/bodies used by both lanes. |
-| `toolchain_sha256` | Exact Python/Node/browser/runner toolchain. |
+| `toolchain_sha256` | Exact resolved Python distributions, Node version, Playwright package plus launched Chromium engine, and byte/mode runner closure. |
 
 The first, second, third, sixth and seventh terms must also equal the verified
 Lane A capsule. `consumer_B0` and `consumer_C3` belong only to Lane B. A change
 to either consumer commit invalidates Lane B gate, canary, resume and report
 receipts without rewriting still-valid proof for the unchanged Lane A capsule.
+Equality is necessary but not replay authority: once the overall adoption is
+complete, its receipt becomes immutable historical evidence for the original
+PR/human gate and `--resume` fails closed. Policy-driven reexecution requires a
+new consumer subject and plan identity.
 
 ## Gate classes
 
@@ -275,7 +324,7 @@ no consumer/background result can appear in `certified_gates`, the Lane A
 attestation or its certification receipt:
 
 ```sh
-python3 scripts/wiki_upgrade.py certify \
+python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py certify \
   --package /path/to/upgrade-package.yaml \
   --impact-registry /path/to/impact-registry.yaml \
   --source-root /path/to/clean-public-subject \
@@ -289,57 +338,92 @@ The downstream operator then uses the out-of-band attestation digest emitted by
 that run. The operator-facing Lane B workflow is:
 
 ```sh
-python3 scripts/wiki_upgrade.py plan \
-  --package /path/to/upgrade-package.yaml \
-  --capsule /path/to/release-capsule.json \
-  --impact-registry /path/to/impact-registry.yaml \
-  --authority /path/to/release-authority \
+python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py plan \
+  --package /path/to/restored-release-authority/upgrade-package.yaml \
+  --capsule /path/to/restored-release-authority/release-capsule.json \
+  --impact-registry /path/to/restored-release-authority/impact-registry.yaml \
+  --authority /path/to/restored-release-authority/release-authority.json \
   --trusted-attestation-sha256 <out-of-band-sha256> \
-  --kit-root /path/to/wiki-viva-kit \
+  --kit-root /path/to/restored-release-authority/public-kit \
   --consumer-root /path/to/consumer \
   --consumer-b0 <B0> \
   --preflight-command 'audit::python3 scripts/wiki_audit.py --check' \
   --c2-generator-command 'demo_snapshot::python3 scripts/wiki_build_demo.py' \
   --c2-generator-command 'visual_baselines::npm --prefix apps/wiki-cockpit run test:visual:update' \
   --c3-adapter-command 'consumer-adapter::/path/to/reviewed-consumer-adapter.sh' \
-  --out .wiki-viva/upgrade/plan.json
+  --out /path/to/consumer/.wiki-viva/upgrade/plan.json
 
-python3 scripts/wiki_upgrade.py adopt \
-  --plan .wiki-viva/upgrade/plan.json \
-  --package /path/to/upgrade-package.yaml \
-  --capsule /path/to/release-capsule.json \
-  --impact-registry /path/to/impact-registry.yaml \
-  --authority /path/to/release-authority \
+python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py adopt \
+  --plan /path/to/consumer/.wiki-viva/upgrade/plan.json \
+  --package /path/to/restored-release-authority/upgrade-package.yaml \
+  --capsule /path/to/restored-release-authority/release-capsule.json \
+  --impact-registry /path/to/restored-release-authority/impact-registry.yaml \
+  --authority /path/to/restored-release-authority/release-authority.json \
   --trusted-attestation-sha256 <out-of-band-sha256> \
-  --kit-root /path/to/wiki-viva-kit \
+  --trusted-acceptance-anchor-sha256 <sha256-emitted-by-plan> \
+  --kit-root /path/to/restored-release-authority/public-kit \
   --consumer-root /path/to/consumer \
   --mode canary \
   --resume
 ```
 
+The first invocation that reaches the real canary emits
+`canary_completion_anchor_sha256`. Capture it outside `.wiki-viva/`. Any later
+resume, including the background job, adds:
+
+```sh
+  --trusted-canary-completion-anchor-sha256 <sha256-emitted-after-real-canary>
+```
+
+`plan` emits `acceptance_anchor_sha256` after atomically claiming one
+first-write clock for the exact capsule, B0, impact inputs and mutation intent.
+The caller must freeze that value outside the consumer evidence directory; CI
+uses a job output and the externally hashed handoff archive. A second plan for
+the same attempt reuses the original timestamp. `adopt` verifies the exact
+external digest before C1 and never creates or replaces a missing anchor.
+Deleting the local anchor can only be detected as tampering when the digest is
+still held out of band, so the self-hash of the plan is integrity metadata, not
+clock authority.
+
+The completion anchor is independently first-write and binds the plan, exact
+seven-term identity, canary completion timestamp and canonical selected-canary
+result projection. A post-canary resume verifies the caller-held digest before
+reusing the result. Deleting, recreating or coherently resealing the local
+result/anchor files cannot establish a new completion time.
+
 The runner contract is:
 
 - verify the Lane A capsule before touching the consumer;
+- verify the active runner closure byte-for-byte against the capsule toolchain,
+  using the exact interpreter executing the runner rather than a different PATH
+  alias, before package validation, preflight, C1 or resume;
 - bind the reviewed preflight produced before C1, then emit the exact
   post-chain conceptual plan before gates/canary execution;
 - after explicit plan review, create C1 from the capsule's byte-exact portable
   projection, create C2 only from the registered generators and create C3 only
-  from the reviewed consumer adapter commands, one atomic commit per boundary;
+  from the reviewed consumer adapter commands, one direct single-parent atomic
+  commit per boundary with no intermediate or merge commit;
 - replay each registered C2 generator from C1 in a disposable clone, retain
   the real command log and require byte-for-byte equality with committed C2;
-- compute the affected-gate set from a versioned impact registry;
+- recompute the canonical affected-gate set from the package plus versioned
+  impact registry, adding every package-required promotion gate and dependency;
 - execute independent gates in parallel with bounded resources;
 - stream progress instead of remaining silent during long browser runs;
-- cache only receipts whose complete identity key matches;
+- cache only gate results from an overall run that is still incomplete and
+  whose complete identity key matches;
 - automatically capture the package-declared visual profiles;
 - write receipts, screenshots and reports only to ignored consumer evidence
   paths;
-- resume completed gates after interruption without reusing stale results;
+- resume completed gates after interruption only while the overall run remains
+  incomplete, without reusing stale results;
+- bind B0/C1/C2/C3 in both receipt and state, then independently recompute each
+  direct Git edge, changed path, mode and blob before accepting evidence;
 - verify rollback in a disposable clone before declaring `promotion_ready`.
 
-`plan` is read-only and writes a canonical plan only after printing the lane,
-affected contracts, selected/omitted gates, invalidation reasons and conceptual
-diff. `adopt` must refuse an unreviewed or stale plan. Its resume checkpoint
+`plan` is read-only for Git/tracked state and writes ignored canonical planning
+evidence only after printing the lane, affected contracts, selected/omitted
+gates, invalidation reasons and conceptual diff. `adopt` must refuse an
+unreviewed or stale plan. Its resume checkpoint
 binds both `identity_sha256` and `plan_sha256`; it may skip only a completed gate
 whose receipt still matches the current seven-term identity, command digest,
 output digest and final C3 subject.
@@ -362,19 +446,48 @@ creates and verifies distinct ancestry-ordered B0/C1/C2/C3 boundaries; the DAG
 scheduler honors dependencies/resource groups; C2 is replayed from executed
 generators; current-C3 canary evidence includes PNG/console/network data; resume
 rejects stale identity; and rollback/report verification runs in a disposable
-clone. The command reference, schemas and negative controls cover those paths.
+clone. C1 excludes every declared C2 surface by construction, the final
+evidence subject includes non-ignored untracked files in its cleanliness proof,
+and reports bind the exact lane, mode, selected gates and boundary
+digests/counts. Toolchain proof includes the sorted resolved Python
+distribution digest and a Chromium process launched by the recorded Playwright
+package; the portable probe is part of the runner payload closure. The command
+reference, schemas and negative controls cover those paths.
 
 This implementation evidence does **not** certify the current v8 release. Its
 versioned package remains `validation_pending`, so no production Lane A capsule
-or reusable v3 adoption receipt exists until the exact releasable public subject
+or production v3 adoption receipt exists until the exact releasable public subject
 is certified and promoted through its own PR/human gate. The migration already
 in flight remains on its complete v2 `migration.required_gates` matrix.
 
-The minimum receipt cache key is:
+### Sanitized in-flight v2 checkpoint
+
+As of 2026-07-14, the current authorized private technical PR is the transition
+checkpoint, not v3 proof. Its original 22-gate v2 matrix passed without
+reduction, its four
+real canary profiles and generated private/public-redacted reports passed, and
+rollback restored the frozen baseline in a disposable clone. The two
+deterministic hosted jobs pass. The hosted visual matrix remains fail-closed at
+100/102 on the only completed standard Apple Silicon attempt. A later attempt
+was cancelled during browser installation, so the current aggregate visual
+check is cancelled/non-green. A separate first-attempt Intel diagnostic closed
+92/102 after software rendering and WebGL context failures. Consumer `main` is
+therefore unchanged.
+
+The private `AGENTS.md` and router improvement discovered during this review
+are deliberately excluded from that sealed C3. They belong to a fresh v3
+follow-up after the v2 promotion, and cannot be used to rewrite or reissue the
+current receipts. Concurrent domain material remains a separate content PR. No
+private repository name, PR number, domain label, branch, SHA, route, path,
+payload or screenshot is part of this public checkpoint.
+
+The minimum identity key for unfinished-run gate reuse and receipt validation
+is:
 
 `source_sha + package_sha256 + portable_tree_sha256 + consumer_B0 + consumer_C3 + command_registry_sha256 + toolchain_sha256`
 
-Changing any term invalidates the receipt.
+Changing any term invalidates the receipt. An unchanged completed receipt still
+cannot be resumed or reused to promote twice.
 
 ## Required negative controls
 
@@ -388,9 +501,11 @@ Public synthetic fixtures must prove that the system rejects:
 - manual, placeholder or fabricated command evidence;
 - a resume checkpoint whose identity or plan is stale;
 - a host path, private evidence root, private route, secret or private value in
-  a public capsule/receipt;
+  a public capsule/receipt, mapping key or gate output after bounded repeated
+  percent-decoding as well as in its literal representation;
 - a file placed in the wrong C1/C2/C3 boundary, domain content inside a
-  technical boundary or a C1 file that is not byte-equal to Lane A;
+  technical boundary, a symlink/submodule/special Git entry, or a C1 file that
+  is not byte-and-mode-equal to Lane A;
 - rollback/report proof that was not executed against final C3.
 
 ## CI topology
@@ -405,6 +520,12 @@ The public synthetic workflow separates four responsibilities:
    journey with browser evidence, then persist `--pause-before-background`;
 4. **background certification** — depend on canary and resume that same
    consumer/run handoff for broader consumer suites, rollback and final reports.
+
+Every job that verifies the browser toolchain installs the exact Playwright
+package and Chromium engine before launching the probe. Pull-request filters
+cover the complete portable authority and runner closure — including bootstrap
+helpers, probe, requirements, all `wiki_core`, runtime schemas and runner CLI
+tests — so a dependency-only change cannot bypass this workflow.
 
 Background completion policy remains explicit in `gate_policies`; moving work
 to a separate job does not make a `required_for_promotion` failure optional.
@@ -436,8 +557,17 @@ retried, waived or relabeled as strict certification.
 
 ## Time and feedback budgets
 
-These are design budgets used to detect a poor migration experience, not a
-reason to terminate an honest gate early.
+These phase targets diagnose a poor migration experience; they are not a
+reason to terminate an honest gate early. Every v3 Lane B adoption must reach
+the real current-C3 canary in **<= 20 minutes** as a contractual fast-path
+acceptance criterion; the public `ordinary_no_core_change` fixture is the
+required conformance example. The continuous wall
+clock starts when the read-only `plan` command starts and stops only when the
+selected real-canary gates complete. It survives `--resume` and cross-job
+handoffs: queue or wait time after `plan` counts instead of silently pausing the
+clock. C1/C2/C3 and every selected pre-canary gate are inside the measurement.
+Phase targets may overlap because independent gates run in parallel; the
+20-minute total supersedes their arithmetic sum.
 
 | Stage | Target feedback budget |
 | --- | ---: |
@@ -445,8 +575,18 @@ reason to terminate an honest gate early.
 | Exact import + deterministic regeneration | <= 5 minutes |
 | Consumer-always + affected gates | <= 10 minutes |
 | Canary smoke + visual profiles | <= 5 minutes |
-| Evidence/report compilation | <= 1 minute |
-| Ordinary no-core-change adoption | <= 20 minutes total |
+| Post-canary report/rollback compilation diagnostic | <= 1 minute |
+| Plan-to-real-canary fast path | <= 20 minutes total |
+
+Work completed before `plan`, plus explicitly classified
+`background_certification`, final report generation, rollback verification and
+the later human PR gate, are outside this plan-to-canary metric while remaining
+mandatory for promotion. If the limit is exceeded, the runner still completes
+background evidence, reports and rollback, but seals a blocked receipt with
+status `exceeded`, elapsed milliseconds, Lane B, the affected acceptance-budget
+contract and the next action. It cannot be reused or relabeled as a passing
+fast path. An older v2 run is preserved on its historical contract and is not
+retroactively timed as v3.
 
 Longer full downstream suites run as an explicitly visible background lane.
 The runner reports current gate, completed/total cells, elapsed time and
@@ -474,7 +614,8 @@ does not enter C1/C2/C3 merely because its branch already exists.
 - the downstream run never repeats a verified upstream gate without a recorded
   invalidation reason;
 - every omitted gate is justified by a valid capsule or impact derivation;
-- ordinary no-core-change adoption reaches canary within the 20-minute budget;
+- every v3 plan seals the plan-to-canary budget, and the ordinary no-core-change
+  conformance adoption reaches canary within 20 minutes;
 - failures name the owning lane, affected contract and exact next action;
 - rollback is verified, not described only in prose;
 - private evidence remains ignored/untracked and public projection is safe;

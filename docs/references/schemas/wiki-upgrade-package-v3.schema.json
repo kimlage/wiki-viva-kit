@@ -657,6 +657,30 @@
         }
       }
     },
+    "acceptanceBudgetPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "scope",
+        "limit_seconds",
+        "enforcement"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wiki_viva_upgrade_acceptance_budget_policy.v1"
+        },
+        "scope": {
+          "const": "plan_to_real_canary"
+        },
+        "limit_seconds": {
+          "const": 1200
+        },
+        "enforcement": {
+          "const": "promotion_blocking"
+        }
+      }
+    },
     "migration": {
       "type": "object",
       "additionalProperties": false,
@@ -668,6 +692,7 @@
         "command_registry_sha256",
         "impact_registry",
         "gate_policies",
+        "acceptance_budget",
         "boundary_operations",
         "visual_profiles"
       ],
@@ -714,6 +739,9 @@
         },
         "gate_policies": {
           "$ref": "#/$defs/gatePolicies"
+        },
+        "acceptance_budget": {
+          "$ref": "#/$defs/acceptanceBudgetPolicy"
         },
         "boundary_operations": {
           "$ref": "#/$defs/boundaryOperations"

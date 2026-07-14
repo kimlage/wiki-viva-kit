@@ -11,6 +11,7 @@ from jsonschema import Draft202012Validator
 from wiki_core.upgrade import (
     boundary_operations_sha256,
     canonical_json,
+    portable_path_status,
     validate_upgrade_package,
 )
 from wiki_core.upgrade_lanes import (
@@ -134,8 +135,18 @@ def _package_v3() -> dict:
             "downstream_adapter_manifest": "wiki_downstream_adapter_manifest.v1",
         },
         "portable_import": {
-            "allow": ["scripts/wiki_*.py", "wiki_core/**"],
-            "block": ["memories/**", "wiki.config.yaml"],
+            "allow": [
+                "apps/wiki-cockpit/**",
+                "scripts/wiki_*.py",
+                "wiki_core/**",
+            ],
+            # The broader block proves glob containment: every path owned by
+            # the sample-snapshot C2 subtree is outside effective C1.
+            "block": [
+                "apps/wiki-cockpit/public/**",
+                "memories/**",
+                "wiki.config.yaml",
+            ],
         },
         "preflight": {
             "branch_prefix": "wiki/",
@@ -169,6 +180,12 @@ def _package_v3() -> dict:
                 "sha256": "2" * 64,
             },
             "gate_policies": gate_policies,
+            "acceptance_budget": {
+                "schema_version": "wiki_viva_upgrade_acceptance_budget_policy.v1",
+                "scope": "plan_to_real_canary",
+                "limit_seconds": 1200,
+                "enforcement": "promotion_blocking",
+            },
             "boundary_operations": {
                 "schema_version": "wiki_viva_upgrade_boundary_operations.v1",
                 "c2_generators": [
@@ -234,6 +251,49 @@ def test_public_synthetic_v3_matches_schema_and_semantic_validator() -> None:
     package = _package_v3()
     assert _schema_errors(package) == []
     assert validate_upgrade_package(package) == []
+
+
+def test_v3_rejects_c2_not_provably_blocked_from_effective_c1() -> None:
+    package = _package_v3()
+    package["portable_import"]["block"] = [
+        "apps/wiki-cockpit/public/other-generated-subtree/**",
+        "memories/**",
+        "wiki.config.yaml",
+    ]
+
+    assert _schema_errors(package) == []
+    assert (
+        "migration.generated_artifact_patterns[0] is not fully excluded from "
+        "effective C1 by portable_import.block"
+        in validate_upgrade_package(package)
+    )
+
+
+def test_project_v3_blocks_every_c2_pattern_from_effective_c1() -> None:
+    package = load_mapping(
+        ROOT / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+    )
+    assert validate_upgrade_package(package) == []
+
+    for index, generated_pattern in enumerate(
+        package["migration"]["generated_artifact_patterns"]
+    ):
+        concrete_path = generated_pattern.removesuffix("/**") + "/fixture.json"
+        allowed, reason = portable_path_status(concrete_path, package)
+        assert allowed is False
+        assert reason.startswith("blocked by ")
+
+        missing_block = copy.deepcopy(package)
+        missing_block["portable_import"]["block"] = [
+            pattern
+            for pattern in missing_block["portable_import"]["block"]
+            if pattern != generated_pattern
+        ]
+        assert (
+            f"migration.generated_artifact_patterns[{index}] is not fully excluded "
+            "from effective C1 by portable_import.block"
+            in validate_upgrade_package(missing_block)
+        )
 
 
 def test_project_v3_keeps_operational_pass_current_in_every_consumer() -> None:
@@ -354,6 +414,44 @@ def test_v3_boundary_operations_digest_and_ownership_fail_closed() -> None:
     assert (
         "migration.boundary_operations.registry_sha256 is stale"
         in validate_upgrade_package(package)
+    )
+
+
+def test_v3_acceptance_budget_is_exact_and_promotion_blocking() -> None:
+    package = _package_v3()
+    assert _schema_errors(package) == []
+    assert validate_upgrade_package(package) == []
+
+    missing = _package_v3()
+    del missing["migration"]["acceptance_budget"]
+    assert _schema_errors(missing)
+    assert any(
+        "migration.acceptance_budget" in error
+        for error in validate_upgrade_package(missing)
+    )
+
+    enlarged = _package_v3()
+    enlarged["migration"]["acceptance_budget"]["limit_seconds"] = 1201
+    assert _schema_errors(enlarged)
+    assert any(
+        "exactly 1200 seconds" in error
+        for error in validate_upgrade_package(enlarged)
+    )
+
+    shortened = _package_v3()
+    shortened["migration"]["acceptance_budget"]["limit_seconds"] = 1199
+    assert _schema_errors(shortened)
+    assert any(
+        "exactly 1200 seconds" in error
+        for error in validate_upgrade_package(shortened)
+    )
+
+    weakened = _package_v3()
+    weakened["migration"]["acceptance_budget"]["enforcement"] = "advisory"
+    assert _schema_errors(weakened)
+    assert any(
+        "promotion blocking" in error
+        for error in validate_upgrade_package(weakened)
     )
 
     package = _package_v3()
