@@ -199,8 +199,10 @@ validation ended with 1,708 passed, 3 skips, 2 warnings and 5 failures in
 noncanonical inventory target and portable-to-consumer Markdown link exposed
 by that run. The strict browser matrix was not started; no candidate, capture,
 capsule or adoption authority exists. Rc25 is immutable failed-validation
-evidence, and rc26 remains prospective and unpinned until a separate metadata
-boundary seals its corrected exact source.
+evidence. Rc26 is now pinned only for exact validation to source
+`da3a9a0495db974e409f5af6413401c31851e071`; status remains
+`validation_pending`, so no candidate, capture, capsule or adoption authority
+exists.
 
 ### Normative Lane A -> Lane B handoff and fast-path budget
 
@@ -680,7 +682,7 @@ memory rather than one fixed dashboard:
 | Historical public RT-153 correction / RT-154 validation failure | Exact source `ba42b95c93c3383162bf105703d5d6d4ea688e3e`; package `wiki-viva-v8-rc23` / `validation_pending`; package/tree `a55126d8...` / `4ec21ffe...`, 521 entries | First complete validation at metadata commit `e9737149...` ended 1,670 passed, 1 skipped, 2 warnings and 41 setup errors in 725.49 seconds; exact-source reproduction reached the same route-contract signature | All four certification profiles use canonical native `view` routes, but one shared synthetic CLI authority helper still fabricated the legacy desktop route; review also found release specs entering compat without declaring that runtime | Immutable failed-validation evidence; no candidate, manifest, capsule, attestation or Lane B authority existed; never retry, relabel, promote or import rc23 |
 | Historical public rc24 certification failure | Exact source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`; validation subject `e912c095e42ba56b97ec3179fd20cdd71779db87`; candidate metadata `ef8d930cff11ba4a8f9dc4ccfe6ea58785066c19`; package-file/canonical-package/tree `9fdcd298...` / `46494e1d...` / `b001f89c...`, 521 entries | Complete pre-candidate validation passed: 1,709 Python, 516 frontend, 115 Node and 102/102 browser. First productive capture verified four profiles with manifest `f6f2df7f...`. In the first certification wave, architecture, bundle, frontend and browser (102/102, 0 skip/retry, 6.5m) passed; `demo_drift` and `portable_python` failed because ambient `python3` diverged from the probed Python 3.12.4 dependency set | RT-156 proves that a versioned command string is insufficient unless its Python spelling executes through the probed interpreter. The raw YAML bytes digest `9fdcd298...` is not the canonical package identity `46494e1d...`; visual records and portable-tree authority bind the latter | Immutable `historical_certification_failed` evidence. No capsule, receipt, trust anchor or authority exists; never retry, reuse the capture, relabel, promote or import rc24 |
 | Historical public rc25 validation failure | Exact source `c741e3d0ad409ac9baea8b136e3819952bb0657b`; validation metadata `f2c7665b451b91cb6095ae136b2b5763df67d458`; package-file/canonical-package/tree `d2a92739...` / `6988fd4a...` / `16705a38...`, 521 entries | First complete Python validation: 1,708 passed, 3 skips, 2 warnings and 5 failures in 921.24 s. Frontend 516, Node 115 and the full static stack passed; strict browser was not started | RT-159: `oneOf` temporal ambiguity without optional `date-time` checker. RT-160: inventory target was not the canonical release-at-source identity. RT-161: portable skill linked consumer-owned `.skills/README.md` | Immutable `historical_validation_failed`; no candidate, productive capture, capsule, receipt, trust or Lane B authority. Never retry, relabel, promote or import rc25 |
-| Prospective public rc26 correction | Unpinned source transition retains RT-156/RT-157 and closes RT-159 through RT-161 with public synthetic schemas, inventory and Markdown-closure controls | Focused temporal/web-temporal validation passes; exact source pin and complete matrix remain pending | Temporal values are valid without optional format plugins, malformed values remain rejected, target identity is canonical, and portable documentation no longer depends on a C3 file | No authority. Seal a new source in separate metadata, then run every exact gate without rc25 reuse |
+| Exact public rc26 validation source | Exact source `da3a9a0495db974e409f5af6413401c31851e071` retains RT-156/RT-157 and closes RT-159 through RT-161; package `wiki-viva-v8-rc26` remains `validation_pending`; package-file/canonical-package/tree `f5e73c17...` / `2266b30d...` / `24d3f0f7...`, 521 entries | Focused integrated correction controls pass 261 in 159.84 s; exact complete validation remains pending | Temporal values are valid without optional format plugins, day `00` and malformed values are rejected, target identity is canonical, and portable documentation no longer depends on a C3 file | Validation-only and non-promotional. Strict browser, candidate metadata, productive capture, certification, capsule verification, downstream QA and human gates remain pending; no rc25 result is reusable |
 | Corrected local public source for the authorized v2 exception | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; package v2 canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc` | Public suite passed 1,529 tests, with two declared skips and two warnings; package validation and public privacy boundary pass | Atomic operator-job publication and the two-lane migration contracts are covered by public synthetic fixtures | Local source authority for the explicitly authorized in-flight v2 QA only; public publication remains unauthorized |
 | Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the frozen current v2 adoption or a future rc26-or-later v3 plan |
 | Current corrected authorized private v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; two deterministic hosted jobs pass; the only completed standard Apple Silicon attempt closed 100/102, a later attempt was cancelled during browser installation and a separate standard Intel probe closed 92/102 with software rendering and WebGL context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback; private `AGENTS.md`/router work is deliberately deferred to a fresh post-v2 v3 follow-up | Promotion blocked and the aggregate visual check is cancelled/non-green; consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the human gate approves; current v2 C3/receipts remain immutable |
@@ -4835,8 +4837,10 @@ RT-157's explicit root skill-index C3 ownership, but its first full validation
 failed closed at metadata subject `f2c7665b...`: 1,708 passed, 3 skips, 2
 warnings and 5 failures in 921.24 seconds. Those failures define RT-159 through
 RT-161. Browser, candidate, capture and certification were never started.
-Rc26 is the next unpinned correction subject. Public push and publication
-remain unauthorized.
+Rc26 is pinned only for exact validation at source
+`da3a9a0495db974e409f5af6413401c31851e071`; package-file/canonical-package/
+portable-tree identities are `f5e73c17...` / `2266b30d...` / `24d3f0f7...`
+with 521 entries. Public push and publication remain unauthorized.
 
 #### Rc22 failed capture, rc23/rc25 failed validation, rc24 failed certification and rc26 boundary — 2026-07-14
 
@@ -4858,7 +4862,7 @@ remain unauthorized.
 | Rc24 productive capture | Visual manifest `f6f2df7f...`; exact source/canonical-package/browser-toolchain bound records for desktop, mobile Timeline, explicit fallback and two-step quadrant collection | All four profiles verified in the first capture with zero page/network errors; historical exact-subject evidence only, never reusable by rc25 or rc26 |
 | Rc24 Lane A failure | First certification wave retained architecture, bundle and frontend passes plus browser 102/102, 0 skip/retry in 6.5m | `demo_drift` and `portable_python` failed because ambient Python 3.13 lacked `yaml`/`pytest` while the probe bound Python 3.12.4; no capsule, receipt, trust anchor or authority was written; rc24 is immutable `historical_certification_failed` |
 | Rc25 validation failure | Exact source `c741e3d0ad409ac9baea8b136e3819952bb0657b`, metadata `f2c7665b...`; validation-pending package-file/canonical-package/tree `d2a92739...` / `6988fd4a...` / `16705a38...`, 521 entries | First complete Python run: 1,708 passed, 3 skips, 2 warnings, 5 failed in 921.24 s. Frontend 516, Node 115 and static stack passed; strict browser was not started. RT-159 through RT-161; immutable failed-validation evidence with no candidate, capture or authority |
-| Rc26 transition | Public synthetic fix changes temporal schemas/tests, canonical inventory target and portable Markdown closure; current release package intentionally remains unpinned until a separate metadata boundary | Focused temporal/web-temporal stack passes 91; exact source identity, package digests, full matrix, first-attempt browser, capture and certification remain pending and may not reuse rc25 siblings |
+| Rc26 validation source | Exact source `da3a9a0495db974e409f5af6413401c31851e071`; validation-pending package-file/canonical-package/tree `f5e73c17...` / `2266b30d...` / `24d3f0f7...`, 521 entries | Public synthetic temporal/inventory/Markdown fixes are integrated; 261 focused controls pass in 159.84 s. Complete exact matrix, first-attempt strict browser, candidate review, productive capture and certification remain pending and may not reuse rc25 siblings |
 
 This correction is prospective. The already sealed v2 downstream C3 and all of
 its receipts remain frozen on their original complete
@@ -5003,9 +5007,9 @@ source `c741e3d0ad409ac9baea8b136e3819952bb0657b` closed the public RT-156/RT-15
 implementation boundary but failed its first complete validation with 5
 failures after 1,708 passes. RT-159 through RT-161 retain those public synthetic
 defects as explicit controls; rc25 is immutable and its browser was not run.
-Rc26 is prospective and unpinned until a separate source metadata boundary;
-candidate metadata, new capture and one certification remain later separate
-stages. A later
+Rc26 is pinned only for exact validation at
+`da3a9a0495db974e409f5af6413401c31851e071`; candidate metadata, new capture
+and one certification remain later separate stages. A later
 explicit execution decision authorized the corrected private-first v2
 migration described above after the local public core/fixture correction; that
 decision supersedes the former statement that no private import may start. It
@@ -5035,9 +5039,10 @@ and never reuse its capture or mint missing authority by hand. Preserve exact
 rc25 source `c741e3d0ad409ac9baea8b136e3819952bb0657b` and validation metadata
 `f2c7665b451b91cb6095ae136b2b5763df67d458` only as the failed RT-159 through
 RT-161 checkpoint; never run its browser, retry, relabel, promote or import it.
-Form a fresh rc26 source that retains RT-156/RT-157 and closes all three rc25
-failures. Pin that source separately, run its exact deterministic/browser
-matrix, then review a candidate metadata boundary before a new productive
+Use the fresh rc26 source `da3a9a0495db974e409f5af6413401c31851e071`,
+which retains RT-156/RT-157 and closes all three rc25 failures. It is now pinned
+for validation only. Run its exact deterministic/browser matrix, then review a
+candidate metadata boundary before a new productive
 capture, single certification and independent capsule verifier. Rc26 remains
 local and non-promotional until downstream QA, remote CI, human review, merge and a
 separate production-promotion boundary close under explicit publication

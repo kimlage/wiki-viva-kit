@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc26 transition - rc25 validation failed"
+title: "Wiki Viva v8 rc26 validation source pinned - rc25 historical"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc26 transition - rc25 validation failed
+# Wiki Viva v8 rc26 validation source pinned - rc25 historical
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -84,16 +84,25 @@ anchor, attestation or Lane B authority exists. Rc25 is immutable
 `historical_validation_failed` and must never be retried, relabeled, promoted,
 imported or used to mint missing authority.
 
-## Rc26 transition — prospective and unpinned
+## Rc26 exact validation source — pinned, not a candidate
 
-Rc26 carries the public synthetic fixes for the three rc25 failures. It is
-prospective and unpinned; the machine release id remains `unreleased` until a
-separate metadata boundary seals its exact
-source, package and portable-tree identities. Only that new subject may run a
-complete validation and, if every gate passes, proceed through separate
-candidate review, first-attempt strict browser proof, productive four-profile
-capture, one Lane A certification and independent capsule verification. No
-green rc25 sibling result is reusable.
+`wiki-viva-v8-rc26` carries the public synthetic fixes for the three rc25
+failures and is pinned only for exact validation to source
+`da3a9a0495db974e409f5af6413401c31851e071`. Status remains
+`validation_pending`, so `package_is_pinned=false`: no plan, import, capture or
+certification authority exists. Exact validation must finish first; only a
+later separately reviewed candidate metadata boundary may authorize a fresh
+strict browser proof, productive four-profile capture and one Lane A
+certification. No green rc25 sibling result is reusable.
+
+The validation-pending package file SHA-256 is
+`f5e73c17547a477cc9ba1b4303b17af23d7141b697659a177287e5f2fd8cd35c`,
+its canonical package identity is
+`2266b30d60566b21d49103e7bbb258e12291a7dafe0d4f61b1564d0d9873e33c`,
+and the exact 521-entry portable tree is
+`24d3f0f79e65d00f4b9fe3b1bec4947044aa32ede7d445033ffb25b5e47c402e`.
+These identities are validation-only evidence and will change if package
+status or semantics change.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -198,7 +207,7 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Any future rc26 publication still requires an exact source pin and validation, a separate
+Any future rc26 publication still requires exact validation, a separate
 candidate metadata boundary, new capture and certification, explicit
 authorization, remote public CI,
 human conceptual/privacy/VoiceOver review and merge, followed by a separately

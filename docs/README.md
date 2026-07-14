@@ -96,9 +96,10 @@ starting point for persistent context is `memories/`.
   validation with 1,708 passed, 3 skips and 5 public synthetic contract
   failures; its strict browser matrix was not started and no candidate,
   capture or capsule exists. Rc25 is immutable
-  `historical_validation_failed`. Rc26 is prospective and unpinned until a
-  separate metadata boundary seals its corrected exact source; complete
-  validation, a new capture and certification remain mandatory.
+  `historical_validation_failed`. Rc26 is pinned only for exact validation to
+  source `da3a9a0495db974e409f5af6413401c31851e071`; status remains
+  `validation_pending`, so candidate review, a new capture and certification
+  remain mandatory.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.
