@@ -120,10 +120,12 @@ starting point for persistent context is `memories/`.
   frontend checks, then failed its first complete validation because the
   deterministic operational-pass artifact was stale. Browser and later stages
   were not started; rc31 is immutable `historical_validation_failed`. Rc32 is
-  pinned only for exact validation at source
-  `ed073dee5fbf05343b36db1fdc061a24d0220cb9`; its one-write operational-pass
-  fixed point is source-formed, but it still requires a wholly new
-  validation/candidate/capture/certification sequence.
+  exact source `ed073dee5fbf05343b36db1fdc061a24d0220cb9` closed the
+  one-write operational-pass fixed point, then its first full Python
+  validation stopped with 2 contract failures after 1,744 passes and 3 skips.
+  Frontend, browser and later stages were not started; rc32 is immutable
+  `historical_validation_failed`. Rc33 is prospective and unpinned and must
+  receive a wholly new validation/candidate/capture/certification sequence.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

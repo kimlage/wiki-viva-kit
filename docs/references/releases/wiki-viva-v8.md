@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc32 validation source pinned - rc31 failed deterministic validation"
+title: "Wiki Viva v8 rc32 failed full Python validation - rc33 source formation"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc32 validation source pinned - rc31 failed deterministic validation
+# Wiki Viva v8 rc32 failed full Python validation - rc33 source formation
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -303,23 +303,15 @@ promote, import or use it to mint missing authority. No candidate, productive
 capture, certification, capsule, receipt, attestation, trust anchor or Lane B
 authority exists.
 
-## Rc32 exact validation source — one-write operational-pass fixed point
+## Rc32 exact validation source — two truth contracts failed closed
 
-Rc32 is pinned only for exact validation at source
-`ed073dee5fbf05343b36db1fdc061a24d0220cb9`. It preserves the public RT-164
-quadrant label correction and adds a public synthetic fixed-point regression for the
-operational-pass compiler: the generated dashboard must not feed its own
-derived record back into `Latest updates`, and an immediate check/second render
-after one write must be byte-equal. The versioned dashboard is regenerated only after this
-core behavior is fixed. It also closes the enforcement gap exposed by RT-166:
-the local gate list names operational-pass freshness and the exact
-warnings-as-errors Python command; CI runs that same warning policy; and the
-strict visual job depends on the deterministic audit/test job instead of being
-eligible after a core validation failure.
-
-Formation proof passes 198 focused operational-pass, workflow, package and
-lane tests with warnings as errors. The versioned dashboard was written once,
-its immediate deterministic check passed, and its SHA-256 is
+Package `wiki-viva-v8-rc32` was pinned only for exact validation at source
+`ed073dee5fbf05343b36db1fdc061a24d0220cb9` and metadata subject
+`5848f8f9e5ec059b1c3f880db0d7931a25920af9`. It preserves RT-164, closes
+the one-write operational-pass fixed point from RT-165 and aligns local/CI
+gate ordering for RT-166. Its formation proof passed 198 focused tests with
+warnings as errors, and the regenerated operational-pass dashboard was
+immediately check-clean at SHA-256
 `b632bf8eb2de2ca84ca84894280e907ff434143cbd822dbe0b62d5abeb8a5dca`.
 
 The validation-pending package-file SHA-256 is
@@ -328,11 +320,38 @@ its canonical package identity is
 `8c07f05a680b1bd47994b3560067c28bcf5416aa2bc3546f1e698466940d2b81`
 and its exact 521-entry portable tree is
 `7da9d6369550d45f368ee3ddb4f04382949f498fd0c2ff9350389243bd0fb82f`.
-These identities authorize validation only: `package_is_pinned` remains false,
-and no plan, import, capture, capsule or promotion authority exists. Rc32 must
-now run every validation, browser, candidate, productive-capture,
-certification, capsule-verification, downstream-QA, remote-CI and
-human-promotion stage from zero. Public push remains unauthorized.
+
+Its first and only full Python validation ended with 2 failed, 1,744 passed
+and 3 declared skips in 1,201.51 seconds. Both failures were public truth
+contracts:
+
+- the exact-base page-graph workflow test still hardcoded the legacy `python`
+  alias after the canonical workflow and registry moved to `python3`;
+- this release note used only the short label “rc32” and omitted the literal
+  `wiki-viva-v8-rc32` identity required by the package/inventory contract.
+
+Frontend, browser and every later stage were correctly not started. Rc32 is
+immutable `historical_validation_failed`; never retry, relabel, promote,
+import or use it to mint missing authority. No candidate, productive capture,
+certification, capsule, receipt, attestation, trust anchor or Lane B authority
+exists.
+
+## Rc33 source formation — registry-bound workflow and literal release truth
+
+Rc33 is prospective and unpinned. The active package remains `unreleased`
+against the rc32 metadata checkpoint while source formation is reviewed; the
+future exact identity will be `wiki-viva-v8-rc33` only in a separate pin.
+RT-167 derives the page-graph workflow command and interpreter alias from the
+versioned impact registry instead of hardcoding a second command authority.
+RT-168 keeps the machine truth assertion strict and requires every pinned
+release note to name the literal package ID.
+
+The focused formation set covers page-graph CLI, workflow topology, package
+truth and upgrade lanes: all 182 tests pass with warnings as errors in 196.45
+seconds. Rc33 must be formed and pinned in separate commits, then run every
+validation, browser, candidate, productive-capture, certification,
+capsule-verification, downstream-QA, remote-CI and human-promotion stage from
+zero. Public push remains unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -437,7 +456,7 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Rc32, or any later replacement, still requires exact validation, separate
+Rc33, or any later replacement, still requires exact validation, separate
 candidate review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
@@ -446,7 +465,7 @@ reviewed promotion boundary that can mint production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
 rc21, rc22, rc23, the exact rc24/rc26 failed-certification subjects, the exact
-rc25/rc27 failed-validation subjects nor rejected rc28/rc29/rc30 reclassifies,
+rc25/rc27/rc31/rc32 failed-validation subjects nor rejected rc28/rc29/rc30 reclassifies,
 reduces or rewrites
 that evidence.
 

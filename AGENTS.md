@@ -123,11 +123,14 @@ another) via skills — there is no embedded LLM client.
   517 frontend checks, then failed its first complete validation because the
   deterministic operational-pass artifact was stale; browser and every later
   stage were not started. Rc31 is immutable `historical_validation_failed`.
-  Rc32 is pinned only for exact validation at source
-  `ed073dee5fbf05343b36db1fdc061a24d0220cb9`; it makes a single
-  operational-pass generation idempotent and preserves explicit process/stream
-  ownership, but must still pass a wholly new validation, candidate, capture
-  and certification sequence.
+  Rc32 exact source `ed073dee5fbf05343b36db1fdc061a24d0220cb9`
+  closed the operational-pass fixed point and CI ordering, then its first full
+  Python validation stopped with 2 contract failures after 1,744 passes and 3
+  skips; frontend, browser and every later stage were not started. Rc32 is
+  immutable `historical_validation_failed`. Rc33 is prospective and unpinned;
+  it must bind workflow assertions to the versioned command registry, name the
+  exact package identity in release truth and pass a wholly new validation,
+  candidate, capture and certification sequence.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must

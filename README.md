@@ -41,10 +41,12 @@ complete matrix after real-data visual QA exposed ambiguous repeated
 root-quadrant group labels. The first exact rc31 validation passed 1,740
 Python and 517 frontend checks, then
 failed closed on stale deterministic operational-pass output before browser;
-rc31 is now immutable failed-validation evidence. Rc32 is pinned only for
-exact validation at source
-`ed073dee5fbf05343b36db1fdc061a24d0220cb9`; it has no candidate, capsule or
-adoption authority. See the [v8 release note](docs/references/releases/wiki-viva-v8.md)
+rc31 is now immutable failed-validation evidence. Rc32 exact source
+`ed073dee5fbf05343b36db1fdc061a24d0220cb9` then stopped in its first full
+Python validation with 2 contract failures after 1,744 passes and 3 skips;
+frontend and browser were not started. Rc32 is immutable failed-validation
+evidence, and rc33 is prospective and unpinned. See the
+[v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority: do not
 migrate a downstream repo until a production Lane A capsule verifies
@@ -321,9 +323,12 @@ its complete matrix; no candidate, capture, capsule or adoption authority
 exists. Rc31 exact source
 `6fa9b907d5dfc748e94d182ac3704b226142552e` passed 1,740 Python and 517
 frontend checks, then failed operational-pass freshness before browser. Rc31
-is immutable failed-validation evidence. Rc32 is pinned only for exact
-validation at source `ed073dee5fbf05343b36db1fdc061a24d0220cb9` and must
-receive a wholly new validation/candidate/capture/certification sequence.
+is immutable failed-validation evidence. Rc32 exact source
+`ed073dee5fbf05343b36db1fdc061a24d0220cb9` closed that fixed-point defect but
+failed its first full Python validation on two stale truth-contract
+expectations. Rc32 is immutable failed-validation evidence; rc33 is
+prospective and must receive a wholly new
+validation/candidate/capture/certification sequence.
 No existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself
