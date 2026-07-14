@@ -38,7 +38,7 @@ The unified v8 runtime is not a published consumer release. Rc26 is frozen
 failed-certification evidence, rc27 is frozen failed-validation evidence,
 rc28/rc29 were rejected before validation, and rc30 was rejected before its
 complete matrix after real-data visual QA exposed ambiguous repeated
-root-quadrant group labels. Rc31 is prospective and unpinned. See the
+root-quadrant group labels. Rc31 is pinned only for exact validation. See the
 [v8 release note](docs/references/releases/wiki-viva-v8.md) for the exact
 remaining gates. An exact `source_sha` alone is not adoption authority: do not
 migrate a downstream repo until a production Lane A capsule verifies
@@ -312,8 +312,9 @@ retained private-lineage labels. Rc30 source
 then downstream real-data visual QA found four distinct root-quadrant family
 controls with the same visible and accessible label. Rc30 was rejected before
 its complete matrix; no candidate, capture, capsule or adoption authority
-exists. Rc31 is prospective and unpinned, with the public synthetic regression
-and a wholly new validation/candidate/capture/certification sequence required.
+exists. Rc31 is pinned only for exact validation at
+`6fa9b907d5dfc748e94d182ac3704b226142552e`; a wholly new
+validation/candidate/capture/certification sequence remains required.
 No existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself

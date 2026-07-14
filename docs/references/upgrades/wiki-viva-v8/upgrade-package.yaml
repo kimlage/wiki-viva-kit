@@ -1,9 +1,9 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: unreleased
+  id: wiki-viva-v8-rc31
   status: validation_pending
-  source_sha: 14ad7edb547b16c83482959e90dd2e14aecff598
+  source_sha: 6fa9b907d5dfc748e94d182ac3704b226142552e
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
@@ -615,10 +615,11 @@ known_limitations:
     retained private-lineage labels. Rc30 source
     bc44255b22d65b8c9869ec45759afd4dac1355b9 was rejected before its complete
     validation matrix after RT-164 exposed ambiguous repeated root-quadrant
-    family labels. The next source is prospective and unpinned; public push
-    remains unauthorized.
+    family labels. Rc31 is pinned only for exact validation at source
+    6fa9b907d5dfc748e94d182ac3704b226142552e.
+    Public push remains unauthorized.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
-  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25 and rc27 are immutable failed-validation evidence; rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. None of their incomplete stages can be resumed. The active package is prospective and validation_pending, so package_is_pinned is false and every v3 plan/adoption path must fail closed until a new exact source, validation, candidate review, productive capture, certification capsule and independent verification exist; public promotion and the human gate remain separate.
+  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25 and rc27 are immutable failed-validation evidence; rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. None of their incomplete stages can be resumed. The active rc31 package is pinned only for exact validation and remains validation_pending, so package_is_pinned is false and every v3 plan/adoption path must fail closed until validation, candidate review, productive capture, certification capsule and independent verification exist; public promotion and the human gate remain separate.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
   - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc30 can never authorize another import. Exact rc31-or-later may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
@@ -632,5 +633,5 @@ known_limitations:
   - Toolkit-owned .skills/wiki-*/** remain portable C1. Nested consumer skills under .skills/*/**, AGENTS.md and the literal root .skills/README.md are C3; the literal path is required because the nested skill glob intentionally cannot cross the directory boundary.
   - A downstream must ignore only .wiki-viva/upgrade/ before freezing B0 so resumable plans and receipts remain untracked. Ignoring all .wiki-viva/ is forbidden because consumer pack state may be versioned there; this consumer-owned pre-B0 policy is never supplied by C1.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27 failed complete validation, rc24/rc26 failed certification after valid captures, rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. Exact rc31 must retain RT-156/RT-157 and RT-159 through RT-163, close RT-164 with quadrant-qualified labels plus public synthetic controls, preserve state-stable portable truth and keep the versioned warnings-as-errors portable Python command, strict post-run scanner and unmodified captured output; it must then pass its own complete validation, productive capture, certification and capsule verification before public human/promotion boundaries. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
+  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27 failed complete validation, rc24/rc26 failed certification after valid captures, rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. Exact rc31 retains RT-156/RT-157 and RT-159 through RT-163, closes RT-164 with quadrant-qualified labels plus public synthetic controls, preserves state-stable portable truth and keeps the versioned warnings-as-errors portable Python command, strict post-run scanner and unmodified captured output; it must pass its own complete validation, productive capture, certification and capsule verification before public human/promotion boundaries. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.

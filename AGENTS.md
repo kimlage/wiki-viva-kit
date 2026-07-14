@@ -118,10 +118,11 @@ another) via skills — there is no embedded LLM client.
   validation, then rejected before its complete matrix when downstream
   real-data visual QA exposed four distinct root-quadrant family controls with
   the same visible and accessible label. No rc30 browser, candidate, capture,
-  capsule or adoption authority exists. Rc31 is prospective and unpinned. It
-  must preserve explicit process/stream ownership, reproduce the label defect
-  with public synthetic data and pass a wholly new validation, candidate,
-  capture and certification sequence.
+  capsule or adoption authority exists. Rc31 is pinned only for exact
+  validation to source
+  `6fa9b907d5dfc748e94d182ac3704b226142552e`; status remains
+  `validation_pending`. It must preserve explicit process/stream ownership and
+  pass a wholly new validation, candidate, capture and certification sequence.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must

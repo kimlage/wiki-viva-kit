@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc31 source formation - rc30 rejected before complete validation"
+title: "Wiki Viva v8 rc31 validation source pinned - rc30 rejected before complete validation"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc31 source formation - rc30 rejected before complete validation
+# Wiki Viva v8 rc31 validation source pinned - rc30 rejected before complete validation
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -258,7 +258,7 @@ capsule, receipt, attestation, trust anchor or Lane B authority exists for
 rc30. It must never be retried, relabeled, promoted, imported or used to mint
 missing authority.
 
-## Rc31 source formation — quadrant-qualified group controls
+## Rc31 exact validation source — quadrant-qualified group controls
 
 The next source reproduces RT-164 with public synthetic root-quadrant family
 nodes and qualifies each visible and accessible group name with its canonical
@@ -275,8 +275,17 @@ controls as `Q1`–`Q4` and confirms a `Q1` click opens the same family under th
 remain private and untracked; the versioned authority is the public synthetic
 fixture.
 
-The package remains `unreleased`; rc31 is prospective and unpinned in this
-source-formation boundary.
+Package `wiki-viva-v8-rc31` is pinned only for exact validation at source
+`6fa9b907d5dfc748e94d182ac3704b226142552e`; status remains
+`validation_pending`, so `package_is_pinned=false` and no plan, import, capture
+or certification authority exists. Its package-file SHA-256 is
+`f87ff28b4dd4c43b9c831dc7449888b16898de3a65dc1bafcb408aff80c7074c`,
+its canonical package identity is
+`3b6df79c764c2c287e26d15c50f74fde3fef12dc1f4ca03fffa48517c84751d4`,
+and its exact 521-entry portable tree is
+`f03226622e7be9e2668d4d39b8c642bf0a7b52571cbedada70071e656b461037`.
+These identities authorize validation only and are not a capsule or adoption
+receipt.
 Complete exact validation, candidate review, a new productive capture, one
 certification, independent capsule verification, downstream QA, remote CI and
 the human promotion gate all remain mandatory. Public push remains

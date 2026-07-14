@@ -115,9 +115,10 @@ starting point for persistent context is `memories/`.
   `bc44255b22d65b8c9869ec45759afd4dac1355b9` was pinned only for validation,
   then rejected before its complete matrix when downstream real-data visual
   QA exposed four distinct root-quadrant family controls with the same visible
-  and accessible label. Rc31 is prospective and unpinned; its public synthetic
-  regression and explicit process/stream ownership require a wholly new
-  validation/candidate/capture/certification sequence.
+  and accessible label. Rc31 is pinned only for exact validation at source
+  `6fa9b907d5dfc748e94d182ac3704b226142552e`; its explicit process/stream
+  ownership requires a wholly new validation/candidate/capture/certification
+  sequence.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.
