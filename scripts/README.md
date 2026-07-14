@@ -159,7 +159,13 @@ The v8 downstream release flow is read-only by default:
   gates remain in Lane B and resume from the exact post-canary consumer handoff;
   they are never executed or packaged by `certify`. The CLI is
   intentionally v3-only; in-flight v1/v2 packages retain their original full
-  `migration.required_gates` runbook and cannot reuse v3 receipts.
+  `migration.required_gates` runbook and cannot reuse v3 receipts. Registered
+  commands beginning with `python` or `python3` execute through the same public
+  alias accepted by the toolchain probe, while their reviewed command text and
+  digest remain unchanged. A divergent ambient interpreter fails before it can
+  attest a different dependency closure. If any Lane A wave fails after the
+  strict browser gate has executed, freeze that source/package subject and form
+  a new one after the public fix; never retry or relabel the failed subject.
 - [wiki_toolchain_probe.py](wiki_toolchain_probe.py) is the portable,
   shell-free Lane A helper recorded in the toolchain attestation. Its `python`
   mode hashes the sorted resolved distribution inventory through the exact

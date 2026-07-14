@@ -69,11 +69,17 @@ def _active_toolchain() -> dict[str, dict[str, str]]:
 
 def test_c3_stage_accepts_consumer_skill_but_rejects_portable_wiki_skill() -> None:
     upgrade_runner._require_stage_paths(
-        [".skills/local-operator/SKILL.md", "AGENTS.md"],
-        [".skills/*/**", "AGENTS.md"],
+        [".skills/local-operator/SKILL.md", ".skills/README.md", "AGENTS.md"],
+        [".skills/*/**", ".skills/README.md", "AGENTS.md"],
         label="C3",
         forbidden_patterns=[".skills/wiki-*/**"],
     )
+    with pytest.raises(upgrade_runner.RunnerError, match="outside its owned boundary"):
+        upgrade_runner._require_stage_paths(
+            [".skills/README.md"],
+            [".skills/*/**"],
+            label="C3",
+        )
     with pytest.raises(upgrade_runner.RunnerError, match="outside its owned boundary"):
         upgrade_runner._require_stage_paths(
             [".skills/wiki-viva/SKILL.md"],
@@ -110,6 +116,9 @@ def test_python_probe_uses_only_an_alias_for_the_executing_interpreter(
         lambda name: str(divergent) if name == "python3" else active,
     )
     assert upgrade_runner._active_python_alias() == "python"
+    assert upgrade_runner._parse_command(
+        "python3 -m pytest -q tests/", kit_root=ROOT
+    ) == ["python", "-m", "pytest", "-q", "tests/"]
 
     monkeypatch.setattr(
         upgrade_runner.shutil,
@@ -118,6 +127,126 @@ def test_python_probe_uses_only_an_alias_for_the_executing_interpreter(
     )
     with pytest.raises(upgrade_runner.RunnerError, match="executing this runner"):
         upgrade_runner._active_python_alias()
+    with pytest.raises(upgrade_runner.RunnerError, match="executing this runner"):
+        upgrade_runner._parse_command(
+            "python3 scripts/wiki_build_demo.py --check", kit_root=ROOT
+        )
+
+
+def test_certification_python_gate_executes_probed_alias_but_binds_registered_command(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bin_root = tmp_path / "bin"
+    bin_root.mkdir()
+    probed = bin_root / "python"
+    probed.write_text(
+        "#!/bin/sh\nprintf 'probed-python-gate\\n'\n",
+        encoding="utf-8",
+    )
+    probed.chmod(0o755)
+    divergent = bin_root / "python3"
+    divergent.write_text(
+        "#!/bin/sh\nprintf 'divergent-python-gate\\n'\nexit 41\n",
+        encoding="utf-8",
+    )
+    divergent.chmod(0o755)
+    monkeypatch.setattr(upgrade_runner, "_active_python_alias", lambda: "python")
+    monkeypatch.setattr(
+        upgrade_runner,
+        "_certification_environment",
+        lambda: {
+            "PATH": str(bin_root),
+            "PYTHONUNBUFFERED": "1",
+            "TZ": "UTC",
+        },
+    )
+    command = "python3 -m synthetic_gate"
+    output_root = tmp_path / "gate-output"
+
+    result = upgrade_runner._run_certification_gate(
+        {
+            "id": "synthetic_python",
+            "class": "upstream_certified",
+            "command": command,
+        },
+        source_root=tmp_path,
+        gate_output_root=output_root,
+        source_sha="a" * 40,
+        timeout=30,
+        heartbeat=1,
+    )
+
+    assert result["status"] == "passed"
+    assert result["command_sha256"] == hashlib.sha256(command.encode()).hexdigest()
+    assert (output_root / result["output_ref"]).read_text(encoding="utf-8") == (
+        "probed-python-gate\n"
+    )
+
+
+def test_failed_certification_wave_freezes_subject_even_after_strict_gate_passed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source_sha = "a" * 40
+    catalog = [
+        {
+            "id": "browser_synthetic_release",
+            "class": "upstream_certified",
+            "command": "npm --prefix apps/wiki-cockpit run test:e2e:release",
+        },
+        {
+            "id": "portable_python",
+            "class": "upstream_certified",
+            "command": "python3 -m pytest -q tests/",
+        },
+    ]
+    package = {
+        "migration": {
+            "gate_policies": {
+                "browser_synthetic_release": {
+                    "depends_on": [],
+                    "resource_group": "browser_public",
+                },
+                "portable_python": {
+                    "depends_on": [],
+                    "resource_group": "python_test",
+                },
+            }
+        }
+    }
+    monkeypatch.setattr(upgrade_runner, "_require_clean", lambda _root: None)
+    monkeypatch.setattr(upgrade_runner, "_head", lambda _root: source_sha)
+
+    def synthetic_result(gate: dict[str, str], **_kwargs: object) -> dict[str, object]:
+        return {
+            "id": gate["id"],
+            "status": (
+                "passed"
+                if gate["id"] == "browser_synthetic_release"
+                else "failed"
+            ),
+        }
+
+    monkeypatch.setattr(
+        upgrade_runner, "_run_certification_gate", synthetic_result
+    )
+
+    with pytest.raises(upgrade_runner.RunnerError) as caught:
+        upgrade_runner._execute_certification_matrix(
+            package=package,
+            catalog=catalog,
+            source_root=tmp_path,
+            gate_output_root=tmp_path / "gate-output",
+            source_sha=source_sha,
+            jobs=2,
+            timeout=30,
+            heartbeat=1,
+        )
+
+    assert caught.value.code == "certification_gate_failed"
+    assert caught.value.surface == "portable_python"
+    assert "freeze this failed release subject" in caught.value.next_action
+    assert "never retry or relabel this subject" in caught.value.next_action
+    assert "start a new certification run" not in caught.value.next_action
 
 
 @pytest.mark.parametrize(

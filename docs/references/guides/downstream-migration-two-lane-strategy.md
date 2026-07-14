@@ -199,13 +199,14 @@ bytes and commands:
 | --- | --- | --- |
 | C1 faithful import | Portable files byte-equal to Lane A, including toolkit-owned `.skills/wiki-*/**`. | Memory, consumer config, tests or generated data. |
 | C2 regenerated artifacts | Deterministic snapshot/demo/build artifacts declared by the package. | Hand-authored content or local policy. |
-| C3 downstream adaptations | Consumer config, base plus `.local` page-type/template registries, adapters, `AGENTS.md`, non-`wiki-*` repo-local skills, consumer-owned tests, semantic repairs and localized release record. | Modified portable core, toolkit-owned `wiki-*` skills or private evidence sidecars. |
+| C3 downstream adaptations | Consumer config, base plus `.local` page-type/template registries, adapters, `AGENTS.md`, `.skills/README.md`, non-`wiki-*` repo-local skills, consumer-owned tests, semantic repairs and localized release record. | Modified portable core, toolkit-owned `wiki-*` skills or private evidence sidecars. |
 
 The broad `.skills/*/**` consumer namespace is resolved by portable precedence:
 an exact package-allowed `.skills/wiki-*/**` path is C1 and is rejected from C3;
-every other declared repo-local skill is C3. This lets a consumer update its
-router and operating policy without forking the toolkit skill, while keeping
-the imported `wiki-*` playbooks byte-equal to the Lane A capsule.
+the consumer-owned `.skills/README.md` registry and every other declared
+repo-local skill are C3. This lets a consumer update its router and operating
+policy without forking the toolkit skill, while keeping the imported `wiki-*`
+playbooks byte-equal to the Lane A capsule.
 
 ### Exact config-bound C3 authority
 
@@ -247,13 +248,13 @@ Lane A is required only when the sealed package/impact mapping itself is
 missing or ambiguous.
 
 This ownership rule is prospective. If a migration was already sealed under
-v2 without consumer `AGENTS.md` or router changes in C3, do not append those
-paths, amend C3 or regenerate its receipts. Finish that exact v2 subject with
+v2 without consumer `AGENTS.md`, `.skills/README.md` or router changes in C3,
+do not append those paths, amend C3 or regenerate its receipts. Finish that exact v2 subject with
 its complete original gate matrix. After it reaches consumer `main`, create a
 new v3 follow-up plan whose fresh B0/C1/C2/C3 chain imports any changed
-toolkit-owned `wiki-*` skill in C1 and owns downstream `AGENTS.md`, router and
-non-`wiki-*` local-skill adaptations in C3. Domain content remains a different
-PR and authority surface.
+toolkit-owned `wiki-*` skill in C1 and owns downstream `AGENTS.md`,
+`.skills/README.md`, router and non-`wiki-*` local-skill adaptations in C3.
+Domain content remains a different PR and authority surface.
 
 All seven identity terms must match before an unfinished run may resume or a
 receipt may be validated:
@@ -423,7 +424,12 @@ python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py verify-capsule \
 Every successful upstream command log is itself public evidence. The package's
 quiet Pytest and TAP Vitest reporters are part of the sealed command registry;
 a passing log that contains a host-local path is rejected, not redacted after
-the fact.
+the fact. A command-registry token such as `python3` is also normative: it must
+resolve to the exact interpreter used by the toolchain probe and runner. Lane A
+must inject or register an interpreter-stable alias instead of depending on the
+operator's ambient PATH. If the command resolves to a different Python, or its
+resolved dependencies differ, certification fails closed and no successful
+results from the same attempt can be promoted into a capsule.
 
 The downstream operator uses the independently verified out-of-band attestation
 digest emitted by that run. The operator-facing Lane B workflow is:
@@ -557,12 +563,12 @@ distribution digest and a Chromium process launched by the recorded Playwright
 package; the portable probe is part of the runner payload closure. The command
 reference, schemas and negative controls cover those paths.
 
-This implementation evidence does **not** certify the current v8 release. The
-tracked `candidate` status exists only to mint a separately attested local
-downstream-QA capsule; no production Lane A capsule or production v3 adoption
-receipt exists until the exact public subject is promoted through its own
-PR/human gate. The migration already
-in flight remains on its complete v2 `migration.required_gates` matrix.
+This implementation evidence does **not** certify the current v8 release.
+Rc24's tracked candidate metadata was only an input to its one productive Lane
+A attempt; the failed attempt minted no capsule, receipt, trust or downstream
+authority. Rc25 remains prospective and unpinned until a separate metadata
+boundary seals a new exact source. The migration already in flight remains on
+its complete v2 `migration.required_gates` matrix.
 
 Rc21 and rc22 are now immutable historical non-promotional evidence. Rc21's
 public UI regression proof remains useful, but a downstream rehearsal exposed
@@ -580,9 +586,33 @@ mint a capsule. Rc23 corrected the native routes, but its first complete
 validation stopped with 41 setup errors from the one synthetic CLI helper that
 still fabricated the legacy desktop route. No candidate, manifest, capsule,
 attestation or Lane B authority existed; rc23 must not be retried or relabeled.
-Rc24 is prospective and unpinned until a later metadata boundary seals its
-exact source; public publication remains a separate human
-decision.
+
+Rc24 exact source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`, validation
+metadata `e912c095e42ba56b97ec3179fd20cdd71779db87` and candidate metadata
+`ef8d930cff11ba4a8f9dc4ccfe6ea58785066c19` identify one immutable failed
+certification subject. Its package file SHA-256 was
+`9fdcd2985f5ab4fbc98932859a950b9aad52ffea0b7ae643a8a1f8830c5f1976`;
+the canonical package identity used by capture/certification was
+`46494e1d66d1c7bb3e8efeef9687870808453ea5402bb137366c19dacacdd4be`;
+and its 521-entry portable tree was
+`b001f89c7453177a66439a22524f5bb00e47bacb54216cff3291ed408d332048`.
+The productive visual manifest SHA-256
+`f6f2df7fd4c5461ca5e8ad9dba369f57938233fb4e7bb84b0b8bab1899615fbe`
+covered all four declared profiles on its first capture attempt. During the
+same first Lane A certification attempt, frontend, architecture and bundle
+gates passed, and the browser matrix passed 102/102 cells in 6.5 minutes with
+zero skips and zero retries. `demo_drift` and `portable_python` failed because
+their command-registry `python3` resolved through ambient PATH instead of the
+probed Python 3.12.4 interpreter and dependencies. The certification therefore
+failed closed as a whole. No capsule, attestation, certification receipt, trust
+or Lane B authority was minted. Rc24 is immutable
+`historical_certification_failed` and must never be retried, reused, relabeled,
+promoted or imported.
+
+Rc25 is a new prospective subject, not a continuation of rc24. It stays
+unpinned until a separate metadata boundary seals its exact source, package and
+portable tree, then must run a new productive capture and certification from
+that exact clean source. Public publication remains a separate human decision.
 
 ### Sanitized in-flight v2 checkpoint
 
@@ -598,11 +628,12 @@ check is cancelled/non-green. A separate first-attempt Intel diagnostic closed
 92/102 after software rendering and WebGL context failures. Consumer `main` is
 therefore unchanged.
 
-The private `AGENTS.md` and router improvement discovered during this review
-are deliberately excluded from that sealed C3. They belong to a fresh v3
-follow-up after the v2 promotion, and cannot be used to rewrite or reissue the
+The private `AGENTS.md`, `.skills/README.md` and router improvements discovered
+during this review are deliberately excluded from that sealed C3. They belong
+to a fresh v3 follow-up after the v2 promotion, and cannot be used to rewrite or reissue the
 current receipts. Rc21's historical reclassification, rc22's failed capture,
-rc23's failed validation and the prospective rc24 contract do not amend that v2 subject, reduce its
+rc23's failed validation, rc24's failed certification and the prospective rc25
+contract do not amend that v2 subject, reduce its
 original matrix or invalidate
 receipts that still describe their exact frozen subject. Concurrent domain
 material remains a separate content PR. No

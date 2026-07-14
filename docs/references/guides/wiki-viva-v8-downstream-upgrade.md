@@ -96,12 +96,12 @@ valid only for their exact original subject. Finish and report that migration
 under v2; use v3 only for a new plan.
 
 The same transition rule applies to ownership discovered late. If consumer
-`AGENTS.md`, its router or another non-`wiki-*` local skill was not included in
-the sealed v2 C3, do not amend C3 or regenerate the v2 receipt. Promote or roll
+`AGENTS.md`, `.skills/README.md`, its router or another non-`wiki-*` local skill
+was not included in the sealed v2 C3, do not amend C3 or regenerate the v2 receipt. Promote or roll
 back that exact subject first. Then create a fresh v3 follow-up from the new B0:
 toolkit-owned `.skills/wiki-*/**` remain byte-equal C1, while consumer
-`AGENTS.md`, router and non-`wiki-*` local skills belong to C3. Concurrent
-domain content stays in its own later content PR.
+`AGENTS.md`, `.skills/README.md`, router and non-`wiki-*` local skills belong to
+C3. Concurrent domain content stays in its own later content PR.
 
 ### Exact config-bound C3 authority for new v3 plans
 
@@ -137,7 +137,7 @@ failure: `plan` stops before mutation, the consumer repairs B0 and creates a new
 plan. Re-running Lane A does not repair invalid consumer configuration; it is
 required when the sealed package/impact mapping itself is defective.
 
-### Rc21 -> rc22 -> rc23 -> rc24 correction boundary
+### Rc21 -> rc22 -> rc23 -> rc24 -> rc25 correction boundary
 
 Rc21 is historical non-promotional local evidence. It retains its exact public
 mobile/visual proof, but a synthetic downstream rehearsal exposed a missing
@@ -151,8 +151,27 @@ promoted, imported, relabeled or retried. Rc23 corrected the native routes,
 but complete validation stopped fail-closed because its synthetic CLI authority
 helper still fabricated the legacy desktop route; no candidate, manifest,
 capsule, attestation or Lane B authority existed. Rc23 must not be retried or
-relabeled. Rc24 is a prospective unpinned validation subject until a later
-metadata boundary seals its exact source.
+relabeled.
+
+Rc24 exact source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`, validation
+metadata `e912c095e42ba56b97ec3179fd20cdd71779db87` and candidate metadata
+`ef8d930cff11ba4a8f9dc4ccfe6ea58785066c19` passed exact validation and a
+first-attempt four-profile productive capture. Its package file SHA-256 was
+`9fdcd2985f5ab4fbc98932859a950b9aad52ffea0b7ae643a8a1f8830c5f1976`,
+canonical package identity was
+`46494e1d66d1c7bb3e8efeef9687870808453ea5402bb137366c19dacacdd4be`,
+521-entry portable-tree SHA-256 was
+`b001f89c7453177a66439a22524f5bb00e47bacb54216cff3291ed408d332048`,
+and visual-manifest SHA-256 was
+`f6f2df7fd4c5461ca5e8ad9dba369f57938233fb4e7bb84b0b8bab1899615fbe`.
+The first Lane A certification passed frontend, architecture, bundle and
+102/102 browser cells in 6.5 minutes with zero skips/retries, but failed closed
+on `demo_drift` and `portable_python`: ambient `python3` differed from the
+probed Python 3.12.4 interpreter. No capsule, receipt, trust or Lane B authority
+was minted. Rc24 is immutable `historical_certification_failed`; never retry,
+reuse, relabel, promote or import it. Rc25 is prospective and unpinned until a
+separate metadata boundary seals an exact source; it requires a new capture and
+certification.
 This runbook grants no public publication authority.
 
 ### Lane A -> Lane B handoff checklist
@@ -346,8 +365,9 @@ conceptual diff was reviewed before the import.
 ## 5. Import only portable files — manual v2 path
 
 The blocklist wins over the allowlist. Toolkit-owned `.skills/wiki-*/**` are
-portable C1 bytes, while `AGENTS.md` and all other repo-local skills are
-consumer-owned C3 routing policy. In particular, the default import never
+portable C1 bytes, while `AGENTS.md`, `.skills/README.md` and all other
+repo-local skills are consumer-owned C3 routing policy. In particular, the
+default import never
 includes memory roots, `wiki.config.yaml`, targets, local templates, raw/cache
 data, private snapshots, `.env` files, credentials, downstream evidence or the
 consumer-owned `apps/wiki-cockpit/public/wiki-cockpit.config.json` runtime
@@ -362,8 +382,9 @@ Use a reviewed file-transfer/diff workflow and stage only paths accepted by
 1. `import: faithful Wiki Viva v8 public kit at <SHA>` — portable files only;
 2. `build: regenerate v8 snapshot/demo artifacts` — only reproducible artifacts;
 3. `adapt: preserve downstream layout/templates/operator policy` — local
-   configuration, adapters, `AGENTS.md`, non-`wiki-*` repo-local skills and the
-   consumer-owned release record, with conflict warnings recorded.
+   configuration, adapters, `AGENTS.md`, `.skills/README.md`, non-`wiki-*`
+   repo-local skills and the consumer-owned release record, with conflict
+   warnings recorded.
 
 For v3, do not stage or commit these boundaries manually. Review the same
 ownership in `plan`; after approval, `adopt` materializes and verifies the
@@ -548,8 +569,11 @@ of the complete C2 path set, Git modes and blob digests. Missing or divergent
 replay fails before gates. The runner then rechecks both external anchors, the complete B0/C1/C2/C3 direct Git
 chain, the canonical package/impact-selected gate set, the command digest,
 byte-equal runner/toolchain closure and output digest. The toolchain probe uses
-the same Python interpreter that is executing the runner. A stale
-result is invalidated and rerun; a stale or modified plan is rejected.
+the same Python interpreter that is executing the runner, and every Python
+alias in the sealed command registry must resolve to that exact interpreter.
+Do not let ambient PATH select a different `python3`; such divergence fails
+certification closed even if other gates pass. A stale result is invalidated
+and rerun; a stale or modified plan is rejected.
 Each boundary projection binds regular-file mode plus blob digest; symlinks,
 submodules and special entries fail closed. Public keys, values, canary routes
 and gate output are checked literally and after bounded repeated

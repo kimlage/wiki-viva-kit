@@ -45,7 +45,8 @@ starting point for persistent context is `memories/`.
   and the executable v8 mechanics in
   [wiki-viva-v8-downstream-upgrade.md](references/guides/wiki-viva-v8-downstream-upgrade.md).
   That contract keeps toolkit `wiki-*` skills byte-equal in C1 and treats each
-  consumer's `AGENTS.md` plus non-`wiki-*` repo-local skills as C3 routing.
+  consumer's `AGENTS.md`, `.skills/README.md` plus non-`wiki-*` repo-local
+  skills as C3 routing.
   Its localized technical-page authority is derived exclusively from the
   committed `consumer_B0:wiki.config.yaml` blob and has exactly three roles:
   `command_reference_page`, `operational_pass_page` and `release_records` under
@@ -65,7 +66,9 @@ starting point for persistent context is `memories/`.
   first-write real-canary completion anchor; both SHA-256 values are carried out
   of band through resumable CI handoffs. Receipt and state bind the full
   B0/C1/C2/C3 Git chain, and the active runner interpreter is part of toolchain
-  authority. The acceptance-attempt identity also binds the canonical digest
+  authority. A command-registry Python alias must resolve to that same probed
+  interpreter; ambient PATH divergence fails certification closed. The
+  acceptance-attempt identity also binds the canonical digest
   of the complete preflight object; every resume with an execution plan replays
   C2 from C1 and verifies the full path set, Git modes and blob digests before
   reusing gate results.
@@ -82,8 +85,15 @@ starting point for persistent context is `memories/`.
   corrected the native routes, but complete validation stopped on one stale
   synthetic CLI route helper before any candidate, manifest, capsule or
   adoption authority. Rc24 exact source
-  `39d490231c00cbc0cf0374c6b1dd3d16f23a2406` passed its complete local stack
-  and is a local-QA candidate only; no productive manifest or capsule exists.
+  `39d490231c00cbc0cf0374c6b1dd3d16f23a2406` passed exact validation, its
+  first-attempt four-profile productive capture and 102/102 Lane A browser
+  cells. Certification nevertheless stopped fail-closed when `demo_drift` and
+  `portable_python` used ambient `python3` instead of the probed Python 3.12.4
+  interpreter. Rc24 is immutable `historical_certification_failed`; no capsule,
+  receipt, trust or Lane B authority exists, and the subject must never be
+  retried, reused, relabeled or imported. Rc25 is prospective and unpinned
+  until a separate metadata boundary seals its exact source; it requires a new
+  capture and certification.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

@@ -1507,6 +1507,7 @@ def test_promotion_selection_adds_required_background_gate_and_dependencies(
     [
         ".github/workflows/private-ci.yml",
         ".skills/local-operator/SKILL.md",
+        ".skills/README.md",
         "AGENTS.md",
         "adapters/custom/adapter.py",
         "docs/references/releases/private-v8.md",
@@ -1573,9 +1574,34 @@ def test_portable_wiki_skill_wins_over_broad_consumer_skill_namespace() -> None:
     assert selection["escalation"] == "portable_change_lane_a"
 
 
-def test_skill_root_file_is_not_misclassified_as_a_consumer_skill() -> None:
+def test_skill_root_index_is_explicit_consumer_agent_routing() -> None:
     selection = select_impacted_gates(
         _registry(), changed_paths=[".skills/README.md"], changed_contracts=[]
+    )
+    assert selection["matched_surfaces"] == [
+        "consumer_agent_routing",
+        "consumer_configuration",
+    ]
+    assert selection["unknown_paths"] == []
+    assert selection["requires_lane_a"] is False
+    assert selection["escalation"] == "consumer_delta"
+
+
+def test_broad_consumer_skill_pattern_does_not_cover_skill_root_index() -> None:
+    registry = _registry()
+    routing = next(
+        surface
+        for surface in registry["surfaces"]
+        if surface["id"] == "consumer_agent_routing"
+    )
+    routing["path_patterns"].remove(".skills/README.md")
+    registry["boundary_policy"]["c3_consumer_patterns"].remove(
+        ".skills/README.md"
+    )
+    registry = seal_impact_registry(registry)
+
+    selection = select_impacted_gates(
+        registry, changed_paths=[".skills/README.md"], changed_contracts=[]
     )
     assert selection["unknown_paths"] == [".skills/README.md"]
     assert selection["requires_lane_a"] is True
@@ -3119,6 +3145,12 @@ def test_agent_routing_and_local_skills_are_consumer_owned_c3(
             "operation": "upsert",
             "mode": "100644",
             "sha256": "b" * 64,
+        },
+        {
+            "path": ".skills/README.md",
+            "operation": "upsert",
+            "mode": "100644",
+            "sha256": "d" * 64,
         },
         {
             "path": "AGENTS.md",

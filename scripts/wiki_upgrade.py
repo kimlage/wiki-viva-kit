@@ -3025,7 +3025,11 @@ def _execute_certification_matrix(
                 "a required Lane A certification gate failed",
                 lane="lane_a",
                 surface=sorted(result["id"] for result in failed)[0],
-                next_action="inspect the retained private runner log and start a new certification run",
+                next_action=(
+                    "freeze this failed release subject, inspect the retained private "
+                    "runner log, fix the defect publicly, and form a new source/package "
+                    "subject; never retry or relabel this subject"
+                ),
             )
         for result in wave_results:
             completed[result["id"]] = result
@@ -3888,6 +3892,13 @@ def _parse_command(command: str, *, kit_root: Path) -> list[str]:
             raise RunnerError("unsafe_gate_variable", "a gate command uses an unbound variable")
         else:
             normalized.append(token)
+    if normalized[0] in {"python", "python3"}:
+        # The registry binds the reviewed, portable command spelling while the
+        # runner closure binds how that spelling is executed.  Resolve both
+        # accepted Python spellings through the same public alias used by the
+        # toolchain probe so a divergent PATH ``python3`` cannot execute gates
+        # under a different dependency set than the one sealed in the capsule.
+        normalized[0] = _active_python_alias()
     return normalized
 
 

@@ -182,9 +182,17 @@ manifest, capsule, attestation or Lane B authority existed. Rc23 is therefore
 historical failed-validation evidence and must not be retried or relabeled.
 Rc24 exact source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406` passed its complete
 local deterministic/browser validation at metadata subject
-`e912c095e42ba56b97ec3179fd20cdd71779db87` and is now a local-QA candidate.
-No productive visual manifest, capsule, adoption or publication authority
-exists yet.
+`e912c095e42ba56b97ec3179fd20cdd71779db87`. Its first productive capture then
+verified all four declared profiles, and the browser gate inside its first
+Lane A certification wave passed 102/102 with zero skip or retry. The same
+wave nevertheless failed `demo_drift` and `portable_python`: the registered
+`python3` spelling resolved through ambient `PATH` to Python 3.13 without
+`yaml`/`pytest`, while the toolchain probe had bound the runner's Python 3.12.4
+environment. No capsule, certification receipt, trust anchor or release
+authority was written. Rc24 is therefore immutable
+`historical_certification_failed` evidence. RT-156 fixes interpreter
+resolution in a new source, while RT-157 closes the root skill-index C3 gap;
+rc25 remains prospective and unpinned until a separate metadata commit.
 
 ### Normative Lane A -> Lane B handoff and fast-path budget
 
@@ -659,15 +667,16 @@ memory rather than one fixed dashboard:
 | Historical public payload `S21` | Exact source `8a95ed94c424759f6b218038f8b5f6141c3cc079`; package `wiki-viva-v8-rc18`; metadata subject `8dc7b6dfef601c127a2d826ad9708517825fc455` | Gates 1–12 pass under Node 22, including 1,428 Python; frontend stops at 510/513 on first attempt | Validator v5 is correct; RT-148 exposes three keyboard tests that did not isolate the first-run modal tour | Never retry, promote or import |
 | Historical public payload `S22` | Exact source `e01a4ed91e3e4c2f1746539418d3faebec775204`; package `wiki-viva-v8-rc19`; validation subject `2023ee714cfbdb9f48b22c7cd3d818fb9dc8d2b8` | 21/21 Node 22 gates: 1,428 Python, 516 frontend, 107 Node and 102/102 first-attempt browser cells; exact visual manifest bound | Keyboard contracts isolate the separately tested tour; the modal isolates every background sibling without hiding its seven anchors or stacking over another modal | Locally validated historical evidence; superseded as the current downstream source and never published/promoted |
 | Historical public v3 trust payload | Exact source `1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc`; package `wiki-viva-v8-rc20` | 1,631 Python, 516 frontend, 115 Node and 102/102 first-attempt browser cells plus the two-lane trust controls passed locally | Capsule, impact, resume, rollback/report and synthetic negative contracts are executable, but later real-data pressure exposed RT-151 in the mobile Timeline | Historical diagnostic evidence only; never promote, import or relabel as passing RT-151 |
-| Historical public RT-151 closure | Exact source `db3bba4957f551cc7c2d261561a45d0c606fdd05`; historical package `wiki-viva-v8-rc21` | 1,632 Python, 516 frontend, 115 Node and 102/102 first-attempt browser cells; 0 skips/retries in the browser matrix; package and portable-tree digests remain bound to that checkpoint | RT-151 is reproduced with public synthetic data and closed through mobile block flow plus explicit reading-order/containment geometry; RT-152 later invalidated rc21 as a migration/release candidate | Historical non-promotional evidence only; never promote, import, relabel or mint a capsule from rc21. Rc24 must supply its own complete exact proof |
+| Historical public RT-151 closure | Exact source `db3bba4957f551cc7c2d261561a45d0c606fdd05`; historical package `wiki-viva-v8-rc21` | 1,632 Python, 516 frontend, 115 Node and 102/102 first-attempt browser cells; 0 skips/retries in the browser matrix; package and portable-tree digests remain bound to that checkpoint | RT-151 is reproduced with public synthetic data and closed through mobile block flow plus explicit reading-order/containment geometry; RT-152 later invalidated rc21 as a migration/release candidate | Historical non-promotional evidence only; never promote, import, relabel or mint a capsule from rc21. A future certified rc25-or-later subject must supply its own complete exact proof |
 | Historical public RT-152 closure / RT-153 failed capture | Exact rc22 source `7e72664fb6871d906addbddb6ed5b2e7f1fec33c`; candidate package `d7a6a005...`; package-bound portable tree `e27f8efd...`, 521 entries | Pre-capture stack: 1,703 Python, 516 frontend, 115 Node plus static/matrix contracts; productive Chromium capture stopped before a manifest when legacy Timeline normalized to Quadrants | Config-bound C3 and hardened evidence/resume contracts close RT-152; RT-153 proves that green contract tests did not certify the actual native visual route | Immutable failed-capture evidence; never retry, relabel, promote, import or mint a capsule from rc22 |
 | Historical public RT-153 correction / RT-154 validation failure | Exact source `ba42b95c93c3383162bf105703d5d6d4ea688e3e`; package `wiki-viva-v8-rc23` / `validation_pending`; package/tree `a55126d8...` / `4ec21ffe...`, 521 entries | First complete validation at metadata commit `e9737149...` ended 1,670 passed, 1 skipped, 2 warnings and 41 setup errors in 725.49 seconds; exact-source reproduction reached the same route-contract signature | All four certification profiles use canonical native `view` routes, but one shared synthetic CLI authority helper still fabricated the legacy desktop route; review also found release specs entering compat without declaring that runtime | Immutable failed-validation evidence; no candidate, manifest, capsule, attestation or Lane B authority existed; never retry, relabel, promote or import rc23 |
-| Exact public rc24 local-QA candidate | Exact source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`; exact validation subject `e912c095e42ba56b97ec3179fd20cdd71779db87`; candidate package/tree `9fdcd298...` / `b001f89c...`, 521 entries | 1,709 Python passed, 3 declared skips and 2 warnings in 988.84 seconds; 516 frontend and 115 Node gates plus static/audit/build stack pass; 102/102 public browser cells pass first attempt in 7.6 minutes with 0 skips/retries. Run/gate/report SHA-256: `b6f899f3...` / `eb3c91ad...` / `7d63ddc2...` | The CLI fixture derives from `VISUAL_PROFILE_CONTRACTS`; native release specs assert `data-runtime-mode=v8` and explicit compatibility specs assert `compat`; `package_is_pinned=true` is necessary but a missing capsule still blocks v3 plan/adopt | Local-QA candidate only; productive visual capture, capsule/verifier, downstream QA, public CI/human review, push, merge, tag and promotion remain separate boundaries |
+| Historical public rc24 certification failure | Exact source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`; validation subject `e912c095e42ba56b97ec3179fd20cdd71779db87`; candidate metadata `ef8d930cff11ba4a8f9dc4ccfe6ea58785066c19`; package-file/canonical-package/tree `9fdcd298...` / `46494e1d...` / `b001f89c...`, 521 entries | Complete pre-candidate validation passed: 1,709 Python, 516 frontend, 115 Node and 102/102 browser. First productive capture verified four profiles with manifest `f6f2df7f...`. In the first certification wave, architecture, bundle, frontend and browser (102/102, 0 skip/retry, 6.5m) passed; `demo_drift` and `portable_python` failed because ambient `python3` diverged from the probed Python 3.12.4 dependency set | RT-156 proves that a versioned command string is insufficient unless its Python spelling executes through the probed interpreter. The raw YAML bytes digest `9fdcd298...` is not the canonical package identity `46494e1d...`; visual records and portable-tree authority bind the latter | Immutable `historical_certification_failed` evidence. No capsule, receipt, trust anchor or authority exists; never retry, reuse the capture, relabel, promote or import rc24 |
+| Prospective public rc25 source | New source commit must include the probed-Python execution fix, exact `.skills/README.md` C3 ownership and updated public synthetic controls; active package remains `unreleased` / `validation_pending` until a separate source pin | Focused runner controls and the complete exact validation are required on the new subject; no rc24 result may be reused | RT-157 keeps toolkit-owned `.skills/wiki-*/**` in C1 while explicitly classifying the consumer skill index and local skill/router work in C3; unknown impact still selects Lane A plus the full matrix | Unpinned and non-promotional. New candidate metadata, productive capture, one certification, independent capsule verification, downstream QA and human gates are all pending |
 | Corrected local public source for the authorized v2 exception | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; package v2 canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc` | Public suite passed 1,529 tests, with two declared skips and two warnings; package validation and public privacy boundary pass | Atomic operator-job publication and the two-lane migration contracts are covered by public synthetic fixtures | Local source authority for the explicitly authorized in-flight v2 QA only; public publication remains unauthorized |
-| Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the frozen current v2 adoption or a future rc24 v3 plan |
+| Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the frozen current v2 adoption or a future rc25-or-later v3 plan |
 | Current corrected authorized private v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; two deterministic hosted jobs pass; the only completed standard Apple Silicon attempt closed 100/102, a later attempt was cancelled during browser installation and a separate standard Intel probe closed 92/102 with software rendering and WebGL context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback; private `AGENTS.md`/router work is deliberately deferred to a fresh post-v2 v3 follow-up | Promotion blocked and the aggregate visual check is cancelled/non-green; consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the human gate approves; current v2 C3/receipts remain immutable |
-| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact rc24 passes its 102-cell first-attempt public matrix with 0 skips/retries, including demo, pack, Genesis, accessibility, compatibility, failure and source-lifecycle cells | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Rc24 automation is current local-QA evidence; productive capture/capsule and public human/promotion gates remain |
-| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Exact rc24 passes 102 cells covering PT-BR, keyboard, touch, mobile, fallback, runtime identity and the RT-151/RT-155 regressions | The inspected native fallback baseline is current; transition frames require settling and VoiceOver remains human | Current local automation/E3 evidence only; rc24 still needs productive visual authority plus human conceptual/privacy/VoiceOver review before promotion |
+| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact rc24 passed its 102-cell first-attempt public matrix with 0 skips/retries, including demo, pack, Genesis, accessibility, compatibility, failure and source-lifecycle cells | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete | Rc24 remains historical automation/capture evidence after Lane A failed; rc25 must reproduce the complete proof without reuse |
+| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Exact rc24 passed 102 cells and a four-profile productive capture covering PT-BR, keyboard, touch, mobile, fallback, runtime identity and the RT-151/RT-155 regressions | The inspected native/fallback/profile images are historical exact-subject evidence; transition frames still require settling and VoiceOver remains human | Rc24 visual evidence cannot authorize a new subject. Rc25 needs a new capture, certification and human conceptual/privacy/VoiceOver review |
 
 At historical machine-status commit `f849de26`, the local public branch changed 2,066
 files with 486,397 additions and 10,913 deletions across 100 commits from the
@@ -1246,12 +1255,15 @@ reproduction.
 | RT-147 | P0 | The private three-commit policy requires a localized release record below configured references, but validator v4 rejected it; the first v5 exception then admitted arbitrary files, including executable scripts, and overlapping memory/references roots could bypass sibling rejection | E1 private policy/runbook comparison; E2 localized `.md`, sibling, `.sh`, mode `100755`, secret, portable-path, overlapping-root, public-redaction and memory-regression controls; 105/105 upgrade tests pass on exact S21 | Bind memory/references roots to config and authoritative preflight; require disjoint canonical roots; admit only UTF-8 `.md` release records with final Git mode `100644`; keep secret, portable and evidence exclusions fail-closed; rerun the complete Node 22 stack on S21 before promotion |
 | RT-148 | P0 | Three keyboard/search recovery tests implicitly depended on the first-run tour already being seen. In a clean official Node 22 profile the modal correctly opened and captured Enter, so only the debounced `?q=` write occurred; Node 26's incompatible experimental localStorage failure made `tourSeen()` fail closed to true and masked the missing fixture state | E1 exact rc18 first-attempt frontend log; E2 Node 22 3/14 reproduction versus Node 26 14/14; modal listener/search trace; concurrent downstream review independently found the same reader-test isolation; exact S22 passes Node 22 focused 17/17 and frontend 516/516 | Preserve the modal's keyboard ownership; set `tour=0` explicitly in every unrelated keyboard contract and its internal history URL; retain rc18 failure bytes without retry; rerun the complete stack only on S22/rc19 |
 | RT-149 | P1 | `CoachMarks` owned focus and keyboard input as a modal, but the visible world remained reachable in the accessibility tree behind it. A naive reuse of `primarySurfaceOpen` then hid the tour's own anchors through existing CSS, and `?` could stack the coach over an existing reader/dock/tray | E1 surface-stack and CSS-anchor review; E2 Happy DOM contracts cover first-run opening, complete sibling `inert`/`aria-hidden`, restoration and no modal stacking; E3 focused Chromium traverses all seven anchors with non-zero geometry, blocks global shortcuts and restores focus to the tour button; exact S22 passes Node 22 focused 17/17 and frontend 516/516 | Keep CSS visibility state separate from background ownership; inert every sibling subtree except the coach overlay; refuse to open over another primary surface; retain visible anchors and modal keyboard ownership; require exact S22 full-stack/browser proof before promotion |
-| RT-150 | P0 | A locally applied `release_candidate` label was described as editorially blocked until public merge, but `package_is_pinned()` treats that state as executable adoption authority and makes downstream `release_pinned` preflight pass. Documentation alone cannot revoke the machine permission | E1 `wiki_core.upgrade.package_is_pinned` and preflight call-chain review; E2 the canonical test's strict `validation_pending` assertion rejected the premature flip; the experimental phase-neutral test commit `9ba49f43` was immediately reverted by `b0dc04ea` without changing portable payload bytes; post-reconciliation upgrade suite passes 105/105 in 249.72 s, focused pending/preflight controls pass 2/2 and both audits report zero errors | Historical disposition: rc21 stayed `validation_pending`. RT-152, RT-153 and RT-154 later froze rc21, rc22 and rc23 as non-promotional evidence. Rc24 passed complete local validation and may be a local-QA candidate, but productive capsule verification plus a separately reviewed public promotion boundary remain mandatory before any private v3 preflight/import |
+| RT-150 | P0 | A locally applied `release_candidate` label was described as editorially blocked until public merge, but `package_is_pinned()` treats that state as executable adoption authority and makes downstream `release_pinned` preflight pass. Documentation alone cannot revoke the machine permission | E1 `wiki_core.upgrade.package_is_pinned` and preflight call-chain review; E2 the canonical test's strict `validation_pending` assertion rejected the premature flip; the experimental phase-neutral test commit `9ba49f43` was immediately reverted by `b0dc04ea` without changing portable payload bytes; post-reconciliation upgrade suite passes 105/105 in 249.72 s, focused pending/preflight controls pass 2/2 and both audits report zero errors | Historical disposition: rc21 stayed `validation_pending`. RT-152 through RT-156 later froze rc21 through rc24 as non-promotional evidence. A future rc25 candidate still requires exact capsule verification plus a separately reviewed public promotion boundary before any private v3 preflight/import |
 | RT-151 | P1 | At 390 x 844, the Timeline retained its desktop constrained grid after filtering, selecting and scrolling. Auto/minmax rows collapsed to near-zero heights while list and inspector children overflowed, interleaving two reading surfaces and making the selected detail unreadable | E1 real-data downstream reproduction with private pixels retained only in ignored evidence; E2 public synthetic before capture and computed grid-row diagnosis; E3 a focused Playwright regression filters Actions, selects an event, scrolls 350 px and proves DOM/visual order, containment, topmost readable detail and zero horizontal overflow; exact rc21 passes the complete deterministic stack and 102/102 first-attempt public browser cells | At the mobile breakpoint use normal block flow with one page scroll model and tokenized spacing; keep the inspector after the list in DOM and visual order; retain the regression in the package-owned cockpit suite; never publish private screenshots or relabel rc20 as passing this contract |
 | RT-152 | P0 | Rc21's static C3 policy could not authorize the consumer-configured command-reference and operational-pass pages, while its broad release-record subtree could admit executable or non-Markdown descendants; widening the whole localized roots would create a domain-content escape hatch | E1 read-only downstream rehearsal against a synthetic localized layout; E2 config-bound authority fixtures cover exact roles, immutable B0 derivation, UTF-8 Markdown/mode constraints, live-config widening, C1/C2 placement, secret/binary/symlink/submodule negatives and receipt invalidation; integrated upgrade/security subset passed 375 tests with 3 declared skips on exact rc22 source | Derive exactly three C3 roles from the immutable `consumer_B0:wiki.config.yaml` blob, bind the authority digest through plan/state/receipt/report and reject every sibling, executable, binary or non-Markdown path; rc21 is immutable historical evidence and the running private v2 evidence remains untouched |
 | RT-153 | P0 | Rc22's productive mobile visual profile used legacy `/demo/w/timeline?tour=0`; the router treats `timeline` as neither a positional compatibility perspective nor the native query view, so capture reached Quadrants and stopped before sealing. The candidate metadata also retained the validation-pending portable-tree digest even though portable attestation binds `package_sha256` | E2 the synthetic capture server now derives state from the real `view` query; focused visual/capsule tests fail on the old route and pass on canonical native routes; exact recomputation proves validation-pending package/tree `20a92e19...` / `7e70e7b3...` and candidate `d7a6a005...` / `e27f8efd...`, each with 521 entries; E3 the first rc22 productive capture is retained as the no-manifest failure attempt | Freeze rc22 without retry or relabel. Use canonical `/demo/w?view=<native>` routes for every certification profile, expose only bounded safe capture error codes and require a fresh exact source, complete matrix, productive capture, capsule and independent verifier before any Lane B plan. Rc23 later failed RT-154 and grants no authority |
 | RT-154 | P0 | Rc23's four productive capture profiles were canonical, but the shared synthetic CLI authority helper still hardcoded the legacy desktop route. Its capture record was correctly rejected during fixture setup, so 41 tests across certify, verify-capsule and adopt/resume could not exercise their intended contracts | E1 exact source `ba42b95c...` hardcodes the stale route in `_build_synthetic_upgrade`, while `VISUAL_PROFILE_CONTRACTS.desktop.route` and `_visual_capture_record_metadata` require the canonical query route; E2 the first complete validation at metadata commit `e9737149...` ended 1,670 passed, 1 skipped, 2 warnings and 41 errors in 725.49 seconds, all with the same signature; package/tree `a55126d8...` / `4ec21ffe...`, 521 entries | Freeze rc23 as immutable failed-validation evidence without retry, relabel or promotion. Derive the fixture route directly from `VISUAL_PROFILE_CONTRACTS`, retain the old result as a negative checkpoint and form a fresh unpinned rc24 source before any new full validation |
 | RT-155 | P0 | Seventeen release/browser checks described native v8 behavior while entering `/demo/w/quadrants...`; route hydration classifies a positional perspective with no `query.view` as `compat`, so a green spec could certify the compatibility runtime instead of the release runtime. Five intentional positional compatibility checks also lacked an explicit runtime assertion | E1 route hydration proves `!query.view && perspectiveExplicit` selects `compat` and emits the legacy-route warning; E2 inventory classifies 17 MUST_NATIVE occurrences across locale, desktop, mobile, fallback, Firefox, performance and UX specs, plus 5 INTENTIONAL_COMPAT occurrences in navigation and safe-area specs; E3 the native macOS fallback result was compared with its compat baseline at the same viewport, the intentional command-bar delta was reviewed, the baseline was regenerated once and the strict no-update rerun passed | Canonicalize every MUST_NATIVE entry to `/demo/w?view=quadrants...` and assert `data-runtime-mode=v8`; retain the five legacy deep links and assert `data-runtime-mode=compat`; keep the already explicit legacy visual/navigation regression controls unchanged |
+| RT-156 | P0 | Lane A probed and recorded the runner's Python 3.12.4 dependency closure, but registered commands beginning with `python3` were later resolved again through ambient `PATH`. On rc24 that selected Homebrew Python 3.13 without `yaml` or `pytest`, so `demo_drift` and `portable_python` failed even though the versioned command registry and probe were individually valid | E2 rc24 first productive capture verified four profiles and its first certification wave retained exact public logs: architecture, bundle, frontend and browser 102/102 passed; the two Python gates failed with missing-module errors. Package-file SHA `9fdcd298...`, canonical package identity `46494e1d...`, tree `b001f89c...` and manifest `f6f2df7f...` remain exact-subject evidence; no capsule/receipt/trust/authority was emitted | Freeze rc24 as `historical_certification_failed`; never retry or reuse its capture. Normalize a leading registered `python`/`python3` through the same public alias accepted by the toolchain probe while retaining the original command text/hash, fail before launch when no alias resolves to the executing interpreter, and require the failure payload to instruct a new source/package subject |
+| RT-157 | P0 | The broad consumer-skill pattern `.skills/*/**` deliberately requires a skill-name directory and therefore did not own the root `.skills/README.md`. A planned downstream skill-index update would be classified as unknown impact/Lane A or rejected from C3, contradicting the documented split between toolkit `wiki-*` skills and consumer routing documentation | E1 matcher and package/impact review; E2 public synthetic controls distinguish the literal root file from nested consumer and portable skill paths. The real downstream review remains redacted and supplies only the generic path/contract gap | Add literal `.skills/README.md` to C3 ownership, the `consumer_agent_routing` impact surface and the C3 boundary policy; preserve `.skills/wiki-*/**` as byte-equal C1 and `.skills/*/**` as nested local C3; recompute boundary/impact/package registry digests and recertify on rc25 |
+| RT-158 | P0 | A fresh v3 consumer run must write resumable state below `.wiki-viva/upgrade/` before C1, but the reviewed frozen v2 baseline did not ignore that exact runtime subtree. The runner correctly refuses evidence in a tracked/unignored location, while ignoring all of `.wiki-viva/` would also hide versioned pack state | E1 read-only downstream baseline audit; no private path, branch, content or receipt is published. Synthetic policy review proves that a pre-B0 ignore rule is required before `plan`/`adopt` mutation authority | Add only `.wiki-viva/upgrade/` to the consumer's tracked ignore policy through a separate human-reviewed pre-B0 preparation change. A local non-promotional rehearsal may use a fresh clone's `.git/info/exclude`, but that metadata-only escape is never production policy and cannot alter or relabel the frozen v2 subject |
 
 ### Historical exact-public-subject closure overlay
 
@@ -1259,7 +1271,7 @@ The baseline ledger above remains immutable reproduction history. This overlay
 records what was accepted on public `S` and the boundaries then owned by `P`,
 human review or E5. Every disposition is frozen historical evidence. Rc21 is
 now historical non-promotional proof; future release authority can exist only
-for a separately certified exact rc24-or-later subject. Public closure never
+for a separately certified exact rc25-or-later subject. Public closure never
 promotes a browser-only receipt to full release authority.
 
 | Finding | Historical disposition | Evidence present at that checkpoint | Gate then still required |
@@ -4746,8 +4758,11 @@ quarantined it as immutable non-promotional evidence: no later CI or human
 review can promote that subject. Rc22's later failed capture is preserved as
 RT-153 negative evidence. Rc23 later corrected the productive capture routes,
 but RT-154 froze that subject after its first complete validation exposed one
-shared stale synthetic CLI route helper. All new certification starts from
-exact rc24 source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`, and public
+shared stale synthetic CLI route helper. Rc24 then passed its complete local
+validation and first productive capture, but RT-156 froze it when the first
+Lane A certification wave executed two Python gates under an ambient
+interpreter different from the probed toolchain. All new certification starts
+only from a fresh rc25 source and package after its separate pin; public
 publication remains unauthorized.
 
 #### Post-rc21 downstream rehearsal: RT-152 and the rc22 correction boundary — 2026-07-14
@@ -4793,13 +4808,17 @@ synthetic productive-route correction, but its first complete validation
 exposed RT-154: the shared synthetic CLI authority helper still fabricated the
 legacy desktop route. All 41 setup errors share that root, and no candidate,
 manifest, capsule or Lane B authority existed. Rc23 is frozen as historical
-failed-validation evidence. Rc24 carries the fixture/runtime-identity correction
+failed-validation evidence. Rc24 carried the fixture/runtime-identity correction
 at exact source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`, passed its complete
-local deterministic/browser validation and is now a local-QA candidate. No
-productive manifest or capsule exists. Public push and publication remain
-unauthorized.
+local deterministic/browser validation and verified a four-profile productive
+manifest. Its first Lane A wave then exposed RT-156: two registered Python
+commands executed outside the probed dependency closure. No capsule, receipt,
+trust anchor or authority exists, so rc24 is also frozen and its valid capture
+cannot be reused. Rc25 must combine the interpreter fix with RT-157's explicit
+root skill-index C3 ownership and repeat every proof on a new exact subject.
+Public push and publication remain unauthorized.
 
-#### Rc22 failed capture, rc23 failed validation and rc24 boundary — 2026-07-14
+#### Rc22 failed capture, rc23 failed validation, rc24 failed certification and rc25 boundary — 2026-07-14
 
 | Evidence | Exact local result | Authority boundary |
 |---|---|---|
@@ -4815,7 +4834,10 @@ unauthorized.
 | Productive visual capture | Failed closed: legacy `/demo/w/timeline?tour=0` normalized to Quadrants, not Timeline | RT-153; no visual manifest, capsule, attestation or Lane B authority minted |
 | Rc23 source | Exact canonical productive-route source `ba42b95c...`; package `wiki-viva-v8-rc23` / `validation_pending`; package/tree `a55126d8...` / `4ec21ffe...`, 521 entries | First complete validation at metadata commit `e9737149...` ended 1,670 passed, 1 skipped, 2 warnings and 41 setup errors in 725.49 seconds; no candidate or capsule existed |
 | Rc23 failure | One shared public synthetic CLI helper fabricated the legacy desktop route and every setup was correctly rejected by the exact capture-record validator | RT-154; immutable historical failed-validation evidence, never retry, relabel, promote or import |
-| Rc24 | Exact source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`; exact validation subject `e912c095...`; local-QA `candidate`; package/tree `9fdcd298...` / `b001f89c...`, 521 entries | 1,709 Python, 516 frontend, 115 Node, static/audit/build stack and 102/102 first-attempt browser cells pass; 3 declared Python skips, 2 warnings, 0 browser skips/retries. `package_is_pinned=true`, but productive capture, capsule and independent verifier still block Lane B QA |
+| Rc24 pre-candidate validation | Exact source `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`; validation subject `e912c095...`; candidate metadata `ef8d930c...`; package-file/canonical-package/tree `9fdcd298...` / `46494e1d...` / `b001f89c...`, 521 entries | 1,709 Python, 516 frontend, 115 Node, static/audit/build stack and 102/102 first-attempt browser cells pass; 3 declared Python skips, 2 warnings, 0 browser skips/retries |
+| Rc24 productive capture | Visual manifest `f6f2df7f...`; exact source/canonical-package/browser-toolchain bound records for desktop, mobile Timeline, explicit fallback and two-step quadrant collection | All four profiles verified in the first capture with zero page/network errors; historical exact-subject evidence only, never reusable by rc25 |
+| Rc24 Lane A failure | First certification wave retained architecture, bundle and frontend passes plus browser 102/102, 0 skip/retry in 6.5m | `demo_drift` and `portable_python` failed because ambient Python 3.13 lacked `yaml`/`pytest` while the probe bound Python 3.12.4; no capsule, receipt, trust anchor or authority was written; rc24 is immutable `historical_certification_failed` |
+| Rc25 | Prospective source must include RT-156 probed-interpreter execution, RT-157 literal `.skills/README.md` C3 impact/ownership and all regenerated registry digests | Active package remains `unreleased` / `validation_pending` until a separate metadata pin; complete validation, new productive capture, one certification and independent capsule verification are pending |
 
 This correction is prospective. The already sealed v2 downstream C3 and all of
 its receipts remain frozen on their original complete
@@ -4840,6 +4862,41 @@ not reduce, replace or relabel any current receipt, and the runner must not
 retroactively convert the completed v2 evidence into a fast-lane run. The v3
 model applies to a new plan only after the public core and synthetic fixtures
 are green. Public push/publication remains unauthorized in this execution.
+
+#### Fresh v3 downstream QA preparation — no adoption authority yet
+
+The read-only downstream preparation is complete enough to define the next
+safe rehearsal, but no v3 plan or mutation may start before a verified
+rc25-or-later authority exists. The rehearsal must use a fresh clone and branch
+based on the frozen technical v2 C3, with remotes disabled and no ignored
+evidence copied. It must not run inside the frozen v2 clone, include the
+concurrent domain-content slice or alter any v2 receipt. C1 remains the exact
+portable tree, including toolkit-owned `.skills/wiki-*/**`; C2 remains only the
+declared demo and visual generators; C3 may carry only reviewed consumer
+technical adaptation, the B0-derived typed roles and inert release Markdown.
+
+The planned skill update is intentionally narrow:
+
+- private `AGENTS.md` moves from historical/manual SHA instructions to the
+  capsule -> plan -> adopt -> canary -> human-gate contract;
+- the consumer memory router delegates core upgrades to the two-lane runner,
+  explains C1 versus C3 and keeps private receipts ignored;
+- `.skills/README.md` documents toolkit `wiki-*` skills as C1 and consumer
+  routers/skills as C3; RT-157 adds the exact path to public package authority;
+- narrow domain skills keep delegating common policy to the router instead of
+  duplicating the migration runbook.
+
+The reviewed downstream baseline also exposed RT-158: the runner's resumable
+`.wiki-viva/upgrade/` subtree was not ignored before the first-write boundary.
+A promotion-capable adoption must first merge that one narrow tracked ignore
+rule and freeze a new B0; ignoring all `.wiki-viva/` is forbidden because pack
+state is versioned there. A strictly local, non-promotional rehearsal may add
+the same narrow rule to a fresh clone's `.git/info/exclude`, but that metadata
+does not become production policy and cannot authorize promotion. The standard
+run remains read-only `plan`, first `adopt --mode canary
+--pause-before-background`, externally anchored canary completion, then
+`adopt --resume`; the restored authority runner and exact certified Python
+environment own every command and receipt.
 
 #### Current downstream checkpoint — 2026-07-14, safe aggregate evidence only
 
@@ -4915,9 +4972,14 @@ from one stale shared synthetic CLI route helper. Review then recorded RT-155:
 17 release E2E entries described native v8 behavior while silently entering
 compat, and 5 intentional legacy entries did not declare that identity. Rc23 is
 immutable failed-validation evidence, still non-candidate and without a
-capsule. Rc24 is the next unpublished exact source at
-`39d490231c00cbc0cf0374c6b1dd3d16f23a2406`; its complete local stack passed and
-it is now a local-QA candidate without a productive manifest or capsule. A later
+capsule. Rc24 at `39d490231c00cbc0cf0374c6b1dd3d16f23a2406`
+then passed its complete local validation, first productive four-profile
+capture and the 102-cell browser gate inside certification, but RT-156 exposed
+two Python gates executing outside the probed dependency closure. Rc24 is
+immutable failed-certification evidence; no capsule, receipt, trust anchor or
+authority was emitted, and its capture cannot be reused. Rc25 is the next
+prospective unpublished source and must also close RT-157 before a separate pin,
+complete validation, new capture and one certification. A later
 explicit execution decision authorized the corrected private-first v2
 migration described above after the local public core/fixture correction; that
 decision supersedes the former statement that no private import may start. It
@@ -4939,13 +5001,17 @@ release or downstream-adoption authority. Preserve exact rc22 source
 failed RT-153 capture checkpoint; never retry, relabel, promote or import it.
 Preserve exact rc23 source `ba42b95c93c3383162bf105703d5d6d4ea688e3e`
 only as the failed RT-154 validation checkpoint; never retry, relabel, promote
-or import it. Start certification from exact rc24 source
-`39d490231c00cbc0cf0374c6b1dd3d16f23a2406`, which inherits no prior status,
-receipt, manifest or digest claim. Rc24 stays local and
-non-promotional until
-its exact deterministic/browser matrix, productive capture, capsule verifier,
-remote CI, human review, merge and separate production-promotion boundary are
-all closed under explicit publication authority. The corrected v2 chain,
+or import it. Preserve exact rc24 source
+`39d490231c00cbc0cf0374c6b1dd3d16f23a2406` only as the passed-validation,
+passed-capture and failed-RT-156-certification checkpoint; distinguish raw
+package-file SHA `9fdcd298...` from canonical package identity `46494e1d...`,
+and never reuse its capture or mint missing authority by hand. Form a fresh
+unreleased rc25 source containing RT-156 and RT-157, pin it separately, then
+run its exact deterministic/browser matrix, new productive capture, single
+certification and independent capsule verifier. Rc25 remains local and
+non-promotional until downstream QA, remote CI, human review, merge and a
+separate production-promotion boundary close under explicit publication
+authority. The corrected v2 chain,
 complete original matrix,
 current-subject canary, generated reports and disposable rollback are closed;
 keep the consumer PR fail-closed until the same performance contract passes on

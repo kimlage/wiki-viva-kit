@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc24 local-QA candidate - exact validation passed"
+title: "Wiki Viva v8 rc24 historical certification failure - rc25 prospective"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,34 +11,55 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc24 local-QA candidate - exact validation passed
+# Wiki Viva v8 rc24 historical certification failure - rc25 prospective
 
-## Rc24 exact source — local-QA candidate, capsule pending
+## Rc24 exact source — productive evidence passed, certification failed closed
 
-`wiki-viva-v8-rc24` now binds exact source
-`39d490231c00cbc0cf0374c6b1dd3d16f23a2406`. Exact validation subject
-`e912c095e42ba56b97ec3179fd20cdd71779db87` passed 1,709 Python tests with
-3 declared skips and 2 warnings in 988.84 seconds, 516 frontend tests, 115 Node
-gates, the static/audit/build stack and 102/102 first-attempt public browser
-cells in 7.6 minutes with zero skips or retries. The browser run-result,
-gate-result and report SHA-256 values are
+`wiki-viva-v8-rc24` binds exact source
+`39d490231c00cbc0cf0374c6b1dd3d16f23a2406`, validation metadata
+`e912c095e42ba56b97ec3179fd20cdd71779db87` and candidate metadata
+`ef8d930cff11ba4a8f9dc4ccfe6ea58785066c19`. Exact validation passed 1,709
+Python tests with 3 declared skips and 2 warnings in 988.84 seconds, 516
+frontend tests, 115 Node gates, the static/audit/build stack and 102/102
+first-attempt public browser cells in 7.6 minutes with zero skips or retries.
+The validation browser run-result, gate-result and report SHA-256 values are
 `b6f899f3ed365e4788d48ae7957932292c96d232c96040af00c7b3fc2af4c3b9`,
 `eb3c91ade66419375a814b760955d1adf7536a2daa3eceece3a60a01e6930c95`
 and `7d63ddc26544b4ac582095fe23b3652fce9b477f6405a93780c7187ab9d688bb`.
-The
-metadata boundary changes only package/status documentation outside the portable
-projection; it does not amend the source bytes. The validation-pending
-package/tree pair was
-`882448e1c76b7d5098dee7255e134650222bb4483509770d8a44501abaeb8525` /
-`18d2475102b205c1540e28a028106d88b5bd06847f954d871c6d4ec553554deb`,
-with 521 entries. The current local-QA candidate pair is
-`9fdcd2985f5ab4fbc98932859a950b9aad52ffea0b7ae643a8a1f8830c5f1976` /
-`b001f89c7453177a66439a22524f5bb00e47bacb54216cff3291ed408d332048`,
-also with 521 entries. Candidate status makes `package_is_pinned=true`, but the
-v3 planner must still reject a missing or unverifiable capsule; metadata alone
-is not Lane B authority. No productive rc24 visual manifest, capsule,
-attestation, Lane B authority, public release, push, merge or tag is claimed
-here.
+
+The candidate package file SHA-256 was
+`9fdcd2985f5ab4fbc98932859a950b9aad52ffea0b7ae643a8a1f8830c5f1976`.
+Its canonical package identity for capture/certification was
+`46494e1d66d1c7bb3e8efeef9687870808453ea5402bb137366c19dacacdd4be`;
+the 521-entry portable tree was
+`b001f89c7453177a66439a22524f5bb00e47bacb54216cff3291ed408d332048`.
+Keeping the file digest and the canonical package identity distinct is part of
+the evidence contract; neither may be substituted for the other.
+
+The one productive visual capture passed all four declared profiles on its
+first attempt. Its visual-manifest SHA-256 is
+`f6f2df7fd4c5461ca5e8ad9dba369f57938233fb4e7bb84b0b8bab1899615fbe`.
+The following first Lane A certification then passed frontend, architecture,
+bundle and 102/102 browser cells in 6.5 minutes with zero skips and zero
+retries. It still failed closed as a whole: `demo_drift` and
+`portable_python` invoked ambient `python3`, which resolved differently from
+the probed Python 3.12.4 interpreter and its dependencies. A command-registry
+Python alias must resolve to the exact interpreter used by the runner's
+toolchain probe; a green sibling gate cannot compensate for that divergence.
+
+No release capsule, attestation, certification receipt, trust, Lane B authority,
+public release, push, merge or tag was minted. Rc24 is immutable
+`historical_certification_failed` and must never be retried, reused, relabeled,
+promoted or imported.
+
+## Rc25 transition — prospective and unpinned
+
+Rc25 is a new prospective subject, not a continuation or retry of rc24. It is
+unpinned until a separate metadata boundary seals its exact source, package and
+portable-tree identities. Only then may a fresh output boundary run a new
+four-profile productive capture and a new Lane A certification through an
+interpreter-stable command registry. Rc24 outputs or successful sibling gates
+cannot be imported, relabeled or reused.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -140,16 +161,17 @@ The rc21 package names the following exact portable contracts:
 The `wiki_viva_upgrade_consumer_c3_authority.v1` contract was introduced after
 rc21 and is preserved in the exact rc24 validation source. Neither rc22's
 failed capture nor rc23's failed validation can authorize its adoption. Rc24
-inherits no prior status or receipt.
+inherits no prior status or receipt, and its own failed certification minted no
+new authority.
 
-Any future rc24 publication still requires explicit authorization, exact local
-certification, remote public CI, human conceptual/privacy/VoiceOver review and
-merge, followed by a separately reviewed promotion boundary that can mint
-production Lane A release authority.
+Any future rc25 publication still requires a separate exact source/metadata
+pin, new capture and certification, explicit authorization, remote public CI,
+human conceptual/privacy/VoiceOver review and merge, followed by a separately
+reviewed promotion boundary that can mint production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
-rc21, rc22, rc23 nor the exact rc24 validation checkpoint reclassifies, reduces or rewrites that
-evidence.
+rc21, rc22, rc23, the exact rc24 failed-certification subject nor prospective
+rc25 reclassifies, reduces or rewrites that evidence.
 
 ## Historical rc8-era evidence — preserved without current authority
 

@@ -32,13 +32,13 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc24_local_qa_candidate_capture_pending
+      state: rc24_historical_certification_failed_rc25_unpinned
       drift_total: 0
       compared_against: wiki-viva-v8-rc24@39d49023
-      worktree: exact_source_candidate_capture_pending
+      worktree: rc25_transition_unpinned
     upgrade_wave: public_kit
-    status: blocked_on_public_release_promotion
-    blocker: Rc21 is frozen historical non-promotion evidence. Rc22 failed productive capture and rc23 failed its first complete validation before any candidate, manifest or capsule; neither can be retried, relabeled, promoted or imported. Rc24 passed its exact complete local validation and is a local-QA candidate only; productive capture, capsule verification, remote CI and human conceptual/privacy/VoiceOver review remain required. Public push is not authorized. External E5 and a release tag remain separate
+    status: blocked_on_rc25_source_pin_and_certification
+    blocker: Rc21 is frozen historical non-promotion evidence. Rc22 failed productive capture and rc23 failed its first complete validation; neither can be retried, relabeled, promoted or imported. Rc24 exact source 39d49023 passed validation, first-attempt four-profile capture and the 102/102 Lane A browser matrix, but demo_drift and portable_python failed because ambient python3 diverged from the probed Python 3.12.4 interpreter. Rc24 is immutable historical_certification_failed and minted no capsule, receipt, trust or Lane B authority. Rc25 remains prospective and unpinned until a separate metadata boundary; it requires new capture and certification. Public push is not authorized. External E5 and a release tag remain separate
 
   - id: private-pilot-01
     repository:
@@ -70,11 +70,11 @@ consumers:
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: wiki-viva-v8-rc24@39d49023
+      target_version: pending_rc25_metadata_pin
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
-      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 and rc21 are historical product evidence, rc22 is historical failed-capture evidence and rc23 is historical failed-validation evidence, all without adoption authority. Exact rc24 passed local validation and is a local-QA candidate, but it becomes a v3 downstream-QA target only after productive capture, capsule verification and a new read-only consumer preflight, never as a rewrite of v2
+      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 and rc21 are historical product evidence, rc22 is historical failed-capture evidence, rc23 is historical failed-validation evidence and rc24 is historical failed-certification evidence, all without adoption authority. Rc25 can become a v3 downstream-QA target only after a separate exact metadata pin, new productive capture, verified certification capsule and a new read-only consumer preflight, never as a rewrite of v2. Consumer AGENTS.md, .skills/README.md and non-wiki local skills remain fresh-C3 routing surfaces
       verified_on: "2026-07-14"
     upgrade_wave: pilot
     status: blocked_on_public_release_promotion
-    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 is historical, rc22 failed productive capture and rc23 failed complete validation before a capsule. Rc24 passed local validation but still needs productive capture and capsule verification before a new consumer preflight or v3 downstream QA; neither can authorize v2 promotion. Historical candidates cannot authorize adoption. External E5 remains separate
+    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 is historical, rc22 failed productive capture, rc23 failed complete validation and rc24 failed certification before any capsule or Lane B authority. Rc25 is prospective and unpinned; it requires a separate exact pin, new capture and verified certification before a new consumer preflight or v3 downstream QA. None can authorize v2 promotion. Historical subjects cannot authorize adoption. External E5 remains separate

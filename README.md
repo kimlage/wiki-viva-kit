@@ -210,8 +210,9 @@ with its package, portable-tree, command-registry and toolchain digests. Lane B
 freezes a consumer baseline, verifies a byte-equal C1 import, regenerates C2,
 applies consumer-owned C3 adapters, selects gates from a versioned path/contract
 impact registry and reaches a reversible real canary before the PR/human gate.
-Portable `.skills/wiki-*/**` remain byte-equal C1, while downstream `AGENTS.md`
-and non-`wiki-*` repo-local skills are explicit consumer-owned C3 routing.
+Portable `.skills/wiki-*/**` remain byte-equal C1, while downstream `AGENTS.md`,
+the consumer's `.skills/README.md` and non-`wiki-*` repo-local skills are
+explicit consumer-owned C3 routing.
 Consumer base and `.local` page-type/template registries are also C3 merge
 surfaces. Localized technical pages use a separate fail-closed authority derived
 only from the committed `consumer_B0:wiki.config.yaml` blob: the exact
@@ -225,7 +226,9 @@ B0->C1->C2->C3 must be three direct single-parent edges with no
 intermediate or merge commit.
 The runner identity includes a byte/mode digest of its Python and schema
 closure, and the toolchain probe must run through the same interpreter that is
-executing the runner. `plan` creates one first-write acceptance-clock anchor per
+executing the runner. Every Python alias in the command registry must resolve
+to that probed interpreter; an ambient PATH resolution to another Python fails
+certification closed. `plan` creates one first-write acceptance-clock anchor per
 exact attempt; `adopt` requires the SHA-256 captured out of band from that plan
 and never recreates a missing anchor. The real canary creates a second
 first-write completion anchor over its canonical result projection; every
@@ -276,9 +279,15 @@ imported. Rc23 corrected the native routes, but its first complete validation
 stopped fail-closed because one synthetic CLI authority helper still fabricated
 the legacy desktop route. No candidate, manifest, capsule or adoption authority
 existed; rc23 is not retried or relabeled. Rc24 exact source
-`39d490231c00cbc0cf0374c6b1dd3d16f23a2406` passed its complete local stack and
-is a local-QA candidate only; no productive manifest, capsule or adoption
-authority exists yet. No existing v2 C3 or receipt is amended to reach it.
+`39d490231c00cbc0cf0374c6b1dd3d16f23a2406` passed exact validation, a
+first-attempt four-profile productive capture and 102/102 Lane A browser cells,
+but certification stopped fail-closed when `demo_drift` and `portable_python`
+used ambient `python3` instead of the probed Python 3.12.4 interpreter. No
+capsule, receipt, trust or adoption authority was minted; rc24 is immutable
+`historical_certification_failed` and must never be retried, reused, relabeled
+or imported. Rc25 is prospective and unpinned until a separate metadata
+boundary seals its exact source; a new capture and certification are mandatory.
+No existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself
 

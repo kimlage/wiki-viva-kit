@@ -168,6 +168,7 @@ surfaces:
     lane: lane_b
     path_patterns:
       - .skills/*/**
+      - .skills/README.md
       - AGENTS.md
     configured_path_roles:
       - command_reference_page
@@ -385,6 +386,7 @@ boundary_policy:
   c3_consumer_patterns:
     - .github/workflows/**
     - .skills/*/**
+    - .skills/README.md
     - .toolkit-drift-ignore
     - AGENTS.md
     - adapters/**
@@ -409,4 +411,4 @@ boundary_policy:
     - memories/**
     - private/**
 
-registry_sha256: 663ab77840d43011856dc79a3c3f718cb3da874e179600a99a668e5e47572315
+registry_sha256: 1984b0d621de25b2bf9bac4c5623ad4f73a77afb5c84e4238afa1225fce09173

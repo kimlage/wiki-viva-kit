@@ -206,7 +206,8 @@ ship the skeletons, so a generated page starts with the scaffold.
   keeps every declared `migration.required_gates` entry blocking; v3
   classification never rewrites its historical evidence. Toolkit-owned
   portable wiki skill packages are byte-equal C1. The downstream
-  [AGENTS.md](../../AGENTS.md) and every
+  [AGENTS.md](../../AGENTS.md), the consumer's
+  [.skills/README.md](../../.skills/README.md) and every
   non-`wiki-*` repo-local skill are consumer-owned C3; update their routing with
   the adapter delta. Consumer base and `.local` page-type/template registries
   are also C3 merge surfaces. Config localization grants no broad memory or
@@ -229,9 +230,18 @@ ship the skeletons, so a generated page starts with the scaffold.
   because the synthetic CLI authority helper still fabricated the legacy
   desktop route; no candidate, visual manifest, capsule, attestation or Lane B
   authority existed. Rc23 is historical validation-failure evidence and must
-  not be retried or relabeled. Rc24 is a prospective unpinned validation
-  subject until a later metadata boundary seals its exact source. Do not amend,
-  regenerate or reclassify any already sealed v2 C3 or receipt.
+  not be retried or relabeled. Rc24 exact source
+  `39d490231c00cbc0cf0374c6b1dd3d16f23a2406` passed exact validation and its
+  first four-profile productive capture, but the first Lane A certification
+  failed closed because `demo_drift` and `portable_python` resolved ambient
+  `python3` instead of the probed Python 3.12.4 interpreter. It minted no
+  capsule, receipt, trust or Lane B authority and is immutable
+  `historical_certification_failed`: never retry, reuse, relabel or import it.
+  Rc25 is prospective and unpinned until a separate metadata boundary seals its
+  exact source, then requires a wholly new capture and certification. A Python
+  alias in the command registry must resolve to the interpreter used by the
+  toolchain probe; PATH-dependent divergence is a certification failure. Do not
+  amend, regenerate or reclassify any already sealed v2 C3 or receipt.
   Require direct single-parent B0->C1->C2->C3 edges;
   bind all four commits in receipt and state; recompute edge paths, modes and
   blobs from Git; and regenerate all C3-bound receipts whenever those files
