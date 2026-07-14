@@ -4592,15 +4592,42 @@ self-hash and gate-result ledger remain integrity metadata; neither is clock
 authority. V2 receipts already in flight are neither reclassified nor rewritten
 by this closure.
 
-The current v3 cutoff collects 200 public Python checks: 123 lane tests, 15
-package-v3 tests, 52 CLI tests and ten dedicated cross-job handoff tests. The
-focused execution closed 197 passes with three CI-export cases skipped outside
-their declared workflow environment; the local Lane A -> fast -> canary ->
-background simulation also passed rollback/report verification using only the
-restored runner. These results prove implementation behavior only. The current
-v8 package is still `validation_pending`; no production release capsule or v3
-adoption receipt exists until an exact releasable public subject runs `certify`
-and passes its PR/human promotion gate.
+The exact v3 implementation boundary is public source
+`1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc`, recorded as
+`wiki-viva-v8-rc20`. Its focused cutoff collects 200 public Python checks: 123
+lane tests, 15 package-v3 tests, 52 CLI tests and ten dedicated cross-job
+handoff tests. The focused execution closed 197 passes with three CI-export
+cases skipped outside their declared workflow environment; the local
+Lane A -> fast -> canary -> background simulation also passed rollback/report
+verification using only the restored runner.
+
+The same immutable source then passed the complete declared local stack:
+
+| Exact rc20 proof | Result |
+|---|---|
+| Public and public-export audits | 0 errors; seven known staleness warnings in each mode |
+| Methodology, operation, input-stage, semantic-inventory, snapshot and pack contracts | Passed; snapshot contract covered 26 payloads |
+| Complete Python suite | 1,631 passed, three declared CI-export skips and two known fork warnings; 1,634 collected |
+| Cockpit unit suite and Node gates | 64 files / 516 tests passed; 115 gate tests passed |
+| Architecture, assets and bundle | Zero tracked architecture violations and zero exact legacy debt; 1/64 licensed first-party asset, zero external assets, 380 bytes; initial JavaScript 163.32 kB gzip, CSS 18.11 kB min / 4.04 kB gzip, HTML 0.39 kB and largest lazy chunk 55.14 kB |
+| Release matrix contract | 102 required public cells plus two mandatory downstream cells |
+| Exact public browser release | 102/102 on the first attempt, zero skips, zero retries, 6.6 minutes |
+
+The exact browser artifacts remain bound by gate-result SHA-256
+`3ce0d8c31666d2572b22eaed4ccd907dc1d3a5d8e0efc576d9ca5e0a0979a5b8`,
+run-result SHA-256
+`b918cbf637d0ccefed4a011c9817c921865fff0d131f87bfa0508c08ccc9ebcd`,
+Playwright-report SHA-256
+`aabe13f036db21c9b7622253635c9c2fa41a8e6cb546c5a576973689b52448b8`,
+release-build-manifest SHA-256
+`dc9d34de33eee39753e9420f69bdc9d50a6af31e7de7e8080370dcb6ae853218`
+and toolchain SHA-256
+`dc568a952a51b0694362c7695677acfe7c70d3a56c24d8684e9dbfca72576cbc`.
+These results prove the local implementation boundary only. Rc20 deliberately
+remains `validation_pending`; this run did not mint a production Lane A
+capsule or a v3 adoption receipt, public publication remains unauthorized, and
+remote CI plus the PR/human conceptual, privacy and VoiceOver gate must precede
+any release-promotion boundary.
 
 The following current-consumer gates are never reusable: secret/private audit,
 public-evidence redaction, input stage, semantic inventory, adapter identity,

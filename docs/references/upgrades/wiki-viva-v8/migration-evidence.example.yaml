@@ -13,7 +13,7 @@ evidence_context:
   validator_version: wiki_viva_upgrade_validator.v5
   captured_consumer_head: REPLACE_WITH_ADAPTATION_COMMIT_SHA
 source:
-  release: wiki-viva-v8-rc19
+  release: wiki-viva-v8-rc20
   sha: REPLACE_WITH_PINNED_PUBLIC_SHA
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 consumer_before:
@@ -54,7 +54,7 @@ generated_artifacts:
 # below <references_root>/releases/**). The release record is authored in the
 # third commit; sibling reference paths are not adaptation surfaces.
 downstream_adaptations:
-  - docs/references/releases/wiki-viva-v8-rc19.md
+  - docs/references/releases/wiki-viva-v8-rc20.md
   - wiki.config.yaml
 local_overrides_kept:
   - wiki.config.yaml

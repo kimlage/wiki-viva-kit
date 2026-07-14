@@ -1,13 +1,17 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc19
+  id: wiki-viva-v8-rc20
   status: validation_pending
-  source_sha: e01a4ed91e3e4c2f1746539418d3faebec775204
+  source_sha: 1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc19
+    source_sha: e01a4ed91e3e4c2f1746539418d3faebec775204
+    status: historical_release_candidate
+    note: Exact S22 closed the prior v2 package and passed its local Node 22 stack, but it predates the two-lane v3 gate classes, fail-closed capsule/receipt authority, resumable handoffs, exact B0/C1/C2/C3 mode/blob proof and dual external anchors. Its retained evidence remains historical and cannot authorize a v3 adoption or rewrite the already-running private v2 migration
   - id: wiki-viva-v8-rc18
     source_sha: 8a95ed94c424759f6b218038f8b5f6141c3cc079
     status: historical_release_candidate
@@ -407,7 +411,23 @@ privacy:
     - private_console_or_network_payloads
 
 known_limitations:
-  - The package identifies exact post-S9 public payload S22 and the clean rc19 metadata subject passed 21/21 local gates on Node 22, including 1,428 Python, 516 frontend, 107 Node and 102/102 first-attempt browser cells. The current visual manifest binds baseline comparisons, manual tour=0 or Genesis states and the explicit seven-step modal-background contract. Status deliberately remains validation_pending and package_is_pinned remains false because release_candidate mechanically authorizes downstream preflight. Public push, remote CI, human conceptual/privacy/VoiceOver review and merge of the validated payload must precede a separately reviewed, CI-validated and merged public promotion boundary.
+  - >-
+    Exact rc20 source 1a9bd7ce2ddb5236d0d3d8e414f03946e6c78cbc passed the
+    complete declared local stack: both audits with 0 errors and 7 known
+    staleness warnings, methodology/operation/input/semantic/snapshot/pack
+    contracts, 1,631 Python passes with 3 declared skips and 2 known fork
+    warnings, 516 frontend passes, 115 Node gate passes, zero architecture
+    debt, licensed local assets with 0 external entries, 163.32 kB initial
+    JavaScript gzip, the 102-public-plus-2-downstream matrix contract and
+    102/102 first-attempt public browser cells with 0 skips and 0 retries. The
+    browser run-result, gate-result and report SHA-256 values are
+    b918cbf637d0ccefed4a011c9817c921865fff0d131f87bfa0508c08ccc9ebcd,
+    3ce0d8c31666d2572b22eaed4ccd907dc1d3a5d8e0efc576d9ca5e0a0979a5b8 and
+    aabe13f036db21c9b7622253635c9c2fa41a8e6cb546c5a576973689b52448b8.
+    Status deliberately remains validation_pending: this local proof is not a
+    production Lane A capsule, public push remains unauthorized, and remote CI
+    plus human conceptual/privacy/VoiceOver review and merge must precede any
+    promotion boundary.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
