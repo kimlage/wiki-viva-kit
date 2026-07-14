@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc32 failed full Python validation - rc33 source formation"
+title: "Wiki Viva v8 rc33 validation source pinned - rc32 failed full Python validation"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc32 failed full Python validation - rc33 source formation
+# Wiki Viva v8 rc33 validation source pinned - rc32 failed full Python validation
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -336,11 +336,10 @@ import or use it to mint missing authority. No candidate, productive capture,
 certification, capsule, receipt, attestation, trust anchor or Lane B authority
 exists.
 
-## Rc33 source formation — registry-bound workflow and literal release truth
+## Rc33 exact validation source — registry-bound workflow and literal release truth
 
-Rc33 is prospective and unpinned. The active package remains `unreleased`
-against the rc32 metadata checkpoint while source formation is reviewed; the
-future exact identity will be `wiki-viva-v8-rc33` only in a separate pin.
+Package `wiki-viva-v8-rc33` is pinned only for exact validation at source
+`539eb19b958a4159eecb2c5a7afd6ceaabcbb086`.
 RT-167 derives the page-graph workflow command and interpreter alias from the
 versioned impact registry instead of hardcoding a second command authority.
 RT-168 keeps the machine truth assertion strict and requires every pinned
@@ -348,10 +347,18 @@ release note to name the literal package ID.
 
 The focused formation set covers page-graph CLI, workflow topology, package
 truth and upgrade lanes: all 182 tests pass with warnings as errors in 196.45
-seconds. Rc33 must be formed and pinned in separate commits, then run every
-validation, browser, candidate, productive-capture, certification,
-capsule-verification, downstream-QA, remote-CI and human-promotion stage from
-zero. Public push remains unauthorized.
+seconds. The validation-pending package-file SHA-256 is
+`300a78a6c9005059dfe07c6bbe98c268b34739a0aeed8d9f92eadd21dc1b4cb9`,
+its canonical package identity is
+`69dd37f9d6ed94b92751f6a83a4f4d15cbb1efe925d9bac9d286976a008e1a15`
+and its exact 521-entry portable tree is
+`7964e884e019af57cc8d53322039635e66fb0233f407685fb258f3c24d76c847`.
+These identities authorize validation only: `package_is_pinned` remains false,
+and no plan, import, browser, candidate, capture, capsule or promotion
+authority exists. Rc33 must now run every validation, browser, candidate,
+productive-capture, certification, capsule-verification, downstream-QA,
+remote-CI and human-promotion stage from zero. Public push remains
+unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 

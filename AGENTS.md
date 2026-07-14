@@ -127,10 +127,11 @@ another) via skills — there is no embedded LLM client.
   closed the operational-pass fixed point and CI ordering, then its first full
   Python validation stopped with 2 contract failures after 1,744 passes and 3
   skips; frontend, browser and every later stage were not started. Rc32 is
-  immutable `historical_validation_failed`. Rc33 is prospective and unpinned;
-  it must bind workflow assertions to the versioned command registry, name the
-  exact package identity in release truth and pass a wholly new validation,
-  candidate, capture and certification sequence.
+  immutable `historical_validation_failed`. Rc33 is pinned only for exact
+  validation at source `539eb19b958a4159eecb2c5a7afd6ceaabcbb086`; it binds
+  workflow assertions to the versioned command registry and names the exact
+  package identity in release truth, but must still pass a wholly new
+  validation, candidate, capture and certification sequence.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must
