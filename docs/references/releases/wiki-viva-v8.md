@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc30 validation source pinned - rc28/rc29 rejected pre-validation"
+title: "Wiki Viva v8 rc31 source formation - rc30 rejected before complete validation"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc30 validation source pinned - rc28/rc29 rejected pre-validation
+# Wiki Viva v8 rc31 source formation - rc30 rejected before complete validation
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -231,26 +231,56 @@ are diagnostic only:
 No complete validation, browser matrix, candidate, capture, certification,
 capsule, receipt, push or publication exists for rc29.
 
-## Rc30 exact validation source — public-safe portable truth
+## Rc30 exact validation source — rejected before complete validation
 
 Rc30 source `bc44255b22d65b8c9869ec45759afd4dac1355b9` keeps the
 resource-lifecycle fixes, makes the portable skill and guides state-stable, and
 replaces private-lineage fixture labels with neutral public synthetic data. The
 cleanup-specific evidence passed 27 Python checks with warnings as errors and
-all 516 frontend checks; the complete exact validation has not started.
+all 516 frontend checks. Before its complete exact validation started,
+downstream real-data visual QA exposed RT-164: four distinct root-quadrant
+projections of the `hub` family rendered the same visible and accessible label.
+The canonical node IDs and drill lenses were distinct; the render-time label
+resolver discarded that quadrant context, making the controls look duplicated
+and giving assistive technology four identically named actions.
 
-Package `wiki-viva-v8-rc30` is pinned only for exact validation; status remains
-`validation_pending`, so `package_is_pinned=false` and no plan, import, capture
-or certification authority exists. The validation-pending package file SHA-256
+Package `wiki-viva-v8-rc30` was pinned only for exact validation at metadata
+subject `14ad7edb547b16c83482959e90dd2e14aecff598` and never became executable
+adoption authority. Its validation-pending package file SHA-256
 is `a99e04d9b41333778a5bee6fb405a85eb4050229ed354ea0151708b9b7f7323c`,
 its canonical package identity is
 `adf99371ab5e7ddc6b265cbc3dc73b9b7c66c18ca2c93c5c4db53836cf43083f`,
 and its exact 521-entry portable tree is
 `af505d83ff9ba2f73c8861c029234e3a844392e079f501cd36aa0ebd37a2da8b`.
-These identities authorize validation only and are not a capsule or adoption
-receipt. Complete validation, candidate review, new productive capture, one
+These identities are now immutable diagnostic evidence only. No complete
+validation, browser matrix, candidate, productive capture, certification,
+capsule, receipt, attestation, trust anchor or Lane B authority exists for
+rc30. It must never be retried, relabeled, promoted, imported or used to mint
+missing authority.
+
+## Rc31 source formation — quadrant-qualified group controls
+
+The next source reproduces RT-164 with public synthetic root-quadrant family
+nodes and qualifies each visible and accessible group name with its canonical
+`Q1`–`Q4` context. It preserves all four real groups, member counts, semantic
+family target and facet-specific drill lens; no entity is hidden, merged or
+invented. Unknown or malformed region IDs fail closed to the existing base
+label instead of fabricating a quadrant.
+
+Focused public proof passes 517 cockpit tests, including the new four-title
+uniqueness and malformed-ID regression, plus architecture, asset and Node gate
+checks. A disposable downstream QA clone using real data shows the four
+controls as `Q1`–`Q4` and confirms a `Q1` click opens the same family under the
+`q1_intencao` lens. Raw downstream screenshots, routes and repository details
+remain private and untracked; the versioned authority is the public synthetic
+fixture.
+
+The package remains `unreleased`; rc31 is prospective and unpinned in this
+source-formation boundary.
+Complete exact validation, candidate review, a new productive capture, one
 certification, independent capsule verification, downstream QA, remote CI and
-the human promotion gate remain mandatory. Public push remains unauthorized.
+the human promotion gate all remain mandatory. Public push remains
+unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -355,7 +385,7 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Any future rc30 publication still requires exact validation, separate candidate
+Any future rc31-or-later publication still requires exact validation, separate candidate
 review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
@@ -364,7 +394,7 @@ reviewed promotion boundary that can mint production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
 rc21, rc22, rc23, the exact rc24/rc26 failed-certification subjects, the exact
-rc25/rc27 failed-validation subjects nor rejected rc28/rc29 reclassifies,
+rc25/rc27 failed-validation subjects nor rejected rc28/rc29/rc30 reclassifies,
 reduces or rewrites
 that evidence.
 

@@ -1,13 +1,33 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc30
+  id: unreleased
   status: validation_pending
-  source_sha: bc44255b22d65b8c9869ec45759afd4dac1355b9
+  source_sha: 14ad7edb547b16c83482959e90dd2e14aecff598
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc30
+    source_sha: bc44255b22d65b8c9869ec45759afd4dac1355b9
+    status: historical_prevalidation_rejected
+    note: >-
+      Exact rc30 was pinned only for validation at metadata subject
+      14ad7edb547b16c83482959e90dd2e14aecff598 with package-file SHA
+      a99e04d9b41333778a5bee6fb405a85eb4050229ed354ea0151708b9b7f7323c,
+      canonical package identity
+      adf99371ab5e7ddc6b265cbc3dc73b9b7c66c18ca2c93c5c4db53836cf43083f
+      and portable tree
+      af505d83ff9ba2f73c8861c029234e3a844392e079f501cd36aa0ebd37a2da8b
+      with 521 entries. Before the complete validation matrix started,
+      downstream real-data visual QA exposed RT-164: four distinct root-
+      quadrant projections of one family rendered the same visible and
+      accessible label because the label resolver discarded their canonical
+      region context. The issue is reproduced and corrected with public
+      synthetic data in the next source. No rc30 complete validation, browser,
+      candidate, productive capture, certification, capsule, receipt,
+      attestation, trust anchor or Lane B authority exists. Rc30 must never be
+      retried, relabeled, promoted, imported or used to mint missing authority
   - id: wiki-viva-v8-rc27
     source_sha: ba7ee19457436993edc7ff8a838b34c5b864fd98
     status: historical_validation_failed
@@ -592,15 +612,17 @@ known_limitations:
     because portable transition guides were stale. Rc29 source
     905e377220a409bee6e1977d3c0e6262bdc27914 was also rejected before
     validation because a portable skill stayed state-stale and public fixtures
-    retained private-lineage labels. Rc30 is pinned only for exact validation
-    to source bc44255b22d65b8c9869ec45759afd4dac1355b9; public push remains
-    unauthorized.
+    retained private-lineage labels. Rc30 source
+    bc44255b22d65b8c9869ec45759afd4dac1355b9 was rejected before its complete
+    validation matrix after RT-164 exposed ambiguous repeated root-quadrant
+    family labels. The next source is prospective and unpinned; public push
+    remains unauthorized.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
-  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25 and rc27 are immutable failed-validation evidence; rc28 and rc29 were rejected before validation and none of their later incomplete stages can be resumed. The active rc30 package is pinned only for exact validation and remains validation_pending, so package_is_pinned is false and every v3 plan/adoption path must fail closed until validation, candidate review, productive capture, certification capsule and independent verification exist; public promotion and the human gate remain separate.
+  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25 and rc27 are immutable failed-validation evidence; rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. None of their incomplete stages can be resumed. The active package is prospective and validation_pending, so package_is_pinned is false and every v3 plan/adoption path must fail closed until a new exact source, validation, candidate review, productive capture, certification capsule and independent verification exist; public promotion and the human gate remain separate.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc29 can never authorize another import. Exact rc30-or-later may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
-  - The historical private S9 read-only preflight remains attached to S9; exact rc30-or-later requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc30 can never authorize another import. Exact rc31-or-later may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
+  - The historical private S9 read-only preflight remains attached to S9; exact rc31-or-later requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.
@@ -610,5 +632,5 @@ known_limitations:
   - Toolkit-owned .skills/wiki-*/** remain portable C1. Nested consumer skills under .skills/*/**, AGENTS.md and the literal root .skills/README.md are C3; the literal path is required because the nested skill glob intentionally cannot cross the directory boundary.
   - A downstream must ignore only .wiki-viva/upgrade/ before freezing B0 so resumable plans and receipts remain untracked. Ignoring all .wiki-viva/ is forbidden because consumer pack state may be versioned there; this consumer-owned pre-B0 policy is never supplied by C1.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27 failed complete validation, rc24/rc26 failed certification after valid captures and rc28/rc29 were rejected before validation. Exact rc30 retains RT-156/RT-157 and RT-159 through RT-163, gives all portable release prose state-stable truth, removes private-lineage labels from public fixtures and preserves the versioned warnings-as-errors portable Python command, strict post-run scanner and unmodified captured output; it must pass its own complete validation, productive capture, certification and capsule verification before public human/promotion boundaries. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
+  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27 failed complete validation, rc24/rc26 failed certification after valid captures, rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. Exact rc31 must retain RT-156/RT-157 and RT-159 through RT-163, close RT-164 with quadrant-qualified labels plus public synthetic controls, preserve state-stable portable truth and keep the versioned warnings-as-errors portable Python command, strict post-run scanner and unmodified captured output; it must then pass its own complete validation, productive capture, certification and capsule verification before public human/promotion boundaries. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.

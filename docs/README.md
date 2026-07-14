@@ -111,9 +111,12 @@ starting point for persistent context is `memories/`.
   because its portable transition guides were stale. Rc29 source
   `905e377220a409bee6e1977d3c0e6262bdc27914` was also rejected before
   validation because one portable skill remained state-stale and public
-  fixtures retained private-lineage labels. Rc30 is pinned only for exact
-  validation to source `bc44255b22d65b8c9869ec45759afd4dac1355b9`,
-  with explicit process/stream ownership requiring a wholly new
+  fixtures retained private-lineage labels. Rc30 source
+  `bc44255b22d65b8c9869ec45759afd4dac1355b9` was pinned only for validation,
+  then rejected before its complete matrix when downstream real-data visual
+  QA exposed four distinct root-quadrant family controls with the same visible
+  and accessible label. Rc31 is prospective and unpinned; its public synthetic
+  regression and explicit process/stream ownership require a wholly new
   validation/candidate/capture/certification sequence.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.

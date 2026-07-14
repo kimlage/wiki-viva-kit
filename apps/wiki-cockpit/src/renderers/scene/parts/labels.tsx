@@ -12,6 +12,7 @@ import { localizedEncodingAria, localizedEncodingText, visualEncodingResolver } 
 import type { LayoutNode } from "../../../scene/layout";
 import { parseRegionDrillKey } from "../../../scene/perspectives";
 import type { WorldGroup, WorldLayout } from "../../../scene/perspectives";
+import { SCENE_FACETS } from "../../../scene/facets";
 import type { SceneFacet } from "../../../scene/facets";
 import type { OverlayId } from "../../../world/contracts";
 import { MorphingNodeGroup } from "./nodes";
@@ -26,7 +27,15 @@ export type SceneLabel = {
 };
 
 export function labelTitleForNode(node: LayoutNode): string {
-  return node.isGroup ? worldGroupLabel(node.groupKind ?? "", node.groupLabelKey ?? node.title) : node.title;
+  if (!node.isGroup) return node.title;
+
+  const groupTitle = worldGroupLabel(node.groupKind ?? "", node.groupLabelKey ?? node.title);
+  if (node.groupKind !== "family") return groupTitle;
+
+  const region = parseRegionDrillKey(node.id);
+  if (!region) return groupTitle;
+  const quadrantIndex = SCENE_FACETS.indexOf(region.facet);
+  return quadrantIndex >= 0 ? `Q${quadrantIndex + 1} · ${groupTitle}` : groupTitle;
 }
 
 export function compactGroupMetric(node: LayoutNode): string | null {

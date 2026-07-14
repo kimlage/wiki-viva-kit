@@ -367,6 +367,40 @@ describe("scene labels", () => {
     ).toBe("fontes & evidências");
   });
 
+  it("disambiguates repeated root family labels by their quadrant", () => {
+    configureLanguage("pt-BR");
+    const titles = (["intencao", "pratica", "relacoes", "sistemas"] as const).map((quadrant) =>
+      labelTitleForNode(
+        layoutNode(`region:${quadrant}:family:hub`, {
+          title: "areas and workspaces",
+          page_type: "visual_group_hub",
+          isGroup: true,
+          groupKind: "family",
+          groupLabelKey: "hub",
+          quadrant
+        })
+      )
+    );
+
+    expect(titles).toEqual([
+      "Q1 · áreas & espaços de trabalho",
+      "Q2 · áreas & espaços de trabalho",
+      "Q3 · áreas & espaços de trabalho",
+      "Q4 · áreas & espaços de trabalho"
+    ]);
+    expect(new Set(titles)).toHaveLength(4);
+    expect(
+      labelTitleForNode(
+        layoutNode("family:hub", {
+          isGroup: true,
+          groupKind: "family",
+          groupLabelKey: "hub",
+          quadrant: "intencao"
+        })
+      )
+    ).toBe("áreas & espaços de trabalho");
+  });
+
   it("connects visible group labels to their drill-down group object", () => {
     const drill = { context: undefined, group: "region:pratica:family:source" };
     const group: WorldGroup = {
