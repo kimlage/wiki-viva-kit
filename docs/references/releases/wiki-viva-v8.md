@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc26 certification failed closed - rc27 source unpinned"
+title: "Wiki Viva v8 rc27 validation source pinned - rc26 historical"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc26 certification failed closed - rc27 source unpinned
+# Wiki Viva v8 rc27 validation source pinned - rc26 historical
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -145,7 +145,7 @@ authority, public release, push, merge or tag was emitted. Rc26 is immutable
 promoted or imported. Its capture and successful command outputs cannot be
 carried into rc27.
 
-## Rc27 prospective source — public-safe warning contract, not pinned
+## Rc27 exact validation source — public-safe warning contract pinned
 
 Rc27 replaces the real multiprocess `fork` fixture that triggered the warning
 with `spawn`, registers `portable_python` as
@@ -155,11 +155,22 @@ failure instruct the operator to freeze the subject and form a new source.
 Passing evidence remains the unmodified captured output; there is no
 post-processing redactor or manual summary that could hide a warning.
 
-Rc27 is currently `unreleased` / `validation_pending` and unpinned. It still
-requires a separate exact-source pin, complete validation, candidate review,
-new productive capture, one certification, independent capsule verification,
-downstream QA, remote CI and the human promotion gate. Public push remains
-unauthorized.
+Package `wiki-viva-v8-rc27` is pinned only for exact validation to source
+`ba7ee19457436993edc7ff8a838b34c5b864fd98`; status remains
+`validation_pending`, so `package_is_pinned=false` and no plan, import, capture
+or certification authority exists. Complete validation still precedes a
+separate candidate review, new productive capture, one certification,
+independent capsule verification, downstream QA, remote CI and the human
+promotion gate. Public push remains unauthorized.
+
+The validation-pending package file SHA-256 is
+`e092bd63422899b27fd2850d0965380b4fe91f3068a300aa0d773bcc0ae4983d`,
+its canonical package identity is
+`29225e6855eeec712c9e97f44a897127bbbc94b2e420d86fd6379082077565e0`,
+and its exact 521-entry portable tree is
+`0d31d17f3889092ecc68ca4ebdc93a48c9eb6df17c7b22f76ba019feb51e57d3`.
+These identities authorize validation only and must change if package status
+or semantics change.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -264,7 +275,8 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Any future rc27 publication still requires new validation, capture and certification,
+Any future rc27 publication still requires exact validation, separate candidate
+review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
 human conceptual/privacy/VoiceOver review and merge, followed by a separately

@@ -104,10 +104,12 @@ another) via skills — there is no embedded LLM client.
   path in the successful Python warning summary before attestation. Rc26 is
   immutable `historical_certification_failed`: no capsule, receipt, trust or
   Lane B authority exists, and its capture/results must never be retried or
-  reused. Rc27 is prospective and unpinned. It must replace the unsafe
-  multiprocessing `fork` fixture with `spawn`, execute the registered portable
-  Python gate with warnings-as-errors and pass an entirely new validation,
-  candidate, capture and certification sequence.
+  reused. Rc27 is pinned only for exact validation to source
+  `ba7ee19457436993edc7ff8a838b34c5b864fd98`; status remains
+  `validation_pending`. It replaces the unsafe multiprocessing `fork` fixture
+  with `spawn` and executes the registered portable Python gate with
+  warnings-as-errors, but complete validation, candidate, capture and
+  certification remain mandatory.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must

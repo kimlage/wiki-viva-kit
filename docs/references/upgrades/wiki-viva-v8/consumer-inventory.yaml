@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: unreleased@cdb20a4e
+    current_kit_version: wiki-viva-v8-rc27@ba7ee194
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,13 +32,13 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc26_historical_certification_failed_next_source_unpinned
+      state: rc26_historical_certification_failed_rc27_validation_pending
       drift_total: 0
-      compared_against: unreleased@cdb20a4e
-      worktree: next_source_unpinned
+      compared_against: wiki-viva-v8-rc27@ba7ee194
+      worktree: rc27_validation_pending
     upgrade_wave: public_kit
-    status: blocked_on_fresh_exact_validation_and_certification
-    blocker: Rc21 is frozen historical non-promotion evidence. Rc22 failed productive capture, rc23 failed its first complete validation, rc24 failed certification after a valid capture and rc25 failed its first complete validation; none can be retried, relabeled, promoted or imported. Rc26 exact source da3a9a04 passed complete validation and its first productive capture, then all six Lane A gates passed, but the strict public-evidence scanner rejected a host-local interpreter-library path in the successful Python warning summary before any capsule or authority was emitted. Rc26 is immutable historical_certification_failed. The next public-safe reporter source remains unpinned and must receive a fresh validation/candidate/capture/certification sequence. Public push is not authorized. External E5 and a release tag remain separate
+    status: blocked_on_rc27_exact_validation_and_certification
+    blocker: Rc21 is frozen historical non-promotion evidence. Rc22 failed productive capture, rc23 failed its first complete validation, rc24 failed certification after a valid capture and rc25 failed its first complete validation; none can be retried, relabeled, promoted or imported. Rc26 exact source da3a9a04 passed complete validation and its first productive capture, then all six Lane A gates passed, but the strict public-evidence scanner rejected a host-local interpreter-library path in the successful Python warning summary before any capsule or authority was emitted. Rc26 is immutable historical_certification_failed. Rc27 is pinned only for exact validation at ba7ee194 and must receive a fresh validation/candidate/capture/certification sequence. Public push is not authorized. External E5 and a release tag remain separate
 
   - id: private-pilot-01
     repository:
@@ -70,11 +70,11 @@ consumers:
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: unreleased@cdb20a4e
+      target_version: wiki-viva-v8-rc27@ba7ee194
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
-      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 and rc21 are historical product evidence, rc22 is historical failed-capture evidence, rc23 and rc25 are historical failed-validation evidence, and rc24 and rc26 are historical failed-certification evidence, all without adoption authority. Rc26 exact source da3a9a04 passed complete deterministic/browser validation, its first productive capture and all six Lane A gates, but strict public-evidence scanning rejected a host-local warning path before attestation/capsule. A new v3 downstream-QA target exists only after the fresh public-safe reporter source is pinned and passes a wholly new validation, candidate, capture and verified certification sequence plus read-only consumer preflight, never as a rewrite of v2. Consumer AGENTS.md, .skills/README.md and non-wiki local skills remain fresh-C3 routing surfaces
+      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 and rc21 are historical product evidence, rc22 is historical failed-capture evidence, rc23 and rc25 are historical failed-validation evidence, and rc24 and rc26 are historical failed-certification evidence, all without adoption authority. Rc26 exact source da3a9a04 passed complete deterministic/browser validation, its first productive capture and all six Lane A gates, but strict public-evidence scanning rejected a host-local warning path before attestation/capsule. Rc27 is pinned only for exact validation at ba7ee194 and can become a new v3 downstream-QA target only after that validation passes, a separate candidate boundary is reviewed, a new capture and certification capsule verify, and a read-only consumer preflight succeeds, never as a rewrite of v2. Consumer AGENTS.md, .skills/README.md and non-wiki local skills remain fresh-C3 routing surfaces
       verified_on: "2026-07-14"
     upgrade_wave: pilot
     status: blocked_on_public_release_promotion
-    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 is historical, rc22 failed productive capture, rc23 and rc25 failed complete validation, and rc24 and rc26 failed certification before any capsule or Lane B authority. Rc26 passed validation, capture and all six Lane A gates but failed closed when public-evidence scanning found a host-local warning path. A fresh exact public-safe reporter source, full validation/capture/certification, independent capsule verification and new consumer preflight precede any v3 downstream QA. None can authorize v2 promotion. Historical subjects cannot authorize adoption. External E5 remains separate
+    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 is historical, rc22 failed productive capture, rc23 and rc25 failed complete validation, and rc24 and rc26 failed certification before any capsule or Lane B authority. Rc26 passed validation, capture and all six Lane A gates but failed closed when public-evidence scanning found a host-local warning path. Rc27 is validation_pending at exact source ba7ee194; complete validation, candidate review, new capture, independent capsule verification and a new consumer preflight precede any v3 downstream QA. None can authorize v2 promotion. Historical subjects cannot authorize adoption. External E5 remains separate
