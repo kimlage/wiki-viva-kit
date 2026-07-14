@@ -80,10 +80,10 @@ def test_infer_page_type_uses_semantic_dirs_before_fallback() -> None:
 def test_infer_page_type_does_not_treat_year_prefix_as_date() -> None:
     config = WikiConfig(paths={**WikiConfig().paths, "memory_root": "memorias"})
 
-    assert infer_page_type("memorias/financeiro/auvp/conciliacao/2026-auvp-fila.md", config)[0] == (
+    assert infer_page_type("memorias/financeiro/provedor/conciliacao/2026-exemplo-fila.md", config)[0] == (
         "context_note"
     )
-    assert infer_page_type("memorias/financeiro/auvp/conciliacao/2026-06-05-sync.md", config)[0] == (
+    assert infer_page_type("memorias/financeiro/provedor/conciliacao/2026-06-05-sync.md", config)[0] == (
         "monthly_closing"
     )
 

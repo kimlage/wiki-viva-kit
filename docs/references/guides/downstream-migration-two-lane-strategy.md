@@ -581,10 +581,10 @@ started. It is immutable failed-validation evidence. Rc28 source
 `31cad3bc8aa9cf45d4842103307baff678ddeeb7` was rejected before pin or
 validation because portable transition documentation still described the
 previous state. It never authorized a validation, capture, certification or
-downstream stage. A new transition-stable resource-safe source must be formed
-before a separate metadata boundary can pin exact validation. The migration
-already in flight remains on its complete v2 `migration.required_gates`
-matrix.
+downstream stage. Source formation and validation pin are separate boundaries:
+only a transition-stable resource-safe source may be pinned, and that pin
+grants exact validation authority only. The migration already in flight
+remains on its complete v2 `migration.required_gates` matrix.
 
 Rc21 and rc22 are now immutable historical non-promotional evidence. Rc21's
 public UI regression proof remains useful, but a downstream rehearsal exposed

@@ -63,7 +63,7 @@ automatic migration.
   useful to readers, or frontmatter refs like `moc_parent`/`related_pages` when
   the relation is structural.
 - Review date-only filenames manually. A page like `2026-06-05-sync.md` may be
-  a monthly or operational closing, while `2026-auvp-fila.md` is usually an
+  a monthly or operational closing, while `2026-exemplo-fila.md` is usually an
   artifact or runbook, not a monthly closing.
 - Keep private PII on private pages when it is operationally useful.
 - Never add access secrets, cookies, tokens, passwords or individualized secure

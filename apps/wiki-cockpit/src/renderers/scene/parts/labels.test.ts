@@ -100,7 +100,7 @@ describe("scene labels", () => {
       isGroup: true,
       groupKind: "region_family",
       groupLabelKey: "source",
-      groupCaption: "45 · Fonte - CollabSoul publica · Registro de fontes canonicas",
+      groupCaption: "45 · Fonte - Wiki demonstrativa · Registro de fontes canonicas",
       groupMemberIds: Array.from({ length: 45 }, (_, index) => `source-${index}`),
       visualGlyph: "▣",
       position: [1, 0, 1]
@@ -138,7 +138,7 @@ describe("scene labels", () => {
       isGroup: true,
       groupKind: "region_family",
       groupLabelKey: "source",
-      groupCaption: "45 · Fonte - CollabSoul publica · Registro de fontes canonicas",
+      groupCaption: "45 · Fonte - Wiki demonstrativa · Registro de fontes canonicas",
       groupMemberIds: Array.from({ length: 45 }, (_, index) => `source-${index}`),
       groupComposition: [
         { family: "source", count: 32 },

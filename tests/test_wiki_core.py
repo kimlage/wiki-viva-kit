@@ -119,7 +119,7 @@ def _write_chunks_json(chunks_dir: Path) -> None:
                 "chunk_id": "chunk-0001",
                 "source_id": "source-fixture-abc123",
                 "ordinal": 0,
-                "hash_sha256": sha256_text("orcamento mensal openfinance"),
+                "hash_sha256": sha256_text("orcamento mensal agregador"),
                 "token_estimate": 7,
                 "text": "Monthly budget review and reconciliation notes",
             },

@@ -250,10 +250,13 @@ ship the skeletons, so a generated page starts with the scaffold.
   Rc27 exact source `ba7ee19457436993edc7ff8a838b34c5b864fd98` then failed
   its first complete warnings-as-errors validation with 46 public synthetic
   subprocess/thread/pipe lifecycle failures; browser and every later stage
-  were not started. It is immutable `historical_validation_failed`. Rc28 is
-  prospective and unpinned, with explicit kill/reap/join/drain/close ownership
-  retaining warnings-as-errors; any future warning fails the subject instead
-  of being hidden or redacted. A Python
+  were not started. It is immutable `historical_validation_failed`. Rc28 source
+  `31cad3bc8aa9cf45d4842103307baff678ddeeb7` added explicit
+  kill/reap/join/drain/close ownership while retaining warnings-as-errors, but
+  was rejected before pin or validation because portable transition text was
+  stale. Its resource-safe successor is not self-authorizing: source formation
+  and a validation-only metadata pin are separate boundaries, and any future
+  warning fails the exact subject instead of being hidden or redacted. A Python
   alias in the command registry must resolve to the interpreter used by the
   toolchain probe; PATH-dependent divergence is a certification failure. Do not
   amend, regenerate or reclassify any already sealed v2 C3 or receipt.
