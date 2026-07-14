@@ -562,11 +562,12 @@ non-promotional evidence. Its public UI regression proof remains useful, but a
 downstream rehearsal exposed that its static C3 policy could not represent the
 three localized roles above and that its broad release-record surface did not
 fail closed on executable/non-Markdown descendants. Rc21 must not be promoted,
-imported, relabeled or used to mint a capsule. Rc22 is the next prospective
-candidate after the config-bound authority, public synthetic negative controls
-and complete certification matrix are green. No rc22 capsule or adoption
-authority is claimed here, and public publication remains a separate human
-decision.
+imported, relabeled or used to mint a capsule. Exact local rc22 source
+`7e72664fb6871d906addbddb6ed5b2e7f1fec33c` contains the config-bound
+authority, productive visual capture and hardened resume/evidence controls and
+passed the complete local deterministic stack. Its package remains
+`validation_pending`; no rc22 capsule or adoption authority is claimed here,
+and public publication remains a separate human decision.
 
 ### Sanitized in-flight v2 checkpoint
 

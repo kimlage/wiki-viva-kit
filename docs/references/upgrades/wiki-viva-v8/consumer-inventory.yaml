@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: unreleased@226f2c64
+    current_kit_version: wiki-viva-v8-rc22@7e72664f
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,13 +32,13 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: implementation_worktree_unreleased
+      state: exact_source_local_validation_complete_package_unpinned
       drift_total: 0
-      compared_against: unreleased@226f2c64
-      worktree: development_package_explicitly_unpinned
+      compared_against: wiki-viva-v8-rc22@7e72664f
+      worktree: exact_source_committed_package_validation_pending
     upgrade_wave: public_kit
     status: blocked_on_public_release_promotion
-    blocker: Rc21 is frozen historical non-promotion evidence. The active development package is explicitly unreleased and validation_pending, so it cannot mint a Lane A capsule. Public push is not authorized in this execution. A prospective rc22 must bind a new exact source, pass remote CI and human conceptual/privacy/VoiceOver review, merge the validated payload, then cross a separately reviewed promotion boundary. External E5 and a release tag remain separate
+    blocker: Rc21 is frozen historical non-promotion evidence. Exact rc22 source 7e72664f passed the complete local deterministic stack, but its package remains validation_pending and cannot mint a Lane A capsule. Public push is not authorized in this execution. Remote CI and human conceptual/privacy/VoiceOver review must still approve the payload before any production promotion boundary. External E5 and a release tag remain separate
 
   - id: private-pilot-01
     repository:
@@ -70,11 +70,11 @@ consumers:
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: unreleased@226f2c64
+      target_version: wiki-viva-v8-rc22@7e72664f
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
-      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 and rc21 are retained as historical product evidence. The active public package is deliberately unreleased; a prospective rc22 becomes the future v3 target only after exact public certification/promotion and a new read-only consumer preflight
+      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority and human gate; its receipts are not reclassified. Rc20 and rc21 are retained as historical product evidence. Exact rc22 source 7e72664f is locally green but remains validation_pending; it becomes a v3 downstream-QA target only after a separately attested local capsule and a new read-only consumer preflight, never as a rewrite of v2
       verified_on: "2026-07-14"
     upgrade_wave: pilot
     status: blocked_on_public_release_promotion
-    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 is historical and the active public package is deliberately unreleased, so a future rc22/v3 adoption requires separate public promotion and a new consumer preflight. Historical candidates cannot authorize adoption. External E5 remains separate
+    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion is blocked until the exact hosted visual matrix is green on an authorized capable runner and the human gate approves. Rc21 is historical and rc22 remains validation_pending without a capsule, so v3 downstream QA requires separate local attestation plus a new consumer preflight and cannot authorize promotion. Historical candidates cannot authorize adoption. External E5 remains separate

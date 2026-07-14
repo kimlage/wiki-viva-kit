@@ -74,9 +74,12 @@ starting point for persistent context is `memories/`.
   PNG/console/network evidence, and is independently reopened by
   `wiki_upgrade.py verify-capsule` before adoption.
   Rc21 is historical non-promotional evidence after downstream rehearsal found
-  the missing config-bound C3 authority; rc22 is the prospective corrected
-  candidate. Existing v2 subjects and receipts remain frozen and are never
-  rewritten into v3 proof.
+  the missing config-bound C3 authority. Exact local rc22 source
+  `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` implements the correction and
+  passed the complete local stack, but its package is still
+  `validation_pending`; no Lane A capsule or adoption authority exists yet.
+  Existing v2 subjects and receipts remain frozen and are never rewritten into
+  v3 proof.
 - `docs/references/templates/`: stable models for new records.
 - `docs/references/templates/wiki/`: models for the operational wiki, including
   root entities, input channels, processes, artifacts, ingestion proposal,

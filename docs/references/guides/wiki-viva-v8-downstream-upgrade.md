@@ -143,9 +143,11 @@ Rc21 is historical non-promotional local evidence. It retains its exact public
 mobile/visual proof, but a synthetic downstream rehearsal exposed a missing
 config-localized C3 authority and an over-broad release-record surface. It must
 not be promoted, imported, relabeled or used to mint a production capsule.
-Rc22 is the next prospective corrected candidate after the three-role authority
-and its negative fixtures pass the complete public certification matrix. This
-runbook claims no rc22 capsule and grants no public publication authority.
+Exact local rc22 source `7e72664fb6871d906addbddb6ed5b2e7f1fec33c`
+implements the three-role authority, productive visual provenance, hardened
+resume/evidence reads and their negative fixtures and passed the complete local
+stack. Its package remains `validation_pending`. This runbook claims no rc22
+capsule and grants no public publication authority.
 
 ### Lane A -> Lane B handoff checklist
 

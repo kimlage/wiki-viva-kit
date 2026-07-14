@@ -165,8 +165,11 @@ browser cells with zero skip or retry. That remains valid historical RT-151
 evidence. RT-152 later proved that rc21 lacked the exact config-bound C3
 authority and fail-closed release-record boundary, so rc20 and rc21 are both
 historical non-promotional subjects. Rc21 must not be promoted, imported,
-relabeled or used to mint a capsule. Rc22 is the prospective corrected subject;
-no exact rc22 source, package digest or capsule is claimed here.
+relabeled or used to mint a capsule. Exact local rc22 source
+`7e72664fb6871d906addbddb6ed5b2e7f1fec33c` is the corrected subject and
+passed the complete local deterministic stack. Its package remains
+`validation_pending`; no rc22 capsule or production adoption authority is
+claimed here.
 
 ### Normative Lane A -> Lane B handoff and fast-path budget
 
@@ -4755,12 +4758,27 @@ repair B0 and create a new plan. Public evidence may carry the digest and typed
 role IDs, never consumer paths.
 
 Rc21 is therefore frozen as historical non-promotional evidence and must not be
-promoted, imported, relabeled or used to mint a capsule. Rc22 is the next
-prospective candidate after the implementation, public synthetic positive and
-negative fixtures, full deterministic stack and exact browser certification are
-green. No rc22 source SHA, package digest, capsule or production adoption
-receipt is claimed by this planning checkpoint. Public push and publication
+promoted, imported, relabeled or used to mint a capsule. Exact local rc22 source
+`7e72664fb6871d906addbddb6ed5b2e7f1fec33c` now closes the implementation,
+public synthetic positive/negative fixtures, productive visual capture,
+fd-pinned evidence reads and hardened resume boundary. Its complete local stack
+is green. The package remains `validation_pending`; no capsule or production
+adoption receipt is claimed by this checkpoint. Public push and publication
 remain unauthorized.
+
+#### Rc22 exact source checkpoint — 2026-07-14
+
+| Evidence | Exact local result | Authority boundary |
+|---|---|---|
+| Source | `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` | Committed locally; not pushed |
+| Package | `wiki-viva-v8-rc22`, `validation_pending`, SHA-256 `20a92e19eba537acf411e5d9d01b65adad5f71ca8e7634e81cd6764d8d1e9e0c` | Non-certifiable until an explicit local-QA promotion boundary |
+| Portable tree | 521 entries, SHA-256 `7e70e7b3f457374624e4ef2656deb131318336228b848706f2b38ff2954cfb03` | Exact source Git tree only |
+| Registries | command `85993dd5637f90539e9ff7318b7aadfbca3cbced897d651fc42ceae695375ea7`; impact `663ab77840d43011856dc79a3c3f718cb3da874e179600a99a668e5e47572315`; C2/C3 boundary `f8ac0ad44fa0b29c3c0142fa86b8c62d0af060aa7b1b227d44183aadb3de573a` | Canonical package/registry derivation |
+| Runner | `wiki-upgrade 1.3.0+payload.136b58c2dd34e7f473a59452eb7c1bd1becd0b64667981eb9aad707b493d803f` | Execution closure identity |
+| Python | 1,703 passed, 3 declared skips, 2 known fork warnings in 15m58s | Full repository suite |
+| Upgrade/security integration | 375 passed, 3 declared skips in 9m51s | Resume forgery, visual provenance, TOCTOU, secret/symlink and rollback negatives included |
+| Cockpit | 516 frontend; 115 Node gates; zero architecture debt; assets/bundle/release-matrix green | 102 public + 2 downstream matrix contract |
+| Static gates | Both audits 0 errors / 7 known staleness warnings; coverage, operation, input, semantic, snapshot and packs green | No production capsule or attestation yet |
 
 This correction is prospective. The already sealed v2 downstream C3 and all of
 its receipts remain frozen on their original complete
@@ -4850,8 +4868,10 @@ but RT-152 discovered through the downstream rehearsal makes rc21 historical
 non-promotion evidence as well. Its static C3 contract lacked exact B0-derived
 authority for the three localized technical roles and did not close the
 executable/non-Markdown release-record boundary. Rc22 is the next unpublished
-prospective candidate; it has no production Lane A capsule or validated
-production receipt yet. A later
+candidate: exact local source
+`7e72664fb6871d906addbddb6ed5b2e7f1fec33c` is green, while its package remains
+`validation_pending` with no production Lane A capsule or validated production
+receipt. A later
 explicit execution decision authorized the corrected private-first v2
 migration described above after the local public core/fixture correction; that
 decision supersedes the former statement that no private import may start. It
@@ -4868,9 +4888,11 @@ relaxation, omission or merge around the remaining proof.
 ## Final Recommendation
 
 Retain rc19, rc20 and rc21 as locally validated historical evidence, not as
-release or downstream-adoption authority. Complete the RT-152 implementation
-and public synthetic negatives, then certify rc22 as a new exact subject; do
-not inherit rc21's status or receipts. Rc22 stays local and non-promotional
+release or downstream-adoption authority. Preserve exact rc22 source
+`7e72664fb6871d906addbddb6ed5b2e7f1fec33c` as the completed RT-152
+implementation and public-synthetic checkpoint; certify it only through a new
+package/attestation boundary that inherits no rc21 status or receipt. Rc22
+stays local and non-promotional
 until its complete deterministic/browser matrix, remote CI, human review, merge
 and separate promotion boundary are all closed under explicit publication
 authority. The corrected v2 chain, complete original matrix,

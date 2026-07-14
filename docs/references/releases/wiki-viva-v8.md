@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc21 historical validation evidence - promotion prohibited"
+title: "Wiki Viva v8 rc22 local validation checkpoint - rc21 historical"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,37 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc21 historical validation evidence - promotion prohibited
+# Wiki Viva v8 rc22 local validation checkpoint - rc21 historical
+
+## Rc22 exact local source — capsule not yet minted
+
+Exact source `7e72664fb6871d906addbddb6ed5b2e7f1fec33c` implements the
+config-bound three-role C3 authority, productive record-backed Chromium capture,
+independent `verify-capsule`, fail-closed impact selection, resumable C1/C2/C3
+adoption and fd-pinned evidence reads. Its final local stack passed 1,703 Python
+tests with 3 declared skips and 2 known fork warnings, 516 frontend tests, 115
+Node gates, both audits with 0 errors, methodology/operation/input/semantic,
+26-payload snapshot and pack validation, and the 102-public-plus-2-downstream
+matrix contract. The integrated upgrade/security subset passed 375 tests with
+3 declared skips.
+
+The `wiki-viva-v8-rc22` `validation_pending` package SHA-256 is
+`20a92e19eba537acf411e5d9d01b65adad5f71ca8e7634e81cd6764d8d1e9e0c`;
+its 521-entry portable tree is
+`7e70e7b3f457374624e4ef2656deb131318336228b848706f2b38ff2954cfb03`.
+The command, impact and boundary-operation registry SHA-256 values are
+`85993dd5637f90539e9ff7318b7aadfbca3cbced897d651fc42ceae695375ea7`,
+`663ab77840d43011856dc79a3c3f718cb3da874e179600a99a668e5e47572315`
+and `f8ac0ad44fa0b29c3c0142fa86b8c62d0af060aa7b1b227d44183aadb3de573a`.
+The runner identity is
+`wiki-upgrade 1.3.0+payload.136b58c2dd34e7f473a59452eb7c1bd1becd0b64667981eb9aad707b493d803f`.
+
+These are local validation identities, not production release authority. No
+rc22 Lane A capsule, trusted production attestation, public push, remote CI,
+human merge or tag is claimed at this checkpoint. The current private v2
+receipts remain unchanged.
+
+## Rc21 historical validation evidence — promotion prohibited
 
 Status on 2026-07-14: **exact public source
 `db3bba4957f551cc7c2d261561a45d0c606fdd05`, packaged locally as
@@ -64,25 +94,18 @@ The rc21 package names the following exact portable contracts:
 | Experience pack / registry / lock / composition | `wiki_experience_pack.v1` / `wiki_experience_pack_registry.v1` / `wiki_experience_pack_lock.v1` / `wiki_experience_pack_composition.v1` |
 | Asset / downstream adapter manifests | `wiki_cockpit_asset_manifest.v1` / `wiki_downstream_adapter_manifest.v1` |
 
-The new `wiki_viva_upgrade_consumer_c3_authority.v1` contract is reserved for a
-prospective rc22 package, never rc21. Rc22 must bind that contract to a new
-exact source, package digest, public synthetic fixtures, complete certification
-evidence and its own capsule; it cannot inherit any rc21 status or receipt. No
-rc22 source SHA, package digest or capsule is claimed by this historical note.
-
-Until that exact source commit exists, the active development package uses the
-non-certifiable release id `unreleased` and the already committed baseline
-`226f2c646484cb5da8ec5ffd4c8e5d106318e723`. That placeholder is intentionally
-`validation_pending`; changing only its status cannot turn it into release
-authority. The rc22 metadata boundary must replace both values after the new
-source is committed.
+The new `wiki_viva_upgrade_consumer_c3_authority.v1` contract belongs to rc22,
+never rc21. Exact rc22 source
+`7e72664fb6871d906addbddb6ed5b2e7f1fec33c` binds that contract to public
+synthetic fixtures and the complete local stack, but remains
+`validation_pending` without a capsule; it inherits no rc21 status or receipt.
 
 Any future rc22 publication still requires explicit authorization, remote
 public CI, human conceptual/privacy/VoiceOver review and merge, followed by a
 separately reviewed promotion boundary that can mint Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
-rc21 nor the prospective rc22 contract reclassifies, reduces or rewrites that
+rc21 nor the local rc22 checkpoint reclassifies, reduces or rewrites that
 evidence.
 
 ## Historical rc8-era evidence — preserved without current authority
