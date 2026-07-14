@@ -247,9 +247,13 @@ ship the skeletons, so a generated page starts with the scaffold.
   Python warning summary before attestation. It minted no capsule, receipt,
   trust or Lane B authority and is immutable
   `historical_certification_failed`; never retry, reuse or relabel its evidence.
-  Rc27 is prospective and unpinned. It uses `spawn` for the multiprocess lock
-  fixture and warnings-as-errors for the public portable Python command; any
-  future warning fails the subject instead of being hidden or redacted. A Python
+  Rc27 exact source `ba7ee19457436993edc7ff8a838b34c5b864fd98` then failed
+  its first complete warnings-as-errors validation with 46 public synthetic
+  subprocess/thread/pipe lifecycle failures; browser and every later stage
+  were not started. It is immutable `historical_validation_failed`. Rc28 is
+  prospective and unpinned, with explicit kill/reap/join/drain/close ownership
+  retaining warnings-as-errors; any future warning fails the subject instead
+  of being hidden or redacted. A Python
   alias in the command registry must resolve to the interpreter used by the
   toolchain probe; PATH-dependent divergence is a certification failure. Do not
   amend, regenerate or reclassify any already sealed v2 C3 or receipt.

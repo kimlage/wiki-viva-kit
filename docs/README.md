@@ -102,10 +102,13 @@ starting point for persistent context is `memories/`.
   Lane A command, but strict public-evidence scanning rejected a host-local
   interpreter-library path in the successful Python warning summary before
   attestation. Rc26 is immutable `historical_certification_failed`; no capsule
-  or downstream authority exists. Rc27 is pinned only for exact validation to
-  source `ba7ee19457436993edc7ff8a838b34c5b864fd98`, with a `spawn` fixture and
-  warnings-as-errors certification gate. Complete
-  validation/candidate/capture/certification remain pending.
+  or downstream authority exists. Rc27 exact source
+  `ba7ee19457436993edc7ff8a838b34c5b864fd98` then failed its first complete
+  warnings-as-errors validation with 46 public synthetic resource-lifecycle
+  failures; browser and later stages were not started. Rc27 is immutable
+  `historical_validation_failed`. Rc28 is prospective and unpinned, with
+  explicit process/stream ownership requiring a wholly new
+  validation/candidate/capture/certification sequence.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

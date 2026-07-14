@@ -35,7 +35,8 @@ world**, or complete **Study/Research** and **Personal Finance** pack
 showcases.
 
 The unified v8 runtime is not a published consumer release. Rc26 is frozen
-failed-certification evidence and rc27 is pinned only for exact validation. See the
+failed-certification evidence, rc27 is frozen failed-validation evidence and
+rc28 is still an unpinned local source. See the
 [v8 release note](docs/references/releases/wiki-viva-v8.md) for the exact
 remaining gates. An exact `source_sha` alone is not adoption authority: do not
 migrate a downstream repo until a production Lane A capsule verifies
@@ -295,10 +296,13 @@ four-profile productive capture and all six Lane A commands. Certification
 still failed closed before attestation because the successful Python warning
 summary exposed a host-local interpreter-library path. Rc26 is immutable
 `historical_certification_failed`; no capsule, receipt, attestation, trust or
-Lane B authority exists. Rc27 is pinned only for exact validation to source
-`ba7ee19457436993edc7ff8a838b34c5b864fd98`, with a public synthetic `spawn`
-fixture and warnings-as-errors gate. Complete
-validation/candidate/capture/certification remain pending.
+Lane B authority exists. Rc27 exact source
+`ba7ee19457436993edc7ff8a838b34c5b864fd98` then failed its first complete
+warnings-as-errors validation with 46 public synthetic resource-lifecycle
+failures after 1,693 passes and 3 skips; browser and later stages were not
+started. Rc27 is immutable `historical_validation_failed`. Rc28 is prospective
+and unpinned, with explicit process and stream ownership awaiting a wholly new
+validation/candidate/capture/certification sequence.
 No existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself

@@ -574,8 +574,11 @@ validation evidence. Rc26 passed validation, its first productive capture and
 all six Lane A commands, but the strict public-evidence scanner rejected a
 host-local interpreter-library path in the successful Python warning summary
 before attestation. It is immutable failed-certification evidence with no
-capsule or Lane B authority. Rc27 remains prospective and unpinned until a
-separate metadata boundary seals a new exact source. The migration already in flight remains on
+capsule or Lane B authority. Rc27 then failed its first complete
+warnings-as-errors validation with 46 public synthetic resource-lifecycle
+failures after 1,693 passes and 3 skips; browser and later stages were not
+started. It is immutable failed-validation evidence. Rc28 remains prospective
+and unpinned until a separate metadata boundary seals a new exact source. The migration already in flight remains on
 its complete v2 `migration.required_gates` matrix.
 
 Rc21 and rc22 are now immutable historical non-promotional evidence. Rc21's
@@ -623,12 +626,13 @@ Its exact source `c741e3d0ad409ac9baea8b136e3819952bb0657b` and validation metad
 failures; no browser, candidate, capture or capsule exists. Rc26 is immutable
 `historical_certification_failed`: it passed every command but failed the
 transactional public-evidence boundary, so its capture and results are not
-reusable. Rc27 is a new prospective subject. It stays unpinned until a separate
-metadata boundary seals its exact source, package and portable tree, then must
+reusable. Rc27 is immutable `historical_validation_failed`; its browser and
+later stages were never started. Rc28 is a new prospective subject. It stays
+unpinned until a separate metadata boundary seals its exact source, package and portable tree, then must
 run complete validation, a new productive capture and certification from that
 exact clean source. Its registered portable Python command treats warnings as
-errors; the multiprocess fixture uses `spawn`, and passing logs are sealed raw
-without post-processing or manual redaction. Public
+errors; process and pipe owners must kill/reap/join/drain/close on every path,
+and passing logs are sealed raw without post-processing or manual redaction. Public
 publication remains a separate human decision.
 
 ### Sanitized in-flight v2 checkpoint
@@ -649,8 +653,8 @@ The private `AGENTS.md`, `.skills/README.md` and router improvements discovered
 during this review are deliberately excluded from that sealed C3. They belong
 to a fresh v3 follow-up after the v2 promotion, and cannot be used to rewrite or reissue the
 current receipts. Rc21's historical reclassification, rc22's failed capture,
-rc23/rc25 failed validations, rc24/rc26 failed certifications and the
-prospective rc27 contract do not amend that v2 subject, reduce its
+rc23/rc25/rc27 failed validations, rc24/rc26 failed certifications and the
+prospective rc28 contract do not amend that v2 subject, reduce its
 original matrix or invalidate
 receipts that still describe their exact frozen subject. Concurrent domain
 material remains a separate content PR. No

@@ -1062,10 +1062,21 @@ def test_git_batch_drains_later_records_before_reporting_a_missing_blob(
             self.stdin = io.BytesIO()
             self.stdout = io.BytesIO(output)
             self.stderr = io.BytesIO()
+            self.returncode = 0
             self.terminated = False
+            self.input = b""
 
-        def wait(self, timeout: int | None = None) -> int:
-            return 0
+        def __enter__(self) -> "FakeBatchProcess":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            self.stdin.close()
+            self.stdout.close()
+            self.stderr.close()
+
+        def communicate(self, raw: bytes) -> tuple[bytes, bytes]:
+            self.input = raw
+            return output, b""
 
         def terminate(self) -> None:
             self.terminated = True
@@ -1079,7 +1090,10 @@ def test_git_batch_drains_later_records_before_reporting_a_missing_blob(
     with pytest.raises(ValueError, match=f"{missing}:missing"):
         _git_blob_payloads(tmp_path, {present, missing})
 
-    assert process.stdout.tell() == len(output)
+    assert process.input == f"{missing}\n{present}\n".encode("ascii")
+    assert process.stdin.closed
+    assert process.stdout.closed
+    assert process.stderr.closed
     assert process.terminated is False
 
 

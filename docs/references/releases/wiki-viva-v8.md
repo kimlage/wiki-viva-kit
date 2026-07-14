@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc27 validation source pinned - rc26 historical"
+title: "Wiki Viva v8 rc27 validation failed - rc28 source unpinned"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc27 validation source pinned - rc26 historical
+# Wiki Viva v8 rc27 validation failed - rc28 source unpinned
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -145,7 +145,7 @@ authority, public release, push, merge or tag was emitted. Rc26 is immutable
 promoted or imported. Its capture and successful command outputs cannot be
 carried into rc27.
 
-## Rc27 exact validation source — public-safe warning contract pinned
+## Rc27 exact validation source — warnings-as-errors exposed lifecycle defects
 
 Rc27 replaces the real multiprocess `fork` fixture that triggered the warning
 with `spawn`, registers `portable_python` as
@@ -155,13 +155,10 @@ failure instruct the operator to freeze the subject and form a new source.
 Passing evidence remains the unmodified captured output; there is no
 post-processing redactor or manual summary that could hide a warning.
 
-Package `wiki-viva-v8-rc27` is pinned only for exact validation to source
+Package `wiki-viva-v8-rc27` was pinned only for exact validation to source
 `ba7ee19457436993edc7ff8a838b34c5b864fd98`; status remains
 `validation_pending`, so `package_is_pinned=false` and no plan, import, capture
-or certification authority exists. Complete validation still precedes a
-separate candidate review, new productive capture, one certification,
-independent capsule verification, downstream QA, remote CI and the human
-promotion gate. Public push remains unauthorized.
+or certification authority ever existed.
 
 The validation-pending package file SHA-256 is
 `e092bd63422899b27fd2850d0965380b4fe91f3068a300aa0d773bcc0ae4983d`,
@@ -169,8 +166,38 @@ its canonical package identity is
 `29225e6855eeec712c9e97f44a897127bbbc94b2e420d86fd6379082077565e0`,
 and its exact 521-entry portable tree is
 `0d31d17f3889092ecc68ca4ebdc93a48c9eb6df17c7b22f76ba019feb51e57d3`.
-These identities authorize validation only and must change if package status
-or semantics change.
+These identities authorize validation only.
+
+The first and only complete Python validation ran
+`python3 -m pytest -q -W error tests/` at metadata subject
+`b4967e1bb7c1d8a2ecc3440fd253b02be2045d87` and ended with 1,693 passed,
+3 declared skips, 0 separate warnings and 46 failures in 1,025.93 seconds.
+Warnings were correctly promoted to failures. The failures formed three public
+synthetic resource-lifecycle families: 12 Codex-job cases retained subprocess
+pipes through daemon helper threads; 33 upgrade/closeout cases left
+`git cat-file --batch` streams open; and one snapshot reader-lease case waited
+without draining and closing its child pipes. The browser matrix, candidate,
+productive capture and certification were correctly not started.
+
+Rc27 is immutable `historical_validation_failed`. No capsule, receipt,
+attestation, trust anchor or Lane B authority exists; never retry, relabel,
+promote, import or use rc27 to mint missing authority.
+
+## Rc28 prospective source — explicit process and stream ownership
+
+Rc28 closes the three RT-163 families with public synthetic controls: Codex
+jobs now kill/reap on exceptional exit, join feeder/watchdog threads and close
+both parent pipes; Git batch reads use a managed `Popen` plus `communicate()`
+and verify all three streams close; and reader-lease tests drain and close the
+child with `communicate()`. The integrated affected set passes 159 checks with
+warnings as errors. No warning filter, post-processing redactor or fabricated
+manual evidence was added.
+
+Rc28 remains prospective, `unreleased` / `validation_pending` and unpinned. A
+separate exact-source metadata boundary, complete validation, candidate review,
+new productive capture, one certification, independent capsule verification,
+downstream QA, remote CI and the human promotion gate remain mandatory. Public
+push remains unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -275,7 +302,7 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Any future rc27 publication still requires exact validation, separate candidate
+Any future rc28 publication still requires exact validation, separate candidate
 review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
@@ -284,8 +311,8 @@ reviewed promotion boundary that can mint production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
 rc21, rc22, rc23, the exact rc24/rc26 failed-certification subjects nor the
-exact rc25 failed-validation subject reclassifies, reduces or rewrites that
-evidence.
+exact rc25/rc27 failed-validation subjects reclassifies, reduces or rewrites
+that evidence.
 
 ## Historical rc8-era evidence — preserved without current authority
 

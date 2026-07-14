@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import fnmatch
 import hashlib
+import io
 import json
 import math
 import os
@@ -1635,25 +1636,25 @@ def _git_blob_payloads(
     if not object_ids:
         return {}
     ordered = sorted(object_ids)
-    process = subprocess.Popen(
+    with subprocess.Popen(
         ["git", "cat-file", "--batch"],
         cwd=root,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=_git_subprocess_env(no_replace_objects),
-    )
-    assert process.stdin is not None
-    assert process.stdout is not None
-    assert process.stderr is not None
-    process.stdin.write("".join(f"{oid}\n" for oid in ordered).encode("ascii"))
-    process.stdin.close()
+    ) as process:
+        stdout_raw, stderr_raw = process.communicate(
+            "".join(f"{oid}\n" for oid in ordered).encode("ascii")
+        )
+        return_code = process.returncode
+
     payloads: dict[str, bytes] = {}
     batch_errors: list[str] = []
     fatal_error = ""
-    try:
+    with io.BytesIO(stdout_raw) as stdout:
         for requested in ordered:
-            header = process.stdout.readline().decode("ascii", errors="replace").strip()
+            header = stdout.readline().decode("ascii", errors="replace").strip()
             parts = header.split()
             if len(parts) == 2 and parts[1] in {
                 "missing",
@@ -1676,8 +1677,8 @@ def _git_blob_payloads(
             except ValueError:
                 fatal_error = f"invalid batch size for {requested}"
                 break
-            payload = process.stdout.read(size)
-            terminator = process.stdout.read(1)
+            payload = stdout.read(size)
+            terminator = stdout.read(1)
             if len(payload) != size or terminator != b"\n":
                 fatal_error = f"truncated release blob {requested}"
                 break
@@ -1685,15 +1686,7 @@ def _git_blob_payloads(
                 batch_errors.append(f"{requested}:unexpected-{parts[1]}")
                 continue
             payloads[requested] = payload
-    finally:
-        if fatal_error:
-            process.terminate()
-        try:
-            return_code = process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            return_code = process.wait(timeout=5)
-        stderr = process.stderr.read().decode("utf-8", errors="replace").strip()
+    stderr = stderr_raw.decode("utf-8", errors="replace").strip()
     if fatal_error:
         raise ValueError(f"could not read release blobs: {fatal_error}")
     if return_code != 0:

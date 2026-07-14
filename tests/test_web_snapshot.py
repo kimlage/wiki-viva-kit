@@ -3767,12 +3767,9 @@ def test_cross_process_reader_lease_defers_then_allows_bounded_cleanup(
             )
         assert (store / leased_revision).is_dir()
     finally:
-        if child.stdin is not None:
-            child.stdin.write("release\n")
-            child.stdin.flush()
-            child.stdin.close()
-        child.wait(timeout=10)
+        _child_stdout, child_stderr = child.communicate("release\n", timeout=10)
     assert child.returncode == 0
+    assert child_stderr == ""
 
     snapshot_module.prune_snapshot_revisions(
         tmp_path,
