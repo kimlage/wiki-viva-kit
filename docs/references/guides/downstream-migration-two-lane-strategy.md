@@ -410,6 +410,30 @@ Background completion policy remains explicit in `gate_policies`; moving work
 to a separate job does not make a `required_for_promotion` failure optional.
 Branch protection and the PR/human gate consume all required job conclusions.
 
+### Strict visual runner authority
+
+The exact browser release matrix is not assigned to a standard hosted label by
+assumption. Repository variable `WIKI_VIVA_STRICT_VISUAL_RUNNER` must name one
+unique `wiki-viva-strict-visual-*` label on an isolated ARM64 macOS self-hosted
+runner. The job additionally requires `self-hosted`, `macOS` and `ARM64`; a
+separately reviewed consumer adapter is required for an eligible hosted larger
+runner. The policy job fails when the variable is absent or outside the prefix,
+and rejects fork-origin pull requests before any strict job can be dispatched.
+It accepts push execution only from `main`. Runtime renderer attestation,
+performance budgets and the zero-retry/zero-skip contract still decide whether
+that configured runner is capable; a label is routing authority, not proof.
+
+Registering a self-hosted runner is an operator security decision. It requires
+explicit authorization, a dedicated execution identity, least-privilege
+credentials, a clean or ephemeral workspace and no execution of untrusted fork
+code. The public workflow uses read-only contents permission, disables checkout
+credential persistence and treats absent evidence uploads as errors. Same-repo
+pull requests are a collaborator-trusted boundary; consumers needing a stronger
+review boundary must move certification behind an approved environment or a
+protected manual release workflow. Standard pools may remain useful as
+diagnostics or background evidence, but a failed standard-pool result cannot be
+retried, waived or relabeled as strict certification.
+
 ## Time and feedback budgets
 
 These are design budgets used to detect a poor migration experience, not a

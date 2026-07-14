@@ -5,6 +5,9 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   audit-and-test:
     runs-on: ubuntu-latest
@@ -114,17 +117,64 @@ jobs:
           tests/test_release_receipt.py::test_release_evidence_operations_fail_closed_on_windows_boundary
           tests/test_action_transition.py::test_action_writes_fail_closed_on_windows_boundary
 
+  cockpit_visual_runner_policy:
+    runs-on: ubuntu-latest
+    env:
+      EVENT_NAME: ${{ github.event_name }}
+      HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+      REF: ${{ github.ref }}
+      REPOSITORY: ${{ github.repository }}
+      STRICT_VISUAL_RUNNER: ${{ vars.WIKI_VIVA_STRICT_VISUAL_RUNNER }}
+    steps:
+      - name: Require one explicitly provisioned trusted visual runner
+        run: |
+          if [[ -z "$STRICT_VISUAL_RUNNER" ]]; then
+            echo "WIKI_VIVA_STRICT_VISUAL_RUNNER must name an attested GPU-backed runner label."
+            exit 1
+          fi
+          case "$STRICT_VISUAL_RUNNER" in
+            wiki-viva-strict-visual-*) ;;
+            *)
+              echo "The strict runner must use a unique wiki-viva-strict-visual-* label."
+              exit 1
+              ;;
+          esac
+          case "$EVENT_NAME" in
+            pull_request)
+              if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then
+                echo "Strict visual certification never dispatches fork code to the configured runner."
+                exit 1
+              fi
+              ;;
+            push)
+              if [[ "$REF" != "refs/heads/main" ]]; then
+                echo "Strict visual certification accepts push events only from main."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Strict visual certification received an unsupported event."
+              exit 1
+              ;;
+          esac
+
   cockpit-visual:
-    needs: cockpit-v8
-    # The required release matrix contains a fail-closed hardware WebGL
-    # attestation. GitHub's Linux hosted runner exposes SwiftShader only, so it
-    # cannot certify that contract honestly. Keep the exact 102-cell matrix on
-    # the standard Apple-silicon macOS runner so the Metal-backed path can be
-    # attested instead of weakening or skipping the performance and long-lived
-    # 3D continuity cells. The renderer attestation still fails closed.
-    runs-on: macos-15
+    needs: [cockpit-v8, cockpit_visual_runner_policy]
+    if: ${{ needs.cockpit_visual_runner_policy.result == 'success' }}
+    # The exact release matrix contains fail-closed hardware WebGL and frame
+    # budgets. Standard hosted pools are not assumed capable. This job accepts
+    # only a custom label on an isolated ARM64 macOS self-hosted runner. A
+    # separately reviewed adapter is required for an eligible hosted larger
+    # runner. Runtime attestation still rejects software rendering.
+    runs-on:
+      - self-hosted
+      - macOS
+      - ARM64
+      - "${{ vars.WIKI_VIVA_STRICT_VISUAL_RUNNER }}"
     steps:
       - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
@@ -146,7 +196,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: cockpit-visual-${{ runner.os }}-attempt-${{ github.run_attempt }}
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
           path: |
             apps/wiki-cockpit/test-results
