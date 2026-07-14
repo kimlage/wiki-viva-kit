@@ -228,8 +228,8 @@ reasons. An omitted gate without a verified upstream receipt or an explicit
 `not_affected` derivation blocks the migration report.
 
 The versioned implementation is the sealed
-[`impact-registry.yaml`](../upgrades/wiki-viva-v8/impact-registry.yaml), checked
-against
+`docs/references/upgrades/wiki-viva-v8/impact-registry.yaml` authority artifact,
+checked against
 [`wiki-upgrade-impact-registry-v1.schema.json`](../schemas/wiki-upgrade-impact-registry-v1.schema.json).
 It maps path patterns and contract IDs to surfaces, dependencies and gates.
 Dependencies are followed transitively. An unrecognized path **or** contract,
