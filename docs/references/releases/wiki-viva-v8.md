@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc25 validation source pinned - rc24 historical"
+title: "Wiki Viva v8 rc26 transition - rc25 validation failed"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc25 validation source pinned - rc24 historical
+# Wiki Viva v8 rc26 transition - rc25 validation failed
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -52,24 +52,48 @@ public release, push, merge or tag was minted. Rc24 is immutable
 `historical_certification_failed` and must never be retried, reused, relabeled,
 promoted or imported.
 
-## Rc25 exact validation source — pinned, not a candidate
+## Rc25 exact validation source — failed closed, immutable
 
-`wiki-viva-v8-rc25` is pinned only for exact validation to source
-`c741e3d0ad409ac9baea8b136e3819952bb0657b`. It is a new subject, not a
-continuation or retry of rc24. Status remains `validation_pending`, so
-`package_is_pinned=false`: no plan, import, capture or certification authority
-exists yet. Exact validation must finish first; only a later separately reviewed
-candidate metadata boundary may authorize a fresh four-profile capture and one
-Lane A certification through the interpreter-stable command registry. Rc24
-outputs or successful sibling gates cannot be imported, relabeled or reused.
-The validation-pending package file SHA-256 is
+`wiki-viva-v8-rc25` bound exact source
+`c741e3d0ad409ac9baea8b136e3819952bb0657b` at validation metadata subject
+`f2c7665b451b91cb6095ae136b2b5763df67d458`. Its validation-pending package
+file SHA-256 was
 `d2a92739fadcb89f774238de93fd0d40d9c9b230c05525616811c29c264e0b42`,
-its canonical package identity is
+its canonical package identity was
 `6988fd4ac7c95990127833cbfbdf5e3d8085c8332fb4a67a3be47d8455cbe23e`,
-and the exact 521-entry portable tree is
+and its exact 521-entry portable tree was
 `16705a38c91395cc51f83fd513f54aa1da639c9f4f4c33d12c026d465355d8a9`.
-These validation identities are not a candidate capsule and will change if the
-package status or semantics change.
+
+The first complete Python validation ended with 1,708 passed, 3 declared
+skips, 2 warnings and 5 failures in 921.24 seconds. The complete frontend/Node
+stack passed 516 frontend checks and 115 Node gates; architecture, assets,
+build, bundle, release-matrix and every static/audit gate also passed. The five
+Python failures exposed three public synthetic contract defects:
+
+- `temporal_value` used `oneOf` around a format-only instant branch, so an
+  environment without the optional `date-time` format checker treated
+  year/month/day strings as ambiguous;
+- the private inventory target appended `-validation-pending` instead of using
+  the canonical `release_id@source_sha_prefix` identity;
+- the portable `wiki-viva` skill linked the consumer-owned, nonportable root
+  `.skills/README.md`, breaking portable Markdown closure.
+
+The strict 102-cell browser matrix was correctly not started after the Python
+subject failed. No candidate, productive capture, capsule, receipt, trust
+anchor, attestation or Lane B authority exists. Rc25 is immutable
+`historical_validation_failed` and must never be retried, relabeled, promoted,
+imported or used to mint missing authority.
+
+## Rc26 transition — prospective and unpinned
+
+Rc26 carries the public synthetic fixes for the three rc25 failures. It is
+prospective and unpinned; the machine release id remains `unreleased` until a
+separate metadata boundary seals its exact
+source, package and portable-tree identities. Only that new subject may run a
+complete validation and, if every gate passes, proceed through separate
+candidate review, first-attempt strict browser proof, productive four-profile
+capture, one Lane A certification and independent capsule verification. No
+green rc25 sibling result is reusable.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -174,15 +198,15 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Any future rc25 publication still requires exact validation, a separate
+Any future rc26 publication still requires an exact source pin and validation, a separate
 candidate metadata boundary, new capture and certification, explicit
 authorization, remote public CI,
 human conceptual/privacy/VoiceOver review and merge, followed by a separately
 reviewed promotion boundary that can mint production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
-rc21, rc22, rc23, the exact rc24 failed-certification subject nor
-`validation_pending` rc25 reclassifies, reduces or rewrites that evidence.
+rc21, rc22, rc23, the exact rc24 failed-certification subject nor the exact
+rc25 failed-validation subject reclassifies, reduces or rewrites that evidence.
 
 ## Historical rc8-era evidence — preserved without current authority
 

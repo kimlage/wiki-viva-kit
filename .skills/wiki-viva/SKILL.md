@@ -207,9 +207,9 @@ ship the skeletons, so a generated page starts with the scaffold.
   classification never rewrites its historical evidence. Toolkit-owned
   portable wiki skill packages are byte-equal C1. The downstream
   [AGENTS.md](../../AGENTS.md), the consumer's
-  [.skills/README.md](../../.skills/README.md) and every
-  non-`wiki-*` repo-local skill are consumer-owned C3; update their routing with
-  the adapter delta. Consumer base and `.local` page-type/template registries
+  [root skill index and local router](../../docs/references/guides/downstream-migration-two-lane-strategy.md)
+  and every non-`wiki-*` repo-local skill are consumer-owned C3; update their
+  routing with the adapter delta. Consumer base and `.local` page-type/template registries
   are also C3 merge surfaces. Config localization grants no broad memory or
   references-root exception. Derive the config-bound C3 authority exclusively
   from the committed `consumer_B0:wiki.config.yaml` blob and accept exactly
@@ -237,8 +237,12 @@ ship the skeletons, so a generated page starts with the scaffold.
   `python3` instead of the probed Python 3.12.4 interpreter. It minted no
   capsule, receipt, trust or Lane B authority and is immutable
   `historical_certification_failed`: never retry, reuse, relabel or import it.
-  Rc25 is prospective and unpinned until a separate metadata boundary seals its
-  exact source, then requires a wholly new capture and certification. A Python
+  Rc25 exact source `c741e3d0ad409ac9baea8b136e3819952bb0657b`
+  failed its first complete validation with 1,708 passed, 3 skips and 5 public
+  synthetic contract failures; browser, candidate, capture and certification
+  were not started. It is immutable `historical_validation_failed`. Rc26 is
+  prospective and unpinned until a separate metadata boundary seals its exact
+  source, then requires a wholly new validation, capture and certification. A Python
   alias in the command registry must resolve to the interpreter used by the
   toolchain probe; PATH-dependent divergence is a certification failure. Do not
   amend, regenerate or reclassify any already sealed v2 C3 or receipt.

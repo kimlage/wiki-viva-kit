@@ -65,6 +65,61 @@ def test_temporal_value_preserves_real_precision(
     assert point.lower <= point.upper
 
 
+def _temporal_value_schema() -> dict[str, object]:
+    schema = json.loads(
+        (
+            ROOT
+            / "docs/references/schemas/wiki-temporal-event-v1.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    return {
+        "$schema": schema["$schema"],
+        "$defs": schema["$defs"],
+        "$ref": "#/$defs/temporal_value",
+    }
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "2024",
+        "2024-03",
+        "2024-03-02",
+        "2024-03-02T13:30:00Z",
+        "2024-03-02T10:30:00.123456-03:00",
+    ],
+)
+def test_temporal_schema_accepts_every_precision_without_format_checker(
+    raw: str,
+) -> None:
+    validator = Draft202012Validator(_temporal_value_schema())
+
+    assert validator.is_valid(raw), list(validator.iter_errors(raw))
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "",
+        "not-a-date",
+        "2024-00",
+        "2024-03-00",
+        "2024-03-32",
+        "2024-03-00T13:30:00Z",
+        "2024-03-02T13:30:00",
+        "2024-03-02 13:30:00Z",
+        "2024-03-02T24:00:00Z",
+        "2024-03-02T13:30:00+03",
+    ],
+)
+def test_temporal_schema_rejects_malformed_values_without_format_checker(
+    raw: str,
+) -> None:
+    validator = Draft202012Validator(_temporal_value_schema())
+
+    assert not validator.is_valid(raw)
+
+
 def test_temporal_value_rejects_naive_instants_and_precision_mismatch() -> None:
     with pytest.raises(TemporalEventError, match="invalid_temporal_value"):
         parse_temporal_value("2026-07-11T12:00:00")

@@ -566,8 +566,12 @@ reference, schemas and negative controls cover those paths.
 This implementation evidence does **not** certify the current v8 release.
 Rc24's tracked candidate metadata was only an input to its one productive Lane
 A attempt; the failed attempt minted no capsule, receipt, trust or downstream
-authority. Rc25 remains prospective and unpinned until a separate metadata
-boundary seals a new exact source. The migration already in flight remains on
+authority. Rc25 exact source
+`c741e3d0ad409ac9baea8b136e3819952bb0657b` then failed its first complete
+validation with 1,708 passed, 3 skips and 5 public synthetic contract failures;
+browser and later authority stages were not started. Rc25 is immutable failed
+validation evidence. Rc26 remains prospective and unpinned until a separate
+metadata boundary seals a new exact source. The migration already in flight remains on
 its complete v2 `migration.required_gates` matrix.
 
 Rc21 and rc22 are now immutable historical non-promotional evidence. Rc21's
@@ -609,10 +613,14 @@ or Lane B authority was minted. Rc24 is immutable
 `historical_certification_failed` and must never be retried, reused, relabeled,
 promoted or imported.
 
-Rc25 is a new prospective subject, not a continuation of rc24. It stays
-unpinned until a separate metadata boundary seals its exact source, package and
-portable tree, then must run a new productive capture and certification from
-that exact clean source. Public publication remains a separate human decision.
+Rc25 is immutable `historical_validation_failed`, not a continuation of rc24.
+Its exact source `c741e3d0ad409ac9baea8b136e3819952bb0657b` and validation metadata
+`f2c7665b451b91cb6095ae136b2b5763df67d458` retain 1,708 passes, 3 skips and 5
+failures; no browser, candidate, capture or capsule exists. Rc26 is a new
+prospective subject. It stays unpinned until a separate metadata boundary seals
+its exact source, package and portable tree, then must run complete validation,
+a new productive capture and certification from that exact clean source. Public
+publication remains a separate human decision.
 
 ### Sanitized in-flight v2 checkpoint
 
@@ -632,8 +640,8 @@ The private `AGENTS.md`, `.skills/README.md` and router improvements discovered
 during this review are deliberately excluded from that sealed C3. They belong
 to a fresh v3 follow-up after the v2 promotion, and cannot be used to rewrite or reissue the
 current receipts. Rc21's historical reclassification, rc22's failed capture,
-rc23's failed validation, rc24's failed certification and the prospective rc25
-contract do not amend that v2 subject, reduce its
+rc23/rc25 failed validations, rc24's failed certification and the prospective
+rc26 contract do not amend that v2 subject, reduce its
 original matrix or invalidate
 receipts that still describe their exact frozen subject. Concurrent domain
 material remains a separate content PR. No

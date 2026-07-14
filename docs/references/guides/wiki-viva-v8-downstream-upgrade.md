@@ -137,7 +137,7 @@ failure: `plan` stops before mutation, the consumer repairs B0 and creates a new
 plan. Re-running Lane A does not repair invalid consumer configuration; it is
 required when the sealed package/impact mapping itself is defective.
 
-### Rc21 -> rc22 -> rc23 -> rc24 -> rc25 correction boundary
+### Rc21 -> rc22 -> rc23 -> rc24 -> rc25 -> rc26 correction boundary
 
 Rc21 is historical non-promotional local evidence. It retains its exact public
 mobile/visual proof, but a synthetic downstream rehearsal exposed a missing
@@ -169,9 +169,13 @@ The first Lane A certification passed frontend, architecture, bundle and
 on `demo_drift` and `portable_python`: ambient `python3` differed from the
 probed Python 3.12.4 interpreter. No capsule, receipt, trust or Lane B authority
 was minted. Rc24 is immutable `historical_certification_failed`; never retry,
-reuse, relabel, promote or import it. Rc25 is prospective and unpinned until a
-separate metadata boundary seals an exact source; it requires a new capture and
-certification.
+reuse, relabel, promote or import it. Rc25 exact source
+`c741e3d0ad409ac9baea8b136e3819952bb0657b` then failed its first complete
+validation with 1,708 passed, 3 skips and 5 public synthetic contract failures;
+browser, candidate, capture and certification were not started. Rc25 is
+immutable `historical_validation_failed`. Rc26 is prospective and unpinned
+until a separate metadata boundary seals an exact source; it requires complete
+validation, a new capture and certification.
 This runbook grants no public publication authority.
 
 ### Lane A -> Lane B handoff checklist

@@ -91,10 +91,14 @@ starting point for persistent context is `memories/`.
   `portable_python` used ambient `python3` instead of the probed Python 3.12.4
   interpreter. Rc24 is immutable `historical_certification_failed`; no capsule,
   receipt, trust or Lane B authority exists, and the subject must never be
-  retried, reused, relabeled or imported. Rc25 is pinned only for exact
-  validation to source `c741e3d0ad409ac9baea8b136e3819952bb0657b`;
-  status remains `validation_pending`, so candidate review, a new capture and
-  certification remain mandatory.
+  retried, reused, relabeled or imported. Rc25 exact source
+  `c741e3d0ad409ac9baea8b136e3819952bb0657b` then failed its first complete
+  validation with 1,708 passed, 3 skips and 5 public synthetic contract
+  failures; its strict browser matrix was not started and no candidate,
+  capture or capsule exists. Rc25 is immutable
+  `historical_validation_failed`. Rc26 is prospective and unpinned until a
+  separate metadata boundary seals its corrected exact source; complete
+  validation, a new capture and certification remain mandatory.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.
