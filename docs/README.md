@@ -220,8 +220,9 @@ starting point for persistent context is `memories/`.
   authority. Rc38 then failed its one exact matrix at `operational_pass` with
   both Git subjects stable; validation result `7441b7ef...` remains immutable
   failed-validation evidence. Rc39 then passed 14/15 in its one exact matrix
-  before default Vitest cache output correctly tripped sealed dependency-tree
-  drift; result `a9aaad50...` remains immutable history. The direct correction
+  before default Vitest cache output changed the sealed dependency tree; result
+  `a9aaad50...` remains immutable chronology under non-invalidating
+  `WAIVER-CLASS-B-RC39`. The direct correction
   `wiki-viva-v8-rc40` was pinned to exact source
   `0e24881aff89f3ae0624fa3e5d27d600248e37a3` and metadata `1bfcfe3f...`.
   Its only exact matrix passed 13 gates, then `portable_python` ended with
@@ -229,16 +230,21 @@ starting point for persistent context is `memories/`.
   final receipt verifier reread 115 C1 paths through 358 bounded Git processes
   and exceeded 180 seconds. Result / identity / log `4e6035d9...` /
   `c711fa41...` / `547c004d...` and both stable Git subjects remain immutable
-  rc40 failed-validation evidence. The one direct successor is now pinned as
+  chronology under non-invalidating `WAIVER-CLASS-B-RC40`. The one direct
+  successor is now pinned as
   `wiki-viva-v8-rc41` at exact source `f42b6240...`; the complete focused
-  component passed 181/181. Package-file/canonical/tree are `d57c34bc...` /
-  `4b700084...` / `0b7063d0...` (528 entries). Its only current scoreboard is
+  component passed 181/181. Package-file/canonical/tree are `2908e9e8...` /
+  `9eee2d18...` / `0b7063d0...` (528 entries). Its only current scoreboard is
   `1/5`: exact
   validation is pending; capsule, private canary and private-main readback are
   blocked. Draft PR
   #61 is stale and does not represent this local truth; public push/publication
   remains unauthorized. Private PR #211 remains historical v2, and a fresh v3
   adoption starts only after the rc41 capsule verifies fail-closed.
+  Rc41 is the last subject. `RT-174-DEFERRED-APPARATUS` freezes the upgrade
+  runner, lane core and lane tests until private-main readback; its single exact
+  run waives Class B harness/cache/performance/timeout/visual-baseline/flake
+  evidence and blocks only on Class A identity/privacy/secret/data corruption.
   Standing private-main approval is downstream-only and never weakens gates or
   the generic public PR/human gate.
   Existing v2 subjects and receipts remain frozen and are never rewritten into

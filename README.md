@@ -134,9 +134,10 @@ rc37's receipts, but do not use them as executable Lane B authority. Rc38 then
 failed its one exact matrix at `operational_pass`; validation result
 `7441b7ef...` and both stable Git subjects remain immutable failed-validation
 evidence. Rc39 then passed 14/15 in its only exact matrix before the default
-Vitest result cache correctly tripped sealed dependency-tree drift; result
-`a9aaad50...` and both stable Git subjects remain immutable failed-validation
-history. The next direct correction was
+Vitest result cache changed the sealed dependency tree; result `a9aaad50...`
+and both stable Git subjects remain immutable chronology under
+`WAIVER-CLASS-B-RC39`, a non-invalidating cache/harness waiver. The next direct
+correction was
 `wiki-viva-v8-rc40`, pinned to exact source
 `0e24881aff89f3ae0624fa3e5d27d600248e37a3` and validation metadata
 `1bfcfe3f72e54ea8d592554a625d8f3ff606c088`. Its only exact matrix stopped
@@ -144,18 +145,25 @@ at `portable_python`: `1942 passed, 3 skipped, 1 failed` after the dependency-
 wave adoption finished all 12 gates but the final receipt verifier exceeded
 180 seconds while rereading 115 C1 paths through 358 bounded Git processes.
 Validation-result / identity / log are `4e6035d9...` / `c711fa41...` /
-`547c004d...`; Git subjects stayed stable. Rc40 is immutable failed-validation
-history. Its one direct corrective successor is now separately pinned as
+`547c004d...`; Git subjects stayed stable. `WAIVER-CLASS-B-RC40` classifies the
+outer-bound timeout as non-invalidating performance/harness evidence. Rc40 is
+immutable chronology and is not retried. Its one direct corrective successor
+is now separately pinned as
 `wiki-viva-v8-rc41` / `validation_pending` at exact source
 `f42b624049e310100218bf4f99e3ea418b066689`; the complete focused component
 passed 181/181 in 2161.24 seconds. Package-file/canonical/tree are
-`d57c34bc...` / `4b700084...` / `0b7063d0...` (528 entries). The single live
+`2908e9e8...` / `9eee2d18...` / `0b7063d0...` (528 entries). The single live
 scoreboard is `1/5`: exact
 validation is pending; capsule, private canary and private-main readback are
 blocked.
 Draft PR #61 remains stale and public push/publication remains unauthorized.
 Private PR #211 remains historical v2; only a fresh rc41/v3 adoption may start
 after the new capsule and attestation verify fail-closed.
+The rc41 apparatus is frozen under `RT-174-DEFERRED-APPARATUS`: no edits to
+`wiki_upgrade.py`, `upgrade_lanes.py` or lane tests before private-main
+readback. Rc41 is the last subject and receives one exact run; Class B is
+waived with evidence, while only Class A identity/privacy/secret/data-corruption
+evidence may invalidate it and permit one fix plus one rerun.
 See the [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority. Do not start downstream adoption until the Lane A capsule and

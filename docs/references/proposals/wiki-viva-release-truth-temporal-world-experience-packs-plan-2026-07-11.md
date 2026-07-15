@@ -537,8 +537,11 @@ verification 101.724 seconds, pushing the command past the unchanged
 `c711fa4159b1ed738d8ebdd8cd00bb876a8cd47040478d96732612b128e23e20` /
 `547c004d503968080b4f98092ddf3b3d116322d57d8c5d5674252aea51f00598`.
 Both Git subjects remained stable; rc40 minted no candidate, productive
-capture, capsule, attestation or downstream authority and is immutable
-failed-validation history.
+capture, capsule, attestation or downstream authority. Under the closing rule
+adopted on 2026-07-15, this is `WAIVER-CLASS-B-RC40`: a harness/performance
+timeout that does not invalidate the source or any independent receipt. Rc40
+remains immutable chronology and is not retried because rc41 was already
+pinned as the last subject.
 
 This is a direct runner-completion blocker, not lateral hardening. The only
 authorized correction replaces the N+1 mode/blob reads with one exact tree
@@ -552,11 +555,30 @@ complete focused component passed 181/181 with warnings as errors in 2161.24
 seconds. This corrective source was committed once at
 `f42b624049e310100218bf4f99e3ea418b066689` and is now separately pinned as
 `wiki-viva-v8-rc41` / `validation_pending`. Its package-file / canonical-package /
-portable-tree SHA-256 are `d57c34bc12a7640a571ddc51b63475dac887593456eb863af78cf1f853e125a8` /
-`4b700084807a1dc59131fe6bb5f67cb3c2cd0cb52dc03e31315c5ca0762785d3` /
+portable-tree SHA-256 are `2908e9e8757d14b05244585b7bef3f74242fcef4fb4e04ae212cee2b31a7b4ed` /
+`9eee2d1895f88a3343e2a560a919f01b79e950d81bf0c3988bc20d5aec594699` /
 `0b7063d05e66c22dffa6d02f43b3399ab480bff33407ab12eb4fd1726d0fa693`
 with 528 entries. Rc40 is never retried or relabeled; no rc41 exact matrix has
 started.
+
+The same closing rule records `WAIVER-CLASS-B-RC39` for the 5,395-byte Vitest
+result cache: cache, harness, timeout, performance, visual-baseline and flake
+defects are Class B and do not invalidate a stable subject. Identity, privacy,
+secret exposure and data corruption are Class A and remain fail-closed. Rc39
+and rc40 evidence hashes stay bound to their original runs and mint no missing
+authority. `RT-174-DEFERRED-APPARATUS` freezes `scripts/wiki_upgrade.py`,
+`wiki_core/upgrade_lanes.py` and lane tests until this scoreboard reaches 5/5;
+new apparatus observations are evidence-backed Class B waivers for later work.
+Rc41 is the final subject: exactly one full validation; a Class B observation
+is waived and the chain proceeds, while a directly observed Class A defect
+permits one fix and one exact rerun only.
+
+In parallel, the already public-synthetic RT-172 fix at `d87af15b...` and its
+direct tests are delivered as a small independent PR from the then-current
+private `main` to remove the repeated workspace-area projection before the v3
+B0 is frozen. This delivery does not import rc37 authority or alter rc41; after
+technical gates it may use standing private-main merge authorization and must
+be read back from the merged private `main`.
 
 The current downstream base is clean and passes its sole B0 preflight
 `diff_check`, so it can be frozen only after Lane A exists. It would later fail
@@ -587,18 +609,18 @@ datada; não substitui os cinco estados comprovados abaixo.
 
 | Etapa | Estado | Evidência exata / próxima ação |
 | --- | --- | --- |
-| source pinned | ✅ concluído | `wiki-viva-v8-rc41` / `validation_pending` aponta ao único source corretivo `f42b624049e310100218bf4f99e3ea418b066689`; package-file/canonical/tree `d57c34bc...` / `4b700084...` / `0b7063d0...` (528 entradas). O batch verifier preserva modos/blobs/deletes/symlink/submodule fail-closed; 4/4 em 11.71s, E2E em 157.01s sob o bound original e componente inteiro 181/181 (`2161.24s`, warnings-as-errors). Rc40 source `0e24881a...` / metadata `1bfcfe3f...` e seus result/identity/log `4e6035d9...` / `c711fa41...` / `547c004d...` permanecem falha imutável. `package_is_pinned=false` até a validação e boundary candidate separados |
-| exact validation | ⏳ pendente | Capturar autoridade Node externa vinculada a `f42b6240...` e executar uma matriz integral uma única vez, sem editar source ou metadata. Rc37–rc40 continuam apenas história |
+| source pinned | ✅ concluído | `wiki-viva-v8-rc41` / `validation_pending` aponta ao último sujeito `f42b624049e310100218bf4f99e3ea418b066689`; package-file/canonical/tree `2908e9e8...` / `9eee2d18...` / `0b7063d0...` (528 entradas). O batch verifier preserva modos/blobs/deletes/symlink/submodule fail-closed; 4/4 em 11.71s, E2E em 157.01s sob o bound original e componente inteiro 181/181 (`2161.24s`, warnings-as-errors). Rc39 cache e rc40 timeout são Classe B, registrados por `WAIVER-CLASS-B-RC39/RC40`; sujeitos e recibos independentes não são invalidados e nenhuma autoridade ausente é fabricada. `package_is_pinned=false` até a validação e boundary candidate separados |
+| exact validation | ⏳ pendente | Usar a autoridade Node externa já capturada e vinculada a `f42b6240...`; executar uma matriz integral uma única vez, sem editar source ou metadata. Classe B recebe waiver e prossegue; apenas Classe A bloqueia, admite um fix e uma rodada. Aparato permanece congelado por `RT-174-DEFERRED-APPARATUS` |
 | capsule verified | ⛔ bloqueado | Somente após a nova validação verde: captura visual produtiva, Lane A, capsule v2 e verificação positiva/negativa. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história |
 | private canary | ⛔ bloqueado | Não há capsule adotável. Depois da verificação, derivar automaticamente os 17 gates do reparo de domínio separado, executar o canary real e mergeá-lo somente se verde; congelar então a nova `main` como B0 e provar B0→C1→C2→C3, gates selecionados, canary e rollback. #211 permanece evidência v2 histórica |
 | private main readback | ⛔ bloqueado | Após capsule, adoção e gates verdes, usar a autorização permanente de merge privado e validar visualmente a própria `main`; Claude/IFC e Audrey continuam separados |
 
-Fechamento comprovado atual: **1/5 para `wiki-viva-v8-rc41`**. Rc40 preserva
-`1/5` apenas como cronologia imutável e falhou 13/14 gates registrados na sua
-única matriz; rc37–rc39 também não são placares concorrentes. Nenhum recibo
-foi invalidado ou reescrito. A única próxima frente é capturar a autoridade Node
-rc41 e executar uma matriz exata uma vez sem editar o sujeito. Não ampliar
-packs/abstrações nem abrir outro plano.
+Fechamento comprovado atual: **1/5 para `wiki-viva-v8-rc41`**. Rc39 e rc40
+permanecem cronologia imutável com waivers Classe B; rc37 também não é placar
+concorrente. Nenhum recibo foi invalidado ou reescrito. A autoridade Node rc41
+já capturada continua válida; a única próxima prova pública é a matriz exata
+uma vez sem editar o sujeito, enquanto o PR privado pequeno de RT-172 avança
+independentemente. Não ampliar packs/abstrações nem abrir outro plano.
 
 O Playwright terminou as 102 células em 386.565 segundos. O checker pós-matriz
 esperou mais 806.361 segundos porque o FileProvider precisava materializar
@@ -5551,9 +5573,9 @@ required a new immutable subject; no other scope expansion is authorized.
 | Rc36 historical certification failure | `wiki-viva-v8-rc36`; source `8f96e1fd58258df64174229d81ee6a330ba9d2b1`; validation metadata `3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd`; candidate metadata `ac0f49afe28a5bf84003b58c537ac1727dab7008`; package-file/canonical/tree `8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b` / `8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2` / `4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3`; manifest `6199d100...` | Exact validation passed 23/23. First/only Lane A passed five non-browser surfaces plus portable Python 1,782+3; browser stopped 101/102 on RT-172 after Back in dense stress. Stream/gate/run/report `a95d7085...` / `2d5405db...` / `2b1c678a...` / `bb69c7ac...` | Immutable `historical_certification_failed`; no capsule, receipt, attestation, plan, import or Lane B authority. New unpinned source required; never retry or reuse capture |
 | Rc37 historical locally certified candidate / RT-173 downstream block | `wiki-viva-v8-rc37`; source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`; validation metadata `775fe5bc9437da5ec9311704731f4342d515fc16`; candidate metadata `e65607a7121031702239a4b59999bb4d6a119906`; candidate package-file/canonical/tree `6d409da4...` / `1af897ce...` / `77799ece...`, 521 entries | First/only exact validation passed 23/23 in 1,652 s. First/only productive capture sealed four profiles at manifest `3be7599a...`. First/only Lane A passed 11/11; capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`; verifier `762171b5...`; negative `1d820969...`. First disposable clean C1 later could not resolve TypeScript until manual `npm ci` | Preserve every rc37 hash as immutable verified history. RT-173 proves missing sealed dependency materialization, so rc37 is not executable Lane B authority. One unnamed successor must close policy v2/authority v1/clean-C1 before private adoption; public push/publication remains unauthorized |
 | Rc38 historical validation failure | Source `de879672aa9fefcf174c844924e3f95ed40a5fe1`; metadata `e9d6f99823389d1154a9c8d20656275e5aa50069`; result/identity/log `7441b7ef...` / `bf77ba74...` / `57e73ac2...` | Audit, public audit, methodology and operation passed; deterministic `operational_pass` rejected a stale generated page after 59 seconds. Both Git subjects stayed stable | Immutable `historical_exact_validation_failed`; no browser, candidate, capture, capsule or downstream authority |
-| Rc39 historical validation failure | Source `9dae4aa64d42eb45a2308632944fb134282bca10`; metadata `6250627f25adabd0bc898950828b419b3995b01f`; result/identity/log `a9aaad50...` / `dab61578...` / `8c17186c...` | First/only exact matrix passed 14/15; frontend failed closed when the default Vitest result cache changed the sealed `node_modules` tree. Both Git subjects stayed stable | Immutable `historical_exact_validation_failed`; no browser, candidate, capture, capsule or downstream authority |
-| Rc40 historical validation failure | Source `0e24881aff89f3ae0624fa3e5d27d600248e37a3`; metadata `1bfcfe3f72e54ea8d592554a625d8f3ff606c088`; package-file/canonical/tree `5d00b3ba...` / `51455cff...` / `2c8dc755...`, 528 entries; result/identity/log `4e6035d9...` / `c711fa41...` / `547c004d...` | First 13 gates passed; portable Python ended 1942 passed, 3 skipped, 1 failed because the completed dependency-wave run exceeded 180 seconds in 358 N+1 Git process audits. Both subjects stayed stable | Immutable `historical_exact_validation_failed`; no browser, candidate, capture, capsule or downstream authority |
-| Rc41 current validation-pending subject | `wiki-viva-v8-rc41`; source `f42b624049e310100218bf4f99e3ea418b066689`; package-file/canonical/tree `d57c34bc12a7640a571ddc51b63475dac887593456eb863af78cf1f853e125a8` / `4b700084807a1dc59131fe6bb5f67cb3c2cd0cb52dc03e31315c5ca0762785d3` / `0b7063d05e66c22dffa6d02f43b3399ab480bff33407ab12eb4fd1726d0fa693`, 528 entries | 128-path complexity negative uses two Git calls; focused dependency-wave E2E returns in 157.01 seconds under the unchanged bound; complete component 181/181 in 2161.24 seconds; audits 0 errors and package/inventory valid | `source pinned=1/5`; `package_is_pinned=false`; exact validation has not started; no candidate, capture, capsule or Lane B authority; public push unauthorized |
+| Rc39 historical Class B waiver | Source `9dae4aa64d42eb45a2308632944fb134282bca10`; metadata `6250627f25adabd0bc898950828b419b3995b01f`; result/identity/log `a9aaad50...` / `dab61578...` / `8c17186c...` | First/only exact matrix passed 14/15; frontend observed the default Vitest result cache changing the sealed `node_modules` tree. Both Git subjects stayed stable | `WAIVER-CLASS-B-RC39`: non-invalidating cache/harness evidence; immutable chronology, no retry and no browser, candidate, capture, capsule or downstream authority |
+| Rc40 historical Class B waiver | Source `0e24881aff89f3ae0624fa3e5d27d600248e37a3`; metadata `1bfcfe3f72e54ea8d592554a625d8f3ff606c088`; package-file/canonical/tree `5d00b3ba...` / `51455cff...` / `2c8dc755...`, 528 entries; result/identity/log `4e6035d9...` / `c711fa41...` / `547c004d...` | First 13 gates passed; portable Python ended 1942 passed, 3 skipped, 1 failed because the completed dependency-wave run exceeded 180 seconds in 358 N+1 Git process audits. Both subjects stayed stable | `WAIVER-CLASS-B-RC40`: non-invalidating performance/timeout evidence; immutable chronology, no retry and no browser, candidate, capture, capsule or downstream authority |
+| Rc41 current validation-pending subject | `wiki-viva-v8-rc41`; source `f42b624049e310100218bf4f99e3ea418b066689`; package-file/canonical/tree `2908e9e8757d14b05244585b7bef3f74242fcef4fb4e04ae212cee2b31a7b4ed` / `9eee2d1895f88a3343e2a560a919f01b79e950d81bf0c3988bc20d5aec594699` / `0b7063d05e66c22dffa6d02f43b3399ab480bff33407ab12eb4fd1726d0fa693`, 528 entries | 128-path complexity negative uses two Git calls; focused dependency-wave E2E returns in 157.01 seconds under the unchanged bound; complete component 181/181 in 2161.24 seconds; audits 0 errors and package/inventory valid | `source pinned=1/5`; `package_is_pinned=false`; exact validation has not started; no candidate, capture, capsule or Lane B authority; public push unauthorized |
 
 Rc27, rc31, rc32 and rc33 are frozen as historical failed-validation evidence,
 rc28/rc29 are frozen as pre-validation rejections, and rc30 is frozen as a

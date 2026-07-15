@@ -120,12 +120,13 @@ consumers:
       those hashes remain immutable verified history, but they are not
       executable Lane B authority. Rc38 source de879672 failed its one exact
       matrix at operational_pass. Rc39 source 9dae4aa6 then passed 14/15 before
-      the default Vitest cache wrote one result under node_modules and correctly
-      tripped full dependency-tree drift; result a9aaad50 and both stable Git
-      subjects remain immutable failed-validation evidence. Rc40 source
+      the default Vitest cache wrote one result under node_modules; result
+      a9aaad50 and both stable Git subjects remain immutable chronology under
+      non-invalidating WAIVER-CLASS-B-RC39. Rc40 source
       0e24881a then passed 13 gates before portable_python failed closed on the
-      N+1 final Git verifier; result 4e6035d9 and both stable Git subjects also
-      remain immutable history. The one direct corrective subject is now
+      N+1 final Git verifier; result 4e6035d9 and both stable Git subjects remain
+      immutable chronology under non-invalidating WAIVER-CLASS-B-RC40. The one
+      direct corrective subject is now
       pinned: wiki-viva-v8-rc41 at source
       f42b624049e310100218bf4f99e3ea418b066689.
       Its canonical scoreboard is 1/5: source pin is complete; exact validation,
@@ -190,10 +191,12 @@ consumers:
         the certified Node dependency tree, so rc37 cannot authorize Lane B.
         Rc38 at source de879672 failed its one exact matrix at operational_pass.
         Rc39 at source 9dae4aa6 passed 14/15 before default Vitest cache output
-        correctly tripped dependency-tree drift; result a9aaad50 and both stable
-        Git subjects remain immutable history. Rc40 source 0e24881a then passed
+        changed the sealed dependency tree; result a9aaad50 and both stable Git
+        subjects remain immutable chronology under WAIVER-CLASS-B-RC39. Rc40
+        source 0e24881a then passed
         13 gates before portable_python failed closed on the N+1 final Git
-        verifier; result 4e6035d9 and both stable subjects remain immutable.
+        verifier; result 4e6035d9 and both stable subjects remain immutable
+        chronology under WAIVER-CLASS-B-RC40.
         The sole direct correction is pinned as wiki-viva-v8-rc41 at exact
         source f42b624049e310100218bf4f99e3ea418b066689. Only after rc41 is validated
         exactly once, captured, certified and independently verified may a
@@ -224,10 +227,11 @@ consumers:
       11/11; its capsule/receipt/attestation remain immutable verified history.
       RT-173 nevertheless proved that its clean C1 could not materialize the
       certified Node dependency tree, so rc37 cannot authorize Lane B. The one
-      RT-173 rc38 failed exact validation at operational_pass; rc39 then failed
-      at frontend after default Vitest cache output correctly tripped the sealed
-      dependency tree. Rc40 then failed portable_python on the N+1 final Git
-      verifier. Their direct corrective subject rc41 is pinned with a 1/5
+      RT-173 rc38 failed exact validation at operational_pass; rc39 then stopped
+      at frontend on the default Vitest cache and carries non-invalidating
+      WAIVER-CLASS-B-RC39. Rc40 stopped at the N+1 final Git verifier and carries
+      non-invalidating WAIVER-CLASS-B-RC40. Their direct corrective subject rc41
+      is pinned with a 1/5
       canonical scoreboard and must
       be validated exactly once and certified with capsule v2 plus external
       Node authority before a fresh current-main

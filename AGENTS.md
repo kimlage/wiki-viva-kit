@@ -267,9 +267,9 @@ another) via skills — there is no embedded LLM client.
   fifth gate because its deterministic operational-pass page was stale; its
   validation result `7441b7ef...` and stable Git subjects remain immutable
   failed-validation evidence. Rc39 then passed 14/15 in its one exact matrix
-  before default Vitest cache output correctly tripped the sealed dependency
-  tree; result `a9aaad50...` and both stable Git subjects remain immutable
-  failed-validation evidence. Rc40 was then pinned at source
+  before default Vitest cache output changed the sealed dependency tree; result
+  `a9aaad50...` and both stable Git subjects remain immutable chronology under
+  non-invalidating `WAIVER-CLASS-B-RC39`. Rc40 was then pinned at source
   `0e24881aff89f3ae0624fa3e5d27d600248e37a3` and metadata
   `1bfcfe3f72e54ea8d592554a625d8f3ff606c088`. Its only exact validation
   passed the first 13 gates, then `portable_python` ended with `1942 passed, 3
@@ -278,14 +278,25 @@ another) via skills — there is no embedded LLM client.
   the final verifier reread 115 C1 paths through 358 separately audited Git
   processes. Validation-result / identity / failing-log SHA-256 are
   `4e6035d9...` / `c711fa41...` / `547c004d...`; both Git subjects remained
-  stable and no browser result, candidate or capsule exists. Rc40 is immutable
-  failed-validation history. The one authorized corrective formation batches
+  stable and no browser result, candidate or capsule exists.
+  `WAIVER-CLASS-B-RC40` classifies this outer-bound timeout as non-invalidating
+  performance/harness evidence. Rc40 remains immutable chronology and is not
+  retried. The one authorized corrective formation batches
   exact Git mode/blob reads per commit, retains symlink/submodule rejection and
   passes the complete focused component at 181/181 in 2161.24 seconds. It is
   separately pinned as `wiki-viva-v8-rc41` / `validation_pending` at exact
   source `f42b624049e310100218bf4f99e3ea418b066689`. Package-file / canonical /
-  portable-tree SHA-256 are `d57c34bc...` / `4b700084...` / `0b7063d0...`
+  portable-tree SHA-256 are `2908e9e8...` / `9eee2d18...` / `0b7063d0...`
   with 528 entries; no exact matrix has started.
+
+  Rc41 is the last subject. `RT-174-DEFERRED-APPARATUS` freezes
+  [scripts/wiki_upgrade.py](scripts/wiki_upgrade.py),
+  [wiki_core/upgrade_lanes.py](wiki_core/upgrade_lanes.py) and lane tests until
+  the canonical scoreboard reaches private-main readback. Its one exact run
+  records cache, harness, performance, timeout, visual-baseline and flake
+  observations as non-invalidating Class B waivers; only Class A identity,
+  privacy, secret or data-corruption evidence invalidates the subject and
+  permits one direct fix plus one exact rerun.
 
   The single current operational scoreboard is for rc41: `source pinned` is
   complete; `exact validation`, `capsule verified`, `private canary` and

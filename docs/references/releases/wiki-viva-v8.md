@@ -640,8 +640,9 @@ Rc39 then ran one exact matrix at source
 rejected a new 5,395-byte Vitest result file under the sealed default
 `node_modules/.vite` cache. Validation-result / identity / failing-log SHA-256
 are `a9aaad50...` / `dab61578...` / `8c17186c...`; both Git subjects remained
-stable. Rc39 is immutable failed-validation history and minted no browser
-result, candidate, capsule or downstream authority.
+stable. `WAIVER-CLASS-B-RC39` records this cache/harness observation as
+non-invalidating. Rc39 remains immutable chronology, is not retried and minted
+no browser result, candidate, capsule or downstream authority.
 
 The next direct corrective package was `wiki-viva-v8-rc40` /
 `validation_pending`, pinned to exact source
@@ -673,7 +674,9 @@ validation result / identity / failing-log SHA-256 are
 `c711fa4159b1ed738d8ebdd8cd00bb876a8cd47040478d96732612b128e23e20` /
 `547c004d503968080b4f98092ddf3b3d116322d57d8c5d5674252aea51f00598`.
 Both Git subjects remained stable; browser, candidate, capture and capsule were
-not started. Rc40 is immutable failed-validation history.
+not started. `WAIVER-CLASS-B-RC40` records the bounded timeout as
+non-invalidating performance/harness evidence. Rc40 remains immutable
+chronology, is not retried and mints no missing authority.
 
 The only authorized correction replaces the N+1 verifier with one exact tree
 projection and one `cat-file --batch` per commit, without weakening mode/blob,
@@ -686,8 +689,8 @@ as errors. That corrective source is now committed at
 `f42b624049e310100218bf4f99e3ea418b066689` and separately pinned as
 `wiki-viva-v8-rc41` / `validation_pending`. Package-file / canonical-package /
 portable-tree SHA-256 are
-`d57c34bc12a7640a571ddc51b63475dac887593456eb863af78cf1f853e125a8` /
-`4b700084807a1dc59131fe6bb5f67cb3c2cd0cb52dc03e31315c5ca0762785d3` /
+`2908e9e8757d14b05244585b7bef3f74242fcef4fb4e04ae212cee2b31a7b4ed` /
+`9eee2d1895f88a3343e2a560a919f01b79e950d81bf0c3988bc20d5aec594699` /
 `0b7063d05e66c22dffa6d02f43b3399ab480bff33407ab12eb4fd1726d0fa693`,
 with 528 portable entries. No exact rc41 matrix has started;
 `package_is_pinned=false` until validation and a later candidate boundary. Its
@@ -698,6 +701,14 @@ remain unauthorized. Private PR #211 and its v2 receipts remain immutable
 historical evidence. A fresh rc41/v3 adoption may start from the
 then-current private `main` only after the new capsule and attestation verify
 fail-closed.
+
+Rc41 is the last subject. Its exact matrix runs once. Class B observations
+(harness, performance, timeout, cache, visual baseline or flake) are recorded
+with evidence and do not invalidate the subject; only Class A identity,
+privacy, secret or data-corruption evidence blocks and permits one direct fix
+plus one exact rerun. `RT-174-DEFERRED-APPARATUS` freezes
+`scripts/wiki_upgrade.py`, `wiki_core/upgrade_lanes.py` and lane tests until
+private-main readback.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
