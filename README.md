@@ -107,18 +107,21 @@ attestation, trust anchor, downstream plan, import, adoption or Lane B
 authority exists, and the subject is never retried, reused, relabeled,
 promoted or imported.
 
-RT-172 forms a new sequence-bound successor: spatial readiness must wait for
-matching morph and camera acknowledgements, reject stale callbacks and only
-then cross the compositor barrier. Active `wiki-viva-v8-rc37` /
-`validation_pending` is pinned to source
-`d87af15b4aa850d1a50dc867f74e07ba09d0e89f`; package-file / canonical-package /
-portable-tree identities are `5b88cad7...` / `8c7a107b...` / `e40d77b8...`
-(521 entries), with `package_is_pinned=false`. Focused source formation passed
-522 frontend checks, TypeScript, build, architecture and the original desktop
-cell 3/3. Rc37 still needs one wholly new exact validation, productive capture
-and Lane A certification. Its scoreboard is `1/5`: `source pinned` is complete;
-`exact validation`, `capsule verified`, `private canary` and
-`private main readback` remain pending.
+RT-172 forms a sequence-bound successor: spatial readiness waits for matching
+morph and camera acknowledgements, rejects stale callbacks and only then
+crosses the compositor barrier. Exact source
+`d87af15b4aa850d1a50dc867f74e07ba09d0e89f` passed rc37's first and only
+complete validation at metadata `775fe5bc9437da5ec9311704731f4342d515fc16`:
+23/23 gates in 1,652 seconds, including 1,782 Python passes plus 3 declared
+skips, 522 frontend passes, 123 Node passes and browser 102/102 first-attempt
+with no skip or retry. Active `wiki-viva-v8-rc37` / `candidate` has candidate
+package-file / canonical-package / portable-tree identities `6d409da4...` /
+`1af897ce...` / `77799ece...` (521 entries), with `package_is_pinned=true`.
+No productive rc37 manifest, capsule, receipt or attestation exists. The next
+authorized steps are one fresh productive capture and one Lane A
+certification. Its scoreboard is `2/5`: `source pinned` and `exact validation`
+are complete; `capsule verified`, `private canary` and `private main readback`
+remain pending.
 Draft PR #61 remains stale and public push/publication remains unauthorized.
 Private PR #211 remains historical v2; only a fresh v3 adoption may start after
 the successor capsule and attestation verify fail-closed.
@@ -456,15 +459,16 @@ trust anchor or Lane B authority and is never retried or reused. The prior
 `7f1c859d...` metadata boundary and capture `e314296c...` remain separately
 rejected and non-reusable.
 
-The active truth is `wiki-viva-v8-rc37` / `validation_pending`, pinned to exact
-source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`, package/tree
-`8c7a107b...` / `e40d77b8...`, with `package_is_pinned=false`. RT-172's
-sequence-bound correction passed its focused 522-test and 3x-browser formation
-proof; one wholly new exact validation, productive capture and Lane A
-certification remain. Draft PR #61 is stale; public push remains unauthorized.
-The rc37 scoreboard is `1/5`, with only source pin complete. Private PR #211
-remains historical v2; no fresh v3 adoption starts
-before the successor capsule verifies fail-closed.
+The active truth is `wiki-viva-v8-rc37` / `candidate`, pinned to exact source
+`d87af15b4aa850d1a50dc867f74e07ba09d0e89f`. Its first/only complete exact
+validation passed 23/23 at metadata `775fe5bc...`, including browser 102/102
+first-attempt; validation-result/identity are `e409a148...` / `68d11b2a...`.
+Candidate package/tree are `1af897ce...` / `77799ece...`, 521 entries, with
+`package_is_pinned=true`. One fresh productive capture and one Lane A
+certification remain; no rc37 manifest or capsule exists. Draft PR #61 is stale
+and public push remains unauthorized. The rc37 scoreboard is `2/5`, with source
+pin and exact validation complete. Private PR #211 remains historical v2; no
+fresh v3 adoption starts before the successor capsule verifies fail-closed.
 Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.
 No existing v2 C3 or receipt is amended to reach it.

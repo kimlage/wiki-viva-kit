@@ -188,14 +188,17 @@ starting point for persistent context is `memories/`.
   anchor, downstream plan, import, adoption or Lane B authority exists. Never
   retry, reuse, relabel, promote or import it.
 
-  Active `wiki-viva-v8-rc37` / `validation_pending` is pinned to exact source
-  `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`; package-file / canonical-package /
-  portable-tree identities are `5b88cad7...` / `8c7a107b...` / `e40d77b8...`
-  (521 entries), with `package_is_pinned=false`. RT-172's sequence-bound source
-  passed 522 frontend checks, TypeScript, build, architecture and the original
-  desktop cell 3/3. It still requires one wholly new exact validation,
-  productive capture and Lane A certification. Its scoreboard is `1/5`: source
-  pin is complete and every later step remains pending. Draft PR
+  Exact source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`
+  passed rc37's first and only complete validation at metadata
+  `775fe5bc9437da5ec9311704731f4342d515fc16`: 23/23 gates in 1,652 seconds,
+  including 1,782 Python passes plus 3 declared skips, 522 frontend passes, 123
+  Node passes and browser 102/102 first-attempt with zero skip or retry. Active
+  `wiki-viva-v8-rc37` / `candidate` has package-file / canonical-package /
+  portable-tree identities `6d409da4...` / `1af897ce...` / `77799ece...` (521
+  entries), with `package_is_pinned=true`. No productive manifest or capsule
+  exists; one fresh capture and one Lane A certification remain. Its scoreboard
+  is `2/5`: source pin and exact validation are complete; capsule verification,
+  private canary and private-main readback remain pending. Draft PR
   #61 is stale and does not represent this local truth; public push/publication
   remains unauthorized. Private PR #211 remains historical v2, and a fresh v3
   adoption starts only after the successor capsule verifies fail-closed.

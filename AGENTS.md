@@ -220,22 +220,26 @@ another) via skills — there is no embedded LLM client.
   The earlier metadata subject `7f1c859d2b666f320b319094d02a551e94542926`
   and manifest `e314296c...` remain separately rejected and non-reusable.
 
-  RT-172 tracks the shared-core settlement defect. Its successor must bind
-  spatial readiness to the current morph and camera sequence, reject stale
-  acknowledgements, and expose the separate morph/camera/spatial settled
-  states before the existing compositor barrier releases interaction. The
-  active package truth is now `wiki-viva-v8-rc37` / `validation_pending` at
-  exact source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`, with
-  package-file/canonical/tree `5b88cad7...` / `8c7a107b...` / `e40d77b8...`
-  (521 entries) and `package_is_pinned=false`. Focused source formation passed
-  522 frontend checks, TypeScript, build, architecture and the original dense
-  desktop cell 3/3. Rc37 must now run one wholly new exact validation,
-  productive capture and Lane A certification. Historical rc36 receipts cannot
-  satisfy any of those steps.
+  RT-172 tracks the shared-core settlement defect. Rc37 binds spatial readiness
+  to the current morph and camera sequence, rejects stale acknowledgements and
+  exposes separate morph/camera/spatial settled states before the compositor
+  barrier releases interaction. Exact source
+  `d87af15b4aa850d1a50dc867f74e07ba09d0e89f` passed the first and only rc37
+  validation at metadata `775fe5bc9437da5ec9311704731f4342d515fc16`:
+  23/23 gates in 1,652 seconds, 1,782 Python passes plus 3 declared skips, 522
+  frontend passes, 123 Node passes and browser 102/102 first-attempt with zero
+  skip or retry. Validation result `e409a148...` and identity `68d11b2a...`
+  remain attached to that validation subject. The active package truth is now
+  `wiki-viva-v8-rc37` / `candidate`, with candidate package-file/canonical/tree
+  `6d409da4...` / `1af897ce...` / `77799ece...` (521 entries) and
+  `package_is_pinned=true`. No productive rc37 manifest, capsule, receipt or
+  attestation exists; the next authorized steps are one fresh productive
+  capture and one Lane A certification. Historical rc36 receipts satisfy none
+  of them.
 
-  Operational scoreboard for rc37: `source pinned` is complete;
-  `exact validation`, `capsule verified`, `private canary` and
-  `private main readback` are pending (`1/5`). Draft PR #61 remains stale
+  Operational scoreboard for rc37: `source pinned` and `exact validation` are
+  complete; `capsule verified`, `private canary` and `private main readback`
+  are pending (`2/5`). Draft PR #61 remains stale
   and does not represent this local truth. Public push/publication remains
   unauthorized. Private PR #211 remains historical v2 and must not be promoted
   as the future v3 adoption; a fresh private v3 run starts only after the

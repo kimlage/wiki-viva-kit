@@ -32,12 +32,12 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc36_certification_failed_rc37_exact_validation_pending
+      state: rc36_certification_failed_rc37_candidate_capture_pending
       drift_total: 0
       compared_against: wiki-viva-v8-rc37@d87af15b
-      worktree: rc37_validation_boundary_local_only
+      worktree: rc37_candidate_boundary_local_only
     upgrade_wave: public_kit
-    status: blocked_on_rc37_exact_validation
+    status: blocked_on_rc37_capture_and_certification
     blocker: >-
       Rc21 through rc33 remain frozen according to their recorded historical
       outcomes. Rc34 source 533d2868 passed complete exact validation at
@@ -104,13 +104,18 @@ consumers:
       boundary without invalidating its then-valid source pin or exact
       validation.
       RT-172 source d87af15b binds exact layout request, morph, camera and Html
-      settlement to the same navigation sequence. It is separately pinned as
-      wiki-viva-v8-rc37 / validation_pending with package-file/canonical/tree
-      5b88cad7 / 8c7a107b / e40d77b8, 521 entries, and
-      package_is_pinned=false. Focused source proof passed 522 frontend checks,
-      TypeScript, build, architecture and the original desktop cell 3/3; one
-      complete exact validation remains pending. The canonical scoreboard is
-      1/5. Draft PR #61 is stale and public push,
+      settlement to the same navigation sequence. Its first and only exact
+      validation passed 23/23 at metadata subject 775fe5bc in 1652 seconds:
+      1782 Python passes plus 3 declared skips, 522 frontend, 123 Node and
+      browser 102/102 first-attempt with no skip or retry. Validation result /
+      identity / browser result / browser gate are e409a148 / 68d11b2a /
+      acd03c5b / 3519fcec. Validation-subject package-file/canonical/tree remain
+      5b88cad7 / 8c7a107b / e40d77b8. The separate active
+      wiki-viva-v8-rc37 / candidate package-file/canonical/tree are 6d409da4 /
+      1af897ce / 77799ece, 521 entries, and package_is_pinned=true. No productive
+      manifest, capsule, receipt or attestation exists; one fresh capture and
+      one Lane A certification remain. The canonical scoreboard is 2/5. Draft
+      PR #61 is stale and public push,
       publication, external E5 and a release tag remain unauthorized
 
   - id: private-pilot-01
@@ -139,7 +144,7 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: v2_adoption_complete_rc37_exact_validation_pending
+      state: v2_adoption_complete_rc37_candidate_capsule_pending
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
@@ -163,10 +168,11 @@ consumers:
         first and only Lane A certification stopped at 101/102 browser cells
         after Back navigation exposed unsettled camera/Html hit testing. Rc36
         is immutable historical_certification_failed and minted no capsule,
-        attestation or Lane B authority. RT-172 successor rc37 is now pinned at
-        exact source d87af15b with focused formation proof green; it still
-        requires one wholly new exact validation, productive capture, Lane A
-        certification and fail-closed capsule verification. Only after that
+        attestation or Lane B authority. RT-172 successor rc37 is now candidate
+        at exact source d87af15b after its first/only exact validation passed
+        23/23, including browser 102/102 first-attempt. It still requires one
+        productive capture, one Lane A certification and fail-closed capsule
+        verification. Only after that
         authority exists may a fresh v3 adoption start from the then-current
         private main, not from private PR #211 or its historical v2 C3/receipts.
         Standing human authorization for incremental
@@ -188,12 +194,12 @@ consumers:
       exact validation at metadata subject 3db3f9f4, but its first and only
       Lane A certification failed closed at 101/102 browser cells. No capsule,
       attestation or Lane B authority exists; rc36 is immutable
-      historical_certification_failed. Active wiki-viva-v8-rc37 is
-      validation_pending at source d87af15b, with package_is_pinned=false and a
-      1/5 scoreboard. Its exact layout request + morph + camera + Html source
-      passed focused formation checks but still needs one wholly new exact
-      validation, productive capture, certification and capsule verification before a
-      fresh current-main consumer preflight or any v3 downstream QA.
+      historical_certification_failed. Active wiki-viva-v8-rc37 is candidate at
+      source d87af15b after exact validation passed 23/23 at metadata 775fe5bc,
+      with package_is_pinned=true and a 2/5 scoreboard. Candidate package/tree
+      are 1af897ce/77799ece. It still needs one productive capture, one Lane A
+      certification and capsule/attestation verification before a fresh
+      current-main consumer preflight or any v3 downstream QA.
       Private PR #211 is
       v2 historical evidence and cannot be promoted as a fresh v3 adoption.
       Incremental

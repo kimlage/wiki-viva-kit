@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc37 - exact validation pending"
+title: "Wiki Viva v8 rc37 candidate - exact validation passed"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc37 - exact validation pending
+# Wiki Viva v8 rc37 candidate - exact validation passed
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -577,21 +577,42 @@ B authority was minted. Rc36 is immutable
 historical evidence, but its candidate, capture and gate results must never be
 retried, reused, relabeled, promoted or imported.
 
+## Rc37 candidate — exact validation passed, capture pending
+
 RT-172 requires the single successor source to bind exact layout request,
 morph, camera and Html settlement to the same navigation sequence before
 declaring spatial settlement. Exact source
 `d87af15b4aa850d1a50dc867f74e07ba09d0e89f` now implements that contract and
-is separately pinned as `wiki-viva-v8-rc37` / `validation_pending`.
-Package-file/canonical-package/portable-tree SHA-256 values are
+passed its first and only complete exact validation at metadata subject
+`775fe5bc9437da5ec9311704731f4342d515fc16`: 23/23 recorded gates in 1,652
+seconds with a stable Git subject; 1,782 Python passes plus 3 declared skips in
+1,088.81 seconds; 64 frontend files / 522 passes; 123 Node passes; and browser
+run `public-mrlmvik8-6aaf518b-83ce-46b2-8913-2ee9a101f331` at 102/102
+first-attempt with zero skip or retry in 6.5 minutes. The critical RT-172
+quadrant-overview settlement cell passed on that first attempt.
+
+The immutable validation subject carried package-file/canonical/tree
 `5b88cad7e0194a90db014edaa96e044779e9072e51e8e3a9324c49548a8656d7` /
 `8c7a107bae1f9410995b9e3ba22af46e64ac3924764c551310afaeaa7c6cf9aa` /
-`e40d77b81d5b4cde127d566eb04834b5f6a2bccd569c8a1ffaacb1c3619bb3a9`,
-521 entries. Focused formation proof passed 522 frontend checks, TypeScript,
-build, architecture and the original desktop cell 3/3 in 195.383 seconds.
-Rc36 receipts cannot be carried forward to rc37.
+`e40d77b81d5b4cde127d566eb04834b5f6a2bccd569c8a1ffaacb1c3619bb3a9`
+(521 entries). Its validation-result / identity / browser-result / browser-gate
+SHA-256 values are
+`e409a148cf717b09ad18ca772720f20bd0a1e98e3321b06a9ce0c92af9bb5e62` /
+`68d11b2a2c74f958c7833c52a0fa24bd22c9f4942bc0229b16a33511e5edff0e` /
+`acd03c5b4f9dd0db515a2d87e12f3391fe0826bf4fb02a5e4e45aed8bfdaf6f9` /
+`3519fceccf4821df2775de90fe3a99cee72773743152779a2a0461afdfbf945c`.
 
-`package_is_pinned=false` while complete exact validation remains pending. The
-canonical scoreboard is `1/5`: source pin is complete; exact validation,
+The separate candidate package-file/canonical-package/portable-tree SHA-256
+values are
+`6d409da4e58466a4932d3ee2bc089e9151450184e7292cf5513e45e6686f7f95` /
+`1af897ce9bf851563521b51048a20d0f2edfef31b72d27c823479022977f03d0` /
+`77799ece4d3a61bba2a1c3f8814f2e5ecc3232a6b3b813b65b54931067c35d8e`,
+521 entries. Active `wiki-viva-v8-rc37` is now `candidate` and
+`package_is_pinned=true`. Rc36 receipts cannot be carried forward. No
+productive rc37 capture, visual manifest, certification, capsule, receipt,
+attestation, trust anchor or downstream plan exists yet; only one fresh
+productive capture and one Lane A certification attempt are authorized. The
+canonical scoreboard is `2/5`: source pin and exact validation are complete;
 capsule verification, private canary and private-main readback remain pending.
 Draft public PR #61 remains
 stale and does not represent this local truth; public push, publication, PR
@@ -703,9 +724,10 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Active rc37 has a separate source pin and requires one wholly new exact
-validation, productive capture, Lane A certification and independent
-capsule/attestation verification before any downstream plan.
+Active rc37 has a separate source pin and candidate boundary. Its first and
+only exact validation passed 23/23; it still requires one productive capture,
+one Lane A certification and independent capsule/attestation verification
+before any downstream plan.
 Remote public CI, human conceptual/privacy/VoiceOver review, public merge and
 promotion remain separate and unauthorized; stale/conflicting public PR #61
 does not represent this local truth. External E5 and a release tag remain
@@ -854,7 +876,7 @@ mandatory browser cells plus both complete deterministic stacks are now
 proven. At that historical checkpoint,
 [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61) still required
 human review and merge. It is now stale/conflicting and does not represent
-the active rc37 validation-pending truth; no tag or public push is
+the active rc37 candidate truth; no tag or public push is
 authorized.
 
 ## Historical rc8 correction lineage — public payload candidate at that checkpoint
