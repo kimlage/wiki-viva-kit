@@ -141,6 +141,52 @@ type LayoutMotionBookkeeping = {
   consumedTravelToken: number;
 };
 
+export type SpatialMotionSettlementState = {
+  sequence: number;
+  morph: boolean;
+  camera: boolean;
+  final: boolean;
+};
+
+export type SpatialMotionSettlementEvent =
+  | { type: "begin"; sequence: number }
+  | { type: "pending" | "settled"; sequence: number; lane: "morph" | "camera" }
+  | { type: "final"; sequence: number };
+
+export function spatialMotionSettlementState(sequence: number): SpatialMotionSettlementState {
+  return { sequence, morph: false, camera: false, final: false };
+}
+
+/**
+ * One sequence owns one fail-closed morph/camera handshake. Late callbacks
+ * from an obsolete R3F render root cannot settle the current transaction, and
+ * a same-sequence retarget can revoke an earlier acknowledgement before the
+ * final browser-paint boundary is crossed.
+ */
+export function reduceSpatialMotionSettlement(
+  state: SpatialMotionSettlementState,
+  event: SpatialMotionSettlementEvent
+): SpatialMotionSettlementState {
+  if (event.type === "begin") {
+    return event.sequence === state.sequence ? state : spatialMotionSettlementState(event.sequence);
+  }
+  if (event.sequence !== state.sequence) return state;
+  if (event.type === "pending") {
+    if (!state[event.lane] && !state.final) return state;
+    return { ...state, [event.lane]: false, final: false };
+  }
+  if (event.type === "settled") {
+    if (state[event.lane]) return state;
+    return { ...state, [event.lane]: true };
+  }
+  if (!state.morph || !state.camera || state.final) return state;
+  return { ...state, final: true };
+}
+
+export function spatialMotionReadyForFinalPaint(state: SpatialMotionSettlementState): boolean {
+  return state.morph && state.camera && !state.final;
+}
+
 /** One semantic decision feeds the canvas morph, camera and DOM settle cue. */
 export function sceneMotionIntent(
   previous: SceneMotionSnapshot | null,
@@ -275,8 +321,11 @@ function useSceneProfile(nodeCount: number): ScenePerformanceProfile {
 
 // Level-scoped deterministic layout, computed off the main thread when
 // workers exist. requestId guards against out-of-order worker replies.
-function useWorldLayout(request: WorldRequest): WorldLayout {
-  const [layout, setLayout] = useState<WorldLayout>(() => { const l = computeWorldLayout(request); return l; });
+function useWorldLayout(request: WorldRequest): { layout: WorldLayout; requestResolved: boolean } {
+  const [result, setResult] = useState<{ layout: WorldLayout; request: WorldRequest }>(() => ({
+    layout: computeWorldLayout(request),
+    request
+  }));
   const requestRef = useRef(0);
   useEffect(() => {
     let active = true;
@@ -284,7 +333,7 @@ function useWorldLayout(request: WorldRequest): WorldLayout {
     const requestId = requestRef.current;
     const sync = () => {
       const next = computeWorldLayout(request);
-      if (active && requestRef.current === requestId) setLayout(next);
+      if (active && requestRef.current === requestId) setResult({ layout: next, request });
     };
     // Real browsers only: test DOMs (happy-dom) expose a Worker that spins on
     // module workers, so anything with a Node `process` computes in-line.
@@ -297,7 +346,7 @@ function useWorldLayout(request: WorldRequest): WorldLayout {
     }
     const worker = new Worker(new URL("../scene/layout.worker.ts", import.meta.url), { type: "module" });
     worker.onmessage = (event: MessageEvent<{ requestId?: number; layout: WorldLayout }>) => {
-      if (active && event.data.requestId === requestId) setLayout(event.data.layout);
+      if (active && event.data.requestId === requestId) setResult({ layout: event.data.layout, request });
     };
     worker.onerror = () => sync();
     worker.postMessage({ ...request, requestId });
@@ -306,7 +355,7 @@ function useWorldLayout(request: WorldRequest): WorldLayout {
       worker.terminate();
     };
   }, [request]);
-  return layout;
+  return { layout: result.layout, requestResolved: result.request === request };
 }
 
 function EdgeArcs({ edges, layout, quality, morph }: { edges: SceneEdge[]; layout: WorldLayout; quality: string; morph: React.RefObject<MorphState> }) {
@@ -592,6 +641,7 @@ function OverlayTransitionCompletion({ transition }: { transition: React.RefObje
 
 function SceneContent({
   layout,
+  layoutRequestResolved,
   overlay,
   edges,
   git,
@@ -624,6 +674,7 @@ function SceneContent({
   performanceTelemetry,
   onPerformanceEvidence,
   onMorphSettled,
+  onCameraMotionState,
   onMarkerAct,
   onMarkerResolve,
   onMarkerDismiss,
@@ -639,6 +690,7 @@ function SceneContent({
   onRetreat
 }: {
   layout: WorldLayout;
+  layoutRequestResolved: boolean;
   overlay: OverlayId;
   edges: GraphEdge[];
   git: GitState;
@@ -671,6 +723,7 @@ function SceneContent({
   performanceTelemetry: RuntimePerformanceTelemetry;
   onPerformanceEvidence: (evidence: RuntimePerformanceEvidence) => void;
   onMorphSettled: (sequence: number) => void;
+  onCameraMotionState: (sequence: number, state: "pending" | "settled") => void;
   onMarkerAct?: (pageId: string) => void;
   onMarkerResolve?: (pageId: string) => void;
   onMarkerDismiss?: (pageId: string) => void;
@@ -1046,6 +1099,7 @@ function SceneContent({
       )}
       <CameraDirector
         layout={layout}
+        layoutRequestResolved={layoutRequestResolved}
         lockedNode={lockedNode}
         flyToNode={flyToId ? layoutNodeIndex(layout).get(flyToId) ?? null : null}
         travelVia={physicalDrillOrigin}
@@ -1053,6 +1107,7 @@ function SceneContent({
         motion={motion}
         motionScale={visualTuning.motion}
         transition={transition}
+        onMotionState={onCameraMotionState}
       />
       <RuntimeFrameProbe telemetry={performanceTelemetry} width={performanceWidth} onEvidence={onPerformanceEvidence} />
       <MorphCompletion morph={morph} sequence={transition.sequence} onSettled={onMorphSettled} />
@@ -1367,7 +1422,7 @@ export function SystemScene({
       snapshotAt
     ]
   );
-  const rawLayout = useWorldLayout(request);
+  const { layout: rawLayout, requestResolved: layoutRequestResolved } = useWorldLayout(request);
   const enrichedLayout = useMemo<WorldLayout>(() => {
     const regions = regionPayloadByKey(activeAnchorRecord);
     if (regions.size === 0) return rawLayout;
@@ -1690,55 +1745,84 @@ export function SystemScene({
     () => ({ current: activeLayoutMotionState.morph }),
     [activeLayoutMotionState.morph]
   );
-  const [settledSpatialMotionSequence, setSettledSpatialMotionSequence] = useState(sceneTransition.sequence);
-  const spatialSettlePaintFrame = useRef<number | null>(null);
-  const latestSpatialMotion = useRef({ sequence: sceneTransition.sequence, morph });
-  useLayoutEffect(() => {
-    latestSpatialMotion.current = { sequence: sceneTransition.sequence, morph };
-  }, [morph, sceneTransition.sequence]);
-  const scheduleSpatialMotionSettled = useCallback((sequence: number, subjectMorph: React.RefObject<MorphState>) => {
-    const latest = latestSpatialMotion.current;
-    if (latest.sequence !== sequence || latest.morph !== subjectMorph || subjectMorph.current?.active) return;
-    if (spatialSettlePaintFrame.current !== null) {
-      window.cancelAnimationFrame(spatialSettlePaintFrame.current);
-    }
-    // MorphCompletion proves every R3F subscriber sampled the terminal
-    // coordinate. Keep the interaction cue for two browser frames as well so
-    // drei Html transforms cross a real style/layout/paint boundary before
-    // elementFromPoint or a fast real click can target them.
-    const firstPaintFrame = window.requestAnimationFrame(() => {
-      if (spatialSettlePaintFrame.current !== firstPaintFrame) return;
-      const secondPaintFrame = window.requestAnimationFrame(() => {
-        if (spatialSettlePaintFrame.current !== secondPaintFrame) return;
-        spatialSettlePaintFrame.current = null;
-        const current = latestSpatialMotion.current;
-        if (current.sequence !== sequence || current.morph !== subjectMorph || subjectMorph.current?.active) return;
-        setSettledSpatialMotionSequence(sequence);
-      });
-      spatialSettlePaintFrame.current = secondPaintFrame;
+  const [spatialMotionSettlement, setSpatialMotionSettlement] = useState<SpatialMotionSettlementState>(() =>
+    spatialMotionSettlementState(sceneTransition.sequence)
+  );
+  let activeSpatialMotionSettlement = spatialMotionSettlement;
+  if (spatialMotionSettlement.sequence !== sceneTransition.sequence) {
+    activeSpatialMotionSettlement = reduceSpatialMotionSettlement(spatialMotionSettlement, {
+      type: "begin",
+      sequence: sceneTransition.sequence
     });
-    spatialSettlePaintFrame.current = firstPaintFrame;
-  }, []);
-  const markSpatialMotionSettled = useCallback((_sequence: number) => {
-    const latest = latestSpatialMotion.current;
-    // A completion from the previous R3F root is only a signal to inspect the
-    // latest committed transaction. If both roots briefly share the morph and
-    // the stale callback made it inactive, settle the latest sequence instead
-    // of leaving its interaction cue locked forever.
-    scheduleSpatialMotionSettled(latest.sequence, latest.morph);
-  }, [scheduleSpatialMotionSettled]);
-  useEffect(() => () => {
-    if (spatialSettlePaintFrame.current !== null) {
-      window.cancelAnimationFrame(spatialSettlePaintFrame.current);
-      spatialSettlePaintFrame.current = null;
+    // Match the transaction/layout bookkeeping above: an aborted render must
+    // not leak an acknowledgement into a sequence that never commits.
+    setSpatialMotionSettlement(activeSpatialMotionSettlement);
+  }
+  const reportSpatialMotionLane = useCallback(
+    (lane: "morph" | "camera", sequence: number, state: "pending" | "settled") => {
+      setSpatialMotionSettlement((current) =>
+        reduceSpatialMotionSettlement(current, { type: state, lane, sequence })
+      );
+    },
+    []
+  );
+  const markMorphMotionSettled = useCallback(
+    (sequence: number) => reportSpatialMotionLane("morph", sequence, "settled"),
+    [reportSpatialMotionLane]
+  );
+  const markCameraMotionState = useCallback(
+    (sequence: number, state: "pending" | "settled") => reportSpatialMotionLane("camera", sequence, state),
+    [reportSpatialMotionLane]
+  );
+  useLayoutEffect(() => {
+    reportSpatialMotionLane(
+      "morph",
+      sceneTransition.sequence,
+      activeLayoutMotionState.morph.active ? "pending" : "settled"
+    );
+    // A 2D fallback is itself the camera cut. There is no CameraDirector in
+    // that branch, so acknowledge the same committed sequence explicitly.
+    if (fallback) {
+      reportSpatialMotionLane(
+        "camera",
+        sceneTransition.sequence,
+        layoutRequestResolved ? "settled" : "pending"
+      );
     }
-  }, [sceneTransition.sequence]);
+  }, [
+    activeLayoutMotionState.morph,
+    fallback,
+    layoutRequestResolved,
+    reportSpatialMotionLane,
+    sceneTransition.sequence
+  ]);
   useEffect(() => {
-    if (!activeLayoutMotionState.morph.active) {
-      scheduleSpatialMotionSettled(sceneTransition.sequence, morph);
-    }
-  }, [activeLayoutMotionState.morph, morph, sceneTransition.sequence, scheduleSpatialMotionSettled]);
-  const spatialMotionSettled = settledSpatialMotionSequence === sceneTransition.sequence;
+    if (!spatialMotionReadyForFinalPaint(activeSpatialMotionSettlement)) return undefined;
+    // Morph and camera have independently acknowledged the exact transaction.
+    // Keep the lock for two browser frames so drei Html transforms cross a
+    // real style/layout/paint boundary before hit-testing is re-enabled.
+    let secondPaintFrame: number | null = null;
+    const sequence = activeSpatialMotionSettlement.sequence;
+    const firstPaintFrame = window.requestAnimationFrame(() => {
+      secondPaintFrame = window.requestAnimationFrame(() => {
+        setSpatialMotionSettlement((current) =>
+          reduceSpatialMotionSettlement(current, { type: "final", sequence })
+        );
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstPaintFrame);
+      if (secondPaintFrame !== null) window.cancelAnimationFrame(secondPaintFrame);
+    };
+  }, [
+    activeSpatialMotionSettlement.camera,
+    activeSpatialMotionSettlement.final,
+    activeSpatialMotionSettlement.morph,
+    activeSpatialMotionSettlement.sequence
+  ]);
+  const morphMotionSettled = activeSpatialMotionSettlement.morph;
+  const cameraMotionSettled = activeSpatialMotionSettlement.camera;
+  const spatialMotionSettled = activeSpatialMotionSettlement.final;
   const cameraTravelVia = activeLayoutMotionState.cameraTravelVia;
 
   useEffect(() => {
@@ -2115,6 +2199,9 @@ export function SystemScene({
       data-motion-intent={activeMotionIntent}
       data-motion-duration-ms={activeMotionDurationMs}
       data-motion-sequence={sceneTransition.sequence}
+      data-morph-motion-settled={morphMotionSettled ? "true" : "false"}
+      data-camera-motion-settled={cameraMotionSettled ? "true" : "false"}
+      data-spatial-motion-settled={spatialMotionSettled ? "true" : "false"}
       aria-label={t("scene.relationshipMapAria")}
     >
       <div className="visuallyHidden" aria-live="polite" role="status">
@@ -2179,6 +2266,7 @@ export function SystemScene({
             >
               <SceneContent
                 layout={layout}
+                layoutRequestResolved={layoutRequestResolved}
                 overlay={overlay}
                 edges={edges}
                 git={git}
@@ -2210,7 +2298,8 @@ export function SystemScene({
                 routeUsabilityMs={routeUsabilityMs}
                 performanceTelemetry={performanceTelemetry}
                 onPerformanceEvidence={publishPerformanceEvidence}
-                onMorphSettled={markSpatialMotionSettled}
+                onMorphSettled={markMorphMotionSettled}
+                onCameraMotionState={markCameraMotionState}
                 onMarkerAct={(pageId) => navigate({ pageId, reader: true })}
                 onMarkerResolve={onMarkerResolve}
                 onMarkerDismiss={onMarkerDismiss}
@@ -2240,6 +2329,11 @@ export function SystemScene({
               data-motion-intent={activeMotionIntent}
               data-motion-duration-ms={activeMotionDurationMs}
               data-motion-sequence={sceneTransition.sequence}
+              data-morph-motion-settled={morphMotionSettled ? "true" : "false"}
+              data-camera-motion-settled={cameraMotionSettled ? "true" : "false"}
+              data-morph-settled-sequence={morphMotionSettled ? sceneTransition.sequence : ""}
+              data-camera-settled-sequence={cameraMotionSettled ? sceneTransition.sequence : ""}
+              data-final-settled-sequence={spatialMotionSettled ? sceneTransition.sequence : ""}
               data-spatial-motion-settled={spatialMotionSettled ? "true" : "false"}
               aria-hidden="true"
             />

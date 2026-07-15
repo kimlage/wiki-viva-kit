@@ -4,7 +4,7 @@
 
 import { OrbitControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { LayoutNode } from "../../../scene/layout";
@@ -89,17 +89,58 @@ export function hoverInspectionDistanceMultiplier(layout: WorldLayout, node: Lay
   return Number(Math.max(0.88, 1 - weight * 0.16 - navigableBoost).toFixed(4));
 }
 
+export type CameraMotionState = "pending" | "settled";
+
+export type CameraSettlementSubject = {
+  sequence: number;
+  active: boolean;
+  start: number | null;
+};
+
+/**
+ * Complete the exact camera subject even when user control interrupts it
+ * before the R3F clock has supplied a first sample. A null subject is an
+ * intentional no-op/cut acknowledgement for the current transaction.
+ */
+export function settleCameraMotion(
+  subject: CameraSettlementSubject | null,
+  fallbackSequence: number,
+  report: (sequence: number, state: CameraMotionState) => void
+): number {
+  const sequence = subject?.sequence ?? fallbackSequence;
+  if (subject) subject.active = false;
+  report(sequence, "settled");
+  return sequence;
+}
+
+export function interruptCameraMotion(
+  subject: CameraSettlementSubject | null,
+  currentSequence: number,
+  report: (sequence: number, state: CameraMotionState) => void
+): number {
+  const activeSubject = subject?.active ? subject : null;
+  if (activeSubject) activeSubject.sequence = currentSequence;
+  return settleCameraMotion(activeSubject, currentSequence, report);
+}
+
+export function cameraRequestMustWait(layoutRequestResolved: boolean): boolean {
+  return !layoutRequestResolved;
+}
+
 export function CameraDirector({
   layout,
+  layoutRequestResolved,
   lockedNode,
   flyToNode = null,
   travelVia = null,
   enableIntro,
   motion,
   motionScale = 1,
-  transition
+  transition,
+  onMotionState
 }: {
   layout: WorldLayout;
+  layoutRequestResolved: boolean;
   lockedNode: LayoutNode | null;
   // A transient CINEMATIC target (a newborn entity): the camera glides to it
   // without locking the page — the birth is WITNESSED, then control returns.
@@ -112,6 +153,7 @@ export function CameraDirector({
   motion: boolean;
   motionScale?: number;
   transition: { sequence: number; intent: MotionIntent; duration: number };
+  onMotionState: (sequence: number, state: CameraMotionState) => void;
 }) {
   const { camera, size, invalidate } = useThree();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -132,9 +174,17 @@ export function CameraDirector({
     duration: number;
     active: boolean;
     intent: MotionIntent;
+    sequence: number;
   } | null>(null);
   const lastKey = useRef("");
   const lastTransitionSequence = useRef(0);
+  const lastMotionReport = useRef<{ sequence: number; state: CameraMotionState } | null>(null);
+  const reportMotionState = useCallback((sequence: number, state: CameraMotionState) => {
+    const previous = lastMotionReport.current;
+    if (previous?.sequence === sequence && previous.state === state) return;
+    lastMotionReport.current = { sequence, state };
+    onMotionState(sequence, state);
+  }, [onMotionState]);
 
   const lerpAngle = (from: number, to: number, t: number) => {
     const delta = Math.atan2(Math.sin(to - from), Math.cos(to - from));
@@ -204,10 +254,33 @@ export function CameraDirector({
     const desiredDistance = baseDesiredDistance;
     const centerId = layout.nodes.find((node) => node.isRoot)?.id ?? "";
     const key = `${layout.perspective}:${layout.level}:${layout.group ?? ""}:${centerId}:${lockedNode?.id ?? ""}:${flyToNode?.id ?? ""}:${(layout.cameraTarget ?? []).map((n) => n.toFixed(1)).join(",")}:${(travelVia ?? []).map((n) => n.toFixed(1)).join(",")}:${fitDistance.toFixed(2)}`;
+    if (cameraRequestMustWait(layoutRequestResolved)) {
+      // Route state is ahead of the exact worker result. Cancel the obsolete
+      // camera subject and keep this sequence pending; neither a moving old
+      // camera, a no-op nor a reduced-motion cut against old geometry may
+      // acknowledge any new semantic subject. The request-bound commit will
+      // rerun this effect.
+      if (animation.current) animation.current.active = false;
+      animation.current = null;
+      reportMotionState(transition.sequence, "pending");
+      return;
+    }
     if (key === lastKey.current && motion) {
-      // Overlay transactions deliberately leave the camera untouched. Lens
-      // transactions may arrive one render before their worker layout, so keep
-      // those pending until cameraTarget changes.
+      // An exact resolved request may intentionally leave the camera key
+      // untouched (overlay or semantic no-op). If an older camera is still
+      // moving, the newest sequence inherits that physical subject.
+      const currentAnimation = animation.current;
+      if (currentAnimation?.active) {
+        // A newer semantic transaction inherits the camera that is physically
+        // still moving; the eventual acknowledgement belongs to the newest
+        // sequence, never to the obsolete cue.
+        currentAnimation.sequence = transition.sequence;
+        lastTransitionSequence.current = transition.sequence;
+        reportMotionState(transition.sequence, "pending");
+      } else {
+        lastTransitionSequence.current = transition.sequence;
+        settleCameraMotion(null, transition.sequence, reportMotionState);
+      }
       if (transition.intent === "overlay") lastTransitionSequence.current = transition.sequence;
       return;
     }
@@ -251,6 +324,7 @@ export function CameraDirector({
     const duration = sharedTransition
       ? transition.duration
       : motionDurationSeconds(motionIntent, motionScale, !motion);
+    reportMotionState(transition.sequence, "pending");
     animation.current = {
       fromTarget: currentTarget,
       viaTarget,
@@ -267,7 +341,8 @@ export function CameraDirector({
       start: null,
       duration: Math.max(duration, 0.0001),
       active: true,
-      intent: motionIntent
+      intent: motionIntent,
+      sequence: transition.sequence
     };
     if ("fov" in camera) {
       (camera as THREE.PerspectiveCamera).fov = 40;
@@ -280,16 +355,17 @@ export function CameraDirector({
       controls?.target.copy(desiredTarget);
       camera.lookAt(desiredTarget);
       controls?.update();
+      settleCameraMotion(animation.current, transition.sequence, reportMotionState);
       animation.current = null;
       invalidate();
     }
     invalidate();
-  }, [camera, cameraTargetKey, enableIntro, fitDistance, flyToNode, invalidate, layout, layout.group, layout.level, layout.perspective, lockedNode, motion, motionScale, transition.duration, transition.intent, transition.sequence, travelVia]);
+  }, [camera, cameraTargetKey, enableIntro, fitDistance, flyToNode, invalidate, layout, layout.group, layout.level, layout.perspective, layoutRequestResolved, lockedNode, motion, motionScale, reportMotionState, transition.duration, transition.intent, transition.sequence, travelVia]);
 
   useFrame((state) => {
     const anim = animation.current;
     const controls = controlsRef.current;
-    if (!anim?.active || !controls) return;
+    if (!anim?.active) return;
     if (anim.start === null) anim.start = state.clock.elapsedTime;
     const t = Math.min((state.clock.elapsedTime - anim.start) / anim.duration, 1);
     const eased = motionProgress(anim.intent, t);
@@ -304,7 +380,7 @@ export function CameraDirector({
     const distance = THREE.MathUtils.lerp(anim.fromDistance, anim.toDistance, eased) + travelArc * anim.distanceSwell;
     // Quadrant flight owns azimuth so the selected region opens ahead and the
     // root stays close in the foreground. Other moves preserve user azimuth.
-    const offset = camera.position.clone().sub(controls.target);
+    const offset = camera.position.clone().sub(controls?.target ?? anim.fromTarget);
     const spherical = new THREE.Spherical().setFromVector3(
       offset.lengthSq() > 0.0001 ? offset : new THREE.Vector3(0, 1, 1)
     );
@@ -313,12 +389,12 @@ export function CameraDirector({
     if (anim.toTheta !== null) {
       spherical.theta = lerpAngle(anim.fromTheta, anim.toTheta, eased) + travelArc * anim.thetaArc;
     }
-    controls.target.copy(target);
+    controls?.target.copy(target);
     camera.position.copy(target.clone().add(new THREE.Vector3().setFromSpherical(spherical)));
     camera.lookAt(target);
-    controls.update();
+    controls?.update();
     state.invalidate();
-    if (t >= 1) anim.active = false;
+    if (t >= 1) settleCameraMotion(anim, transition.sequence, reportMotionState);
   });
 
   return (
@@ -332,7 +408,8 @@ export function CameraDirector({
       enableDamping
       onStart={() => {
         // User input interrupts any camera choreography immediately.
-        if (animation.current) animation.current.active = false;
+        lastTransitionSequence.current = transition.sequence;
+        interruptCameraMotion(animation.current, transition.sequence, reportMotionState);
       }}
     />
   );

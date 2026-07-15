@@ -2,8 +2,22 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { canUseWebGL, sceneFrameloop, sceneMotionDurationSeconds, sceneMotionIntent, SystemScene } from "./SystemScene";
+import {
+  canUseWebGL,
+  reduceSpatialMotionSettlement,
+  sceneFrameloop,
+  sceneMotionDurationSeconds,
+  sceneMotionIntent,
+  spatialMotionReadyForFinalPaint,
+  spatialMotionSettlementState,
+  SystemScene
+} from "./SystemScene";
 import type { SceneMotionSnapshot } from "./SystemScene";
+import {
+  cameraRequestMustWait,
+  interruptCameraMotion,
+  settleCameraMotion
+} from "../renderers/scene/parts/camera";
 import type { GitState, GraphNode } from "../types";
 import {
   latchRuntimePerformanceFallback,
@@ -103,6 +117,83 @@ describe("scene semantic motion transaction", () => {
     expect(sceneFrameloop(false, true)).toBe("always");
     expect(sceneFrameloop(false, false)).toBe("demand");
   });
+
+  it("settles one sequence only after morph, camera and the final paint boundary", () => {
+    let settlement = spatialMotionSettlementState(12);
+    settlement = reduceSpatialMotionSettlement(settlement, {
+      type: "settled",
+      lane: "morph",
+      sequence: 12
+    });
+    expect(spatialMotionReadyForFinalPaint(settlement)).toBe(false);
+    expect(reduceSpatialMotionSettlement(settlement, { type: "final", sequence: 12 }).final).toBe(false);
+
+    settlement = reduceSpatialMotionSettlement(settlement, {
+      type: "settled",
+      lane: "camera",
+      sequence: 12
+    });
+    expect(spatialMotionReadyForFinalPaint(settlement)).toBe(true);
+    settlement = reduceSpatialMotionSettlement(settlement, { type: "final", sequence: 12 });
+    expect(settlement).toEqual({ sequence: 12, morph: true, camera: true, final: true });
+
+    settlement = reduceSpatialMotionSettlement(settlement, {
+      type: "pending",
+      lane: "camera",
+      sequence: 12
+    });
+    expect(settlement).toEqual({ sequence: 12, morph: true, camera: false, final: false });
+  });
+
+  it("ignores stale callbacks and resets every lane for a new semantic sequence", () => {
+    const previous = {
+      sequence: 7,
+      morph: true,
+      camera: true,
+      final: true
+    };
+    let settlement = reduceSpatialMotionSettlement(previous, { type: "begin", sequence: 8 });
+    settlement = reduceSpatialMotionSettlement(settlement, {
+      type: "settled",
+      lane: "camera",
+      sequence: 7
+    });
+    settlement = reduceSpatialMotionSettlement(settlement, {
+      type: "settled",
+      lane: "morph",
+      sequence: 7
+    });
+    settlement = reduceSpatialMotionSettlement(settlement, { type: "final", sequence: 7 });
+    expect(settlement).toEqual({ sequence: 8, morph: false, camera: false, final: false });
+  });
+
+  it("acknowledges camera cuts, no-ops and a control interruption before the clock starts", () => {
+    const reports: Array<{ sequence: number; state: string }> = [];
+    const report = (sequence: number, state: "pending" | "settled") => reports.push({ sequence, state });
+    const interrupted = { sequence: 20, active: true, start: null };
+
+    expect(interruptCameraMotion(interrupted, 21, report)).toBe(21);
+    expect(interrupted.active).toBe(false);
+    expect(settleCameraMotion(null, 22, report)).toBe(22);
+
+    const staleInactive = { sequence: 9, active: false, start: null };
+    expect(interruptCameraMotion(staleInactive, 24, report)).toBe(24);
+
+    const reducedMotionCut = { sequence: 23, active: true, start: null };
+    expect(settleCameraMotion(reducedMotionCut, 99, report)).toBe(23);
+    expect(reducedMotionCut.active).toBe(false);
+    expect(reports).toEqual([
+      { sequence: 21, state: "settled" },
+      { sequence: 22, state: "settled" },
+      { sequence: 24, state: "settled" },
+      { sequence: 23, state: "settled" }
+    ]);
+  });
+
+  it("keeps every camera subject pending until its exact worker request commits", () => {
+    expect(cameraRequestMustWait(false)).toBe(true);
+    expect(cameraRequestMustWait(true)).toBe(false);
+  });
 });
 
 describe("SystemScene fallback", () => {
@@ -142,6 +233,11 @@ describe("SystemScene fallback", () => {
     expect(container.querySelector(".sceneFallback")?.getAttribute("data-fallback-reason")).toBe("webgl_unavailable");
     expect(scene?.getAttribute("data-motion-intent")).toBe("view");
     expect(scene?.getAttribute("data-motion-duration-ms")).toBe("0");
+    await waitFor(() => {
+      expect(scene?.getAttribute("data-morph-motion-settled")).toBe("true");
+      expect(scene?.getAttribute("data-camera-motion-settled")).toBe("true");
+      expect(scene?.getAttribute("data-spatial-motion-settled")).toBe("true");
+    });
     expect(screen.getByText("Draft change")).toBeTruthy();
     // Groups render as links sharing the world URL grammar.
     const groupLink = screen.getByRole("link", { name: /example · 1/ });

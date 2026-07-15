@@ -80,41 +80,45 @@ used positional routes without exact native route, view, runtime or
 evidence, but no capture directory, visual manifest, capsule, receipt,
 attestation, downstream plan, import or Lane B authority was created.
 
-The active package is `wiki-viva-v8-rc36` / `candidate` at exact source
-`8f96e1fd58258df64174229d81ee6a330ba9d2b1`. Its first and only complete exact
-validation at metadata subject `3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd`
-passed 23/23 recorded gates: 1,782 Python checks with 3 declared skips in
-1,082.23 seconds, 518 frontend checks, 123 Node checks and browser run
-`public-mrlis0t7-bfd938c4-5799-4c19-b7b0-e7df20d75651` at 102/102 with no
-failure, skip, retry or flaky cell. It uses runner 1.4.0,
-`wiki_visual_evidence_capture.v2` and
-`wiki_viva_canary_visual_summary.v2`, with exact native route, view, v8 runtime
-and `canary_viewport` enforcement. `package_is_pinned=true`; candidate status
-authorizes productive capture and Lane A certification only. No productive
-capture, visual manifest, capsule, receipt, attestation, downstream plan,
-import or Lane B authority exists.
+Rc36 exact source `8f96e1fd58258df64174229d81ee6a330ba9d2b1` passed its first
+and only complete exact validation at metadata subject
+`3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd`: 23/23 recorded gates, 1,782
+Python checks with 3 declared skips in 1,082.23 seconds, 518 frontend checks,
+123 Node checks and browser run
+`public-mrlis0t7-bfd938c4-5799-4c19-b7b0-e7df20d75651` at 102/102. These
+exact-validation receipts remain historical evidence. Their validation result /
+toolchain / runner-payload identities are `5585819e...` / `6728f464...` /
+`03a75c40...`; their validation-subject package-file / canonical-package /
+portable-tree identities are `47c3dc7d...` / `81a3b600...` / `53ffdf8b...`.
+The corrected candidate package-file / canonical-package / portable-tree
+identities are `8343066a...` / `8ee7e597...` / `4dc31eff...`. Candidate
+metadata subject `ac0f49afe28a5bf84003b58c537ac1727dab7008` produced manifest
+`6199d1001ba98c2c772323069765ddc695cc8971f6d7e03390e496de64551808`,
+then its first/only Lane A run failed closed at 101/102 browser cells. After a
+desktop dense-stress drill-down and back, a visible target was not the hit-test
+owner at its center because camera settlement lagged the released spatial cue.
+The certification stream / browser gate log / browser run result / Playwright
+report identities are `a95d70853be927ad29a6e98e619f62faad1dffa3dfc60f11299ca803f2e8f545` /
+`2d5405db94d8ba9af0d72d3cad564205d5af660513be29c1f7953cf746e77256` /
+`2b1c678a7e3bd46d7dc1a27c0e8cbf9a21269c781b8cb1b4bd17fc3bcd1ffa33` /
+`bb69c7acb697bbd33619765f30b6dc32851ef16c3675c5f4eaac1c7a29601c05`.
+Rc36 is immutable `historical_certification_failed`: no capsule, receipt,
+attestation, trust anchor, downstream plan, import, adoption or Lane B
+authority exists, and the subject is never retried, reused, relabeled,
+promoted or imported.
 
-The validation-subject package-file/canonical-package/portable-tree SHA-256
-values `47c3dc7d...` / `81a3b600...` / `53ffdf8b...` (521 entries) remain bound
-to that validation metadata subject, not to the current candidate. The
-separately reviewed current candidate values are
-`8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b` /
-`8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2` /
-`4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3`.
-Metadata subject `7f1c859d...` and its `4b3dd32b...` / `bca7d50a...` /
-`2f03cae7...` identities are immutable rejected evidence. Its visual manifest
-`e314296c...` cannot be reused because certification preflight rejected an
-8,372-character limitation against the 8,192-character schema maximum before
-any Lane A gate ran. Failure stream `1e816308...` exists; no capsule, receipt
-or authority was minted. The correction is a distinct metadata boundary of
-the same rc36.
-Validation-result/toolchain/runner-payload identities are `5585819e...` /
-`6728f464...` / `03a75c40...`.
-
-Operational scoreboard: `source pinned` and `exact validation` are complete;
-`capsule verified`, `private canary` and `private main readback` are pending
-(`2/5`). Draft PR #61 remains stale and does not represent this local truth.
-Public push/publication remains unauthorized.
+RT-172 forms a new sequence-bound successor: spatial readiness must wait for
+matching morph and camera acknowledgements, reject stale callbacks and only
+then cross the compositor barrier. The active package truth is `unreleased` /
+`validation_pending` at formation base
+`ac0f49afe28a5bf84003b58c537ac1727dab7008`, with
+`package_is_pinned=false`. Its fix still needs a new immutable source commit,
+pin, wholly new exact validation, productive capture and Lane A certification.
+The new-subject scoreboard is `0/5`; none of `source pinned`, `exact validation`,
+`capsule verified`, `private canary` or `private main readback` is complete.
+Draft PR #61 remains stale and public push/publication remains unauthorized.
+Private PR #211 remains historical v2; only a fresh v3 adoption may start after
+the successor capsule and attestation verify fail-closed.
 See the [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority. Do not start downstream adoption until the Lane A capsule and
@@ -339,10 +343,13 @@ the exact clean source, covering every package visual profile with strict PNG
 and record-backed source/toolchain/console/network proof. `verify-capsule` then
 reopens the sealed authority with the out-of-band attestation SHA-256 before
 Lane B may plan; successful gate logs containing host-local paths are rejected.
-The rc36 validation-source contract uses `wiki_visual_evidence_capture.v2` for
-Lane A and `wiki_viva_canary_visual_summary.v2` for Lane B. Each profile binds
-its canonical native route, observed view, v8 runtime and exact capture/canary
-viewport; stale v1 or coherently resealed mismatches fail closed.
+The v2 visual contract validated during rc36 uses
+`wiki_visual_evidence_capture.v2` for Lane A and
+`wiki_viva_canary_visual_summary.v2` for Lane B. Each profile binds its
+canonical native route, observed view, v8 runtime and exact capture/canary
+viewport; stale v1 or coherently resealed mismatches fail closed. Rc36's failed
+certification does not authorize reuse: its RT-172 successor must prove the
+same contract again from its new immutable source.
 
 The normative contract, schemas, impact registry, resumable-runner behavior and
 transition rule are in the
@@ -434,22 +441,26 @@ bind the exact native view/runtime/canary viewport contract. Rc35 is immutable
 `historical_precapture_rejected`; no capture directory, visual manifest,
 capsule, receipt or Lane B authority exists.
 
-The active package is `wiki-viva-v8-rc36` / `candidate` at exact source
-`8f96e1fd58258df64174229d81ee6a330ba9d2b1`. It carries the RT-170 B0
-correction plus runner 1.4.0, capture record v2 and canary summary v2 with exact
-native route, view, v8 runtime and `canary_viewport` checks.
-Its first and only complete exact validation at metadata subject `3db3f9f4...`
-passed all 23 gates, including 1,782 Python with 3 declared skips, 518 frontend,
-123 Node and browser 102/102 with no failure, skip, retry or
-flaky cell. The separately reviewed candidate package-file/canonical/tree
-identities are `8343066a...` / `8ee7e597...` / `4dc31eff...`, 521 entries.
-`package_is_pinned=true`; productive capture, visual manifest, capsule,
-receipt and Lane B authority remain pending. Draft PR #61 is stale and public
-push remains unauthorized. The single scoreboard is `2/5`: source pin and
-exact validation complete; capsule verification, private canary and private
-main readback pending.
-The prior `7f1c859d...` metadata boundary and capture `e314296c...` are rejected
-and non-reusable; schema preflight failed before any Lane A gate or authority.
+Rc36 exact source `8f96e1fd58258df64174229d81ee6a330ba9d2b1` and metadata
+subject `3db3f9f4...` retain their valid 23/23 exact-validation receipts. The
+corrected candidate metadata subject `ac0f49af...` and manifest `6199d100...`
+then reached its first/only Lane A run, where the strict browser matrix stopped
+at 101/102 on the RT-172 camera/spatial settlement race. Stream `a95d7085...`,
+browser gate log `2d5405db...`, browser run result `2b1c678a...` and Playwright
+report `bb69c7ac...` preserve that failure. Rc36 is immutable
+`historical_certification_failed`; it minted no capsule, receipt, attestation,
+trust anchor or Lane B authority and is never retried or reused. The prior
+`7f1c859d...` metadata boundary and capture `e314296c...` remain separately
+rejected and non-reusable.
+
+The active truth is now `unreleased` / `validation_pending` at formation base
+`ac0f49afe28a5bf84003b58c537ac1727dab7008`, with
+`package_is_pinned=false`. RT-172's sequence-bound fix must become a new source,
+be pinned and pass one wholly new exact validation, productive capture and
+Lane A certification. Draft PR #61 is stale; public push remains unauthorized.
+The successor scoreboard is `0/5`, from source pin through private-main
+readback. Private PR #211 remains historical v2; no fresh v3 adoption starts
+before the successor capsule verifies fail-closed.
 Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.
 No existing v2 C3 or receipt is amended to reach it.

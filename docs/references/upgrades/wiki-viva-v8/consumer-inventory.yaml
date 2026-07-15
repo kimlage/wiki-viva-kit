@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc36@8f96e1fd
+    current_kit_version: unreleased@ac0f49af
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,12 +32,12 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc35_precapture_rejected_rc36_candidate_capture_pending
+      state: rc36_certification_failed_rt172_successor_unpinned
       drift_total: 0
-      compared_against: wiki-viva-v8-rc36@8f96e1fd
-      worktree: rc36_candidate_boundary_local_only
+      compared_against: unreleased@ac0f49af
+      worktree: rt172_source_formation_local_only
     upgrade_wave: public_kit
-    status: blocked_on_rc36_capture_and_certification
+    status: blocked_on_rt172_source_pin_and_exact_validation
     blocker: >-
       Rc21 through rc33 remain frozen according to their recorded historical
       outcomes. Rc34 source 533d2868 passed complete exact validation at
@@ -57,7 +57,7 @@ consumers:
       rejected rc35 before productive capture because positional real-canary
       routes and v1 capture/summary schemas did not prove the exact native view,
       runtime_mode v8 and canary viewport together. Rc35 is immutable
-      historical_precapture_rejected. Rc36 source 8f96e1fd carries capture v2,
+      historical_precapture_rejected. Rc36 source 8f96e1fd carried capture v2,
       canary-summary v2 and exact native route/runtime/viewport enforcement.
       Its validation-subject measurement bound package-file/canonical-package/
       tree SHA-256
@@ -74,24 +74,41 @@ consumers:
       SHA-256 values are 5585819e60c5f7550f06e9990c4de23b42e5eb3113f2bdf5036cac563465a267 /
       6728f4644bc18da8602f1c3ea982f6b5584c7e949716e2e3c2bb58110fba7083 /
       03a75c4072048b8150e95737bb7c458562bd29da184286c09a3cea7699955424.
-      A separate candidate boundary now binds package-file/canonical-package/
-      tree SHA-256
+      Its final candidate metadata subject ac0f49af bound
+      package-file/canonical-package/tree SHA-256
       8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b /
       8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2 /
       4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3
-      with 521 portable entries and permits productive capture plus Lane A
-      certification only; no capture, capsule, downstream plan or adoption
-      authority is declared yet.
+      with 521 portable entries. Its productive four-profile capture sealed
+      manifest 6199d1001ba98c2c772323069765ddc695cc8971f6d7e03390e496de64551808.
+      The first and only Lane A certification then stopped fail-closed at
+      101/102 browser cells after Back navigation exposed unsettled camera/Html
+      hit testing. Certification stream, browser-gate log, browser run-result
+      and Playwright-report SHA-256 values are
+      a95d70853be927ad29a6e98e619f62faad1dffa3dfc60f11299ca803f2e8f545 /
+      2d5405db94d8ba9af0d72d3cad564205d5af660513be29c1f7953cf746e77256 /
+      2b1c678a7e3bd46d7dc1a27c0e8cbf9a21269c781b8cb1b4bd17fc3bcd1ffa33 /
+      bb69c7acb697bbd33619765f30b6dc32851ef16c3675c5f4eaac1c7a29601c05.
+      No capsule, receipt, attestation, trust anchor, downstream plan or Lane B
+      authority was minted. Rc36 is immutable
+      historical_certification_failed; its exact validation remains valid
+      historical evidence but its candidate, capture and results cannot be
+      retried, reused, relabeled, promoted or imported.
       The preceding metadata subject 7f1c859d bound candidate package-file /
       canonical-package / tree 4b3dd32b / bca7d50a / 2f03cae7 and produced
       visual manifest e314296c. Certification preflight rejected an
       8372-character limitation against the 8192-character schema maximum
       before any Lane A gate. Failure stream 1e816308 exists; no capsule,
       receipt or authority was minted. That package and capture are immutable,
-      rejected and non-reusable; the correction is a distinct rc36 metadata
-      boundary without invalidating source pin or exact validation.
-      Public push is not authorized; external E5 and a release tag remain
-      separate
+      rejected and non-reusable; the correction was a distinct rc36 metadata
+      boundary without invalidating its then-valid source pin or exact
+      validation.
+      RT-172 now requires one successor source to bind morph, camera and Html
+      settlement to the same navigation sequence before a separate source pin
+      and wholly new exact validation. The active package is
+      unreleased/validation_pending at ac0f49af with package_is_pinned=false;
+      the canonical scoreboard is 0/5. Draft PR #61 is stale and public push,
+      publication, external E5 and a release tag remain unauthorized
 
   - id: private-pilot-01
     repository:
@@ -119,11 +136,11 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: v2_adoption_complete_rc36_candidate_capsule_pending
+      state: v2_adoption_complete_rt172_successor_unpinned
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: wiki-viva-v8-rc36@8f96e1fd
+      target_version: unreleased@ac0f49af
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
       details: >-
@@ -139,12 +156,17 @@ consumers:
         55910c37, but RT-171 rejected it before productive capture. Its reviewed
         local-QA projection was never committed as candidate metadata and
         minted no capsule or downstream authority. Rc36 source 8f96e1fd passed
-        its complete exact validation at metadata subject 3db3f9f4 and has a
-        separate candidate boundary. It is still not a downstream target.
-        After productive capture, Lane A certification and independent capsule
-        verification, the fresh
-        rc36/v3 adoption starts from the then-current private main, not from
-        private PR #211 or its historical v2 C3/receipts. Standing human authorization for incremental
+        its complete exact validation at metadata subject 3db3f9f4, then its
+        first and only Lane A certification stopped at 101/102 browser cells
+        after Back navigation exposed unsettled camera/Html hit testing. Rc36
+        is immutable historical_certification_failed and minted no capsule,
+        attestation or Lane B authority. RT-172 must first form one successor
+        that binds morph, camera and Html settlement, then receive a separate
+        pin, wholly new exact validation, productive capture, Lane A
+        certification and fail-closed capsule verification. Only after that
+        authority exists may a fresh v3 adoption start from the then-current
+        private main, not from private PR #211 or its historical v2 C3/receipts.
+        Standing human authorization for incremental
         merges to the private pilot's main branch is recorded, but it does not
         waive technical fail-closed gates, privacy/secret audits, real canary,
         rollback or report verification. Consumer AGENTS.md,
@@ -152,7 +174,7 @@ consumers:
         surfaces
       verified_on: "2026-07-15"
     upgrade_wave: pilot
-    status: blocked_on_rc36_verified_capsule
+    status: blocked_on_rt172_successor_verified_capsule
     blocker: >-
       The current private v2 evidence remains immutable and cannot be reduced
       by the v3 strategy. Rc34 is historical_precapture_rejected after RT-170
@@ -160,12 +182,18 @@ consumers:
       historical_precapture_rejected after RT-171; its valid exact validation
       remains historical but no candidate metadata, capsule or adoption
       authority exists. Rc36 exact source 8f96e1fd passed its one complete
-      exact validation at metadata subject 3db3f9f4 and now has a separate
-      candidate boundary. Productive capture, verified certification capsule
-      and fresh current-main consumer preflight must still precede any v3
-      downstream QA.
+      exact validation at metadata subject 3db3f9f4, but its first and only
+      Lane A certification failed closed at 101/102 browser cells. No capsule,
+      attestation or Lane B authority exists; rc36 is immutable
+      historical_certification_failed. The active package is
+      unreleased/validation_pending at ac0f49af with package_is_pinned=false
+      and a 0/5 scoreboard. One RT-172 successor must bind morph, camera and
+      Html settlement and pass a separate pin, wholly new exact validation,
+      productive capture, certification and capsule verification before a
+      fresh current-main consumer preflight or any v3 downstream QA.
       Private PR #211 is
-      v2 historical evidence and cannot be promoted as rc36/v3. Incremental
+      v2 historical evidence and cannot be promoted as a fresh v3 adoption.
+      Incremental
       private-main merge authorization is already recorded; promotion remains
       technically blocked until every applicable audit, semantic, adapter,
       snapshot, canary, diff, rollback and report gate passes. Historical

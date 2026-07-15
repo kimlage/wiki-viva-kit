@@ -1,12 +1,43 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc36
-  status: candidate
-  source_sha: 8f96e1fd58258df64174229d81ee6a330ba9d2b1
+  id: unreleased
+  status: validation_pending
+  source_sha: ac0f49afe28a5bf84003b58c537ac1727dab7008
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc36
+    source_sha: 8f96e1fd58258df64174229d81ee6a330ba9d2b1
+    status: historical_certification_failed
+    note: >-
+      Exact rc36 passed its first and only complete validation at metadata
+      subject 3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd: 23/23 gates,
+      1782 Python checks with 3 declared skips, 518 frontend, 123 Node and
+      browser 102/102. Corrected candidate metadata
+      ac0f49afe28a5bf84003b58c537ac1727dab7008 bound raw-package /
+      canonical-package / portable-tree SHA-256
+      8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b /
+      8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2 /
+      4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3,
+      521 entries. Its fresh four-profile productive capture verified as manifest
+      6199d1001ba98c2c772323069765ddc695cc8971f6d7e03390e496de64551808.
+      The first and only Lane A run passed architecture, bundle, demo drift,
+      518 frontend and portable Python with 1782 passes plus 3 skips, but its
+      browser gate stopped at 101/102 after 410.796 seconds. Chromium desktop
+      dense_stress returned from a semantic group with Back while the camera
+      and Drei Html hit tree were still moving: the visible
+      region:pratica:family:action label had an empty elementFromPoint owner.
+      Console and network errors were zero. Gate-log/run-result/report SHA-256
+      values are 2d5405db94d8ba9af0d72d3cad564205d5af660513be29c1f7953cf746e77256 /
+      2b1c678a7e3bd46d7dc1a27c0e8cbf9a21269c781b8cb1b4bd17fc3bcd1ffa33 /
+      bb69c7acb697bbd33619765f30b6dc32851ef16c3675c5f4eaac1c7a29601c05;
+      certification stream SHA-256 is
+      a95d70853be927ad29a6e98e619f62faad1dffa3dfc60f11299ca803f2e8f545.
+      RT-172 requires one sequence-bound camera+morph+Html settlement contract.
+      No capsule, receipt, attestation, trust anchor or Lane B authority was
+      minted. Rc36 and both of its captures are immutable failed-certification
+      evidence and must never be retried, reused, relabeled, promoted or imported
   - id: wiki-viva-v8-rc35
     source_sha: 52491dfd6c3a81f0356fb64a9e01e41dd71e07a0
     status: historical_precapture_rejected
@@ -770,13 +801,35 @@ known_limitations:
     no capsule, attestation, downstream plan, import or Lane B authority exists.
     Public push remains unauthorized.
   - Candidate metadata 7f1c859d2b666f320b319094d02a551e94542926 bound raw-package/canonical-package/portable-tree SHA-256 4b3dd32bf4006026e9dad1be1ceb98a34e87cdebfe0c7e6f9d8aa20260cddbc5 / bca7d50ab57749e5dd2c40da1f3c157d7a22e4caa2189436f1af67ebf03efa55 / 2f03cae734f67e9c478fc78f8f470d0283ae3dc39e78c7d398ac86aa26714bb9 and produced verified visual manifest e314296c3105b6c943cd901cc4fc3c38867df69353a0fe37f0713d66838745f5. Its first certify preflight rejected known_limitations[0] at 8372 characters against the 8192-character schema maximum before any Lane A gate started. No capsule or authority was minted; that package and capture are immutable rejected evidence and must never be reused.
+  - >-
+    Corrected rc36 candidate metadata
+    ac0f49afe28a5bf84003b58c537ac1727dab7008 bound
+    package-file/canonical/tree
+    8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b /
+    8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2 /
+    4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3
+    and verified productive manifest
+    6199d1001ba98c2c772323069765ddc695cc8971f6d7e03390e496de64551808.
+    Its first/only Lane A run failed closed at browser 101/102: after Back in
+    public dense_stress, one visible Drei Html label had no elementFromPoint
+    node owner because the interaction cue observed morph completion but not
+    the independent camera clock. Console/network errors were zero; portable
+    Python passed 1782 plus 3 skips. Stream/gate-log/run-result SHA-256 values
+    are a95d70853be927ad29a6e98e619f62faad1dffa3dfc60f11299ca803f2e8f545 /
+    2d5405db94d8ba9af0d72d3cad564205d5af660513be29c1f7953cf746e77256 /
+    2b1c678a7e3bd46d7dc1a27c0e8cbf9a21269c781b8cb1b4bd17fc3bcd1ffa33.
+    No capsule, receipt, attestation or authority was minted. Rc36 and its
+    capture are immutable historical_certification_failed evidence and must
+    never be retried or reused. RT-172 forms a new unpinned source with
+    sequence-bound camera+morph+Html settlement; no successor pin or validation
+    authority exists yet.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - RT-171 rc36 exact validation source binds all four productive and real-canary entry profiles to runtime_mode v8. Desktop uses productive `/demo/w?center=root-alex-rivera&view=quadrants&tour=0` and canary `/w?view=quadrants&tour=0`, both 1440x1000. Mobile uses productive `/demo/w?view=timeline&tour=0` and canary `/w?view=timeline&tour=0`, both 390x844. Fallback uses productive `/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0` at 1280x900 and canary `/w?view=quadrants&visual=1&tour=0` at 1440x1000. Quadrant collection uses productive `/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0` and canary `/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0`, both 1440x1000. The exact schemas are wiki_visual_evidence_capture.v2 and wiki_viva_canary_visual_summary.v2; a positional, compat, missing-runtime, wrong-view or wrong-canary-viewport observation fails closed.
-  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. Active `wiki-viva-v8-rc36` source 8f96e1fd58258df64174229d81ee6a330ba9d2b1 passed its first and only complete exact validation at metadata subject 3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd and now has a separate `candidate` boundary, so package_is_pinned is true. Candidate status permits only productive capture and Lane A certification; every downstream plan/adoption path remains fail-closed until the capsule and external attestation verify independently. Public promotion remains separate and public push is unauthorized.
+  - Rc24, rc26 and rc36 are immutable historical failed-certification evidence. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. Rc36 exact validation remains valid historical evidence, but its first/only Lane A run exposed RT-172 and minted no capsule. The active package is deliberately unreleased/validation_pending and package_is_pinned is false while the successor source is formed. Every downstream path remains fail-closed until a wholly new exact source is separately pinned, validated, captured, certified and independently verified. Public promotion remains separate and public push is unauthorized.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc35 can never authorize another import. Exact rc36 may be adopted in three new ordered reviewable boundaries only after its payload, capsule and external attestation verify independently and the applicable consumer human gate is satisfied. Standing private-main approval satisfies that consumer human gate only after every technical gate passes; public promotion remains separate. The fresh rc36/v3 adoption starts from the then-current private main; private PR #211 remains historical v2 evidence and is never its B0, C3 or promotion authority.
-  - The historical private S9 read-only preflight remains attached to S9; a future exact rc36 or later subject requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc36 can never authorize another import. A future exact successor may be adopted in three new ordered reviewable boundaries only after its payload, capsule and external attestation verify independently and the applicable consumer human gate is satisfied. Standing private-main approval satisfies that consumer human gate only after every technical gate passes; public promotion remains separate. The fresh v3 adoption starts from the then-current private main; private PR #211 remains historical v2 evidence and is never its B0, C3 or promotion authority.
+  - The historical private S9 read-only preflight remains attached to S9; a future exact successor requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.
@@ -786,5 +839,5 @@ known_limitations:
   - Toolkit-owned .skills/wiki-*/** remain portable C1. Nested consumer skills under .skills/*/**, AGENTS.md and the literal root .skills/README.md are C3; the literal path is required because the nested skill glob intentionally cannot cross the directory boundary.
   - A downstream must choose an ignored and untracked plan output subtree before freezing B0. The exact plan parent owns resumable state, receipts and reports; ignoring all .wiki-viva/ is forbidden because consumer pack state may be versioned there, and this consumer-owned pre-B0 policy is never supplied by C1.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed complete validation, rc24/rc26 failed certification after valid captures, rc28/rc29/rc30 were rejected before complete validation, and rc34/rc35 were rejected before productive capture. Exact rc35 source 52491dfd6c3a81f0356fb64a9e01e41dd71e07a0 preserves the RT-170 B0/C1/C3 correction and passed wholly new validation at metadata subject 55910c379b64060451fb8fb93eb85d47b9245122, but RT-171 proved its visual authority did not bind native route/view, runtime_mode v8 and canary viewport together. Rc35 is historical_precapture_rejected; its uncommitted candidate projection is not authority. Exact rc36 source 8f96e1fd58258df64174229d81ee6a330ba9d2b1 corrects that public visual contract with capture v2 and canary-summary v2, passed its first and only complete exact validation at metadata subject 3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd and now has a separate candidate boundary. RT-150 still requires a verified capsule plus external attestation before adoption; public promotion remains a separate public-release boundary, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
+  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed complete validation, rc24/rc26/rc36 failed certification after valid captures, rc28/rc29/rc30 were rejected before complete validation, and rc34/rc35 were rejected before productive capture. Rc36 exact source 8f96e1fd58258df64174229d81ee6a330ba9d2b1 passed its first/only complete exact validation at metadata 3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd and then exposed RT-172 during first/only Lane A browser certification. Its capture and result are immutable failed-certification evidence, not authority. RT-150 still requires a wholly new verified capsule plus external attestation before adoption; public promotion remains a separate public-release boundary, RT-151 forbids reuse of old product evidence, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.

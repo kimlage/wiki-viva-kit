@@ -180,43 +180,64 @@ another) via skills — there is no embedded LLM client.
   attestation, trust anchor, downstream plan, import or Lane B authority was
   created. Never retry, relabel, promote or import rc35.
 
-  The active package is `wiki-viva-v8-rc36` / `candidate` at exact source
-  `8f96e1fd58258df64174229d81ee6a330ba9d2b1`. Its first and only complete exact
-  validation at metadata subject
-  `3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd` passed 23/23 recorded gates:
-  1,782 Python checks with 3 declared skips in 1,082.23 seconds, 518 frontend
-  checks, 123 Node checks and browser run
+  Rc36 exact source `8f96e1fd58258df64174229d81ee6a330ba9d2b1`
+  passed its first and only complete exact validation at metadata subject
+  `3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd`: 23/23 recorded gates, 1,782
+  Python checks with 3 declared skips in 1,082.23 seconds, 518 frontend checks,
+  123 Node checks and browser run
   `public-mrlis0t7-bfd938c4-5799-4c19-b7b0-e7df20d75651` at 102/102 with no
-  failure, skip, retry or flaky cell. The validation result/toolchain/runner
-  payload SHA-256 values are `5585819e...` / `6728f464...` / `03a75c40...`.
-  Its validation-subject package-file/canonical-package/portable-tree SHA-256
-  values remain bound to that validation metadata subject, not to the current
-  candidate: `47c3dc7d...` / `81a3b600...` / `53ffdf8b...` (521 entries). The
-  separately reviewed current candidate package-file /
-  canonical-package / portable-tree identities are
+  failure, skip, retry or flaky cell. Those exact-validation receipts remain
+  valid historical evidence. Their validation result / toolchain / runner
+  payload identities are
+  `5585819e60c5f7550f06e9990c4de23b42e5eb3113f2bdf5036cac563465a267` /
+  `6728f4644bc18da8602f1c3ea982f6b5584c7e949716e2e3c2bb58110fba7083` /
+  `03a75c4072048b8150e95737bb7c458562bd29da184286c09a3cea7699955424`;
+  validation-subject package-file / canonical-package / portable-tree
+  identities are
+  `47c3dc7dff8336c7707a4c43cc37275aef3721e2b1a54109b94e64cbed6992f1` /
+  `81a3b600f4cd6cd0f0d3abac0b886e9db15fdd3ad0120c9442ce7fc76cc07832` /
+  `53ffdf8bc0a2c61f1bf7f426ba12e7e9a0c4995e92703a7264596b9f9a81594c`.
+  The corrected candidate metadata subject
+  `ac0f49afe28a5bf84003b58c537ac1727dab7008` bound package-file /
+  canonical-package / portable-tree identities
   `8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b` /
   `8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2` /
-  `4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3`.
-  The preceding metadata subject `7f1c859d2b666f320b319094d02a551e94542926`
-  and its `4b3dd32b...` / `bca7d50a...` / `2f03cae7...` candidate identities
-  are immutable rejected evidence. Its four-profile capture manifest
-  `e314296c...` cannot be reused: certification preflight rejected an
-  8,372-character limitation against the schema's 8,192-character maximum,
-  before any Lane A gate ran. Failure stream `1e816308...` exists; no capsule,
-  receipt or authority was minted. The corrected boundary remains rc36 but is
-  a distinct immutable metadata subject.
-  `package_is_pinned=true`; candidate status authorizes productive capture and
-  Lane A certification only. No productive capture, visual manifest, capsule,
-  receipt, attestation, downstream plan, import or Lane B authority exists.
-  Rc36 uses runner 1.4.0,
-  `wiki_visual_evidence_capture.v2` and
-  `wiki_viva_canary_visual_summary.v2`, with exact native route, view, v8 runtime
-  and `canary_viewport` enforcement.
+  `4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3`
+  and produced the first/only four-profile manifest
+  `6199d1001ba98c2c772323069765ddc695cc8971f6d7e03390e496de64551808`.
+  Its first/only Lane A run stopped fail-closed at 101/102 browser cells: after
+  drill-down and back in the desktop dense-stress case, the camera was still
+  settling after the released cue and one visible semantic target was not the
+  hit-test owner at its center. The certification stream / browser gate log /
+  browser run result / Playwright report SHA-256 values are
+  `a95d70853be927ad29a6e98e619f62faad1dffa3dfc60f11299ca803f2e8f545` /
+  `2d5405db94d8ba9af0d72d3cad564205d5af660513be29c1f7953cf746e77256` /
+  `2b1c678a7e3bd46d7dc1a27c0e8cbf9a21269c781b8cb1b4bd17fc3bcd1ffa33` /
+  `bb69c7acb697bbd33619765f30b6dc32851ef16c3675c5f4eaac1c7a29601c05`.
+  Rc36 is therefore immutable `historical_certification_failed`: no capsule,
+  receipt, attestation, trust anchor, downstream plan, import, adoption or
+  Lane B authority exists. Never retry, reuse, relabel, promote or import it.
+  The earlier metadata subject `7f1c859d2b666f320b319094d02a551e94542926`
+  and manifest `e314296c...` remain separately rejected and non-reusable.
 
-  Operational scoreboard: `source pinned` and `exact validation` are complete;
-  `capsule verified`, `private canary` and `private main readback` are pending
-  (`2/5`). Draft PR #61 remains stale and does not represent this local truth.
-  Public push/publication remains unauthorized.
+  RT-172 tracks the shared-core settlement defect. Its successor must bind
+  spatial readiness to the current morph and camera sequence, reject stale
+  acknowledgements, and expose the separate morph/camera/spatial settled
+  states before the existing compositor barrier releases interaction. The
+  active package truth is now `unreleased` / `validation_pending` at formation
+  base `ac0f49afe28a5bf84003b58c537ac1727dab7008` with
+  `package_is_pinned=false`. The sequence-bound fix must first be committed as
+  a new immutable source, then pinned and run through one wholly new exact
+  validation, productive capture and Lane A certification. Historical rc36
+  receipts cannot satisfy any of those steps.
+
+  Operational scoreboard for the new subject: `source pinned`,
+  `exact validation`, `capsule verified`, `private canary` and
+  `private main readback` are all pending (`0/5`). Draft PR #61 remains stale
+  and does not represent this local truth. Public push/publication remains
+  unauthorized. Private PR #211 remains historical v2 and must not be promoted
+  as the future v3 adoption; a fresh private v3 run starts only after the
+  successor capsule and attestation verify fail-closed.
   Standing approval for incremental private-main merges
   is downstream-specific: it removes only that consumer's human-authorization
   blocker after every technical gate passes and does not alter the generic

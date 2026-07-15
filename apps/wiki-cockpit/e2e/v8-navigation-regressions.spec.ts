@@ -65,8 +65,24 @@ async function expectRememberedCanvas(page: Page) {
   })).toBe(true);
 }
 
-async function expectSceneInteractionsSettled(page: Page) {
-  await expect(page.locator(".sceneTransitionCue")).toHaveCSS("pointer-events", "none", { timeout: 10_000 });
+async function expectSceneInteractionsSettled(page: Page, afterSequence?: string | null) {
+  const cue = page.locator(".sceneTransitionCue");
+  if (afterSequence) {
+    await expect(cue).not.toHaveAttribute("data-motion-sequence", afterSequence, { timeout: 10_000 });
+  }
+  // The cue may release hit-testing only after both R3F clocks acknowledge the
+  // exact semantic transaction and the shell crosses its two-frame DOM paint
+  // boundary. These attributes turn a future race into a causal lane failure
+  // instead of an opaque elementFromPoint miss.
+  await expect(cue).toHaveAttribute("data-spatial-motion-settled", "true", { timeout: 10_000 });
+  const sequence = await cue.getAttribute("data-motion-sequence");
+  expect(sequence).toMatch(/^\d+$/);
+  await expect(cue).toHaveAttribute("data-morph-motion-settled", "true");
+  await expect(cue).toHaveAttribute("data-camera-motion-settled", "true");
+  await expect(cue).toHaveAttribute("data-morph-settled-sequence", sequence!);
+  await expect(cue).toHaveAttribute("data-camera-settled-sequence", sequence!);
+  await expect(cue).toHaveAttribute("data-final-settled-sequence", sequence!);
+  await expect(cue).toHaveCSS("pointer-events", "none");
 }
 
 async function expectWorldTargetCentersOwned(page: Page, nodeIds: string[]) {
@@ -690,6 +706,7 @@ test("quadrant overview keeps every semantic group target disjoint at reviewed p
       await expect(page.locator(`[data-world-group-summary="${destination.id}"]`)).toBeVisible();
       await expectRememberedCanvas(page);
 
+      const drillSequence = await page.locator(".sceneTransitionCue").getAttribute("data-motion-sequence");
       await page.goBack();
       await expect(page.locator(".worldWorkspace")).toHaveAttribute("data-world-lens", "all");
       await expect(page).not.toHaveURL(/[?&]group=/);
@@ -697,7 +714,7 @@ test("quadrant overview keeps every semantic group target disjoint at reviewed p
       // The overlay owns pointer events during the return morph. Wait for the
       // map's explicit interaction contract instead of measuring/clicking a
       // transient label position.
-      await expectSceneInteractionsSettled(page);
+      await expectSceneInteractionsSettled(page, drillSequence);
       // The interaction cue is the product's promise that projected Html
       // controls have sampled their final frame. Re-prove center ownership on
       // every real return; a stale label must fail here, before Playwright can
