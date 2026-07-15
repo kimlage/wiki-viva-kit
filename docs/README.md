@@ -229,12 +229,16 @@ starting point for persistent context is `memories/`.
   final receipt verifier reread 115 C1 paths through 358 bounded Git processes
   and exceeded 180 seconds. Result / identity / log `4e6035d9...` /
   `c711fa41...` / `547c004d...` and both stable Git subjects remain immutable
-  rc40 failed-validation evidence. The one direct successor is not yet pinned,
-  so its only current scoreboard is `0/5`; exact validation, capsule, private
-  canary and private-main readback are blocked. Draft PR
+  rc40 failed-validation evidence. The one direct successor is now pinned as
+  `wiki-viva-v8-rc41` at exact source `f42b6240...`; the complete focused
+  component passed 181/181. Package-file/canonical/tree are `d57c34bc...` /
+  `4b700084...` / `0b7063d0...` (528 entries). Its only current scoreboard is
+  `1/5`: exact
+  validation is pending; capsule, private canary and private-main readback are
+  blocked. Draft PR
   #61 is stale and does not represent this local truth; public push/publication
   remains unauthorized. Private PR #211 remains historical v2, and a fresh v3
-  adoption starts only after the successor capsule verifies fail-closed.
+  adoption starts only after the rc41 capsule verifies fail-closed.
   Standing private-main approval is downstream-only and never weakens gates or
   the generic public PR/human gate.
   Existing v2 subjects and receipts remain frozen and are never rewritten into

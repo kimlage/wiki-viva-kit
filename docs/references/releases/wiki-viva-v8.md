@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc40 - exact validation failed closed"
+title: "Wiki Viva v8 rc41 - source pinned, exact validation pending"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc40 - exact validation failed closed
+# Wiki Viva v8 rc41 - source pinned, exact validation pending
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -682,13 +682,20 @@ two Git calls; mode-forgery, symlink and submodule tests passed 4/4 in 11.71
 seconds, and the same dependency-wave test returned complete under its original
 bound in 157.01 seconds instead of failing after 225.15 seconds. The complete
 focused component then passed 181/181 in 2161.24 seconds with warnings treated
-as errors. That corrective source must be committed and pinned as a distinct
-release before another exact matrix. Its single live scoreboard is therefore
-`0/5`; rc37's historical `3/5`
+as errors. That corrective source is now committed at
+`f42b624049e310100218bf4f99e3ea418b066689` and separately pinned as
+`wiki-viva-v8-rc41` / `validation_pending`. Package-file / canonical-package /
+portable-tree SHA-256 are
+`d57c34bc12a7640a571ddc51b63475dac887593456eb863af78cf1f853e125a8` /
+`4b700084807a1dc59131fe6bb5f67cb3c2cd0cb52dc03e31315c5ca0762785d3` /
+`0b7063d05e66c22dffa6d02f43b3399ab480bff33407ab12eb4fd1726d0fa693`,
+with 528 portable entries. No exact rc41 matrix has started;
+`package_is_pinned=false` until validation and a later candidate boundary. Its
+single live scoreboard is therefore `1/5`; rc37's historical `3/5`
 and rc38-rc40 failures are chronology, not competing scoreboards. Draft public
 PR #61 remains stale and public push, publication, PR mutation, merge and tag
 remain unauthorized. Private PR #211 and its v2 receipts remain immutable
-historical evidence. A fresh successor/v3 adoption may start from the
+historical evidence. A fresh rc41/v3 adoption may start from the
 then-current private `main` only after the new capsule and attestation verify
 fail-closed.
 
@@ -799,8 +806,8 @@ Historical rc37 has a separate source pin and candidate boundary. Its first and
 only exact validation passed 23/23, then its first productive capture, Lane A
 11/11 and independent capsule/attestation verification passed once. RT-173's
 later clean-C1 failure prevents downstream use without changing any rc37 byte or
-receipt. Failed rc38, rc39 and rc40 remain immutable; the single corrective
-successor requires a distinct source pin, exact validation, capture, capsule
+receipt. Failed rc38, rc39 and rc40 remain immutable; rc41 is separately pinned
+at source `f42b6240...` and still requires exact validation, capture, capsule
 and verification before any downstream plan.
 Remote public CI, human conceptual/privacy/VoiceOver review, public merge and
 promotion remain separate and unauthorized; stale/conflicting public PR #61

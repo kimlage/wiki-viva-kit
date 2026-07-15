@@ -1,12 +1,34 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc40
+  id: wiki-viva-v8-rc41
   status: validation_pending
-  source_sha: 0e24881aff89f3ae0624fa3e5d27d600248e37a3
+  source_sha: f42b624049e310100218bf4f99e3ea418b066689
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc40
+    source_sha: 0e24881aff89f3ae0624fa3e5d27d600248e37a3
+    status: historical_exact_validation_failed
+    note: >-
+      Rc40 exact validation ran once at metadata subject
+      1bfcfe3f72e54ea8d592554a625d8f3ff606c088. Its validation-pending
+      package-file / canonical-package / portable-tree SHA-256 were
+      5d00b3ba58f682250e8a579bb83e2b2737e29d5043758b9e99a99e91010a958a /
+      51455cff292361589fd5acf5e7a40600d9e74984322a15a8388777f11a05faa7 /
+      2c8dc75584281a202be556c8f2b51c7f861c61b9e6b5daddcc495903a3696ad2,
+      with 528 portable entries. The first 13 gates passed; portable_python
+      ended with 1942 passed, 3 skipped and 1 failed because the completed
+      dependency-wave adoption's final receipt verifier reread 115 C1 paths
+      through 358 separately audited Git processes and exceeded its unchanged
+      180-second outer bound. Validation-result / identity / failing-log
+      SHA-256 are
+      4e6035d95fb12c3f74375ea325c5970b3c3f1cebc1a396718454aa688c633e12 /
+      c711fa4159b1ed738d8ebdd8cd00bb876a8cd47040478d96732612b128e23e20 /
+      547c004d503968080b4f98092ddf3b3d116322d57d8c5d5674252aea51f00598.
+      Both Git subjects remained stable. Rc40 is immutable failed-validation
+      history and minted no browser result, candidate, capture, capsule or
+      downstream authority
   - id: wiki-viva-v8-rc39
     source_sha: 9dae4aa64d42eb45a2308632944fb134282bca10
     status: historical_exact_validation_failed
@@ -895,11 +917,11 @@ known_limitations:
     authority.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - RT-171 rc36 exact validation source binds all four productive and real-canary entry profiles to runtime_mode v8. Desktop uses productive `/demo/w?center=root-alex-rivera&view=quadrants&tour=0` and canary `/w?view=quadrants&tour=0`, both 1440x1000. Mobile uses productive `/demo/w?view=timeline&tour=0` and canary `/w?view=timeline&tour=0`, both 390x844. Fallback uses productive `/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0` at 1280x900 and canary `/w?view=quadrants&visual=1&tour=0` at 1440x1000. Quadrant collection uses productive `/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0` and canary `/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0`, both 1440x1000. The exact schemas are wiki_visual_evidence_capture.v2 and wiki_viva_canary_visual_summary.v2; a positional, compat, missing-runtime, wrong-view or wrong-canary-viewport observation fails closed.
-  - Rc24, rc26 and rc36 are immutable historical failed-certification evidence. Rc23, rc25, rc27, rc31, rc32, rc33, rc38 and rc39 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. Rc37 is immutable locally certified history; exact validation passed 23/23, productive capture and Lane A passed, and its capsule/receipt/attestation verify independently. RT-173 nevertheless makes rc37 non-adoptable because its clean C1 cannot materialize the certified Node dependency tree. Rc38 failed at operational_pass; rc39 then passed 14/15 before the default Vitest result cache correctly tripped full dependency-tree drift. Both subjects stayed stable and minted no authority. That directly observed exactness failure authorizes the one minimal corrective subject `wiki-viva-v8-rc40` / `validation_pending` at exact source 0e24881aff89f3ae0624fa3e5d27d600248e37a3. It moves only Vite/Vitest runtime cache into the ignored tmp boundary, promotes five reviewed public-synthetic Linux baselines already matched by the reviewed Darwin layout and leaves the full post-command dependency-tree check intact. Its source pin is complete, but package_is_pinned remains false until one exact validation and separate candidate promotion succeed; every downstream path remains fail-closed until productive capture, Lane A capsule and external attestation also exist. Public promotion remains separate and public push is unauthorized.
+  - Rc24, rc26 and rc36 are immutable historical failed-certification evidence. Rc23, rc25, rc27, rc31, rc32, rc33, rc38, rc39 and rc40 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. Rc37 is immutable locally certified history; exact validation passed 23/23, productive capture and Lane A passed, and its capsule/receipt/attestation verify independently. RT-173 nevertheless makes rc37 non-adoptable because its clean C1 cannot materialize the certified Node dependency tree. Rc38 failed at operational_pass; rc39 passed 14/15 before the default Vitest result cache correctly tripped full dependency-tree drift; rc40 passed 13 gates before its completed synthetic adoption exceeded the bounded portable-Python harness in the N+1 final Git verifier. All three subjects stayed stable and minted no authority. That directly observed runner-completion failure authorizes the one minimal corrective subject `wiki-viva-v8-rc41` / `validation_pending` at exact source f42b624049e310100218bf4f99e3ea418b066689. It batches exact mode/blob reads per commit while preserving deletion, symlink and submodule checks; the complete focused component passed 181/181 with warnings as errors. Its source pin is complete, but package_is_pinned remains false until one exact validation and separate candidate promotion succeed; every downstream path remains fail-closed until productive capture, Lane A capsule and external attestation also exist. Public promotion remains separate and public push is unauthorized.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc39 can never authorize another import. A fresh rc40/v3 adoption may start in three new ordered reviewable boundaries only after the rc40 payload, capsule and external attestation verify independently and every applicable technical gate passes. Standing private-main approval satisfies the consumer human gate after those technical gates; public promotion remains separate. The fresh adoption starts from the then-current private main; private PR #211 remains historical v2 evidence and is never its B0, C3 or promotion authority.
-  - The historical private S9 read-only preflight remains attached to S9; rc40 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc40 can never authorize another import. A fresh rc41/v3 adoption may start in three new ordered reviewable boundaries only after the rc41 payload, capsule and external attestation verify independently and every applicable technical gate passes. Standing private-main approval satisfies the consumer human gate after those technical gates; public promotion remains separate. The fresh adoption starts from the then-current private main; private PR #211 remains historical v2 evidence and is never its B0, C3 or promotion authority.
+  - The historical private S9 read-only preflight remains attached to S9; rc41 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.

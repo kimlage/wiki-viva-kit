@@ -145,13 +145,17 @@ wave adoption finished all 12 gates but the final receipt verifier exceeded
 180 seconds while rereading 115 C1 paths through 358 bounded Git processes.
 Validation-result / identity / log are `4e6035d9...` / `c711fa41...` /
 `547c004d...`; Git subjects stayed stable. Rc40 is immutable failed-validation
-history. The single live scoreboard is now `0/5` for its one direct corrective
-successor until the batched Git verifier source is committed and separately
-pinned; exact validation, capsule, private canary and private-main readback are
+history. Its one direct corrective successor is now separately pinned as
+`wiki-viva-v8-rc41` / `validation_pending` at exact source
+`f42b624049e310100218bf4f99e3ea418b066689`; the complete focused component
+passed 181/181 in 2161.24 seconds. Package-file/canonical/tree are
+`d57c34bc...` / `4b700084...` / `0b7063d0...` (528 entries). The single live
+scoreboard is `1/5`: exact
+validation is pending; capsule, private canary and private-main readback are
 blocked.
 Draft PR #61 remains stale and public push/publication remains unauthorized.
-Private PR #211 remains historical v2; only a fresh successor/v3 adoption may
-start after the new capsule and attestation verify fail-closed.
+Private PR #211 remains historical v2; only a fresh rc41/v3 adoption may start
+after the new capsule and attestation verify fail-closed.
 See the [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority. Do not start downstream adoption until the Lane A capsule and
@@ -521,8 +525,9 @@ correctly tripped the sealed dependency tree. Both remain immutable history.
 Rc40 then failed its only exact matrix at `portable_python` because the final
 Git receipt verifier's path-by-path process audit exceeded the bounded test
 runtime; result `4e6035d9...` and stable subjects remain immutable history. The
-one current corrective successor is not yet pinned, so its single scoreboard
-is `0/5`; no fresh v3 adoption starts before its capsule verifies fail-closed.
+one current corrective successor is rc41 at source `f42b6240...`; its single
+scoreboard is `1/5`, and no fresh v3 adoption starts before its capsule verifies
+fail-closed.
 Private PR #211 remains historical v2.
 Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.

@@ -281,18 +281,21 @@ another) via skills — there is no embedded LLM client.
   stable and no browser result, candidate or capsule exists. Rc40 is immutable
   failed-validation history. The one authorized corrective formation batches
   exact Git mode/blob reads per commit, retains symlink/submodule rejection and
-  passes the complete focused component at 181/181 in 2161.24 seconds. It must
-  be pinned as a distinct release subject before another exact matrix.
+  passes the complete focused component at 181/181 in 2161.24 seconds. It is
+  separately pinned as `wiki-viva-v8-rc41` / `validation_pending` at exact
+  source `f42b624049e310100218bf4f99e3ea418b066689`. Package-file / canonical /
+  portable-tree SHA-256 are `d57c34bc...` / `4b700084...` / `0b7063d0...`
+  with 528 entries; no exact matrix has started.
 
-  The single current operational scoreboard is for that direct successor:
-  `source pinned`, `exact validation`, `capsule verified`, `private canary` and
-  `private main readback` are all pending (`0/5`) until the corrective source is
-  committed and separately pinned. The earlier rc37 `3/5` plus rejected
+  The single current operational scoreboard is for rc41: `source pinned` is
+  complete; `exact validation`, `capsule verified`, `private canary` and
+  `private main readback` are pending or blocked (`1/5`). The earlier rc37
+  `3/5` plus rejected
   rc38/rc39/rc40 states remain chronology, not competing live scoreboards. Draft
   PR #61 remains stale and does not represent this local truth. Public
   push/publication remains unauthorized. Private PR #211 remains historical v2
   and must not be promoted as the future v3 adoption; a fresh private v3 run
-  starts only after the successor capsule and attestation verify
+  starts only after the rc41 capsule and attestation verify
   fail-closed.
   Standing approval for incremental private-main merges
   is downstream-specific: it removes only that consumer's human-authorization
