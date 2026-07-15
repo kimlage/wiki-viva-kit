@@ -76,12 +76,20 @@ consumers:
       03a75c4072048b8150e95737bb7c458562bd29da184286c09a3cea7699955424.
       A separate candidate boundary now binds package-file/canonical-package/
       tree SHA-256
-      4b3dd32bf4006026e9dad1be1ceb98a34e87cdebfe0c7e6f9d8aa20260cddbc5 /
-      bca7d50ab57749e5dd2c40da1f3c157d7a22e4caa2189436f1af67ebf03efa55 /
-      2f03cae734f67e9c478fc78f8f470d0283ae3dc39e78c7d398ac86aa26714bb9
+      8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b /
+      8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2 /
+      4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3
       with 521 portable entries and permits productive capture plus Lane A
       certification only; no capture, capsule, downstream plan or adoption
       authority is declared yet.
+      The preceding metadata subject 7f1c859d bound candidate package-file /
+      canonical-package / tree 4b3dd32b / bca7d50a / 2f03cae7 and produced
+      visual manifest e314296c. Certification preflight rejected an
+      8372-character limitation against the 8192-character schema maximum
+      before any Lane A gate. Failure stream 1e816308 exists; no capsule,
+      receipt or authority was minted. That package and capture are immutable,
+      rejected and non-reusable; the correction is a distinct rc36 metadata
+      boundary without invalidating source pin or exact validation.
       Public push is not authorized; external E5 and a release tag remain
       separate
 

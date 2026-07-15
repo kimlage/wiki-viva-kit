@@ -181,10 +181,17 @@ starting point for persistent context is `memories/`.
 
   The validation-subject package-file/canonical-package/portable-tree SHA-256
   values `47c3dc7d...` / `81a3b600...` / `53ffdf8b...` (521 entries) remain
-  historical measurement only. The separately reviewed candidate values are
-  `4b3dd32bf4006026e9dad1be1ceb98a34e87cdebfe0c7e6f9d8aa20260cddbc5` /
-  `bca7d50ab57749e5dd2c40da1f3c157d7a22e4caa2189436f1af67ebf03efa55` /
-  `2f03cae734f67e9c478fc78f8f470d0283ae3dc39e78c7d398ac86aa26714bb9`.
+  bound to that validation metadata subject, not to the current candidate. The
+  separately reviewed current candidate values are
+  `8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b` /
+  `8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2` /
+  `4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3`.
+  Metadata subject `7f1c859d...`, candidate identities `4b3dd32b...` /
+  `bca7d50a...` / `2f03cae7...` and visual manifest `e314296c...` are immutable
+  rejected evidence. Certification preflight rejected an 8,372-character
+  limitation against the 8,192-character schema maximum before any Lane A
+  gate; failure stream `1e816308...` exists and no capsule, receipt or authority
+  was minted. The correction is a distinct metadata boundary of the same rc36.
   Validation-result/toolchain/runner-payload identities are `5585819e...` /
   `6728f464...` / `03a75c40...`.
 

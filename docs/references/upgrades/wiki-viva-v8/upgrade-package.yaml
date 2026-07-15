@@ -761,24 +761,15 @@ known_limitations:
     exact native view, runtime_mode v8 and canary viewport together. No visual
     manifest, certification, capsule, adoption or public-push authority exists.
     Rc35 is immutable historical pre-capture rejection evidence. Rc36 source
-    8f96e1fd58258df64174229d81ee6a330ba9d2b1 passed its first and only complete
-    exact validation at metadata subject
-    3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd: all 23 recorded gates, 1782
-    Python checks with 3 declared skips in 1082.23 seconds, all 518 frontend
-    checks, 123 Node checks and public browser run
-    public-mrlis0t7-bfd938c4-5799-4c19-b7b0-e7df20d75651 at 102/102 with no
-    failure, skip, retry or flaky cell. The validation result, toolchain and
-    runner-payload identities are respectively
-    5585819e60c5f7550f06e9990c4de23b42e5eb3113f2bdf5036cac563465a267,
-    6728f4644bc18da8602f1c3ea982f6b5584c7e949716e2e3c2bb58110fba7083
-    and 03a75c4072048b8150e95737bb7c458562bd29da184286c09a3cea7699955424.
-    A separate reviewed candidate boundary now permits productive capture and
-    Lane A certification only. It introduces
-    wiki_visual_evidence_capture.v2 and wiki_viva_canary_visual_summary.v2 with
-    exact native route/view, data-runtime-mode=v8 and declared viewport
-    enforcement. Package authority is pinned, but no productive capture,
-    visual manifest, capsule, attestation, downstream plan, import or Lane B
-    authority exists yet. Public push remains unauthorized.
+    8f96e1fd58258df64174229d81ee6a330ba9d2b1 passed its first/only complete
+    exact validation at metadata 3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd:
+    23/23 gates, 1782 Python plus 3 skips, 518 frontend, 123 Node and browser
+    102/102 with no failure, skip, retry or flaky cell. Capture record v2 and
+    canary summary v2 bind exact native route, view, runtime v8 and viewport.
+    Candidate status permits only productive capture and Lane A certification;
+    no capsule, attestation, downstream plan, import or Lane B authority exists.
+    Public push remains unauthorized.
+  - Candidate metadata 7f1c859d2b666f320b319094d02a551e94542926 bound raw-package/canonical-package/portable-tree SHA-256 4b3dd32bf4006026e9dad1be1ceb98a34e87cdebfe0c7e6f9d8aa20260cddbc5 / bca7d50ab57749e5dd2c40da1f3c157d7a22e4caa2189436f1af67ebf03efa55 / 2f03cae734f67e9c478fc78f8f470d0283ae3dc39e78c7d398ac86aa26714bb9 and produced verified visual manifest e314296c3105b6c943cd901cc4fc3c38867df69353a0fe37f0713d66838745f5. Its first certify preflight rejected known_limitations[0] at 8372 characters against the 8192-character schema maximum before any Lane A gate started. No capsule or authority was minted; that package and capture are immutable rejected evidence and must never be reused.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - RT-171 rc36 exact validation source binds all four productive and real-canary entry profiles to runtime_mode v8. Desktop uses productive `/demo/w?center=root-alex-rivera&view=quadrants&tour=0` and canary `/w?view=quadrants&tour=0`, both 1440x1000. Mobile uses productive `/demo/w?view=timeline&tour=0` and canary `/w?view=timeline&tour=0`, both 390x844. Fallback uses productive `/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0` at 1280x900 and canary `/w?view=quadrants&visual=1&tour=0` at 1440x1000. Quadrant collection uses productive `/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0` and canary `/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0`, both 1440x1000. The exact schemas are wiki_visual_evidence_capture.v2 and wiki_viva_canary_visual_summary.v2; a positional, compat, missing-runtime, wrong-view or wrong-canary-viewport observation fails closed.
   - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. Active `wiki-viva-v8-rc36` source 8f96e1fd58258df64174229d81ee6a330ba9d2b1 passed its first and only complete exact validation at metadata subject 3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd and now has a separate `candidate` boundary, so package_is_pinned is true. Candidate status permits only productive capture and Lane A certification; every downstream plan/adoption path remains fail-closed until the capsule and external attestation verify independently. Public promotion remains separate and public push is unauthorized.

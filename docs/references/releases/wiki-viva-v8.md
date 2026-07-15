@@ -540,12 +540,24 @@ portable-tree SHA-256
 (521 entries) — remains exact-validation history and is not mislabeled as the
 candidate identity. The separately reviewed candidate package-file /
 canonical-package / portable-tree SHA-256 values are
-`4b3dd32bf4006026e9dad1be1ceb98a34e87cdebfe0c7e6f9d8aa20260cddbc5` /
-`bca7d50ab57749e5dd2c40da1f3c157d7a22e4caa2189436f1af67ebf03efa55` /
-`2f03cae734f67e9c478fc78f8f470d0283ae3dc39e78c7d398ac86aa26714bb9`.
+`8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b` /
+`8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2` /
+`4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3`.
 The command- and impact-registry SHA-256 values remain
 `6e170423a544cdb735aef7d77ed70389846dc657dc905b69f6d2312e03458097`
 and `92ce2ba62d728269a2c29323c9a433235f20cef790961f8ac6d5d1625942c0db`.
+The preceding candidate metadata subject
+`7f1c859d2b666f320b319094d02a551e94542926`, package-file/canonical/tree
+`4b3dd32b...` / `bca7d50a...` / `2f03cae7...` and productive visual manifest
+`e314296c3105b6c943cd901cc4fc3c38867df69353a0fe37f0713d66838745f5`
+are immutable rejected evidence. Its first certification preflight rejected
+`known_limitations[0]` at 8,372 characters against the schema maximum of 8,192
+before any Lane A gate ran. Failure stream SHA-256 is
+`1e81630834bf71da92df2ba125fe7419fab837327b84e25a0c9c33d58f536489`;
+no capsule, receipt, attestation or authority was minted. That package and
+capture cannot be reused. The corrected candidate is a distinct metadata
+boundary of the same rc36, while the source pin and exact validation remain
+valid.
 Status is now `candidate` and `package_is_pinned=true`, but this authorizes
 productive capture and Lane A certification only. No productive capture,
 visual manifest, capsule, attestation, downstream plan, import or Lane B
@@ -823,8 +835,10 @@ Browser closure is
 not a full-release receipt and does not self-attest Python, private data,
 product approval or E5. The allowlisted private S9 adoption and its two
 mandatory browser cells plus both complete deterministic stacks are now
-proven. [Draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61)
-still requires human review and merge; no tag is authorized yet.
+proven. At that historical checkpoint,
+[draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61) still required
+human review and merge. It is now stale/conflicting and does not represent
+rc36; no tag or public push is authorized.
 
 ## Historical rc8 correction lineage — public payload candidate at that checkpoint
 
