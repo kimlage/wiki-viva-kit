@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc39 - exact validation pending"
+title: "Wiki Viva v8 rc40 - exact validation pending"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc39 - exact validation pending
+# Wiki Viva v8 rc40 - exact validation pending
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -633,17 +633,28 @@ SHA-256 are `7441b7ef...` / `bf77ba74...` / `57e73ac2...`; both Git subjects
 remained stable. Rc38 is immutable failed-validation history and minted no
 candidate, capsule or downstream authority.
 
-The direct corrective package is `wiki-viva-v8-rc39` / `validation_pending`,
-separately pinned to exact source
-`9dae4aa64d42eb45a2308632944fb134282bca10`, with
+Rc39 then ran one exact matrix at source
+`9dae4aa64d42eb45a2308632944fb134282bca10` and metadata
+`6250627f25adabd0bc898950828b419b3995b01f`. It passed 14/15 gates, including
+1,943 Python passes plus 3 declared skips, before the frontend wrapper correctly
+rejected a new 5,395-byte Vitest result file under the sealed default
+`node_modules/.vite` cache. Validation-result / identity / failing-log SHA-256
+are `a9aaad50...` / `dab61578...` / `8c17186c...`; both Git subjects remained
+stable. Rc39 is immutable failed-validation history and minted no browser
+result, candidate, capsule or downstream authority.
+
+The only direct corrective package is `wiki-viva-v8-rc40` /
+`validation_pending`, separately pinned to exact source
+`0e24881aff89f3ae0624fa3e5d27d600248e37a3`, with
 `package_is_pinned=false` until exact validation and a later candidate boundary.
 Its validation-pending package-file/canonical-package/portable-tree SHA-256
 values are
-`bceefb04c279359df3bf0e3c64c6b0039bae57655e527deecb9beca6b73bbf84` /
-`94dbc5e40e23874ead40a1e5104ae8f0b18fe185390a9c574a53c6ee16665aa9` /
-`3f8949aaaac02ae475ec2e436b89b3a49f5ff03f61a14f45139c824975b25b75`,
-528 entries.
-It separates tracked portable
+`5d00b3ba58f682250e8a579bb83e2b2737e29d5043758b9e99a99e91010a958a` /
+`51455cff292361589fd5acf5e7a40600d9e74984322a15a8388777f11a05faa7` /
+`2c8dc75584281a202be556c8f2b51c7f861c61b9e6b5daddcc495903a3696ad2`,
+528 entries. Rc40 moves only Vite/Vitest's runtime cache to the ignored `tmp/`
+boundary; full dependency-tree comparison and the synthetic real-mutation
+negative remain intact. It retains tracked portable
 `wiki_viva_node_workspace_policy.v2` from external path-free/platform-scoped
 `wiki_viva_node_workspace_authority.v1`, route every release-bearing Node
 command through the wrapper and seal capsule v2 with the authority/digest plus
@@ -654,8 +665,8 @@ readback are blocked. Rc37's historical `3/5` chronology is not a second live
 scoreboard. Draft public PR #61 remains stale and does not represent this local
 truth; public push, publication, PR mutation, merge and tag remain unauthorized.
 Private PR #211 and its v2 receipts remain immutable historical evidence. A
-fresh rc39/v3 adoption may start from the then-current private `main` only after
-the rc39 capsule and attestation verify fail-closed.
+fresh rc40/v3 adoption may start from the then-current private `main` only after
+the rc40 capsule and attestation verify fail-closed.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -764,7 +775,7 @@ Historical rc37 has a separate source pin and candidate boundary. Its first and
 only exact validation passed 23/23, then its first productive capture, Lane A
 11/11 and independent capsule/attestation verification passed once. RT-173's
 later clean-C1 failure prevents downstream use without changing any rc37 byte or
-receipt. Failed rc38 remains immutable; pinned rc39 requires exact validation,
+receipt. Failed rc38 and rc39 remain immutable; pinned rc40 requires exact validation,
 capture, capsule and verification
 before any downstream plan.
 Remote public CI, human conceptual/privacy/VoiceOver review, public merge and

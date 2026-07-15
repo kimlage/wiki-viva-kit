@@ -219,14 +219,16 @@ starting point for persistent context is `memories/`.
   `npm ci`. Rc37 remains verifiable historical evidence, not executable Lane B
   authority. Rc38 then failed its one exact matrix at `operational_pass` with
   both Git subjects stable; validation result `7441b7ef...` remains immutable
-  failed-validation evidence. The direct correction `wiki-viva-v8-rc39` is
-  separately pinned to exact source
-  `9dae4aa64d42eb45a2308632944fb134282bca10` and owns the only current
+  failed-validation evidence. Rc39 then passed 14/15 in its one exact matrix
+  before default Vitest cache output correctly tripped sealed dependency-tree
+  drift; result `a9aaad50...` remains immutable history. The direct correction
+  `wiki-viva-v8-rc40` is separately pinned to exact source
+  `0e24881aff89f3ae0624fa3e5d27d600248e37a3` and owns the only current
   scoreboard at `1/5`: source pin is complete; exact validation and capsule
   verification are pending; private canary and private-main readback are blocked. Draft PR
   #61 is stale and does not represent this local truth; public push/publication
   remains unauthorized. Private PR #211 remains historical v2, and a fresh v3
-  adoption starts only after the rc39 capsule verifies fail-closed.
+  adoption starts only after the rc40 capsule verifies fail-closed.
   Standing private-main approval is downstream-only and never weakens gates or
   the generic public PR/human gate.
   Existing v2 subjects and receipts remain frozen and are never rewritten into

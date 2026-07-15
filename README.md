@@ -133,15 +133,18 @@ C2 generator could not resolve TypeScript until a manual `npm ci`. Preserve
 rc37's receipts, but do not use them as executable Lane B authority. Rc38 then
 failed its one exact matrix at `operational_pass`; validation result
 `7441b7ef...` and both stable Git subjects remain immutable failed-validation
-evidence. The only current subject is the direct correction
-`wiki-viva-v8-rc39`, separately pinned to exact source
-`9dae4aa64d42eb45a2308632944fb134282bca10`, canonical package/tree
-`94dbc5e4...` / `3f8949aa...` (528 entries). Its single scoreboard is `1/5`:
+evidence. Rc39 then passed 14/15 in its only exact matrix before the default
+Vitest result cache correctly tripped sealed dependency-tree drift; result
+`a9aaad50...` and both stable Git subjects remain immutable failed-validation
+history. The only current subject is the direct correction
+`wiki-viva-v8-rc40`, separately pinned to exact source
+`0e24881aff89f3ae0624fa3e5d27d600248e37a3`, canonical package/tree
+`51455cff...` / `2c8dc755...` (528 entries). Its single scoreboard is `1/5`:
 source pin is complete; exact validation and capsule verification are pending;
 private canary and private-main readback are blocked.
 Draft PR #61 remains stale and public push/publication remains unauthorized.
-Private PR #211 remains historical v2; only a fresh rc39/v3 adoption may start
-after the rc39 capsule and attestation verify fail-closed.
+Private PR #211 remains historical v2; only a fresh rc40/v3 adoption may start
+after the rc40 capsule and attestation verify fail-closed.
 See the [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority. Do not start downstream adoption until the Lane A capsule and
@@ -506,9 +509,11 @@ and capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` /
 proved that those bytes could not materialize the missing clean-C1 dependency
 tree, so they are history rather than executable adoption authority. Draft PR
 #61 is stale and public push remains unauthorized. Rc38 failed exact validation
-at `operational_pass` with stable subjects and remains immutable history. Pinned
-rc39 has the only current scoreboard at `1/5`; no fresh rc39/v3 adoption starts
-before its capsule verifies fail-closed. Private PR #211 remains historical v2.
+at `operational_pass`; rc39 passed 14/15 before default Vitest cache output
+correctly tripped the sealed dependency tree. Both remain immutable history.
+Pinned rc40 has the only current scoreboard at `1/5`; no fresh rc40/v3 adoption
+starts before its capsule verifies fail-closed. Private PR #211 remains
+historical v2.
 Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.
 No existing v2 C3 or receipt is amended to reach it.

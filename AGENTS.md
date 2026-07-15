@@ -266,24 +266,27 @@ another) via skills — there is no embedded LLM client.
   promotion authority. Rc38 exact validation then stopped fail-closed at the
   fifth gate because its deterministic operational-pass page was stale; its
   validation result `7441b7ef...` and stable Git subjects remain immutable
+  failed-validation evidence. Rc39 then passed 14/15 in its one exact matrix
+  before default Vitest cache output correctly tripped the sealed dependency
+  tree; result `a9aaad50...` and both stable Git subjects remain immutable
   failed-validation evidence. The one direct corrective package is now
-  `wiki-viva-v8-rc39` /
+  `wiki-viva-v8-rc40` /
   `validation_pending`, separately pinned to exact source
-  `9dae4aa64d42eb45a2308632944fb134282bca10`, with
+  `0e24881aff89f3ae0624fa3e5d27d600248e37a3`, with
   `package_is_pinned=false` until exact validation and a later candidate
-  boundary. Canonical package/tree are `94dbc5e4...` / `3f8949aa...` with 528
-  portable entries. Rc39 implements policy v2, external authority v1, wrapper-only Node
+  boundary. Canonical package/tree are `51455cff...` / `2c8dc755...` with 528
+  portable entries. Rc40 preserves policy v2, external authority v1, wrapper-only Node
   commands and capsule v2.
 
-  The single current operational scoreboard is for rc39: `source pinned` is
+  The single current operational scoreboard is for rc40: `source pinned` is
   complete; `exact validation` and `capsule verified` are pending; `private
   canary` and `private main readback` are blocked on them (`1/5`). The
-  earlier rc37 `3/5` and rejected rc38 `1/5` remain chronology, not competing
+  earlier rc37 `3/5` plus rejected rc38/rc39 `1/5` remain chronology, not competing
   live scoreboards. Draft
   PR #61 remains stale and does not represent this local truth. Public
   push/publication remains unauthorized. Private PR #211 remains historical v2
   and must not be promoted as the future v3 adoption; a fresh private v3 run
-  starts only after the rc39 capsule and attestation verify
+  starts only after the rc40 capsule and attestation verify
   fail-closed.
   Standing approval for incremental private-main merges
   is downstream-specific: it removes only that consumer's human-authorization

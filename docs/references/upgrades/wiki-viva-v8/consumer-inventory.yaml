@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc39@9dae4aa6
+    current_kit_version: wiki-viva-v8-rc40@0e24881a
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,12 +32,12 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc39_validation_pending_source_pinned
+      state: rc40_validation_pending_source_pinned
       drift_total: 0
-      compared_against: wiki-viva-v8-rc39@9dae4aa6
-      worktree: rc39_source_9dae4aa6_local_only
+      compared_against: wiki-viva-v8-rc40@0e24881a
+      worktree: rc40_source_0e24881a_local_only
     upgrade_wave: public_kit
-    status: blocked_on_rc39_exact_validation_and_certification
+    status: blocked_on_rc40_exact_validation_and_certification
     blocker: >-
       Rc21 through rc33 remain frozen according to their recorded historical
       outcomes. Rc34 source 533d2868 passed complete exact validation at
@@ -118,11 +118,13 @@ consumers:
       dependency materialization authority: the first generator could not
       resolve TypeScript until an ambient manual npm ci. Rc37 and every one of
       those hashes remain immutable verified history, but they are not
-      executable Lane B authority. Rc38 source de879672 then failed its one
-      exact matrix at operational_pass; result 7441b7ef and both stable Git
+      executable Lane B authority. Rc38 source de879672 failed its one exact
+      matrix at operational_pass. Rc39 source 9dae4aa6 then passed 14/15 before
+      the default Vitest cache wrote one result under node_modules and correctly
+      tripped full dependency-tree drift; result a9aaad50 and both stable Git
       subjects remain immutable failed-validation evidence. The one direct
-      corrective subject is now pinned: wiki-viva-v8-rc39 at source
-      9dae4aa64d42eb45a2308632944fb134282bca10.
+      corrective subject is now pinned: wiki-viva-v8-rc40 at source
+      0e24881aff89f3ae0624fa3e5d27d600248e37a3.
       Its canonical scoreboard is 1/5: source pin is complete; exact validation,
       capsule verification, private canary and private-main readback remain
       pending or blocked. Draft PR #61 is stale and public
@@ -154,11 +156,11 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: v2_adoption_complete_rc39_validation_pending
-      scope: upgrade_package_rc39_source_pinned
+      state: v2_adoption_complete_rc40_validation_pending
+      scope: upgrade_package_rc40_source_pinned
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: wiki-viva-v8-rc39@9dae4aa6
+      target_version: wiki-viva-v8-rc40@0e24881a
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
       details: >-
@@ -183,10 +185,12 @@ consumers:
         capsule, receipt and execution attestation remain immutable verified
         history. RT-173 nevertheless proved that clean C1 could not materialize
         the certified Node dependency tree, so rc37 cannot authorize Lane B.
-        Rc38 at source de879672 failed its one exact matrix at operational_pass;
-        result 7441b7ef and both stable Git subjects remain immutable history.
-        The sole direct correction is pinned as wiki-viva-v8-rc39 at exact source
-        9dae4aa64d42eb45a2308632944fb134282bca10. Only after rc39 is validated
+        Rc38 at source de879672 failed its one exact matrix at operational_pass.
+        Rc39 at source 9dae4aa6 passed 14/15 before default Vitest cache output
+        correctly tripped dependency-tree drift; result a9aaad50 and both stable
+        Git subjects remain immutable history. The sole direct correction is
+        pinned as wiki-viva-v8-rc40 at exact source
+        0e24881aff89f3ae0624fa3e5d27d600248e37a3. Only after rc40 is validated
         exactly once, captured, certified and independently verified may a
         fresh v3 adoption start
         from the then-current private main, not from private PR #211 or its
@@ -215,8 +219,10 @@ consumers:
       11/11; its capsule/receipt/attestation remain immutable verified history.
       RT-173 nevertheless proved that its clean C1 could not materialize the
       certified Node dependency tree, so rc37 cannot authorize Lane B. The one
-      RT-173 rc38 failed exact validation at operational_pass. Its direct
-      corrective subject rc39 is pinned with a 1/5 canonical scoreboard and must
+      RT-173 rc38 failed exact validation at operational_pass; rc39 then failed
+      at frontend after default Vitest cache output correctly tripped the sealed
+      dependency tree. Their direct corrective subject rc40 is pinned with a 1/5
+      canonical scoreboard and must
       be validated exactly once and certified with capsule v2 plus external
       Node authority before a fresh current-main
       consumer preflight or any v3 downstream QA.
