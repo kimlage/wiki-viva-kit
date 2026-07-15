@@ -23,6 +23,11 @@ another) via skills — there is no embedded LLM client.
   fail-closed and are never waivable.
 - The detailed two-lane material below is frozen historical context until a
   separate post-v8 PR removes it and introduces the simpler idempotent sync.
+- Tests that exercise only the retired certification state machine remain
+  collected under the registered `retired` marker and are skipped by the
+  normal Phase-1 gate. Do not make historical package YAML pretend to be an
+  active candidate merely to satisfy those tests; Phase 2 deletes both the
+  machine and its retired coverage.
 
 ## How the agent should operate
 

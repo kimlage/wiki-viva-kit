@@ -28,6 +28,12 @@ acknowledgements remain required. Privacy, secret and corruption failures stay
 fail-closed and can never be waived. Everything below records historical
 release-system evidence and is not an active gate.
 
+The old receipt, lane, capsule, Node-authority, toolchain-probe and visual-
+evidence test modules are explicitly collected as `retired` and skipped in
+Phase 1. This keeps the retirement visible without forcing the historical YAML
+back into an active release state. Phase 2 deletes those modules with the
+machine they cover.
+
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
 `wiki-viva-v8-rc24` binds exact source

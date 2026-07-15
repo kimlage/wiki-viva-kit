@@ -84,6 +84,13 @@ certification state machine and rewrite the guides/AGENTS/skill around tags,
 release notes and upgrading migrations. The existing upgrade package is now
 historical context, not adoption authority.
 
+The freeze commit registers a `retired` pytest marker and a single explicit
+module manifest for tests that exercise only receipts, lanes, capsules,
+certified Node authority/toolchain probes and release evidence. Those tests are
+still collected and reported as skipped in Phase 1; they are not made green by
+changing historical YAML. Their source and test modules are deleted together
+in the separate Phase-2 simplification PR.
+
 The public/private pair remains blocked. Historical S19 source
 `198471c3cf4176d7a046c5ceb8dd053f1be1ee58`, packaged as
 `wiki-viva-v8-rc16`, completed the then-declared public stack and received a
