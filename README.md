@@ -131,12 +131,14 @@ evidence. RT-173 was exposed only when a disposable clean C1 had no
 `node_modules` and no sealed authority capable of materializing them; the Node
 C2 generator could not resolve TypeScript until a manual `npm ci`. Preserve
 rc37's receipts, but do not use them as executable Lane B authority. The only
-current subject is one unnamed, unpinned RT-173 successor. Its single
-scoreboard is `0/5`: source pin, exact validation and capsule verification are
-pending; private canary and private-main readback are blocked.
+current subject is `wiki-viva-v8-rc38`, separately pinned to exact source
+`de879672aa9fefcf174c844924e3f95ed40a5fe1`, canonical package/tree
+`337d2d74...` / `96e3db3b...` (528 entries). Its single scoreboard is `1/5`:
+source pin is complete; exact validation and capsule verification are pending;
+private canary and private-main readback are blocked.
 Draft PR #61 remains stale and public push/publication remains unauthorized.
-Private PR #211 remains historical v2; only a fresh v3 adoption may start after
-the RT-173 successor capsule and attestation verify fail-closed.
+Private PR #211 remains historical v2; only a fresh rc38/v3 adoption may start
+after the rc38 capsule and attestation verify fail-closed.
 See the [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority. Do not start downstream adoption until the Lane A capsule and
@@ -500,9 +502,9 @@ and capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` /
 `c7a1a4fe...` remain immutable and verifiable for rc37. RT-173 subsequently
 proved that those bytes could not materialize the missing clean-C1 dependency
 tree, so they are history rather than executable adoption authority. Draft PR
-#61 is stale and public push remains unauthorized. The still-unnamed RT-173
-successor has the only current scoreboard at `0/5`; no fresh v3 adoption starts
-before its capsule verifies fail-closed. Private PR #211 remains historical v2.
+#61 is stale and public push remains unauthorized. Pinned rc38 has the only
+current scoreboard at `1/5`; no fresh rc38/v3 adoption starts before its capsule
+verifies fail-closed. Private PR #211 remains historical v2.
 Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.
 No existing v2 C3 or receipt is amended to reach it.

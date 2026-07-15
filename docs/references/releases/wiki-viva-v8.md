@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 unreleased - RT-173 source formation pending"
+title: "Wiki Viva v8 rc38 - exact validation pending"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 unreleased - RT-173 source formation pending
+# Wiki Viva v8 rc38 - exact validation pending
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -626,24 +626,28 @@ executable, proving a missing policy/authority bootstrap rather than an app
 defect. Rc37 remains cryptographically verified history, but it is not
 executable Lane B adoption or promotion authority.
 
-The active package is `unreleased` / `validation_pending`, rooted at the last
-immutable metadata base `eb84b39a2c82133500123a681e8d4dc7bd0136e6`, with
-`package_is_pinned=false`. That base is not represented as the successor source
-SHA: the successor receives its own source commit and separate metadata pin
-only after the working tree freezes. The only authorized current subject is
-that still-unnamed and unpinned RT-173 successor. It must separate tracked portable
+The active package is `wiki-viva-v8-rc38` / `validation_pending`, separately
+pinned to exact source `de879672aa9fefcf174c844924e3f95ed40a5fe1`, with
+`package_is_pinned=false` until exact validation and a later candidate boundary.
+Its validation-pending package-file/canonical-package/portable-tree SHA-256
+values are
+`a7d19c0686d9dadbc255d520fe4dc0b2abba2547be2e3f7f2372fffaa04a0cb0` /
+`337d2d740e74d4c6765cc9bad01ad82deeb9e8c6d074ffb89a9ff4b13a7dd487` /
+`96e3db3b147139af491343fbd9f12f4845df664be7bb429070723f6205ef6534`,
+528 entries.
+It separates tracked portable
 `wiki_viva_node_workspace_policy.v2` from external path-free/platform-scoped
 `wiki_viva_node_workspace_authority.v1`, route every release-bearing Node
 command through the wrapper and seal capsule v2 with the authority/digest plus
 `toolchain_probe_entry_count=5` and canonical identities `browser`, `node`,
-`npm`, `python`, `runner`. The single current scoreboard is `0/5`: source pin, exact
-validation and capsule verification are pending; private canary and private-main
+`npm`, `python`, `runner`. The single current scoreboard is `1/5`: source pin is
+complete; exact validation and capsule verification are pending; private canary and private-main
 readback are blocked. Rc37's historical `3/5` chronology is not a second live
 scoreboard. Draft public PR #61 remains stale and does not represent this local
 truth; public push, publication, PR mutation, merge and tag remain unauthorized.
 Private PR #211 and its v2 receipts remain immutable historical evidence. A
-fresh v3 adoption may start from the then-current private `main` only after the
-RT-173 successor capsule and attestation verify fail-closed.
+fresh rc38/v3 adoption may start from the then-current private `main` only after
+the rc38 capsule and attestation verify fail-closed.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -752,8 +756,8 @@ Historical rc37 has a separate source pin and candidate boundary. Its first and
 only exact validation passed 23/23, then its first productive capture, Lane A
 11/11 and independent capsule/attestation verification passed once. RT-173's
 later clean-C1 failure prevents downstream use without changing any rc37 byte or
-receipt. The still-unnamed successor requires a new pin, validation, capture,
-capsule and verification before any downstream plan.
+receipt. Pinned rc38 requires exact validation, capture, capsule and verification
+before any downstream plan.
 Remote public CI, human conceptual/privacy/VoiceOver review, public merge and
 promotion remain separate and unauthorized; stale/conflicting public PR #61
 does not represent this local truth. External E5 and a release tag remain
@@ -902,8 +906,8 @@ mandatory browser cells plus both complete deterministic stacks are now
 proven. At that historical checkpoint,
 [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61) still required
 human review and merge. It is now stale/conflicting and represents neither the
-historical rc37 authority nor the current unpinned RT-173 successor; no tag or public push is
-authorized.
+historical rc37 authority nor pinned validation-pending rc38; no tag or public
+push is authorized.
 
 ## Historical rc8 correction lineage — public payload candidate at that checkpoint
 

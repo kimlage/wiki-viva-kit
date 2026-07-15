@@ -373,20 +373,28 @@ verifier hashes above remain immutable and valid historical evidence. They are
 not executable Lane B adoption or promotion authority and must never be rerun,
 amended, relabeled or projected onto another subject.
 
-RT-173 is the only fail-closed exception that permits a new subject. The
-successor remains unnamed and unpinned until its source is immutable. It must
+RT-173 is the only fail-closed exception that permits a new subject. Exact
+source `de879672aa9fefcf174c844924e3f95ed40a5fe1` is now separately named and
+pinned as `wiki-viva-v8-rc38` / `validation_pending`. It
 make `apps/wiki-cockpit/node-workspace.lock.json` a platform-neutral
 `wiki_viva_node_workspace_policy.v2`, capture one path-free/platform-scoped
 `wiki_viva_node_workspace_authority.v1` outside Git only in Lane A, materialize
 clean C1 from the sealed authority, route every release-bearing Node command
 through the wrapper and seal capsule v2 with that authority/digest,
 `toolchain_probe_entry_count=5` and canonical identities `browser`, `node`,
-`npm`, `python`, `runner`. No successor label or release authority exists yet.
+`npm`, `python`, `runner`. No validation, candidate or release authority exists
+yet.
 
 #### RT-173 formation closure and downstream preparation evidence — 2026-07-15
 
-The unnamed source formation still has no release name, source pin, capsule or
-adoption authority. The first RT-173 closure review found seven portable-Node
+The source formation is now immutably pinned as `wiki-viva-v8-rc38` at
+`de879672aa9fefcf174c844924e3f95ed40a5fe1`; it still has no exact-validation,
+candidate, capsule or adoption authority. Its validation-pending
+package-file/canonical-package/portable-tree SHA-256 values are
+`a7d19c0686d9dadbc255d520fe4dc0b2abba2547be2e3f7f2372fffaa04a0cb0` /
+`337d2d740e74d4c6765cc9bad01ad82deeb9e8c6d074ffb89a9ff4b13a7dd487` /
+`96e3db3b147139af491343fbd9f12f4845df664be7bb429070723f6205ef6534`,
+528 entries. The first RT-173 closure review found seven portable-Node
 P1 surfaces. Those seven remain implemented with synthetic public fixtures and
 fail-closed negatives:
 
@@ -479,18 +487,18 @@ datada; não substitui os cinco estados comprovados abaixo.
 
 | Etapa | Estado | Evidência exata / próxima ação |
 | --- | --- | --- |
-| source pinned | ⏳ pendente | Os sete blockers RT-173 iniciais e os seis contratos adversariais finais estão fechados com testes negativos públicos, incluindo a regressão exata 16/16 e o transport-rewrite Git fail-closed. A formação está verde, mas o sucessor ainda não tem nome, commit, package ou pin. Próxima ação exclusiva: commitar esta única formação e então nomear/pinar exatamente um sucessor. Rc37 `d87af15b...` e seus hashes permanecem história imutável; o PR público #61 continua antigo/conflitante e não representa a verdade local |
-| exact validation | ⏳ pendente | Executar uma única matriz integral somente depois do novo source pin. A matriz rc37 `775fe5bc...` 23/23 continua válida apenas para rc37 e não é reutilizada |
-| capsule verified | ⏳ pendente | Capturar authority Node externa a partir do clean source, provar clean-C1 materialization, executar Lane A, selar capsule v2 de cinco tools e verificar positivos/negativos. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história, não autoridade Lane B |
-| private canary | ⛔ bloqueado | A capsule RT-173 ainda não existe. Depois de verificá-la, derivar automaticamente os 17 gates do reparo de domínio separado, executar o canary real e mergeá-lo somente se verde; congelar então a nova `main` como B0 e provar B0→C1→C2→C3, gates selecionados, canary e rollback. #211 permanece evidência v2 histórica |
+| source pinned | ✅ concluído | `wiki-viva-v8-rc38` / `validation_pending` aponta ao source imutável `de879672aa9fefcf174c844924e3f95ed40a5fe1`; package-file/canonical/tree `a7d19c06...` / `337d2d74...` / `96e3db3b...` (528 entradas). Os sete blockers RT-173 iniciais e os seis contratos adversariais finais estão fechados, incluindo regressão exata 16/16 e transport-rewrite Git fail-closed. `package_is_pinned=false` até a validação e promoção metadata separada. Rc37 `d87af15b...` e seus hashes permanecem história imutável; o PR público #61 continua antigo/conflitante e não representa a verdade local |
+| exact validation | ⏳ pendente | Executar uma única matriz integral sobre rc38 sem editar o source. A matriz rc37 `775fe5bc...` 23/23 continua válida apenas para rc37 e não é reutilizada |
+| capsule verified | ⏳ pendente | Após validação rc38 verde, capturar authority Node externa a partir do clean source, provar clean-C1 materialization, executar Lane A, selar capsule v2 de cinco tools e verificar positivos/negativos. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história, não autoridade Lane B |
+| private canary | ⛔ bloqueado | A capsule rc38 ainda não existe. Depois de verificá-la, derivar automaticamente os 17 gates do reparo de domínio separado, executar o canary real e mergeá-lo somente se verde; congelar então a nova `main` como B0 e provar B0→C1→C2→C3, gates selecionados, canary e rollback. #211 permanece evidência v2 histórica |
 | private main readback | ⛔ bloqueado | Após capsule, adoção e gates verdes, usar a autorização permanente de merge privado e validar visualmente a própria `main`; Claude/IFC e Audrey continuam separados |
 
-Fechamento comprovado atual: **0/5 etapas para o sucessor RT-173 ainda
-unnamed/unpinned**. A formação está verde e congelada, mas `source pinned` só
-muda para `1/5` quando o commit e o pin imutáveis existirem. O antigo `3/5` de
+Fechamento comprovado atual: **1/5 etapas para `wiki-viva-v8-rc38`**. O source
+`de879672aa9fefcf174c844924e3f95ed40a5fe1` está verde, congelado e
+separadamente pinned. O antigo `3/5` de
 rc37 permanece apenas como cronologia imutável dentro deste mesmo plano; não é
 um segundo placar e nenhum recibo foi invalidado ou reescrito. A única próxima
-frente é commitar esta formação, nomear/pinar exatamente um sucessor e executar
+frente é executar a única validação exata rc38, sem editar o source, e continuar
 a cadeia. Não ampliar packs/abstrações nem abrir outro plano.
 
 O Playwright terminou as 102 células em 386.565 segundos. O checker pós-matriz
@@ -632,8 +640,9 @@ Node command uses the wrapper. Unknown or divergent source, policy, platform,
 Node, npm, tree or trusted digest fails before execution.
 
 Rc37 remains immutable verified history and is not retried, relabeled or
-invalidated. RT-173 alone authorizes one still-unnamed successor; its release ID,
-source SHA and hashes remain pending until a clean subject is actually pinned.
+invalidated. RT-173 authorizes exactly one successor: `wiki-viva-v8-rc38` is
+now pinned to clean source `de879672aa9fefcf174c844924e3f95ed40a5fe1`;
+validation, candidate and release authority remain pending.
 
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
@@ -1061,7 +1070,7 @@ memory rather than one fixed dashboard:
 
 | Surface | Reviewed baseline | Automated state | Human/product state | Decision |
 | --- | --- | --- | --- | --- |
-| Stale public PR baseline | Draft PR #61 still points to remote head `31b94d81`, conflicts with current public `main` and represents neither rc37 history nor the unpinned RT-173 successor | Its three remote checks belong only to that old SHA | Rc37 passed exact validation 23/23, productive capture, Lane A 11/11 and independent capsule verification locally; RT-173 later blocked downstream execution, and neither truth may be projected onto the stale PR | Prepare reconciliation only after the RT-173 successor is pinned/certified; no push/publication without explicit authorization |
+| Stale public PR baseline | Draft PR #61 still points to remote head `31b94d81`, conflicts with current public `main` and represents neither rc37 history nor pinned rc38 | Its three remote checks belong only to that old SHA | Rc37 passed exact validation 23/23, productive capture, Lane A 11/11 and independent capsule verification locally; rc38 is only validation-pending, and neither truth may be projected onto the stale PR | Prepare reconciliation only after rc38 is certified; no push/publication without explicit authorization |
 | Historical public payload `S` | Exact subject `b781882a11e8bbac3ae9684d199979a1f4ee1bf7` | 1,339 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; matrix remains 102+2 | Its then-global adversarial verdict had no open public P0/P1; later source and private pressure superseded it | Historical release candidate only; never tag or use as current authority |
 | Public pressure payload `S2` | Exact subject `f0936539ca44c34ff5eacf5817b22ff9451b9cef` | 1,355 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; demo and audit remain deterministic | Portability, historical-action adoption, rollback truth and demo-link closure are executable contracts | Historical rc3 candidate; imported by the private pilot before the final pressure pass |
 | Public renderer payload `S3` | Exact subject `8904d69daab1803043a89e553d78b95b57d2022f` | 1,356 Python pass; clean browser run blocks at 101/102 on a live→demo request race | Both action parsers accept canonical output, but browser closure is incomplete | Rejected intermediate; never promote or adopt as the final candidate |
@@ -4056,10 +4065,11 @@ This is the only active queue; earlier S9/S10 queues are historical snapshots:
     promoted or relabeled as rc36/v3. Standing private merge approval does not
     convert historical v2 evidence into current adoption authority.
     Public push, PR, merge, tag and external E5 remain unauthorized;
-15. **BLOCKED ON THE UNPINNED RT-173 SUCCESSOR** — rc37's capsule and external
+15. **BLOCKED ON RC38 VALIDATION/CERTIFICATION** — rc37's capsule and external
     attestation remain immutable verified history, but its clean-C1 execution
-    cannot materialize the sealed dependency tree. First pin, validate and
-    certify the still-unnamed policy-v2/authority-v1 successor. Only then open
+    cannot materialize the sealed dependency tree. Rc38 is pinned at
+    `de879672...`; validate and certify that exact policy-v2/authority-v1
+    subject. Only then open
     one fresh v3 adoption from current private `main`, not from PR #211 or its
     v2 C3. Preserve toolkit-owned `wiki-*` skills as byte-equal C1, derive
     private `AGENTS.md`, router and non-`wiki-*` adaptations in C3, create new
@@ -5270,7 +5280,7 @@ first Lane A passed 11/11 and sealed capsule/receipt/attestation
 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`. Independent positive and
 negative verification closed fail-closed authority. RT-173's later clean-C1
 failure preserves those hashes as history but blocks private v3 adoption until
-one unnamed successor certifies. Public push and publication remain
+pinned rc38 certifies. Public push and publication remain
 unauthorized.
 
 #### Post-rc21 downstream rehearsal: RT-152 and the rc22 correction boundary — 2026-07-14
@@ -5389,7 +5399,7 @@ permits productive capture and Lane A certification only. Public push and
 publication remain unauthorized.
 
 The only canonical scoreboard is [Placar operacional canônico](#placar-operacional-canônico),
-currently `0/5` for the unnamed/unpinned RT-173 successor. Rc37's former `3/5`
+currently `1/5` for pinned `wiki-viva-v8-rc38`. Rc37's former `3/5`
 is immutable chronology, not a second scoreboard. Do not expand packs or mutate
 PR #61/#211 to simulate progress. RT-173 is the recorded fail-closed exception
 that requires exactly one new immutable subject; no other scope expansion is
@@ -5445,8 +5455,8 @@ validation, produced a verified capture and failed its first/only Lane A at
 browser 101/102 on RT-172. Exact successor rc37 then passed its first/only
 complete validation 23/23, first productive capture and Lane A 11/11; capsule
 and external attestation verify independently. RT-173's later clean-C1 failure
-freezes that authority as history. The active next action is to pin, validate
-and certify the still-unnamed policy-v2/authority-v1 successor; private adoption
+freezes that authority as history. The active next action is to validate and
+certify pinned rc38's policy-v2/authority-v1 subject; private adoption
 follows only after its verification. The
 already sealed v2 downstream C3 and all of its
 receipts remain frozen on their original complete
@@ -5725,7 +5735,7 @@ the out-of-band digest. Wrong-digest and tampered-copy controls failed closed.
 
 RT-173 later proved that this rc37 authority could not materialize clean-C1 Node
 dependencies, so preserve it as history and do not start adoption from it. Once
-the still-unnamed RT-173 successor is pinned, validated, certified and verified,
+pinned rc38 is validated, certified and verified,
 start a fresh v3 adoption from the current private `main`, not from PR #211 or
 its v2 C3. Preserve B0→C1→C2→C3, import the
 scoped duplicate-label correction byte-equal in C1, run selected/current gates,

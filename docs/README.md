@@ -217,12 +217,13 @@ starting point for persistent context is `memories/`.
   projection had no `node_modules` and no sealed materialization authority, so
   its Node C2 generator could not resolve TypeScript before an untrusted manual
   `npm ci`. Rc37 remains verifiable historical evidence, not executable Lane B
-  authority. The still-unnamed successor owns the only current scoreboard at
-  `0/5`: source pin, exact validation and capsule verification are pending;
-  private canary and private-main readback are blocked. Draft PR
+  authority. `wiki-viva-v8-rc38` is separately pinned to exact source
+  `de879672aa9fefcf174c844924e3f95ed40a5fe1` and owns the only current
+  scoreboard at `1/5`: source pin is complete; exact validation and capsule
+  verification are pending; private canary and private-main readback are blocked. Draft PR
   #61 is stale and does not represent this local truth; public push/publication
   remains unauthorized. Private PR #211 remains historical v2, and a fresh v3
-  adoption starts only after the RT-173 successor capsule verifies fail-closed.
+  adoption starts only after the rc38 capsule verifies fail-closed.
   Standing private-main approval is downstream-only and never weakens gates or
   the generic public PR/human gate.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
