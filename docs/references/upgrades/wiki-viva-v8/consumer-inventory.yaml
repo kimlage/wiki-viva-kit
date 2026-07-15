@@ -1,5 +1,5 @@
 schema_version: wiki_viva_consumer_inventory.v1
-verified_on: "2026-07-14"
+verified_on: "2026-07-15"
 
 publication_policy:
   private_paths: redact
@@ -32,12 +32,12 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc35_precapture_rejected_rc36_exact_validation_pending
+      state: rc35_precapture_rejected_rc36_candidate_capture_pending
       drift_total: 0
       compared_against: wiki-viva-v8-rc36@8f96e1fd
-      worktree: rc36_exact_validation_source_pinned
+      worktree: rc36_candidate_boundary_local_only
     upgrade_wave: public_kit
-    status: blocked_on_rc36_exact_validation_and_certification
+    status: blocked_on_rc36_capture_and_certification
     blocker: >-
       Rc21 through rc33 remain frozen according to their recorded historical
       outcomes. Rc34 source 533d2868 passed complete exact validation at
@@ -57,19 +57,31 @@ consumers:
       rejected rc35 before productive capture because positional real-canary
       routes and v1 capture/summary schemas did not prove the exact native view,
       runtime_mode v8 and canary viewport together. Rc35 is immutable
-      historical_precapture_rejected. Rc36 is pinned only for exact validation
-      to source 8f96e1fd with capture v2, canary-summary v2 and exact native
-      route/runtime/viewport enforcement. Pre-pin focused source evidence
-      passed 295 Python checks with 3 declared skips in 583.50 seconds, all 13
-      focused Node checks, both audits with 0 errors and 6 known freshness
-      warnings, and package plus consumer-inventory validators. Post-boundary
-      measurement binds rc36 to package-file/canonical-package/tree SHA-256
+      historical_precapture_rejected. Rc36 source 8f96e1fd carries capture v2,
+      canary-summary v2 and exact native route/runtime/viewport enforcement.
+      Its validation-subject measurement bound package-file/canonical-package/
+      tree SHA-256
       47c3dc7dff8336c7707a4c43cc37275aef3721e2b1a54109b94e64cbed6992f1 /
       81a3b600f4cd6cd0f0d3abac0b886e9db15fdd3ad0120c9442ce7fc76cc07832 /
       53ffdf8bc0a2c61f1bf7f426ba12e7e9a0c4995e92703a7264596b9f9a81594c
-      with 521 portable entries. Toolchain/payload identity, exact-validation
-      result, candidate, capture, capsule, downstream plan or adoption authority
-      is not declared yet.
+      with 521 portable entries; those hashes remain exact-validation history,
+      not candidate authority. Rc36 then passed its first and only complete
+      exact validation at metadata subject 3db3f9f4: 23/23 recorded gates, 1782
+      Python passes with 3 declared skips in 1082.23 seconds, all 518 frontend
+      checks, 123 Node passes and browser run
+      public-mrlis0t7-bfd938c4-5799-4c19-b7b0-e7df20d75651 at 102/102 with no
+      failure, skip, retry or flaky cell. Validation/toolchain/runner-payload
+      SHA-256 values are 5585819e60c5f7550f06e9990c4de23b42e5eb3113f2bdf5036cac563465a267 /
+      6728f4644bc18da8602f1c3ea982f6b5584c7e949716e2e3c2bb58110fba7083 /
+      03a75c4072048b8150e95737bb7c458562bd29da184286c09a3cea7699955424.
+      A separate candidate boundary now binds package-file/canonical-package/
+      tree SHA-256
+      4b3dd32bf4006026e9dad1be1ceb98a34e87cdebfe0c7e6f9d8aa20260cddbc5 /
+      bca7d50ab57749e5dd2c40da1f3c157d7a22e4caa2189436f1af67ebf03efa55 /
+      2f03cae734f67e9c478fc78f8f470d0283ae3dc39e78c7d398ac86aa26714bb9
+      with 521 portable entries and permits productive capture plus Lane A
+      certification only; no capture, capsule, downstream plan or adoption
+      authority is declared yet.
       Public push is not authorized; external E5 and a release tag remain
       separate
 
@@ -99,7 +111,7 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: v2_adoption_complete_rc35_rejected_rc36_exact_validation_pending
+      state: v2_adoption_complete_rc36_candidate_capsule_pending
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
@@ -118,10 +130,11 @@ consumers:
         52491dfd passed wholly new exact validation at metadata subject
         55910c37, but RT-171 rejected it before productive capture. Its reviewed
         local-QA projection was never committed as candidate metadata and
-        minted no capsule or downstream authority. Rc36 is pinned only for
-        exact validation to source 8f96e1fd; it is not yet a downstream target.
-        After wholly new exact validation, candidate review, productive capture,
-        Lane A certification and independent capsule verification, the fresh
+        minted no capsule or downstream authority. Rc36 source 8f96e1fd passed
+        its complete exact validation at metadata subject 3db3f9f4 and has a
+        separate candidate boundary. It is still not a downstream target.
+        After productive capture, Lane A certification and independent capsule
+        verification, the fresh
         rc36/v3 adoption starts from the then-current private main, not from
         private PR #211 or its historical v2 C3/receipts. Standing human authorization for incremental
         merges to the private pilot's main branch is recorded, but it does not
@@ -129,19 +142,20 @@ consumers:
         rollback or report verification. Consumer AGENTS.md,
         .skills/README.md and non-wiki local skills remain fresh-C3 routing
         surfaces
-      verified_on: "2026-07-14"
+      verified_on: "2026-07-15"
     upgrade_wave: pilot
-    status: blocked_on_public_release_promotion
+    status: blocked_on_rc36_verified_capsule
     blocker: >-
       The current private v2 evidence remains immutable and cannot be reduced
       by the v3 strategy. Rc34 is historical_precapture_rejected after RT-170
       was found read-only, before any productive capture. Rc35 is also
       historical_precapture_rejected after RT-171; its valid exact validation
       remains historical but no candidate metadata, capsule or adoption
-      authority exists. Rc36 exact source 8f96e1fd is pinned with
-      validation_pending status, so wholly new public exact validation,
-      candidate review, productive capture, verified certification capsule and
-      fresh current-main consumer preflight must precede any v3 downstream QA.
+      authority exists. Rc36 exact source 8f96e1fd passed its one complete
+      exact validation at metadata subject 3db3f9f4 and now has a separate
+      candidate boundary. Productive capture, verified certification capsule
+      and fresh current-main consumer preflight must still precede any v3
+      downstream QA.
       Private PR #211 is
       v2 historical evidence and cannot be promoted as rc36/v3. Incremental
       private-main merge authorization is already recorded; promotion remains

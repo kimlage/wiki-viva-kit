@@ -1,17 +1,17 @@
 ---
-title: "Wiki Viva v8 rc36 exact validation source - rc35 rejected before capture"
+title: "Wiki Viva v8 rc36 candidate - exact validation passed"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
 visibility: public_candidate
-updated_at: 2026-07-14
+updated_at: 2026-07-15
 stale_after_days: 365
 sources_policy: release_note
 gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc36 exact validation source - rc35 rejected before capture
+# Wiki Viva v8 rc36 candidate - exact validation passed
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -501,29 +501,55 @@ package and consumer inventory validation passed while
 `package_is_pinned=false`. That remains source-formation evidence only; it is
 not relabeled as the exact validation above.
 
-## Rc36 exact validation source — native v8 visual authority pinned
+## Rc36 candidate — native v8 visual authority passed exact validation
 
-`wiki-viva-v8-rc36` is pinned only for exact validation to source
-`8f96e1fd58258df64174229d81ee6a330ba9d2b1` with status
-`validation_pending`; `package_is_pinned=false`. Post-boundary measurement binds
-this exact pair to package-file SHA-256
-`47c3dc7dff8336c7707a4c43cc37275aef3721e2b1a54109b94e64cbed6992f1`,
-canonical-package SHA-256
-`81a3b600f4cd6cd0f0d3abac0b886e9db15fdd3ad0120c9442ce7fc76cc07832`
-and a 521-entry portable tree SHA-256
-`53ffdf8bc0a2c61f1bf7f426ba12e7e9a0c4995e92703a7264596b9f9a81594c`.
-The command- and impact-registry SHA-256 values are respectively
+`wiki-viva-v8-rc36` binds exact source
+`8f96e1fd58258df64174229d81ee6a330ba9d2b1`. Its first and only complete exact
+validation ran against metadata subject
+`3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd` and passed 23/23 recorded gates:
+
+- 1,782 Python checks passed with 3 declared skips in 1,082.23 seconds;
+- all 518 frontend checks passed;
+- 123 Node gate checks passed; and
+- first/only browser run
+  `public-mrlis0t7-bfd938c4-5799-4c19-b7b0-e7df20d75651` passed 102/102 with
+  zero failure, skip, retry or flaky cell.
+
+The exact-validation result and identity SHA-256 values are
+`5585819e60c5f7550f06e9990c4de23b42e5eb3113f2bdf5036cac563465a267`
+and `4eef33dd7b6ede28a324cfb2addf583f7fbed1a06fff611d5f62b81b09e82aa6`.
+The browser run-result/Playwright-report/release-build-manifest/gate-result
+identities are
+`451399635d7d441dca9a9fd31c5fc2476651f878633b7684ed10f97e0f5062ae`
+/ `293e7b4878985c0e98a645b98e490ed7b0e7b5ba067d7adf0fabffdce4933803`
+/ `78dfb9786a2785f282af88e210525aba4df0712f768adf305b5128108dfd400d`
+/ `68b6dec6bb83fad11001a2fc3a2b8792075ff6867358e485cf676112d973929b`.
+The release-matrix contract SHA-256 is
+`f5c9a48b7325efaa4ffb48f1d99aaf4201489060bfa0294ea1aaa93a21300432`.
+The toolchain SHA-256 is
+`6728f4644bc18da8602f1c3ea982f6b5584c7e949716e2e3c2bb58110fba7083`;
+runner identity is
+`1.4.0+payload.03a75c4072048b8150e95737bb7c458562bd29da184286c09a3cea7699955424`.
+Git subject before/after remained stable.
+
+The earlier validation-subject measurement — package-file / canonical-package /
+portable-tree SHA-256
+`47c3dc7dff8336c7707a4c43cc37275aef3721e2b1a54109b94e64cbed6992f1` /
+`81a3b600f4cd6cd0f0d3abac0b886e9db15fdd3ad0120c9442ce7fc76cc07832` /
+`53ffdf8bc0a2c61f1bf7f426ba12e7e9a0c4995e92703a7264596b9f9a81594c`
+(521 entries) — remains exact-validation history and is not mislabeled as the
+candidate identity. The separately reviewed candidate package-file /
+canonical-package / portable-tree SHA-256 values are
+`4b3dd32bf4006026e9dad1be1ceb98a34e87cdebfe0c7e6f9d8aa20260cddbc5` /
+`bca7d50ab57749e5dd2c40da1f3c157d7a22e4caa2189436f1af67ebf03efa55` /
+`2f03cae734f67e9c478fc78f8f470d0283ae3dc39e78c7d398ac86aa26714bb9`.
+The command- and impact-registry SHA-256 values remain
 `6e170423a544cdb735aef7d77ed70389846dc657dc905b69f6d2312e03458097`
 and `92ce2ba62d728269a2c29323c9a433235f20cef790961f8ac6d5d1625942c0db`.
-Runner-payload and toolchain identities remain deliberately pending the single
-exact-validation run; no rc35 identity is copied forward.
-
-Pre-pin focused source evidence passed 295 Python checks with 3 declared skips
-in 583.50 seconds and all 13 focused Node checks. Both audits returned 0 errors
-with 6 known freshness warnings, and package plus consumer-inventory validators
-were green. This is formation evidence only: it is not the wholly new exact
-rc36 validation and cannot authorize candidate review, capture, certification
-or downstream adoption.
+Status is now `candidate` and `package_is_pinned=true`, but this authorizes
+productive capture and Lane A certification only. No productive capture,
+visual manifest, capsule, attestation, downstream plan, import or Lane B
+authority exists yet.
 
 RT-171 upgrades the record contracts to
 `wiki_visual_evidence_capture.v2` and
@@ -539,11 +565,11 @@ compatibility evidence only.
 | `fallback` | `/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0` / `1280x900` | `/w?view=quadrants&visual=1&tour=0` / `1440x1000` | `quadrants` / `v8` |
 | `quadrant_collection_two_step` | `/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0` / `1440x1000` | `/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0` / `1440x1000` | `quadrants` / `v8` |
 
-The runner base version is 1.4.0, but its exact
-`1.4.0+payload.<sha256>` identity and `toolchain_sha256` remain pending the
-exact-validation derivation. The next valid action is one wholly new complete exact
-validation of source `8f96e1fd58258df64174229d81ee6a330ba9d2b1` against
-this metadata package. Public push, publication, PR mutation, merge and tag
+The next valid action is one productive four-profile capture from the exact
+source, followed by one Lane A certification and independent fail-closed
+capsule/attestation verification. The canonical scoreboard is `2/5`: source pin
+and exact validation complete; capsule verification, private canary and private
+main readback pending. Public push, publication, PR mutation, merge and tag
 remain unauthorized. A future private rc36/v3 adoption must start from the
 then-current private `main`; private PR #211 and its v2 receipts remain
 immutable historical evidence, not an rc36 base or promotion authority.
@@ -651,13 +677,12 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-The exact rc36 validation source still requires complete exact validation,
-candidate review, new capture and certification,
-independent capsule verification, explicit
-authorization, remote public CI,
-human conceptual/privacy/VoiceOver review and merge, followed by a separately
-reviewed promotion boundary that can mint production Lane A release authority.
-External E5 and a release tag remain separate. The in-flight private v2
+The rc36 candidate now requires one new productive capture, Lane A
+certification and independent capsule/attestation verification before any
+downstream plan. Remote public CI, human conceptual/privacy/VoiceOver review,
+public merge and promotion remain separate and unauthorized; stale/conflicting
+public PR #61 does not represent rc36. External E5 and a release tag remain
+separate. The historical private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
 rc21, rc22, rc23, the exact rc24/rc26 failed-certification subjects, the exact
 rc25/rc27/rc31/rc32/rc33 failed-validation subjects nor rejected

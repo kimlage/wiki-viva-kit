@@ -1,6 +1,6 @@
 # Docs
 
-Updated on: 2026-07-14
+Updated on: 2026-07-15
 
 `docs/` holds only perennial references, snapshots, decisions and templates. The
 starting point for persistent context is `memories/`.
@@ -165,26 +165,32 @@ starting point for persistent context is `memories/`.
   historical evidence, but no capture directory, visual manifest, capsule,
   receipt, downstream plan, import or Lane B authority was created.
 
-  The active package is `wiki-viva-v8-rc36` / `validation_pending` at exact
-  source `8f96e1fd58258df64174229d81ee6a330ba9d2b1`. It uses runner 1.4.0,
+  The active package is `wiki-viva-v8-rc36` / `candidate` at exact source
+  `8f96e1fd58258df64174229d81ee6a330ba9d2b1`. Its first and only complete exact
+  validation at metadata subject `3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd`
+  passed 23/23 recorded gates: 1,782 Python checks with 3 declared skips in
+  1,082.23 seconds, 518 frontend checks, 123 Node checks and browser
+  run `public-mrlis0t7-bfd938c4-5799-4c19-b7b0-e7df20d75651` at 102/102 with
+  no failure, skip, retry or flaky cell. It uses runner 1.4.0,
   `wiki_visual_evidence_capture.v2` and
   `wiki_viva_canary_visual_summary.v2`, enforcing exact native route, view, v8
-  runtime and `canary_viewport`. `package_is_pinned=false`; no candidate
-  identity, productive capture, visual manifest, capsule, receipt, attestation,
-  downstream plan, import or Lane B authority exists.
+  runtime and `canary_viewport`. `package_is_pinned=true`; candidate status
+  authorizes productive capture and Lane A certification only. No productive
+  capture, visual manifest, capsule, receipt, attestation, downstream plan,
+  import or Lane B authority exists.
 
-  Post-boundary package-file/canonical-package/portable-tree SHA-256 values are
-  `47c3dc7d...` / `81a3b600...` / `53ffdf8b...` (521 entries). Runner-payload
-  and toolchain identities remain pending exact validation.
+  The validation-subject package-file/canonical-package/portable-tree SHA-256
+  values `47c3dc7d...` / `81a3b600...` / `53ffdf8b...` (521 entries) remain
+  historical measurement only. The separately reviewed candidate values are
+  `4b3dd32bf4006026e9dad1be1ceb98a34e87cdebfe0c7e6f9d8aa20260cddbc5` /
+  `bca7d50ab57749e5dd2c40da1f3c157d7a22e4caa2189436f1af67ebf03efa55` /
+  `2f03cae734f67e9c478fc78f8f470d0283ae3dc39e78c7d398ac86aa26714bb9`.
+  Validation-result/toolchain/runner-payload identities are `5585819e...` /
+  `6728f464...` / `03a75c40...`.
 
-  Pre-pin source-formation evidence passed 295 affected Python checks with 3
-  declared skips in 583.50 seconds and all 13 Node exporter checks. Package
-  tests initially returned 125/126 because two redundant keys remained in a
-  closed map; after their removal, the exact failed package test passed. Audit
-  and public audit each returned 0 errors with 6 historical freshness warnings,
-  while package and consumer-inventory validation returned 0 errors. This is
-  formation evidence only, not rc36 exact validation or candidate authority.
-  Draft PR #61 remains stale and does not
+  The single operational scoreboard is `2/5`: source pin and exact validation
+  complete; capsule verification, private canary and private-main readback
+  pending. Draft PR #61 remains stale and does not
   represent this local truth. Public push/publication remains unauthorized;
   standing private-main approval is downstream-only and never weakens gates or
   the generic public PR/human gate.

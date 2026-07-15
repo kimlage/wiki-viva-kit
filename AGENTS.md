@@ -180,28 +180,34 @@ another) via skills — there is no embedded LLM client.
   attestation, trust anchor, downstream plan, import or Lane B authority was
   created. Never retry, relabel, promote or import rc35.
 
-  The active package is `wiki-viva-v8-rc36` / `validation_pending` at exact
-  source `8f96e1fd58258df64174229d81ee6a330ba9d2b1`.
-  Post-boundary package-file/canonical-package/portable-tree SHA-256 values are
-  `47c3dc7d...` / `81a3b600...` / `53ffdf8b...` (521 entries); payload and
-  toolchain identities remain pending exact validation.
-  `package_is_pinned=false`: no candidate identity, productive capture, visual
-  manifest, capsule, receipt, attestation, downstream plan, import or Lane B
-  authority exists. Rc36 uses runner 1.4.0,
+  The active package is `wiki-viva-v8-rc36` / `candidate` at exact source
+  `8f96e1fd58258df64174229d81ee6a330ba9d2b1`. Its first and only complete exact
+  validation at metadata subject
+  `3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd` passed 23/23 recorded gates:
+  1,782 Python checks with 3 declared skips in 1,082.23 seconds, 518 frontend
+  checks, 123 Node checks and browser run
+  `public-mrlis0t7-bfd938c4-5799-4c19-b7b0-e7df20d75651` at 102/102 with no
+  failure, skip, retry or flaky cell. The validation result/toolchain/runner
+  payload SHA-256 values are `5585819e...` / `6728f464...` / `03a75c40...`.
+  Its validation-subject package-file/canonical-package/portable-tree SHA-256
+  values remain historical measurement only: `47c3dc7d...` / `81a3b600...` /
+  `53ffdf8b...` (521 entries). The separately reviewed candidate package-file /
+  canonical-package / portable-tree identities are
+  `4b3dd32bf4006026e9dad1be1ceb98a34e87cdebfe0c7e6f9d8aa20260cddbc5` /
+  `bca7d50ab57749e5dd2c40da1f3c157d7a22e4caa2189436f1af67ebf03efa55` /
+  `2f03cae734f67e9c478fc78f8f470d0283ae3dc39e78c7d398ac86aa26714bb9`.
+  `package_is_pinned=true`; candidate status authorizes productive capture and
+  Lane A certification only. No productive capture, visual manifest, capsule,
+  receipt, attestation, downstream plan, import or Lane B authority exists.
+  Rc36 uses runner 1.4.0,
   `wiki_visual_evidence_capture.v2` and
   `wiki_viva_canary_visual_summary.v2`, with exact native route, view, v8 runtime
   and `canary_viewport` enforcement.
 
-  Pre-pin source-formation evidence passed 295 affected Python checks with 3
-  declared skips in 583.50 seconds and all 13 Node exporter checks. Package
-  review initially returned 125/126 because two redundant keys remained in a
-  closed map; the keys were removed and the exact failed package test passed.
-  Audit and public audit each returned 0 errors with 6 historical freshness
-  warnings, and package plus consumer-inventory validation returned 0 errors.
-  These results prove source formation only and are not rc36 exact validation,
-  candidate, capture or certification evidence. Draft PR #61 remains stale and
-  does not represent this local truth. Public push/publication remains
-  unauthorized.
+  Operational scoreboard: `source pinned` and `exact validation` are complete;
+  `capsule verified`, `private canary` and `private main readback` are pending
+  (`2/5`). Draft PR #61 remains stale and does not represent this local truth.
+  Public push/publication remains unauthorized.
   Standing approval for incremental private-main merges
   is downstream-specific: it removes only that consumer's human-authorization
   blocker after every technical gate passes and does not alter the generic
