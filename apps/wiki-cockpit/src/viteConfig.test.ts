@@ -28,6 +28,8 @@ describe("local browser trust boundary", () => {
     expect(config.preview?.host).toBe("127.0.0.1");
     expect(config.preview?.cors).toBe(false);
     expect(config.envDir).toBe(false);
+    expect(config.cacheDir).toBe("tmp/vite-cache");
+    expect(config.cacheDir).not.toContain("node_modules");
   });
 
   it("keeps the snapshot readiness check on the configured dev port", () => {

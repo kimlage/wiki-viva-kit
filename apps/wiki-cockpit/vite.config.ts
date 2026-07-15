@@ -65,6 +65,11 @@ export default defineConfig(({ command }) => {
   // Vite must never load app-local .env files. The release build runner also
   // rejects their presence so an ignored file cannot silently affect a build.
   envDir: false,
+  // Keep Vite/Vitest's runtime cache outside the certified dependency tree.
+  // The Node workspace wrapper hashes node_modules before and after every
+  // command, so legitimate test-result caching must not look like a dependency
+  // mutation. The repository-wide tmp/ boundary is local and gitignored.
+  cacheDir: "tmp/vite-cache",
   plugins: [react(), operatorRuntimeConfig(apiProxyEnabled)],
   resolve: {
     alias: [

@@ -477,6 +477,37 @@ correction is to regenerate that one tracked deterministic page, freeze a new
 source subject and run a new exact matrix; no other hardening or scope expansion
 is authorized.
 
+That direct correction was pinned as rc39 source
+`9dae4aa64d42eb45a2308632944fb134282bca10` and metadata
+`6250627f25adabd0bc898950828b419b3995b01f`. Its one exact validation ran for
+6,501 seconds and passed the first 14 gates, including `1943 passed, 3 skipped`
+in the portable Python matrix. Gate 15, `frontend`, then stopped fail-closed
+after Vitest itself completed: the certified wrapper detected that the command
+had changed the sealed `node_modules` tree. Both Git subjects remained stable;
+no browser matrix, candidate, capture, capsule or adoption authority was
+created. Immutable validation-result / identity / failing-log SHA-256 values
+are `a9aaad5051dd26d54ce9b1f14b4a7a88b7dd7b7be3e43ecd7ff3bef0b2065134` /
+`dab615785a3954adcdf1b05ad5a3a54263e138eaaff74375044487d238e4710f` /
+`8c17186cdb4e5e269d2e85320395873ff0652307feb45e0e40ce95371d8d8af5`.
+
+Byte-level comparison proves that no dependency changed. Vite/Vitest created
+exactly one legitimate runtime result file under its default dependency cache:
+`node_modules/.vite/vitest/da39a3ee5e6b4b0d3255bfef95601890afd80709/results.json`,
+5,395 bytes, SHA-256
+`92bb0e759d7c87a59960b6164d2f4c6437dbe7c9c1adbdc230877eb9595c8d16`.
+The sealed tree had 15,693 entries / 266,595,639 bytes /
+`665c0a8fd7a8d29c0f8a2b3221013de872509e49cde5659f4b042ab5796e576c`;
+the observed post-command tree had only that extra regular file. The wrapper
+therefore behaved correctly. Rc39 is immutable failed-validation history.
+
+This directly observed exactness defect authorizes one and only one corrective
+source formation: route Vite/Vitest's runtime cache to the existing ignored
+`tmp/` boundary, assert that it is outside `node_modules`, and preserve the
+wrapper's full before/after dependency-tree comparison plus its synthetic real
+mutation negative. No cache exclusion, cleanup exception, runner weakening,
+new abstraction or unrelated hardening is permitted. The successor is named
+only after that source formation is committed and separately pinned.
+
 The current downstream base is clean and passes its sole B0 preflight
 `diff_check`, so it can be frozen only after Lane A exists. It would later fail
 the never-reusable consumer gates: its audit reports one freshness-budget error
@@ -506,18 +537,18 @@ datada; não substitui os cinco estados comprovados abaixo.
 
 | Etapa | Estado | Evidência exata / próxima ação |
 | --- | --- | --- |
-| source pinned | ✅ concluído | `wiki-viva-v8-rc39` / `validation_pending` aponta ao source corretivo imutável `9dae4aa64d42eb45a2308632944fb134282bca10`; package-file/canonical/tree `bceefb04...` / `94dbc5e4...` / `3f8949aa...` (528 entradas). A única mudança de produto desde rc38 é a página `operational-pass` regenerada; o mesmo commit registra a rejeição sem reescrever seu receipt `7441b7ef...`. `package_is_pinned=false` até validação e promoção metadata separada. Rc37 e rc38 não são reutilizados; o PR público #61 continua antigo/conflitante |
-| exact validation | ⏳ pendente | Executar uma nova matriz integral uma única vez sobre rc39 sem editar o source. A tentativa rc38 não é retomável nem relabelada; a matriz rc37 `775fe5bc...` continua válida apenas para rc37 |
-| capsule verified | ⛔ bloqueado | Somente após validação rc39 verde: capturar authority Node externa a partir do clean source, provar clean-C1 materialization, executar Lane A, selar capsule v2 de cinco tools e verificar positivos/negativos. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história |
+| source pinned | ⏳ em formação | Rc39 está congelado como falha 14/15 (`a9aaad50...`), sem autoridade promocional. A única correção autorizada move o cache de execução Vite/Vitest para `tmp/vite-cache`, adiciona a asserção de fronteira e registra esta evidência no plano. Congelar esse source e só então nomear/pinar exatamente um sucessor; o PR público #61 continua antigo/conflitante |
+| exact validation | ⛔ bloqueado | Depois do novo source e pin, executar uma matriz integral uma única vez sem editar o sujeito. Rc39 não é retomável nem relabelado; rc37 e rc38 continuam apenas história |
+| capsule verified | ⛔ bloqueado | Somente após a nova validação verde: captura visual produtiva, Lane A, capsule v2 e verificação positiva/negativa. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história |
 | private canary | ⛔ bloqueado | Não há capsule adotável. Depois da verificação, derivar automaticamente os 17 gates do reparo de domínio separado, executar o canary real e mergeá-lo somente se verde; congelar então a nova `main` como B0 e provar B0→C1→C2→C3, gates selecionados, canary e rollback. #211 permanece evidência v2 histórica |
 | private main readback | ⛔ bloqueado | Após capsule, adoção e gates verdes, usar a autorização permanente de merge privado e validar visualmente a própria `main`; Claude/IFC e Audrey continuam separados |
 
-Fechamento comprovado atual: **1/5 para `wiki-viva-v8-rc39`**. O antigo `3/5`
-de rc37 e o `1/5` interrompido de rc38 permanecem apenas como cronologia
-imutável dentro deste mesmo plano; não são placares concorrentes e nenhum
-recibo foi invalidado ou reescrito. A única próxima frente é executar a matriz
-exata rc39 sem editar o source. Não ampliar packs/abstrações nem abrir outro
-plano.
+Fechamento comprovado atual: **0/5 para o único sucessor ainda não nomeado**.
+Rc39 preserva `1/5` apenas como cronologia imutável e falhou 14/15 na sua única
+matriz; os antigos rc37 e rc38 também não são placares concorrentes. Nenhum
+recibo foi invalidado ou reescrito. A única próxima frente é congelar a correção
+de cache descrita acima, nomear/pinar esse único sucessor e validar o novo
+sujeito uma vez. Não ampliar packs/abstrações nem abrir outro plano.
 
 O Playwright terminou as 102 células em 386.565 segundos. O checker pós-matriz
 esperou mais 806.361 segundos porque o FileProvider precisava materializar
@@ -5760,10 +5791,11 @@ the out-of-band digest. Wrong-digest and tampered-copy controls failed closed.
 
 RT-173 later proved that this rc37 authority could not materialize clean-C1 Node
 dependencies, so preserve it as history and do not start adoption from it. Rc38
-then failed exact validation at `operational_pass` and remains immutable failed
-evidence. Once pinned rc39 is validated, certified and verified,
-start a fresh v3 adoption from the current private `main`, not from PR #211 or
-its v2 C3. Preserve B0→C1→C2→C3, import the
+then failed exact validation at `operational_pass`; rc39 passed 14/15 before the
+default Vitest result cache correctly tripped dependency-tree drift. Both remain
+immutable failed evidence. Only after the single direct successor is pinned,
+validated, certified and verified may a fresh v3 adoption start from the current
+private `main`, not from PR #211 or its v2 C3. Preserve B0→C1→C2→C3, import the
 scoped duplicate-label correction byte-equal in C1, run selected/current gates,
 real canary, console/network evidence, disposable rollback and generated
 reports. Preview 5204 is historical #211; preview 5205 is an uncommitted QA
