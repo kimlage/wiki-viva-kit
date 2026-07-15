@@ -373,17 +373,17 @@ verifier hashes above remain immutable and valid historical evidence. They are
 not executable Lane B adoption or promotion authority and must never be rerun,
 amended, relabeled or projected onto another subject.
 
-RT-173 is the only fail-closed exception that permits a new subject. Exact
-source `de879672aa9fefcf174c844924e3f95ed40a5fe1` is now separately named and
-pinned as `wiki-viva-v8-rc38` / `validation_pending`. It
-make `apps/wiki-cockpit/node-workspace.lock.json` a platform-neutral
+RT-173 was the fail-closed exception that permitted rc38. Exact source
+`de879672aa9fefcf174c844924e3f95ed40a5fe1` was separately named and pinned as
+`wiki-viva-v8-rc38` / `validation_pending`. It made
+`apps/wiki-cockpit/node-workspace.lock.json` a platform-neutral
 `wiki_viva_node_workspace_policy.v2`, capture one path-free/platform-scoped
 `wiki_viva_node_workspace_authority.v1` outside Git only in Lane A, materialize
 clean C1 from the sealed authority, route every release-bearing Node command
 through the wrapper and seal capsule v2 with that authority/digest,
 `toolchain_probe_entry_count=5` and canonical identities `browser`, `node`,
-`npm`, `python`, `runner`. No validation, candidate or release authority exists
-yet.
+`npm`, `python`, `runner`. Rc38 has now been rejected by its immutable exact
+validation receipt described below. It has no candidate or release authority.
 
 #### RT-173 formation closure and downstream preparation evidence — 2026-07-15
 
@@ -458,6 +458,23 @@ start only after the source commit and pin:
   above remains valid formation evidence. It is not yet Lane A authority and no
   successor capsule, receipt or attestation has been minted.
 
+The one exact rc38 validation began against metadata
+`e9d6f99823389d1154a9c8d20656275e5aa50069` and source
+`de879672aa9fefcf174c844924e3f95ed40a5fe1`, using external Node authority
+`e5a0a7d98a1a7dcd1389c8a5860f2552be39c6733f60f6488ae8743d9709dc17`.
+Audit, public audit, methodology coverage and operation compilation passed. The
+fifth gate, `operational_pass`, then rejected the source because
+`memories/system/operational-pass.md` was not equal to its deterministic
+recompile. The run stopped fail-closed after 59 seconds, with both Git subjects
+stable. Immutable validation-result / identity / failing-log SHA-256 values are
+`7441b7ef114e4447fcce2030971dfb9d84f2aaf12912ebac6c6323803e705ee3` /
+`bf77ba74f1120ef1346a83728b351a3785fd6a8559f28604a793be41b1e7e756` /
+`57e73ac2bfb9bffc85e7da24fbbee4fdbef5003c21af7bd11d3ebb73a7ba86ea`.
+Rc38 is therefore immutable failed-validation history. The sole authorized
+correction is to regenerate that one tracked deterministic page, freeze a new
+source subject and run a new exact matrix; no other hardening or scope expansion
+is authorized.
+
 The current downstream base is clean and passes its sole B0 preflight
 `diff_check`, so it can be frozen only after Lane A exists. It would later fail
 the never-reusable consumer gates: its audit reports one freshness-budget error
@@ -487,19 +504,18 @@ datada; não substitui os cinco estados comprovados abaixo.
 
 | Etapa | Estado | Evidência exata / próxima ação |
 | --- | --- | --- |
-| source pinned | ✅ concluído | `wiki-viva-v8-rc38` / `validation_pending` aponta ao source imutável `de879672aa9fefcf174c844924e3f95ed40a5fe1`; package-file/canonical/tree `a7d19c06...` / `337d2d74...` / `96e3db3b...` (528 entradas). Os sete blockers RT-173 iniciais e os seis contratos adversariais finais estão fechados, incluindo regressão exata 16/16 e transport-rewrite Git fail-closed. `package_is_pinned=false` até a validação e promoção metadata separada. Rc37 `d87af15b...` e seus hashes permanecem história imutável; o PR público #61 continua antigo/conflitante e não representa a verdade local |
-| exact validation | ⏳ pendente | Executar uma única matriz integral sobre rc38 sem editar o source. A matriz rc37 `775fe5bc...` 23/23 continua válida apenas para rc37 e não é reutilizada |
-| capsule verified | ⏳ pendente | Após validação rc38 verde, capturar authority Node externa a partir do clean source, provar clean-C1 materialization, executar Lane A, selar capsule v2 de cinco tools e verificar positivos/negativos. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história, não autoridade Lane B |
-| private canary | ⛔ bloqueado | A capsule rc38 ainda não existe. Depois de verificá-la, derivar automaticamente os 17 gates do reparo de domínio separado, executar o canary real e mergeá-lo somente se verde; congelar então a nova `main` como B0 e provar B0→C1→C2→C3, gates selecionados, canary e rollback. #211 permanece evidência v2 histórica |
+| source pinned | ⏳ correção direta | Rc38 `de879672...` permanece história imutável rejeitada: sua matriz parou no `operational_pass`, receipt `7441b7ef...`, com ambos os sujeitos estáveis. Regenerar somente a página determinística divergente, congelar um novo source e nomear/pinar o único sucessor corretivo. Rc37 e rc38 não são reutilizados; o PR público #61 continua antigo/conflitante e não representa a verdade local |
+| exact validation | ⛔ bloqueado | A nova matriz só pode iniciar depois do pin imutável do sujeito corretivo. A tentativa rc38 não é retomável nem relabelada; a matriz rc37 `775fe5bc...` continua válida apenas para rc37 |
+| capsule verified | ⛔ bloqueado | Somente após validação verde do sujeito corretivo: capturar authority Node externa a partir do clean source, provar clean-C1 materialization, executar Lane A, selar capsule v2 de cinco tools e verificar positivos/negativos. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história |
+| private canary | ⛔ bloqueado | Não há capsule adotável. Depois da verificação, derivar automaticamente os 17 gates do reparo de domínio separado, executar o canary real e mergeá-lo somente se verde; congelar então a nova `main` como B0 e provar B0→C1→C2→C3, gates selecionados, canary e rollback. #211 permanece evidência v2 histórica |
 | private main readback | ⛔ bloqueado | Após capsule, adoção e gates verdes, usar a autorização permanente de merge privado e validar visualmente a própria `main`; Claude/IFC e Audrey continuam separados |
 
-Fechamento comprovado atual: **1/5 etapas para `wiki-viva-v8-rc38`**. O source
-`de879672aa9fefcf174c844924e3f95ed40a5fe1` está verde, congelado e
-separadamente pinned. O antigo `3/5` de
-rc37 permanece apenas como cronologia imutável dentro deste mesmo plano; não é
-um segundo placar e nenhum recibo foi invalidado ou reescrito. A única próxima
-frente é executar a única validação exata rc38, sem editar o source, e continuar
-a cadeia. Não ampliar packs/abstrações nem abrir outro plano.
+Fechamento comprovado atual: **0/5 para o sujeito corretivo ainda não
+pinado**. O antigo `3/5` de rc37 e o `1/5` interrompido de rc38 permanecem apenas
+como cronologia imutável dentro deste mesmo plano; não são placares concorrentes
+e nenhum recibo foi invalidado ou reescrito. A única próxima frente é congelar e
+pinar a regeneração determinística mínima, então executar sua matriz exata sem
+editar o source. Não ampliar packs/abstrações nem abrir outro plano.
 
 O Playwright terminou as 102 células em 386.565 segundos. O checker pós-matriz
 esperou mais 806.361 segundos porque o FileProvider precisava materializar
@@ -640,9 +656,11 @@ Node command uses the wrapper. Unknown or divergent source, policy, platform,
 Node, npm, tree or trusted digest fails before execution.
 
 Rc37 remains immutable verified history and is not retried, relabeled or
-invalidated. RT-173 authorizes exactly one successor: `wiki-viva-v8-rc38` is
-now pinned to clean source `de879672aa9fefcf174c844924e3f95ed40a5fe1`;
-validation, candidate and release authority remain pending.
+invalidated. RT-173 authorized rc38 at clean source
+`de879672aa9fefcf174c844924e3f95ed40a5fe1`; rc38's exact matrix then rejected
+its stale deterministic operational-pass page. Rc38 remains immutable failed
+validation evidence. That direct exactness failure alone authorizes one minimal
+corrective subject; candidate and release authority remain pending.
 
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
