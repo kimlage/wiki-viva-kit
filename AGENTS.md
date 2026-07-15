@@ -269,24 +269,30 @@ another) via skills — there is no embedded LLM client.
   failed-validation evidence. Rc39 then passed 14/15 in its one exact matrix
   before default Vitest cache output correctly tripped the sealed dependency
   tree; result `a9aaad50...` and both stable Git subjects remain immutable
-  failed-validation evidence. The one direct corrective package is now
-  `wiki-viva-v8-rc40` /
-  `validation_pending`, separately pinned to exact source
-  `0e24881aff89f3ae0624fa3e5d27d600248e37a3`, with
-  `package_is_pinned=false` until exact validation and a later candidate
-  boundary. Canonical package/tree are `51455cff...` / `2c8dc755...` with 528
-  portable entries. Rc40 preserves policy v2, external authority v1, wrapper-only Node
-  commands and capsule v2.
+  failed-validation evidence. Rc40 was then pinned at source
+  `0e24881aff89f3ae0624fa3e5d27d600248e37a3` and metadata
+  `1bfcfe3f72e54ea8d592554a625d8f3ff606c088`. Its only exact validation
+  passed the first 13 gates, then `portable_python` ended with `1942 passed, 3
+  skipped, 1 failed`: the runner dependency-wave test completed every gate,
+  canary, rollback and receipt but exceeded its 180-second outer bound while
+  the final verifier reread 115 C1 paths through 358 separately audited Git
+  processes. Validation-result / identity / failing-log SHA-256 are
+  `4e6035d9...` / `c711fa41...` / `547c004d...`; both Git subjects remained
+  stable and no browser result, candidate or capsule exists. Rc40 is immutable
+  failed-validation history. The one authorized corrective formation batches
+  exact Git mode/blob reads per commit, retains symlink/submodule rejection and
+  passes the complete focused component at 181/181 in 2161.24 seconds. It must
+  be pinned as a distinct release subject before another exact matrix.
 
-  The single current operational scoreboard is for rc40: `source pinned` is
-  complete; `exact validation` and `capsule verified` are pending; `private
-  canary` and `private main readback` are blocked on them (`1/5`). The
-  earlier rc37 `3/5` plus rejected rc38/rc39 `1/5` remain chronology, not competing
-  live scoreboards. Draft
+  The single current operational scoreboard is for that direct successor:
+  `source pinned`, `exact validation`, `capsule verified`, `private canary` and
+  `private main readback` are all pending (`0/5`) until the corrective source is
+  committed and separately pinned. The earlier rc37 `3/5` plus rejected
+  rc38/rc39/rc40 states remain chronology, not competing live scoreboards. Draft
   PR #61 remains stale and does not represent this local truth. Public
   push/publication remains unauthorized. Private PR #211 remains historical v2
   and must not be promoted as the future v3 adoption; a fresh private v3 run
-  starts only after the rc40 capsule and attestation verify
+  starts only after the successor capsule and attestation verify
   fail-closed.
   Standing approval for incremental private-main merges
   is downstream-specific: it removes only that consumer's human-authorization

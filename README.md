@@ -136,15 +136,22 @@ failed its one exact matrix at `operational_pass`; validation result
 evidence. Rc39 then passed 14/15 in its only exact matrix before the default
 Vitest result cache correctly tripped sealed dependency-tree drift; result
 `a9aaad50...` and both stable Git subjects remain immutable failed-validation
-history. The only current subject is the direct correction
-`wiki-viva-v8-rc40`, separately pinned to exact source
-`0e24881aff89f3ae0624fa3e5d27d600248e37a3`, canonical package/tree
-`51455cff...` / `2c8dc755...` (528 entries). Its single scoreboard is `1/5`:
-source pin is complete; exact validation and capsule verification are pending;
-private canary and private-main readback are blocked.
+history. The next direct correction was
+`wiki-viva-v8-rc40`, pinned to exact source
+`0e24881aff89f3ae0624fa3e5d27d600248e37a3` and validation metadata
+`1bfcfe3f72e54ea8d592554a625d8f3ff606c088`. Its only exact matrix stopped
+at `portable_python`: `1942 passed, 3 skipped, 1 failed` after the dependency-
+wave adoption finished all 12 gates but the final receipt verifier exceeded
+180 seconds while rereading 115 C1 paths through 358 bounded Git processes.
+Validation-result / identity / log are `4e6035d9...` / `c711fa41...` /
+`547c004d...`; Git subjects stayed stable. Rc40 is immutable failed-validation
+history. The single live scoreboard is now `0/5` for its one direct corrective
+successor until the batched Git verifier source is committed and separately
+pinned; exact validation, capsule, private canary and private-main readback are
+blocked.
 Draft PR #61 remains stale and public push/publication remains unauthorized.
-Private PR #211 remains historical v2; only a fresh rc40/v3 adoption may start
-after the rc40 capsule and attestation verify fail-closed.
+Private PR #211 remains historical v2; only a fresh successor/v3 adoption may
+start after the new capsule and attestation verify fail-closed.
 See the [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority. Do not start downstream adoption until the Lane A capsule and
@@ -511,9 +518,12 @@ tree, so they are history rather than executable adoption authority. Draft PR
 #61 is stale and public push remains unauthorized. Rc38 failed exact validation
 at `operational_pass`; rc39 passed 14/15 before default Vitest cache output
 correctly tripped the sealed dependency tree. Both remain immutable history.
-Pinned rc40 has the only current scoreboard at `1/5`; no fresh rc40/v3 adoption
-starts before its capsule verifies fail-closed. Private PR #211 remains
-historical v2.
+Rc40 then failed its only exact matrix at `portable_python` because the final
+Git receipt verifier's path-by-path process audit exceeded the bounded test
+runtime; result `4e6035d9...` and stable subjects remain immutable history. The
+one current corrective successor is not yet pinned, so its single scoreboard
+is `0/5`; no fresh v3 adoption starts before its capsule verifies fail-closed.
+Private PR #211 remains historical v2.
 Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.
 No existing v2 C3 or receipt is amended to reach it.

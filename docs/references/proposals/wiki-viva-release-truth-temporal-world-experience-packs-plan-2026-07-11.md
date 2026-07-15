@@ -516,6 +516,42 @@ were frozen in the same source formation at final source
 `0e24881aff89f3ae0624fa3e5d27d600248e37a3`. It is now separately named and
 pinned exactly once as `wiki-viva-v8-rc40` / `validation_pending`.
 
+Rc40's one exact validation then ran at metadata
+`1bfcfe3f72e54ea8d592554a625d8f3ff606c088` from
+`2026-07-15T16:48:05Z` through `2026-07-15T19:06:45Z` (8,320 seconds).
+Audit, public audit, methodology, operation, operational pass, source registry,
+input stage, semantic inventory, quality, demo, snapshot, packs and
+consolidation passed. `portable_python` ended after 8,160.86 seconds with
+`1942 passed, 3 skipped, 1 failed`; the browser and later gates never started.
+The sole failure was
+`test_scheduler_waits_for_dependencies_before_parallel_gate_wave`. Its
+synthetic adoption had already completed all 12 selected gates in dependency
+order, real canary, background certification, rollback, reports and receipt,
+but the post-receipt verifier recomputed 115 C1 paths through 358 separately
+bounded Git processes. Darwin process-tree auditing made
+`_verify_git_boundary_chain` consume 94.218 seconds and the complete evidence
+verification 101.724 seconds, pushing the command past the unchanged
+180-second test bound. Validation-result / identity / failing-log SHA-256 are
+`4e6035d95fb12c3f74375ea325c5970b3c3f1cebc1a396718454aa688c633e12` /
+`c711fa4159b1ed738d8ebdd8cd00bb876a8cd47040478d96732612b128e23e20` /
+`547c004d503968080b4f98092ddf3b3d116322d57d8c5d5674252aea51f00598`.
+Both Git subjects remained stable; rc40 minted no candidate, productive
+capture, capsule, attestation or downstream authority and is immutable
+failed-validation history.
+
+This is a direct runner-completion blocker, not lateral hardening. The only
+authorized correction replaces the N+1 mode/blob reads with one exact tree
+projection and one `cat-file --batch` per commit. It retains exact paths,
+regular-file modes, blob SHA-256, deletions and fail-closed rejection of
+symlinks/submodules. The 128-path complexity negative proved two Git calls;
+mode forgery, symlink and submodule controls passed 4/4 in 11.71 seconds. The
+unchanged end-to-end dependency-wave test then returned complete under its
+original bound in 157.01 seconds instead of failing in 225.15 seconds. The
+complete focused component passed 181/181 with warnings as errors in 2161.24
+seconds. This corrective source must be committed once and separately pinned
+as the only successor before a wholly new exact matrix; rc40 is never retried
+or relabeled.
+
 The current downstream base is clean and passes its sole B0 preflight
 `diff_check`, so it can be frozen only after Lane A exists. It would later fail
 the never-reusable consumer gates: its audit reports one freshness-budget error
@@ -545,18 +581,19 @@ datada; não substitui os cinco estados comprovados abaixo.
 
 | Etapa | Estado | Evidência exata / próxima ação |
 | --- | --- | --- |
-| source pinned | ✅ concluído | `wiki-viva-v8-rc40` / `validation_pending` aponta ao source corretivo imutável `0e24881aff89f3ae0624fa3e5d27d600248e37a3`; package-file/canonical/tree `5d00b3ba...` / `51455cff...` / `2c8dc755...` (528 entradas). A formação move somente o cache legítimo Vite/Vitest para `tmp/vite-cache`, testa a fronteira e atualiza cinco baselines Linux públicas sintéticas após comparação combinada com o layout Darwin já revisado; o wrapper e o negativo de mutação real não mudaram. `package_is_pinned=false` até validação e promoção separada. Rc37–rc39 não são reutilizados; o PR público #61 continua antigo/conflitante |
-| exact validation | ⏳ pendente | Capturar autoridade Node externa vinculada ao source rc40 e executar uma nova matriz integral uma única vez sem editar source ou metadata. Rc39 não é retomável nem relabelado; rc37 e rc38 continuam apenas história |
+| source pinned | ⏳ pendente | Rc40 source `0e24881a...` / metadata `1bfcfe3f...` falhou imutavelmente em `portable_python`; result/identity/log `4e6035d9...` / `c711fa41...` / `547c004d...`, 13 gates passados, sujeitos Git estáveis, sem browser/capsule. O único delta autorizado lê a cadeia Git em batch, preserva modos/blobs/deletes/symlink/submodule fail-closed, passa 4/4 em 11.71s, faz o E2E retornar em 157.01s sob o bound original e fecha o componente inteiro em 181/181 (`2161.24s`, warnings-as-errors). Committar essa formação uma vez e piná-la separadamente; não reutilizar ou relabelar rc40 |
+| exact validation | ⛔ bloqueado | Somente depois do novo source pin: capturar autoridade Node externa vinculada ao novo SHA e executar uma matriz integral uma única vez, sem editar source ou metadata. Rc37–rc40 continuam apenas história |
 | capsule verified | ⛔ bloqueado | Somente após a nova validação verde: captura visual produtiva, Lane A, capsule v2 e verificação positiva/negativa. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história |
 | private canary | ⛔ bloqueado | Não há capsule adotável. Depois da verificação, derivar automaticamente os 17 gates do reparo de domínio separado, executar o canary real e mergeá-lo somente se verde; congelar então a nova `main` como B0 e provar B0→C1→C2→C3, gates selecionados, canary e rollback. #211 permanece evidência v2 histórica |
 | private main readback | ⛔ bloqueado | Após capsule, adoção e gates verdes, usar a autorização permanente de merge privado e validar visualmente a própria `main`; Claude/IFC e Audrey continuam separados |
 
-Fechamento comprovado atual: **1/5 para `wiki-viva-v8-rc40`**. Rc39 preserva
-`1/5` apenas como cronologia imutável e falhou 14/15 na sua única matriz; os
-antigos rc37 e rc38 também não são placares concorrentes. Nenhum recibo foi
-invalidado ou reescrito. A única próxima frente é capturar a nova autoridade
-Node, revisar a matriz exata rc40 e executá-la uma vez sem editar o sujeito.
-Não ampliar packs/abstrações nem abrir outro plano.
+Fechamento comprovado atual: **0/5 para o único sucessor corretivo ainda não
+pinado**. Rc40 preserva `1/5` apenas como cronologia imutável e falhou 13/14
+gates registrados na sua única matriz; rc37–rc39 também não são placares
+concorrentes. Nenhum recibo foi invalidado ou reescrito. A única próxima frente
+é committar o batch verifier, piná-lo como sujeito distinto, capturar sua
+autoridade Node e executar uma matriz exata uma vez sem editar o sujeito. Não
+ampliar packs/abstrações nem abrir outro plano.
 
 O Playwright terminou as 102 células em 386.565 segundos. O checker pós-matriz
 esperou mais 806.361 segundos porque o FileProvider precisava materializar
@@ -703,10 +740,11 @@ its stale deterministic operational-pass page. Rc38 remains immutable failed
 validation evidence. That direct exactness failure authorized minimal
 corrective subject rc39, whose one matrix passed 14/15 before default Vitest
 cache output correctly tripped the sealed dependency tree. Rc39 remains
-immutable failed-validation evidence. The sole direct correction is now pinned
-as `wiki-viva-v8-rc40` at
-`0e24881aff89f3ae0624fa3e5d27d600248e37a3`; candidate and release authority
-remain pending.
+immutable failed-validation evidence. Rc40 was then pinned at
+`0e24881aff89f3ae0624fa3e5d27d600248e37a3`, but its one matrix failed the
+portable Python gate when the N+1 post-receipt Git verifier exceeded the
+unchanged timeout. Rc40 is immutable history; its single batch-verifier
+successor is not yet pinned and candidate/release authority remain absent.
 
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
@@ -1134,7 +1172,7 @@ memory rather than one fixed dashboard:
 
 | Surface | Reviewed baseline | Automated state | Human/product state | Decision |
 | --- | --- | --- | --- | --- |
-| Stale public PR baseline | Draft PR #61 still points to remote head `31b94d81`, conflicts with current public `main` and represents neither rc37 history, failed rc38/rc39 nor pinned rc40 | Its three remote checks belong only to that old SHA | Rc37 passed exact validation 23/23, productive capture, Lane A 11/11 and independent capsule verification locally; rc38 and rc39 failed exact validation; rc40 is validation-pending; none may be projected onto the stale PR | Prepare reconciliation only after rc40 is certified; no push/publication without explicit authorization |
+| Stale public PR baseline | Draft PR #61 still points to remote head `31b94d81`, conflicts with current public `main` and represents neither rc37 history nor failed rc38/rc39/rc40 | Its three remote checks belong only to that old SHA | Rc37 passed exact validation 23/23, productive capture, Lane A 11/11 and independent capsule verification locally; rc38-rc40 failed exact validation and the corrective successor is not yet pinned; none may be projected onto the stale PR | Prepare reconciliation only after the successor is certified; no push/publication without explicit authorization |
 | Historical public payload `S` | Exact subject `b781882a11e8bbac3ae9684d199979a1f4ee1bf7` | 1,339 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; matrix remains 102+2 | Its then-global adversarial verdict had no open public P0/P1; later source and private pressure superseded it | Historical release candidate only; never tag or use as current authority |
 | Public pressure payload `S2` | Exact subject `f0936539ca44c34ff5eacf5817b22ff9451b9cef` | 1,355 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; demo and audit remain deterministic | Portability, historical-action adoption, rollback truth and demo-link closure are executable contracts | Historical rc3 candidate; imported by the private pilot before the final pressure pass |
 | Public renderer payload `S3` | Exact subject `8904d69daab1803043a89e553d78b95b57d2022f` | 1,356 Python pass; clean browser run blocks at 101/102 on a live→demo request race | Both action parsers accept canonical output, but browser closure is incomplete | Rejected intermediate; never promote or adopt as the final candidate |
@@ -5346,8 +5384,10 @@ first Lane A passed 11/11 and sealed capsule/receipt/attestation
 negative verification closed fail-closed authority. RT-173's later clean-C1
 failure preserves those hashes as history; rc38 then failed exact validation at
 `operational_pass`, and rc39 passed 14/15 before default Vitest cache output
-tripped dependency-tree drift. Private v3 adoption remains blocked until pinned
-rc40 certifies. Public push and publication remain
+tripped dependency-tree drift. Rc40 then failed its one exact matrix at
+`portable_python` because the N+1 final Git verifier exceeded the bounded test
+runtime. Private v3 adoption remains blocked until the sole corrective
+successor is pinned and certified. Public push and publication remain
 unauthorized.
 
 #### Post-rc21 downstream rehearsal: RT-152 and the rc22 correction boundary — 2026-07-14
@@ -5466,11 +5506,11 @@ permits productive capture and Lane A certification only. Public push and
 publication remain unauthorized.
 
 The only canonical scoreboard is [Placar operacional canônico](#placar-operacional-canônico),
-currently `1/5` for pinned `wiki-viva-v8-rc40`. Rc37's former `3/5` and
-rc38/rc39's failed `1/5` are immutable chronology, not second scoreboards. Do
-not expand packs or mutate PR #61/#211 to simulate progress. Rc40 exists only
-because rc39's exactness gate required a new immutable subject; no other scope
-expansion is authorized.
+currently `0/5` for the sole batch-verifier successor pending its source pin.
+Rc37's former `3/5` and rc38/rc39/rc40's failed states are immutable chronology,
+not second scoreboards. Do not expand packs or mutate PR #61/#211 to simulate
+progress. The successor exists only because rc40's runner-completion gate
+required a new immutable subject; no other scope expansion is authorized.
 
 #### Immutable lineage through rc37 Lane A and RT-173 clean-C1 rejection — 2026-07-15
 
@@ -5524,9 +5564,10 @@ complete validation 23/23, first productive capture and Lane A 11/11; capsule
 and external attestation verify independently. RT-173's later clean-C1 failure
 freezes that authority as history. Rc38's exact matrix then failed at its stale
 deterministic operational-pass page; rc39 passed 14/15 before the default
-Vitest cache tripped dependency-tree drift. The active next action is to
-validate and certify pinned rc40's policy-v2/authority-v1 subject; private adoption
-follows only after its verification. The
+Vitest cache tripped dependency-tree drift. Rc40 then failed its one exact
+matrix at the N+1 post-receipt Git verifier. The active next action is to pin,
+validate and certify only the batch-verifier successor; private adoption follows
+only after its verification. The
 already sealed v2 downstream C3 and all of its
 receipts remain frozen on their original complete
 `migration.required_gates` matrix. RT-152 does not append paths to that subject,
@@ -5806,9 +5847,10 @@ RT-173 later proved that this rc37 authority could not materialize clean-C1 Node
 dependencies, so preserve it as history and do not start adoption from it. Rc38
 then failed exact validation at `operational_pass`; rc39 passed 14/15 before the
 default Vitest result cache correctly tripped dependency-tree drift. Both remain
-immutable failed evidence. Only after the single direct successor rc40 is
-validated, certified and verified may a fresh v3 adoption start from the current
-private `main`, not from PR #211 or its v2 C3. Preserve B0→C1→C2→C3, import the
+immutable failed evidence. Rc40 also remains immutable after its N+1 receipt
+verifier exceeded the exact-matrix bound. Only after the single batch-verifier
+successor is pinned, validated, certified and verified may a fresh v3 adoption
+start from the current private `main`, not from PR #211 or its v2 C3. Preserve B0→C1→C2→C3, import the
 scoped duplicate-label correction byte-equal in C1, run selected/current gates,
 real canary, console/network evidence, disposable rollback and generated
 reports. Preview 5204 is historical #211; preview 5205 is an uncommitted QA

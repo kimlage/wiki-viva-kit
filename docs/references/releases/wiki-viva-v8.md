@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc40 - exact validation pending"
+title: "Wiki Viva v8 rc40 - exact validation failed closed"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc40 - exact validation pending
+# Wiki Viva v8 rc40 - exact validation failed closed
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -643,8 +643,8 @@ are `a9aaad50...` / `dab61578...` / `8c17186c...`; both Git subjects remained
 stable. Rc39 is immutable failed-validation history and minted no browser
 result, candidate, capsule or downstream authority.
 
-The only direct corrective package is `wiki-viva-v8-rc40` /
-`validation_pending`, separately pinned to exact source
+The next direct corrective package was `wiki-viva-v8-rc40` /
+`validation_pending`, pinned to exact source
 `0e24881aff89f3ae0624fa3e5d27d600248e37a3`, with
 `package_is_pinned=false` until exact validation and a later candidate boundary.
 Its validation-pending package-file/canonical-package/portable-tree SHA-256
@@ -659,14 +659,38 @@ negative remain intact. It retains tracked portable
 `wiki_viva_node_workspace_authority.v1`, route every release-bearing Node
 command through the wrapper and seal capsule v2 with the authority/digest plus
 `toolchain_probe_entry_count=5` and canonical identities `browser`, `node`,
-`npm`, `python`, `runner`. The single current scoreboard is `1/5`: source pin is
-complete; exact validation and capsule verification are pending; private canary and private-main
-readback are blocked. Rc37's historical `3/5` chronology is not a second live
-scoreboard. Draft public PR #61 remains stale and does not represent this local
-truth; public push, publication, PR mutation, merge and tag remain unauthorized.
-Private PR #211 and its v2 receipts remain immutable historical evidence. A
-fresh rc40/v3 adoption may start from the then-current private `main` only after
-the rc40 capsule and attestation verify fail-closed.
+`npm`, `python`, `runner`. Its source pin remains `1/5` only as rc40 chronology.
+The only exact validation ran at metadata
+`1bfcfe3f72e54ea8d592554a625d8f3ff606c088` for 8,320 seconds. The first 13
+gates passed; `portable_python` ended `1942 passed, 3 skipped, 1 failed` after
+8,160.86 seconds. The single failure,
+`test_scheduler_waits_for_dependencies_before_parallel_gate_wave`, had already
+completed all 12 synthetic adoption gates, canary, rollback, report and receipt,
+but the final evidence verifier reread 115 C1 paths through 358 separately
+audited Git processes and exceeded the fixed 180-second harness bound. Exact
+validation result / identity / failing-log SHA-256 are
+`4e6035d95fb12c3f74375ea325c5970b3c3f1cebc1a396718454aa688c633e12` /
+`c711fa4159b1ed738d8ebdd8cd00bb876a8cd47040478d96732612b128e23e20` /
+`547c004d503968080b4f98092ddf3b3d116322d57d8c5d5674252aea51f00598`.
+Both Git subjects remained stable; browser, candidate, capture and capsule were
+not started. Rc40 is immutable failed-validation history.
+
+The only authorized correction replaces the N+1 verifier with one exact tree
+projection and one `cat-file --batch` per commit, without weakening mode/blob,
+deletion, symlink or submodule checks. The 128-path complexity negative used
+two Git calls; mode-forgery, symlink and submodule tests passed 4/4 in 11.71
+seconds, and the same dependency-wave test returned complete under its original
+bound in 157.01 seconds instead of failing after 225.15 seconds. The complete
+focused component then passed 181/181 in 2161.24 seconds with warnings treated
+as errors. That corrective source must be committed and pinned as a distinct
+release before another exact matrix. Its single live scoreboard is therefore
+`0/5`; rc37's historical `3/5`
+and rc38-rc40 failures are chronology, not competing scoreboards. Draft public
+PR #61 remains stale and public push, publication, PR mutation, merge and tag
+remain unauthorized. Private PR #211 and its v2 receipts remain immutable
+historical evidence. A fresh successor/v3 adoption may start from the
+then-current private `main` only after the new capsule and attestation verify
+fail-closed.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -775,9 +799,9 @@ Historical rc37 has a separate source pin and candidate boundary. Its first and
 only exact validation passed 23/23, then its first productive capture, Lane A
 11/11 and independent capsule/attestation verification passed once. RT-173's
 later clean-C1 failure prevents downstream use without changing any rc37 byte or
-receipt. Failed rc38 and rc39 remain immutable; pinned rc40 requires exact validation,
-capture, capsule and verification
-before any downstream plan.
+receipt. Failed rc38, rc39 and rc40 remain immutable; the single corrective
+successor requires a distinct source pin, exact validation, capture, capsule
+and verification before any downstream plan.
 Remote public CI, human conceptual/privacy/VoiceOver review, public merge and
 promotion remain separate and unauthorized; stale/conflicting public PR #61
 does not represent this local truth. External E5 and a release tag remain

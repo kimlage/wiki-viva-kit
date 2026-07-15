@@ -15,6 +15,7 @@ from typing import Mapping
 import pytest
 from jsonschema import Draft202012Validator
 
+import wiki_core.upgrade_lanes as upgrade_lanes
 from wiki_core.upgrade import CONFIG_BOUND_C3_ROLE_SPECS, boundary_operations_sha256
 from wiki_core.upgrade_lanes import (
     ADOPTION_RECEIPT_SCHEMA_VERSION,
@@ -4132,6 +4133,88 @@ def test_git_boundary_receipt_binds_mode_only_change_and_rejects_forged_mode(
     forged["boundaries"]["C3"][0]["mode"] = "100644"
     with pytest.raises(UpgradeLaneError, match="mode/blob"):
         _verify_git_boundary_chain(consumer, forged)
+
+
+def test_git_regular_blob_batch_keeps_git_process_count_constant(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    consumer = tmp_path / "batch-consumer"
+    consumer.mkdir()
+    _git(consumer, "init", "-q", "-b", "main")
+    _git(consumer, "config", "user.name", "Synthetic Consumer")
+    _git(consumer, "config", "user.email", "consumer@example.invalid")
+    expected: dict[str, str] = {}
+    for index in range(128):
+        path = f"wiki_core/generated-{index:03d}.py"
+        payload = f"VALUE = {index}\n"
+        target = consumer / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(payload, encoding="utf-8")
+        expected[path] = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "batch source")
+    commit = _git(consumer, "rev-parse", "HEAD")
+
+    original = upgrade_lanes._git_bytes
+    calls: list[list[str]] = []
+
+    def counted_git_bytes(
+        root: Path,
+        arguments: list[str],
+        *,
+        label: str,
+        input_bytes: bytes | None = None,
+    ) -> bytes:
+        calls.append(list(arguments))
+        return original(
+            root,
+            arguments,
+            label=label,
+            input_bytes=input_bytes,
+        )
+
+    monkeypatch.setattr(upgrade_lanes, "_git_bytes", counted_git_bytes)
+    entries = upgrade_lanes._git_regular_blobs(
+        consumer,
+        commit,
+        sorted(expected),
+        label="synthetic batch",
+    )
+
+    assert {path: entry["sha256"] for path, entry in entries.items()} == expected
+    assert [arguments[:2] for arguments in calls] == [
+        ["ls-tree", "-r"],
+        ["cat-file", "--batch"],
+    ]
+
+
+def test_git_regular_blob_batch_rejects_submodule_entry(tmp_path: Path) -> None:
+    consumer = tmp_path / "submodule-consumer"
+    consumer.mkdir()
+    _git(consumer, "init", "-q", "-b", "main")
+    _git(consumer, "config", "user.name", "Synthetic Consumer")
+    _git(consumer, "config", "user.email", "consumer@example.invalid")
+    (consumer / "baseline.txt").write_text("B0\n", encoding="utf-8")
+    _git(consumer, "add", ".")
+    _git(consumer, "commit", "-q", "-m", "B0")
+    commit = _git(consumer, "rev-parse", "HEAD")
+    _git(
+        consumer,
+        "update-index",
+        "--add",
+        "--cacheinfo",
+        f"160000,{commit},synthetic-submodule",
+    )
+    _git(consumer, "commit", "-q", "-m", "submodule boundary")
+    boundary = _git(consumer, "rev-parse", "HEAD")
+
+    with pytest.raises(UpgradeLaneError, match="regular Git blobs"):
+        upgrade_lanes._git_regular_blobs(
+            consumer,
+            boundary,
+            ["synthetic-submodule"],
+            label="synthetic submodule",
+        )
 
 
 def test_git_boundary_receipt_rejects_symlink_entry(tmp_path: Path) -> None:

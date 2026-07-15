@@ -222,13 +222,19 @@ starting point for persistent context is `memories/`.
   failed-validation evidence. Rc39 then passed 14/15 in its one exact matrix
   before default Vitest cache output correctly tripped sealed dependency-tree
   drift; result `a9aaad50...` remains immutable history. The direct correction
-  `wiki-viva-v8-rc40` is separately pinned to exact source
-  `0e24881aff89f3ae0624fa3e5d27d600248e37a3` and owns the only current
-  scoreboard at `1/5`: source pin is complete; exact validation and capsule
-  verification are pending; private canary and private-main readback are blocked. Draft PR
+  `wiki-viva-v8-rc40` was pinned to exact source
+  `0e24881aff89f3ae0624fa3e5d27d600248e37a3` and metadata `1bfcfe3f...`.
+  Its only exact matrix passed 13 gates, then `portable_python` ended with
+  `1942 passed, 3 skipped, 1 failed` because the complete synthetic adoption's
+  final receipt verifier reread 115 C1 paths through 358 bounded Git processes
+  and exceeded 180 seconds. Result / identity / log `4e6035d9...` /
+  `c711fa41...` / `547c004d...` and both stable Git subjects remain immutable
+  rc40 failed-validation evidence. The one direct successor is not yet pinned,
+  so its only current scoreboard is `0/5`; exact validation, capsule, private
+  canary and private-main readback are blocked. Draft PR
   #61 is stale and does not represent this local truth; public push/publication
   remains unauthorized. Private PR #211 remains historical v2, and a fresh v3
-  adoption starts only after the rc40 capsule verifies fail-closed.
+  adoption starts only after the successor capsule verifies fail-closed.
   Standing private-main approval is downstream-only and never weakens gates or
   the generic public PR/human gate.
   Existing v2 subjects and receipts remain frozen and are never rewritten into

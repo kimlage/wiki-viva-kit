@@ -697,43 +697,67 @@ def _git_blob_payloads(
     return payloads
 
 
-def _git_regular_blob(
+def _git_regular_blobs(
     root: Path,
     commit: str,
-    path: str,
+    paths: Sequence[str],
     *,
     label: str,
-) -> dict[str, str] | None:
-    """Return one exact regular Git blob projection or ``None`` when absent."""
+) -> dict[str, dict[str, str]]:
+    """Return exact regular Git blobs with one tree and one object batch.
 
+    The receipt verifier can cover hundreds of C1 paths.  Reading every path
+    with a separate ``ls-tree``/``cat-file`` pair multiplied the bounded
+    process-tree audit by the path count.  A complete tree projection plus one
+    ``cat-file --batch`` preserves the same mode/blob/absence authority while
+    keeping the number of audited Git processes constant per commit.
+    """
+
+    requested = set(paths)
+    if not requested:
+        return {}
+    requested_raw = {path.encode("utf-8"): path for path in requested}
     listing = _git_bytes(
         root,
-        ["ls-tree", "-z", commit, "--", path],
-        label=f"{label} tree entry",
+        ["ls-tree", "-r", "-z", "--full-tree", commit],
+        label=f"{label} tree entries",
     )
-    records = [record for record in listing.split(b"\0") if record]
-    if not records:
-        return None
-    if len(records) != 1:
-        raise UpgradeLaneError(f"{label} resolves to multiple Git tree entries")
-    try:
-        metadata, raw_path = records[0].split(b"\t", 1)
-        mode, object_type, object_id = metadata.decode("ascii").split(" ", 2)
-        observed_path = raw_path.decode("utf-8", "strict")
-    except (ValueError, UnicodeDecodeError) as exc:
-        raise UpgradeLaneError(f"{label} has an invalid Git tree entry") from exc
-    if observed_path != path:
-        raise UpgradeLaneError(f"{label} differs from the requested Git path")
-    if object_type != "blob" or mode not in {"100644", "100755"}:
-        raise UpgradeLaneError(
-            f"{label} must be a regular Git blob with mode 100644 or 100755"
-        )
-    raw = _git_bytes(
+    selected: dict[str, tuple[str, str]] = {}
+    for record in listing.split(b"\0"):
+        if not record:
+            continue
+        try:
+            metadata, raw_path = record.split(b"\t", 1)
+        except ValueError as exc:
+            raise UpgradeLaneError(f"{label} has an invalid Git tree entry") from exc
+        path = requested_raw.get(raw_path)
+        if path is None:
+            continue
+        try:
+            mode, object_type, object_id = metadata.decode("ascii", "strict").split(
+                " ", 2
+            )
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise UpgradeLaneError(f"{label} has an invalid Git tree entry") from exc
+        if path in selected:
+            raise UpgradeLaneError(f"{label} resolves to multiple Git tree entries")
+        if object_type != "blob" or mode not in {"100644", "100755"}:
+            raise UpgradeLaneError(
+                f"{label} must contain only regular Git blobs with mode 100644 or 100755"
+            )
+        selected[path] = (mode, object_id)
+    payloads = _git_blob_payloads(
         root,
-        ["cat-file", "blob", object_id],
-        label=f"{label} blob",
+        [object_id for _mode, object_id in selected.values()],
+        label=f"{label} blobs",
     )
-    return {"mode": mode, "sha256": hashlib.sha256(raw).hexdigest()}
+    return {
+        path: {
+            "mode": mode,
+            "sha256": hashlib.sha256(payloads[object_id]).hexdigest(),
+        }
+        for path, (mode, object_id) in selected.items()
+    }
 
 
 def _config_bound_c3_policy(package: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -3973,20 +3997,22 @@ def _verify_git_boundary_chain(
             raise UpgradeLaneError(
                 f"{after} receipt boundary differs from the exact Git diff"
             )
+        before_entries = _git_regular_blobs(
+            consumer,
+            normalized[before],
+            declared_paths,
+            label=f"consumer {before} boundary",
+        )
+        after_entries = _git_regular_blobs(
+            consumer,
+            normalized[after],
+            declared_paths,
+            label=f"consumer {after} boundary",
+        )
         for item in entries:
             path = item["path"]
-            before_entry = _git_regular_blob(
-                consumer,
-                normalized[before],
-                path,
-                label=f"consumer {before} path {path}",
-            )
-            after_entry = _git_regular_blob(
-                consumer,
-                normalized[after],
-                path,
-                label=f"consumer {after} path {path}",
-            )
+            before_entry = before_entries.get(path)
+            after_entry = after_entries.get(path)
             if after_entry is not None:
                 if (
                     item.get("operation") != "upsert"
