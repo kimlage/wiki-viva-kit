@@ -4,6 +4,13 @@ A Markdown/Git-first **living operational wiki** with a deterministic Python cor
 honesty gates in CI, and deep reading delegated to the AI agent that runs the
 repo (Claude, Codex, Gemini or any other) — no LLM client embedded in the code.
 
+> **Active v8 release path (2026-07-15):** the current tree is the v8 source.
+> Release/adoption uses the kit's normal CI, the consumer's own gates and a
+> human-reviewed PR. Rc41, capsules, attestations, exact matrices and receipts
+> are frozen historical evidence, not current gates. Private adoption is a
+> readable B0 dry-run followed by C1 verbatim sync, C2 regeneration and C3
+> consumer migration. Privacy and access-secret checks remain fail-closed.
+
 Your wiki is one **navigable living world**, not a file tree or a collection of
 dashboard islands. Every entity is a real page. The active center remains a
 real page while registered views change geometry, lenses change semantic

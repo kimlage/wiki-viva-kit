@@ -17,9 +17,9 @@ tags:
   - wiki/experience-packs
   - wiki/testing
   - wiki/accessibility
-  - status/blocked
+  - status/in-progress
 date: "2026-07-11"
-status: blocked
+status: in_progress
 context: system
 visibility: public_reference
 updated_at: 2026-07-15
@@ -53,6 +53,36 @@ scope: "One evidence-backed correction and extension contract covering release t
 Updated on: 2026-07-15.
 
 ## Executive Decision
+
+### Active phase-1 release decision — 2026-07-15
+
+This section supersedes every older release-gate instruction in this same plan.
+The subject/capsule/attestation/exact-matrix machinery is closed after rc41 as
+historical evidence: no rc42, no rc41 exact run, no clone canary and no
+receipts. The current repository tree is the v8 source. It receives one normal
+kit CI round only: audit, pytest, frontend tests, TypeScript and production
+build.
+
+Private adoption starts from the then-current approved `main` and is one
+reviewable PR chain:
+
+1. B0: readable dry-run with affected kit-owned paths, conceptual diff,
+   consumer-owned merge surfaces and impact acknowledgements.
+2. C1: verbatim sync of kit-owned paths declared by the consumer inventory.
+3. C2: deterministic regeneration of derived surfaces.
+4. C3: explicit consumer migrations, adapters, configuration and local skills.
+5. Consumer gates: privacy/secret audit, pytest, audit, frontend/type/build and
+   a successful local operator start.
+6. Human PR gate, already authorized incremental private-main merge, then a
+   visual readback of the merged private `main` and delivery of its URL.
+
+Privacy, access-secret and data-corruption failures remain fail-closed and are
+never waivable. The PR is the rollback boundary. Phase 2 is deferred until the
+private merge/readback: in a separate kit PR, extract an idempotent
+`wiki_sync_from_kit` with `--dry-run`, add consumer `kit.lock`, remove the
+certification state machine and rewrite the guides/AGENTS/skill around tags,
+release notes and upgrading migrations. The existing upgrade package is now
+historical context, not adoption authority.
 
 The public/private pair remains blocked. Historical S19 source
 `198471c3cf4176d7a046c5ceb8dd053f1be1ee58`, packaged as
@@ -603,24 +633,23 @@ establish the fresh private B0 for the v3 adoption.
 
 ### Placar operacional canônico
 
-Este é o único placar de fechamento da cadeia atual. A estimativa crítica de
-63% integrado, 72% público e 56% privado permanece uma avaliação de produto
-datada; não substitui os cinco estados comprovados abaixo.
+Este é o único placar de fechamento da Fase 1. A estimativa crítica de 63%
+integrado, 72% público e 56% privado permanece uma avaliação de produto
+datada; não substitui os estados de entrega abaixo.
 
 | Etapa | Estado | Evidência exata / próxima ação |
 | --- | --- | --- |
-| source pinned | ✅ concluído | `wiki-viva-v8-rc41` / `validation_pending` aponta ao último sujeito `f42b624049e310100218bf4f99e3ea418b066689`; package-file/canonical/tree `2908e9e8...` / `9eee2d18...` / `0b7063d0...` (528 entradas). O batch verifier preserva modos/blobs/deletes/symlink/submodule fail-closed; 4/4 em 11.71s, E2E em 157.01s sob o bound original e componente inteiro 181/181 (`2161.24s`, warnings-as-errors). Rc39 cache e rc40 timeout são Classe B, registrados por `WAIVER-CLASS-B-RC39/RC40`; sujeitos e recibos independentes não são invalidados e nenhuma autoridade ausente é fabricada. `package_is_pinned=false` até a validação e boundary candidate separados |
-| exact validation | ⏳ pendente | Usar a autoridade Node externa já capturada e vinculada a `f42b6240...`; executar uma matriz integral uma única vez, sem editar source ou metadata. Classe B recebe waiver e prossegue; apenas Classe A bloqueia, admite um fix e uma rodada. Aparato permanece congelado por `RT-174-DEFERRED-APPARATUS` |
-| capsule verified | ⛔ bloqueado | Somente após a nova validação verde: captura visual produtiva, Lane A, capsule v2 e verificação positiva/negativa. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história |
-| private canary | ⛔ bloqueado | Não há capsule adotável. Depois da verificação, derivar automaticamente os 17 gates do reparo de domínio separado, executar o canary real e mergeá-lo somente se verde; congelar então a nova `main` como B0 e provar B0→C1→C2→C3, gates selecionados, canary e rollback. #211 permanece evidência v2 histórica |
-| private main readback | ⛔ bloqueado | Após capsule, adoção e gates verdes, usar a autorização permanente de merge privado e validar visualmente a própria `main`; Claude/IFC e Audrey continuam separados |
+| current tree = v8 source | ✅ decidido | Rc41 está encerrado como histórico; não há rc42 nem matriz exata. A fonte da rodada de CI normal é o commit que contém esta decisão ativa; push público segue não autorizado |
+| normal kit CI | ⏳ pendente | Executar audit, pytest, testes frontend, TypeScript e build de produção uma única vez na árvore estável |
+| private workspace-label fix | ⏳ em curso | PR pequeno leva código/testes públicos sintéticos `d87af15b...` à `main` privada vigente, seguido dos gates normais e readback visual |
+| simple private adoption | ⏳ pendente | Da `main` privada atualizada: B0 legível, C1 verbatim kit-owned, C2 regenerado e C3 consumer-owned; sem capsule, canary em clone ou receipts |
+| private main readback | ⛔ aguardando | Pytest/audit/frontend/type/build/operador privados, impact-acks e PR humano; merge com autorização permanente, readback visual e URL |
 
-Fechamento comprovado atual: **1/5 para `wiki-viva-v8-rc41`**. Rc39 e rc40
-permanecem cronologia imutável com waivers Classe B; rc37 também não é placar
-concorrente. Nenhum recibo foi invalidado ou reescrito. A autoridade Node rc41
-já capturada continua válida; a única próxima prova pública é a matriz exata
-uma vez sem editar o sujeito, enquanto o PR privado pequeno de RT-172 avança
-independentemente. Não ampliar packs/abstrações nem abrir outro plano.
+Fechamento atual da Fase 1: **1/5**. A arquitetura de release e a fonte
+current-tree estão decididas; CI normal e entrega privada permanecem. Rc37–rc41,
+seus hashes e receipts continuam evidência histórica intocada, mas nenhum é
+gate ativo. Não executar o script exato, ampliar packs/abstrações ou abrir outro
+plano.
 
 O Playwright terminou as 102 células em 386.565 segundos. O checker pós-matriz
 esperou mais 806.361 segundos porque o FileProvider precisava materializar
@@ -631,7 +660,10 @@ evidência de atraso ambiental, não falha de source/gate. Futuras matrizes
 seladas devem pré-materializar source, fechamento Git e toolchain; um checker
 pendente nunca pode ser resumido manualmente como verde.
 
-### Normative Lane A -> Lane B handoff and fast-path budget
+### Historical Lane A -> Lane B handoff and fast-path budget
+
+O restante desta seção é mantido apenas para explicar a evidência histórica.
+Não é o fluxo ativo de release ou adoção v8.
 
 Lane A hands off one immutable release-authority bundle, not a branch name or
 a pasted green result. The bundle contains the canonical package, release

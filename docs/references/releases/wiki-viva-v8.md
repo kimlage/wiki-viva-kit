@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc41 - source pinned, exact validation pending"
+title: "Wiki Viva v8 - current-tree release"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,22 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc41 - source pinned, exact validation pending
+# Wiki Viva v8 - current-tree release
+
+## Active release decision — 2026-07-15
+
+Rc41 is closed as historical evidence. No rc42 is created and the prepared
+exact matrix is not run. The current repository tree is the v8 source; its
+release gate is one normal CI pass (audit, pytest, frontend tests, TypeScript
+and build), followed by the consumer's normal gates and human-reviewed PR.
+
+Private adoption is deliberately simple: B0 produces a readable dry-run; C1
+syncs kit-owned consumer-inventory paths verbatim; C2 regenerates derived
+surfaces; C3 applies explicit consumer-owned migrations. The PR is the rollback
+boundary, so there is no clone canary, capsule, attestation or receipt. Impact
+acknowledgements remain required. Privacy, secret and corruption failures stay
+fail-closed and can never be waived. Everything below records historical
+release-system evidence and is not an active gate.
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 

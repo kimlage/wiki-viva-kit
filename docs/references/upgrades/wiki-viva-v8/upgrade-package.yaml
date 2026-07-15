@@ -2,7 +2,7 @@ schema_version: wiki_viva_upgrade_package.v3
 
 release:
   id: wiki-viva-v8-rc41
-  status: validation_pending
+  status: historical_closed
   source_sha: f42b624049e310100218bf4f99e3ea418b066689
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 
@@ -759,6 +759,15 @@ privacy:
     - private_console_or_network_payloads
 
 known_limitations:
+  - >-
+    RELEASE-ARCHITECTURE-TRANSITION-2026-07-15 — rc41 is closed exactly as
+    historical evidence. No rc42, exact matrix, capsule, attestation, receipt,
+    clone canary or certification state is required for v8 release/adoption.
+    The current repository tree is the v8 source and advances through one
+    normal kit CI run, the consumer's own gates, impact acknowledgements and a
+    human-reviewed PR. Privacy, access-secret and data-corruption checks remain
+    fail-closed and non-waivable. This package is retained only as historical
+    context and must not be interpreted as current adoption authority.
   - >-
     WAIVER-CLASS-B-RC39 — non-invalidating harness/cache waiver. Rc39 source
     9dae4aa64d42eb45a2308632944fb134282bca10 and metadata

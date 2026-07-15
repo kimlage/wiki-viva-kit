@@ -2,6 +2,16 @@
 
 Updated on: 2026-07-15
 
+## Active v8 transition
+
+As of 2026-07-15, the current kit tree is the v8 source. Rc41 and the
+subject/capsule/attestation/exact-matrix machinery are closed historical
+material, not release gates. Phase 1 uses one normal kit CI run, then a simple
+consumer B0 dry-run → C1 verbatim sync → C2 regeneration → C3 consumer
+migration, normal consumer gates and a human-reviewed PR. Privacy and secrets
+remain fail-closed. The historical guides stay readable until a separate
+post-readback PR replaces them with `wiki_sync_from_kit` and `kit.lock`.
+
 `docs/` holds only perennial references, snapshots, decisions and templates. The
 starting point for persistent context is `memories/`.
 

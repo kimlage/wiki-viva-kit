@@ -6,6 +6,24 @@ and a perceptive layer. The deterministic code lives in Python; the deep
 reading (LLM) is delegated to the **agent that runs the repo** (Claude, Codex, Gemini or
 another) via skills — there is no embedded LLM client.
 
+## Active v8 release rule (2026-07-15)
+
+- The rc41 subject/capsule/attestation/exact-matrix machinery is closed as
+  historical evidence and is no longer a release or downstream-adoption gate.
+  Do not create rc42 and do not run the prepared rc41 exact script.
+- The current repository tree is the v8 source. Validate it once through the
+  normal kit CI surface: audits, Python tests, frontend tests, TypeScript and
+  production build.
+- A downstream adoption uses a readable B0 dry-run, verbatim sync of kit-owned
+  paths from the consumer inventory (C1), deterministic regeneration (C2) and
+  explicit consumer-owned migration (C3). Reversibility is the reviewable PR;
+  no clone canary, receipts, capsule or attestation is required.
+- Promotion requires normal consumer gates, impact acknowledgements and the
+  human PR gate. Privacy, access-secret and corruption checks remain
+  fail-closed and are never waivable.
+- The detailed two-lane material below is frozen historical context until a
+  separate post-v8 PR removes it and introduces the simpler idempotent sync.
+
 ## How the agent should operate
 
 - `main` is the approved wiki. Relevant changes go into a `wiki/<theme>` branch and
@@ -29,7 +47,7 @@ another) via skills — there is no embedded LLM client.
 - If a core bug is discovered in a private repo, reproduce the behavior here
   with minimized synthetic data. Do not use private financial, personal or
   client data as the proving ground for shared core behavior.
-- Downstream upgrades follow the
+- Historical two-lane downstream evidence followed the
   [two-lane migration strategy](docs/references/guides/downstream-migration-two-lane-strategy.md):
   certify an immutable portable subject once, then prove only the exact
   consumer delta, current privacy/semantic invariants and a reversible canary.

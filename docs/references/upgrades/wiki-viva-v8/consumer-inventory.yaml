@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc41@f42b6240
+    current_kit_version: wiki-viva-v8-current-tree
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,12 +32,12 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc41_validation_pending_source_pinned
+      state: v8_current_tree_normal_ci_pending
       drift_total: 0
-      compared_against: wiki-viva-v8-rc41@f42b6240
-      worktree: rc41_source_f42b6240_local_only
+      compared_against: current_local_tree
+      worktree: current_local_tree_no_public_push
     upgrade_wave: public_kit
-    status: blocked_on_rc41_exact_validation_and_certification
+    status: ready_for_single_normal_ci_round
     blocker: >-
       Rc21 through rc33 remain frozen according to their recorded historical
       outcomes. Rc34 source 533d2868 passed complete exact validation at
