@@ -308,6 +308,11 @@ content references can be repaired in the third reviewable boundary without a
 fourth pre-import commit. Audit, input stage, pytest and diff remain pass-only;
 the final migration report still requires `semantic_inventory=pass`.
 
+That reviewed exception describes only an already-frozen v2 receipt contract;
+it grants no new path ownership and must not be extended into v3. A new v3
+migration that needs domain-content repair stops before adoption, completes a
+separate consumer preparation change, and freezes a new B0.
+
 ## 4. Compile read-only preflight — v2 only
 
 Run the preflight from the KIT checkout (its package, inventory and pinned
@@ -464,6 +469,19 @@ registry compiles one sealed, reviewable plan.
 ignored planning evidence. After explicit review, `adopt` owns the atomic
 C1/C2/C3 commits and refuses any byte or ownership drift:
 
+The v3 B0 preflight cannot depend on scripts introduced by C1. Expected
+portable differences are bound as the prospective import delta rather than
+failing a pre-C1 `toolkit_drift --check`; the final C3 toolkit-drift check is
+still mandatory and never reusable. If semantic, input-stage or snapshot debt
+requires editing domain content, the runner stops with
+`consumer_prep_required`. Repair that content in a separate consumer PR, merge
+it and freeze a new B0. Domain content never enters C1, C2 or C3.
+
+Choose one already ignored and untracked output subtree. The parent of the
+plan path becomes the root for mutation state, gate evidence, screenshots,
+reports and the latest-run pointer; versioned `.wiki-viva/packs/**` remains
+visible.
+
 ```sh
 python3 /path/to/clean-public-subject/scripts/wiki_visual_evidence.py capture \
   --package /path/to/upgrade-package.yaml \
@@ -503,11 +521,10 @@ python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py p
   --kit-root /path/to/restored-release-authority/public-kit \
   --consumer-root /path/to/consumer \
   --consumer-b0 <B0> \
-  --preflight-command 'audit::python3 scripts/wiki_audit.py --check' \
   --c2-generator-command 'demo_snapshot::python3 scripts/wiki_build_demo.py' \
   --c2-generator-command 'visual_baselines::npm --prefix apps/wiki-cockpit run test:visual:update' \
   --c3-adapter-command 'consumer-adapter::/path/to/reviewed-consumer-adapter.sh' \
-  --out /path/to/consumer/.wiki-viva/upgrade/plan.json
+  --out /path/to/consumer/output/wiki-upgrade/plan.json
 ```
 
 The visual bundle must exactly and uniquely cover the package profiles with
@@ -540,7 +557,7 @@ The resumable v3 path executes the reviewed plan and generates its evidence:
 
 ```sh
 python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py adopt \
-  --plan /path/to/consumer/.wiki-viva/upgrade/plan.json \
+  --plan /path/to/consumer/output/wiki-upgrade/plan.json \
   --package /path/to/restored-release-authority/upgrade-package.yaml \
   --capsule /path/to/restored-release-authority/release-capsule.json \
   --impact-registry /path/to/restored-release-authority/impact-registry.yaml \
@@ -553,7 +570,7 @@ python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py a
 ```
 
 Capture `acceptance_anchor_sha256` from the successful `plan` summary and keep
-it outside `.wiki-viva/`. The anchor is first-write for the exact attempt, so a
+it outside the consumer evidence root. The anchor is first-write for the exact attempt, so a
 second identical plan keeps the original start time. `adopt` and every resume
 must receive that captured value; they reject a missing, replaced or
 coherently rewritten anchor before C1 and never derive trust from the restored
@@ -561,8 +578,8 @@ file itself. In CI the digest is a job output bound into the externally hashed
 handoff archive.
 
 The canary invocation emits `canary_completion_anchor_sha256` after the exact
-selected real-canary projection completes. Keep that digest outside
-`.wiki-viva/` as a second first-write authority. Any subsequent invocation adds
+selected real-canary projection completes. Keep that digest outside the
+consumer evidence root as a second first-write authority. Any subsequent invocation adds
 `--trusted-canary-completion-anchor-sha256 <captured-sha256>`; a post-canary
 resume rejects a missing, replaced or coherently resealed completion anchor.
 

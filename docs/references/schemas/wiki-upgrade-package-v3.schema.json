@@ -249,40 +249,13 @@
           "pattern": "^wiki/$"
         },
         "required_gates": {
-          "$ref": "#/$defs/gateIds"
+          "const": [
+            "diff_check"
+          ]
         },
         "gate_mapping": {
-          "type": "object",
-          "minProperties": 1,
-          "propertyNames": {
-            "$ref": "#/$defs/gateId"
-          },
-          "additionalProperties": {
-            "$ref": "#/$defs/gateId"
-          }
-        },
-        "reviewable_gates": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "semantic_inventory": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "required_boundary",
-                "max_findings"
-              ],
-              "properties": {
-                "required_boundary": {
-                  "const": "downstream_adaptations"
-                },
-                "max_findings": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 10000
-                }
-              }
-            }
+          "const": {
+            "diff_check": "diff_check"
           }
         }
       }

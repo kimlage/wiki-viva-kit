@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc34 local-QA candidate - exact validation green"
+title: "Wiki Viva v8 rc35 formation - rc34 rejected before capture"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc34 local-QA candidate - exact validation green
+# Wiki Viva v8 rc35 formation - rc34 rejected before capture
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -378,7 +378,7 @@ productive capture, certification, capsule, receipt, attestation, trust
 anchor, plan, import or Lane B authority exists. Never retry, relabel, promote,
 import or use rc33 to mint missing authority.
 
-## Rc34 exact source — complete validation green, local-QA candidate only
+## Rc34 exact source — historical pre-capture rejection
 
 Package `wiki-viva-v8-rc34` binds exact source
 `533d286869c478bd157b066d7882388b99fde2f7` and validation metadata subject
@@ -412,16 +412,62 @@ values are
 `6578f59c80add285cea103795618ec8c3a0537906cd723cd178350332dc657aa`
 and `d0dca2712e831c953d76b58ff373bcb550a659e601596415134d2bd078b9ea9c`.
 
-The separately reviewed local-QA `candidate` package-file SHA-256 is
-`a62594490177830b24d7a65b70f5acbd7f033235e0a26ed4f6e4b84d4af7cac8`, its canonical package identity is
-`b076019c6b890a0a54f2c5b4f6362bbe025f490d53eb588fdbd119bd74e7e5ea`, and its exact portable tree is
-`59fa6d660f0d0e43b880e34d72fb1b9c00485ec72828051c0d8eeb56a881671c` with `521` entries. This state
-makes the exact subject eligible only for a wholly new productive local visual
-capture and Lane A certification. Green validation alone does not mint a
-visual manifest, capsule, attestation, receipt, trust anchor, downstream plan,
-import or Lane B adoption authority. Public push, publication, merge and tag
-remain unauthorized; rc33 evidence remains immutable and is not reused or
-amended.
+The separately reviewed local-QA `candidate` metadata subject was
+`59be853af5416ce84c4ca89e7272bb64eb909b2b`. Its package-file SHA-256 was
+`a62594490177830b24d7a65b70f5acbd7f033235e0a26ed4f6e4b84d4af7cac8`, its
+canonical package identity was
+`b076019c6b890a0a54f2c5b4f6362bbe025f490d53eb588fdbd119bd74e7e5ea`, and its
+exact portable tree was
+`59fa6d660f0d0e43b880e34d72fb1b9c00485ec72828051c0d8eeb56a881671c`
+with 521 entries.
+
+Before any productive capture or certification attempt, read-only downstream
+QA exposed RT-170. The B0 preflight required toolkit CLIs whose bytes would
+arrive only in C1, treated the expected pre-C1 portable delta as failed
+equality instead of prospective import inventory, and allowed a reviewable
+semantic repair even though C3 forbids domain content. The runner also
+hardcoded its mutation/evidence root instead of deriving it from the parent of
+the exact plan path. A legitimate older consumer therefore could not produce
+an honest plan, while the exception path could mix consumer preparation into
+the technical migration boundary.
+
+Rc34 is immutable `historical_precapture_rejected`. No productive capture or
+`certify` command was attempted, and no visual manifest, certification result,
+capsule, receipt, attestation, trust anchor, downstream plan, import or Lane B
+authority exists. Never retry, reuse, relabel, promote, import or mint missing
+authority for rc34.
+
+## Rc35 formation — RT-170 correction, unpinned
+
+The successor is still an unpinned formation subject (`release.id:
+unreleased`). No rc35 source SHA, package digest, portable-tree digest,
+candidate metadata or validation result exists yet. The normative correction
+is:
+
+- B0 preflight runs only `diff_check`; it cannot depend on a CLI imported by C1;
+- expected pre-C1 portable drift is a prospective, package-bound C1 inventory,
+  while final-C3 `toolkit_drift` and `semantic_inventory` remain mandatory,
+  blocking and never reusable;
+- the parent of the exact `plan --out` path owns the one ignored/untracked
+  evidence root for state, screenshots, receipts and reports;
+- domain-content debt is repaired and merged before freezing a new B0, never
+  admitted to C1, C2 or C3; and
+- standing approval for incremental private-main merges removes only the
+  downstream human-authorization blocker. It does not waive privacy, secrets,
+  exact-subject gates, real canary, report or rollback verification.
+
+Pre-pin source-formation review passed 126 upgrade/package checks, 153 Lane A/B
+authority checks and 90 resumable-CLI checks with 3 declared skips. Audit and
+public-audit each returned 0 errors with the 6 already-known freshness warnings;
+package and consumer inventory validation passed while
+`package_is_pinned=false`. This is formation evidence only, not the wholly new
+exact rc35 validation, candidate review, productive capture or certification.
+
+The active next action is to finish and review this public-synthetic formation,
+pin a new exact rc35 source and then run its wholly new full validation. No
+productive capture or certification may start before a separately reviewed
+candidate boundary. Public push, publication, merge and tag remain
+unauthorized.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -526,8 +572,8 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Rc34, or any later replacement, still requires exact validation, separate
-candidate review, new capture and certification,
+The unpinned rc35 successor still requires a new exact source, complete exact
+validation, separate candidate review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
 human conceptual/privacy/VoiceOver review and merge, followed by a separately
@@ -535,7 +581,8 @@ reviewed promotion boundary that can mint production Lane A release authority.
 External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
 rc21, rc22, rc23, the exact rc24/rc26 failed-certification subjects, the exact
-rc25/rc27/rc31/rc32/rc33 failed-validation subjects nor rejected rc28/rc29/rc30 reclassifies,
+rc25/rc27/rc31/rc32/rc33 failed-validation subjects nor rejected
+rc28/rc29/rc30/rc34 reclassifies,
 reduces or rewrites
 that evidence.
 

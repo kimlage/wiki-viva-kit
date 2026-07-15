@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc34@533d2868
+    current_kit_version: unreleased@59be853a
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,13 +32,25 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc33_validation_failed_rc34_candidate_capture_pending
+      state: rc34_precapture_rejected_rc35_formation_unpinned
       drift_total: 0
-      compared_against: wiki-viva-v8-rc34@533d2868
-      worktree: rc34_candidate_capture_pending
+      compared_against: unreleased@59be853a
+      worktree: rc35_source_formation_validation_pending
     upgrade_wave: public_kit
-    status: blocked_on_rc34_capture_and_certification
-    blocker: Rc21 is frozen historical non-promotion evidence. Rc22 failed productive capture, rc23 and rc25 failed complete validation, and rc24/rc26 failed certification after valid captures; none can be retried, relabeled, promoted or imported. Rc27 exact source ba7ee194 failed its first complete warnings-as-errors validation with 46 public synthetic resource-lifecycle failures. Rc28/rc29 were rejected before validation, and rc30 was rejected before its complete matrix on RT-164. Rc31 exact source 6fa9b907 failed deterministic operational-pass freshness after 1740 Python and 517 frontend checks. Rc32 exact source ed073dee stopped in full Python with 2 contract failures after 1744 passes and 3 skips. Rc33 exact source 539eb19b then passed 1746 Python with 3 skips, 517 frontend, 115 Node and all applicable static gates, but its first browser matrix stopped at 98/102 with four failures in 330.49 seconds. The appended adapter-manifest diagnostic was an inapplicable_gate/orchestration_invalid check outside the Lane A registry, not an upstream source failure. Rc31, rc32 and rc33 are immutable historical_validation_failed; rc33 minted no candidate, capsule or Lane B authority. Rc34 exact source 533d2868 passed its wholly new exact validation at metadata subject 2afd435c with 1746 Python checks, 3 declared skips in 1113.61 seconds, 518 frontend and 115 Node checks, every applicable static gate, and first/only browser run public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861 at 102/102 with no failure, skip, retry or flaky cell in 6.5 minutes. Rc34 is a local-QA candidate; only productive capture and Lane A certification are now permitted. No capsule, adoption or public-push authority exists. Public push is not authorized. External E5 and a release tag remain separate
+    status: blocked_on_rc35_pin_and_validation
+    blocker: >-
+      Rc21 through rc33 remain frozen according to their recorded historical
+      outcomes. Rc34 source 533d2868 passed complete exact validation at
+      metadata subject 2afd435c and became candidate 59be853a, but downstream
+      read-only QA exposed RT-170 before productive capture: the pre-C1
+      preflight depended on C1-provided toolkit commands/equality and admitted
+      domain-memory repair inside C3. No productive capture was attempted and
+      no visual manifest, certification, capsule, trust or Lane B authority
+      exists. Rc34 is immutable historical_precapture_rejected. Rc35 is only
+      an unpinned source-formation state based at 59be853a with
+      validation_pending status. It requires a separate exact pin and wholly
+      new validation before candidate review or capture. Public push is not
+      authorized; external E5 and a release tag remain separate
 
   - id: private-pilot-01
     repository:
@@ -66,15 +78,42 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: v2_adoption_complete_consumer_promotion_blocked
+      state: v2_adoption_complete_rc35_unpinned_validation_pending
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: wiki-viva-v8-rc34@533d2868
+      target_version: unreleased@59be853a
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
-      details: exact S9 payload b45378d3 remains the installed private-main subject. The separate in-flight v2 adoption completed its original full matrix, real canary, generated reports and rollback locally, but private promotion remains blocked by the non-green hosted visual authority; its receipts are not reclassified. Rc20 and rc21 are historical product evidence, rc22 is historical failed-capture evidence, rc23/rc25/rc27/rc31/rc32/rc33 are historical failed-validation evidence, rc24/rc26 are historical failed-certification evidence, and rc28/rc29/rc30 are pre-validation rejections, all without adoption authority. Rc30 exposed RT-164 during downstream real-data visual QA. Rc31 preserved that visual correction but failed deterministic operational-pass freshness. Rc32 closed that fixed point, then stopped its first full Python validation on two stale truth-contract expectations before frontend or browser. Rc33 passed its Python, frontend, Node and applicable static gates but stopped at 98/102 in its first browser matrix on three focus-scope semantic regressions and one short-phone pointer collision; it minted no candidate, capsule or Lane B authority. Rc34 exact source 533d2868 passed complete exact validation at metadata subject 2afd435c and is a local-QA candidate. It can become a new v3 downstream-QA target only after a new productive capture, verified certification capsule, independent capsule verification and read-only consumer preflight, never as a rewrite of v2. Candidate status alone carries no adoption authority. Consumer AGENTS.md, .skills/README.md and non-wiki local skills remain fresh-C3 routing surfaces
+      details: >-
+        Exact S9 remains the installed private-main subject. The separate v2
+        adoption and its receipts stay immutable under their original full
+        gate set. Rc20 through rc33 retain their recorded historical outcomes
+        and cannot authorize a new import. Rc34 source 533d2868 passed complete
+        exact validation at metadata subject 2afd435c and became candidate
+        59be853a, but read-only downstream QA exposed RT-170 before productive
+        capture. No manifest, certification, capsule, trust or Lane B authority
+        exists, so rc34 is historical_precapture_rejected. Rc35 is only an
+        unpinned validation-pending formation state based at 59be853a and is
+        not a downstream target. Standing human authorization for incremental
+        merges to the private pilot's main branch is recorded, but it does not
+        waive technical fail-closed gates, privacy/secret audits, real canary,
+        rollback or report verification. Consumer AGENTS.md,
+        .skills/README.md and non-wiki local skills remain fresh-C3 routing
+        surfaces
       verified_on: "2026-07-14"
     upgrade_wave: pilot
     status: blocked_on_public_release_promotion
-    blocker: The current private v2 adoption remains immutable and cannot be reduced by the new strategy; its local technical proof is complete, but promotion remains technically blocked until the exact hosted visual matrix is green on an authorized capable runner. Rc21 is historical, rc22 failed productive capture, rc23/rc25/rc27/rc31/rc32/rc33 failed complete validation, rc24/rc26 failed certification before any capsule or Lane B authority, and rc28/rc29/rc30 were rejected before complete validation. Rc31 failed deterministic operational-pass freshness before browser. Rc32 closed that defect but stopped on two full-Python truth-contract failures before frontend, browser, candidate, capture or certification. Rc33 passed Python, frontend, Node and static gates but stopped at 98/102 in its first browser matrix and minted no candidate, capsule or Lane B authority. Rc34 exact source 533d2868 is a validated local-QA candidate at metadata subject 2afd435c; a new productive capture, verified certification, independent capsule verification and fresh consumer preflight precede any v3 downstream QA. Candidate status carries no capsule or adoption authority and cannot authorize v2 promotion. Historical subjects cannot authorize adoption. External E5 remains separate
+    blocker: >-
+      The current private v2 evidence remains immutable and cannot be reduced
+      by the v3 strategy. Rc34 is historical_precapture_rejected after RT-170
+      was found read-only, before any productive capture. Rc35 is unpinned and
+      validation_pending, so no current subject carries capsule or adoption
+      authority. A separate exact pin, wholly new public validation, candidate
+      review, productive capture, verified certification capsule and fresh
+      consumer preflight must precede any v3 downstream QA. Incremental
+      private-main merge authorization is already recorded; promotion remains
+      technically blocked until every applicable audit, semantic, adapter,
+      snapshot, canary, diff, rollback and report gate passes. Historical
+      subjects cannot authorize adoption. Public push remains unauthorized and
+      external E5 remains separate

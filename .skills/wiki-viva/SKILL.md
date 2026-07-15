@@ -189,15 +189,24 @@ ship the skeletons, so a generated page starts with the scaffold.
   public-safe quiet/TAP gate reporters as command-registry authority; a passing
   log that exposes a host path is a failed certification artifact.
   Preserve the `acceptance_anchor_sha256`
-  emitted by `plan` outside `.wiki-viva/`; pass it back to every `adopt` or
+  emitted by `plan` outside the consumer evidence root; pass it back to every `adopt` or
   `--resume`. Never derive trust again from a restored anchor file and never
   recreate a missing anchor. After the selected real canary completes, capture
-  the emitted `canary_completion_anchor_sha256` outside `.wiki-viva/` and pass
+  the emitted `canary_completion_anchor_sha256` outside the evidence root and pass
   it to every post-canary resume; never accept a locally resealed result ledger
   as completion authority. The acceptance-attempt identity binds the canonical
   SHA-256 of the complete exact preflight object, including its internal
   `preflight_sha256`; a changed, coherently resealed preflight is a different
-  attempt and cannot reuse the original anchor. If an execution plan already
+  attempt and cannot reuse the original anchor. A v3 B0 preflight must not call
+  a CLI whose bytes arrive only in C1. Treat non-zero prospective portable drift
+  as the signed import inventory, not as a failed pre-C1 toolkit gate; require
+  final C3 `toolkit_drift` as `consumer_always` and never reusable. The parent
+  of the exact `plan --out` path is the one ignored/untracked root for mutation
+  state, evidence and reports; do not require all of `.wiki-viva/` to be
+  ignored when pack state is versioned there. If a semantic/input/snapshot gate
+  requires domain-content edits, stop with `consumer_prep_required`, repair and
+  merge that content before freezing a new B0, and never place domain content
+  in C1, C2 or C3. If an execution plan already
   exists, every `--resume` must first replay the registered C2 commands from C1
   in a disposable clone and prove exact path-set, Git-mode and blob equality
   before reusing any stored gate result. Gate selection is recomputed from the sealed package

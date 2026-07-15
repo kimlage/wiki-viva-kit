@@ -55,9 +55,15 @@ validation at metadata subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6`:
 1,746 Python checks with 3 declared skips in 1,113.61 seconds, 518 frontend and
 115 Node checks, every applicable static gate, and first/only strict browser
 run `public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` at 102/102 with no
-failure, skip, retry or flaky cell in 6.5 minutes. It is now a local-QA
-`candidate`, which permits productive capture and Lane A certification only;
-no capsule, adoption or public-push authority exists yet. See the
+failure, skip, retry or flaky cell in 6.5 minutes. Its separately reviewed
+local-QA candidate metadata subject was
+`59be853af5416ce84c4ca89e7272bb64eb909b2b`, but read-only downstream QA
+exposed RT-170 before any productive capture or certification attempt. Rc34 is
+immutable `historical_precapture_rejected`; no visual manifest, certification,
+capsule, receipt, trust anchor or Lane B authority exists. The active package
+is `unreleased` / `validation_pending` and uses `59be853af5416ce84c4ca89e7272bb64eb909b2b`
+only as its unpinned formation base until a separate exact rc35 source pin and
+wholly new validation. Public push/publication remains unauthorized. See the
 [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority: do not
@@ -353,10 +359,22 @@ declared skips in 1,113.61 seconds, all 518 frontend and 115 Node checks, every
 applicable static gate, and its first/only strict browser run
 `public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` at 102/102 with no
 failure, skip, retry or flaky cell in 6.5 minutes at validation subject
-`2afd435c7cc955ae7a922b1d46eac355472ca0e6`. It is now a local-QA
-`candidate`; this permits only a new productive capture and Lane A
-certification attempt. No capsule, adoption or public-push authority exists
-until certification seals a capsule and independent verification succeeds.
+`2afd435c7cc955ae7a922b1d46eac355472ca0e6`. Its separately reviewed local-QA
+candidate metadata subject was `59be853af5416ce84c4ca89e7272bb64eb909b2b`.
+Read-only downstream QA then found RT-170 before productive capture: B0 relied
+on C1-only toolkit commands/equality, expected pre-C1 drift was not treated as
+prospective import inventory, domain repair could enter C3, and the evidence
+root was not derived from the exact plan-path parent. Rc34 is immutable
+`historical_precapture_rejected`; no productive capture, visual manifest,
+certification, capsule, receipt, trust anchor or Lane B authority exists.
+The successor package is `unreleased` / `validation_pending`, based on
+`59be853af5416ce84c4ca89e7272bb64eb909b2b` only for unpinned formation until
+a separate exact rc35 pin. Its correction makes B0 `diff_check`-only, binds
+portable drift as prospective C1 inventory, keeps final C3 `toolkit_drift` and
+`semantic_inventory` mandatory, roots ignored evidence at the parent of the
+exact plan path, and requires domain preparation before a new B0. Public push
+remains unauthorized. Standing private-main approval is downstream-only and
+never weakens technical gates or the generic public PR/human gate.
 No existing v2 C3 or receipt is amended to reach it.
 
 ## Official documentation — the wiki documents itself
@@ -382,7 +400,7 @@ is the context that explains how the wiki itself works:
 | [Registry-first extensions](docs/references/guides/extending-the-kit.md) | Add blocks, sources, primitives, people, surfaces and interactions |
 | [Two-lane downstream migration](docs/references/guides/downstream-migration-two-lane-strategy.md) | Certify a portable release once, adopt by consumer delta, canary and generated evidence |
 | [v8 downstream upgrade](docs/references/guides/wiki-viva-v8-downstream-upgrade.md) | Inventory, preflight, allowlisted import, reports, waves and rollback |
-| [v8 release candidate](docs/references/releases/wiki-viva-v8.md) | Version matrix, breaking changes, compatibility and current blockers |
+| [v8 release status](docs/references/releases/wiki-viva-v8.md) | Version matrix, breaking changes, compatibility and current blockers |
 | [Root entity](memories/system/wiki-viva-kit.md) | Semantic top page for this kit and its integral quadrants |
 | [Input stage](memories/system/input-stage.md) | Generated catalog of root entity, channels, source configs and target pages |
 | [Meta-wiki index](memories/system/wiki/index.md) | Map of all documentation |

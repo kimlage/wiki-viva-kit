@@ -146,11 +146,21 @@ another) via skills — there is no embedded LLM client.
   declared skips in 1,113.61 seconds, all 518 frontend and 115 Node checks,
   every applicable static gate, and first/only strict browser run
   `public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` at 102/102 with no
-  failure, skip, retry or flaky cell in 6.5 minutes. Rc34 is now a local-QA
-  `candidate`, which permits only a new productive capture and Lane A
-  certification attempt. Candidate status is not a capsule, receipt, adoption
-  or public-push authority; productive capture, certification, independently
-  verified sealed capsule and the separate promotion boundary remain required.
+  failure, skip, retry or flaky cell in 6.5 minutes. Its separately reviewed
+  local-QA candidate metadata subject was
+  `59be853af5416ce84c4ca89e7272bb64eb909b2b`, but read-only downstream QA
+  exposed RT-170 before any productive capture or certification attempt. Rc34
+  is immutable `historical_precapture_rejected`: no visual manifest,
+  certification result, capsule, receipt, attestation, trust anchor, downstream
+  plan, import or Lane B authority exists. Never retry, reuse, relabel, promote
+  or import it. The active package is `release.id: unreleased` with
+  `status: validation_pending`; it uses `59be853af5416ce84c4ca89e7272bb64eb909b2b`
+  only as the unpinned formation base until a separate exact rc35 source is
+  reviewed and pinned for a wholly new validation. Public push/publication
+  remains unauthorized. Standing approval for incremental private-main merges
+  is downstream-specific: it removes only that consumer's human-authorization
+  blocker after every technical gate passes and does not alter the generic
+  public PR/human-gate policy.
   Existing v2 subjects and receipts remain frozen and must not be amended or
   reclassified. Every
   new v3 run must
@@ -160,15 +170,24 @@ another) via skills — there is no embedded LLM client.
   Gate selection is recomputed from the sealed registry and package; a caller
   cannot omit a package-required background promotion gate. New runs must
   execute the byte-equal runner closure certified in the capsule and preserve
-  the first-write plan-clock SHA-256 outside the consumer evidence directory;
+  the first-write plan-clock SHA-256 outside the exact consumer
+  evidence/plan-parent root;
   `adopt` may verify that anchor but never regenerate it. After the real canary,
   preserve the separately emitted first-write canary-completion SHA-256 outside
-  the evidence directory and pass it to every post-canary resume; a result
+  that exact root and pass it to every post-canary resume; a result
   ledger cannot mint or rewrite its own completion authority.
   The externally anchored acceptance-attempt identity includes the canonical
   digest of the complete exact preflight object, not only its internal
   self-digest; coherently resealing a changed preflight therefore creates a
-  different attempt. Whenever a materialized execution plan already exists,
+  different attempt. B0 preflight runs only `diff_check`; it must not depend on
+  CLIs imported only by C1. Expected pre-C1 portable drift is bound as the
+  prospective C1 import inventory rather than treated as a failed toolkit
+  gate. Final C3 `toolkit_drift` and `semantic_inventory` remain mandatory,
+  blocking and never reusable. The parent of the exact `plan --out` path owns
+  every ignored mutation/evidence artifact; do not hide versioned
+  `.wiki-viva/packs/**`. Domain-content debt is repaired and merged before a
+  fresh B0 in its own consumer change, never inside C1/C2/C3. Whenever a
+  materialized execution plan already exists,
   every `--resume` must replay all registered C2 generators from C1 in a
   disposable clone and prove the complete C2 path set, Git modes and blob
   digests before any stored gate result may be reused.

@@ -3627,8 +3627,17 @@ def verify_adoption_evidence(
         run_relative = run_root.relative_to(consumer).as_posix()
     except ValueError as exc:
         raise UpgradeLaneError("adoption run root is outside the consumer") from exc
-    if not run_relative.startswith(".wiki-viva/upgrade/runs/"):
-        raise UpgradeLaneError("adoption run root is outside the ignored runner boundary")
+    run_parts = Path(run_relative).parts
+    expected_run_key = str(receipt.get("plan_sha256") or "")[:16]
+    if (
+        len(run_parts) < 3
+        or run_parts[-2] != "runs"
+        or re.fullmatch(r"[0-9a-f]{16}", run_parts[-1]) is None
+        or run_parts[-1] != expected_run_key
+    ):
+        raise UpgradeLaneError(
+            "adoption run root is outside its exact plan-parent runs boundary"
+        )
     repository = _git_bytes(
         consumer, ["rev-parse", "--show-toplevel"], label="consumer repository"
     ).decode("utf-8", "strict").strip()

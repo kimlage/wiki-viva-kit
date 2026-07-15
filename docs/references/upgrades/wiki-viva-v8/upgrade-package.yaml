@@ -1,13 +1,38 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc34
-  status: candidate
-  source_sha: 533d286869c478bd157b066d7882388b99fde2f7
+  id: unreleased
+  status: validation_pending
+  source_sha: 59be853af5416ce84c4ca89e7272bb64eb909b2b
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc34
+    source_sha: 533d286869c478bd157b066d7882388b99fde2f7
+    status: historical_precapture_rejected
+    note: >-
+      Exact rc34 passed its wholly new validation at metadata subject
+      2afd435c7cc955ae7a922b1d46eac355472ca0e6 and became the separately
+      reviewed local-QA candidate
+      59be853af5416ce84c4ca89e7272bb64eb909b2b. Its candidate package-file
+      SHA was
+      a62594490177830b24d7a65b70f5acbd7f033235e0a26ed4f6e4b84d4af7cac8,
+      canonical package identity was
+      b076019c6b890a0a54f2c5b4f6362bbe025f490d53eb588fdbd119bd74e7e5ea,
+      and portable tree was
+      59fa6d660f0d0e43b880e34d72fb1b9c00485ec72828051c0d8eeb56a881671c
+      with 521 entries. Before any productive capture or certification,
+      downstream read-only QA exposed RT-170: the B0 preflight required
+      toolkit commands and equality available only after C1, and a reviewable
+      semantic exception could place domain-memory repair inside C3. A
+      legitimate older consumer therefore could not produce an honest plan
+      while the boundary also mixed consumer preparation with technical
+      adoption. No productive capture was attempted, and no visual manifest,
+      certification, capsule, receipt, attestation, trust anchor or Lane B
+      authority exists. Rc34 is immutable historical pre-capture rejection
+      evidence and must never be retried, relabeled, promoted, imported or
+      used to mint missing authority
   - id: wiki-viva-v8-rc33
     source_sha: 539eb19b958a4159eecb2c5a7afd6ceaabcbb086
     status: historical_validation_failed
@@ -340,26 +365,9 @@ portable_import:
 preflight:
   branch_prefix: wiki/
   required_gates:
-    - toolkit_drift
-    - audit
-    - input_stage
-    - semantic_inventory
-    - pytest
     - diff_check
   gate_mapping:
-    toolkit_drift: toolkit_drift
-    audit: audit
-    input_stage: input_stage
-    semantic_inventory: semantic_inventory
-    pytest: private_pytest
     diff_check: diff_check
-  # A bounded semantic debt may be repaired only in the declared third
-  # downstream boundary. Audit, pytest, privacy and diff remain pass-only, and
-  # the final migration report still requires semantic_inventory=pass.
-  reviewable_gates:
-    semantic_inventory:
-      required_boundary: downstream_adaptations
-      max_findings: 64
 
 migration:
   commit_boundaries:
@@ -701,15 +709,23 @@ known_limitations:
     frontend and 115 Node checks, every applicable static gate, and first/only
     strict browser run public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861
     at 102/102 with no failure, skip, retry or flaky cell in 6.5 minutes. Rc34
-    is now a local-QA candidate. Candidate status permits only productive
-    capture and a Lane A certification attempt; no capsule, adoption or
-    public-push authority exists. Public push remains unauthorized.
+    then became local-QA candidate
+    59be853af5416ce84c4ca89e7272bb64eb909b2b, but downstream read-only QA
+    exposed RT-170 before any productive capture or certification: its B0
+    preflight required C1-provided toolkit commands/equality and admitted a
+    semantic exception that could mix domain repair into C3. No productive
+    capture was attempted, and no visual manifest, certification, capsule,
+    receipt, trust or Lane B authority exists. Rc34 is immutable historical
+    pre-capture rejection evidence. Rc35 is only an unpinned source-formation
+    state based at 59be853af5416ce84c4ca89e7272bb64eb909b2b; it remains
+    validation_pending until a separate exact pin. Public push remains
+    unauthorized.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
-  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation and rc30 was rejected before its complete matrix. None of their incomplete stages can be resumed. The active `wiki-viva-v8-rc34` package passed its complete exact validation and is a local-QA candidate at source 533d286869c478bd157b066d7882388b99fde2f7, so package_is_pinned is true. Candidate status permits only productive capture and Lane A certification. Every v3 plan/adoption path must fail closed until a new productive capture, certification capsule and independent verification exist; public promotion and the human gate remain separate, and public push is unauthorized.
+  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix and rc34 was rejected by read-only downstream QA before productive capture. None of their incomplete stages can be resumed. The active `unreleased` package is an unpinned rc35 formation state at base 59be853af5416ce84c4ca89e7272bb64eb909b2b, status validation_pending, so package_is_pinned is false. Every capture, certification, plan and adoption path must fail closed until a separate exact rc35 pin passes wholly new validation and becomes a reviewed candidate; public promotion remains separate and public push is unauthorized.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc33 can never authorize another import. A future exact `wiki-viva-v8-rc34` or later subject may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
-  - The historical private S9 read-only preflight remains attached to S9; a future exact `wiki-viva-v8-rc34` or later subject requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc34 can never authorize another import. A future exact rc35 or later subject may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
+  - The historical private S9 read-only preflight remains attached to S9; a future exact rc35 or later subject requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.
@@ -717,7 +733,7 @@ known_limitations:
   - Causal self/cycle/time-direction validation and full-graph attestation for future paginated temporal APIs remain explicit P2 follow-ups.
   - CI workflows are consumer-owned deployment policy and are intentionally excluded from portable import; downstreams must keep their own gates at least as strict.
   - Toolkit-owned .skills/wiki-*/** remain portable C1. Nested consumer skills under .skills/*/**, AGENTS.md and the literal root .skills/README.md are C3; the literal path is required because the nested skill glob intentionally cannot cross the directory boundary.
-  - A downstream must ignore only .wiki-viva/upgrade/ before freezing B0 so resumable plans and receipts remain untracked. Ignoring all .wiki-viva/ is forbidden because consumer pack state may be versioned there; this consumer-owned pre-B0 policy is never supplied by C1.
+  - A downstream must choose an ignored and untracked plan output subtree before freezing B0. The exact plan parent owns resumable state, receipts and reports; ignoring all .wiki-viva/ is forbidden because consumer pack state may be versioned there, and this consumer-owned pre-B0 policy is never supplied by C1.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed complete validation, rc24/rc26 failed certification after valid captures, and rc28/rc29/rc30 were rejected before complete validation. Exact rc33 retained the rc31 RT-164 fix and rc32 RT-165/RT-166 fixed point/order corrections and closed RT-167/RT-168, but over-broad root-quadrant disambiguation failed its first strict browser matrix at 98/102; the appended adapter-manifest diagnostic was inapplicable_gate/orchestration_invalid, not upstream evidence. Exact rc34 source 533d286869c478bd157b066d7882388b99fde2f7 scopes disambiguation to the root overview with public synthetic coverage and passed its complete exact validation at metadata subject 2afd435c7cc955ae7a922b1d46eac355472ca0e6. Rc34 is now a local-QA candidate for productive capture and Lane A certification only; no capsule, adoption or public-push authority exists yet. RT-150 still requires public validation and promotion merges before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
+  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed complete validation, rc24/rc26 failed certification after valid captures, rc28/rc29/rc30 were rejected before complete validation, and rc34 was rejected before productive capture. Exact rc34 source 533d286869c478bd157b066d7882388b99fde2f7 passed complete validation and closed the prior quadrant-label defect, but RT-170 then proved its pre-C1 preflight and domain-repair boundary were not honestly adoptable. The unpinned rc35 formation corrects that public contract with only diff_check at B0; final toolkit_drift and semantic_inventory remain consumer_always and never reusable. RT-150 still requires an exact public pin, wholly new validation and promotion before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.

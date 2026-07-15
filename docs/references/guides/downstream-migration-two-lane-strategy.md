@@ -199,7 +199,7 @@ bytes and commands:
 | --- | --- | --- |
 | C1 faithful import | Portable files byte-equal to Lane A, including toolkit-owned `.skills/wiki-*/**`. | Memory, consumer config, tests or generated data. |
 | C2 regenerated artifacts | Deterministic snapshot/demo/build artifacts declared by the package. | Hand-authored content or local policy. |
-| C3 downstream adaptations | Consumer config, base plus `.local` page-type/template registries, adapters, `AGENTS.md`, `.skills/README.md`, non-`wiki-*` repo-local skills, consumer-owned tests, semantic repairs and localized release record. | Modified portable core, toolkit-owned `wiki-*` skills or private evidence sidecars. |
+| C3 downstream adaptations | Consumer config, base plus `.local` page-type/template registries, adapters, `AGENTS.md`, `.skills/README.md`, non-`wiki-*` repo-local skills, consumer-owned tests and localized release record. | Modified portable core, toolkit-owned `wiki-*` skills, domain content or private evidence sidecars. |
 
 The broad `.skills/*/**` consumer namespace is resolved by portable precedence:
 an exact package-allowed `.skills/wiki-*/**` path is C1 and is rejected from C3;
@@ -207,6 +207,28 @@ the consumer-owned `.skills/README.md` registry and every other declared
 repo-local skill are C3. This lets a consumer update its router and operating
 policy without forking the toolkit skill, while keeping the imported `wiki-*`
 playbooks byte-equal to the Lane A capsule.
+
+### Pre-B0 consumer preparation and portable preflight
+
+The read-only v3 preflight must be executable on a legitimate older consumer.
+It may use runner-owned structural checks and commands already guaranteed at
+the frozen B0, but it must not require a CLI whose bytes arrive only in C1.
+Likewise, non-zero portable drift before C1 is the expected upgrade inventory,
+not a failed `toolkit_drift` gate. The plan binds that exact prospective delta;
+C1 then proves byte-and-mode equality, and the final C3 `toolkit_drift` gate
+remains `consumer_always`, blocking and never reusable.
+
+Domain-memory repair is not a technical migration boundary. If the new
+semantic/input/snapshot contracts require a domain page to change, stop with
+`consumer_prep_required`, make that consumer-owned correction in a separate PR,
+merge it, and freeze a new B0 before generating another plan. Never widen C3 or
+reinterpret a reviewed preflight finding to place domain content in C1/C2/C3.
+
+The parent directory of `--out` is the single evidence root for the plan,
+mutation checkpoint, gate state, screenshots, reports and latest-run pointer.
+That exact subtree must already be ignored and untracked. This keeps versioned
+`.wiki-viva/packs/**` state visible and avoids requiring all of `.wiki-viva/`
+to be ignored.
 
 ### Exact config-bound C3 authority
 
@@ -444,14 +466,13 @@ python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py p
   --kit-root /path/to/restored-release-authority/public-kit \
   --consumer-root /path/to/consumer \
   --consumer-b0 <B0> \
-  --preflight-command 'audit::python3 scripts/wiki_audit.py --check' \
   --c2-generator-command 'demo_snapshot::python3 scripts/wiki_build_demo.py' \
   --c2-generator-command 'visual_baselines::npm --prefix apps/wiki-cockpit run test:visual:update' \
   --c3-adapter-command 'consumer-adapter::/path/to/reviewed-consumer-adapter.sh' \
-  --out /path/to/consumer/.wiki-viva/upgrade/plan.json
+  --out /path/to/consumer/output/wiki-upgrade/plan.json
 
 python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py adopt \
-  --plan /path/to/consumer/.wiki-viva/upgrade/plan.json \
+  --plan /path/to/consumer/output/wiki-upgrade/plan.json \
   --package /path/to/restored-release-authority/upgrade-package.yaml \
   --capsule /path/to/restored-release-authority/release-capsule.json \
   --impact-registry /path/to/restored-release-authority/impact-registry.yaml \
@@ -469,8 +490,9 @@ explicitly paused run may continue with `--resume`. A later post-canary resume
 also requires the separately held completion anchor below.
 
 The first invocation that reaches the real canary emits
-`canary_completion_anchor_sha256`. Capture it outside `.wiki-viva/`. Any later
-resume, including the background job, adds:
+`canary_completion_anchor_sha256`. Capture it outside the exact consumer
+evidence/plan-parent root. Any later resume, including the background job,
+adds:
 
 ```sh
   --trusted-canary-completion-anchor-sha256 <sha256-emitted-after-real-canary>
@@ -482,8 +504,9 @@ the complete exact preflight object and mutation intent. The acceptance-attempt
 identity binds that outer canonical preflight digest as well as the embedded
 `preflight_sha256`, so replacing and coherently resealing preflight creates a
 different attempt and cannot reuse the original external anchor.
-The caller must freeze that value outside the consumer evidence directory; CI
-uses a job output and the externally hashed handoff archive. A second plan for
+The caller must freeze that value outside the exact consumer
+evidence/plan-parent root; CI uses a job output and the externally hashed
+handoff archive. A second plan for
 the same attempt reuses the original timestamp. `adopt` verifies the exact
 external digest before C1 and never creates or replaces a missing anchor.
 Deleting the local anchor can only be detected as tampering when the digest is
@@ -518,8 +541,8 @@ The runner contract is:
 - cache only gate results from an overall run that is still incomplete and
   whose complete identity key matches;
 - automatically capture the package-declared visual profiles;
-- write receipts, screenshots and reports only to ignored consumer evidence
-  paths;
+- write receipts, screenshots, state and reports only below the ignored parent
+  of the exact plan path;
 - on every resume with an existing execution plan, replay the complete
   registered C2 command set from C1 in a disposable clone and prove exact path,
   mode and blob equality before evaluating or reusing any gate result;

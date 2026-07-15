@@ -951,6 +951,17 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     )
     if not required_gates:
         errors.append("preflight.required_gates cannot be empty")
+    if schema_version == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION:
+        if required_gates != ["diff_check"]:
+            errors.append(
+                "preflight.required_gates must be exactly ['diff_check'] for "
+                "a legacy-safe v3 B0"
+            )
+        if "reviewable_gates" in preflight:
+            errors.append(
+                "preflight.reviewable_gates is forbidden for v3; domain repair "
+                "must precede a fresh B0"
+            )
     reviewable_gates = preflight.get("reviewable_gates") or {}
     if not isinstance(reviewable_gates, dict):
         errors.append("preflight.reviewable_gates must be a mapping")
@@ -1123,6 +1134,11 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
             ):
                 errors.append(
                     "preflight.gate_mapping values must name migration.required_gates"
+                )
+            if dict(gate_mapping_value) != {"diff_check": "diff_check"}:
+                errors.append(
+                    "preflight.gate_mapping must be exactly "
+                    "{'diff_check': 'diff_check'} for a legacy-safe v3 B0"
                 )
         errors.extend(_validate_two_lane_package(migration, migration_gates))
     return errors

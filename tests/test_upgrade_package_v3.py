@@ -55,6 +55,7 @@ def _package_v3() -> dict:
         "audit": "python3 scripts/wiki_audit.py --check",
         "background_suite": "python3 -m pytest tests/",
         "bundle": "npm --prefix apps/wiki-cockpit run check:bundle",
+        "diff_check": "git diff --check",
         "focused_frontend": "npm --prefix apps/wiki-cockpit test",
         "real_canary": "npm --prefix apps/wiki-cockpit run test:e2e:operator",
     }
@@ -84,6 +85,15 @@ def _package_v3() -> dict:
             "reuse": "exact_capsule",
             "depends_on": [],
             "resource_group": "node_build",
+            "required_for_promotion": True,
+        },
+        "diff_check": {
+            "class": "consumer_always",
+            "command_id": "diff_check",
+            "asserts": ["diff_verification"],
+            "reuse": "never",
+            "depends_on": [],
+            "resource_group": "git_readonly",
             "required_for_promotion": True,
         },
         "focused_frontend": {
@@ -152,8 +162,8 @@ def _package_v3() -> dict:
         },
         "preflight": {
             "branch_prefix": "wiki/",
-            "required_gates": ["audit"],
-            "gate_mapping": {"audit": "audit"},
+            "required_gates": ["diff_check"],
+            "gate_mapping": {"diff_check": "diff_check"},
         },
         "migration": {
             "commit_boundaries": [
@@ -428,18 +438,54 @@ def test_v3_rejects_wrong_impact_registry_schema() -> None:
 def test_v3_preflight_mapping_is_total_and_targets_registered_gates() -> None:
     package = _package_v3()
     package["preflight"]["gate_mapping"] = {"different": "audit"}
-    assert _schema_errors(package) == []
+    assert _schema_errors(package)
     assert (
         "preflight.gate_mapping must cover exactly preflight.required_gates"
         in validate_upgrade_package(package)
     )
 
     package = _package_v3()
-    package["preflight"]["gate_mapping"]["audit"] = "missing_gate"
-    assert _schema_errors(package) == []
+    package["preflight"]["gate_mapping"]["diff_check"] = "missing_gate"
+    assert _schema_errors(package)
     assert (
         "preflight.gate_mapping values must name migration.required_gates"
         in validate_upgrade_package(package)
+    )
+
+
+def test_v3_rejects_c1_only_preflight_and_any_reviewable_domain_gate() -> None:
+    package = _package_v3()
+    package["preflight"]["required_gates"].append("semantic_inventory")
+    package["preflight"]["gate_mapping"][
+        "semantic_inventory"
+    ] = "diff_check"
+    package["preflight"]["reviewable_gates"] = {
+        "semantic_inventory": {
+            "required_boundary": "downstream_adaptations",
+            "max_findings": 64,
+        }
+    }
+
+    assert _schema_errors(package)
+    errors = validate_upgrade_package(package)
+    assert (
+        "preflight.required_gates must be exactly ['diff_check'] for a "
+        "legacy-safe v3 B0"
+        in errors
+    )
+    assert (
+        "preflight.reviewable_gates is forbidden for v3; domain repair must "
+        "precede a fresh B0"
+        in errors
+    )
+
+    wrong_mapping = _package_v3()
+    wrong_mapping["preflight"]["gate_mapping"] = {"diff_check": "audit"}
+    assert _schema_errors(wrong_mapping)
+    assert (
+        "preflight.gate_mapping must be exactly "
+        "{'diff_check': 'diff_check'} for a legacy-safe v3 B0"
+        in validate_upgrade_package(wrong_mapping)
     )
 
 
@@ -544,6 +590,29 @@ def test_project_registry_covers_every_agents_promotion_command() -> None:
     assert package["migration"]["required_gates"] == catalog_ids
     assert set(package["migration"]["gate_commands"]) == set(catalog_ids)
     assert set(package["migration"]["gate_policies"]) == set(catalog_ids)
+
+
+def test_project_preflight_is_legacy_safe_without_weakening_final_c3_gates() -> None:
+    package = load_mapping(
+        ROOT / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+    )
+
+    assert package["preflight"]["required_gates"] == ["diff_check"]
+    assert package["preflight"]["gate_mapping"] == {
+        "diff_check": "diff_check"
+    }
+    assert package["migration"]["gate_commands"]["diff_check"] == "git diff --check"
+    assert {
+        gate_id: package["migration"]["gate_policies"][gate_id]["class"]
+        for gate_id in ("toolkit_drift", "semantic_inventory")
+    } == {
+        "toolkit_drift": "consumer_always",
+        "semantic_inventory": "consumer_always",
+    }
+    assert {
+        "toolkit_drift",
+        "semantic_inventory",
+    } <= set(package["migration"]["required_gates"])
 
 
 def test_published_upstream_certification_commands_use_public_safe_reporters() -> None:

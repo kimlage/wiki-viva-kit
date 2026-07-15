@@ -7004,6 +7004,36 @@ def _execute_group(
     if failed:
         state["status"] = "failed"
         _atomic_write(state_path, _json_bytes(state))
+        preparation_gates = {
+            "input_stage",
+            "semantic_inventory",
+            "snapshot_contract",
+        }
+        preparation_failure = next(
+            (gate_id for gate_id in failed if gate_id in preparation_gates),
+            None,
+        )
+        if preparation_failure is not None:
+            failed_gate = next(
+                gate for gate in pending if gate["id"] == preparation_failure
+            )
+            raise RunnerError(
+                "consumer_prep_required",
+                (
+                    f"the selected {preparation_failure} gate failed on the final "
+                    "C3; this technical boundary cannot absorb domain-content repair"
+                ),
+                lane="lane_b",
+                surface=preparation_failure,
+                contract=_gate_contract(failed_gate),
+                next_action=(
+                    "inspect the retained gate output and roll back this failed run; "
+                    "if remediation touches domain content, prepare and merge it as "
+                    "a new B0, then generate a new plan; if it is consumer-technical, "
+                    "fix the adapter in a new plan; if it is upstream, certify a new "
+                    "release; never add domain content in C1, C2 or C3"
+                ),
+            )
         raise RunnerError(
             "gate_group_failed",
             "one or more selected gates failed; their real output was retained",
@@ -7679,7 +7709,7 @@ def _adopt(args: argparse.Namespace) -> int:
         )
     run_key = plan["plan_sha256"][:16]
     run_dir = _require_ignored_output(
-        consumer, Path(".wiki-viva/upgrade/runs") / run_key / "state.json"
+        consumer, plan_path.parent / "runs" / run_key / "state.json"
     ).parent
     state_path = run_dir / "state.json"
     lock_path = run_dir / "run.lock"
@@ -7867,7 +7897,7 @@ def _adopt(args: argparse.Namespace) -> int:
             status="candidate",
         )
         _atomic_write(run_dir / "migration-report.candidate.json", _json_bytes(candidate))
-        latest = _require_ignored_output(consumer, Path(".wiki-viva/upgrade/latest.json"))
+        latest = _require_ignored_output(consumer, plan_path.parent / "latest.json")
         _atomic_write(latest, _json_bytes({"schema_version": "wiki_viva_upgrade_latest.v1", "run_key": run_key}))
 
         _execute_phase_dag(

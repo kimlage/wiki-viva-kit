@@ -833,6 +833,36 @@ def _reseal_package(fixture: dict[str, Path | str], package: dict) -> None:
     fixture["trusted_attestation_sha256"] = trusted
 
 
+def _replace_synthetic_gate_command(
+    fixture: dict[str, Path | str], gate_id: str, command: str
+) -> None:
+    package = yaml.safe_load(Path(fixture["package"]).read_text(encoding="utf-8"))
+    registry = yaml.safe_load(Path(fixture["registry"]).read_text(encoding="utf-8"))
+    catalog_entry = next(
+        item for item in registry["gate_catalog"] if item["id"] == gate_id
+    )
+    catalog_entry["command"] = command
+    registry.pop("registry_sha256", None)
+    registry = seal_impact_registry(registry)
+    Path(fixture["registry"]).write_text(
+        yaml.safe_dump(registry, sort_keys=False), encoding="utf-8"
+    )
+
+    migration = package["migration"]
+    migration["gate_commands"][gate_id] = command
+    migration["command_registry"][gate_id]["argv"] = ["sh", "-c", command]
+    migration["command_registry_sha256"] = canonical_sha256(
+        registry["gate_catalog"]
+    )
+    migration["impact_registry"]["sha256"] = registry["registry_sha256"]
+
+    capsule_path = Path(fixture["capsule"])
+    capsule = json.loads(capsule_path.read_text(encoding="utf-8"))
+    capsule["command_registry"] = registry["gate_catalog"]
+    capsule_path.write_text(json.dumps(capsule, indent=2), encoding="utf-8")
+    _reseal_package(fixture, package)
+
+
 def _run(
     fixture: dict[str, Path | str],
     *arguments: str,
@@ -1363,11 +1393,8 @@ def _build_synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
         },
         "preflight": {
             "branch_prefix": "wiki/",
-            "required_gates": ["audit", "pytest"],
-            "gate_mapping": {
-                "audit": "audit",
-                "pytest": "background_suite",
-            },
+            "required_gates": ["diff_check"],
+            "gate_mapping": {"diff_check": "diff_check"},
         },
         "migration": {
             "commit_boundaries": [
@@ -2087,6 +2114,135 @@ def test_v1_v2_transition_package_is_explicitly_outside_v3_runner(
     assert "migration.required_gates" in result.stdout
 
 
+def test_plan_preflight_accepts_legacy_b0_with_prospective_portable_drift(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    consumer = Path(synthetic_upgrade["consumer"])
+    package = yaml.safe_load(
+        Path(synthetic_upgrade["package"]).read_text(encoding="utf-8")
+    )
+    portable_paths = package["portable_import"]["allow"]
+    assert portable_paths
+    assert all(not (consumer / relative).exists() for relative in portable_paths)
+
+    package["preflight"] = {
+        "branch_prefix": "wiki/",
+        "required_gates": ["diff_check"],
+        "gate_mapping": {"diff_check": "diff_check"},
+    }
+    _reseal_package(synthetic_upgrade, package)
+
+    planned = _run(
+        synthetic_upgrade,
+        *_plan_args(synthetic_upgrade),
+        "--changed-path",
+        "wiki.config.yaml",
+    )
+
+    assert planned.returncode == 0, planned.stdout + planned.stderr
+    _remember_plan_anchor(synthetic_upgrade, planned)
+    plan = json.loads(Path(synthetic_upgrade["plan"]).read_text(encoding="utf-8"))
+    assert len(plan["preflight"]["results"]) == 1
+    assert plan["preflight"]["results"][0]["id"] == "diff_check"
+    assert plan["preflight"]["results"][0]["command_id"] == "diff_check"
+    assert plan["mutation"]["c1_prospective_paths"]
+    assert set(portable_paths) <= set(plan["mutation"]["c1_prospective_paths"])
+    assert "semantic_inventory" in plan["selection"]["selected_gates"]
+
+
+def test_custom_ignored_plan_root_owns_all_adoption_state_and_evidence(
+    synthetic_upgrade: dict[str, Path | str],
+) -> None:
+    consumer = Path(synthetic_upgrade["consumer"])
+    (consumer / ".gitignore").write_text("output/upgrade/\n", encoding="utf-8")
+    _git(consumer, "add", ".gitignore")
+    _git(consumer, "commit", "-q", "--amend", "--no-edit")
+    synthetic_upgrade["consumer_b0"] = _git(consumer, "rev-parse", "HEAD")
+    plan_root = consumer / "output/upgrade"
+    synthetic_upgrade["plan"] = plan_root / "plan.json"
+
+    assert _git(consumer, "check-ignore", "-q", "output/upgrade/plan.json") == ""
+    assert subprocess.run(
+        ["git", "check-ignore", "-q", ".wiki-viva/upgrade/plan.json"],
+        cwd=consumer,
+        check=False,
+    ).returncode == 1
+
+    planned = _run(
+        synthetic_upgrade,
+        *_plan_args(synthetic_upgrade),
+        "--changed-path",
+        "wiki.config.yaml",
+        "--out",
+        str(synthetic_upgrade["plan"]),
+    )
+    assert planned.returncode == 0, planned.stdout + planned.stderr
+    _remember_plan_anchor(synthetic_upgrade, planned)
+    paused = _run(
+        synthetic_upgrade,
+        *_adopt_args(synthetic_upgrade, pause_before_canary=True),
+    )
+    assert paused.returncode == 0, paused.stdout + paused.stderr
+    assert '"status": "paused_before_canary"' in paused.stdout
+
+    execution_path = next(plan_root.glob("execution-plan-*.json"))
+    execution = json.loads(execution_path.read_text(encoding="utf-8"))
+    run_dir = plan_root / "runs" / execution["plan_sha256"][:16]
+    state = json.loads((run_dir / "state.json").read_text(encoding="utf-8"))
+    assert state["status"] == "paused_before_canary"
+    assert (run_dir / "evidence").is_dir()
+    assert not (consumer / ".wiki-viva").exists()
+
+    completed = _run(
+        synthetic_upgrade,
+        *_adopt_args(synthetic_upgrade, resume=True),
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert (run_dir / "adoption-receipt.json").is_file()
+    assert (run_dir / "migration-report.private.json").is_file()
+    assert (run_dir / "rollback.json").is_file()
+    assert (plan_root / "latest.json").is_file()
+    assert not (consumer / ".wiki-viva").exists()
+
+
+@pytest.mark.parametrize(
+    "gate_id",
+    ["input_stage", "semantic_inventory", "snapshot_contract"],
+)
+def test_domain_sensitive_gate_failure_requests_new_b0_not_boundary_content(
+    synthetic_upgrade: dict[str, Path | str],
+    gate_id: str,
+) -> None:
+    _replace_synthetic_gate_command(
+        synthetic_upgrade,
+        gate_id,
+        (
+            "python3 -c \"import sys; "
+            "print('synthetic consumer preparation required'); sys.exit(3)\""
+        ),
+    )
+    _create_plan(synthetic_upgrade)
+
+    result = _run(synthetic_upgrade, *_adopt_args(synthetic_upgrade))
+
+    assert result.returncode == 2
+    failure = next(
+        json.loads(line)
+        for line in reversed(result.stdout.splitlines())
+        if line.startswith("{") and '"error_code"' in line
+    )
+    assert failure["error_code"] == "consumer_prep_required"
+    assert failure["lane"] == "lane_b"
+    assert failure["surface"] == gate_id
+    assert failure["contract"] == gate_id
+    next_action = failure["next_action"]
+    assert "roll back this failed run" in next_action
+    assert "new B0" in next_action
+    assert "new plan" in next_action
+    assert "certify a new release" in next_action
+    assert "never add domain content in C1, C2 or C3" in next_action
+
+
 def test_plan_adopt_resume_canary_and_rollback_are_complete_and_path_free(
     synthetic_upgrade: dict[str, Path | str],
 ) -> None:
@@ -2128,7 +2284,8 @@ def test_plan_adopt_resume_canary_and_rollback_are_complete_and_path_free(
     assert "background_suite" in plan["selection"]["selected_gates"]
     assert "operational_pass" in plan["selection"]["selected_gates"]
     preflight_by_id = {item["id"]: item for item in plan["preflight"]["results"]}
-    assert preflight_by_id["pytest"]["command_id"] == "background_suite"
+    assert set(preflight_by_id) == {"diff_check"}
+    assert preflight_by_id["diff_check"]["command_id"] == "diff_check"
     assert len(private_report["evidence"]["gate_logs"]) == len(
         plan["selection"]["selected_gates"]
     )

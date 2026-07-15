@@ -5,6 +5,7 @@ import functools
 import hashlib
 import json
 import os
+import shutil
 import struct
 import subprocess
 import zlib
@@ -2086,6 +2087,56 @@ def test_adoption_evidence_accepts_ignored_runner_artifacts(
         registry=_registry(),
         selection=selection,
     )
+
+
+def test_adoption_evidence_binds_custom_plan_parent_and_exact_run_key(
+    capsule_authority: dict,
+) -> None:
+    receipt, _identity_value, _capsule_value, selection, _plan = _receipt(
+        capsule_authority
+    )
+    consumer = capsule_authority["consumer_root"]
+    original = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    info_exclude = consumer / ".git/info/exclude"
+    info_exclude.write_text(
+        info_exclude.read_text(encoding="utf-8") + "\n/output/upgrade/\n",
+        encoding="utf-8",
+    )
+    run_key = receipt["plan_sha256"][:16]
+    custom = consumer / "output/upgrade/runs" / run_key
+    shutil.copytree(original, custom)
+
+    verify_adoption_evidence(
+        receipt,
+        authority=_adoption_authority(capsule_authority, custom),
+        package=capsule_authority["authority"].package,
+        registry=_registry(),
+        selection=selection,
+    )
+
+    trusted_digest = hashlib.sha256(
+        (custom / "canary-completion-anchor.json").read_bytes()
+    ).hexdigest()
+    wrong_key = consumer / "output/upgrade/runs" / ("0" * 16)
+    wrong_key.mkdir(parents=True)
+    wrong_shape = consumer / "output/upgrade/state" / run_key
+    wrong_shape.mkdir(parents=True)
+    for invalid in (wrong_key, wrong_shape):
+        with pytest.raises(
+            UpgradeLaneError,
+            match="exact plan-parent runs boundary",
+        ):
+            verify_adoption_evidence(
+                receipt,
+                authority=_adoption_authority(
+                    capsule_authority,
+                    invalid,
+                    trusted_digest=trusted_digest,
+                ),
+                package=capsule_authority["authority"].package,
+                registry=_registry(),
+                selection=selection,
+            )
 
 
 def test_verifiers_reject_package_policy_drift_before_promotion_reuse(

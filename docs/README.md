@@ -140,10 +140,20 @@ starting point for persistent context is `memories/`.
   declared skips in 1,113.61 seconds, all 518 frontend and 115 Node checks,
   every applicable static gate, and first/only strict browser run
   `public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` at 102/102 with no
-  failure, skip, retry or flaky cell in 6.5 minutes. It is now a local-QA
-  `candidate`, which permits productive capture and Lane A certification only.
-  No capsule, adoption or public-push authority exists until certification
-  seals a capsule and independent verification succeeds.
+  failure, skip, retry or flaky cell in 6.5 minutes. Its separately reviewed
+  candidate metadata subject was
+  `59be853af5416ce84c4ca89e7272bb64eb909b2b`, but read-only downstream QA
+  exposed RT-170 before productive capture or certification. Rc34 is immutable
+  `historical_precapture_rejected`; no visual manifest, certification, capsule,
+  receipt, trust anchor or Lane B authority exists. The active package is
+  `unreleased` / `validation_pending`, based on `59be853af5416ce84c4ca89e7272bb64eb909b2b`
+  only as unpinned formation until a separate exact rc35 source pin. The fix
+  makes B0 `diff_check`-only, records expected drift as prospective C1
+  inventory, keeps final C3 `toolkit_drift` and `semantic_inventory` mandatory,
+  roots ignored evidence at the exact plan-path parent, and requires domain
+  preparation before a new B0. Public push/publication remains unauthorized;
+  standing private-main approval is downstream-only and never weakens gates or
+  the generic public PR/human gate.
   Existing v2 subjects and receipts remain frozen and are never rewritten into
   v3 proof.
 - `docs/references/templates/`: stable models for new records.

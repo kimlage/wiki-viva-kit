@@ -133,13 +133,15 @@ The v8 downstream release flow is read-only by default:
   gates, content-bound visual QA and disposable rollback verification.
 - [wiki_upgrade.py](wiki_upgrade.py) is the v3 two-lane runner. `plan` binds the
   exact package/capsule/impact registry, external attestation trust anchor,
-  active toolchain and read-only B0 preflight before mutation. `adopt` can
+  active toolchain and read-only B0 preflight before mutation. The preflight
+  cannot require scripts that arrive only in C1; expected pre-C1 portable drift
+  is plan inventory, while final C3 toolkit drift remains blocking. `adopt` can
   create or verify the C1/C2/C3 chain, replay C2 in a disposable clone, resume
   exact-subject gates, capture real canary evidence and generate the ignored
   receipt/private+public reports after a verified disposable rollback. It does
   not promote or merge; the PR/human gate remains mandatory. CI can stop at an
   exact runner-owned handoff with `adopt --pause-before-canary`, transfer the
-  ignored `.wiki-viva/upgrade` state together with the consumer clone, and
+  ignored plan-parent state/evidence root together with the consumer clone, and
   continue that unchanged plan with `adopt --resume` in the canary job. The
   canary emits a first-write completion-anchor digest; every post-canary resume
   must receive that digest from the external handoff authority. Receipt and
@@ -147,7 +149,11 @@ The v8 downstream release flow is read-only by default:
   Git edges, paths, modes and blobs. Gate selection is canonical and restores
   package-required promotion gates plus dependency closure if a caller omits
   them. Boundary symlinks/special entries and literal or repeatedly
-  percent-encoded private routes/host paths fail closed.
+  percent-encoded private routes/host paths fail closed. If a semantic gate
+  requires domain-content repair, the runner reports `consumer_prep_required`;
+  repair that content before a new B0 rather than placing it in C1/C2/C3. The
+  parent of `plan --out` owns run state and reports, so versioned
+  `.wiki-viva/packs/**` does not need to be hidden.
   `certify` is the operator-facing Lane A command: it executes exactly the
   `upstream_certified` commands on one clean, releasable public source SHA,
   probes the real toolchain, binds a public visual manifest and emits a verified
