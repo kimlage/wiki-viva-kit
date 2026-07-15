@@ -387,9 +387,11 @@ validation receipt described below. It has no candidate or release authority.
 
 #### RT-173 formation closure and downstream preparation evidence — 2026-07-15
 
-The source formation is now immutably pinned as `wiki-viva-v8-rc38` at
-`de879672aa9fefcf174c844924e3f95ed40a5fe1`; it still has no exact-validation,
-candidate, capsule or adoption authority. Its validation-pending
+The original RT-173 source formation was immutably pinned as
+`wiki-viva-v8-rc38` at
+`de879672aa9fefcf174c844924e3f95ed40a5fe1`; its failed exact validation is
+recorded below and it has no candidate, capsule or adoption authority. Its
+validation-pending
 package-file/canonical-package/portable-tree SHA-256 values are
 `a7d19c0686d9dadbc255d520fe4dc0b2abba2547be2e3f7f2372fffaa04a0cb0` /
 `337d2d740e74d4c6765cc9bad01ad82deeb9e8c6d074ffb89a9ff4b13a7dd487` /
@@ -504,18 +506,18 @@ datada; não substitui os cinco estados comprovados abaixo.
 
 | Etapa | Estado | Evidência exata / próxima ação |
 | --- | --- | --- |
-| source pinned | ⏳ correção direta | Rc38 `de879672...` permanece história imutável rejeitada: sua matriz parou no `operational_pass`, receipt `7441b7ef...`, com ambos os sujeitos estáveis. Regenerar somente a página determinística divergente, congelar um novo source e nomear/pinar o único sucessor corretivo. Rc37 e rc38 não são reutilizados; o PR público #61 continua antigo/conflitante e não representa a verdade local |
-| exact validation | ⛔ bloqueado | A nova matriz só pode iniciar depois do pin imutável do sujeito corretivo. A tentativa rc38 não é retomável nem relabelada; a matriz rc37 `775fe5bc...` continua válida apenas para rc37 |
-| capsule verified | ⛔ bloqueado | Somente após validação verde do sujeito corretivo: capturar authority Node externa a partir do clean source, provar clean-C1 materialization, executar Lane A, selar capsule v2 de cinco tools e verificar positivos/negativos. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história |
+| source pinned | ✅ concluído | `wiki-viva-v8-rc39` / `validation_pending` aponta ao source corretivo imutável `9dae4aa64d42eb45a2308632944fb134282bca10`; package-file/canonical/tree `bceefb04...` / `94dbc5e4...` / `3f8949aa...` (528 entradas). A única mudança de produto desde rc38 é a página `operational-pass` regenerada; o mesmo commit registra a rejeição sem reescrever seu receipt `7441b7ef...`. `package_is_pinned=false` até validação e promoção metadata separada. Rc37 e rc38 não são reutilizados; o PR público #61 continua antigo/conflitante |
+| exact validation | ⏳ pendente | Executar uma nova matriz integral uma única vez sobre rc39 sem editar o source. A tentativa rc38 não é retomável nem relabelada; a matriz rc37 `775fe5bc...` continua válida apenas para rc37 |
+| capsule verified | ⛔ bloqueado | Somente após validação rc39 verde: capturar authority Node externa a partir do clean source, provar clean-C1 materialization, executar Lane A, selar capsule v2 de cinco tools e verificar positivos/negativos. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história |
 | private canary | ⛔ bloqueado | Não há capsule adotável. Depois da verificação, derivar automaticamente os 17 gates do reparo de domínio separado, executar o canary real e mergeá-lo somente se verde; congelar então a nova `main` como B0 e provar B0→C1→C2→C3, gates selecionados, canary e rollback. #211 permanece evidência v2 histórica |
 | private main readback | ⛔ bloqueado | Após capsule, adoção e gates verdes, usar a autorização permanente de merge privado e validar visualmente a própria `main`; Claude/IFC e Audrey continuam separados |
 
-Fechamento comprovado atual: **0/5 para o sujeito corretivo ainda não
-pinado**. O antigo `3/5` de rc37 e o `1/5` interrompido de rc38 permanecem apenas
-como cronologia imutável dentro deste mesmo plano; não são placares concorrentes
-e nenhum recibo foi invalidado ou reescrito. A única próxima frente é congelar e
-pinar a regeneração determinística mínima, então executar sua matriz exata sem
-editar o source. Não ampliar packs/abstrações nem abrir outro plano.
+Fechamento comprovado atual: **1/5 para `wiki-viva-v8-rc39`**. O antigo `3/5`
+de rc37 e o `1/5` interrompido de rc38 permanecem apenas como cronologia
+imutável dentro deste mesmo plano; não são placares concorrentes e nenhum
+recibo foi invalidado ou reescrito. A única próxima frente é executar a matriz
+exata rc39 sem editar o source. Não ampliar packs/abstrações nem abrir outro
+plano.
 
 O Playwright terminou as 102 células em 386.565 segundos. O checker pós-matriz
 esperou mais 806.361 segundos porque o FileProvider precisava materializar
@@ -659,8 +661,10 @@ Rc37 remains immutable verified history and is not retried, relabeled or
 invalidated. RT-173 authorized rc38 at clean source
 `de879672aa9fefcf174c844924e3f95ed40a5fe1`; rc38's exact matrix then rejected
 its stale deterministic operational-pass page. Rc38 remains immutable failed
-validation evidence. That direct exactness failure alone authorizes one minimal
-corrective subject; candidate and release authority remain pending.
+validation evidence. That direct exactness failure alone authorized minimal
+corrective subject `wiki-viva-v8-rc39`, now pinned to
+`9dae4aa64d42eb45a2308632944fb134282bca10`; candidate and release authority
+remain pending.
 
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
@@ -1088,7 +1092,7 @@ memory rather than one fixed dashboard:
 
 | Surface | Reviewed baseline | Automated state | Human/product state | Decision |
 | --- | --- | --- | --- | --- |
-| Stale public PR baseline | Draft PR #61 still points to remote head `31b94d81`, conflicts with current public `main` and represents neither rc37 history nor pinned rc38 | Its three remote checks belong only to that old SHA | Rc37 passed exact validation 23/23, productive capture, Lane A 11/11 and independent capsule verification locally; rc38 is only validation-pending, and neither truth may be projected onto the stale PR | Prepare reconciliation only after rc38 is certified; no push/publication without explicit authorization |
+| Stale public PR baseline | Draft PR #61 still points to remote head `31b94d81`, conflicts with current public `main` and represents neither rc37 history, failed rc38 nor pinned rc39 | Its three remote checks belong only to that old SHA | Rc37 passed exact validation 23/23, productive capture, Lane A 11/11 and independent capsule verification locally; rc38 failed exact validation; rc39 is validation-pending; none may be projected onto the stale PR | Prepare reconciliation only after rc39 is certified; no push/publication without explicit authorization |
 | Historical public payload `S` | Exact subject `b781882a11e8bbac3ae9684d199979a1f4ee1bf7` | 1,339 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; matrix remains 102+2 | Its then-global adversarial verdict had no open public P0/P1; later source and private pressure superseded it | Historical release candidate only; never tag or use as current authority |
 | Public pressure payload `S2` | Exact subject `f0936539ca44c34ff5eacf5817b22ff9451b9cef` | 1,355 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; demo and audit remain deterministic | Portability, historical-action adoption, rollback truth and demo-link closure are executable contracts | Historical rc3 candidate; imported by the private pilot before the final pressure pass |
 | Public renderer payload `S3` | Exact subject `8904d69daab1803043a89e553d78b95b57d2022f` | 1,356 Python pass; clean browser run blocks at 101/102 on a live→demo request race | Both action parsers accept canonical output, but browser closure is incomplete | Rejected intermediate; never promote or adopt as the final candidate |
@@ -4083,11 +4087,12 @@ This is the only active queue; earlier S9/S10 queues are historical snapshots:
     promoted or relabeled as rc36/v3. Standing private merge approval does not
     convert historical v2 evidence into current adoption authority.
     Public push, PR, merge, tag and external E5 remain unauthorized;
-15. **BLOCKED ON RC38 VALIDATION/CERTIFICATION** — rc37's capsule and external
+15. **BLOCKED ON RC39 VALIDATION/CERTIFICATION** — rc37's capsule and external
     attestation remain immutable verified history, but its clean-C1 execution
-    cannot materialize the sealed dependency tree. Rc38 is pinned at
-    `de879672...`; validate and certify that exact policy-v2/authority-v1
-    subject. Only then open
+    cannot materialize the sealed dependency tree. Rc38 failed exact validation
+    at `operational_pass`; its stable subjects and failed receipt remain frozen.
+    Rc39 is pinned at `9dae4aa6...`; validate and certify that exact
+    policy-v2/authority-v1 subject. Only then open
     one fresh v3 adoption from current private `main`, not from PR #211 or its
     v2 C3. Preserve toolkit-owned `wiki-*` skills as byte-equal C1, derive
     private `AGENTS.md`, router and non-`wiki-*` adaptations in C3, create new
@@ -5297,8 +5302,9 @@ Its first productive four-profile capture sealed manifest `3be7599a...`; the
 first Lane A passed 11/11 and sealed capsule/receipt/attestation
 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`. Independent positive and
 negative verification closed fail-closed authority. RT-173's later clean-C1
-failure preserves those hashes as history but blocks private v3 adoption until
-pinned rc38 certifies. Public push and publication remain
+failure preserves those hashes as history; rc38 then failed exact validation at
+`operational_pass`. Private v3 adoption remains blocked until pinned rc39
+certifies. Public push and publication remain
 unauthorized.
 
 #### Post-rc21 downstream rehearsal: RT-152 and the rc22 correction boundary — 2026-07-14
@@ -5417,11 +5423,11 @@ permits productive capture and Lane A certification only. Public push and
 publication remain unauthorized.
 
 The only canonical scoreboard is [Placar operacional canônico](#placar-operacional-canônico),
-currently `1/5` for pinned `wiki-viva-v8-rc38`. Rc37's former `3/5`
-is immutable chronology, not a second scoreboard. Do not expand packs or mutate
-PR #61/#211 to simulate progress. RT-173 is the recorded fail-closed exception
-that requires exactly one new immutable subject; no other scope expansion is
-authorized.
+currently `1/5` for pinned `wiki-viva-v8-rc39`. Rc37's former `3/5` and rc38's
+failed `1/5` are immutable chronology, not second scoreboards. Do not expand
+packs or mutate PR #61/#211 to simulate progress. Rc39 exists only because
+rc38's exactness gate required a new immutable subject; no other scope expansion
+is authorized.
 
 #### Immutable lineage through rc37 Lane A and RT-173 clean-C1 rejection — 2026-07-15
 
@@ -5473,8 +5479,9 @@ validation, produced a verified capture and failed its first/only Lane A at
 browser 101/102 on RT-172. Exact successor rc37 then passed its first/only
 complete validation 23/23, first productive capture and Lane A 11/11; capsule
 and external attestation verify independently. RT-173's later clean-C1 failure
-freezes that authority as history. The active next action is to validate and
-certify pinned rc38's policy-v2/authority-v1 subject; private adoption
+freezes that authority as history. Rc38's exact matrix then failed at its stale
+deterministic operational-pass page. The active next action is to validate and
+certify pinned rc39's policy-v2/authority-v1 subject; private adoption
 follows only after its verification. The
 already sealed v2 downstream C3 and all of its
 receipts remain frozen on their original complete
@@ -5752,8 +5759,9 @@ validation 23/23 at metadata `775fe5bc...`. Candidate package/tree are
 the out-of-band digest. Wrong-digest and tampered-copy controls failed closed.
 
 RT-173 later proved that this rc37 authority could not materialize clean-C1 Node
-dependencies, so preserve it as history and do not start adoption from it. Once
-pinned rc38 is validated, certified and verified,
+dependencies, so preserve it as history and do not start adoption from it. Rc38
+then failed exact validation at `operational_pass` and remains immutable failed
+evidence. Once pinned rc39 is validated, certified and verified,
 start a fresh v3 adoption from the current private `main`, not from PR #211 or
 its v2 C3. Preserve B0→C1→C2→C3, import the
 scoped duplicate-label correction byte-equal in C1, run selected/current gates,

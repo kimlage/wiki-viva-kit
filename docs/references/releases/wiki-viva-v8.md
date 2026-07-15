@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc38 - exact validation pending"
+title: "Wiki Viva v8 rc39 - exact validation pending"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc38 - exact validation pending
+# Wiki Viva v8 rc39 - exact validation pending
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -626,14 +626,22 @@ executable, proving a missing policy/authority bootstrap rather than an app
 defect. Rc37 remains cryptographically verified history, but it is not
 executable Lane B adoption or promotion authority.
 
-The active package is `wiki-viva-v8-rc38` / `validation_pending`, separately
-pinned to exact source `de879672aa9fefcf174c844924e3f95ed40a5fe1`, with
+Rc38's one exact validation passed audit, public audit, methodology coverage and
+operation compile, then stopped fail-closed at `operational_pass` because its
+tracked deterministic page was stale. Validation-result / identity / failing-log
+SHA-256 are `7441b7ef...` / `bf77ba74...` / `57e73ac2...`; both Git subjects
+remained stable. Rc38 is immutable failed-validation history and minted no
+candidate, capsule or downstream authority.
+
+The direct corrective package is `wiki-viva-v8-rc39` / `validation_pending`,
+separately pinned to exact source
+`9dae4aa64d42eb45a2308632944fb134282bca10`, with
 `package_is_pinned=false` until exact validation and a later candidate boundary.
 Its validation-pending package-file/canonical-package/portable-tree SHA-256
 values are
-`a7d19c0686d9dadbc255d520fe4dc0b2abba2547be2e3f7f2372fffaa04a0cb0` /
-`337d2d740e74d4c6765cc9bad01ad82deeb9e8c6d074ffb89a9ff4b13a7dd487` /
-`96e3db3b147139af491343fbd9f12f4845df664be7bb429070723f6205ef6534`,
+`bceefb04c279359df3bf0e3c64c6b0039bae57655e527deecb9beca6b73bbf84` /
+`94dbc5e40e23874ead40a1e5104ae8f0b18fe185390a9c574a53c6ee16665aa9` /
+`3f8949aaaac02ae475ec2e436b89b3a49f5ff03f61a14f45139c824975b25b75`,
 528 entries.
 It separates tracked portable
 `wiki_viva_node_workspace_policy.v2` from external path-free/platform-scoped
@@ -646,8 +654,8 @@ readback are blocked. Rc37's historical `3/5` chronology is not a second live
 scoreboard. Draft public PR #61 remains stale and does not represent this local
 truth; public push, publication, PR mutation, merge and tag remain unauthorized.
 Private PR #211 and its v2 receipts remain immutable historical evidence. A
-fresh rc38/v3 adoption may start from the then-current private `main` only after
-the rc38 capsule and attestation verify fail-closed.
+fresh rc39/v3 adoption may start from the then-current private `main` only after
+the rc39 capsule and attestation verify fail-closed.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -756,7 +764,8 @@ Historical rc37 has a separate source pin and candidate boundary. Its first and
 only exact validation passed 23/23, then its first productive capture, Lane A
 11/11 and independent capsule/attestation verification passed once. RT-173's
 later clean-C1 failure prevents downstream use without changing any rc37 byte or
-receipt. Pinned rc38 requires exact validation, capture, capsule and verification
+receipt. Failed rc38 remains immutable; pinned rc39 requires exact validation,
+capture, capsule and verification
 before any downstream plan.
 Remote public CI, human conceptual/privacy/VoiceOver review, public merge and
 promotion remain separate and unauthorized; stale/conflicting public PR #61
@@ -905,8 +914,8 @@ product approval or E5. The allowlisted private S9 adoption and its two
 mandatory browser cells plus both complete deterministic stacks are now
 proven. At that historical checkpoint,
 [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61) still required
-human review and merge. It is now stale/conflicting and represents neither the
-historical rc37 authority nor pinned validation-pending rc38; no tag or public
+human review and merge. It is now stale/conflicting and represents none of the
+historical rc37 authority, failed rc38 or pinned validation-pending rc39; no tag or public
 push is authorized.
 
 ## Historical rc8 correction lineage — public payload candidate at that checkpoint
