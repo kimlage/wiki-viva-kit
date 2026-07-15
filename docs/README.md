@@ -165,13 +165,26 @@ starting point for persistent context is `memories/`.
   historical evidence, but no capture directory, visual manifest, capsule,
   receipt, downstream plan, import or Lane B authority was created.
 
-  The active package is `unreleased` / `validation_pending` at formation base
-  `55910c379b64060451fb8fb93eb85d47b9245122` only. Future literal rc36 is
-  unpinned (`package_is_pinned=false`) and has no assigned source SHA, package
-  digest, portable-tree digest or candidate identity. Its formation uses runner
-  1.4.0, `wiki_visual_evidence_capture.v2` and
+  The active package is `wiki-viva-v8-rc36` / `validation_pending` at exact
+  source `8f96e1fd58258df64174229d81ee6a330ba9d2b1`. It uses runner 1.4.0,
+  `wiki_visual_evidence_capture.v2` and
   `wiki_viva_canary_visual_summary.v2`, enforcing exact native route, view, v8
-  runtime and `canary_viewport`. Draft PR #61 remains stale and does not
+  runtime and `canary_viewport`. `package_is_pinned=false`; no candidate
+  identity, productive capture, visual manifest, capsule, receipt, attestation,
+  downstream plan, import or Lane B authority exists.
+
+  Post-boundary package-file/canonical-package/portable-tree SHA-256 values are
+  `47c3dc7d...` / `81a3b600...` / `53ffdf8b...` (521 entries). Runner-payload
+  and toolchain identities remain pending exact validation.
+
+  Pre-pin source-formation evidence passed 295 affected Python checks with 3
+  declared skips in 583.50 seconds and all 13 Node exporter checks. Package
+  tests initially returned 125/126 because two redundant keys remained in a
+  closed map; after their removal, the exact failed package test passed. Audit
+  and public audit each returned 0 errors with 6 historical freshness warnings,
+  while package and consumer-inventory validation returned 0 errors. This is
+  formation evidence only, not rc36 exact validation or candidate authority.
+  Draft PR #61 remains stale and does not
   represent this local truth. Public push/publication remains unauthorized;
   standing private-main approval is downstream-only and never weakens gates or
   the generic public PR/human gate.

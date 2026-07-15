@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc36 formation - rc35 rejected before capture"
+title: "Wiki Viva v8 rc36 exact validation source - rc35 rejected before capture"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc36 formation - rc35 rejected before capture
+# Wiki Viva v8 rc36 exact validation source - rc35 rejected before capture
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -501,14 +501,29 @@ package and consumer inventory validation passed while
 `package_is_pinned=false`. That remains source-formation evidence only; it is
 not relabeled as the exact validation above.
 
-## Rc36 formation — native v8 visual authority, unpinned
+## Rc36 exact validation source — native v8 visual authority pinned
 
-The active package is an unpinned rc36 formation state with `release.id:
-unreleased`, `status: validation_pending` and formation base
-`55910c379b64060451fb8fb93eb85d47b9245122`. That back-reference prevents a
-self-referential source commit; it is not an rc36 source SHA. No rc36 package,
-portable-tree, runner-payload, validation, candidate, capture, capsule or
-downstream identity is declared before the separate metadata pin.
+`wiki-viva-v8-rc36` is pinned only for exact validation to source
+`8f96e1fd58258df64174229d81ee6a330ba9d2b1` with status
+`validation_pending`; `package_is_pinned=false`. Post-boundary measurement binds
+this exact pair to package-file SHA-256
+`47c3dc7dff8336c7707a4c43cc37275aef3721e2b1a54109b94e64cbed6992f1`,
+canonical-package SHA-256
+`81a3b600f4cd6cd0f0d3abac0b886e9db15fdd3ad0120c9442ce7fc76cc07832`
+and a 521-entry portable tree SHA-256
+`53ffdf8bc0a2c61f1bf7f426ba12e7e9a0c4995e92703a7264596b9f9a81594c`.
+The command- and impact-registry SHA-256 values are respectively
+`6e170423a544cdb735aef7d77ed70389846dc657dc905b69f6d2312e03458097`
+and `92ce2ba62d728269a2c29323c9a433235f20cef790961f8ac6d5d1625942c0db`.
+Runner-payload and toolchain identities remain deliberately pending the single
+exact-validation run; no rc35 identity is copied forward.
+
+Pre-pin focused source evidence passed 295 Python checks with 3 declared skips
+in 583.50 seconds and all 13 focused Node checks. Both audits returned 0 errors
+with 6 known freshness warnings, and package plus consumer-inventory validators
+were green. This is formation evidence only: it is not the wholly new exact
+rc36 validation and cannot authorize candidate review, capture, certification
+or downstream adoption.
 
 RT-171 upgrades the record contracts to
 `wiki_visual_evidence_capture.v2` and
@@ -524,14 +539,14 @@ compatibility evidence only.
 | `fallback` | `/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0` / `1280x900` | `/w?view=quadrants&visual=1&tour=0` / `1440x1000` | `quadrants` / `v8` |
 | `quadrant_collection_two_step` | `/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0` / `1440x1000` | `/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0` / `1440x1000` | `quadrants` / `v8` |
 
-The runner base version becomes 1.4.0, but its exact
-`1.4.0+payload.<sha256>` identity and `toolchain_sha256` can be derived only
-from the future clean rc36 source. The next valid boundary is therefore one
-source-formation commit followed by a metadata-only rc36 pin and a wholly new
-exact validation. Public push, publication, PR mutation, merge and tag remain
-unauthorized. A future private rc36/v3 adoption must start from the then-current
-private `main`; private PR #211 and its v2 receipts remain immutable historical
-evidence, not an rc36 base or promotion authority.
+The runner base version is 1.4.0, but its exact
+`1.4.0+payload.<sha256>` identity and `toolchain_sha256` remain pending the
+exact-validation derivation. The next valid action is one wholly new complete exact
+validation of source `8f96e1fd58258df64174229d81ee6a330ba9d2b1` against
+this metadata package. Public push, publication, PR mutation, merge and tag
+remain unauthorized. A future private rc36/v3 adoption must start from the
+then-current private `main`; private PR #211 and its v2 receipts remain
+immutable historical evidence, not an rc36 base or promotion authority.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -636,8 +651,8 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-The unpinned rc36 formation still requires a separate exact source pin,
-complete exact validation, candidate review, new capture and certification,
+The exact rc36 validation source still requires complete exact validation,
+candidate review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
 human conceptual/privacy/VoiceOver review and merge, followed by a separately

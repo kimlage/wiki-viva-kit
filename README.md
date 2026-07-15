@@ -80,14 +80,27 @@ used positional routes without exact native route, view, runtime or
 evidence, but no capture directory, visual manifest, capsule, receipt,
 attestation, downstream plan, import or Lane B authority was created.
 
-The successor is an `unreleased` / `validation_pending` rc36 source formation
-at base `55910c379b64060451fb8fb93eb85d47b9245122` only. It moves to runner
-1.4.0, `wiki_visual_evidence_capture.v2` and
+The active package is `wiki-viva-v8-rc36` / `validation_pending` at exact source
+`8f96e1fd58258df64174229d81ee6a330ba9d2b1`. It uses runner 1.4.0,
+`wiki_visual_evidence_capture.v2` and
 `wiki_viva_canary_visual_summary.v2`, with exact native route, view, v8 runtime
-and `canary_viewport` enforcement. Rc36 is not pinned:
-`package_is_pinned=false`, and it has no assigned source SHA, package digest,
-portable-tree digest or candidate identity. Draft PR #61 remains stale and does
-not represent this local truth. Public push/publication remains unauthorized.
+and `canary_viewport` enforcement. `package_is_pinned=false`; no candidate
+identity, productive capture, visual manifest, capsule, receipt, attestation,
+downstream plan, import or Lane B authority exists.
+
+Post-boundary package-file/canonical-package/portable-tree SHA-256 values are
+`47c3dc7d...` / `81a3b600...` / `53ffdf8b...` (521 entries). Runner-payload and
+toolchain identities remain pending the single exact-validation run.
+
+Pre-pin source-formation evidence passed 295 affected Python checks with 3
+declared skips in 583.50 seconds and all 13 Node exporter checks. Package tests
+initially returned 125/126 because two redundant keys remained in a closed map;
+after their removal, the exact failed package test passed. Audit and public
+audit each returned 0 errors with 6 historical freshness warnings, while
+package and consumer-inventory validation returned 0 errors. This is formation
+evidence only, not rc36 exact validation or candidate authority. Draft PR #61
+remains stale and does not represent this local truth. Public push/publication
+remains unauthorized.
 See the [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority: do not
@@ -311,9 +324,9 @@ the exact clean source, covering every package visual profile with strict PNG
 and record-backed source/toolchain/console/network proof. `verify-capsule` then
 reopens the sealed authority with the out-of-band attestation SHA-256 before
 Lane B may plan; successful gate logs containing host-local paths are rejected.
-The source-formation contract uses `wiki_visual_evidence_capture.v2` for Lane A
-and `wiki_viva_canary_visual_summary.v2` for Lane B. Each profile binds its
-canonical native route, observed view, v8 runtime and exact capture/canary
+The rc36 validation-source contract uses `wiki_visual_evidence_capture.v2` for
+Lane A and `wiki_viva_canary_visual_summary.v2` for Lane B. Each profile binds
+its canonical native route, observed view, v8 runtime and exact capture/canary
 viewport; stale v1 or coherently resealed mismatches fail closed.
 
 The normative contract, schemas, impact registry, resumable-runner behavior and
@@ -406,12 +419,21 @@ bind the exact native view/runtime/canary viewport contract. Rc35 is immutable
 `historical_precapture_rejected`; no capture directory, visual manifest,
 capsule, receipt or Lane B authority exists.
 
-The active package is `unreleased` / `validation_pending` at formation base
-`55910c379b64060451fb8fb93eb85d47b9245122` only. Future rc36 carries the RT-170
-B0 correction plus runner 1.4.0, capture record v2 and canary summary v2 with
-exact native route, view, v8 runtime and `canary_viewport` checks. It remains
-unpinned with `package_is_pinned=false`; no rc36 source SHA or digest is
-predeclared. Draft PR #61 is stale and public push remains unauthorized.
+The active package is `wiki-viva-v8-rc36` / `validation_pending` at exact source
+`8f96e1fd58258df64174229d81ee6a330ba9d2b1`. It carries the RT-170 B0
+correction plus runner 1.4.0, capture record v2 and canary summary v2 with exact
+native route, view, v8 runtime and `canary_viewport` checks.
+Its post-boundary package-file/canonical-package/portable-tree identities are
+`47c3dc7d...` / `81a3b600...` / `53ffdf8b...` (521 entries); payload/toolchain
+remain pending exact validation.
+`package_is_pinned=false`; no candidate identity, productive capture, visual
+manifest, capsule, receipt or Lane B authority exists. The pre-pin affected
+stack passed 295 Python with 3 declared skips in 583.50 seconds and 13/13 Node
+exporter checks. Package tests moved from 125/126 to the exact failed test green
+after two redundant closed-map keys were removed; both audits returned 0 errors
+with 6 historical freshness warnings, and package/inventory validation returned
+0 errors. This is formation evidence only. Draft PR #61 is stale and public
+push remains unauthorized.
 Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.
 No existing v2 C3 or receipt is amended to reach it.

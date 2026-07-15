@@ -180,14 +180,28 @@ another) via skills — there is no embedded LLM client.
   attestation, trust anchor, downstream plan, import or Lane B authority was
   created. Never retry, relabel, promote or import rc35.
 
-  The active package is `unreleased` / `validation_pending` at formation base
-  `55910c379b64060451fb8fb93eb85d47b9245122` only. Future literal rc36 remains
-  unpinned: `package_is_pinned=false`, and no rc36 source SHA, package digest,
-  portable-tree digest or candidate identity exists. Its source formation moves
-  to runner 1.4.0, `wiki_visual_evidence_capture.v2` and
+  The active package is `wiki-viva-v8-rc36` / `validation_pending` at exact
+  source `8f96e1fd58258df64174229d81ee6a330ba9d2b1`.
+  Post-boundary package-file/canonical-package/portable-tree SHA-256 values are
+  `47c3dc7d...` / `81a3b600...` / `53ffdf8b...` (521 entries); payload and
+  toolchain identities remain pending exact validation.
+  `package_is_pinned=false`: no candidate identity, productive capture, visual
+  manifest, capsule, receipt, attestation, downstream plan, import or Lane B
+  authority exists. Rc36 uses runner 1.4.0,
+  `wiki_visual_evidence_capture.v2` and
   `wiki_viva_canary_visual_summary.v2`, with exact native route, view, v8 runtime
-  and `canary_viewport` enforcement. Draft PR #61 remains stale and does not
-  represent this local truth. Public push/publication remains unauthorized.
+  and `canary_viewport` enforcement.
+
+  Pre-pin source-formation evidence passed 295 affected Python checks with 3
+  declared skips in 583.50 seconds and all 13 Node exporter checks. Package
+  review initially returned 125/126 because two redundant keys remained in a
+  closed map; the keys were removed and the exact failed package test passed.
+  Audit and public audit each returned 0 errors with 6 historical freshness
+  warnings, and package plus consumer-inventory validation returned 0 errors.
+  These results prove source formation only and are not rc36 exact validation,
+  candidate, capture or certification evidence. Draft PR #61 remains stale and
+  does not represent this local truth. Public push/publication remains
+  unauthorized.
   Standing approval for incremental private-main merges
   is downstream-specific: it removes only that consumer's human-authorization
   blocker after every technical gate passes and does not alter the generic

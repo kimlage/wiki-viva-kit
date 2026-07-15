@@ -1,9 +1,9 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: unreleased
+  id: wiki-viva-v8-rc36
   status: validation_pending
-  source_sha: 55910c379b64060451fb8fb93eb85d47b9245122
+  source_sha: 8f96e1fd58258df64174229d81ee6a330ba9d2b1
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
@@ -761,17 +761,21 @@ known_limitations:
     real-canary positional routes and v1 capture/summary records did not prove
     exact native view, runtime_mode v8 and canary viewport together. No visual
     manifest, certification, capsule, adoption or public-push authority exists.
-    Rc35 is immutable historical pre-capture rejection evidence. The active
-    rc36 formation is `unreleased` / `validation_pending`, based at metadata
-    subject 55910c379b64060451fb8fb93eb85d47b9245122 only to avoid source
-    self-reference. It introduces wiki_visual_evidence_capture.v2 and
-    wiki_viva_canary_visual_summary.v2 with exact native route/view,
-    data-runtime-mode=v8 and declared viewport enforcement. No rc36 source SHA,
-    package/tree digest, validation or authority exists. Public push remains
-    unauthorized.
+    Rc35 is immutable historical pre-capture rejection evidence. Rc36 is now
+    pinned only for exact validation to source
+    8f96e1fd58258df64174229d81ee6a330ba9d2b1 with status
+    `validation_pending`. Its pre-pin focused source evidence passed 295 Python
+    checks with 3 declared skips in 583.50 seconds, all 13 focused Node checks,
+    both audits with 0 errors and 6 known freshness warnings, and package plus
+    consumer-inventory validators. It introduces
+    wiki_visual_evidence_capture.v2 and wiki_viva_canary_visual_summary.v2 with
+    exact native route/view, data-runtime-mode=v8 and declared viewport
+    enforcement. No rc36 package/tree/toolchain digest, exact-validation result,
+    candidate, capture, capsule or downstream authority is declared yet.
+    Public push remains unauthorized.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
-  - RT-171 rc36 formation binds all four productive and real-canary entry profiles to runtime_mode v8. Desktop uses productive `/demo/w?center=root-alex-rivera&view=quadrants&tour=0` and canary `/w?view=quadrants&tour=0`, both 1440x1000. Mobile uses productive `/demo/w?view=timeline&tour=0` and canary `/w?view=timeline&tour=0`, both 390x844. Fallback uses productive `/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0` at 1280x900 and canary `/w?view=quadrants&visual=1&tour=0` at 1440x1000. Quadrant collection uses productive `/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0` and canary `/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0`, both 1440x1000. The exact schemas are wiki_visual_evidence_capture.v2 and wiki_viva_canary_visual_summary.v2; a positional, compat, missing-runtime, wrong-view or wrong-canary-viewport observation fails closed.
-  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. The active rc36 package is unpinned formation state `unreleased` / `validation_pending` at base 55910c379b64060451fb8fb93eb85d47b9245122, so package_is_pinned is false. Every capture, certification, plan and adoption path must fail closed until a separate exact rc36 source is pinned, wholly revalidated, promoted to a reviewed candidate, productively captured, certified and independently verified; public promotion remains separate and public push is unauthorized.
+  - RT-171 rc36 exact validation source binds all four productive and real-canary entry profiles to runtime_mode v8. Desktop uses productive `/demo/w?center=root-alex-rivera&view=quadrants&tour=0` and canary `/w?view=quadrants&tour=0`, both 1440x1000. Mobile uses productive `/demo/w?view=timeline&tour=0` and canary `/w?view=timeline&tour=0`, both 390x844. Fallback uses productive `/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0` at 1280x900 and canary `/w?view=quadrants&visual=1&tour=0` at 1440x1000. Quadrant collection uses productive `/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0` and canary `/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0`, both 1440x1000. The exact schemas are wiki_visual_evidence_capture.v2 and wiki_viva_canary_visual_summary.v2; a positional, compat, missing-runtime, wrong-view or wrong-canary-viewport observation fails closed.
+  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. The active `wiki-viva-v8-rc36` package is pinned only for exact validation to source 8f96e1fd58258df64174229d81ee6a330ba9d2b1 with status `validation_pending`, so package_is_pinned is false. Every capture, certification, plan and adoption path must fail closed until this exact source passes wholly new validation, becomes a separately reviewed candidate, is productively captured, certified and independently verified; public promotion remains separate and public push is unauthorized.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
   - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc35 can never authorize another import. A future exact rc36 or later subject may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved. The fresh rc36/v3 adoption starts from the then-current private main; private PR #211 remains historical v2 evidence and is never its B0, C3 or promotion authority.
@@ -785,5 +789,5 @@ known_limitations:
   - Toolkit-owned .skills/wiki-*/** remain portable C1. Nested consumer skills under .skills/*/**, AGENTS.md and the literal root .skills/README.md are C3; the literal path is required because the nested skill glob intentionally cannot cross the directory boundary.
   - A downstream must choose an ignored and untracked plan output subtree before freezing B0. The exact plan parent owns resumable state, receipts and reports; ignoring all .wiki-viva/ is forbidden because consumer pack state may be versioned there, and this consumer-owned pre-B0 policy is never supplied by C1.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed complete validation, rc24/rc26 failed certification after valid captures, rc28/rc29/rc30 were rejected before complete validation, and rc34/rc35 were rejected before productive capture. Exact rc35 source 52491dfd6c3a81f0356fb64a9e01e41dd71e07a0 preserves the RT-170 B0/C1/C3 correction and passed wholly new validation at metadata subject 55910c379b64060451fb8fb93eb85d47b9245122, but RT-171 proved its visual authority did not bind native route/view, runtime_mode v8 and canary viewport together. Rc35 is historical_precapture_rejected; its uncommitted candidate projection is not authority. Rc36 formation corrects that public visual contract with capture v2 and canary-summary v2, but remains unpinned. RT-150 still requires a future exact validation, promotion and verified capsule before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
+  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed complete validation, rc24/rc26 failed certification after valid captures, rc28/rc29/rc30 were rejected before complete validation, and rc34/rc35 were rejected before productive capture. Exact rc35 source 52491dfd6c3a81f0356fb64a9e01e41dd71e07a0 preserves the RT-170 B0/C1/C3 correction and passed wholly new validation at metadata subject 55910c379b64060451fb8fb93eb85d47b9245122, but RT-171 proved its visual authority did not bind native route/view, runtime_mode v8 and canary viewport together. Rc35 is historical_precapture_rejected; its uncommitted candidate projection is not authority. Exact rc36 source 8f96e1fd58258df64174229d81ee6a330ba9d2b1 corrects that public visual contract with capture v2 and canary-summary v2 and is pinned only for wholly new exact validation. RT-150 still requires validation, promotion and a verified capsule before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.
