@@ -2,7 +2,7 @@ schema_version: wiki_viva_upgrade_package.v3
 
 release:
   id: wiki-viva-v8-rc41
-  status: historical_closed
+  status: validation_pending
   source_sha: f42b624049e310100218bf4f99e3ea418b066689
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 
@@ -760,8 +760,10 @@ privacy:
 
 known_limitations:
   - >-
-    RELEASE-ARCHITECTURE-TRANSITION-2026-07-15 — rc41 is closed exactly as
-    historical evidence. No rc42, exact matrix, capsule, attestation, receipt,
+    RELEASE-ARCHITECTURE-TRANSITION-2026-07-15 — rc41 is closed as historical
+    evidence while its last recorded release.status remains validation_pending;
+    that literal status is frozen chronology, not an active gate. No rc42,
+    exact matrix, capsule, attestation, receipt,
     clone canary or certification state is required for v8 release/adoption.
     The current repository tree is the v8 source and advances through one
     normal kit CI run, the consumer's own gates, impact acknowledgements and a
