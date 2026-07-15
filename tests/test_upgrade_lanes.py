@@ -169,13 +169,15 @@ def capsule_authority(tmp_path: Path) -> dict:
             "dimensions": dict(spec["viewport"]),
         }
         record = {
-            "schema_version": "wiki_visual_evidence_capture.v1",
+            "schema_version": "wiki_visual_evidence_capture.v2",
             "profile": profile,
             "source_sha": source_sha,
             "package_sha256": canonical_sha256(package),
             "requested_route": spec["route"],
             "route": spec["route"],
             "viewport": spec["viewport"],
+            "view": spec["view"],
+            "runtime_mode": spec["runtime_mode"],
             "browser_toolchain": toolchain["browser"],
             "browser_toolchain_sha256": canonical_sha256(toolchain["browser"]),
             "image": image,
@@ -655,12 +657,10 @@ def _receipt(
     visual_profiles = capsule_authority["authority"].package["migration"][
         "visual_profiles"
     ]
-    for index, profile in enumerate(visual_profiles):
-        width, height = (
-            (320 + index, 240 + index)
-            if profile != "mobile"
-            else (240, 320)
-        )
+    for profile in visual_profiles:
+        canary_viewport = VISUAL_PROFILE_CONTRACTS[profile]["canary_viewport"]
+        width = canary_viewport["width"]
+        height = canary_viewport["height"]
         image = _png_bytes(width, height)
         image_file = f"screenshot-{profile}.png"
         (canary_dir / image_file).write_bytes(image)
@@ -671,7 +671,9 @@ def _receipt(
                 "subject_sha": identity["consumer_C3"],
                 "sha256": hashlib.sha256(image).hexdigest(),
                 "profile": profile,
-                "route": "/demo/w/radar",
+                "route": VISUAL_PROFILE_CONTRACTS[profile]["canary_route"],
+                "view": VISUAL_PROFILE_CONTRACTS[profile]["view"],
+                "runtime_mode": VISUAL_PROFILE_CONTRACTS[profile]["runtime_mode"],
                 "viewport": {"width": width, "height": height},
                 "width": width,
                 "height": height,
@@ -1300,7 +1302,9 @@ def test_capsule_visual_manifest_exactly_covers_package_profiles(
         )
 
 
-@pytest.mark.parametrize("mutation", ["source", "toolchain", "route", "console"])
+@pytest.mark.parametrize(
+    "mutation", ["source", "toolchain", "route", "view", "runtime", "console"]
+)
 def test_capsule_reopens_record_backed_visual_authority(
     capsule_authority: dict, mutation: str
 ) -> None:
@@ -1317,6 +1321,10 @@ def test_capsule_reopens_record_backed_visual_authority(
     elif mutation == "route":
         record["requested_route"] = "/demo/w?center=%2570rivate"
         record["route"] = "/demo/w?center=%2570rivate"
+    elif mutation == "runtime":
+        record["runtime_mode"] = "compat"
+    elif mutation == "view":
+        record["view"] = "timeline"
     else:
         record["console_summary"]["error_count"] = 1
     record_path.write_text(canonical_json(record) + "\n", encoding="utf-8")
@@ -1931,16 +1939,20 @@ def _canary_evidence() -> tuple[dict, dict, list[str], list[dict], str]:
                 "gate_id": "real_canary",
                 "subject_sha": subject,
                 "profile": "desktop",
-                "route": "/demo/w/radar",
-                "viewport": {"width": 1440, "height": 900},
+                "route": "/w?view=quadrants&tour=0",
+                "view": "quadrants",
+                "runtime_mode": "v8",
+                "viewport": {"width": 1440, "height": 1000},
                 "width": 1440,
-                "height": 900,
+                "height": 1000,
             },
             {
                 "gate_id": "real_canary",
                 "subject_sha": subject,
                 "profile": "mobile",
-                "route": "/demo/w/radar",
+                "route": "/w?view=timeline&tour=0",
+                "view": "timeline",
+                "runtime_mode": "v8",
                 "viewport": {"width": 390, "height": 844},
                 "width": 390,
                 "height": 844,
@@ -1985,8 +1997,71 @@ def test_canary_rejects_empty_or_erroring_network_capture(
 
 def test_canary_rejects_duplicate_or_missing_visual_profile() -> None:
     package, evidence, selected, catalog, subject = _canary_evidence()
-    evidence["screenshots"][1]["profile"] = "desktop"
+    evidence["screenshots"][1] = copy.deepcopy(evidence["screenshots"][0])
     with pytest.raises(UpgradeLaneError, match="duplicate|coverage differs"):
+        validate_canary_evidence(
+            package,
+            evidence,
+            selected_gates=selected,
+            gate_catalog=catalog,
+            subject_sha=subject,
+        )
+
+
+def test_canary_rejects_bounded_but_noncanonical_viewport() -> None:
+    package, evidence, selected, catalog, subject = _canary_evidence()
+    evidence["screenshots"][0].update(
+        {
+            "viewport": {"width": 1280, "height": 900},
+            "width": 1280,
+            "height": 900,
+        }
+    )
+    with pytest.raises(UpgradeLaneError, match="viewport"):
+        validate_canary_evidence(
+            package,
+            evidence,
+            selected_gates=selected,
+            gate_catalog=catalog,
+            subject_sha=subject,
+        )
+
+
+@pytest.mark.parametrize("runtime_mode", [None, "compat", "legacy"])
+def test_canary_rejects_missing_or_non_v8_runtime(runtime_mode: str | None) -> None:
+    package, evidence, selected, catalog, subject = _canary_evidence()
+    if runtime_mode is None:
+        evidence["screenshots"][0].pop("runtime_mode")
+    else:
+        evidence["screenshots"][0]["runtime_mode"] = runtime_mode
+    with pytest.raises(UpgradeLaneError, match="runtime"):
+        validate_canary_evidence(
+            package,
+            evidence,
+            selected_gates=selected,
+            gate_catalog=catalog,
+            subject_sha=subject,
+        )
+
+
+@pytest.mark.parametrize(
+    ("profile", "route", "view"),
+    [
+        ("desktop", "/totally-wrong-but-safe", "quadrants"),
+        ("desktop", "/w/quadrants", "quadrants"),
+        ("desktop", "/w?view=quadrants&tour=0", "timeline"),
+        ("custom_profile", "/w?view=quadrants&tour=0", "quadrants"),
+    ],
+)
+def test_canary_rejects_wrong_native_route_view_or_unknown_profile(
+    profile: str, route: str, view: str
+) -> None:
+    package, evidence, selected, catalog, subject = _canary_evidence()
+    package["migration"]["visual_profiles"][0] = profile
+    evidence["screenshots"][0].update(
+        {"profile": profile, "route": route, "view": view}
+    )
+    with pytest.raises(UpgradeLaneError, match="route|view|profile"):
         validate_canary_evidence(
             package,
             evidence,
@@ -2003,7 +2078,7 @@ def test_canary_rejects_duplicate_or_missing_visual_profile() -> None:
 def test_canary_rejects_percent_encoded_private_route(route: str) -> None:
     package, evidence, selected, catalog, subject = _canary_evidence()
     evidence["screenshots"][0]["route"] = route
-    with pytest.raises(UpgradeLaneError, match="profile/route/viewport"):
+    with pytest.raises(UpgradeLaneError, match="profile/route/view/runtime/viewport"):
         validate_canary_evidence(
             package,
             evidence,

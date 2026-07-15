@@ -50,7 +50,7 @@ from wiki_core.upgrade_lanes import (
 
 
 MANIFEST_SCHEMA_VERSION = "wiki_visual_evidence_manifest.v1"
-CAPTURE_SCHEMA_VERSION = "wiki_visual_evidence_capture.v1"
+CAPTURE_SCHEMA_VERSION = "wiki_visual_evidence_capture.v2"
 CAPTURE_METHOD = "playwright_served_public_synthetic"
 MANIFEST_REF = "visual-manifest.json"
 MAX_FILE_BYTES = 64 * 1024 * 1024
@@ -520,6 +520,7 @@ function relativeRoute(value) {
         return {
           view: workspace?.getAttribute('data-world-view') || '',
           center: workspace?.getAttribute('data-world-center') || '',
+          runtime_mode: workspace?.getAttribute('data-runtime-mode') || '',
           fallback: Boolean(scene?.classList.contains('fallbackMode')),
           canvas_count: scene?.querySelectorAll('canvas').length || 0,
           width: window.innerWidth,
@@ -527,6 +528,12 @@ function relativeRoute(value) {
           horizontal_overflow: Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth)
         };
       });
+      if (state.runtime_mode !== spec.runtime_mode) {
+        throw new Error('runtime_mode_contract');
+      }
+      if (state.view !== spec.view) {
+        throw new Error('view_contract');
+      }
       if (spec.profile === 'desktop' && (state.fallback || state.canvas_count !== 1)) {
         throw new Error('desktop_profile_contract');
       }
@@ -548,6 +555,8 @@ function relativeRoute(value) {
         requested_route: spec.route,
         route: relativeRoute(page.url()),
         viewport: spec.viewport,
+        view: state.view,
+        runtime_mode: state.runtime_mode,
         action_count: actionCount,
         state: spec.state,
         console_summary: {
@@ -579,6 +588,8 @@ function relativeRoute(value) {
     'mobile_profile_contract',
     'fallback_profile_contract',
     'quadrant_collection_two_step_contract',
+    'runtime_mode_contract',
+    'view_contract',
     'viewport_contract'
   ]);
   const code = allowed.has(error?.message)
@@ -606,6 +617,8 @@ def _capture_profiles(
                 "profile": profile,
                 "route": spec["route"],
                 "viewport": spec["viewport"],
+                "view": spec["view"],
+                "runtime_mode": spec["runtime_mode"],
                 "mobile": spec["mobile"],
                 "state": spec["state"],
                 "image_path": str(output_root / "images" / f"{profile}.png"),
@@ -671,6 +684,8 @@ def _capture_record(
         "requested_route": observation["requested_route"],
         "route": observation["route"],
         "viewport": dict(observation["viewport"]),
+        "view": observation["view"],
+        "runtime_mode": observation["runtime_mode"],
         "browser_toolchain": dict(toolchain),
         "browser_toolchain_sha256": canonical_sha256(toolchain),
         "image": {
@@ -721,6 +736,14 @@ def _write_bundle(
         )
         if requested_route != PROFILE_SPECS[profile]["route"]:
             raise VisualEvidenceError("capture route differs from the versioned profile")
+        if observation.get("runtime_mode") != PROFILE_SPECS[profile]["runtime_mode"]:
+            raise VisualEvidenceError(
+                "capture runtime mode differs from the versioned profile"
+            )
+        if observation.get("view") != PROFILE_SPECS[profile]["view"]:
+            raise VisualEvidenceError(
+                "capture view differs from the versioned profile"
+            )
         image_ref = f"images/{profile}.png"
         try:
             image = visual_evidence_file_metadata(
@@ -783,6 +806,8 @@ _RECORD_FIELDS = {
     "requested_route",
     "route",
     "viewport",
+    "view",
+    "runtime_mode",
     "browser_toolchain",
     "browser_toolchain_sha256",
     "image",
@@ -833,9 +858,13 @@ def _verify_record(
         requested_route != spec["route"]
         or route != entry.get("route")
         or record.get("viewport") != spec["viewport"]
+        or record.get("view") != spec["view"]
+        or record.get("runtime_mode") != spec["runtime_mode"]
         or entry.get("viewport") != spec["viewport"]
     ):
-        raise VisualEvidenceError("capture route or viewport differs from the profile")
+        raise VisualEvidenceError(
+            "capture route, view, runtime mode or viewport differs from the profile"
+        )
     image = record.get("image")
     if not isinstance(image, dict) or set(image) != {
         "path",

@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 
-RUNNER_VERSION = "1.3.0"
+RUNNER_VERSION = "1.4.0"
 
 
 def _runner_payload_manifest(runtime_root: Path) -> dict[str, Any]:
@@ -124,6 +124,7 @@ from wiki_core.upgrade_lanes import (
     ReleaseCapsuleAuthority,
     UpgradeLaneError,
     VerifiedReleaseCapsule,
+    VISUAL_PROFILE_CONTRACTS,
     canonical_json,
     canonical_sha256,
     consumer_c3_authority_from_git,
@@ -136,6 +137,7 @@ from wiki_core.upgrade_lanes import (
     select_impacted_gates,
     select_promotion_gates,
     validate_canary_evidence,
+    validate_canary_profile_route,
     validate_c1_projection,
     validate_boundary_ownership,
     verify_config_bound_c3_git_content,
@@ -6440,7 +6442,7 @@ def _collect_gate_evidence(
                 not isinstance(visual_summary, dict)
                 or set(visual_summary) != {"schema_version", "entries"}
                 or visual_summary.get("schema_version")
-                != "wiki_viva_canary_visual_summary.v1"
+                != "wiki_viva_canary_visual_summary.v2"
                 or not isinstance(entries, list)
                 or not entries
             ):
@@ -6455,18 +6457,31 @@ def _collect_gate_evidence(
                 artifact = entry.get("artifact") if isinstance(entry, dict) else None
                 profile = entry.get("profile") if isinstance(entry, dict) else None
                 route = entry.get("route") if isinstance(entry, dict) else None
+                view = entry.get("view") if isinstance(entry, dict) else None
+                runtime_mode = (
+                    entry.get("runtime_mode") if isinstance(entry, dict) else None
+                )
                 if (
                     not isinstance(entry, dict)
-                    or set(entry) != {"profile", "artifact", "route", "viewport"}
+                    or set(entry)
+                    != {
+                        "profile",
+                        "artifact",
+                        "route",
+                        "runtime_mode",
+                        "view",
+                        "viewport",
+                    }
                     or not isinstance(artifact, str)
                     or Path(artifact).name != artifact
                     or not artifact.lower().endswith(".png")
                     or not isinstance(profile, str)
                     or _GATE_ID_RE.fullmatch(profile) is None
                     or profile in seen_profiles
-                    or not isinstance(route, str)
-                    or not route.startswith("/")
-                    or re.match(r"^/(?:private|consumer|real)(?:/|$)", route, re.IGNORECASE)
+                    or profile not in VISUAL_PROFILE_CONTRACTS
+                    or view != VISUAL_PROFILE_CONTRACTS[profile]["view"]
+                    or runtime_mode
+                    != VISUAL_PROFILE_CONTRACTS[profile]["runtime_mode"]
                     or not isinstance(viewport, dict)
                     or set(viewport) != {"width", "height"}
                     or any(
@@ -6475,13 +6490,23 @@ def _collect_gate_evidence(
                         or not 240 <= viewport[axis] <= 7680
                         for axis in ("width", "height")
                     )
+                    or viewport
+                    != VISUAL_PROFILE_CONTRACTS[profile]["canary_viewport"]
                     or artifact in visual_by_artifact
                 ):
                     raise RunnerError(
                         "invalid_visual_evidence_summary",
-                        "a canary visual profile, route or viewport is invalid or duplicated",
+                        "a canary visual profile, route, view, runtime or viewport is invalid or duplicated",
                         surface=gate_id,
                     )
+                try:
+                    validate_canary_profile_route(profile, route)
+                except UpgradeLaneError as exc:
+                    raise RunnerError(
+                        "invalid_visual_evidence_summary",
+                        "a canary visual route differs from its native profile contract",
+                        surface=gate_id,
+                    ) from exc
                 seen_profiles.add(profile)
                 visual_by_artifact[artifact] = dict(entry)
         seen_visual_artifacts: set[str] = set()
@@ -6518,6 +6543,8 @@ def _collect_gate_evidence(
                         "height": dimensions[1] if dimensions else 0,
                         "profile": visual["profile"],
                         "route": visual["route"],
+                        "view": visual["view"],
+                        "runtime_mode": visual["runtime_mode"],
                         "viewport": viewport,
                         "artifact_file": destination.name,
                     }

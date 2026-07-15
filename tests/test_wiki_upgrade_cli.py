@@ -656,6 +656,115 @@ def test_gate_private_path_is_rejected_before_runner_persistence(
     assert not list((run_dir / "evidence").rglob("*.bin"))
 
 
+def _write_canary_visual_artifacts(
+    artifact_dir: Path,
+    *,
+    schema_version: str = "wiki_viva_canary_visual_summary.v2",
+    runtime_mode: str | None = "v8",
+    profile: str = "desktop",
+    route: str = "/w?view=quadrants&tour=0",
+    view: str = "quadrants",
+    viewport: tuple[int, int] = (1440, 1000),
+) -> None:
+    artifact_dir.mkdir(parents=True)
+    width, height = viewport
+    (artifact_dir / "desktop.png").write_bytes(_png_bytes(width, height))
+    entry = {
+        "profile": profile,
+        "artifact": "desktop.png",
+        "route": route,
+        "view": view,
+        "viewport": {"width": width, "height": height},
+    }
+    if runtime_mode is not None:
+        entry["runtime_mode"] = runtime_mode
+    (artifact_dir / "visual-evidence-summary.json").write_text(
+        json.dumps({"schema_version": schema_version, "entries": [entry]}),
+        encoding="utf-8",
+    )
+
+
+def test_gate_visual_summary_preserves_exact_v8_runtime(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    artifact_dir = run_dir / "gate-artifacts/real_canary"
+    _write_canary_visual_artifacts(artifact_dir)
+
+    evidence = upgrade_runner._collect_gate_evidence(
+        gate_id="real_canary",
+        gate_class="canary",
+        subject_sha="a" * 40,
+        output_sha256="b" * 64,
+        artifact_dir=artifact_dir,
+        run_dir=run_dir,
+    )
+
+    assert evidence["screenshots"][0]["runtime_mode"] == "v8"
+
+
+def test_gate_visual_summary_rejects_bounded_but_noncanonical_viewport(
+    tmp_path: Path,
+) -> None:
+    run_dir = tmp_path / "run"
+    artifact_dir = run_dir / "gate-artifacts/real_canary"
+    _write_canary_visual_artifacts(artifact_dir, viewport=(1280, 900))
+
+    with pytest.raises(upgrade_runner.RunnerError) as raised:
+        upgrade_runner._collect_gate_evidence(
+            gate_id="real_canary",
+            gate_class="canary",
+            subject_sha="a" * 40,
+            output_sha256="b" * 64,
+            artifact_dir=artifact_dir,
+            run_dir=run_dir,
+        )
+
+    assert raised.value.code == "invalid_visual_evidence_summary"
+
+
+@pytest.mark.parametrize(
+    ("schema_version", "runtime_mode", "profile", "route", "view"),
+    [
+        ("wiki_viva_canary_visual_summary.v1", "v8", "desktop", "/w?view=quadrants&tour=0", "quadrants"),
+        ("wiki_viva_canary_visual_summary.v2", None, "desktop", "/w?view=quadrants&tour=0", "quadrants"),
+        ("wiki_viva_canary_visual_summary.v2", "compat", "desktop", "/w?view=quadrants&tour=0", "quadrants"),
+        ("wiki_viva_canary_visual_summary.v2", "legacy", "desktop", "/w?view=quadrants&tour=0", "quadrants"),
+        ("wiki_viva_canary_visual_summary.v2", "v8", "desktop", "/totally-wrong-but-safe", "quadrants"),
+        ("wiki_viva_canary_visual_summary.v2", "v8", "desktop", "/w?view=quadrants&tour=0", "timeline"),
+        ("wiki_viva_canary_visual_summary.v2", "v8", "custom_profile", "/w?view=quadrants&tour=0", "quadrants"),
+    ],
+)
+def test_gate_visual_summary_rejects_stale_or_non_native_observation(
+    tmp_path: Path,
+    schema_version: str,
+    runtime_mode: str | None,
+    profile: str,
+    route: str,
+    view: str,
+) -> None:
+    run_dir = tmp_path / "run"
+    artifact_dir = run_dir / "gate-artifacts/real_canary"
+    _write_canary_visual_artifacts(
+        artifact_dir,
+        schema_version=schema_version,
+        runtime_mode=runtime_mode,
+        profile=profile,
+        route=route,
+        view=view,
+    )
+
+    with pytest.raises(upgrade_runner.RunnerError) as raised:
+        upgrade_runner._collect_gate_evidence(
+            gate_id="real_canary",
+            gate_class="canary",
+            subject_sha="a" * 40,
+            output_sha256="b" * 64,
+            artifact_dir=artifact_dir,
+            run_dir=run_dir,
+        )
+
+    assert raised.value.code == "invalid_visual_evidence_summary"
+
+
 def test_gate_stdout_secret_is_rejected_before_log_persistence(tmp_path: Path) -> None:
     consumer = tmp_path / "consumer"
     consumer.mkdir()
@@ -1100,11 +1209,12 @@ def _build_synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
         "p.mkdir(parents=True,exist_ok=True)\n"
         "html=b'''<!doctype html><html><head><meta charset=\"utf-8\"><style>"
         "body{margin:0;background:#07111f;color:#dff7ff;font:14px system-ui}"
-        "main{padding:20px}h1{font-size:22px}.timeline{border-left:2px solid #5eead4;"
+        "main{padding:20px}h1{font-size:22px}.quadrants{border-left:2px solid #5eead4;"
         "padding-left:12px}</style></head><body><main><h1>Synthetic Living World</h1>"
-        "<p>Public reversible canary</p><section class=\"timeline\" aria-label=\"Timeline\">"
-        "<strong>Timeline</strong><p>C1 import - C2 regeneration - C3 adapter</p>"
-        "</section></main></body></html>'''\n"
+        "<p>Public reversible canary</p><section class=\"worldWorkspace\" data-world-view=\"quadrants\" data-runtime-mode=\"v8\">"
+        "<section class=\"quadrants\" aria-label=\"Quadrants\">"
+        "<strong>Quadrants</strong><p>C1 import - C2 regeneration - C3 adapter</p>"
+        "</section></section></main></body></html>'''\n"
         "class Handler(BaseHTTPRequestHandler):\n"
         " def do_GET(self):\n"
         "  self.send_response(200); self.send_header('Content-Type','text/html; charset=utf-8')\n"
@@ -1116,14 +1226,14 @@ def _build_synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
         "try:\n"
         " with sync_playwright() as runtime:\n"
         "  browser=runtime.chromium.launch(headless=True)\n"
-        "  page=browser.new_page(viewport={'width':320,'height':240})\n"
+        "  page=browser.new_page(viewport={'width':1440,'height':1000})\n"
         "  page.on('request',lambda request: requests.append(request.method))\n"
         "  page.on('requestfailed',lambda request: request_errors.append(request.method))\n"
         "  page.on('console',lambda message: (console_errors if message.type=='error' else console_warnings if message.type=='warning' else []).append(message.text))\n"
-        "  route='/demo/w/radar'; response=page.goto(f'http://127.0.0.1:{server.server_port}{route}',wait_until='networkidle')\n"
+        "  route='/w?view=quadrants&tour=0'; response=page.goto(f'http://127.0.0.1:{server.server_port}{route}',wait_until='networkidle')\n"
         "  if response is None or not response.ok: raise RuntimeError('served canary navigation failed')\n"
         "  page.get_by_role('heading',name='Synthetic Living World').wait_for()\n"
-        "  page.get_by_label('Timeline').wait_for()\n"
+        "  page.get_by_label('Quadrants').wait_for()\n"
         "  page.screenshot(path=str(p/'desktop.png'))\n"
         "  browser.close()\n"
         "finally:\n"
@@ -1138,9 +1248,10 @@ def _build_synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
         "'error_count':len(console_errors),'warning_count':len(console_warnings),"
         "'payloads_redacted':True}))\n"
         "(p/'visual-evidence-summary.json').write_text(json.dumps({"
-        "'schema_version':'wiki_viva_canary_visual_summary.v1','entries':[{"
-        "'profile':'desktop','artifact':'desktop.png','route':'/demo/w/radar',"
-        "'viewport':{'width':320,'height':240}}]}))\n"
+        "'schema_version':'wiki_viva_canary_visual_summary.v2','entries':[{"
+        "'profile':'desktop','artifact':'desktop.png','route':'/w?view=quadrants&tour=0',"
+        "'view':'quadrants','runtime_mode':'v8',"
+        "'viewport':{'width':1440,'height':1000}}]}))\n"
         "if request_errors or console_errors: raise RuntimeError('served canary evidence observed errors')\n"
         "print('real_served_playwright_canary')\n",
         encoding="utf-8",
@@ -1482,13 +1593,15 @@ def _build_synthetic_upgrade(tmp_path: Path) -> dict[str, Path | str]:
     viewport = {"width": 1440, "height": 1000}
     browser_toolchain = copy.deepcopy(_active_toolchain()["browser"])
     record = {
-        "schema_version": "wiki_visual_evidence_capture.v1",
+        "schema_version": "wiki_visual_evidence_capture.v2",
         "profile": "desktop",
         "source_sha": source_sha,
         "package_sha256": canonical_sha256(package),
         "requested_route": route,
         "route": route,
         "viewport": viewport,
+        "view": "quadrants",
+        "runtime_mode": "v8",
         "browser_toolchain": browser_toolchain,
         "browser_toolchain_sha256": canonical_sha256(browser_toolchain),
         "image": {

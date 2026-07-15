@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc35 validation source - rc34 rejected before capture"
+title: "Wiki Viva v8 rc36 formation - rc35 rejected before capture"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc35 validation source - rc34 rejected before capture
+# Wiki Viva v8 rc36 formation - rc35 rejected before capture
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -437,18 +437,50 @@ capsule, receipt, attestation, trust anchor, downstream plan, import or Lane B
 authority exists. Never retry, reuse, relabel, promote, import or mint missing
 authority for rc34.
 
-## Rc35 exact validation source — RT-170 correction
+## Rc35 exact validation — RT-171 pre-capture rejection
 
-`wiki-viva-v8-rc35` is pinned only for validation to exact source
-`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`. Its package-file SHA-256 is
-`cb17f00f3d2b50698bbfdbcb698a0c6d5287c47c6ba9709488eb89e106fe3fa8`,
-canonical package identity is
-`e651d7449355ec667ff6ddca5d8590fc8ce9a93a27894d0eae2e70ebe99084ed`,
-and portable tree is
-`900d897e05a2b61f35c0aff1a0fef9f9ef1d015cfd763ad64319cf1752f35180`
-with 521 entries. Status remains `validation_pending`, so
-`package_is_pinned=false`; no candidate metadata, validation result, capture,
-capsule, receipt or Lane B authority exists. The normative correction is:
+`wiki-viva-v8-rc35` exact source
+`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0` passed its wholly new exact
+validation at metadata subject `55910c379b64060451fb8fb93eb85d47b9245122`:
+1,754 Python checks with 3 declared skips in 1,271.55 seconds, all 518 frontend
+and 115 Node checks, every applicable static gate, and first/only strict
+browser run `public-mrlderie-ab48db4f-1355-47e9-bdc2-69f96f4bda85` at
+102/102 with no failure, skip, retry or flaky cell in 386.565 seconds. The
+browser subject stayed clean and byte-identical before/after the run.
+
+The browser run-result, report, build-manifest and gate-result SHA-256 values
+were
+`f4dd1c23ce1512a3a944d867709c51f84b6356368cbe651b9b2e359bc841acc8`,
+`64c94f15a4aa7980f4fe13bfe10a0301264789fca93bab530a5677927ebf5add`,
+`d39fc981d2ff687a297f72cc6da5410fe159ddb2adddd79db00c0dec03a9646a`
+and `079278e90ac01631783a18c92e69245aa3a89bd264db48a5995c47b4ebc7e6bd`.
+The exact validation toolchain and matrix-contract SHA-256 values were
+`322a224362397a29f53b22862e33d8dfae207ce027bf5727a6338d2e15c76a85`
+and `f5c9a48b7325efaa4ffb48f1d99aaf4201489060bfa0294ea1aaa93a21300432`.
+
+A separately reviewed but uncommitted local-QA candidate projection had
+package-file SHA-256
+`3cea5015b2be7bfc34b951553c5d2ab0a4d45098f6360699b5a66c36d929e636`,
+canonical package identity
+`e7a3c44876ed8265db0123cce6cfd23ce8cb9d1d6579a4fb89ba27ea29eef0e8`,
+and package-bound portable tree
+`1c8e6f696ce705a3a5be04633051d793785bea9a2933b6f103c236c401d0255c`
+with 521 entries. No candidate metadata commit was created, so this projection
+is review evidence only: it is not a durable candidate boundary and minted no
+capture, certification, capsule, receipt, attestation, trust anchor,
+downstream plan, import or Lane B authority.
+
+Pre-capture review then exposed RT-171. The downstream real-canary exporter
+entered positional `/w/quadrants` routes, including its mobile profile, and
+neither its v1 summary nor the upstream v1 capture record bound the rendered
+`data-runtime-mode`. A route that normalized to a compatibility or wrong view
+could therefore retain correctly sized PNG evidence without proving native v8
+runtime semantics. Rc35 is immutable `historical_precapture_rejected`: no
+productive capture or `certify` command was attempted, and none of its
+validation or uncommitted candidate evidence can be retried, relabeled,
+promoted, imported or used to mint missing authority.
+
+RT-170 remains valid historical source behavior:
 
 - B0 preflight runs only `diff_check`; it cannot depend on a CLI imported by C1;
 - expected pre-C1 portable drift is a prospective, package-bound C1 inventory,
@@ -466,14 +498,40 @@ Pre-pin source-formation review passed 126 upgrade/package checks, 153 Lane A/B
 authority checks and 90 resumable-CLI checks with 3 declared skips. Audit and
 public-audit each returned 0 errors with the 6 already-known freshness warnings;
 package and consumer inventory validation passed while
-`package_is_pinned=false`. This is formation evidence only, not the wholly new
-exact rc35 validation, candidate review, productive capture or certification.
+`package_is_pinned=false`. That remains source-formation evidence only; it is
+not relabeled as the exact validation above.
 
-The active next action is to run the wholly new full validation exactly once
-against this source/package/tree subject. No
-productive capture or certification may start before a separately reviewed
-candidate boundary. Public push, publication, merge and tag remain
-unauthorized.
+## Rc36 formation — native v8 visual authority, unpinned
+
+The active package is an unpinned rc36 formation state with `release.id:
+unreleased`, `status: validation_pending` and formation base
+`55910c379b64060451fb8fb93eb85d47b9245122`. That back-reference prevents a
+self-referential source commit; it is not an rc36 source SHA. No rc36 package,
+portable-tree, runner-payload, validation, candidate, capture, capsule or
+downstream identity is declared before the separate metadata pin.
+
+RT-171 upgrades the record contracts to
+`wiki_visual_evidence_capture.v2` and
+`wiki_viva_canary_visual_summary.v2`. Both producer and verifier require the
+exact native view/entry route, `runtime_mode: v8` derived from
+`data-runtime-mode="v8"`, and the declared viewport. Positional routes remain
+compatibility evidence only.
+
+| Profile | Productive release entry route / viewport | Real-canary entry route / `canary_viewport` | Required view / runtime |
+| --- | --- | --- | --- |
+| `desktop` | `/demo/w?center=root-alex-rivera&view=quadrants&tour=0` / `1440x1000` | `/w?view=quadrants&tour=0` / `1440x1000` | `quadrants` / `v8` |
+| `mobile` | `/demo/w?view=timeline&tour=0` / `390x844` | `/w?view=timeline&tour=0` / `390x844` | `timeline` / `v8` |
+| `fallback` | `/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0` / `1280x900` | `/w?view=quadrants&visual=1&tour=0` / `1440x1000` | `quadrants` / `v8` |
+| `quadrant_collection_two_step` | `/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0` / `1440x1000` | `/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0` / `1440x1000` | `quadrants` / `v8` |
+
+The runner base version becomes 1.4.0, but its exact
+`1.4.0+payload.<sha256>` identity and `toolchain_sha256` can be derived only
+from the future clean rc36 source. The next valid boundary is therefore one
+source-formation commit followed by a metadata-only rc36 pin and a wholly new
+exact validation. Public push, publication, PR mutation, merge and tag remain
+unauthorized. A future private rc36/v3 adoption must start from the then-current
+private `main`; private PR #211 and its v2 receipts remain immutable historical
+evidence, not an rc36 base or promotion authority.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -578,8 +636,8 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-The exact rc35 validation source still requires complete exact validation,
-separate candidate review, new capture and certification,
+The unpinned rc36 formation still requires a separate exact source pin,
+complete exact validation, candidate review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
 human conceptual/privacy/VoiceOver review and merge, followed by a separately
@@ -588,7 +646,7 @@ External E5 and a release tag remain separate. The in-flight private v2
 migration keeps its original full blocking matrix and receipts; neither rc20,
 rc21, rc22, rc23, the exact rc24/rc26 failed-certification subjects, the exact
 rc25/rc27/rc31/rc32/rc33 failed-validation subjects nor rejected
-rc28/rc29/rc30/rc34 reclassifies,
+rc28/rc29/rc30/rc34/rc35 reclassifies,
 reduces or rewrites
 that evidence.
 

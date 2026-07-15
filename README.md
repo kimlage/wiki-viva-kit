@@ -60,16 +60,35 @@ local-QA candidate metadata subject was
 `59be853af5416ce84c4ca89e7272bb64eb909b2b`, but read-only downstream QA
 exposed RT-170 before any productive capture or certification attempt. Rc34 is
 immutable `historical_precapture_rejected`; no visual manifest, certification,
-capsule, receipt, trust anchor or Lane B authority exists. The active package
-is now `wiki-viva-v8-rc35` / `validation_pending` at exact source
-`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`, with package-file/canonical/tree
-identities `cb17f00f3d2b50698bbfdbcb698a0c6d5287c47c6ba9709488eb89e106fe3fa8` /
-`e651d7449355ec667ff6ddca5d8590fc8ce9a93a27894d0eae2e70ebe99084ed` /
-`900d897e05a2b61f35c0aff1a0fef9f9ef1d015cfd763ad64319cf1752f35180`,
-521 entries. It is pinned only for a wholly new validation;
-`package_is_pinned=false`, so no candidate, capture, capsule or Lane B
-authority exists. Public push/publication remains unauthorized. See the
-[v8 release note](docs/references/releases/wiki-viva-v8.md)
+capsule, receipt, trust anchor or Lane B authority exists. Rc35 exact source
+`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0` passed its wholly new exact
+validation at metadata subject `55910c379b64060451fb8fb93eb85d47b9245122`:
+1,754 Python checks with 3 declared skips in 1,271.55 seconds, 518 frontend and
+115 Node checks, every applicable static gate, and first/only strict browser
+run `public-mrlderie-ab48db4f-1355-47e9-bdc2-69f96f4bda85` at 102/102 with no
+failure, skip, retry or flaky cell in 386.565 seconds. Its separately reviewed
+but uncommitted local-QA candidate package-file/canonical/tree identities were
+`3cea5015b2be7bfc34b951553c5d2ab0a4d45098f6360699b5a66c36d929e636` /
+`e7a3c44876ed8265db0123cce6cfd23ce8cb9d1d6579a4fb89ba27ea29eef0e8` /
+`1c8e6f696ce705a3a5be04633051d793785bea9a2933b6f103c236c401d0255c`,
+521 entries; no candidate metadata subject was committed. Pre-capture static
+contract review plus focused public synthetic tests then exposed RT-171:
+capture record v1 did not bind the rendered view/runtime, and canary summary v1
+used positional routes without exact native route, view, runtime or
+`canary_viewport` authority. Rc35 is immutable
+`historical_precapture_rejected`. Its exact validation remains historical
+evidence, but no capture directory, visual manifest, capsule, receipt,
+attestation, downstream plan, import or Lane B authority was created.
+
+The successor is an `unreleased` / `validation_pending` rc36 source formation
+at base `55910c379b64060451fb8fb93eb85d47b9245122` only. It moves to runner
+1.4.0, `wiki_visual_evidence_capture.v2` and
+`wiki_viva_canary_visual_summary.v2`, with exact native route, view, v8 runtime
+and `canary_viewport` enforcement. Rc36 is not pinned:
+`package_is_pinned=false`, and it has no assigned source SHA, package digest,
+portable-tree digest or candidate identity. Draft PR #61 remains stale and does
+not represent this local truth. Public push/publication remains unauthorized.
+See the [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority: do not
 migrate a downstream repo until a production Lane A capsule verifies
@@ -292,6 +311,10 @@ the exact clean source, covering every package visual profile with strict PNG
 and record-backed source/toolchain/console/network proof. `verify-capsule` then
 reopens the sealed authority with the out-of-band attestation SHA-256 before
 Lane B may plan; successful gate logs containing host-local paths are rejected.
+The source-formation contract uses `wiki_visual_evidence_capture.v2` for Lane A
+and `wiki_viva_canary_visual_summary.v2` for Lane B. Each profile binds its
+canonical native route, observed view, v8 runtime and exact capture/canary
+viewport; stale v1 or coherently resealed mismatches fail closed.
 
 The normative contract, schemas, impact registry, resumable-runner behavior and
 transition rule are in the
@@ -372,15 +395,23 @@ prospective import inventory, domain repair could enter C3, and the evidence
 root was not derived from the exact plan-path parent. Rc34 is immutable
 `historical_precapture_rejected`; no productive capture, visual manifest,
 certification, capsule, receipt, trust anchor or Lane B authority exists.
-The successor package is `wiki-viva-v8-rc35` / `validation_pending`, pinned
-only for validation to exact source
-`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`. Its correction makes B0 `diff_check`-only, binds
-portable drift as prospective C1 inventory, keeps final C3 `toolkit_drift` and
-`semantic_inventory` mandatory, roots ignored evidence at the parent of the
-exact plan path, and requires domain preparation before a new B0. Its
-package-file/canonical/tree identities are `cb17f00f...` / `e651d744...` /
-`900d897e...`, 521 entries; `package_is_pinned=false` and a wholly new complete
-validation precedes any candidate boundary. Public push remains unauthorized.
+Rc35 exact source `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0` then passed its
+wholly new exact validation at metadata subject
+`55910c379b64060451fb8fb93eb85d47b9245122`: 1,754 Python with 3 declared
+skips, 518 frontend, 115 Node, every applicable static gate and first/only
+browser 102/102. Its reviewed but uncommitted candidate identities were
+`3cea5015...` / `e7a3c448...` / `1c8e6f69...`, 521 entries. RT-171 rejected
+that boundary before capture because record v1 and canary summary v1 did not
+bind the exact native view/runtime/canary viewport contract. Rc35 is immutable
+`historical_precapture_rejected`; no capture directory, visual manifest,
+capsule, receipt or Lane B authority exists.
+
+The active package is `unreleased` / `validation_pending` at formation base
+`55910c379b64060451fb8fb93eb85d47b9245122` only. Future rc36 carries the RT-170
+B0 correction plus runner 1.4.0, capture record v2 and canary summary v2 with
+exact native route, view, v8 runtime and `canary_viewport` checks. It remains
+unpinned with `package_is_pinned=false`; no rc36 source SHA or digest is
+predeclared. Draft PR #61 is stale and public push remains unauthorized.
 Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.
 No existing v2 C3 or receipt is amended to reach it.

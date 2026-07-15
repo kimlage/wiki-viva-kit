@@ -37,39 +37,57 @@ EXECUTION_ATTESTATION_SCHEMA_VERSION = "wiki_viva_upgrade_execution_attestation.
 TOOLCHAIN_PROBE_SCHEMA_VERSION = "wiki_viva_toolchain_probe.v1"
 CONSUMER_C3_AUTHORITY_SCHEMA_VERSION = "wiki_viva_upgrade_consumer_c3_authority.v1"
 CONFIG_BOUND_C3_POLICY_SCHEMA_VERSION = "wiki_viva_config_bound_c3_policy.v1"
-VISUAL_CAPTURE_SCHEMA_VERSION = "wiki_visual_evidence_capture.v1"
+VISUAL_CAPTURE_SCHEMA_VERSION = "wiki_visual_evidence_capture.v2"
 VISUAL_MANIFEST_SCHEMA_VERSION = "wiki_visual_evidence_manifest.v1"
 VISUAL_CAPTURE_METHOD = "playwright_served_public_synthetic"
 
 VISUAL_PROFILE_CONTRACTS: dict[str, dict[str, Any]] = {
     "desktop": {
         "route": "/demo/w?center=root-alex-rivera&view=quadrants&tour=0",
+        "canary_route": "/w?view=quadrants&tour=0",
+        "view": "quadrants",
         "viewport": {"width": 1440, "height": 1000},
+        "canary_viewport": {"width": 1440, "height": 1000},
         "action_count": 0,
         "state": "webgl",
+        "runtime_mode": "v8",
     },
     "mobile": {
         "route": "/demo/w?view=timeline&tour=0",
+        "canary_route": "/w?view=timeline&tour=0",
+        "view": "timeline",
         "viewport": {"width": 390, "height": 844},
+        "canary_viewport": {"width": 390, "height": 844},
         "action_count": 0,
         "state": "timeline",
+        "runtime_mode": "v8",
     },
     "fallback": {
         "route": (
             "/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0"
         ),
+        "canary_route": "/w?view=quadrants&visual=1&tour=0",
+        "view": "quadrants",
         "viewport": {"width": 1280, "height": 900},
+        "canary_viewport": {"width": 1440, "height": 1000},
         "action_count": 0,
         "state": "fallback",
+        "runtime_mode": "v8",
     },
     "quadrant_collection_two_step": {
         "route": (
             "/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica"
             "&overlay=actions&tour=0"
         ),
+        "canary_route": (
+            "/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0"
+        ),
+        "view": "quadrants",
         "viewport": {"width": 1440, "height": 1000},
+        "canary_viewport": {"width": 1440, "height": 1000},
         "action_count": 2,
         "state": "quadrant_collection_two_step",
+        "runtime_mode": "v8",
     },
 }
 
@@ -142,6 +160,7 @@ UPGRADE_PACKAGE_V3_SCHEMA_PATH = (
 _SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,127}$")
+_CANARY_ROUTE_VALUE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 _CONTRACT_RE = re.compile(r"^[a-z][a-z0-9_.:+-]{1,127}$")
 _LOCAL_PATH_RE = re.compile(
     r"(?:"
@@ -511,6 +530,50 @@ def _public_visual_route(value: object, *, label: str) -> str:
                 raise UpgradeLaneError(
                     f"{label} contains private or credential-shaped query state"
                 )
+    return value
+
+
+def validate_canary_profile_route(profile: object, value: object) -> str:
+    """Require one canonical native operator route for a versioned profile."""
+
+    if not isinstance(profile, str) or profile not in VISUAL_PROFILE_CONTRACTS:
+        raise UpgradeLaneError("canary visual profile has no native route contract")
+    if not isinstance(value, str) or not value or len(value) > 1024:
+        raise UpgradeLaneError("canary visual route must be one bounded native route")
+    if _contains_private_route(value):
+        raise UpgradeLaneError("canary visual route contains private state")
+    spec = VISUAL_PROFILE_CONTRACTS[profile]
+    expected = urlsplit(str(spec["canary_route"]))
+    expected_query = dict(
+        parse_qsl(expected.query, keep_blank_values=True, strict_parsing=True)
+    )
+    allowed_dynamic = {"group"} if profile == "quadrant_collection_two_step" else set()
+    try:
+        views = _percent_decoded_views(value)
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise UpgradeLaneError("canary visual route has invalid percent encoding") from exc
+    for view in views:
+        parsed = urlsplit(view)
+        pairs = parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=False)
+        keys = [key for key, _item in pairs]
+        query = dict(pairs)
+        if (
+            parsed.scheme
+            or parsed.netloc
+            or parsed.fragment
+            or parsed.path != expected.path
+            or len(keys) != len(set(keys))
+            or not set(query).issubset(set(expected_query) | allowed_dynamic)
+            or any(query.get(key) != item for key, item in expected_query.items())
+            or any(
+                _CANARY_ROUTE_VALUE_RE.fullmatch(item) is None
+                for key, item in pairs
+                if key in allowed_dynamic
+            )
+        ):
+            raise UpgradeLaneError(
+                "canary visual route differs from its native profile contract"
+            )
     return value
 
 
@@ -1239,6 +1302,8 @@ _VISUAL_CAPTURE_RECORD_FIELDS = {
     "requested_route",
     "route",
     "viewport",
+    "view",
+    "runtime_mode",
     "browser_toolchain",
     "browser_toolchain_sha256",
     "image",
@@ -1300,10 +1365,12 @@ def _visual_capture_record_metadata(
         requested_route != spec["route"]
         or route != entry.get("route")
         or record.get("viewport") != spec["viewport"]
+        or record.get("view") != spec["view"]
+        or record.get("runtime_mode") != spec["runtime_mode"]
         or entry.get("viewport") != spec["viewport"]
     ):
         raise UpgradeLaneError(
-            f"visual capture record {profile} route or viewport differs"
+            f"visual capture record {profile} route, view, runtime mode or viewport differs"
         )
     image = record.get("image")
     if not isinstance(image, Mapping) or set(image) != {
@@ -2585,16 +2652,25 @@ def validate_canary_evidence(
     if len(canary_screenshots) != len(profiles):
         raise UpgradeLaneError("canary screenshots do not exactly cover visual profiles")
     seen_profiles: set[str] = set()
-    seen_observations: set[tuple[str, str, int, int]] = set()
+    seen_observations: set[tuple[str, str, str, str, int, int]] = set()
     for item in canary_screenshots:
         profile = item.get("profile")
         route = item.get("route")
+        runtime_mode = item.get("runtime_mode")
+        view = item.get("view")
         viewport = item.get("viewport")
+        spec = VISUAL_PROFILE_CONTRACTS.get(profile) if isinstance(profile, str) else None
+        try:
+            canonical_route = validate_canary_profile_route(profile, route)
+        except UpgradeLaneError as exc:
+            raise UpgradeLaneError(
+                "canary screenshot profile/route/view/runtime/viewport is invalid"
+            ) from exc
         if (
             profile not in profiles
-            or not isinstance(route, str)
-            or not route.startswith("/")
-            or _contains_private_route(route)
+            or spec is None
+            or view != spec["view"]
+            or runtime_mode != spec["runtime_mode"]
             or not isinstance(viewport, Mapping)
             or set(viewport) != {"width", "height"}
             or any(
@@ -2603,11 +2679,21 @@ def validate_canary_evidence(
                 or not 240 <= viewport[axis] <= 7680
                 for axis in ("width", "height")
             )
+            or viewport != spec["canary_viewport"]
             or item.get("width") != viewport["width"]
             or item.get("height") != viewport["height"]
         ):
-            raise UpgradeLaneError("canary screenshot profile/route/viewport is invalid")
-        observation = (profile, route, viewport["width"], viewport["height"])
+            raise UpgradeLaneError(
+                "canary screenshot profile/route/view/runtime/viewport is invalid"
+            )
+        observation = (
+            profile,
+            canonical_route,
+            view,
+            runtime_mode,
+            viewport["width"],
+            viewport["height"],
+        )
         if profile in seen_profiles or observation in seen_observations:
             raise UpgradeLaneError("duplicate canary visual profile/route/viewport")
         seen_profiles.add(profile)
@@ -4263,6 +4349,7 @@ __all__ = [
     "validate_boundary_ownership",
     "validate_c1_projection",
     "validate_canary_evidence",
+    "validate_canary_profile_route",
     "verify_adoption_evidence",
     "verify_adoption_receipt",
     "verify_config_bound_c3_git_content",

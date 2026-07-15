@@ -53,9 +53,13 @@ another) via skills — there is no embedded LLM client.
   carried attestation SHA-256 before any downstream plan. Successful upstream
   gate logs must also pass the public-evidence scanner; quiet/TAP reporters are
   part of the versioned command registry, not cosmetic output choices.
-  Native release capture and browser fixtures must use canonical
-  `?view=<native>` routes and assert `data-runtime-mode="v8"`. Positional deep
-  links are compatibility evidence only and must assert `compat` explicitly.
+  Native Lane A records use `wiki_visual_evidence_capture.v2` and bind the
+  exact profile route, view, `data-runtime-mode="v8"` and viewport. Lane B
+  canary bundles use `wiki_viva_canary_visual_summary.v2` and bind each
+  profile's canonical native operator route, view, runtime and exact
+  `canary_viewport`; v1, missing, compat, legacy or coherently resealed
+  mismatches fail closed. Positional deep links are compatibility evidence
+  only and must assert `compat` explicitly.
   Until a package and runner implement gate classes, every gate
   declared in `migration.required_gates` remains blocking. A migration already
   started under the v2 contract keeps that complete gate set even after v3
@@ -153,15 +157,38 @@ another) via skills — there is no embedded LLM client.
   is immutable `historical_precapture_rejected`: no visual manifest,
   certification result, capsule, receipt, attestation, trust anchor, downstream
   plan, import or Lane B authority exists. Never retry, reuse, relabel, promote
-  or import it. The active package is now `wiki-viva-v8-rc35` /
-  `validation_pending` at exact source
-  `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`. Its package-file/canonical/tree
-  identities are `cb17f00f3d2b50698bbfdbcb698a0c6d5287c47c6ba9709488eb89e106fe3fa8` /
-  `e651d7449355ec667ff6ddca5d8590fc8ce9a93a27894d0eae2e70ebe99084ed` /
-  `900d897e05a2b61f35c0aff1a0fef9f9ef1d015cfd763ad64319cf1752f35180`,
-  521 entries. This is only the exact validation source: `package_is_pinned`
-  remains false until a separate post-validation candidate boundary. Public
-  push/publication remains unauthorized. Standing approval for incremental private-main merges
+  or import it. Rc35 exact source
+  `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0` passed its wholly new exact
+  validation at metadata subject
+  `55910c379b64060451fb8fb93eb85d47b9245122`: 1,754 Python checks with 3
+  declared skips in 1,271.55 seconds, 518 frontend checks, 115 Node checks,
+  every applicable static gate, and first/only strict browser run
+  `public-mrlderie-ab48db4f-1355-47e9-bdc2-69f96f4bda85` at 102/102 with no
+  failure, skip, retry or flaky cell in 386.565 seconds. The separately
+  reviewed but uncommitted local-QA candidate package-file/canonical/tree
+  identities were
+  `3cea5015b2be7bfc34b951553c5d2ab0a4d45098f6360699b5a66c36d929e636` /
+  `e7a3c44876ed8265db0123cce6cfd23ce8cb9d1d6579a4fb89ba27ea29eef0e8` /
+  `1c8e6f696ce705a3a5be04633051d793785bea9a2933b6f103c236c401d0255c`,
+  521 entries; no candidate metadata subject was committed. Pre-capture static
+  contract review plus focused public synthetic tests then exposed RT-171:
+  capture record v1 did not bind the rendered view/runtime, while canary
+  summary v1 used positional routes and did not bind exact native route, view,
+  runtime or `canary_viewport`. Rc35 is therefore immutable
+  `historical_precapture_rejected`. Its exact validation remains historical
+  evidence, but no capture directory, visual manifest, capsule, receipt,
+  attestation, trust anchor, downstream plan, import or Lane B authority was
+  created. Never retry, relabel, promote or import rc35.
+
+  The active package is `unreleased` / `validation_pending` at formation base
+  `55910c379b64060451fb8fb93eb85d47b9245122` only. Future literal rc36 remains
+  unpinned: `package_is_pinned=false`, and no rc36 source SHA, package digest,
+  portable-tree digest or candidate identity exists. Its source formation moves
+  to runner 1.4.0, `wiki_visual_evidence_capture.v2` and
+  `wiki_viva_canary_visual_summary.v2`, with exact native route, view, v8 runtime
+  and `canary_viewport` enforcement. Draft PR #61 remains stale and does not
+  represent this local truth. Public push/publication remains unauthorized.
+  Standing approval for incremental private-main merges
   is downstream-specific: it removes only that consumer's human-authorization
   blocker after every technical gate passes and does not alter the generic
   public PR/human-gate policy.

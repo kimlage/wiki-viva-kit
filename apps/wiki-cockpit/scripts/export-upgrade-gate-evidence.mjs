@@ -29,30 +29,38 @@ const PROFILE_SPECS = Object.freeze([
   {
     profile: "desktop",
     artifact: "desktop.png",
-    route: "/w/quadrants",
+    route: "/w?view=quadrants&tour=0",
+    view: "quadrants",
     viewport: { width: 1440, height: 1000 },
-    mode: "desktop"
+    mode: "desktop",
+    runtime_mode: "v8"
   },
   {
     profile: "mobile",
     artifact: "mobile.png",
-    route: "/w/quadrants",
+    route: "/w?view=timeline&tour=0",
+    view: "timeline",
     viewport: { width: 390, height: 844 },
-    mode: "mobile"
+    mode: "mobile",
+    runtime_mode: "v8"
   },
   {
     profile: "fallback",
     artifact: "fallback.png",
-    route: "/w/quadrants?visual=1",
+    route: "/w?view=quadrants&visual=1&tour=0",
+    view: "quadrants",
     viewport: { width: 1440, height: 1000 },
-    mode: "fallback"
+    mode: "fallback",
+    runtime_mode: "v8"
   },
   {
     profile: "quadrant_collection_two_step",
     artifact: "quadrant_collection_two_step.png",
     route: "/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0",
+    view: "quadrants",
     viewport: { width: 1440, height: 1000 },
-    mode: "quadrant_collection_two_step"
+    mode: "quadrant_collection_two_step",
+    runtime_mode: "v8"
   }
 ]);
 const ALLOWED_ROUTE_PARAMETERS = new Set([
@@ -228,6 +236,53 @@ export function sanitizeObservedRoute(raw, baseUrl) {
   return `${sanitized.pathname}${sanitized.search}`;
 }
 
+function requireNativeProfileRoute(route, spec) {
+  if (typeof route !== "string" || !route.startsWith("/")) {
+    fail(`visual profile ${spec.profile} route is not canonical`);
+  }
+  let actual;
+  let expected;
+  try {
+    actual = new URL(route, "http://wiki-viva.invalid");
+    expected = new URL(spec.route, "http://wiki-viva.invalid");
+  } catch {
+    fail(`visual profile ${spec.profile} route is not canonical`);
+  }
+  const actualEntries = [...actual.searchParams.entries()];
+  const actualKeys = actualEntries.map(([key]) => key);
+  const expectedEntries = [...expected.searchParams.entries()];
+  const expectedQuery = new Map(expectedEntries);
+  const allowedDynamic = spec.profile === "quadrant_collection_two_step"
+    ? new Set(["group"])
+    : new Set();
+  if (
+    actual.origin !== "http://wiki-viva.invalid" ||
+    actual.pathname !== expected.pathname ||
+    actual.hash ||
+    actualKeys.length !== new Set(actualKeys).size ||
+    actualEntries.some(([key, value]) =>
+      (!expectedQuery.has(key) && !allowedDynamic.has(key)) ||
+      !/^[A-Za-z0-9_.:-]{1,128}$/.test(value)
+    ) ||
+    expectedEntries.some(([key, value]) => actual.searchParams.get(key) !== value)
+  ) {
+    fail(`visual profile ${spec.profile} route differs from its native contract`);
+  }
+}
+
+export function validateProfileObservation(observation, spec) {
+  if (
+    !observation ||
+    !spec ||
+    observation.view !== spec.view ||
+    observation.runtime_mode !== spec.runtime_mode
+  ) {
+    fail(`visual profile ${spec?.profile || "unknown"} view/runtime differs from its native contract`);
+  }
+  requireNativeProfileRoute(observation.route, spec);
+  return observation;
+}
+
 function pngDimensions(raw) {
   if (
     !Buffer.isBuffer(raw) ||
@@ -291,11 +346,14 @@ export function writeEvidenceBundle({ artifactDir, captures, requestCount, netwo
       !capture.viewport ||
       capture.viewport.width !== expected.viewport.width ||
       capture.viewport.height !== expected.viewport.height ||
+      capture.view !== expected.view ||
+      capture.runtime_mode !== expected.runtime_mode ||
       typeof capture.route !== "string" ||
       !capture.route.startsWith("/")
     ) {
-      fail(`visual profile ${expected.profile} is not bound to its exact artifact/viewport`);
+      fail(`visual profile ${expected.profile} is not bound to its exact artifact/view/runtime/viewport`);
     }
+    validateProfileObservation(capture, expected);
     const dimensions = pngDimensions(capture.png);
     if (
       dimensions.width !== expected.viewport.width ||
@@ -307,6 +365,8 @@ export function writeEvidenceBundle({ artifactDir, captures, requestCount, netwo
       profile: expected.profile,
       artifact: expected.artifact,
       route: capture.route,
+      view: capture.view,
+      runtime_mode: capture.runtime_mode,
       viewport: expected.viewport
     });
   }
@@ -334,7 +394,7 @@ export function writeEvidenceBundle({ artifactDir, captures, requestCount, netwo
     [
       "visual-evidence-summary.json",
       jsonBytes({
-        schema_version: "wiki_viva_canary_visual_summary.v1",
+        schema_version: "wiki_viva_canary_visual_summary.v2",
         entries: visualEntries
       })
     ]
@@ -382,7 +442,18 @@ async function requireWorldReady(page, expectedRepo) {
   if (await page.getByRole("alert").count()) fail("operator UI exposes a blocking alert");
 }
 
-async function captureProfile(browser, spec, expected, counters) {
+async function requireProfileState(page, spec, baseUrl) {
+  const workspace = page.locator(".worldWorkspace");
+  const state = await workspace.evaluate((element) => ({
+    view: element.getAttribute("data-world-view") || "",
+    runtime_mode: element.getAttribute("data-runtime-mode") || ""
+  }));
+  const route = sanitizeObservedRoute(page.url(), baseUrl);
+  validateProfileObservation({ ...state, route }, spec);
+  return { ...state, route };
+}
+
+export async function captureProfile(browser, spec, expected, counters) {
   const context = await browser.newContext({
     baseURL: expected.baseUrl,
     viewport: spec.viewport,
@@ -431,7 +502,7 @@ async function captureProfile(browser, spec, expected, counters) {
       await summary.waitFor({ state: "visible", timeout: 30_000 });
       const members = summary.locator("[data-world-member-id]:visible");
       if (await members.count() < 1) fail("quadrant collection exposes no real member");
-      const route = sanitizeObservedRoute(page.url(), expected.baseUrl);
+      const capturedState = await requireProfileState(page, spec, expected.baseUrl);
       const png = await page.screenshot({ animations: "disabled", fullPage: false });
       await members.first().click();
       await page.waitForFunction(() => {
@@ -446,11 +517,28 @@ async function captureProfile(browser, spec, expected, counters) {
         document.querySelector(".sceneShell canvas") === window.__wikiUpgradeEvidenceCanvas
       );
       if (!preserved) fail("quadrant collection journey remounted the world canvas");
-      return { profile: spec.profile, artifact: spec.artifact, route, viewport: spec.viewport, png };
+      await requireProfileState(page, spec, expected.baseUrl);
+      return {
+        profile: spec.profile,
+        artifact: spec.artifact,
+        route: capturedState.route,
+        view: capturedState.view,
+        runtime_mode: capturedState.runtime_mode,
+        viewport: spec.viewport,
+        png
+      };
     }
-    const route = sanitizeObservedRoute(page.url(), expected.baseUrl);
+    const capturedState = await requireProfileState(page, spec, expected.baseUrl);
     const png = await page.screenshot({ animations: "disabled", fullPage: false });
-    return { profile: spec.profile, artifact: spec.artifact, route, viewport: spec.viewport, png };
+    return {
+      profile: spec.profile,
+      artifact: spec.artifact,
+      route: capturedState.route,
+      view: capturedState.view,
+      runtime_mode: capturedState.runtime_mode,
+      viewport: spec.viewport,
+      png
+    };
   } finally {
     page.removeAllListeners();
     await context.close();

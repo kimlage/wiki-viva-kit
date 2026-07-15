@@ -145,16 +145,34 @@ starting point for persistent context is `memories/`.
   `59be853af5416ce84c4ca89e7272bb64eb909b2b`, but read-only downstream QA
   exposed RT-170 before productive capture or certification. Rc34 is immutable
   `historical_precapture_rejected`; no visual manifest, certification, capsule,
-  receipt, trust anchor or Lane B authority exists. The active package is
-  `wiki-viva-v8-rc35` / `validation_pending`, pinned only for validation to
-  exact source `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`. Its
-  package-file/canonical/tree identities are `cb17f00f...` / `e651d744...` /
-  `900d897e...`, 521 entries; `package_is_pinned=false`. The fix
+  receipt, trust anchor or Lane B authority exists. Rc35 exact source
+  `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0` passed its wholly new exact
+  validation at metadata subject `55910c379b64060451fb8fb93eb85d47b9245122`:
+  1,754 Python checks with 3 declared skips in 1,271.55 seconds, 518 frontend,
+  115 Node, every applicable static gate and first/only strict browser run
+  `public-mrlderie-ab48db4f-1355-47e9-bdc2-69f96f4bda85` at 102/102 with no
+  failure, skip, retry or flaky cell in 386.565 seconds. Its separately
+  reviewed but uncommitted local-QA candidate package-file/canonical/tree
+  identities were `3cea5015...` / `e7a3c448...` / `1c8e6f69...`, 521 entries;
+  no candidate metadata subject was committed. The RT-170 fix
   makes B0 `diff_check`-only, records expected drift as prospective C1
   inventory, keeps final C3 `toolkit_drift` and `semantic_inventory` mandatory,
   roots ignored evidence at the exact plan-path parent, and requires domain
-  preparation before a new B0. A wholly new full validation and separate
-  candidate boundary remain required. Public push/publication remains unauthorized;
+  preparation before a new B0. Pre-capture static review plus focused public
+  synthetic tests then exposed RT-171: capture record v1 and canary summary v1
+  did not bind the exact native view/runtime/`canary_viewport` contract. Rc35 is
+  immutable `historical_precapture_rejected`; its exact validation remains
+  historical evidence, but no capture directory, visual manifest, capsule,
+  receipt, downstream plan, import or Lane B authority was created.
+
+  The active package is `unreleased` / `validation_pending` at formation base
+  `55910c379b64060451fb8fb93eb85d47b9245122` only. Future literal rc36 is
+  unpinned (`package_is_pinned=false`) and has no assigned source SHA, package
+  digest, portable-tree digest or candidate identity. Its formation uses runner
+  1.4.0, `wiki_visual_evidence_capture.v2` and
+  `wiki_viva_canary_visual_summary.v2`, enforcing exact native route, view, v8
+  runtime and `canary_viewport`. Draft PR #61 remains stale and does not
+  represent this local truth. Public push/publication remains unauthorized;
   standing private-main approval is downstream-only and never weakens gates or
   the generic public PR/human gate.
   Existing v2 subjects and receipts remain frozen and are never rewritten into

@@ -1,14 +1,18 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import zlib from "node:zlib";
+import { chromium } from "@playwright/test";
 import {
   UPGRADE_GATE_EVIDENCE_PROFILES,
+  captureProfile,
   resolveGateArtifactDirectory,
   sanitizeObservedRoute,
   validateEvidenceBindings,
+  validateProfileObservation,
   writeEvidenceBundle
 } from "./export-upgrade-gate-evidence.mjs";
 
@@ -45,6 +49,56 @@ function png(width, height) {
     pngChunk(Buffer.from("IDAT"), zlib.deflateSync(pixels)),
     pngChunk(Buffer.from("IEND"), Buffer.alloc(0))
   ]);
+}
+
+function syntheticCanaryHtml({ view, runtimeMode, flipAfterMember = false }) {
+  return `<!doctype html>
+<html><body>
+  <div class="topBar">synthetic-consumer</div>
+  <main class="worldWorkspace" data-world-view="${view}" data-runtime-mode="${runtimeMode}" data-world-center="root">
+    <section class="sceneShell">
+      <canvas width="32" height="24"></canvas>
+      <button data-world-target-kind="group">Group</button>
+      <div data-world-group-summary hidden>
+        <button data-world-member-id="member">Member</button>
+      </div>
+    </section>
+  </main>
+  <script>
+    const workspace = document.querySelector('.worldWorkspace');
+    const summary = document.querySelector('[data-world-group-summary]');
+    document.querySelector('[data-world-target-kind="group"]').addEventListener('click', () => {
+      summary.hidden = false;
+    });
+    document.querySelector('[data-world-member-id]').addEventListener('click', () => {
+      workspace.dataset.worldCenter = 'member';
+      if (${JSON.stringify(flipAfterMember)}) workspace.dataset.runtimeMode = 'compat';
+    });
+  </script>
+</body></html>`;
+}
+
+async function runSyntheticProfileCapture(spec, options) {
+  const html = syntheticCanaryHtml(options);
+  const server = http.createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+    response.end(html);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const browser = await chromium.launch({ headless: true });
+  try {
+    return await captureProfile(
+      browser,
+      spec,
+      { baseUrl, expectedRepo: "synthetic-consumer" },
+      { requestCount: 0, networkErrorCount: 0, consoleErrorCount: 0, consoleWarningCount: 0 }
+    );
+  } finally {
+    await browser.close();
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
 }
 
 function subject(sha = "a".repeat(40)) {
@@ -184,17 +238,79 @@ test("route projection removes consumer identity and rejects secret or private n
   );
 });
 
+test("all canary profiles enter native query routes and require v8 runtime", () => {
+  assert.deepEqual(
+    UPGRADE_GATE_EVIDENCE_PROFILES.map((profile) => ({
+      profile: profile.profile,
+      route: profile.route,
+      view: profile.view,
+      runtime_mode: profile.runtime_mode
+    })),
+    [
+      { profile: "desktop", route: "/w?view=quadrants&tour=0", view: "quadrants", runtime_mode: "v8" },
+      { profile: "mobile", route: "/w?view=timeline&tour=0", view: "timeline", runtime_mode: "v8" },
+      { profile: "fallback", route: "/w?view=quadrants&visual=1&tour=0", view: "quadrants", runtime_mode: "v8" },
+      {
+        profile: "quadrant_collection_two_step",
+        route: "/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0",
+        view: "quadrants",
+        runtime_mode: "v8"
+      }
+    ]
+  );
+});
+
+test("profile observation rejects safe-looking wrong routes, views and runtimes", () => {
+  const desktop = UPGRADE_GATE_EVIDENCE_PROFILES[0];
+  assert.doesNotThrow(() => validateProfileObservation({
+    route: desktop.route,
+    view: desktop.view,
+    runtime_mode: desktop.runtime_mode
+  }, desktop));
+  for (const mutation of [
+    { route: "/totally-wrong-but-safe", view: "quadrants", runtime_mode: "v8" },
+    { route: "/w/quadrants", view: "quadrants", runtime_mode: "v8" },
+    { route: desktop.route, view: "timeline", runtime_mode: "v8" },
+    { route: desktop.route, view: "quadrants", runtime_mode: "compat" }
+  ]) {
+    assert.throws(
+      () => validateProfileObservation(mutation, desktop),
+      /native contract/
+    );
+  }
+});
+
+test("real browser canary rejects a canonical mobile route rendering the wrong view", async () => {
+  const mobile = UPGRADE_GATE_EVIDENCE_PROFILES.find((profile) => profile.profile === "mobile");
+  await assert.rejects(
+    runSyntheticProfileCapture(mobile, { view: "quadrants", runtimeMode: "v8" }),
+    /view\/runtime differs from its native contract/
+  );
+});
+
+test("real two-step canary rechecks runtime after the member transition", async () => {
+  const twoStep = UPGRADE_GATE_EVIDENCE_PROFILES.find(
+    (profile) => profile.profile === "quadrant_collection_two_step"
+  );
+  await assert.rejects(
+    runSyntheticProfileCapture(twoStep, {
+      view: "quadrants",
+      runtimeMode: "v8",
+      flipAfterMember: true
+    }),
+    /view\/runtime differs from its native contract/
+  );
+});
+
 test("writer emits exactly four current-run profiles and three sanitized summaries", () => {
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "wiki-upgrade-bundle-"));
   try {
     const captures = UPGRADE_GATE_EVIDENCE_PROFILES.map((profile) => ({
       profile: profile.profile,
       artifact: profile.artifact,
-      route: profile.profile === "quadrant_collection_two_step"
-        ? "/w?view=quadrants&lens=q2_pratica&group=family%3Ahub"
-        : profile.profile === "fallback"
-          ? "/w/quadrants?visual=1"
-          : "/w/quadrants",
+      route: profile.route,
+      view: profile.view,
+      runtime_mode: profile.runtime_mode,
       viewport: profile.viewport,
       png: png(profile.viewport.width, profile.viewport.height)
     }));
@@ -221,12 +337,15 @@ test("writer emits exactly four current-run profiles and three sanitized summari
       ["capture_method", "error_count", "payloads_redacted", "request_count", "schema_version"]
     );
     const visual = JSON.parse(fs.readFileSync(path.join(fixture, "visual-evidence-summary.json"), "utf8"));
+    assert.equal(visual.schema_version, "wiki_viva_canary_visual_summary.v2");
     assert.deepEqual(visual.entries.map((entry) => entry.profile), [
       "desktop",
       "mobile",
       "fallback",
       "quadrant_collection_two_step"
     ]);
+    assert.deepEqual(visual.entries.map((entry) => entry.view), ["quadrants", "timeline", "quadrants", "quadrants"]);
+    assert.deepEqual(visual.entries.map((entry) => entry.runtime_mode), ["v8", "v8", "v8", "v8"]);
     assert.throws(
       () => writeEvidenceBundle({
         artifactDir: fixture,
@@ -243,12 +362,48 @@ test("writer emits exactly four current-run profiles and three sanitized summari
   }
 });
 
+test("writer rejects missing or non-v8 runtime before creating artifacts", async (t) => {
+  for (const runtimeMode of [undefined, "compat", "legacy"]) {
+    await t.test(String(runtimeMode), () => {
+      const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "wiki-upgrade-runtime-"));
+      try {
+        const captures = UPGRADE_GATE_EVIDENCE_PROFILES.map((profile) => ({
+          profile: profile.profile,
+          artifact: profile.artifact,
+          route: profile.route,
+          view: profile.view,
+          runtime_mode: profile.runtime_mode,
+          viewport: profile.viewport,
+          png: png(profile.viewport.width, profile.viewport.height)
+        }));
+        captures[0].runtime_mode = runtimeMode;
+        assert.throws(
+          () => writeEvidenceBundle({
+            artifactDir: fixture,
+            captures,
+            requestCount: 12,
+            networkErrorCount: 0,
+            consoleErrorCount: 0,
+            consoleWarningCount: 0
+          }),
+          /artifact\/view\/runtime\/viewport/
+        );
+        assert.deepEqual(fs.readdirSync(fixture), []);
+      } finally {
+        fs.rmSync(fixture, { recursive: true, force: true });
+      }
+    });
+  }
+});
+
 test("writer refuses console/network failures before publishing any artifact", () => {
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "wiki-upgrade-failed-bundle-"));
   const captures = UPGRADE_GATE_EVIDENCE_PROFILES.map((profile) => ({
     profile: profile.profile,
     artifact: profile.artifact,
-    route: "/w/quadrants",
+    route: profile.route,
+    view: profile.view,
+    runtime_mode: profile.runtime_mode,
     viewport: profile.viewport,
     png: png(profile.viewport.width, profile.viewport.height)
   }));

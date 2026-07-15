@@ -93,6 +93,8 @@ def _observations(profiles: list[str]) -> list[dict]:
                 "requested_route": spec["route"],
                 "route": spec["route"],
                 "viewport": spec["viewport"],
+                "view": spec["view"],
+                "runtime_mode": spec["runtime_mode"],
                 "action_count": spec["action_count"],
                 "state": spec["state"],
                 "console_summary": {
@@ -200,6 +202,11 @@ def test_generated_bundle_verifies_exact_four_profiles(tmp_path: Path) -> None:
     assert result["status"] == "verified"
     assert result["visual_profiles"] == sorted(visual.PROFILE_SPECS)
     assert result["visual_manifest_entry_count"] == 4
+    for profile in visual.PROFILE_SPECS:
+        record = _read_json(output / "records" / f"{profile}.json")
+        assert record["schema_version"] == "wiki_visual_evidence_capture.v2"
+        assert record["view"] == visual.PROFILE_SPECS[profile]["view"]
+        assert record["runtime_mode"] == "v8"
     assert result["trust"] == {
         "capture_provenance": "not_proven_by_reverification",
         "productive_authority": False,
@@ -275,6 +282,44 @@ def test_coherently_resealed_private_route_is_rejected(tmp_path: Path) -> None:
     )
     with pytest.raises(
         visual.VisualEvidenceError, match="percent|private|public-synthetic"
+    ):
+        _verify(source, source_sha, package, output)
+
+
+@pytest.mark.parametrize("mutation", ["compat", "missing"])
+def test_coherently_resealed_runtime_mode_is_rejected(
+    tmp_path: Path, mutation: str
+) -> None:
+    source, source_sha, package, output = _bundle(tmp_path)
+
+    def mutate(record: dict) -> None:
+        if mutation == "compat":
+            record["runtime_mode"] = "compat"
+        else:
+            record.pop("runtime_mode")
+
+    _reseal_record(output, "desktop", mutate)
+    with pytest.raises(
+        visual.VisualEvidenceError, match="runtime mode|identity or canonical digest"
+    ):
+        _verify(source, source_sha, package, output)
+
+
+@pytest.mark.parametrize("mutation", ["wrong", "missing"])
+def test_coherently_resealed_view_is_rejected(
+    tmp_path: Path, mutation: str
+) -> None:
+    source, source_sha, package, output = _bundle(tmp_path)
+
+    def mutate(record: dict) -> None:
+        if mutation == "wrong":
+            record["view"] = "timeline"
+        else:
+            record.pop("view")
+
+    _reseal_record(output, "desktop", mutate)
+    with pytest.raises(
+        visual.VisualEvidenceError, match="view|identity or canonical digest"
     ):
         _verify(source, source_sha, package, output)
 
@@ -384,6 +429,9 @@ def test_cli_bootstraps_repo_imports_outside_the_repo_cwd(tmp_path: Path) -> Non
 
 
 class _SyntheticDemoHandler(http.server.BaseHTTPRequestHandler):
+    runtime_mode: str | None = "v8"
+    forced_view: str | None = None
+
     def do_GET(self) -> None:  # noqa: N802 - stdlib callback name
         parsed = self.path
         fallback = "visual=1" in parsed
@@ -391,10 +439,13 @@ class _SyntheticDemoHandler(http.server.BaseHTTPRequestHandler):
         timeline = query.get("view") == ["timeline"]
         scene_class = "sceneShell fallbackMode" if fallback else "sceneShell"
         canvas = "" if fallback else "<canvas width='32' height='24'></canvas>"
-        view = "timeline" if timeline else "quadrants"
+        view = self.forced_view or ("timeline" if timeline else "quadrants")
+        runtime_attribute = (
+            f' data-runtime-mode="{self.runtime_mode}"' if self.runtime_mode else ""
+        )
         body = f"""<!doctype html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body><main class="worldWorkspace" data-world-view="{view}" data-world-center="root-alex-rivera">
+<body><main class="worldWorkspace" data-world-view="{view}" data-world-center="root-alex-rivera"{runtime_attribute}>
 <section class="{scene_class}">{canvas}
 <button data-world-target-kind="group" data-world-target-id="family:source">sources &amp; evidence</button>
 <div hidden data-world-group-summary="family:source"><button data-world-member-id="source-action-ledger">Action ledger</button></div>
@@ -445,12 +496,86 @@ def test_real_chromium_capture_is_bounded_and_strict_when_available(
         thread.join(timeout=5)
     assert toolchain["name"] == "playwright-chromium"
     assert {item["profile"] for item in captures} == set(visual.PROFILE_SPECS)
+    assert {
+        item["profile"]: item["view"] for item in captures
+    } == {
+        profile: spec["view"] for profile, spec in visual.PROFILE_SPECS.items()
+    }
+    assert {item["runtime_mode"] for item in captures} == {"v8"}
     for profile in visual.PROFILE_SPECS:
         metadata = visual_evidence_file_metadata(
             output, f"images/{profile}.png", label=profile
         )
         assert metadata["bytes"] > 0
         assert metadata["dimensions"] == visual.PROFILE_SPECS[profile]["viewport"]
+
+
+@pytest.mark.parametrize("runtime_mode", ["compat", None])
+def test_real_chromium_capture_rejects_wrong_or_missing_runtime_mode_when_available(
+    tmp_path: Path, runtime_mode: str | None
+) -> None:
+    if shutil.which("node") is None:
+        pytest.skip("Node is unavailable for the real Chromium integration")
+    try:
+        visual._probe_browser_toolchain(ROOT)
+    except visual.VisualEvidenceError as exc:
+        pytest.skip(f"Playwright Chromium is unavailable: {exc}")
+
+    class Handler(_SyntheticDemoHandler):
+        pass
+
+    Handler.runtime_mode = runtime_mode
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    output = tmp_path / "capture"
+    (output / "images").mkdir(parents=True)
+    try:
+        with pytest.raises(visual.VisualEvidenceError, match="runtime_mode_contract"):
+            visual._capture_profiles(
+                source_root=ROOT,
+                base_url=f"http://127.0.0.1:{server.server_address[1]}",
+                output_root=output,
+                profiles=["desktop"],
+            )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+    assert list((output / "images").iterdir()) == []
+
+
+def test_real_chromium_capture_rejects_wrong_view_when_available(
+    tmp_path: Path,
+) -> None:
+    if shutil.which("node") is None:
+        pytest.skip("Node is unavailable for the real Chromium integration")
+    try:
+        visual._probe_browser_toolchain(ROOT)
+    except visual.VisualEvidenceError as exc:
+        pytest.skip(f"Playwright Chromium is unavailable: {exc}")
+
+    class Handler(_SyntheticDemoHandler):
+        forced_view = "timeline"
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    output = tmp_path / "capture"
+    (output / "images").mkdir(parents=True)
+    try:
+        with pytest.raises(visual.VisualEvidenceError, match="view_contract"):
+            visual._capture_profiles(
+                source_root=ROOT,
+                base_url=f"http://127.0.0.1:{server.server_address[1]}",
+                output_root=output,
+                profiles=["desktop"],
+            )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+    assert list((output / "images").iterdir()) == []
 
 
 @pytest.mark.parametrize(
@@ -478,6 +603,8 @@ def test_capture_profiles_use_canonical_native_view_routes(
     ("stderr", "expected_reason"),
     [
         (b"VISUAL_CAPTURE_ERROR:mobile_profile_contract", "mobile_profile_contract"),
+        (b"VISUAL_CAPTURE_ERROR:runtime_mode_contract", "runtime_mode_contract"),
+        (b"VISUAL_CAPTURE_ERROR:view_contract", "view_contract"),
         (b"/private/tmp/secret-path", "chromium_capture_process_failed"),
     ],
 )
