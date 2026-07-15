@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 unreleased - RT-172 source formation pending"
+title: "Wiki Viva v8 rc37 - exact validation pending"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 unreleased - RT-172 source formation pending
+# Wiki Viva v8 rc37 - exact validation pending
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -577,17 +577,23 @@ B authority was minted. Rc36 is immutable
 historical evidence, but its candidate, capture and gate results must never be
 retried, reused, relabeled, promoted or imported.
 
-RT-172 requires the single successor source to bind morph, camera and Html
-settlement to the same navigation sequence before declaring spatial settlement.
-The successor must be formed as a new immutable source, pinned separately and
-run through one wholly new complete exact validation. Rc36 receipts cannot be
-carried forward to that subject.
+RT-172 requires the single successor source to bind exact layout request,
+morph, camera and Html settlement to the same navigation sequence before
+declaring spatial settlement. Exact source
+`d87af15b4aa850d1a50dc867f74e07ba09d0e89f` now implements that contract and
+is separately pinned as `wiki-viva-v8-rc37` / `validation_pending`.
+Package-file/canonical-package/portable-tree SHA-256 values are
+`5b88cad7e0194a90db014edaa96e044779e9072e51e8e3a9324c49548a8656d7` /
+`8c7a107bae1f9410995b9e3ba22af46e64ac3924764c551310afaeaa7c6cf9aa` /
+`e40d77b81d5b4cde127d566eb04834b5f6a2bccd569c8a1ffaacb1c3619bb3a9`,
+521 entries. Focused formation proof passed 522 frontend checks, TypeScript,
+build, architecture and the original desktop cell 3/3 in 195.383 seconds.
+Rc36 receipts cannot be carried forward to rc37.
 
-The active package is now `unreleased` / `validation_pending`, rooted at
-`ac0f49afe28a5bf84003b58c537ac1727dab7008`, with
-`package_is_pinned=false`. The canonical scoreboard is `0/5`: source pin,
-exact validation, capsule verification, private canary and private-main
-readback are all pending for the RT-172 successor. Draft public PR #61 remains
+`package_is_pinned=false` while complete exact validation remains pending. The
+canonical scoreboard is `1/5`: source pin is complete; exact validation,
+capsule verification, private canary and private-main readback remain pending.
+Draft public PR #61 remains
 stale and does not represent this local truth; public push, publication, PR
 mutation, merge and tag remain unauthorized. Private PR #211 and its v2
 receipts remain immutable historical evidence. A fresh v3 adoption may start
@@ -697,9 +703,9 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-The active unreleased RT-172 successor requires source formation, a separate
-pin, one wholly new exact validation, productive capture, Lane A certification
-and independent capsule/attestation verification before any downstream plan.
+Active rc37 has a separate source pin and requires one wholly new exact
+validation, productive capture, Lane A certification and independent
+capsule/attestation verification before any downstream plan.
 Remote public CI, human conceptual/privacy/VoiceOver review, public merge and
 promotion remain separate and unauthorized; stale/conflicting public PR #61
 does not represent this local truth. External E5 and a release tag remain
@@ -848,7 +854,7 @@ mandatory browser cells plus both complete deterministic stacks are now
 proven. At that historical checkpoint,
 [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61) still required
 human review and merge. It is now stale/conflicting and does not represent
-the active unreleased RT-172 source-formation truth; no tag or public push is
+the active rc37 validation-pending truth; no tag or public push is
 authorized.
 
 ## Historical rc8 correction lineage — public payload candidate at that checkpoint

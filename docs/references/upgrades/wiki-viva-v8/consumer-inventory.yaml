@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: unreleased@ac0f49af
+    current_kit_version: wiki-viva-v8-rc37@d87af15b
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,12 +32,12 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc36_certification_failed_rt172_successor_unpinned
+      state: rc36_certification_failed_rc37_exact_validation_pending
       drift_total: 0
-      compared_against: unreleased@ac0f49af
-      worktree: rt172_source_formation_local_only
+      compared_against: wiki-viva-v8-rc37@d87af15b
+      worktree: rc37_validation_boundary_local_only
     upgrade_wave: public_kit
-    status: blocked_on_rt172_source_pin_and_exact_validation
+    status: blocked_on_rc37_exact_validation
     blocker: >-
       Rc21 through rc33 remain frozen according to their recorded historical
       outcomes. Rc34 source 533d2868 passed complete exact validation at
@@ -103,11 +103,14 @@ consumers:
       rejected and non-reusable; the correction was a distinct rc36 metadata
       boundary without invalidating its then-valid source pin or exact
       validation.
-      RT-172 now requires one successor source to bind morph, camera and Html
-      settlement to the same navigation sequence before a separate source pin
-      and wholly new exact validation. The active package is
-      unreleased/validation_pending at ac0f49af with package_is_pinned=false;
-      the canonical scoreboard is 0/5. Draft PR #61 is stale and public push,
+      RT-172 source d87af15b binds exact layout request, morph, camera and Html
+      settlement to the same navigation sequence. It is separately pinned as
+      wiki-viva-v8-rc37 / validation_pending with package-file/canonical/tree
+      5b88cad7 / 8c7a107b / e40d77b8, 521 entries, and
+      package_is_pinned=false. Focused source proof passed 522 frontend checks,
+      TypeScript, build, architecture and the original desktop cell 3/3; one
+      complete exact validation remains pending. The canonical scoreboard is
+      1/5. Draft PR #61 is stale and public push,
       publication, external E5 and a release tag remain unauthorized
 
   - id: private-pilot-01
@@ -136,11 +139,11 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: v2_adoption_complete_rt172_successor_unpinned
+      state: v2_adoption_complete_rc37_exact_validation_pending
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: unreleased@ac0f49af
+      target_version: wiki-viva-v8-rc37@d87af15b
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
       details: >-
@@ -160,9 +163,9 @@ consumers:
         first and only Lane A certification stopped at 101/102 browser cells
         after Back navigation exposed unsettled camera/Html hit testing. Rc36
         is immutable historical_certification_failed and minted no capsule,
-        attestation or Lane B authority. RT-172 must first form one successor
-        that binds morph, camera and Html settlement, then receive a separate
-        pin, wholly new exact validation, productive capture, Lane A
+        attestation or Lane B authority. RT-172 successor rc37 is now pinned at
+        exact source d87af15b with focused formation proof green; it still
+        requires one wholly new exact validation, productive capture, Lane A
         certification and fail-closed capsule verification. Only after that
         authority exists may a fresh v3 adoption start from the then-current
         private main, not from private PR #211 or its historical v2 C3/receipts.
@@ -174,7 +177,7 @@ consumers:
         surfaces
       verified_on: "2026-07-15"
     upgrade_wave: pilot
-    status: blocked_on_rt172_successor_verified_capsule
+    status: blocked_on_rc37_verified_capsule
     blocker: >-
       The current private v2 evidence remains immutable and cannot be reduced
       by the v3 strategy. Rc34 is historical_precapture_rejected after RT-170
@@ -185,11 +188,11 @@ consumers:
       exact validation at metadata subject 3db3f9f4, but its first and only
       Lane A certification failed closed at 101/102 browser cells. No capsule,
       attestation or Lane B authority exists; rc36 is immutable
-      historical_certification_failed. The active package is
-      unreleased/validation_pending at ac0f49af with package_is_pinned=false
-      and a 0/5 scoreboard. One RT-172 successor must bind morph, camera and
-      Html settlement and pass a separate pin, wholly new exact validation,
-      productive capture, certification and capsule verification before a
+      historical_certification_failed. Active wiki-viva-v8-rc37 is
+      validation_pending at source d87af15b, with package_is_pinned=false and a
+      1/5 scoreboard. Its exact layout request + morph + camera + Html source
+      passed focused formation checks but still needs one wholly new exact
+      validation, productive capture, certification and capsule verification before a
       fresh current-main consumer preflight or any v3 downstream QA.
       Private PR #211 is
       v2 historical evidence and cannot be promoted as a fresh v3 adoption.

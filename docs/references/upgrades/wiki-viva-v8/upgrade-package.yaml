@@ -1,9 +1,9 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: unreleased
+  id: wiki-viva-v8-rc37
   status: validation_pending
-  source_sha: ac0f49afe28a5bf84003b58c537ac1727dab7008
+  source_sha: d87af15b4aa850d1a50dc867f74e07ba09d0e89f
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 
 historical_release_candidates:
@@ -820,16 +820,20 @@ known_limitations:
     2b1c678a7e3bd46d7dc1a27c0e8cbf9a21269c781b8cb1b4bd17fc3bcd1ffa33.
     No capsule, receipt, attestation or authority was minted. Rc36 and its
     capture are immutable historical_certification_failed evidence and must
-    never be retried or reused. RT-172 forms a new unpinned source with
-    sequence-bound camera+morph+Html settlement; no successor pin or validation
-    authority exists yet.
+    never be retried or reused. RT-172 source
+    d87af15b4aa850d1a50dc867f74e07ba09d0e89f binds sequence-bound
+    camera+morph+Html settlement and is separately pinned as
+    wiki-viva-v8-rc37 / validation_pending. Its focused source-formation proof
+    passed 522 frontend checks, TypeScript, build, architecture and the original
+    dense desktop browser cell three consecutive times. No complete rc37 exact
+    validation or later authority exists yet.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - RT-171 rc36 exact validation source binds all four productive and real-canary entry profiles to runtime_mode v8. Desktop uses productive `/demo/w?center=root-alex-rivera&view=quadrants&tour=0` and canary `/w?view=quadrants&tour=0`, both 1440x1000. Mobile uses productive `/demo/w?view=timeline&tour=0` and canary `/w?view=timeline&tour=0`, both 390x844. Fallback uses productive `/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0` at 1280x900 and canary `/w?view=quadrants&visual=1&tour=0` at 1440x1000. Quadrant collection uses productive `/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0` and canary `/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0`, both 1440x1000. The exact schemas are wiki_visual_evidence_capture.v2 and wiki_viva_canary_visual_summary.v2; a positional, compat, missing-runtime, wrong-view or wrong-canary-viewport observation fails closed.
-  - Rc24, rc26 and rc36 are immutable historical failed-certification evidence. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. Rc36 exact validation remains valid historical evidence, but its first/only Lane A run exposed RT-172 and minted no capsule. The active package is deliberately unreleased/validation_pending and package_is_pinned is false while the successor source is formed. Every downstream path remains fail-closed until a wholly new exact source is separately pinned, validated, captured, certified and independently verified. Public promotion remains separate and public push is unauthorized.
+  - Rc24, rc26 and rc36 are immutable historical failed-certification evidence. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. Rc36 exact validation remains valid historical evidence, but its first/only Lane A run exposed RT-172 and minted no capsule. Active wiki-viva-v8-rc37 is validation_pending at exact source d87af15b4aa850d1a50dc867f74e07ba09d0e89f, so package_is_pinned remains false and only one wholly new exact validation is authorized. Every downstream path remains fail-closed until rc37 is captured, certified and independently verified. Public promotion remains separate and public push is unauthorized.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc36 can never authorize another import. A future exact successor may be adopted in three new ordered reviewable boundaries only after its payload, capsule and external attestation verify independently and the applicable consumer human gate is satisfied. Standing private-main approval satisfies that consumer human gate only after every technical gate passes; public promotion remains separate. The fresh v3 adoption starts from the then-current private main; private PR #211 remains historical v2 evidence and is never its B0, C3 or promotion authority.
-  - The historical private S9 read-only preflight remains attached to S9; a future exact successor requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc36 can never authorize another import. Exact rc37 may be adopted in three new ordered reviewable boundaries only after its payload, capsule and external attestation verify independently and the applicable consumer human gate is satisfied. Standing private-main approval satisfies that consumer human gate only after every technical gate passes; public promotion remains separate. The fresh rc37/v3 adoption starts from the then-current private main; private PR #211 remains historical v2 evidence and is never its B0, C3 or promotion authority.
+  - The historical private S9 read-only preflight remains attached to S9; exact rc37 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.

@@ -224,16 +224,18 @@ another) via skills — there is no embedded LLM client.
   spatial readiness to the current morph and camera sequence, reject stale
   acknowledgements, and expose the separate morph/camera/spatial settled
   states before the existing compositor barrier releases interaction. The
-  active package truth is now `unreleased` / `validation_pending` at formation
-  base `ac0f49afe28a5bf84003b58c537ac1727dab7008` with
-  `package_is_pinned=false`. The sequence-bound fix must first be committed as
-  a new immutable source, then pinned and run through one wholly new exact
-  validation, productive capture and Lane A certification. Historical rc36
-  receipts cannot satisfy any of those steps.
+  active package truth is now `wiki-viva-v8-rc37` / `validation_pending` at
+  exact source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`, with
+  package-file/canonical/tree `5b88cad7...` / `8c7a107b...` / `e40d77b8...`
+  (521 entries) and `package_is_pinned=false`. Focused source formation passed
+  522 frontend checks, TypeScript, build, architecture and the original dense
+  desktop cell 3/3. Rc37 must now run one wholly new exact validation,
+  productive capture and Lane A certification. Historical rc36 receipts cannot
+  satisfy any of those steps.
 
-  Operational scoreboard for the new subject: `source pinned`,
+  Operational scoreboard for rc37: `source pinned` is complete;
   `exact validation`, `capsule verified`, `private canary` and
-  `private main readback` are all pending (`0/5`). Draft PR #61 remains stale
+  `private main readback` are pending (`1/5`). Draft PR #61 remains stale
   and does not represent this local truth. Public push/publication remains
   unauthorized. Private PR #211 remains historical v2 and must not be promoted
   as the future v3 adoption; a fresh private v3 run starts only after the

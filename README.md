@@ -109,13 +109,16 @@ promoted or imported.
 
 RT-172 forms a new sequence-bound successor: spatial readiness must wait for
 matching morph and camera acknowledgements, reject stale callbacks and only
-then cross the compositor barrier. The active package truth is `unreleased` /
-`validation_pending` at formation base
-`ac0f49afe28a5bf84003b58c537ac1727dab7008`, with
-`package_is_pinned=false`. Its fix still needs a new immutable source commit,
-pin, wholly new exact validation, productive capture and Lane A certification.
-The new-subject scoreboard is `0/5`; none of `source pinned`, `exact validation`,
-`capsule verified`, `private canary` or `private main readback` is complete.
+then cross the compositor barrier. Active `wiki-viva-v8-rc37` /
+`validation_pending` is pinned to source
+`d87af15b4aa850d1a50dc867f74e07ba09d0e89f`; package-file / canonical-package /
+portable-tree identities are `5b88cad7...` / `8c7a107b...` / `e40d77b8...`
+(521 entries), with `package_is_pinned=false`. Focused source formation passed
+522 frontend checks, TypeScript, build, architecture and the original desktop
+cell 3/3. Rc37 still needs one wholly new exact validation, productive capture
+and Lane A certification. Its scoreboard is `1/5`: `source pinned` is complete;
+`exact validation`, `capsule verified`, `private canary` and
+`private main readback` remain pending.
 Draft PR #61 remains stale and public push/publication remains unauthorized.
 Private PR #211 remains historical v2; only a fresh v3 adoption may start after
 the successor capsule and attestation verify fail-closed.
@@ -453,13 +456,14 @@ trust anchor or Lane B authority and is never retried or reused. The prior
 `7f1c859d...` metadata boundary and capture `e314296c...` remain separately
 rejected and non-reusable.
 
-The active truth is now `unreleased` / `validation_pending` at formation base
-`ac0f49afe28a5bf84003b58c537ac1727dab7008`, with
-`package_is_pinned=false`. RT-172's sequence-bound fix must become a new source,
-be pinned and pass one wholly new exact validation, productive capture and
-Lane A certification. Draft PR #61 is stale; public push remains unauthorized.
-The successor scoreboard is `0/5`, from source pin through private-main
-readback. Private PR #211 remains historical v2; no fresh v3 adoption starts
+The active truth is `wiki-viva-v8-rc37` / `validation_pending`, pinned to exact
+source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`, package/tree
+`8c7a107b...` / `e40d77b8...`, with `package_is_pinned=false`. RT-172's
+sequence-bound correction passed its focused 522-test and 3x-browser formation
+proof; one wholly new exact validation, productive capture and Lane A
+certification remain. Draft PR #61 is stale; public push remains unauthorized.
+The rc37 scoreboard is `1/5`, with only source pin complete. Private PR #211
+remains historical v2; no fresh v3 adoption starts
 before the successor capsule verifies fail-closed.
 Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.

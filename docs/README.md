@@ -188,12 +188,14 @@ starting point for persistent context is `memories/`.
   anchor, downstream plan, import, adoption or Lane B authority exists. Never
   retry, reuse, relabel, promote or import it.
 
-  The active package truth is `unreleased` / `validation_pending` at formation
-  base `ac0f49afe28a5bf84003b58c537ac1727dab7008`, with
-  `package_is_pinned=false`. RT-172's sequence-bound successor must be committed
-  as a new immutable source, pinned, and pass one wholly new exact validation,
-  productive capture and Lane A certification. Its scoreboard is `0/5`: every
-  step from source pin through private-main readback remains pending. Draft PR
+  Active `wiki-viva-v8-rc37` / `validation_pending` is pinned to exact source
+  `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`; package-file / canonical-package /
+  portable-tree identities are `5b88cad7...` / `8c7a107b...` / `e40d77b8...`
+  (521 entries), with `package_is_pinned=false`. RT-172's sequence-bound source
+  passed 522 frontend checks, TypeScript, build, architecture and the original
+  desktop cell 3/3. It still requires one wholly new exact validation,
+  productive capture and Lane A certification. Its scoreboard is `1/5`: source
+  pin is complete and every later step remains pending. Draft PR
   #61 is stale and does not represent this local truth; public push/publication
   remains unauthorized. Private PR #211 remains historical v2, and a fresh v3
   adoption starts only after the successor capsule verifies fail-closed.

@@ -326,16 +326,20 @@ No capsule, receipt, attestation, trust anchor, downstream plan, import or
 Lane B authority was minted. The capture and run are non-reusable.
 
 RT-172 is the permitted fail-closed exception to the freeze on new subjects.
-The active package is deliberately `unreleased` / `validation_pending`, rooted
-at metadata parent `ac0f49af...`; `package_is_pinned=false`. The successor
-source must add one sequence-bound handshake across morph, camera and the two
-post-motion compositor frames, strengthen the existing synthetic browser cell
-without adding a matrix cell, and add deterministic stale-sequence/no-deadlock
-unit coverage. Only after that source is committed may a separate metadata
-boundary assign the next release ID and source SHA. Rc36 source-pin and exact
-validation receipts remain valid history; they are not reused for the new
-subject. Public push/publication remains unauthorized and this document remains
-the sole plan.
+Exact source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f` is now separately
+pinned as `wiki-viva-v8-rc37` / `validation_pending`.
+Package-file/canonical-package/portable-tree SHA-256 values are
+`5b88cad7e0194a90db014edaa96e044779e9072e51e8e3a9324c49548a8656d7` /
+`8c7a107bae1f9410995b9e3ba22af46e64ac3924764c551310afaeaa7c6cf9aa` /
+`e40d77b81d5b4cde127d566eb04834b5f6a2bccd569c8a1ffaacb1c3619bb3a9`,
+521 entries; `package_is_pinned=false` because validation is still pending.
+The source binds one sequence handshake across exact layout request, morph,
+camera and two post-motion compositor frames. It strengthens the existing cell
+without adding one and covers stale/no-op/cut/control/fallback paths. Focused
+formation evidence passed 522 frontend checks, TypeScript, build, architecture
+and the original desktop cell 3/3 in 195.383 seconds. Rc36 receipts remain
+valid history and are not reused. Public push/publication remains unauthorized;
+this document remains the sole plan.
 
 ### Placar operacional canônico
 
@@ -345,17 +349,17 @@ datada; não substitui os cinco estados comprovados abaixo.
 
 | Etapa | Estado | Evidência exata / próxima ação |
 | --- | --- | --- |
-| source pinned | ⏳ pendente | Rc36 está congelado após Lane A 101/102; formar o source RT-172, commitar e piná-lo somente em boundary metadata separada; o PR público #61 continua antigo/conflitante e não representa a verdade local |
-| exact validation | ⏳ pendente | Executar uma única matriz integral sobre o novo source; a validação rc36 23/23 permanece histórica e não é reutilizável para esse sujeito |
+| source pinned | ✅ concluído | `wiki-viva-v8-rc37` / `validation_pending` aponta ao source imutável `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`; package-file/canonical/tree `5b88cad7...` / `8c7a107b...` / `e40d77b8...` (521 entradas); `package_is_pinned=false` até validação e promoção separada; o PR público #61 continua antigo/conflitante e não representa a verdade local |
+| exact validation | ⏳ pendente | Executar uma única matriz integral sobre rc37; a validação rc36 23/23 permanece histórica e não é reutilizável para esse sujeito |
 | capsule verified | ⏳ pendente | Somente após validação exata verde: captura nova, Lane A nova e verificação capsule/attestation fail-closed por digest externo; manifest rc36 `6199d100...` não pode ser reutilizado |
 | private canary | ⏳ pendente | Abrir adoção v3 nova a partir da `main` privada vigente apenas após capsule verificada; #211 permanece evidência v2 histórica; provar B0→C1→C2→C3, canary real e rollback |
 | private main readback | ⏳ pendente | Após gates verdes, usar a autorização permanente de merge privado e validar visualmente a própria `main`; Claude/IFC e Audrey continuam separados |
 
-Fechamento comprovado atual: **0/5 etapas para o novo sujeito**. Rc36 preserva
+Fechamento comprovado atual: **1/5 etapas para rc37**. Rc36 preserva
 source pin e exact validation como evidência histórica válida, mas sua falha de
-certificação impede qualquer promoção ou adoção. RT-172 satisfaz a exceção
-fail-closed que exige um novo sujeito imutável; não ampliar packs/abstrações nem
-abrir outro plano.
+certificação impede qualquer promoção ou adoção. O source rc37 fecha a exceção
+RT-172 sem reutilizar receipts; não ampliar packs/abstrações nem abrir outro
+plano.
 
 O Playwright terminou as 102 células em 386.565 segundos. O checker pós-matriz
 esperou mais 806.361 segundos porque o FileProvider precisava materializar
@@ -466,7 +470,9 @@ expose morph, camera and final painted settlement. The existing browser cell
 is strengthened rather than duplicated, and a pure unit proves stale/mismatched
 sequences cannot release input. Rc36 remains immutable failed-certification
 evidence and its valid exact-validation receipt is not projected onto the new
-subject.
+subject. Exact rc37 source `d87af15b...` passed all 522 frontend checks,
+TypeScript, build, architecture and the original failing desktop cell three
+consecutive times; complete exact validation remains intentionally pending.
 
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
@@ -4818,7 +4824,7 @@ is the public-redacted checkpoint below.
 | RT-48 | exact S22 Node 22/socket contracts pass; private replay pending | live current-operator restart/security proof and downstream documentation replay |
 | RT-125 / RT-146 / RT-147 | exact S22 focused/full controls, canonical package, pinned Git tree and inert release record pass; private drift pending | after merge, obtain corrected private drift zero and redacted evidence |
 | RT-148 / RT-149 | exact S22 full receipt, seven-step browser contract and visual manifest pass | final private replay without tour/modal stacking after merge |
-| RT-150 / RT-162 / RT-163 / RT-164 / RT-165 / RT-166 / RT-167 / RT-168 / RT-169 / RT-170 / RT-171 / RT-172 | Rc26 became `candidate` only after exact validation, then passed productive capture and all six registered commands; the public-evidence scanner still rejected the transaction before attestation. Rc27 stopped in Python with 46 lifecycle failures; rc28/rc29 were rejected for stale portable truth; rc30 real-data QA exposed identical labels; rc31 failed non-fixed-point operational-pass freshness; rc32 failed two source-contract checks. Rc33 closed RT-167/RT-168 and passed Python, frontend, Node and static gates, but its first/only browser matrix stopped at 98/102. Rc34 closed RT-169 and passed complete exact validation, then RT-170 rejected it before productive capture. Rc35 passed its own exact stack, then RT-171 rejected it before capture. Rc36 passed a wholly new 23/23 exact stack and productive capture; its first/only Lane A stopped at 101/102 because the interaction cue did not bind camera and Html hit-tree settlement after Back | Preserve every immutable failure/rejection. Rc36 exact validation remains valid only for rc36; its manifest `6199d100...` and stream `a95d7085...` are failed-certification history and cannot be reused. Form and separately pin one RT-172 successor, run one wholly new exact validation, then capture/certify Lane A. Fresh downstream v3 starts from current private `main`; no v2 or rc36 receipt/PR substitutes. Public push/publication remains unauthorized |
+| RT-150 / RT-162 / RT-163 / RT-164 / RT-165 / RT-166 / RT-167 / RT-168 / RT-169 / RT-170 / RT-171 / RT-172 | Rc26 became `candidate` only after exact validation, then passed productive capture and all six registered commands; the public-evidence scanner still rejected the transaction before attestation. Rc27 stopped in Python with 46 lifecycle failures; rc28/rc29 were rejected for stale portable truth; rc30 real-data QA exposed identical labels; rc31 failed non-fixed-point operational-pass freshness; rc32 failed two source-contract checks. Rc33 closed RT-167/RT-168 and passed Python, frontend, Node and static gates, but its first/only browser matrix stopped at 98/102. Rc34 closed RT-169 and passed complete exact validation, then RT-170 rejected it before productive capture. Rc35 passed its own exact stack, then RT-171 rejected it before capture. Rc36 passed a wholly new 23/23 exact stack and productive capture; its first/only Lane A stopped at 101/102 because the cue did not bind camera and Html hit-tree settlement after Back. Rc37 source `d87af15b...` closes that causal gap and its focused 522-test/3x-browser formation proof is green | Preserve every immutable failure/rejection. Rc36 exact validation remains valid only for rc36; its manifest `6199d100...` and stream `a95d7085...` are failed-certification history and cannot be reused. Rc37 is separately pinned with package/tree `8c7a107b...` / `e40d77b8...`; run one wholly new exact validation, then capture/certify Lane A. Fresh downstream v3 starts from current private `main`; no v2 or rc36 receipt/PR substitutes. Public push/publication remains unauthorized |
 | RT-12 / RT-37 / RT-59 / RT-85 / RT-91 / RT-119 | complete official S22 receipt is bound; human/private/E5 remain | complete human review, final private adoption and E5 instead of reusing an earlier subject |
 
 ### Two-lane migration decision and current downstream QA — 2026-07-13 (public-redacted)
@@ -5079,10 +5085,11 @@ committed as a candidate metadata subject. Rc36 source
 matrix 23/23 and produced verified manifest `6199d100...`, but its first/only
 Lane A stopped at browser 101/102 on RT-172. Rc36 is immutable
 `historical_certification_failed`; no capsule, attestation or downstream
-authority exists. The active package is `unreleased` / `validation_pending`,
-rooted at `ac0f49af...`, with `package_is_pinned=false` until the RT-172 source
-is committed and separately pinned. Public push and publication remain
-unauthorized.
+authority exists. Active `wiki-viva-v8-rc37` / `validation_pending` is pinned
+to exact source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`, package/tree
+`8c7a107b...` / `e40d77b8...`, with `package_is_pinned=false` until later
+promotion. Its one complete exact validation is now pending. Public push and
+publication remain unauthorized.
 
 #### Post-rc21 downstream rehearsal: RT-152 and the rc22 correction boundary — 2026-07-14
 
@@ -5200,12 +5207,12 @@ permits productive capture and Lane A certification only. Public push and
 publication remain unauthorized.
 
 The only canonical scoreboard is [Placar operacional canônico](#placar-operacional-canônico),
-currently `0/5` for the new subject. Do not expand packs or mutate PR #61/#211
+currently `1/5` for rc37. Do not expand packs or mutate PR #61/#211
 to simulate progress. RT-172 is the recorded fail-closed exception that
 requires exactly one new immutable subject; no other scope expansion is
 authorized.
 
-#### Rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed validation, rc24/rc26/rc36 failed certification, rc28/rc29/rc30 rejected, rc34/rc35 rejected before capture and RT-172 successor unpinned — 2026-07-15
+#### Rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed validation, rc24/rc26/rc36 failed certification, rc28/rc29/rc30 rejected, rc34/rc35 rejected before capture and rc37 exact validation pending — 2026-07-15
 
 | Evidence | Exact local result | Authority boundary |
 |---|---|---|
@@ -5521,7 +5528,8 @@ validation at metadata subject
 package identities `8343066a...` / `8ee7e597...` / `4dc31eff...`, stream
 `a95d7085...` and gate/run/report `2d5405db...` / `2b1c678a...` /
 `bb69c7ac...` only as immutable rc36 evidence. Never retry or reuse them.
-Form and separately pin one RT-172 successor; run one wholly new exact
+Exact RT-172 successor rc37 is now separately pinned at source
+`d87af15b4aa850d1a50dc867f74e07ba09d0e89f`; run one wholly new exact
 validation, fresh capture and Lane A, then verify capsule and attestation
 independently by the out-of-band digest.
 
