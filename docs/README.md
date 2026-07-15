@@ -146,12 +146,15 @@ starting point for persistent context is `memories/`.
   exposed RT-170 before productive capture or certification. Rc34 is immutable
   `historical_precapture_rejected`; no visual manifest, certification, capsule,
   receipt, trust anchor or Lane B authority exists. The active package is
-  `unreleased` / `validation_pending`, based on `59be853af5416ce84c4ca89e7272bb64eb909b2b`
-  only as unpinned formation until a separate exact rc35 source pin. The fix
+  `wiki-viva-v8-rc35` / `validation_pending`, pinned only for validation to
+  exact source `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`. Its
+  package-file/canonical/tree identities are `cb17f00f...` / `e651d744...` /
+  `900d897e...`, 521 entries; `package_is_pinned=false`. The fix
   makes B0 `diff_check`-only, records expected drift as prospective C1
   inventory, keeps final C3 `toolkit_drift` and `semantic_inventory` mandatory,
   roots ignored evidence at the exact plan-path parent, and requires domain
-  preparation before a new B0. Public push/publication remains unauthorized;
+  preparation before a new B0. A wholly new full validation and separate
+  candidate boundary remain required. Public push/publication remains unauthorized;
   standing private-main approval is downstream-only and never weakens gates or
   the generic public PR/human gate.
   Existing v2 subjects and receipts remain frozen and are never rewritten into

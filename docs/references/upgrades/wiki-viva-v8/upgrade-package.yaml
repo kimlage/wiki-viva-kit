@@ -1,9 +1,9 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: unreleased
+  id: wiki-viva-v8-rc35
   status: validation_pending
-  source_sha: 59be853af5416ce84c4ca89e7272bb64eb909b2b
+  source_sha: 52491dfd6c3a81f0356fb64a9e01e41dd71e07a0
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
   pull_request: https://github.com/kimlage/wiki-viva-kit/pull/61
 
@@ -716,12 +716,12 @@ known_limitations:
     semantic exception that could mix domain repair into C3. No productive
     capture was attempted, and no visual manifest, certification, capsule,
     receipt, trust or Lane B authority exists. Rc34 is immutable historical
-    pre-capture rejection evidence. Rc35 is only an unpinned source-formation
-    state based at 59be853af5416ce84c4ca89e7272bb64eb909b2b; it remains
-    validation_pending until a separate exact pin. Public push remains
-    unauthorized.
+    pre-capture rejection evidence. Rc35 is now pinned exactly to source
+    52491dfd6c3a81f0356fb64a9e01e41dd71e07a0 for a wholly new validation.
+    Its status remains validation_pending: it is not a candidate, capture,
+    capsule, receipt or Lane B authority. Public push remains unauthorized.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
-  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix and rc34 was rejected by read-only downstream QA before productive capture. None of their incomplete stages can be resumed. The active `unreleased` package is an unpinned rc35 formation state at base 59be853af5416ce84c4ca89e7272bb64eb909b2b, status validation_pending, so package_is_pinned is false. Every capture, certification, plan and adoption path must fail closed until a separate exact rc35 pin passes wholly new validation and becomes a reviewed candidate; public promotion remains separate and public push is unauthorized.
+  - Rc24 and rc26 candidate metadata/captures are historical failed-certification evidence only. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix and rc34 was rejected by read-only downstream QA before productive capture. None of their incomplete stages can be resumed. The active `wiki-viva-v8-rc35` package is pinned to exact source 52491dfd6c3a81f0356fb64a9e01e41dd71e07a0 with status validation_pending, so package_is_pinned is false. Every capture, certification, plan and adoption path must fail closed until this exact subject passes its wholly new validation and becomes a separately reviewed candidate; public promotion remains separate and public push is unauthorized.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
   - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc34 can never authorize another import. A future exact rc35 or later subject may be adopted in three new ordered reviewable boundaries only after its payload, capsule and release promotion are approved.
@@ -735,5 +735,5 @@ known_limitations:
   - Toolkit-owned .skills/wiki-*/** remain portable C1. Nested consumer skills under .skills/*/**, AGENTS.md and the literal root .skills/README.md are C3; the literal path is required because the nested skill glob intentionally cannot cross the directory boundary.
   - A downstream must choose an ignored and untracked plan output subtree before freezing B0. The exact plan parent owns resumable state, receipts and reports; ignoring all .wiki-viva/ is forbidden because consumer pack state may be versioned there, and this consumer-owned pre-B0 policy is never supplied by C1.
   - Dependency and base page-type/template registries are consumer-owned merge surfaces in this release; downstreams must preserve local extensions, add every new public minimum dependency/contract and prove the merged result through audit, snapshot, pack and full test gates.
-  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed complete validation, rc24/rc26 failed certification after valid captures, rc28/rc29/rc30 were rejected before complete validation, and rc34 was rejected before productive capture. Exact rc34 source 533d286869c478bd157b066d7882388b99fde2f7 passed complete validation and closed the prior quadrant-label defect, but RT-170 then proved its pre-C1 preflight and domain-repair boundary were not honestly adoptable. The unpinned rc35 formation corrects that public contract with only diff_check at B0; final toolkit_drift and semantic_inventory remain consumer_always and never reusable. RT-150 still requires an exact public pin, wholly new validation and promotion before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
+  - Consumer-owned downstream Python suites under tests/** and workflows are integration policy and are not copied or compared as portable drift; package-owned cockpit tests under apps/wiki-cockpit/** remain portable. Rc21's exact local validation is historical, rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed complete validation, rc24/rc26 failed certification after valid captures, rc28/rc29/rc30 were rejected before complete validation, and rc34 was rejected before productive capture. Exact rc34 source 533d286869c478bd157b066d7882388b99fde2f7 passed complete validation and closed the prior quadrant-label defect, but RT-170 then proved its pre-C1 preflight and domain-repair boundary were not honestly adoptable. Exact rc35 source 52491dfd6c3a81f0356fb64a9e01e41dd71e07a0 corrects that public contract with only diff_check at B0; final toolkit_drift and semantic_inventory remain consumer_always and never reusable. It is validation_pending and must pass wholly new validation before any candidate boundary. RT-150 still requires validation, promotion and a verified capsule before adoption, RT-151 forbids reuse of rc20 product evidence, and each consumer must then run its own real-data and adapter tests.
   - Consumer-specific core failures must first become synthetic public fixtures.

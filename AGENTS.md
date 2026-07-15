@@ -153,11 +153,15 @@ another) via skills — there is no embedded LLM client.
   is immutable `historical_precapture_rejected`: no visual manifest,
   certification result, capsule, receipt, attestation, trust anchor, downstream
   plan, import or Lane B authority exists. Never retry, reuse, relabel, promote
-  or import it. The active package is `release.id: unreleased` with
-  `status: validation_pending`; it uses `59be853af5416ce84c4ca89e7272bb64eb909b2b`
-  only as the unpinned formation base until a separate exact rc35 source is
-  reviewed and pinned for a wholly new validation. Public push/publication
-  remains unauthorized. Standing approval for incremental private-main merges
+  or import it. The active package is now `wiki-viva-v8-rc35` /
+  `validation_pending` at exact source
+  `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`. Its package-file/canonical/tree
+  identities are `cb17f00f3d2b50698bbfdbcb698a0c6d5287c47c6ba9709488eb89e106fe3fa8` /
+  `e651d7449355ec667ff6ddca5d8590fc8ce9a93a27894d0eae2e70ebe99084ed` /
+  `900d897e05a2b61f35c0aff1a0fef9f9ef1d015cfd763ad64319cf1752f35180`,
+  521 entries. This is only the exact validation source: `package_is_pinned`
+  remains false until a separate post-validation candidate boundary. Public
+  push/publication remains unauthorized. Standing approval for incremental private-main merges
   is downstream-specific: it removes only that consumer's human-authorization
   blocker after every technical gate passes and does not alter the generic
   public PR/human-gate policy.

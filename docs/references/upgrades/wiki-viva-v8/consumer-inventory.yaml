@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: unreleased@59be853a
+    current_kit_version: wiki-viva-v8-rc35@52491dfd
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,12 +32,12 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc34_precapture_rejected_rc35_formation_unpinned
+      state: rc34_precapture_rejected_rc35_exact_validation_pending
       drift_total: 0
-      compared_against: unreleased@59be853a
-      worktree: rc35_source_formation_validation_pending
+      compared_against: wiki-viva-v8-rc35@52491dfd
+      worktree: rc35_exact_validation_source_pinned
     upgrade_wave: public_kit
-    status: blocked_on_rc35_pin_and_validation
+    status: blocked_on_rc35_exact_validation
     blocker: >-
       Rc21 through rc33 remain frozen according to their recorded historical
       outcomes. Rc34 source 533d2868 passed complete exact validation at
@@ -46,11 +46,12 @@ consumers:
       preflight depended on C1-provided toolkit commands/equality and admitted
       domain-memory repair inside C3. No productive capture was attempted and
       no visual manifest, certification, capsule, trust or Lane B authority
-      exists. Rc34 is immutable historical_precapture_rejected. Rc35 is only
-      an unpinned source-formation state based at 59be853a with
-      validation_pending status. It requires a separate exact pin and wholly
-      new validation before candidate review or capture. Public push is not
-      authorized; external E5 and a release tag remain separate
+      exists. Rc34 is immutable historical_precapture_rejected. Rc35 is pinned
+      only for validation to exact source 52491dfd; its canonical package/tree
+      are e651d744/900d897e with 521 entries. Status is validation_pending and
+      package_is_pinned is false. It requires one wholly new exact validation
+      before candidate review or capture. Public push is not authorized;
+      external E5 and a release tag remain separate
 
   - id: private-pilot-01
     repository:
@@ -78,11 +79,11 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: v2_adoption_complete_rc35_unpinned_validation_pending
+      state: v2_adoption_complete_rc35_exact_validation_pending
       scope: upgrade_package_portable_import_pinned_git_tree
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: unreleased@59be853a
+      target_version: wiki-viva-v8-rc35@52491dfd
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
       details: >-
@@ -93,9 +94,10 @@ consumers:
         exact validation at metadata subject 2afd435c and became candidate
         59be853a, but read-only downstream QA exposed RT-170 before productive
         capture. No manifest, certification, capsule, trust or Lane B authority
-        exists, so rc34 is historical_precapture_rejected. Rc35 is only an
-        unpinned validation-pending formation state based at 59be853a and is
-        not a downstream target. Standing human authorization for incremental
+        exists, so rc34 is historical_precapture_rejected. Rc35 is exact
+        validation source 52491dfd with canonical package/tree
+        e651d744/900d897e, 521 entries. It remains validation_pending and is not
+        yet a downstream target. Standing human authorization for incremental
         merges to the private pilot's main branch is recorded, but it does not
         waive technical fail-closed gates, privacy/secret audits, real canary,
         rollback or report verification. Consumer AGENTS.md,
@@ -107,10 +109,10 @@ consumers:
     blocker: >-
       The current private v2 evidence remains immutable and cannot be reduced
       by the v3 strategy. Rc34 is historical_precapture_rejected after RT-170
-      was found read-only, before any productive capture. Rc35 is unpinned and
-      validation_pending, so no current subject carries capsule or adoption
-      authority. A separate exact pin, wholly new public validation, candidate
-      review, productive capture, verified certification capsule and fresh
+      was found read-only, before any productive capture. Rc35 exact source
+      52491dfd is validation_pending, so no current subject carries capsule or
+      adoption authority. A wholly new public validation, candidate review,
+      productive capture, verified certification capsule and fresh
       consumer preflight must precede any v3 downstream QA. Incremental
       private-main merge authorization is already recorded; promotion remains
       technically blocked until every applicable audit, semantic, adapter,

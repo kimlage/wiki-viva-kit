@@ -61,9 +61,14 @@ local-QA candidate metadata subject was
 exposed RT-170 before any productive capture or certification attempt. Rc34 is
 immutable `historical_precapture_rejected`; no visual manifest, certification,
 capsule, receipt, trust anchor or Lane B authority exists. The active package
-is `unreleased` / `validation_pending` and uses `59be853af5416ce84c4ca89e7272bb64eb909b2b`
-only as its unpinned formation base until a separate exact rc35 source pin and
-wholly new validation. Public push/publication remains unauthorized. See the
+is now `wiki-viva-v8-rc35` / `validation_pending` at exact source
+`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`, with package-file/canonical/tree
+identities `cb17f00f3d2b50698bbfdbcb698a0c6d5287c47c6ba9709488eb89e106fe3fa8` /
+`e651d7449355ec667ff6ddca5d8590fc8ce9a93a27894d0eae2e70ebe99084ed` /
+`900d897e05a2b61f35c0aff1a0fef9f9ef1d015cfd763ad64319cf1752f35180`,
+521 entries. It is pinned only for a wholly new validation;
+`package_is_pinned=false`, so no candidate, capture, capsule or Lane B
+authority exists. Public push/publication remains unauthorized. See the
 [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority: do not
@@ -367,13 +372,16 @@ prospective import inventory, domain repair could enter C3, and the evidence
 root was not derived from the exact plan-path parent. Rc34 is immutable
 `historical_precapture_rejected`; no productive capture, visual manifest,
 certification, capsule, receipt, trust anchor or Lane B authority exists.
-The successor package is `unreleased` / `validation_pending`, based on
-`59be853af5416ce84c4ca89e7272bb64eb909b2b` only for unpinned formation until
-a separate exact rc35 pin. Its correction makes B0 `diff_check`-only, binds
+The successor package is `wiki-viva-v8-rc35` / `validation_pending`, pinned
+only for validation to exact source
+`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`. Its correction makes B0 `diff_check`-only, binds
 portable drift as prospective C1 inventory, keeps final C3 `toolkit_drift` and
 `semantic_inventory` mandatory, roots ignored evidence at the parent of the
-exact plan path, and requires domain preparation before a new B0. Public push
-remains unauthorized. Standing private-main approval is downstream-only and
+exact plan path, and requires domain preparation before a new B0. Its
+package-file/canonical/tree identities are `cb17f00f...` / `e651d744...` /
+`900d897e...`, 521 entries; `package_is_pinned=false` and a wholly new complete
+validation precedes any candidate boundary. Public push remains unauthorized.
+Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.
 No existing v2 C3 or receipt is amended to reach it.
 

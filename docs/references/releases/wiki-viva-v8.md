@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc35 formation - rc34 rejected before capture"
+title: "Wiki Viva v8 rc35 validation source - rc34 rejected before capture"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc35 formation - rc34 rejected before capture
+# Wiki Viva v8 rc35 validation source - rc34 rejected before capture
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -437,12 +437,18 @@ capsule, receipt, attestation, trust anchor, downstream plan, import or Lane B
 authority exists. Never retry, reuse, relabel, promote, import or mint missing
 authority for rc34.
 
-## Rc35 formation — RT-170 correction, unpinned
+## Rc35 exact validation source — RT-170 correction
 
-The successor is still an unpinned formation subject (`release.id:
-unreleased`). No rc35 source SHA, package digest, portable-tree digest,
-candidate metadata or validation result exists yet. The normative correction
-is:
+`wiki-viva-v8-rc35` is pinned only for validation to exact source
+`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`. Its package-file SHA-256 is
+`cb17f00f3d2b50698bbfdbcb698a0c6d5287c47c6ba9709488eb89e106fe3fa8`,
+canonical package identity is
+`e651d7449355ec667ff6ddca5d8590fc8ce9a93a27894d0eae2e70ebe99084ed`,
+and portable tree is
+`900d897e05a2b61f35c0aff1a0fef9f9ef1d015cfd763ad64319cf1752f35180`
+with 521 entries. Status remains `validation_pending`, so
+`package_is_pinned=false`; no candidate metadata, validation result, capture,
+capsule, receipt or Lane B authority exists. The normative correction is:
 
 - B0 preflight runs only `diff_check`; it cannot depend on a CLI imported by C1;
 - expected pre-C1 portable drift is a prospective, package-bound C1 inventory,
@@ -463,8 +469,8 @@ package and consumer inventory validation passed while
 `package_is_pinned=false`. This is formation evidence only, not the wholly new
 exact rc35 validation, candidate review, productive capture or certification.
 
-The active next action is to finish and review this public-synthetic formation,
-pin a new exact rc35 source and then run its wholly new full validation. No
+The active next action is to run the wholly new full validation exactly once
+against this source/package/tree subject. No
 productive capture or certification may start before a separately reviewed
 candidate boundary. Public push, publication, merge and tag remain
 unauthorized.
@@ -572,8 +578,8 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-The unpinned rc35 successor still requires a new exact source, complete exact
-validation, separate candidate review, new capture and certification,
+The exact rc35 validation source still requires complete exact validation,
+separate candidate review, new capture and certification,
 independent capsule verification, explicit
 authorization, remote public CI,
 human conceptual/privacy/VoiceOver review and merge, followed by a separately

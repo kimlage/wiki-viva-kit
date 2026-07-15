@@ -281,14 +281,18 @@ forbids domain content and hardcoded the evidence root. Rc34 is therefore
 immutable `historical_precapture_rejected`; no visual manifest, capsule,
 attestation, receipt, trust anchor, plan, import or Lane B authority exists.
 
-The successor is an unpinned rc35 formation with no assigned source SHA,
-package digest, portable-tree digest or candidate identity. RT-170 reduces B0
-preflight to `diff_check`, binds prospective portable drift as import
-inventory, keeps final-C3 `toolkit_drift` plus `semantic_inventory` mandatory,
-derives the evidence root from the plan parent and moves domain-content repair
-before a fresh B0. The active next action is to form and pin rc35, then run a
-wholly new complete exact validation. Public push and publication remain
-unauthorized.
+The successor is now the exact `wiki-viva-v8-rc35` validation source
+`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`. Its package-file/canonical/tree
+identities are `cb17f00f3d2b50698bbfdbcb698a0c6d5287c47c6ba9709488eb89e106fe3fa8` /
+`e651d7449355ec667ff6ddca5d8590fc8ce9a93a27894d0eae2e70ebe99084ed` /
+`900d897e05a2b61f35c0aff1a0fef9f9ef1d015cfd763ad64319cf1752f35180`,
+521 entries. RT-170 reduces B0 preflight to `diff_check`, binds prospective
+portable drift as import inventory, keeps final-C3 `toolkit_drift` plus
+`semantic_inventory` mandatory, derives the evidence root from the plan parent
+and moves domain-content repair before a fresh B0. Status remains
+`validation_pending` and `package_is_pinned=false`; no candidate or later
+authority exists. The active next action is one wholly new complete exact
+validation. Public push and publication remain unauthorized.
 
 ### Normative Lane A -> Lane B handoff and fast-path budget
 
@@ -330,7 +334,7 @@ C1 import inventory bound into the plan. C1 must still prove exact bytes and
 Git modes, and final-C3 `toolkit_drift` remains `consumer_always`, blocking and
 never reusable.
 
-The rc35 formation contract therefore makes `diff_check` the only package B0
+The rc35 validation-source contract therefore makes `diff_check` the only package B0
 preflight gate. Final-C3 `semantic_inventory` also remains mandatory,
 blocking and never reusable. If it, input-stage or snapshot validation exposes
 domain-content debt, the runner stops with `consumer_prep_required`: repair and
@@ -810,7 +814,7 @@ memory rather than one fixed dashboard:
 | Historical public rc32 validation failure | Exact source `ed073dee5fbf05343b36db1fdc061a24d0220cb9`; metadata `5848f8f9e5ec059b1c3f880db0d7931a25920af9`; package `wiki-viva-v8-rc32` / `validation_pending`; package-file/canonical-package/tree `f88cb5fc625a28e2aff40518d895aa5668110838b2fd4179e53407f06ba2311d` / `8c07f05a680b1bd47994b3560067c28bcf5416aa2bc3546f1e698466940d2b81` / `7da9d6369550d45f368ee3ddb4f04382949f498fd0c2ff9350389243bd0fb82f`, 521 entries | Formation passed 198 focused checks and one-write operational-pass freshness. First/only full Python validation ended 2 failed, 1,744 passed and 3 skipped in 1,201.51 s; frontend and browser did not start | RT-167: one workflow assertion hardcoded legacy `python` after canonical `python3`. RT-168: release truth omitted the literal package ID | Immutable `historical_validation_failed`; no candidate, capture, capsule, downstream or public-promotion authority. Never retry, relabel, promote or import rc32 |
 | Historical public rc33 validation failure | Exact source `539eb19b958a4159eecb2c5a7afd6ceaabcbb086`; metadata `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`; package `wiki-viva-v8-rc33` / `validation_pending`; package-file/canonical-package/tree `300a78a6c9005059dfe07c6bbe98c268b34739a0aeed8d9f92eadd21dc1b4cb9` / `69dd37f9d6ed94b92751f6a83a4f4d15cbb1efe925d9bac9d286976a008e1a15` / `7964e884e019af57cc8d53322039635e66fb0233f407685fb258f3c24d76c847`, 521 entries | First/only exact stack passed 1,746 Python with 3 skips, 517 frontend, 115 Node and every applicable static gate; browser ended 98/102 with 4 failures, zero retry/skip in 330.49 s. The extra manual adapter command is `inapplicable_gate/orchestration_invalid`, not a selected required gate | RT-169: a root-overview quadrant prefix leaked into focused-lens names/breadcrumb assumptions and mobile pointer geometry | Immutable `historical_validation_failed`; no candidate, productive capture, capsule, attestation, receipt, downstream or promotion authority. Never retry, relabel, promote or import rc33 |
 | Historical public rc34 pre-capture rejection | Exact source `533d286869c478bd157b066d7882388b99fde2f7`; validation subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6`; candidate metadata `59be853af5416ce84c4ca89e7272bb64eb909b2b`; candidate package-file/canonical-package/tree `a62594490177830b24d7a65b70f5acbd7f033235e0a26ed4f6e4b84d4af7cac8` / `b076019c6b890a0a54f2c5b4f6362bbe025f490d53eb588fdbd119bd74e7e5ea` / `59fa6d660f0d0e43b880e34d72fb1b9c00485ec72828051c0d8eeb56a881671c`, 521 entries | First/only exact validation passed 1,746 Python with 3 declared skips in 1,113.61 s, 518 frontend, 115 Node, every applicable static gate and browser run `public-mrlafqnv-689884b2-50ea-4a30-bb21-9eb2c776f861` at 102/102 with 0 failures/skips/retries/flaky results in 6.5m. Read-only downstream QA then found four pre-capture contract defects: C1-only preflight CLIs, expected drift treated as failure, semantic repair admitted inside a domain-free C3 and a hardcoded evidence root | RT-169 remains exact validation evidence. RT-170 rejects the migration boundary before productive capture | Immutable `historical_precapture_rejected`; no productive capture, certification, visual manifest, capsule, attestation, receipt, trust, plan, import or Lane B authority. Never retry, relabel, promote or import rc34 |
-| Unpinned rc35 formation | No source SHA, package digest, portable-tree digest, validation subject or candidate identity has been assigned | Public-synthetic implementation is being formed: B0 preflight `diff_check` only; prospective C1 inventory; mandatory final `toolkit_drift` plus `semantic_inventory`; plan-parent evidence root; domain repair before a new B0 | Standing private merge approval removes only the human-authorization blocker; all technical gates remain fail-closed | Form and pin one exact rc35 source, then run a wholly new complete exact validation. No public push/publication |
+| Exact public rc35 validation source | Source `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`; package `wiki-viva-v8-rc35` / `validation_pending`; package-file/canonical/tree `cb17f00f3d2b50698bbfdbcb698a0c6d5287c47c6ba9709488eb89e106fe3fa8` / `e651d7449355ec667ff6ddca5d8590fc8ce9a93a27894d0eae2e70ebe99084ed` / `900d897e05a2b61f35c0aff1a0fef9f9ef1d015cfd763ad64319cf1752f35180`, 521 entries | B0 preflight `diff_check` only; prospective C1 inventory; mandatory final `toolkit_drift` plus `semantic_inventory`; plan-parent evidence root; domain repair before a new B0. Pre-pin formation review passed 126 upgrade/package, 153 authority and 90 resumable-CLI checks with 3 declared skips; both audits had 0 errors and 6 known freshness warnings | `package_is_pinned=false`; no candidate, capture, capsule or Lane B authority. Standing private merge approval removes only the human blocker | Run one wholly new complete exact validation. No public push/publication |
 | Corrected local public source for the authorized v2 exception | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; package v2 canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc` | Public suite passed 1,529 tests, with two declared skips and two warnings; package validation and public privacy boundary pass | Atomic operator-job publication and the two-lane migration contracts are covered by public synthetic fixtures | Local source authority for the explicitly authorized in-flight v2 QA only; public publication remains unauthorized |
 | Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the frozen current v2 adoption or a future rc35-or-later v3 plan |
 | Current corrected authorized private v2 downstream adoption | Fresh preflight ready with zero blockers; C1 imported 74 byte/mode-equal paths, C2 contains 836 regenerated paths and C3 contains 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Complete original 22-gate matrix passed on first attempt; four real canary profiles, generated private/public-redacted reports and disposable-clone rollback pass; two deterministic hosted jobs pass; the only completed standard Apple Silicon attempt closed 100/102, a later attempt was cancelled during browser installation and a separate standard Intel probe closed 92/102 with software rendering and WebGL context loss | Timeline exposed 906 total events, returned 33 under the exercised filter and opened the selected detail state without sample fallback; private `AGENTS.md`/router work is deliberately deferred to a fresh post-v2 v3 follow-up | Promotion blocked and the aggregate visual check is cancelled/non-green; standing private merge approval is already recorded, but consumer `main` remains unchanged until the exact matrix reaches 102/102 on an authorized capable runner and the merge/readback completes; current v2 C3/receipts remain immutable |
@@ -1414,7 +1418,7 @@ reproduction.
 | RT-167 | P0 | Rc32 correctly standardized the Ubuntu workflow on the versioned `python3` command, but an older page-graph workflow assertion retained two literal `python` spellings. The full suite therefore rejected the correct workflow because the test had become a second, stale command authority | E2 exact rc32 source `ed073dee5fbf05343b36db1fdc061a24d0220cb9`, metadata `5848f8f9e5ec059b1c3f880db0d7931a25920af9`; first/only full Python validation ended 2 failed, 1,744 passed and 3 skipped in 1,201.51 s. Focused reproduction isolates the legacy alias assertion while registry/workflow topology tests remain green | Freeze rc32 as immutable `historical_validation_failed`. Rc33 derives the page-graph command and interpreter alias from `impact-registry.yaml`; never revert the canonical workflow or add another hardcoded alias |
 | RT-168 | P0 | The package/inventory truth contract requires the literal `release.id` in the release note, but rc32 prose used only the shortened “rc32” label. A human-readable abbreviation therefore diverged from the machine release identity | E2 the same rc32 full run failed `test_public_upgrade_package_and_inventory_are_valid`; adding the literal `wiki-viva-v8-rc32` satisfies that assertion and every later source/version/package/inventory assertion without weakening the test | Keep the assertion strict. Historical rc32 truth names the literal ID, and rc33's separate validation pin bound the literal exact `wiki-viva-v8-rc33` identity before its unrelated RT-169 browser failure |
 | RT-169 | P0 | The RT-164 `Q1`–`Q4` disambiguation was encoded inside the generic family-title resolver, so it also prefixed a single family inside a selected quadrant. That changed the focused-lens accessible name and made a compact short-phone label tall enough to overlap the quadrant compass; one desktop breadcrumb assertion also incorrectly treated the root target label as the full hierarchy | E2 exact rc33 source `539eb19b958a4159eecb2c5a7afd6ceaabcbb086`, metadata `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`, package-file/canonical-package/tree `300a78a6...` / `69dd37f9...` / `7964e884...`, 521 entries. Python passed 1,746 with 3 skips in 1,072.23 s; frontend 517, Node 115 and applicable static gates passed. First/only browser ended 98/102, 4 failed, 0 skipped/retried in 330.49 s. The manually appended adapter command is `inapplicable_gate/orchestration_invalid`, not a required-gate failure. E3 exact rc34 source `533d286869c478bd157b066d7882388b99fde2f7` and validation subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6` passed 1,746 Python with 3 skips, 518 frontend, 115 Node, every applicable static gate and first/only browser 102/102 with zero failure/skip/retry/flaky result in 6.5m | Freeze rc33 as immutable `historical_validation_failed`. Rc34 carries the quadrant prefix as explicit root-overview `SceneLabel` context only; default/focused title resolution returns the concise family label, while breadcrumb tests assert facet and family as separate hierarchy elements. RT-169 is closed at exact validation; RT-170 later rejected rc34 before productive capture and does not invalidate this historical UI proof |
-| RT-170 | P0 | Rc34's read-only downstream plan could not honestly start from a legitimate older B0: preflight required toolkit CLIs introduced only by C1, treated expected portable delta as a failed equality gate, allowed reviewable semantic repair even though C3 forbids domain content, and hardcoded a runner evidence root independent of the exact plan path | E1 package/runner review; E2 sanitized read-only downstream QA before any productive capture; E3 public synthetic controls cover legacy-safe preflight, prospective C1 inventory, mandatory final toolkit/semantic gates, custom ignored plan-parent state and `consumer_prep_required` for domain repair. Rc34 source/validation/candidate subjects are `533d2868...` / `2afd435c...` / `59be853a...`; candidate package-file/canonical/tree are `a6259449...` / `b076019c...` / `59fa6d66...`, 521 entries | Freeze rc34 as immutable `historical_precapture_rejected`; no capture, certification or authority exists. In the unpinned rc35 formation, run only `diff_check` at B0, bind prospective portable drift, require final `toolkit_drift` plus `semantic_inventory`, derive all evidence below the plan parent and repair domain debt before a new B0. Standing private merge approval removes only the human blocker. Pin rc35 and run a wholly new complete validation before any candidate/capture; do not push the public repo |
+| RT-170 | P0 | Rc34's read-only downstream plan could not honestly start from a legitimate older B0: preflight required toolkit CLIs introduced only by C1, treated expected portable delta as a failed equality gate, allowed reviewable semantic repair even though C3 forbids domain content, and hardcoded a runner evidence root independent of the exact plan path | E1 package/runner review; E2 sanitized read-only downstream QA before any productive capture; E3 public synthetic controls cover legacy-safe preflight, prospective C1 inventory, mandatory final toolkit/semantic gates, custom ignored plan-parent state and `consumer_prep_required` for domain repair. Rc34 source/validation/candidate subjects are `533d2868...` / `2afd435c...` / `59be853a...`; candidate package-file/canonical/tree are `a6259449...` / `b076019c...` / `59fa6d66...`, 521 entries. Rc35 exact source/package/tree are `52491dfd...` / `e651d744...` / `900d897e...`, 521 entries | Freeze rc34 as immutable `historical_precapture_rejected`; no capture, certification or authority exists. Exact rc35 uses only `diff_check` at B0, binds prospective portable drift, requires final `toolkit_drift` plus `semantic_inventory`, derives all evidence below the plan parent and repairs domain debt before a new B0. Standing private merge approval removes only the human blocker. Run the wholly new complete rc35 validation before any candidate/capture; do not push the public repo |
 
 ### Historical exact-public-subject closure overlay
 
@@ -3542,12 +3546,14 @@ Decisions made by this review:
     the future v3 no-core-change path contractually reach current-C3 canary in
     <= 20 minutes from the start of `plan`, with continuous cross-resume timing,
     then complete generated reports and verified rollback before promotion.
-30. Freeze rc34 as `historical_precapture_rejected` after RT-170 and form an
-    unpinned rc35 successor: B0 preflight is `diff_check` only; prospective
+30. Freeze rc34 as `historical_precapture_rejected` after RT-170 and pin exact
+    rc35 validation source `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`:
+    B0 preflight is `diff_check` only; prospective
     portable drift becomes plan inventory; final `toolkit_drift` and
     `semantic_inventory` stay mandatory; the plan parent owns evidence; domain
-    debt is repaired before a new B0. Standing private merge approval removes
-    only the human blocker, never the technical gates.
+    debt is repaired before a new B0. Run one wholly new complete validation
+    before any candidate boundary. Standing private merge approval removes only
+    the human blocker, never the technical gates.
 
 Open implementation decisions, to resolve in their owning PR:
 
@@ -4688,7 +4694,7 @@ is the public-redacted checkpoint below.
 | RT-48 | exact S22 Node 22/socket contracts pass; private replay pending | live current-operator restart/security proof and downstream documentation replay |
 | RT-125 / RT-146 / RT-147 | exact S22 focused/full controls, canonical package, pinned Git tree and inert release record pass; private drift pending | after merge, obtain corrected private drift zero and redacted evidence |
 | RT-148 / RT-149 | exact S22 full receipt, seven-step browser contract and visual manifest pass | final private replay without tour/modal stacking after merge |
-| RT-150 / RT-162 / RT-163 / RT-164 / RT-165 / RT-166 / RT-167 / RT-168 / RT-169 / RT-170 | Rc26 became `candidate` only after exact validation, then passed productive capture and all six registered commands; the public-evidence scanner still rejected the transaction before attestation. Rc27 stopped in Python with 46 lifecycle failures; rc28/rc29 were rejected for stale portable truth; rc30 real-data QA exposed identical labels; rc31 failed non-fixed-point operational-pass freshness; rc32 failed two source-contract checks. Rc33 closed RT-167/RT-168 and passed Python, frontend, Node and static gates, but its first/only browser matrix stopped at 98/102. Rc34 closed RT-169 and passed complete exact validation at `2afd435c7cc955ae7a922b1d46eac355472ca0e6`, including 102/102 first/only browser cells; RT-170 then rejected its candidate boundary before productive capture because legacy B0 could not honestly preflight and C3 could absorb domain repair | Preserve rc26 as immutable failed-certification evidence, rc27/rc31/rc32/rc33 as immutable failed-validation evidence, rc28/rc29/rc30 as immutable pre-validation rejections and rc34 as immutable `historical_precapture_rejected`. Form/pin rc35 with `diff_check`-only B0 preflight, prospective import inventory, mandatory final toolkit/semantic gates, plan-parent evidence and domain repair before a new B0; run a new complete validation. Public push/publication remains unauthorized |
+| RT-150 / RT-162 / RT-163 / RT-164 / RT-165 / RT-166 / RT-167 / RT-168 / RT-169 / RT-170 | Rc26 became `candidate` only after exact validation, then passed productive capture and all six registered commands; the public-evidence scanner still rejected the transaction before attestation. Rc27 stopped in Python with 46 lifecycle failures; rc28/rc29 were rejected for stale portable truth; rc30 real-data QA exposed identical labels; rc31 failed non-fixed-point operational-pass freshness; rc32 failed two source-contract checks. Rc33 closed RT-167/RT-168 and passed Python, frontend, Node and static gates, but its first/only browser matrix stopped at 98/102. Rc34 closed RT-169 and passed complete exact validation at `2afd435c7cc955ae7a922b1d46eac355472ca0e6`, including 102/102 first/only browser cells; RT-170 then rejected its candidate boundary before productive capture because legacy B0 could not honestly preflight and C3 could absorb domain repair | Preserve rc26 as immutable failed-certification evidence, rc27/rc31/rc32/rc33 as immutable failed-validation evidence, rc28/rc29/rc30 as immutable pre-validation rejections and rc34 as immutable `historical_precapture_rejected`. Use exact rc35 source `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0` with `diff_check`-only B0 preflight, prospective import inventory, mandatory final toolkit/semantic gates, plan-parent evidence and domain repair before a new B0; run its wholly new complete validation. Public push/publication remains unauthorized |
 | RT-12 / RT-37 / RT-59 / RT-85 / RT-91 / RT-119 | complete official S22 receipt is bound; human/private/E5 remain | complete human review, final private adoption and E5 instead of reusing an earlier subject |
 
 ### Two-lane migration decision and current downstream QA — 2026-07-13 (public-redacted)
@@ -4940,9 +4946,12 @@ browser matrix ended 98/102. Exact rc34 source
 successor, but RT-170 rejected its candidate metadata subject
 `59be853af5416ce84c4ca89e7272bb64eb909b2b` before any productive capture or
 certification. Rc34 is immutable `historical_precapture_rejected`. The active
-successor is an unpinned rc35 formation with no source or digest identity yet;
-form and pin it before a wholly new complete validation. Public push and
-publication remain unauthorized.
+successor is exact rc35 validation source
+`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`, with package-file/canonical/tree
+`cb17f00f...` / `e651d744...` / `900d897e...`, 521 entries. It remains
+`validation_pending` with `package_is_pinned=false`; run its wholly new
+complete validation before any candidate boundary. Public push and publication
+remain unauthorized.
 
 #### Post-rc21 downstream rehearsal: RT-152 and the rc22 correction boundary — 2026-07-14
 
@@ -5043,12 +5052,12 @@ collision. Rc34 source `533d286869c478bd157b066d7882388b99fde2f7`
 passed complete exact validation at metadata subject
 `2afd435c7cc955ae7a922b1d46eac355472ca0e6`, but RT-170 rejected candidate
 metadata `59be853af5416ce84c4ca89e7272bb64eb909b2b` before productive capture.
-Complete validation and every later authority stage must now start from a
-separately formed and pinned rc35-or-later source. Rc35 remains unpinned; no
-source or digest identity is assigned. Public push and publication remain
-unauthorized.
+Complete validation and every later authority stage must now start from exact
+rc35 source `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`, whose canonical package/tree
+are `e651d744...` / `900d897e...`, 521 entries. It is validation-pending, not a
+candidate or authority. Public push and publication remain unauthorized.
 
-#### Rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed validation, rc24/rc26 failed certification, rc28/rc29/rc30 rejected, rc34 rejected before capture and rc35 unpinned — 2026-07-14
+#### Rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed validation, rc24/rc26 failed certification, rc28/rc29/rc30 rejected, rc34 rejected before capture and rc35 pinned for validation — 2026-07-14
 
 | Evidence | Exact local result | Authority boundary |
 |---|---|---|
@@ -5077,7 +5086,7 @@ unauthorized.
 | Rc32 historical validation failure | Source `ed073dee5fbf05343b36db1fdc061a24d0220cb9`; metadata `5848f8f9e5ec059b1c3f880db0d7931a25920af9`; package `wiki-viva-v8-rc32` / `validation_pending`; package-file/canonical-package/tree `f88cb5fc625a28e2aff40518d895aa5668110838b2fd4179e53407f06ba2311d` / `8c07f05a680b1bd47994b3560067c28bcf5416aa2bc3546f1e698466940d2b81` / `7da9d6369550d45f368ee3ddb4f04382949f498fd0c2ff9350389243bd0fb82f`, 521 entries | Formation passed 198 focused checks and one-write operational freshness. First/only full Python run ended 2 failed, 1,744 passed, 3 skipped in 1,201.51 s: stale `python` workflow assertion plus missing literal release ID. Frontend and browser were not started | RT-167/RT-168; immutable `historical_validation_failed`. Never retry, relabel, promote or import; no candidate, capture, capsule or Lane B authority |
 | Rc33 historical validation failure | Source `539eb19b958a4159eecb2c5a7afd6ceaabcbb086`; validation metadata `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`; package `wiki-viva-v8-rc33` / `validation_pending`; package-file/canonical-package/tree `300a78a6c9005059dfe07c6bbe98c268b34739a0aeed8d9f92eadd21dc1b4cb9` / `69dd37f9d6ed94b92751f6a83a4f4d15cbb1efe925d9bac9d286976a008e1a15` / `7964e884e019af57cc8d53322039635e66fb0233f407685fb258f3c24d76c847`, 521 entries | First/only exact validation passed 1,746 Python with 3 declared skips in 1,072.23 s, 517 frontend, 115 Node and the complete applicable static stack. The first/only browser matrix ended 98/102 with 4 failures, zero retries and zero skips in 330.49 s: three focused-lens accessible-name/breadcrumb-scope failures and one short-phone pointer collision. A manually appended `wiki_adapter_manifest.py check` was not selected by Lane A; its exit 2 is `inapplicable_gate/orchestration_invalid`, not a required-gate or rc33 source failure, and mints no receipt | RT-169; immutable `historical_validation_failed`. `package_is_pinned` remains false; no candidate, productive capture, capsule, attestation, receipt, import, Lane B or public-promotion authority exists; never retry, reuse, relabel, promote or import |
 | Rc34 historical pre-capture rejection | Source `533d286869c478bd157b066d7882388b99fde2f7`; validation metadata `2afd435c7cc955ae7a922b1d46eac355472ca0e6`; candidate metadata `59be853af5416ce84c4ca89e7272bb64eb909b2b`; candidate package-file/canonical-package/tree `a62594490177830b24d7a65b70f5acbd7f033235e0a26ed4f6e4b84d4af7cac8` / `b076019c6b890a0a54f2c5b4f6362bbe025f490d53eb588fdbd119bd74e7e5ea` / `59fa6d660f0d0e43b880e34d72fb1b9c00485ec72828051c0d8eeb56a881671c`, 521 entries | RT-169 correction and first/only complete validation passed 1,746 Python with 3 skips, 518 frontend, 115 Node, all applicable static gates and browser 102/102 with zero failure/skip/retry/flaky result. RT-170 read-only downstream QA then exposed C1-only B0 commands, expected drift treated as failure, domain repair admitted to C3 and a hardcoded evidence root before capture | Immutable `historical_precapture_rejected`. No productive capture or certification was attempted; no visual manifest, capsule, receipt, attestation, trust anchor, plan, import or Lane B authority exists. Never retry, relabel, promote or import |
-| Rc35 formation | Unpinned; no source SHA, package/canonical/tree digest, validation metadata or candidate identity assigned | `diff_check`-only B0 preflight; prospective C1 inventory; mandatory final `toolkit_drift` and `semantic_inventory`; plan-parent evidence root; domain preparation before a new B0. Pre-pin formation review passed 126 upgrade/package, 153 authority and 90 resumable-CLI checks with 3 declared skips; both audits had 0 errors and 6 known freshness warnings | Formation evidence is not release validation or authority. Form and pin one exact source, then run a wholly new complete validation. Public push/publication remains unauthorized |
+| Rc35 exact validation source | Source `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`; package `wiki-viva-v8-rc35` / `validation_pending`; package-file/canonical/tree `cb17f00f3d2b50698bbfdbcb698a0c6d5287c47c6ba9709488eb89e106fe3fa8` / `e651d7449355ec667ff6ddca5d8590fc8ce9a93a27894d0eae2e70ebe99084ed` / `900d897e05a2b61f35c0aff1a0fef9f9ef1d015cfd763ad64319cf1752f35180`, 521 entries | `diff_check`-only B0 preflight; prospective C1 inventory; mandatory final `toolkit_drift` and `semantic_inventory`; plan-parent evidence root; domain preparation before a new B0. Pre-pin formation review passed 126 upgrade/package, 153 authority and 90 resumable-CLI checks with 3 declared skips; both audits had 0 errors and 6 known freshness warnings | Formation evidence is not release validation or authority. `package_is_pinned=false`; run one wholly new complete validation. Public push/publication remains unauthorized |
 
 Rc27, rc31, rc32 and rc33 are frozen as historical failed-validation evidence,
 rc28/rc29 are frozen as pre-validation rejections, and rc30 is frozen as a
@@ -5089,9 +5098,10 @@ validation at metadata subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6`,
 then candidate metadata `59be853af5416ce84c4ca89e7272bb64eb909b2b`
 was rejected before capture by RT-170. Rc34 is immutable
 `historical_precapture_rejected`; no capture, certification or authority
-exists. Rc35 remains unpinned. The active next action is to finish its
-public-synthetic formation, pin one exact source and run a wholly new complete
-validation before any candidate boundary. The
+exists. Rc35 is pinned only for validation to exact source
+`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`; no validation result or candidate
+exists. The active next action is one wholly new complete validation before any
+candidate boundary. The
 already sealed v2 downstream C3 and all of its
 receipts remain frozen on their original complete
 `migration.required_gates` matrix. RT-152 does not append paths to that subject,
@@ -5350,10 +5360,12 @@ certification; preserve rc34 only as immutable `historical_precapture_rejected`
 evidence and never retry, relabel, promote or import it. No visual manifest,
 capsule, receipt, attestation, trust anchor, plan or Lane B authority exists.
 
-Finish the unpinned rc35 public-synthetic formation, assign one exact source
-only after review, then run its wholly new complete exact validation. Do not
-invent or predeclare an rc35 source SHA, package digest, tree digest or
-candidate identity. Only a later separately reviewed candidate may attempt a
+Run the wholly new complete exact validation once against rc35 source
+`52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`, canonical package
+`e651d7449355ec667ff6ddca5d8590fc8ce9a93a27894d0eae2e70ebe99084ed` and tree
+`900d897e05a2b61f35c0aff1a0fef9f9ef1d015cfd763ad64319cf1752f35180`.
+Do not invent or predeclare a validation result or candidate identity. Only a
+later separately reviewed candidate may attempt a
 new productive capture and certification. The corrected v2 chain,
 complete original matrix,
 current-subject canary, generated reports and disposable rollback are closed;
@@ -5368,7 +5380,8 @@ two-lane core and synthetic fixtures local; do not publish them until a separate
 explicit authorization. Use the v3 capsule/impact/resume model only for a new
 migration plan, never to relabel the current receipts. The private v2 C3,
 complete blocking gate matrix and receipts remain frozen and intact throughout
-rc35 formation. No public push is authorized by this plan update.
+rc35 validation and any later adoption. No public push is authorized by this
+plan update.
 
 The project has crossed an important threshold: it already proves that a
 Markdown/Git wiki can become a navigable living operational world. The next
