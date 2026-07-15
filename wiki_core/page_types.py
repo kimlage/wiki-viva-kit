@@ -618,6 +618,23 @@ def validate_shape(
     for field in shape.get("required_frontmatter") or []:
         if field not in values or values[field] in ("", [], None):
             errors.append(f"{rel}: missing required shape field `{field}`")
+    for alternatives in shape.get("required_frontmatter_any_of") or []:
+        if (
+            not isinstance(alternatives, list)
+            or len(alternatives) < 2
+            or len(alternatives) != len(set(alternatives))
+            or any(not isinstance(field, str) or not field for field in alternatives)
+        ):
+            errors.append(f"{rel}: invalid required frontmatter alternative contract")
+            continue
+        if not any(
+            field in values and values[field] not in ("", [], None)
+            for field in alternatives
+        ):
+            errors.append(
+                f"{rel}: missing required shape alternative "
+                f"`{' | '.join(alternatives)}`"
+            )
     for field in shape.get("declared_frontmatter") or []:
         if field not in values:
             errors.append(f"{rel}: missing declared pack field `{field}`")

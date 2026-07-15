@@ -19,6 +19,12 @@ release** from work that proves the **consumer delta**. A consumer must not pay
 the full release-certification cost again when the imported bytes, public
 release receipt and toolchain identity are unchanged.
 
+Here, portable describes the tracked source and its Node workspace policy, not
+an installed host dependency tree. Platform, resolved Node/npm and
+`node_modules` belong to one path-free external Lane A authority. A capsule is
+reusable only on the exact authority/toolchain it sealed; another platform or
+toolchain certifies a different Lane A capsule for the same portable source.
+
 The detailed v8 commands, three reviewable Git boundaries, evidence schema and
 rollback procedure remain in the
 [downstream upgrade runbook](wiki-viva-v8-downstream-upgrade.md). This document
@@ -88,7 +94,13 @@ budget, not permission to hide failures or fabricate evidence.
    adapters belong to the migration PR. New meetings, finance records, company
    notes or other domain material use a later content PR.
 9. **Human review remains the promotion gate.** Automation proves integrity;
-   it does not authorize publication, merge or irreversible operations.
+   it does not authorize publication, merge or irreversible operations. A
+   standing consumer-specific approval may satisfy that consumer gate after all
+   technical gates pass; it grants no public publication authority.
+10. **Portable Node policy and execution authority are separate.** The tracked
+    policy binds package/lock, package manager, allowed invocations and install
+    behavior. Lane A alone captures the external source/platform/Node/npm/tree
+    authority outside Git. Lane B consumes it; it never creates a replacement.
 
 ## Lane A — upstream release certification
 
@@ -120,14 +132,20 @@ Lane A emits an immutable release capsule:
 | `package_sha256` | Canonical digest of the package that declares import and gate policy. |
 | `portable_tree_sha256` | Digest of the allowlisted, blocklist-filtered Git tree. |
 | `command_registry` + `command_registry_sha256` | Sorted gate ID/class/command registry plus its canonical digest. |
-| `toolchain` + `toolchain_sha256` | Exact resolved Python distributions, Node, Playwright package plus launched Chromium engine, and runner identities with their canonical digest. The runner version embeds the byte/mode digest of `scripts/wiki_upgrade.py`, `scripts/_common.py`, `scripts/_git_subject.py`, `scripts/wiki_toolchain_probe.py`, `wiki_core/**/*.py` and the runtime JSON schemas. |
+| `toolchain` + `toolchain_sha256` | `toolchain_probe_entry_count=5` with canonical identities `browser`, `node`, `npm`, `python`, `runner`: launched Playwright Chromium, resolved Node runtime, resolved npm package tree, Python distributions and the runner closure. The runner version embeds the byte/mode digest of `scripts/wiki_upgrade.py`, `scripts/_common.py`, `scripts/_git_subject.py`, `scripts/wiki_toolchain_probe.py`, `scripts/wiki_node_workspace.py`, `wiki_core/**/*.py` and the runtime JSON schemas. |
+| `node_workspace_authority` + `node_workspace_authority_sha256` | Path-free `wiki_viva_node_workspace_authority.v1` captured by Lane A after a forced clean install. It binds the tracked policy digest, exact source, platform, resolved Node/npm and complete materialized dependency-tree summary. |
 | `gate_receipt_sha256` | Hash of executed commands, exit codes and output hashes. |
 | `visual_manifest_sha256` | Hash of package-owned screenshots and comparison metadata. |
 | `capsule_sha256` | Canonical digest of the complete unsigned capsule. |
 | `status` | `certified`; pending, historical or locally invented labels are not adoption authority. |
 
-The capsule contract is
-[`wiki-upgrade-release-capsule-v1.schema.json`](../schemas/wiki-upgrade-release-capsule-v1.schema.json).
+The active capsule contract is
+[`wiki-upgrade-release-capsule-v2.schema.json`](../schemas/wiki-upgrade-release-capsule-v2.schema.json).
+[`wiki-upgrade-release-capsule-v1.schema.json`](../schemas/wiki-upgrade-release-capsule-v1.schema.json)
+remains a verification-only historical contract; its four-tool payload is never
+rewritten or relabeled as v2.
+The v2 attestation repeats the exact `node_workspace_authority` and
+`node_workspace_authority_sha256` pair; capsule/attestation v1 carry neither.
 `wiki_core.upgrade_lanes.verify_release_capsule` verifies schema closure,
 canonical hashes, public-safety, command provenance and one executed passing
 result for every `upstream_certified` command. It fails closed; sealing a
@@ -142,8 +160,16 @@ runner-produced and covered by negative fixtures, a locally sealed capsule is
 a contract test artifact, not reusable release evidence.
 
 Any change to the subject, package digest, portable tree, command registry,
-schema or declared toolchain invalidates the capsule and requires a new Lane A
-run.
+schema, declared toolchain, Node workspace policy or external authority
+invalidates the capsule and requires a new Lane A run.
+
+The tracked `apps/wiki-cockpit/node-workspace.lock.json` uses
+`wiki_viva_node_workspace_policy.v2` and contains only portable policy. Lane A
+runs `wiki_node_workspace.py capture-authority` from the exact clean source and
+writes its result outside that repository. `check`, `materialize` and `run`
+require that authority and a separately trusted digest. Clean C1 may begin
+without `node_modules`, but it must reproduce the sealed dependency tree before
+any release-bearing Node command. Raw `npm` is not a release gate or generator.
 
 ### Lane A -> Lane B handoff authority
 
@@ -161,7 +187,8 @@ Before planning any consumer mutation, Lane B must:
    SHA-256 and the independently supplied attestation digest;
 2. verify the raw archive before extraction, execute the restored byte-equal
    runner, then recompute the capsule, package, portable tree, registry,
-   command, toolchain, visual and receipt digests fail-closed;
+   command, toolchain, Node workspace authority, visual and receipt digests
+   fail-closed;
 3. freeze `consumer_B0` and compile the read-only conceptual C1/C2/C3 delta;
 4. emit a handoff receipt that binds the verified Lane A authority to that B0,
    the exact selected/omitted gates and the plan digest; and
@@ -181,7 +208,8 @@ owns only consumer-specific proof:
 
 1. freeze the baseline and compile the read-only preflight;
 2. import portable bytes exactly from the capsule subject;
-3. regenerate consumer artifacts;
+3. materialize the Node workspace from the sealed external authority, then
+   regenerate consumer artifacts;
 4. apply consumer-owned configuration, adapters and release record;
 5. compute the exact B0 -> C3 path and semantic delta;
 6. select gates from the matrix below;
@@ -289,7 +317,7 @@ receipt may be validated:
 | `consumer_B0` | Frozen consumer baseline before C1. |
 | `consumer_C3` | Final consumer adaptation subject on which gates ran. |
 | `command_registry_sha256` | Exact command IDs/classes/bodies used by both lanes. |
-| `toolchain_sha256` | Exact resolved Python distributions, Node version, Playwright package plus launched Chromium engine, and byte/mode runner closure. |
+| `toolchain_sha256` | Exact resolved Python distributions, Node runtime, npm package tree, Playwright plus launched Chromium engine, byte/mode runner closure and the capsule-v2 Node workspace authority. The authority's own digest is independently checked before clean-C1 materialization without becoming an eighth receipt-reuse term. |
 
 The first, second, third, sixth and seventh terms must also equal the verified
 Lane A capsule. `consumer_B0` and `consumer_C3` belong only to Lane B. A change
@@ -413,35 +441,60 @@ links belong only to explicit compatibility coverage and must prove
 release evidence.
 
 ```sh
+LANE_ROOT=/path/to/new-immutable-lane-root
+python3 /path/to/clean-public-subject/scripts/wiki_node_workspace.py \
+  --root /path/to/clean-public-subject snapshot --check
+python3 /path/to/clean-public-subject/scripts/wiki_node_workspace.py \
+  --root /path/to/clean-public-subject \
+  capture-authority \
+  --out "$LANE_ROOT/node-authority/node-workspace-authority.json" \
+  --source-sha <exact-source-sha> \
+  > /path/to/out-of-band/node-workspace-capture-receipt.json
+
+# Read authority_sha256 from the capture receipt, retain it out of band and
+# bind every release-bearing Node invocation to the exact source/authority.
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY="$LANE_ROOT/node-authority/node-workspace-authority.json"
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256="<authority_sha256-from-capture-receipt>"
+export WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA="<exact-source-sha>"
+
 python3 /path/to/clean-public-subject/scripts/wiki_visual_evidence.py capture \
   --package /path/to/upgrade-package.yaml \
   --source-root /path/to/clean-public-subject \
   --source-sha <exact-source-sha> \
-  --out-dir /path/to/verified-visual-authority
+  --out-dir "$LANE_ROOT/visual-capture"
 
 python3 /path/to/clean-public-subject/scripts/wiki_visual_evidence.py verify \
   --package /path/to/upgrade-package.yaml \
   --source-root /path/to/clean-public-subject \
   --source-sha <exact-source-sha> \
-  --visual-root /path/to/verified-visual-authority
+  --visual-root "$LANE_ROOT/visual-capture"
 
 python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py certify \
   --package /path/to/upgrade-package.yaml \
   --impact-registry /path/to/impact-registry.yaml \
   --source-root /path/to/clean-public-subject \
-  --visual-root /path/to/verified-visual-authority \
+  --visual-root "$LANE_ROOT/visual-capture" \
   --visual-manifest-ref visual-manifest.json \
-  --out-dir /path/to/new-immutable-release-authority \
-  --attestation-authority-id <reviewed-authority-id>
+  --out-dir "$LANE_ROOT/certification" \
+  --attestation-authority-id <reviewed-authority-id> \
+  --node-workspace-authority "$WIKI_VIVA_NODE_WORKSPACE_AUTHORITY" \
+  --trusted-node-workspace-authority-sha256 "$WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256"
 
 python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py verify-capsule \
   --package /path/to/upgrade-package.yaml \
-  --capsule /path/to/new-immutable-release-authority/release-capsule.json \
+  --capsule "$LANE_ROOT/certification/release-capsule.json" \
   --impact-registry /path/to/impact-registry.yaml \
-  --authority /path/to/new-immutable-release-authority/release-authority.json \
+  --authority "$LANE_ROOT/certification/release-authority.json" \
   --trusted-attestation-sha256 <out-of-band-sha256> \
   --kit-root /path/to/clean-public-subject
 ```
+
+The `authority_sha256` emitted in the `capture-authority` receipt is carried out
+of band and supplied to certification. It is the trusted digest of the
+authority file, not a digest recovered from that same file during
+certification. Every wrapper command in Lane A consumes that same file/digest.
+Lane B receives the resulting authority through capsule v2 and must never
+execute `capture-authority`.
 
 Every successful upstream command log is itself public evidence. The package's
 quiet Pytest and TAP Vitest reporters are part of the sealed command registry;
@@ -452,6 +505,10 @@ must inject or register an interpreter-stable alias instead of depending on the
 operator's ambient PATH. If the command resolves to a different Python, or its
 resolved dependencies differ, certification fails closed and no successful
 results from the same attempt can be promoted into a capsule.
+The same rule applies to Node: every release-bearing build, test, browser or C2
+generator runs through `wiki_node_workspace.py`, which consumes the sealed
+external authority. An ambient `npm --prefix ...` command is an interactive or
+historical surface, never current release evidence.
 
 The downstream operator uses the independently verified out-of-band attestation
 digest emitted by that run. The operator-facing Lane B workflow is:
@@ -467,7 +524,7 @@ python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py p
   --consumer-root /path/to/consumer \
   --consumer-b0 <B0> \
   --c2-generator-command 'demo_snapshot::python3 scripts/wiki_build_demo.py' \
-  --c2-generator-command 'visual_baselines::npm --prefix apps/wiki-cockpit run test:visual:update' \
+  --c2-generator-command 'visual_baselines::python3 scripts/wiki_node_workspace.py run test:visual:update' \
   --c3-adapter-command 'consumer-adapter::/path/to/reviewed-consumer-adapter.sh' \
   --out /path/to/consumer/output/wiki-upgrade/plan.json
 
@@ -525,6 +582,10 @@ The runner contract is:
 - verify the active runner closure byte-for-byte against the capsule toolchain,
   using the exact interpreter executing the runner rather than a different PATH
   alias, before package validation, preflight, C1 or resume;
+- verify the tracked Node policy and capsule-embedded external authority against
+  the trusted authority digest, source, platform and resolved Node/npm before
+  any Node command; materialize a missing clean-C1 dependency tree through that
+  authority and never capture a new authority in Lane B;
 - bind the reviewed preflight produced before C1, then emit the exact
   post-chain conceptual plan before gates/canary execution;
 - after explicit plan review, create C1 from the capsule's byte-exact portable
@@ -706,6 +767,9 @@ Public synthetic fixtures must prove that the system rejects:
 
 - a capsule/receipt with divergent source, package, portable-tree, command or
   toolchain digest;
+- a missing, locally recaptured, host-path-bearing or tampered Node workspace
+  authority; policy/source/platform/Node/npm/dependency-tree disagreement; or a
+  clean C1 that cannot materialize the sealed tree;
 - an unknown path or contract that attempts to retain the fast lane;
 - results captured before the final C3 changed;
 - an omitted gate without exact capsule proof or impact derivation;
@@ -732,11 +796,15 @@ The public synthetic workflow separates four responsibilities:
 4. **background certification** — depend on canary and resume that same
    consumer/run handoff for broader consumer suites, rollback and final reports.
 
-Every job that verifies the browser toolchain installs the exact Playwright
-package and Chromium engine before launching the probe. Pull-request filters
-cover the complete portable authority and runner closure — including bootstrap
-helpers, probe, requirements, all `wiki_core`, runtime schemas and runner CLI
-tests — so a dependency-only change cannot bypass this workflow.
+Lane A captures the Node workspace authority once, outside the Git subject, and
+propagates its separately trusted digest with the immutable release handoff.
+Fast adoption, canary and background jobs restore and verify that same authority
+before materialization; none runs `capture-authority`. Every job that verifies
+the browser toolchain installs the exact Playwright package and Chromium engine
+before launching the probe. Pull-request filters cover the complete portable
+policy, authority handling and runner closure — including bootstrap helpers,
+probe, requirements, all `wiki_core`, runtime schemas and runner CLI tests — so
+a dependency-only change cannot bypass this workflow.
 
 Background completion policy remains explicit in `gate_policies`; moving work
 to a separate job does not make a `required_for_promotion` failure optional.

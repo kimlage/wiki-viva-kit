@@ -86,8 +86,56 @@ def test_required_browser_release_uses_explicit_trusted_runner_authority() -> No
         for step in job["steps"]
         if isinstance(step, dict) and isinstance(step.get("run"), str)
     ]
-    assert "npm run test:e2e:release" in commands
+    assert "python3 scripts/wiki_node_workspace.py run test:e2e:release" in commands
+    assert any("python3 -m playwright install chromium webkit firefox" in item for item in commands)
+    assert all("npx playwright" not in item for item in commands)
     upload = next(
         step for step in job["steps"] if step.get("uses") == "actions/upload-artifact@v7"
     )
     assert upload["with"]["if-no-files-found"] == "error"
+
+
+def test_release_bearing_node_jobs_use_one_exact_job_local_authority() -> None:
+    raw = WORKFLOW.read_text(encoding="utf-8")
+    workflow = yaml.safe_load(raw)
+    jobs = workflow["jobs"]
+
+    assert "npm --prefix" not in raw
+    assert "npm ci" not in raw
+    assert "npx " not in raw
+    for job_id in ("audit-and-test", "cockpit-v8", "cockpit-visual"):
+        job = jobs[job_id]
+        setup = next(
+            step
+            for step in job["steps"]
+            if step.get("uses") == "actions/setup-node@v5"
+        )
+        assert setup["with"]["node-version"] == "22.22.3"
+        commands = "\n".join(
+            step.get("run", "")
+            for step in job["steps"]
+            if isinstance(step, dict)
+        )
+        assert commands.count("capture-authority") == 1
+        assert "npm install --global npm@10.9.8" in commands
+        assert 'test "$(node --version)" = "v22.22.3"' in commands
+        assert 'test "$(npm --version)" = "10.9.8"' in commands
+        assert "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY=" in commands
+        assert "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256=" in commands
+        assert "WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA=" in commands
+
+    cockpit_commands = "\n".join(
+        step.get("run", "")
+        for step in jobs["cockpit-v8"]["steps"]
+        if isinstance(step, dict)
+    )
+    for script in (
+        "test",
+        "test:gates",
+        "check:release-matrix",
+        "check:architecture",
+        "check:assets",
+        "build",
+        "check:bundle",
+    ):
+        assert f"scripts/wiki_node_workspace.py run {script}" in cockpit_commands

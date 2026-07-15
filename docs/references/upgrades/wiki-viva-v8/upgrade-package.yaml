@@ -1,12 +1,28 @@
 schema_version: wiki_viva_upgrade_package.v3
 
 release:
-  id: wiki-viva-v8-rc37
-  status: candidate
-  source_sha: d87af15b4aa850d1a50dc867f74e07ba09d0e89f
+  id: unreleased
+  status: validation_pending
+  source_sha: eb84b39a2c82133500123a681e8d4dc7bd0136e6
   plan: docs/references/proposals/wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md
 
 historical_release_candidates:
+  - id: wiki-viva-v8-rc37
+    source_sha: d87af15b4aa850d1a50dc867f74e07ba09d0e89f
+    status: historical_certified_downstream_blocked
+    note: >-
+      Rc37 passed its first and only exact validation 23/23 at metadata
+      subject 775fe5bc9437da5ec9311704731f4342d515fc16, its first productive
+      four-profile capture and Lane A 11/11. Capsule, certification receipt
+      and execution attestation f5ae8e04 / 90cd0c27 / c7a1a4fe plus their
+      positive and negative verifier evidence remain immutable and valid for
+      that exact subject. RT-173 was then discovered in the first disposable
+      clean C1: the portable projection correctly excluded node_modules but
+      the capsule carried no sealed dependency-materialization authority, so
+      the first Node generator could not resolve TypeScript until an ambient
+      manual npm ci. Rc37 is verified historical evidence, not executable Lane
+      B or promotion authority. It must never be amended, retried, relabeled or
+      used to authorize a downstream adoption
   - id: wiki-viva-v8-rc36
     source_sha: 8f96e1fd58258df64174229d81ee6a330ba9d2b1
     status: historical_certification_failed
@@ -397,6 +413,9 @@ portable_import:
     - wiki.page-types.yaml
     - wiki.templates.yaml
     - apps/wiki-cockpit/public/wiki-cockpit.config.json
+    # Dependencies are materialized only from the separately sealed Lane A
+    # authority. They are never portable C1 Git bytes.
+    - apps/wiki-cockpit/node_modules/**
     # C2 is generated from the certified subject, never imported byte-equal as
     # C1. These exact ownership globs must stay blocked even though broader
     # portable allow rules contain them.
@@ -484,24 +503,24 @@ migration:
   # v2 while binding the same IDs/classes/commands into one canonical digest.
   gate_commands:
     adapter_identity: python3 scripts/wiki_adapter_manifest.py check
-    architecture: npm --prefix apps/wiki-cockpit run check:architecture
-    assets: npm --prefix apps/wiki-cockpit run check:assets
+    architecture: python3 scripts/wiki_node_workspace.py run check:architecture
+    assets: python3 scripts/wiki_node_workspace.py run check:assets
     audit: python3 scripts/wiki_audit.py --check
-    browser_synthetic_release: npm --prefix apps/wiki-cockpit run test:e2e:release
-    build: npm --prefix apps/wiki-cockpit run build
-    bundle: npm --prefix apps/wiki-cockpit run check:bundle
+    browser_synthetic_release: python3 scripts/wiki_node_workspace.py run test:e2e:release
+    build: python3 scripts/wiki_node_workspace.py run build
+    bundle: python3 scripts/wiki_node_workspace.py run check:bundle
     consolidate: python3 scripts/wiki_consolidate.py --check
-    consumer_browser_matrix: npm --prefix apps/wiki-cockpit run test:e2e:operator
+    consumer_browser_matrix: python3 scripts/wiki_node_workspace.py run test:e2e:operator
     demo_drift: python3 scripts/wiki_build_demo.py --check
     diff_check: git diff --check
-    frontend: npm --prefix apps/wiki-cockpit test -- --reporter=tap
-    frontend_focused: npm --prefix apps/wiki-cockpit test
+    frontend: python3 scripts/wiki_node_workspace.py run test -- --reporter=tap
+    frontend_focused: python3 scripts/wiki_node_workspace.py run test
     input_stage: python3 scripts/wiki_input_stage.py --check
     methodology_coverage: python3 scripts/wiki_check_methodology_coverage.py --check
-    node_gates: npm --prefix apps/wiki-cockpit run test:gates
+    node_gates: python3 scripts/wiki_node_workspace.py run test:gates
     operation_compile: python3 scripts/wiki_operation_compile.py --check
     operational_pass: python3 scripts/wiki_operational_pass.py --check
-    operator_security: npm --prefix apps/wiki-cockpit run test:e2e:operator
+    operator_security: python3 scripts/wiki_node_workspace.py run test:e2e:operator
     page_graph: python3 scripts/wiki_page_graph.py --check
     pack_focused: python3 scripts/wiki_pack.py validate --all
     pack_validation: python3 scripts/wiki_pack.py validate --all
@@ -509,20 +528,20 @@ migration:
     private_pytest: python3 -m pytest tests/
     public_evidence_redaction: python3 scripts/wiki_audit.py --public-export --check
     quality_report: python3 scripts/wiki_quality_report.py --check
-    real_canary: npm --prefix apps/wiki-cockpit run test:e2e:operator
-    release_matrix_inventory: npm --prefix apps/wiki-cockpit run check:release-matrix
+    real_canary: python3 scripts/wiki_node_workspace.py run test:e2e:operator
+    release_matrix_inventory: python3 scripts/wiki_node_workspace.py run check:release-matrix
     rollback_report_verification: python3 scripts/wiki_upgrade.py verify-rollback-report --check
     semantic_inventory: python3 scripts/wiki_semantic_inventory.py --check
     snapshot_contract: python3 scripts/wiki_web_snapshot.py --check-contract
     source_registry: python3 scripts/wiki_source_registry.py --check
     temporal_parity: python3 -m pytest tests/test_temporal.py tests/test_web_snapshot.py
     toolkit_drift: python3 scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
-    visual_profiles: npm --prefix apps/wiki-cockpit run test:visual
-  command_registry_sha256: 6e170423a544cdb735aef7d77ed70389846dc657dc905b69f6d2312e03458097
+    visual_profiles: python3 scripts/wiki_node_workspace.py run test:visual
+  command_registry_sha256: 8c674e03b8719f9e21c8da7bce92d8bde2a887044db2ba0e59788329bc1e001e
   impact_registry:
     schema_version: wiki_viva_upgrade_impact_registry.v1
     path: docs/references/upgrades/wiki-viva-v8/impact-registry.yaml
-    sha256: 92ce2ba62d728269a2c29323c9a433235f20cef790961f8ac6d5d1625942c0db
+    sha256: deb79f5237b01870b6bae5d0ee801e2a4c87ecb2e04a7f2d3df3fee978547ae2
   gate_policies:
     adapter_identity: {class: consumer_always, command_id: adapter_identity, asserts: [adapter_identity], reuse: never, depends_on: [], resource_group: python_readonly, required_for_promotion: true}
     architecture: {class: upstream_certified, command_id: architecture, asserts: [architecture_contract], reuse: exact_capsule, depends_on: [], resource_group: node_readonly, required_for_promotion: true}
@@ -573,7 +592,7 @@ migration:
           - apps/wiki-cockpit/public/sample-snapshot/**
           - docs/references/fixtures/demo-wiki/memories/**
       - id: visual_baselines
-        command: npm --prefix apps/wiki-cockpit run test:visual:update
+        command: python3 scripts/wiki_node_workspace.py run test:visual:update
         owns_patterns:
           - apps/wiki-cockpit/e2e/__screenshots__/**
     c3_adapter:
@@ -620,7 +639,7 @@ migration:
             impact_contract: wiki_consumer_release_record.v1
             mode: '100644'
             suffix: .md
-    registry_sha256: 8a48964b1f1935bfbc977e6f8e7615a2a116a2b5bd9ba8953b9ad068cabf3aef
+    registry_sha256: 6c1db721e5c7a9201e75ea6ef702154711fd1226dd0ee6c766a5a635cbb62ed0
   visual_profiles:
     - desktop
     - mobile
@@ -833,15 +852,24 @@ known_limitations:
     68d11b2a2c74f958c7833c52a0fa24bd22c9f4942bc0229b16a33511e5edff0e /
     acd03c5b4f9dd0db515a2d87e12f3391fe0826bf4fb02a5e4e45aed8bfdaf6f9 /
     3519fceccf4821df2775de90fe3a99cee72773743152779a2a0461afdfbf945c.
-    No productive rc37 capture, manifest, certification, capsule, receipt,
-    attestation, trust anchor or Lane B authority exists yet.
+    Rc37 then completed its productive capture, Lane A 11/11 and fail-closed
+    capsule verification. Productive manifest
+    3be7599af80b76e95411fb170656e92ffc40848a3729e5d0ffe314308aa77069,
+    capsule f5ae8e04b56ee77cc56d7faebbade3d2eefe2b4fc9c6acc6f91bf8d9f1146fc1,
+    receipt 90cd0c27ac30d158f7cd9061bdb73b863f61ffacbefc091365c82d89f725b4d0
+    and execution attestation
+    c7a1a4fe74c8115861e5eb8d48af110a1ca988956f98802f21e5df6eec71bfed
+    remain immutable verified history. RT-173 subsequently proved that clean C1
+    could not materialize the certified Node dependency tree, so rc37 cannot
+    authorize Lane B and none of its receipts may be relabeled as successor
+    authority.
   - Browser-closure evidence is scoped to browser behavior; it is not a full-release or externally signed E5 attestation.
   - RT-171 rc36 exact validation source binds all four productive and real-canary entry profiles to runtime_mode v8. Desktop uses productive `/demo/w?center=root-alex-rivera&view=quadrants&tour=0` and canary `/w?view=quadrants&tour=0`, both 1440x1000. Mobile uses productive `/demo/w?view=timeline&tour=0` and canary `/w?view=timeline&tour=0`, both 390x844. Fallback uses productive `/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0` at 1280x900 and canary `/w?view=quadrants&visual=1&tour=0` at 1440x1000. Quadrant collection uses productive `/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica&overlay=actions&tour=0` and canary `/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0`, both 1440x1000. The exact schemas are wiki_visual_evidence_capture.v2 and wiki_viva_canary_visual_summary.v2; a positional, compat, missing-runtime, wrong-view or wrong-canary-viewport observation fails closed.
-  - Rc24, rc26 and rc36 are immutable historical failed-certification evidence. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. Rc36 exact validation remains valid historical evidence, but its first/only Lane A run exposed RT-172 and minted no capsule. Active wiki-viva-v8-rc37 is candidate at exact source d87af15b4aa850d1a50dc867f74e07ba09d0e89f after its first/only exact validation passed 23/23, so package_is_pinned is true. Candidate authority permits only one fresh productive capture and one Lane A certification attempt. Every downstream path remains fail-closed until the rc37 capsule and external attestation verify independently. Public promotion remains separate and public push is unauthorized.
+  - Rc24, rc26 and rc36 are immutable historical failed-certification evidence. Rc23, rc25, rc27, rc31, rc32 and rc33 are immutable failed-validation evidence; rc28/rc29 were rejected before validation, rc30 was rejected before its complete matrix, and rc34/rc35 were rejected by read-only QA before productive capture. None of their incomplete stages can be resumed. Rc37 is immutable locally certified history; exact validation passed 23/23, productive capture and Lane A passed, and its capsule/receipt/attestation verify independently. RT-173 nevertheless makes rc37 non-adoptable because its clean C1 cannot materialize the certified Node dependency tree. The single RT-173 successor remains unnamed and unpinned as `unreleased` / `validation_pending` from base source eb84b39a2c82133500123a681e8d4dc7bd0136e6, so package_is_pinned is false and every downstream path remains fail-closed until a new successor source, exact validation, productive capture, Lane A capsule and external attestation exist. Public promotion remains separate and public push is unauthorized.
   - Exact S10 passed 1,367 Python, 512 frontend, 107 Node and 102/102 first-attempt public browser cells; those counts remain historical and are not relabeled as S11 proof.
   - Exact S12 passed 1,372 Python, 512 frontend and 107 Node checks, then its single public browser run blocked at 101/102 with zero retry; that negative evidence remains attached to rc11 and is not relabeled as S13 proof.
-  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc36 can never authorize another import. Exact rc37 may be adopted in three new ordered reviewable boundaries only after its payload, capsule and external attestation verify independently and the applicable consumer human gate is satisfied. Standing private-main approval satisfies that consumer human gate only after every technical gate passes; public promotion remains separate. The fresh rc37/v3 adoption starts from the then-current private main; private PR #211 remains historical v2 evidence and is never its B0, C3 or promotion authority.
-  - The historical private S9 read-only preflight remains attached to S9; exact rc37 requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
+  - The private pilot's exact S9 import and 2/2 downstream result are historical pressure evidence only; rc21 through rc37 can never authorize another import. A fresh successor/v3 adoption may start in three new ordered reviewable boundaries only after the successor payload, capsule and external attestation verify independently and every applicable technical gate passes. Standing private-main approval satisfies the consumer human gate after those technical gates; public promotion remains separate. The fresh adoption starts from the then-current private main; private PR #211 remains historical v2 evidence and is never its B0, C3 or promotion authority.
+  - The historical private S9 read-only preflight remains attached to S9; the RT-173 successor requires a new subject-bound preflight, migration report, rollback execution and redacted projection while raw evidence stays private.
   - Real legacy-event equality and compatibility inventory, real-data search acceptance, the canonical migration report, downstream relation inventory, source authoring replay and restart/security documentation replay remain consumer-semantic promotion gates (RT-09/10/29/33/36/47/48).
   - Manual private 390x844 inspection observed five view controls with clientWidth equal to scrollWidth at 62 px, zero inner-label and document overflow, 44 px minimum height and hidden mobile icons; the exact public S9 wrapper independently repeated and closed RT-144.
   - The runtime operation lock at .wiki-viva/pack-operation.lock is not yet covered by a portable ignore contract; RT-141 tracks this non-blocking P2 hygiene improvement.

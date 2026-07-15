@@ -86,6 +86,8 @@ fixtures_added: []
 gates_receipt_ref: output/wiki-upgrade/gate-receipts.json
 # Commands below are the package's migration.gate_commands registry verbatim.
 # $WIKI_VIVA_KIT_ROOT is the consumer's local kit checkout (drift reference).
+# Raw npm commands below are intentionally frozen v2 history. They are not the
+# current wrapper/authority contract and MUST NOT be copied into a v3 plan.
 gates:
   - {id: toolkit_drift, command: 'python3 scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check', status: pass, exit_code: 0, captured_consumer_head: REPLACE_WITH_ADAPTATION_COMMIT_SHA}
   - {id: audit, command: "python3 scripts/wiki_audit.py --check", status: pass, exit_code: 0, captured_consumer_head: REPLACE_WITH_ADAPTATION_COMMIT_SHA}

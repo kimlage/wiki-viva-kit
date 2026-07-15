@@ -2,6 +2,7 @@
   "name": "wiki-viva-cockpit",
   "private": true,
   "version": "0.2.0",
+  "packageManager": "npm@10.9.8",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",

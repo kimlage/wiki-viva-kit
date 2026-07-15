@@ -1,5 +1,5 @@
 ---
-title: "Wiki Viva v8 rc37 candidate - exact validation passed"
+title: "Wiki Viva v8 unreleased - RT-173 source formation pending"
 page_id: release-wiki-viva-v8
 page_type: release_note
 context: system
@@ -11,7 +11,7 @@ gate: github_pr
 sensitive_data_policy: no_personal_data
 ---
 
-# Wiki Viva v8 rc37 candidate - exact validation passed
+# Wiki Viva v8 unreleased - RT-173 source formation pending
 
 ## Rc24 exact source — productive evidence passed, certification failed closed
 
@@ -577,7 +577,7 @@ B authority was minted. Rc36 is immutable
 historical evidence, but its candidate, capture and gate results must never be
 retried, reused, relabeled, promoted or imported.
 
-## Rc37 candidate — exact validation passed, capture pending
+## Rc37 — immutable local Lane A history; RT-173 blocks downstream execution
 
 RT-172 requires the single successor source to bind exact layout request,
 morph, camera and Html settlement to the same navigation sequence before
@@ -607,19 +607,43 @@ values are
 `6d409da4e58466a4932d3ee2bc089e9151450184e7292cf5513e45e6686f7f95` /
 `1af897ce9bf851563521b51048a20d0f2edfef31b72d27c823479022977f03d0` /
 `77799ece4d3a61bba2a1c3f8814f2e5ecc3232a6b3b813b65b54931067c35d8e`,
-521 entries. Active `wiki-viva-v8-rc37` is now `candidate` and
-`package_is_pinned=true`. Rc36 receipts cannot be carried forward. No
-productive rc37 capture, visual manifest, certification, capsule, receipt,
-attestation, trust anchor or downstream plan exists yet; only one fresh
-productive capture and one Lane A certification attempt are authorized. The
-canonical scoreboard is `2/5`: source pin and exact validation are complete;
-capsule verification, private canary and private-main readback remain pending.
-Draft public PR #61 remains
-stale and does not represent this local truth; public push, publication, PR
-mutation, merge and tag remain unauthorized. Private PR #211 and its v2
-receipts remain immutable historical evidence. A fresh v3 adoption may start
-from the then-current private `main` only after the successor capsule and
-attestation verify fail-closed.
+521 entries. `wiki-viva-v8-rc37` was the local `candidate` and
+`package_is_pinned=true`. Rc36 receipts were not carried forward. Rc37's first
+and only productive capture then covered all four v8 profiles with manifest
+`3be7599af80b76e95411fb170656e92ffc40848a3729e5d0ffe314308aa77069`.
+Its first and only Lane A passed 11/11 and sealed immutable
+capsule/certification-receipt/attestation `f5ae8e04...` / `90cd0c27...` /
+`c7a1a4fe...`. Independent positive verification was `762171b5...`; wrong
+external digest and tampered-copy controls failed closed as `1d820969...`.
+Those exact bytes and hashes remain valid historical rc37 evidence. They are
+never regenerated, amended, relabeled or projected onto another subject.
+
+RT-173 was discovered only in the first disposable downstream clean C1. The
+portable Git projection correctly omitted `node_modules`, but rc37 sealed no
+dependency materialization authority. Its registered Node C2 visual generator
+therefore could not resolve TypeScript. A manual `npm ci` made the same command
+executable, proving a missing policy/authority bootstrap rather than an app
+defect. Rc37 remains cryptographically verified history, but it is not
+executable Lane B adoption or promotion authority.
+
+The active package is `unreleased` / `validation_pending`, rooted at the last
+immutable metadata base `eb84b39a2c82133500123a681e8d4dc7bd0136e6`, with
+`package_is_pinned=false`. That base is not represented as the successor source
+SHA: the successor receives its own source commit and separate metadata pin
+only after the working tree freezes. The only authorized current subject is
+that still-unnamed and unpinned RT-173 successor. It must separate tracked portable
+`wiki_viva_node_workspace_policy.v2` from external path-free/platform-scoped
+`wiki_viva_node_workspace_authority.v1`, route every release-bearing Node
+command through the wrapper and seal capsule v2 with the authority/digest plus
+`toolchain_probe_entry_count=5` and canonical identities `browser`, `node`,
+`npm`, `python`, `runner`. The single current scoreboard is `0/5`: source pin, exact
+validation and capsule verification are pending; private canary and private-main
+readback are blocked. Rc37's historical `3/5` chronology is not a second live
+scoreboard. Draft public PR #61 remains stale and does not represent this local
+truth; public push, publication, PR mutation, merge and tag remain unauthorized.
+Private PR #211 and its v2 receipts remain immutable historical evidence. A
+fresh v3 adoption may start from the then-current private `main` only after the
+RT-173 successor capsule and attestation verify fail-closed.
 
 ## Rc23 exact validation source — full matrix failed, promotion prohibited
 
@@ -724,10 +748,12 @@ failed capture nor rc23's failed validation can authorize its adoption. Rc24
 inherits no prior status or receipt, and its own failed certification minted no
 new authority.
 
-Active rc37 has a separate source pin and candidate boundary. Its first and
-only exact validation passed 23/23; it still requires one productive capture,
-one Lane A certification and independent capsule/attestation verification
-before any downstream plan.
+Historical rc37 has a separate source pin and candidate boundary. Its first and
+only exact validation passed 23/23, then its first productive capture, Lane A
+11/11 and independent capsule/attestation verification passed once. RT-173's
+later clean-C1 failure prevents downstream use without changing any rc37 byte or
+receipt. The still-unnamed successor requires a new pin, validation, capture,
+capsule and verification before any downstream plan.
 Remote public CI, human conceptual/privacy/VoiceOver review, public merge and
 promotion remain separate and unauthorized; stale/conflicting public PR #61
 does not represent this local truth. External E5 and a release tag remain
@@ -875,8 +901,8 @@ product approval or E5. The allowlisted private S9 adoption and its two
 mandatory browser cells plus both complete deterministic stacks are now
 proven. At that historical checkpoint,
 [draft PR #61](https://github.com/kimlage/wiki-viva-kit/pull/61) still required
-human review and merge. It is now stale/conflicting and does not represent
-the active rc37 candidate truth; no tag or public push is
+human review and merge. It is now stale/conflicting and represents neither the
+historical rc37 authority nor the current unpinned RT-173 successor; no tag or public push is
 authorized.
 
 ## Historical rc8 correction lineage — public payload candidate at that checkpoint
@@ -1209,6 +1235,12 @@ dock wiring is compat-only and targets removal in v9 stable.
 The release owner must record one exact source SHA and pass:
 
 ```sh
+python3 scripts/wiki_node_workspace.py snapshot --check
+python3 scripts/wiki_node_workspace.py capture-authority \
+  --out "$NODE_WORKSPACE_AUTHORITY" --source-sha "$SOURCE_SHA"
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY="$NODE_WORKSPACE_AUTHORITY"
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256="$TRUSTED_NODE_AUTHORITY_SHA256"
+export WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA="$SOURCE_SHA"
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_audit.py --public-export --check
 python3 scripts/wiki_check_methodology_coverage.py --check
@@ -1223,15 +1255,19 @@ python3 scripts/wiki_web_snapshot.py --check-contract
 python3 scripts/wiki_pack.py validate --all
 python3 scripts/wiki_consolidate.py --check
 python3 -m pytest -q -W error tests/
-npm --prefix apps/wiki-cockpit test -- --reporter=tap
-npm --prefix apps/wiki-cockpit run test:gates
-npm --prefix apps/wiki-cockpit run build
-npm --prefix apps/wiki-cockpit run check:architecture
-npm --prefix apps/wiki-cockpit run check:assets
-npm --prefix apps/wiki-cockpit run check:bundle
-npm --prefix apps/wiki-cockpit run check:release-matrix
+python3 scripts/wiki_node_workspace.py run test -- --reporter=tap
+python3 scripts/wiki_node_workspace.py run test:gates
+python3 scripts/wiki_node_workspace.py run build
+python3 scripts/wiki_node_workspace.py run check:architecture
+python3 scripts/wiki_node_workspace.py run check:assets
+python3 scripts/wiki_node_workspace.py run check:bundle
+python3 scripts/wiki_node_workspace.py run check:release-matrix
 git diff --check
 ```
+
+`capture-authority` is Lane A-only and writes outside Git. The emitted trusted
+digest is held out of band and the same authority is consumed by every wrapper
+command and embedded in capsule v2. A downstream consumer never runs capture.
 
 Desktop Chromium, mobile WebKit, forced fallback and Firefox smoke evidence are
 also release blockers. A green unit/build stack cannot override a runtime crash,

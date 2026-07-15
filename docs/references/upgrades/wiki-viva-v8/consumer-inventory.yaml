@@ -16,7 +16,7 @@ consumers:
       owner: kimlage
     consumer_type: public_example
     role: implementation_source
-    current_kit_version: wiki-viva-v8-rc37@d87af15b
+    current_kit_version: unreleased@eb84b39a
     current_layout:
       memory_root: memories
       references_root: docs/references
@@ -32,12 +32,12 @@ consumers:
     privacy_risk: public_safe
     evidence_redaction_required: false
     drift_status:
-      state: rc36_certification_failed_rc37_candidate_capture_pending
+      state: rc37_historical_verified_rt173_successor_unpinned
       drift_total: 0
-      compared_against: wiki-viva-v8-rc37@d87af15b
-      worktree: rc37_candidate_boundary_local_only
+      compared_against: unreleased@eb84b39a
+      worktree: rt173_successor_unpinned_local_only
     upgrade_wave: public_kit
-    status: blocked_on_rc37_capture_and_certification
+    status: blocked_on_rt173_successor_pin_and_certification
     blocker: >-
       Rc21 through rc33 remain frozen according to their recorded historical
       outcomes. Rc34 source 533d2868 passed complete exact validation at
@@ -110,13 +110,19 @@ consumers:
       browser 102/102 first-attempt with no skip or retry. Validation result /
       identity / browser result / browser gate are e409a148 / 68d11b2a /
       acd03c5b / 3519fcec. Validation-subject package-file/canonical/tree remain
-      5b88cad7 / 8c7a107b / e40d77b8. The separate active
-      wiki-viva-v8-rc37 / candidate package-file/canonical/tree are 6d409da4 /
-      1af897ce / 77799ece, 521 entries, and package_is_pinned=true. No productive
-      manifest, capsule, receipt or attestation exists; one fresh capture and
-      one Lane A certification remain. The canonical scoreboard is 2/5. Draft
-      PR #61 is stale and public push,
-      publication, external E5 and a release tag remain unauthorized
+      5b88cad7 / 8c7a107b / e40d77b8. The separately pinned rc37 candidate
+      package-file/canonical/tree are 6d409da4 / 1af897ce / 77799ece with 521
+      entries. Its only productive capture sealed manifest 3be7599a; its only
+      Lane A passed 11/11 and sealed capsule/receipt/attestation f5ae8e04 /
+      90cd0c27 / c7a1a4fe. RT-173 then proved that clean C1 had no sealed Node
+      dependency materialization authority: the first generator could not
+      resolve TypeScript until an ambient manual npm ci. Rc37 and every one of
+      those hashes remain immutable verified history, but they are not
+      executable Lane B authority. Exactly one RT-173 successor is now a local,
+      unnamed and unpinned working tree. Its canonical scoreboard is 0/5:
+      source pin, exact validation, capsule verification, private canary and
+      private-main readback are all pending. Draft PR #61 is stale and public
+      push, publication, external E5 and a release tag remain unauthorized
 
   - id: private-pilot-01
     repository:
@@ -144,11 +150,11 @@ consumers:
     privacy_risk: financial_personal
     evidence_redaction_required: true
     drift_status:
-      state: v2_adoption_complete_rc37_candidate_capsule_pending
-      scope: upgrade_package_portable_import_pinned_git_tree
+      state: v2_adoption_complete_rt173_successor_unpinned
+      scope: upgrade_package_rt173_successor_formation_unpinned
       drift_total: 0
       compared_against: wiki-viva-v8-rc8@b45378d3
-      target_version: wiki-viva-v8-rc37@d87af15b
+      target_version: unreleased@eb84b39a
       target_drift_total: pending_recompute
       historical_rc16_target_drift_total: 887
       details: >-
@@ -168,13 +174,16 @@ consumers:
         first and only Lane A certification stopped at 101/102 browser cells
         after Back navigation exposed unsettled camera/Html hit testing. Rc36
         is immutable historical_certification_failed and minted no capsule,
-        attestation or Lane B authority. RT-172 successor rc37 is now candidate
-        at exact source d87af15b after its first/only exact validation passed
-        23/23, including browser 102/102 first-attempt. It still requires one
-        productive capture, one Lane A certification and fail-closed capsule
-        verification. Only after that
-        authority exists may a fresh v3 adoption start from the then-current
-        private main, not from private PR #211 or its historical v2 C3/receipts.
+        attestation or Lane B authority. RT-172 successor rc37 later passed its
+        exact validation 23/23, productive capture and Lane A 11/11; its
+        capsule, receipt and execution attestation remain immutable verified
+        history. RT-173 nevertheless proved that clean C1 could not materialize
+        the certified Node dependency tree, so rc37 cannot authorize Lane B.
+        The one RT-173 successor remains unnamed, unreleased and unpinned. Only
+        after that successor is pinned, validated exactly once, captured,
+        certified and independently verified may a fresh v3 adoption start
+        from the then-current private main, not from private PR #211 or its
+        historical v2 C3/receipts.
         Standing human authorization for incremental
         merges to the private pilot's main branch is recorded, but it does not
         waive technical fail-closed gates, privacy/secret audits, real canary,
@@ -183,7 +192,7 @@ consumers:
         surfaces
       verified_on: "2026-07-15"
     upgrade_wave: pilot
-    status: blocked_on_rc37_verified_capsule
+    status: blocked_on_rt173_successor_verified_capsule
     blocker: >-
       The current private v2 evidence remains immutable and cannot be reduced
       by the v3 strategy. Rc34 is historical_precapture_rejected after RT-170
@@ -194,12 +203,15 @@ consumers:
       exact validation at metadata subject 3db3f9f4, but its first and only
       Lane A certification failed closed at 101/102 browser cells. No capsule,
       attestation or Lane B authority exists; rc36 is immutable
-      historical_certification_failed. Active wiki-viva-v8-rc37 is candidate at
-      source d87af15b after exact validation passed 23/23 at metadata 775fe5bc,
-      with package_is_pinned=true and a 2/5 scoreboard. Candidate package/tree
-      are 1af897ce/77799ece. It still needs one productive capture, one Lane A
-      certification and capsule/attestation verification before a fresh
-      current-main consumer preflight or any v3 downstream QA.
+      historical_certification_failed. Rc37 source d87af15b later passed exact
+      validation 23/23 at metadata 775fe5bc, productive capture and Lane A
+      11/11; its capsule/receipt/attestation remain immutable verified history.
+      RT-173 nevertheless proved that its clean C1 could not materialize the
+      certified Node dependency tree, so rc37 cannot authorize Lane B. The one
+      RT-173 successor is still unnamed and unpinned with a 0/5 canonical
+      scoreboard. It must be pinned, validated exactly once and certified with
+      capsule v2 plus external Node authority before a fresh current-main
+      consumer preflight or any v3 downstream QA.
       Private PR #211 is
       v2 historical evidence and cannot be promoted as a fresh v3 adoption.
       Incremental

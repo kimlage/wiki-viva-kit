@@ -11,28 +11,28 @@ gate_catalog:
     command: python3 scripts/wiki_adapter_manifest.py check
   - id: architecture
     class: upstream_certified
-    command: npm --prefix apps/wiki-cockpit run check:architecture
+    command: python3 scripts/wiki_node_workspace.py run check:architecture
   - id: assets
     class: upstream_certified
-    command: npm --prefix apps/wiki-cockpit run check:assets
+    command: python3 scripts/wiki_node_workspace.py run check:assets
   - id: audit
     class: consumer_always
     command: python3 scripts/wiki_audit.py --check
   - id: browser_synthetic_release
     class: upstream_certified
-    command: npm --prefix apps/wiki-cockpit run test:e2e:release
+    command: python3 scripts/wiki_node_workspace.py run test:e2e:release
   - id: build
     class: upstream_certified
-    command: npm --prefix apps/wiki-cockpit run build
+    command: python3 scripts/wiki_node_workspace.py run build
   - id: bundle
     class: upstream_certified
-    command: npm --prefix apps/wiki-cockpit run check:bundle
+    command: python3 scripts/wiki_node_workspace.py run check:bundle
   - id: consolidate
     class: consumer_always
     command: python3 scripts/wiki_consolidate.py --check
   - id: consumer_browser_matrix
     class: background_certification
-    command: npm --prefix apps/wiki-cockpit run test:e2e:operator
+    command: python3 scripts/wiki_node_workspace.py run test:e2e:operator
   - id: demo_drift
     class: upstream_certified
     command: python3 scripts/wiki_build_demo.py --check
@@ -41,10 +41,10 @@ gate_catalog:
     command: git diff --check
   - id: frontend
     class: upstream_certified
-    command: npm --prefix apps/wiki-cockpit test -- --reporter=tap
+    command: python3 scripts/wiki_node_workspace.py run test -- --reporter=tap
   - id: frontend_focused
     class: affected
-    command: npm --prefix apps/wiki-cockpit test
+    command: python3 scripts/wiki_node_workspace.py run test
   - id: input_stage
     class: consumer_always
     command: python3 scripts/wiki_input_stage.py --check
@@ -53,7 +53,7 @@ gate_catalog:
     command: python3 scripts/wiki_check_methodology_coverage.py --check
   - id: node_gates
     class: upstream_certified
-    command: npm --prefix apps/wiki-cockpit run test:gates
+    command: python3 scripts/wiki_node_workspace.py run test:gates
   - id: operation_compile
     class: consumer_always
     command: python3 scripts/wiki_operation_compile.py --check
@@ -62,7 +62,7 @@ gate_catalog:
     command: python3 scripts/wiki_operational_pass.py --check
   - id: operator_security
     class: affected
-    command: npm --prefix apps/wiki-cockpit run test:e2e:operator
+    command: python3 scripts/wiki_node_workspace.py run test:e2e:operator
   - id: pack_focused
     class: affected
     command: python3 scripts/wiki_pack.py validate --all
@@ -86,10 +86,10 @@ gate_catalog:
     command: python3 scripts/wiki_quality_report.py --check
   - id: real_canary
     class: canary
-    command: npm --prefix apps/wiki-cockpit run test:e2e:operator
+    command: python3 scripts/wiki_node_workspace.py run test:e2e:operator
   - id: release_matrix_inventory
     class: upstream_certified
-    command: npm --prefix apps/wiki-cockpit run check:release-matrix
+    command: python3 scripts/wiki_node_workspace.py run check:release-matrix
   - id: rollback_report_verification
     class: consumer_always
     command: python3 scripts/wiki_upgrade.py verify-rollback-report --check
@@ -110,7 +110,7 @@ gate_catalog:
     command: python3 scripts/wiki_toolkit_drift.py --ref-path "$WIKI_VIVA_KIT_ROOT" --check
   - id: visual_profiles
     class: affected
-    command: npm --prefix apps/wiki-cockpit run test:visual
+    command: python3 scripts/wiki_node_workspace.py run test:visual
 
 full_matrix_gates:
   - adapter_identity
@@ -411,4 +411,4 @@ boundary_policy:
     - memories/**
     - private/**
 
-registry_sha256: 92ce2ba62d728269a2c29323c9a433235f20cef790961f8ac6d5d1625942c0db
+registry_sha256: deb79f5237b01870b6bae5d0ee801e2a4c87ecb2e04a7f2d3df3fee978547ae2

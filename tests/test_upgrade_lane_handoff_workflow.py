@@ -69,6 +69,7 @@ def test_pr_paths_cover_runner_toolchain_and_portable_authority() -> None:
         "scripts/wiki_*.py",
         "scripts/wiki_upgrade*.py",
         "scripts/wiki_visual_evidence.py",
+        "tests/test_wiki_node_workspace.py",
         "tests/test_wiki_upgrade_cli.py",
         "tests/test_wiki_visual_evidence.py",
         "wiki_core/**",
@@ -99,6 +100,9 @@ def test_upstream_job_runs_productive_visual_capture_and_capsule_verifier() -> N
     prepare = _step(
         upstream, "Prepare exact public cockpit source for productive capture"
     )
+    node_authority = _step(
+        upstream, "Capture exact external Node workspace authority once"
+    )
     capture = _step(upstream, "Capture productive public visual authority")
     certify = _step(
         upstream, "Execute and seal the operator-facing Lane A certification"
@@ -108,11 +112,22 @@ def test_upstream_job_runs_productive_visual_capture_and_capsule_verifier() -> N
 
     assert "tests/test_wiki_visual_evidence.py" in visual["run"]
     assert 'rm -rf "$ROOT/release-authority"' in prepare["run"]
+    assert "capture-authority" in node_authority["run"]
+    assert '--source-sha "$SOURCE_SHA"' in node_authority["run"]
+    assert "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256" in node_authority["run"]
     assert "wiki_visual_evidence.py\" capture" in capture["run"]
     assert '--out-dir "$ROOT/productive-visual"' in capture["run"]
     assert "observed_in_this_capture_process" in capture["run"]
     assert "productive_authority': False" in capture["run"]
     assert '--visual-root "$ROOT/productive-visual"' in certify["run"]
+    assert '--node-workspace-authority "$WIKI_VIVA_NODE_WORKSPACE_AUTHORITY"' in certify[
+        "run"
+    ]
+    assert (
+        '--trusted-node-workspace-authority-sha256 '
+        '"$WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256"'
+        in certify["run"]
+    )
     assert "release-authority/visual" not in certify["run"]
     assert "hashes(certified_root) == hashes(captured_root)" in sealed["run"]
     assert (
@@ -120,12 +135,56 @@ def test_upstream_job_runs_productive_visual_capture_and_capsule_verifier() -> N
         in sealed["run"]
     )
     names = [step.get("name") for step in upstream["steps"]]
+    assert names.index("Prepare exact public cockpit source for productive capture") < names.index(
+        "Capture exact external Node workspace authority once"
+    )
+    assert names.index("Capture exact external Node workspace authority once") < names.index(
+        "Capture productive public visual authority"
+    )
     assert names.index("Capture productive public visual authority") < names.index(
         "Execute and seal the operator-facing Lane A certification"
     )
     assert "wiki_upgrade.py verify-capsule" in verifier["run"]
     assert "--trusted-attestation-sha256" in verifier["run"]
     assert "--authority" in verifier["run"]
+
+
+def test_node_workspace_authority_is_captured_once_and_only_in_lane_a() -> None:
+    workflow_raw = WORKFLOW_PATH.read_text(encoding="utf-8")
+    jobs = _workflow_jobs()
+    upstream = jobs["upstream-certification"]
+    downstream_ids = ("fast-adoption", "canary", "background-certification")
+
+    assert upstream["timeout-minutes"] == 45
+    assert jobs["fast-adoption"]["timeout-minutes"] == 20
+    assert jobs["canary"]["timeout-minutes"] == 20
+    assert workflow_raw.count("capture-authority") == 1
+    assert "npm --prefix" not in workflow_raw
+    assert "npm ci" not in workflow_raw
+    assert "npx " not in workflow_raw
+
+    for job_id in ("upstream-certification", *downstream_ids):
+        job = jobs[job_id]
+        setup = next(
+            step
+            for step in job["steps"]
+            if step.get("uses") == "actions/setup-node@v5"
+        )
+        assert setup["with"]["node-version"] == "22.22.3"
+        commands = "\n".join(
+            step.get("run", "")
+            for step in job["steps"]
+            if isinstance(step, dict)
+        )
+        assert "npm install --global npm@10.9.8" in commands
+        assert 'test "$(node --version)" = "v22.22.3"' in commands
+        assert 'test "$(npm --version)" = "10.9.8"' in commands
+        if job_id in downstream_ids:
+            assert "capture-authority" not in commands
+
+    assemble = _step(upstream, "Assemble fail-closed cross-job Lane A bundle")
+    assert "node_workspace_authority_sha256" in assemble["run"]
+    assert "public-kit/apps/wiki-cockpit/node_modules" in assemble["run"]
 
 
 def test_every_toolchain_probe_job_installs_the_launched_browser() -> None:

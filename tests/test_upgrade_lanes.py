@@ -21,12 +21,18 @@ from wiki_core.upgrade_lanes import (
     AdoptionEvidenceAuthority,
     GATE_CLASSES,
     IMPACT_REGISTRY_SCHEMA_VERSION,
+    LEGACY_EXECUTION_ATTESTATION_SCHEMA_VERSION,
+    LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION,
+    LEGACY_TOOLCHAIN_PROBE_SCHEMA_VERSION,
     NEVER_REUSABLE_GATES,
     RELEASE_CAPSULE_SCHEMA_VERSION,
+    TOOLCHAIN_PROBE_SCHEMA_VERSION,
     ReleaseCapsuleAuthority,
     UpgradeLaneError,
     VISUAL_PROFILE_CONTRACTS,
     _safe_file_bytes,
+    _toolchain_probe_metadata,
+    _git_bytes,
     canonical_json,
     canonical_sha256,
     classify_consumer_c3_path,
@@ -53,19 +59,40 @@ from wiki_core.upgrade_lanes import (
     verify_impact_registry,
     verify_release_capsule,
 )
+from wiki_core.node_workspace import (
+    ALLOWED_SCRIPTS,
+    authority_identity_sha256,
+    build_policy,
+    npm_workspace_toolchain_identity,
+    serialize_policy,
+)
 from wiki_core.release_receipt import visual_evidence_file_metadata
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REGISTRY_PATH = (
-    ROOT / "docs/references/upgrades/wiki-viva-v8/impact-registry.yaml"
-)
+REGISTRY_PATH = ROOT / "docs/references/upgrades/wiki-viva-v8/impact-registry.yaml"
 CAPSULE_SCHEMA_PATH = (
-    ROOT / "docs/references/schemas/wiki-upgrade-release-capsule-v1.schema.json"
+    ROOT / "docs/references/schemas/wiki-upgrade-release-capsule-v2.schema.json"
 )
 REGISTRY_SCHEMA_PATH = (
     ROOT / "docs/references/schemas/wiki-upgrade-impact-registry-v1.schema.json"
 )
+
+_RC37_RAW_NODE_COMMANDS = {
+    "architecture": "npm --prefix apps/wiki-cockpit run check:architecture",
+    "assets": "npm --prefix apps/wiki-cockpit run check:assets",
+    "browser_synthetic_release": "npm --prefix apps/wiki-cockpit run test:e2e:release",
+    "build": "npm --prefix apps/wiki-cockpit run build",
+    "bundle": "npm --prefix apps/wiki-cockpit run check:bundle",
+    "consumer_browser_matrix": "npm --prefix apps/wiki-cockpit run test:e2e:operator",
+    "frontend": "npm --prefix apps/wiki-cockpit test -- --reporter=tap",
+    "frontend_focused": "npm --prefix apps/wiki-cockpit test",
+    "node_gates": "npm --prefix apps/wiki-cockpit run test:gates",
+    "operator_security": "npm --prefix apps/wiki-cockpit run test:e2e:operator",
+    "real_canary": "npm --prefix apps/wiki-cockpit run test:e2e:operator",
+    "release_matrix_inventory": "npm --prefix apps/wiki-cockpit run check:release-matrix",
+    "visual_profiles": "npm --prefix apps/wiki-cockpit run test:visual",
+}
 
 
 def _digest(label: str) -> str:
@@ -74,6 +101,52 @@ def _digest(label: str) -> str:
 
 def _registry() -> dict:
     return load_mapping(REGISTRY_PATH)
+
+
+def test_legacy_v1_toolchain_probe_remains_read_only_verifiable(
+    tmp_path: Path,
+) -> None:
+    entries = []
+    identities = {
+        "browser": {"name": "playwright-chromium", "version": "1.61.1+chromium.128"},
+        "node": {"name": "node", "version": "22.22.3"},
+        "python": {"name": "cpython-resolved", "version": f"3.12.4+deps.{'1' * 64}"},
+        "runner": {"name": "wiki-upgrade", "version": f"1.4.0+payload.{'2' * 64}"},
+    }
+    for tool_id, identity in identities.items():
+        output_ref = f"toolchain/{tool_id}.log"
+        output = f"{identity['name']} {identity['version']}\n".encode()
+        path = tmp_path / output_ref
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(output)
+        entries.append(
+            {
+                "id": tool_id,
+                **identity,
+                "provenance": "executed",
+                "probe_argv": [tool_id, "--version"],
+                "exit_code": 0,
+                "output_ref": output_ref,
+                "output_sha256": hashlib.sha256(output).hexdigest(),
+                "output_bytes": len(output),
+            }
+        )
+    manifest = {
+        "schema_version": LEGACY_TOOLCHAIN_PROBE_SCHEMA_VERSION,
+        "run_id": "legacy-v1-run",
+        "entries": entries,
+    }
+    manifest_path = tmp_path / "toolchain/probe-manifest.json"
+    manifest_path.write_text(json.dumps(manifest, sort_keys=True) + "\n")
+    _digest_value, count, tools, bindings = _toolchain_probe_metadata(
+        gate_output_root=tmp_path,
+        probe_ref="toolchain/probe-manifest.json",
+        run_id="legacy-v1-run",
+        capsule_schema_version=LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION,
+    )
+    assert count == 4
+    assert tools == identities
+    assert [item["id"] for item in bindings] == list(identities)
 
 
 def _git(root: Path, *arguments: str) -> str:
@@ -87,13 +160,21 @@ def _git(root: Path, *arguments: str) -> str:
     ).stdout.strip()
 
 
+def _sentinel_git_command(tmp_path: Path) -> tuple[Path, Path]:
+    script = tmp_path / "git-policy-sentinel.sh"
+    sentinel = Path(f"{script}.executed")
+    script.write_text(
+        '#!/bin/sh\n: > "${0}.executed"\nexit 0\n',
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    return script, sentinel
+
+
 def _png_chunk(kind: bytes, payload: bytes) -> bytes:
     checksum = zlib.crc32(kind + payload) & 0xFFFFFFFF
     return (
-        struct.pack(">I", len(payload))
-        + kind
-        + payload
-        + struct.pack(">I", checksum)
+        struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", checksum)
     )
 
 
@@ -125,6 +206,40 @@ def capsule_authority(tmp_path: Path) -> dict:
     (source_root / "memories/private-note.md").write_text(
         "blocked consumer content\n", encoding="utf-8"
     )
+    cockpit = source_root / "apps/wiki-cockpit"
+    cockpit.mkdir(parents=True)
+    (cockpit / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "wiki-viva-synthetic-cockpit",
+                "version": "1.0.0",
+                "private": True,
+                "packageManager": "npm@10.9.8",
+                "scripts": {name: "node --version" for name in ALLOWED_SCRIPTS},
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (cockpit / "package-lock.json").write_text(
+        json.dumps(
+            {
+                "name": "wiki-viva-synthetic-cockpit",
+                "version": "1.0.0",
+                "lockfileVersion": 3,
+                "requires": True,
+                "packages": {},
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    node_workspace_policy = build_policy(source_root)
+    (cockpit / "node-workspace.lock.json").write_bytes(
+        serialize_policy(node_workspace_policy)
+    )
     _git(source_root, "add", ".")
     _git(source_root, "commit", "-q", "-m", "public synthetic source")
     source_sha = _git(source_root, "rev-parse", "HEAD")
@@ -139,12 +254,51 @@ def capsule_authority(tmp_path: Path) -> dict:
     }
     boundary = package["migration"]["boundary_operations"]
     boundary["registry_sha256"] = boundary_operations_sha256(boundary)
+    node_workspace_authority = {
+        "schema_version": "wiki_viva_node_workspace_authority.v1",
+        "policy_sha256": node_workspace_policy["policy_sha256"],
+        "source_sha": source_sha,
+        "platform": {"system": "linux", "machine": "x86_64"},
+        "node": {
+            "name": "node-resolved",
+            "version": "22.17.0",
+            "platform_system": "linux",
+            "platform_machine": "x86_64",
+            "executable_sha256": "7" * 64,
+            "executable_bytes": 1024,
+            "runtime_tree_sha256": "8" * 64,
+            "runtime_entry_count": 12,
+            "runtime_total_bytes": 4096,
+        },
+        "npm": {
+            "name": "npm-resolved",
+            "version": "10.9.8",
+            "entrypoint_sha256": "9" * 64,
+            "platform_system": "linux",
+            "platform_machine": "x86_64",
+            "tree_sha256": "a" * 64,
+            "entry_count": 24,
+            "total_bytes": 8192,
+        },
+        "node_modules": {
+            "tree_sha256": "b" * 64,
+            "entry_count": 48,
+            "total_bytes": 16384,
+        },
+    }
+    node_workspace_authority_sha256 = authority_identity_sha256(
+        node_workspace_authority
+    )
     toolchain = {
         "browser": {
             "name": "playwright-chromium",
             "version": "1.61.1+chromium.128.0.0",
         },
-        "node": {"name": "node", "version": "22.17.0"},
+        "node": {
+            "name": "node-resolved",
+            "version": f"22.17.0+linux.x86_64.runtime.{'8' * 64}",
+        },
+        "npm": npm_workspace_toolchain_identity(node_workspace_authority),
         "python": {"name": "cpython", "version": "3.12.9"},
         "runner": {"name": "wiki-upgrade", "version": "1.1.0"},
     }
@@ -152,9 +306,7 @@ def capsule_authority(tmp_path: Path) -> dict:
     (visual_root / "images").mkdir(parents=True)
     (visual_root / "records").mkdir()
     visual_entries = []
-    for profile in (
-        sorted(package["migration"]["visual_profiles"])
-    ):
+    for profile in sorted(package["migration"]["visual_profiles"]):
         spec = VISUAL_PROFILE_CONTRACTS[profile]
         image_ref = f"images/{profile}.png"
         image_raw = _png_bytes(
@@ -279,7 +431,7 @@ def capsule_authority(tmp_path: Path) -> dict:
     (gate_output_root / toolchain_probe_ref).write_text(
         json.dumps(
             {
-                "schema_version": "wiki_viva_toolchain_probe.v1",
+                "schema_version": TOOLCHAIN_PROBE_SCHEMA_VERSION,
                 "run_id": "synthetic-run",
                 "entries": probe_entries,
             },
@@ -289,6 +441,7 @@ def capsule_authority(tmp_path: Path) -> dict:
         encoding="utf-8",
     )
     payload = {
+        "schema_version": RELEASE_CAPSULE_SCHEMA_VERSION,
         "release_id": "wiki-viva-v8-public-synthetic",
         "status": "certified",
         "source_sha": source_sha,
@@ -296,6 +449,8 @@ def capsule_authority(tmp_path: Path) -> dict:
         "portable_tree_sha256": "0" * 64,
         "command_registry": commands,
         "toolchain": toolchain,
+        "node_workspace_authority": node_workspace_authority,
+        "node_workspace_authority_sha256": (node_workspace_authority_sha256),
         "toolchain_probe_ref": toolchain_probe_ref,
         "certified_gates": certified,
         "run_id": "synthetic-run",
@@ -493,9 +648,7 @@ def _receipt(
         {
             "gate_id": gate_id,
             "reason": (
-                "verified_upstream_capsule"
-                if gate_id in certified
-                else "not_affected"
+                "verified_upstream_capsule" if gate_id in certified else "not_affected"
             ),
             "derivation_sha256": (
                 capsule["capsule_sha256"]
@@ -511,8 +664,7 @@ def _receipt(
     ).hexdigest()
     c2_digest = hashlib.sha256(
         (
-            consumer_root
-            / "apps/wiki-cockpit/public/sample-snapshot/snapshot.json"
+            consumer_root / "apps/wiki-cockpit/public/sample-snapshot/snapshot.json"
         ).read_bytes()
     ).hexdigest()
     c3_digest = hashlib.sha256(
@@ -535,9 +687,7 @@ def _receipt(
                 "operation": "upsert",
                 "mode": "100644",
                 "sha256": c2_digest,
-                "generator_sha256": _digest(
-                    "python3 scripts/wiki_build_demo.py"
-                ),
+                "generator_sha256": _digest("python3 scripts/wiki_build_demo.py"),
             }
         ],
         "C3": [
@@ -742,9 +892,7 @@ def _receipt(
             ),
             "_evidence": {
                 kind: [
-                    item
-                    for item in evidence[kind]
-                    if item["gate_id"] == result["id"]
+                    item for item in evidence[kind] if item["gate_id"] == result["id"]
                 ]
                 for kind in ("screenshots", "console", "network")
             },
@@ -776,9 +924,9 @@ def _receipt(
         "canary_results_sha256": canonical_sha256(canary_projection),
     }
     completion_anchor["anchor_sha256"] = canonical_sha256(completion_anchor)
-    completion_raw = (
-        json.dumps(completion_anchor, sort_keys=True) + "\n"
-    ).encode("utf-8")
+    completion_raw = (json.dumps(completion_anchor, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
     completion_file_sha256 = hashlib.sha256(completion_raw).hexdigest()
     (run_root / "canary-completion-anchor.json").write_bytes(completion_raw)
     completion_reference = {
@@ -883,9 +1031,7 @@ def _blocked_run_receipt(
     for result in state["gate_results"].values():
         if result["class"] == "canary":
             result["_completed_at"] = blocked_budget["canary_completed_at"]
-    state_path.write_text(
-        json.dumps(state, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
     canary_result = state["gate_results"]["real_canary"]
     canary_projection = [
         {
@@ -902,17 +1048,13 @@ def _blocked_run_receipt(
     completion_anchor = json.loads(
         (run_root / "canary-completion-anchor.json").read_text(encoding="utf-8")
     )
-    completion_anchor["canary_completed_at"] = blocked_budget[
-        "canary_completed_at"
-    ]
-    completion_anchor["canary_results_sha256"] = canonical_sha256(
-        canary_projection
-    )
+    completion_anchor["canary_completed_at"] = blocked_budget["canary_completed_at"]
+    completion_anchor["canary_results_sha256"] = canonical_sha256(canary_projection)
     completion_anchor.pop("anchor_sha256")
     completion_anchor["anchor_sha256"] = canonical_sha256(completion_anchor)
-    completion_raw = (
-        json.dumps(completion_anchor, sort_keys=True) + "\n"
-    ).encode("utf-8")
+    completion_raw = (json.dumps(completion_anchor, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
     completion_digest = hashlib.sha256(completion_raw).hexdigest()
     (run_root / "canary-completion-anchor.json").write_bytes(completion_raw)
     blocked["canary_completion_anchor"] = {
@@ -950,6 +1092,162 @@ def _reseal_capsule(capsule: dict) -> dict:
     capsule.pop("capsule_sha256", None)
     capsule["capsule_sha256"] = canonical_sha256(capsule)
     return capsule
+
+
+def _legacy_rc37_shape(capsule_authority: dict) -> dict:
+    """Build public synthetic v1 evidence with the exact pre-RT173 Node shape."""
+
+    current = capsule_authority["authority"]
+    package = copy.deepcopy(dict(current.package))
+    registry = copy.deepcopy(dict(current.impact_registry))
+    package["portable_import"]["block"].remove("apps/wiki-cockpit/node_modules/**")
+
+    for item in registry["gate_catalog"]:
+        replacement = _RC37_RAW_NODE_COMMANDS.get(item["id"])
+        if replacement is not None:
+            item["command"] = replacement
+    registry.pop("registry_sha256")
+    registry["registry_sha256"] = canonical_sha256(registry)
+
+    migration = package["migration"]
+    migration.pop("command_registry", None)
+    for gate_id, command in _RC37_RAW_NODE_COMMANDS.items():
+        migration["gate_commands"][gate_id] = command
+    migration["command_registry_sha256"] = canonical_sha256(registry["gate_catalog"])
+    migration["impact_registry"]["sha256"] = registry["registry_sha256"]
+    visual_generator = next(
+        item
+        for item in migration["boundary_operations"]["c2_generators"]
+        if item["id"] == "visual_baselines"
+    )
+    visual_generator["command"] = (
+        "npm --prefix apps/wiki-cockpit run test:visual:update"
+    )
+    migration["boundary_operations"]["registry_sha256"] = boundary_operations_sha256(
+        migration["boundary_operations"]
+    )
+
+    package_sha256 = canonical_sha256(package)
+    visual_root = capsule_authority["visual_root"]
+    manifest_path = visual_root / "visual-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for entry in manifest["entries"]:
+        record_path = visual_root / "records" / f"{entry['id']}.json"
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        record["package_sha256"] = package_sha256
+        record_raw = (canonical_json(record) + "\n").encode("utf-8")
+        record_path.write_bytes(record_raw)
+        entry["state"] = f"capture-{hashlib.sha256(record_raw).hexdigest()}"
+    manifest_path.write_text(canonical_json(manifest) + "\n", encoding="utf-8")
+
+    capsule = _capsule(capsule_authority)
+    capsule["schema_version"] = LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION
+    capsule.pop("node_workspace_authority")
+    capsule.pop("node_workspace_authority_sha256")
+    capsule["command_registry"] = copy.deepcopy(registry["gate_catalog"])
+    command_by_id = {item["id"]: item["command"] for item in registry["gate_catalog"]}
+    for result in capsule["certified_gates"]:
+        result["command_sha256"] = hashlib.sha256(
+            command_by_id[result["id"]].encode("utf-8")
+        ).hexdigest()
+    capsule["command_registry_sha256"] = canonical_sha256(capsule["command_registry"])
+    capsule["toolchain"] = {
+        "browser": copy.deepcopy(capsule["toolchain"]["browser"]),
+        "node": {"name": "node", "version": "22.22.3"},
+        "python": {
+            "name": "cpython-resolved",
+            "version": f"3.12.4+deps.{'1' * 64}",
+        },
+        "runner": {
+            "name": "wiki-upgrade",
+            "version": f"1.4.0+payload.{'2' * 64}",
+        },
+    }
+    capsule["toolchain_sha256"] = canonical_sha256(capsule["toolchain"])
+    capsule["toolchain_probe_ref"] = "toolchain/probe-manifest-v1.json"
+    capsule["attestation_ref"] = "execution-attestation-v1.json"
+
+    probe_entries = []
+    for tool_id, identity in sorted(capsule["toolchain"].items()):
+        output_ref = f"toolchain/legacy-{tool_id}.log"
+        output = f"{identity['name']} {identity['version']}\n".encode("utf-8")
+        output_path = capsule_authority["gate_output_root"] / output_ref
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(output)
+        probe_entries.append(
+            {
+                "id": tool_id,
+                **identity,
+                "provenance": "executed",
+                "probe_argv": [tool_id, "--version"],
+                "exit_code": 0,
+                "output_ref": output_ref,
+                "output_sha256": hashlib.sha256(output).hexdigest(),
+                "output_bytes": len(output),
+            }
+        )
+    (capsule_authority["gate_output_root"] / capsule["toolchain_probe_ref"]).write_text(
+        json.dumps(
+            {
+                "schema_version": LEGACY_TOOLCHAIN_PROBE_SCHEMA_VERSION,
+                "run_id": capsule["run_id"],
+                "entries": probe_entries,
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    evidence = collect_release_attestation(
+        capsule,
+        package=package,
+        impact_registry=registry,
+        source_root=current.source_root,
+        visual_root=current.visual_root,
+        gate_output_root=current.gate_output_root,
+    )
+    for field in (
+        "package_sha256",
+        "portable_tree_sha256",
+        "portable_tree_entry_count",
+        "visual_manifest_sha256",
+        "visual_manifest_entry_count",
+        "command_registry_sha256",
+        "toolchain",
+        "toolchain_sha256",
+        "toolchain_probe_sha256",
+        "toolchain_probe_entry_count",
+    ):
+        capsule[field] = evidence[field]
+    output_by_id = {item["id"]: item for item in evidence["gate_outputs"]}
+    for result in capsule["certified_gates"]:
+        output = output_by_id[result["id"]]
+        for field in ("output_ref", "output_sha256", "output_bytes"):
+            result[field] = output[field]
+    capsule["gate_receipt_sha256"] = canonical_sha256(capsule["certified_gates"])
+    attestation_path = current.gate_output_root / capsule["attestation_ref"]
+    attestation_path.write_text(
+        json.dumps(evidence, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    capsule["attestation_sha256"] = hashlib.sha256(
+        attestation_path.read_bytes()
+    ).hexdigest()
+    capsule = _reseal_capsule(capsule)
+    authority = ReleaseCapsuleAuthority(
+        package=package,
+        impact_registry=registry,
+        source_root=current.source_root,
+        visual_root=current.visual_root,
+        gate_output_root=current.gate_output_root,
+        verified_attestation_sha256=capsule["attestation_sha256"],
+    )
+    return {
+        "capsule": capsule,
+        "authority": authority,
+        "package": package,
+        "registry": registry,
+    }
 
 
 def _authority_with_attestation_sha(
@@ -1003,9 +1301,12 @@ def _adoption_authority(
     *,
     trusted_digest: str | None = None,
 ) -> AdoptionEvidenceAuthority:
-    digest = trusted_digest or hashlib.sha256(
-        (run_root / "canary-completion-anchor.json").read_bytes()
-    ).hexdigest()
+    digest = (
+        trusted_digest
+        or hashlib.sha256(
+            (run_root / "canary-completion-anchor.json").read_bytes()
+        ).hexdigest()
+    )
     return AdoptionEvidenceAuthority(
         consumer_root=capsule_authority["consumer_root"],
         run_root=run_root,
@@ -1044,24 +1345,188 @@ def test_public_registry_is_canonical_versioned_and_schema_valid() -> None:
     assert seal_impact_registry(registry) == registry
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "npm --prefix apps/wiki-cockpit run check:bundle",
+        "node apps/wiki-cockpit/scripts/check-bundle.mjs",
+    ],
+)
+def test_impact_registry_rejects_raw_node_commands(command: str) -> None:
+    registry = copy.deepcopy(_registry())
+    target = next(item for item in registry["gate_catalog"] if item["id"] == "bundle")
+    target["command"] = command
+    unsigned = dict(registry)
+    unsigned.pop("registry_sha256")
+    registry["registry_sha256"] = canonical_sha256(unsigned)
+
+    with pytest.raises(UpgradeLaneError, match="Node workspace policy"):
+        verify_impact_registry(registry)
+
+
 def test_release_capsule_is_immutable_canonical_and_schema_valid(
     capsule_authority: dict,
 ) -> None:
     capsule = _capsule(capsule_authority)
     assert capsule["schema_version"] == RELEASE_CAPSULE_SCHEMA_VERSION
     assert capsule["status"] == "certified"
-    verified = verify_release_capsule(
-        capsule, authority=capsule_authority["authority"]
+    assert capsule["node_workspace_authority_sha256"] == (
+        authority_identity_sha256(capsule["node_workspace_authority"])
     )
+    assert capsule["toolchain"]["npm"] == npm_workspace_toolchain_identity(
+        capsule["node_workspace_authority"]
+    )
+    verified = verify_release_capsule(capsule, authority=capsule_authority["authority"])
     assert verified.digest == capsule["capsule_sha256"]
     schema = json.loads(CAPSULE_SCHEMA_PATH.read_text(encoding="utf-8"))
     assert list(Draft202012Validator(schema).iter_errors(capsule)) == []
     assert (
-        seal_release_capsule(
-            capsule, authority=capsule_authority["authority"]
-        )
+        seal_release_capsule(capsule, authority=capsule_authority["authority"])
         == capsule
     )
+
+
+@pytest.mark.parametrize("operation", ["seal", "verify"])
+def test_release_capsule_rejects_raw_node_commands_before_attestation(
+    capsule_authority: dict, operation: str
+) -> None:
+    capsule = _capsule(capsule_authority)
+    target = next(
+        item for item in capsule["command_registry"] if item["id"] == "bundle"
+    )
+    target["command"] = "npm --prefix apps/wiki-cockpit run check:bundle"
+    capsule["command_registry_sha256"] = canonical_sha256(capsule["command_registry"])
+
+    with pytest.raises(UpgradeLaneError, match="Node workspace policy"):
+        if operation == "seal":
+            seal_release_capsule(capsule, authority=capsule_authority["authority"])
+        else:
+            verify_release_capsule(capsule, authority=capsule_authority["authority"])
+
+
+def test_legacy_v1_capsule_and_attestation_remain_verifiable_without_reseal(
+    capsule_authority: dict,
+) -> None:
+    legacy = _legacy_rc37_shape(capsule_authority)
+    capsule = legacy["capsule"]
+    package = legacy["package"]
+    registry = legacy["registry"]
+
+    assert (
+        "apps/wiki-cockpit/node_modules/**" not in package["portable_import"]["block"]
+    )
+    assert {
+        item["id"]: item["command"]
+        for item in registry["gate_catalog"]
+        if item["id"] in _RC37_RAW_NODE_COMMANDS
+    } == _RC37_RAW_NODE_COMMANDS
+    assert capsule["toolchain_probe_entry_count"] == 4
+    assert "npm" not in capsule["toolchain"]
+    with pytest.raises(UpgradeLaneError, match="Node workspace policy"):
+        verify_impact_registry(registry)
+
+    verified = verify_release_capsule(capsule, authority=legacy["authority"])
+
+    assert verified.digest == capsule["capsule_sha256"]
+    attestation = json.loads(
+        (capsule_authority["gate_output_root"] / capsule["attestation_ref"]).read_text(
+            encoding="utf-8"
+        )
+    )
+    assert attestation["schema_version"] == LEGACY_EXECUTION_ATTESTATION_SCHEMA_VERSION
+    assert "node_workspace_authority" not in attestation
+    with pytest.raises(UpgradeLaneError, match="verification-only"):
+        seal_release_capsule(capsule, authority=legacy["authority"])
+
+
+def test_legacy_v1_raw_node_compatibility_does_not_weaken_byte_identity(
+    capsule_authority: dict,
+) -> None:
+    legacy = _legacy_rc37_shape(capsule_authority)
+    capsule = copy.deepcopy(legacy["capsule"])
+    target = next(
+        item for item in capsule["command_registry"] if item["id"] == "bundle"
+    )
+    target["command"] += " --synthetic-tamper"
+    capsule = _reseal_capsule(capsule)
+
+    with pytest.raises(UpgradeLaneError, match="command_registry_sha256 mismatch"):
+        verify_release_capsule(capsule, authority=legacy["authority"])
+
+
+def test_capsule_v2_requires_complete_node_workspace_authority(
+    capsule_authority: dict,
+) -> None:
+    capsule = _capsule(capsule_authority)
+    capsule.pop("node_workspace_authority")
+    capsule = _reseal_capsule(capsule)
+    with pytest.raises(UpgradeLaneError, match="schema rejected"):
+        verify_release_capsule(capsule, authority=capsule_authority["authority"])
+
+    capsule = _capsule(capsule_authority)
+    capsule["node_workspace_authority"]["host_path"] = "/tmp/forged"
+    capsule = _reseal_capsule(capsule)
+    with pytest.raises(UpgradeLaneError, match="schema rejected"):
+        verify_release_capsule(capsule, authority=capsule_authority["authority"])
+
+
+def test_capsule_v2_rejects_node_workspace_authority_digest_source_and_policy_drift(
+    capsule_authority: dict,
+) -> None:
+    capsule = _capsule(capsule_authority)
+    capsule["node_workspace_authority_sha256"] = "f" * 64
+    capsule = _reseal_capsule(capsule)
+    with pytest.raises(UpgradeLaneError, match="authority_sha256 mismatch"):
+        verify_release_capsule(capsule, authority=capsule_authority["authority"])
+
+    capsule = _capsule(capsule_authority)
+    capsule["node_workspace_authority"]["source_sha"] = "f" * 40
+    capsule["node_workspace_authority_sha256"] = authority_identity_sha256(
+        capsule["node_workspace_authority"]
+    )
+    capsule = _reseal_capsule(capsule)
+    with pytest.raises(UpgradeLaneError, match="belongs to another source"):
+        verify_release_capsule(capsule, authority=capsule_authority["authority"])
+
+    capsule = _capsule(capsule_authority)
+    capsule["node_workspace_authority"]["policy_sha256"] = "f" * 64
+    capsule["node_workspace_authority_sha256"] = authority_identity_sha256(
+        capsule["node_workspace_authority"]
+    )
+    capsule = _reseal_capsule(capsule)
+    with pytest.raises(UpgradeLaneError, match="policy differs from exact source"):
+        verify_release_capsule(capsule, authority=capsule_authority["authority"])
+
+
+def test_capsule_v2_authority_changes_invalidate_toolchain_identity(
+    capsule_authority: dict,
+) -> None:
+    capsule = _capsule(capsule_authority)
+    previous_authority_sha256 = capsule["node_workspace_authority_sha256"]
+    previous_toolchain_sha256 = capsule["toolchain_sha256"]
+    capsule["node_workspace_authority"]["node_modules"]["tree_sha256"] = "e" * 64
+    capsule["node_workspace_authority_sha256"] = authority_identity_sha256(
+        capsule["node_workspace_authority"]
+    )
+    capsule = _reseal_capsule(capsule)
+
+    assert capsule["node_workspace_authority_sha256"] != previous_authority_sha256
+    assert capsule["toolchain_sha256"] == previous_toolchain_sha256
+    with pytest.raises(UpgradeLaneError, match="npm toolchain differs"):
+        verify_release_capsule(capsule, authority=capsule_authority["authority"])
+
+
+def test_capsule_v2_rejects_internally_mismatched_authority_platform(
+    capsule_authority: dict,
+) -> None:
+    capsule = _capsule(capsule_authority)
+    capsule["node_workspace_authority"]["platform"]["machine"] = "arm64"
+    capsule["node_workspace_authority_sha256"] = canonical_sha256(
+        capsule["node_workspace_authority"]
+    )
+    capsule = _reseal_capsule(capsule)
+    with pytest.raises(UpgradeLaneError, match="authority is invalid"):
+        verify_release_capsule(capsule, authority=capsule_authority["authority"])
 
 
 def test_productive_visual_authority_requires_external_capture_attestation(
@@ -1071,6 +1536,13 @@ def test_productive_visual_authority_requires_external_capture_attestation(
         capsule_authority["attestation_path"].read_text(encoding="utf-8")
     )
 
+    assert (
+        attestation["node_workspace_authority"]
+        == capsule_authority["capsule"]["node_workspace_authority"]
+    )
+    assert attestation["node_workspace_authority_sha256"] == (
+        capsule_authority["capsule"]["node_workspace_authority_sha256"]
+    )
     assert attestation["visual_capture_trust"] == {
         "model": "external_capture_execution_attestation",
         "capture_method": "playwright_served_public_synthetic",
@@ -1131,9 +1603,7 @@ def test_safe_file_bytes_rejects_symlinks_and_hardlinks(tmp_path: Path) -> None:
     (outside / "record.json").write_bytes(b"outside")
     (root / "linked-directory").symlink_to(outside, target_is_directory=True)
     with pytest.raises(UpgradeLaneError, match="without symlink traversal"):
-        _safe_file_bytes(
-            root, "linked-directory/record.json", label="visual record"
-        )
+        _safe_file_bytes(root, "linked-directory/record.json", label="visual record")
 
     hardlink = records / "desktop-hardlink.json"
     try:
@@ -1157,9 +1627,7 @@ def test_release_capsule_rejects_tamper_and_manual_evidence(
     tampered = copy.deepcopy(capsule)
     tampered["visual_manifest_sha256"] = "f" * 64
     with pytest.raises(UpgradeLaneError, match="recomputed visual_manifest_sha256"):
-        verify_release_capsule(
-            tampered, authority=capsule_authority["authority"]
-        )
+        verify_release_capsule(tampered, authority=capsule_authority["authority"])
 
     manual = copy.deepcopy(capsule)
     manual["certified_gates"][0]["provenance"] = "manual"
@@ -1168,9 +1636,7 @@ def test_release_capsule_rejects_tamper_and_manual_evidence(
     unsigned.pop("capsule_sha256")
     manual["capsule_sha256"] = canonical_sha256(unsigned)
     with pytest.raises(UpgradeLaneError, match="schema rejected"):
-        verify_release_capsule(
-            manual, authority=capsule_authority["authority"]
-        )
+        verify_release_capsule(manual, authority=capsule_authority["authority"])
 
 
 def test_release_capsule_rejects_placeholder_command(
@@ -1179,9 +1645,7 @@ def test_release_capsule_rejects_placeholder_command(
     capsule = _capsule(capsule_authority)
     capsule["command_registry"][0]["command"] = "true"
     with pytest.raises(UpgradeLaneError, match="placeholder/manual"):
-        seal_release_capsule(
-            capsule, authority=capsule_authority["authority"]
-        )
+        seal_release_capsule(capsule, authority=capsule_authority["authority"])
 
 
 def test_shape_only_capsule_cannot_authorize_verification_or_omissions(
@@ -1218,9 +1682,7 @@ def test_capsule_rejects_resealed_digest_shaped_identity_substitution(
     capsule[field] = "f" * 64
     capsule = _reseal_capsule(capsule)
     with pytest.raises(UpgradeLaneError, match=message):
-        verify_release_capsule(
-            capsule, authority=capsule_authority["authority"]
-        )
+        verify_release_capsule(capsule, authority=capsule_authority["authority"])
 
 
 def test_verified_token_rejects_a_capsule_mutated_after_verification(
@@ -1249,9 +1711,10 @@ def test_capsule_recomputes_the_pinned_git_tree_not_the_dirty_worktree(
         capsule_authority["capsule"],
         authority=capsule_authority["authority"],
     )
-    assert verified.portable_tree_sha256 == capsule_authority["capsule"][
-        "portable_tree_sha256"
-    ]
+    assert (
+        verified.portable_tree_sha256
+        == capsule_authority["capsule"]["portable_tree_sha256"]
+    )
 
 
 def test_capsule_rejects_substituted_strict_png_evidence(
@@ -1259,9 +1722,7 @@ def test_capsule_rejects_substituted_strict_png_evidence(
 ) -> None:
     image_path = capsule_authority["visual_root"] / "images/desktop.png"
     image_path.write_bytes(_png_bytes(width=17, height=12))
-    with pytest.raises(
-        UpgradeLaneError, match="DPR-1 viewport|hash/bytes/dimensions"
-    ):
+    with pytest.raises(UpgradeLaneError, match="DPR-1 viewport|hash/bytes/dimensions"):
         verify_release_capsule(
             capsule_authority["capsule"],
             authority=capsule_authority["authority"],
@@ -1346,7 +1807,9 @@ def test_capsule_rejects_gate_output_changed_after_the_attested_run(
 ) -> None:
     gate = capsule_authority["capsule"]["certified_gates"][0]
     output = capsule_authority["gate_output_root"] / gate["output_ref"]
-    output.write_text(output.read_text(encoding="utf-8") + "changed=true\n", encoding="utf-8")
+    output.write_text(
+        output.read_text(encoding="utf-8") + "changed=true\n", encoding="utf-8"
+    )
     with pytest.raises(UpgradeLaneError, match="output binding mismatch"):
         verify_release_capsule(
             capsule_authority["capsule"],
@@ -1604,9 +2067,7 @@ def test_broad_consumer_skill_pattern_does_not_cover_skill_root_index() -> None:
         if surface["id"] == "consumer_agent_routing"
     )
     routing["path_patterns"].remove(".skills/README.md")
-    registry["boundary_policy"]["c3_consumer_patterns"].remove(
-        ".skills/README.md"
-    )
+    registry["boundary_policy"]["c3_consumer_patterns"].remove(".skills/README.md")
     registry = seal_impact_registry(registry)
 
     selection = select_impacted_gates(
@@ -1708,9 +2169,11 @@ def test_localized_b0_authority_accepts_only_three_exact_technical_roles(
         tmp_path, package, files=files
     )
 
-    assert [
-        classify_consumer_c3_path(path, authority) for path in sorted(files)
-    ] == ["release_records", "operational_pass_page", "command_reference_page"]
+    assert [classify_consumer_c3_path(path, authority) for path in sorted(files)] == [
+        "release_records",
+        "operational_pass_page",
+        "command_reference_page",
+    ]
     selection = select_promotion_gates(
         package,
         _registry(),
@@ -1735,7 +2198,7 @@ def test_localized_b0_authority_accepts_only_three_exact_technical_roles(
     )
 
 
-def test_arbitrary_localized_domain_path_remains_full_lane_and_forbidden_c3(
+def test_localized_domain_path_matches_default_content_impact_but_stays_out_of_c3(
     tmp_path: Path, capsule_authority: dict
 ) -> None:
     package = capsule_authority["authority"].package
@@ -1745,15 +2208,29 @@ def test_arbitrary_localized_domain_path_remains_full_lane_and_forbidden_c3(
         package,
         files={path: (b"# Dados sinteticos\n", "100644")},
     )
-    selection = select_promotion_gates(
-        package,
+    selection = select_impacted_gates(
         _registry(),
         changed_paths=[path],
         changed_contracts=[],
         consumer_c3_authority=authority,
     )
-    assert selection["requires_lane_a"] is True
-    assert selection["unknown_paths"] == [path]
+    default_selection = select_impacted_gates(
+        _registry(),
+        changed_paths=["memories/finance/ledger.md"],
+        changed_contracts=[],
+    )
+    assert selection["matched_surfaces"] == [
+        "consumer_configuration",
+        "content_semantics",
+    ]
+    assert selection["selected_gates"] == default_selection["selected_gates"]
+    assert selection["omitted_gates"] == default_selection["omitted_gates"]
+    assert selection["requires_lane_a"] is False
+    assert selection["unknown_paths"] == []
+    assert selection["escalation"] == "consumer_delta"
+    assert "real_canary" in selection["selected_gates"]
+    assert "semantic_inventory" in selection["selected_gates"]
+    assert "visual_profiles" not in selection["selected_gates"]
     with pytest.raises(UpgradeLaneError, match="domain content is forbidden"):
         validate_boundary_ownership(
             boundaries,
@@ -1761,6 +2238,66 @@ def test_arbitrary_localized_domain_path_remains_full_lane_and_forbidden_c3(
             package=package,
             consumer_c3_authority=authority,
         )
+
+
+def test_localized_memory_root_prefix_confusion_remains_unknown_full_lane(
+    tmp_path: Path, capsule_authority: dict
+) -> None:
+    package = capsule_authority["authority"].package
+    path = "memoria-publica-archive/financeiro/ledger.md"
+    _consumer, _commits, _boundaries, authority = _localized_c3_chain(
+        tmp_path,
+        package,
+        files={path: (b"# Dados sinteticos arquivados\n", "100644")},
+    )
+    registry = _registry()
+    selection = select_impacted_gates(
+        registry,
+        changed_paths=[path],
+        changed_contracts=[],
+        consumer_c3_authority=authority,
+    )
+    assert selection["unknown_paths"] == [path]
+    assert selection["requires_lane_a"] is True
+    assert selection["escalation"] == "unknown_impact_full_lane"
+    assert selection["selected_gates"] == registry["full_matrix_gates"]
+
+
+def test_localized_memory_root_requires_one_content_contract_surface(
+    tmp_path: Path, capsule_authority: dict
+) -> None:
+    package = capsule_authority["authority"].package
+    path = "memoria-publica/financeiro/ledger.md"
+    _consumer, _commits, _boundaries, authority = _localized_c3_chain(
+        tmp_path,
+        package,
+        files={path: (b"# Dados sinteticos\n", "100644")},
+    )
+    missing = _registry()
+    content = next(
+        item for item in missing["surfaces"] if item["id"] == "content_semantics"
+    )
+    content["contracts"].remove("wiki_content.v1")
+    missing = seal_impact_registry(missing)
+
+    ambiguous = _registry()
+    consumer_tests = next(
+        item for item in ambiguous["surfaces"] if item["id"] == "consumer_tests"
+    )
+    consumer_tests["contracts"].append("wiki_content.v1")
+    ambiguous = seal_impact_registry(ambiguous)
+
+    for registry in (missing, ambiguous):
+        selection = select_impacted_gates(
+            registry,
+            changed_paths=[path],
+            changed_contracts=[],
+            consumer_c3_authority=authority,
+        )
+        assert selection["unknown_paths"] == [path]
+        assert selection["requires_lane_a"] is True
+        assert selection["escalation"] == "unknown_impact_full_lane"
+        assert selection["selected_gates"] == registry["full_matrix_gates"]
 
 
 def test_c3_config_edit_cannot_expand_the_b0_authority(
@@ -1891,9 +2428,9 @@ def test_resealed_consumer_c3_authority_tamper_is_rejected_against_b0(
         },
     )
     forged = copy.deepcopy(authority)
-    forged["exact_markdown_paths"][0]["path"] = (
-        "memoria-publica/financeiro/referencia-comandos.md"
-    )
+    forged["exact_markdown_paths"][0][
+        "path"
+    ] = "memoria-publica/financeiro/referencia-comandos.md"
     unsigned = copy.deepcopy(forged)
     unsigned.pop("authority_sha256")
     forged["authority_sha256"] = canonical_sha256(unsigned)
@@ -2118,9 +2655,7 @@ def test_registry_binds_each_configured_role_to_its_exact_impact_contract() -> N
 
     duplicate_role = copy.deepcopy(registry)
     surface = next(
-        item
-        for item in duplicate_role["surfaces"]
-        if item["id"] == "content_semantics"
+        item for item in duplicate_role["surfaces"] if item["id"] == "content_semantics"
     )
     surface["configured_path_roles"].append("command_reference_page")
     surface["contracts"].append("wiki_consumer_command_reference.v1")
@@ -2131,18 +2666,19 @@ def test_registry_binds_each_configured_role_to_its_exact_impact_contract() -> N
 def test_valid_adoption_receipt_reuses_only_exact_subject(
     capsule_authority: dict,
 ) -> None:
-    receipt, identity, capsule, selection, plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(capsule_authority)
     assert receipt["schema_version"] == ADOPTION_RECEIPT_SCHEMA_VERSION
-    assert _verify(
-        receipt,
-        identity,
-        capsule,
-        selection,
-        plan_sha256,
-        capsule_authority,
-    ) == receipt["receipt_sha256"]
+    assert (
+        _verify(
+            receipt,
+            identity,
+            capsule,
+            selection,
+            plan_sha256,
+            capsule_authority,
+        )
+        == receipt["receipt_sha256"]
+    )
 
 
 def test_adoption_evidence_accepts_ignored_runner_artifacts(
@@ -2161,6 +2697,113 @@ def test_adoption_evidence_accepts_ignored_runner_artifacts(
         package=capsule_authority["authority"].package,
         registry=_registry(),
         selection=selection,
+    )
+
+
+def test_adoption_git_authority_ignores_ambient_identity_and_process_injection(
+    capsule_authority: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    receipt, _identity_value, _capsule_value, selection, _plan = _receipt(
+        capsule_authority
+    )
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    decoy = tmp_path / "ambient-decoy"
+    decoy.mkdir()
+    _git(decoy, "init", "-q", "-b", "main")
+    _git(decoy, "config", "user.name", "Ambient Decoy")
+    _git(decoy, "config", "user.email", "decoy@example.invalid")
+    (decoy / "decoy.txt").write_text("wrong authority\n", encoding="utf-8")
+    _git(decoy, "add", "decoy.txt")
+    _git(decoy, "commit", "-q", "-m", "decoy subject")
+    assert _git(decoy, "rev-parse", "HEAD") != capsule_authority["consumer_C3"]
+    script, sentinel = _sentinel_git_command(tmp_path)
+    injected = {
+        "GIT_DIR": str(decoy / ".git"),
+        "GIT_WORK_TREE": str(decoy),
+        "GIT_INDEX_FILE": str(decoy / ".git/index"),
+        "GIT_OBJECT_DIRECTORY": str(decoy / ".git/objects"),
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "core.fsmonitor",
+        "GIT_CONFIG_VALUE_0": str(script),
+        "GIT_EXTERNAL_DIFF": str(script),
+    }
+    for key, value in injected.items():
+        monkeypatch.setenv(key, value)
+    observed_head = (
+        _git_bytes(
+            capsule_authority["consumer_root"],
+            ["rev-parse", "HEAD"],
+            label="ambient consumer identity",
+        )
+        .decode("ascii", "strict")
+        .strip()
+    )
+
+    verified = verify_adoption_evidence(
+        receipt,
+        authority=_adoption_authority(capsule_authority, run_root),
+        package=capsule_authority["authority"].package,
+        registry=_registry(),
+        selection=selection,
+    )
+
+    assert verified.receipt_digest == receipt["receipt_sha256"]
+    assert observed_head == capsule_authority["consumer_C3"]
+    assert verified.consumer_C3 == capsule_authority["consumer_C3"]
+    assert not sentinel.exists()
+
+
+def test_release_source_rejects_local_executable_git_config_without_running_it(
+    capsule_authority: dict,
+    tmp_path: Path,
+) -> None:
+    source = capsule_authority["source_root"]
+    script, sentinel = _sentinel_git_command(tmp_path)
+    _git(source, "config", "core.fsmonitor", str(script))
+
+    with pytest.raises(
+        UpgradeLaneError,
+        match="source authority Git configuration contains executable policy",
+    ):
+        verify_release_capsule(
+            _capsule(capsule_authority),
+            authority=capsule_authority["authority"],
+        )
+
+    assert not sentinel.exists()
+
+
+def test_consumer_authority_rejects_local_worktree_identity_redirect(
+    capsule_authority: dict,
+    tmp_path: Path,
+) -> None:
+    receipt, _identity_value, _capsule_value, selection, _plan = _receipt(
+        capsule_authority
+    )
+    run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
+    decoy = tmp_path / "local-worktree-decoy"
+    decoy.mkdir()
+    (decoy / "wiki.config.yaml").write_text(
+        "repo_id: redirected-decoy\n", encoding="utf-8"
+    )
+    _git(capsule_authority["consumer_root"], "config", "core.worktree", str(decoy))
+
+    with pytest.raises(
+        UpgradeLaneError,
+        match="consumer authority Git configuration contains executable policy",
+    ):
+        verify_adoption_evidence(
+            receipt,
+            authority=_adoption_authority(capsule_authority, run_root),
+            package=capsule_authority["authority"].package,
+            registry=_registry(),
+            selection=selection,
+        )
+
+    assert (decoy / "wiki.config.yaml").read_text(encoding="utf-8") == (
+        "repo_id: redirected-decoy\n"
     )
 
 
@@ -2217,9 +2860,7 @@ def test_adoption_evidence_binds_custom_plan_parent_and_exact_run_key(
 def test_verifiers_reject_package_policy_drift_before_promotion_reuse(
     capsule_authority: dict,
 ) -> None:
-    receipt, identity, capsule, selection, plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(capsule_authority)
     run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
     package = copy.deepcopy(capsule_authority["authority"].package)
     policy = package["migration"]["gate_policies"]["consumer_browser_matrix"]
@@ -2336,9 +2977,7 @@ def test_adoption_evidence_rejects_nonignored_untracked_consumer_file(
 def test_shape_only_adoption_receipt_cannot_authorize_reuse(
     capsule_authority: dict,
 ) -> None:
-    receipt, identity, capsule, selection, plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(capsule_authority)
     with pytest.raises(UpgradeLaneError, match="shape-only adoption receipt"):
         verify_adoption_receipt(
             receipt,
@@ -2371,7 +3010,7 @@ def test_adoption_evidence_rejects_arbitrary_executed_output_hash(
     with pytest.raises(UpgradeLaneError, match="runner state gate result differs"):
         verify_adoption_evidence(
             forged,
-        authority=_adoption_authority(capsule_authority, run_root),
+            authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -2392,7 +3031,7 @@ def test_adoption_evidence_rejects_changed_real_gate_log(
     with pytest.raises(UpgradeLaneError, match="gate log hash differs"):
         verify_adoption_evidence(
             receipt,
-        authority=_adoption_authority(capsule_authority, run_root),
+            authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -2427,7 +3066,7 @@ def test_adoption_evidence_rejects_fabricated_rollback_or_report(
     with pytest.raises(UpgradeLaneError, match=message):
         verify_adoption_evidence(
             receipt,
-        authority=_adoption_authority(capsule_authority, run_root),
+            authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -2480,7 +3119,7 @@ def test_adoption_evidence_rejects_coherently_resealed_report_binding_tamper(
     with pytest.raises(UpgradeLaneError, match="private migration report is stale"):
         verify_adoption_evidence(
             forged,
-        authority=_adoption_authority(capsule_authority, run_root),
+            authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -2503,7 +3142,7 @@ def test_public_migration_report_rejects_private_consumer_identity_sha(
     with pytest.raises(UpgradeLaneError, match="public migration report is stale"):
         verify_adoption_evidence(
             receipt,
-        authority=_adoption_authority(capsule_authority, run_root),
+            authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -2525,9 +3164,7 @@ def test_public_migration_report_rejects_private_consumer_identity_sha(
 def test_receipt_reuse_rejects_every_divergent_identity_term(
     field: str, capsule_authority: dict
 ) -> None:
-    receipt, identity, capsule, selection, plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(capsule_authority)
     changed = copy.deepcopy(receipt)
     changed["identity"][field] = (
         "d" * 40 if field in {"source_sha", "consumer_B0", "consumer_C3"} else "d" * 64
@@ -2552,9 +3189,7 @@ def test_receipt_reuse_rejects_every_divergent_identity_term(
 def test_c3_changed_after_gates_invalidates_all_stale_results(
     capsule_authority: dict,
 ) -> None:
-    receipt, identity, capsule, selection, plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(capsule_authority)
     changed_identity = dict(identity)
     changed_identity["consumer_C3"] = "d" * 40
     receipt["identity"] = changed_identity
@@ -2573,9 +3208,7 @@ def test_c3_changed_after_gates_invalidates_all_stale_results(
 def test_manual_or_fabricated_gate_evidence_is_rejected(
     capsule_authority: dict,
 ) -> None:
-    receipt, identity, capsule, selection, plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(capsule_authority)
     receipt["gate_results"][0]["provenance"] = "fabricated"
     receipt = _reseal(receipt)
     with pytest.raises(UpgradeLaneError, match="manual/fabricated evidence"):
@@ -2592,9 +3225,7 @@ def test_manual_or_fabricated_gate_evidence_is_rejected(
 def test_resume_state_must_match_current_identity_and_plan(
     capsule_authority: dict,
 ) -> None:
-    receipt, identity, capsule, selection, plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(capsule_authority)
     stale_identity = copy.deepcopy(receipt)
     stale_identity["resume"]["identity_sha256"] = "e" * 64
     stale_identity = seal_adoption_receipt(stale_identity)
@@ -2637,9 +3268,7 @@ def test_gate_omission_requires_exact_capsule_or_impact_derivation(
     registry = _registry()
     verified = capsule_authority["verified"]
     omission = next(
-        item
-        for item in receipt["omitted_gates"]
-        if item["reason"] == "not_affected"
+        item for item in receipt["omitted_gates"] if item["reason"] == "not_affected"
     )
     omission["derivation_sha256"] = "e" * 64
     with pytest.raises(UpgradeLaneError, match="lacks exact impact derivation"):
@@ -2699,9 +3328,7 @@ def test_never_reusable_gate_cannot_be_omitted_even_with_claimed_derivation(
 def test_private_host_path_cannot_leak_into_receipt_output(
     capsule_authority: dict,
 ) -> None:
-    receipt, identity, capsule, selection, plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(capsule_authority)
     receipt["boundaries"]["C3"][0]["path"] = "/Users/example/private/wiki.config.yaml"
     receipt = _reseal(receipt)
     with pytest.raises(UpgradeLaneError, match="host-local path"):
@@ -2800,9 +3427,7 @@ def test_private_data_marker_cannot_leak_into_capsule(
     capsule = _capsule(capsule_authority)
     capsule["command_registry"][0]["command"] = "python3 tool.py --token=secret-value"
     with pytest.raises(UpgradeLaneError, match="secret/private data"):
-        seal_release_capsule(
-            capsule, authority=capsule_authority["authority"]
-        )
+        seal_release_capsule(capsule, authority=capsule_authority["authority"])
 
 
 def test_acceptance_budget_exact_boundary_and_fail_closed_clock() -> None:
@@ -2888,9 +3513,7 @@ def test_public_acceptance_budget_projection_is_typed_without_timing() -> None:
 def test_receipt_v4_budget_must_match_runner_and_reports(
     capsule_authority: dict,
 ) -> None:
-    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(capsule_authority)
     changed = copy.deepcopy(receipt)
     changed["acceptance_budget"].update(
         {
@@ -2903,7 +3526,7 @@ def test_receipt_v4_budget_must_match_runner_and_reports(
     with pytest.raises(UpgradeLaneError, match="runner state is stale"):
         verify_adoption_evidence(
             changed,
-        authority=_adoption_authority(capsule_authority, run_root),
+            authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -2913,25 +3536,23 @@ def test_receipt_v4_budget_must_match_runner_and_reports(
 def test_receipt_v4_budget_must_match_runner_canary_completion(
     capsule_authority: dict,
 ) -> None:
-    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(capsule_authority)
     run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
     state_path = run_root / "state.json"
     state = json.loads(state_path.read_text(encoding="utf-8"))
     canary_id = next(
-        result["id"] for result in receipt["gate_results"] if result["class"] == "canary"
+        result["id"]
+        for result in receipt["gate_results"]
+        if result["class"] == "canary"
     )
-    state["gate_results"][canary_id]["_completed_at"] = receipt[
-        "acceptance_budget"
-    ]["plan_started_at"]
-    state_path.write_text(
-        json.dumps(state, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    state["gate_results"][canary_id]["_completed_at"] = receipt["acceptance_budget"][
+        "plan_started_at"
+    ]
+    state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
     with pytest.raises(UpgradeLaneError, match="completed real canary"):
         verify_adoption_evidence(
             receipt,
-        authority=_adoption_authority(capsule_authority, run_root),
+            authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -2939,9 +3560,7 @@ def test_receipt_v4_budget_must_match_runner_canary_completion(
 
 
 def test_legacy_adoption_receipt_v1_is_rejected(capsule_authority: dict) -> None:
-    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(capsule_authority)
     legacy = copy.deepcopy(receipt)
     legacy["schema_version"] = "wiki_viva_upgrade_adoption_receipt.v1"
     unsigned = dict(legacy)
@@ -2951,7 +3570,7 @@ def test_legacy_adoption_receipt_v1_is_rejected(capsule_authority: dict) -> None
     with pytest.raises(UpgradeLaneError, match="unsupported adoption receipt"):
         verify_adoption_evidence(
             legacy,
-        authority=_adoption_authority(capsule_authority, run_root),
+            authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -2998,9 +3617,7 @@ def test_budget_blocked_receipt_has_integrity_proof_but_is_never_reusable(
 def test_external_canary_anchor_rejects_coherently_resealed_budget_promotion(
     capsule_authority: dict,
 ) -> None:
-    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(capsule_authority)
     forged, run_root, trusted_blocked_digest = _blocked_run_receipt(
         capsule_authority, receipt
     )
@@ -3092,9 +3709,7 @@ def test_budget_blocked_receipt_rejects_nonexecuted_or_failed_gate_integrity(
     message: str,
     capsule_authority: dict,
 ) -> None:
-    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(capsule_authority)
     blocked, run_root, completion_digest = _blocked_run_receipt(
         capsule_authority, receipt
     )
@@ -3104,9 +3719,7 @@ def test_budget_blocked_receipt_rejects_nonexecuted_or_failed_gate_integrity(
     state_path = run_root / "state.json"
     state = json.loads(state_path.read_text(encoding="utf-8"))
     state["gate_results"][gate_id].update(mutation)
-    state_path.write_text(
-        json.dumps(state, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    state_path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
     with pytest.raises(UpgradeLaneError, match=message):
         verify_adoption_evidence(
             blocked,
@@ -3124,9 +3737,7 @@ def test_budget_blocked_receipt_rejects_nonexecuted_or_failed_gate_integrity(
 def test_budget_blocked_public_report_rejects_forged_promotion_ready(
     capsule_authority: dict,
 ) -> None:
-    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(capsule_authority)
     blocked, run_root, completion_digest = _blocked_run_receipt(
         capsule_authority, receipt
     )
@@ -3153,9 +3764,7 @@ def test_budget_blocked_public_report_rejects_forged_promotion_ready(
 def test_public_report_rejects_private_acceptance_timing_fields(
     capsule_authority: dict,
 ) -> None:
-    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, _identity, _capsule, selection, _plan_sha256 = _receipt(capsule_authority)
     run_root = capsule_authority["adoption_run_roots"][receipt["receipt_sha256"]]
     public_path = run_root / "migration-report.public.json"
     public_report = json.loads(public_path.read_text(encoding="utf-8"))
@@ -3166,7 +3775,7 @@ def test_public_report_rejects_private_acceptance_timing_fields(
     with pytest.raises(UpgradeLaneError, match="public migration report is stale"):
         verify_adoption_evidence(
             receipt,
-        authority=_adoption_authority(capsule_authority, run_root),
+            authority=_adoption_authority(capsule_authority, run_root),
             package=capsule_authority["authority"].package,
             registry=_registry(),
             selection=selection,
@@ -3207,9 +3816,7 @@ def test_public_report_rejects_private_acceptance_timing_fields(
                 "operation": "upsert",
                 "mode": "100644",
                 "sha256": "8" * 64,
-                "generator_sha256": _digest(
-                    "python3 scripts/wiki_build_demo.py"
-                ),
+                "generator_sha256": _digest("python3 scripts/wiki_build_demo.py"),
             },
             "domain content is forbidden",
         ),
@@ -3350,9 +3957,7 @@ def test_c1_rejects_registry_package_allowlist_drift(
             receipt["boundaries"],
             _registry(),
             package=package,
-            consumer_c3_authority=_consumer_c3_authority(
-                capsule_authority, package
-            ),
+            consumer_c3_authority=_consumer_c3_authority(capsule_authority, package),
         )
 
 
@@ -3363,9 +3968,7 @@ def test_c1_projection_requires_exact_upserts_and_stale_deletions() -> None:
             "block": ["memories/**"],
         }
     }
-    source = {
-        "wiki_core/config.py": {"mode": "100644", "sha256": "1" * 64}
-    }
+    source = {"wiki_core/config.py": {"mode": "100644", "sha256": "1" * 64}}
     before = {
         "wiki_core/config.py": {"mode": "100644", "sha256": "2" * 64},
         "wiki_core/stale.py": {"mode": "100755", "sha256": "3" * 64},
@@ -3652,9 +4255,7 @@ def test_c2_and_c3_deletions_have_explicit_before_and_generator_proof(
 def test_receipt_rejects_missing_selected_gate_and_unverified_rollback(
     capsule_authority: dict,
 ) -> None:
-    receipt, identity, capsule, selection, plan_sha256 = _receipt(
-        capsule_authority
-    )
+    receipt, identity, capsule, selection, plan_sha256 = _receipt(capsule_authority)
     missing = copy.deepcopy(receipt)
     missing["gate_results"].pop()
     missing = _reseal(missing)

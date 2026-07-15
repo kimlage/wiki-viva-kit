@@ -20,6 +20,7 @@ on:
       - "scripts/wiki_upgrade*.py"
       - "scripts/wiki_visual_evidence.py"
       - "tests/test_upgrade*.py"
+      - "tests/test_wiki_node_workspace.py"
       - "tests/test_wiki_upgrade_cli.py"
       - "tests/test_wiki_visual_evidence.py"
       - "wiki_core/**"
@@ -39,7 +40,7 @@ jobs:
   upstream-certification:
     name: Upstream certification (public synthetic)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     outputs:
       trusted_attestation_sha256: ${{ steps.lane_a_trust.outputs.trusted_attestation_sha256 }}
       lane_a_archive_sha256: ${{ steps.lane_a_archive_anchor.outputs.lane_a_archive_sha256 }}
@@ -53,15 +54,18 @@ jobs:
           cache: pip
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "22.22.3"
           cache: npm
           cache-dependency-path: apps/wiki-cockpit/package-lock.json
       - name: Install certification toolchain
         run: |
           python -m pip install -r requirements.txt playwright==1.61.1
-          npm --prefix apps/wiki-cockpit ci
-          echo "$GITHUB_WORKSPACE/apps/wiki-cockpit/node_modules/.bin" >> "$GITHUB_PATH"
+          npm install --global npm@10.9.8
+          test "$(node --version)" = "v22.22.3"
+          test "$(npm --version)" = "10.9.8"
           python -m playwright install --with-deps chromium
+      - name: Verify portable Node policy and external authority contracts
+        run: python -m pytest -q tests/test_wiki_node_workspace.py
       - name: Verify capsule, command registry and public impact contracts
         run: >-
           python -m pytest -q tests/test_upgrade_lanes.py
@@ -99,7 +103,29 @@ jobs:
           path.write_text(yaml.safe_dump(package, sort_keys=False), encoding='utf-8')
           PY
           rm -rf "$ROOT/release-authority"
-          npm --prefix "$ROOT/public-kit/apps/wiki-cockpit" ci
+      - name: Capture exact external Node workspace authority once
+        run: |
+          set -euo pipefail
+          ROOT=.wiki-viva-ci/lane-a-inputs
+          SOURCE_SHA="$(git -C "$ROOT/public-kit" rev-parse HEAD)"
+          AUTHORITY="$GITHUB_WORKSPACE/.wiki-viva-ci/lane-a-node-authority.json"
+          test ! -e "$AUTHORITY"
+          CAPTURE_JSON="$(
+            cd "$ROOT/public-kit"
+            python scripts/wiki_node_workspace.py capture-authority \
+              --out "$AUTHORITY" \
+              --source-sha "$SOURCE_SHA"
+          )"
+          AUTHORITY_SHA256="$(
+            printf '%s\n' "$CAPTURE_JSON" \
+              | python -c 'import json, sys; print(json.load(sys.stdin)["authority_sha256"])'
+          )"
+          test "${#AUTHORITY_SHA256}" -eq 64
+          {
+            echo "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY=$AUTHORITY"
+            echo "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256=$AUTHORITY_SHA256"
+            echo "WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA=$SOURCE_SHA"
+          } >> "$GITHUB_ENV"
       - name: Capture productive public visual authority
         run: |
           ROOT=.wiki-viva-ci/lane-a-inputs
@@ -135,14 +161,17 @@ jobs:
             --visual-manifest-ref visual-manifest.json \
             --out-dir .wiki-viva-ci/lane-a-certified \
             --attestation-authority-id github-actions \
+            --node-workspace-authority "$WIKI_VIVA_NODE_WORKSPACE_AUTHORITY" \
+            --trusted-node-workspace-authority-sha256 "$WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256" \
             --run-id "lane-a-${GITHUB_RUN_ID}" \
             --jobs 4 \
             --heartbeat-seconds 5
       - name: Verify immutable Lane A artifact set
         run: |
           python - <<'PY'
-          import json
           import hashlib
+          import json
+          import os
           from pathlib import Path
           root = Path('.wiki-viva-ci/lane-a-certified')
           required = [
@@ -172,6 +201,9 @@ jobs:
               }
           assert hashes(certified_root) == hashes(captured_root)
           assert capsule['visual_manifest_sha256'] == capture['visual_manifest_sha256']
+          assert capsule['node_workspace_authority_sha256'] == \
+              os.environ['WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256']
+          assert capsule['node_workspace_authority']['source_sha'] == capsule['source_sha']
           assert receipt['status'] == 'passed'
           assert receipt['human_gate_required'] is True
           assert receipt['upstream_gate_ids']
@@ -211,6 +243,8 @@ jobs:
           cp .wiki-viva-ci/lane-a-inputs/upgrade-package.yaml .wiki-viva-ci/lane-a-bundle/inputs/
           cp .wiki-viva-ci/lane-a-inputs/impact-registry.yaml .wiki-viva-ci/lane-a-bundle/inputs/
           cp -R .wiki-viva-ci/lane-a-inputs/public-kit .wiki-viva-ci/lane-a-bundle/inputs/public-kit
+          rm -rf .wiki-viva-ci/lane-a-bundle/inputs/public-kit/apps/wiki-cockpit/node_modules
+          test ! -e .wiki-viva-ci/lane-a-bundle/inputs/public-kit/apps/wiki-cockpit/node_modules
           python - <<'PY'
           import hashlib, json
           from pathlib import Path
@@ -254,6 +288,7 @@ jobs:
               'portable_tree_sha256': capsule['portable_tree_sha256'],
               'command_registry_sha256': capsule['command_registry_sha256'],
               'toolchain_sha256': capsule['toolchain_sha256'],
+              'node_workspace_authority_sha256': capsule['node_workspace_authority_sha256'],
               'impact_registry_sha256': registry['registry_sha256'],
               'certification_receipt_sha256': hashlib.sha256(receipt_raw).hexdigest(),
               'certification_receipt_digest': receipt['receipt_sha256'],
@@ -348,6 +383,7 @@ jobs:
           assert capsule['portable_tree_sha256'] == manifest['portable_tree_sha256']
           assert capsule['command_registry_sha256'] == manifest['command_registry_sha256']
           assert capsule['toolchain_sha256'] == manifest['toolchain_sha256']
+          assert capsule['node_workspace_authority_sha256'] == manifest['node_workspace_authority_sha256']
           trusted_out_of_band = os.environ['TRUSTED_LANE_A_ATTESTATION_SHA256']
           assert re.fullmatch(r'[0-9a-f]{64}', trusted_out_of_band)
           assert (root / 'certified/trusted-attestation-sha256.txt').read_text().strip() == manifest['trusted_attestation_sha256'] == trusted_out_of_band
@@ -358,15 +394,16 @@ jobs:
           cache: pip
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "22.22.3"
           cache: npm
           cache-dependency-path: apps/wiki-cockpit/package-lock.json
       - name: Install Python dependencies
         run: python -m pip install -r requirements.txt playwright==1.61.1
       - name: Install the certified Playwright command registry
         run: |
-          npm --prefix apps/wiki-cockpit ci
-          echo "$GITHUB_WORKSPACE/apps/wiki-cockpit/node_modules/.bin" >> "$GITHUB_PATH"
+          npm install --global npm@10.9.8
+          test "$(node --version)" = "v22.22.3"
+          test "$(npm --version)" = "10.9.8"
           python -m playwright install --with-deps chromium
       - name: Verify impact, exact receipt identity, resume and C1/C2/C3 ownership
         run: >-
@@ -564,14 +601,15 @@ jobs:
           cache: pip
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "22.22.3"
           cache: npm
           cache-dependency-path: apps/wiki-cockpit/package-lock.json
       - name: Install the exact runner and browser toolchain
         run: |
           python -m pip install -r requirements.txt playwright==1.61.1
-          npm --prefix apps/wiki-cockpit ci
-          echo "$GITHUB_WORKSPACE/apps/wiki-cockpit/node_modules/.bin" >> "$GITHUB_PATH"
+          npm install --global npm@10.9.8
+          test "$(node --version)" = "v22.22.3"
+          test "$(npm --version)" = "10.9.8"
           python -m playwright install --with-deps chromium
       - name: Download fast-adoption runner handoff
         uses: actions/download-artifact@v7
@@ -796,14 +834,15 @@ jobs:
           cache: pip
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: "22.22.3"
           cache: npm
           cache-dependency-path: apps/wiki-cockpit/package-lock.json
       - name: Install the exact runner and consumer gate toolchain
         run: |
           python -m pip install -r requirements.txt playwright==1.61.1
-          npm --prefix apps/wiki-cockpit ci
-          echo "$GITHUB_WORKSPACE/apps/wiki-cockpit/node_modules/.bin" >> "$GITHUB_PATH"
+          npm install --global npm@10.9.8
+          test "$(node --version)" = "v22.22.3"
+          test "$(npm --version)" = "10.9.8"
           python -m playwright install --with-deps chromium
       - name: Download the exact post-canary consumer handoff
         uses: actions/download-artifact@v7

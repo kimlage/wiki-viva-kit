@@ -63,13 +63,16 @@ git add wiki.adapter-manifest.json adapters/ scripts/wiki_private_snapshot_adapt
   apps/wiki-cockpit/public/wiki-cockpit.config.json
 git commit -m "adopt: bind downstream adapters"
 python3 scripts/wiki_adapter_manifest.py check
-npm --prefix apps/wiki-cockpit run test:e2e:operator
+python3 scripts/wiki_node_workspace.py run test:e2e:operator
 ```
 
 The check and Node preflight independently reopen every file, compare
 SHA-256/byte counts, recompute the canonical aggregate and require manifest,
 files and runtime hash to agree. The release receipt repeats the verification
 against the same clean consumer subject.
+The wrapper consumes the external Node workspace authority sealed in capsule
+v2 and its separately trusted digest. Lane B may materialize from that authority
+but must never run `capture-authority` or fall back to ambient npm.
 
 ## Fail-closed boundary
 

@@ -173,6 +173,18 @@ ship the skeletons, so a generated page starts with the scaffold.
   includes the byte/mode digest of its Python/schema/probe execution closure;
   the toolchain binds the actual runner interpreter, its resolved Python
   dependencies and the Chromium engine actually launched by Playwright.
+  Release-bearing Node commands also have one closed authority boundary. The
+  tracked `apps/wiki-cockpit/node-workspace.lock.json` is portable policy v2:
+  package/lock hashes, pinned package manager, allowed scripts/arguments and
+  install policy only. It must contain no platform, host path, Node/npm runtime
+  or installed dependency-tree identity. Lane A alone captures the path-free,
+  source-bound and platform-scoped Node workspace authority outside Git after a
+  forced clean install. Capsule v2 embeds that authority/digest,
+  `toolchain_probe_entry_count=5` and canonical identities `browser`, `node`,
+  `npm`, `python`, `runner`. Lane B
+  verifies the sealed authority before materializing clean C1; it never captures
+  a replacement locally. Another platform/toolchain requires a new Lane A
+  capsule. Capsule v1 remains verification-only immutable history.
   Generate Lane A visual authority with
   [wiki_visual_evidence.py](../../scripts/wiki_visual_evidence.py) `capture`
   from the exact clean source: its
@@ -269,6 +281,22 @@ ship the skeletons, so a generated page starts with the scaffold.
   alias in the command registry must resolve to the interpreter used by the
   toolchain probe; PATH-dependent divergence is a certification failure. Do not
   amend, regenerate or reclassify any already sealed v2 C3 or receipt.
+  Later immutable correction subjects are recorded in the upstream v8 release
+  record outside the portable C1 closure, not silently collapsed into one
+  success or imported through C1. Rc29/rc30 were
+  rejected before complete validation, rc31/rc32/rc33 failed validation,
+  rc34/rc35 were rejected before capture and rc36 failed certification. Rc37 exact source
+  `d87af15b4aa850d1a50dc867f74e07ba09d0e89f` passed exact validation,
+  productive capture and Lane A 11/11; immutable
+  capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` /
+  `c7a1a4fe...` still verify as historical evidence. RT-173 was then exposed by
+  the first disposable clean-C1 execution: C1 correctly had no `node_modules`,
+  but rc37 carried no sealed dependency materialization authority, so a Node C2
+  generator could not resolve TypeScript until an untrusted manual `npm ci`.
+  Preserve every rc37 byte and receipt, but do not use them as executable Lane B
+  authority. Form exactly one still-unnamed successor with portable policy v2,
+  external authority v1, wrapper-only Node commands and capsule v2; do not name
+  or pin it before the source is immutable.
   Require direct single-parent B0->C1->C2->C3 edges;
   bind all four commits in receipt and state; recompute edge paths, modes and
   blobs from Git; and regenerate all C3-bound receipts whenever those files

@@ -72,6 +72,41 @@ and rehash every declared file. The manifest is consumer-owned and blocked from
 the public import. See the
 [downstream adapter manifest guide](../docs/references/guides/downstream-adapter-manifest.md).
 
+Use [wiki_node_workspace.py](wiki_node_workspace.py) for every release-bearing
+cockpit install, build and test command. The tracked
+`apps/wiki-cockpit/node-workspace.lock.json` is the portable
+`wiki_viva_node_workspace_policy.v2`: package/lock hashes, pinned package
+manager, allowed scripts/arguments and the fixed install/timeout policy. It
+contains no host path, platform, installed Node/npm or `node_modules` identity.
+Lane A alone runs `capture-authority` against the exact clean source. That
+forced-install operation writes a path-free,
+`wiki_viva_node_workspace_authority.v1` outside Git and binds policy/source,
+platform, resolved Node/npm and the exact dependency tree. `materialize` and
+`run` consume that authority and its separately trusted digest; a consumer
+never captures a substitute. Receipts contain hashes, counts, tool identities
+and output identity, never host-local paths. Package, lock, source, authority,
+Node/npm, platform, symlink or dependency drift fails closed.
+
+```sh
+python3 scripts/wiki_node_workspace.py snapshot --check
+python3 scripts/wiki_node_workspace.py capture-authority \
+  --out "$NODE_WORKSPACE_AUTHORITY" --source-sha "$SOURCE_SHA"
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY="$NODE_WORKSPACE_AUTHORITY"
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256="$TRUSTED_NODE_AUTHORITY_SHA256"
+export WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA="$SOURCE_SHA"
+python3 scripts/wiki_node_workspace.py materialize
+python3 scripts/wiki_node_workspace.py run test
+python3 scripts/wiki_node_workspace.py run test -- --reporter=tap
+python3 scripts/wiki_node_workspace.py run check:release-matrix
+```
+
+`capture-authority` is a Lane A command only and its output path is outside the
+repository. Lane B receives the authority through the verified capsule and uses
+the three environment variables above; it never invokes capture. Another
+platform/toolchain must mint its own Lane A authority/capsule instead of reusing
+a receipt. Direct `npm run dev` remains available for interactive development
+but is not release evidence.
+
 Use [wiki_pack.py](wiki_pack.py) for the review-first lifecycle of declarative
 experience packs: list, inspect and preview are read-only; install, upgrade,
 disable and remove support `--dry-run`, fail before mutation on dependency,
@@ -131,6 +166,9 @@ The v8 downstream release flow is read-only by default:
 - [wiki_upgrade_report.py](wiki_upgrade_report.py) validates allowlisted import
   evidence and compiles deterministic JSON/Markdown migration reports with
   gates, content-bound visual QA and disposable rollback verification.
+- [wiki_node_workspace.py](wiki_node_workspace.py) materializes a clean C1
+  cockpit dependency tree from the certified lockfile and executes the
+  allowlisted Node gate registry through exact resolved Node/npm authority.
 - [wiki_upgrade.py](wiki_upgrade.py) is the v3 two-lane runner. `plan` binds the
   exact package/capsule/impact registry, external attestation trust anchor,
   active toolchain and read-only B0 preflight before mutation. The preflight
@@ -172,10 +210,16 @@ The v8 downstream release flow is read-only by default:
   attest a different dependency closure. If any Lane A wave fails after the
   strict browser gate has executed, freeze that source/package subject and form
   a new one after the public fix; never retry or relabel the failed subject.
+  New certification emits `wiki_viva_upgrade_release_capsule.v2` with the
+  five-entry `wiki_viva_toolchain_probe.v2` authority in canonical order:
+  `browser`, `node`, `npm`, `python`, `runner`. Capsule/probe v1 remains
+  accepted only for fail-closed verification of immutable historical evidence;
+  it is never upgraded in place.
 - [wiki_toolchain_probe.py](wiki_toolchain_probe.py) is the portable,
   shell-free Lane A helper recorded in the toolchain attestation. Its `python`
   mode hashes the sorted resolved distribution inventory through the exact
-  interpreter executing the runner; its `browser` mode
+  interpreter executing the runner; `node` binds the resolved executable and
+  runtime tree, `npm` binds its resolved package tree, and `browser`
   launches Chromium and reports both the Playwright package and live engine
   versions. Diagnostic stdout is never sufficient authority without the
   capsule, receipt and externally trusted attestation digest.

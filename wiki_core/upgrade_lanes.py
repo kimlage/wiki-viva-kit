@@ -12,12 +12,12 @@ import copy
 import datetime as dt
 import fnmatch
 import hashlib
+import io
 import json
 import math
 import os
 import re
 import stat
-import subprocess
 from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,13 +28,36 @@ from jsonschema import Draft202012Validator
 
 from wiki_core.config import WikiConfig
 from wiki_core.detectors import scan_text
+from wiki_core.git_safety import (
+    GitSafetyError,
+    require_safe_local_config,
+    resolved_git_executable,
+    sanitized_git_argv,
+    sanitized_git_environment,
+)
+from wiki_core.process_safety import ProcessSafetyError, run_bounded_process
+from wiki_core.node_workspace import (
+    MANIFEST_RELATIVE as NODE_WORKSPACE_POLICY_RELATIVE,
+    PACKAGE_LOCK_RELATIVE as NODE_WORKSPACE_PACKAGE_LOCK_RELATIVE,
+    PACKAGE_RELATIVE as NODE_WORKSPACE_PACKAGE_RELATIVE,
+    NodeWorkspaceError,
+    authority_identity_sha256,
+    npm_workspace_toolchain_identity,
+    validate_authority as validate_node_workspace_authority,
+    validate_policy as validate_node_workspace_policy,
+)
 
 
-RELEASE_CAPSULE_SCHEMA_VERSION = "wiki_viva_upgrade_release_capsule.v1"
+LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION = "wiki_viva_upgrade_release_capsule.v1"
+RELEASE_CAPSULE_SCHEMA_VERSION = "wiki_viva_upgrade_release_capsule.v2"
 IMPACT_REGISTRY_SCHEMA_VERSION = "wiki_viva_upgrade_impact_registry.v1"
 ADOPTION_RECEIPT_SCHEMA_VERSION = "wiki_viva_upgrade_adoption_receipt.v4"
-EXECUTION_ATTESTATION_SCHEMA_VERSION = "wiki_viva_upgrade_execution_attestation.v1"
-TOOLCHAIN_PROBE_SCHEMA_VERSION = "wiki_viva_toolchain_probe.v1"
+LEGACY_EXECUTION_ATTESTATION_SCHEMA_VERSION = (
+    "wiki_viva_upgrade_execution_attestation.v1"
+)
+EXECUTION_ATTESTATION_SCHEMA_VERSION = "wiki_viva_upgrade_execution_attestation.v2"
+LEGACY_TOOLCHAIN_PROBE_SCHEMA_VERSION = "wiki_viva_toolchain_probe.v1"
+TOOLCHAIN_PROBE_SCHEMA_VERSION = "wiki_viva_toolchain_probe.v2"
 CONSUMER_C3_AUTHORITY_SCHEMA_VERSION = "wiki_viva_upgrade_consumer_c3_authority.v1"
 CONFIG_BOUND_C3_POLICY_SCHEMA_VERSION = "wiki_viva_config_bound_c3_policy.v1"
 VISUAL_CAPTURE_SCHEMA_VERSION = "wiki_visual_evidence_capture.v2"
@@ -63,9 +86,7 @@ VISUAL_PROFILE_CONTRACTS: dict[str, dict[str, Any]] = {
         "runtime_mode": "v8",
     },
     "fallback": {
-        "route": (
-            "/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0"
-        ),
+        "route": ("/demo/w?center=root-alex-rivera&view=quadrants&visual=1&tour=0"),
         "canary_route": "/w?view=quadrants&visual=1&tour=0",
         "view": "quadrants",
         "viewport": {"width": 1280, "height": 900},
@@ -79,9 +100,7 @@ VISUAL_PROFILE_CONTRACTS: dict[str, dict[str, Any]] = {
             "/demo/w?center=root-alex-rivera&view=quadrants&lens=q2_pratica"
             "&overlay=actions&tour=0"
         ),
-        "canary_route": (
-            "/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0"
-        ),
+        "canary_route": ("/w?view=quadrants&lens=q2_pratica&overlay=actions&tour=0"),
         "view": "quadrants",
         "viewport": {"width": 1440, "height": 1000},
         "canary_viewport": {"width": 1440, "height": 1000},
@@ -145,13 +164,14 @@ NEVER_REUSABLE_GATES = frozenset(
 )
 
 _ROOT = Path(__file__).resolve().parents[1]
+LEGACY_RELEASE_CAPSULE_SCHEMA_PATH = (
+    _ROOT / "docs/references/schemas/wiki-upgrade-release-capsule-v1.schema.json"
+)
 RELEASE_CAPSULE_SCHEMA_PATH = (
-    _ROOT
-    / "docs/references/schemas/wiki-upgrade-release-capsule-v1.schema.json"
+    _ROOT / "docs/references/schemas/wiki-upgrade-release-capsule-v2.schema.json"
 )
 IMPACT_REGISTRY_SCHEMA_PATH = (
-    _ROOT
-    / "docs/references/schemas/wiki-upgrade-impact-registry-v1.schema.json"
+    _ROOT / "docs/references/schemas/wiki-upgrade-impact-registry-v1.schema.json"
 )
 UPGRADE_PACKAGE_V3_SCHEMA_PATH = (
     _ROOT / "docs/references/schemas/wiki-upgrade-package-v3.schema.json"
@@ -326,7 +346,9 @@ def load_mapping(path: Path) -> dict[str, Any]:
     """Load a JSON/YAML mapping without accepting non-object roots."""
 
     text = path.read_text(encoding="utf-8")
-    payload = json.loads(text) if path.suffix.lower() == ".json" else yaml.safe_load(text)
+    payload = (
+        json.loads(text) if path.suffix.lower() == ".json" else yaml.safe_load(text)
+    )
     if not isinstance(payload, dict):
         raise UpgradeLaneError(f"{path}: expected a mapping root")
     return payload
@@ -385,13 +407,17 @@ def _schema_errors(payload: Mapping[str, Any], schema_path: Path) -> list[str]:
     ]
 
 
-def _require_schema(payload: Mapping[str, Any], schema_path: Path, *, label: str) -> None:
+def _require_schema(
+    payload: Mapping[str, Any], schema_path: Path, *, label: str
+) -> None:
     errors = _schema_errors(payload, schema_path)
     if errors:
         raise UpgradeLaneError(f"{label} schema rejected: {'; '.join(errors)}")
 
 
-def _require_exact_keys(payload: Mapping[str, Any], expected: set[str], *, label: str) -> None:
+def _require_exact_keys(
+    payload: Mapping[str, Any], expected: set[str], *, label: str
+) -> None:
     actual = set(payload)
     if actual != expected:
         missing = sorted(expected - actual)
@@ -497,8 +523,7 @@ def _percent_decoded_views(value: str) -> tuple[str, ...]:
 def _contains_private_route(value: str) -> bool:
     try:
         return any(
-            _PRIVATE_ROUTE_RE.search(view)
-            for view in _percent_decoded_views(value)
+            _PRIVATE_ROUTE_RE.search(view) for view in _percent_decoded_views(value)
         )
     except (UnicodeDecodeError, ValueError):
         return True
@@ -526,7 +551,9 @@ def _public_visual_route(value: object, *, label: str) -> str:
         for key, item in parse_qsl(
             parsed.query, keep_blank_values=True, strict_parsing=False
         ):
-            if _SECRET_QUERY_KEY_RE.search(key) or _PRIVATE_VISUAL_TOKEN_RE.search(item):
+            if _SECRET_QUERY_KEY_RE.search(key) or _PRIVATE_VISUAL_TOKEN_RE.search(
+                item
+            ):
                 raise UpgradeLaneError(
                     f"{label} contains private or credential-shaped query state"
                 )
@@ -551,7 +578,9 @@ def validate_canary_profile_route(profile: object, value: object) -> str:
     try:
         views = _percent_decoded_views(value)
     except (UnicodeDecodeError, ValueError) as exc:
-        raise UpgradeLaneError("canary visual route has invalid percent encoding") from exc
+        raise UpgradeLaneError(
+            "canary visual route has invalid percent encoding"
+        ) from exc
     for view in views:
         parsed = urlsplit(view)
         pairs = parse_qsl(parsed.query, keep_blank_values=True, strict_parsing=False)
@@ -590,20 +619,82 @@ def _command_digest(command: str) -> str:
     return hashlib.sha256(command.encode("utf-8")).hexdigest()
 
 
-def _git_bytes(root: Path, arguments: Sequence[str], *, label: str) -> bytes:
-    environment = dict(os.environ)
-    environment["GIT_NO_REPLACE_OBJECTS"] = "1"
-    result = subprocess.run(
-        ["git", *arguments],
-        cwd=root,
-        env=environment,
-        check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+def _require_safe_git_authority(root: Path, *, label: str) -> None:
+    """Reject repository-local configuration capable of process execution."""
+
+    try:
+        require_safe_local_config(root)
+    except GitSafetyError as exc:
+        raise UpgradeLaneError(
+            f"{label} Git configuration contains executable policy"
+        ) from exc
+
+
+def _git_bytes(
+    root: Path,
+    arguments: Sequence[str],
+    *,
+    label: str,
+    input_bytes: bytes | None = None,
+) -> bytes:
+    try:
+        executable = resolved_git_executable()
+        result = run_bounded_process(
+            sanitized_git_argv(arguments, executable=executable),
+            cwd=root,
+            env=sanitized_git_environment(executable=executable),
+            timeout=120,
+            output_limit=256 * 1024 * 1024,
+            input_bytes=input_bytes,
+            input_limit=64 * 1024 * 1024,
+        )
+    except (GitSafetyError, OSError, ProcessSafetyError) as exc:
+        raise UpgradeLaneError(
+            f"{label} could not be read from exact Git authority"
+        ) from exc
     if result.returncode != 0:
         raise UpgradeLaneError(f"{label} could not be read from exact Git authority")
-    return result.stdout
+    return result.output
+
+
+def _git_blob_payloads(
+    root: Path, object_ids: Sequence[str], *, label: str
+) -> dict[str, bytes]:
+    """Read an exact set of blobs through one bounded Git batch."""
+
+    ordered = sorted(set(object_ids))
+    if not ordered:
+        return {}
+    if any(re.fullmatch(r"[0-9a-f]{40,64}", value) is None for value in ordered):
+        raise UpgradeLaneError(f"{label} contains an invalid Git object identity")
+    raw = _git_bytes(
+        root,
+        ["cat-file", "--batch"],
+        label=label,
+        input_bytes="".join(f"{value}\n" for value in ordered).encode("ascii"),
+    )
+    payloads: dict[str, bytes] = {}
+    stream = io.BytesIO(raw)
+    for expected in ordered:
+        try:
+            fields = stream.readline().decode("ascii", "strict").strip().split()
+        except UnicodeDecodeError as exc:
+            raise UpgradeLaneError(f"{label} has a non-canonical batch header") from exc
+        if len(fields) != 3 or fields[0] != expected or fields[1] != "blob":
+            raise UpgradeLaneError(f"{label} is incomplete or not a blob batch")
+        try:
+            size = int(fields[2])
+        except ValueError as exc:
+            raise UpgradeLaneError(f"{label} has an invalid blob size") from exc
+        if size < 0 or size > 256 * 1024 * 1024:
+            raise UpgradeLaneError(f"{label} exceeds the bounded blob authority")
+        payload = stream.read(size)
+        if len(payload) != size or stream.read(1) != b"\n":
+            raise UpgradeLaneError(f"{label} is truncated")
+        payloads[expected] = payload
+    if stream.read(1):
+        raise UpgradeLaneError(f"{label} has trailing batch output")
+    return payloads
 
 
 def _git_regular_blob(
@@ -650,19 +741,11 @@ def _config_bound_c3_policy(package: Mapping[str, Any]) -> Mapping[str, Any]:
 
     migration = package.get("migration")
     operations = (
-        migration.get("boundary_operations")
-        if isinstance(migration, Mapping)
-        else None
+        migration.get("boundary_operations") if isinstance(migration, Mapping) else None
     )
-    adapter = (
-        operations.get("c3_adapter")
-        if isinstance(operations, Mapping)
-        else None
-    )
+    adapter = operations.get("c3_adapter") if isinstance(operations, Mapping) else None
     policy = (
-        adapter.get("configured_ownership")
-        if isinstance(adapter, Mapping)
-        else None
+        adapter.get("configured_ownership") if isinstance(adapter, Mapping) else None
     )
     if not isinstance(policy, Mapping):
         raise UpgradeLaneError("package omits config-bound C3 ownership policy")
@@ -762,7 +845,9 @@ def _validate_consumer_c3_authority_shape(
         raise UpgradeLaneError("consumer C3 authority config is invalid")
     _require_exact_keys(config, {"path", "mode", "sha256"}, label="B0 config")
     if config.get("path") != "wiki.config.yaml" or config.get("mode") != "100644":
-        raise UpgradeLaneError("consumer C3 authority config must be inert wiki.config.yaml")
+        raise UpgradeLaneError(
+            "consumer C3 authority config must be inert wiki.config.yaml"
+        )
     _assert_sha(config.get("sha256"), label="B0 config blob", sha256=True)
     if not isinstance(layout, Mapping):
         raise UpgradeLaneError("consumer C3 authority layout is invalid")
@@ -880,7 +965,9 @@ def derive_consumer_c3_authority(
             if not isinstance(value, str) or not value:
                 raise UpgradeLaneError(f"B0 config path {key} must be a string")
             paths[key] = value
-    memory_root = _canonical_repo_path(paths["memory_root"], label="consumer memory root")
+    memory_root = _canonical_repo_path(
+        paths["memory_root"], label="consumer memory root"
+    )
     references_root = _canonical_repo_path(
         paths["references_root"], label="consumer references root"
     )
@@ -966,12 +1053,12 @@ def consumer_c3_authority_from_git(
 ) -> dict[str, Any]:
     """Reconstruct C3 authority from ``consumer_B0:wiki.config.yaml`` only."""
 
+    consumer = consumer_root.resolve(strict=True)
+    _require_safe_git_authority(consumer, label="consumer authority")
     policy = _config_bound_c3_policy(package)
-    config_path = _canonical_repo_path(
-        policy["config_path"], label="B0 config path"
-    )
+    config_path = _canonical_repo_path(policy["config_path"], label="B0 config path")
     entry = _git_regular_blob_bytes(
-        consumer_root.resolve(strict=True),
+        consumer,
         consumer_B0,
         config_path,
         label="B0 wiki.config.yaml",
@@ -996,17 +1083,13 @@ def verify_consumer_c3_authority(
 ) -> str:
     """Compare a plan-carried authority with a fresh B0 Git derivation."""
 
-    expected = consumer_c3_authority_from_git(
-        consumer_root, consumer_B0, package
-    )
+    expected = consumer_c3_authority_from_git(consumer_root, consumer_B0, package)
     if dict(authority) != expected:
         raise UpgradeLaneError("consumer C3 authority differs from exact B0 config")
     return _validate_consumer_c3_authority_shape(authority)
 
 
-def classify_consumer_c3_path(
-    path: str, authority: Mapping[str, Any]
-) -> str | None:
+def classify_consumer_c3_path(path: str, authority: Mapping[str, Any]) -> str | None:
     """Return the exact config-derived technical role for one C3 path."""
 
     _validate_consumer_c3_authority_shape(authority)
@@ -1015,9 +1098,8 @@ def classify_consumer_c3_path(
         if normalized == item["path"]:
             return str(item["role"])
     release = authority["release_records"]
-    if (
-        normalized.startswith(f"{release['root']}/")
-        and normalized.endswith(str(release["suffix"]))
+    if normalized.startswith(f"{release['root']}/") and normalized.endswith(
+        str(release["suffix"])
     ):
         return str(release["role"])
     return None
@@ -1076,7 +1158,9 @@ def verify_config_bound_c3_git_content(
             raise UpgradeLaneError("configured C3 Markdown blob is missing")
         mode, raw = entry
         if mode != "100644" or not path.endswith(".md") or b"\0" in raw:
-            raise UpgradeLaneError("configured C3 artifact must be inert 100644 Markdown")
+            raise UpgradeLaneError(
+                "configured C3 artifact must be inert 100644 Markdown"
+            )
         try:
             text = raw.decode("utf-8", "strict")
         except UnicodeDecodeError as exc:
@@ -1127,17 +1211,12 @@ def _safe_file_bytes(root: Path, raw_path: object, *, label: str) -> tuple[str, 
         for part in parts[:-1]:
             descriptor = os.open(
                 part,
-                os.O_RDONLY
-                | os.O_DIRECTORY
-                | os.O_NOFOLLOW
-                | close_on_exec,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | close_on_exec,
                 dir_fd=descriptor,
             )
             opened.append(descriptor)
             if not stat.S_ISDIR(os.fstat(descriptor).st_mode):
-                raise UpgradeLaneError(
-                    f"{label} must not traverse a non-directory"
-                )
+                raise UpgradeLaneError(f"{label} must not traverse a non-directory")
         descriptor = os.open(
             parts[-1],
             os.O_RDONLY | os.O_NOFOLLOW | close_on_exec | nonblocking,
@@ -1146,9 +1225,7 @@ def _safe_file_bytes(root: Path, raw_path: object, *, label: str) -> tuple[str, 
         opened.append(descriptor)
         before = os.fstat(descriptor)
         if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
-            raise UpgradeLaneError(
-                f"{label} must be one regular, non-hard-linked file"
-            )
+            raise UpgradeLaneError(f"{label} must be one regular, non-hard-linked file")
         limit = 64 * 1024 * 1024
         if before.st_size > limit:
             raise UpgradeLaneError(f"{label} exceeds the evidence size limit")
@@ -1198,7 +1275,9 @@ def _portable_tree_metadata(
     release = package.get("release")
     portable = package.get("portable_import")
     if not isinstance(release, Mapping) or not isinstance(portable, Mapping):
-        raise UpgradeLaneError("release package omits release/portable_import authority")
+        raise UpgradeLaneError(
+            "release package omits release/portable_import authority"
+        )
     if release.get("source_sha") != source_sha:
         raise UpgradeLaneError("release package and capsule source_sha differ")
     allow = portable.get("allow")
@@ -1219,16 +1298,25 @@ def _portable_tree_metadata(
             if pattern in {"*", "**", "**/*"}:
                 raise UpgradeLaneError(f"portable {group} pattern is repository-wide")
     source_root = source_root.resolve(strict=True)
-    top = _git_bytes(
-        source_root, ["rev-parse", "--show-toplevel"], label="source repository"
-    ).decode("utf-8", "strict").strip()
+    _require_safe_git_authority(source_root, label="source authority")
+    top = (
+        _git_bytes(
+            source_root, ["rev-parse", "--show-toplevel"], label="source repository"
+        )
+        .decode("utf-8", "strict")
+        .strip()
+    )
     if Path(top).resolve() != source_root:
         raise UpgradeLaneError("source_root must be the exact Git repository root")
-    resolved_sha = _git_bytes(
-        source_root,
-        ["rev-parse", "--verify", f"{source_sha}^{{commit}}"],
-        label="source subject",
-    ).decode("ascii", "strict").strip()
+    resolved_sha = (
+        _git_bytes(
+            source_root,
+            ["rev-parse", "--verify", f"{source_sha}^{{commit}}"],
+            label="source subject",
+        )
+        .decode("ascii", "strict")
+        .strip()
+    )
     if resolved_sha != source_sha:
         raise UpgradeLaneError("source_sha must be the exact full Git commit")
     listing = _git_bytes(
@@ -1236,7 +1324,7 @@ def _portable_tree_metadata(
         ["ls-tree", "-r", "-z", "--full-tree", source_sha],
         label="portable source tree",
     )
-    entries: list[dict[str, Any]] = []
+    selected: list[tuple[str, str, str]] = []
     seen: set[str] = set()
     for record in listing.split(b"\0"):
         if not record:
@@ -1246,7 +1334,9 @@ def _portable_tree_metadata(
             mode, object_type, object_id = metadata.decode("ascii").split(" ", 2)
             path = raw_path.decode("utf-8", "strict")
         except (ValueError, UnicodeDecodeError) as exc:
-            raise UpgradeLaneError("portable Git tree contains an invalid entry") from exc
+            raise UpgradeLaneError(
+                "portable Git tree contains an invalid entry"
+            ) from exc
         _canonical_repo_path(path, label="portable Git path")
         if path in seen:
             raise UpgradeLaneError("portable Git tree contains duplicate paths")
@@ -1256,10 +1346,18 @@ def _portable_tree_metadata(
         if not _matches(path, allow):
             continue
         if object_type != "blob" or mode not in {"100644", "100755"}:
-            raise UpgradeLaneError("portable tree contains a symlink/submodule/special entry")
-        raw = _git_bytes(
-            source_root, ["cat-file", "blob", object_id], label="portable blob"
-        )
+            raise UpgradeLaneError(
+                "portable tree contains a symlink/submodule/special entry"
+            )
+        selected.append((path, mode, object_id))
+    payloads = _git_blob_payloads(
+        source_root,
+        [object_id for _path, _mode, object_id in selected],
+        label="portable blobs",
+    )
+    entries: list[dict[str, Any]] = []
+    for path, mode, object_id in selected:
+        raw = payloads[object_id]
         entries.append(
             {
                 "path": path,
@@ -1347,8 +1445,7 @@ def _visual_capture_record_metadata(
         or record.get("source_sha") != source_sha
         or record.get("package_sha256") != package_sha256
         or record.get("browser_toolchain") != dict(browser_toolchain)
-        or record.get("browser_toolchain_sha256")
-        != canonical_sha256(browser_toolchain)
+        or record.get("browser_toolchain_sha256") != canonical_sha256(browser_toolchain)
         or entry.get("state") != f"capture-{hashlib.sha256(raw).hexdigest()}"
     ):
         raise UpgradeLaneError(
@@ -1386,7 +1483,9 @@ def _visual_capture_record_metadata(
             visual_evidence_file_metadata,
         )
     except ImportError as exc:
-        raise UpgradeLaneError("strict visual evidence verifier is unavailable") from exc
+        raise UpgradeLaneError(
+            "strict visual evidence verifier is unavailable"
+        ) from exc
     try:
         metadata = visual_evidence_file_metadata(
             visual_root,
@@ -1470,9 +1569,7 @@ def _visual_capture_record_metadata(
         or capture.get("state") != spec["state"]
         or capture.get("settled") is not True
     ):
-        raise UpgradeLaneError(
-            f"visual capture record {profile} method/state differs"
-        )
+        raise UpgradeLaneError(f"visual capture record {profile} method/state differs")
     _assert_public_safe_payload(dict(record), label=f"visual capture record {profile}")
     return str(image["path"]), relative
 
@@ -1519,7 +1616,9 @@ def _visual_manifest_metadata(
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise UpgradeLaneError("visual evidence manifest is not valid UTF-8 JSON") from exc
+        raise UpgradeLaneError(
+            "visual evidence manifest is not valid UTF-8 JSON"
+        ) from exc
     if not isinstance(payload, Mapping) or set(payload) != {
         "schema_version",
         "entries",
@@ -1549,7 +1648,10 @@ def _visual_manifest_metadata(
         )
     expected_files = {relative}
     for index, entry in enumerate(entries):
-        if not isinstance(entry, Mapping) or set(entry) != _VISUAL_MANIFEST_ENTRY_FIELDS:
+        if (
+            not isinstance(entry, Mapping)
+            or set(entry) != _VISUAL_MANIFEST_ENTRY_FIELDS
+        ):
             raise UpgradeLaneError(f"visual evidence entry {index} fields are invalid")
         entry_id = ids[index]
         viewport = entry.get("viewport")
@@ -1570,7 +1672,9 @@ def _visual_manifest_metadata(
             or re.fullmatch(r"capture-[0-9a-f]{64}", str(entry.get("state") or ""))
             is None
         ):
-            raise UpgradeLaneError(f"visual evidence entry {index} is not public-synthetic")
+            raise UpgradeLaneError(
+                f"visual evidence entry {index} is not public-synthetic"
+            )
         image_ref, record_ref = _visual_capture_record_metadata(
             visual_root=visual_root,
             profile=entry_id,
@@ -1608,7 +1712,11 @@ def _gate_output_metadata(
 
 
 def _toolchain_probe_metadata(
-    *, gate_output_root: Path, probe_ref: object, run_id: object
+    *,
+    gate_output_root: Path,
+    probe_ref: object,
+    run_id: object,
+    capsule_schema_version: object,
 ) -> tuple[str, int, dict[str, dict[str, str]], list[dict[str, Any]]]:
     relative, raw = _safe_file_bytes(
         gate_output_root, probe_ref, label="toolchain probe manifest"
@@ -1618,20 +1726,29 @@ def _toolchain_probe_metadata(
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise UpgradeLaneError("toolchain probe manifest is not valid UTF-8 JSON") from exc
+        raise UpgradeLaneError(
+            "toolchain probe manifest is not valid UTF-8 JSON"
+        ) from exc
     if not isinstance(payload, Mapping) or set(payload) != {
         "schema_version",
         "run_id",
         "entries",
     }:
         raise UpgradeLaneError("toolchain probe manifest fields are invalid")
+    if capsule_schema_version == LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION:
+        expected_probe_schema = LEGACY_TOOLCHAIN_PROBE_SCHEMA_VERSION
+        expected_ids = ["browser", "node", "python", "runner"]
+    elif capsule_schema_version == RELEASE_CAPSULE_SCHEMA_VERSION:
+        expected_probe_schema = TOOLCHAIN_PROBE_SCHEMA_VERSION
+        expected_ids = ["browser", "node", "npm", "python", "runner"]
+    else:
+        raise UpgradeLaneError("release capsule schema is unsupported")
     if (
-        payload.get("schema_version") != TOOLCHAIN_PROBE_SCHEMA_VERSION
+        payload.get("schema_version") != expected_probe_schema
         or payload.get("run_id") != run_id
     ):
         raise UpgradeLaneError("toolchain probe manifest belongs to another run")
     entries = payload.get("entries")
-    expected_ids = ["browser", "node", "python", "runner"]
     required = {
         "id",
         "name",
@@ -1644,7 +1761,9 @@ def _toolchain_probe_metadata(
         "output_bytes",
     }
     if not isinstance(entries, list) or len(entries) != len(expected_ids):
-        raise UpgradeLaneError("toolchain probe must cover four exact tools")
+        raise UpgradeLaneError(
+            f"toolchain probe must cover {len(expected_ids)} exact tools"
+        )
     tools: dict[str, dict[str, str]] = {}
     bindings: list[dict[str, Any]] = []
     for index, entry in enumerate(entries):
@@ -1673,21 +1792,28 @@ def _toolchain_probe_metadata(
                 for argument in argv
             )
         ):
-            raise UpgradeLaneError(f"toolchain probe entry {index} is not executed/exact")
+            raise UpgradeLaneError(
+                f"toolchain probe entry {index} is not executed/exact"
+            )
         metadata = _gate_output_metadata(
             gate_output_root=gate_output_root,
             output_ref=entry.get("output_ref"),
             gate_id=f"toolchain-{tool_id}",
         )
         if any(entry.get(field) != metadata[field] for field in metadata):
-            raise UpgradeLaneError(f"toolchain probe output binding mismatch: {tool_id}")
+            raise UpgradeLaneError(
+                f"toolchain probe output binding mismatch: {tool_id}"
+            )
         _relative, output = _safe_file_bytes(
             gate_output_root,
             entry.get("output_ref"),
             label=f"toolchain probe output {tool_id}",
         )
         text = output.decode("utf-8", "strict")
-        if re.search(rf"(?<![A-Za-z0-9]){re.escape(version)}(?![A-Za-z0-9])", text) is None:
+        if (
+            re.search(rf"(?<![A-Za-z0-9]){re.escape(version)}(?![A-Za-z0-9])", text)
+            is None
+        ):
             raise UpgradeLaneError(
                 f"toolchain probe output does not contain declared version: {tool_id}"
             )
@@ -1713,9 +1839,16 @@ def _verify_package_registry_contract(
     impact_registry: Mapping[str, Any],
     command_registry: Sequence[Mapping[str, Any]],
     release_id: object,
+    capsule_schema_version: object,
 ) -> str:
     """Bind package policy, versioned impact registry and capsule commands."""
 
+    legacy_capsule_v1 = capsule_schema_version == LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION
+    if (
+        not legacy_capsule_v1
+        and capsule_schema_version != RELEASE_CAPSULE_SCHEMA_VERSION
+    ):
+        raise UpgradeLaneError("release capsule schema is unsupported")
     if package.get("schema_version") != "wiki_viva_upgrade_package.v3":
         raise UpgradeLaneError("Lane A capsule requires an exact v3 upgrade package")
     release = package.get("release")
@@ -1724,12 +1857,18 @@ def _verify_package_registry_contract(
             BOUNDARY_OPERATIONS_SCHEMA_VERSION,
             boundary_operations_sha256,
             package_is_pinned,
+            release_node_command_violation,
+            validate_legacy_capsule_v1_package,
             validate_upgrade_package,
         )
     except ImportError as exc:
         raise UpgradeLaneError("package pinning verifier is unavailable") from exc
     _require_schema(package, UPGRADE_PACKAGE_V3_SCHEMA_PATH, label="upgrade package")
-    package_errors = validate_upgrade_package(dict(package))
+    package_errors = (
+        validate_legacy_capsule_v1_package(dict(package))
+        if legacy_capsule_v1
+        else validate_upgrade_package(dict(package))
+    )
     if package_errors:
         raise UpgradeLaneError(
             "Lane A capsule upgrade package is semantically invalid: "
@@ -1744,7 +1883,10 @@ def _verify_package_registry_contract(
             "capsule package is invalid, release_id differs, or release is not "
             "pinned/releasable"
         )
-    registry_sha256 = verify_impact_registry(impact_registry)
+    registry_sha256 = _verify_impact_registry(
+        impact_registry,
+        enforce_node_workspace_contract=not legacy_capsule_v1,
+    )
     registered = [dict(item) for item in impact_registry["gate_catalog"]]
     if list(command_registry) != registered:
         raise UpgradeLaneError(
@@ -1780,6 +1922,17 @@ def _verify_package_registry_contract(
             raise UpgradeLaneError(
                 f"package command/class identity differs for gate: {gate_id}"
             )
+        if not legacy_capsule_v1:
+            resource_group = str(policy.get("resource_group") or "")
+            violation = release_node_command_violation(
+                item["command"],
+                node_required=resource_group.startswith(("node_", "browser_")),
+            )
+            if violation is not None:
+                raise UpgradeLaneError(
+                    f"package command violates Node workspace policy: {gate_id}: "
+                    f"{violation}"
+                )
     if migration.get("command_registry_sha256") != canonical_sha256(registered):
         raise UpgradeLaneError(
             "package command registry digest differs from impact registry"
@@ -1832,6 +1985,132 @@ def _verify_package_registry_contract(
     return registry_sha256
 
 
+def _source_node_workspace_policy(
+    *, source_root: Path, source_sha: str
+) -> dict[str, Any]:
+    """Read and verify the portable Node policy from the exact Git subject."""
+
+    blobs: dict[str, bytes] = {}
+    for relative, label in (
+        (NODE_WORKSPACE_POLICY_RELATIVE, "Node workspace policy"),
+        (NODE_WORKSPACE_PACKAGE_RELATIVE, "Node workspace package"),
+        (NODE_WORKSPACE_PACKAGE_LOCK_RELATIVE, "Node workspace package lock"),
+    ):
+        result = _git_regular_blob_bytes(
+            source_root,
+            source_sha,
+            relative.as_posix(),
+            label=label,
+        )
+        if result is None:
+            raise UpgradeLaneError(f"{label} is absent from the exact source subject")
+        mode, raw = result
+        if mode != "100644":
+            raise UpgradeLaneError(f"{label} must be an inert 100644 Git blob")
+        blobs[relative.as_posix()] = raw
+    try:
+        decoded = json.loads(
+            blobs[NODE_WORKSPACE_POLICY_RELATIVE.as_posix()].decode("utf-8", "strict")
+        )
+        policy = validate_node_workspace_policy(decoded)
+        package = json.loads(
+            blobs[NODE_WORKSPACE_PACKAGE_RELATIVE.as_posix()].decode("utf-8", "strict")
+        )
+        package_lock = json.loads(
+            blobs[NODE_WORKSPACE_PACKAGE_LOCK_RELATIVE.as_posix()].decode(
+                "utf-8", "strict"
+            )
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, NodeWorkspaceError) as exc:
+        raise UpgradeLaneError("exact-source Node workspace policy is invalid") from exc
+    if (
+        hashlib.sha256(blobs[NODE_WORKSPACE_PACKAGE_RELATIVE.as_posix()]).hexdigest()
+        != policy["package_json_sha256"]
+        or hashlib.sha256(
+            blobs[NODE_WORKSPACE_PACKAGE_LOCK_RELATIVE.as_posix()]
+        ).hexdigest()
+        != policy["package_lock_sha256"]
+    ):
+        raise UpgradeLaneError(
+            "exact-source Node workspace policy differs from package/lock bytes"
+        )
+    scripts = package.get("scripts") if isinstance(package, Mapping) else None
+    if (
+        not isinstance(package, Mapping)
+        or package.get("packageManager") != policy["package_manager"]
+        or not isinstance(scripts, Mapping)
+        or any(name not in scripts for name in policy["allowed_scripts"])
+        or not isinstance(package_lock, Mapping)
+        or package_lock.get("lockfileVersion") != 3
+    ):
+        raise UpgradeLaneError(
+            "exact-source Node package/lock contract differs from portable policy"
+        )
+    return policy
+
+
+def _node_workspace_authority_metadata(
+    *,
+    capsule: Mapping[str, Any],
+    source_root: Path,
+    source_sha: str,
+    toolchain: Mapping[str, Mapping[str, str]],
+) -> tuple[dict[str, Any], str]:
+    """Bind one path-free Node authority to exact source policy and probes."""
+
+    if capsule.get("schema_version") != RELEASE_CAPSULE_SCHEMA_VERSION:
+        raise UpgradeLaneError(
+            "Node workspace authority is defined only for release capsule v2"
+        )
+    try:
+        authority = validate_node_workspace_authority(
+            capsule.get("node_workspace_authority")
+        )
+        digest = authority_identity_sha256(authority)
+        expected_npm = npm_workspace_toolchain_identity(authority)
+    except NodeWorkspaceError as exc:
+        raise UpgradeLaneError(
+            f"release capsule Node workspace authority is invalid: {exc.code}"
+        ) from exc
+    claimed_digest = capsule.get("node_workspace_authority_sha256")
+    if claimed_digest != digest:
+        raise UpgradeLaneError(
+            "release capsule node_workspace_authority_sha256 mismatch"
+        )
+    if authority.get("source_sha") != source_sha:
+        raise UpgradeLaneError(
+            "release capsule Node workspace authority belongs to another source"
+        )
+    policy = _source_node_workspace_policy(
+        source_root=source_root, source_sha=source_sha
+    )
+    if authority.get("policy_sha256") != policy.get("policy_sha256"):
+        raise UpgradeLaneError(
+            "release capsule Node workspace authority policy differs from exact source"
+        )
+    node = authority["node"]
+    expected_node = {
+        "name": "node-resolved",
+        "version": (
+            f"{node['version']}+{node['platform_system']}."
+            f"{node['platform_machine']}.runtime.{node['runtime_tree_sha256']}"
+        ),
+    }
+    if toolchain.get("node") != expected_node:
+        raise UpgradeLaneError(
+            "release capsule Node toolchain differs from workspace authority"
+        )
+    if toolchain.get("npm") != expected_npm:
+        raise UpgradeLaneError(
+            "release capsule npm toolchain differs from workspace authority"
+        )
+    _assert_public_safe_payload(
+        {"node_workspace_authority": authority},
+        label="Node workspace authority",
+    )
+    return authority, digest
+
+
 def collect_release_attestation(
     payload: Mapping[str, Any],
     *,
@@ -1852,20 +2131,41 @@ def collect_release_attestation(
     """
 
     capsule = copy.deepcopy(dict(payload))
+    capsule_schema = capsule.get("schema_version")
+    if capsule_schema not in {
+        LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION,
+        RELEASE_CAPSULE_SCHEMA_VERSION,
+    }:
+        raise UpgradeLaneError("release capsule schema is unsupported")
     registry = capsule.get("command_registry")
     gates = capsule.get("certified_gates")
-    if not isinstance(registry, list) or not all(isinstance(item, Mapping) for item in registry):
-        raise UpgradeLaneError("release capsule command_registry must be a list of mappings")
-    if not isinstance(gates, list) or not gates or not all(isinstance(item, Mapping) for item in gates):
-        raise UpgradeLaneError("release capsule certified_gates must be a non-empty mapping list")
-    registry = sorted((dict(item) for item in registry), key=lambda item: str(item.get("id", "")))
-    gates = sorted((dict(item) for item in gates), key=lambda item: str(item.get("id", "")))
+    if not isinstance(registry, list) or not all(
+        isinstance(item, Mapping) for item in registry
+    ):
+        raise UpgradeLaneError(
+            "release capsule command_registry must be a list of mappings"
+        )
+    if (
+        not isinstance(gates, list)
+        or not gates
+        or not all(isinstance(item, Mapping) for item in gates)
+    ):
+        raise UpgradeLaneError(
+            "release capsule certified_gates must be a non-empty mapping list"
+        )
+    registry = sorted(
+        (dict(item) for item in registry), key=lambda item: str(item.get("id", ""))
+    )
+    gates = sorted(
+        (dict(item) for item in gates), key=lambda item: str(item.get("id", ""))
+    )
     command_registry_sha256 = canonical_sha256(registry)
     _verify_package_registry_contract(
         package=package,
         impact_registry=impact_registry,
         command_registry=registry,
         release_id=capsule.get("release_id"),
+        capsule_schema_version=capsule_schema,
     )
     (
         toolchain_probe_sha256,
@@ -1876,18 +2176,36 @@ def collect_release_attestation(
         gate_output_root=gate_output_root,
         probe_ref=capsule.get("toolchain_probe_ref"),
         run_id=capsule.get("run_id"),
+        capsule_schema_version=capsule.get("schema_version"),
     )
     toolchain_sha256 = canonical_sha256(toolchain)
     source_sha = _assert_sha(capsule.get("source_sha"), label="capsule source_sha")
+    node_workspace_binding: dict[str, Any] = {}
+    if capsule_schema == RELEASE_CAPSULE_SCHEMA_VERSION:
+        node_workspace_authority, node_workspace_authority_sha256 = (
+            _node_workspace_authority_metadata(
+                capsule=capsule,
+                source_root=source_root,
+                source_sha=source_sha,
+                toolchain=toolchain,
+            )
+        )
+        node_workspace_binding = {
+            "node_workspace_authority": node_workspace_authority,
+            "node_workspace_authority_sha256": (node_workspace_authority_sha256),
+        }
+        attestation_schema = EXECUTION_ATTESTATION_SCHEMA_VERSION
+    elif capsule_schema == LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION:
+        attestation_schema = LEGACY_EXECUTION_ATTESTATION_SCHEMA_VERSION
+    else:
+        raise UpgradeLaneError("release capsule schema is unsupported")
     package_sha256 = canonical_sha256(package)
     portable_tree_sha256, portable_count = _portable_tree_metadata(
         package=package, source_root=source_root, source_sha=source_sha
     )
     migration = package.get("migration")
     profiles = (
-        migration.get("visual_profiles")
-        if isinstance(migration, Mapping)
-        else None
+        migration.get("visual_profiles") if isinstance(migration, Mapping) else None
     )
     if not isinstance(profiles, list):
         raise UpgradeLaneError("package omits exact visual profiles")
@@ -1940,7 +2258,7 @@ def collect_release_attestation(
     if {item["id"] for item in outputs} != expected_upstream:
         raise UpgradeLaneError("attestation must cover every upstream-certified gate")
     return {
-        "schema_version": EXECUTION_ATTESTATION_SCHEMA_VERSION,
+        "schema_version": attestation_schema,
         "authority": {
             "kind": "external_sha256",
             "id": str(capsule.get("attestation_authority_id") or ""),
@@ -1965,11 +2283,14 @@ def collect_release_attestation(
         "toolchain_probe_sha256": toolchain_probe_sha256,
         "toolchain_probe_entry_count": toolchain_probe_count,
         "toolchain_probes": toolchain_probes,
+        **node_workspace_binding,
         "gate_outputs": outputs,
     }
 
 
-def _require_authority(authority: ReleaseCapsuleAuthority | None) -> ReleaseCapsuleAuthority:
+def _require_authority(
+    authority: ReleaseCapsuleAuthority | None,
+) -> ReleaseCapsuleAuthority:
     if not isinstance(authority, ReleaseCapsuleAuthority):
         raise UpgradeLaneError(
             "release capsule requires exact package/tree/visual/output authority and external attestation"
@@ -2006,8 +2327,13 @@ def _verify_external_attestation(
         raise UpgradeLaneError(
             "execution attestation does not bind exact tree/visual/gate outputs"
         )
+    expected_schema = (
+        LEGACY_EXECUTION_ATTESTATION_SCHEMA_VERSION
+        if capsule.get("schema_version") == LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION
+        else EXECUTION_ATTESTATION_SCHEMA_VERSION
+    )
     if (
-        attestation.get("schema_version") != EXECUTION_ATTESTATION_SCHEMA_VERSION
+        attestation.get("schema_version") != expected_schema
         or attestation.get("authority")
         != {
             "kind": "external_sha256",
@@ -2015,7 +2341,9 @@ def _verify_external_attestation(
         }
         or not _ID_RE.fullmatch(str(attestation.get("run_id") or ""))
     ):
-        raise UpgradeLaneError("execution attestation authority/run identity is invalid")
+        raise UpgradeLaneError(
+            "execution attestation authority/run identity is invalid"
+        )
     _assert_public_safe_payload(dict(attestation), label="execution attestation")
     return digest
 
@@ -2025,6 +2353,10 @@ def seal_release_capsule(
 ) -> dict[str, Any]:
     """Build a capsule only from recomputed artifacts and external attestation."""
 
+    if payload.get("schema_version") == LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION:
+        raise UpgradeLaneError(
+            "release capsule v1 is immutable verification-only history and cannot be resealed"
+        )
     authority = _require_authority(authority)
     capsule = copy.deepcopy(dict(payload))
     capsule.pop("capsule_sha256", None)
@@ -2035,23 +2367,41 @@ def seal_release_capsule(
     capsule["release_id"] = release.get("id")
     registry = capsule.get("command_registry")
     gates = capsule.get("certified_gates")
-    if not isinstance(registry, list) or not all(isinstance(item, dict) for item in registry):
-        raise UpgradeLaneError("release capsule command_registry must be a list of mappings")
+    if not isinstance(registry, list) or not all(
+        isinstance(item, dict) for item in registry
+    ):
+        raise UpgradeLaneError(
+            "release capsule command_registry must be a list of mappings"
+        )
     if not isinstance(gates, list) or not all(isinstance(item, dict) for item in gates):
-        raise UpgradeLaneError("release capsule certified_gates must be a list of mappings")
-    capsule["command_registry"] = sorted(registry, key=lambda item: str(item.get("id", "")))
+        raise UpgradeLaneError(
+            "release capsule certified_gates must be a list of mappings"
+        )
+    capsule["command_registry"] = sorted(
+        registry, key=lambda item: str(item.get("id", ""))
+    )
     capsule["certified_gates"] = sorted(gates, key=lambda item: str(item.get("id", "")))
     _unique_ids(capsule["command_registry"], label="command registry")
+    from wiki_core.upgrade import release_node_command_violation
+
     for item in capsule["command_registry"]:
         gate_id = item.get("id")
         command = item.get("command")
         if not isinstance(gate_id, str) or _ID_RE.fullmatch(gate_id) is None:
-            raise UpgradeLaneError("release capsule command registry has an invalid gate id")
+            raise UpgradeLaneError(
+                "release capsule command registry has an invalid gate id"
+            )
         if item.get("class") not in GATE_CLASSES:
             raise UpgradeLaneError(f"unknown gate class for {gate_id}")
         if not isinstance(command, str) or _PLACEHOLDER_COMMAND_RE.search(command):
             raise UpgradeLaneError(
                 f"command registry entry is placeholder/manual: {gate_id}"
+            )
+        violation = release_node_command_violation(command)
+        if violation is not None:
+            raise UpgradeLaneError(
+                f"command registry entry violates Node workspace policy: "
+                f"{gate_id}: {violation}"
             )
     capsule["command_registry_sha256"] = canonical_sha256(capsule["command_registry"])
     _assert_public_safe_payload(capsule, label="release capsule inputs")
@@ -2071,8 +2421,10 @@ def seal_release_capsule(
     capsule["toolchain"] = evidence["toolchain"]
     capsule["toolchain_sha256"] = evidence["toolchain_sha256"]
     capsule["toolchain_probe_sha256"] = evidence["toolchain_probe_sha256"]
-    capsule["toolchain_probe_entry_count"] = evidence[
-        "toolchain_probe_entry_count"
+    capsule["toolchain_probe_entry_count"] = evidence["toolchain_probe_entry_count"]
+    capsule["node_workspace_authority"] = evidence["node_workspace_authority"]
+    capsule["node_workspace_authority_sha256"] = evidence[
+        "node_workspace_authority_sha256"
     ]
     output_by_id = {item["id"]: item for item in evidence["gate_outputs"]}
     for gate in capsule["certified_gates"]:
@@ -2094,13 +2446,22 @@ def verify_release_capsule(
     """Recompute and verify every artifact bound by a certified Lane A capsule."""
 
     authority = _require_authority(authority)
-    _require_schema(capsule, RELEASE_CAPSULE_SCHEMA_PATH, label="release capsule")
+    capsule_schema = capsule.get("schema_version")
+    if capsule_schema == LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION:
+        schema_path = LEGACY_RELEASE_CAPSULE_SCHEMA_PATH
+    elif capsule_schema == RELEASE_CAPSULE_SCHEMA_VERSION:
+        schema_path = RELEASE_CAPSULE_SCHEMA_PATH
+    else:
+        raise UpgradeLaneError("release capsule schema is unsupported")
+    _require_schema(capsule, schema_path, label="release capsule")
     _assert_public_safe_payload(capsule, label="release capsule")
     registry = capsule["command_registry"]
     certified = capsule["certified_gates"]
     registry_ids = _unique_ids(registry, label="command registry")
     certified_ids = _unique_ids(certified, label="certified gates")
     command_by_id: dict[str, Mapping[str, Any]] = {}
+    from wiki_core.upgrade import release_node_command_violation
+
     for item in registry:
         gate_id = item["id"]
         if _ID_RE.fullmatch(gate_id) is None:
@@ -2109,7 +2470,16 @@ def verify_release_capsule(
             raise UpgradeLaneError(f"unknown gate class for {gate_id}")
         command = item["command"]
         if _PLACEHOLDER_COMMAND_RE.search(command):
-            raise UpgradeLaneError(f"command registry entry is placeholder/manual: {gate_id}")
+            raise UpgradeLaneError(
+                f"command registry entry is placeholder/manual: {gate_id}"
+            )
+        if capsule_schema == RELEASE_CAPSULE_SCHEMA_VERSION:
+            violation = release_node_command_violation(command)
+            if violation is not None:
+                raise UpgradeLaneError(
+                    f"command registry entry violates Node workspace policy: "
+                    f"{gate_id}: {violation}"
+                )
         command_by_id[gate_id] = item
     if canonical_sha256(registry) != capsule["command_registry_sha256"]:
         raise UpgradeLaneError("release capsule command_registry_sha256 mismatch")
@@ -2138,6 +2508,13 @@ def verify_release_capsule(
     ):
         if capsule.get(field) != evidence[field]:
             raise UpgradeLaneError(f"release capsule recomputed {field} mismatch")
+    if capsule_schema == RELEASE_CAPSULE_SCHEMA_VERSION:
+        for field in (
+            "node_workspace_authority",
+            "node_workspace_authority_sha256",
+        ):
+            if capsule.get(field) != evidence[field]:
+                raise UpgradeLaneError(f"release capsule recomputed {field} mismatch")
     if capsule.get("toolchain") != evidence["toolchain"]:
         raise UpgradeLaneError("release capsule recomputed toolchain mismatch")
     output_by_id = {item["id"]: item for item in evidence["gate_outputs"]}
@@ -2146,26 +2523,41 @@ def verify_release_capsule(
         registered = command_by_id.get(gate_id)
         output = output_by_id.get(gate_id)
         if registered is None or output is None:
-            raise UpgradeLaneError(f"certified gate lacks registry/output binding: {gate_id}")
-        if registered["class"] != "upstream_certified" or result["class"] != "upstream_certified":
-            raise UpgradeLaneError(f"Lane A may certify only upstream_certified gates: {gate_id}")
+            raise UpgradeLaneError(
+                f"certified gate lacks registry/output binding: {gate_id}"
+            )
+        if (
+            registered["class"] != "upstream_certified"
+            or result["class"] != "upstream_certified"
+        ):
+            raise UpgradeLaneError(
+                f"Lane A may certify only upstream_certified gates: {gate_id}"
+            )
         if result["provenance"] != "executed" or result["status"] != "passed":
-            raise UpgradeLaneError(f"certified gate lacks executed passing evidence: {gate_id}")
+            raise UpgradeLaneError(
+                f"certified gate lacks executed passing evidence: {gate_id}"
+            )
         if result["exit_code"] != 0:
             raise UpgradeLaneError(f"certified gate exit code is not zero: {gate_id}")
         if result["subject_sha"] != capsule["source_sha"]:
-            raise UpgradeLaneError(f"certified gate is stale for source subject: {gate_id}")
+            raise UpgradeLaneError(
+                f"certified gate is stale for source subject: {gate_id}"
+            )
         if result["command_sha256"] != _command_digest(registered["command"]):
             raise UpgradeLaneError(f"certified gate command digest mismatch: {gate_id}")
         for field in ("output_ref", "output_sha256", "output_bytes"):
             if result.get(field) != output[field]:
-                raise UpgradeLaneError(f"certified gate output binding mismatch: {gate_id}")
+                raise UpgradeLaneError(
+                    f"certified gate output binding mismatch: {gate_id}"
+                )
     if set(certified_ids) != {
         gate_id
         for gate_id in registry_ids
         if command_by_id[gate_id]["class"] == "upstream_certified"
     }:
-        raise UpgradeLaneError("capsule must carry executed proof for every upstream gate")
+        raise UpgradeLaneError(
+            "capsule must carry executed proof for every upstream gate"
+        )
     attestation_sha256 = _verify_external_attestation(
         capsule, authority=authority, expected=evidence
     )
@@ -2223,13 +2615,25 @@ def seal_impact_registry(payload: Mapping[str, Any]) -> dict[str, Any]:
     return registry
 
 
-def verify_impact_registry(registry: Mapping[str, Any]) -> str:
-    """Verify registry closure and its fail-closed fallback policy."""
+def _verify_impact_registry(
+    registry: Mapping[str, Any], *, enforce_node_workspace_contract: bool
+) -> str:
+    """Verify registry closure, optionally under the frozen v1 Node policy."""
 
     _require_schema(registry, IMPACT_REGISTRY_SCHEMA_PATH, label="impact registry")
     gates = registry["gate_catalog"]
     surfaces = registry["surfaces"]
     gate_ids = _unique_ids(gates, label="gate catalog")
+    if enforce_node_workspace_contract:
+        from wiki_core.upgrade import release_node_command_violation
+
+        for gate in gates:
+            violation = release_node_command_violation(gate["command"])
+            if violation is not None:
+                raise UpgradeLaneError(
+                    "impact registry command violates Node workspace policy: "
+                    f"{gate['id']}: {violation}"
+                )
     surface_ids = _unique_ids(surfaces, label="impact surfaces")
     gate_class = {item["id"]: item["class"] for item in gates}
     if not NEVER_REUSABLE_GATES.issubset(gate_class):
@@ -2246,7 +2650,9 @@ def verify_impact_registry(registry: Mapping[str, Any]) -> str:
         )
     full_matrix = registry["full_matrix_gates"]
     if full_matrix != sorted(gate_ids):
-        raise UpgradeLaneError("full_matrix_gates must contain the complete sorted gate catalog")
+        raise UpgradeLaneError(
+            "full_matrix_gates must contain the complete sorted gate catalog"
+        )
     surface_by_id = {item["id"]: item for item in surfaces}
     configured_roles = registry["boundary_policy"].get("configured_c3_roles", [])
     expected_roles = [str(item["id"]) for item in CONFIG_BOUND_C3_ROLE_SPECS]
@@ -2270,8 +2676,7 @@ def verify_impact_registry(registry: Mapping[str, Any]) -> str:
             )
         roles = surface.get("configured_path_roles", [])
         if not isinstance(roles, list) or any(
-            not isinstance(role, str) or role not in configured_roles
-            for role in roles
+            not isinstance(role, str) or role not in configured_roles for role in roles
         ):
             raise UpgradeLaneError(
                 f"surface {surface['id']} has an unknown configured path role"
@@ -2340,6 +2745,12 @@ def verify_impact_registry(registry: Mapping[str, Any]) -> str:
     return digest
 
 
+def verify_impact_registry(registry: Mapping[str, Any]) -> str:
+    """Verify the strict registry contract used by new releases and adoption."""
+
+    return _verify_impact_registry(registry, enforce_node_workspace_contract=True)
+
+
 def _matches_pattern(path: str, pattern: str) -> bool:
     """Match one repo glob without letting a skill-name ``*`` cross ``/``."""
 
@@ -2373,10 +2784,7 @@ def select_impacted_gates(
 
     registry_sha256 = verify_impact_registry(registry)
     paths = sorted(
-        {
-            _canonical_repo_path(path, label="changed path")
-            for path in changed_paths
-        }
+        {_canonical_repo_path(path, label="changed path") for path in changed_paths}
     )
     contracts = sorted(set(changed_contracts))
     for contract in contracts:
@@ -2384,10 +2792,16 @@ def select_impacted_gates(
             raise UpgradeLaneError(f"changed contract is not canonical: {contract!r}")
     surfaces = registry["surfaces"]
     authority_sha256: str | None = None
+    configured_memory_root: str | None = None
+    configured_memory_surface_ids: list[str] = []
     if consumer_c3_authority is not None:
-        authority_sha256 = _validate_consumer_c3_authority_shape(
-            consumer_c3_authority
-        )
+        authority_sha256 = _validate_consumer_c3_authority_shape(consumer_c3_authority)
+        configured_memory_root = str(consumer_c3_authority["layout"]["memory_root"])
+        configured_memory_surface_ids = [
+            str(item["id"])
+            for item in surfaces
+            if "wiki_content.v1" in item["contracts"]
+        ]
     matched: set[str] = set()
     unknown_paths: list[str] = []
     unknown_contracts: list[str] = []
@@ -2395,6 +2809,14 @@ def select_impacted_gates(
         path_matches = {
             item["id"] for item in surfaces if _matches(path, item["path_patterns"])
         }
+        configured_memory_impact_unknown = False
+        if configured_memory_root is not None and path.startswith(
+            f"{configured_memory_root}/"
+        ):
+            if len(configured_memory_surface_ids) == 1:
+                path_matches.add(configured_memory_surface_ids[0])
+            else:
+                configured_memory_impact_unknown = True
         configured_role = (
             classify_consumer_c3_path(path, consumer_c3_authority)
             if consumer_c3_authority is not None
@@ -2414,7 +2836,7 @@ def select_impacted_gates(
         }
         if lane_a_matches:
             path_matches = lane_a_matches
-        if not path_matches:
+        if configured_memory_impact_unknown or not path_matches:
             unknown_paths.append(path)
         matched.update(path_matches)
     for contract in contracts:
@@ -2490,10 +2912,9 @@ def select_promotion_gates(
     if consumer_c3_authority is None:
         raise UpgradeLaneError("promotion selection omits consumer C3 authority")
     _validate_consumer_c3_authority_shape(consumer_c3_authority)
-    if (
-        consumer_c3_authority.get("package_sha256") != canonical_sha256(package)
-        or consumer_c3_authority.get("policy_sha256") != canonical_sha256(policy)
-    ):
+    if consumer_c3_authority.get("package_sha256") != canonical_sha256(
+        package
+    ) or consumer_c3_authority.get("policy_sha256") != canonical_sha256(policy):
         raise UpgradeLaneError("consumer C3 authority differs from package policy")
     selection = select_impacted_gates(
         registry,
@@ -2502,8 +2923,12 @@ def select_promotion_gates(
         consumer_c3_authority=consumer_c3_authority,
     )
     migration = package.get("migration")
-    policies = migration.get("gate_policies") if isinstance(migration, Mapping) else None
-    required = migration.get("required_gates") if isinstance(migration, Mapping) else None
+    policies = (
+        migration.get("gate_policies") if isinstance(migration, Mapping) else None
+    )
+    required = (
+        migration.get("required_gates") if isinstance(migration, Mapping) else None
+    )
     catalog_ids = {item["id"] for item in registry["gate_catalog"]}
     if (
         not isinstance(required, list)
@@ -2543,9 +2968,7 @@ def select_promotion_gates(
                 frontier.append(dependency)
 
     derivation = {
-        key: value
-        for key, value in selection.items()
-        if key != "derivation_sha256"
+        key: value for key, value in selection.items() if key != "derivation_sha256"
     }
     derivation["selected_gates"] = sorted(selected)
     derivation["omitted_gates"] = sorted(catalog_ids - selected)
@@ -2634,7 +3057,9 @@ def validate_canary_evidence(
                 f"canary browser console must prove zero errors: {gate_id}"
             )
     migration = package.get("migration")
-    profiles = migration.get("visual_profiles") if isinstance(migration, Mapping) else None
+    profiles = (
+        migration.get("visual_profiles") if isinstance(migration, Mapping) else None
+    )
     if (
         not isinstance(profiles, list)
         or not profiles
@@ -2650,7 +3075,9 @@ def validate_canary_evidence(
         and item.get("subject_sha") == subject_sha
     ]
     if len(canary_screenshots) != len(profiles):
-        raise UpgradeLaneError("canary screenshots do not exactly cover visual profiles")
+        raise UpgradeLaneError(
+            "canary screenshots do not exactly cover visual profiles"
+        )
     seen_profiles: set[str] = set()
     seen_observations: set[tuple[str, str, str, str, int, int]] = set()
     for item in canary_screenshots:
@@ -2659,7 +3086,9 @@ def validate_canary_evidence(
         runtime_mode = item.get("runtime_mode")
         view = item.get("view")
         viewport = item.get("viewport")
-        spec = VISUAL_PROFILE_CONTRACTS.get(profile) if isinstance(profile, str) else None
+        spec = (
+            VISUAL_PROFILE_CONTRACTS.get(profile) if isinstance(profile, str) else None
+        )
         try:
             canonical_route = validate_canary_profile_route(profile, route)
         except UpgradeLaneError as exc:
@@ -2731,9 +3160,7 @@ def _acceptance_timestamp_microseconds(value: object) -> int:
         ) from exc
     delta = parsed - _UNIX_EPOCH
     microseconds = (
-        delta.days * 86_400_000_000
-        + delta.seconds * 1_000_000
-        + delta.microseconds
+        delta.days * 86_400_000_000 + delta.seconds * 1_000_000 + delta.microseconds
     )
     if microseconds <= 0:
         raise UpgradeLaneError(
@@ -2745,12 +3172,9 @@ def _acceptance_timestamp_microseconds(value: object) -> int:
 def validate_acceptance_budget(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Validate the immutable plan-to-canary promotion budget measurement."""
 
-    _require_exact_keys(
-        payload, _ACCEPTANCE_BUDGET_FIELDS, label="acceptance budget"
-    )
+    _require_exact_keys(payload, _ACCEPTANCE_BUDGET_FIELDS, label="acceptance budget")
     if (
-        payload.get("schema_version")
-        != "wiki_viva_upgrade_acceptance_budget.v1"
+        payload.get("schema_version") != "wiki_viva_upgrade_acceptance_budget.v1"
         or payload.get("scope") != "plan_to_real_canary"
         or payload.get("limit_seconds") != 1200
         or payload.get("enforcement") != "promotion_blocking"
@@ -2907,9 +3331,10 @@ def _integrity_gate_results(
         raise UpgradeLaneError("adoption receipt impact derivation mismatch")
     if selection.get("requires_lane_a") is not False:
         raise UpgradeLaneError("impact requires a new Lane A capsule before adoption")
-    if canonical_sha256(registry["gate_catalog"]) != identity[
-        "command_registry_sha256"
-    ]:
+    if (
+        canonical_sha256(registry["gate_catalog"])
+        != identity["command_registry_sha256"]
+    ):
         raise UpgradeLaneError(
             "current impact registry command catalog differs from receipt identity"
         )
@@ -3029,9 +3454,7 @@ def verify_gate_omissions(
 
     verify_impact_registry(registry)
     _require_verified_capsule_token(capsule, verified_capsule)
-    if canonical_sha256(registry["gate_catalog"]) != capsule[
-        "command_registry_sha256"
-    ]:
+    if canonical_sha256(registry["gate_catalog"]) != capsule["command_registry_sha256"]:
         raise UpgradeLaneError(
             "impact registry command catalog does not match the release capsule"
         )
@@ -3068,7 +3491,9 @@ def verify_gate_omissions(
                     f"upstream gate omission lacks exact capsule proof: {gate_id}"
                 )
         elif class_name in {"consumer_always", "canary"}:
-            raise UpgradeLaneError(f"mandatory consumer gate cannot be omitted: {gate_id}")
+            raise UpgradeLaneError(
+                f"mandatory consumer gate cannot be omitted: {gate_id}"
+            )
         elif (
             omission["reason"] != "not_affected"
             or omission["derivation_sha256"] != selection["derivation_sha256"]
@@ -3091,9 +3516,7 @@ def validate_boundary_ownership(
     policy = registry["boundary_policy"]
     migration = package.get("migration")
     boundary_operations = (
-        migration.get("boundary_operations")
-        if isinstance(migration, Mapping)
-        else None
+        migration.get("boundary_operations") if isinstance(migration, Mapping) else None
     )
     try:
         from wiki_core.upgrade import (
@@ -3145,9 +3568,7 @@ def validate_boundary_ownership(
         raise UpgradeLaneError(
             "package config-bound C3 roles differ from impact registry"
         )
-    authority_sha256 = _validate_consumer_c3_authority_shape(
-        consumer_c3_authority
-    )
+    authority_sha256 = _validate_consumer_c3_authority_shape(consumer_c3_authority)
     if (
         consumer_c3_authority.get("package_sha256") != canonical_sha256(package)
         or consumer_c3_authority.get("policy_sha256")
@@ -3156,9 +3577,7 @@ def validate_boundary_ownership(
     ):
         raise UpgradeLaneError("consumer C3 authority differs from package policy")
     configured_patterns = consumer_c3_authority_patterns(consumer_c3_authority)
-    configured_memory_root = str(
-        consumer_c3_authority["layout"]["memory_root"]
-    )
+    configured_memory_root = str(consumer_c3_authority["layout"]["memory_root"])
     release_root = str(consumer_c3_authority["release_records"]["root"])
     portable = package.get("portable_import")
     if not isinstance(portable, Mapping):
@@ -3256,9 +3675,7 @@ def validate_boundary_ownership(
                     f"boundary path appears in both {seen[path]} and {boundary}: {path}"
                 )
             seen[path] = boundary
-            configured_role = classify_consumer_c3_path(
-                path, consumer_c3_authority
-            )
+            configured_role = classify_consumer_c3_path(path, consumer_c3_authority)
             under_release_root = path.startswith(f"{release_root}/")
             if under_release_root and configured_role is None:
                 raise UpgradeLaneError(
@@ -3268,10 +3685,10 @@ def validate_boundary_ownership(
                 raise UpgradeLaneError(
                     f"config-derived technical path is allowed only in C3: {path}"
                 )
-            is_domain_content = _matches(
-                path, policy["domain_content_patterns"]
-            ) or path == configured_memory_root or path.startswith(
-                f"{configured_memory_root}/"
+            is_domain_content = (
+                _matches(path, policy["domain_content_patterns"])
+                or path == configured_memory_root
+                or path.startswith(f"{configured_memory_root}/")
             )
             if is_domain_content and not (
                 boundary == "C3" and configured_role is not None
@@ -3315,7 +3732,9 @@ def validate_boundary_ownership(
                 # authoritative precedence rule, so only generated ownership
                 # can make an already-authorized C1 path ambiguous here.
                 if _matches(path, policy["c2_generated_patterns"]):
-                    raise UpgradeLaneError(f"C1 path has ambiguous boundary ownership: {path}")
+                    raise UpgradeLaneError(
+                        f"C1 path has ambiguous boundary ownership: {path}"
+                    )
             elif boundary == "C2":
                 _assert_sha(
                     item["generator_sha256"], label="C2 generator_sha256", sha256=True
@@ -3343,7 +3762,9 @@ def validate_boundary_ownership(
                 if not _matches(path, policy["c3_consumer_patterns"]) and not _matches(
                     path, configured_patterns
                 ):
-                    raise UpgradeLaneError(f"portable/generated path mixed into C3: {path}")
+                    raise UpgradeLaneError(
+                        f"portable/generated path mixed into C3: {path}"
+                    )
                 if configured_role is not None:
                     mode = (
                         item.get("mode")
@@ -3399,7 +3820,9 @@ def validate_c1_projection(
     after = normalized(after_entries, label="C1 after projection")
     for path in source:
         if _matches(path, block) or not _matches(path, allow):
-            raise UpgradeLaneError(f"C1 source projection violates package policy: {path}")
+            raise UpgradeLaneError(
+                f"C1 source projection violates package policy: {path}"
+            )
     before_portable = {
         path: digest
         for path, digest in before.items()
@@ -3411,7 +3834,9 @@ def validate_c1_projection(
         if _matches(path, allow) and not _matches(path, block)
     }
     if after_portable != source:
-        raise UpgradeLaneError("C1 after tree is not the exact portable source projection")
+        raise UpgradeLaneError(
+            "C1 after tree is not the exact portable source projection"
+        )
     expected: list[dict[str, Any]] = []
     for path in sorted(set(before_portable) | set(source)):
         before_entry = before_portable.get(path)
@@ -3478,9 +3903,7 @@ def _verify_git_boundary_chain(
     commits = receipt.get("boundary_commits")
     if not isinstance(commits, Mapping):
         raise UpgradeLaneError("adoption receipt omits Git boundary commits")
-    _require_exact_keys(
-        commits, {"B0", "C1", "C2", "C3"}, label="Git boundary commits"
-    )
+    _require_exact_keys(commits, {"B0", "C1", "C2", "C3"}, label="Git boundary commits")
     normalized = {
         key: _assert_sha(commits[key], label=f"Git boundary {key}")
         for key in ("B0", "C1", "C2", "C3")
@@ -3495,11 +3918,16 @@ def _verify_git_boundary_chain(
         ("B0", "C1", "C2"),
         ("C1", "C2", "C3"),
     ):
-        lineage = _git_bytes(
-            consumer,
-            ["rev-list", "--parents", "-n", "1", normalized[after]],
-            label=f"consumer {after} lineage",
-        ).decode("ascii", "strict").strip().split()
+        lineage = (
+            _git_bytes(
+                consumer,
+                ["rev-list", "--parents", "-n", "1", normalized[after]],
+                label=f"consumer {after} lineage",
+            )
+            .decode("ascii", "strict")
+            .strip()
+            .split()
+        )
         if lineage != [normalized[after], normalized[before]]:
             raise UpgradeLaneError(
                 "consumer B0, C1, C2 and C3 are not one direct single-parent chain"
@@ -3526,17 +3954,17 @@ def _verify_git_boundary_chain(
             label=f"consumer {after} changed paths",
         )
         changed_paths = sorted(
-            item.decode("utf-8", "strict")
-            for item in raw_paths.split(b"\0")
-            if item
+            item.decode("utf-8", "strict") for item in raw_paths.split(b"\0") if item
         )
         entries = boundaries.get(after)
         if not isinstance(entries, list):
             raise UpgradeLaneError(f"adoption receipt {after} boundary is invalid")
         declared_paths = [
-            _canonical_repo_path(item.get("path"), label=f"{after} Git path")
-            if isinstance(item, Mapping)
-            else ""
+            (
+                _canonical_repo_path(item.get("path"), label=f"{after} Git path")
+                if isinstance(item, Mapping)
+                else ""
+            )
             for item in entries
         ]
         if declared_paths != changed_paths or len(declared_paths) != len(
@@ -3625,7 +4053,9 @@ def _verify_canary_completion_anchor(
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise UpgradeLaneError("canary completion anchor is not valid UTF-8 JSON") from exc
+        raise UpgradeLaneError(
+            "canary completion anchor is not valid UTF-8 JSON"
+        ) from exc
     if not isinstance(payload, dict):
         raise UpgradeLaneError("canary completion anchor must contain a mapping")
     _require_exact_keys(
@@ -3646,8 +4076,7 @@ def _verify_canary_completion_anchor(
     canary_ids = sorted(
         item["id"]
         for item in registry["gate_catalog"]
-        if item.get("class") == "canary"
-        and item["id"] in selection["selected_gates"]
+        if item.get("class") == "canary" and item["id"] in selection["selected_gates"]
     )
     canary_projection: list[dict[str, Any]] = []
     for gate_id in canary_ids:
@@ -3667,8 +4096,7 @@ def _verify_canary_completion_anchor(
             }
         )
     if (
-        payload.get("schema_version")
-        != "wiki_viva_upgrade_canary_completion_anchor.v1"
+        payload.get("schema_version") != "wiki_viva_upgrade_canary_completion_anchor.v1"
         or payload.get("authority")
         != {
             "kind": "external_sha256",
@@ -3678,8 +4106,7 @@ def _verify_canary_completion_anchor(
         or payload.get("identity_sha256") != receipt.get("identity_sha256")
         or payload.get("canary_completed_at")
         != receipt.get("acceptance_budget", {}).get("canary_completed_at")
-        or payload.get("canary_results_sha256")
-        != canonical_sha256(canary_projection)
+        or payload.get("canary_results_sha256") != canonical_sha256(canary_projection)
         or claimed != canonical_sha256(unsigned)
         or reference.get("anchor_sha256") != claimed
     ):
@@ -3709,6 +4136,7 @@ def verify_adoption_evidence(
         raise UpgradeLaneError("adoption receipt canonical digest mismatch")
     consumer = authority.consumer_root.resolve(strict=True)
     run_root = authority.run_root.resolve(strict=True)
+    _require_safe_git_authority(consumer, label="consumer authority")
     try:
         run_relative = run_root.relative_to(consumer).as_posix()
     except ValueError as exc:
@@ -3724,24 +4152,29 @@ def verify_adoption_evidence(
         raise UpgradeLaneError(
             "adoption run root is outside its exact plan-parent runs boundary"
         )
-    repository = _git_bytes(
-        consumer, ["rev-parse", "--show-toplevel"], label="consumer repository"
-    ).decode("utf-8", "strict").strip()
+    repository = (
+        _git_bytes(
+            consumer, ["rev-parse", "--show-toplevel"], label="consumer repository"
+        )
+        .decode("utf-8", "strict")
+        .strip()
+    )
     if Path(repository).resolve() != consumer:
         raise UpgradeLaneError("consumer_root must be the exact Git repository root")
-    ignored = subprocess.run(
-        ["git", "check-ignore", "-q", run_relative],
-        cwd=consumer,
-        check=False,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    if ignored.returncode != 0:
-        raise UpgradeLaneError("adoption evidence root is not Git-ignored")
+    try:
+        _git_bytes(
+            consumer,
+            ["check-ignore", "-q", run_relative],
+            label="adoption evidence ignore policy",
+        )
+    except UpgradeLaneError as exc:
+        raise UpgradeLaneError("adoption evidence root is not Git-ignored") from exc
     identity = adoption_identity(receipt["identity"])
-    head = _git_bytes(
-        consumer, ["rev-parse", "HEAD"], label="consumer HEAD"
-    ).decode("ascii", "strict").strip()
+    head = (
+        _git_bytes(consumer, ["rev-parse", "HEAD"], label="consumer HEAD")
+        .decode("ascii", "strict")
+        .strip()
+    )
     if head != identity["consumer_C3"]:
         raise UpgradeLaneError("adoption evidence consumer HEAD differs from C3")
     if _git_bytes(
@@ -3752,21 +4185,20 @@ def verify_adoption_evidence(
         raise UpgradeLaneError(
             "adoption evidence consumer has tracked or untracked worktree changes"
         )
-    b0_tree = _git_bytes(
-        consumer,
-        ["rev-parse", f"{identity['consumer_B0']}^{{tree}}"],
-        label="consumer B0 tree",
-    ).decode("ascii", "strict").strip()
+    b0_tree = (
+        _git_bytes(
+            consumer,
+            ["rev-parse", f"{identity['consumer_B0']}^{{tree}}"],
+            label="consumer B0 tree",
+        )
+        .decode("ascii", "strict")
+        .strip()
+    )
     consumer_c3_authority = consumer_c3_authority_from_git(
         consumer, identity["consumer_B0"], package
     )
-    consumer_c3_authority_sha256 = str(
-        consumer_c3_authority["authority_sha256"]
-    )
-    if (
-        receipt.get("consumer_c3_authority_sha256")
-        != consumer_c3_authority_sha256
-    ):
+    consumer_c3_authority_sha256 = str(consumer_c3_authority["authority_sha256"])
+    if receipt.get("consumer_c3_authority_sha256") != consumer_c3_authority_sha256:
         raise UpgradeLaneError("adoption receipt C3 authority is stale")
     _require_canonical_promotion_selection(
         package,
@@ -3817,11 +4249,9 @@ def verify_adoption_evidence(
         or state.get("plan_sha256") != receipt["plan_sha256"]
         or state.get("identity_sha256") != receipt["identity_sha256"]
         or state.get("capsule_sha256") != receipt["capsule_sha256"]
-        or state.get("impact_registry_sha256")
-        != receipt["impact_registry_sha256"]
+        or state.get("impact_registry_sha256") != receipt["impact_registry_sha256"]
         or state.get("toolchain_sha256") != identity["toolchain_sha256"]
-        or state.get("consumer_c3_authority_sha256")
-        != consumer_c3_authority_sha256
+        or state.get("consumer_c3_authority_sha256") != consumer_c3_authority_sha256
         or state.get("boundary_commits") != receipt["boundary_commits"]
         or state.get("acceptance_budget") != receipt_budget
         or not isinstance(state.get("gate_results"), Mapping)
@@ -3853,8 +4283,7 @@ def verify_adoption_evidence(
     canary_ids = {
         item["id"]
         for item in registry["gate_catalog"]
-        if item.get("class") == "canary"
-        and item["id"] in selection["selected_gates"]
+        if item.get("class") == "canary" and item["id"] in selection["selected_gates"]
     }
     canary_completed = [
         state_results[gate_id].get("_completed_at")
@@ -3865,10 +4294,8 @@ def verify_adoption_evidence(
         raise UpgradeLaneError("adoption runner state lacks a completed real canary")
     for value in canary_completed:
         _acceptance_timestamp_microseconds(value)
-    if (
-        not canary_completed
-        or receipt_budget["canary_completed_at"]
-        != max(canary_completed, key=_acceptance_timestamp_microseconds)
+    if not canary_completed or receipt_budget["canary_completed_at"] != max(
+        canary_completed, key=_acceptance_timestamp_microseconds
     ):
         raise UpgradeLaneError(
             "acceptance budget is not bound to the completed real canary"
@@ -3896,11 +4323,9 @@ def verify_adoption_evidence(
         or rollback.get("rolled_back_tree_sha") != b0_tree
         or rollback.get("tree_equal") is not True
         or rollback.get("method") != "reverse_binary_patch_in_disposable_clone"
-        or rollback.get("boundary_digest")
-        != canonical_sha256(receipt["boundaries"])
+        or rollback.get("boundary_digest") != canonical_sha256(receipt["boundaries"])
         or rollback_digest != canonical_sha256(rollback_unsigned)
-        or receipt["rollback_verification"].get("evidence_sha256")
-        != rollback_digest
+        or receipt["rollback_verification"].get("evidence_sha256") != rollback_digest
     ):
         raise UpgradeLaneError("rollback artifact does not prove exact B0 restoration")
     private_report, private_raw = _private_json_artifact(
@@ -3952,12 +4377,8 @@ def verify_adoption_evidence(
         != hashlib.sha256(private_raw).hexdigest()
     ):
         raise UpgradeLaneError("private migration report is stale or unbound")
-    if (
-        (receipt["status"] == "passed" and receipt_budget["status"] != "met")
-        or (
-            receipt["status"] == "blocked"
-            and receipt_budget["status"] != "exceeded"
-        )
+    if (receipt["status"] == "passed" and receipt_budget["status"] != "met") or (
+        receipt["status"] == "blocked" and receipt_budget["status"] != "exceeded"
     ):
         raise UpgradeLaneError("receipt promotion status contradicts acceptance budget")
     report_results = private_report.get("gate_results")
@@ -4022,16 +4443,15 @@ def verify_adoption_evidence(
         if not isinstance(entries, list):
             raise UpgradeLaneError(f"migration report {kind} evidence is invalid")
         for item in entries:
-            if not isinstance(item, Mapping) or item.get("subject_sha") != identity[
-                "consumer_C3"
-            ]:
+            if (
+                not isinstance(item, Mapping)
+                or item.get("subject_sha") != identity["consumer_C3"]
+            ):
                 raise UpgradeLaneError(f"migration report {kind} evidence is stale")
             artifact_file = item.get("artifact_file")
             if artifact_file is None:
                 continue
-            gate_id = _canonical_repo_path(
-                item.get("gate_id"), label=f"{kind} gate id"
-            )
+            gate_id = _canonical_repo_path(item.get("gate_id"), label=f"{kind} gate id")
             if "/" in gate_id:
                 raise UpgradeLaneError(f"{kind} gate id is not canonical")
             relative, artifact = _safe_file_bytes(
@@ -4049,12 +4469,12 @@ def verify_adoption_evidence(
                         run_root, relative, label="canary screenshot"
                     )
                 except (OSError, ValueError) as exc:
-                    raise UpgradeLaneError("canary screenshot failed strict PNG verification") from exc
-                if (
-                    metadata["sha256"] != item.get("sha256")
-                    or metadata["dimensions"]
-                    != {"width": item.get("width"), "height": item.get("height")}
-                ):
+                    raise UpgradeLaneError(
+                        "canary screenshot failed strict PNG verification"
+                    ) from exc
+                if metadata["sha256"] != item.get("sha256") or metadata[
+                    "dimensions"
+                ] != {"width": item.get("width"), "height": item.get("height")}:
                     raise UpgradeLaneError("canary screenshot metadata differs")
             elif item.get("capture") in {
                 "gate_emitted_sanitized_network_summary",
@@ -4072,8 +4492,7 @@ def verify_adoption_evidence(
                     or summary.get("error_count") != item.get("error_count")
                     or (
                         kind == "network"
-                        and summary.get("request_count")
-                        != item.get("request_count")
+                        and summary.get("request_count") != item.get("request_count")
                     )
                 ):
                     raise UpgradeLaneError(
@@ -4124,8 +4543,7 @@ def _require_verified_adoption_evidence(
         or claimed != verified.receipt_digest
         or canonical_sha256(unsigned) != verified.receipt_digest
         or receipt.get("identity", {}).get("consumer_C3") != verified.consumer_C3
-        or canonical_sha256(receipt.get("gate_results"))
-        != verified.gate_results_sha256
+        or canonical_sha256(receipt.get("gate_results")) != verified.gate_results_sha256
         or receipt.get("consumer_c3_authority_sha256")
         != verified.consumer_c3_authority_sha256
     ):
@@ -4164,9 +4582,7 @@ def verify_adoption_receipt(
     if validate_acceptance_budget(receipt["acceptance_budget"])["status"] != "met":
         raise UpgradeLaneError("only within-budget adoption receipts are reusable")
     _assert_public_safe_payload(receipt, label="adoption receipt")
-    capsule_sha256 = _require_verified_capsule_token(
-        capsule, verified_capsule
-    ).digest
+    capsule_sha256 = _require_verified_capsule_token(capsule, verified_capsule).digest
     if canonical_sha256(package) != capsule["package_sha256"]:
         raise UpgradeLaneError(
             "adoption package does not match the verified release capsule"
@@ -4187,23 +4603,21 @@ def verify_adoption_receipt(
         raise UpgradeLaneError("adoption receipt capsule_sha256 mismatch")
     if receipt["impact_registry_sha256"] != registry_sha256:
         raise UpgradeLaneError("adoption receipt impact registry is stale")
-    if canonical_sha256(registry["gate_catalog"]) != identity[
-        "command_registry_sha256"
-    ]:
+    if (
+        canonical_sha256(registry["gate_catalog"])
+        != identity["command_registry_sha256"]
+    ):
         raise UpgradeLaneError(
             "current impact registry command catalog differs from receipt identity"
         )
     _assert_sha(expected_plan_sha256, label="expected plan_sha256", sha256=True)
     if receipt["plan_sha256"] != expected_plan_sha256:
         raise UpgradeLaneError("adoption receipt plan is stale")
-    authority_sha256 = _validate_consumer_c3_authority_shape(
-        consumer_c3_authority
-    )
+    authority_sha256 = _validate_consumer_c3_authority_shape(consumer_c3_authority)
     if (
         receipt.get("consumer_c3_authority_sha256") != authority_sha256
         or consumer_c3_authority.get("consumer_B0") != identity["consumer_B0"]
-        or consumer_c3_authority.get("package_sha256")
-        != identity["package_sha256"]
+        or consumer_c3_authority.get("package_sha256") != identity["package_sha256"]
     ):
         raise UpgradeLaneError("adoption receipt C3 authority mismatch")
     resume = receipt["resume"]
@@ -4253,7 +4667,9 @@ def verify_adoption_receipt(
         if result["class"] != classes[gate_id]:
             raise UpgradeLaneError(f"gate result class mismatch: {gate_id}")
         if result["provenance"] != "executed":
-            raise UpgradeLaneError(f"manual/fabricated evidence is forbidden: {gate_id}")
+            raise UpgradeLaneError(
+                f"manual/fabricated evidence is forbidden: {gate_id}"
+            )
         if (
             result["status"] != "passed"
             or isinstance(result["exit_code"], bool)
@@ -4316,11 +4732,14 @@ __all__ = [
     "CONSUMER_C3_AUTHORITY_SCHEMA_VERSION",
     "AdoptionEvidenceAuthority",
     "EXECUTION_ATTESTATION_SCHEMA_VERSION",
+    "LEGACY_EXECUTION_ATTESTATION_SCHEMA_VERSION",
     "GATE_CLASSES",
     "IMPACT_REGISTRY_SCHEMA_VERSION",
     "NEVER_REUSABLE_GATES",
     "RELEASE_CAPSULE_SCHEMA_VERSION",
+    "LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION",
     "TOOLCHAIN_PROBE_SCHEMA_VERSION",
+    "LEGACY_TOOLCHAIN_PROBE_SCHEMA_VERSION",
     "VISUAL_CAPTURE_METHOD",
     "VISUAL_CAPTURE_SCHEMA_VERSION",
     "VISUAL_MANIFEST_SCHEMA_VERSION",

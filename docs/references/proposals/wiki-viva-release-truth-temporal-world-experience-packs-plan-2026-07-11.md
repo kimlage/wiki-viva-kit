@@ -362,6 +362,115 @@ fail-closed rejection without changing or rerunning the valid authority.
 Public push/publication remains unauthorized; this document remains the sole
 plan and the sealed package/capsule bytes remain immutable.
 
+RT-173 was then exposed by the first disposable downstream clean-C1 execution.
+The byte-equal portable projection correctly contained no `node_modules`, but
+the rc37 capsule had no sealed authority capable of materializing the dependency
+tree. Its registered Node C2 visual generator could not resolve TypeScript; a
+manual `npm ci` made the unchanged command executable. That proves a missing
+portable-policy/external-authority bootstrap, not an application defect. Rc37's
+validation, capture, capsule, receipt, attestation and positive/negative
+verifier hashes above remain immutable and valid historical evidence. They are
+not executable Lane B adoption or promotion authority and must never be rerun,
+amended, relabeled or projected onto another subject.
+
+RT-173 is the only fail-closed exception that permits a new subject. The
+successor remains unnamed and unpinned until its source is immutable. It must
+make `apps/wiki-cockpit/node-workspace.lock.json` a platform-neutral
+`wiki_viva_node_workspace_policy.v2`, capture one path-free/platform-scoped
+`wiki_viva_node_workspace_authority.v1` outside Git only in Lane A, materialize
+clean C1 from the sealed authority, route every release-bearing Node command
+through the wrapper and seal capsule v2 with that authority/digest,
+`toolchain_probe_entry_count=5` and canonical identities `browser`, `node`,
+`npm`, `python`, `runner`. No successor label or release authority exists yet.
+
+#### RT-173 formation closure and downstream preparation evidence — 2026-07-15
+
+The unnamed source formation still has no release name, source pin, capsule or
+adoption authority. The first RT-173 closure review found seven portable-Node
+P1 surfaces. Those seven remain implemented with synthetic public fixtures and
+fail-closed negatives:
+
+| P1 surface | Closure now present |
+| --- | --- |
+| Wrapper-only release commands | Package v3, impact registry, capsule seal/verify and runner parsing reject direct `node`, `npm`, `npx`, shell indirection and malformed wrapper spellings before execution; v1/v2 compatibility remains schema-selected and exposes no v3 bypass |
+| Secret/injection-safe execution | Node/toolchain environments use explicit allowlists; `NODE_OPTIONS`, `PYTHONPATH`, token/secret-like variables and host authority bindings are excluded from probe output |
+| Hardlink and root-symlink safety | Authority capture/materialization rejects hardlinks, special files, escaping symlinks and a root `node_modules` symlink before install or hashing |
+| Exact clean source capture | Authority capture binds the exact Git root and source SHA and rechecks tracked plus untracked cleanliness before, under the lock and after the forced install |
+| Exact Node/npm/Playwright probe | The executed npm runtime-tree identity is reconciled with the external workspace authority before the capsule seals its workspace identity; Chromium executes with the absolute certified Node while evidence carries a path-free single-line argv; certified contexts accept Playwright only inside the authority-covered kit |
+| Controlled visual preview | The preview owns a process group, must remain live through controlled teardown and rechecks authority plus exact clean Git HEAD after capture; premature exit, tracked/untracked/HEAD drift, teardown failure and `KeyboardInterrupt`/`SystemExit` delete partial create-once evidence and fail closed without masking the original body error |
+| Dependency boundary | `apps/wiki-cockpit/node_modules/**` is explicitly blocked from C1; the clean-C1 fixture proves dependencies absent, materializes them from the sealed external authority and runs a real Node C2 generator through the wrapper |
+
+A final adversarial pre-pin review then found six additional trust-boundary
+blockers. They do not invalidate any rc37 receipt or the evidence above. All
+six are now implemented and green with public synthetic negatives; the
+successor remains in source formation only until this exact working tree is
+committed and pinned:
+
+| Final pre-pin blocker | Required closure before source pin |
+| --- | --- |
+| Historical capsule compatibility | `verify-capsule` must recognize authentic schema-v1 rc37 authority as verification-only history, preserve every original digest/attestation check and waive only post-RT-173 Node policy. V1 remains forbidden from certify, seal, plan, adopt and resume |
+| Lane A source mutation | Exact HEAD, tracked/untracked cleanliness and source-tree identity must be rechecked before and after every gate/wave and immediately before attestation/capsule sealing; any drift aborts the complete attempt and mints no authority |
+| Surviving process descendants | Every release-bearing process group must be drained and terminated after normal parent exit as well as timeout/error; no Node, Lane A/B, mutation, preflight, toolchain or Chromium descendant may outlive accepted evidence |
+| Executable Git configuration | All release Git calls use one fresh environment, disabled hooks/fsmonitor/replacements/pagers and an audited local config. Ambient config-count, alternate worktree/object, include, filter, external-diff, `protocol*.allow` and `url.*.(insteadOf\|pushInsteadOf)` process/transport injection fail closed |
+| Secret-bearing plan commands | Explicit C2/C3/preflight/operator command and URL inputs must be scanned, including repeated percent decoding, before persistence and again before execution; diagnostics never echo the rejected value |
+| First-write plan clock | A pre-existing acceptance anchor is never self-authorizing. Plan must create it with exclusive first write or require the exact previously emitted out-of-band digest and descriptor-pinned bytes; an unanchored crashed attempt is discarded, not recreated in place |
+
+The runbook review also corrected two non-authority documentation defects before
+freeze: every absolute Node-workspace command now supplies the exact `--root`,
+and Node authority, productive visual capture and certification use separate
+create-once sibling directories. The operator's ambient Node 26/npm 11 correctly
+fails policy; the controlled release PATH resolves Node 22.22.3/npm 10.9.8 and
+its focused authority probes pass.
+
+Formation-closure evidence is now green under the pinned Node 22/npm 10
+toolchain, but it is deliberately not the one exact release matrix, which can
+start only after the source commit and pin:
+
+- the first full runner regression exposed the common RT-173 blocker as
+  `127 passed, 16 failed, 3 skipped in 7,320.86 seconds`; all 16 stopped at B0
+  with `mutation_prepared_commit_fetch_failed` because the reviewed local fetch
+  lacked explicit file-transport authority;
+- file transport is now an explicit capability limited to `clone`/`fetch`, and
+  `BoundedProcessResult.output` is used consistently. Strict `cat-file --batch`
+  reads replace per-blob subprocess loops without weakening the absolute system
+  Git, sanitized environment, local-config audit, timeout, output limits or
+  descendant closure;
+- `tests/test_upgrade_lanes.py`: `179 passed in 1,206.15 seconds`; process,
+  source-integrity and Git-safety foundations first passed `33` focused tests,
+  and the final transport-rewrite closure passes `23 tests in 5.39 seconds`;
+- the four representative recovery/semantic/budget/C1-C2-C3 contracts pass in
+  `480.14 seconds`; the exact rerun of the 16 historical failures passes
+  `16 passed in 2,416.77 seconds` without editing the source;
+- a final disposable negative proved the previously unaudited combination of
+  local `protocol.ext.allow` plus `url.*.insteadOf` could rewrite the reviewed
+  fetch. The audit now rejects both protocol allowances and URL rewrites, while
+  the legitimate fetch -> C1 -> canary -> resume path remains green:
+  `1 passed in 194.16 seconds`;
+- the earlier Node workspace, visual, workflow, audit and structural evidence
+  above remains valid formation evidence. It is not yet Lane A authority and no
+  successor capsule, receipt or attestation has been minted.
+
+The current downstream base is clean and passes its sole B0 preflight
+`diff_check`, so it can be frozen only after Lane A exists. It would later fail
+the never-reusable consumer gates: its audit reports one freshness-budget error
+(`21 > 15`) and its semantic inventory has ten unresolved relations. A separate
+consumer-owned repair changes 48 domain-memory pages only and closes those
+results to audit 0 errors/freshness 15 and semantic inventory 0 errors. Its
+hosted deterministic and frontend jobs pass; its 94/102 visual result is
+byte/assertion-equivalent to the current base's same eight inherited failures,
+so the repair remains unmerged and no baseline was rewritten.
+
+The impact selector now uses the already sealed
+`consumer_c3_authority.layout.memory_root` to map a localized domain path to
+the single unambiguous `wiki_content.v1` surface. It selects the same 17
+consumer-semantic gates as the default memory root, retains the real canary and
+omits unrelated upstream/background visual gates. A prefix-confusable path or
+zero/multiple content surfaces still selects the complete matrix; domain
+content remains forbidden in C1/C2/C3. After the successor capsule verifies,
+that automatic derivation—not a manual waiver—must validate the separate
+repair, permit its private merge if all selected gates and canary pass, and
+establish the fresh private B0 for the v3 adoption.
+
 ### Placar operacional canônico
 
 Este é o único placar de fechamento da cadeia atual. A estimativa crítica de
@@ -370,17 +479,19 @@ datada; não substitui os cinco estados comprovados abaixo.
 
 | Etapa | Estado | Evidência exata / próxima ação |
 | --- | --- | --- |
-| source pinned | ✅ concluído | `wiki-viva-v8-rc37` / `candidate` aponta ao source imutável `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`; candidate package-file/canonical/tree `6d409da4...` / `1af897ce...` / `77799ece...` (521 entradas); `package_is_pinned=true`; o PR público #61 continua antigo/conflitante e não representa a verdade local |
-| exact validation | ✅ concluído | Primeira/única matriz rc37: metadata `775fe5bc...`, 23/23 em 1.652 s, Python 1.782+3, frontend 522, Node 123 e browser 102/102 first-attempt; validation-result `e409a148...`; rc36 continua apenas histórico |
-| capsule verified | ✅ concluído | Primeira/única captura produtiva rc37: quatro perfis v8 e manifest `3be7599a...`; Lane A 11/11; capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`; verificação positiva `762171b5...`; negativos de digest externo incorreto e capsule copiada adulterada falharam fechados como `lane_contract_rejected` (`1d820969...`); manifest rc36 `6199d100...` não foi reutilizado |
-| private canary | ⏳ pendente | Capsule rc37 verificada autoriza iniciar uma adoção v3 nova a partir da `main` privada vigente; #211 permanece evidência v2 histórica; provar B0→C1→C2→C3, gates selecionados, canary real e rollback |
-| private main readback | ⏳ pendente | Após gates verdes, usar a autorização permanente de merge privado e validar visualmente a própria `main`; Claude/IFC e Audrey continuam separados |
+| source pinned | ⏳ pendente | Os sete blockers RT-173 iniciais e os seis contratos adversariais finais estão fechados com testes negativos públicos, incluindo a regressão exata 16/16 e o transport-rewrite Git fail-closed. A formação está verde, mas o sucessor ainda não tem nome, commit, package ou pin. Próxima ação exclusiva: commitar esta única formação e então nomear/pinar exatamente um sucessor. Rc37 `d87af15b...` e seus hashes permanecem história imutável; o PR público #61 continua antigo/conflitante e não representa a verdade local |
+| exact validation | ⏳ pendente | Executar uma única matriz integral somente depois do novo source pin. A matriz rc37 `775fe5bc...` 23/23 continua válida apenas para rc37 e não é reutilizada |
+| capsule verified | ⏳ pendente | Capturar authority Node externa a partir do clean source, provar clean-C1 materialization, executar Lane A, selar capsule v2 de cinco tools e verificar positivos/negativos. Capsule/receipt/attestation rc37 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` permanecem história, não autoridade Lane B |
+| private canary | ⛔ bloqueado | A capsule RT-173 ainda não existe. Depois de verificá-la, derivar automaticamente os 17 gates do reparo de domínio separado, executar o canary real e mergeá-lo somente se verde; congelar então a nova `main` como B0 e provar B0→C1→C2→C3, gates selecionados, canary e rollback. #211 permanece evidência v2 histórica |
+| private main readback | ⛔ bloqueado | Após capsule, adoção e gates verdes, usar a autorização permanente de merge privado e validar visualmente a própria `main`; Claude/IFC e Audrey continuam separados |
 
-Fechamento comprovado atual: **3/5 etapas para rc37**. Rc36 preserva
-source pin e exact validation como evidência histórica válida, mas sua falha de
-certificação impede qualquer promoção ou adoção. Rc37 fecha RT-172 e Lane A sem
-reutilizar receipts; a única próxima frente é a adoção privada v3 corrente. Não
-ampliar packs/abstrações nem abrir outro plano.
+Fechamento comprovado atual: **0/5 etapas para o sucessor RT-173 ainda
+unnamed/unpinned**. A formação está verde e congelada, mas `source pinned` só
+muda para `1/5` quando o commit e o pin imutáveis existirem. O antigo `3/5` de
+rc37 permanece apenas como cronologia imutável dentro deste mesmo plano; não é
+um segundo placar e nenhum recibo foi invalidado ou reescrito. A única próxima
+frente é commitar esta formação, nomear/pinar exatamente um sucessor e executar
+a cadeia. Não ampliar packs/abstrações nem abrir outro plano.
 
 O Playwright terminou as 102 células em 386.565 segundos. O checker pós-matriz
 esperou mais 806.361 segundos porque o FileProvider precisava materializar
@@ -497,7 +608,32 @@ consecutive times. Its first and only complete exact validation then passed
 23/23 at metadata `775fe5bc...`, including the strengthened RT-172 cell inside
 browser 102/102 first-attempt with zero skip or retry. Rc37 is now candidate;
 its first productive capture, 11-gate Lane A certification and independent
-capsule/attestation verification passed once. Private v3 adoption remains.
+capsule/attestation verification passed once. That authority was the next
+downstream input until RT-173's later clean-C1 failure closed adoption.
+
+### RT-173 — portable Node policy and external materialization authority
+
+Rc37 certified a prepared Lane A worktree whose Node dependencies were already
+installed, while the byte-equal portable C1 projection correctly excluded
+`node_modules`. The first disposable clean-C1 execution therefore reached the
+registered visual-baseline generator without TypeScript. Manual `npm ci` made
+the same source/command runnable, identifying missing dependency
+materialization authority rather than a product-code regression.
+
+The closure separates portable policy from execution authority. Tracked
+`wiki_viva_node_workspace_policy.v2` contains only package/lock hashes, package
+manager, allowlisted scripts/arguments and fixed install/timeouts. Lane A alone
+forces a clean install and writes path-free,
+platform-scoped `wiki_viva_node_workspace_authority.v1` outside Git, binding
+policy/source, resolved Node/npm and the exact dependency-tree summary. Capsule
+v2 embeds that payload/digest and five tool identities; Lane B verifies it and
+materializes clean C1, never captures its own authority. Every release-bearing
+Node command uses the wrapper. Unknown or divergent source, policy, platform,
+Node, npm, tree or trusted digest fails before execution.
+
+Rc37 remains immutable verified history and is not retried, relabeled or
+invalidated. RT-173 alone authorizes one still-unnamed successor; its release ID,
+source SHA and hashes remain pending until a clean subject is actually pinned.
 
 The implementation is substantial and the underlying philosophy is visible in
 real data, but the baseline review reproduced release-blocking failures that
@@ -925,7 +1061,7 @@ memory rather than one fixed dashboard:
 
 | Surface | Reviewed baseline | Automated state | Human/product state | Decision |
 | --- | --- | --- | --- | --- |
-| Stale public PR baseline | Draft PR #61 still points to remote head `31b94d81`, conflicts with current public `main` and represents neither rc36 history nor rc37 source `d87af15b...` | Its three remote checks belong only to that old SHA | Rc36 is historical failed-certification evidence; rc37 passed exact validation 23/23, productive capture, Lane A 11/11 and independent capsule verification locally, but none may be projected onto the stale PR | Prepare reconciliation against the certified local truth; no push/publication without explicit authorization |
+| Stale public PR baseline | Draft PR #61 still points to remote head `31b94d81`, conflicts with current public `main` and represents neither rc37 history nor the unpinned RT-173 successor | Its three remote checks belong only to that old SHA | Rc37 passed exact validation 23/23, productive capture, Lane A 11/11 and independent capsule verification locally; RT-173 later blocked downstream execution, and neither truth may be projected onto the stale PR | Prepare reconciliation only after the RT-173 successor is pinned/certified; no push/publication without explicit authorization |
 | Historical public payload `S` | Exact subject `b781882a11e8bbac3ae9684d199979a1f4ee1bf7` | 1,339 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; matrix remains 102+2 | Its then-global adversarial verdict had no open public P0/P1; later source and private pressure superseded it | Historical release candidate only; never tag or use as current authority |
 | Public pressure payload `S2` | Exact subject `f0936539ca44c34ff5eacf5817b22ff9451b9cef` | 1,355 Python, 489 Vitest, 106 Node and 102/102 public browser cells pass; 0 skips/retries; demo and audit remain deterministic | Portability, historical-action adoption, rollback truth and demo-link closure are executable contracts | Historical rc3 candidate; imported by the private pilot before the final pressure pass |
 | Public renderer payload `S3` | Exact subject `8904d69daab1803043a89e553d78b95b57d2022f` | 1,356 Python pass; clean browser run blocks at 101/102 on a live→demo request race | Both action parsers accept canonical output, but browser closure is incomplete | Rejected intermediate; never promote or adopt as the final candidate |
@@ -960,9 +1096,9 @@ memory rather than one fixed dashboard:
 | Historical public rc36 certification failure | Release `wiki-viva-v8-rc36`; source `8f96e1fd58258df64174229d81ee6a330ba9d2b1`; validation metadata `3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd`; candidate metadata `ac0f49afe28a5bf84003b58c537ac1727dab7008`; candidate package-file/canonical/tree `8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b` / `8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2` / `4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3`, 521 entries; manifest `6199d100...` | Exact validation passed 23/23. First/only Lane A passed architecture, bundle, demo-drift, 518 frontend and portable Python 1,782+3; browser stopped 101/102 after 410.796 s with one Back-settlement hit-owner failure and zero console/network error | RT-172: morph-only settlement did not bind camera and Drei Html projection clocks. Stream/gate/run/report `a95d7085...` / `2d5405db...` / `2b1c678a...` / `bb69c7ac...` | Immutable `historical_certification_failed`; no capsule, receipt, attestation, adoption or public-promotion authority. Never retry, reuse capture, relabel, promote or import |
 | Historical local public source for the v2 exception | Exact source `9822e5075fb81db85664ccb5e0de53558f6daf97`; package v2 canonical digest `d5e9ddbe17b826612b5d3b509a270ab0895f0f2e90dc1deb5f75565b374330bc` | Public suite passed 1,529 tests, with two declared skips and two warnings; package validation and public privacy boundary pass | Atomic operator-job publication and the two-lane migration contracts are covered by public synthetic fixtures | Historical authority for the frozen v2 QA only; never substitute it for rc36/v3 or publish it as current |
 | Historical private S9 pilot | Sanitized exact S9 adoption checkpoint; branch, HEAD and raw result remain in the private receipt | 2/2 browser plus full private deterministic stack passed on a clean subject; historical upgrade preflight was ready with 0 blockers, drift 0 and one expected local-overrides warning | Real Timeline, 562 pages/772 events and mobile geometry pressure-tested S9 without public content leakage | Historical adoption proof; must not substitute for the frozen current v2 adoption or a future rc36-or-later v3 plan |
-| Historical private v2 downstream adoption / PR #211 lineage | Fresh preflight had zero blockers; C1 imported 74 byte/mode-equal paths, C2 had 836 regenerated paths and C3 had 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Original 22-gate matrix, four real canary profiles, generated reports and disposable rollback passed locally; hosted attempts stopped at 100/102 and 92/102 under their recorded environments | Timeline real-data evidence and all v2 receipts remain intact | Frozen historical v2 evidence. Do not promote or relabel as rc36/v3; fresh adoption starts from current private `main` after verified capsule |
-| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact rc37 passed its first/only 102-cell validation matrix and later its first/only Lane A browser 102/102, both without failure, skip or retry | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete; four productive profiles verified runtime v8 and zero console/network error | Exact validation, productive record-v2 capture, Lane A and independent capsule verification are closed locally; public PR reconciliation/promotion remains separate and unauthorized |
-| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Exact rc37 passed PT-BR, keyboard, touch, mobile, fallback, runtime identity and RT-151/164/169/171/172; productive manifest `3be7599a...` verifies four profiles | Direct visual review found no blocker and confirmed the repeated workspace-area label is absent; screenshots do not alone prove VoiceOver | Rc24/rc26/rc36 captures are historical; rc34/rc35 are rejected. Rc37 local visual/capsule authority is complete; private real-data canary/readback and later human public promotion remain |
+| Historical private v2 downstream adoption / PR #211 lineage | Fresh preflight had zero blockers; C1 imported 74 byte/mode-equal paths, C2 had 836 regenerated paths and C3 had 21 allowlisted consumer-owned technical paths; concurrent domain content excluded | Original 22-gate matrix, four real canary profiles, generated reports and disposable rollback passed locally; hosted attempts stopped at 100/102 and 92/102 under their recorded environments | Timeline real-data evidence and all v2 receipts remain intact | Frozen historical v2 evidence. Do not promote or relabel as current v3; fresh adoption starts from current private `main` only after the RT-173 successor capsule verifies |
+| Public demos | Seven executable base scenarios, nine Genesis stages and two pack showcases exist | Exact rc37 passed its first/only 102-cell validation matrix and later its first/only Lane A browser 102/102, both without failure, skip or retry | Gallery, source/failure/compatibility/accessibility worlds and pack Chronoscope are concrete; four productive profiles verified runtime v8 and zero console/network error | Rc37 proof is immutable history. RT-173 requires a new source/capsule before public reconciliation or downstream use; publication remains unauthorized |
+| Visual system | Light/dark themes, three densities, semantic tokens, licensed asset manifest, WebGL and 2D fallback render | Exact rc37 passed PT-BR, keyboard, touch, mobile, fallback, runtime identity and RT-151/164/169/171/172; productive manifest `3be7599a...` verifies four profiles | Direct visual review found no blocker and confirmed the repeated workspace-area label is absent; screenshots do not alone prove VoiceOver | Rc24/rc26/rc36 captures are historical; rc34/rc35 are rejected. Rc37 visual/capsule proof remains historical; RT-173 blocks private canary/readback until its successor certifies |
 
 At historical machine-status commit `f849de26`, the local public branch changed 2,066
 files with 486,397 additions and 10,913 deletions across 100 commits from the
@@ -1563,7 +1699,8 @@ reproduction.
 | RT-169 | P0 | The RT-164 `Q1`–`Q4` disambiguation was encoded inside the generic family-title resolver, so it also prefixed a single family inside a selected quadrant. That changed the focused-lens accessible name and made a compact short-phone label tall enough to overlap the quadrant compass; one desktop breadcrumb assertion also incorrectly treated the root target label as the full hierarchy | E2 exact rc33 source `539eb19b958a4159eecb2c5a7afd6ceaabcbb086`, metadata `a3aae4b1aa5ef53b5e74983d396a744d22f3b514`, package-file/canonical-package/tree `300a78a6...` / `69dd37f9...` / `7964e884...`, 521 entries. Python passed 1,746 with 3 skips in 1,072.23 s; frontend 517, Node 115 and applicable static gates passed. First/only browser ended 98/102, 4 failed, 0 skipped/retried in 330.49 s. The manually appended adapter command is `inapplicable_gate/orchestration_invalid`, not a required-gate failure. E3 exact rc34 source `533d286869c478bd157b066d7882388b99fde2f7` and validation subject `2afd435c7cc955ae7a922b1d46eac355472ca0e6` passed 1,746 Python with 3 skips, 518 frontend, 115 Node, every applicable static gate and first/only browser 102/102 with zero failure/skip/retry/flaky result in 6.5m | Freeze rc33 as immutable `historical_validation_failed`. Rc34 carries the quadrant prefix as explicit root-overview `SceneLabel` context only; default/focused title resolution returns the concise family label, while breadcrumb tests assert facet and family as separate hierarchy elements. RT-169 is closed at exact validation; RT-170 later rejected rc34 before productive capture and does not invalidate this historical UI proof |
 | RT-170 | P0 | Rc34's read-only downstream plan could not honestly start from a legitimate older B0: preflight required toolkit CLIs introduced only by C1, treated expected portable delta as a failed equality gate, allowed reviewable semantic repair even though C3 forbids domain content, and hardcoded a runner evidence root independent of the exact plan path | E1 package/runner review; E2 sanitized read-only downstream QA before any productive capture; E3 public synthetic controls cover legacy-safe preflight, prospective C1 inventory, mandatory final toolkit/semantic gates, custom ignored plan-parent state and `consumer_prep_required` for domain repair. Rc34 source/validation/candidate subjects are `533d2868...` / `2afd435c...` / `59be853a...`; candidate package-file/canonical/tree are `a6259449...` / `b076019c...` / `59fa6d66...`, 521 entries. Rc35 source/validation metadata are `52491dfd...` / `55910c37...`; its exact stack passed 1,754 Python plus 3 skips, 518 frontend, 115 Node, static gates and browser 102/102. Reviewed-but-uncommitted candidate package-file/canonical/tree were `3cea5015...` / `e7a3c448...` / `1c8e6f69...`, 521 entries | Freeze rc34 as immutable `historical_precapture_rejected`; no capture, certification or authority exists. Rc35 uses only `diff_check` at B0, binds prospective portable drift, requires final `toolkit_drift` plus `semantic_inventory`, derives all evidence below the plan parent and repairs domain debt before a new B0. Exact validation remains historical evidence; RT-171 later rejects rc35 before capture. Standing private merge approval removes only the later human blocker; do not push the public repo |
 | RT-171 | P0 | Capture record v1 bound source/package/route/viewport/browser/console/network but not the rendered `data-runtime-mode`; downstream canary used positional routes and summary v1 omitted runtime, while bounded-but-wrong viewports were still accepted | E1 pre-capture contract review of Lane A capture and Lane B exporter; E2 public synthetic negatives reject record v1, missing/compat/legacy runtime, wrong native route, wrong rendered view and wrong profile viewport; E3 two-step browser control rechecks final runtime after interaction. Rc35 source/validation remain `52491dfd...` / `55910c37...`; candidate projection hashes `3cea5015...` / `e7a3c448...` / `1c8e6f69...` were never committed as a metadata subject | Freeze rc35 as immutable `historical_precapture_rejected`, with no capture/capsule/adoption authority. Source-form record v2, canary summary v2, native query routes and exact route/view/runtime/canary-viewport contracts from base `55910c37...`; then pin rc36 separately and run one wholly new exact validation. Do not push the public repo |
-| RT-172 | P0 | Rc36 interaction settlement observed morph completion plus two RAFs but not the independent `CameraDirector` clock or the next Drei `Html` projection frame. After Back in `dense_stress`, a visible group label could have an empty `elementFromPoint` owner even though the cue already released interaction | E2 rc36 first/only Lane A run: candidate metadata `ac0f49af...`, manifest `6199d100...`, browser 101/102 with zero retry and zero console/network error; exact failing node `region:pratica:family:action`; gate-log/run-result/report/stream `2d5405db...` / `2b1c678a...` / `bb69c7ac...` / `a95d7085...`. E3 rc37 source `d87af15b...`, validation metadata `775fe5bc...`, matching morph+camera sequence acks and two compositor frames passed 23/23 in 1,652 s. E4 first productive manifest `3be7599a...`; Lane A 11/11 including browser 102/102; capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`; positive verification `762171b5...`; wrong-digest and tampered-copy negatives fail closed | Freeze rc36 and both captures as immutable `historical_certification_failed`; never retry/reuse/relabel/import. Rc37 closes RT-172 through verified local Lane A authority. Start only a fresh current-main private v3 adoption; no public push |
+| RT-172 | P0 | Rc36 interaction settlement observed morph completion plus two RAFs but not the independent `CameraDirector` clock or the next Drei `Html` projection frame. After Back in `dense_stress`, a visible group label could have an empty `elementFromPoint` owner even though the cue already released interaction | E2 rc36 first/only Lane A run: candidate metadata `ac0f49af...`, manifest `6199d100...`, browser 101/102 with zero retry and zero console/network error; exact failing node `region:pratica:family:action`; gate-log/run-result/report/stream `2d5405db...` / `2b1c678a...` / `bb69c7ac...` / `a95d7085...`. E3 rc37 source `d87af15b...`, validation metadata `775fe5bc...`, matching morph+camera sequence acks and two compositor frames passed 23/23 in 1,652 s. E4 first productive manifest `3be7599a...`; Lane A 11/11 including browser 102/102; capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`; positive verification `762171b5...`; wrong-digest and tampered-copy negatives fail closed | Freeze rc36 and both captures as immutable `historical_certification_failed`; never retry/reuse/relabel/import. Rc37 closes RT-172 through verified local Lane A authority. RT-173 later blocks its downstream use; no public push |
+| RT-173 | P0 | Rc37 Lane A ran against a prepared dependency tree, while clean C1 correctly omitted `node_modules` and had no sealed authority capable of reproducing it. The first Node C2 generator could not resolve TypeScript | E2 first disposable clean-C1 execution failed at the visual generator before C2; the same source/command became executable only after a manual `npm ci`. Rc37 manifest/capsule/receipt/attestation and positive/negative verifier hashes remain unchanged | Preserve rc37 as immutable verified history, not executable Lane B authority. Form exactly one unnamed successor: portable policy v2 in Git; path-free platform-scoped authority v1 captured outside Git only in Lane A; wrapper-only Node commands; clean-C1 materialization; capsule v2 with authority/digest and canonical `browser`/`node`/`npm`/`python`/`runner` identities. No release name/hash exists until pin |
 
 ### Historical exact-public-subject closure overlay
 
@@ -3518,6 +3655,12 @@ Not every commit runs the full Cartesian product. Tiered CI uses:
 
 ```sh
 # Exact public deterministic gates
+python3 scripts/wiki_node_workspace.py snapshot --check
+python3 scripts/wiki_node_workspace.py capture-authority \
+  --out "$NODE_WORKSPACE_AUTHORITY" --source-sha "$SOURCE_SHA"
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY="$NODE_WORKSPACE_AUTHORITY"
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256="$TRUSTED_NODE_AUTHORITY_SHA256"
+export WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA="$SOURCE_SHA"
 python3 scripts/wiki_audit.py --check
 python3 scripts/wiki_audit.py --public-export --check
 python3 scripts/wiki_check_methodology_coverage.py --check
@@ -3532,14 +3675,14 @@ python3 scripts/wiki_pack.py validate --all
 python3 -m pytest tests/
 
 # Exact public frontend, Node and browser gates
-npm --prefix apps/wiki-cockpit test
-npm --prefix apps/wiki-cockpit run build
-npm --prefix apps/wiki-cockpit run test:gates
-npm --prefix apps/wiki-cockpit run check:architecture
-npm --prefix apps/wiki-cockpit run check:assets
-npm --prefix apps/wiki-cockpit run check:bundle
-npm --prefix apps/wiki-cockpit run check:release-matrix
-npm --prefix apps/wiki-cockpit run test:e2e:release
+python3 scripts/wiki_node_workspace.py run test
+python3 scripts/wiki_node_workspace.py run build
+python3 scripts/wiki_node_workspace.py run test:gates
+python3 scripts/wiki_node_workspace.py run check:architecture
+python3 scripts/wiki_node_workspace.py run check:assets
+python3 scripts/wiki_node_workspace.py run check:bundle
+python3 scripts/wiki_node_workspace.py run check:release-matrix
+python3 scripts/wiki_node_workspace.py run test:e2e:release
 
 # Receipt verification after an immutable runner has produced the inputs
 python3 scripts/wiki_release_receipt.py --receipt "$RECEIPT" --base-sha "$BASE_SHA" --check
@@ -3551,10 +3694,14 @@ After the three private migration commits, the consumer additionally runs the
 same stack plus its adapter tests and:
 
 ```sh
-npm --prefix apps/wiki-cockpit run test:e2e:operator
+python3 scripts/wiki_node_workspace.py run test:e2e:operator
 python3 scripts/wiki_upgrade_report.py --package docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml --evidence "$PRIVATE_EVIDENCE" --consumer-root "$CONSUMER" --kit-root "$KIT" --check --verify-rollback
 python3 scripts/wiki_upgrade_report.py --package docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml --evidence "$PRIVATE_EVIDENCE" --consumer-root "$CONSUMER" --kit-root "$KIT" --public-export --check --verify-rollback
 ```
+
+`capture-authority` is Lane A-only and writes outside Git. Every later wrapper
+command consumes that exact authority and trusted digest. A consumer never runs
+capture and no release-bearing Node command falls back to ambient npm.
 
 Earlier drafts used aspirational CLI names for adversarial public projection,
 action, event, snapshot, demo, temporal, accessibility, WebGL and locale gates.
@@ -3909,12 +4056,14 @@ This is the only active queue; earlier S9/S10 queues are historical snapshots:
     promoted or relabeled as rc36/v3. Standing private merge approval does not
     convert historical v2 evidence into current adoption authority.
     Public push, PR, merge, tag and external E5 remain unauthorized;
-15. **PENDING PRIVATE V3 ADOPTION** — rc37's wholly new capsule and external
-    attestation now verify; open one fresh v3 adoption from current private
-    `main`, not from PR #211 or its v2 C3. Preserve toolkit-owned
-    `wiki-*` skills as byte-equal C1, derive private `AGENTS.md`, router and
-    non-`wiki-*` adaptations in C3, create new receipts, and never amend or
-    reissue the v2 proof;
+15. **BLOCKED ON THE UNPINNED RT-173 SUCCESSOR** — rc37's capsule and external
+    attestation remain immutable verified history, but its clean-C1 execution
+    cannot materialize the sealed dependency tree. First pin, validate and
+    certify the still-unnamed policy-v2/authority-v1 successor. Only then open
+    one fresh v3 adoption from current private `main`, not from PR #211 or its
+    v2 C3. Preserve toolkit-owned `wiki-*` skills as byte-equal C1, derive
+    private `AGENTS.md`, router and non-`wiki-*` adaptations in C3, create new
+    receipts, and never amend or reissue either rc37 or v2 proof;
 16. **PENDING, SEPARATE AUTHORITY** — replay the concurrent domain-content
     slice only after the technical v8 migration reaches consumer `main`. Keep it
     out of both the sealed v2 C3 and the v3 policy follow-up.
@@ -4472,8 +4621,9 @@ Two explicit requests to execute outside the sandbox — full Python and the
 - PR review, merge, tag, VoiceOver and E5 remain separate human/external
   authorities.
 
-The next authorized public execution must run on S18, alone, on the declared
-Node 22 CI toolchain and without retry:
+Historical S18 planning recorded the following then-authorized Node 22
+execution. Its raw npm commands are frozen evidence of that checkpoint, not the
+current policy-v2/authority-v1 command contract:
 
 ```sh
 python3 scripts/wiki_audit.py --check
@@ -4849,7 +4999,7 @@ is the public-redacted checkpoint below.
 | RT-48 | exact S22 Node 22/socket contracts pass; private replay pending | live current-operator restart/security proof and downstream documentation replay |
 | RT-125 / RT-146 / RT-147 | exact S22 focused/full controls, canonical package, pinned Git tree and inert release record pass; private drift pending | after merge, obtain corrected private drift zero and redacted evidence |
 | RT-148 / RT-149 | exact S22 full receipt, seven-step browser contract and visual manifest pass | final private replay without tour/modal stacking after merge |
-| RT-150 / RT-162 / RT-163 / RT-164 / RT-165 / RT-166 / RT-167 / RT-168 / RT-169 / RT-170 / RT-171 / RT-172 | Rc26 became `candidate` only after exact validation, then passed productive capture and all six registered commands; the public-evidence scanner still rejected the transaction before attestation. Rc27 stopped in Python with 46 lifecycle failures; rc28/rc29 were rejected for stale portable truth; rc30 real-data QA exposed identical labels; rc31 failed non-fixed-point operational-pass freshness; rc32 failed two source-contract checks. Rc33 closed RT-167/RT-168 and passed Python, frontend, Node and static gates, but its first/only browser matrix stopped at 98/102. Rc34 closed RT-169 and passed complete exact validation, then RT-170 rejected it before productive capture. Rc35 passed its own exact stack, then RT-171 rejected it before capture. Rc36 passed a wholly new 23/23 exact stack and productive capture; its first/only Lane A stopped at 101/102. Rc37 source `d87af15b...` closes that causal gap; exact validation passed 23/23, productive manifest is `3be7599a...`, Lane A passed 11/11 and capsule/attestation verify independently | Preserve every immutable failure/rejection. Rc36 exact validation remains valid only for rc36; its manifest `6199d100...` and stream `a95d7085...` are failed-certification history and cannot be reused. Rc37 capsule/receipt/attestation are `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`; positive verifier `762171b5...` and negative `1d820969...` are bound. Fresh downstream v3 starts from current private `main`; no v2 or rc36 receipt/PR substitutes. Public push/publication remains unauthorized |
+| RT-150 / RT-162 / RT-163 / RT-164 / RT-165 / RT-166 / RT-167 / RT-168 / RT-169 / RT-170 / RT-171 / RT-172 / RT-173 | Rc26 became `candidate` only after exact validation, then passed productive capture and all six registered commands; the public-evidence scanner still rejected the transaction before attestation. Rc27 stopped in Python with 46 lifecycle failures; rc28/rc29 were rejected for stale portable truth; rc30 real-data QA exposed identical labels; rc31 failed non-fixed-point operational-pass freshness; rc32 failed two source-contract checks. Rc33 closed RT-167/RT-168 and passed Python, frontend, Node and static gates, but its first/only browser matrix stopped at 98/102. Rc34 closed RT-169 and passed complete exact validation, then RT-170 rejected it before productive capture. Rc35 passed its own exact stack, then RT-171 rejected it before capture. Rc36 passed a wholly new 23/23 exact stack and productive capture; its first/only Lane A stopped at 101/102. Rc37 source `d87af15b...` closed RT-172, passed exact validation 23/23, productive capture, Lane A 11/11 and independent capsule verification; RT-173 then exposed its missing clean-C1 Node materialization authority | Preserve every immutable failure/rejection and every rc37 hash. Rc37 capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`, positive `762171b5...` and negative `1d820969...` remain bound history, not executable Lane B authority. One unnamed successor must prove policy v2, external authority v1, wrapper-only Node and clean-C1 before fresh downstream v3 may start from current private `main`. Public push/publication remains unauthorized |
 | RT-12 / RT-37 / RT-59 / RT-85 / RT-91 / RT-119 | complete official S22 receipt is bound; human/private/E5 remain | complete human review, final private adoption and E5 instead of reusing an earlier subject |
 
 ### Two-lane migration decision and current downstream QA — 2026-07-13 (public-redacted)
@@ -4952,7 +5102,7 @@ competing migration plan:
 | The public acceptance-budget projection exposed exact timing | Its typed public form contains only policy and `met`/`exceeded`, with no timestamps, elapsed duration or undeclared fields | Timing names/values and extra/missing budget fields are rejected |
 | A blocked public migration report could claim promotion readiness | The public report is an exact, schema-closed projection derived from the verified private report | `promotion_ready=true`, extra/missing report fields or disagreement with the private report are rejected |
 | A blocked receipt bypassed executed-gate semantics | Passed and budget-blocked receipts share exact selected-gate coverage, class, subject, command, provenance, status, exit-code and output-digest checks; blocked remains non-reusable | Manual, failed, boolean exit-code, duplicate, missing or command-divergent results are rejected |
-| Runner identity was only a human version label | Runner `1.4.0+payload.<sha256>` embeds a digest of byte/mode entries for its entrypoint, bootstrap helpers (`_common.py` and `_git_subject.py`), portable toolchain probe, `wiki_core/**/*.py` and runtime schemas; `toolchain_sha256` binds the complete portable closure. The closure uses plan v4, mutation state v2, runner state v4, runner report v3, adoption receipt v4, acceptance attempt v2, boundary operations v2, visual capture v2 and canary summary v2. | Same base version with altered entrypoint, either bootstrap helper, probe or a core dependency is rejected before consumer mutation; byte-equal identity is path-independent. No rc36 payload digest exists until the source commit is immutable |
+| Runner identity was only a human version label | Successor runner `1.6.0+payload.<sha256>` embeds a digest of byte/mode entries for its entrypoint, bootstrap helpers (`_common.py` and `_git_subject.py`), toolchain probe, `scripts/wiki_node_workspace.py`, `wiki_core/node_workspace.py`, all other `wiki_core/**/*.py` and runtime schemas; `toolchain_sha256` binds the complete closure. Rc37's earlier runner/capsule bytes remain unchanged history. | Same base version with altered entrypoint, either bootstrap helper, probe, Node workspace wrapper/core or another dependency is rejected before consumer mutation; byte-equal identity is path-independent. No successor payload digest exists until the source commit is immutable |
 | A coherently resealed or fabricated preflight could attempt to reuse the original acceptance clock | `wiki_viva_upgrade_acceptance_attempt.v2` binds the canonical SHA-256 of the complete exact `plan.preflight` object, including its internal digest, before mutation | Replacing and coherently resealing preflight while retaining the original external acceptance anchor is rejected before C1 |
 | A resume could trust historical C2 evidence without reproducing it | Whenever an execution plan exists, every `--resume` replays all registered C2 generators from C1 in a disposable clone and compares the complete C2 path set, Git modes and blob digests before any gate-result reuse | Missing, divergent or stale C2 replay fails before gates even when the stored execution plan and result ledger were coherently resealed |
 | Fast/canary/background trusted internally rewritten tar manifests | Every raw Lane A, fast-adoption and canary handoff archive has a digest propagated outside that archive and verified before extraction | Content plus internal manifest can be rewritten coherently and still fails against the original external archive digest |
@@ -4966,10 +5116,11 @@ competing migration plan:
 | Capsule self-verification during sealing had no independent operator-facing readback | `wiki_upgrade.py verify-capsule` reopens only a fully sealed authority with the separately carried attestation SHA-256 and recomputes package, portable tree, registries, toolchain, visual records, gate outputs and certification receipt without a consumer | Divergent trust, tampered authority, unsealed bundle, pending package or host-path output fails; the successful summary is read-only and path-free |
 | Changes to the productive visual authority could bypass the two-lane workflow | PR path filters include the visual script and tests; upstream certification runs the real capture contract and the independent capsule verifier after sealing | Workflow structure tests require both path families and both upstream steps |
 | Toolchain proof named Playwright but did not bind resolved Python dependencies or the browser engine actually launched | A portable shell-free probe emits the sorted resolved distribution digest and launches Chromium to bind Playwright plus engine versions; the probe is inside the runner payload and its recorded argv/output manifest | Changed dependency digest or Chromium engine fails before mutation; certification output with unsafe/fabricated probe argv is rejected |
+| Tracked Node authority was platform-bound, while clean C1 had no dependency tree to execute the registered generator | Tracked policy v2 contains only portable package/lock/manager/allowlist/install policy. Lane A-only `capture-authority` forces a clean install and emits path-free external authority v1 with policy/source/platform/Node/npm/tree identity; capsule v2 embeds payload/digest and five tool identities. Lane B only verifies/materializes through the wrapper | Policy containing platform/path/runtime/tree data; missing/tampered/trusted-digest mismatch; wrong source/platform/Node/npm/tree; consumer-side capture; raw npm gate; and clean-C1 materialization failure all stop before execution |
 | Three CI jobs invoked the live-browser probe without first installing Chromium | Upstream certification, fast adoption, canary and background certification all install the exact Playwright package and Chromium engine before probing or resuming | Workflow structure tests require a live-browser install step in every toolchain-probing job |
 | Manual boundary subjects could hide intermediate or merge commits between B0/C1/C2/C3 | Every adjacent pair must be one direct single-parent edge; ancestor-only chains are rejected before ownership or gate evaluation | A chain whose net B0→C1 diff is valid but contains an intermediate commit fails `boundary_ancestry_mismatch` |
 | Consumer base page-type/template registries were blocked from C1 but absent from C3 ownership and impact routing | `wiki.page-types.yaml` and `wiki.templates.yaml` are explicit consumer C3 adapter surfaces alongside their `.local` overlays; package boundary and impact-registry digests are resealed | Both base registries select Lane B gates and can be changed only by a declared C3 adapter command |
-| PR path filters could skip changes to the certified runner/toolchain/portable authority | The workflow trigger covers the probe, bootstrap helpers, requirements, CLI tests, all `wiki_core`, all runtime schemas and every portable allowlist family | A workflow structure test asserts the required trigger families and prevents a probe-only or core-dependency PR from bypassing two-lane CI |
+| PR path filters could skip changes to the certified runner/toolchain/portable authority | The workflow trigger covers the probe, Node workspace policy/wrapper/core, bootstrap helpers, requirements, CLI tests, all `wiki_core`, all runtime schemas and every portable allowlist family | A workflow structure test asserts the required trigger families and prevents a probe-only, Node-authority or core-dependency PR from bypassing two-lane CI |
 | The runner could probe a literal `python3` different from the interpreter executing it | Startup resolves a PATH alias only when it is the exact `sys.executable`; certification, adoption and subprocess gates use that same alias and the portable probe | A divergent `python3` shim fails before package validation or consumer mutation |
 | Caller-supplied selected gates could omit a package-required background promotion gate | Core and CLI independently recompute selection from package plus sealed registry, then add every `required_for_promotion` gate and recursive dependency | A coherently resealed caller selection missing the required gate is rejected by evidence and receipt verification |
 | A blocked or budget-exceeded canary result could be rewritten coherently as passed before resume | The first completed real-canary projection creates a separate O_EXCL completion anchor; its digest is exported outside the exact consumer evidence/plan-parent root and required by every post-canary resume | Rewriting result, completion timestamp and local anchor together still fails against the original external completion digest |
@@ -5110,15 +5261,17 @@ committed as a candidate metadata subject. Rc36 source
 matrix 23/23 and produced verified manifest `6199d100...`, but its first/only
 Lane A stopped at browser 101/102 on RT-172. Rc36 is immutable
 `historical_certification_failed`; no capsule, attestation or downstream
-authority exists. Active `wiki-viva-v8-rc37` / `candidate` binds exact source
+authority exists. Historical `wiki-viva-v8-rc37` / `candidate` binds exact source
 `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`. Its first/only complete exact
 validation passed 23/23 at metadata `775fe5bc...`; candidate package/tree are
 `1af897ce...` / `77799ece...`, 521 entries, with `package_is_pinned=true`.
 Its first productive four-profile capture sealed manifest `3be7599a...`; the
 first Lane A passed 11/11 and sealed capsule/receipt/attestation
 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`. Independent positive and
-negative verification closed fail-closed authority. Private v3 adoption remains;
-public push and publication remain unauthorized.
+negative verification closed fail-closed authority. RT-173's later clean-C1
+failure preserves those hashes as history but blocks private v3 adoption until
+one unnamed successor certifies. Public push and publication remain
+unauthorized.
 
 #### Post-rc21 downstream rehearsal: RT-152 and the rc22 correction boundary — 2026-07-14
 
@@ -5236,12 +5389,13 @@ permits productive capture and Lane A certification only. Public push and
 publication remain unauthorized.
 
 The only canonical scoreboard is [Placar operacional canônico](#placar-operacional-canônico),
-currently `3/5` for rc37. Do not expand packs or mutate PR #61/#211
-to simulate progress. RT-172 is the recorded fail-closed exception that
-requires exactly one new immutable subject; no other scope expansion is
+currently `0/5` for the unnamed/unpinned RT-173 successor. Rc37's former `3/5`
+is immutable chronology, not a second scoreboard. Do not expand packs or mutate
+PR #61/#211 to simulate progress. RT-173 is the recorded fail-closed exception
+that requires exactly one new immutable subject; no other scope expansion is
 authorized.
 
-#### Rc22 failed capture, rc23/rc25/rc27/rc31/rc32/rc33 failed validation, rc24/rc26/rc36 failed certification, rc28/rc29/rc30 rejected, rc34/rc35 rejected before capture and rc37 Lane A certified locally — 2026-07-15
+#### Immutable lineage through rc37 Lane A and RT-173 clean-C1 rejection — 2026-07-15
 
 | Evidence | Exact local result | Authority boundary |
 |---|---|---|
@@ -5272,7 +5426,7 @@ authorized.
 | Rc34 historical pre-capture rejection | Source `533d286869c478bd157b066d7882388b99fde2f7`; validation metadata `2afd435c7cc955ae7a922b1d46eac355472ca0e6`; candidate metadata `59be853af5416ce84c4ca89e7272bb64eb909b2b`; candidate package-file/canonical-package/tree `a62594490177830b24d7a65b70f5acbd7f033235e0a26ed4f6e4b84d4af7cac8` / `b076019c6b890a0a54f2c5b4f6362bbe025f490d53eb588fdbd119bd74e7e5ea` / `59fa6d660f0d0e43b880e34d72fb1b9c00485ec72828051c0d8eeb56a881671c`, 521 entries | RT-169 correction and first/only complete validation passed 1,746 Python with 3 skips, 518 frontend, 115 Node, all applicable static gates and browser 102/102 with zero failure/skip/retry/flaky result. RT-170 read-only downstream QA then exposed C1-only B0 commands, expected drift treated as failure, domain repair admitted to C3 and a hardcoded evidence root before capture | Immutable `historical_precapture_rejected`. No productive capture or certification was attempted; no visual manifest, capsule, receipt, attestation, trust anchor, plan, import or Lane B authority exists. Never retry, relabel, promote or import |
 | Rc35 historical pre-capture rejection | Source `52491dfd6c3a81f0356fb64a9e01e41dd71e07a0`; validation metadata `55910c379b64060451fb8fb93eb85d47b9245122`; reviewed-but-uncommitted candidate projection package-file/canonical/tree `3cea5015b2be7bfc34b951553c5d2ab0a4d45098f6360699b5a66c36d929e636` / `e7a3c44876ed8265db0123cce6cfd23ce8cb9d1d6579a4fb89ba27ea29eef0e8` / `1c8e6f696ce705a3a5be04633051d793785bea9a2933b6f103c236c401d0255c`, 521 entries | First/only exact validation passed 1,754 Python with 3 declared skips in 1,271.55 s, 518 frontend, 115 Node, every applicable static gate and browser 102/102 with zero failure/skip/retry/flaky result. Run/result chain is bound by `f4dd1c23...`, `64c94f15...`, `d39fc981...`, `079278e9...`, toolchain `322a2243...` and matrix contract `f5c9a48b...` | RT-171 rejected rc35 before capture. No candidate metadata commit, visual manifest, capsule, attestation, downstream plan or adoption authority exists; immutable `historical_precapture_rejected`; public push/publication remains unauthorized |
 | Rc36 historical certification failure | `wiki-viva-v8-rc36`; source `8f96e1fd58258df64174229d81ee6a330ba9d2b1`; validation metadata `3db3f9f43c8e73fe583b93fba4ea6b9f63bdc5bd`; candidate metadata `ac0f49afe28a5bf84003b58c537ac1727dab7008`; package-file/canonical/tree `8343066af6b1c36e888750d560d71c4a34351fc04565f7d2b735e5053fd7df1b` / `8ee7e597b495a9f5e4a2357758ccd279306170243f035051191ff9a7714b42b2` / `4dc31eff8a5aef8b0e6e4f4b630908da889e0ecc1dd1de5f0706ec6d48776cc3`; manifest `6199d100...` | Exact validation passed 23/23. First/only Lane A passed five non-browser surfaces plus portable Python 1,782+3; browser stopped 101/102 on RT-172 after Back in dense stress. Stream/gate/run/report `a95d7085...` / `2d5405db...` / `2b1c678a...` / `bb69c7ac...` | Immutable `historical_certification_failed`; no capsule, receipt, attestation, plan, import or Lane B authority. New unpinned source required; never retry or reuse capture |
-| Rc37 active locally certified candidate | `wiki-viva-v8-rc37`; source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`; validation metadata `775fe5bc9437da5ec9311704731f4342d515fc16`; candidate metadata `e65607a7121031702239a4b59999bb4d6a119906`; candidate package-file/canonical/tree `6d409da4...` / `1af897ce...` / `77799ece...`, 521 entries | First/only exact validation passed 23/23 in 1,652 s. First/only productive capture sealed four profiles at manifest `3be7599a...`. First/only Lane A passed 11/11, including Python 1,782+3 and browser 102/102; capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`; verifier `762171b5...`; fail-closed negative `1d820969...` | Package remains `candidate` and `package_is_pinned=true`; immutable Lane A authority is verified locally. Fresh private current-main v3 adoption is now the only active next step; public push/publication remains unauthorized |
+| Rc37 historical locally certified candidate / RT-173 downstream block | `wiki-viva-v8-rc37`; source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`; validation metadata `775fe5bc9437da5ec9311704731f4342d515fc16`; candidate metadata `e65607a7121031702239a4b59999bb4d6a119906`; candidate package-file/canonical/tree `6d409da4...` / `1af897ce...` / `77799ece...`, 521 entries | First/only exact validation passed 23/23 in 1,652 s. First/only productive capture sealed four profiles at manifest `3be7599a...`. First/only Lane A passed 11/11; capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...`; verifier `762171b5...`; negative `1d820969...`. First disposable clean C1 later could not resolve TypeScript until manual `npm ci` | Preserve every rc37 hash as immutable verified history. RT-173 proves missing sealed dependency materialization, so rc37 is not executable Lane B authority. One unnamed successor must close policy v2/authority v1/clean-C1 before private adoption; public push/publication remains unauthorized |
 
 Rc27, rc31, rc32 and rc33 are frozen as historical failed-validation evidence,
 rc28/rc29 are frozen as pre-validation rejections, and rc30 is frozen as a
@@ -5290,8 +5444,10 @@ capture; no candidate metadata commit or authority exists. Rc36 source
 validation, produced a verified capture and failed its first/only Lane A at
 browser 101/102 on RT-172. Exact successor rc37 then passed its first/only
 complete validation 23/23, first productive capture and Lane A 11/11; capsule
-and external attestation verify independently. The active next action is the
-fresh private current-main v3 adoption. The
+and external attestation verify independently. RT-173's later clean-C1 failure
+freezes that authority as history. The active next action is to pin, validate
+and certify the still-unnamed policy-v2/authority-v1 successor; private adoption
+follows only after its verification. The
 already sealed v2 downstream C3 and all of its
 receipts remain frozen on their original complete
 `migration.required_gates` matrix. RT-152 does not append paths to that subject,
@@ -5567,8 +5723,11 @@ validation 23/23 at metadata `775fe5bc...`. Candidate package/tree are
 `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` verify independently against
 the out-of-band digest. Wrong-digest and tampered-copy controls failed closed.
 
-With that successor authority verified, start a fresh v3 adoption from the current
-private `main`, not from PR #211 or its v2 C3. Preserve B0→C1→C2→C3, import the
+RT-173 later proved that this rc37 authority could not materialize clean-C1 Node
+dependencies, so preserve it as history and do not start adoption from it. Once
+the still-unnamed RT-173 successor is pinned, validated, certified and verified,
+start a fresh v3 adoption from the current private `main`, not from PR #211 or
+its v2 C3. Preserve B0→C1→C2→C3, import the
 scoped duplicate-label correction byte-equal in C1, run selected/current gates,
 real canary, console/network evidence, disposable rollback and generated
 reports. Preview 5204 is historical #211; preview 5205 is an uncommitted QA

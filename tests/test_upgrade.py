@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 import copy
 import hashlib
-import io
 import json
 import os
 import re
@@ -27,11 +26,14 @@ from wiki_core.upgrade import (
     TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
     UPGRADE_PACKAGE_SCHEMA_VERSION,
     _git_blob_payloads,
+    _git_commit_available,
+    _git_diff_paths,
     build_preflight_report,
     canonical_json,
     compare_portable_files,
     compile_migration_report,
     deterministic_id,
+    git_state,
     migration_evidence_template,
     package_is_pinned,
     portable_path_status,
@@ -40,6 +42,7 @@ from wiki_core.upgrade import (
     validate_consumer_inventory,
     validate_migration_evidence,
     validate_upgrade_package,
+    verify_migration_rollback,
 )
 
 
@@ -80,9 +83,9 @@ def package(*, pinned: bool = True, source_sha: str | None = None) -> dict:
         "release": {
             "id": "wiki-viva-v8-rc1",
             "status": "candidate",
-            "source_sha": (source_sha or sha("public-kit"))
-            if pinned
-            else "REQUIRED_AT_RELEASE",
+            "source_sha": (
+                (source_sha or sha("public-kit")) if pinned else "REQUIRED_AT_RELEASE"
+            ),
             "plan": "docs/references/proposals/v8.md",
         },
         "contract_versions": {
@@ -245,9 +248,7 @@ def bind_migration_preflight(
     payload = {key: value for key, value in report.items() if key != "report_id"}
     expected_id = deterministic_id("preflight", payload)
     assert report["report_id"] == expected_id
-    report_sha256 = hashlib.sha256(
-        canonical_json(payload).encode("utf-8")
-    ).hexdigest()
+    report_sha256 = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
     report_ref = "output/wiki-upgrade/preflight-report.json"
     path = root / report_ref
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -462,11 +463,9 @@ def exact_three_boundary_fixture(
     before_config = (target / "wiki.config.yaml").read_bytes()
     pkg = package(source_sha=source_sha)
     reviewed_gates = gate_evidence(before_sha)
-    next(
-        gate
-        for gate in reviewed_gates["gates"]
-        if gate["id"] == "toolkit_drift"
-    )["status"] = "reviewed"
+    next(gate for gate in reviewed_gates["gates"] if gate["id"] == "toolkit_drift")[
+        "status"
+    ] = "reviewed"
     preflight = build_preflight_report(
         kit_root=kit,
         consumer_root=target,
@@ -495,9 +494,7 @@ def exact_three_boundary_fixture(
     evidence["downstream_adaptations"] = ["wiki.config.yaml"]
     bind_migration_preflight(target, evidence, pkg, preflight)
 
-    (target / "wiki_core/core.py").write_bytes(
-        (kit / "wiki_core/core.py").read_bytes()
-    )
+    (target / "wiki_core/core.py").write_bytes((kit / "wiki_core/core.py").read_bytes())
     import_sha = commit_all(target, "faithful public import")
     generated_target = target / "tests/generated/state.json"
     generated_target.parent.mkdir(parents=True)
@@ -574,9 +571,9 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     assert validate_upgrade_package(pkg) == []
     assert validate_consumer_inventory(inventory) == []
     assert inventory["schema_version"] == CONSUMER_INVENTORY_SCHEMA_VERSION
-    release_note = (
-        ROOT / "docs/references/releases/wiki-viva-v8.md"
-    ).read_text(encoding="utf-8")
+    release_note = (ROOT / "docs/references/releases/wiki-viva-v8.md").read_text(
+        encoding="utf-8"
+    )
     release_id = pkg["release"]["id"]
     source_sha = pkg["release"]["source_sha"]
     public_consumer = next(
@@ -595,22 +592,29 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     assert source_sha in release_note
     for contract_version in pkg["contract_versions"].values():
         assert contract_version in release_note
-    expected_pinned = pkg["release"]["status"] in {
-        "candidate",
-        "release_candidate",
-        "ready",
-        "released",
-    } and release_id != "unreleased"
+    expected_pinned = (
+        pkg["release"]["status"]
+        in {
+            "candidate",
+            "release_candidate",
+            "ready",
+            "released",
+        }
+        and release_id != "unreleased"
+    )
     assert package_is_pinned(pkg) is expected_pinned
     releasable = copy.deepcopy(pkg)
     releasable["release"]["status"] = "release_candidate"
     assert package_is_pinned(releasable) is (release_id != "unreleased")
-    assert subprocess.run(
-        ["git", "cat-file", "-e", f"{source_sha}^{{commit}}"],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-    ).returncode == 0
+    assert (
+        subprocess.run(
+            ["git", "cat-file", "-e", f"{source_sha}^{{commit}}"],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+        ).returncode
+        == 0
+    )
     legacy_contracts = {
         "route": "wiki_world_route.v8",
         "snapshot": "wiki_web_snapshot.v2",
@@ -675,11 +679,16 @@ def test_public_upgrade_package_and_inventory_are_valid() -> None:
     )
     assert portable_path_status("wiki.packs.lock.yaml", pkg)[0] is False
     assert portable_path_status("wiki.adapter-manifest.json", pkg)[0] is False
-    assert portable_path_status(".wiki-viva/packs/personal-finance/0.1.0/pack.yaml", pkg)[0] is False
     assert (
-        portable_path_status(
-            "apps/wiki-cockpit/public/wiki-cockpit.config.json", pkg
-        )[0]
+        portable_path_status(".wiki-viva/packs/personal-finance/0.1.0/pack.yaml", pkg)[
+            0
+        ]
+        is False
+    )
+    assert (
+        portable_path_status("apps/wiki-cockpit/public/wiki-cockpit.config.json", pkg)[
+            0
+        ]
         is False
     )
 
@@ -730,9 +739,7 @@ def test_upgrade_package_requires_unique_safe_visual_profiles() -> None:
 
     unsafe = package()
     unsafe["migration"]["visual_profiles"].append("../private")
-    assert "migration.visual_profiles[3] is invalid" in validate_upgrade_package(
-        unsafe
-    )
+    assert "migration.visual_profiles[3] is invalid" in validate_upgrade_package(unsafe)
 
 
 def test_upgrade_package_commit_boundaries_are_canonical_and_v1_is_compatible() -> None:
@@ -741,9 +748,8 @@ def test_upgrade_package_commit_boundaries_are_canonical_and_v1_is_compatible() 
 
     missing = copy.deepcopy(pkg)
     del missing["migration"]["commit_boundaries"]
-    assert (
-        "migration.commit_boundaries cannot be empty"
-        in validate_upgrade_package(missing)
+    assert "migration.commit_boundaries cannot be empty" in validate_upgrade_package(
+        missing
     )
 
     reversed_order = copy.deepcopy(pkg)
@@ -758,12 +764,9 @@ def test_upgrade_package_commit_boundaries_are_canonical_and_v1_is_compatible() 
     )
 
     duplicate = copy.deepcopy(pkg)
-    duplicate["migration"]["commit_boundaries"].append(
-        "downstream_adaptations"
-    )
-    assert (
-        "migration.commit_boundaries must be unique"
-        in validate_upgrade_package(duplicate)
+    duplicate["migration"]["commit_boundaries"].append("downstream_adaptations")
+    assert "migration.commit_boundaries must be unique" in validate_upgrade_package(
+        duplicate
     )
 
     missing_import = copy.deepcopy(pkg)
@@ -846,9 +849,9 @@ def test_portable_blocklist_wins_and_private_paths_are_not_importable() -> None:
     assert allowed is False
     assert "consumer-owned manifest" in reason
     assert (
-        portable_path_status(
-            "apps/wiki-cockpit/public/wiki-cockpit.config.json", pkg
-        )[0]
+        portable_path_status("apps/wiki-cockpit/public/wiki-cockpit.config.json", pkg)[
+            0
+        ]
         is False
     )
     assert portable_path_status("random.txt", pkg)[0] is False
@@ -911,10 +914,9 @@ def test_portable_wildcard_directory_glob_honors_block_precedence() -> None:
 
 def test_portable_skills_resolve_consumer_owned_paths_from_config() -> None:
     pkg = yaml.safe_load(
-        (
-            ROOT
-            / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
-        ).read_text(encoding="utf-8")
+        (ROOT / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     skill_files = sorted((ROOT / ".skills").glob("wiki-*/**/*.md"))
     hardcoded_consumer_links: list[str] = []
@@ -942,10 +944,9 @@ def test_portable_skills_resolve_consumer_owned_paths_from_config() -> None:
 
 def test_portable_markdown_links_close_over_the_upgrade_package() -> None:
     pkg = yaml.safe_load(
-        (
-            ROOT
-            / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
-        ).read_text(encoding="utf-8")
+        (ROOT / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml").read_text(
+            encoding="utf-8"
+        )
     )
     tracked = subprocess.check_output(
         ["git", "ls-files", "*.md"], cwd=ROOT, text=True
@@ -983,9 +984,7 @@ def test_portable_markdown_links_close_over_the_upgrade_package() -> None:
                     or target_rel.startswith("tests/")
                 )
                 if not portable_path_status(target_rel, pkg)[0] and not consumer_stable:
-                    broken.append(
-                        f"{rel}:{line_number}->nonportable:{target_rel}"
-                    )
+                    broken.append(f"{rel}:{line_number}->nonportable:{target_rel}")
 
     assert broken == []
 
@@ -1025,9 +1024,7 @@ def test_preflight_blocks_ignore_patterns_aimed_at_portable_core(
 ) -> None:
     kit, target, _ = make_matching_repos(tmp_path)
     (target / "wiki_core/core.py").write_text("VALUE = 9\n", encoding="utf-8")
-    (target / ".toolkit-drift-ignore").write_text(
-        "wiki_core/**\n", encoding="utf-8"
-    )
+    (target / ".toolkit-drift-ignore").write_text("wiki_core/**\n", encoding="utf-8")
     head = commit_all(target, "attempted hidden core drift")
     evidence = gate_evidence(head)
     next(gate for gate in evidence["gates"] if gate["id"] == "toolkit_drift")[
@@ -1053,48 +1050,203 @@ def test_git_batch_drains_later_records_before_reporting_a_missing_blob(
 ) -> None:
     missing = "0" * 40
     present = "f" * 40
-    output = (
-        f"{missing} missing\n{present} blob 7\npayload\n".encode("ascii")
-    )
+    output = f"{missing} missing\n{present} blob 7\npayload\n".encode("ascii")
 
-    class FakeBatchProcess:
-        def __init__(self) -> None:
-            self.stdin = io.BytesIO()
-            self.stdout = io.BytesIO(output)
-            self.stderr = io.BytesIO()
-            self.returncode = 0
-            self.terminated = False
-            self.input = b""
+    captured: dict[str, object] = {}
 
-        def __enter__(self) -> "FakeBatchProcess":
-            return self
+    def fake_git_process(
+        root: Path,
+        arguments: list[str],
+        *,
+        input_bytes: bytes | None = None,
+        **_kwargs: object,
+    ) -> subprocess.CompletedProcess[bytes]:
+        captured.update(
+            {"root": root, "arguments": arguments, "input_bytes": input_bytes}
+        )
+        return subprocess.CompletedProcess(arguments, 0, stdout=output, stderr=b"")
 
-        def __exit__(self, *_args: object) -> None:
-            self.stdin.close()
-            self.stdout.close()
-            self.stderr.close()
-
-        def communicate(self, raw: bytes) -> tuple[bytes, bytes]:
-            self.input = raw
-            return output, b""
-
-        def terminate(self) -> None:
-            self.terminated = True
-
-        def kill(self) -> None:
-            self.terminated = True
-
-    process = FakeBatchProcess()
-    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr("wiki_core.upgrade._run_git_process", fake_git_process)
 
     with pytest.raises(ValueError, match=f"{missing}:missing"):
         _git_blob_payloads(tmp_path, {present, missing})
 
-    assert process.input == f"{missing}\n{present}\n".encode("ascii")
-    assert process.stdin.closed
-    assert process.stdout.closed
-    assert process.stderr.closed
-    assert process.terminated is False
+    assert captured == {
+        "root": tmp_path,
+        "arguments": ["cat-file", "--batch"],
+        "input_bytes": f"{missing}\n{present}\n".encode("ascii"),
+    }
+
+
+def test_git_state_ignores_ambient_config_repo_and_object_injection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "consumer"
+    root.mkdir()
+    init_repo(root)
+    (root / "tracked.txt").write_text("expected\n", encoding="utf-8")
+    expected_head = commit_all(root, "expected subject")
+
+    wrong = tmp_path / "wrong"
+    wrong.mkdir()
+    init_repo(wrong)
+    (wrong / "tracked.txt").write_text("wrong\n", encoding="utf-8")
+    wrong_head = commit_all(wrong, "wrong subject")
+    assert wrong_head != expected_head
+
+    sentinel = tmp_path / "ambient-git-executed"
+    hook = tmp_path / "ambient-fsmonitor.sh"
+    hook.write_text(f"#!/bin/sh\ntouch '{sentinel}'\nexit 0\n", encoding="utf-8")
+    hook.chmod(0o755)
+    malicious_global = tmp_path / "malicious.gitconfig"
+    malicious_global.write_text(f"[core]\n\tfsmonitor = {hook}\n", encoding="utf-8")
+    poisoned = {
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES": str(wrong / ".git/objects"),
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_GLOBAL": str(malicious_global),
+        "GIT_CONFIG_KEY_0": "core.fsmonitor",
+        "GIT_CONFIG_VALUE_0": str(hook),
+        "GIT_DIR": str(wrong / ".git"),
+        "GIT_INDEX_FILE": str(wrong / ".git/index"),
+        "GIT_OBJECT_DIRECTORY": str(wrong / ".git/objects"),
+        "GIT_WORK_TREE": str(wrong),
+    }
+    for key, value in poisoned.items():
+        monkeypatch.setenv(key, value)
+
+    state = git_state(root)
+
+    assert state["head_sha"] == expected_head
+    assert state["dirty_count"] == 0
+    assert not sentinel.exists()
+
+
+@pytest.mark.parametrize(
+    "policy",
+    ["alternate", "fsmonitor", "include", "filter", "diff", "hooks"],
+)
+def test_local_executable_git_policy_fails_closed_without_execution(
+    tmp_path: Path, policy: str
+) -> None:
+    root = tmp_path / policy
+    root.mkdir()
+    init_repo(root)
+    tracked = root / "tracked.txt"
+    tracked.write_text("before\n", encoding="utf-8")
+    before = commit_all(root, "before")
+    tracked.write_text("after\n", encoding="utf-8")
+    after = commit_all(root, "after")
+
+    sentinel = tmp_path / f"{policy}-executed"
+    command = tmp_path / f"{policy}.sh"
+    command.write_text(f"#!/bin/sh\ntouch '{sentinel}'\nexit 0\n", encoding="utf-8")
+    command.chmod(0o755)
+    if policy == "alternate":
+        subprocess.run(
+            [
+                "git",
+                "config",
+                "--local",
+                "core.alternateRefsCommand",
+                str(command),
+            ],
+            cwd=root,
+            check=True,
+        )
+    elif policy == "include":
+        included = tmp_path / "included.gitconfig"
+        included.write_text(f"[core]\n\tfsmonitor = {command}\n", encoding="utf-8")
+        subprocess.run(
+            ["git", "config", "--local", "include.path", str(included)],
+            cwd=root,
+            check=True,
+        )
+    elif policy == "filter":
+        subprocess.run(
+            ["git", "config", "--local", "filter.synthetic.smudge", str(command)],
+            cwd=root,
+            check=True,
+        )
+    elif policy == "diff":
+        subprocess.run(
+            ["git", "config", "--local", "diff.external", str(command)],
+            cwd=root,
+            check=True,
+        )
+    elif policy == "hooks":
+        hooks = tmp_path / "configured-hooks"
+        hooks.mkdir()
+        (hooks / "post-checkout").symlink_to(command)
+        subprocess.run(
+            ["git", "config", "--local", "core.hooksPath", str(hooks)],
+            cwd=root,
+            check=True,
+        )
+    else:
+        subprocess.run(
+            ["git", "config", "--local", "core.fsmonitor", str(command)],
+            cwd=root,
+            check=True,
+        )
+
+    assert _git_commit_available(root, after) is False
+    assert _git_diff_paths(root, before, after) == []
+    assert git_state(root)["head_sha"] == ""
+    assert not sentinel.exists()
+
+
+def test_rollback_clone_drops_ambient_hook_and_template_policy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _kit, target, _pkg, evidence, _preflight, _before, _commits, _config = (
+        exact_three_boundary_fixture(tmp_path)
+    )
+    sentinel = tmp_path / "rollback-hook-executed"
+    hooks = tmp_path / "ambient-hooks"
+    hooks.mkdir()
+    post_checkout = hooks / "post-checkout"
+    post_checkout.write_text(
+        f"#!/bin/sh\ntouch '{sentinel}'\nexit 0\n", encoding="utf-8"
+    )
+    post_checkout.chmod(0o755)
+    template = tmp_path / "ambient-template"
+    (template / "hooks").mkdir(parents=True)
+    (template / "hooks/post-checkout").symlink_to(post_checkout)
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "core.hooksPath")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", str(hooks))
+    monkeypatch.setenv("GIT_TEMPLATE_DIR", str(template))
+
+    receipt = verify_migration_rollback(evidence, target)
+
+    assert receipt["status"] == "pass"
+    assert receipt["failure_code"] == ""
+    assert not sentinel.exists()
+
+
+def test_rollback_rejects_local_hook_policy_without_execution(tmp_path: Path) -> None:
+    _kit, target, _pkg, evidence, _preflight, _before, _commits, _config = (
+        exact_three_boundary_fixture(tmp_path)
+    )
+    sentinel = tmp_path / "local-rollback-hook-executed"
+    hooks = tmp_path / "local-hooks"
+    hooks.mkdir()
+    post_checkout = hooks / "post-checkout"
+    post_checkout.write_text(
+        f"#!/bin/sh\ntouch '{sentinel}'\nexit 0\n", encoding="utf-8"
+    )
+    post_checkout.chmod(0o755)
+    subprocess.run(
+        ["git", "config", "--local", "core.hooksPath", str(hooks)],
+        cwd=target,
+        check=True,
+    )
+
+    receipt = verify_migration_rollback(evidence, target)
+
+    assert receipt["status"] == "failed"
+    assert receipt["failure_code"] == "unsafe_git_config"
+    assert not sentinel.exists()
 
 
 def test_preflight_is_ready_only_with_pinned_release_clean_branch_current_gates_and_zero_drift(
@@ -1209,9 +1361,7 @@ def test_validation_pending_preflight_blocks_promotion_but_keeps_real_drift(
     )
     id_checks = {item["id"]: item for item in id_report["checks"]}
     assert id_report["blockers"] == ["release_pinned"]
-    assert id_checks["release_pinned"]["evidence"] == (
-        "release id is not pinned: main"
-    )
+    assert id_checks["release_pinned"]["evidence"] == ("release id is not pinned: main")
     assert id_checks["release_source_available"]["status"] == "pass"
 
 
@@ -1265,11 +1415,9 @@ def test_preflight_accepts_only_bounded_semantic_review_for_third_boundary(
         ("command", ""),
     ):
         invalid = copy.deepcopy(evidence)
-        next(
-            gate
-            for gate in invalid["gates"]
-            if gate["id"] == "semantic_inventory"
-        )[field] = invalid_value
+        next(gate for gate in invalid["gates"] if gate["id"] == "semantic_inventory")[
+            field
+        ] = invalid_value
         blocked = build_preflight_report(
             kit_root=kit,
             consumer_root=target,
@@ -1285,13 +1433,14 @@ def test_preflight_accepts_only_bounded_semantic_review_for_third_boundary(
     final_pkg["migration"]["required_gates"].append("semantic_inventory")
     final_evidence = migration_evidence(final_pkg)
     next(
-        gate
-        for gate in final_evidence["gates"]
-        if gate["id"] == "semantic_inventory"
+        gate for gate in final_evidence["gates"] if gate["id"] == "semantic_inventory"
     )["status"] = "reviewed"
-    assert "migration gate did not pass: semantic_inventory" in validate_migration_evidence(
-        final_evidence,
-        final_pkg,
+    assert (
+        "migration gate did not pass: semantic_inventory"
+        in validate_migration_evidence(
+            final_evidence,
+            final_pkg,
+        )
     )
 
 
@@ -1376,9 +1525,7 @@ def test_redacted_preflight_never_emits_local_drift_or_status_paths(
     )
     private_layout_name = "knowledge/client-internal-project"
     (target / "wiki.config.yaml").write_text(
-        "repo_id: fixture\npaths:\n  memory_root: "
-        + private_layout_name
-        + "\n",
+        "repo_id: fixture\npaths:\n  memory_root: " + private_layout_name + "\n",
         encoding="utf-8",
     )
     private_consumer = consumer(privacy="financial_personal")
@@ -1469,8 +1616,7 @@ def test_migration_report_is_complete_deterministic_and_renderable() -> None:
     assert evidence["consumer_before"]["head_sha"] not in json.dumps(first)
     report_schema = json.loads(
         (
-            ROOT
-            / "docs/references/upgrades/wiki-viva-v8/migration-report.schema.json"
+            ROOT / "docs/references/upgrades/wiki-viva-v8/migration-report.schema.json"
         ).read_text(encoding="utf-8")
     )
     assert list(Draft202012Validator(report_schema).iter_errors(first)) == []
@@ -1496,7 +1642,8 @@ def test_migration_report_is_complete_deterministic_and_renderable() -> None:
     stale_shallow = {
         key: value
         for key, value in first.items()
-        if key not in {"evidence_context", "omitted_boundaries", "rollback_verification"}
+        if key
+        not in {"evidence_context", "omitted_boundaries", "rollback_verification"}
     }
     assert list(Draft202012Validator(report_schema).iter_errors(stale_shallow))
 
@@ -1536,9 +1683,7 @@ def test_public_migration_projection_hides_safe_private_names_and_paths() -> Non
     before["branch"] = "wiki/internal-before"
     before["memory_root"] = "knowledge/internal"
     before["references_root"] = "knowledge/references"
-    before["preflight"]["report_ref"] = (
-        "output/wiki-upgrade/internal-preflight.json"
-    )
+    before["preflight"]["report_ref"] = "output/wiki-upgrade/internal-preflight.json"
     evidence["consumer_after"]["branch"] = "wiki/internal-after"
     evidence["rollback"]["preserves_local_paths"] = [
         "wiki.config.yaml",
@@ -1558,8 +1703,7 @@ def test_public_migration_projection_hides_safe_private_names_and_paths() -> Non
     assert public_report["consumer_before"]["branch"] == "<redacted-public-value>"
     assert public_report["consumer_before"]["memory_root"] == "<redacted-public-value>"
     assert (
-        public_report["consumer_before"]["references_root"]
-        == "<redacted-public-value>"
+        public_report["consumer_before"]["references_root"] == "<redacted-public-value>"
     )
     assert (
         public_report["consumer_before"]["preflight"]["report_ref"]
@@ -1573,12 +1717,12 @@ def test_public_migration_projection_hides_safe_private_names_and_paths() -> Non
     assert public_report["local_overrides_kept"] == []
     assert public_report["fixtures_added"] == []
     assert public_report["warnings"] == []
-    assert {
-        item["command"] for item in public_report["gates"]
-    } == {"<redacted-public-value>"}
-    assert {
-        item["screenshot_ref"] for item in public_report["visual_qa_evidence"]
-    } == {"qa/redacted.png"}
+    assert {item["command"] for item in public_report["gates"]} == {
+        "<redacted-public-value>"
+    }
+    assert {item["screenshot_ref"] for item in public_report["visual_qa_evidence"]} == {
+        "qa/redacted.png"
+    }
     public_text = json.dumps(public_report, ensure_ascii=False)
     for raw in (
         "internal-repository",
@@ -1594,8 +1738,7 @@ def test_public_migration_projection_hides_safe_private_names_and_paths() -> Non
     assert private_report["files_imported"] == evidence["files_imported"]
     assert private_report["generated_artifacts"] == evidence["generated_artifacts"]
     assert (
-        private_report["downstream_adaptations"]
-        == evidence["downstream_adaptations"]
+        private_report["downstream_adaptations"] == evidence["downstream_adaptations"]
     )
     assert (
         private_report["consumer_before"]["preflight"]["report_ref"]
@@ -1632,16 +1775,14 @@ def test_migration_visual_profiles_are_package_owned_and_cannot_be_omitted() -> 
     assert validate_migration_evidence(evidence, pkg) == []
     evidence_schema = json.loads(
         (
-            ROOT
-            / "docs/references/schemas/wiki-migration-evidence-v2.schema.json"
+            ROOT / "docs/references/schemas/wiki-migration-evidence-v2.schema.json"
         ).read_text(encoding="utf-8")
     )
     assert list(Draft202012Validator(evidence_schema).iter_errors(evidence)) == []
     report = compile_migration_report(evidence, pkg, public_export=True)
     report_schema = json.loads(
         (
-            ROOT
-            / "docs/references/upgrades/wiki-viva-v8/migration-report.schema.json"
+            ROOT / "docs/references/upgrades/wiki-viva-v8/migration-report.schema.json"
         ).read_text(encoding="utf-8")
     )
     assert list(Draft202012Validator(report_schema).iter_errors(report)) == []
@@ -1671,12 +1812,12 @@ def test_migration_visual_profiles_are_package_owned_and_cannot_be_omitted() -> 
     )
 
     reused = copy.deepcopy(evidence)
-    reused["visual_qa_evidence"][1]["screenshot_ref"] = reused[
-        "visual_qa_evidence"
-    ][0]["screenshot_ref"]
-    reused["visual_qa_evidence"][1]["screenshot_sha256"] = reused[
-        "visual_qa_evidence"
-    ][0]["screenshot_sha256"]
+    reused["visual_qa_evidence"][1]["screenshot_ref"] = reused["visual_qa_evidence"][0][
+        "screenshot_ref"
+    ]
+    reused["visual_qa_evidence"][1]["screenshot_sha256"] = reused["visual_qa_evidence"][
+        0
+    ]["screenshot_sha256"]
     reused_errors = validate_migration_evidence(reused, pkg)
     assert "visual_qa_evidence screenshot refs must be unique" in reused_errors
     assert "visual_qa_evidence screenshot hashes must be unique" in reused_errors
@@ -1735,8 +1876,7 @@ def test_package_declared_migration_boundaries_require_every_sha() -> None:
         for error in errors
     )
     assert (
-        "omitted_boundaries cannot omit package-declared artifact_commit_sha"
-        in errors
+        "omitted_boundaries cannot omit package-declared artifact_commit_sha" in errors
     )
 
     import_only = package()
@@ -1780,16 +1920,14 @@ def test_package_declared_migration_boundaries_require_every_sha() -> None:
     legacy_evidence["omitted_boundaries"] = copy.deepcopy(
         import_evidence["omitted_boundaries"]
     )
-    legacy_evidence["evidence_context"][
-        "captured_consumer_head"
-    ] = legacy_import_sha
+    legacy_evidence["evidence_context"]["captured_consumer_head"] = legacy_import_sha
     for gate in legacy_evidence["gates"]:
         gate["captured_consumer_head"] = legacy_import_sha
     for item in legacy_evidence["visual_qa_evidence"]:
         item["captured_consumer_head"] = legacy_import_sha
-    legacy_evidence["rollback"]["command"] = (
-        f"git revert --no-commit {legacy_import_sha}"
-    )
+    legacy_evidence["rollback"][
+        "command"
+    ] = f"git revert --no-commit {legacy_import_sha}"
     assert validate_migration_evidence(legacy_evidence, legacy) == []
 
 
@@ -1819,21 +1957,18 @@ def test_migration_preflight_and_gate_claims_fail_closed_without_git() -> None:
     )
 
     placeholder_ref = copy.deepcopy(evidence)
-    placeholder_ref["consumer_before"]["preflight"]["report_ref"] = (
-        "REPLACE_WITH_PREFLIGHT.json"
-    )
+    placeholder_ref["consumer_before"]["preflight"][
+        "report_ref"
+    ] = "REPLACE_WITH_PREFLIGHT.json"
     assert any(
         "preflight.report_ref must be a safe repo-relative JSON path" in error
         for error in validate_migration_evidence(placeholder_ref, pkg)
     )
 
     unsafe_references_root = copy.deepcopy(evidence)
-    unsafe_references_root["consumer_before"]["references_root"] = (
-        "../docs/references"
-    )
+    unsafe_references_root["consumer_before"]["references_root"] = "../docs/references"
     assert any(
-        "consumer_before.references_root must be a safe repo-relative path"
-        in error
+        "consumer_before.references_root must be a safe repo-relative path" in error
         for error in validate_migration_evidence(unsafe_references_root, pkg)
     )
 
@@ -1903,31 +2038,35 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         commits,
         preserved_config,
     ) = exact_three_boundary_fixture(tmp_path)
-    assert subprocess.check_output(
-        [
-            "git",
-            "ls-tree",
-            "-r",
-            "--name-only",
-            commits[0],
-            "--",
-            evidence["consumer_before"]["preflight"]["report_ref"],
-        ],
-        cwd=target,
-        text=True,
-    ).strip() == ""
-
-    assert validate_migration_evidence(
-        evidence,
-        pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
-    ) == []
-
-    preflight_path = (
-        target / evidence["consumer_before"]["preflight"]["report_ref"]
+    assert (
+        subprocess.check_output(
+            [
+                "git",
+                "ls-tree",
+                "-r",
+                "--name-only",
+                commits[0],
+                "--",
+                evidence["consumer_before"]["preflight"]["report_ref"],
+            ],
+            cwd=target,
+            text=True,
+        ).strip()
+        == ""
     )
+
+    assert (
+        validate_migration_evidence(
+            evidence,
+            pkg,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
+        )
+        == []
+    )
+
+    preflight_path = target / evidence["consumer_before"]["preflight"]["report_ref"]
     altered_preflight = copy.deepcopy(preflight_report)
     altered_preflight["status"] = "blocked"
     preflight_path.write_text(
@@ -1940,22 +2079,24 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         kit_root=kit,
         require_git_commits=True,
     )
-    assert any("report_sha256 does not match report_ref" in error for error in altered_errors)
+    assert any(
+        "report_sha256 does not match report_ref" in error for error in altered_errors
+    )
     assert "referenced preflight report status must be ready" in altered_errors
     bind_migration_preflight(target, evidence, pkg, preflight_report)
 
     unsafe_preflight = copy.deepcopy(evidence)
-    unsafe_preflight["consumer_before"]["preflight"]["report_ref"] = (
-        "../preflight-report.json"
-    )
+    unsafe_preflight["consumer_before"]["preflight"][
+        "report_ref"
+    ] = "../preflight-report.json"
     assert any(
         "preflight.report_ref" in error
         for error in validate_migration_evidence(
             unsafe_preflight,
             pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
         )
     )
 
@@ -1964,17 +2105,17 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         json.dumps(preflight_report, sort_keys=True), encoding="utf-8"
     )
     unignored_preflight = copy.deepcopy(evidence)
-    unignored_preflight["consumer_before"]["preflight"]["report_ref"] = (
-        "preflight-report.json"
-    )
+    unignored_preflight["consumer_before"]["preflight"][
+        "report_ref"
+    ] = "preflight-report.json"
     assert (
         "consumer_before.preflight.report_ref must be ignored and untracked"
         in validate_migration_evidence(
             unignored_preflight,
             pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
         )
     )
     unignored_preflight_path.unlink()
@@ -2001,9 +2142,9 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         in validate_migration_evidence(
             wrong_source_evidence,
             pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
         )
     )
     bind_migration_preflight(target, evidence, pkg, preflight_report)
@@ -2016,9 +2157,9 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         in validate_migration_evidence(
             wrong_memory_root,
             pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
         )
     )
 
@@ -2036,9 +2177,7 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
     )
 
     wrong_references_root = copy.deepcopy(evidence)
-    wrong_references_root["consumer_before"]["references_root"] = (
-        "docs/referencias"
-    )
+    wrong_references_root["consumer_before"]["references_root"] = "docs/referencias"
     wrong_references_errors = validate_migration_evidence(
         wrong_references_root,
         pkg,
@@ -2101,9 +2240,9 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         for error in validate_migration_evidence(
             mismatched_image,
             pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
         )
     )
 
@@ -2118,9 +2257,9 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         for error in validate_migration_evidence(
             unignored_image,
             pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
         )
     )
     unignored_screenshot_path.unlink()
@@ -2128,17 +2267,17 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
     symlink_path = target / "output/wiki-upgrade/qa/symlink.png"
     symlink_path.symlink_to("desktop.png")
     symlink_image = copy.deepcopy(evidence)
-    symlink_image["visual_qa_evidence"][0]["screenshot_ref"] = (
-        "output/wiki-upgrade/qa/symlink.png"
-    )
+    symlink_image["visual_qa_evidence"][0][
+        "screenshot_ref"
+    ] = "output/wiki-upgrade/qa/symlink.png"
     assert any(
         "screenshot_ref is missing or unsafe" in error
         for error in validate_migration_evidence(
             symlink_image,
             pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
         )
     )
     symlink_path.unlink()
@@ -2146,17 +2285,17 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
     hardlink_path = target / "output/wiki-upgrade/qa/hardlink.png"
     os.link(target / evidence["visual_qa_evidence"][0]["screenshot_ref"], hardlink_path)
     hardlink_image = copy.deepcopy(evidence)
-    hardlink_image["visual_qa_evidence"][0]["screenshot_ref"] = (
-        "output/wiki-upgrade/qa/hardlink.png"
-    )
+    hardlink_image["visual_qa_evidence"][0][
+        "screenshot_ref"
+    ] = "output/wiki-upgrade/qa/hardlink.png"
     assert any(
         "screenshot_ref is missing or unsafe" in error
         for error in validate_migration_evidence(
             hardlink_image,
             pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
         )
     )
     hardlink_path.unlink()
@@ -2169,17 +2308,20 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
         check=False,
     )
     assert rollback_run.returncode == 0, rollback_run.stderr + rollback_run.stdout
-    assert subprocess.run(
-        ["git", "diff", "--quiet", before_sha, "--", "."],
-        cwd=target,
-        check=False,
-    ).returncode == 0
+    assert (
+        subprocess.run(
+            ["git", "diff", "--quiet", before_sha, "--", "."],
+            cwd=target,
+            check=False,
+        ).returncode
+        == 0
+    )
     assert (target / "wiki.config.yaml").read_bytes() == preserved_config
 
     wrong_rollback = copy.deepcopy(evidence)
-    wrong_rollback["rollback"]["command"] = (
-        f"git revert --no-commit {commits[0]} {commits[1]} {commits[2]}"
-    )
+    wrong_rollback["rollback"][
+        "command"
+    ] = f"git revert --no-commit {commits[0]} {commits[1]} {commits[2]}"
     assert any(
         "exactly revert every non-null migration commit SHA" in error
         for error in validate_migration_evidence(wrong_rollback, pkg)
@@ -2194,12 +2336,15 @@ def test_migration_boundaries_must_be_distinct_existing_and_ancestry_ordered(
 
     duplicate = copy.deepcopy(evidence)
     duplicate["consumer_after"]["artifact_commit_sha"] = commits[0]
-    assert "migration commit boundaries must be distinct" in validate_migration_evidence(
-        duplicate,
-        pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
+    assert (
+        "migration commit boundaries must be distinct"
+        in validate_migration_evidence(
+            duplicate,
+            pkg,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
+        )
     )
 
     reversed_order = copy.deepcopy(evidence)
@@ -2327,9 +2472,7 @@ def test_checked_migration_rejects_nonsemantic_boundary_histories(
         artifact_sha = repo_head(target)
     else:
         if history_kind == "extra":
-            (target / "wiki.targets.yaml").write_text(
-                "targets: []\n", encoding="utf-8"
-            )
+            (target / "wiki.targets.yaml").write_text("targets: []\n", encoding="utf-8")
             commit_all(target, "unrecorded intermediate")
         generated_target = target / "tests/generated/state.json"
         generated_target.parent.mkdir(parents=True, exist_ok=True)
@@ -2405,9 +2548,12 @@ def test_checked_migration_rejects_hidden_index_flags(
     )
     with (target / "wiki.config.yaml").open("a", encoding="utf-8") as handle:
         handle.write("# hidden runtime mutation\n")
-    assert subprocess.check_output(
-        ["git", "status", "--porcelain=v1"], cwd=target, text=True
-    ).strip() == ""
+    assert (
+        subprocess.check_output(
+            ["git", "status", "--porcelain=v1"], cwd=target, text=True
+        ).strip()
+        == ""
+    )
     errors = validate_migration_evidence(
         evidence,
         pkg,
@@ -2428,13 +2574,16 @@ def test_private_consumer_uses_ignored_unredacted_authoritative_preflight(
     assert preflight["privacy"]["report_redacted"] is False
     assert preflight["privacy"]["redaction_required"] is True
     assert preflight["migration_partition"]["portable_drift"]["path_count"] == 2
-    assert validate_migration_evidence(
-        evidence,
-        pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
-    ) == []
+    assert (
+        validate_migration_evidence(
+            evidence,
+            pkg,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
+        )
+        == []
+    )
 
 
 def test_localized_release_record_is_allowed_but_secret_content_is_blocked(
@@ -2463,11 +2612,9 @@ def test_localized_release_record_is_allowed_but_secret_content_is_blocked(
 
     pkg = package(source_sha=source_sha)
     current_gates = gate_evidence(before_sha)
-    next(
-        gate
-        for gate in current_gates["gates"]
-        if gate["id"] == "toolkit_drift"
-    )["status"] = "reviewed"
+    next(gate for gate in current_gates["gates"] if gate["id"] == "toolkit_drift")[
+        "status"
+    ] = "reviewed"
     preflight = build_preflight_report(
         kit_root=kit,
         consumer_root=target,
@@ -2491,9 +2638,7 @@ def test_localized_release_record_is_allowed_but_secret_content_is_blocked(
     evidence["rollback"]["previous_sha"] = before_sha
     bind_migration_preflight(target, evidence, pkg, preflight)
 
-    (target / "wiki_core/core.py").write_bytes(
-        (kit / "wiki_core/core.py").read_bytes()
-    )
+    (target / "wiki_core/core.py").write_bytes((kit / "wiki_core/core.py").read_bytes())
     import_sha = commit_all(target, "faithful public import")
     generated_target = target / "tests/generated/state.json"
     generated_target.parent.mkdir(parents=True)
@@ -2510,13 +2655,16 @@ def test_localized_release_record_is_allowed_but_secret_content_is_blocked(
     bind_migration_screenshots(target, evidence)
     bind_gate_receipts(target, evidence)
 
-    assert validate_migration_evidence(
-        evidence,
-        pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
-    ) == []
+    assert (
+        validate_migration_evidence(
+            evidence,
+            pkg,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
+        )
+        == []
+    )
     public_report = compile_migration_report(evidence, pkg, public_export=True)
     assert "docs/referencias/releases/rc.md" not in json.dumps(public_report)
     assert public_report["migration_summary"]["downstream_adaptations"] == {
@@ -2597,9 +2745,7 @@ def test_references_root_only_allows_release_descendants_as_adaptations() -> Non
     )
 
     executable = copy.deepcopy(evidence)
-    executable["downstream_adaptations"] = [
-        "docs/referencias/releases/postinstall.sh"
-    ]
+    executable["downstream_adaptations"] = ["docs/referencias/releases/postinstall.sh"]
     assert any(
         "release record must be a Markdown .md file" in error
         for error in validate_migration_evidence(executable, pkg)
@@ -2618,9 +2764,7 @@ def test_references_root_only_allows_release_descendants_as_adaptations() -> Non
     )
 
     portable_pkg = copy.deepcopy(pkg)
-    portable_pkg["portable_import"]["allow"].append(
-        "docs/references/releases/**"
-    )
+    portable_pkg["portable_import"]["allow"].append("docs/references/releases/**")
     portable = migration_evidence(portable_pkg)
     portable["downstream_adaptations"] = ["docs/references/releases/rc.md"]
     assert any(
@@ -2659,13 +2803,16 @@ def test_consumer_owned_dependency_merge_surface_is_allowed(tmp_path: Path) -> N
     bind_boundary_commits(evidence, [import_sha, artifact_sha, adaptation_sha])
     bind_migration_screenshots(target, evidence)
     bind_gate_receipts(target, evidence)
-    assert validate_migration_evidence(
-        evidence,
-        pkg,
-        consumer_root=target,
-        kit_root=kit,
-        require_git_commits=True,
-    ) == []
+    assert (
+        validate_migration_evidence(
+            evidence,
+            pkg,
+            consumer_root=target,
+            kit_root=kit,
+            require_git_commits=True,
+        )
+        == []
+    )
 
 
 @pytest.mark.parametrize("adaptation_kind", ["symlink", "deletion"])
@@ -2748,10 +2895,7 @@ def test_public_visual_refs_require_closed_hash_or_fixture_ids(
 
     report = compile_migration_report(evidence, pkg, public_export=True)
     assert value not in json.dumps(report)
-    assert (
-        report["visual_qa_evidence"][0][field]
-        == "<redacted-public-value>"
-    )
+    assert report["visual_qa_evidence"][0][field] == "<redacted-public-value>"
 
 
 def test_blocked_public_report_is_a_fail_closed_sanitized_projection() -> None:
@@ -2776,9 +2920,7 @@ def test_blocked_public_report_is_a_fail_closed_sanitized_projection() -> None:
     evidence["files_imported"].append(raw_path)
     evidence["local_overrides_kept"].append(raw_url)
     evidence["fixtures_added"].append("../../" + raw_cpf + ".yaml")
-    evidence["warnings"][0]["message"] = (
-        raw_secret + " " + raw_short_credential
-    )
+    evidence["warnings"][0]["message"] = raw_secret + " " + raw_short_credential
     evidence["warnings"][0]["removal_window"] = raw_email
     evidence["gates"][0]["command"] = f"run --config {raw_path} --token {raw_secret}"
     evidence["gates"][0]["status"] = safe_semantic_name
@@ -2787,9 +2929,7 @@ def test_blocked_public_report_is_a_fail_closed_sanitized_projection() -> None:
     evidence["visual_qa_evidence"][0]["browser"] = safe_semantic_name
     evidence["visual_qa_evidence"][0]["viewport"] = safe_semantic_name
     evidence["visual_qa_evidence"][0]["screenshot_sha256"] = safe_semantic_name
-    evidence["visual_qa_evidence"][0]["center_ref"] = (
-        "public-fixture:" + raw_email
-    )
+    evidence["visual_qa_evidence"][0]["center_ref"] = "public-fixture:" + raw_email
     evidence["visual_qa_evidence"][0]["screenshot_ref"] = raw_path
     evidence["rollback"]["command"] += f" && cat {raw_path} {raw_other_path}"
     evidence["rollback"]["command"] += " " + safe_semantic_name
@@ -3005,11 +3145,9 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
         yaml.safe_dump(inventory, sort_keys=False), encoding="utf-8"
     )
     current_gates = gate_evidence(head)
-    next(
-        gate
-        for gate in current_gates["gates"]
-        if gate["id"] == "toolkit_drift"
-    )["status"] = "reviewed"
+    next(gate for gate in current_gates["gates"] if gate["id"] == "toolkit_drift")[
+        "status"
+    ] = "reviewed"
     gates_path.write_text(json.dumps(current_gates), encoding="utf-8")
 
     inventory_run = subprocess.run(
@@ -3063,9 +3201,7 @@ def test_upgrade_cli_entrypoints_execute_end_to_end_on_synthetic_consumer(
     migration["downstream_adaptations"] = ["wiki.config.yaml"]
     bind_migration_preflight(target, migration, pkg, preflight_report)
 
-    (target / "wiki_core/core.py").write_bytes(
-        (kit / "wiki_core/core.py").read_bytes()
-    )
+    (target / "wiki_core/core.py").write_bytes((kit / "wiki_core/core.py").read_bytes())
     import_sha = commit_all(target, "faithful public import")
     generated_target = target / "tests/generated/state.json"
     generated_target.parent.mkdir(parents=True)

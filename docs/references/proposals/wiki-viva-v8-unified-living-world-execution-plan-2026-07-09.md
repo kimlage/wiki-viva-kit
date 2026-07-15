@@ -1,5 +1,5 @@
 ---
-title: "Plan - Wiki Viva v8 unified living world execution"
+title: "Historical plan - Wiki Viva v8 unified living world execution"
 page_id: plan-wiki-viva-v8-unified-living-world-execution-2026-07-09
 page_type: methodology_plan
 aliases:
@@ -51,27 +51,25 @@ supersedes:
   - "visual region grouping refactor plan"
 target_version: "wiki-viva v8 unified living world candidate"
 audience: "wiki-viva maintainers, cockpit implementers, downstream wiki owners and implementation agents"
-scope: "Single operational source of truth for consolidating the accumulated branches, plans, audits and private brainstorm direction into one public open-source v8 work line before downstream adoption."
+scope: "Frozen historical consolidation input absorbed by the release-truth plan; not an active roadmap, migration plan or release authority."
 ---
 
-# Plan - Wiki Viva v8 Unified Living World Execution
+# Historical Plan - Wiki Viva v8 Unified Living World Execution
 
 Updated on: 2026-07-11.
 
-> **Current review status:** release readiness was reopened on 2026-07-11
-> after current-run public, browser and sanitized private-downstream validation
-> reproduced P0/P1 gaps that the prior green ledger did not cover. The
-> delivered v8 contracts below remain the implementation foundation. The
-> active correction and extension contract is
+> **Historical status:** this plan was absorbed on 2026-07-11 after current-run
+> public, browser and sanitized private-downstream validation reproduced P0/P1
+> gaps that its prior green ledger did not cover. The delivered v8 contracts
+> below remain implementation history; the only active execution authority is
 > [Wiki Viva release truth, temporal world and experience packs](wiki-viva-release-truth-temporal-world-experience-packs-plan-2026-07-11.md).
 
-## V8 Consolidation Decision
+## Historical V8 Consolidation Decision
 
-This is the only active product, architecture, UX and execution plan for the
-next Wiki Viva generation. It absorbs the staged v7 planning draft and every
-earlier proposal listed in this document. Those documents remain historical
-evidence and design input; none remains an independent roadmap, branch target
-or alternative contract.
+At authoring time this document consolidated the staged v7 planning draft and
+the earlier proposals listed below. It is now a frozen historical input to the
+active release-truth plan linked above, not an independent roadmap, branch
+target, migration plan or executable release contract.
 
 The version boundary is deliberate:
 
@@ -81,18 +79,20 @@ The version boundary is deliberate:
   snapshot schema, route contract or downstream release;
 - the integrated implementation target is therefore v8, with no fictional v7
   compatibility promise;
-- the current branch lineage already contains the local-main center fix and
-  visual-region work and must be continued as one history, not reconstructed
-  through disconnected cherry-picks;
-- every later scope, architecture or UX decision must update this document,
-  its status ledger, dependencies and Definition of Done in the same PR;
-- subsystem notes may explain implementation detail, but they cannot redefine
-  the product contract or create a parallel execution plan.
+- the then-current branch lineage already contained the local-main center fix
+  and visual-region work and was to continue as one history, not be
+  reconstructed through disconnected cherry-picks;
+- while this document was active, later scope, architecture and UX decisions
+  were required to update its ledger in the same PR. That instruction is now
+  frozen: every future decision updates only the consolidated release-truth
+  plan linked above;
+- subsystem notes may preserve implementation detail, but they cannot redefine
+  the active product contract or create a parallel execution plan.
 
-Planning evidence is not implementation evidence. This document completed the
-consolidation audit and now records the delivered implementation, automated
-gates and browser evidence in the execution ledger below. The human review,
-merge and release-tag gate remains deliberately separate and blocked.
+Planning evidence is not implementation evidence. At closure this document
+recorded its consolidation audit, delivered implementation and then-current
+automated/browser ledger. Current gate and release status belongs only to the
+consolidated release-truth plan linked above.
 
 ## V8 Integrated Contract Map
 
@@ -2918,6 +2918,10 @@ Acceptance:
   describe the old non-runtime extension model.
 
 ## Validation Commands
+
+> Historical command inventory only. These examples describe the toolchain at
+> the time this plan was active; they are not current release evidence. Use the
+> active release-truth plan and current two-lane runbook for executable gates.
 
 Public kit gates:
 

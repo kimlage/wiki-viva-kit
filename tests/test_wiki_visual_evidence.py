@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import functools
 import hashlib
 import http.server
@@ -13,11 +14,13 @@ import threading
 import urllib.parse
 import zlib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from scripts import wiki_visual_evidence as visual
 from wiki_core.release_receipt import visual_evidence_file_metadata
+from wiki_core.process_safety import BoundedProcessResult
 from wiki_core.upgrade_lanes import canonical_json, canonical_sha256
 
 
@@ -42,10 +45,7 @@ def _git(root: Path, *arguments: str) -> str:
 def _png_chunk(kind: bytes, payload: bytes) -> bytes:
     checksum = zlib.crc32(kind + payload) & 0xFFFFFFFF
     return (
-        struct.pack(">I", len(payload))
-        + kind
-        + payload
-        + struct.pack(">I", checksum)
+        struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", checksum)
     )
 
 
@@ -77,9 +77,7 @@ def _source(tmp_path: Path) -> tuple[Path, str]:
 def _package(source_sha: str, profiles: list[str] | None = None) -> dict:
     return {
         "release": {"source_sha": source_sha},
-        "migration": {
-            "visual_profiles": profiles or list(visual.PROFILE_SPECS)
-        },
+        "migration": {"visual_profiles": profiles or list(visual.PROFILE_SPECS)},
     }
 
 
@@ -224,9 +222,7 @@ def test_manual_bundle_can_only_be_structurally_verified(tmp_path: Path) -> None
     result = _verify(source, source_sha, package, output)
 
     assert result["status"] == "verified"
-    assert result["trust"]["capture_provenance"] == (
-        "not_proven_by_reverification"
-    )
+    assert result["trust"]["capture_provenance"] == ("not_proven_by_reverification")
     assert result["trust"]["productive_authority"] is False
     assert result["trust"]["release_authority"] == (
         "requires_external_capture_attestation"
@@ -234,9 +230,7 @@ def test_manual_bundle_can_only_be_structurally_verified(tmp_path: Path) -> None
 
 
 @pytest.mark.parametrize("mutation", ["missing", "duplicate", "undeclared"])
-def test_manifest_profile_coverage_fails_closed(
-    tmp_path: Path, mutation: str
-) -> None:
+def test_manifest_profile_coverage_fails_closed(tmp_path: Path, mutation: str) -> None:
     source, source_sha, package, output = _bundle(tmp_path)
     manifest_path = output / visual.MANIFEST_REF
     manifest = _read_json(manifest_path)
@@ -306,9 +300,7 @@ def test_coherently_resealed_runtime_mode_is_rejected(
 
 
 @pytest.mark.parametrize("mutation", ["wrong", "missing"])
-def test_coherently_resealed_view_is_rejected(
-    tmp_path: Path, mutation: str
-) -> None:
+def test_coherently_resealed_view_is_rejected(tmp_path: Path, mutation: str) -> None:
     source, source_sha, package, output = _bundle(tmp_path)
 
     def mutate(record: dict) -> None:
@@ -496,9 +488,7 @@ def test_real_chromium_capture_is_bounded_and_strict_when_available(
         thread.join(timeout=5)
     assert toolchain["name"] == "playwright-chromium"
     assert {item["profile"] for item in captures} == set(visual.PROFILE_SPECS)
-    assert {
-        item["profile"]: item["view"] for item in captures
-    } == {
+    assert {item["profile"]: item["view"] for item in captures} == {
         profile: spec["view"] for profile, spec in visual.PROFILE_SPECS.items()
     }
     assert {item["runtime_mode"] for item in captures} == {"v8"}
@@ -508,6 +498,171 @@ def test_real_chromium_capture_is_bounded_and_strict_when_available(
         )
         assert metadata["bytes"] > 0
         assert metadata["dimensions"] == visual.PROFILE_SPECS[profile]["viewport"]
+
+
+def test_visual_node_workspace_binding_fails_closed_without_exact_authority(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for key in (
+        "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY",
+        "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256",
+        "WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    with pytest.raises(
+        visual.VisualEvidenceError,
+        match="exact capsule-bound Node workspace authority",
+    ):
+        visual._node_workspace_binding(tmp_path, source_sha="a" * 40)
+
+
+def test_visual_node_workspace_binding_rejects_another_source_before_io(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv(
+        "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY", str(tmp_path / "authority.json")
+    )
+    monkeypatch.setenv("WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256", "b" * 64)
+    monkeypatch.setenv("WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA", "c" * 40)
+    with pytest.raises(
+        visual.VisualEvidenceError,
+        match="exact capsule-bound Node workspace authority",
+    ):
+        visual._node_workspace_binding(tmp_path, source_sha="d" * 40)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected_error"),
+    [
+        ("tracked", "clean before visual capture"),
+        ("untracked", "clean before visual capture"),
+        ("head", "exact source_sha"),
+    ],
+)
+def test_capture_rejects_post_preview_source_mutation_and_removes_artifacts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+    expected_error: str,
+) -> None:
+    source, source_sha = _source(tmp_path)
+    output = tmp_path / "productive-capture"
+    args = SimpleNamespace(
+        package=tmp_path / "upgrade-package.yaml",
+        source_root=source,
+        source_sha=source_sha,
+        out_dir=output,
+        port=5205,
+    )
+    monkeypatch.setattr(visual, "load_mapping", lambda _path: {})
+    monkeypatch.setattr(
+        visual,
+        "_package_contract",
+        lambda *_args, **_kwargs: (["desktop"], "a" * 64),
+    )
+    monkeypatch.setattr(visual, "_build", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        visual,
+        "_node_workspace_bindings",
+        lambda _source_sha: (tmp_path / "authority.json", "b" * 64),
+    )
+
+    def mutate_source() -> None:
+        if mutation == "tracked":
+            (source / "README.md").write_text(
+                "mutated tracked source\n", encoding="utf-8"
+            )
+        elif mutation == "untracked":
+            (source / "late-untracked.txt").write_text(
+                "mutated untracked source\n", encoding="utf-8"
+            )
+        else:
+            (source / "README.md").write_text("new source HEAD\n", encoding="utf-8")
+            _git(source, "add", "README.md")
+            _git(source, "commit", "-q", "-m", "mutated source")
+
+    @contextlib.contextmanager
+    def controlled_preview(*_args, **_kwargs):
+        yield object()
+        mutate_source()
+
+    monkeypatch.setattr(visual, "certified_preview_process", controlled_preview)
+    monkeypatch.setattr(visual, "_await_preview", lambda *_args: None)
+
+    def capture_profiles(**kwargs):
+        artifact = kwargs["output_root"] / "images" / "partial.png"
+        artifact.write_bytes(_png_bytes())
+        assert artifact.is_file()
+        return TOOLCHAIN, []
+
+    monkeypatch.setattr(visual, "_capture_profiles", capture_profiles)
+    monkeypatch.setattr(visual, "_write_bundle", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        visual,
+        "verify_visual_evidence",
+        lambda **_kwargs: {"status": "verified"},
+    )
+
+    with pytest.raises(visual.VisualEvidenceError, match=expected_error):
+        visual._capture(args)
+
+    assert not output.exists()
+
+
+class _SyntheticCaptureInterrupt(BaseException):
+    pass
+
+
+@pytest.mark.parametrize(
+    "error_type",
+    [KeyboardInterrupt, SystemExit, _SyntheticCaptureInterrupt],
+)
+def test_capture_interrupt_removes_partial_artifacts_without_masking(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    error_type: type[BaseException],
+) -> None:
+    source, source_sha = _source(tmp_path)
+    output = tmp_path / "productive-capture"
+    args = SimpleNamespace(
+        package=tmp_path / "upgrade-package.yaml",
+        source_root=source,
+        source_sha=source_sha,
+        out_dir=output,
+        port=5205,
+    )
+    failure = error_type()
+    monkeypatch.setattr(visual, "load_mapping", lambda _path: {})
+    monkeypatch.setattr(
+        visual,
+        "_package_contract",
+        lambda *_args, **_kwargs: (["desktop"], "a" * 64),
+    )
+    monkeypatch.setattr(visual, "_build", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        visual,
+        "_node_workspace_bindings",
+        lambda _source_sha: (tmp_path / "authority.json", "b" * 64),
+    )
+
+    @contextlib.contextmanager
+    def controlled_preview(*_args, **_kwargs):
+        yield object()
+
+    def interrupted_capture(**kwargs):
+        artifact = kwargs["output_root"] / "images" / "partial.png"
+        artifact.write_bytes(_png_bytes())
+        raise failure
+
+    monkeypatch.setattr(visual, "certified_preview_process", controlled_preview)
+    monkeypatch.setattr(visual, "_await_preview", lambda *_args: None)
+    monkeypatch.setattr(visual, "_capture_profiles", interrupted_capture)
+
+    with pytest.raises(error_type) as captured:
+        visual._capture(args)
+
+    assert captured.value is failure
+    assert not output.exists()
 
 
 @pytest.mark.parametrize("runtime_mode", ["compat", None])
@@ -599,6 +754,91 @@ def test_capture_profiles_use_canonical_native_view_routes(
     assert query["tour"] == ["0"]
 
 
+def test_capture_profiles_uses_bounded_file_backed_stdin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "capture"
+    (output / "images").mkdir(parents=True)
+    invocations: list[tuple[list[str], dict[str, object]]] = []
+    monkeypatch.setattr(
+        visual, "_node_playwright_module", lambda _root: tmp_path / "playwright.js"
+    )
+    monkeypatch.setattr(
+        visual,
+        "_node_workspace_binding",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            node={"executable": "/synthetic/node"}, environment={}
+        ),
+    )
+
+    def bounded(argv, **kwargs):  # type: ignore[no-untyped-def]
+        invocations.append((list(argv), dict(kwargs)))
+        return BoundedProcessResult(
+            returncode=0,
+            output=json.dumps(
+                {"toolchain": TOOLCHAIN, "captures": []}, sort_keys=True
+            ).encode("utf-8"),
+        )
+
+    monkeypatch.setattr(visual, "run_bounded_process", bounded)
+    toolchain, captures = visual._capture_profiles(
+        source_root=tmp_path,
+        base_url="http://127.0.0.1:4173",
+        output_root=output,
+        profiles=["mobile"],
+    )
+
+    assert toolchain == TOOLCHAIN
+    assert captures == []
+    assert len(invocations) == 1
+    argv, options = invocations[0]
+    assert argv[0] == "/synthetic/node"
+    assert options["output_limit"] == visual.MAX_CAPTURE_PROCESS_OUTPUT_BYTES
+    assert options["input_limit"] == visual.MAX_CAPTURE_PROCESS_INPUT_BYTES
+    assert options["popen_factory"] is visual.subprocess.Popen
+    payload = json.loads(bytes(options["input_bytes"]).decode("utf-8"))
+    assert payload["base_url"] == "http://127.0.0.1:4173"
+    assert [item["profile"] for item in payload["profiles"]] == ["mobile"]
+
+
+def test_visual_browser_probe_uses_bounded_process_and_preserves_interrupt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    invocations: list[tuple[list[str], dict[str, object]]] = []
+    monkeypatch.setattr(
+        visual, "_node_playwright_module", lambda _root: tmp_path / "playwright.js"
+    )
+    monkeypatch.setattr(
+        visual,
+        "_node_workspace_binding",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            node={"executable": "/synthetic/node"}, environment={}
+        ),
+    )
+
+    def bounded(argv, **kwargs):  # type: ignore[no-untyped-def]
+        invocations.append((list(argv), dict(kwargs)))
+        return BoundedProcessResult(
+            returncode=0,
+            output=json.dumps(TOOLCHAIN, sort_keys=True).encode("utf-8"),
+        )
+
+    monkeypatch.setattr(visual, "run_bounded_process", bounded)
+    assert visual._probe_browser_toolchain(tmp_path) == TOOLCHAIN
+    assert invocations[0][1]["timeout"] == 45
+    assert invocations[0][1]["output_limit"] == visual.MAX_BROWSER_PROBE_OUTPUT_BYTES
+
+    failure = KeyboardInterrupt("synthetic interrupt")
+    monkeypatch.setattr(
+        visual,
+        "run_bounded_process",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(failure),
+    )
+    with pytest.raises(KeyboardInterrupt) as captured:
+        visual._probe_browser_toolchain(tmp_path)
+    assert captured.value is failure
+
+
 @pytest.mark.parametrize(
     ("stderr", "expected_reason"),
     [
@@ -620,11 +860,18 @@ def test_capture_failure_exposes_only_a_bounded_safe_reason(
         visual, "_node_playwright_module", lambda _root: tmp_path / "playwright.js"
     )
     monkeypatch.setattr(
-        visual.subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess(
-            args=args[0], returncode=2, stdout=b"", stderr=stderr
-        ),
+        visual,
+        "_node_workspace_binding",
+        lambda *_args, **_kwargs: type(
+            "Context",
+            (),
+            {"node": {"executable": "node"}, "environment": {}},
+        )(),
+    )
+    monkeypatch.setattr(
+        visual,
+        "run_bounded_process",
+        lambda *args, **kwargs: BoundedProcessResult(returncode=2, output=stderr),
     )
 
     with pytest.raises(visual.VisualEvidenceError) as captured:

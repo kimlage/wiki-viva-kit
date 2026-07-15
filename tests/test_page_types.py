@@ -166,6 +166,48 @@ def test_source_shape_and_template_expose_optional_lifecycle_authoring_contract(
     assert "pipeline_stage: configured" in template
 
 
+def test_ingestion_event_accepts_single_or_composite_source_authority() -> None:
+    root = Path(__file__).resolve().parents[1]
+    registry = load_page_type_registry(root)
+    assert registry is not None
+    shape = registry.page_types["ingestion_event"]
+    assert "source_id" not in shape["required_frontmatter"]
+    assert shape["required_frontmatter_any_of"] == [["source_id", "source_refs"]]
+    base = {
+        "page_id": "ingestion-event-synthetic",
+        "page_type": "ingestion_event",
+        "context": "system",
+        "visibility": "private_self",
+        "updated_at": "2026-07-15",
+        "stale_after_days": "30",
+        "event_id": "ingestion-event-synthetic",
+        "moc_parent": "memories/system/ingestion/index.md",
+    }
+    text = "# Event\n\n## Source\n\nSynthetic.\n\n## Quadrants\n\nSynthetic.\n"
+    assert validate_shape(
+        root,
+        "memories/system/ingestion/events/single.md",
+        {**base, "source_id": "source-synthetic"},
+        text,
+        shape,
+    ) == []
+    assert validate_shape(
+        root,
+        "memories/system/ingestion/events/composite.md",
+        {**base, "source_refs": ["source-a", "source-b"]},
+        text,
+        shape,
+    ) == []
+    errors = validate_shape(
+        root,
+        "memories/system/ingestion/events/missing.md",
+        base,
+        text,
+        shape,
+    )
+    assert any("source_id | source_refs" in error for error in errors)
+
+
 def test_action_shape_enforces_blocker_and_terminal_receipts() -> None:
     registry = load_page_type_registry(Path(__file__).resolve().parents[1])
     assert registry is not None

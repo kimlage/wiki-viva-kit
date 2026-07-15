@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata as metadata
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -14,6 +15,11 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.dont_write_bytecode = True
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from wiki_core.process_safety import ProcessSafetyError, run_bounded_process
 
 
 def _canonical_bytes(payload: Any) -> bytes:
@@ -39,9 +45,7 @@ def _python_payload() -> dict[str, Any]:
             and str(distribution.version).strip()
         }
     )
-    dependencies = [
-        {"name": name, "version": version} for name, version in entries
-    ]
+    dependencies = [{"name": name, "version": version} for name, version in entries]
     return {
         "schema_version": "wiki_viva_python_resolved_toolchain.v1",
         "implementation": platform.python_implementation().lower(),
@@ -81,17 +85,24 @@ def _browser_payload() -> dict[str, str]:
             "process.stdout.write(JSON.stringify(x));})()"
             ".catch((e)=>{process.stderr.write(String(e));process.exit(2);});"
         )
-        result = subprocess.run(
-            ["node", "-e", program, "./playwright"],
-            cwd=module_root.parent,
-            check=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=30,
-        )
+        executable = shutil.which("node")
+        if executable is None:
+            raise RuntimeError("Node Playwright browser probe failed")
+        try:
+            node = Path(executable).resolve(strict=True)
+            result = run_bounded_process(
+                [str(node), "-e", program, "./playwright"],
+                cwd=module_root.parent,
+                env=dict(os.environ),
+                timeout=30,
+                output_limit=1024 * 1024,
+                popen_factory=subprocess.Popen,
+            )
+        except (OSError, ProcessSafetyError) as exc:
+            raise RuntimeError("Node Playwright browser probe failed") from exc
         if result.returncode != 0:
             raise RuntimeError("Node Playwright browser probe failed")
-        payload = json.loads(result.stdout.decode("utf-8", "strict"))
+        payload = json.loads(result.output.decode("utf-8", "strict"))
     else:
         from playwright.sync_api import sync_playwright
 
@@ -115,13 +126,48 @@ def _browser_payload() -> dict[str, str]:
     return {key: str(value) for key, value in payload.items()}
 
 
+def _npm_payload() -> dict[str, Any]:
+    from wiki_core.node_workspace import resolved_npm_authority
+
+    authority = resolved_npm_authority()
+    return {
+        "schema_version": "wiki_viva_npm_resolved_toolchain.v1",
+        **{
+            key: value
+            for key, value in authority.items()
+            if key not in {"executable", "launcher_dir"}
+        },
+    }
+
+
+def _node_payload() -> dict[str, Any]:
+    from wiki_core.node_workspace import resolved_node_authority
+
+    authority = resolved_node_authority()
+    return {
+        "schema_version": "wiki_viva_node_resolved_toolchain.v1",
+        **{
+            key: value
+            for key, value in authority.items()
+            if key not in {"executable", "runtime_root"}
+        },
+    }
+
+
 def main(argv: list[str]) -> int:
     if argv == ["python"]:
         payload: Any = _python_payload()
     elif argv == ["browser"]:
         payload = _browser_payload()
+    elif argv == ["npm"]:
+        payload = _npm_payload()
+    elif argv == ["node"]:
+        payload = _node_payload()
     else:
-        print("usage: wiki_toolchain_probe.py {python|browser}", file=sys.stderr)
+        print(
+            "usage: wiki_toolchain_probe.py {python|browser|node|npm}",
+            file=sys.stderr,
+        )
         return 2
     sys.stdout.buffer.write(_canonical_bytes(payload) + b"\n")
     return 0

@@ -34,6 +34,13 @@ empty void and watch the interface materialize block by block), the **full
 world**, or complete **Study/Research** and **Personal Finance** pack
 showcases.
 
+That direct npm command is an interactive development surface. Release-bearing
+builds and gates use `python3 scripts/wiki_node_workspace.py run <script>`: the
+wrapper reads the tracked platform-neutral policy, materializes a clean C1 only
+with the external Lane A authority and its separately trusted digest, executes
+allowlisted scripts/arguments, checks post-command drift and emits path-free
+receipts. A consumer never captures a replacement authority.
+
 The unified v8 runtime is not a published consumer release. Rc26 is frozen
 failed-certification evidence, rc27 is frozen failed-validation evidence,
 rc28/rc29 were rejected before validation, and rc30 was rejected before its
@@ -114,17 +121,22 @@ crosses the compositor barrier. Exact source
 complete validation at metadata `775fe5bc9437da5ec9311704731f4342d515fc16`:
 23/23 gates in 1,652 seconds, including 1,782 Python passes plus 3 declared
 skips, 522 frontend passes, 123 Node passes and browser 102/102 first-attempt
-with no skip or retry. Active `wiki-viva-v8-rc37` / `candidate` has candidate
+with no skip or retry. `wiki-viva-v8-rc37` / `candidate` had candidate
 package-file / canonical-package / portable-tree identities `6d409da4...` /
 `1af897ce...` / `77799ece...` (521 entries), with `package_is_pinned=true`.
-No productive rc37 manifest, capsule, receipt or attestation exists. The next
-authorized steps are one fresh productive capture and one Lane A
-certification. Its scoreboard is `2/5`: `source pinned` and `exact validation`
-are complete; `capsule verified`, `private canary` and `private main readback`
-remain pending.
+Its first productive capture, Lane A 11/11 and independent capsule verifier
+then passed once. Manifest `3be7599a...` and capsule/receipt/attestation
+`f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` remain immutable historical
+evidence. RT-173 was exposed only when a disposable clean C1 had no
+`node_modules` and no sealed authority capable of materializing them; the Node
+C2 generator could not resolve TypeScript until a manual `npm ci`. Preserve
+rc37's receipts, but do not use them as executable Lane B authority. The only
+current subject is one unnamed, unpinned RT-173 successor. Its single
+scoreboard is `0/5`: source pin, exact validation and capsule verification are
+pending; private canary and private-main readback are blocked.
 Draft PR #61 remains stale and public push/publication remains unauthorized.
 Private PR #211 remains historical v2; only a fresh v3 adoption may start after
-the successor capsule and attestation verify fail-closed.
+the RT-173 successor capsule and attestation verify fail-closed.
 See the [v8 release note](docs/references/releases/wiki-viva-v8.md)
 for the exact remaining gates. An exact `source_sha` alone is not adoption
 authority. Do not start downstream adoption until the Lane A capsule and
@@ -237,10 +249,10 @@ python3 scripts/wiki_operation_compile.py --check
 python3 scripts/wiki_input_stage.py --check
 python3 scripts/wiki_web_snapshot.py --check-contract
 python3 scripts/wiki_pack.py validate --all
-npm --prefix apps/wiki-cockpit run check:architecture
-npm --prefix apps/wiki-cockpit run check:assets
-npm --prefix apps/wiki-cockpit run check:bundle
-npm --prefix apps/wiki-cockpit run check:release-matrix
+python3 scripts/wiki_node_workspace.py run check:architecture
+python3 scripts/wiki_node_workspace.py run check:assets
+python3 scripts/wiki_node_workspace.py run check:bundle
+python3 scripts/wiki_node_workspace.py run check:release-matrix
 
 # 4. Compile the daily cockpit
 python3 scripts/wiki_operation_compile.py --write
@@ -327,6 +339,25 @@ also bind B0/C1/C2/C3, whose three direct edges, changed paths, modes and blobs
 are recomputed from Git; symlinks, submodules and special entries are rejected.
 Public evidence is scanned literally and through bounded repeated
 percent-decoding so encoded private routes or host paths cannot escape.
+
+Cockpit commands in the release registry run only through
+`wiki_node_workspace.py`. The tracked
+`apps/wiki-cockpit/node-workspace.lock.json` is
+`wiki_viva_node_workspace_policy.v2`: it binds package/lock hashes, the package
+manager, allowed scripts/arguments and the fixed install policy, while omitting
+host paths, platform, installed Node/npm and `node_modules` identity. Lane A
+alone runs `capture-authority` from an exact clean source. It forces the fixed
+install and writes `wiki_viva_node_workspace_authority.v1` outside Git with the
+policy/source, platform, resolved Node/npm and complete dependency-tree summary.
+The wrapper consumes that path-free authority and its trusted digest,
+materializes clean C1, rechecks authority after every command and returns a
+canonical receipt without host-local paths. A different platform/toolchain must
+certify a new capsule; a consumer may not capture or reuse a substitute.
+
+New Lane A certification seals `wiki_viva_upgrade_release_capsule.v2` and a
+five-entry `wiki_viva_toolchain_probe.v2` in canonical order: `browser`, `node`,
+`npm`, `python`, `runner`. Capsule v1 remains verifiable as immutable
+historical evidence but is never rewritten into v2.
 
 The seven fields below are the exact identity required to validate a Lane B
 receipt or resume an unfinished run:
@@ -459,16 +490,19 @@ trust anchor or Lane B authority and is never retried or reused. The prior
 `7f1c859d...` metadata boundary and capture `e314296c...` remain separately
 rejected and non-reusable.
 
-The active truth is `wiki-viva-v8-rc37` / `candidate`, pinned to exact source
+Historical rc37 was `wiki-viva-v8-rc37` / `candidate`, pinned to exact source
 `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`. Its first/only complete exact
 validation passed 23/23 at metadata `775fe5bc...`, including browser 102/102
 first-attempt; validation-result/identity are `e409a148...` / `68d11b2a...`.
 Candidate package/tree are `1af897ce...` / `77799ece...`, 521 entries, with
-`package_is_pinned=true`. One fresh productive capture and one Lane A
-certification remain; no rc37 manifest or capsule exists. Draft PR #61 is stale
-and public push remains unauthorized. The rc37 scoreboard is `2/5`, with source
-pin and exact validation complete. Private PR #211 remains historical v2; no
-fresh v3 adoption starts before the successor capsule verifies fail-closed.
+`package_is_pinned=true`. Its productive manifest `3be7599a...`, Lane A 11/11
+and capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` /
+`c7a1a4fe...` remain immutable and verifiable for rc37. RT-173 subsequently
+proved that those bytes could not materialize the missing clean-C1 dependency
+tree, so they are history rather than executable adoption authority. Draft PR
+#61 is stale and public push remains unauthorized. The still-unnamed RT-173
+successor has the only current scoreboard at `0/5`; no fresh v3 adoption starts
+before its capsule verifies fail-closed. Private PR #211 remains historical v2.
 Standing private-main approval is downstream-only and
 never weakens technical gates or the generic public PR/human gate.
 No existing v2 C3 or receipt is amended to reach it.

@@ -18,13 +18,13 @@ import contextlib
 import datetime as dt
 import fnmatch
 import hashlib
+import io
 import json
 import os
 import platform
 import re
 import shlex
 import shutil
-import signal
 import stat
 import struct
 import subprocess
@@ -32,12 +32,12 @@ import sys
 import tempfile
 import threading
 import time
-from urllib.parse import unquote_to_bytes
+from urllib.parse import parse_qsl, unquote_to_bytes, urlsplit
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 
-RUNNER_VERSION = "1.4.0"
+RUNNER_VERSION = "1.6.0"
 
 
 def _runner_payload_manifest(runtime_root: Path) -> dict[str, Any]:
@@ -49,6 +49,7 @@ def _runner_payload_manifest(runtime_root: Path) -> dict[str, Any]:
         runtime_root / "scripts/_common.py",
         runtime_root / "scripts/_git_subject.py",
         runtime_root / "scripts/wiki_toolchain_probe.py",
+        runtime_root / "scripts/wiki_node_workspace.py",
     ]
     core_root = runtime_root / "wiki_core"
     schema_root = runtime_root / "docs/references/schemas"
@@ -121,6 +122,9 @@ except ModuleNotFoundError:
 from wiki_core.upgrade_lanes import (
     AdoptionEvidenceAuthority,
     EXECUTION_ATTESTATION_SCHEMA_VERSION,
+    LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION,
+    RELEASE_CAPSULE_SCHEMA_VERSION,
+    TOOLCHAIN_PROBE_SCHEMA_VERSION,
     ReleaseCapsuleAuthority,
     UpgradeLaneError,
     VerifiedReleaseCapsule,
@@ -151,9 +155,35 @@ from wiki_core.upgrade_lanes import (
 from wiki_core.upgrade import (
     BOUNDARY_OPERATIONS_SCHEMA_VERSION,
     package_is_pinned,
+    release_node_command_violation,
+    validate_legacy_capsule_v1_package,
     validate_upgrade_package,
 )
 from wiki_core.detectors import scan_text
+from wiki_core.git_safety import (
+    GitSafetyError,
+    require_safe_local_config,
+    resolved_git_executable,
+    sanitized_git_argv,
+    sanitized_git_environment,
+)
+from wiki_core.node_workspace import (
+    NodeWorkspaceError,
+    authority_identity_sha256 as node_authority_identity_sha256,
+    certified_execution_context as node_workspace_execution_context,
+    load_authority as load_node_workspace_authority,
+    materialize as materialize_node_workspace,
+    serialize_authority as serialize_node_workspace_authority,
+    validate_authority as validate_node_workspace_authority,
+    verify_authority as verify_node_workspace_authority,
+)
+from wiki_core.process_safety import (
+    ProcessSafetyError,
+    run_bounded_process,
+    start_process_group,
+    terminate_process_group,
+)
+from wiki_core.source_integrity import SourceIntegrityError, verify_clean_source
 
 
 PLAN_SCHEMA_VERSION = "wiki_viva_upgrade_plan.v4"
@@ -170,6 +200,12 @@ _FAILED_CERTIFICATION_NEXT_ACTION = (
 
 _TWO_LANE_PACKAGE = "wiki_viva_upgrade_package.v3"
 _SUPPORTED_PACKAGES = {_TWO_LANE_PACKAGE}
+
+_NODE_AUTHORITY_ENV = "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY"
+_NODE_AUTHORITY_SHA_ENV = "WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256"
+_NODE_SOURCE_SHA_ENV = "WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA"
+_ACTIVE_NODE_WORKSPACE_ENV: dict[str, str] = {}
+_NODE_WORKSPACE_TEMP_DIRS: list[tempfile.TemporaryDirectory[str]] = []
 
 
 def _matches_repo_pattern(path: str, pattern: str) -> bool:
@@ -197,9 +233,7 @@ def _matches_repo_patterns(path: str, patterns: Sequence[str]) -> bool:
 def _acceptance_budget_policy(package: Mapping[str, Any]) -> dict[str, Any]:
     migration = package.get("migration")
     policy = (
-        migration.get("acceptance_budget")
-        if isinstance(migration, Mapping)
-        else None
+        migration.get("acceptance_budget") if isinstance(migration, Mapping) else None
     )
     expected = {
         "schema_version": "wiki_viva_upgrade_acceptance_budget_policy.v1",
@@ -290,9 +324,7 @@ def _acceptance_timestamp_microseconds(value: object) -> int:
         ) from exc
     delta = parsed - _UNIX_EPOCH
     microseconds = (
-        delta.days * 86_400_000_000
-        + delta.seconds * 1_000_000
-        + delta.microseconds
+        delta.days * 86_400_000_000 + delta.seconds * 1_000_000 + delta.microseconds
     )
     if microseconds <= 0:
         raise RunnerError(
@@ -325,8 +357,7 @@ def _validate_acceptance_budget_record(
     record = dict(value)
     if (
         set(record) != expected_keys
-        or record.get("schema_version")
-        != "wiki_viva_upgrade_acceptance_budget.v1"
+        or record.get("schema_version") != "wiki_viva_upgrade_acceptance_budget.v1"
         or record.get("scope") != "plan_to_real_canary"
         or record.get("limit_seconds") != 1200
         or record.get("enforcement") != "promotion_blocking"
@@ -401,9 +432,7 @@ def _complete_acceptance_budget(
     if record["status"] != "pending":
         return record
     completed_unix_ns = (
-        time.time_ns()
-        if canary_completed_unix_ns is None
-        else canary_completed_unix_ns
+        time.time_ns() if canary_completed_unix_ns is None else canary_completed_unix_ns
     )
     completed_at = _acceptance_timestamp(completed_unix_ns)
     completed = _acceptance_timestamp_microseconds(completed_at)
@@ -434,11 +463,14 @@ def _validate_pending_plan_acceptance_budget(
 
     plan_budget = _validate_acceptance_budget_record(plan.get("acceptance_budget"))
     policy = _acceptance_budget_policy(package)
-    if any(
-        plan_budget[key] != value
-        for key, value in policy.items()
-        if key != "schema_version"
-    ) or plan_budget["status"] != "pending":
+    if (
+        any(
+            plan_budget[key] != value
+            for key, value in policy.items()
+            if key != "schema_version"
+        )
+        or plan_budget["status"] != "pending"
+    ):
         raise RunnerError(
             "stale_acceptance_budget",
             "the sealed plan budget differs from the certified package",
@@ -448,8 +480,7 @@ def _validate_pending_plan_acceptance_budget(
 
 
 _CERTIFICATION_RECEIPT_SCHEMA = (
-    ROOT
-    / "docs/references/schemas/wiki-upgrade-certification-receipt-v1.schema.json"
+    ROOT / "docs/references/schemas/wiki-upgrade-certification-receipt-v1.schema.json"
 )
 _SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -532,9 +563,9 @@ def _sha256_bytes(data: bytes) -> str:
 
 
 def _json_bytes(payload: Any) -> bytes:
-    return (json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
-        "utf-8"
-    )
+    return (
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
 
 
 def _emit(payload: Mapping[str, Any], *, stream: Any = sys.stdout) -> None:
@@ -563,15 +594,35 @@ def _git(
     *,
     input_bytes: bytes | None = None,
     check: bool = True,
+    allow_file_protocol: bool = False,
 ) -> subprocess.CompletedProcess[bytes]:
-    result = subprocess.run(
-        ["git", *args],
-        cwd=root,
-        input=input_bytes,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
+    try:
+        require_safe_local_config(root)
+        executable = resolved_git_executable()
+        argv = sanitized_git_argv(
+            args,
+            executable=executable,
+            allow_file_protocol=allow_file_protocol,
+        )
+        bounded = run_bounded_process(
+            argv,
+            cwd=root,
+            env=sanitized_git_environment(executable=executable),
+            timeout=120,
+            output_limit=256 * 1024 * 1024,
+            input_bytes=input_bytes,
+            input_limit=64 * 1024 * 1024,
+        )
+        result = subprocess.CompletedProcess(
+            argv, bounded.returncode, stdout=bounded.output, stderr=b""
+        )
+    except (GitSafetyError, OSError, ProcessSafetyError) as exc:
+        raise RunnerError(
+            "git_contract_failed",
+            "the consumer Git contract could not be verified",
+            surface="consumer_git",
+            next_action="restore a clean, complete Git checkout and retry",
+        ) from exc
     if check and result.returncode != 0:
         raise RunnerError(
             "git_contract_failed",
@@ -582,10 +633,115 @@ def _git(
     return result
 
 
+def _git_blob_payloads(root: Path, object_ids: Sequence[str]) -> dict[str, bytes]:
+    """Read exact Git blobs in one audited, bounded batch."""
+
+    ordered = sorted(set(object_ids))
+    if not ordered:
+        return {}
+    if any(_SHA_RE.fullmatch(value) is None for value in ordered):
+        raise RunnerError(
+            "invalid_git_blob_identity",
+            "the Git blob batch contains an invalid object identity",
+            surface="consumer_git",
+        )
+    raw = _git(
+        root,
+        ["cat-file", "--batch"],
+        input_bytes="".join(f"{value}\n" for value in ordered).encode("ascii"),
+    ).stdout
+    payloads: dict[str, bytes] = {}
+    stream = io.BytesIO(raw)
+    for expected in ordered:
+        try:
+            fields = stream.readline().decode("ascii", "strict").strip().split()
+        except UnicodeDecodeError as exc:
+            raise RunnerError(
+                "invalid_git_blob_batch",
+                "the Git blob batch header is not canonical ASCII",
+                surface="consumer_git",
+            ) from exc
+        if len(fields) != 3 or fields[0] != expected or fields[1] != "blob":
+            raise RunnerError(
+                "invalid_git_blob_batch",
+                "the Git blob batch is incomplete or contains a non-blob object",
+                surface="consumer_git",
+            )
+        try:
+            size = int(fields[2])
+        except ValueError as exc:
+            raise RunnerError(
+                "invalid_git_blob_batch",
+                "the Git blob batch contains an invalid size",
+                surface="consumer_git",
+            ) from exc
+        if size < 0 or size > 256 * 1024 * 1024:
+            raise RunnerError(
+                "git_blob_batch_oversized",
+                "the Git blob batch exceeds its bounded authority",
+                surface="consumer_git",
+            )
+        payload = stream.read(size)
+        if len(payload) != size or stream.read(1) != b"\n":
+            raise RunnerError(
+                "invalid_git_blob_batch",
+                "the Git blob batch is truncated",
+                surface="consumer_git",
+            )
+        payloads[expected] = payload
+    if stream.read(1):
+        raise RunnerError(
+            "invalid_git_blob_batch",
+            "the Git blob batch contains trailing output",
+            surface="consumer_git",
+        )
+    return payloads
+
+
+def _safe_local_clone(
+    source: Path, destination: Path
+) -> subprocess.CompletedProcess[bytes]:
+    """Clone one audited local repository without hardlinks or ambient Git policy."""
+
+    try:
+        require_safe_local_config(source)
+        executable = resolved_git_executable()
+        argv = sanitized_git_argv(
+            [
+                "clone",
+                "--quiet",
+                "--no-local",
+                "--no-hardlinks",
+                str(source.resolve(strict=True)),
+                str(destination),
+            ],
+            executable=executable,
+        )
+        bounded = run_bounded_process(
+            argv,
+            cwd=destination.parent,
+            env=sanitized_git_environment(executable=executable),
+            timeout=300,
+            output_limit=64 * 1024 * 1024,
+        )
+        return subprocess.CompletedProcess(
+            argv, bounded.returncode, stdout=bounded.output, stderr=b""
+        )
+    except (GitSafetyError, OSError, ProcessSafetyError) as exc:
+        raise RunnerError(
+            "git_clone_contract_failed",
+            "a disposable Git clone could not be created safely",
+            surface="consumer_git",
+            next_action="restore a safe local repository and retry",
+        ) from exc
+
+
 def _head(root: Path) -> str:
     value = _git(root, ["rev-parse", "HEAD"]).stdout.decode("ascii", "strict").strip()
     if _SHA_RE.fullmatch(value) is None:
-        raise RunnerError("invalid_git_subject", "the consumer HEAD is not a full Git subject")
+        raise RunnerError(
+            "invalid_git_subject", "the consumer HEAD is not a full Git subject"
+        )
     return value
 
 
@@ -617,7 +773,11 @@ def _require_upgrade_branch(root: Path, package: Mapping[str, Any]) -> str:
             surface="preflight_branch",
         )
     result = _git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"], check=False)
-    branch = result.stdout.decode("utf-8", "strict").strip() if result.returncode == 0 else ""
+    branch = (
+        result.stdout.decode("utf-8", "strict").strip()
+        if result.returncode == 0
+        else ""
+    )
     if not branch or not branch.startswith(prefix):
         raise RunnerError(
             "upgrade_branch_required",
@@ -634,7 +794,9 @@ def _commit(root: Path, raw: str | None, *, fallback: str) -> str:
     result = _git(root, ["rev-parse", "--verify", f"{value}^{{commit}}"])
     sha = result.stdout.decode("ascii", "strict").strip()
     if _SHA_RE.fullmatch(sha) is None:
-        raise RunnerError("invalid_boundary_subject", "a migration boundary is not a commit")
+        raise RunnerError(
+            "invalid_boundary_subject", "a migration boundary is not a commit"
+        )
     return sha
 
 
@@ -677,9 +839,7 @@ def _blob(root: Path, commit: str, path: str) -> bytes:
     return entry["bytes"]
 
 
-def _regular_git_entry(
-    root: Path, commit: str, path: str
-) -> dict[str, Any] | None:
+def _regular_git_entry(root: Path, commit: str, path: str) -> dict[str, Any] | None:
     """Read one exact regular Git blob, including its executable mode."""
 
     listing = _git(root, ["ls-tree", "-z", commit, "--", path]).stdout
@@ -702,7 +862,11 @@ def _regular_git_entry(
             "a boundary contains an invalid Git tree entry",
             surface="commit_boundaries",
         ) from exc
-    if observed_path != path or object_type != "blob" or mode not in {"100644", "100755"}:
+    if (
+        observed_path != path
+        or object_type != "blob"
+        or mode not in {"100644", "100755"}
+    ):
         raise RunnerError(
             "unsafe_boundary_tree_entry",
             "C1, C2 and C3 may contain only regular Git files with mode 100644 or 100755",
@@ -713,9 +877,69 @@ def _regular_git_entry(
     return {"mode": mode, "bytes": raw, "sha256": _sha256_bytes(raw)}
 
 
-def _package_c2_generator_sha256(
-    package: Mapping[str, Any], path: str
-) -> str | None:
+def _regular_git_entries(
+    root: Path, commit: str, paths: Sequence[str]
+) -> dict[str, dict[str, Any]]:
+    """Read exact regular entries for selected paths with one tree and blob batch."""
+
+    requested = set(paths)
+    if not requested:
+        return {}
+    requested_raw = {path.encode("utf-8"): path for path in requested}
+    listing = _git(root, ["ls-tree", "-r", "-z", "--full-tree", commit]).stdout
+    selected: dict[str, tuple[str, str]] = {}
+    for record in listing.split(b"\0"):
+        if not record:
+            continue
+        try:
+            metadata, raw_path = record.split(b"\t", 1)
+        except ValueError as exc:
+            raise RunnerError(
+                "invalid_boundary_tree_entry",
+                "a boundary contains an invalid Git tree entry",
+                surface="commit_boundaries",
+            ) from exc
+        path = requested_raw.get(raw_path)
+        if path is None:
+            continue
+        try:
+            mode, object_type, object_id = metadata.decode("ascii", "strict").split(
+                " ", 2
+            )
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise RunnerError(
+                "invalid_boundary_tree_entry",
+                "a boundary contains an invalid Git tree entry",
+                surface="commit_boundaries",
+            ) from exc
+        if path in selected:
+            raise RunnerError(
+                "invalid_boundary_tree_entry",
+                "a boundary path resolves to multiple Git tree entries",
+                surface="commit_boundaries",
+            )
+        if object_type != "blob" or mode not in {"100644", "100755"}:
+            raise RunnerError(
+                "unsafe_boundary_tree_entry",
+                "C1, C2 and C3 may contain only regular Git files with mode 100644 or 100755",
+                surface="commit_boundaries",
+                next_action="replace symlinks, submodules or special entries with regular reviewed files",
+            )
+        selected[path] = (mode, object_id)
+    payloads = _git_blob_payloads(
+        root, [object_id for _mode, object_id in selected.values()]
+    )
+    return {
+        path: {
+            "mode": mode,
+            "bytes": payloads[object_id],
+            "sha256": _sha256_bytes(payloads[object_id]),
+        }
+        for path, (mode, object_id) in selected.items()
+    }
+
+
+def _package_c2_generator_sha256(package: Mapping[str, Any], path: str) -> str | None:
     if package.get("schema_version") != _TWO_LANE_PACKAGE:
         return None
     operations = _boundary_operations(package)
@@ -745,7 +969,7 @@ def _portable_commit_entries(
     allow = portable["allow"]
     block = portable["block"]
     listing = _git(root, ["ls-tree", "-r", "-z", "--full-tree", commit]).stdout
-    entries: dict[str, dict[str, str]] = {}
+    selected: list[tuple[str, str, str]] = []
     for record in listing.split(b"\0"):
         if not record:
             continue
@@ -762,7 +986,13 @@ def _portable_commit_entries(
                 "a portable projection contains a symlink, submodule or special entry",
                 surface="C1",
             )
-        raw = _git(root, ["cat-file", "blob", object_id]).stdout
+        selected.append((path, mode, object_id))
+    payloads = _git_blob_payloads(
+        root, [object_id for _path, _mode, object_id in selected]
+    )
+    entries: dict[str, dict[str, str]] = {}
+    for path, mode, object_id in selected:
+        raw = payloads[object_id]
         entries[path] = {"mode": mode, "sha256": _sha256_bytes(raw)}
     return entries
 
@@ -779,9 +1009,21 @@ def _build_boundaries(
     consumer_c3_authority: Mapping[str, Any],
 ) -> dict[str, list[dict[str, str]]]:
     boundaries: dict[str, list[dict[str, str]]] = {"C1": [], "C2": [], "C3": []}
-    for path in _changed_paths(consumer, commits["B0"], commits["C1"]):
-        before = _regular_git_entry(consumer, commits["B0"], path)
-        after = _regular_git_entry(consumer, commits["C1"], path)
+    c1_paths = _changed_paths(consumer, commits["B0"], commits["C1"])
+    c2_paths = _changed_paths(consumer, commits["C1"], commits["C2"])
+    c3_paths = _changed_paths(consumer, commits["C2"], commits["C3"])
+    b0_entries = _regular_git_entries(consumer, commits["B0"], c1_paths)
+    c1_entries = _regular_git_entries(
+        consumer, commits["C1"], [*c1_paths, *c2_paths]
+    )
+    c2_entries = _regular_git_entries(
+        consumer, commits["C2"], [*c2_paths, *c3_paths]
+    )
+    c3_entries = _regular_git_entries(consumer, commits["C3"], c3_paths)
+    source_entries = _regular_git_entries(kit, source_sha, c1_paths)
+    for path in c1_paths:
+        before = b0_entries.get(path)
+        after = c1_entries.get(path)
         if after is None:
             if before is None:
                 raise RunnerError(
@@ -798,7 +1040,7 @@ def _build_boundaries(
                 }
             )
         else:
-            source = _regular_git_entry(kit, source_sha, path)
+            source = source_entries.get(path)
             if source is None:
                 raise RunnerError(
                     "missing_c1_source_file",
@@ -815,9 +1057,9 @@ def _build_boundaries(
                     "source_sha256": source["sha256"],
                 }
             )
-    for path in _changed_paths(consumer, commits["C1"], commits["C2"]):
-        before = _regular_git_entry(consumer, commits["C1"], path)
-        after = _regular_git_entry(consumer, commits["C2"], path)
+    for path in c2_paths:
+        before = c1_entries.get(path)
+        after = c2_entries.get(path)
         if after is None:
             if before is None:
                 raise RunnerError(
@@ -868,9 +1110,9 @@ def _build_boundaries(
                     "generator_sha256": generator_digest,
                 }
             )
-    for path in _changed_paths(consumer, commits["C2"], commits["C3"]):
-        before = _regular_git_entry(consumer, commits["C2"], path)
-        after = _regular_git_entry(consumer, commits["C3"], path)
+    for path in c3_paths:
+        before = c2_entries.get(path)
+        after = c3_entries.get(path)
         if after is None:
             if before is None:
                 raise RunnerError(
@@ -916,12 +1158,8 @@ def _build_boundaries(
                 path: {"mode": str(item["mode"]), "sha256": str(item["sha256"])}
                 for path, item in _portable_entries(package, kit, source_sha).items()
             },
-            before_entries=_portable_commit_entries(
-                consumer, commits["B0"], package
-            ),
-            after_entries=_portable_commit_entries(
-                consumer, commits["C1"], package
-            ),
+            before_entries=_portable_commit_entries(consumer, commits["B0"], package),
+            after_entries=_portable_commit_entries(consumer, commits["C1"], package),
         )
     except UpgradeLaneError as exc:
         raise RunnerError(
@@ -938,7 +1176,9 @@ def _portable_entries(
 ) -> dict[str, dict[str, Any]]:
     portable = package.get("portable_import")
     if not isinstance(portable, dict):
-        raise RunnerError("invalid_portable_policy", "the package portable policy is missing")
+        raise RunnerError(
+            "invalid_portable_policy", "the package portable policy is missing"
+        )
     allow = portable.get("allow")
     block = portable.get("block")
     if (
@@ -948,9 +1188,12 @@ def _portable_entries(
         or not block
         or any(not isinstance(value, str) for value in [*allow, *block])
     ):
-        raise RunnerError("invalid_portable_policy", "the package portable allow/block policy is incomplete")
+        raise RunnerError(
+            "invalid_portable_policy",
+            "the package portable allow/block policy is incomplete",
+        )
     listing = _git(kit, ["ls-tree", "-r", "-z", "--full-tree", source_sha]).stdout
-    entries: dict[str, dict[str, Any]] = {}
+    selected: list[tuple[str, str, str]] = []
     for record in listing.split(b"\0"):
         if not record:
             continue
@@ -968,20 +1211,26 @@ def _portable_entries(
                 lane="lane_a",
                 surface="portable_tree",
             )
-        raw = _git(kit, ["cat-file", "blob", object_id]).stdout
+        selected.append((path, mode, object_id))
+    payloads = _git_blob_payloads(
+        kit, [object_id for _path, _mode, object_id in selected]
+    )
+    entries: dict[str, dict[str, Any]] = {}
+    for path, mode, object_id in selected:
+        raw = payloads[object_id]
         entries[path] = {
             "mode": mode,
             "bytes": raw,
             "sha256": _sha256_bytes(raw),
         }
     if not entries:
-        raise RunnerError("empty_portable_projection", "the certified portable projection is empty")
+        raise RunnerError(
+            "empty_portable_projection", "the certified portable projection is empty"
+        )
     return entries
 
 
-def _consumer_portable_paths(
-    consumer: Path, package: Mapping[str, Any]
-) -> set[str]:
+def _consumer_portable_paths(consumer: Path, package: Mapping[str, Any]) -> set[str]:
     portable = package["portable_import"]
     allow = portable["allow"]
     block = portable["block"]
@@ -1007,12 +1256,12 @@ def _verify_complete_c1_projection(
     allow = portable["allow"]
     block = portable["block"]
     listing = _git(consumer, ["ls-tree", "-r", "-z", "--full-tree", c1]).stdout
-    observed: dict[str, dict[str, str]] = {}
+    selected: list[tuple[str, str, str]] = []
     for record in listing.split(b"\0"):
         if not record:
             continue
         metadata, raw_path = record.split(b"\t", 1)
-        mode, object_type, _object_id = metadata.decode("ascii").split(" ", 2)
+        mode, object_type, object_id = metadata.decode("ascii").split(" ", 2)
         path = raw_path.decode("utf-8", "strict")
         if _matches_repo_patterns(path, block):
             continue
@@ -1024,10 +1273,14 @@ def _verify_complete_c1_projection(
                 "C1 contains a non-regular portable entry",
                 surface="C1",
             )
-        observed[path] = {
-            "mode": mode,
-            "sha256": _sha256_bytes(_blob(consumer, c1, path)),
-        }
+        selected.append((path, mode, object_id))
+    payloads = _git_blob_payloads(
+        consumer, [object_id for _path, _mode, object_id in selected]
+    )
+    observed = {
+        path: {"mode": mode, "sha256": _sha256_bytes(payloads[object_id])}
+        for path, mode, object_id in selected
+    }
     expected = {
         path: {"mode": str(entry["mode"]), "sha256": str(entry["sha256"])}
         for path, entry in sorted(source_entries.items())
@@ -1073,12 +1326,16 @@ def _safe_consumer_file(consumer: Path, path: str) -> Path:
         or "\\" in path
         or ".." in Path(path).parts
     ):
-        raise RunnerError("unsafe_mutation_path", "a planned mutation path escapes the consumer")
+        raise RunnerError(
+            "unsafe_mutation_path", "a planned mutation path escapes the consumer"
+        )
     destination = consumer / path
     cursor = destination
     while cursor != consumer:
         if cursor.exists() and cursor.is_symlink():
-            raise RunnerError("unsafe_mutation_symlink", "a planned mutation path traverses a symlink")
+            raise RunnerError(
+                "unsafe_mutation_symlink", "a planned mutation path traverses a symlink"
+            )
         cursor = cursor.parent
     return destination
 
@@ -1118,7 +1375,9 @@ def _commit_index(consumer: Path, subject: str) -> str:
     return _head(consumer)
 
 
-def _named_commands(raw_specs: Sequence[str], *, kit: Path, label: str) -> list[dict[str, Any]]:
+def _named_commands(
+    raw_specs: Sequence[str], *, kit: Path, label: str
+) -> list[dict[str, Any]]:
     commands: list[dict[str, Any]] = []
     seen: set[str] = set()
     for spec in raw_specs:
@@ -1135,6 +1394,7 @@ def _named_commands(raw_specs: Sequence[str], *, kit: Path, label: str) -> list[
                 surface=label,
             )
         seen.add(command_id)
+        _reject_secret_input(command, surface=label)
         _parse_command(command, kit_root=kit)
         commands.append({"id": command_id, "command": command})
     return commands
@@ -1143,9 +1403,7 @@ def _named_commands(raw_specs: Sequence[str], *, kit: Path, label: str) -> list[
 def _boundary_operations(package: Mapping[str, Any]) -> Mapping[str, Any]:
     migration = package.get("migration")
     operations = (
-        migration.get("boundary_operations")
-        if isinstance(migration, Mapping)
-        else None
+        migration.get("boundary_operations") if isinstance(migration, Mapping) else None
     )
     if package.get("schema_version") != _TWO_LANE_PACKAGE:
         return operations if isinstance(operations, Mapping) else {}
@@ -1256,32 +1514,49 @@ def _run_mutation_commands(
             for key, value in os.environ.items()
             if key in {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "CI"}
         }
+        environment = _node_workspace_environment(environment)
+        environment.update(
+            {
+                key: value
+                for key, value in sanitized_git_environment().items()
+                if key.startswith("GIT_")
+            }
+        )
         environment["WIKI_VIVA_KIT_ROOT"] = str(kit.resolve())
+        combined.extend(f"command:{item['id']}\n".encode("utf-8"))
+        _atomic_write(log_path, bytes(combined))
         try:
-            result = subprocess.run(
+            result = run_bounded_process(
                 argv,
                 cwd=consumer,
                 env=environment,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                check=False,
                 timeout=1200,
+                output_limit=_MAX_GATE_OUTPUT_BYTES,
             )
-        except subprocess.TimeoutExpired as exc:
-            output = exc.output if isinstance(exc.output, bytes) else b""
-            combined.extend(f"command:{item['id']}\n".encode("utf-8"))
-            combined.extend(output)
-            combined.extend(b"\n")
-            _atomic_write(log_path, bytes(combined))
+        except ProcessSafetyError as exc:
+            code = (
+                "mutation_command_timeout"
+                if exc.reason == "timeout"
+                else (
+                    "mutation_command_output_oversized"
+                    if exc.reason == "output_limit"
+                    else "mutation_command_process_unsafe"
+                )
+            )
             raise RunnerError(
-                "mutation_command_timeout",
-                f"a runner-owned {label} command exceeded its bounded runtime",
+                code,
+                f"a runner-owned {label} command could not complete safely",
                 surface=label,
                 next_action="repair the bounded stage command and resume the unchanged plan",
             ) from exc
-        combined.extend(f"command:{item['id']}\n".encode("utf-8"))
-        combined.extend(result.stdout)
+        combined.extend(result.output)
         combined.extend(b"\n")
+        if len(combined) > _MAX_GATE_ARTIFACT_TOTAL_BYTES:
+            raise RunnerError(
+                "mutation_command_output_oversized",
+                f"runner-owned {label} output exceeds the evidence allowance",
+                surface=label,
+            )
         _atomic_write(log_path, bytes(combined))
         if _head(consumer) != expected_head:
             raise RunnerError(
@@ -1314,7 +1589,7 @@ def _run_mutation_commands(
             {
                 "id": item["id"],
                 "command_sha256": _sha256_bytes(item["command"].encode("utf-8")),
-                "output_sha256": _sha256_bytes(result.stdout),
+                "output_sha256": _sha256_bytes(result.output),
             }
         )
     _atomic_write(log_path, bytes(combined))
@@ -1323,9 +1598,7 @@ def _run_mutation_commands(
 
 def _worktree_state(root: Path) -> dict[str, str]:
     tracked = _git(root, ["ls-files", "-z", "--cached"]).stdout
-    untracked = _git(
-        root, ["ls-files", "-z", "--others", "--exclude-standard"]
-    ).stdout
+    untracked = _git(root, ["ls-files", "-z", "--others", "--exclude-standard"]).stdout
     paths = sorted(
         {
             item.decode("utf-8", "strict")
@@ -1342,9 +1615,8 @@ def _worktree_state(root: Path) -> dict[str, str]:
             )
         elif target.is_file():
             executable = bool(target.stat().st_mode & 0o111)
-            state[path] = (
-                ("100755:" if executable else "100644:")
-                + _sha256_bytes(target.read_bytes())
+            state[path] = ("100755:" if executable else "100644:") + _sha256_bytes(
+                target.read_bytes()
             )
         else:
             state[path] = "deleted"
@@ -1355,12 +1627,7 @@ def _worktree_state(root: Path) -> dict[str, str]:
 def _disposable_stage_clone(consumer: Path, base_sha: str) -> Iterable[Path]:
     with tempfile.TemporaryDirectory(prefix="wiki-upgrade-stage-") as temporary:
         clone = Path(temporary) / "consumer"
-        result = subprocess.run(
-            ["git", "clone", "--quiet", "--no-local", str(consumer), str(clone)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
+        result = _safe_local_clone(consumer, clone)
         if result.returncode != 0:
             raise RunnerError(
                 "mutation_stage_clone_failed",
@@ -1383,6 +1650,7 @@ def _fetch_prepared_commit(consumer: Path, clone: Path, commit_sha: str) -> None
         consumer,
         ["fetch", "--quiet", "--no-tags", str(clone), commit_sha],
         check=False,
+        allow_file_protocol=True,
     )
     if result.returncode != 0:
         raise RunnerError(
@@ -1462,7 +1730,9 @@ def _validate_declared_boundaries(
     boundaries: Mapping[str, Sequence[Mapping[str, str]]],
 ) -> None:
     migration = package.get("migration")
-    declared = migration.get("commit_boundaries") if isinstance(migration, dict) else None
+    declared = (
+        migration.get("commit_boundaries") if isinstance(migration, dict) else None
+    )
     if not isinstance(declared, list) or not declared:
         return
     expected = {
@@ -1548,12 +1818,7 @@ def _boundary_execution(
     expected = {item["path"]: item for item in c2}
     with tempfile.TemporaryDirectory(prefix="wiki-upgrade-c2-replay-") as temporary:
         clone = Path(temporary) / "consumer"
-        cloned = subprocess.run(
-            ["git", "clone", "--quiet", "--no-local", str(consumer), str(clone)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
+        cloned = _safe_local_clone(consumer, clone)
         if cloned.returncode != 0:
             raise RunnerError(
                 "c2_replay_clone_failed",
@@ -1569,34 +1834,49 @@ def _boundary_execution(
                 for key, value in os.environ.items()
                 if key in {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "CI"}
             }
+            environment = _node_workspace_environment(environment)
+            environment.update(
+                {
+                    key: value
+                    for key, value in sanitized_git_environment().items()
+                    if key.startswith("GIT_")
+                }
+            )
             environment["WIKI_VIVA_KIT_ROOT"] = str(kit.resolve())
+            combined_log.extend(f"generator:{command['id']}\n".encode("utf-8"))
+            _atomic_write(evidence_path, bytes(combined_log))
             try:
-                result = subprocess.run(
+                result = run_bounded_process(
                     command["argv"],
                     cwd=clone,
                     env=environment,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    check=False,
                     timeout=1200,
+                    output_limit=_MAX_GATE_OUTPUT_BYTES,
                 )
-            except subprocess.TimeoutExpired as exc:
-                output = exc.output if isinstance(exc.output, bytes) else b""
-                combined_log.extend(
-                    f"generator:{command['id']}\n".encode("utf-8")
+            except ProcessSafetyError as exc:
+                code = (
+                    "c2_generator_timeout"
+                    if exc.reason == "timeout"
+                    else (
+                        "c2_generator_output_oversized"
+                        if exc.reason == "output_limit"
+                        else "c2_generator_process_unsafe"
+                    )
                 )
-                combined_log.extend(output)
-                combined_log.extend(b"\n")
-                _atomic_write(evidence_path, bytes(combined_log))
                 raise RunnerError(
-                    "c2_generator_timeout",
-                    "a package-registered C2 generator exceeded its bounded runtime",
+                    code,
+                    "a package-registered C2 generator could not complete safely",
                     surface="C2",
                     next_action="repair the deterministic generator and resume the unchanged plan",
                 ) from exc
-            combined_log.extend(f"generator:{command['id']}\n".encode("utf-8"))
-            combined_log.extend(result.stdout)
+            combined_log.extend(result.output)
             combined_log.extend(b"\n")
+            if len(combined_log) > _MAX_GATE_ARTIFACT_TOTAL_BYTES:
+                raise RunnerError(
+                    "c2_generator_output_oversized",
+                    "C2 generator output exceeds the evidence allowance",
+                    surface="C2",
+                )
             _atomic_write(evidence_path, bytes(combined_log))
             if _head(clone) != replay_head:
                 raise RunnerError(
@@ -1616,14 +1896,16 @@ def _boundary_execution(
                 {
                     "id": command["id"],
                     "command_sha256": _sha256_bytes(command["command"].encode("utf-8")),
-                    "output_sha256": _sha256_bytes(result.stdout),
+                    "output_sha256": _sha256_bytes(result.output),
                 }
             )
         modified = _git(clone, ["diff", "--name-only", "-z", "--"]).stdout
         changed = {
             item.decode("utf-8", "strict") for item in modified.split(b"\0") if item
         }
-        untracked = _git(clone, ["ls-files", "--others", "--exclude-standard", "-z"]).stdout
+        untracked = _git(
+            clone, ["ls-files", "--others", "--exclude-standard", "-z"]
+        ).stdout
         changed.update(
             item.decode("utf-8", "strict") for item in untracked.split(b"\0") if item
         )
@@ -1700,17 +1982,36 @@ def _verify_boundary_execution(
     consumer: Path,
 ) -> None:
     if not isinstance(execution, dict):
-        raise RunnerError("invalid_c2_execution_evidence", "the plan omits C2 execution evidence", surface="C2")
+        raise RunnerError(
+            "invalid_c2_execution_evidence",
+            "the plan omits C2 execution evidence",
+            surface="C2",
+        )
     # Reuse the exact validator without trusting an external file at adoption.
     c2 = list(boundaries["C2"])
-    if set(execution) != {"schema_version", "C2"} or execution.get("schema_version") != "wiki_viva_boundary_execution.v1":
-        raise RunnerError("invalid_c2_execution_evidence", "the plan C2 evidence shape is invalid", surface="C2")
+    if (
+        set(execution) != {"schema_version", "C2"}
+        or execution.get("schema_version") != "wiki_viva_boundary_execution.v1"
+    ):
+        raise RunnerError(
+            "invalid_c2_execution_evidence",
+            "the plan C2 evidence shape is invalid",
+            surface="C2",
+        )
     entries = execution.get("C2")
     if not isinstance(entries, list):
-        raise RunnerError("invalid_c2_execution_evidence", "the plan C2 evidence is invalid", surface="C2")
+        raise RunnerError(
+            "invalid_c2_execution_evidence",
+            "the plan C2 evidence is invalid",
+            surface="C2",
+        )
     expected = {item["path"]: item for item in c2}
     if len(entries) != len(expected):
-        raise RunnerError("stale_c2_execution_evidence", "the plan C2 evidence is incomplete", surface="C2")
+        raise RunnerError(
+            "stale_c2_execution_evidence",
+            "the plan C2 evidence is incomplete",
+            surface="C2",
+        )
     for entry in entries:
         operation = entry.get("operation") if isinstance(entry, dict) else None
         expected_fields = (
@@ -1744,8 +2045,7 @@ def _verify_boundary_execution(
             or entry.get("provenance") != "executed"
             or entry.get("generator_id") != "c2_regeneration_replay"
             or entry.get("path") not in expected
-            or entry.get("operation")
-            != expected[entry["path"]].get("operation")
+            or entry.get("operation") != expected[entry["path"]].get("operation")
             or (
                 entry.get("operation") == "upsert"
                 and (
@@ -1764,12 +2064,22 @@ def _verify_boundary_execution(
                 )
             )
         ):
-            raise RunnerError("manual_evidence_rejected", "the plan contains stale or manual C2 evidence", surface="C2")
+            raise RunnerError(
+                "manual_evidence_rejected",
+                "the plan contains stale or manual C2 evidence",
+                surface="C2",
+            )
         output_ref = entry.get("output_ref")
         if not isinstance(output_ref, str):
-            raise RunnerError("invalid_c2_execution_evidence", "the plan C2 output reference is invalid", surface="C2")
+            raise RunnerError(
+                "invalid_c2_execution_evidence",
+                "the plan C2 output reference is invalid",
+                surface="C2",
+            )
         output_path = _require_ignored_output(consumer, Path(output_ref))
-        if not output_path.is_file() or _sha256_bytes(output_path.read_bytes()) != entry.get("output_sha256"):
+        if not output_path.is_file() or _sha256_bytes(
+            output_path.read_bytes()
+        ) != entry.get("output_sha256"):
             raise RunnerError(
                 "stale_c2_execution_output",
                 "the plan C2 execution output is stale",
@@ -1789,9 +2099,7 @@ def _bind_c2_generators(
         evidence = by_path.get(boundary["path"])
         if evidence is None:
             continue
-        generator_sha256 = _package_c2_generator_sha256(
-            package, boundary["path"]
-        )
+        generator_sha256 = _package_c2_generator_sha256(package, boundary["path"])
         if generator_sha256 is not None:
             boundary["generator_sha256"] = generator_sha256
         else:
@@ -1854,7 +2162,9 @@ def _require_ignored_output(root: Path, candidate: Path) -> Path:
 
 def _atomic_write(path: Path, data: bytes) -> None:
     if path.is_symlink():
-        raise RunnerError("unsafe_output_symlink", "runner output cannot replace a symbolic link")
+        raise RunnerError(
+            "unsafe_output_symlink", "runner output cannot replace a symbolic link"
+        )
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
     temporary = Path(name)
@@ -1874,6 +2184,97 @@ def _atomic_write(path: Path, data: bytes) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _node_workspace_environment(environment: Mapping[str, str]) -> dict[str, str]:
+    merged = dict(environment)
+    merged.update(_ACTIVE_NODE_WORKSPACE_ENV)
+    return merged
+
+
+def _bind_node_workspace_authority(
+    authority_path: Path,
+    trusted_authority_sha256: str,
+    source_sha: str,
+    *,
+    repo_root: Path,
+    verify_tree: bool,
+) -> dict[str, Any]:
+    try:
+        authority = load_node_workspace_authority(authority_path)
+        observed = node_authority_identity_sha256(authority)
+        if observed != trusted_authority_sha256:
+            raise NodeWorkspaceError(
+                "node_workspace_authority_sha256_mismatch",
+                "the external Node workspace authority differs from its trusted digest",
+                next_action="restore the exact Lane A authority and digest",
+            )
+        receipt = verify_node_workspace_authority(
+            repo_root,
+            authority,
+            trusted_authority_sha256,
+            source_sha=source_sha,
+            verify_tree=verify_tree,
+        )
+    except (OSError, NodeWorkspaceError) as exc:
+        raise RunnerError(
+            "node_workspace_authority_rejected",
+            "the Node workspace authority does not bind this source, policy, platform or toolchain",
+            lane="lane_a",
+            surface="node_workspace_authority",
+            contract="wiki_viva_node_workspace_authority.v1",
+            next_action="restore the exact external Lane A authority or certify a new platform authority",
+        ) from exc
+    global _ACTIVE_NODE_WORKSPACE_ENV
+    _ACTIVE_NODE_WORKSPACE_ENV = {
+        _NODE_AUTHORITY_ENV: str(authority_path.resolve(strict=True)),
+        _NODE_AUTHORITY_SHA_ENV: trusted_authority_sha256,
+        _NODE_SOURCE_SHA_ENV: source_sha,
+    }
+    return {"authority": authority, "receipt": receipt}
+
+
+def _stage_capsule_node_workspace_authority(
+    capsule: Mapping[str, Any], *, repo_root: Path
+) -> dict[str, Any]:
+    try:
+        authority = validate_node_workspace_authority(
+            capsule.get("node_workspace_authority")
+        )
+        digest = node_authority_identity_sha256(authority)
+    except (TypeError, ValueError, NodeWorkspaceError) as exc:
+        raise RunnerError(
+            "node_workspace_authority_rejected",
+            "the release capsule does not carry one valid path-free Node workspace authority",
+            lane="lane_a",
+            surface="node_workspace_authority",
+            contract="wiki_viva_node_workspace_authority.v1",
+        ) from exc
+    if (
+        capsule.get("schema_version") != RELEASE_CAPSULE_SCHEMA_VERSION
+        or capsule.get("node_workspace_authority_sha256") != digest
+        or authority.get("source_sha") != capsule.get("source_sha")
+    ):
+        raise RunnerError(
+            "node_workspace_authority_rejected",
+            "the release capsule Node workspace authority identity is stale",
+            lane="lane_a",
+            surface="node_workspace_authority",
+            contract="wiki_viva_node_workspace_authority.v1",
+        )
+    temporary = tempfile.TemporaryDirectory(prefix="wiki-viva-node-authority-")
+    _NODE_WORKSPACE_TEMP_DIRS.append(temporary)
+    directory = Path(temporary.name)
+    os.chmod(directory, 0o700)
+    authority_path = directory / "node-workspace-authority.json"
+    _atomic_write(authority_path, serialize_node_workspace_authority(authority))
+    return _bind_node_workspace_authority(
+        authority_path,
+        digest,
+        str(capsule["source_sha"]),
+        repo_root=repo_root,
+        verify_tree=False,
+    )
+
+
 def _atomic_create_once(path: Path, data: bytes) -> bool:
     """Install immutable first-write evidence atomically without replacement."""
 
@@ -1883,71 +2284,63 @@ def _atomic_create_once(path: Path, data: bytes) -> bool:
             "runner evidence cannot replace a symbolic link",
         )
     path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    temporary = Path(name)
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
+    try:
+        descriptor = os.open(path, flags, 0o600)
+    except FileExistsError:
+        return False
     try:
         os.fchmod(descriptor, 0o600)
-        with os.fdopen(descriptor, "wb") as handle:
-            handle.write(data)
-            handle.flush()
-            os.fsync(handle.fileno())
-        try:
-            os.link(temporary, path)
-        except FileExistsError:
-            return False
-        directory = os.open(path.parent, os.O_RDONLY)
+        written = 0
+        while written < len(data):
+            count = os.write(descriptor, data[written:])
+            if count <= 0:
+                raise RunnerError(
+                    "immutable_evidence_write_failed",
+                    "runner evidence could not be written completely",
+                    surface="private_evidence_output",
+                )
+            written += count
+        os.fsync(descriptor)
+        directory = os.open(
+            path.parent,
+            os.O_RDONLY
+            | getattr(os, "O_DIRECTORY", 0)
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
         try:
             os.fsync(directory)
         finally:
             os.close(directory)
         return True
     finally:
-        temporary.unlink(missing_ok=True)
+        os.close(descriptor)
 
 
 def _read_exact_private_file(path: Path, *, label: str) -> bytes:
-    if path.is_symlink():
+    if path.name in {"", ".", ".."} or path.parent.is_symlink():
         raise RunnerError(
             "unsafe_private_evidence",
-            f"{label} cannot be a symbolic link",
+            f"{label} cannot traverse a symbolic or invalid path",
             surface="private_evidence_output",
         )
-    try:
-        resolved = path.resolve(strict=True)
-        before = resolved.stat()
-    except (FileNotFoundError, OSError) as exc:
-        raise RunnerError(
-            "missing_private_evidence",
-            f"{label} is missing",
-            surface="private_evidence_output",
-        ) from exc
-    if not resolved.is_file() or before.st_nlink != 1 or before.st_size > 1024 * 1024:
-        raise RunnerError(
-            "unsafe_private_evidence",
-            f"{label} is not one bounded regular file",
-            surface="private_evidence_output",
-        )
-    raw = resolved.read_bytes()
-    after = resolved.stat()
-    if (
-        before.st_dev,
-        before.st_ino,
-        before.st_size,
-        before.st_mtime_ns,
-        before.st_nlink,
-    ) != (
-        after.st_dev,
-        after.st_ino,
-        after.st_size,
-        after.st_mtime_ns,
-        after.st_nlink,
-    ):
-        raise RunnerError(
-            "changed_private_evidence",
-            f"{label} changed while it was read",
-            surface="private_evidence_output",
-        )
-    return raw
+    return _read_fd_pinned_regular(
+        path.parent,
+        path.name,
+        label=label,
+        max_bytes=1024 * 1024,
+        lane="lane_b",
+        surface="private_evidence_output",
+        unsafe_code="unsafe_private_evidence",
+        missing_code="missing_private_evidence",
+    )
 
 
 def _normalize_version(raw: str) -> str:
@@ -1964,18 +2357,74 @@ def _normalize_version(raw: str) -> str:
     return value
 
 
-def _probe_command_version(argv: Sequence[str], *, cwd: Path) -> str:
+_TOOLCHAIN_PROBE_ENV_KEYS = frozenset(
+    {
+        "CI",
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "PATH",
+        "PATHEXT",
+        "PLAYWRIGHT_BROWSERS_PATH",
+        "SYSTEMROOT",
+        "TEMP",
+        "TMP",
+        "TMPDIR",
+        "TZ",
+        "WINDIR",
+    }
+)
+
+
+def _toolchain_probe_environment(
+    carried: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Build one secret-free probe environment with no injection hooks."""
+
+    source = os.environ if carried is None else carried
+    environment = {
+        key: value for key, value in source.items() if key in _TOOLCHAIN_PROBE_ENV_KEYS
+    }
+    carried_path = environment.get("PATH") or os.defpath
     try:
-        result = subprocess.run(
+        python_bin = str(Path(sys.executable).resolve(strict=True).parent)
+    except OSError as exc:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the executing Python interpreter cannot be resolved",
+            lane="lane_a",
+            surface="toolchain",
+        ) from exc
+    path_entries = [python_bin, *carried_path.split(os.pathsep)]
+    environment["PATH"] = os.pathsep.join(dict.fromkeys(path_entries))
+    environment.update(
+        {
+            "NPM_CONFIG_AUDIT": "false",
+            "NPM_CONFIG_FUND": "false",
+            "NPM_CONFIG_IGNORE_SCRIPTS": "true",
+            "NPM_CONFIG_USERCONFIG": os.devnull,
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "PYTHONNOUSERSITE": "1",
+        }
+    )
+    return environment
+
+
+def _probe_command_version(
+    argv: Sequence[str],
+    *,
+    cwd: Path,
+    environment: Mapping[str, str] | None = None,
+) -> str:
+    try:
+        result = run_bounded_process(
             list(argv),
             cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            check=False,
+            env=_toolchain_probe_environment(environment),
             timeout=30,
-            text=True,
+            output_limit=1024 * 1024,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, ProcessSafetyError) as exc:
         raise RunnerError(
             "toolchain_probe_failed",
             "a required certified tool is unavailable",
@@ -1991,7 +2440,16 @@ def _probe_command_version(argv: Sequence[str], *, cwd: Path) -> str:
             surface="toolchain",
             next_action="install the exact certified toolchain and retry",
         )
-    return _normalize_version(result.stdout)
+    try:
+        output = result.output.decode("utf-8", "strict")
+    except UnicodeDecodeError as exc:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "a required certified tool returned non-UTF-8 output",
+            lane="lane_a",
+            surface="toolchain",
+        ) from exc
+    return _normalize_version(output)
 
 
 _PYTHON_RESOLVED_PROBE = """
@@ -2061,17 +2519,21 @@ print(json.dumps(payload, sort_keys=True, separators=(",", ":")))
 """.strip()
 
 
-def _toolchain_probe_output(argv: Sequence[str], *, cwd: Path) -> bytes:
+def _toolchain_probe_output(
+    argv: Sequence[str],
+    *,
+    cwd: Path,
+    environment: Mapping[str, str] | None = None,
+) -> bytes:
     try:
-        result = subprocess.run(
+        result = run_bounded_process(
             list(argv),
             cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            check=False,
+            env=_toolchain_probe_environment(environment),
             timeout=30,
+            output_limit=4 * 1024 * 1024,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, ProcessSafetyError) as exc:
         raise RunnerError(
             "toolchain_probe_failed",
             "a required certified tool is unavailable",
@@ -2087,12 +2549,10 @@ def _toolchain_probe_output(argv: Sequence[str], *, cwd: Path) -> bytes:
             surface="toolchain",
             next_action="install the exact certified toolchain and retry",
         )
-    return result.stdout
+    return result.output
 
 
-def _probe_json_object(
-    raw: bytes, *, label: str, fields: set[str]
-) -> dict[str, Any]:
+def _probe_json_object(raw: bytes, *, label: str, fields: set[str]) -> dict[str, Any]:
     try:
         payload = json.loads(raw.decode("utf-8", "strict"))
     except (UnicodeDecodeError, ValueError, TypeError) as exc:
@@ -2147,11 +2607,12 @@ def _python_toolchain_identity(raw: bytes) -> dict[str, str]:
             lane="lane_a",
             surface="toolchain",
         )
-    normalized = sorted(
-        dependencies, key=lambda item: (item["name"], item["version"])
-    )
+    normalized = sorted(dependencies, key=lambda item: (item["name"], item["version"]))
     dependency_digest = canonical_sha256(normalized)
-    if dependencies != normalized or payload["dependencies_sha256"] != dependency_digest:
+    if (
+        dependencies != normalized
+        or payload["dependencies_sha256"] != dependency_digest
+    ):
         raise RunnerError(
             "toolchain_probe_failed",
             "the resolved Python dependency digest is stale",
@@ -2206,11 +2667,160 @@ def _active_python_alias() -> str:
 
 
 def _python_toolchain_probe(
-    *, cwd: Path
+    *, cwd: Path, environment: Mapping[str, str] | None = None
 ) -> tuple[dict[str, str], list[str], bytes]:
     argv = [_active_python_alias(), "scripts/wiki_toolchain_probe.py", "python"]
-    raw = _toolchain_probe_output(argv, cwd=cwd)
+    raw = _toolchain_probe_output(argv, cwd=cwd, environment=environment)
     return _python_toolchain_identity(raw), argv, raw
+
+
+def _npm_toolchain_identity(raw: bytes) -> dict[str, str]:
+    payload = _probe_json_object(
+        raw,
+        label="resolved npm",
+        fields={
+            "schema_version",
+            "name",
+            "version",
+            "platform_system",
+            "platform_machine",
+            "entrypoint_sha256",
+            "tree_sha256",
+            "entry_count",
+            "total_bytes",
+        },
+    )
+    sha256 = re.compile(r"[0-9a-f]{64}")
+    if (
+        payload["schema_version"] != "wiki_viva_npm_resolved_toolchain.v1"
+        or payload["name"] != "npm-resolved"
+        or not isinstance(payload["version"], str)
+        or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", payload["version"]) is None
+        or not isinstance(payload["platform_system"], str)
+        or re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,31}", payload["platform_system"])
+        is None
+        or not isinstance(payload["platform_machine"], str)
+        or re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,31}", payload["platform_machine"])
+        is None
+        or not isinstance(payload["entrypoint_sha256"], str)
+        or sha256.fullmatch(payload["entrypoint_sha256"]) is None
+        or not isinstance(payload["tree_sha256"], str)
+        or sha256.fullmatch(payload["tree_sha256"]) is None
+        or not isinstance(payload["entry_count"], int)
+        or isinstance(payload["entry_count"], bool)
+        or payload["entry_count"] <= 0
+        or not isinstance(payload["total_bytes"], int)
+        or isinstance(payload["total_bytes"], bool)
+        or payload["total_bytes"] <= 0
+    ):
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the resolved npm dependency authority is invalid",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    version = (
+        f"{payload['version']}+{payload['platform_system']}."
+        f"{payload['platform_machine']}.tree.{payload['tree_sha256']}"
+    )
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", version) is None:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the resolved npm identity is not canonical",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    return {"name": "npm-resolved", "version": version}
+
+
+def _npm_toolchain_probe(
+    *, cwd: Path, environment: Mapping[str, str] | None = None
+) -> tuple[dict[str, str], list[str], bytes]:
+    argv = [_active_python_alias(), "scripts/wiki_toolchain_probe.py", "npm"]
+    raw = _toolchain_probe_output(argv, cwd=cwd, environment=environment)
+    return _npm_toolchain_identity(raw), argv, raw
+
+
+def _npm_authority_probe_identity(authority: Mapping[str, Any]) -> dict[str, str]:
+    """Project a verified workspace npm authority into its executed probe identity."""
+
+    return {
+        "name": "npm-resolved",
+        "version": (
+            f"{authority['version']}+{authority['platform_system']}."
+            f"{authority['platform_machine']}.tree.{authority['tree_sha256']}"
+        ),
+    }
+
+
+def _node_toolchain_identity(raw: bytes) -> dict[str, str]:
+    payload = _probe_json_object(
+        raw,
+        label="resolved Node.js",
+        fields={
+            "schema_version",
+            "name",
+            "version",
+            "platform_system",
+            "platform_machine",
+            "executable_sha256",
+            "executable_bytes",
+            "runtime_tree_sha256",
+            "runtime_entry_count",
+            "runtime_total_bytes",
+        },
+    )
+    if (
+        payload["schema_version"] != "wiki_viva_node_resolved_toolchain.v1"
+        or payload["name"] != "node-resolved"
+        or not isinstance(payload["version"], str)
+        or re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", payload["version"]) is None
+        or not isinstance(payload["platform_system"], str)
+        or re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,31}", payload["platform_system"])
+        is None
+        or not isinstance(payload["platform_machine"], str)
+        or re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,31}", payload["platform_machine"])
+        is None
+        or not isinstance(payload["executable_sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", payload["executable_sha256"]) is None
+        or not isinstance(payload["executable_bytes"], int)
+        or isinstance(payload["executable_bytes"], bool)
+        or payload["executable_bytes"] <= 0
+        or not isinstance(payload["runtime_tree_sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", payload["runtime_tree_sha256"]) is None
+        or not isinstance(payload["runtime_entry_count"], int)
+        or isinstance(payload["runtime_entry_count"], bool)
+        or payload["runtime_entry_count"] <= 0
+        or not isinstance(payload["runtime_total_bytes"], int)
+        or isinstance(payload["runtime_total_bytes"], bool)
+        or payload["runtime_total_bytes"] <= 0
+    ):
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the resolved Node.js executable authority is invalid",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    version = (
+        f"{payload['version']}+{payload['platform_system']}."
+        f"{payload['platform_machine']}.runtime.{payload['runtime_tree_sha256']}"
+    )
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", version) is None:
+        raise RunnerError(
+            "toolchain_probe_failed",
+            "the resolved Node.js identity is not canonical",
+            lane="lane_a",
+            surface="toolchain",
+        )
+    return {"name": "node-resolved", "version": version}
+
+
+def _node_toolchain_probe(
+    *, cwd: Path, environment: Mapping[str, str] | None = None
+) -> tuple[dict[str, str], list[str], bytes]:
+    argv = [_active_python_alias(), "scripts/wiki_toolchain_probe.py", "node"]
+    raw = _toolchain_probe_output(argv, cwd=cwd, environment=environment)
+    return _node_toolchain_identity(raw), argv, raw
 
 
 def _playwright_module_root(kit_root: Path) -> Path:
@@ -2272,16 +2882,57 @@ def _browser_toolchain_identity(raw: bytes) -> dict[str, str]:
 
 
 def _browser_toolchain_probe(
-    *, kit_root: Path
+    *, kit_root: Path, execution_context: Any | None = None
 ) -> tuple[dict[str, str], list[str], bytes]:
-    try:
-        module_root = _playwright_module_root(kit_root)
-    except RunnerError:
-        argv = [_active_python_alias(), "scripts/wiki_toolchain_probe.py", "browser"]
-        raw = _toolchain_probe_output(argv, cwd=kit_root)
+    if execution_context is not None:
+        candidate = kit_root / "apps/wiki-cockpit/node_modules/playwright"
+        if not candidate.is_dir() or not (candidate / "package.json").is_file():
+            raise RunnerError(
+                "toolchain_probe_failed",
+                "the certified Node workspace has no Playwright module",
+                lane="lane_a",
+                surface="toolchain",
+                next_action="restore the exact lockfile materialization authority",
+            )
+        module_root = candidate.resolve(strict=True)
     else:
-        argv = ["node", "-e", _PLAYWRIGHT_CHROMIUM_PROBE, "./playwright"]
-        raw = _toolchain_probe_output(argv, cwd=module_root.parent)
+        try:
+            module_root = _playwright_module_root(kit_root)
+        except RunnerError:
+            module_root = None
+    if module_root is None:
+        argv = [_active_python_alias(), "scripts/wiki_toolchain_probe.py", "browser"]
+        raw = _toolchain_probe_output(
+            argv,
+            cwd=kit_root,
+            environment=None,
+        )
+    else:
+        node_executable = (
+            str(execution_context.node["executable"])
+            if execution_context is not None
+            else "node"
+        )
+        probe_program = " ".join(
+            line.strip() for line in _PLAYWRIGHT_CHROMIUM_PROBE.splitlines()
+        )
+        execution_argv = [
+            node_executable,
+            "-e",
+            probe_program,
+            "./playwright",
+        ]
+        # The authority and the node toolchain probe bind the exact executable.
+        # Publication carries a path-free projection of the same invocation so
+        # the Lane A manifest cannot disclose a host-local installation path.
+        argv = ["node", *execution_argv[1:]]
+        raw = _toolchain_probe_output(
+            execution_argv,
+            cwd=module_root.parent,
+            environment=(
+                execution_context.environment if execution_context is not None else None
+            ),
+        )
     return _browser_toolchain_identity(raw), argv, raw
 
 
@@ -2315,46 +2966,90 @@ def _probe_browser_version(name: str, *, kit_root: Path) -> str:
 
 
 def _probe_toolchain(capsule: Mapping[str, Any], *, kit_root: Path) -> str:
+    global _ACTIVE_NODE_WORKSPACE_ENV
     expected = capsule.get("toolchain")
-    if not isinstance(expected, dict) or set(expected) != {
-        "python",
-        "node",
-        "browser",
-        "runner",
-    }:
+    capsule_schema = capsule.get("schema_version")
+    if capsule_schema == LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION:
+        _ACTIVE_NODE_WORKSPACE_ENV = {}
+        expected_ids = {"python", "node", "browser", "runner"}
+    elif capsule_schema == RELEASE_CAPSULE_SCHEMA_VERSION:
+        expected_ids = {"python", "node", "npm", "browser", "runner"}
+    else:
+        expected_ids = set()
+    if not isinstance(expected, dict) or set(expected) != expected_ids:
         raise RunnerError(
             "invalid_toolchain_contract",
             "the release capsule toolchain contract is incomplete",
             lane="lane_a",
             surface="toolchain",
         )
+    node_workspace_receipt: Mapping[str, Any] | None = None
+    node_execution_context: Any | None = None
+    if capsule_schema == RELEASE_CAPSULE_SCHEMA_VERSION:
+        _stage_capsule_node_workspace_authority(capsule, repo_root=kit_root)
+        try:
+            node_workspace_receipt = materialize_node_workspace(
+                kit_root,
+                Path(_ACTIVE_NODE_WORKSPACE_ENV[_NODE_AUTHORITY_ENV]),
+                _ACTIVE_NODE_WORKSPACE_ENV[_NODE_AUTHORITY_SHA_ENV],
+                source_sha=str(capsule["source_sha"]),
+            )
+            node_execution_context = node_workspace_execution_context(
+                kit_root,
+                Path(_ACTIVE_NODE_WORKSPACE_ENV[_NODE_AUTHORITY_ENV]),
+                _ACTIVE_NODE_WORKSPACE_ENV[_NODE_AUTHORITY_SHA_ENV],
+                source_sha=str(capsule["source_sha"]),
+            )
+        except (OSError, NodeWorkspaceError) as exc:
+            raise RunnerError(
+                "toolchain_identity_mismatch",
+                "the certified Node dependency workspace could not be materialized exactly",
+                lane="lane_a",
+                surface="node_workspace_authority",
+                contract="wiki_viva_node_workspace_authority.v1",
+                next_action="restore the exact Node/npm platform authority or certify a new one",
+            ) from exc
     python_identity, _python_argv, _python_raw = _python_toolchain_probe(
-        cwd=kit_root
+        cwd=kit_root,
+        environment=(
+            node_execution_context.environment
+            if node_execution_context is not None
+            else None
+        ),
     )
     browser_identity, _browser_argv, _browser_raw = _browser_toolchain_probe(
-        kit_root=kit_root
+        kit_root=kit_root,
+        execution_context=node_execution_context,
     )
-    actual = {
-        "python": python_identity,
-        "node": {
+    if capsule_schema == RELEASE_CAPSULE_SCHEMA_VERSION:
+        assert node_workspace_receipt is not None
+        node_identity = dict(node_workspace_receipt["node_toolchain"])
+    else:
+        node_identity = {
             "name": "node",
             "version": _probe_command_version(["node", "--version"], cwd=kit_root),
-        },
+        }
+    actual = {
+        "python": python_identity,
+        "node": node_identity,
         "browser": browser_identity,
         "runner": {
             "name": "wiki-upgrade",
-            "version": _runner_identity_version(
-                Path(__file__).resolve().parents[1]
-            ),
+            "version": _runner_identity_version(Path(__file__).resolve().parents[1]),
         },
     }
-    if actual != expected or canonical_sha256(actual) != capsule.get("toolchain_sha256"):
+    if capsule_schema == RELEASE_CAPSULE_SCHEMA_VERSION:
+        assert node_workspace_receipt is not None
+        actual["npm"] = dict(node_workspace_receipt["npm_toolchain"])
+    if actual != expected or canonical_sha256(actual) != capsule.get(
+        "toolchain_sha256"
+    ):
         raise RunnerError(
             "toolchain_identity_mismatch",
             "the active runtime differs from the exact certified toolchain",
             lane="lane_a",
             surface="toolchain",
-            next_action="activate the certified Python, Node, browser and runner versions",
+            next_action="activate the certified Python, Node, npm, browser and runner versions",
         )
     return canonical_sha256(actual)
 
@@ -2395,7 +3090,11 @@ def _safe_relative_path(raw: object, *, label: str) -> str:
             surface="certification_authority",
         )
     candidate = Path(raw)
-    if candidate.is_absolute() or ".." in candidate.parts or candidate.as_posix() != raw:
+    if (
+        candidate.is_absolute()
+        or ".." in candidate.parts
+        or candidate.as_posix() != raw
+    ):
         raise RunnerError(
             "unsafe_certification_path",
             f"{label} is not a canonical relative path",
@@ -2631,6 +3330,82 @@ def _percent_decoded_views(value: str) -> tuple[str, ...]:
     return tuple(views)
 
 
+_SECRET_INPUT_KEYS = frozenset(
+    {
+        "accesskey",
+        "apikey",
+        "authorization",
+        "cookie",
+        "credential",
+        "credentials",
+        "password",
+        "passwd",
+        "privatekey",
+        "secret",
+        "session",
+        "signature",
+        "token",
+    }
+)
+
+
+def _secret_input_key(value: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]", "", value.lower().lstrip("-"))
+    return any(
+        normalized == key or normalized.endswith(key) for key in _SECRET_INPUT_KEYS
+    )
+
+
+def _secret_input_violation(value: str) -> bool:
+    try:
+        views = _percent_decoded_views(value)
+    except (UnicodeDecodeError, ValueError):
+        return True
+    for view in views:
+        if any(finding.category == "secret" for finding in scan_text(view)):
+            return True
+        try:
+            tokens = shlex.split(view, posix=True)
+        except ValueError:
+            return True
+        for index, token in enumerate(tokens):
+            if "=" in token:
+                key, assigned = token.split("=", 1)
+                if assigned and _secret_input_key(key):
+                    return True
+            if ":" in token and "://" not in token:
+                key, assigned = token.split(":", 1)
+                if assigned and _secret_input_key(key):
+                    return True
+            if _secret_input_key(token) and index + 1 < len(tokens):
+                return True
+            if "://" not in token:
+                continue
+            try:
+                parsed = urlsplit(token)
+            except ValueError:
+                return True
+            if parsed.username is not None or parsed.password is not None:
+                return True
+            try:
+                query = parse_qsl(parsed.query, keep_blank_values=True)
+            except ValueError:
+                return True
+            if any(value and _secret_input_key(key) for key, value in query):
+                return True
+    return False
+
+
+def _reject_secret_input(value: str, *, surface: str) -> None:
+    if _secret_input_violation(value):
+        raise RunnerError(
+            "secret_command_input",
+            "a command or operator binding contains secret-shaped material",
+            surface=surface,
+            next_action="remove credentials from the input and use an external secret channel",
+        )
+
+
 def _prepare_certification_output(source_root: Path, requested: Path) -> Path:
     output = requested.expanduser().resolve()
     if output.exists():
@@ -2643,12 +3418,10 @@ def _prepare_certification_output(source_root: Path, requested: Path) -> Path:
         )
     with contextlib.suppress(ValueError):
         relative = output.relative_to(source_root.resolve())
-        ignored = subprocess.run(
-            ["git", "check-ignore", "-q", relative.as_posix()],
-            cwd=source_root,
+        ignored = _git(
+            source_root,
+            ["check-ignore", "-q", "--", relative.as_posix()],
             check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
         )
         if ignored.returncode != 0:
             raise RunnerError(
@@ -2753,22 +3526,85 @@ def _certification_toolchain(
             surface="toolchain",
             next_action="execute certification with the runner from the exact source worktree",
         )
-    python_alias = _active_python_alias()
-    browser_argv = [python_alias, "scripts/wiki_toolchain_probe.py", "browser"]
-    browser_raw = _toolchain_probe_output(browser_argv, cwd=source_root)
-    browser_identity = _browser_toolchain_identity(browser_raw)
-    python_argv = [python_alias, "scripts/wiki_toolchain_probe.py", "python"]
-    python_raw = _toolchain_probe_output(python_argv, cwd=source_root)
-    python_identity = _python_toolchain_identity(python_raw)
-    node_argv = ["node", "--version"]
-    node_raw = _toolchain_probe_output(node_argv, cwd=source_root)
-    node_identity = {"name": "node", "version": _normalize_version(node_raw.decode("utf-8", "strict"))}
-    runner_argv = [python_alias, "scripts/wiki_upgrade.py", "--version"]
-    runner_raw = _toolchain_probe_output(runner_argv, cwd=source_root)
+    if set(_ACTIVE_NODE_WORKSPACE_ENV) != {
+        _NODE_AUTHORITY_ENV,
+        _NODE_AUTHORITY_SHA_ENV,
+        _NODE_SOURCE_SHA_ENV,
+    }:
+        raise RunnerError(
+            "node_workspace_authority_required",
+            "Lane A certification requires one externally anchored Node workspace authority",
+            lane="lane_a",
+            surface="node_workspace_authority",
+            contract="wiki_viva_node_workspace_authority.v1",
+        )
+    try:
+        workspace_receipt = verify_node_workspace_authority(
+            source_root,
+            Path(_ACTIVE_NODE_WORKSPACE_ENV[_NODE_AUTHORITY_ENV]),
+            _ACTIVE_NODE_WORKSPACE_ENV[_NODE_AUTHORITY_SHA_ENV],
+            source_sha=_ACTIVE_NODE_WORKSPACE_ENV[_NODE_SOURCE_SHA_ENV],
+            verify_tree=True,
+        )
+        execution_context = node_workspace_execution_context(
+            source_root,
+            Path(_ACTIVE_NODE_WORKSPACE_ENV[_NODE_AUTHORITY_ENV]),
+            _ACTIVE_NODE_WORKSPACE_ENV[_NODE_AUTHORITY_SHA_ENV],
+            source_sha=_ACTIVE_NODE_WORKSPACE_ENV[_NODE_SOURCE_SHA_ENV],
+        )
+    except (OSError, NodeWorkspaceError) as exc:
+        raise RunnerError(
+            "node_workspace_authority_rejected",
+            "Lane A cannot prove the exact Node/npm dependency workspace",
+            lane="lane_a",
+            surface="node_workspace_authority",
+            contract="wiki_viva_node_workspace_authority.v1",
+        ) from exc
+    browser_identity, browser_argv, browser_raw = _browser_toolchain_probe(
+        kit_root=source_root,
+        execution_context=execution_context,
+    )
+    observed_npm_identity, npm_argv, npm_raw = _npm_toolchain_probe(
+        cwd=source_root,
+        environment=execution_context.environment,
+    )
+    npm_identity = dict(workspace_receipt["npm_toolchain"])
+    if observed_npm_identity != _npm_authority_probe_identity(execution_context.npm):
+        raise RunnerError(
+            "node_workspace_authority_rejected",
+            "the executed npm probe differs from the external workspace authority",
+            lane="lane_a",
+            surface="node_workspace_authority",
+            contract="wiki_viva_node_workspace_authority.v1",
+        )
+    python_identity, python_argv, python_raw = _python_toolchain_probe(
+        cwd=source_root,
+        environment=execution_context.environment,
+    )
+    observed_node_identity, node_argv, node_raw = _node_toolchain_probe(
+        cwd=source_root,
+        environment=execution_context.environment,
+    )
+    node_identity = dict(workspace_receipt["node_toolchain"])
+    if observed_node_identity != node_identity:
+        raise RunnerError(
+            "node_workspace_authority_rejected",
+            "the executed Node probe differs from the external workspace authority",
+            lane="lane_a",
+            surface="node_workspace_authority",
+            contract="wiki_viva_node_workspace_authority.v1",
+        )
+    runner_argv = [_active_python_alias(), "scripts/wiki_upgrade.py", "--version"]
+    runner_raw = _toolchain_probe_output(
+        runner_argv,
+        cwd=source_root,
+        environment=execution_context.environment,
+    )
     runner_identity = {"name": "wiki-upgrade", "version": source_runner_identity}
     probes: list[tuple[str, dict[str, str], list[str], bytes]] = [
         ("browser", browser_identity, browser_argv, browser_raw),
         ("node", node_identity, node_argv, node_raw),
+        ("npm", npm_identity, npm_argv, npm_raw),
         ("python", python_identity, python_argv, python_raw),
         ("runner", runner_identity, runner_argv, runner_raw),
     ]
@@ -2780,10 +3616,13 @@ def _certification_toolchain(
         _require_public_certification_output(raw, gate_id=f"toolchain-{tool_id}")
         probe_text = raw.decode("utf-8", "strict")
         evidence_raw = raw
-        if re.search(
-            rf"(?<![A-Za-z0-9]){re.escape(version)}(?![A-Za-z0-9])",
-            probe_text,
-        ) is None:
+        if (
+            re.search(
+                rf"(?<![A-Za-z0-9]){re.escape(version)}(?![A-Za-z0-9])",
+                probe_text,
+            )
+            is None
+        ):
             # Preserve the exact command output and append one canonical,
             # derived identity line.  Node's native `v22...` prefix otherwise
             # fails the core's deliberate token-boundary verification.
@@ -2808,7 +3647,7 @@ def _certification_toolchain(
         gate_output_root / probe_ref,
         _json_bytes(
             {
-                "schema_version": "wiki_viva_toolchain_probe.v1",
+                "schema_version": TOOLCHAIN_PROBE_SCHEMA_VERSION,
                 "run_id": run_id,
                 "entries": entries,
             }
@@ -2825,7 +3664,25 @@ def _certification_environment() -> dict[str, str]:
     }
     allowed["PYTHONUNBUFFERED"] = "1"
     allowed["TZ"] = "UTC"
-    return allowed
+    allowed["WIKI_UPGRADE_LANE"] = "lane_a"
+    git_environment = sanitized_git_environment()
+    allowed.update(
+        {key: value for key, value in git_environment.items() if key.startswith("GIT_")}
+    )
+    return _node_workspace_environment(allowed)
+
+
+def _require_certification_source(source_root: Path, source_sha: str) -> None:
+    try:
+        verify_clean_source(source_root, source_sha)
+    except SourceIntegrityError as exc:
+        raise RunnerError(
+            "changed_certification_source",
+            "the Lane A source differs from its exact clean Git authority",
+            lane="lane_a",
+            surface="portable_source",
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
+        ) from exc
 
 
 def _run_certification_gate(
@@ -2845,36 +3702,59 @@ def _run_certification_gate(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     _emit({"event": "certification_gate_started", "lane": "lane_a", "gate": gate_id})
-    with output_path.open("wb") as log:
+    environment = _certification_environment()
+    environment["WIKI_UPGRADE_GATE_ID"] = gate_id
+    _require_certification_source(source_root, source_sha)
+    process: subprocess.Popen[bytes] | None = None
+    reader: threading.Thread | None = None
+    active_error: BaseException | None = None
+    cleanup_error: BaseException | None = None
+    output_reader_errors: list[BaseException] = []
+    output_oversized = threading.Event()
+    output = bytearray()
+    exit_code = 1
+
+    def drain_output() -> None:
         try:
-            process = subprocess.Popen(
-                argv,
-                cwd=source_root,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                env=_certification_environment(),
-                start_new_session=True,
+            while True:
+                assert process is not None and process.stdout is not None
+                chunk = process.stdout.read(64 * 1024)
+                if not chunk:
+                    return
+                remaining = _MAX_GATE_OUTPUT_BYTES + 1 - len(output)
+                if remaining > 0:
+                    output.extend(chunk[:remaining])
+                if len(output) > _MAX_GATE_OUTPUT_BYTES or len(chunk) > remaining:
+                    output_oversized.set()
+        except BaseException as exc:  # pragma: no cover - defensive pipe failure
+            output_reader_errors.append(exc)
+
+    try:
+        process = start_process_group(
+            argv,
+            cwd=source_root,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=environment,
+        )
+        if process.stdout is None:
+            raise ProcessSafetyError(
+                "process_pipe_missing", "the certification output pipe is missing"
             )
-        except OSError as exc:
-            raise RunnerError(
-                "certification_gate_unavailable",
-                "a Lane A gate command could not be started",
-                lane="lane_a",
-                surface=gate_id,
-            ) from exc
+        reader = threading.Thread(
+            target=drain_output,
+            name=f"wiki-certification-output-{gate_id}",
+            daemon=True,
+        )
+        reader.start()
         next_heartbeat = started + max(0.1, heartbeat)
-        exit_code = 1
         while process.poll() is None:
             now = time.monotonic()
+            if output_oversized.is_set():
+                exit_code = 125
+                break
             if now - started > timeout:
-                with contextlib.suppress(ProcessLookupError):
-                    os.killpg(process.pid, signal.SIGTERM)
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    with contextlib.suppress(ProcessLookupError):
-                        os.killpg(process.pid, signal.SIGKILL)
-                    process.wait()
                 exit_code = 124
                 break
             if now >= next_heartbeat:
@@ -2890,9 +3770,64 @@ def _run_certification_gate(
             time.sleep(min(0.1, max(0.02, heartbeat / 10)))
         else:
             exit_code = int(process.returncode or 0)
-        log.flush()
-        os.fsync(log.fileno())
-    raw = output_path.read_bytes()
+    except BaseException as exc:
+        active_error = exc
+    finally:
+        if process is not None:
+            try:
+                terminate_process_group(process)
+            except BaseException as exc:
+                cleanup_error = exc
+        if reader is not None:
+            reader.join(timeout=5)
+        if process is not None and process.stdout is not None:
+            process.stdout.close()
+    if cleanup_error is not None:
+        raise RunnerError(
+            "certification_process_cleanup_failed",
+            "a Lane A gate left an unverifiable descendant process",
+            lane="lane_a",
+            surface=gate_id,
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
+        ) from cleanup_error
+    if active_error is not None:
+        if isinstance(active_error, (OSError, ProcessSafetyError)):
+            raise RunnerError(
+                "certification_gate_unavailable",
+                "a Lane A gate command could not be executed safely",
+                lane="lane_a",
+                surface=gate_id,
+                next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
+            ) from active_error
+        raise active_error
+    if reader is None or reader.is_alive() or output_reader_errors:
+        raise RunnerError(
+            "certification_output_capture_failed",
+            "a Lane A gate output stream could not be captured safely",
+            lane="lane_a",
+            surface=gate_id,
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
+        )
+    _require_certification_source(source_root, source_sha)
+    if output_oversized.is_set():
+        raise RunnerError(
+            "oversized_certification_output",
+            "a Lane A gate exceeded the bounded output allowance",
+            lane="lane_a",
+            surface=gate_id,
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
+        )
+    raw = bytes(output)
+    _require_public_certification_output(raw, gate_id=gate_id)
+    if not _atomic_create_once(output_path, raw):
+        raise RunnerError(
+            "certification_output_exists",
+            "a Lane A gate output already exists in this immutable run",
+            lane="lane_a",
+            surface=gate_id,
+            next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
+        )
+    _require_certification_source(source_root, source_sha)
     status = "passed" if exit_code == 0 else "failed"
     _emit(
         {
@@ -2903,8 +3838,6 @@ def _run_certification_gate(
             "elapsed_seconds": round(time.monotonic() - started, 3),
         }
     )
-    if status == "passed":
-        _require_public_certification_output(raw, gate_id=gate_id)
     return {
         "id": gate_id,
         "class": gate["class"],
@@ -2932,9 +3865,7 @@ def _execute_certification_matrix(
 ) -> list[dict[str, Any]]:
     policies = package["migration"]["gate_policies"]
     upstream_ids = {
-        str(item["id"])
-        for item in catalog
-        if item["class"] == "upstream_certified"
+        str(item["id"]) for item in catalog if item["class"] == "upstream_certified"
     }
     if not upstream_ids:
         raise RunnerError(
@@ -3004,7 +3935,7 @@ def _execute_certification_matrix(
                 continue
             resources.add(resource)
             wave.append(gate)
-        _require_clean(source_root)
+        _require_certification_source(source_root, source_sha)
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=min(jobs, len(wave))
         ) as executor:
@@ -3021,14 +3952,7 @@ def _execute_certification_matrix(
                 for gate in wave
             }
             wave_results = [future.result() for future in futures]
-        _require_clean(source_root)
-        if _head(source_root) != source_sha:
-            raise RunnerError(
-                "changed_certification_subject",
-                "a Lane A gate changed the exact source subject",
-                lane="lane_a",
-                surface="portable_source",
-            )
+        _require_certification_source(source_root, source_sha)
         failed = [result for result in wave_results if result["status"] != "passed"]
         if failed:
             raise RunnerError(
@@ -3044,10 +3968,18 @@ def _execute_certification_matrix(
     return [completed[gate_id] for gate_id in sorted(completed)]
 
 
-def _validate_package_contract(package: dict[str, Any]) -> None:
-    errors = validate_upgrade_package(package)
+def _validate_package_contract(
+    package: dict[str, Any], *, legacy_capsule_v1: bool = False
+) -> None:
+    errors = (
+        validate_legacy_capsule_v1_package(package)
+        if legacy_capsule_v1
+        else validate_upgrade_package(package)
+    )
     if package.get("schema_version") == _TWO_LANE_PACKAGE:
-        schema_path = ROOT / "docs/references/schemas/wiki-upgrade-package-v3.schema.json"
+        schema_path = (
+            ROOT / "docs/references/schemas/wiki-upgrade-package-v3.schema.json"
+        )
         try:
             schema = json.loads(schema_path.read_text(encoding="utf-8"))
             Draft202012Validator.check_schema(schema)
@@ -3114,17 +4046,21 @@ def _certification_preflight(
     commands = migration.get("gate_commands")
     policies = migration.get("gate_policies")
     package_impact = migration.get("impact_registry")
-    projection = sorted(
-        (
-            {
-                "id": gate_id,
-                "class": policies[gate_id]["class"],
-                "command": commands[gate_id],
-            }
-            for gate_id in commands
-        ),
-        key=lambda item: item["id"],
-    ) if isinstance(commands, dict) and isinstance(policies, dict) else []
+    projection = (
+        sorted(
+            (
+                {
+                    "id": gate_id,
+                    "class": policies[gate_id]["class"],
+                    "command": commands[gate_id],
+                }
+                for gate_id in commands
+            ),
+            key=lambda item: item["id"],
+        )
+        if isinstance(commands, dict) and isinstance(policies, dict)
+        else []
+    )
     if (
         projection != catalog
         or migration.get("required_gates") != [item["id"] for item in catalog]
@@ -3140,9 +4076,11 @@ def _certification_preflight(
             next_action="regenerate and review the package and impact registry together",
         )
     source = source_root.resolve(strict=True)
-    top = _git(source, ["rev-parse", "--show-toplevel"]).stdout.decode(
-        "utf-8", "strict"
-    ).strip()
+    top = (
+        _git(source, ["rev-parse", "--show-toplevel"])
+        .stdout.decode("utf-8", "strict")
+        .strip()
+    )
     if Path(top).resolve() != source:
         raise RunnerError(
             "invalid_source_root",
@@ -3160,7 +4098,7 @@ def _certification_preflight(
             surface="portable_source",
             next_action="check out the exact source_sha in a clean release worktree",
         )
-    _require_clean(source)
+    _require_certification_source(source, source_sha)
     return source_sha, [dict(item) for item in catalog]
 
 
@@ -3213,9 +4151,7 @@ def _certification_receipt_digest(
         )
     command_by_id = {item["id"]: item for item in catalog}
     expected = sorted(
-        item["id"]
-        for item in catalog
-        if item["class"] == "upstream_certified"
+        item["id"] for item in catalog if item["class"] == "upstream_certified"
     )
     results = receipt.get("gate_results")
     if (
@@ -3298,6 +4234,17 @@ def _certify(args: argparse.Namespace) -> int:
     source_sha, catalog = _certification_preflight(
         package=package, registry=registry, source_root=source_root
     )
+    node_binding = _bind_node_workspace_authority(
+        args.node_workspace_authority.resolve(),
+        str(args.trusted_node_workspace_authority_sha256),
+        source_sha,
+        repo_root=source_root,
+        verify_tree=True,
+    )
+    node_workspace_authority = dict(node_binding["authority"])
+    node_workspace_authority_sha256 = node_authority_identity_sha256(
+        node_workspace_authority
+    )
     authority_id = str(args.attestation_authority_id or "")
     if _GATE_ID_RE.fullmatch(authority_id) is None:
         raise RunnerError(
@@ -3344,11 +4291,11 @@ def _certify(args: argparse.Namespace) -> int:
         heartbeat=args.heartbeat_seconds,
     )
     certified = [
-        dict(result)
-        for result in results
-        if result["class"] == "upstream_certified"
+        dict(result) for result in results if result["class"] == "upstream_certified"
     ]
+    _require_certification_source(source_root, source_sha)
     capsule_seed = {
+        "schema_version": RELEASE_CAPSULE_SCHEMA_VERSION,
         "release_id": package["release"]["id"],
         "status": "certified",
         "source_sha": source_sha,
@@ -3356,6 +4303,8 @@ def _certify(args: argparse.Namespace) -> int:
         "portable_tree_sha256": "0" * 64,
         "command_registry": catalog,
         "toolchain": _toolchain,
+        "node_workspace_authority": node_workspace_authority,
+        "node_workspace_authority_sha256": node_workspace_authority_sha256,
         "toolchain_probe_ref": toolchain_probe_ref,
         "certified_gates": certified,
         "run_id": run_id,
@@ -3365,6 +4314,7 @@ def _certify(args: argparse.Namespace) -> int:
         "attestation_ref": "execution-attestation.json",
     }
     try:
+        _require_certification_source(source_root, source_sha)
         attestation = collect_release_attestation(
             capsule_seed,
             package=package,
@@ -3381,6 +4331,7 @@ def _certify(args: argparse.Namespace) -> int:
             surface="execution_attestation",
             next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
         ) from exc
+    _require_certification_source(source_root, source_sha)
     if attestation.get("schema_version") != EXECUTION_ATTESTATION_SCHEMA_VERSION:
         raise RunnerError(
             "invalid_execution_attestation",
@@ -3401,6 +4352,7 @@ def _certify(args: argparse.Namespace) -> int:
         verified_attestation_sha256=attestation_sha256,
     )
     try:
+        _require_certification_source(source_root, source_sha)
         capsule = seal_release_capsule(capsule_seed, authority=authority)
     except UpgradeLaneError as exc:
         raise RunnerError(
@@ -3410,6 +4362,7 @@ def _certify(args: argparse.Namespace) -> int:
             surface="release_capsule",
             next_action=_FAILED_CERTIFICATION_NEXT_ACTION,
         ) from exc
+    _require_certification_source(source_root, source_sha)
     capsule_ref = "release-capsule.json"
     capsule_raw = _json_bytes(capsule)
     _atomic_write(output_root / capsule_ref, capsule_raw)
@@ -3464,9 +4417,8 @@ def _certify(args: argparse.Namespace) -> int:
         "trust_anchor_ref": trust_ref,
         "trust_anchor_file_sha256": _sha256_bytes(trust_raw),
     }
-    _atomic_write(
-        output_root / "release-authority.json", _json_bytes(authority_bundle)
-    )
+    _atomic_write(output_root / "release-authority.json", _json_bytes(authority_bundle))
+    _require_certification_source(source_root, source_sha)
     _emit(
         {
             "schema_version": "wiki_viva_upgrade_certification_summary.v1",
@@ -3493,6 +4445,7 @@ def _load_artifacts(
     authority_path: Path,
     trusted_attestation_sha256: str,
     require_sealed_authority: bool = False,
+    allow_legacy_verification: bool = False,
 ) -> tuple[
     dict[str, Any],
     dict[str, Any],
@@ -3503,8 +4456,21 @@ def _load_artifacts(
         package = load_mapping(package_path)
         capsule = load_mapping(capsule_path)
         registry = load_mapping(registry_path)
-        _probe_toolchain(capsule, kit_root=kit_root)
-        _validate_package_contract(package)
+        capsule_schema = capsule.get("schema_version")
+        legacy_capsule_v1 = capsule_schema == LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION
+        if legacy_capsule_v1 and not allow_legacy_verification:
+            raise RunnerError(
+                "legacy_capsule_verification_only",
+                "release capsule v1 is immutable history and cannot authorize adoption",
+                lane="lane_b",
+                surface="release_capsule",
+                contract=LEGACY_RELEASE_CAPSULE_SCHEMA_VERSION,
+                next_action="use verify-capsule for historical proof or certify a v2 capsule",
+            )
+        _validate_package_contract(
+            package,
+            legacy_capsule_v1=legacy_capsule_v1 and allow_legacy_verification,
+        )
         authority_bundle = load_mapping(authority_path)
         base_authority_fields = {
             "schema_version",
@@ -3588,7 +4554,9 @@ def _load_artifacts(
                 or receipt.get("capsule_ref") != capsule_ref
                 or receipt.get("authority_ref") != authority_path.name
             ):
-                raise UpgradeLaneError("certification receipt authority binding differs")
+                raise UpgradeLaneError(
+                    "certification receipt authority binding differs"
+                )
             _certification_receipt_digest(
                 receipt,
                 package=package,
@@ -3606,7 +4574,14 @@ def _load_artifacts(
             verified_attestation_sha256=trusted_attestation_sha256,
         )
         verified_capsule = verify_release_capsule(capsule, authority=authority)
-        registry_digest = verify_impact_registry(registry)
+        if legacy_capsule_v1:
+            # V1 is history-only: its sealed four-probe manifest and external
+            # attestation are recomputed by verify_release_capsule, but the old
+            # runner/toolchain is never made current execution authority.
+            registry_digest = str(registry.get("registry_sha256") or "")
+        else:
+            _probe_toolchain(capsule, kit_root=kit_root)
+            registry_digest = verify_impact_registry(registry)
     except RunnerError:
         raise
     except (OSError, ValueError, UpgradeLaneError) as exc:
@@ -3629,7 +4604,9 @@ def _load_artifacts(
     release = package.get("release")
     migration = package.get("migration")
     if not isinstance(release, dict) or not isinstance(migration, dict):
-        raise RunnerError("invalid_package_shape", "the package omits release or migration policy")
+        raise RunnerError(
+            "invalid_package_shape", "the package omits release or migration policy"
+        )
     package_digest = canonical_sha256(package)
     if capsule.get("package_sha256") != package_digest:
         raise RunnerError(
@@ -3706,10 +4683,12 @@ def _load_artifacts(
                 surface="impact_and_command_registry",
                 next_action="regenerate the package, registry and capsule as one immutable release",
             )
-    if verified_capsule.digest != capsule.get("capsule_sha256") or registry_digest != registry.get(
-        "registry_sha256"
-    ):
-        raise RunnerError("artifact_digest_mismatch", "a sealed artifact digest is stale")
+    if verified_capsule.digest != capsule.get(
+        "capsule_sha256"
+    ) or registry_digest != registry.get("registry_sha256"):
+        raise RunnerError(
+            "artifact_digest_mismatch", "a sealed artifact digest is stale"
+        )
     return package, capsule, registry, verified_capsule
 
 
@@ -3717,7 +4696,6 @@ def _verify_capsule(args: argparse.Namespace) -> int:
     """Verify one exact Lane A authority without opening a consumer run."""
 
     package = _require_v3_cli_package(args.package)
-    _validate_package_contract(package)
     if not package_is_pinned(package):
         raise RunnerError(
             "release_not_releasable",
@@ -3737,6 +4715,7 @@ def _verify_capsule(args: argparse.Namespace) -> int:
         authority_path=args.authority,
         trusted_attestation_sha256=args.trusted_attestation_sha256,
         require_sealed_authority=True,
+        allow_legacy_verification=True,
     )
     summary = {
         "schema_version": "wiki_viva_release_capsule_verification_summary.v1",
@@ -3754,9 +4733,7 @@ def _verify_capsule(args: argparse.Namespace) -> int:
         "attestation_sha256": capsule["attestation_sha256"],
         "human_gate_required": True,
     }
-    _require_public_certification_output(
-        _json_bytes(summary), gate_id="verify-capsule"
-    )
+    _require_public_certification_output(_json_bytes(summary), gate_id="verify-capsule")
     _emit(summary)
     return 0
 
@@ -3767,10 +4744,15 @@ def _required_gate_ids(package: Mapping[str, Any]) -> list[str]:
     if (
         not isinstance(values, list)
         or not values
-        or any(not isinstance(value, str) or _GATE_ID_RE.fullmatch(value) is None for value in values)
+        or any(
+            not isinstance(value, str) or _GATE_ID_RE.fullmatch(value) is None
+            for value in values
+        )
         or len(values) != len(set(values))
     ):
-        raise RunnerError("invalid_required_gates", "migration.required_gates is not exact")
+        raise RunnerError(
+            "invalid_required_gates", "migration.required_gates is not exact"
+        )
     return list(values)
 
 
@@ -3814,9 +4796,13 @@ def _two_lane_selection(
     omissions = [
         {
             "gate_id": gate_id,
-            "reason": "verified_upstream_capsule" if gate_id in certified else "not_affected",
+            "reason": (
+                "verified_upstream_capsule" if gate_id in certified else "not_affected"
+            ),
             "derivation_sha256": (
-                capsule["capsule_sha256"] if gate_id in certified else selection["derivation_sha256"]
+                capsule["capsule_sha256"]
+                if gate_id in certified
+                else selection["derivation_sha256"]
             ),
         }
         for gate_id in selection["omitted_gates"]
@@ -3863,9 +4849,10 @@ def _two_lane_selection(
                 next_action="repair the versioned package gate policy",
             )
         resource_group = policy.get("resource_group", f"gate_{item['id']}")
-        if not isinstance(resource_group, str) or re.fullmatch(
-            r"[a-z][a-z0-9_]{1,63}", resource_group
-        ) is None:
+        if (
+            not isinstance(resource_group, str)
+            or re.fullmatch(r"[a-z][a-z0-9_]{1,63}", resource_group) is None
+        ):
             raise RunnerError(
                 "invalid_gate_resource_policy",
                 "a selected gate has an invalid resource group",
@@ -3886,20 +4873,52 @@ def _two_lane_selection(
 
 
 def _parse_command(command: str, *, kit_root: Path) -> list[str]:
+    _reject_secret_input(command, surface="command_registry")
     if _CONTROL_TOKEN_RE.search(command):
-        raise RunnerError("unsafe_gate_command", "a gate command contains shell control syntax")
+        raise RunnerError(
+            "unsafe_gate_command", "a gate command contains shell control syntax"
+        )
     try:
         argv = shlex.split(command, posix=True)
     except ValueError as exc:
-        raise RunnerError("unsafe_gate_command", "a gate command cannot be tokenized safely") from exc
+        raise RunnerError(
+            "unsafe_gate_command", "a gate command cannot be tokenized safely"
+        ) from exc
     if not argv or any(token in _SHELL_TOKENS for token in argv):
-        raise RunnerError("unsafe_gate_command", "a gate command requires a forbidden shell")
+        raise RunnerError(
+            "unsafe_gate_command", "a gate command requires a forbidden shell"
+        )
+    node_violation = release_node_command_violation(argv)
+    if node_violation == "raw_node_command":
+        raise RunnerError(
+            "raw_node_command_rejected",
+            "a release-bearing command cannot execute ambient Node tooling",
+            surface="command_registry",
+            contract="wiki_viva_node_workspace_policy.v2",
+            next_action=(
+                "register the exact python3 scripts/wiki_node_workspace.py run "
+                "wrapper command"
+            ),
+        )
+    if node_violation is not None:
+        raise RunnerError(
+            "invalid_node_workspace_command",
+            "a release-bearing Node wrapper command is not exact",
+            surface="command_registry",
+            contract="wiki_viva_node_workspace_policy.v2",
+            next_action=(
+                "register the exact python3 scripts/wiki_node_workspace.py run "
+                "wrapper command"
+            ),
+        )
     normalized: list[str] = []
     for token in argv:
         if token == "$WIKI_VIVA_KIT_ROOT":
             normalized.append(str(kit_root.resolve()))
         elif "$" in token:
-            raise RunnerError("unsafe_gate_variable", "a gate command uses an unbound variable")
+            raise RunnerError(
+                "unsafe_gate_variable", "a gate command uses an unbound variable"
+            )
         else:
             normalized.append(token)
     if normalized[0] in {"python", "python3"}:
@@ -3909,6 +4928,22 @@ def _parse_command(command: str, *, kit_root: Path) -> list[str]:
         # toolchain probe so a divergent PATH ``python3`` cannot execute gates
         # under a different dependency set than the one sealed in the capsule.
         normalized[0] = _active_python_alias()
+    elif normalized[0] == "git":
+        if normalized != ["git", "diff", "--check"]:
+            raise RunnerError(
+                "unsafe_git_command",
+                "only the exact registered Git diff check is executable as a gate",
+                surface="command_registry",
+                next_action="use the exact versioned git diff --check gate command",
+            )
+        try:
+            normalized = sanitized_git_argv(normalized[1:])
+        except GitSafetyError as exc:
+            raise RunnerError(
+                "unsafe_git_command",
+                "a registered Git command is outside the sanitized authority",
+                surface="command_registry",
+            ) from exc
     return normalized
 
 
@@ -3964,7 +4999,9 @@ def _verify_plan_digest(plan: Mapping[str, Any]) -> str:
             surface="adoption_plan",
         )
     if plan.get("schema_version") != PLAN_SCHEMA_VERSION:
-        raise RunnerError("unsupported_plan_schema", "the adoption plan schema is unsupported")
+        raise RunnerError(
+            "unsupported_plan_schema", "the adoption plan schema is unsupported"
+        )
     if (
         plan.get("runner_version") != RUNNER_VERSION
         or plan.get("mode") != "canary"
@@ -4069,11 +5106,12 @@ def _validate_plan_presentation(plan: Mapping[str, Any]) -> None:
     expected_status = (
         "requires_lane_a"
         if selection["requires_lane_a"]
-        else "ready_to_mutate"
-        if strategy == "runner_owned"
-        else "ready"
+        else "ready_to_mutate" if strategy == "runner_owned" else "ready"
     )
-    if plan.get("conceptual_diff") != expected_diff or plan.get("status") != expected_status:
+    if (
+        plan.get("conceptual_diff") != expected_diff
+        or plan.get("status") != expected_status
+    ):
         raise RunnerError(
             "stale_or_forged_conceptual_diff",
             "the plan status or conceptual diff cannot be reproduced",
@@ -4111,13 +5149,9 @@ def _acceptance_attempt_identity(plan: Mapping[str, Any]) -> str:
             "boundary_commits": plan["boundary_commits"],
             "impact_inputs": plan["impact_inputs"],
             "mutation": plan["mutation"],
-            "consumer_c3_authority_sha256": plan[
-                "consumer_c3_authority_sha256"
-            ],
+            "consumer_c3_authority_sha256": plan["consumer_c3_authority_sha256"],
             "preflight_sha256": canonical_sha256(plan["preflight"]),
-            "boundary_execution_sha256": canonical_sha256(
-                plan["boundary_execution"]
-            ),
+            "boundary_execution_sha256": canonical_sha256(plan["boundary_execution"]),
         }
     )
 
@@ -4142,22 +5176,30 @@ def _validate_acceptance_anchor_payload(
             surface="acceptance_budget",
         )
     anchor = dict(payload)
-    if set(anchor) != {
-        "schema_version",
-        "authority",
-        "attempt_identity_sha256",
-        "plan_started_at",
-        "anchor_sha256",
-    } or anchor.get("schema_version") != "wiki_viva_upgrade_acceptance_anchor.v1":
+    if (
+        set(anchor)
+        != {
+            "schema_version",
+            "authority",
+            "attempt_identity_sha256",
+            "plan_started_at",
+            "anchor_sha256",
+        }
+        or anchor.get("schema_version") != "wiki_viva_upgrade_acceptance_anchor.v1"
+    ):
         raise RunnerError(
             "invalid_acceptance_anchor",
             "the acceptance clock anchor contract is incomplete",
             surface="acceptance_budget",
         )
-    if anchor.get("authority") != {
-        "kind": "external_sha256",
-        "id": "wiki_upgrade_plan_first_write",
-    } or anchor.get("attempt_identity_sha256") != expected_attempt_identity_sha256:
+    if (
+        anchor.get("authority")
+        != {
+            "kind": "external_sha256",
+            "id": "wiki_upgrade_plan_first_write",
+        }
+        or anchor.get("attempt_identity_sha256") != expected_attempt_identity_sha256
+    ):
         raise RunnerError(
             "stale_acceptance_anchor",
             "the acceptance clock anchor belongs to another migration attempt",
@@ -4166,7 +5208,9 @@ def _validate_acceptance_anchor_payload(
     _acceptance_timestamp_microseconds(anchor.get("plan_started_at"))
     unsigned = dict(anchor)
     claimed = unsigned.pop("anchor_sha256")
-    if _SHA256_RE.fullmatch(str(claimed)) is None or claimed != canonical_sha256(unsigned):
+    if _SHA256_RE.fullmatch(str(claimed)) is None or claimed != canonical_sha256(
+        unsigned
+    ):
         raise RunnerError(
             "stale_acceptance_anchor",
             "the acceptance clock anchor digest is stale",
@@ -4181,6 +5225,7 @@ def _load_or_create_acceptance_anchor(
     plan_path: Path,
     attempt_identity_sha256: str,
     invocation_started_unix_ns: int,
+    trusted_file_sha256: str | None = None,
 ) -> tuple[dict[str, Any], str]:
     path = _require_ignored_output(
         consumer, _acceptance_anchor_path(plan_path, attempt_identity_sha256)
@@ -4197,8 +5242,32 @@ def _load_or_create_acceptance_anchor(
     }
     seed["anchor_sha256"] = canonical_sha256(seed)
     raw = _json_bytes(seed)
-    if not _atomic_create_once(path, raw):
+    if trusted_file_sha256 is None:
+        if not _atomic_create_once(path, raw):
+            raise RunnerError(
+                "untrusted_acceptance_anchor",
+                "a pre-existing plan clock cannot authorize a new plan invocation",
+                surface="acceptance_budget",
+                next_action=(
+                    "pass the exact digest emitted by the original plan invocation "
+                    "or start a genuinely new migration attempt"
+                ),
+            )
+    else:
+        if _SHA256_RE.fullmatch(trusted_file_sha256) is None:
+            raise RunnerError(
+                "untrusted_acceptance_anchor",
+                "the supplied plan clock authority is not a SHA-256 digest",
+                surface="acceptance_budget",
+            )
         raw = _read_exact_private_file(path, label="acceptance clock anchor")
+        if _sha256_bytes(raw) != trusted_file_sha256:
+            raise RunnerError(
+                "untrusted_acceptance_anchor",
+                "the pre-existing plan clock differs from out-of-band authority",
+                surface="acceptance_budget",
+                next_action="use the exact digest emitted by the original plan invocation",
+            )
     try:
         payload = json.loads(raw)
     except (UnicodeDecodeError, ValueError, TypeError) as exc:
@@ -4210,7 +5279,14 @@ def _load_or_create_acceptance_anchor(
     anchor = _validate_acceptance_anchor_payload(
         payload, expected_attempt_identity_sha256=attempt_identity_sha256
     )
-    return anchor, _sha256_bytes(raw)
+    observed_sha256 = _sha256_bytes(raw)
+    if trusted_file_sha256 is not None and observed_sha256 != trusted_file_sha256:
+        raise RunnerError(
+            "untrusted_acceptance_anchor",
+            "the plan clock changed after its out-of-band authority check",
+            surface="acceptance_budget",
+        )
+    return anchor, observed_sha256
 
 
 def _verify_acceptance_anchor(
@@ -4225,8 +5301,12 @@ def _verify_acceptance_anchor(
     if not isinstance(reference, Mapping) or dict(reference) != {
         "schema_version": "wiki_viva_upgrade_acceptance_anchor_reference.v1",
         "attempt_identity_sha256": expected_attempt,
-        "anchor_sha256": reference.get("anchor_sha256") if isinstance(reference, Mapping) else None,
-        "file_sha256": reference.get("file_sha256") if isinstance(reference, Mapping) else None,
+        "anchor_sha256": (
+            reference.get("anchor_sha256") if isinstance(reference, Mapping) else None
+        ),
+        "file_sha256": (
+            reference.get("file_sha256") if isinstance(reference, Mapping) else None
+        ),
     }:
         raise RunnerError(
             "invalid_acceptance_anchor",
@@ -4293,7 +5373,9 @@ def _preflight_commands(
             surface="preflight",
         )
     required_ids = [str(value) for value in required]
-    mapping_value = preflight.get("gate_mapping") if isinstance(preflight, dict) else None
+    mapping_value = (
+        preflight.get("gate_mapping") if isinstance(preflight, dict) else None
+    )
     if package.get("schema_version") == _TWO_LANE_PACKAGE:
         if (
             not isinstance(mapping_value, Mapping)
@@ -4382,7 +5464,7 @@ def _execute_preflight(
             )
         log = _require_ignored_output(consumer, evidence_root / f"{item['id']}.log")
         try:
-            result = subprocess.run(
+            result = run_bounded_process(
                 _parse_command(item["command"], kit_root=kit),
                 cwd=consumer,
                 env=_gate_environment(
@@ -4392,22 +5474,33 @@ def _execute_preflight(
                     subject_sha=b0,
                     public_release_sha=str(package["release"]["source_sha"]),
                 ),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                check=False,
                 timeout=1200,
+                output_limit=_MAX_GATE_OUTPUT_BYTES,
             )
-        except subprocess.TimeoutExpired as exc:
-            output = exc.output if isinstance(exc.output, bytes) else b""
-            _atomic_write(log, output)
+        except ProcessSafetyError as exc:
             _require_clean(consumer)
+            if _head(consumer) != b0:
+                raise RunnerError(
+                    "preflight_subject_changed",
+                    "preflight changed the exact B0 subject while failing",
+                    surface=item["id"],
+                    next_action="restore the exact B0 consumer before planning adoption",
+                ) from exc
+            code = (
+                "preflight_gate_timeout"
+                if exc.reason == "timeout"
+                else (
+                    "preflight_gate_output_oversized"
+                    if exc.reason == "output_limit"
+                    else "preflight_gate_process_unsafe"
+                )
+            )
             raise RunnerError(
-                "preflight_gate_timeout",
-                "a required read-only B0 preflight gate exceeded its bounded runtime",
+                code,
+                "a required read-only B0 preflight gate could not complete safely",
                 surface=item["id"],
                 next_action="repair the exact B0 gate runtime before planning adoption",
             ) from exc
-        _atomic_write(log, result.stdout)
         _require_clean(consumer)
         if _head(consumer) != b0 or result.returncode != 0:
             raise RunnerError(
@@ -4416,6 +5509,12 @@ def _execute_preflight(
                 surface=item["id"],
                 next_action="repair the exact B0 consumer before planning adoption",
             )
+        _require_safe_gate_text(
+            result.output,
+            gate_id=item["id"],
+            artifact="preflight stdout/stderr",
+        )
+        _atomic_write(log, result.output)
         _absolute, output_ref = _repo_relative(consumer, log)
         results.append(
             {
@@ -4427,9 +5526,9 @@ def _execute_preflight(
                 "subject_sha": b0,
                 "command": item["command"],
                 "command_sha256": _sha256_bytes(item["command"].encode("utf-8")),
-                "output_sha256": _sha256_bytes(result.stdout),
+                "output_sha256": _sha256_bytes(result.output),
                 "output_ref": output_ref,
-                "output_bytes": len(result.stdout),
+                "output_bytes": len(result.output),
             }
         )
     payload = {
@@ -4449,7 +5548,9 @@ def _verify_preflight(
 ) -> None:
     preflight = plan.get("preflight")
     if not isinstance(preflight, dict):
-        raise RunnerError("missing_preflight_evidence", "the plan omits B0 preflight evidence")
+        raise RunnerError(
+            "missing_preflight_evidence", "the plan omits B0 preflight evidence"
+        )
     if set(preflight) != {
         "schema_version",
         "subject_sha",
@@ -4463,7 +5564,9 @@ def _verify_preflight(
     unsigned = dict(preflight)
     claimed = unsigned.pop("preflight_sha256", None)
     if claimed != canonical_sha256(unsigned):
-        raise RunnerError("stale_preflight_evidence", "the B0 preflight digest is stale")
+        raise RunnerError(
+            "stale_preflight_evidence", "the B0 preflight digest is stale"
+        )
     package_preflight = package.get("preflight")
     required = (
         package_preflight.get("required_gates")
@@ -4493,9 +5596,12 @@ def _verify_preflight(
         or preflight.get("subject_sha") != plan["identity"]["consumer_B0"]
         or not isinstance(results, list)
         or not isinstance(required, list)
-        or {item.get("id") for item in results if isinstance(item, dict)} != set(required)
+        or {item.get("id") for item in results if isinstance(item, dict)}
+        != set(required)
     ):
-        raise RunnerError("stale_preflight_evidence", "the B0 preflight identity is incomplete")
+        raise RunnerError(
+            "stale_preflight_evidence", "the B0 preflight identity is incomplete"
+        )
     for result in results:
         if not isinstance(result, dict) or set(result) != {
             "id",
@@ -4534,11 +5640,12 @@ def _verify_preflight(
                 and command_id in registered
                 and command != registered[command_id]
             )
-            or result.get("command_sha256")
-            != _sha256_bytes(command.encode("utf-8"))
+            or result.get("command_sha256") != _sha256_bytes(command.encode("utf-8"))
             or not isinstance(output_ref, str)
         ):
-            raise RunnerError("stale_preflight_evidence", "a B0 preflight result is stale")
+            raise RunnerError(
+                "stale_preflight_evidence", "a B0 preflight result is stale"
+            )
         _parse_command(command, kit_root=kit)
         output = _require_ignored_output(consumer, Path(output_ref))
         if (
@@ -4546,7 +5653,9 @@ def _verify_preflight(
             or output.stat().st_size != result.get("output_bytes")
             or _sha256_bytes(output.read_bytes()) != result.get("output_sha256")
         ):
-            raise RunnerError("stale_preflight_output", "a B0 preflight log is missing or stale")
+            raise RunnerError(
+                "stale_preflight_output", "a B0 preflight log is missing or stale"
+            )
 
 
 def _worktree_changed_paths(consumer: Path) -> list[str]:
@@ -4575,8 +5684,12 @@ def _materialize_mutation_plan(
     kit: Path,
     resume: bool,
 ) -> dict[str, Any]:
-    execution_path = plan_path.parent / f"execution-plan-{preplan['plan_sha256'][:16]}.json"
-    mutation_state_path = plan_path.parent / f"mutation-state-{preplan['plan_sha256'][:16]}.json"
+    execution_path = (
+        plan_path.parent / f"execution-plan-{preplan['plan_sha256'][:16]}.json"
+    )
+    mutation_state_path = (
+        plan_path.parent / f"mutation-state-{preplan['plan_sha256'][:16]}.json"
+    )
 
     def require_execution_lineage(execution: Mapping[str, Any]) -> None:
         pre_mutation = preplan.get("mutation")
@@ -4629,9 +5742,10 @@ def _materialize_mutation_plan(
             )
         expected_paths = sorted(set(pre_impact["changed_paths"]) | c3_paths)
         expected_contracts = sorted(set(pre_impact["changed_contracts"]))
-        if impact.get("changed_paths") != expected_paths or impact.get(
-            "changed_contracts"
-        ) != expected_contracts:
+        if (
+            impact.get("changed_paths") != expected_paths
+            or impact.get("changed_contracts") != expected_contracts
+        ):
             raise RunnerError(
                 "stale_execution_plan_lineage",
                 "the execution plan omits or invents an anchored C3 path or contract",
@@ -4650,7 +5764,9 @@ def _materialize_mutation_plan(
         try:
             execution = json.loads(execution_path.read_text(encoding="utf-8"))
         except (OSError, ValueError, TypeError) as exc:
-            raise RunnerError("invalid_execution_plan", "the materialized execution plan is malformed") from exc
+            raise RunnerError(
+                "invalid_execution_plan", "the materialized execution plan is malformed"
+            ) from exc
         _verify_plan_digest(execution)
         if (
             execution.get("pre_mutation_plan_sha256") != preplan["plan_sha256"]
@@ -4667,8 +5783,7 @@ def _materialize_mutation_plan(
         replay_commands = preplan["mutation"]["c2_commands"]
         replay_evidence_path = _require_ignored_output(
             consumer,
-            plan_path.parent
-            / f"c2-resume-replay-{execution['plan_sha256'][:16]}.log",
+            plan_path.parent / f"c2-resume-replay-{execution['plan_sha256'][:16]}.log",
         )
         _boundary_execution(
             [f"{item['id']}::{item['command']}" for item in replay_commands],
@@ -4700,10 +5815,7 @@ def _materialize_mutation_plan(
             "the pre-mutation C3 authority differs from the exact B0 config",
             surface="C3",
         ) from exc
-    if (
-        preplan.get("consumer_c3_authority_sha256")
-        != consumer_c3_authority_sha256
-    ):
+    if preplan.get("consumer_c3_authority_sha256") != consumer_c3_authority_sha256:
         raise RunnerError(
             "stale_consumer_c3_authority",
             "the pre-mutation C3 authority digest is stale",
@@ -4711,7 +5823,9 @@ def _materialize_mutation_plan(
         )
     mutation = preplan.get("mutation")
     if not isinstance(mutation, dict) or mutation.get("strategy") != "runner_owned":
-        raise RunnerError("invalid_mutation_plan", "the plan has no runner-owned mutation contract")
+        raise RunnerError(
+            "invalid_mutation_plan", "the plan has no runner-owned mutation contract"
+        )
     mutation_identity = canonical_sha256(
         {
             "plan_sha256": preplan["plan_sha256"],
@@ -4744,7 +5858,9 @@ def _materialize_mutation_plan(
             "phase",
             "commits",
         }
-        phase = mutation_state.get("phase") if isinstance(mutation_state, dict) else None
+        phase = (
+            mutation_state.get("phase") if isinstance(mutation_state, dict) else None
+        )
         expected_commit_keys = {
             "B0": {"B0"},
             "C1_prepared": {"B0", "C1"},
@@ -4755,9 +5871,7 @@ def _materialize_mutation_plan(
             "C3": {"B0", "C1", "C2", "C3"},
         }.get(str(phase))
         commits_value = (
-            mutation_state.get("commits")
-            if isinstance(mutation_state, dict)
-            else None
+            mutation_state.get("commits") if isinstance(mutation_state, dict) else None
         )
         if (
             not isinstance(mutation_state, dict)
@@ -4858,9 +5972,7 @@ def _materialize_mutation_plan(
             str(generator["id"]): list(generator["owns_patterns"])
             for generator in operations["c2_generators"]
         }
-        configured_c3_patterns = consumer_c3_authority_patterns(
-            consumer_c3_authority
-        )
+        configured_c3_patterns = consumer_c3_authority_patterns(consumer_c3_authority)
         c3_owned_patterns = [
             *list(adapter["owns_patterns"]),
             *configured_c3_patterns,
@@ -4870,12 +5982,8 @@ def _materialize_mutation_plan(
             for item in mutation.get("c3_commands", [])
         }
     else:
-        c2_owned_patterns = list(
-            registry["boundary_policy"]["c2_generated_patterns"]
-        )
-        c3_owned_patterns = list(
-            registry["boundary_policy"]["c3_consumer_patterns"]
-        )
+        c2_owned_patterns = list(registry["boundary_policy"]["c2_generated_patterns"])
+        c3_owned_patterns = list(registry["boundary_policy"]["c3_consumer_patterns"])
         c2_ownership = None
         c3_ownership = None
         configured_c3_patterns = []
@@ -5051,7 +6159,10 @@ def _materialize_mutation_plan(
         consumer_c3_authority=consumer_c3_authority,
     )
     boundary_execution = _boundary_execution(
-        [f"{item['id']}::{item['command']}" for item in mutation.get("c2_commands", [])],
+        [
+            f"{item['id']}::{item['command']}"
+            for item in mutation.get("c2_commands", [])
+        ],
         boundaries,
         consumer=consumer,
         kit=kit,
@@ -5155,17 +6266,11 @@ def _plan(args: argparse.Namespace) -> int:
     current = _head(consumer)
     source_sha = str(capsule["source_sha"])
     _commit(kit, source_sha, fallback=source_sha)
-    automatic_mutation = not any(
-        (args.consumer_c1, args.consumer_c2, args.consumer_c3)
-    )
+    automatic_mutation = not any((args.consumer_c1, args.consumer_c2, args.consumer_c3))
     b0 = _commit(consumer, args.consumer_b0, fallback=current)
     try:
-        consumer_c3_authority = consumer_c3_authority_from_git(
-            consumer, b0, package
-        )
-        consumer_c3_authority_sha256 = str(
-            consumer_c3_authority["authority_sha256"]
-        )
+        consumer_c3_authority = consumer_c3_authority_from_git(consumer, b0, package)
+        consumer_c3_authority_sha256 = str(consumer_c3_authority["authority_sha256"])
     except UpgradeLaneError as exc:
         raise RunnerError(
             "invalid_consumer_c3_authority",
@@ -5196,12 +6301,8 @@ def _plan(args: argparse.Namespace) -> int:
             for path, value in sorted(entries.items())
         }
         prospective_c1 = _prospective_c1_paths(consumer, package, entries)
-        c2_commands = _c2_commands_for_plan(
-            package, args.c2_generator_command, kit=kit
-        )
-        c3_commands = _c3_commands_for_plan(
-            package, args.c3_adapter_command, kit=kit
-        )
+        c2_commands = _c2_commands_for_plan(package, args.c2_generator_command, kit=kit)
+        c3_commands = _c3_commands_for_plan(package, args.c3_adapter_command, kit=kit)
         operations = _boundary_operations(package)
         c3_adapter = (
             operations.get("c3_adapter")
@@ -5239,9 +6340,7 @@ def _plan(args: argparse.Namespace) -> int:
                 surface="consumer_B0",
                 next_action="check out B0, generate the plan, then check out C3 for adopt",
             )
-        _require_ancestry(
-            consumer, [commits[key] for key in ("B0", "C1", "C2", "C3")]
-        )
+        _require_ancestry(consumer, [commits[key] for key in ("B0", "C1", "C2", "C3")])
         boundaries = _build_boundaries(
             consumer=consumer,
             kit=kit,
@@ -5261,9 +6360,7 @@ def _plan(args: argparse.Namespace) -> int:
         c2_evidence_path = _require_ignored_output(
             consumer, target.parent / "c2-regenerator.log"
         )
-        c2_commands = _c2_commands_for_plan(
-            package, args.c2_generator_command, kit=kit
-        )
+        c2_commands = _c2_commands_for_plan(package, args.c2_generator_command, kit=kit)
         boundary_execution = _boundary_execution(
             [f"{item['id']}::{item['command']}" for item in c2_commands],
             boundaries,
@@ -5281,8 +6378,7 @@ def _plan(args: argparse.Namespace) -> int:
         )
         _validate_declared_boundaries(package, commits, boundaries)
     changed_paths = sorted(
-        set(args.changed_path or [])
-        | {item["path"] for item in boundaries["C3"]}
+        set(args.changed_path or []) | {item["path"] for item in boundaries["C3"]}
     )
     changed_contracts = list(args.changed_contract or [])
     selection, omissions, gate_catalog = _two_lane_selection(
@@ -5309,9 +6405,7 @@ def _plan(args: argparse.Namespace) -> int:
         "status": (
             "requires_lane_a"
             if selection["requires_lane_a"]
-            else "ready_to_mutate"
-            if automatic_mutation
-            else "ready"
+            else "ready_to_mutate" if automatic_mutation else "ready"
         ),
         "mode": "canary",
         "package_schema_version": package["schema_version"],
@@ -5360,6 +6454,7 @@ def _plan(args: argparse.Namespace) -> int:
             plan_path=target,
             attempt_identity_sha256=attempt_identity_sha256,
             invocation_started_unix_ns=plan_started_unix_ns,
+            trusted_file_sha256=getattr(args, "trusted_acceptance_anchor_sha256", None),
         )
     )
     plan["acceptance_budget"] = _pending_acceptance_budget_at(
@@ -5402,9 +6497,13 @@ def _validate_current_plan(
     _verify_plan_digest(plan)
     _validate_pending_plan_acceptance_budget(plan, package)
     if plan.get("capsule_sha256") != capsule["capsule_sha256"]:
-        raise RunnerError("stale_plan_capsule", "the plan targets a different release capsule")
+        raise RunnerError(
+            "stale_plan_capsule", "the plan targets a different release capsule"
+        )
     if plan.get("impact_registry_sha256") != registry["registry_sha256"]:
-        raise RunnerError("stale_plan_registry", "the plan targets a stale impact registry")
+        raise RunnerError(
+            "stale_plan_registry", "the plan targets a stale impact registry"
+        )
     expected_identity = {
         "source_sha": capsule["source_sha"],
         "package_sha256": capsule["package_sha256"],
@@ -5458,7 +6557,9 @@ def _validate_current_plan(
         )
     commits = plan.get("boundary_commits")
     if not isinstance(commits, dict) or set(commits) != {"B0", "C1", "C2", "C3"}:
-        raise RunnerError("invalid_plan_boundaries", "the plan boundary subjects are incomplete")
+        raise RunnerError(
+            "invalid_plan_boundaries", "the plan boundary subjects are incomplete"
+        )
     _require_ancestry(consumer, [commits[key] for key in ("B0", "C1", "C2", "C3")])
     rebuilt = _build_boundaries(
         consumer=consumer,
@@ -5707,7 +6808,9 @@ def _run_lock(path: Path) -> Iterable[None]:
         path.unlink(missing_ok=True)
 
 
-def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], run_dir: Path) -> None:
+def _validate_resume_state(
+    state: Mapping[str, Any], plan: Mapping[str, Any], run_dir: Path
+) -> None:
     expected = {
         "schema_version",
         "status",
@@ -5727,7 +6830,9 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
     if state.get("plan_sha256") != plan["plan_sha256"]:
         raise RunnerError("stale_resume_plan", "resume state belongs to a stale plan")
     if state.get("identity_sha256") != canonical_sha256(plan["identity"]):
-        raise RunnerError("stale_resume_identity", "resume state belongs to a stale B0/C3 identity")
+        raise RunnerError(
+            "stale_resume_identity", "resume state belongs to a stale B0/C3 identity"
+        )
     if state.get("consumer_c3_authority_sha256") != plan.get(
         "consumer_c3_authority_sha256"
     ):
@@ -5755,7 +6860,9 @@ def _validate_resume_state(state: Mapping[str, Any], plan: Mapping[str, Any], ru
             )
     results = state.get("gate_results")
     if not isinstance(results, dict):
-        raise RunnerError("invalid_resume_results", "resume gate results are not a mapping")
+        raise RunnerError(
+            "invalid_resume_results", "resume gate results are not a mapping"
+        )
     budget = _validate_acceptance_budget_record(
         state.get("acceptance_budget"), expected_plan=plan
     )
@@ -5878,9 +6985,7 @@ def _state_template(plan: Mapping[str, Any]) -> dict[str, Any]:
         "capsule_sha256": plan["capsule_sha256"],
         "impact_registry_sha256": plan["impact_registry_sha256"],
         "toolchain_sha256": plan["identity"]["toolchain_sha256"],
-        "consumer_c3_authority_sha256": plan[
-            "consumer_c3_authority_sha256"
-        ],
+        "consumer_c3_authority_sha256": plan["consumer_c3_authority_sha256"],
         "boundary_commits": dict(plan["boundary_commits"]),
         "run_started_unix_ns": time.time_ns(),
         "acceptance_budget": _validate_acceptance_budget_record(
@@ -6010,9 +7115,7 @@ def _record_completed_canary_budget(
             "the measured budget is not bound to the completed real canary",
             surface="acceptance_budget",
         )
-    canary_results_sha256 = canonical_sha256(
-        _canary_results_projection(state, plan)
-    )
+    canary_results_sha256 = canonical_sha256(_canary_results_projection(state, plan))
     seed: dict[str, Any] = {
         "schema_version": "wiki_viva_upgrade_canary_completion_anchor.v1",
         "authority": {
@@ -6135,6 +7238,8 @@ def _gate_environment(
         for key in _DOWNSTREAM_OPERATOR_ENV_KEYS
         if key in os.environ
     }
+    for value in supplied_operator.values():
+        _reject_secret_input(value, surface="real_canary")
     if supplied_operator or require_operator_environment:
         missing = sorted(set(_DOWNSTREAM_OPERATOR_ENV_KEYS) - set(supplied_operator))
         if missing:
@@ -6161,11 +7266,19 @@ def _gate_environment(
     allowed["WIKI_VIVA_KIT_ROOT"] = str(kit_root.resolve())
     allowed["WIKI_UPGRADE_RUN_DIR"] = str(run_dir.resolve())
     allowed["WIKI_UPGRADE_GATE_ID"] = gate_id
+    allowed["WIKI_UPGRADE_LANE"] = "lane_b"
     allowed["WIKI_UPGRADE_GATE_ARTIFACT_DIR"] = str(
         (run_dir / "gate-artifacts" / gate_id).resolve()
     )
     allowed["PYTHONUNBUFFERED"] = "1"
-    return allowed
+    allowed.update(
+        {
+            key: value
+            for key, value in sanitized_git_environment().items()
+            if key.startswith("GIT_")
+        }
+    )
+    return _node_workspace_environment(allowed)
 
 
 def _require_safe_gate_text(raw: bytes, *, gate_id: str, artifact: str) -> None:
@@ -6215,7 +7328,9 @@ def _require_safe_gate_text(raw: bytes, *, gate_id: str, artifact: str) -> None:
             )
 
 
-def _gate_artifact_files(artifact_dir: Path, *, gate_id: str) -> list[tuple[str, bytes]]:
+def _gate_artifact_files(
+    artifact_dir: Path, *, gate_id: str
+) -> list[tuple[str, bytes]]:
     """Inventory a finished gate artifact tree through pinned POSIX descriptors."""
 
     if not os.path.lexists(artifact_dir):
@@ -6300,7 +7415,9 @@ def _gate_artifact_files(artifact_dir: Path, *, gate_id: str) -> list[tuple[str,
             try:
                 descriptor = os.open(name, file_flags, dir_fd=directory)
             except OSError as exc:
-                fail("a gate artifact cannot be opened without link traversal", cause=exc)
+                fail(
+                    "a gate artifact cannot be opened without link traversal", cause=exc
+                )
             try:
                 before = os.fstat(descriptor)
                 if (
@@ -6379,9 +7496,7 @@ def _collect_gate_evidence(
     evidence_root = run_dir / "evidence"
     if os.path.lexists(evidence_root):
         evidence_root_mode = os.lstat(evidence_root).st_mode
-        if stat.S_ISLNK(evidence_root_mode) or not stat.S_ISDIR(
-            evidence_root_mode
-        ):
+        if stat.S_ISLNK(evidence_root_mode) or not stat.S_ISDIR(evidence_root_mode):
             raise RunnerError(
                 "unsafe_gate_evidence_destination",
                 "the runner evidence root is linked or not a real directory",
@@ -6437,7 +7552,11 @@ def _collect_gate_evidence(
                     "the canary visual evidence summary is malformed",
                     surface=gate_id,
                 ) from exc
-            entries = visual_summary.get("entries") if isinstance(visual_summary, dict) else None
+            entries = (
+                visual_summary.get("entries")
+                if isinstance(visual_summary, dict)
+                else None
+            )
             if (
                 not isinstance(visual_summary, dict)
                 or set(visual_summary) != {"schema_version", "entries"}
@@ -6480,8 +7599,7 @@ def _collect_gate_evidence(
                     or profile in seen_profiles
                     or profile not in VISUAL_PROFILE_CONTRACTS
                     or view != VISUAL_PROFILE_CONTRACTS[profile]["view"]
-                    or runtime_mode
-                    != VISUAL_PROFILE_CONTRACTS[profile]["runtime_mode"]
+                    or runtime_mode != VISUAL_PROFILE_CONTRACTS[profile]["runtime_mode"]
                     or not isinstance(viewport, dict)
                     or set(viewport) != {"width", "height"}
                     or any(
@@ -6490,8 +7608,7 @@ def _collect_gate_evidence(
                         or not 240 <= viewport[axis] <= 7680
                         for axis in ("width", "height")
                     )
-                    or viewport
-                    != VISUAL_PROFILE_CONTRACTS[profile]["canary_viewport"]
+                    or viewport != VISUAL_PROFILE_CONTRACTS[profile]["canary_viewport"]
                     or artifact in visual_by_artifact
                 ):
                     raise RunnerError(
@@ -6772,26 +7889,15 @@ def _run_gate(
     output = bytearray()
     output_oversized = threading.Event()
     output_reader_errors: list[BaseException] = []
-    process = subprocess.Popen(
-        argv,
-        cwd=consumer,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        env=_gate_environment(
-            run_dir,
-            kit,
-            gate_id,
-            subject_sha=subject_sha,
-            public_release_sha=public_release_sha,
-            require_operator_environment="test:e2e:operator" in command,
-        ),
-        start_new_session=True,
-    )
-    assert process.stdout is not None
+    process: subprocess.Popen[bytes] | None = None
+    reader: threading.Thread | None = None
+    active_error: BaseException | None = None
+    cleanup_error: BaseException | None = None
 
     def drain_output() -> None:
         try:
             while True:
+                assert process is not None and process.stdout is not None
                 chunk = process.stdout.read(64 * 1024)
                 if not chunk:
                     return
@@ -6803,58 +7909,89 @@ def _run_gate(
         except BaseException as exc:  # pragma: no cover - defensive pipe failure
             output_reader_errors.append(exc)
 
-    def terminate_process() -> None:
-        with contextlib.suppress(ProcessLookupError):
-            os.killpg(process.pid, signal.SIGTERM)
-        try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            with contextlib.suppress(ProcessLookupError):
-                os.killpg(process.pid, signal.SIGKILL)
-            process.wait()
-
-    reader = threading.Thread(
-        target=drain_output,
-        name=f"wiki-upgrade-output-{gate_id}",
-        daemon=True,
-    )
-    reader.start()
-    next_heartbeat = started + max(0.1, heartbeat)
-    while process.poll() is None:
-        now = time.monotonic()
-        if output_oversized.is_set():
-            terminate_process()
-            exit_code = 125
-            break
-        if now - started > timeout:
-            terminate_process()
-            exit_code = 124
-            break
-        if now >= next_heartbeat:
-            _emit(
-                {
-                    "event": "gate_heartbeat",
-                    "lane": "lane_b",
-                    "phase": gate["class"],
-                    "gate": gate_id,
-                    **_progress_fields(
-                        completed=completed_before,
-                        total=total_count,
-                        run_started_unix_ns=run_started_unix_ns,
-                    ),
-                },
-                stream=sys.stderr,
+    try:
+        process = start_process_group(
+            argv,
+            cwd=consumer,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=_gate_environment(
+                run_dir,
+                kit,
+                gate_id,
+                subject_sha=subject_sha,
+                public_release_sha=public_release_sha,
+                require_operator_environment="test:e2e:operator" in command,
+            ),
+        )
+        if process.stdout is None:
+            raise ProcessSafetyError(
+                "process_pipe_missing", "the gate output pipe is missing"
             )
-            next_heartbeat = now + max(0.1, heartbeat)
-        time.sleep(min(0.1, max(0.02, heartbeat / 10)))
-    else:
-        exit_code = int(process.returncode or 0)
-    reader.join(timeout=5)
-    if reader.is_alive():
-        terminate_process()
-        reader.join(timeout=5)
-    process.stdout.close()
-    if reader.is_alive() or output_reader_errors:
+        reader = threading.Thread(
+            target=drain_output,
+            name=f"wiki-upgrade-output-{gate_id}",
+            daemon=True,
+        )
+        reader.start()
+        next_heartbeat = started + max(0.1, heartbeat)
+        while process.poll() is None:
+            now = time.monotonic()
+            if output_oversized.is_set():
+                exit_code = 125
+                break
+            if now - started > timeout:
+                exit_code = 124
+                break
+            if now >= next_heartbeat:
+                _emit(
+                    {
+                        "event": "gate_heartbeat",
+                        "lane": "lane_b",
+                        "phase": gate["class"],
+                        "gate": gate_id,
+                        **_progress_fields(
+                            completed=completed_before,
+                            total=total_count,
+                            run_started_unix_ns=run_started_unix_ns,
+                        ),
+                    },
+                    stream=sys.stderr,
+                )
+                next_heartbeat = now + max(0.1, heartbeat)
+            time.sleep(min(0.1, max(0.02, heartbeat / 10)))
+        else:
+            exit_code = int(process.returncode or 0)
+    except BaseException as exc:
+        active_error = exc
+    finally:
+        if process is not None:
+            try:
+                terminate_process_group(process)
+            except BaseException as exc:
+                cleanup_error = exc
+        if reader is not None:
+            reader.join(timeout=5)
+        if process is not None and process.stdout is not None:
+            process.stdout.close()
+    if cleanup_error is not None:
+        raise RunnerError(
+            "gate_process_cleanup_failed",
+            "the gate left an unverifiable descendant process",
+            surface=gate_id,
+            next_action="repair the gate process lifecycle and rerun the unchanged plan",
+        ) from cleanup_error
+    if active_error is not None:
+        if isinstance(active_error, (OSError, ProcessSafetyError)):
+            raise RunnerError(
+                "gate_execution_unsafe",
+                "the gate command could not be executed safely",
+                surface=gate_id,
+                next_action="repair the gate process lifecycle and rerun the unchanged plan",
+            ) from active_error
+        raise active_error
+    if reader is None or reader.is_alive() or output_reader_errors:
         raise RunnerError(
             "gate_output_capture_failed",
             "the gate output stream could not be captured safely",
@@ -6868,6 +8005,14 @@ def _run_gate(
             next_action="use a quiet registered reporter and rerun the gate",
         )
     output_raw = bytes(output)
+    _require_clean(consumer)
+    if _head(consumer) != subject_sha:
+        raise RunnerError(
+            "gate_subject_changed",
+            "a read-only gate changed the exact consumer subject",
+            surface=gate_id,
+            next_action="restore the exact C3 subject and rerun the unchanged plan",
+        )
     _require_safe_gate_text(
         output_raw,
         gate_id=gate_id,
@@ -6951,9 +8096,13 @@ def _execute_group(
     if not pending:
         return
     completed_before = sum(
-        1 for result in state["gate_results"].values() if result.get("status") == "passed"
+        1
+        for result in state["gate_results"].values()
+        if result.get("status") == "passed"
     )
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(jobs, len(pending)))) as pool:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=max(1, min(jobs, len(pending)))
+    ) as pool:
         future_gate = {
             pool.submit(
                 _run_gate,
@@ -6969,9 +8118,9 @@ def _execute_group(
                 total_count=total_count,
                 run_started_unix_ns=state["run_started_unix_ns"],
                 resume_revalidation=(
-                    state["gate_results"].get(gate["id"], {}).get(
-                        "_resume_revalidation"
-                    )
+                    state["gate_results"]
+                    .get(gate["id"], {})
+                    .get("_resume_revalidation")
                     if state["gate_results"].get(gate["id"], {}).get("status")
                     == "revalidation_required"
                     else None
@@ -7144,15 +8293,12 @@ def _execute_phase_dag(
 def _rollback_execution(consumer: Path, plan: Mapping[str, Any]) -> dict[str, Any]:
     b0 = plan["identity"]["consumer_B0"]
     c3 = plan["identity"]["consumer_C3"]
-    expected_tree = _git(consumer, ["rev-parse", f"{b0}^{{tree}}"]).stdout.decode().strip()
+    expected_tree = (
+        _git(consumer, ["rev-parse", f"{b0}^{{tree}}"]).stdout.decode().strip()
+    )
     with tempfile.TemporaryDirectory(prefix="wiki-upgrade-rollback-") as temporary:
         clone = Path(temporary) / "consumer"
-        clone_result = subprocess.run(
-            ["git", "clone", "--quiet", "--no-local", str(consumer), str(clone)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
+        clone_result = _safe_local_clone(consumer, clone)
         if clone_result.returncode != 0:
             raise RunnerError(
                 "rollback_clone_failed",
@@ -7163,7 +8309,12 @@ def _rollback_execution(consumer: Path, plan: Mapping[str, Any]) -> dict[str, An
         _git(clone, ["checkout", "--quiet", "--detach", c3])
         patch = _git(consumer, ["diff", "--binary", b0, c3, "--"]).stdout
         if patch:
-            applied = _git(clone, ["apply", "--reverse", "--index", "--binary", "-"], input_bytes=patch, check=False)
+            applied = _git(
+                clone,
+                ["apply", "--reverse", "--index", "--binary", "-"],
+                input_bytes=patch,
+                check=False,
+            )
             if applied.returncode != 0:
                 raise RunnerError(
                     "rollback_apply_failed",
@@ -7172,7 +8323,9 @@ def _rollback_execution(consumer: Path, plan: Mapping[str, Any]) -> dict[str, An
                     next_action="repair the migration boundary or rollback policy before promotion",
                 )
         rolled_tree = _git(clone, ["write-tree"]).stdout.decode().strip()
-        worktree_equal = _git(clone, ["diff", "--quiet", b0, "--"], check=False).returncode == 0
+        worktree_equal = (
+            _git(clone, ["diff", "--quiet", b0, "--"], check=False).returncode == 0
+        )
         untracked = _git(clone, ["ls-files", "--others", "--exclude-standard"]).stdout
         tree_equal = rolled_tree == expected_tree and worktree_equal and not untracked
     evidence = {
@@ -7203,7 +8356,11 @@ def _png_dimensions(path: Path) -> tuple[int, int] | None:
         header = path.read_bytes()[:24]
     except OSError:
         return None
-    if len(header) == 24 and header[:8] == b"\x89PNG\r\n\x1a\n" and header[12:16] == b"IHDR":
+    if (
+        len(header) == 24
+        and header[:8] == b"\x89PNG\r\n\x1a\n"
+        and header[12:16] == b"IHDR"
+    ):
         return struct.unpack(">II", header[16:24])
     return None
 
@@ -7246,16 +8403,24 @@ def _evidence_inventory(state: Mapping[str, Any]) -> dict[str, Any]:
                 surface=gate_id,
                 next_action="rerun the gate through the current runner",
             )
-        screenshots.extend(item for item in captured.get("screenshots", []) if isinstance(item, dict))
-        console.extend(item for item in captured.get("console", []) if isinstance(item, dict))
-        network.extend(item for item in captured.get("network", []) if isinstance(item, dict))
+        screenshots.extend(
+            item for item in captured.get("screenshots", []) if isinstance(item, dict)
+        )
+        console.extend(
+            item for item in captured.get("console", []) if isinstance(item, dict)
+        )
+        network.extend(
+            item for item in captured.get("network", []) if isinstance(item, dict)
+        )
     return {
         "gate_logs": gate_logs,
         "screenshots": screenshots,
         "console": console,
         "network": network,
         "capture_status": {
-            "screenshots": "captured" if screenshots else "not_produced_by_selected_gates",
+            "screenshots": (
+                "captured" if screenshots else "not_produced_by_selected_gates"
+            ),
             "console": "captured" if console else "not_produced_by_selected_gates",
             "network": "captured" if network else "not_produced_by_selected_gates",
         },
@@ -7286,9 +8451,7 @@ def _require_evidence_contract(
             surface="gate_evidence",
             next_action="rerun the exact selected matrix through this runner",
         )
-    canary_ids = {
-        item["id"] for item in gate_catalog if item.get("class") == "canary"
-    }
+    canary_ids = {item["id"] for item in gate_catalog if item.get("class") == "canary"}
     network = evidence.get("network")
     if canary_ids and (
         not isinstance(network, list)
@@ -7297,8 +8460,7 @@ def _require_evidence_contract(
                 item.get("gate_id")
                 for item in network
                 if isinstance(item, dict)
-                and item.get("capture")
-                == "gate_emitted_sanitized_network_summary"
+                and item.get("capture") == "gate_emitted_sanitized_network_summary"
             }
         )
     ):
@@ -7315,8 +8477,7 @@ def _require_evidence_contract(
                 item.get("gate_id")
                 for item in console
                 if isinstance(item, dict)
-                and item.get("capture")
-                == "gate_emitted_browser_console_summary"
+                and item.get("capture") == "gate_emitted_browser_console_summary"
             }
         )
     ):
@@ -7409,15 +8570,34 @@ def _validate_gate_evidence_manifest(
     for kind in ("screenshots", "console", "network"):
         entries = evidence.get(kind)
         if not isinstance(entries, list):
-            raise RunnerError("invalid_run_owned_evidence", "a gate evidence list is invalid", surface=gate_id)
+            raise RunnerError(
+                "invalid_run_owned_evidence",
+                "a gate evidence list is invalid",
+                surface=gate_id,
+            )
         for item in entries:
-            if not isinstance(item, dict) or item.get("gate_id") != gate_id or item.get("subject_sha") != subject_sha:
-                raise RunnerError("stale_run_owned_evidence", "gate evidence is bound to another gate or C3", surface=gate_id)
+            if (
+                not isinstance(item, dict)
+                or item.get("gate_id") != gate_id
+                or item.get("subject_sha") != subject_sha
+            ):
+                raise RunnerError(
+                    "stale_run_owned_evidence",
+                    "gate evidence is bound to another gate or C3",
+                    surface=gate_id,
+                )
             artifact_file = item.get("artifact_file")
             if artifact_file is None:
                 continue
-            if not isinstance(artifact_file, str) or Path(artifact_file).name != artifact_file:
-                raise RunnerError("unsafe_run_owned_evidence", "a gate artifact reference is unsafe", surface=gate_id)
+            if (
+                not isinstance(artifact_file, str)
+                or Path(artifact_file).name != artifact_file
+            ):
+                raise RunnerError(
+                    "unsafe_run_owned_evidence",
+                    "a gate artifact reference is unsafe",
+                    surface=gate_id,
+                )
             artifact_raw = _read_fd_pinned_regular(
                 run_dir,
                 f"evidence/{gate_id}/{artifact_file}",
@@ -7452,18 +8632,14 @@ def _report(
     *,
     status: str,
 ) -> dict[str, Any]:
-    budget = _validate_acceptance_budget_record(
-        acceptance_budget, expected_plan=plan
-    )
+    budget = _validate_acceptance_budget_record(acceptance_budget, expected_plan=plan)
     return {
         "schema_version": REPORT_SCHEMA_VERSION,
         "status": status,
         "lane": "lane_b",
         "mode": "canary",
         "plan_sha256": plan["plan_sha256"],
-        "consumer_c3_authority_sha256": plan[
-            "consumer_c3_authority_sha256"
-        ],
+        "consumer_c3_authority_sha256": plan["consumer_c3_authority_sha256"],
         "identity": plan["identity"],
         "selection": {
             "escalation": plan["selection"]["escalation"],
@@ -7662,7 +8838,9 @@ def _adopt(args: argparse.Namespace) -> int:
     try:
         plan = json.loads(plan_path.read_text(encoding="utf-8"))
     except (OSError, ValueError, TypeError) as exc:
-        raise RunnerError("invalid_plan_file", "the adoption plan is missing or malformed") from exc
+        raise RunnerError(
+            "invalid_plan_file", "the adoption plan is missing or malformed"
+        ) from exc
     package, capsule, registry, verified_capsule = _load_artifacts(
         args.package,
         args.capsule,
@@ -7706,7 +8884,10 @@ def _adopt(args: argparse.Namespace) -> int:
         }
     )
     planned_mutation = plan.get("mutation")
-    if isinstance(planned_mutation, dict) and planned_mutation.get("strategy") == "runner_owned":
+    if (
+        isinstance(planned_mutation, dict)
+        and planned_mutation.get("strategy") == "runner_owned"
+    ):
         plan = _materialize_mutation_plan(
             preplan=plan,
             plan_path=plan_path,
@@ -7743,9 +8924,7 @@ def _adopt(args: argparse.Namespace) -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
     with _run_lock(lock_path):
         canary_completion_anchor: dict[str, str] | None = None
-        trusted_canary_completion_sha256 = (
-            args.trusted_canary_completion_anchor_sha256
-        )
+        trusted_canary_completion_sha256 = args.trusted_canary_completion_anchor_sha256
         if state_path.exists():
             if not args.resume:
                 raise RunnerError(
@@ -7757,7 +8936,9 @@ def _adopt(args: argparse.Namespace) -> int:
             try:
                 state = json.loads(state_path.read_text(encoding="utf-8"))
             except (OSError, ValueError, TypeError) as exc:
-                raise RunnerError("invalid_resume_state", "the resume state is malformed") from exc
+                raise RunnerError(
+                    "invalid_resume_state", "the resume state is malformed"
+                ) from exc
             _validate_resume_state(state, plan, run_dir)
             if state.get("status") == "complete":
                 raise RunnerError(
@@ -7808,10 +8989,19 @@ def _adopt(args: argparse.Namespace) -> int:
             )
 
         gates = [dict(item) for item in plan["gate_catalog"]]
-        rollback_gate = [item for item in gates if item["id"] == "rollback_report_verification"]
-        ordinary = [item for item in gates if item["id"] != "rollback_report_verification"]
+        rollback_gate = [
+            item for item in gates if item["id"] == "rollback_report_verification"
+        ]
+        ordinary = [
+            item for item in gates if item["id"] != "rollback_report_verification"
+        ]
         groups = [
-            [item for item in ordinary if item["class"] in {"consumer_always", "affected", "upstream_certified"}],
+            [
+                item
+                for item in ordinary
+                if item["class"]
+                in {"consumer_always", "affected", "upstream_certified"}
+            ],
             [item for item in ordinary if item["class"] == "canary"],
             [item for item in ordinary if item["class"] == "background_certification"],
         ]
@@ -7819,9 +9009,7 @@ def _adopt(args: argparse.Namespace) -> int:
         groups_to_run = (
             groups[:1]
             if args.pause_before_canary
-            else groups[:2]
-            if args.pause_before_background
-            else groups
+            else groups[:2] if args.pause_before_background else groups
         )
         for group in groups_to_run:
             _execute_phase_dag(
@@ -7875,9 +9063,7 @@ def _adopt(args: argparse.Namespace) -> int:
 
         if args.pause_before_background:
             selected_background = {
-                item["id"]
-                for item in groups[2]
-                if item["id"] in selected_ids
+                item["id"] for item in groups[2] if item["id"] in selected_ids
             }
             if not selected_background:
                 raise RunnerError(
@@ -7914,7 +9100,9 @@ def _adopt(args: argparse.Namespace) -> int:
 
         rollback = _rollback_execution(consumer, plan)
         _atomic_write(run_dir / "rollback.json", _json_bytes(rollback))
-        preliminary_results = [_receipt_result(value) for value in state["gate_results"].values()]
+        preliminary_results = [
+            _receipt_result(value) for value in state["gate_results"].values()
+        ]
         candidate = _report(
             plan,
             preliminary_results,
@@ -7923,9 +9111,16 @@ def _adopt(args: argparse.Namespace) -> int:
             state["acceptance_budget"],
             status="candidate",
         )
-        _atomic_write(run_dir / "migration-report.candidate.json", _json_bytes(candidate))
+        _atomic_write(
+            run_dir / "migration-report.candidate.json", _json_bytes(candidate)
+        )
         latest = _require_ignored_output(consumer, plan_path.parent / "latest.json")
-        _atomic_write(latest, _json_bytes({"schema_version": "wiki_viva_upgrade_latest.v1", "run_key": run_key}))
+        _atomic_write(
+            latest,
+            _json_bytes(
+                {"schema_version": "wiki_viva_upgrade_latest.v1", "run_key": run_key}
+            ),
+        )
 
         _execute_phase_dag(
             rollback_gate,
@@ -7999,19 +9194,14 @@ def _adopt(args: argparse.Namespace) -> int:
         acceptance_budget = _validate_acceptance_budget_record(
             state["acceptance_budget"], expected_plan=plan
         )
-        if (
-            canary_completion_anchor is None
-            or trusted_canary_completion_sha256 is None
-        ):
+        if canary_completion_anchor is None or trusted_canary_completion_sha256 is None:
             raise RunnerError(
                 "missing_canary_completion_anchor",
                 "final adoption evidence lacks external real-canary completion authority",
                 lane="lane_b",
                 surface="acceptance_budget",
             )
-        receipt_status = (
-            "passed" if acceptance_budget["status"] == "met" else "blocked"
-        )
+        receipt_status = "passed" if acceptance_budget["status"] == "met" else "blocked"
         receipt = seal_adoption_receipt(
             {
                 "status": receipt_status,
@@ -8020,9 +9210,7 @@ def _adopt(args: argparse.Namespace) -> int:
                 "impact_registry_sha256": registry["registry_sha256"],
                 "impact_derivation_sha256": plan["selection"]["derivation_sha256"],
                 "plan_sha256": plan["plan_sha256"],
-                "consumer_c3_authority_sha256": plan[
-                    "consumer_c3_authority_sha256"
-                ],
+                "consumer_c3_authority_sha256": plan["consumer_c3_authority_sha256"],
                 "acceptance_budget": acceptance_budget,
                 "canary_completion_anchor": canary_completion_anchor,
                 "resume": {
@@ -8090,9 +9278,7 @@ def _adopt(args: argparse.Namespace) -> int:
             "plan_sha256": plan["plan_sha256"],
             "selected_gate_count": len(results),
             "acceptance_budget": acceptance_budget,
-            "canary_completion_anchor_sha256": (
-                trusted_canary_completion_sha256
-            ),
+            "canary_completion_anchor_sha256": (trusted_canary_completion_sha256),
             "promotion_ready": receipt_status == "passed",
             "human_gate_required": True,
             "contract": "wiki_viva_upgrade_acceptance_budget.v1",
@@ -8129,6 +9315,17 @@ def _parser() -> argparse.ArgumentParser:
     certify.add_argument("--visual-manifest-ref", required=True)
     certify.add_argument("--out-dir", type=Path, required=True)
     certify.add_argument("--attestation-authority-id", required=True)
+    certify.add_argument(
+        "--node-workspace-authority",
+        type=Path,
+        required=True,
+        help="external path-free Node workspace authority captured for source_sha",
+    )
+    certify.add_argument(
+        "--trusted-node-workspace-authority-sha256",
+        required=True,
+        help="trusted SHA-256 for the external Node workspace authority",
+    )
     certify.add_argument("--run-id")
     certify.add_argument("--jobs", type=int, default=4)
     certify.add_argument("--gate-timeout", type=int, default=1200)
@@ -8170,6 +9367,13 @@ def _parser() -> argparse.ArgumentParser:
         "--trusted-attestation-sha256",
         required=True,
         help="out-of-band SHA-256 trust anchor; never inferred from the capsule",
+    )
+    plan.add_argument(
+        "--trusted-acceptance-anchor-sha256",
+        help=(
+            "exact digest emitted by a prior plan invocation; required when "
+            "reusing its create-once acceptance anchor"
+        ),
     )
     plan.add_argument("--consumer-root", type=Path, required=True)
     plan.add_argument("--kit-root", type=Path, default=ROOT)

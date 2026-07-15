@@ -4,8 +4,10 @@ import copy
 import hashlib
 import json
 import re
+import shlex
 from pathlib import Path
 
+import pytest
 from jsonschema import Draft202012Validator
 
 from wiki_core.upgrade import (
@@ -23,9 +25,7 @@ from wiki_core.upgrade_lanes import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA_PATH = (
-    ROOT / "docs/references/schemas/wiki-upgrade-package-v3.schema.json"
-)
+SCHEMA_PATH = ROOT / "docs/references/schemas/wiki-upgrade-package-v3.schema.json"
 
 
 def _schema_validator() -> Draft202012Validator:
@@ -54,10 +54,10 @@ def _package_v3() -> dict:
     gate_commands = {
         "audit": "python3 scripts/wiki_audit.py --check",
         "background_suite": "python3 -m pytest tests/",
-        "bundle": "npm --prefix apps/wiki-cockpit run check:bundle",
+        "bundle": "python3 scripts/wiki_node_workspace.py run check:bundle",
         "diff_check": "git diff --check",
-        "focused_frontend": "npm --prefix apps/wiki-cockpit test",
-        "real_canary": "npm --prefix apps/wiki-cockpit run test:e2e:operator",
+        "focused_frontend": "python3 scripts/wiki_node_workspace.py run test",
+        "real_canary": ("python3 scripts/wiki_node_workspace.py run test:e2e:operator"),
     }
     gate_policies = {
         "audit": {
@@ -155,6 +155,7 @@ def _package_v3() -> dict:
             # The broader block proves glob containment: every path owned by
             # the sample-snapshot C2 subtree is outside effective C1.
             "block": [
+                "apps/wiki-cockpit/node_modules/**",
                 "apps/wiki-cockpit/public/**",
                 "memories/**",
                 "wiki.config.yaml",
@@ -178,7 +179,7 @@ def _package_v3() -> dict:
             "gate_commands": gate_commands,
             "command_registry": {
                 gate_id: {
-                    "argv": ["sh", "-c", command],
+                    "argv": shlex.split(command),
                     "cwd": ".",
                     "timeout_seconds": 900,
                     "env_allowlist": [],
@@ -281,8 +282,7 @@ def test_v3_rejects_c2_not_provably_blocked_from_effective_c1() -> None:
     assert _schema_errors(package) == []
     assert (
         "migration.generated_artifact_patterns[0] is not fully excluded from "
-        "effective C1 by portable_import.block"
-        in validate_upgrade_package(package)
+        "effective C1 by portable_import.block" in validate_upgrade_package(package)
     )
 
 
@@ -313,10 +313,86 @@ def test_project_v3_blocks_every_c2_pattern_from_effective_c1() -> None:
         )
 
 
+def test_project_v3_excludes_materialized_node_dependencies_from_c1() -> None:
+    package = load_mapping(
+        ROOT / "docs/references/upgrades/wiki-viva-v8/upgrade-package.yaml"
+    )
+    dependency_path = "apps/wiki-cockpit/node_modules/typescript/bin/tsc"
+
+    allowed, reason = portable_path_status(dependency_path, package)
+    assert allowed is False
+    assert reason == "blocked by apps/wiki-cockpit/node_modules/**"
+
+    missing_block = copy.deepcopy(package)
+    missing_block["portable_import"]["block"].remove(
+        "apps/wiki-cockpit/node_modules/**"
+    )
+    assert portable_path_status(dependency_path, missing_block)[0] is True
+    assert (
+        "portable_import.block must exclude "
+        "apps/wiki-cockpit/node_modules/** from C1"
+        in validate_upgrade_package(missing_block)
+    )
+
+
+@pytest.mark.parametrize(
+    ("gate_id", "command", "violation"),
+    [
+        (
+            "bundle",
+            "npm --prefix apps/wiki-cockpit run check:bundle",
+            "raw_node_command",
+        ),
+        ("focused_frontend", "node scripts/frontend.js", "raw_node_command"),
+        (
+            "real_canary",
+            "python scripts/wiki_node_workspace.py run test:e2e:operator",
+            "invalid_node_workspace_wrapper",
+        ),
+        (
+            "real_canary",
+            "python3 scripts/wiki_node_workspace.py run",
+            "invalid_node_workspace_wrapper",
+        ),
+    ],
+)
+def test_v3_node_gates_require_the_exact_workspace_wrapper(
+    gate_id: str, command: str, violation: str
+) -> None:
+    package = _package_v3()
+    package["migration"]["gate_commands"][gate_id] = command
+    package["migration"]["command_registry"][gate_id]["argv"] = shlex.split(command)
+    package["migration"]["command_registry_sha256"] = _command_digest(package)
+
+    errors = validate_upgrade_package(package)
+    assert (
+        f"migration.gate_commands.{gate_id} violates Node workspace policy: "
+        f"{violation}" in errors
+    )
+    assert any(
+        error.startswith(f"migration.command_registry.{gate_id}.argv ")
+        and error.endswith(violation)
+        for error in errors
+    )
+
+
+def test_v3_c2_generator_rejects_raw_node_execution() -> None:
+    package = _package_v3()
+    boundary = package["migration"]["boundary_operations"]
+    boundary["c2_generators"][0][
+        "command"
+    ] = "npm --prefix apps/wiki-cockpit run build:demo"
+    boundary["registry_sha256"] = boundary_operations_sha256(boundary)
+
+    assert (
+        "migration.boundary_operations.c2_generators[0].command violates "
+        "Node workspace policy: raw_node_command" in validate_upgrade_package(package)
+    )
+
+
 def test_manual_v2_evidence_example_is_not_bound_to_project_v3_release() -> None:
     example_path = (
-        ROOT
-        / "docs/references/upgrades/wiki-viva-v8/migration-evidence.example.yaml"
+        ROOT / "docs/references/upgrades/wiki-viva-v8/migration-evidence.example.yaml"
     )
     example_text = example_path.read_text(encoding="utf-8")
     example = load_mapping(example_path)
@@ -363,9 +439,7 @@ def test_project_v3_keeps_operational_pass_current_in_every_consumer() -> None:
     assert policy["class"] == "consumer_always"
     assert policy["reuse"] == "never"
     assert policy["required_for_promotion"] is True
-    assert "operational_pass" in migration["gate_policies"]["real_canary"][
-        "depends_on"
-    ]
+    assert "operational_pass" in migration["gate_policies"]["real_canary"]["depends_on"]
     assert catalog["operational_pass"] == {
         "id": "operational_pass",
         "class": "consumer_always",
@@ -373,8 +447,7 @@ def test_project_v3_keeps_operational_pass_current_in_every_consumer() -> None:
     }
     assert "operational_pass" in registry["full_matrix_gates"]
     assert any(
-        "operational_pass" in surface["gates"]
-        for surface in registry["surfaces"]
+        "operational_pass" in surface["gates"] for surface in registry["surfaces"]
     )
 
 
@@ -413,9 +486,7 @@ def test_v3_never_reusable_assertion_cannot_claim_capsule_reuse() -> None:
 
 def test_v3_rejects_gate_dependency_cycle_semantically() -> None:
     package = _package_v3()
-    package["migration"]["gate_policies"]["audit"]["depends_on"] = [
-        "background_suite"
-    ]
+    package["migration"]["gate_policies"]["audit"]["depends_on"] = ["background_suite"]
     assert _schema_errors(package) == []
     assert (
         "migration.gate_policies dependency graph has a cycle"
@@ -456,9 +527,7 @@ def test_v3_preflight_mapping_is_total_and_targets_registered_gates() -> None:
 def test_v3_rejects_c1_only_preflight_and_any_reviewable_domain_gate() -> None:
     package = _package_v3()
     package["preflight"]["required_gates"].append("semantic_inventory")
-    package["preflight"]["gate_mapping"][
-        "semantic_inventory"
-    ] = "diff_check"
+    package["preflight"]["gate_mapping"]["semantic_inventory"] = "diff_check"
     package["preflight"]["reviewable_gates"] = {
         "semantic_inventory": {
             "required_boundary": "downstream_adaptations",
@@ -470,13 +539,11 @@ def test_v3_rejects_c1_only_preflight_and_any_reviewable_domain_gate() -> None:
     errors = validate_upgrade_package(package)
     assert (
         "preflight.required_gates must be exactly ['diff_check'] for a "
-        "legacy-safe v3 B0"
-        in errors
+        "legacy-safe v3 B0" in errors
     )
     assert (
         "preflight.reviewable_gates is forbidden for v3; domain repair must "
-        "precede a fresh B0"
-        in errors
+        "precede a fresh B0" in errors
     )
 
     wrong_mapping = _package_v3()
@@ -516,24 +583,21 @@ def test_v3_acceptance_budget_is_exact_and_promotion_blocking() -> None:
     enlarged["migration"]["acceptance_budget"]["limit_seconds"] = 1201
     assert _schema_errors(enlarged)
     assert any(
-        "exactly 1200 seconds" in error
-        for error in validate_upgrade_package(enlarged)
+        "exactly 1200 seconds" in error for error in validate_upgrade_package(enlarged)
     )
 
     shortened = _package_v3()
     shortened["migration"]["acceptance_budget"]["limit_seconds"] = 1199
     assert _schema_errors(shortened)
     assert any(
-        "exactly 1200 seconds" in error
-        for error in validate_upgrade_package(shortened)
+        "exactly 1200 seconds" in error for error in validate_upgrade_package(shortened)
     )
 
     weakened = _package_v3()
     weakened["migration"]["acceptance_budget"]["enforcement"] = "advisory"
     assert _schema_errors(weakened)
     assert any(
-        "promotion blocking" in error
-        for error in validate_upgrade_package(weakened)
+        "promotion blocking" in error for error in validate_upgrade_package(weakened)
     )
 
     package = _package_v3()
@@ -545,8 +609,7 @@ def test_v3_acceptance_budget_is_exact_and_promotion_blocking() -> None:
     assert _schema_errors(package) == []
     assert (
         "migration.boundary_operations.c2_generators must own exactly "
-        "migration.generated_artifact_patterns"
-        in validate_upgrade_package(package)
+        "migration.generated_artifact_patterns" in validate_upgrade_package(package)
     )
 
 
@@ -598,9 +661,7 @@ def test_project_preflight_is_legacy_safe_without_weakening_final_c3_gates() -> 
     )
 
     assert package["preflight"]["required_gates"] == ["diff_check"]
-    assert package["preflight"]["gate_mapping"] == {
-        "diff_check": "diff_check"
-    }
+    assert package["preflight"]["gate_mapping"] == {"diff_check": "diff_check"}
     assert package["migration"]["gate_commands"]["diff_check"] == "git diff --check"
     assert {
         gate_id: package["migration"]["gate_policies"][gate_id]["class"]
@@ -623,22 +684,23 @@ def test_published_upstream_certification_commands_use_public_safe_reporters() -
         ROOT / "docs/references/upgrades/wiki-viva-v8/impact-registry.yaml"
     )
     expected = {
-        "frontend": "npm --prefix apps/wiki-cockpit test -- --reporter=tap",
+        "frontend": "python3 scripts/wiki_node_workspace.py run test -- --reporter=tap",
         "portable_python": "python3 -m pytest -q -W error tests/",
     }
     catalog = {item["id"]: item for item in registry["gate_catalog"]}
 
     assert {
-        gate_id: package["migration"]["gate_commands"][gate_id]
-        for gate_id in expected
+        gate_id: package["migration"]["gate_commands"][gate_id] for gate_id in expected
     } == expected
     assert {gate_id: catalog[gate_id]["command"] for gate_id in expected} == expected
-    assert all(catalog[gate_id]["class"] == "upstream_certified" for gate_id in expected)
+    assert all(
+        catalog[gate_id]["class"] == "upstream_certified" for gate_id in expected
+    )
     assert package["migration"]["command_registry_sha256"] == _command_digest(package)
     assert verify_impact_registry(registry) == registry["registry_sha256"]
-    assert package["migration"]["impact_registry"]["sha256"] == registry[
-        "registry_sha256"
-    ]
+    assert (
+        package["migration"]["impact_registry"]["sha256"] == registry["registry_sha256"]
+    )
 
 
 def test_v1_and_v2_packages_remain_valid_without_two_lane_fields() -> None:
@@ -651,6 +713,11 @@ def test_v1_and_v2_packages_remain_valid_without_two_lane_fields() -> None:
         "gate_policies",
     ):
         del modern["migration"][field]
+    # Historical package schemas keep their original command bytes.  There is
+    # no caller-controlled bypass that can weaken a v3 package.
+    modern["migration"]["gate_commands"][
+        "bundle"
+    ] = "npm --prefix apps/wiki-cockpit run check:bundle"
     assert validate_upgrade_package(modern) == []
 
     legacy = copy.deepcopy(modern)
@@ -683,9 +750,9 @@ def test_v3_requires_the_exact_consumer_c3_authority_contract_version() -> None:
     )
 
     wrong = _package_v3()
-    wrong["contract_versions"]["consumer_c3_authority"] = (
-        "wiki_viva_upgrade_consumer_c3_authority.v999"
-    )
+    wrong["contract_versions"][
+        "consumer_c3_authority"
+    ] = "wiki_viva_upgrade_consumer_c3_authority.v999"
     assert list(_schema_validator().iter_errors(wrong))
     assert any(
         "contract_versions.consumer_c3_authority must be" in error

@@ -148,8 +148,9 @@ page_types:
       - updated_at
       - stale_after_days
       - event_id
-      - source_id
       - moc_parent
+    required_frontmatter_any_of:
+      - [source_id, source_refs]
     field_types:
       <<: *common_field_types
       event_id: string

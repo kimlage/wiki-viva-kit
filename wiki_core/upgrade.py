@@ -14,6 +14,7 @@ import json
 import math
 import os
 import re
+import shlex
 import subprocess
 import tempfile
 from functools import lru_cache
@@ -24,6 +25,14 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from wiki_core.detectors import scan_text
+from wiki_core.git_safety import (
+    GitSafetyError,
+    require_safe_local_config,
+    resolved_git_executable,
+    sanitized_git_argv,
+    sanitized_git_environment,
+)
+from wiki_core.process_safety import ProcessSafetyError, run_bounded_process
 
 
 UPGRADE_PACKAGE_SCHEMA_VERSION = "wiki_viva_upgrade_package.v2"
@@ -47,6 +56,19 @@ UPGRADE_GATE_CLASSES = {
     "background_certification",
 }
 UPGRADE_GATE_REUSE_POLICIES = {"exact_capsule", "impact", "never"}
+NODE_WORKSPACE_RUN_PREFIX = (
+    "python3",
+    "scripts/wiki_node_workspace.py",
+    "run",
+)
+_RAW_NODE_EXECUTABLES = frozenset(
+    {"bun", "bunx", "corepack", "node", "npm", "npx", "pnpm", "pnpx", "yarn"}
+)
+_SHELL_EXECUTABLES = frozenset(
+    {"bash", "cmd", "dash", "fish", "ksh", "powershell", "pwsh", "sh", "zsh"}
+)
+_RELEASE_COMMAND_CONTROL_RE = re.compile(r"(?:\$\(|`|\x00|\r|\n)")
+_RELEASE_SHELL_TOKENS = frozenset({"|", "||", "&", "&&", ";", ">", ">>", "<", "<<"})
 
 # These are the only domain-root exceptions a certified v3 package may derive
 # from a consumer's B0 configuration.  Keeping the complete role contract here
@@ -215,6 +237,9 @@ _MIGRATION_COMMAND_PLACEHOLDER_RE = re.compile(
     r"^\s*(?:run|execute)(?:\s+[^\s]+)?\s*$|"
     r"^\s*(?:true|:|exit\s+0)\s*$|<[^>]+>)"
 )
+_GIT_TIMEOUT_SECONDS = 60
+_GIT_MAX_INPUT_BYTES = 16 * 1024 * 1024
+_GIT_MAX_OUTPUT_BYTES = 64 * 1024 * 1024
 _FORBIDDEN_ADAPTATION_PATTERNS = (
     ".git/**",
     ".wiki-viva/**",
@@ -275,7 +300,9 @@ def canonical_json(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
-def _finite_json_value(value: Any, *, _active: set[int] | None = None, _depth: int = 0) -> bool:
+def _finite_json_value(
+    value: Any, *, _active: set[int] | None = None, _depth: int = 0
+) -> bool:
     """Reject YAML-only scalars, recursive aliases and pathological depth."""
 
     if _depth > 128:
@@ -334,9 +361,7 @@ def _migration_visual_profiles(package: dict[str, Any]) -> tuple[str, ...]:
     """
 
     migration = package.get("migration")
-    values = (
-        migration.get("visual_profiles") if isinstance(migration, dict) else None
-    )
+    values = migration.get("visual_profiles") if isinstance(migration, dict) else None
     if isinstance(values, list) and values:
         return tuple(str(value) for value in values)
     return _DEFAULT_MIGRATION_VISUAL_PROFILES
@@ -346,9 +371,7 @@ def _migration_commit_boundary_fields(package: dict[str, Any]) -> tuple[str, ...
     """Return consumer-after SHA fields declared by the package, in order."""
 
     migration = package.get("migration")
-    values = (
-        migration.get("commit_boundaries") if isinstance(migration, dict) else None
-    )
+    values = migration.get("commit_boundaries") if isinstance(migration, dict) else None
     if not isinstance(values, list):
         return ("import_commit_sha",)
     return tuple(
@@ -450,8 +473,97 @@ def _migration_evidence_schema_errors(evidence: dict[str, Any]) -> list[str]:
     return sorted(set(errors))
 
 
+def _command_executable_name(value: str) -> str:
+    """Return a platform-neutral executable basename for command review."""
+
+    executable = value.replace("\\", "/").rsplit("/", 1)[-1].casefold()
+    for suffix in (".cmd", ".exe"):
+        if executable.endswith(suffix):
+            executable = executable[: -len(suffix)]
+            break
+    return executable
+
+
+def release_node_command_violation(
+    command: str | Sequence[str], *, node_required: bool = False
+) -> str | None:
+    """Fail closed when release commands bypass the sealed Node wrapper.
+
+    The stored release contract is deliberately stricter than runtime Python
+    resolution: Node-bearing commands must use the exact portable spelling
+    ``python3 scripts/wiki_node_workspace.py run ...``.  The runner may later
+    resolve that reviewed ``python3`` alias to its probed interpreter, but the
+    package, registry and capsule never bind ambient ``node``/``npm`` bytes.
+    """
+
+    if isinstance(command, str) and _RELEASE_COMMAND_CONTROL_RE.search(command):
+        return "invalid_command"
+    try:
+        argv = (
+            shlex.split(command, posix=True)
+            if isinstance(command, str)
+            else list(command)
+        )
+    except (TypeError, ValueError):
+        return "invalid_command"
+    if not argv or any(not isinstance(token, str) or not token for token in argv):
+        return "invalid_command"
+    if any(token in _RELEASE_SHELL_TOKENS for token in argv):
+        return "invalid_command"
+
+    exact_wrapper = len(argv) >= 4 and tuple(argv[:3]) == NODE_WORKSPACE_RUN_PREFIX
+    wrapper_referenced = any(
+        token.replace("\\", "/").rsplit("/", 1)[-1] == "wiki_node_workspace.py"
+        for token in argv
+    )
+    if wrapper_referenced and not exact_wrapper:
+        return "invalid_node_workspace_wrapper"
+
+    executable_index = 0
+    if _command_executable_name(argv[0]) == "env":
+        executable_index = 1
+        while executable_index < len(argv) and (
+            argv[executable_index].startswith("-")
+            or (
+                "=" in argv[executable_index]
+                and not argv[executable_index].startswith("=")
+            )
+        ):
+            executable_index += 1
+    if (
+        executable_index < len(argv)
+        and _command_executable_name(argv[executable_index]) in _RAW_NODE_EXECUTABLES
+    ):
+        return "raw_node_command"
+
+    # A shell payload must not be able to conceal ambient Node execution from
+    # the package/capsule review.  Only inspect the shell's payload tokens so
+    # ordinary Python/git arguments containing words such as "node" remain
+    # valid.
+    if _command_executable_name(argv[0]) in _SHELL_EXECUTABLES:
+        for token in argv[1:]:
+            try:
+                nested = shlex.split(token, posix=True)
+            except ValueError:
+                continue
+            if nested and _command_executable_name(nested[0]) in _RAW_NODE_EXECUTABLES:
+                return "raw_node_command"
+            if any(
+                value.replace("\\", "/").rsplit("/", 1)[-1] == "wiki_node_workspace.py"
+                for value in nested
+            ):
+                return "invalid_node_workspace_wrapper"
+
+    if node_required and not exact_wrapper:
+        return "node_workspace_wrapper_required"
+    return None
+
+
 def _validate_two_lane_package(
-    migration: Mapping[str, Any], migration_gates: Sequence[Any]
+    migration: Mapping[str, Any],
+    migration_gates: Sequence[Any],
+    *,
+    enforce_node_workspace_contract: bool,
 ) -> list[str]:
     """Validate the executable v3 policy without weakening v1/v2 packages."""
 
@@ -512,6 +624,25 @@ def _validate_two_lane_package(
             )
         ):
             errors.append(f"{prefix}.argv must be a non-empty string list")
+        else:
+            policy_map = migration.get("gate_policies")
+            policy = (
+                policy_map.get(gate_id, {}) if isinstance(policy_map, Mapping) else {}
+            )
+            resource_group = (
+                str(policy.get("resource_group") or "")
+                if isinstance(policy, Mapping)
+                else ""
+            )
+            if enforce_node_workspace_contract:
+                violation = release_node_command_violation(
+                    argv,
+                    node_required=resource_group.startswith(("node_", "browser_")),
+                )
+                if violation is not None:
+                    errors.append(
+                        f"{prefix}.argv violates Node workspace policy: {violation}"
+                    )
         cwd = str(raw_command.get("cwd") or "")
         if (
             not cwd
@@ -634,22 +765,40 @@ def _validate_two_lane_package(
         visit(gate_id)
 
     gate_commands = migration.get("gate_commands")
-    command_registry_sha256 = str(
-        migration.get("command_registry_sha256") or ""
-    )
+    command_registry_sha256 = str(migration.get("command_registry_sha256") or "")
     if (
         isinstance(gate_commands, Mapping)
         and set(str(key) for key in gate_commands) == expected
         and isinstance(policies, Mapping)
         and set(str(key) for key in policies) == expected
     ):
+        for gate_id in sorted(expected):
+            command = gate_commands.get(gate_id)
+            policy = policies.get(gate_id)
+            resource_group = (
+                str(policy.get("resource_group") or "")
+                if isinstance(policy, Mapping)
+                else ""
+            )
+            if enforce_node_workspace_contract:
+                violation = release_node_command_violation(
+                    command,
+                    node_required=resource_group.startswith(("node_", "browser_")),
+                )
+                if violation is not None:
+                    errors.append(
+                        f"migration.gate_commands.{gate_id} violates Node "
+                        f"workspace policy: {violation}"
+                    )
         projection = sorted(
             (
                 {
                     "id": gate_id,
-                    "class": str(policies[gate_id].get("class") or "")
-                    if isinstance(policies[gate_id], Mapping)
-                    else "",
+                    "class": (
+                        str(policies[gate_id].get("class") or "")
+                        if isinstance(policies[gate_id], Mapping)
+                        else ""
+                    ),
                     "command": str(gate_commands[gate_id]),
                 }
                 for gate_id in expected
@@ -670,10 +819,7 @@ def _validate_two_lane_package(
     if not isinstance(impact, Mapping):
         errors.append("migration.impact_registry must be a mapping")
     else:
-        if (
-            impact.get("schema_version")
-            != "wiki_viva_upgrade_impact_registry.v1"
-        ):
+        if impact.get("schema_version") != "wiki_viva_upgrade_impact_registry.v1":
             errors.append("migration.impact_registry.schema_version is invalid")
         if not _SHA256_RE.fullmatch(str(impact.get("sha256") or "")):
             errors.append("migration.impact_registry.sha256 is invalid")
@@ -727,6 +873,12 @@ def _validate_two_lane_package(
             or _migration_command_is_placeholder(command)
         ):
             errors.append(f"{prefix}.command must be an exact command")
+        elif enforce_node_workspace_contract:
+            violation = release_node_command_violation(command)
+            if violation is not None:
+                errors.append(
+                    f"{prefix}.command violates Node workspace policy: {violation}"
+                )
         owns = raw_generator.get("owns_patterns")
         if not isinstance(owns, list) or not owns:
             errors.append(f"{prefix}.owns_patterns must be non-empty")
@@ -744,9 +896,7 @@ def _validate_two_lane_package(
             "migration.boundary_operations.c2_generators must have unique sorted ids"
         )
     if len(generated_owners) != len(set(generated_owners)):
-        errors.append(
-            "migration.boundary_operations.c2_generators ownership overlaps"
-        )
+        errors.append("migration.boundary_operations.c2_generators ownership overlaps")
     if set(generated_owners) != {
         str(value) for value in migration.get("generated_artifact_patterns") or []
     }:
@@ -772,9 +922,7 @@ def _validate_two_lane_package(
         )
     if c3.get("mode") != "consumer_plan_commands":
         errors.append("migration.boundary_operations.c3_adapter.mode is invalid")
-    if not re.fullmatch(
-        r"[a-z][a-z0-9_.:+-]{1,127}", str(c3.get("contract") or "")
-    ):
+    if not re.fullmatch(r"[a-z][a-z0-9_.:+-]{1,127}", str(c3.get("contract") or "")):
         errors.append("migration.boundary_operations.c3_adapter.contract is invalid")
     c3_patterns = c3.get("owns_patterns")
     if not isinstance(c3_patterns, list) or not c3_patterns:
@@ -811,10 +959,7 @@ def _validate_two_lane_package(
             "migration.boundary_operations.c3_adapter.configured_ownership "
             "has unknown or missing fields"
         )
-    if (
-        configured.get("schema_version")
-        != CONFIG_BOUND_C3_POLICY_SCHEMA_VERSION
-    ):
+    if configured.get("schema_version") != CONFIG_BOUND_C3_POLICY_SCHEMA_VERSION:
         errors.append(
             "migration.boundary_operations.c3_adapter.configured_ownership."
             "schema_version is invalid"
@@ -846,7 +991,9 @@ def _validate_two_lane_package(
     return sorted(set(errors))
 
 
-def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
+def _validate_upgrade_package(
+    package: dict[str, Any], *, enforce_node_workspace_contract: bool
+) -> list[str]:
     errors: list[str] = []
     schema_version = package.get("schema_version")
     if schema_version not in {
@@ -918,9 +1065,11 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     required_contracts = (
         (*legacy_contracts, *v2_contracts, *v3_contracts)
         if schema_version == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION
-        else (*legacy_contracts, *v2_contracts)
-        if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION
-        else legacy_contracts
+        else (
+            (*legacy_contracts, *v2_contracts)
+            if schema_version == UPGRADE_PACKAGE_SCHEMA_VERSION
+            else legacy_contracts
+        )
     )
     for field in required_contracts:
         if not str(schemas.get(field) or "").strip():
@@ -951,7 +1100,10 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     )
     if not required_gates:
         errors.append("preflight.required_gates cannot be empty")
-    if schema_version == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION:
+    if (
+        schema_version == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION
+        and enforce_node_workspace_contract
+    ):
         if required_gates != ["diff_check"]:
             errors.append(
                 "preflight.required_gates must be exactly ['diff_check'] for "
@@ -972,9 +1124,7 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
                 "preflight.reviewable_gates may only declare semantic_inventory"
             )
         if gate_id not in required_gates:
-            errors.append(
-                f"preflight.reviewable_gates.{gate_id} must also be required"
-            )
+            errors.append(f"preflight.reviewable_gates.{gate_id} must also be required")
         policy = _require_mapping(
             raw_policy, f"preflight.reviewable_gates.{gate_id}", errors
         )
@@ -998,14 +1148,16 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
         []
         if schema_version == LEGACY_UPGRADE_PACKAGE_SCHEMA_VERSION
         and raw_commit_boundaries is None
-        else _require_list(
-            raw_commit_boundaries, "migration.commit_boundaries", errors
-        )
+        else _require_list(raw_commit_boundaries, "migration.commit_boundaries", errors)
     )
-    if schema_version in {
-        UPGRADE_PACKAGE_SCHEMA_VERSION,
-        TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
-    } and not commit_boundaries:
+    if (
+        schema_version
+        in {
+            UPGRADE_PACKAGE_SCHEMA_VERSION,
+            TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
+        }
+        and not commit_boundaries
+    ):
         errors.append("migration.commit_boundaries cannot be empty")
     normalized_boundaries = [str(value) for value in commit_boundaries]
     if len(normalized_boundaries) != len(set(normalized_boundaries)):
@@ -1017,9 +1169,7 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     known_boundaries = [
         value for value in normalized_boundaries if value in canonical_ids
     ]
-    if known_boundaries != sorted(
-        known_boundaries, key=canonical_ids.index
-    ):
+    if known_boundaries != sorted(known_boundaries, key=canonical_ids.index):
         errors.append("migration.commit_boundaries must use canonical order")
     if (
         schema_version
@@ -1055,10 +1205,17 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
         errors.append("migration.generated_artifact_patterns must be unique")
     for index, value in enumerate(generated_patterns):
         if not isinstance(value, str) or not _safe_repo_pattern(value):
-            errors.append(
-                f"migration.generated_artifact_patterns[{index}] is unsafe"
-            )
+            errors.append(f"migration.generated_artifact_patterns[{index}] is unsafe")
     if schema_version == TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION:
+        if enforce_node_workspace_contract and not any(
+            isinstance(pattern, str)
+            and _repo_pattern_contains(pattern, "apps/wiki-cockpit/node_modules/**")
+            for pattern in block
+        ):
+            errors.append(
+                "portable_import.block must exclude "
+                "apps/wiki-cockpit/node_modules/** from C1"
+            )
         errors.extend(
             _effective_c1_c2_disjoint_errors(
                 allow=allow,
@@ -1074,13 +1231,15 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     gate_commands_value = migration.get("gate_commands")
     if gate_commands_value is not None and not isinstance(gate_commands_value, dict):
         errors.append("migration.gate_commands must be a mapping")
-    gate_commands = (
-        gate_commands_value if isinstance(gate_commands_value, dict) else {}
-    )
-    if schema_version in {
-        UPGRADE_PACKAGE_SCHEMA_VERSION,
-        TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
-    } and migration_gates:
+    gate_commands = gate_commands_value if isinstance(gate_commands_value, dict) else {}
+    if (
+        schema_version
+        in {
+            UPGRADE_PACKAGE_SCHEMA_VERSION,
+            TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
+        }
+        and migration_gates
+    ):
         # The package is the command registry: evidence may only claim gate
         # runs whose exact command the package registered up front.
         if not gate_commands:
@@ -1106,10 +1265,14 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
     visual_profiles = _require_list(
         migration.get("visual_profiles"), "migration.visual_profiles", errors
     )
-    if schema_version in {
-        UPGRADE_PACKAGE_SCHEMA_VERSION,
-        TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
-    } and not visual_profiles:
+    if (
+        schema_version
+        in {
+            UPGRADE_PACKAGE_SCHEMA_VERSION,
+            TWO_LANE_UPGRADE_PACKAGE_SCHEMA_VERSION,
+        }
+        and not visual_profiles
+    ):
         errors.append("migration.visual_profiles cannot be empty")
     normalized_profiles = [str(value) for value in visual_profiles]
     if len(normalized_profiles) != len(set(normalized_profiles)):
@@ -1140,8 +1303,33 @@ def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
                     "preflight.gate_mapping must be exactly "
                     "{'diff_check': 'diff_check'} for a legacy-safe v3 B0"
                 )
-        errors.extend(_validate_two_lane_package(migration, migration_gates))
+        errors.extend(
+            _validate_two_lane_package(
+                migration,
+                migration_gates,
+                enforce_node_workspace_contract=enforce_node_workspace_contract,
+            )
+        )
     return errors
+
+
+def validate_upgrade_package(package: dict[str, Any]) -> list[str]:
+    """Validate the strict package contract used by every new release."""
+
+    return _validate_upgrade_package(package, enforce_node_workspace_contract=True)
+
+
+def validate_legacy_capsule_v1_package(package: dict[str, Any]) -> list[str]:
+    """Validate a pre-RT173 package for immutable v1 verification only.
+
+    Capsule v1 predates the sealed Node workspace policy. Its package is still
+    bound byte-for-byte by the capsule and external attestation, but cannot be
+    retroactively required to carry the later ``node_modules`` exclusion or
+    wrapper-only Node command spelling. Mutation and adoption paths never call
+    this compatibility validator.
+    """
+
+    return _validate_upgrade_package(package, enforce_node_workspace_contract=False)
 
 
 def package_is_pinned(package: dict[str, Any]) -> bool:
@@ -1305,12 +1493,10 @@ def _effective_c1_c2_disjoint_errors(
         # result does not weaken the explicit-block requirement: C2 ownership
         # must remain visible and reviewable even if today's allowlist narrows.
         allowed_by_c1 = any(
-            _repo_pattern_contains(pattern, raw_pattern)
-            for pattern in safe_allow
+            _repo_pattern_contains(pattern, raw_pattern) for pattern in safe_allow
         )
         block_proves_disjoint = any(
-            _repo_pattern_contains(pattern, raw_pattern)
-            for pattern in safe_block
+            _repo_pattern_contains(pattern, raw_pattern) for pattern in safe_block
         )
         effective_c1_overlap = allowed_by_c1 and not block_proves_disjoint
         error = (
@@ -1338,11 +1524,7 @@ def _canonical_portable_path(path: str) -> tuple[str | None, str]:
     raw = str(path)
     if not raw or raw != raw.strip() or "\x00" in raw:
         return None, "unsafe non-canonical path"
-    if (
-        raw.startswith(("/", "./", "~"))
-        or "\\" in raw
-        or _WINDOWS_DRIVE_RE.match(raw)
-    ):
+    if raw.startswith(("/", "./", "~")) or "\\" in raw or _WINDOWS_DRIVE_RE.match(raw):
         return None, "unsafe non-canonical path"
     parts = raw.split("/")
     if any(not part or part in {".", ".."} for part in parts):
@@ -1563,20 +1745,57 @@ def compare_portable_files(
     return report
 
 
+def _run_git_process(
+    root: Path,
+    arguments: Sequence[str],
+    *,
+    input_bytes: bytes | None = None,
+    require_repository: bool = True,
+    timeout: int = _GIT_TIMEOUT_SECONDS,
+) -> subprocess.CompletedProcess[bytes]:
+    """Run one bounded Git command without ambient executable policy.
+
+    Existing repositories are audited before every operation.  Clone is the
+    sole caller allowed to use a non-repository cwd; its source is audited
+    separately and the resulting repository is audited before checkout.
+    """
+
+    working_root = root.resolve(strict=True)
+    if require_repository:
+        require_safe_local_config(working_root)
+    if input_bytes is not None and len(input_bytes) > _GIT_MAX_INPUT_BYTES:
+        raise GitSafetyError("Git input exceeds the bounded contract")
+    executable = resolved_git_executable()
+    argv = sanitized_git_argv(arguments, executable=executable)
+    try:
+        result = run_bounded_process(
+            argv,
+            cwd=working_root,
+            env=sanitized_git_environment(executable=executable),
+            timeout=timeout,
+            output_limit=_GIT_MAX_OUTPUT_BYTES,
+            input_bytes=input_bytes,
+            input_limit=_GIT_MAX_INPUT_BYTES,
+            stderr=subprocess.DEVNULL,
+        )
+    except ProcessSafetyError as exc:
+        raise OSError("Git bounded execution failed") from exc
+    return subprocess.CompletedProcess(
+        argv,
+        result.returncode,
+        stdout=result.output,
+        stderr=b"",
+    )
+
+
 def _git_commit_available(root: Path, sha: str) -> bool:
     if not sha:
         return False
     try:
-        subprocess.run(
-            ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
-            cwd=root,
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except (OSError, subprocess.CalledProcessError):
+        result = _run_git_process(root, ["cat-file", "-e", f"{sha}^{{commit}}"])
+    except (GitSafetyError, OSError, subprocess.TimeoutExpired, ValueError):
         return False
-    return True
+    return result.returncode == 0
 
 
 def _git_tree_blobs(
@@ -1587,15 +1806,18 @@ def _git_tree_blobs(
 ) -> dict[str, str]:
     """Return repository-relative blob paths for one exact Git tree."""
 
+    # The shared environment always disables replace objects; retain the
+    # parameter for legacy-v1 API compatibility without weakening the read.
+    del no_replace_objects
     try:
-        raw = subprocess.check_output(
-            ["git", "ls-tree", "-r", "-z", sha],
-            cwd=root,
-            stderr=subprocess.DEVNULL,
-            env=_git_subprocess_env(no_replace_objects),
-        )
-    except (OSError, subprocess.CalledProcessError) as exc:
-        raise ValueError(f"release source_sha is unavailable in kit checkout: {sha}") from exc
+        result = _run_git_process(root, ["ls-tree", "-r", "-z", sha])
+    except (GitSafetyError, OSError, subprocess.TimeoutExpired, ValueError) as exc:
+        raise ValueError(
+            f"release source_sha is unavailable in kit checkout: {sha}"
+        ) from exc
+    if result.returncode != 0:
+        raise ValueError(f"release source_sha is unavailable in kit checkout: {sha}")
+    raw = result.stdout
     blobs: dict[str, str] = {}
     for record in raw.split(b"\0"):
         if not record:
@@ -1613,13 +1835,12 @@ def _git_tree_entries(root: Path, sha: str) -> dict[str, tuple[str, str]]:
     """Return blob mode and object id for every file in one committed tree."""
 
     try:
-        raw = subprocess.check_output(
-            ["git", "ls-tree", "-r", "-z", sha],
-            cwd=root,
-            stderr=subprocess.DEVNULL,
-        )
-    except (OSError, subprocess.CalledProcessError) as exc:
+        result = _run_git_process(root, ["ls-tree", "-r", "-z", sha])
+    except (GitSafetyError, OSError, subprocess.TimeoutExpired, ValueError) as exc:
         raise ValueError(f"Git tree is unavailable: {sha}") from exc
+    if result.returncode != 0:
+        raise ValueError(f"Git tree is unavailable: {sha}")
+    raw = result.stdout
     entries: dict[str, tuple[str, str]] = {}
     for record in raw.split(b"\0"):
         if not record:
@@ -1635,12 +1856,6 @@ def _git_tree_entries(root: Path, sha: str) -> dict[str, tuple[str, str]]:
     return entries
 
 
-def _git_subprocess_env(no_replace_objects: bool) -> dict[str, str] | None:
-    if not no_replace_objects:
-        return None
-    return {**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"}
-
-
 def _git_blob_payloads(
     root: Path,
     object_ids: set[str],
@@ -1651,19 +1866,20 @@ def _git_blob_payloads(
 
     if not object_ids:
         return {}
+    # The shared environment always disables replace objects; retain the
+    # parameter for callers compiled against the legacy signature.
+    del no_replace_objects
     ordered = sorted(object_ids)
-    with subprocess.Popen(
-        ["git", "cat-file", "--batch"],
-        cwd=root,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=_git_subprocess_env(no_replace_objects),
-    ) as process:
-        stdout_raw, stderr_raw = process.communicate(
-            "".join(f"{oid}\n" for oid in ordered).encode("ascii")
+    try:
+        result = _run_git_process(
+            root,
+            ["cat-file", "--batch"],
+            input_bytes="".join(f"{oid}\n" for oid in ordered).encode("ascii"),
         )
-        return_code = process.returncode
+    except (GitSafetyError, OSError, subprocess.TimeoutExpired, ValueError) as exc:
+        raise ValueError("could not read release blobs: safe Git unavailable") from exc
+    stdout_raw = result.stdout
+    return_code = result.returncode
 
     payloads: dict[str, bytes] = {}
     batch_errors: list[str] = []
@@ -1702,11 +1918,10 @@ def _git_blob_payloads(
                 batch_errors.append(f"{requested}:unexpected-{parts[1]}")
                 continue
             payloads[requested] = payload
-    stderr = stderr_raw.decode("utf-8", errors="replace").strip()
     if fatal_error:
         raise ValueError(f"could not read release blobs: {fatal_error}")
     if return_code != 0:
-        raise ValueError(f"could not read release blobs: {stderr or return_code}")
+        raise ValueError(f"could not read release blobs: git-exit-{return_code}")
     if batch_errors:
         raise ValueError(
             "could not read release blobs: " + ", ".join(sorted(batch_errors))
@@ -1736,9 +1951,7 @@ def _portable_git_tree_comparison(
         if _migration_subject_path_status(path, package)[0]
     }
     shared = set(source) & set(consumer)
-    source_payloads = _git_blob_payloads(
-        kit_root, {source[path][1] for path in shared}
-    )
+    source_payloads = _git_blob_payloads(kit_root, {source[path][1] for path in shared})
     consumer_payloads = _git_blob_payloads(
         consumer_root, {consumer[path][1] for path in shared}
     )
@@ -1817,7 +2030,9 @@ def _partition_portable_drift(
     paths = _portable_drift_paths(drift)
     migration = package.get("migration")
     migration = migration if isinstance(migration, dict) else {}
-    patterns = [str(value) for value in migration.get("generated_artifact_patterns") or []]
+    patterns = [
+        str(value) for value in migration.get("generated_artifact_patterns") or []
+    ]
     generated = sorted(
         path for path in paths if any(_matches(path, pattern) for pattern in patterns)
     )
@@ -1848,9 +2063,9 @@ def _partition_portable_drift(
 
 def _git_diff_paths(root: Path, parent: str, child: str) -> list[str]:
     try:
-        raw = subprocess.check_output(
+        result = _run_git_process(
+            root,
             [
-                "git",
                 "diff-tree",
                 "--no-commit-id",
                 "--name-only",
@@ -1860,11 +2075,12 @@ def _git_diff_paths(root: Path, parent: str, child: str) -> list[str]:
                 parent,
                 child,
             ],
-            cwd=root,
-            stderr=subprocess.DEVNULL,
         )
-    except (OSError, subprocess.CalledProcessError):
+    except (GitSafetyError, OSError, subprocess.TimeoutExpired, ValueError):
         return []
+    if result.returncode != 0:
+        return []
+    raw = result.stdout
     return sorted(
         part.decode("utf-8", errors="surrogateescape")
         for part in raw.split(b"\0")
@@ -1919,7 +2135,9 @@ def _tree_paths_are_secret_safe(
     if any(path not in entries for path in paths):
         return False
     selected_entries = {path: entries[path] for path in paths if path in entries}
-    if any(mode not in {"100644", "100755"} for mode, _oid in selected_entries.values()):
+    if any(
+        mode not in {"100644", "100755"} for mode, _oid in selected_entries.values()
+    ):
         return False
     selected = {path: entry[1] for path, entry in selected_entries.items()}
     payloads = _git_blob_payloads(root, set(selected.values()))
@@ -1949,19 +2167,24 @@ def _tree_release_records_are_non_executable_markdown(
     release_records = [path for path in paths if path.startswith(prefix)]
     entries = _git_tree_entries(root, sha)
     return all(
-        path.endswith(".md")
-        and path in entries
-        and entries[path][0] == "100644"
+        path.endswith(".md") and path in entries and entries[path][0] == "100644"
         for path in release_records
     )
 
 
 def _git(root: Path, *args: str) -> str:
     try:
-        return subprocess.check_output(
-            ["git", *args], cwd=root, text=True, stderr=subprocess.DEVNULL
-        ).strip()
-    except (OSError, subprocess.CalledProcessError):
+        result = _run_git_process(root, list(args))
+        if result.returncode != 0:
+            return ""
+        return result.stdout.decode("utf-8", "strict").strip()
+    except (
+        GitSafetyError,
+        OSError,
+        subprocess.TimeoutExpired,
+        UnicodeDecodeError,
+        ValueError,
+    ):
         return ""
 
 
@@ -2002,9 +2225,9 @@ def configured_layout(root: Path) -> dict[str, Any]:
         "memory_root": str(paths.get("memory_root") or "memories"),
         "references_root": str(paths.get("references_root") or "docs/references"),
         "derived_root": str(paths.get("derived_root") or "data/derived/wiki"),
-        "cockpit_root": "apps/wiki-cockpit"
-        if (root / "apps/wiki-cockpit").is_dir()
-        else "",
+        "cockpit_root": (
+            "apps/wiki-cockpit" if (root / "apps/wiki-cockpit").is_dir() else ""
+        ),
     }
 
 
@@ -2051,9 +2274,7 @@ def _snapshot_state(
     candidate: Path | None = (
         derived
         if derived.exists()
-        else sample
-        if allow_sample and sample.exists()
-        else None
+        else sample if allow_sample and sample.exists() else None
     )
     if candidate is None:
         return {"available": False, "kind": "missing", "manifest": ""}
@@ -2208,19 +2429,19 @@ def build_preflight_report(
     # A private-risk request without an explicitly ignored sidecar is forced
     # through the redacted projection even when the caller forgot --redact.
     # It remains blocked below so stdout can never become an authority channel.
-    effective_redact = bool(redact or (redaction_required and not authoritative_private))
+    effective_redact = bool(
+        redact or (redaction_required and not authoritative_private)
+    )
 
     state = git_state(consumer_root)
     layout = configured_layout(consumer_root)
     overrides = discover_local_overrides(consumer_root)
     release_pinned = package_is_pinned(package)
     release_sha = str((package.get("release") or {}).get("source_sha") or "")
-    release_status = str(
-        (package.get("release") or {}).get("status") or ""
-    ).strip().lower()
-    release_id = (
-        str((package.get("release") or {}).get("id") or "").strip().lower()
+    release_status = (
+        str((package.get("release") or {}).get("status") or "").strip().lower()
     )
+    release_id = str((package.get("release") or {}).get("id") or "").strip().lower()
     # Promotion state and source-tree availability are separate facts. A
     # validation-pending candidate must still expose its real drift while the
     # release_pinned check keeps migration/promotion blocked.
@@ -2245,9 +2466,7 @@ def build_preflight_report(
                         for path in _portable_drift_paths(drift)
                         if any(_matches(path, pattern) for pattern in ignored_patterns)
                     ),
-                    "unsafe_ignore_patterns": _unsafe_ignore_patterns(
-                        ignored_patterns
-                    ),
+                    "unsafe_ignore_patterns": _unsafe_ignore_patterns(ignored_patterns),
                 }
             )
         else:
@@ -2300,9 +2519,7 @@ def build_preflight_report(
         str(value)
         for value in (package.get("preflight") or {}).get("required_gates") or []
     ]
-    reviewable_gates = (
-        (package.get("preflight") or {}).get("reviewable_gates") or {}
-    )
+    reviewable_gates = (package.get("preflight") or {}).get("reviewable_gates") or {}
     gate_errors, gate_summary = validate_gate_evidence(
         gate_evidence or {},
         required_gates,
@@ -2315,15 +2532,17 @@ def build_preflight_report(
         _check(
             "release_pinned",
             "pass" if release_pinned else "fail",
-            "exact public release and SHA"
-            if release_pinned
-            else (
-                "release source_sha is not pinned"
-                if not _valid_sha(release_sha)
+            (
+                "exact public release and SHA"
+                if release_pinned
                 else (
-                    f"release id is not pinned: {release_id or 'missing'}"
-                    if release_id in _UNPINNED
-                    else f"release status is not releasable: {release_status or 'missing'}"
+                    "release source_sha is not pinned"
+                    if not _valid_sha(release_sha)
+                    else (
+                        f"release id is not pinned: {release_id or 'missing'}"
+                        if release_id in _UNPINNED
+                        else f"release status is not releasable: {release_status or 'missing'}"
+                    )
                 )
             ),
         )
@@ -2332,9 +2551,11 @@ def build_preflight_report(
         _check(
             "release_source_available",
             "pass" if release_source_available else "fail",
-            f"pinned Git tree available: {release_sha}"
-            if release_source_available
-            else f"pinned Git tree unavailable: {release_sha or 'missing'}",
+            (
+                f"pinned Git tree available: {release_sha}"
+                if release_source_available
+                else f"pinned Git tree unavailable: {release_sha or 'missing'}"
+            ),
         )
     )
     branch_prefix = str(
@@ -2359,14 +2580,14 @@ def build_preflight_report(
         _check(
             "current_gates",
             "pass" if not gate_errors else "fail",
-            "; ".join(gate_errors)
-            if gate_errors
-            else "all required gates passed or have bounded reviews at current HEAD",
+            (
+                "; ".join(gate_errors)
+                if gate_errors
+                else "all required gates passed or have bounded reviews at current HEAD"
+            ),
         )
     )
-    semantic_review = (gate_summary.get("reviews") or {}).get(
-        "semantic_inventory"
-    )
+    semantic_review = (gate_summary.get("reviews") or {}).get("semantic_inventory")
     if isinstance(semantic_review, dict):
         checks.append(
             _check(
@@ -2577,15 +2798,17 @@ def build_preflight_report(
             "authoritative_private": authoritative_private,
             "authoritative_ref": private_ref if authoritative_private else "",
         },
-        "drift": drift
-        if not effective_redact
-        else {
-            "drift_total": drift["drift_total"],
-            "only_in_kit_count": len(drift["only_in_kit"]),
-            "only_in_consumer_count": len(drift["only_in_consumer"]),
-            "content_differs_count": len(drift["content_differs"]),
-            "ignored_per_repo_count": len(drift["ignored_per_repo"]),
-        },
+        "drift": (
+            drift
+            if not effective_redact
+            else {
+                "drift_total": drift["drift_total"],
+                "only_in_kit_count": len(drift["only_in_kit"]),
+                "only_in_consumer_count": len(drift["only_in_consumer"]),
+                "content_differs_count": len(drift["content_differs"]),
+                "ignored_per_repo_count": len(drift["ignored_per_repo"]),
+            }
+        ),
         "migration_partition": migration_partition,
         "snapshot": snapshot,
         "gate_evidence": gate_summary,
@@ -2644,9 +2867,9 @@ def migration_evidence_template(package: dict[str, Any]) -> dict[str, Any]:
         "consumer_after": {
             "branch": "wiki/upgrade-v8",
             **{
-                field: boundary_placeholders[field]
-                if field in declared_fields
-                else None
+                field: (
+                    boundary_placeholders[field] if field in declared_fields else None
+                )
                 for _boundary, field in _MIGRATION_COMMIT_BOUNDARIES
             },
         },
@@ -2696,9 +2919,7 @@ def migration_evidence_template(package: dict[str, Any]) -> dict[str, Any]:
                 "route_ref": "public-fixture:canonical-root",
                 "center_ref": "public-fixture:root",
                 "viewport": (
-                    "390x844"
-                    if profile in {"mobile", "fallback"}
-                    else "1440x1000"
+                    "390x844" if profile in {"mobile", "fallback"} else "1440x1000"
                 ),
                 "browser": "webkit" if profile == "mobile" else "chromium",
                 "screenshot_ref": f"output/wiki-upgrade/qa/{profile}.png",
@@ -2747,20 +2968,21 @@ def _migration_command_is_placeholder(value: Any) -> bool:
 
 
 def _git_path_is_ignored_and_untracked(root: Path, relative: str) -> bool:
-    ignored = subprocess.run(
-        ["git", "check-ignore", "--quiet", "--", relative],
-        cwd=root,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    ).returncode == 0
-    tracked = subprocess.run(
-        ["git", "ls-files", "--error-unmatch", "--", relative],
-        cwd=root,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    ).returncode == 0
+    try:
+        ignored = (
+            _run_git_process(
+                root, ["check-ignore", "--quiet", "--", relative]
+            ).returncode
+            == 0
+        )
+        tracked = (
+            _run_git_process(
+                root, ["ls-files", "--error-unmatch", "--", relative]
+            ).returncode
+            == 0
+        )
+    except (GitSafetyError, OSError, subprocess.TimeoutExpired, ValueError):
+        return False
     return ignored and not tracked
 
 
@@ -2866,7 +3088,9 @@ def _validate_preflight_report_binding(
     privacy = loaded.get("privacy")
     privacy = privacy if isinstance(privacy, dict) else {}
     if privacy.get("report_redacted") is not False:
-        errors.append("referenced migration preflight must be authoritative and unredacted")
+        errors.append(
+            "referenced migration preflight must be authoritative and unredacted"
+        )
     if (
         privacy.get("risk") != "public_safe"
         and privacy.get("authoritative_private") is not True
@@ -3094,13 +3318,17 @@ def validate_migration_evidence(
         evidence.get("evidence_context"), "evidence_context", errors
     )
     if evidence_context.get("package_sha256") != upgrade_package_sha256(package):
-        errors.append("evidence_context.package_sha256 does not match the upgrade package")
+        errors.append(
+            "evidence_context.package_sha256 does not match the upgrade package"
+        )
     if evidence_context.get("validator_version") != MIGRATION_VALIDATOR_VERSION:
         errors.append(
             f"evidence_context.validator_version must be {MIGRATION_VALIDATOR_VERSION}"
         )
     if not _valid_sha(evidence_context.get("captured_consumer_head")):
-        errors.append("evidence_context.captured_consumer_head must be an exact Git SHA")
+        errors.append(
+            "evidence_context.captured_consumer_head must be an exact Git SHA"
+        )
     source = _require_mapping(evidence.get("source"), "source", errors)
     if not str(source.get("release") or "").strip():
         errors.append("source.release is required")
@@ -3135,8 +3363,7 @@ def validate_migration_evidence(
     )
     if (
         normalized_memory_root is None
-        or memory_root
-        not in {normalized_memory_root, f"{normalized_memory_root}/"}
+        or memory_root not in {normalized_memory_root, f"{normalized_memory_root}/"}
         or _migration_command_is_placeholder(memory_root)
     ):
         errors.append("consumer_before.memory_root must be a safe repo-relative path")
@@ -3268,27 +3495,35 @@ def validate_migration_evidence(
             if canonical != rel or rel.endswith("/"):
                 errors.append(f"{label}[{index}] must be a canonical file path")
 
-    if "faithful_public_import" in (
-        migration_config.get("commit_boundaries") or []
-    ) and not imported:
+    if (
+        "faithful_public_import" in (migration_config.get("commit_boundaries") or [])
+        and not imported
+    ):
         errors.append("files_imported cannot be empty for faithful_public_import")
-    if "regenerated_artifacts" in (
-        migration_config.get("commit_boundaries") or []
-    ) and not generated:
+    if (
+        "regenerated_artifacts" in (migration_config.get("commit_boundaries") or [])
+        and not generated
+    ):
         errors.append("generated_artifacts cannot be empty for regenerated_artifacts")
-    if "regenerated_artifacts" not in (
-        migration_config.get("commit_boundaries") or []
-    ) and generated:
+    if (
+        "regenerated_artifacts" not in (migration_config.get("commit_boundaries") or [])
+        and generated
+    ):
         errors.append(
             "generated_artifacts must be empty when regenerated_artifacts is not declared"
         )
-    if "downstream_adaptations" in (
-        migration_config.get("commit_boundaries") or []
-    ) and not adaptations:
-        errors.append("downstream_adaptations cannot be empty for downstream_adaptations")
-    if "downstream_adaptations" not in (
-        migration_config.get("commit_boundaries") or []
-    ) and adaptations:
+    if (
+        "downstream_adaptations" in (migration_config.get("commit_boundaries") or [])
+        and not adaptations
+    ):
+        errors.append(
+            "downstream_adaptations cannot be empty for downstream_adaptations"
+        )
+    if (
+        "downstream_adaptations"
+        not in (migration_config.get("commit_boundaries") or [])
+        and adaptations
+    ):
         errors.append(
             "downstream_adaptations must be empty when downstream_adaptations is not declared"
         )
@@ -3336,17 +3571,19 @@ def validate_migration_evidence(
             errors.append(
                 f"downstream_adaptations[{index}] release record must be a Markdown .md file"
             )
-        if not in_configured_memory and not in_configured_release_records and not any(
-            _matches(rel, pattern)
-            for pattern in _CONSUMER_OWNED_ADAPTATION_PATTERNS
+        if (
+            not in_configured_memory
+            and not in_configured_release_records
+            and not any(
+                _matches(rel, pattern)
+                for pattern in _CONSUMER_OWNED_ADAPTATION_PATTERNS
+            )
         ):
             errors.append(
                 f"downstream_adaptations[{index}] is not a declared consumer-owned path"
             )
         if _portable_path_has_sensitive_name(rel):
-            errors.append(
-                f"downstream_adaptations[{index}] contains a sensitive path"
-            )
+            errors.append(f"downstream_adaptations[{index}] contains a sensitive path")
         if rel in forbidden_refs:
             errors.append(
                 f"downstream_adaptations[{index}] cannot contain migration evidence"
@@ -3375,9 +3612,7 @@ def validate_migration_evidence(
     for field in ("artifact_commit_sha", "adaptation_commit_sha"):
         is_omitted = after.get(field) in (None, "")
         if field in declared_boundary_fields and field in omitted_by_boundary:
-            errors.append(
-                f"omitted_boundaries cannot omit package-declared {field}"
-            )
+            errors.append(f"omitted_boundaries cannot omit package-declared {field}")
         if is_omitted and field not in omitted_by_boundary:
             errors.append(f"omitted_boundaries must explain null {field}")
         if not is_omitted and field in omitted_by_boundary:
@@ -3400,7 +3635,9 @@ def validate_migration_evidence(
     if require_git_commits and consumer_root is None:
         errors.append("consumer Git verification root is required for a checked report")
     if require_git_commits and kit_root is None:
-        errors.append("public kit Git verification root is required for a checked report")
+        errors.append(
+            "public kit Git verification root is required for a checked report"
+        )
     if consumer_root is not None:
         root = consumer_root.resolve()
         if not _git(root, "rev-parse", "--is-inside-work-tree"):
@@ -3454,8 +3691,12 @@ def validate_migration_evidence(
                     )
                 if kit_root is not None:
                     resolved_kit_root = kit_root.resolve()
-                    if not _git(resolved_kit_root, "rev-parse", "--is-inside-work-tree"):
-                        errors.append("public kit Git verification root is not a repository")
+                    if not _git(
+                        resolved_kit_root, "rev-parse", "--is-inside-work-tree"
+                    ):
+                        errors.append(
+                            "public kit Git verification root is not a repository"
+                        )
                         bound_preflight = None
                     else:
                         bound_preflight = _validate_preflight_report_binding(
@@ -3470,7 +3711,9 @@ def validate_migration_evidence(
                     bound_preflight = None
             for label, sha in commit_boundaries:
                 if _valid_sha(sha) and not _git_commit_available(root, sha):
-                    errors.append(f"{label} is not available in the consumer repository")
+                    errors.append(
+                        f"{label} is not available in the consumer repository"
+                    )
             for (left_label, left), (right_label, right) in zip(
                 commit_boundaries,
                 commit_boundaries[1:],
@@ -3478,14 +3721,18 @@ def validate_migration_evidence(
             ):
                 if not (_valid_sha(left) and _valid_sha(right)):
                     continue
-                ancestry = subprocess.run(
-                    ["git", "merge-base", "--is-ancestor", left, right],
-                    cwd=root,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    check=False,
-                )
-                if ancestry.returncode != 0:
+                try:
+                    ancestry = _run_git_process(
+                        root, ["merge-base", "--is-ancestor", left, right]
+                    )
+                except (
+                    GitSafetyError,
+                    OSError,
+                    subprocess.TimeoutExpired,
+                    ValueError,
+                ):
+                    ancestry = None
+                if ancestry is None or ancestry.returncode != 0:
                     errors.append(
                         f"migration commit order is invalid: {left_label} must precede {right_label}"
                     )
@@ -3516,9 +3763,11 @@ def validate_migration_evidence(
                     if field in declared_boundary_fields:
                         declared_path_sets.append(
                             (
-                                "generated_artifacts"
-                                if field == "artifact_commit_sha"
-                                else "downstream_adaptations",
+                                (
+                                    "generated_artifacts"
+                                    if field == "artifact_commit_sha"
+                                    else "downstream_adaptations"
+                                ),
                                 [str(value) for value in values],
                             )
                         )
@@ -3606,11 +3855,14 @@ def validate_migration_evidence(
                             errors.append(
                                 "downstream adaptation postimages contain secret-shaped or unsupported binary content"
                             )
-                        if adaptations and not _tree_release_records_are_non_executable_markdown(
-                            root=root,
-                            sha=final_migration_sha,
-                            paths=[str(value) for value in adaptations],
-                            references_root=normalized_references_root or "",
+                        if (
+                            adaptations
+                            and not _tree_release_records_are_non_executable_markdown(
+                                root=root,
+                                sha=final_migration_sha,
+                                paths=[str(value) for value in adaptations],
+                                references_root=normalized_references_root or "",
+                            )
                         ):
                             errors.append(
                                 "downstream release record postimages must be non-executable Markdown files"
@@ -3732,7 +3984,9 @@ def validate_migration_evidence(
             errors.append(f"visual_qa_evidence[{index}].profile is invalid")
         if item.get("browser") not in {"chromium", "firefox", "webkit"}:
             errors.append(f"visual_qa_evidence[{index}].browser is invalid")
-        if not re.fullmatch(r"[1-9][0-9]{2,4}x[1-9][0-9]{2,4}", str(item.get("viewport") or "")):
+        if not re.fullmatch(
+            r"[1-9][0-9]{2,4}x[1-9][0-9]{2,4}", str(item.get("viewport") or "")
+        ):
             errors.append(f"visual_qa_evidence[{index}].viewport is invalid")
         screenshot_ref = str(item.get("screenshot_ref") or "")
         canonical_screenshot, _reason = _canonical_portable_path(screenshot_ref)
@@ -3913,9 +4167,7 @@ def verify_migration_rollback(
         "previous_sha": previous_sha,
         "checked_consumer_head": _git(consumer_root.resolve(), "rev-parse", "HEAD"),
         "final_migration_sha": final_sha,
-        "command_sha256": hashlib.sha256(
-            canonical_command.encode("utf-8")
-        ).hexdigest(),
+        "command_sha256": hashlib.sha256(canonical_command.encode("utf-8")).hexdigest(),
         "previous_tree_sha": "",
         "rollback_tree_sha": "",
         "tree_matches_before": False,
@@ -3932,11 +4184,12 @@ def verify_migration_rollback(
 
     root = consumer_root.resolve()
     try:
+        require_safe_local_config(root)
         with tempfile.TemporaryDirectory(prefix="wiki-viva-rollback-") as temporary:
             clone = Path(temporary) / "consumer"
-            cloned = subprocess.run(
+            cloned = _run_git_process(
+                Path(temporary),
                 [
-                    "git",
                     "clone",
                     "--quiet",
                     "--no-local",
@@ -3944,42 +4197,26 @@ def verify_migration_rollback(
                     str(root),
                     str(clone),
                 ],
-                text=True,
-                capture_output=True,
-                check=False,
+                require_repository=False,
             )
             if cloned.returncode != 0:
                 receipt["failure_code"] = "clone_failed"
                 return receipt
-            checked_out = subprocess.run(
-                ["git", "checkout", "--quiet", "--detach", final_sha],
-                cwd=clone,
-                text=True,
-                capture_output=True,
-                check=False,
+            require_safe_local_config(clone)
+            checked_out = _run_git_process(
+                clone, ["checkout", "--quiet", "--detach", final_sha]
             )
             if checked_out.returncode != 0:
                 receipt["failure_code"] = "checkout_failed"
                 return receipt
-            reverted = subprocess.run(
-                ["git", "revert", "--no-commit", *targets],
-                cwd=clone,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
+            reverted = _run_git_process(clone, ["revert", "--no-commit", *targets])
             if reverted.returncode != 0:
                 receipt["failure_code"] = "revert_failed"
                 return receipt
             previous_tree = _git(clone, "rev-parse", f"{previous_sha}^{{tree}}")
             rollback_tree = _git(clone, "write-tree")
             worktree_matches_index = (
-                subprocess.run(
-                    ["git", "diff", "--quiet", "--", "."],
-                    cwd=clone,
-                    check=False,
-                ).returncode
-                == 0
+                _run_git_process(clone, ["diff", "--quiet", "--", "."]).returncode == 0
             )
             receipt.update(
                 {
@@ -3996,7 +4233,9 @@ def verify_migration_rollback(
                 receipt["failure_code"] = ""
             else:
                 receipt["failure_code"] = "tree_mismatch"
-    except OSError:
+    except GitSafetyError:
+        receipt["failure_code"] = "unsafe_git_config"
+    except (OSError, subprocess.TimeoutExpired, ValueError):
         receipt["failure_code"] = "git_unavailable"
     return receipt
 
@@ -4011,8 +4250,7 @@ def _public_value_is_safe(value: str) -> bool:
     """
 
     if any(
-        finding.category in {"secret", "pii", "entity"}
-        for finding in scan_text(value)
+        finding.category in {"secret", "pii", "entity"} for finding in scan_text(value)
     ):
         return False
     return not (
@@ -4044,7 +4282,9 @@ def _public_route_ref_is_safe(value: str) -> bool:
 
 
 def _public_center_ref_is_safe(value: str) -> bool:
-    return value in _PUBLIC_FIXTURE_REFS or bool(_PUBLIC_CENTER_HASH_RE.fullmatch(value))
+    return value in _PUBLIC_FIXTURE_REFS or bool(
+        _PUBLIC_CENTER_HASH_RE.fullmatch(value)
+    )
 
 
 def _public_string_list(values: Any) -> list[str]:
@@ -4095,9 +4335,7 @@ def _migration_path_summary(
     blocked = bool(errors)
     validated_count = len(adaptations) if verified and not blocked else 0
     blocked_count = len(adaptations) if blocked else 0
-    unverified_count = (
-        len(adaptations) if not blocked and not verified else 0
-    )
+    unverified_count = len(adaptations) if not blocked and not verified else 0
     return {
         "faithful_public_import": {
             "path_count": len(imported),
@@ -4149,7 +4387,9 @@ def _public_migration_projection(
         if isinstance(evidence.get("consumer_after"), dict)
         else {}
     )
-    rollback = evidence.get("rollback") if isinstance(evidence.get("rollback"), dict) else {}
+    rollback = (
+        evidence.get("rollback") if isinstance(evidence.get("rollback"), dict) else {}
+    )
 
     before_sha = str(before.get("head_sha") or "")
     projected_before_sha = _public_commit_id("consumer-head", before_sha)
@@ -4159,9 +4399,7 @@ def _public_migration_projection(
         replacements[before_sha] = projected_before_sha
     for field in ("import_commit_sha", "artifact_commit_sha", "adaptation_commit_sha"):
         raw = str(after.get(field) or "")
-        projected = _public_commit_id(
-            f"consumer-{field.removesuffix('_sha')}", raw
-        )
+        projected = _public_commit_id(f"consumer-{field.removesuffix('_sha')}", raw)
         projected_after_shas[field] = projected
         if raw and projected:
             replacements[raw] = projected
@@ -4202,9 +4440,7 @@ def _public_migration_projection(
                 "id": gate_id,
                 "command": _PUBLIC_REDACTED_VALUE,
                 "status": (
-                    "pass"
-                    if value.get("status") == "pass"
-                    else _PUBLIC_REDACTED_VALUE
+                    "pass" if value.get("status") == "pass" else _PUBLIC_REDACTED_VALUE
                 ),
                 "exit_code": (
                     value.get("exit_code")
@@ -4276,12 +4512,8 @@ def _public_migration_projection(
                     else None
                 ),
                 "screenshot_dimensions": {
-                    "width": (
-                        dimensions.get("width") if valid_dimensions else None
-                    ),
-                    "height": (
-                        dimensions.get("height") if valid_dimensions else None
-                    ),
+                    "width": (dimensions.get("width") if valid_dimensions else None),
+                    "height": (dimensions.get("height") if valid_dimensions else None),
                 },
                 "captured_consumer_head": replacements.get(
                     str(value.get("captured_consumer_head") or "")
@@ -4315,18 +4547,15 @@ def _public_migration_projection(
     projected_import = replacements.get(rollback_import) or _public_commit_id(
         "rollback-import-commit", rollback_import
     )
+
     def projected_verification_sha(kind: str, field: str) -> str | None:
         raw = rollback_verification.get(field)
         return _public_commit_id(kind, raw) if raw else None
 
     projected_verification = {
-        "schema_version": _public_text(
-            rollback_verification.get("schema_version")
-        ),
+        "schema_version": _public_text(rollback_verification.get("schema_version")),
         "status": _public_text(rollback_verification.get("status")),
-        "failure_code": _public_text(
-            rollback_verification.get("failure_code")
-        ),
+        "failure_code": _public_text(rollback_verification.get("failure_code")),
         "previous_sha": replacements.get(
             str(rollback_verification.get("previous_sha") or "")
         )
@@ -4334,27 +4563,19 @@ def _public_migration_projection(
         "checked_consumer_head": replacements.get(
             str(rollback_verification.get("checked_consumer_head") or "")
         )
-        or projected_verification_sha(
-            "rollback-checked-head", "checked_consumer_head"
-        ),
+        or projected_verification_sha("rollback-checked-head", "checked_consumer_head"),
         "final_migration_sha": replacements.get(
             str(rollback_verification.get("final_migration_sha") or "")
         )
-        or projected_verification_sha(
-            "rollback-final-head", "final_migration_sha"
-        ),
-        "command_sha256": _public_text(
-            rollback_verification.get("command_sha256")
-        ),
+        or projected_verification_sha("rollback-final-head", "final_migration_sha"),
+        "command_sha256": _public_text(rollback_verification.get("command_sha256")),
         "previous_tree_sha": projected_verification_sha(
             "rollback-previous-tree", "previous_tree_sha"
         ),
         "rollback_tree_sha": projected_verification_sha(
             "rollback-result-tree", "rollback_tree_sha"
         ),
-        "tree_matches_before": bool(
-            rollback_verification.get("tree_matches_before")
-        ),
+        "tree_matches_before": bool(rollback_verification.get("tree_matches_before")),
         "worktree_matches_index": bool(
             rollback_verification.get("worktree_matches_index")
         ),
@@ -4633,7 +4854,9 @@ def compile_migration_report(
     report_package = package if package_is_json else {}
     rollback_verification = _rollback_verification_not_run(report_evidence)
     if require_git_commits and not verify_rollback_execution:
-        errors.append("checked migration report requires disposable rollback verification")
+        errors.append(
+            "checked migration report requires disposable rollback verification"
+        )
     if verify_rollback_execution:
         if consumer_root is None:
             errors.append("rollback verification requires a consumer Git root")
@@ -4693,10 +4916,7 @@ def compile_migration_report(
                 json.dumps(report_evidence.get("omitted_boundaries") or [])
             ),
             "files_imported": sorted(
-                set(
-                    str(value)
-                    for value in report_evidence.get("files_imported") or []
-                )
+                set(str(value) for value in report_evidence.get("files_imported") or [])
             ),
             "generated_artifacts": sorted(
                 set(
@@ -4719,16 +4939,11 @@ def compile_migration_report(
             ),
             "warnings": report_evidence.get("warnings") or [],
             "fixtures_added": sorted(
-                set(
-                    str(value)
-                    for value in report_evidence.get("fixtures_added") or []
-                )
+                set(str(value) for value in report_evidence.get("fixtures_added") or [])
             ),
             "gates": report_evidence.get("gates") or [],
             "visual_qa_evidence": report_evidence.get("visual_qa_evidence") or [],
-            "rollback": json.loads(
-                json.dumps(report_evidence.get("rollback") or {})
-            ),
+            "rollback": json.loads(json.dumps(report_evidence.get("rollback") or {})),
             "rollback_verification": rollback_verification,
             "validation_errors": errors,
         }
@@ -4815,9 +5030,9 @@ def render_migration_report_markdown(report: dict[str, Any]) -> str:
         lines.append("| `none` | Every optional boundary was materialized. |")
     lines.extend(
         [
-        "",
-        "## Imported portable files",
-        "",
+            "",
+            "## Imported portable files",
+            "",
         ]
     )
     lines.extend(

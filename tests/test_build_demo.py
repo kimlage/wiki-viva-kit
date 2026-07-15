@@ -572,9 +572,11 @@ def test_committed_demo_ingestion_events_are_semantically_identical_across_surfa
     event_schema = yaml.safe_load(
         (KIT_ROOT / "wiki.page-types.yaml").read_text(encoding="utf-8")
     )["page_types"]["ingestion_event"]
-    assert {"event_id", "source_id"} <= set(
-        event_schema["required_frontmatter"]
-    )
+    assert "event_id" in event_schema["required_frontmatter"]
+    assert "source_id" not in event_schema["required_frontmatter"]
+    assert event_schema["required_frontmatter_any_of"] == [
+        ["source_id", "source_refs"]
+    ]
     assert event_schema["field_types"]["event_id"] == "string"
     assert event_schema["field_types"]["source_id"] == "string"
 

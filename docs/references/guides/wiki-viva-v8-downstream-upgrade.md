@@ -49,7 +49,8 @@ flowchart LR
 | --- | --- | --- |
 | `upgrade-package.yaml` | Release pin, contract versions, allowlist, blocklist, gates and compatibility window. | Public kit checkout. |
 | `impact-registry.yaml` | Versioned path + contract → surface → transitive gate selection. Unknown impact selects the full matrix and Lane A. | Public kit checkout; its canonical SHA is pinned by package v3. |
-| `wiki-upgrade-release-capsule-v1.schema.json` | Immutable Lane A capsule binding source, package, portable tree, command registry, toolchain, executed gate receipts and visual manifest. | Public certification output only; a locally invented capsule has no authority. |
+| `wiki-upgrade-release-capsule-v2.schema.json` | Active immutable Lane A capsule binding source, package, portable tree, command registry, five-tool identity, external Node workspace authority, executed gate receipts and visual manifest. | Public certification output only; a locally invented capsule or Node authority has no trust. |
+| `wiki-upgrade-release-capsule-v1.schema.json` | Historical four-tool capsule contract. | Verification-only immutable history; never rewritten, relabeled or used to fabricate v2 authority. |
 | `consumer-inventory.yaml` | Public-safe wave/status inventory. | Private paths, remotes, SHAs and drift filenames stay redacted. |
 | `gate-evidence.example.json` | Exact current-gate receipts consumed by the legacy v2 preflight. | Store a filled private copy only under a git-ignored, untracked consumer evidence root; never commit it to the branch. |
 | `migration-evidence.example.yaml` | Required post-import evidence. | Public export requires hashed/generic routes and no private content. |
@@ -69,6 +70,15 @@ schema v3 keeps the validator-v5 migration-evidence boundary and adds
 reference. A tracked `candidate` package may mint a separately attested local
 downstream-QA capsule; it still cannot authorize public release or production
 promotion without the public human gate.
+
+Capsule v2 also embeds one path-free
+`wiki_viva_node_workspace_authority.v1` and its digest. The tracked
+`apps/wiki-cockpit/node-workspace.lock.json` is only portable policy v2:
+package/lock hashes, package manager, allowed invocations and fixed install
+behavior. It contains no platform, installed runtime or dependency tree. Lane A
+alone captures the external authority after a forced clean install. Lane B
+verifies and consumes it to materialize clean C1; another platform/toolchain
+requires a new Lane A capsule, and a consumer never captures a substitute.
 
 ### Receipt identity and transition rule
 
@@ -137,7 +147,7 @@ failure: `plan` stops before mutation, the consumer repairs B0 and creates a new
 plan. Re-running Lane A does not repair invalid consumer configuration; it is
 required when the sealed package/impact mapping itself is defective.
 
-### Rc21 -> rc22 -> rc23 -> rc24 -> rc25 -> rc26 -> rc27 -> rc28 correction boundary
+### Immutable correction boundary through rc37 and RT-173
 
 Rc21 is historical non-promotional local evidence. It retains its exact public
 mobile/visual proof, but a synthetic downstream rehearsal exposed a missing
@@ -188,6 +198,23 @@ before pin or validation because portable transition documentation still
 described the previous state. Its resource-safe successor requires a separate
 validation-only source/package/tree pin followed by complete new validation,
 capture and certification evidence.
+
+The later immutable rc29-rc36 boundaries and their exact failure/rejection
+states are retained in the upstream v8 release record outside the portable C1
+closure; that non-portable record is intentionally not part of C1.
+Rc37 exact source `d87af15b4aa850d1a50dc867f74e07ba09d0e89f`
+subsequently passed exact validation, productive capture, Lane A 11/11 and
+independent capsule verification. Manifest `3be7599a...` and immutable
+capsule/receipt/attestation `f5ae8e04...` / `90cd0c27...` /
+`c7a1a4fe...` remain valid historical evidence for that exact subject.
+
+RT-173 appeared only when the first disposable clean C1 correctly omitted
+`node_modules`: rc37 had no sealed dependency materialization authority, so its
+Node C2 generator could not resolve TypeScript until an untrusted manual
+`npm ci`. Preserve and verify the rc37 bytes; do not retry, relabel or use them
+as executable Lane B authority. Exactly one still-unnamed successor may close
+RT-173 with portable policy v2, external authority v1, wrapper-only Node
+commands and capsule v2. It is not a release ID or source pin until committed.
 This runbook grants no public publication authority.
 
 ### Lane A -> Lane B handoff checklist
@@ -196,9 +223,12 @@ A real handoff is an immutable release authority, not a branch name, mutable
 checkout or pasted green-test summary. Lane A supplies the canonical package,
 release capsule, portable subject/tree, sealed impact registry, command
 registry, toolchain identity, visual manifest, executed gate receipts and
-attestation. Both the raw archive SHA-256 and the attestation SHA-256 are
-delivered through separately reviewed channels. Verify the raw archive digest
-before extraction; only then execute the byte-equal runner restored from it.
+attestation. Capsule v2 also supplies the external Node workspace authority and
+its independently carried digest. The raw archive SHA-256, attestation SHA-256
+and Node-authority digest are delivered through separately reviewed channels.
+Verify them before extraction or clean-C1 materialization; only then execute the
+byte-equal runner restored from the handoff. A consumer never invokes
+`capture-authority`.
 
 Run the exact public source audits as pre-certification/PR gates. The capsule
 seals only commands classified as `upstream_certified`; the consumer-owned
@@ -407,6 +437,12 @@ Use a reviewed file-transfer/diff workflow and stage only paths accepted by
    repo-local skills and the consumer-owned release record, with conflict
    warnings recorded.
 
+The tracked Node workspace policy is one byte-equal C1 file. Installed
+`node_modules` is not: it remains ignored and is materialized before C2 from the
+capsule-v2 external authority. That authority itself remains outside the Git
+subject and evidence paths; only its closed, path-free payload and digest enter
+the immutable Lane A handoff. Lane B may verify/materialize, never capture.
+
 For v3, do not stage or commit these boundaries manually. Review the same
 ownership in `plan`; after approval, `adopt` materializes and verifies the
 three direct single-parent atomic commits from package bytes, registered
@@ -483,32 +519,50 @@ reports and the latest-run pointer; versioned `.wiki-viva/packs/**` remains
 visible.
 
 ```sh
+LANE_ROOT=/path/to/new-immutable-lane-root
+python3 /path/to/clean-public-subject/scripts/wiki_node_workspace.py \
+  --root /path/to/clean-public-subject snapshot --check
+python3 /path/to/clean-public-subject/scripts/wiki_node_workspace.py \
+  --root /path/to/clean-public-subject \
+  capture-authority \
+  --out "$LANE_ROOT/node-authority/node-workspace-authority.json" \
+  --source-sha <exact-source-sha> \
+  > /path/to/out-of-band/node-workspace-capture-receipt.json
+
+# Read authority_sha256 from the capture receipt, retain it out of band and
+# bind every release-bearing Node invocation to the exact source/authority.
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY="$LANE_ROOT/node-authority/node-workspace-authority.json"
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256="<authority_sha256-from-capture-receipt>"
+export WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA="<exact-source-sha>"
+
 python3 /path/to/clean-public-subject/scripts/wiki_visual_evidence.py capture \
   --package /path/to/upgrade-package.yaml \
   --source-root /path/to/clean-public-subject \
   --source-sha <exact-source-sha> \
-  --out-dir /path/to/verified-visual-authority
+  --out-dir "$LANE_ROOT/visual-capture"
 
 python3 /path/to/clean-public-subject/scripts/wiki_visual_evidence.py verify \
   --package /path/to/upgrade-package.yaml \
   --source-root /path/to/clean-public-subject \
   --source-sha <exact-source-sha> \
-  --visual-root /path/to/verified-visual-authority
+  --visual-root "$LANE_ROOT/visual-capture"
 
 python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py certify \
   --package /path/to/upgrade-package.yaml \
   --impact-registry /path/to/impact-registry.yaml \
   --source-root /path/to/clean-public-subject \
-  --visual-root /path/to/verified-visual-authority \
+  --visual-root "$LANE_ROOT/visual-capture" \
   --visual-manifest-ref visual-manifest.json \
-  --out-dir /path/to/new-immutable-release-authority \
-  --attestation-authority-id <reviewed-authority-id>
+  --out-dir "$LANE_ROOT/certification" \
+  --attestation-authority-id <reviewed-authority-id> \
+  --node-workspace-authority "$WIKI_VIVA_NODE_WORKSPACE_AUTHORITY" \
+  --trusted-node-workspace-authority-sha256 "$WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256"
 
 python3 /path/to/clean-public-subject/scripts/wiki_upgrade.py verify-capsule \
   --package /path/to/upgrade-package.yaml \
-  --capsule /path/to/new-immutable-release-authority/release-capsule.json \
+  --capsule "$LANE_ROOT/certification/release-capsule.json" \
   --impact-registry /path/to/impact-registry.yaml \
-  --authority /path/to/new-immutable-release-authority/release-authority.json \
+  --authority "$LANE_ROOT/certification/release-authority.json" \
   --trusted-attestation-sha256 <out-of-band-sha256> \
   --kit-root /path/to/clean-public-subject
 
@@ -522,15 +576,23 @@ python3 /path/to/restored-release-authority/public-kit/scripts/wiki_upgrade.py p
   --consumer-root /path/to/consumer \
   --consumer-b0 <B0> \
   --c2-generator-command 'demo_snapshot::python3 scripts/wiki_build_demo.py' \
-  --c2-generator-command 'visual_baselines::npm --prefix apps/wiki-cockpit run test:visual:update' \
+  --c2-generator-command 'visual_baselines::python3 scripts/wiki_node_workspace.py run test:visual:update' \
   --c3-adapter-command 'consumer-adapter::/path/to/reviewed-consumer-adapter.sh' \
   --out /path/to/consumer/output/wiki-upgrade/plan.json
 ```
 
+Lane A carries the `authority_sha256` emitted in the capture receipt outside the
+authority directory and supplies it to certification. It is the trusted digest
+of the authority file, not a digest recovered from that same file during
+certification. Every release-bearing Node command in that run consumes the same
+authority. Lane B receives the sealed payload and digest through capsule v2 and
+must not recapture them.
+
 The visual bundle must exactly and uniquely cover the package profiles with
 record-backed PNG/source/package/Chromium/console/network evidence; hand-authored
 manifest claims are insufficient. `verify-capsule` reopens package, portable
-tree, command/impact registry, live toolchain, visual records, gate outputs,
+tree, command/impact registry, five-tool identity, external Node workspace
+authority, visual records, gate outputs,
 attestation and certification receipt without a consumer and emits a path-free
 summary. Successful Lane A gate logs are also public evidence: the versioned
 quiet/TAP reporters must prevent host-path output rather than relying on later
@@ -607,6 +669,11 @@ alias in the sealed command registry must resolve to that exact interpreter.
 Do not let ambient PATH select a different `python3`; such divergence fails
 certification closed even if other gates pass. A stale result is invalidated
 and rerun; a stale or modified plan is rejected.
+Before any Node result can be reused, resume also reopens the portable policy
+and capsule-v2 external authority, verifies the trusted digest, source,
+platform, resolved Node/npm and dependency-tree summary, and rematerializes a
+missing clean-C1 tree. Raw ambient npm, a locally recaptured authority or any
+authority drift rejects the attempt before a Node command.
 Each boundary projection binds regular-file mode plus blob digest; symlinks,
 submodules and special entries fail closed. Public keys, values, canary routes
 and gate output are checked literally and after bounded repeated
@@ -671,33 +738,22 @@ private titles, values, authenticated URLs or raw console/network payloads.
 ### Restart/security replay
 
 An operator started before the v6/default-deny payload is not valid downstream
-evidence, even if its health response contains a Codex block. Stop both old
-processes normally and use two terminals from the consumer checkout:
+evidence, even if its health response contains a Codex block. Stop every old
+operator/preview process normally before the canary. The release-bearing replay
+is the selected `real_canary` gate owned by the resumable `adopt` invocation in
+section 6; do not replace it with a standalone package-manager or runtime
+command. The runner injects the capsule-v2 Node authority, requires the complete
+versioned `WIKI_COCKPIT_*` operator binding for the exact C3/public-release pair,
+invokes the registered `test:e2e:operator` command through
+`wiki_node_workspace.py`, and persists the current-run screenshot,
+console/network and handshake evidence.
 
-```sh
-# terminal 1 — repository root
-python3 scripts/wiki_web_server.py --host 127.0.0.1 --port 8765
-
-# terminal 2 — repository root
-npm --prefix apps/wiki-cockpit run dev:proxy
-```
-
-From `apps/wiki-cockpit/`, run the shared, nonce-safe readback:
-
-```sh
-node --input-type=module <<'NODE'
-import { validateOperatorHandshake } from "./src/contracts/operatorSecurity.js";
-const response = await fetch("http://127.0.0.1:5173/api/health", {
-  headers: { accept: "application/json" }, cache: "no-store"
-});
-const result = validateOperatorHandshake(await response.json());
-if (!response.ok || !result.ok) {
-  console.error(result.errors.join("; ") || `health failed: ${response.status}`);
-  process.exit(1);
-}
-console.log("operator handshake current: v6 / security v2 / default-deny CORS");
-NODE
-```
+If the run was paused before canary, continue the exact same attempt with the
+documented `adopt --resume --mode canary --pause-before-background` form. If it
+was interrupted, use the same form without weakening the selected gate set. A
+completed run is not replayable: create a fresh plan/attempt for a new operator
+subject. Interactive manual startup/readback may diagnose a local process, but
+its output is never a receipt or downstream release evidence.
 
 The accepted contract is `wiki_web_server.v6`,
 `wiki_operator_security.v2`, a present nonce under

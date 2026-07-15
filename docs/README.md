@@ -58,7 +58,8 @@ starting point for persistent context is `memories/`.
   versioned path/contract/gate
   [impact registry](references/upgrades/wiki-viva-v8/impact-registry.yaml).
 - `docs/references/schemas/wiki-upgrade-package-v3.schema.json`,
-  `wiki-upgrade-release-capsule-v1.schema.json` and
+  `wiki-upgrade-release-capsule-v1.schema.json`,
+  `wiki-upgrade-release-capsule-v2.schema.json` and
   `wiki-upgrade-impact-registry-v1.schema.json`: classified package,
   fail-closed Lane A capsule and impact-registry contracts. Consumer
   receipts/evidence remain ignored and untracked in each downstream repository.
@@ -76,6 +77,20 @@ starting point for persistent context is `memories/`.
   `wiki_visual_evidence.py`, covers every declared profile with record-backed
   PNG/console/network evidence, and is independently reopened by
   `wiki_upgrade.py verify-capsule` before adoption.
+  New certifications emit capsule v2 plus `wiki_viva_toolchain_probe.v2`, whose
+  five canonical entries are `browser`, `node`, `npm`, `python`, `runner`.
+  They bind live Chromium, the resolved Node runtime tree, the resolved npm
+  package tree, Python distributions and the exact runner closure. Capsule v1 remains
+  a verification-only historical contract and is never relabeled as v2.
+  Release-bearing cockpit commands run through `wiki_node_workspace.py`: its
+  tracked policy v2 binds only portable package/lock hashes, package manager,
+  allowlisted invocations and fixed install policy. Lane A alone captures a
+  path-free external authority v1 outside Git after a forced clean install; it
+  binds source, platform, resolved Node/npm and the complete dependency tree.
+  Clean C1 consumes that sealed authority and digest, and every command emits a
+  path-free receipt after post-execution drift verification. Another
+  platform/toolchain requires a newly certified Lane A capsule, and a consumer
+  never captures a replacement authority.
   Rc21 is historical non-promotional evidence after downstream rehearsal found
   the missing config-bound C3 authority. Rc22 corrected that boundary and
   passed its pre-capture local stack, but productive Chromium capture stopped
@@ -192,16 +207,22 @@ starting point for persistent context is `memories/`.
   passed rc37's first and only complete validation at metadata
   `775fe5bc9437da5ec9311704731f4342d515fc16`: 23/23 gates in 1,652 seconds,
   including 1,782 Python passes plus 3 declared skips, 522 frontend passes, 123
-  Node passes and browser 102/102 first-attempt with zero skip or retry. Active
-  `wiki-viva-v8-rc37` / `candidate` has package-file / canonical-package /
+  Node passes and browser 102/102 first-attempt with zero skip or retry.
+  `wiki-viva-v8-rc37` / `candidate` had package-file / canonical-package /
   portable-tree identities `6d409da4...` / `1af897ce...` / `77799ece...` (521
-  entries), with `package_is_pinned=true`. No productive manifest or capsule
-  exists; one fresh capture and one Lane A certification remain. Its scoreboard
-  is `2/5`: source pin and exact validation are complete; capsule verification,
-  private canary and private-main readback remain pending. Draft PR
+  entries), with `package_is_pinned=true`. Its productive manifest
+  `3be7599a...`, Lane A 11/11 and capsule/receipt/attestation
+  `f5ae8e04...` / `90cd0c27...` / `c7a1a4fe...` remain immutable rc37
+  history. RT-173 was then exposed by the first disposable clean C1: the Git
+  projection had no `node_modules` and no sealed materialization authority, so
+  its Node C2 generator could not resolve TypeScript before an untrusted manual
+  `npm ci`. Rc37 remains verifiable historical evidence, not executable Lane B
+  authority. The still-unnamed successor owns the only current scoreboard at
+  `0/5`: source pin, exact validation and capsule verification are pending;
+  private canary and private-main readback are blocked. Draft PR
   #61 is stale and does not represent this local truth; public push/publication
   remains unauthorized. Private PR #211 remains historical v2, and a fresh v3
-  adoption starts only after the successor capsule verifies fail-closed.
+  adoption starts only after the RT-173 successor capsule verifies fail-closed.
   Standing private-main approval is downstream-only and never weakens gates or
   the generic public PR/human gate.
   Existing v2 subjects and receipts remain frozen and are never rewritten into

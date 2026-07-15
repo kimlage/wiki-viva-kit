@@ -8,7 +8,7 @@ tags:
 status: active
 context: system
 visibility: private_self
-updated_at: 2026-07-14
+updated_at: 2026-07-15
 stale_after_days: 90
 sources_policy: documentacao_do_proprio_sistema
 gate: github_pr
@@ -21,7 +21,7 @@ related_pages:
 
 # Command reference
 
-Last updated: 2026-07-14.
+Last updated: 2026-07-15.
 
 This page catalogs the deterministic CLIs of the living wiki system. They all
 live in [scripts/](../../../scripts/README.md) with the `wiki_` prefix and call
@@ -62,7 +62,8 @@ General convention: most accept `--dry-run` (computes without writing) and `--ch
 | [wiki_upgrade_preflight.py](../../../scripts/wiki_upgrade_preflight.py) | Compiles a read-only downstream upgrade preflight | Prove release pin, branch, gates, drift, snapshot, overrides and privacy before import |
 | [wiki_upgrade_report.py](../../../scripts/wiki_upgrade_report.py) | Validates evidence and compiles v8 migration reports | Close a downstream upgrade with SHAs, allowlisted files, gates, QA and rollback |
 | [wiki_upgrade.py](../../../scripts/wiki_upgrade.py) | Certifies Lane A and plans/executes resumable Lane B adoption | Execute and seal public certification, bind its verified capsule, create/verify C1-C3, run the impact-derived matrix, real canary and disposable rollback, then emit receipts/reports |
-| [wiki_toolchain_probe.py](../../../scripts/wiki_toolchain_probe.py) | Emits canonical Python dependency and launched Chromium identities | Let Lane A attest the resolved Python environment and the browser engine actually launched by Playwright; not a standalone migration authority |
+| [wiki_node_workspace.py](../../../scripts/wiki_node_workspace.py) | Materializes and executes the release-certified Node workspace | Bootstrap a clean C1 from the exact lockfile, verify Node/npm/dependency authority and run only allowlisted cockpit scripts with path-free receipts |
+| [wiki_toolchain_probe.py](../../../scripts/wiki_toolchain_probe.py) | Emits canonical Python, Node, npm, Chromium and runner identities | Let Lane A attest the exact five-part toolchain authority; not a standalone migration authority |
 | [wiki_visual_evidence.py](../../../scripts/wiki_visual_evidence.py) | Captures/verifies the exact public Lane A visual authority | Build and serve the clean source, capture every package visual profile in Chromium and bind PNG, source/package/toolchain, console and network records before certification |
 | [wiki_adapter_manifest.py](../../../scripts/wiki_adapter_manifest.py) | Builds or verifies the downstream adapter identity manifest | Bind a private consumer's explicit adapter files to tracked, no-follow hashes without importing private content into the kit |
 | [wiki_pack.py](../../../scripts/wiki_pack.py) | Operates versioned experience packs through a review-first lifecycle | Inspect/preview/dry-run/install/validate/upgrade/disable/remove a declarative use-case experience |
@@ -216,20 +217,75 @@ original transition runbook and continue to execute every declared
 `migration.required_gates` entry; they are not silently upgraded and cannot
 consume or produce v3 receipts.
 
+New certifications seal `wiki_viva_upgrade_release_capsule.v2` and a
+`wiki_viva_toolchain_probe.v2` manifest with `toolchain_probe_entry_count=5`
+and canonical identities `browser`, `node`, `npm`, `python`, `runner`. Capsule
+v1 remains verifiable only as immutable historical
+evidence; it is never rewritten or relabeled as v2.
+
+### [wiki_node_workspace.py](../../../scripts/wiki_node_workspace.py) - exact Node workspace bootstrap
+
+This wrapper is the only release-authorized entry point for cockpit install and
+gate scripts. Its tracked `apps/wiki-cockpit/node-workspace.lock.json` is
+`wiki_viva_node_workspace_policy.v2`: exact `package.json`/lockfile hashes,
+pinned package manager, allowed scripts/literal argument sets and fixed
+install/timeout policy. The portable policy contains no host path, platform,
+installed Node/npm or `node_modules` digest. Lane A alone runs
+`capture-authority` from the exact clean source. The command forces the fixed
+install and writes path-free `wiki_viva_node_workspace_authority.v1` outside
+Git, binding policy/source, platform, resolved Node/npm and the complete
+dependency-tree summary.
+
+`run` rejects an undeclared script or argument, bounds time and output, removes
+ambient npm/Node injection variables, verifies the portable policy plus the
+separately trusted authority, materializes a missing clean-C1 tree, verifies the
+tree again after the command and emits a canonical path-free receipt. Missing
+authority, wrong trusted digest/source, symlink escape, package, lock, platform,
+Node/npm or post-command tree drift fails closed with the affected contract and
+a next action. A consumer receives this authority from the verified capsule; it
+never captures a replacement.
+
+```sh
+python3 scripts/wiki_node_workspace.py snapshot --check
+python3 scripts/wiki_node_workspace.py capture-authority \
+  --out "$NODE_WORKSPACE_AUTHORITY" --source-sha "$SOURCE_SHA" \
+  > "$NODE_WORKSPACE_CAPTURE_RECEIPT"
+# Retain authority_sha256 from this receipt outside the authority directory.
+TRUSTED_NODE_AUTHORITY_SHA256="<authority_sha256-from-capture-receipt>"
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY="$NODE_WORKSPACE_AUTHORITY"
+export WIKI_VIVA_NODE_WORKSPACE_AUTHORITY_SHA256="$TRUSTED_NODE_AUTHORITY_SHA256"
+export WIKI_VIVA_NODE_WORKSPACE_SOURCE_SHA="$SOURCE_SHA"
+python3 scripts/wiki_node_workspace.py check
+python3 scripts/wiki_node_workspace.py materialize
+python3 scripts/wiki_node_workspace.py run test
+python3 scripts/wiki_node_workspace.py run test -- --reporter=tap
+python3 scripts/wiki_node_workspace.py run check:release-matrix
+```
+
+`capture-authority` is Lane A-only. `check`, `materialize` and `run` consume the
+sealed path plus its trusted digest through the environment above or equivalent
+explicit arguments. Moving the same portable policy to another platform or
+toolchain is an authority mismatch: certify a new capsule there rather than
+weakening or reusing a receipt. Interactive `npm run dev` is a development
+surface, not release evidence.
+
 ### [wiki_toolchain_probe.py](../../../scripts/wiki_toolchain_probe.py) - canonical certification probe
 
 This helper is part of the byte-equal upgrade-runner closure. Lane A invokes it
 with recorded, shell-free argv and binds its raw output into the toolchain probe
 manifest. `python` emits the active CPython version plus the sorted resolved
-distribution inventory and digest. `browser` launches Chromium through the
-installed Playwright module and emits both the Playwright package version and
-the browser engine version returned by that live process. A capsule is reusable
-only when Lane B reproduces both identities exactly. Operators may run the
-commands below for diagnosis, but their stdout alone is not a capsule or
-receipt.
+distribution inventory and digest. `node` binds the resolved executable and
+complete runtime tree; `npm` binds the resolved entrypoint and package tree.
+`browser` launches Chromium through the installed Playwright module and emits
+both the Playwright package version and the browser engine version returned by
+that live process. A v2 capsule is reusable only when Lane B reproduces all five
+tool identities exactly. Operators may run the commands below for diagnosis,
+but their stdout alone is not a capsule or receipt.
 
 ```sh
 python3 scripts/wiki_toolchain_probe.py python
+python3 scripts/wiki_toolchain_probe.py node
+python3 scripts/wiki_toolchain_probe.py npm
 python3 scripts/wiki_toolchain_probe.py browser
 ```
 
@@ -240,9 +296,12 @@ create-once public visual bundle with all package profiles. `verify` reopens its
 PNG/record inventory with the live Chromium toolchain. `certify` executes the
 public-safe upstream command registry and seals the Lane A authority;
 `verify-capsule` independently reopens that sealed authority before `plan` may
-bind a consumer. `plan` and `adopt` remain v3-only and never merge a PR.
+bind a consumer. New authority uses capsule/probe v2 and therefore binds the
+exact Node/npm bootstrap in addition to Python, Chromium and runner identity.
+`plan` and `adopt` remain v3-only and never merge a PR.
 
 ```sh
+# Requires the three WIKI_VIVA_NODE_WORKSPACE_* bindings from capture above.
 python3 scripts/wiki_visual_evidence.py capture \
   --package "$UPGRADE_PACKAGE" \
   --source-root "$PUBLIC_SOURCE_ROOT" \
@@ -260,7 +319,9 @@ python3 scripts/wiki_upgrade.py certify \
   --visual-root "$PUBLIC_VISUAL_ROOT" \
   --visual-manifest-ref visual-manifest.json \
   --out-dir "$NEW_LANE_A_AUTHORITY_ROOT" \
-  --attestation-authority-id "$RELEASE_AUTHORITY_ID"
+  --attestation-authority-id "$RELEASE_AUTHORITY_ID" \
+  --node-workspace-authority "$NODE_WORKSPACE_AUTHORITY" \
+  --trusted-node-workspace-authority-sha256 "$TRUSTED_NODE_AUTHORITY_SHA256"
 python3 scripts/wiki_upgrade.py verify-capsule \
   --package "$UPGRADE_PACKAGE" \
   --capsule "$NEW_LANE_A_AUTHORITY_ROOT/release-capsule.json" \
