@@ -36,7 +36,17 @@ export function labelTitleForNode(node: LayoutNode, disambiguateQuadrant = false
   const region = parseRegionDrillKey(node.id);
   if (!region) return groupTitle;
   const quadrantIndex = SCENE_FACETS.indexOf(region.facet);
-  return quadrantIndex >= 0 ? `Q${quadrantIndex + 1} · ${groupTitle}` : groupTitle;
+  if (quadrantIndex < 0) return groupTitle;
+
+  // A root overview can project the generic hub family into all four
+  // quadrants. Repeating the same "areas & workspaces" title four times still
+  // reads as duplicate content even with a Q1–Q4 prefix. Name those projections
+  // by the semantic facet they organize; focused/drilled labels keep the real
+  // family title.
+  const scopedTitle = node.groupLabelKey === "hub"
+    ? t(`facet.${region.facet}`)
+    : groupTitle;
+  return `Q${quadrantIndex + 1} · ${scopedTitle}`;
 }
 
 export function compactGroupMetric(node: LayoutNode): string | null {

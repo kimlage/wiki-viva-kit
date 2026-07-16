@@ -367,7 +367,7 @@ describe("scene labels", () => {
     ).toBe("fontes & evidências");
   });
 
-  it("disambiguates repeated root family labels by their quadrant", () => {
+  it("replaces repeated root hub labels with quadrant-specific semantic names", () => {
     configureLanguage("pt-BR");
     const titles = (["intencao", "pratica", "relacoes", "sistemas"] as const).map((quadrant) =>
       labelTitleForNode(
@@ -384,12 +384,13 @@ describe("scene labels", () => {
     );
 
     expect(titles).toEqual([
-      "Q1 · áreas & espaços de trabalho",
-      "Q2 · áreas & espaços de trabalho",
-      "Q3 · áreas & espaços de trabalho",
-      "Q4 · áreas & espaços de trabalho"
+      "Q1 · Identidade e intenção",
+      "Q2 · Saídas e evidências",
+      "Q3 · Cultura e relações",
+      "Q4 · Sistemas e governança"
     ]);
     expect(new Set(titles)).toHaveLength(4);
+    expect(titles.every((title) => !title.includes("áreas & espaços de trabalho"))).toBe(true);
     expect(
       labelTitleForNode(
         layoutNode("region:pratica:family:hub", {
