@@ -169,5 +169,6 @@ Gate semantics and privacy: [gates-and-privacy.md](gates-and-privacy.md).
 - **Raw via Drive**: keep raw sources (statements, invoices) in one Drive folder,
   never versioned — [wiki-raw-drive](../../wiki-raw-drive/SKILL.md) and
   [wiki_drive_publish.py](../../../scripts/wiki_drive_publish.py).
-- **Toolkit drift** (multi-repo kit): backport fixes between branches with
-  [wiki_toolkit_drift.py](../../../scripts/wiki_toolkit_drift.py) `--check`.
+- **Atualização do kit**: revise primeiro o B0 e então sincronize C1/C2/C3 com
+  [wiki_sync_from_kit.py](../../../scripts/wiki_sync_from_kit.py); a PR do
+  consumidor é a fronteira reversível de revisão e promoção.

@@ -242,9 +242,8 @@ flowchart TD
 - Injected operator/resource ports execute work and return receipts; the
   declarative `effects` registry is not their active dispatcher.
 
-`python3 scripts/wiki_node_workspace.py run check:architecture` is the sealed
-public boundary gate. Direct `npm --prefix apps/wiki-cockpit ...` remains an
-interactive development convenience, not release evidence. Existing explicitly
+`npm --prefix apps/wiki-cockpit run check:architecture` is the normal public
+boundary gate and runs directly in kit and consumer CI. Existing explicitly
 registered legacy debt is not permission to add new coupling.
 
 ## Effects, security and receipts

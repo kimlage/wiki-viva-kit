@@ -989,9 +989,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
   [2026-06-09-example.md](ingestion/events/2026-06-09-example.md) now has
   `consolidated_into`, so the kit baseline no longer advertises an unclosed
   event.
-- [wiki_toolkit_drift.py](../../scripts/wiki_toolkit_drift.py) accepts
-  `--ref-path` for comparing against a real checkout instead of only a branch
-  ref, and the active ingestion-flow docs now reference
+- The historical toolkit-drift helper gained checkout comparison before that
+  release machinery was retired; active ingestion-flow docs now reference
   `wiki_llm_context_pass.v3`.
 
 ## [2026-06-12] System | Impact ack audit works in PR CI
@@ -1123,7 +1122,8 @@ Append-only record of changes in the [memories/](../index.md) layer.
 - chunking.py: content-based boundaries (paragraphs/lines) instead of a fixed word window — editing one paragraph only changes that paragraph's chunk (was rebuilding all downstream); structure preserved. cache.py: cache_key no longer includes the whole-source hash — identical chunks dedupe across versions/sources (was invalidating 100% of the cache on any edit). Finding 4.
 - source_manifest.py: deterministic sha256_directory_listing (no mtime, no dotfiles) — directory-source source_id now matches between local and clean clone/CI. Finding 3.
 - ids.py: slugify normalizes accents (NFKD); accent collisions gone.
-- [scripts/wiki_toolkit_drift.py](../../scripts/wiki_toolkit_drift.py): detects toolkit drift between branches (main vs opensource).
+- The historical toolkit-drift helper detected differences between branches
+  before downstream adoption moved to the idempotent sync command.
 
 ## [2026-06-10] P1 | Scale: incremental index + orphan GC + faster auditor
 

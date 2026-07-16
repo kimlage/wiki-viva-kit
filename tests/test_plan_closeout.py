@@ -18,10 +18,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from wiki_core.config import WikiConfig
-from wiki_core.upgrade import (
-    compare_portable_files,
-    load_mapping,
-    upgrade_package_sha256,
+
+
+RETIRED_RELEASE_MACHINE = pytest.mark.skip(
+    reason="retired release/drift certification machine; use wiki_sync_from_kit"
 )
 
 
@@ -251,6 +251,7 @@ def test_quality_report_check_reads_configured_budgets(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+@RETIRED_RELEASE_MACHINE
 def test_toolkit_drift_single_diff(tmp_path, monkeypatch):
     import subprocess
 
@@ -285,6 +286,7 @@ def test_toolkit_drift_single_diff(tmp_path, monkeypatch):
     assert report["only_in_ref"] == []
 
 
+@RETIRED_RELEASE_MACHINE
 def test_toolkit_drift_ref_path_compares_checkouts(tmp_path, monkeypatch):
     drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_path_test")
     current = tmp_path / "current"
@@ -374,6 +376,7 @@ def _package_drift_fixture(tmp_path: Path) -> tuple[Path, Path, str]:
     return kit, consumer, source_sha
 
 
+@RETIRED_RELEASE_MACHINE
 def test_toolkit_drift_ref_path_uses_package_allowlist_and_pinned_source(
     tmp_path, monkeypatch
 ):
@@ -400,6 +403,7 @@ def test_toolkit_drift_ref_path_uses_package_allowlist_and_pinned_source(
     assert report["content_differs"] == []
 
 
+@RETIRED_RELEASE_MACHINE
 def test_toolkit_drift_ref_path_rejects_real_portable_drift(
     tmp_path, monkeypatch, capsys
 ):
@@ -419,6 +423,7 @@ def test_toolkit_drift_ref_path_rejects_real_portable_drift(
     assert str(kit) not in output.out + output.err
 
 
+@RETIRED_RELEASE_MACHINE
 @pytest.mark.parametrize("authority_failure", ["missing_package", "missing_source"])
 def test_toolkit_drift_ref_path_fails_closed_without_authority(
     tmp_path, monkeypatch, authority_failure, capsys
@@ -446,6 +451,7 @@ def test_toolkit_drift_ref_path_fails_closed_without_authority(
     assert str(kit) not in output.out + output.err
 
 
+@RETIRED_RELEASE_MACHINE
 def test_toolkit_drift_ref_path_fails_closed_on_unsafe_ignore(
     tmp_path, monkeypatch, capsys
 ):
@@ -464,6 +470,7 @@ def test_toolkit_drift_ref_path_fails_closed_on_unsafe_ignore(
     assert "DRIFT POLICY" in output.err
 
 
+@RETIRED_RELEASE_MACHINE
 @pytest.mark.parametrize(
     "treeish", [None, "", "HEAD", "main", "abc1234", "HEAD^{tree}"]
 )
@@ -489,6 +496,7 @@ def test_toolkit_drift_ref_path_rejects_non_sha_treeish(
     assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
 
 
+@RETIRED_RELEASE_MACHINE
 def test_toolkit_drift_ref_path_rejects_tree_object_sha(
     tmp_path, monkeypatch
 ):
@@ -511,6 +519,7 @@ def test_toolkit_drift_ref_path_rejects_tree_object_sha(
     assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
 
 
+@RETIRED_RELEASE_MACHINE
 def test_toolkit_drift_ref_path_rejects_non_ancestor_commit(
     tmp_path, monkeypatch
 ):
@@ -538,6 +547,7 @@ def test_toolkit_drift_ref_path_rejects_non_ancestor_commit(
     assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
 
 
+@RETIRED_RELEASE_MACHINE
 def test_toolkit_drift_ref_path_rejects_git_replace_refs(
     tmp_path, monkeypatch
 ):
@@ -558,6 +568,7 @@ def test_toolkit_drift_ref_path_rejects_git_replace_refs(
     assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
 
 
+@RETIRED_RELEASE_MACHINE
 def test_portable_compare_ignores_replace_objects_even_after_precheck(
     tmp_path, monkeypatch, capsys
 ):
@@ -600,6 +611,7 @@ def test_portable_compare_ignores_replace_objects_even_after_precheck(
     assert direct["content_differs"] == ["wiki_core/shared.py"]
 
 
+@RETIRED_RELEASE_MACHINE
 def test_toolkit_drift_ref_path_rejects_uncommitted_package_mutation(
     tmp_path, monkeypatch
 ):
@@ -617,6 +629,7 @@ def test_toolkit_drift_ref_path_rejects_uncommitted_package_mutation(
     assert drift_mod.main(["--ref-path", str(kit), "--check"]) == 3
 
 
+@RETIRED_RELEASE_MACHINE
 def test_toolkit_drift_package_argument_cannot_be_silently_ignored(tmp_path):
     drift_mod = _load("scripts/wiki_toolkit_drift.py", "wtd_package_cli_test")
 

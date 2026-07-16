@@ -68,11 +68,8 @@ npm --prefix apps/wiki-cockpit run test:e2e:operator
 
 The check and Node preflight independently reopen every file, compare
 SHA-256/byte counts, recompute the canonical aggregate and require manifest,
-files and runtime hash to agree. The release receipt repeats the verification
-against the same clean consumer subject.
-The wrapper consumes the external Node workspace authority sealed in capsule
-v2 and its separately trusted digest. Lane B may materialize from that authority
-but must never run `capture-authority` or fall back to ambient npm.
+files and runtime hash to agree. The consumer PR and its normal CI verify this
+contract after every sync; there is no separate capsule or release receipt.
 
 ## Fail-closed boundary
 

@@ -5,10 +5,9 @@ Deterministic Python core for the wiki viva kit.
 This package owns configuration loading, source manifests, extraction, chunking,
 indexes, gates, graph checks, page types, score events, quality telemetry,
 Wilber/AQAL quadrant contracts, the local web cockpit read/action model and
-portable export/import helpers. [upgrade.py](upgrade.py) retains deterministic
-inventory and drift compatibility helpers for historical readers. The retired
-release-certification state machine and receipt writer are removed; downstream
-adoption uses `scripts/wiki_sync_from_kit.py`. The web package also owns safe source triage,
+portable export/import helpers. The retired release-certification and drift
+machinery is removed; downstream adoption uses
+[wiki_sync_from_kit.py](../scripts/wiki_sync_from_kit.py). The web package also owns safe source triage,
 ingestion wizard planning and proposal-branch Git workflow contracts for the
 localhost operator API. It intentionally does not embed an LLM client.
 
