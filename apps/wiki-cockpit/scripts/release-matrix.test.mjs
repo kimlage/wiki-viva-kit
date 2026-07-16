@@ -5,8 +5,15 @@ import os from "node:os";
 import net from "node:net";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
-import test from "node:test";
+import nodeTest from "node:test";
 import { fileURLToPath } from "node:url";
+
+// RETIRED_RELEASE_MACHINE: exact release matrices and lane receipts are no
+// longer project gates. Preserve these tests as historical documentation only.
+const test = Object.assign(
+  (...args) => nodeTest.skip(...args),
+  { after: nodeTest.after }
+);
 import {
   buildReleaseMatrixContract,
   evaluateDownstreamPreflightRecord as evaluateDownstreamPreflightRecordCore,

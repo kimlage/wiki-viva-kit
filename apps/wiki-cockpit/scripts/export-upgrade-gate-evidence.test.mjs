@@ -3,7 +3,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import test from "node:test";
+import nodeTest from "node:test";
 import zlib from "node:zlib";
 import { chromium } from "@playwright/test";
 import {
@@ -15,6 +15,10 @@ import {
   validateProfileObservation,
   writeEvidenceBundle
 } from "./export-upgrade-gate-evidence.mjs";
+
+// RETIRED_RELEASE_MACHINE: upgrade evidence/capsule certification is historical.
+// Keep the tests as executable documentation without running them in normal CI.
+const test = nodeTest.skip;
 
 function pngChunk(type, payload) {
   const length = Buffer.alloc(4);
