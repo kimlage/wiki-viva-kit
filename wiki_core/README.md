@@ -24,9 +24,8 @@ atomic replacement and POSIX also fsyncs the parent directory.
 
 [adapter_manifest.py](adapter_manifest.py) compiles and verifies the
 consumer-owned `wiki_downstream_adapter_manifest.v1`: an ordered inventory of
-tracked adapter bytes whose canonical aggregate replaces self-asserted
-downstream adapter hashes. It excludes runtime config, memory and raw/derived
-state and is rechecked by both Node preflight and the downstream receipt.
+tracked adapter bytes. It excludes runtime config, memory and raw/derived state
+and is rechecked by consumer gates after synchronization.
 
 [temporal.py](temporal.py) owns the canonical semantic-time parser, explicit
 precision and conflict rules. [web/temporal.py](web/temporal.py) adapts current
