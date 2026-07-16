@@ -6016,3 +6016,84 @@ release truth
 
 That order preserves the project's philosophy while creating space for the
 creative, futuristic and extensible system described in this plan.
+
+## 2026-07-16 — authoritative closeout: simple sync and private delivery
+
+This section supersedes every earlier **operational** next step that still
+describes rc42, release subjects, Lane A/Lane B certification, capsules,
+attestations, receipts or an exact release matrix as a current gate. Those
+sections remain historical evidence of the experiment and must not be reused as
+execution instructions. `upgrade-package.yaml` remains frozen history.
+
+### Product decision implemented
+
+The release boundary is again the project's normal CI plus the consumer's
+normal gates and a human-reviewed PR. Downstream updates use one idempotent
+command with four legible phases:
+
+```text
+B0 dry-run -> C1 kit-owned byte sync -> C2 deterministic regeneration
+           -> C3 explicit consumer migration -> consumer PR
+```
+
+The public tree now contains `wiki_sync_from_kit`, a versioned
+`sync-manifest.yaml`, portable `kit.lock` generation and synthetic tests for
+globbed `wiki-*` skill packages and consumer-owned exclusions. The retired
+upgrade state machine, drift command, lane schemas, subjects, capsules and
+evidence examples were removed from active code. Python and Node tests that
+exist only to document the retired machine are explicit `retired/skip`; the
+frozen YAML was not changed to satisfy them. AGENTS, README, guides, command
+reference and the repo-local/global `wiki-viva` skill now describe simple sync.
+
+The final local public source is `05ccfc63a89c865329a104796ff3fb0822846e8d`.
+It is intentionally **not pushed or published**. The normal public validation
+record is 1,280 Python passes with 19 declared skips, audits with zero errors,
+and a focused final UI proof of 14/14 label tests, TypeScript and production
+build. No additional certification ceremony is required.
+
+### Private downstream evidence, safely summarized
+
+The current private `main` was adopted from the simple-sync source through a
+fresh consumer PR. B0 first reported 2,204 managed paths, then C1/C2/C3 reached
+2,204/2,204 unchanged on the final dry-run. The consumer migration removed 27
+retired paths, preserved consumer-owned skills/adapters/data and left its C3
+check at zero pending changes. `kit.lock` contains no host path, private route,
+memory root or domain data.
+
+Consumer evidence before promotion:
+
+- 1,100 Python tests passed and 3 historical tests skipped;
+- audit and working-tree secret scan passed with zero errors/leaks;
+- 522 Vitest tests, TypeScript, production build, architecture and bundle gates
+  passed;
+- 580 pages, 138/138 closed ingestion events, 2,558 semantic relations and 26
+  snapshot payloads remained coherent;
+- remote audit/test and cockpit jobs passed; 97/102 extended cross-browser
+  cells passed, while five environment/baseline/focus expectations were
+  recorded as Class B waivers with automatic artifacts. None affected identity,
+  privacy, secrets or data correctness.
+
+The first main readback proved the migration and Timeline/source navigation,
+but also showed that the earlier duplicate-label patch merely prefixed four
+copies of “areas & workspaces” with Q1–Q4. That was not accepted as complete.
+The public core now names those root projections by their distinct semantic
+facets instead, with a synthetic regression test; focused group views still
+show the real family title. Real-data browser QA reports zero repeated labels,
+four distinct semantic quadrant names, 923 temporal events, navigable sources
+and zero console warnings/errors.
+
+### Canonical scoreboard
+
+| Milestone | State | Evidence boundary |
+| --- | --- | --- |
+| source pinned | complete | local unpublished public Git source and portable lock |
+| normal kit validation | complete | pytest, audits, focused UI test, TypeScript and build |
+| private adoption | complete | B0→C1→C2→C3 and consumer gates |
+| private main merge | complete | consumer PR/human gate; exact identity stays private |
+| private main visual readback | complete | actual consumer `main`: zero repeated root labels, four semantic facets, 580 pages, 923 temporal events, sources navigable, console clean and data requests HTTP 200 |
+
+No new RC, capsule, receipt, canary clone or competing plan is authorized.
+Future kit releases are a tag, release notes and an **Upgrading** section. The
+canonical delivery chain is now 5/5. Product work may resume from this exact
+boundary without reopening the retired certification machine or rewriting its
+historical records.
